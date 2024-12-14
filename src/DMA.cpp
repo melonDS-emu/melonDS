@@ -579,14 +579,13 @@ void DMA::Run9()
     {
         while (IterCount > 0 && !Stall)
         {
-            /*
             u32 rgn = NDS.ARM9Regions[CurSrcAddr>>14] | NDS.ARM9Regions[CurDstAddr>>14];
             if (rgn & Mem9_MainRAM)
             {
                 NDS.ARM9.MRTrack.Type = MainRAMType::DMA16;
                 NDS.ARM9.MRTrack.Var = Num;
                 return;
-            }*/
+            }
             Running = 2;
 
             NDS.DMA9Timestamp += (UnitTimings9_16(burststart) << NDS.ARM9ClockShift);
@@ -606,14 +605,13 @@ void DMA::Run9()
     {
         while (IterCount > 0 && !Stall)
         {
-            /*
             u32 rgn = NDS.ARM9Regions[CurSrcAddr>>14] | NDS.ARM9Regions[CurDstAddr>>14];
             if (rgn & Mem9_MainRAM)
             {
                 NDS.ARM9.MRTrack.Type = MainRAMType::DMA32;
                 NDS.ARM9.MRTrack.Var = Num;
                 return;
-            }*/
+            }
             Running = 2;
 
             NDS.DMA9Timestamp += (UnitTimings9_32(burststart) << NDS.ARM9ClockShift);
@@ -670,12 +668,19 @@ void DMA::Run7()
 
     // add NS penalty for first accesses in burst
     bool burststart = (Running == 2);
-    Running = 1;
 
     if (!(Cnt & (1<<26)))
     {
         while (IterCount > 0 && !Stall)
         {
+            u32 rgn = NDS.ARM7Regions[CurSrcAddr>>15] | NDS.ARM7Regions[CurDstAddr>>15];
+            if (rgn & Mem7_MainRAM)
+            {
+                NDS.ARM7.MRTrack.Type = MainRAMType::DMA16;
+                NDS.ARM7.MRTrack.Var = Num;
+                return;
+            }
+            Running = 1;
             NDS.ARM7Timestamp += UnitTimings7_16(burststart);
             burststart = false;
 
@@ -693,6 +698,14 @@ void DMA::Run7()
     {
         while (IterCount > 0 && !Stall)
         {
+            u32 rgn = NDS.ARM7Regions[CurSrcAddr>>15] | NDS.ARM7Regions[CurDstAddr>>15];
+            if (rgn & Mem7_MainRAM)
+            {
+                NDS.ARM7.MRTrack.Type = MainRAMType::DMA32;
+                NDS.ARM7.MRTrack.Var = Num;
+                return;
+            }
+            Running = 1;
             NDS.ARM7Timestamp += UnitTimings7_32(burststart);
             burststart = false;
 

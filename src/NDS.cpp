@@ -1407,6 +1407,204 @@ void NDS::MainRAMHandleARM7()
             memset(&ARM7.MRTrack, 0, sizeof(ARM7.MRTrack));
             break;
         }
+
+        case MainRAMType::DMA32:
+        {
+            DMA* dma = &DMAs[ARM7.MRTrack.Var];
+            int burststart = dma->Running - 1;
+            
+            u32 srcaddr = dma->CurSrcAddr;
+            u32 srcrgn = ARM7Regions[srcaddr>>15];
+            u32 dstaddr = dma->CurDstAddr;
+            u32 dstrgn = ARM7Regions[dstaddr>>15];
+            if (!ARM7.MRTrack.Progress)
+            {
+                if (srcrgn == Mem7_MainRAM)
+                {
+                    if (burststart == 2 || A9WENTLAST || DMALastWasMainRAM || dma->SrcAddrInc <= 0)
+                    {
+                        if (ARM7Timestamp < MainRAMTimestamp) { ARM7Timestamp = MainRAMTimestamp; if (A9PRIORITY) return; }
+                        MainRAMTimestamp = ARM7Timestamp + 9;
+                        ARM7Timestamp += 6;
+                        MainRAMLastAccess = A7LAST;
+                    }
+                    else
+                    {
+                        ARM7Timestamp += 2;
+                        MainRAMTimestamp += 2;
+                    }
+                    DMALastWasMainRAM = true;
+                }
+                else
+                {
+                    if (burststart == 2 || dma->SrcAddrInc <= 0) ARM7Timestamp += ARM7MemTimings[srcaddr>>15][2] + (ARM7MemTimings[srcaddr>>15][2] == 1);
+                    else                                         ARM7Timestamp += ARM7MemTimings[srcaddr>>15][3];
+                    DMALastWasMainRAM = false;
+                }
+
+                DMAReadHold = ARM7Read32(srcaddr);
+
+                ARM7.MRTrack.Progress = 1;
+            }
+            else
+            {
+                if (dstrgn == Mem7_MainRAM)
+                {
+                    if (burststart == 2 || A9WENTLAST || DMALastWasMainRAM || dma->DstAddrInc <= 0)
+                    {
+                        if (ARM7Timestamp < MainRAMTimestamp) { ARM7Timestamp = MainRAMTimestamp; if (A9PRIORITY) return; }
+                        MainRAMTimestamp = ARM7Timestamp + 9;
+                        ARM7Timestamp += 4;
+                        MainRAMLastAccess = A7LAST;
+                    }
+                    else
+                    {
+                        ARM7Timestamp += 2;
+                        MainRAMTimestamp += 2;
+                    }
+                    DMALastWasMainRAM = true;
+                }
+                else
+                {
+                    if (burststart == 2 || dma->DstAddrInc <= 0) ARM7Timestamp += ARM7MemTimings[dstaddr>>15][2];
+                    else                                         ARM7Timestamp += ARM7MemTimings[dstaddr>>15][3] - (burststart <= 0);
+                    DMALastWasMainRAM = false;
+                }
+
+                ARM7Write32(dstaddr, DMAReadHold);
+
+                dma->CurSrcAddr += dma->SrcAddrInc<<2;
+                dma->CurDstAddr += dma->DstAddrInc<<2;
+                dma->IterCount--;
+                dma->RemCount--;
+                burststart -= 1;
+                if (burststart <= 0) dma->Running = 1;
+                else dma->Running = 2;
+                //DMA7Timestamp = ARM7Timestamp;
+                memset(&ARM7.MRTrack, 0, sizeof(ARM7.MRTrack));
+                ConTSLock = false;
+                if (dma->RemCount)
+                {
+                    if (dma->IterCount == 0)
+                    {
+                        dma->Running = 0;
+                        ResumeCPU(1, 1<<dma->Num);
+                    }
+
+                    break;
+                }
+
+                if (!(dma->Cnt & (1<<25)))
+                    dma->Cnt &= ~(1<<31);
+
+                if (dma->Cnt & (1<<30))
+                    SetIRQ(1, IRQ_DMA0 + dma->Num);
+
+                dma->Running = 0;
+                dma->InProgress = false;
+                ResumeCPU(1, 1<<dma->Num);
+            }
+            break;
+        }
+
+        case MainRAMType::DMA16:
+        {
+            DMA* dma = &DMAs[ARM7.MRTrack.Var];
+            int burststart = dma->Running - 1;
+            
+            u32 srcaddr = dma->CurSrcAddr;
+            u32 srcrgn = ARM7Regions[srcaddr>>15];
+            u32 dstaddr = dma->CurDstAddr;
+            u32 dstrgn = ARM7Regions[dstaddr>>15];
+            if (!ARM7.MRTrack.Progress)
+            {
+                if (srcrgn == Mem7_MainRAM)
+                {
+                    if (burststart == 2 || A9WENTLAST || DMALastWasMainRAM || dma->SrcAddrInc <= 0)
+                    {
+                        if (ARM7Timestamp < MainRAMTimestamp) { ARM7Timestamp = MainRAMTimestamp; if (A9PRIORITY) return; }
+                        MainRAMTimestamp = ARM7Timestamp + 8;
+                        ARM7Timestamp += 5;
+                        MainRAMLastAccess = A7LAST;
+                    }
+                    else
+                    {
+                        ARM7Timestamp += 1;
+                        MainRAMTimestamp += 1;
+                    }
+                    DMALastWasMainRAM = true;
+                }
+                else
+                {
+                    if (burststart == 2 || dma->SrcAddrInc <= 0) ARM7Timestamp += ARM7MemTimings[srcaddr>>15][0] + (ARM7MemTimings[srcaddr>>15][0] == 1);
+                    else                                         ARM7Timestamp += ARM7MemTimings[srcaddr>>15][1];
+                    DMALastWasMainRAM = false;
+                }
+
+                DMAReadHold = ARM7Read16(srcaddr);
+
+                ARM7.MRTrack.Progress = 1;
+            }
+            else
+            {
+                if (dstrgn == Mem7_MainRAM)
+                {
+                    if (burststart == 2 || A9WENTLAST || DMALastWasMainRAM || dma->DstAddrInc <= 0)
+                    {
+                        if (ARM7Timestamp < MainRAMTimestamp) { ARM7Timestamp = MainRAMTimestamp; if (A9PRIORITY) return; }
+                        MainRAMTimestamp = ARM7Timestamp + 8;
+                        ARM7Timestamp += 3;
+                        MainRAMLastAccess = A7LAST;
+                    }
+                    else
+                    {
+                        ARM7Timestamp += 1;
+                        MainRAMTimestamp += 1;
+                    }
+                    DMALastWasMainRAM = true;
+                }
+                else
+                {
+                    if (burststart == 2 || dma->DstAddrInc <= 0) ARM7Timestamp += ARM7MemTimings[dstaddr>>15][0];
+                    else                                         ARM7Timestamp += ARM7MemTimings[dstaddr>>15][1] - (burststart <= 0);
+                    DMALastWasMainRAM = false;
+                }
+
+                ARM7Write16(dstaddr, DMAReadHold);
+
+                dma->CurSrcAddr += dma->SrcAddrInc<<1;
+                dma->CurDstAddr += dma->DstAddrInc<<1;
+                dma->IterCount--;
+                dma->RemCount--;
+                burststart -= 1;
+                if (burststart <= 0) Running = 1;
+                else dma->Running = 2;
+                //DMA9Timestamp = (A9ContentionTS << ARM9ClockShift) - 1;
+                memset(&ARM7.MRTrack, 0, sizeof(ARM7.MRTrack));
+                ConTSLock = false;
+                if (dma->RemCount)
+                {
+                    if (dma->IterCount == 0)
+                    {
+                        dma->Running = 0;
+                        ResumeCPU(1, 1<<dma->Num);
+                    }
+
+                    break;
+                }
+
+                if (!(dma->Cnt & (1<<25)))
+                    dma->Cnt &= ~(1<<31);
+
+                if (dma->Cnt & (1<<30))
+                    SetIRQ(1, IRQ_DMA0 + dma->Num);
+
+                dma->Running = 0;
+                dma->InProgress = false;
+                ResumeCPU(1, 1<<dma->Num);
+            }
+            break;
+        }
     }
 }
 
@@ -1569,6 +1767,8 @@ u32 NDS::RunFrame()
 
                         if (MainRAMHandle()) break;
                     }
+
+                    ARM7Target = target; // this line proooobably shouldn't be? but if i dont do it then several games wont work with main ram contention implemented for arm9 dmas???
 
                     while (ARM7Timestamp < ARM7Target)
                     {
