@@ -914,6 +914,7 @@ void NDS::RunSystemSleep(u64 timestamp)
 
 void NDS::MainRAMHandleARM9()
 {
+    CurCPU = 0;
     switch (ARM9.MRTrack.Type)
     {
         default:
@@ -1348,6 +1349,7 @@ void NDS::MainRAMHandleARM9()
 
 void NDS::MainRAMHandleARM7()
 {
+    CurCPU = 1;
     switch (ARM7.MRTrack.Type)
     {
         default:
@@ -1527,9 +1529,9 @@ u32 NDS::RunFrame()
 
                 while ((std::max(ARM9Timestamp, DMA9Timestamp) < ARM9Target) && (ARM7Timestamp < ARM7Target))
                 {
-                    CurCPU = 0;
                     while (std::max(ARM9Timestamp, DMA9Timestamp) < ARM9Target)
                     {
+                        CurCPU = 0;
                         RunTimers(0);
                         GPU.GPU3D.Run();
 
@@ -1568,12 +1570,10 @@ u32 NDS::RunFrame()
                         if (MainRAMHandle()) break;
                     }
 
-                    CurCPU = 1;
-
                     while (ARM7Timestamp < ARM7Target)
                     {
                         //printf("A7 LOOP: %lli %lli\n", ARM9Timestamp>>ARM9ClockShift, ARM7Timestamp);
-
+                        CurCPU = 1;
                         RunTimers(1);
 
                         if (ARM7.MRTrack.Type == MainRAMType::Null)
