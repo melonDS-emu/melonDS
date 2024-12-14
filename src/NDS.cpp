@@ -1524,12 +1524,15 @@ u32 NDS::RunFrame()
 
                 ARM9Target = target << ARM9ClockShift;
                 ARM7Target = target;
-                CurCPU = 0;
 
                 while ((std::max(ARM9Timestamp, DMA9Timestamp) < ARM9Target) && (ARM7Timestamp < ARM7Target))
                 {
+                    CurCPU = 0;
                     while (std::max(ARM9Timestamp, DMA9Timestamp) < ARM9Target)
                     {
+                        RunTimers(0);
+                        GPU.GPU3D.Run();
+
                         if (ARM9.MRTrack.Type == MainRAMType::Null)
                         {
                             if (CPUStop & CPUStop_GXStall)
@@ -1556,14 +1559,13 @@ u32 NDS::RunFrame()
                                 ARM9.Execute<cpuMode>();
                             }
                         }
-                
+
                         //printf("MAIN LOOP: 9 %lli %08X %08llX %i 7 %lli %08X %08llX %i %i %08X\n", ARM9Timestamp>>ARM9ClockShift, ARM9.PC, ARM9.CurInstr, (u8)ARM9.MRTrack.Type, ARM7Timestamp, ARM7.R[15], ARM7.CurInstr, (u8)ARM7.MRTrack.Type, IME[1], IE[1]);
-                    
+
                         RunTimers(0);
                         GPU.GPU3D.Run();
 
                         if (MainRAMHandle()) break;
-                
                     }
 
                     CurCPU = 1;
@@ -1571,6 +1573,8 @@ u32 NDS::RunFrame()
                     while (ARM7Timestamp < ARM7Target)
                     {
                         //printf("A7 LOOP: %lli %lli\n", ARM9Timestamp>>ARM9ClockShift, ARM7Timestamp);
+
+                        RunTimers(1);
 
                         if (ARM7.MRTrack.Type == MainRAMType::Null)
                         {
@@ -1614,7 +1618,7 @@ u32 NDS::RunFrame()
 #ifdef DEBUG_CHECK_DESYNC
         Log(LogLevel::Debug, "[%08X%08X] ARM9=%ld, ARM7=%ld, GPU=%ld\n",
             (u32)(SysTimestamp>>32), (u32)SysTimestamp,
-            (std::max(ARM9Timestamp,DMA9Timestamp)>>ARM9ClockShift)-SysTimestamp,
+            std::max(std::max(ARM9Timestamp,DMA9Timestamp)>>ARM9ClockShift, A9ContentionTS)-SysTimestamp,
             ARM7Timestamp-SysTimestamp,
             GPU.GPU3D.Timestamp-SysTimestamp);
 #endif
