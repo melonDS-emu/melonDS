@@ -841,9 +841,9 @@ public:
 
     bool (*GetMemRegion)(u32 addr, bool write, MemRegion* region);
     
-    alignas(64) void (ARMv5::*FuncQueue[32])(void);
-    void (ARMv5::*DelayedQueue)(void); // adding more than one new entry to the queue while it's already active does not work. so uh. we use this to work around that. it's less than ideal...
+    alignas(64) void (ARMv5::*DelayedQueue)(void); // adding more than one new entry to the queue while it's already active does not work. so uh. we use this to work around that. it's less than ideal...
     void (ARMv5::*StartExec)(void);
+    void (ARMv5::*FuncQueue[32])(void);
     u64 ITCMTimestamp;
     u64 TimestampMemory;
     u32 PC;
@@ -912,9 +912,9 @@ public:
 
     template <CPUExecuteMode mode>
     void Execute();
-    
+
+    alignas(64) void (ARMv4::*StartExec)(void);
     void (ARMv4::*FuncQueue[32])(void);
-    void (ARMv4::*StartExec)(void);
     bool Nonseq;
 
     void CodeRead16(u32 addr);
