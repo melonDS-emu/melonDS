@@ -114,6 +114,32 @@ ninja
 
 Downloadable builds were made using GitHub actions
 
+### Features:
+
+- Compatible with all ROM versions (ensure the ROM is unmodified, untrimmed, and unencrypted):
+  - USA, USA rev1 (Australian version shares the same binary as the USA)
+  - EU, EU rev1
+  - Japan, Japan rev1
+  - Korea
+
+- Gameplay remains smooth and problem-free regardless of player role, whether as the host or as a guest player (P2, P3, or P4).
+- The process has been reviewed for more comfortable game controls such as AIM.
+- Optimized morph ball boosting. Press and hold Shift-key to continue boosting at a higher speed.
+   You can still boost with right-click as before, but holding Shift-key will activate faster boosting.
+-  Optimized the process by not loading the adventure function in multiplayer.
+- Detects slow mouse movements, allowing for more precise aiming.
+- Prevents jumping when switching weapons rapidly.
+- Automatically toggles the virtual stylus on or off depending on whether you are in-game.
+- Implemented a key for switching to the last used special weapon or Omega Cannon.
+- Implemented keys for real-time sensitivity adjustment.
+- Implemented keys for clicking “YES” or “NO” in Adventure Mode.
+ - Quick Stop Movement: You can now stop more quickly by pressing both left and right movement keys simultaneously, or both forward and backward movement keys at the same time. This allows for faster halts during gameplay.
+ - You can now switch to the next or previous weapon in the order using the mouse wheel or designated keys.
+- The LR functionality is now available on the Hunter License screen. You can use it by assigning keys to UI Left / Right in the key configuration menu.
+- Menu flickering has been resolved.
+- VSync is now forcibly disabled internally to minimize latency (this also reduces latency in OpenGL Classic mode).
+- The newly implemented SnapTap feature enables faster directional key switching, allowing for smoother technical movements such as strafing. This feature can be enabled from the settings menu. Learn more about SnapTap in this video: [SnapTap Introduction](https://www.youtube.com/watch?v=wDcRf4uCzuM).
+- 
 ### Todo
 
 -   Update to latest melonDS
