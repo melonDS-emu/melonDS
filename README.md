@@ -139,7 +139,7 @@ Downloadable builds were made using GitHub actions
 - Menu flickering has been resolved.
 - VSync is now forcibly disabled internally to minimize latency (this also reduces latency in OpenGL Classic mode).
 - The newly implemented SnapTap feature enables faster directional key switching, allowing for smoother technical movements such as strafing. This feature can be enabled from the settings menu. Learn more about SnapTap in this video: [SnapTap Introduction](https://www.youtube.com/watch?v=wDcRf4uCzuM).
-- 
+
 ### Todo
 
 -   Update to latest melonDS
