@@ -1355,13 +1355,13 @@ void EmuThread::run()
                         }
 
                         // Read the current jump flag value
-                        uint8_t currentFlags = emuInstance->nds->ARM9Read8(jumpFlagAddr);
+                        uint8_t currentJumpFlags = emuInstance->nds->ARM9Read8(jumpFlagAddr);
 
                         // Check if the upper 4 bits are odd (1 or 3)
                         // this is for fixing issue: Shooting and transforming become impossible, when changing weapons at high speed while transitioning from transformed to normal form.
-                        bool isTransforming = currentFlags & 0x10;
+                        bool isTransforming = currentJumpFlags & 0x10;
 
-                        uint8_t jumpFlag = currentFlags & 0x0F;  // Get the lower 4 bits
+                        uint8_t jumpFlag = currentJumpFlags & 0x0F;  // Get the lower 4 bits
                         //emuInstance->osdAddMessage(0, ("JumpFlag:" + std::string(1, "0123456789ABCDEF"[emuInstance->nds->ARM9Read8(jumpFlagAddr) & 0x0F])).c_str());
 
                         bool isRestoreNeeded = false;
@@ -1371,7 +1371,7 @@ void EmuThread::run()
 
                         // If not jumping (jumpFlag == 0) and in normal form, temporarily set to jumped state (jumpFlag == 1)
                         if (!isTransforming && jumpFlag == 0 && !isAltForm) {
-                            uint8_t newFlags = (currentFlags & 0xF0) | 0x01;  // Set lower 4 bits to 1
+                            uint8_t newFlags = (currentJumpFlags & 0xF0) | 0x01;  // Set lower 4 bits to 1
                             emuInstance->nds->ARM9Write8(jumpFlagAddr, newFlags);
                             isRestoreNeeded = true;
                             //emuInstance->osdAddMessage(0, ("JumpFlag:" + std::string(1, "0123456789ABCDEF"[emuInstance->nds->ARM9Read8(jumpFlagAddr) & 0x0F])).c_str());
@@ -1413,8 +1413,8 @@ void EmuThread::run()
 
                         // Restore the jump flag to its original value (if necessary)
                         if (isRestoreNeeded) {
-                            currentFlags = emuInstance->nds->ARM9Read8(jumpFlagAddr);
-                            uint8_t restoredFlags = (currentFlags & 0xF0) | jumpFlag;
+                            currentJumpFlags = emuInstance->nds->ARM9Read8(jumpFlagAddr);
+                            uint8_t restoredFlags = (currentJumpFlags & 0xF0) | jumpFlag;
                             emuInstance->nds->ARM9Write8(jumpFlagAddr, restoredFlags);
                             //emuInstance->osdAddMessage(0, ("JumpFlag:" + std::string(1, "0123456789ABCDEF"[emuInstance->nds->ARM9Read8(jumpFlagAddr) & 0x0F])).c_str());
                             //emuInstance->osdAddMessage(0, "Restored jumpFlag.");
