@@ -1757,10 +1757,11 @@ u32 NDS::RunFrame()
                 ARM9Target = target << ARM9ClockShift;
                 ARM7Target = target;
 
-                while ((std::max(ARM9Timestamp, DMA9Timestamp) < ARM9Target) && (ARM7Timestamp < ARM7Target))
+                while ((std::max(std::max(ARM9Timestamp, DMA9Timestamp), A9ContentionTS << ARM9ClockShift) < (target << ARM9ClockShift)) && (ARM7Timestamp < target))
                 {
-                    while (std::max(ARM9Timestamp, DMA9Timestamp) < ARM9Target)
+                    while (std::max(std::max(ARM9Timestamp, DMA9Timestamp), A9ContentionTS << ARM9ClockShift) < (target << ARM9ClockShift))
                     {
+                        ARM9Target = target << ARM9ClockShift;
                         CurCPU = 0;
                         RunTimers(0);
                         GPU.GPU3D.Run();
@@ -1800,10 +1801,9 @@ u32 NDS::RunFrame()
                         if (MainRAMHandle()) break;
                     }
 
-                    ARM7Target = target; // this line proooobably shouldn't be? but if i dont do it then several games wont work with main ram contention implemented for arm9 dmas???
-
-                    while (ARM7Timestamp < ARM7Target)
+                    while (ARM7Timestamp < target)
                     {
+                        ARM7Target = target;
                         //printf("A7 LOOP: %lli %lli\n", ARM9Timestamp>>ARM9ClockShift, ARM7Timestamp);
                         CurCPU = 1;
                         RunTimers(1);
@@ -1835,7 +1835,7 @@ u32 NDS::RunFrame()
                     }
                 }
 
-                RunSystem(ARM7Target);
+                RunSystem(target);
 
                 if (CPUStop & CPUStop_Sleep)
                 {
@@ -1891,11 +1891,13 @@ u32 NDS::RunFrame()
 
 void NDS::Reschedule(u64 target)
 {
-    if (target < ARM7Target)
+    if (CurCPU == 0)
     {
-        ARM7Target = target;
-        ARM9Target = (target << ARM9ClockShift);
+        if (target < (ARM9Target >> ARM9ClockShift))
+            ARM9Target = (target << ARM9ClockShift);
     }
+    else if (target < ARM7Target)
+        ARM7Target = target;
 }
 
 void NDS::RegisterEventFuncs(u32 id, void* that, const std::initializer_list<EventFunc>& funcs)
