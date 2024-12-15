@@ -276,7 +276,8 @@ public: // TODO: Encapsulate the rest of these members
     alignas(u32) u8 ROMSeed0[2*8];
     alignas(u32) u8 ROMSeed1[2*8];
 
-    u32 DMAReadHold; bool DMABORK;
+    u32 DMAReadHold;
+    bool MainRAMBork; // if a main ram read burst starts in the last 6 bytes of a 32 byte block, and then crosses the 32 byte boundary, the burst forcibly restarts
     bool MainRAMLastAccess; // 0 == ARM9 | 1 == ARM7
     bool DMALastWasMainRAM;
 

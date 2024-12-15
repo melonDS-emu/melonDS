@@ -926,8 +926,9 @@ void NDS::MainRAMHandleARM9()
         case MainRAMType::Fetch:
         {
             u8 var = ARM9.MRTrack.Var;
+            u32 addr = (var & MRCodeFetch) ? ARM9.FetchAddr[16] : ARM9.FetchAddr[ARM9.MRTrack.Progress];
 
-            if ((var & MRSequential) && A9WENTLAST)
+            if ((var & MRSequential) && A9WENTLAST && !(MainRAMBork && ((addr & 0x1F) == 0)))
             {
                 A9ContentionTS += 2;
                 MainRAMTimestamp += 2;
@@ -936,7 +937,8 @@ void NDS::MainRAMHandleARM9()
             else
             {
                 if (A9ContentionTS < MainRAMTimestamp) { A9ContentionTS = MainRAMTimestamp; if (A7PRIORITY) return; }
-
+                
+                MainRAMBork = !(var & MRWrite) && ((addr & 0x1F) >= 0x1A);
                 MainRAMTimestamp = A9ContentionTS +  ((var & MR16) ? 8 : 9); // checkme: are these correct for 8bit?
                 if (var & MRWrite) A9ContentionTS += ((var & MR16) ? 5 : 6); // checkme: is this correct for 133mhz?
                 else
@@ -1069,10 +1071,10 @@ void NDS::MainRAMHandleARM9()
             {
                 if (srcrgn == Mem9_MainRAM)
                 {
-                    if (burststart == 2 || A7WENTLAST || DMALastWasMainRAM || dma->SrcAddrInc <= 0 || ((A9ContentionTS - DMABurstStart) >= 242) || (DMABORK && ((dma->CurSrcAddr & 0x1F) == 0)))
+                    if (burststart == 2 || A7WENTLAST || DMALastWasMainRAM || dma->SrcAddrInc <= 0 || ((A9ContentionTS - DMABurstStart) >= 242) || (MainRAMBork && ((dma->CurSrcAddr & 0x1F) == 0)))
                     {
                         if (A9ContentionTS < MainRAMTimestamp) { A9ContentionTS = MainRAMTimestamp; if (A7PRIORITY) return; }
-                        DMABORK = ((dma->CurSrcAddr & 0x1F) >= 0x1A);
+                        MainRAMBork = ((dma->CurSrcAddr & 0x1F) >= 0x1A);
                         MainRAMTimestamp = A9ContentionTS + 9;
                         A9ContentionTS += 6;
                         MainRAMLastAccess = A9LAST;
@@ -1173,10 +1175,10 @@ void NDS::MainRAMHandleARM9()
             {
                 if (srcrgn == Mem9_MainRAM)
                 {
-                    if (burststart == 2 || A7WENTLAST || DMALastWasMainRAM || dma->SrcAddrInc <= 0 || ((A9ContentionTS - DMABurstStart) >= 242) || (DMABORK && ((dma->CurSrcAddr & 0x1F) == 0)))
+                    if (burststart == 2 || A7WENTLAST || DMALastWasMainRAM || dma->SrcAddrInc <= 0 || ((A9ContentionTS - DMABurstStart) >= 242) || (MainRAMBork && ((dma->CurSrcAddr & 0x1F) == 0)))
                     {
                         if (A9ContentionTS < MainRAMTimestamp) { A9ContentionTS = MainRAMTimestamp; if (A7PRIORITY) return; }
-                        DMABORK = ((dma->CurSrcAddr & 0x1F) >= 0x1A);
+                        MainRAMBork = ((dma->CurSrcAddr & 0x1F) >= 0x1A);
                         DMABurstStart = A9ContentionTS;
                         MainRAMTimestamp = A9ContentionTS + 8;
                         A9ContentionTS += 5;
@@ -1366,8 +1368,9 @@ void NDS::MainRAMHandleARM7()
         case MainRAMType::Fetch:
         {
             u8 var = ARM7.MRTrack.Var;
+            u32 addr = (var & MRCodeFetch) ? ARM7.FetchAddr[16] : ARM7.FetchAddr[ARM7.MRTrack.Progress];
 
-            if ((var & MRSequential) && A7WENTLAST)
+            if ((var & MRSequential) && A7WENTLAST && !(MainRAMBork && ((addr & 0x1F) == 0)))
             {
                 int cycles = ((var & MR32) ? 2 : 1);
                 MainRAMTimestamp += cycles;
@@ -1377,7 +1380,8 @@ void NDS::MainRAMHandleARM7()
             else
             {
                 if (ARM7Timestamp < MainRAMTimestamp) { ARM7Timestamp = MainRAMTimestamp; if (A9PRIORITY) return; }
-
+                
+                MainRAMBork = !(var & MRWrite) && ((addr & 0x1F) >= 0x1A);
                 MainRAMTimestamp = ARM7Timestamp +  ((var & MR16) ? 8 : 9); // checkme: are these correct for 8bit?
                 if (var & MRWrite) ARM7Timestamp += ((var & MR16) ? 3 : 4);
                 else               ARM7Timestamp += ((var & MR16) ? 5 : 6);
@@ -1386,13 +1390,11 @@ void NDS::MainRAMHandleARM7()
 
             if (var & MRCodeFetch)
             {
-                u32 addr = ARM7.FetchAddr[16];
                 ARM7.RetVal = ((var & MR32) ? *(u32*)&MainRAM[addr&MainRAMMask] : *(u16*)&MainRAM[addr&MainRAMMask]);
             }
             else
             {
                 u8 reg = ARM7.MRTrack.Progress;
-                u32 addr = ARM7.FetchAddr[reg];
                 if (var & MRWrite) // write
                 {
                     u32 val = ARM7.STRVal[reg];
@@ -1426,10 +1428,10 @@ void NDS::MainRAMHandleARM7()
             {
                 if (srcrgn == Mem7_MainRAM)
                 {
-                    if (burststart == 2 || A9WENTLAST || DMALastWasMainRAM || dma->SrcAddrInc <= 0 || ((ARM7Timestamp - DMABurstStart) >= 242) || (DMABORK && ((dma->CurSrcAddr & 0x1F) == 0)))
+                    if (burststart == 2 || A9WENTLAST || DMALastWasMainRAM || dma->SrcAddrInc <= 0 || ((ARM7Timestamp - DMABurstStart) >= 242) || (MainRAMBork && ((dma->CurSrcAddr & 0x1F) == 0)))
                     {
                         if (ARM7Timestamp < MainRAMTimestamp) { ARM7Timestamp = MainRAMTimestamp; if (A9PRIORITY) return; }
-                        DMABORK = ((dma->CurSrcAddr & 0x1F) >= 0x1A);
+                        MainRAMBork = ((dma->CurSrcAddr & 0x1F) >= 0x1A);
                         DMABurstStart = ARM7Timestamp;
                         MainRAMTimestamp = ARM7Timestamp + 9;
                         ARM7Timestamp += 6;
@@ -1528,10 +1530,10 @@ void NDS::MainRAMHandleARM7()
             {
                 if (srcrgn == Mem7_MainRAM)
                 {
-                    if (burststart == 2 || A9WENTLAST || DMALastWasMainRAM || dma->SrcAddrInc <= 0 || ((ARM7Timestamp - DMABurstStart) >= 242) || (DMABORK && ((dma->CurSrcAddr & 0x1F) == 0)))
+                    if (burststart == 2 || A9WENTLAST || DMALastWasMainRAM || dma->SrcAddrInc <= 0 || ((ARM7Timestamp - DMABurstStart) >= 242) || (MainRAMBork && ((dma->CurSrcAddr & 0x1F) == 0)))
                     {
                         if (ARM7Timestamp < MainRAMTimestamp) { ARM7Timestamp = MainRAMTimestamp; if (A9PRIORITY) return; }
-                        DMABORK = ((dma->CurSrcAddr & 0x1F) >= 0x1A);
+                        MainRAMBork = ((dma->CurSrcAddr & 0x1F) >= 0x1A);
                         DMABurstStart = ARM7Timestamp;
                         MainRAMTimestamp = ARM7Timestamp + 8;
                         ARM7Timestamp += 5;
