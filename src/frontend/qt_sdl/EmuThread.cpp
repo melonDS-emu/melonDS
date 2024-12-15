@@ -1129,7 +1129,7 @@ void EmuThread::run()
                 // VSync Off
                 emuInstance->setVSyncGL(false); // MelonPrimeDS
 
-                // updateRenderer
+                // updateRenderer because of using softwareRenderer when not in Game.
                 videoRenderer = emuInstance->getGlobalConfig().GetInt("3D.Renderer");
                 updateRenderer();
 
@@ -1672,6 +1672,7 @@ void EmuThread::run()
 #endif
                     }
 
+                    // Resolve Menu flickering
                     if(videoRenderer != renderer3D_Software){
                         videoRenderer = renderer3D_Software;
                         updateRenderer();
