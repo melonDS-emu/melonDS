@@ -2378,13 +2378,13 @@ void GPU3D::Run() noexcept
     if (!GeometryEnabled || FlushRequest ||
         (CmdPIPE.IsEmpty() && !(GXStat & (1<<27))))
     {
-        Timestamp = std::max(NDS.ARM9Timestamp, NDS.DMA9Timestamp) >> NDS.ARM9ClockShift;
+        Timestamp = NDS.ARM9Timestamp >> NDS.ARM9ClockShift;
         return;
     }
 
-    s32 cycles = (std::max(NDS.ARM9Timestamp, NDS.DMA9Timestamp) >> NDS.ARM9ClockShift) - Timestamp;
+    s32 cycles = (NDS.ARM9Timestamp >> NDS.ARM9ClockShift) - Timestamp;
     CycleCount -= cycles;
-    Timestamp = std::max(NDS.ARM9Timestamp, NDS.DMA9Timestamp) >> NDS.ARM9ClockShift;
+    Timestamp = NDS.ARM9Timestamp >> NDS.ARM9ClockShift;
 
     if (CycleCount <= 0)
     {
