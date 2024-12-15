@@ -1071,10 +1071,11 @@ void NDS::MainRAMHandleARM9()
             {
                 if (srcrgn == Mem9_MainRAM)
                 {
-                    if (burststart == 2 || A7WENTLAST || DMALastWasMainRAM || dma->SrcAddrInc <= 0 || ((A9ContentionTS - DMABurstStart) >= 242) || (MainRAMBork && ((dma->CurSrcAddr & 0x1F) == 0)))
+                    if (burststart == 2 || A7WENTLAST || DMALastWasMainRAM || dma->SrcAddrInc <= 0 || ((A9ContentionTS - MainRAMBurstStart) >= 242) || (MainRAMBork && ((dma->CurSrcAddr & 0x1F) == 0)))
                     {
                         if (A9ContentionTS < MainRAMTimestamp) { A9ContentionTS = MainRAMTimestamp; if (A7PRIORITY) return; }
                         MainRAMBork = ((dma->CurSrcAddr & 0x1F) >= 0x1A);
+                        MainRAMBurstStart = A9ContentionTS;
                         MainRAMTimestamp = A9ContentionTS + 9;
                         A9ContentionTS += 6;
                         MainRAMLastAccess = A9LAST;
@@ -1093,7 +1094,7 @@ void NDS::MainRAMHandleARM9()
                     DMALastWasMainRAM = false;
                 }
 
-                DMAReadHold = ARM9Read32(srcaddr);
+                DMAReadHold[0] = ARM9Read32(srcaddr);
 
                 ARM9.MRTrack.Progress = 1;
             }
@@ -1101,11 +1102,11 @@ void NDS::MainRAMHandleARM9()
             {
                 if (dstrgn == Mem9_MainRAM)
                 {
-                    if (burststart == 2 || A7WENTLAST || DMALastWasMainRAM || dma->DstAddrInc <= 0 || ((A9ContentionTS - DMABurstStart) >= 242))
+                    if (burststart == 2 || A7WENTLAST || DMALastWasMainRAM || dma->DstAddrInc <= 0 || ((A9ContentionTS - MainRAMBurstStart) >= 242))
                     {
                         if (A9ContentionTS < MainRAMTimestamp) { A9ContentionTS = MainRAMTimestamp; if (A7PRIORITY) return; }
                         MainRAMTimestamp = A9ContentionTS + 9;
-                        DMABurstStart = A9ContentionTS;
+                        MainRAMBurstStart = A9ContentionTS;
                         A9ContentionTS += 4;
                         MainRAMLastAccess = A9LAST;
                     }
@@ -1123,7 +1124,7 @@ void NDS::MainRAMHandleARM9()
                     DMALastWasMainRAM = false;
                 }
 
-                ARM9Write32(dstaddr, DMAReadHold);
+                ARM9Write32(dstaddr, DMAReadHold[0]);
 
                 dma->CurSrcAddr += dma->SrcAddrInc<<2;
                 dma->CurDstAddr += dma->DstAddrInc<<2;
@@ -1132,6 +1133,10 @@ void NDS::MainRAMHandleARM9()
                 burststart -= 1;
                 if (burststart <= 0) dma->Running = 1;
                 else dma->Running = 2;
+
+                dma->Executing = false;
+                dma->Stall = false;
+
                 DMA9Timestamp = (A9ContentionTS << ARM9ClockShift) - 1;
                 memset(&ARM9.MRTrack, 0, sizeof(ARM9.MRTrack));
                 ConTSLock = false;
@@ -1175,11 +1180,11 @@ void NDS::MainRAMHandleARM9()
             {
                 if (srcrgn == Mem9_MainRAM)
                 {
-                    if (burststart == 2 || A7WENTLAST || DMALastWasMainRAM || dma->SrcAddrInc <= 0 || ((A9ContentionTS - DMABurstStart) >= 242) || (MainRAMBork && ((dma->CurSrcAddr & 0x1F) == 0)))
+                    if (burststart == 2 || A7WENTLAST || DMALastWasMainRAM || dma->SrcAddrInc <= 0 || ((A9ContentionTS - MainRAMBurstStart) >= 242) || (MainRAMBork && ((dma->CurSrcAddr & 0x1F) == 0)))
                     {
                         if (A9ContentionTS < MainRAMTimestamp) { A9ContentionTS = MainRAMTimestamp; if (A7PRIORITY) return; }
                         MainRAMBork = ((dma->CurSrcAddr & 0x1F) >= 0x1A);
-                        DMABurstStart = A9ContentionTS;
+                        MainRAMBurstStart = A9ContentionTS;
                         MainRAMTimestamp = A9ContentionTS + 8;
                         A9ContentionTS += 5;
                         MainRAMLastAccess = A9LAST;
@@ -1198,7 +1203,7 @@ void NDS::MainRAMHandleARM9()
                     DMALastWasMainRAM = false;
                 }
 
-                DMAReadHold = ARM9Read16(srcaddr);
+                DMAReadHold[0] = ARM9Read16(srcaddr);
 
                 ARM9.MRTrack.Progress = 1;
             }
@@ -1206,10 +1211,10 @@ void NDS::MainRAMHandleARM9()
             {
                 if (dstrgn == Mem9_MainRAM)
                 {
-                    if (burststart == 2 || A7WENTLAST || DMALastWasMainRAM || dma->DstAddrInc <= 0 || ((A9ContentionTS - DMABurstStart) >= 242))
+                    if (burststart == 2 || A7WENTLAST || DMALastWasMainRAM || dma->DstAddrInc <= 0 || ((A9ContentionTS - MainRAMBurstStart) >= 242))
                     {
                         if (A9ContentionTS < MainRAMTimestamp) { A9ContentionTS = MainRAMTimestamp; if (A7PRIORITY) return; }
-                        DMABurstStart = A9ContentionTS;
+                        MainRAMBurstStart = A9ContentionTS;
                         MainRAMTimestamp = A9ContentionTS + 8;
                         A9ContentionTS += 3;
                         MainRAMLastAccess = A9LAST;
@@ -1228,7 +1233,7 @@ void NDS::MainRAMHandleARM9()
                     DMALastWasMainRAM = false;
                 }
 
-                ARM9Write16(dstaddr, DMAReadHold);
+                ARM9Write16(dstaddr, DMAReadHold[0]);
 
                 dma->CurSrcAddr += dma->SrcAddrInc<<1;
                 dma->CurDstAddr += dma->DstAddrInc<<1;
@@ -1237,6 +1242,10 @@ void NDS::MainRAMHandleARM9()
                 burststart -= 1;
                 if (burststart <= 0) Running = 1;
                 else dma->Running = 2;
+
+                dma->Executing = false;
+                dma->Stall = false;
+
                 DMA9Timestamp = (A9ContentionTS << ARM9ClockShift) - 1;
                 memset(&ARM9.MRTrack, 0, sizeof(ARM9.MRTrack));
                 ConTSLock = false;
@@ -1370,7 +1379,7 @@ void NDS::MainRAMHandleARM7()
             u8 var = ARM7.MRTrack.Var;
             u32 addr = (var & MRCodeFetch) ? ARM7.FetchAddr[16] : ARM7.FetchAddr[ARM7.MRTrack.Progress];
 
-            if ((var & MRSequential) && A7WENTLAST && !(MainRAMBork && ((addr & 0x1F) == 0)))
+            if ((var & MRSequential) && A7WENTLAST && !(MainRAMBork && ((addr & 0x1F) == 0)) && ((ARM7Timestamp - MainRAMBurstStart) < 242))
             {
                 int cycles = ((var & MR32) ? 2 : 1);
                 MainRAMTimestamp += cycles;
@@ -1382,6 +1391,8 @@ void NDS::MainRAMHandleARM7()
                 if (ARM7Timestamp < MainRAMTimestamp) { ARM7Timestamp = MainRAMTimestamp; if (A9PRIORITY) return; }
                 
                 MainRAMBork = !(var & MRWrite) && ((addr & 0x1F) >= 0x1A);
+                MainRAMBurstStart = ARM7Timestamp;
+
                 MainRAMTimestamp = ARM7Timestamp +  ((var & MR16) ? 8 : 9); // checkme: are these correct for 8bit?
                 if (var & MRWrite) ARM7Timestamp += ((var & MR16) ? 3 : 4);
                 else               ARM7Timestamp += ((var & MR16) ? 5 : 6);
@@ -1428,11 +1439,11 @@ void NDS::MainRAMHandleARM7()
             {
                 if (srcrgn == Mem7_MainRAM)
                 {
-                    if (burststart == 2 || A9WENTLAST || DMALastWasMainRAM || dma->SrcAddrInc <= 0 || ((ARM7Timestamp - DMABurstStart) >= 242) || (MainRAMBork && ((dma->CurSrcAddr & 0x1F) == 0)))
+                    if (burststart == 2 || A9WENTLAST || DMALastWasMainRAM || dma->SrcAddrInc <= 0 || ((ARM7Timestamp - MainRAMBurstStart) >= 242) || (MainRAMBork && ((dma->CurSrcAddr & 0x1F) == 0)))
                     {
                         if (ARM7Timestamp < MainRAMTimestamp) { ARM7Timestamp = MainRAMTimestamp; if (A9PRIORITY) return; }
                         MainRAMBork = ((dma->CurSrcAddr & 0x1F) >= 0x1A);
-                        DMABurstStart = ARM7Timestamp;
+                        MainRAMBurstStart = ARM7Timestamp;
                         MainRAMTimestamp = ARM7Timestamp + 9;
                         ARM7Timestamp += 6;
                         MainRAMLastAccess = A7LAST;
@@ -1451,7 +1462,7 @@ void NDS::MainRAMHandleARM7()
                     DMALastWasMainRAM = false;
                 }
 
-                DMAReadHold = ARM7Read32(srcaddr);
+                DMAReadHold[1] = ARM7Read32(srcaddr);
 
                 ARM7.MRTrack.Progress = 1;
             }
@@ -1459,10 +1470,10 @@ void NDS::MainRAMHandleARM7()
             {
                 if (dstrgn == Mem7_MainRAM)
                 {
-                    if (burststart == 2 || A9WENTLAST || DMALastWasMainRAM || dma->DstAddrInc <= 0 || ((ARM7Timestamp - DMABurstStart) >= 242))
+                    if (burststart == 2 || A9WENTLAST || DMALastWasMainRAM || dma->DstAddrInc <= 0 || ((ARM7Timestamp - MainRAMBurstStart) >= 242))
                     {
                         if (ARM7Timestamp < MainRAMTimestamp) { ARM7Timestamp = MainRAMTimestamp; if (A9PRIORITY) return; }
-                        DMABurstStart = ARM7Timestamp;
+                        MainRAMBurstStart = ARM7Timestamp;
                         MainRAMTimestamp = ARM7Timestamp + 9;
                         ARM7Timestamp += 4;
                         MainRAMLastAccess = A7LAST;
@@ -1481,7 +1492,7 @@ void NDS::MainRAMHandleARM7()
                     DMALastWasMainRAM = false;
                 }
 
-                ARM7Write32(dstaddr, DMAReadHold);
+                ARM7Write32(dstaddr, DMAReadHold[1]);
 
                 dma->CurSrcAddr += dma->SrcAddrInc<<2;
                 dma->CurDstAddr += dma->DstAddrInc<<2;
@@ -1490,6 +1501,10 @@ void NDS::MainRAMHandleARM7()
                 burststart -= 1;
                 if (burststart <= 0) dma->Running = 1;
                 else dma->Running = 2;
+
+                dma->Executing = false;
+                dma->Stall = false;
+
                 //DMA7Timestamp = ARM7Timestamp;
                 memset(&ARM7.MRTrack, 0, sizeof(ARM7.MRTrack));
                 ConTSLock = false;
@@ -1530,11 +1545,11 @@ void NDS::MainRAMHandleARM7()
             {
                 if (srcrgn == Mem7_MainRAM)
                 {
-                    if (burststart == 2 || A9WENTLAST || DMALastWasMainRAM || dma->SrcAddrInc <= 0 || ((ARM7Timestamp - DMABurstStart) >= 242) || (MainRAMBork && ((dma->CurSrcAddr & 0x1F) == 0)))
+                    if (burststart == 2 || A9WENTLAST || DMALastWasMainRAM || dma->SrcAddrInc <= 0 || ((ARM7Timestamp - MainRAMBurstStart) >= 242) || (MainRAMBork && ((dma->CurSrcAddr & 0x1F) == 0)))
                     {
                         if (ARM7Timestamp < MainRAMTimestamp) { ARM7Timestamp = MainRAMTimestamp; if (A9PRIORITY) return; }
                         MainRAMBork = ((dma->CurSrcAddr & 0x1F) >= 0x1A);
-                        DMABurstStart = ARM7Timestamp;
+                        MainRAMBurstStart = ARM7Timestamp;
                         MainRAMTimestamp = ARM7Timestamp + 8;
                         ARM7Timestamp += 5;
                         MainRAMLastAccess = A7LAST;
@@ -1553,7 +1568,7 @@ void NDS::MainRAMHandleARM7()
                     DMALastWasMainRAM = false;
                 }
 
-                DMAReadHold = ARM7Read16(srcaddr);
+                DMAReadHold[1] = ARM7Read16(srcaddr);
 
                 ARM7.MRTrack.Progress = 1;
             }
@@ -1561,9 +1576,10 @@ void NDS::MainRAMHandleARM7()
             {
                 if (dstrgn == Mem7_MainRAM)
                 {
-                    if (burststart == 2 || A9WENTLAST || DMALastWasMainRAM || dma->DstAddrInc <= 0 || ((ARM7Timestamp - DMABurstStart) >= 242))
+                    if (burststart == 2 || A9WENTLAST || DMALastWasMainRAM || dma->DstAddrInc <= 0 || ((ARM7Timestamp - MainRAMBurstStart) >= 242))
                     {
                         if (ARM7Timestamp < MainRAMTimestamp) { ARM7Timestamp = MainRAMTimestamp; if (A9PRIORITY) return; }
+                        MainRAMBurstStart = ARM7Timestamp;
                         MainRAMTimestamp = ARM7Timestamp + 8;
                         ARM7Timestamp += 3;
                         MainRAMLastAccess = A7LAST;
@@ -1582,7 +1598,7 @@ void NDS::MainRAMHandleARM7()
                     DMALastWasMainRAM = false;
                 }
 
-                ARM7Write16(dstaddr, DMAReadHold);
+                ARM7Write16(dstaddr, DMAReadHold[1]);
 
                 dma->CurSrcAddr += dma->SrcAddrInc<<1;
                 dma->CurDstAddr += dma->DstAddrInc<<1;
@@ -1591,6 +1607,10 @@ void NDS::MainRAMHandleARM7()
                 burststart -= 1;
                 if (burststart <= 0) Running = 1;
                 else dma->Running = 2;
+
+                dma->Executing = false;
+                dma->Stall = false;
+
                 //DMA9Timestamp = (A9ContentionTS << ARM9ClockShift) - 1;
                 memset(&ARM7.MRTrack, 0, sizeof(ARM7.MRTrack));
                 ConTSLock = false;

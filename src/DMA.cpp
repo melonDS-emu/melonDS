@@ -201,7 +201,7 @@ void DMA::Start()
     if (Num <= 2) NDS.DMAs[(CPU*4)+3].ResetBurst();
 }
 
-u32 DMA::UnitTimings9_16(u8 burststart)
+u32 DMA::UnitTimings9_16(int burststart)
 {
     u32 src_id = CurSrcAddr >> 14;
     u32 dst_id = CurDstAddr >> 14;
@@ -292,7 +292,7 @@ u32 DMA::UnitTimings9_16(u8 burststart)
     }
 }
 
-u32 DMA::UnitTimings9_32(u8 burststart)
+u32 DMA::UnitTimings9_32(int burststart)
 {
     u32 src_id = CurSrcAddr >> 14;
     u32 dst_id = CurDstAddr >> 14;
@@ -387,7 +387,7 @@ u32 DMA::UnitTimings9_32(u8 burststart)
 
 // TODO: the ARM7 ones don't take into account that the two wifi regions have different timings
 
-u32 DMA::UnitTimings7_16(bool burststart)
+u32 DMA::UnitTimings7_16(int burststart)
 {
     u32 src_id = CurSrcAddr >> 15;
     u32 dst_id = CurDstAddr >> 15;
@@ -462,18 +462,21 @@ u32 DMA::UnitTimings7_16(bool burststart)
     }
     else*/ if (src_rgn & dst_rgn)
     {
-        return src_n + dst_n + 1;
+        if (burststart != 1)
+            return src_n + dst_n + (src_n == 1 || burststart <= 0);
+        else
+            return src_n + dst_n + (src_n != 1);
     }
     else
     {
-        if (burststart)
-            return src_n + dst_n;
+        if (burststart == 2)
+            return src_n + dst_n + (src_n == 1);
         else
             return src_s + dst_s;
     }
 }
 
-u32 DMA::UnitTimings7_32(bool burststart)
+u32 DMA::UnitTimings7_32(int burststart)
 {
     u32 src_id = CurSrcAddr >> 15;
     u32 dst_id = CurDstAddr >> 15;
@@ -552,12 +555,15 @@ u32 DMA::UnitTimings7_32(bool burststart)
     }
     else*/ if (src_rgn & dst_rgn)
     {
-        return src_n + dst_n + 1;
+        if (burststart != 1)
+            return src_n + dst_n + (src_n == 1 || burststart <= 0);
+        else
+            return src_n + dst_n + (src_n != 1);
     }
     else
     {
-        if (burststart)
-            return src_n + dst_n;
+        if (burststart == 2)
+            return src_n + dst_n + (src_n == 1);
         else
             return src_s + dst_s;
     }
@@ -586,7 +592,6 @@ void DMA::Run9()
                 NDS.ARM9.MRTrack.Var = Num;
                 return;
             }
-            Running = 2;
 
             NDS.DMA9Timestamp += (UnitTimings9_16(burststart) << NDS.ARM9ClockShift);
             burststart -= 1;
@@ -612,7 +617,6 @@ void DMA::Run9()
                 NDS.ARM9.MRTrack.Var = Num;
                 return;
             }
-            Running = 2;
 
             NDS.DMA9Timestamp += (UnitTimings9_32(burststart) << NDS.ARM9ClockShift);
             burststart -= 1;
@@ -630,7 +634,8 @@ void DMA::Run9()
 
     NDS.DMA9Timestamp -= 1;
 
-    if (burststart == 0) Running = 1;  
+    if (burststart == 0) Running = 1;
+    else Running = 2;
 
     Executing = false;
     Stall = false;
@@ -667,7 +672,7 @@ void DMA::Run7()
     Executing = true;
 
     // add NS penalty for first accesses in burst
-    bool burststart = (Running == 2);
+    int burststart = Running - 1;
 
     if (!(Cnt & (1<<26)))
     {
@@ -677,10 +682,10 @@ void DMA::Run7()
             if (rgn & Mem7_MainRAM)
             {
                 NDS.ARM7.MRTrack.Type = MainRAMType::DMA16;
-                NDS.ARM7.MRTrack.Var = Num;
+                NDS.ARM7.MRTrack.Var = Num+4;
                 return;
             }
-            Running = 1;
+
             NDS.ARM7Timestamp += UnitTimings7_16(burststart);
             burststart = false;
 
@@ -702,10 +707,10 @@ void DMA::Run7()
             if (rgn & Mem7_MainRAM)
             {
                 NDS.ARM7.MRTrack.Type = MainRAMType::DMA32;
-                NDS.ARM7.MRTrack.Var = Num;
+                NDS.ARM7.MRTrack.Var = Num+4;
                 return;
             }
-            Running = 1;
+
             NDS.ARM7Timestamp += UnitTimings7_32(burststart);
             burststart = false;
 
@@ -719,6 +724,9 @@ void DMA::Run7()
             if (NDS.ARM7Timestamp >= NDS.ARM7Target) break;
         }
     }
+
+    if (burststart == 0) Running = 1;
+    else Running = 2;
 
     Executing = false;
     Stall = false;

@@ -40,10 +40,10 @@ public:
     void WriteCnt(u32 val);
     void Start();
 
-    u32 UnitTimings9_16(u8 burststart);
-    u32 UnitTimings9_32(u8 burststart);
-    u32 UnitTimings7_16(bool burststart);
-    u32 UnitTimings7_32(bool burststart);
+    u32 UnitTimings9_16(int burststart);
+    u32 UnitTimings9_32(int burststart);
+    u32 UnitTimings7_16(int burststart);
+    u32 UnitTimings7_32(int burststart);
 
     void Run();
     void Run9();
@@ -91,16 +91,14 @@ public:
     bool InProgress {};
     u32 Num {};
     u32 StartMode {};
+    bool Executing {};
+    bool Stall {};
 
 private:
     melonDS::NDS& NDS;
     u32 CPU {};
 
     u32 CountMask {};
-
-
-    bool Executing {};
-    bool Stall {};
 
     bool IsGXFIFODMA {};
 

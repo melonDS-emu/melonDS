@@ -257,7 +257,7 @@ public: // TODO: Encapsulate the rest of these members
     // no need to worry about those overflowing, they can keep going for atleast 4350 years
     u64 ARM9Timestamp, DMA9Timestamp, ARM9Target;
     u64 ARM7Timestamp, ARM7Target;
-    u64 MainRAMTimestamp, DMABurstStart;
+    u64 MainRAMTimestamp, MainRAMBurstStart;
     u64 A9ContentionTS; bool ConTSLock;
     u32 ARM9ClockShift;
 
@@ -276,7 +276,7 @@ public: // TODO: Encapsulate the rest of these members
     alignas(u32) u8 ROMSeed0[2*8];
     alignas(u32) u8 ROMSeed1[2*8];
 
-    u32 DMAReadHold;
+    u32 DMAReadHold[2];
     bool MainRAMBork; // if a main ram read burst starts in the last 6 bytes of a 32 byte block, and then crosses the 32 byte boundary, the burst forcibly restarts
     bool MainRAMLastAccess; // 0 == ARM9 | 1 == ARM7
     bool DMALastWasMainRAM;
