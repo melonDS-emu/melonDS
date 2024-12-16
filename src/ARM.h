@@ -213,6 +213,8 @@ public:
         u32 StopExecution;
     };
 
+    u64 IRQTimestamp;
+
     u32 CodeRegion;
     s32 CodeCycles;
 
