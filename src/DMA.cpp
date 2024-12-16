@@ -139,7 +139,7 @@ void DMA::WriteCnt(u32 val)
         case 0x01000000: SrcAddrInc = 0; break;
         case 0x01800000: SrcAddrInc = 1; break;
         }
-
+        u32 oldstartmode = StartMode;
         if (CPU == 0)
             StartMode = (Cnt >> 27) & 0x7;
         else
@@ -159,7 +159,14 @@ void DMA::Start()
 {
     if (Running)
     {
-        DMAQueued = true;
+        if (CPU ? StartMode == 0x12 : StartMode == 0x05)
+        {
+            DMAQueued = true;
+        }
+        else
+        {
+            DMAQueued = false;
+        }
         return;
     }
     else
