@@ -1130,39 +1130,13 @@ void NDS::MainRAMHandleARM9()
                 dma->CurDstAddr += dma->DstAddrInc<<2;
                 dma->IterCount--;
                 dma->RemCount--;
-                burststart -= 1;
-                if (burststart <= 0) dma->Running = 1;
+
+                if (burststart <= 1) dma->Running = 1;
                 else dma->Running = 2;
-
-                dma->Executing = false;
-                dma->Stall = false;
-
-                DMA9Timestamp = (A9ContentionTS << ARM9ClockShift) - 1;
+                
+                DMA9Timestamp = (A9ContentionTS << ARM9ClockShift);
                 memset(&ARM9.MRTrack, 0, sizeof(ARM9.MRTrack));
                 ConTSLock = false;
-                if (dma->RemCount)
-                {
-                    if (dma->IterCount == 0)
-                    {
-                        dma->Running = 0;
-                        ResumeCPU(0, 1<<dma->Num);
-
-                        if (dma->StartMode == 0x07)
-                            GPU.GPU3D.CheckFIFODMA();
-                    }
-
-                    break;
-                }
-
-                if (!(dma->Cnt & (1<<25)))
-                    dma->Cnt &= ~(1<<31);
-
-                if (dma->Cnt & (1<<30))
-                    SetIRQ(0, IRQ_DMA0 + dma->Num);
-
-                dma->Running = 0;
-                dma->InProgress = false;
-                ResumeCPU(0, 1<<dma->Num);
             }
             break;
         }
@@ -1239,39 +1213,13 @@ void NDS::MainRAMHandleARM9()
                 dma->CurDstAddr += dma->DstAddrInc<<1;
                 dma->IterCount--;
                 dma->RemCount--;
-                burststart -= 1;
-                if (burststart <= 0) Running = 1;
+
+                if (burststart <= 1) Running = 1;
                 else dma->Running = 2;
-
-                dma->Executing = false;
-                dma->Stall = false;
-
-                DMA9Timestamp = (A9ContentionTS << ARM9ClockShift) - 1;
+                
+                DMA9Timestamp = (A9ContentionTS << ARM9ClockShift);
                 memset(&ARM9.MRTrack, 0, sizeof(ARM9.MRTrack));
                 ConTSLock = false;
-                if (dma->RemCount)
-                {
-                    if (dma->IterCount == 0)
-                    {
-                        dma->Running = 0;
-                        ResumeCPU(0, 1<<dma->Num);
-
-                        if (dma->StartMode == 0x07)
-                            GPU.GPU3D.CheckFIFODMA();
-                    }
-
-                    break;
-                }
-
-                if (!(dma->Cnt & (1<<25)))
-                    dma->Cnt &= ~(1<<31);
-
-                if (dma->Cnt & (1<<30))
-                    SetIRQ(0, IRQ_DMA0 + dma->Num);
-
-                dma->Running = 0;
-                dma->InProgress = false;
-                ResumeCPU(0, 1<<dma->Num);
             }
             break;
         }
@@ -1498,36 +1446,11 @@ void NDS::MainRAMHandleARM7()
                 dma->CurDstAddr += dma->DstAddrInc<<2;
                 dma->IterCount--;
                 dma->RemCount--;
-                burststart -= 1;
-                if (burststart <= 0) dma->Running = 1;
+
+                if (burststart <= 1) dma->Running = 1;
                 else dma->Running = 2;
 
-                dma->Executing = false;
-                dma->Stall = false;
-
-                //DMA7Timestamp = ARM7Timestamp;
                 memset(&ARM7.MRTrack, 0, sizeof(ARM7.MRTrack));
-                ConTSLock = false;
-                if (dma->RemCount)
-                {
-                    if (dma->IterCount == 0)
-                    {
-                        dma->Running = 0;
-                        ResumeCPU(1, 1<<dma->Num);
-                    }
-
-                    break;
-                }
-
-                if (!(dma->Cnt & (1<<25)))
-                    dma->Cnt &= ~(1<<31);
-
-                if (dma->Cnt & (1<<30))
-                    SetIRQ(1, IRQ_DMA0 + dma->Num);
-
-                dma->Running = 0;
-                dma->InProgress = false;
-                ResumeCPU(1, 1<<dma->Num);
             }
             break;
         }
@@ -1604,36 +1527,11 @@ void NDS::MainRAMHandleARM7()
                 dma->CurDstAddr += dma->DstAddrInc<<1;
                 dma->IterCount--;
                 dma->RemCount--;
-                burststart -= 1;
-                if (burststart <= 0) Running = 1;
+
+                if (burststart <= 1) Running = 1;
                 else dma->Running = 2;
 
-                dma->Executing = false;
-                dma->Stall = false;
-
-                //DMA9Timestamp = (A9ContentionTS << ARM9ClockShift) - 1;
                 memset(&ARM7.MRTrack, 0, sizeof(ARM7.MRTrack));
-                ConTSLock = false;
-                if (dma->RemCount)
-                {
-                    if (dma->IterCount == 0)
-                    {
-                        dma->Running = 0;
-                        ResumeCPU(1, 1<<dma->Num);
-                    }
-
-                    break;
-                }
-
-                if (!(dma->Cnt & (1<<25)))
-                    dma->Cnt &= ~(1<<31);
-
-                if (dma->Cnt & (1<<30))
-                    SetIRQ(1, IRQ_DMA0 + dma->Num);
-
-                dma->Running = 0;
-                dma->InProgress = false;
-                ResumeCPU(1, 1<<dma->Num);
             }
             break;
         }
