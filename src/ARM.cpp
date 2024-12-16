@@ -160,7 +160,6 @@ void ARM::Reset()
     Halted = 0;
     DataCycles = 0;
 
-    IRQTimestamp = -1;
     IRQ = 0;
 
     for (int i = 0; i < 16; i++)
@@ -706,7 +705,7 @@ void ARMv5::StartExecTHUMB()
     else NullFetch = false;
     PC = R[15];
 
-    if (!(CPSR & 0x80) && (NDS.ARM9Timestamp > IRQTimestamp)) TriggerIRQ<CPUExecuteMode::Interpreter>();
+    if (IRQ && !(CPSR & 0x80)) TriggerIRQ<CPUExecuteMode::Interpreter>();
     else if (CurInstr > 0xFFFFFFFF) [[unlikely]] // handle aborted instructions
     {
         PrefetchAbort();
@@ -729,7 +728,7 @@ void ARMv5::StartExecARM()
     NullFetch = false;
     PC = R[15];
 
-    if (!(CPSR & 0x80) && (NDS.ARM9Timestamp > IRQTimestamp)) TriggerIRQ<CPUExecuteMode::Interpreter>();
+    if (IRQ && !(CPSR & 0x80)) TriggerIRQ<CPUExecuteMode::Interpreter>();
     else if (CurInstr & ((u64)1<<63)) [[unlikely]] // handle aborted instructions
     {
         PrefetchAbort();
@@ -772,13 +771,14 @@ void ARMv5::Execute()
         else if (NDS.HaltInterrupted(0))
         {
             Halted = 0;
-            NDS.ARM9Timestamp = IRQTimestamp;
-#ifdef JIT_ENABLED
             if (NDS.IME[0] & 0x1)
             {
+#ifdef JIT_ENABLED
                 if constexpr (mode == CPUExecuteMode::JIT) TriggerIRQ<mode>();
-            }
+                else
 #endif
+                    IRQ = 1;
+            }
         }
         else
         {
@@ -921,7 +921,7 @@ void ARMv4::StartExecTHUMB()
     CodeRead16(R[15]);
     QueueFunction(&ARMv4::UpdateNextInstr1);
 
-    if (!(CPSR & 0x80) && (NDS.ARM7Timestamp > IRQTimestamp)) TriggerIRQ<CPUExecuteMode::Interpreter>();
+    if (IRQ && !(CPSR & 0x80)) TriggerIRQ<CPUExecuteMode::Interpreter>();
     else
     {
         // actually execute
@@ -939,7 +939,7 @@ void ARMv4::StartExecARM()
     CodeRead32(R[15]);
     QueueFunction(&ARMv4::UpdateNextInstr1);
 
-    if (!(CPSR & 0x80) && (NDS.ARM7Timestamp > IRQTimestamp)) TriggerIRQ<CPUExecuteMode::Interpreter>();
+    if (IRQ && !(CPSR & 0x80)) TriggerIRQ<CPUExecuteMode::Interpreter>();
     else if (CheckCondition(CurInstr >> 28)) // actually execute
     {
         u32 icode = ((CurInstr >> 4) & 0xF) | ((CurInstr >> 16) & 0xFF0);
@@ -964,16 +964,13 @@ void ARMv4::Execute()
         else if (NDS.HaltInterrupted(1))
         {
             Halted = 0;
-            NDS.ARM7Timestamp = IRQTimestamp;
             if (NDS.IME[1] & 0x1)
             {
 #ifdef JIT_ENABLED
                 if constexpr (mode == CPUExecuteMode::JIT) TriggerIRQ<mode>();
+                else
 #endif
-            }
-            else
-            {
-                IRQTimestamp = -1;
+                    IRQ = 1;
             }
         }
         else

@@ -1838,7 +1838,7 @@ u32 NDS::RunFrame()
                         if (!MainRAMHandle()) break;
                     }
                 }
-                CurCPU = 2;
+
                 RunSystem(target);
 
                 if (CPUStop & CPUStop_Sleep)
@@ -2160,20 +2160,16 @@ void NDS::SetGBASlotTimings()
 void NDS::UpdateIRQ(u32 cpu)
 {
     ARM& arm = cpu ? (ARM&)ARM7 : (ARM&)ARM9;
-    u64 curtime = ((CurCPU == 2) ? SysTimestamp : ((CurCPU == 1) ? ARM7Timestamp : ((ARM9Timestamp + ((1<<ARM9ClockShift)-1)) >> ARM9ClockShift)));
-    if (!cpu) curtime <<= ARM9ClockShift; 
 
-    if (IME[cpu] & 0x1 || (arm.Halted == 1))
+    if (IME[cpu] & 0x1)
     {
-        //arm.IRQ = !!(IE[cpu] & IF[cpu]);
-        if (IE[cpu] & IF[cpu]) { if (curtime < arm.IRQTimestamp) arm.IRQTimestamp = curtime; }
-        else arm.IRQTimestamp = -1;
-        if ((ConsoleType == 1) && cpu && (IE2 & IF2) && (curtime < arm.IRQTimestamp))
-            arm.IRQTimestamp = curtime;
+        arm.IRQ = !!(IE[cpu] & IF[cpu]);
+        if ((ConsoleType == 1) && cpu)
+            arm.IRQ |= !!(IE2 & IF2);
     }
     else
     {
-         arm.IRQTimestamp = -1;
+        arm.IRQ = 0;
     }
 }
 
