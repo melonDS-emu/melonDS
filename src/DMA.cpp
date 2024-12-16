@@ -215,7 +215,7 @@ u32 DMA::UnitTimings9_16(int burststart)
     dst_n = NDS.ARM9MemTimings[dst_id][4];
     dst_s = NDS.ARM9MemTimings[dst_id][5];
     
-    /*if (src_rgn == Mem9_MainRAM)
+    if (src_rgn == Mem9_MainRAM)
     {
         if (dst_rgn == Mem9_MainRAM)
         {
@@ -276,7 +276,7 @@ u32 DMA::UnitTimings9_16(int burststart)
             return ((burststart == 2) ? src_n : src_s) + 7;
         }
     }
-    else*/ if (src_rgn & dst_rgn)
+    else if (src_rgn & dst_rgn)
     {
         if (burststart != 1)
             return src_n + dst_n + (src_n == 1 || burststart <= 0);
@@ -306,7 +306,7 @@ u32 DMA::UnitTimings9_32(int burststart)
     dst_n = NDS.ARM9MemTimings[dst_id][6];
     dst_s = NDS.ARM9MemTimings[dst_id][7];
 
-    /*if (src_rgn == Mem9_MainRAM)
+    if (src_rgn == Mem9_MainRAM)
     {
         if (dst_rgn == Mem9_MainRAM)
             return (burststart == 2) ? 13 : 18;
@@ -369,7 +369,7 @@ u32 DMA::UnitTimings9_32(int burststart)
             return ((burststart == 2) ? src_n : src_s) + 8;
         }
     }
-    else*/ if (src_rgn & dst_rgn)
+    else if (src_rgn & dst_rgn)
     {
         if (burststart != 1)
             return src_n + dst_n + (src_n == 1 || burststart <= 0);
@@ -401,7 +401,7 @@ u32 DMA::UnitTimings7_16(int burststart)
     dst_n = NDS.ARM7MemTimings[dst_id][0];
     dst_s = NDS.ARM7MemTimings[dst_id][1];
 
-    /*if (src_rgn == Mem7_MainRAM)
+    if (src_rgn == Mem7_MainRAM)
     {
         if (dst_rgn == Mem7_MainRAM)
             return 16;
@@ -460,7 +460,7 @@ u32 DMA::UnitTimings7_16(int burststart)
             return (burststart ? src_n : src_s) + 7;
         }
     }
-    else*/ if (src_rgn & dst_rgn)
+    else if (src_rgn & dst_rgn)
     {
         if (burststart != 1)
             return src_n + dst_n + (src_n == 1 || burststart <= 0);
@@ -490,7 +490,7 @@ u32 DMA::UnitTimings7_32(int burststart)
     dst_n = NDS.ARM7MemTimings[dst_id][2];
     dst_s = NDS.ARM7MemTimings[dst_id][3];
 
-    /*if (src_rgn == Mem7_MainRAM)
+    if (src_rgn == Mem7_MainRAM)
     {
         if (dst_rgn == Mem7_MainRAM)
             return 18;
@@ -553,7 +553,7 @@ u32 DMA::UnitTimings7_32(int burststart)
             return (burststart ? src_n : src_s) + 8;
         }
     }
-    else*/ if (src_rgn & dst_rgn)
+    else if (src_rgn & dst_rgn)
     {
         if (burststart != 1)
             return src_n + dst_n + (src_n == 1 || burststart <= 0);
@@ -585,13 +585,13 @@ void DMA::Run9()
     {
         while (IterCount > 0 && !Stall)
         {
-            u32 rgn = NDS.ARM9Regions[CurSrcAddr>>14] | NDS.ARM9Regions[CurDstAddr>>14];
+            /*u32 rgn = NDS.ARM9Regions[CurSrcAddr>>14] | NDS.ARM9Regions[CurDstAddr>>14];
             if (rgn & Mem9_MainRAM)
             {
                 NDS.ARM9.MRTrack.Type = MainRAMType::DMA16;
                 NDS.ARM9.MRTrack.Var = Num;
                 return;
-            }
+            }*/
 
             NDS.DMA9Timestamp += (UnitTimings9_16(burststart) << NDS.ARM9ClockShift);
             burststart -= 1;
@@ -610,13 +610,13 @@ void DMA::Run9()
     {
         while (IterCount > 0 && !Stall)
         {
-            u32 rgn = NDS.ARM9Regions[CurSrcAddr>>14] | NDS.ARM9Regions[CurDstAddr>>14];
+            /*u32 rgn = NDS.ARM9Regions[CurSrcAddr>>14] | NDS.ARM9Regions[CurDstAddr>>14];
             if (rgn & Mem9_MainRAM)
             {
                 NDS.ARM9.MRTrack.Type = MainRAMType::DMA32;
                 NDS.ARM9.MRTrack.Var = Num;
                 return;
-            }
+            }*/
 
             NDS.DMA9Timestamp += (UnitTimings9_32(burststart) << NDS.ARM9ClockShift);
             burststart -= 1;
@@ -678,13 +678,13 @@ void DMA::Run7()
     {
         while (IterCount > 0 && !Stall)
         {
-            u32 rgn = NDS.ARM7Regions[CurSrcAddr>>15] | NDS.ARM7Regions[CurDstAddr>>15];
+            /*u32 rgn = NDS.ARM7Regions[CurSrcAddr>>15] | NDS.ARM7Regions[CurDstAddr>>15];
             if (rgn & Mem7_MainRAM)
             {
                 NDS.ARM7.MRTrack.Type = MainRAMType::DMA16;
                 NDS.ARM7.MRTrack.Var = Num+4;
                 return;
-            }
+            }*/
 
             NDS.ARM7Timestamp += UnitTimings7_16(burststart);
             burststart = false;
@@ -703,13 +703,13 @@ void DMA::Run7()
     {
         while (IterCount > 0 && !Stall)
         {
-            u32 rgn = NDS.ARM7Regions[CurSrcAddr>>15] | NDS.ARM7Regions[CurDstAddr>>15];
+            /*u32 rgn = NDS.ARM7Regions[CurSrcAddr>>15] | NDS.ARM7Regions[CurDstAddr>>15];
             if (rgn & Mem7_MainRAM)
             {
                 NDS.ARM7.MRTrack.Type = MainRAMType::DMA32;
                 NDS.ARM7.MRTrack.Var = Num+4;
                 return;
-            }
+            }*/
 
             NDS.ARM7Timestamp += UnitTimings7_32(burststart);
             burststart = false;
