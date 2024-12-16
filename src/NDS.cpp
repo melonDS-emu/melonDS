@@ -1755,13 +1755,13 @@ u32 NDS::RunFrame()
                 u64 target = NextTarget();
 
                 ARM9Target = target << ARM9ClockShift;
-                ARM7Target = target;
+                //ARM7Target = target;
 
-                while ((std::max(std::max(ARM9Timestamp, DMA9Timestamp), A9ContentionTS << ARM9ClockShift) < (target << ARM9ClockShift)) && (ARM7Timestamp < target))
+                //while ((std::max(std::max(ARM9Timestamp, DMA9Timestamp), A9ContentionTS << ARM9ClockShift) < (target << ARM9ClockShift)) && (ARM7Timestamp < target))
                 {
-                    while (std::max(std::max(ARM9Timestamp, DMA9Timestamp), A9ContentionTS << ARM9ClockShift) < (target << ARM9ClockShift))
+                    //while (std::max(std::max(ARM9Timestamp, DMA9Timestamp), A9ContentionTS << ARM9ClockShift) < (target << ARM9ClockShift))
                     {
-                        ARM9Target = target << ARM9ClockShift;
+                        //ARM9Target = target << ARM9ClockShift;
                         CurCPU = 0;
                         RunTimers(0);
                         GPU.GPU3D.Run();
@@ -1798,8 +1798,12 @@ u32 NDS::RunFrame()
                         RunTimers(0);
                         GPU.GPU3D.Run();
 
-                        if (MainRAMHandle()) break;
+                        //if (MainRAMHandle()) break;
+                        MainRAMHandle();
                     }
+
+                    target = std::max(std::max(ARM9Timestamp, DMA9Timestamp) >> ARM9ClockShift, A9ContentionTS);
+                    if (target == ARM7Timestamp) target++;
 
                     while (ARM7Timestamp < target)
                     {
