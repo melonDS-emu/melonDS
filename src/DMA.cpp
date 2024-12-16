@@ -81,6 +81,7 @@ void DMA::Reset()
     Running = false;
     Executing = false;
     InProgress = false;
+    DMAQueued = false;
     MRAMBurstCount = 0;
     MRAMBurstTable = DMATiming::MRAMDummy;
 }
@@ -156,7 +157,15 @@ void DMA::WriteCnt(u32 val)
 
 void DMA::Start()
 {
-    if (Running) return;
+    if (Running)
+    {
+        DMAQueued = true;
+        return;
+    }
+    else
+    {
+        DMAQueued = false;
+    }
 
     if (!InProgress)
     {
@@ -663,6 +672,8 @@ void DMA::Run9()
     Running = 0;
     InProgress = false;
     NDS.ResumeCPU(0, 1<<Num);
+
+    if (DMAQueued) Start();
 }
 
 void DMA::Run7()
@@ -751,6 +762,8 @@ void DMA::Run7()
     Running = 0;
     InProgress = false;
     NDS.ResumeCPU(1, 1<<Num);
+
+    if (DMAQueued) Start();
 }
 
 void DMA::Run()

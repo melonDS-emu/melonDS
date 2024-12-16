@@ -97,6 +97,7 @@ public:
 private:
     melonDS::NDS& NDS;
     u32 CPU {};
+    bool DMAQueued;
 
     u32 CountMask {};
 
