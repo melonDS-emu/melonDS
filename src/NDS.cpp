@@ -1214,7 +1214,7 @@ void NDS::MainRAMHandleARM9()
                 dma->IterCount--;
                 dma->RemCount--;
 
-                if (burststart <= 1) Running = 1;
+                if (burststart <= 1) dma->Running = 1;
                 else dma->Running = 2;
                 
                 DMA9Timestamp = (A9ContentionTS << ARM9ClockShift);
@@ -1528,7 +1528,7 @@ void NDS::MainRAMHandleARM7()
                 dma->IterCount--;
                 dma->RemCount--;
 
-                if (burststart <= 1) Running = 1;
+                if (burststart <= 1) dma->Running = 1;
                 else dma->Running = 2;
 
                 memset(&ARM7.MRTrack, 0, sizeof(ARM7.MRTrack));
