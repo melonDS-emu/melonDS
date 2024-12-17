@@ -1093,6 +1093,9 @@ void NDS::MainRAMHandleARM9()
                     else                                         A9ContentionTS += ARM9MemTimings[srcaddr>>14][7];
                     DMALastWasMainRAM = false;
                 }
+                
+                DMA9Timestamp = (A9ContentionTS << ARM9ClockShift);
+                ConTSLock = false;
 
                 DMAReadHold[0] = ARM9Read32(srcaddr);
 
@@ -1123,6 +1126,9 @@ void NDS::MainRAMHandleARM9()
                     else                                         A9ContentionTS += ARM9MemTimings[dstaddr>>14][7] - (burststart <= 0);
                     DMALastWasMainRAM = false;
                 }
+                
+                DMA9Timestamp = (A9ContentionTS << ARM9ClockShift);
+                ConTSLock = false;
 
                 ARM9Write32(dstaddr, DMAReadHold[0]);
 
@@ -1134,9 +1140,10 @@ void NDS::MainRAMHandleARM9()
                 if (burststart <= 1) dma->Running = 1;
                 else dma->Running = 2;
                 
-                DMA9Timestamp = (A9ContentionTS << ARM9ClockShift);
-                memset(&ARM9.MRTrack, 0, sizeof(ARM9.MRTrack));
-                ConTSLock = false;
+                if ((dma->IterCount == 0) || ((ARM9Regions[dma->CurSrcAddr>>14] != Mem9_MainRAM) && (ARM9Regions[dma->CurDstAddr>>14] != Mem9_MainRAM)))
+                    memset(&ARM9.MRTrack, 0, sizeof(ARM9.MRTrack));
+                else
+                    ARM9.MRTrack.Progress = 0;
             }
             break;
         }
@@ -1176,6 +1183,9 @@ void NDS::MainRAMHandleARM9()
                     else                                         A9ContentionTS += ARM9MemTimings[srcaddr>>14][5];
                     DMALastWasMainRAM = false;
                 }
+                
+                DMA9Timestamp = (A9ContentionTS << ARM9ClockShift);
+                ConTSLock = false;
 
                 DMAReadHold[0] = ARM9Read16(srcaddr);
 
@@ -1206,6 +1216,9 @@ void NDS::MainRAMHandleARM9()
                     else                                         A9ContentionTS += ARM9MemTimings[dstaddr>>14][5] - (burststart <= 0);
                     DMALastWasMainRAM = false;
                 }
+                
+                DMA9Timestamp = (A9ContentionTS << ARM9ClockShift);
+                ConTSLock = false;
 
                 ARM9Write16(dstaddr, DMAReadHold[0]);
 
@@ -1217,9 +1230,10 @@ void NDS::MainRAMHandleARM9()
                 if (burststart <= 1) dma->Running = 1;
                 else dma->Running = 2;
                 
-                DMA9Timestamp = (A9ContentionTS << ARM9ClockShift);
-                memset(&ARM9.MRTrack, 0, sizeof(ARM9.MRTrack));
-                ConTSLock = false;
+                if ((dma->IterCount == 0) || ((ARM9Regions[dma->CurSrcAddr>>14] != Mem9_MainRAM) && (ARM9Regions[dma->CurDstAddr>>14] != Mem9_MainRAM)))
+                    memset(&ARM9.MRTrack, 0, sizeof(ARM9.MRTrack));
+                else
+                    ARM9.MRTrack.Progress = 0;
             }
             break;
         }
@@ -1449,8 +1463,11 @@ void NDS::MainRAMHandleARM7()
 
                 if (burststart <= 1) dma->Running = 1;
                 else dma->Running = 2;
-
-                memset(&ARM7.MRTrack, 0, sizeof(ARM7.MRTrack));
+                
+                if ((dma->IterCount == 0) || ((ARM7Regions[dma->CurSrcAddr>>15] != Mem7_MainRAM) && (ARM7Regions[dma->CurDstAddr>>15] != Mem7_MainRAM)))
+                    memset(&ARM7.MRTrack, 0, sizeof(ARM7.MRTrack));
+                else
+                    ARM7.MRTrack.Progress = 0;
             }
             break;
         }
@@ -1530,8 +1547,11 @@ void NDS::MainRAMHandleARM7()
 
                 if (burststart <= 1) dma->Running = 1;
                 else dma->Running = 2;
-
-                memset(&ARM7.MRTrack, 0, sizeof(ARM7.MRTrack));
+                
+                if ((dma->IterCount == 0) || ((ARM7Regions[dma->CurSrcAddr>>15] != Mem7_MainRAM) && (ARM7Regions[dma->CurDstAddr>>15] != Mem7_MainRAM)))
+                    memset(&ARM7.MRTrack, 0, sizeof(ARM7.MRTrack));
+                else
+                    ARM7.MRTrack.Progress = 0;
             }
             break;
         }
