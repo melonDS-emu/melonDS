@@ -606,7 +606,7 @@ void DMA::Run9()
             {
                 NDS.ARM9.MRTrack.Type = MainRAMType::DMA16;
                 NDS.ARM9.MRTrack.Var = Num;
-                break;
+                return;
             }
 
             NDS.DMA9Timestamp += (UnitTimings9_16(burststart) << NDS.ARM9ClockShift);
@@ -631,7 +631,7 @@ void DMA::Run9()
             {
                 NDS.ARM9.MRTrack.Type = MainRAMType::DMA32;
                 NDS.ARM9.MRTrack.Var = Num;
-                break;
+                return;
             }
 
             NDS.DMA9Timestamp += (UnitTimings9_32(burststart) << NDS.ARM9ClockShift);
@@ -701,7 +701,7 @@ void DMA::Run7()
             {
                 NDS.ARM7.MRTrack.Type = MainRAMType::DMA16;
                 NDS.ARM7.MRTrack.Var = Num+4;
-                break;
+                return;
             }
 
             NDS.ARM7Timestamp += UnitTimings7_16(burststart);
@@ -726,7 +726,7 @@ void DMA::Run7()
             {
                 NDS.ARM7.MRTrack.Type = MainRAMType::DMA32;
                 NDS.ARM7.MRTrack.Var = Num+4;
-                break;
+                return;
             }
 
             NDS.ARM7Timestamp += UnitTimings7_32(burststart);
