@@ -932,7 +932,7 @@ void NDS::MainRAMHandleARM9()
             {
                 A9ContentionTS += 2;
                 MainRAMTimestamp += 2;
-                ARM9.DataCycles = 2 << ARM9ClockShift;
+                if (!(var & MRWrite)) ARM9.DataCycles = 2 << ARM9ClockShift;
             }
             else
             {
@@ -940,7 +940,7 @@ void NDS::MainRAMHandleARM9()
                 
                 MainRAMBork = !(var & MRWrite) && ((addr & 0x1F) >= 0x1A);
                 MainRAMTimestamp = A9ContentionTS +  ((var & MR16) ? 8 : 9); // checkme: are these correct for 8bit?
-                if (var & MRWrite) A9ContentionTS += ((var & MR16) ? 5 : 6); // checkme: is this correct for 133mhz?
+                if (var & MRWrite) A9ContentionTS += ((var & MR16) ? 6 : 7); // checkme: is this correct for 133mhz?
                 else
                 {
                     if (ARM9ClockShift == 1) A9ContentionTS += ((var & MR16) ? 8 : 9);
@@ -958,6 +958,7 @@ void NDS::MainRAMHandleARM9()
             }
             else
             {
+                ARM9.DataRegion = Mem9_MainRAM;
                 u8 reg = ARM9.MRTrack.Progress;
                 u32 addr = ARM9.FetchAddr[reg];
                 if (var & MRWrite) // write
@@ -1051,6 +1052,8 @@ void NDS::MainRAMHandleARM9()
             (*prog)++;
             if (*prog >= 8)
             {
+                ARM9.DataRegion = Mem9_MainRAM;
+                ARM9.DataCycles = 3 << ARM9ClockShift;
                 ARM9.RetVal = dcache[(ARM9.FetchAddr[16] & 0x1F) / 4];
                 memset(&ARM9.MRTrack, 0, sizeof(ARM9.MRTrack));
                 ConTSLock = false;

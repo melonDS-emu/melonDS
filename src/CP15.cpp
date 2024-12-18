@@ -2967,7 +2967,7 @@ void ARMv5::DWrite16_3()
     else
     {
         NDS.ARM9Timestamp += MemTimings[addr >> 14][0];
-        DataCycles = NDS.ARM9ClockShift;
+        DataCycles = 3<<NDS.ARM9ClockShift;
         DataRegion = NDS.ARM9Regions[addr>>14];
         
         if (WBTimestamp < ((NDS.ARM9Timestamp + ((1<<NDS.ARM9ClockShift)-1)) & ~((1<<NDS.ARM9ClockShift)-1)))
@@ -3197,7 +3197,7 @@ void ARMv5::DWrite32S_3()
         }
         else
         {
-            NDS.ARM9Timestamp += DataCycles = MemTimings[addr>>14][2];
+            NDS.ARM9Timestamp += MemTimings[addr>>14][2];
             DataRegion = NDS.ARM9Regions[addr>>14];
         
             if (WBTimestamp < ((NDS.ARM9Timestamp + ((1<<NDS.ARM9ClockShift)-1)) & ~((1<<NDS.ARM9ClockShift)-1)))
