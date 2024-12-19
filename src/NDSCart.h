@@ -442,6 +442,8 @@ private:
     u64 Key2_X = 0;
     u64 Key2_Y = 0;
 
+    u64 LastRomTransferTime;
+
     void Key1_Encrypt(u32* data) const noexcept;
     void Key1_Decrypt(u32* data) const noexcept;
     void Key1_ApplyKeycode(u32* keycode, u32 mod) noexcept;
