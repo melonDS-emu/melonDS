@@ -1972,7 +1972,7 @@ void NDSCartSlot::AdvanceROMTransfer() noexcept
         ROMTransferTime[0] = ROMTransferTime[1];
 
         if ((TransferPos + 4) < TransferLen)
-            ROMTransferTime[1] = (xfercycle*delay) + curts;
+            ROMTransferTime[1] = (xfercycle*delay) + std::max(curts, ROMTransferTime[0]);
         else
             ROMTransferTime[1] = -1;
 
