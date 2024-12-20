@@ -410,13 +410,16 @@ public:
     void WriteROMCnt(u32 val) noexcept;
     [[nodiscard]] u8 ReadSPIData() const noexcept;
     void WriteSPIData(u8 val) noexcept;
+    void ROMPrepareData() noexcept;
 
     [[nodiscard]] u8 GetROMCommand(u8 index) const noexcept { return ROMCommand[index]; }
     void SetROMCommand(u8 index, u8 val) noexcept { ROMCommand[index] = val; }
 
-    [[nodiscard]] u32 GetROMCnt() const noexcept { return ROMCnt; }
+    [[nodiscard]] u32 GetROMCnt() noexcept;
+
     [[nodiscard]] u16 GetSPICnt() const noexcept { return SPICnt; }
     void SetSPICnt(u16 val) noexcept { SPICnt = val; }
+
 private:
     friend class CartCommon;
     melonDS::NDS& NDS;
@@ -426,6 +429,8 @@ private:
     u8 SPIData = 0;
     u32 SPIDataPos = 0;
     bool SPIHold = false;
+    bool QueueIRQ;
+    bool ScheduledIRQ;
 
     u32 ROMData = 0;
 
@@ -442,7 +447,7 @@ private:
     u64 Key2_X = 0;
     u64 Key2_Y = 0;
 
-    u64 LastRomTransferTime;
+    u64 ROMTransferTime[2];
 
     void Key1_Encrypt(u32* data) const noexcept;
     void Key1_Decrypt(u32* data) const noexcept;
@@ -451,7 +456,6 @@ private:
     void Key1_InitKeycode(bool dsi, u32 idcode, u32 level, u32 mod) noexcept;
     void Key2_Encrypt(const u8* data, u32 len) noexcept;
     void ROMEndTransfer(u32 param) noexcept;
-    void ROMPrepareData(u32 param) noexcept;
     void AdvanceROMTransfer() noexcept;
     void SPITransferDone(u32 param) noexcept;
 };
