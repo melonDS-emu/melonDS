@@ -1797,10 +1797,8 @@ void NDSCartSlot::ResetCart() noexcept
     TransferDir = 0;
     memset(TransferCmd.data(), 0, sizeof(TransferCmd));
     TransferCmd[0] = 0xFF;
-    ROMTransferTime[0] = 0;
-    ROMTransferTime[1] = 0;
-    QueueIRQ = false;
-    ScheduledIRQ = false;
+    ROMTransferTime[0] = -1;
+    ROMTransferTime[1] = -1;
 
     if (Cart) Cart->Reset();
 }

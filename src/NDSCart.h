@@ -429,8 +429,6 @@ private:
     u8 SPIData = 0;
     u32 SPIDataPos = 0;
     bool SPIHold = false;
-    bool QueueIRQ;
-    bool ScheduledIRQ;
 
     u32 ROMData = 0;
 
