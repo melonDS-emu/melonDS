@@ -1645,7 +1645,7 @@ bool NDS::MainRAMHandle()
         {
             if (A9ContentionTS < ARM7Timestamp)
             {
-                if (ARM9.MRTrack.Type == MainRAMType::Null) return 0;
+                if (ARM9.MRTrack.Type == MainRAMType::Null || (CPUStop & CPUStop_GXStall)) return 0;
                 MainRAMHandleARM9();
             }
             else
@@ -1661,7 +1661,7 @@ bool NDS::MainRAMHandle()
         {
             if (A9ContentionTS <= ARM7Timestamp)
             {
-                if (ARM9.MRTrack.Type == MainRAMType::Null) return 0;
+                if (ARM9.MRTrack.Type == MainRAMType::Null || (CPUStop & CPUStop_GXStall)) return 0;
                 MainRAMHandleARM9();
             }
             else
@@ -1748,15 +1748,15 @@ u32 NDS::RunFrame()
                     RunTimers(0);
                     GPU.GPU3D.Run();
 
-                    if (ARM9.MRTrack.Type == MainRAMType::Null)
+                    if (CPUStop & CPUStop_GXStall)
                     {
-                        if (CPUStop & CPUStop_GXStall)
-                        {
-                            // GXFIFO stall
-                            s32 cycles = GPU.GPU3D.CyclesToRunFor();
-                            DMA9Timestamp = std::min(ARM9Target, std::max(ARM9Timestamp+(cycles<<ARM9ClockShift), DMA9Timestamp+(cycles<<ARM9ClockShift)));
-                        }
-                        else if (CPUStop & CPUStop_DMA9)
+                        // GXFIFO stall
+                        s32 cycles = GPU.GPU3D.CyclesToRunFor();
+                        DMA9Timestamp = std::min(ARM9Target, std::max(ARM9Timestamp, DMA9Timestamp)+(cycles<<ARM9ClockShift));
+                    }
+                    else if (ARM9.MRTrack.Type == MainRAMType::Null)
+                    {
+                        if (CPUStop & CPUStop_DMA9)
                         {
                             DMAs[0].Run();
                             if (!(CPUStop & CPUStop_GXStall) && (ARM9.MRTrack.Type == MainRAMType::Null)) DMAs[1].Run();
