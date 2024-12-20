@@ -1092,8 +1092,16 @@ void NDS::MainRAMHandleARM9()
                 }
                 else
                 {
-                    if (burststart == 2 || dma->SrcAddrInc <= 0) A9ContentionTS += ARM9MemTimings[srcaddr>>14][6] + (ARM9MemTimings[srcaddr>>14][6] == 1);
-                    else                                         A9ContentionTS += ARM9MemTimings[srcaddr>>14][7];
+                    if (burststart == 2 || dma->SrcAddrInc <= 0)
+                    {
+                        A9ContentionTS   += ARM9MemTimings[srcaddr>>14][6] + ((burststart == 2) && (ARM9MemTimings[srcaddr>>14][6] == 1));
+                        MainRAMTimestamp += ARM9MemTimings[srcaddr>>14][6] + ((burststart == 2) && (ARM9MemTimings[srcaddr>>14][6] == 1));
+                    }
+                    else
+                    {
+                        A9ContentionTS   += ARM9MemTimings[srcaddr>>14][7];
+                        MainRAMTimestamp += ARM9MemTimings[srcaddr>>14][7];
+                    }
                     DMALastWasMainRAM = false;
                 }
                 
@@ -1125,8 +1133,16 @@ void NDS::MainRAMHandleARM9()
                 }
                 else
                 {
-                    if (burststart == 2 || dma->DstAddrInc <= 0) A9ContentionTS += ARM9MemTimings[dstaddr>>14][6];
-                    else                                         A9ContentionTS += ARM9MemTimings[dstaddr>>14][7] - (burststart <= 0);
+                    if (burststart == 2 || dma->DstAddrInc <= 0)
+                    {
+                        A9ContentionTS   += ARM9MemTimings[dstaddr>>14][6] - (burststart <= 0);
+                        MainRAMTimestamp += ARM9MemTimings[dstaddr>>14][6] + (burststart == 1);
+                    }
+                    else
+                    {
+                        A9ContentionTS   += ARM9MemTimings[dstaddr>>14][7] - (burststart <= 0);
+                        MainRAMTimestamp += ARM9MemTimings[dstaddr>>14][7] + (burststart == 1);
+                    }
                     DMALastWasMainRAM = false;
                 }
                 
@@ -1182,8 +1198,16 @@ void NDS::MainRAMHandleARM9()
                 }
                 else
                 {
-                    if (burststart == 2 || dma->SrcAddrInc <= 0) A9ContentionTS += ARM9MemTimings[srcaddr>>14][4] + (ARM9MemTimings[srcaddr>>14][4] == 1);
-                    else                                         A9ContentionTS += ARM9MemTimings[srcaddr>>14][5];
+                    if (burststart == 2 || dma->SrcAddrInc <= 0)
+                    {
+                        A9ContentionTS   += ARM9MemTimings[srcaddr>>14][4] + ((burststart == 2) && (ARM9MemTimings[srcaddr>>14][4] == 1));
+                        MainRAMTimestamp += ARM9MemTimings[srcaddr>>14][4] + ((burststart == 2) && (ARM9MemTimings[srcaddr>>14][4] == 1));
+                    }
+                    else
+                    {
+                        A9ContentionTS   += ARM9MemTimings[srcaddr>>14][5];
+                        MainRAMTimestamp += ARM9MemTimings[srcaddr>>14][5];
+                    }
                     DMALastWasMainRAM = false;
                 }
                 
@@ -1215,8 +1239,16 @@ void NDS::MainRAMHandleARM9()
                 }
                 else
                 {
-                    if (burststart == 2 || dma->DstAddrInc <= 0) A9ContentionTS += ARM9MemTimings[dstaddr>>14][4];
-                    else                                         A9ContentionTS += ARM9MemTimings[dstaddr>>14][5] - (burststart <= 0);
+                    if (burststart == 2 || dma->DstAddrInc <= 0)
+                    {
+                        A9ContentionTS   += ARM9MemTimings[dstaddr>>14][4] + (burststart == 1);
+                        MainRAMTimestamp += ARM9MemTimings[dstaddr>>14][4];
+                    }
+                    else
+                    {
+                        A9ContentionTS   += ARM9MemTimings[dstaddr>>14][5] + (burststart == 1);
+                        MainRAMTimestamp += ARM9MemTimings[dstaddr>>14][5];
+                    }
                     DMALastWasMainRAM = false;
                 }
                 
@@ -1422,8 +1454,16 @@ void NDS::MainRAMHandleARM7()
                 }
                 else
                 {
-                    if (burststart == 2 || dma->SrcAddrInc <= 0) ARM7Timestamp += ARM7MemTimings[srcaddr>>15][2] + (ARM7MemTimings[srcaddr>>15][2] == 1);
-                    else                                         ARM7Timestamp += ARM7MemTimings[srcaddr>>15][3];
+                    if (burststart == 2 || dma->SrcAddrInc <= 0)
+                    {
+                        ARM7Timestamp    += ARM7MemTimings[srcaddr>>15][2] + ((burststart == 2) && (ARM7MemTimings[srcaddr>>15][2] == 1));
+                        MainRAMTimestamp += ARM7MemTimings[srcaddr>>15][2] + ((burststart == 2) && (ARM7MemTimings[srcaddr>>15][2] == 1));
+                    }
+                    else
+                    {
+                        ARM7Timestamp    += ARM7MemTimings[srcaddr>>15][3];
+                        MainRAMTimestamp += ARM7MemTimings[srcaddr>>15][3];
+                    }
                     DMALastWasMainRAM = false;
                 }
 
@@ -1452,8 +1492,16 @@ void NDS::MainRAMHandleARM7()
                 }
                 else
                 {
-                    if (burststart == 2 || dma->DstAddrInc <= 0) ARM7Timestamp += ARM7MemTimings[dstaddr>>15][2];
-                    else                                         ARM7Timestamp += ARM7MemTimings[dstaddr>>15][3] - (burststart <= 0);
+                    if (burststart == 2 || dma->DstAddrInc <= 0)
+                    {
+                        ARM7Timestamp    += ARM7MemTimings[dstaddr>>15][2] - (burststart <= 0);
+                        MainRAMTimestamp += ARM7MemTimings[dstaddr>>15][2] + (burststart == 1);
+                    }
+                    else
+                    {
+                        ARM7Timestamp    += ARM7MemTimings[dstaddr>>15][3] - (burststart <= 0);
+                        MainRAMTimestamp += ARM7MemTimings[dstaddr>>15][3] + (burststart == 1);
+                    }
                     DMALastWasMainRAM = false;
                 }
 
@@ -1506,8 +1554,16 @@ void NDS::MainRAMHandleARM7()
                 }
                 else
                 {
-                    if (burststart == 2 || dma->SrcAddrInc <= 0) ARM7Timestamp += ARM7MemTimings[srcaddr>>15][0] + (ARM7MemTimings[srcaddr>>15][0] == 1);
-                    else                                         ARM7Timestamp += ARM7MemTimings[srcaddr>>15][1];
+                    if (burststart == 2 || dma->SrcAddrInc <= 0)
+                    {
+                        ARM7Timestamp    += ARM7MemTimings[srcaddr>>15][0] + ((burststart == 2) && (ARM7MemTimings[srcaddr>>15][0] == 1));
+                        MainRAMTimestamp += ARM7MemTimings[srcaddr>>15][0] + ((burststart == 2) && (ARM7MemTimings[srcaddr>>15][0] == 1));
+                    }
+                    else
+                    {
+                        ARM7Timestamp    += ARM7MemTimings[srcaddr>>15][1];
+                        MainRAMTimestamp += ARM7MemTimings[srcaddr>>15][1];
+                    }
                     DMALastWasMainRAM = false;
                 }
 
@@ -1536,8 +1592,16 @@ void NDS::MainRAMHandleARM7()
                 }
                 else
                 {
-                    if (burststart == 2 || dma->DstAddrInc <= 0) ARM7Timestamp += ARM7MemTimings[dstaddr>>15][0];
-                    else                                         ARM7Timestamp += ARM7MemTimings[dstaddr>>15][1] - (burststart <= 0);
+                    if (burststart == 2 || dma->DstAddrInc <= 0)
+                    {
+                        ARM7Timestamp    += ARM7MemTimings[dstaddr>>15][0] + (burststart == 1);
+                        MainRAMTimestamp += ARM7MemTimings[dstaddr>>15][0];
+                    }
+                    else
+                    {
+                        ARM7Timestamp +=    ARM7MemTimings[dstaddr>>15][1] + (burststart == 1);
+                        MainRAMTimestamp += ARM7MemTimings[dstaddr>>15][1];
+                    }
                     DMALastWasMainRAM = false;
                 }
 
