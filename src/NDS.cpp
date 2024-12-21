@@ -1665,13 +1665,19 @@ bool NDS::MainRAMHandle()
         {
             if (A9ContentionTS < ARM7Timestamp)
             {
-                if (ARM9.MRTrack.Type == MainRAMType::Null || (CPUStop & CPUStop_GXStall)) return 0;
-                MainRAMHandleARM9();
+                if (ARM9.MRTrack.Type == MainRAMType::Null) return 0;
+                else if (CPUStop & CPUStop_GXStall)
+                {
+                    // gx stalls can occur during this, and if not handled properly will cause issues
+                    s32 cycles = GPU.GPU3D.CyclesToRunFor();
+                    A9ContentionTS = std::min(ARM9Target, A9ContentionTS+cycles);
+                }
+                else MainRAMHandleARM9();
             }
             else
             {
                 if (ARM7.MRTrack.Type == MainRAMType::Null) return 1;
-                MainRAMHandleARM7();
+                else MainRAMHandleARM7();
             }
         }
     }
@@ -1681,13 +1687,19 @@ bool NDS::MainRAMHandle()
         {
             if (A9ContentionTS <= ARM7Timestamp)
             {
-                if (ARM9.MRTrack.Type == MainRAMType::Null || (CPUStop & CPUStop_GXStall)) return 0;
-                MainRAMHandleARM9();
+                if (ARM9.MRTrack.Type == MainRAMType::Null) return 0;
+                else if (CPUStop & CPUStop_GXStall)
+                {
+                    // gx stalls can occur during this, and if not handled properly will cause issues
+                    s32 cycles = GPU.GPU3D.CyclesToRunFor();
+                    A9ContentionTS = std::min(ARM9Target, A9ContentionTS+cycles);
+                }
+                else MainRAMHandleARM9();
             }
             else
             {
                 if (ARM7.MRTrack.Type == MainRAMType::Null) return 1;
-                MainRAMHandleARM7();
+                else MainRAMHandleARM7();
             }
         }
     }
