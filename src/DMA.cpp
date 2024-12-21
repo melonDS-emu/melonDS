@@ -146,7 +146,10 @@ void DMA::WriteCnt(u32 val)
             StartMode = ((Cnt >> 28) & 0x3) | 0x10;
 
         if ((StartMode & 0x7) == 0)
-            Start();
+        {
+            NDS.DMAsQueued[NDS.DMAQueuePtr++] = (CPU*4)+Num;
+            if (!(NDS.SchedListMask & (1<<Event_DMA))) NDS.ScheduleEvent(Event_DMA, false, 1, 0, 0);
+        }
         else if (StartMode == 0x07)
             NDS.GPU.GPU3D.CheckFIFODMA();
 
@@ -211,6 +214,18 @@ void DMA::Start()
 
     InProgress = true;
     NDS.StopCPU(CPU, 1<<Num);
+
+    if (CPU == 0)
+    {
+        u64 ts;
+        /*if (StartMode == 0x00)
+        {
+            ts = (NDS.ARM9Timestamp + ((1<<NDS.ARM9ClockShift)-1)) & ~((1<<NDS.ARM9ClockShift)-1);
+        }
+        else*/ ts = NDS.SysTimestamp << NDS.ARM9ClockShift;
+
+        if (NDS.DMA9Timestamp < ts) NDS.DMA9Timestamp = ts;
+    }
 
     if (Num == 0) NDS.DMAs[(CPU*4)+1].ResetBurst();
     if (Num <= 1) NDS.DMAs[(CPU*4)+2].ResetBurst();
@@ -587,8 +602,8 @@ u32 DMA::UnitTimings7_32(int burststart)
 
 void DMA::Run9()
 {
-    NDS.DMA9Timestamp = std::max(NDS.DMA9Timestamp, NDS.ARM9Timestamp);
-    NDS.DMA9Timestamp = (NDS.DMA9Timestamp + ((1<<NDS.ARM9ClockShift)-1)) & ~((1<<NDS.ARM9ClockShift)-1);
+    //NDS.DMA9Timestamp = std::max(NDS.DMA9Timestamp, NDS.SysTimestamp << NDS.ARM9ClockShift);
+    //NDS.DMA9Timestamp = (NDS.DMA9Timestamp + ((1<<NDS.ARM9ClockShift)-1)) & ~((1<<NDS.ARM9ClockShift)-1);
 
     if (NDS.DMA9Timestamp-1 >= NDS.ARM9Target) return;
 

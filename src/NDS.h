@@ -64,6 +64,7 @@ enum
     Event_SPITransfer,
     Event_Div,
     Event_Sqrt,
+    Event_DMA,
 
     // DSi
     Event_DSi_SDMMCTransfer,
@@ -243,7 +244,8 @@ public: // TODO: Encapsulate the rest of these members
 
     int ConsoleType;
     int CurCPU;
-
+    
+    u32 SchedListMask;
     SchedEvent SchedList[Event_MAX] {};
     u8 ARM9MemTimings[0x40000][8];
     u32 ARM9Regions[0x40000];
@@ -259,6 +261,7 @@ public: // TODO: Encapsulate the rest of these members
     u64 ARM7Timestamp, ARM7Target;
     u64 MainRAMTimestamp, MainRAMBurstStart;
     u64 A9ContentionTS; bool ConTSLock;
+    u64 SysTimestamp;
     u32 ARM9ClockShift;
 
     u32 IME[2];
@@ -277,6 +280,8 @@ public: // TODO: Encapsulate the rest of these members
     alignas(u32) u8 ROMSeed1[2*8];
 
     u32 DMAReadHold[2];
+    u8 DMAsQueued[8];
+    u8 DMAQueuePtr;
     bool MainRAMBork; // if a main ram read burst starts in the last 6 bytes of a 32 byte block, and then crosses the 32 byte boundary, the burst forcibly restarts
     bool MainRAMLastAccess; // 0 == ARM9 | 1 == ARM7
     bool DMALastWasMainRAM;
@@ -506,8 +511,6 @@ public: // TODO: Encapsulate the rest of these members
 
 private:
     void InitTimings();
-    u32 SchedListMask;
-    u64 SysTimestamp;
     u8 WRAMCnt;
     u8 PostFlag9;
     u8 PostFlag7;
@@ -542,6 +545,7 @@ private:
     void HandleTimerOverflow(u32 tid);
     u16 TimerGetCounter(u32 timer);
     void TimerStart(u32 id, u16 cnt);
+    void QueueDMAs(u32 param);
     void StartDiv();
     void DivDone(u32 param);
     void SqrtDone(u32 param);

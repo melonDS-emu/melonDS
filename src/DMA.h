@@ -75,7 +75,7 @@ public:
 
     void ResetBurst()
     {
-        if (Running > 0) Running = (CPU ? 2 : 3);
+        if (Running > 0) Running = 3;
     }
 
     u32 SrcAddr {};

@@ -124,6 +124,7 @@ NDS::NDS(NDSArgs&& args, int type, void* userdata) noexcept :
 {
     RegisterEventFuncs(Event_Div, this, {MakeEventThunk(NDS, DivDone)});
     RegisterEventFuncs(Event_Sqrt, this, {MakeEventThunk(NDS, SqrtDone)});
+    RegisterEventFuncs(Event_DMA, this, {MakeEventThunk(NDS, QueueDMAs)});
 
     MainRAM = JIT.Memory.GetMainRAM();
     SharedWRAM = JIT.Memory.GetSharedWRAM();
@@ -134,6 +135,7 @@ NDS::~NDS() noexcept
 {
     UnregisterEventFuncs(Event_Div);
     UnregisterEventFuncs(Event_Sqrt);
+    UnregisterEventFuncs(Event_DMA);
     // The destructor for each component is automatically called by the compiler
 }
 
@@ -547,6 +549,9 @@ void NDS::Reset()
     KeyCnt[0] = 0;
     KeyCnt[1] = 0;
     RCnt = 0;
+
+    memset(DMAsQueued, 0, sizeof(DMAsQueued));
+    DMAQueuePtr = 0;
 
     GPU.Reset();
     NDSCartSlot.Reset();
@@ -1818,8 +1823,8 @@ u32 NDS::RunFrame()
                     }
                 }
                 
-                NDSCartSlot.ROMPrepareData();
                 RunSystem(target);
+                NDSCartSlot.ROMPrepareData();
 
                 if (CPUStop & CPUStop_Sleep)
                 {
@@ -2524,6 +2529,15 @@ void NDS::StopDMAs(u32 cpu, u32 mode)
     DMAs[cpu+1].StopIfNeeded(mode);
     DMAs[cpu+2].StopIfNeeded(mode);
     DMAs[cpu+3].StopIfNeeded(mode);
+}
+
+void NDS::QueueDMAs(u32 param)
+{
+    DMAs[DMAsQueued[0]].Start();
+    for(int i = 0; i < 7; i++) DMAsQueued[i] = DMAsQueued[i+1];
+    DMAQueuePtr--;
+
+    if (DMAQueuePtr != 0) ScheduleEvent(Event_DMA, false, 1, 0, 0);
 }
 
 

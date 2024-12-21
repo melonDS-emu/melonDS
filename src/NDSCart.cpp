@@ -1982,10 +1982,6 @@ void NDSCartSlot::AdvanceROMTransfer() noexcept
 u32 NDSCartSlot::ReadROMData() noexcept
 {
     if (ROMCnt & (1<<30)) return 0;
-    
-    u64 curts;
-    if (NDS.ExMemCnt[0] & (1<<11)) curts = NDS.ARM7Timestamp;
-    else                           curts = (std::max(NDS.ARM9Timestamp, NDS.DMA9Timestamp) + ((1<<NDS.ARM9ClockShift)-1)) >> NDS.ARM9ClockShift;
 
     ROMPrepareData();
 
@@ -2000,11 +1996,7 @@ u32 NDSCartSlot::ReadROMData() noexcept
 void NDSCartSlot::WriteROMData(u32 val) noexcept
 {
     if (!(ROMCnt & (1<<30))) return;
-    
-    u64 curts;
-    if (NDS.ExMemCnt[0] & (1<<11)) curts = NDS.ARM7Timestamp;
-    else                           curts = (std::max(NDS.ARM9Timestamp, NDS.DMA9Timestamp) + ((1<<NDS.ARM9ClockShift)-1)) >> NDS.ARM9ClockShift;
-    
+
     ROMPrepareData();
 
     ROMData = val;
