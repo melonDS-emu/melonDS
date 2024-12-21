@@ -2213,7 +2213,13 @@ void ARMv5::CodeRead32(u32 addr)
             }
     #endif 
         }
-    
+        
+    FetchAddr[16] = addr;
+    QueueFunction(&ARMv5::CodeRead32_2);
+}
+
+void ARMv5::CodeRead32_2()
+{
     if (NDS.ARM9Timestamp < NDS.DMA9Timestamp) NDS.ARM9Timestamp = NDS.DMA9Timestamp;
     // bus reads can only overlap with dcache streaming by 6 cycles
     if (DCacheStreamPtr < 7)
@@ -2222,16 +2228,15 @@ void ARMv5::CodeRead32(u32 addr)
         if (NDS.ARM9Timestamp < time) NDS.ARM9Timestamp = time;
     }
     
-    if (PU_Map[addr>>12] & 0x30)
+    if (PU_Map[FetchAddr[16]>>12] & 0x30)
         WriteBufferDrain();
     else
         WriteBufferCheck<3>();
 
-    FetchAddr[16] = addr;
-    QueueFunction(&ARMv5::CodeRead32_2);
+    QueueFunction(&ARMv5::CodeRead32_3);
 }
 
-void ARMv5::CodeRead32_2()
+void ARMv5::CodeRead32_3()
 {
     u32 addr = FetchAddr[16];
 
@@ -2346,6 +2351,15 @@ void ARMv5::DRead8_2()
         }
     #endif
 
+    QueueFunction(&ARMv5::DRead8_3);
+}
+
+void ARMv5::DRead8_3()
+{
+    u8 reg = __builtin_ctz(LDRRegs);
+    u32 addr = FetchAddr[reg];
+    u32 dummy; u32* val = (LDRFailedRegs & (1<<reg)) ? &dummy : &R[reg];
+
     if (NDS.ARM9Timestamp < NDS.DMA9Timestamp) NDS.ARM9Timestamp = NDS.DMA9Timestamp;
     // bus reads can only overlap with icache streaming by 6 cycles
     // checkme: does dcache trigger this?
@@ -2360,10 +2374,10 @@ void ARMv5::DRead8_2()
     else
         WriteBufferCheck<1>();
 
-    QueueFunction(&ARMv5::DRead8_3);
+    QueueFunction(&ARMv5::DRead8_4);
 }
 
-void ARMv5::DRead8_3()
+void ARMv5::DRead8_4()
 {
     u8 reg = __builtin_ctz(LDRRegs);
     u32 addr = FetchAddr[reg];
@@ -2461,6 +2475,15 @@ void ARMv5::DRead16_2()
         }
     #endif
 
+    QueueFunction(&ARMv5::DRead16_3);
+}
+
+void ARMv5::DRead16_3()
+{
+    u8 reg = __builtin_ctz(LDRRegs);
+    u32 addr = FetchAddr[reg];
+    u32 dummy; u32* val = (LDRFailedRegs & (1<<reg)) ? &dummy : &R[reg];
+
     if (NDS.ARM9Timestamp < NDS.DMA9Timestamp) NDS.ARM9Timestamp = NDS.DMA9Timestamp;
     // bus reads can only overlap with icache streaming by 6 cycles
     // checkme: does cache trigger this?
@@ -2475,10 +2498,10 @@ void ARMv5::DRead16_2()
     else
         WriteBufferCheck<1>();
 
-    QueueFunction(&ARMv5::DRead16_3);
+    QueueFunction(&ARMv5::DRead16_4);
 }
 
-void ARMv5::DRead16_3()
+void ARMv5::DRead16_4()
 {
     u8 reg = __builtin_ctz(LDRRegs);
     u32 addr = FetchAddr[reg];
@@ -2576,7 +2599,16 @@ void ARMv5::DRead32_2()
             }
         }
     #endif
-    
+
+    QueueFunction(&ARMv5::DRead32_3);
+}
+
+void ARMv5::DRead32_3()
+{
+    u8 reg = __builtin_ctz(LDRRegs);
+    u32 addr = FetchAddr[reg];
+    u32 dummy; u32* val = (LDRFailedRegs & (1<<reg)) ? &dummy : &R[reg];
+
     if (NDS.ARM9Timestamp < NDS.DMA9Timestamp) NDS.ARM9Timestamp = NDS.DMA9Timestamp;
     // bus reads can only overlap with icache streaming by 6 cycles
     // checkme: does cache trigger this?
@@ -2591,10 +2623,10 @@ void ARMv5::DRead32_2()
     else
         WriteBufferCheck<1>();
 
-    QueueFunction(&ARMv5::DRead32_3);
+    QueueFunction(&ARMv5::DRead32_4);
 }
 
-void ARMv5::DRead32_3()
+void ARMv5::DRead32_4()
 {
     u8 reg = __builtin_ctz(LDRRegs);
     u32 addr = FetchAddr[reg];
@@ -2678,7 +2710,16 @@ void ARMv5::DRead32S_2()
             }
         }
     #endif
-    
+
+    QueueFunction(&ARMv5::DRead32S_3);
+}
+
+void ARMv5::DRead32S_3()
+{
+    u8 reg = __builtin_ctz(LDRRegs);
+    u32 addr = FetchAddr[reg];
+    u32 dummy; u32* val = (LDRFailedRegs & (1<<reg)) ? &dummy : &R[reg];
+
     if (NDS.ARM9Timestamp < NDS.DMA9Timestamp) NDS.ARM9Timestamp = NDS.DMA9Timestamp;
     // bus reads can only overlap with icache streaming by 6 cycles
     // checkme: does cache trigger this?
@@ -2693,10 +2734,10 @@ void ARMv5::DRead32S_2()
     else
         WriteBufferCheck<1>();
         
-    QueueFunction(&ARMv5::DRead32S_3);
+    QueueFunction(&ARMv5::DRead32S_4);
 }
 
-void ARMv5::DRead32S_3()
+void ARMv5::DRead32S_4()
 {
     u8 reg = __builtin_ctz(LDRRegs);
     u32 addr = FetchAddr[reg];
@@ -2815,16 +2856,6 @@ void ARMv5::DWrite8_2()
 
     if (!(PU_Map[addr>>12] & (0x30)))
     {
-        if (NDS.ARM9Timestamp < NDS.DMA9Timestamp) NDS.ARM9Timestamp = NDS.DMA9Timestamp;
-        // bus reads can only overlap with icache streaming by 6 cycles
-        // checkme: do buffered writes trigger this?
-        if (ICacheStreamPtr < 7)
-        {
-            u64 time = ICacheStreamTimes[6] - 6; // checkme: minus 6?
-            if (NDS.ARM9Timestamp < time) NDS.ARM9Timestamp = time;
-        }
-
-        WriteBufferCheck<2>();
         QueueFunction(&ARMv5::DWrite8_3);
     }
     else
@@ -2837,6 +2868,21 @@ void ARMv5::DWrite8_2()
 }
 
 void ARMv5::DWrite8_3()
+{
+    if (NDS.ARM9Timestamp < NDS.DMA9Timestamp) NDS.ARM9Timestamp = NDS.DMA9Timestamp;
+    // bus reads can only overlap with icache streaming by 6 cycles
+    // checkme: do buffered writes trigger this?
+    if (ICacheStreamPtr < 7)
+    {
+        u64 time = ICacheStreamTimes[6] - 6; // checkme: minus 6?
+        if (NDS.ARM9Timestamp < time) NDS.ARM9Timestamp = time;
+    }
+
+    WriteBufferCheck<2>();
+    QueueFunction(&ARMv5::DWrite8_4);
+}
+
+void ARMv5::DWrite8_4()
 {
     u8 reg = __builtin_ctz(STRRegs);
     u32 addr = FetchAddr[reg];
@@ -2929,16 +2975,6 @@ void ARMv5::DWrite16_2()
 
     if (!(PU_Map[addr>>12] & 0x30))
     {
-        if (NDS.ARM9Timestamp < NDS.DMA9Timestamp) NDS.ARM9Timestamp = NDS.DMA9Timestamp;
-        // bus reads can only overlap with icache streaming by 6 cycles
-        // checkme: do buffered writes trigger this?
-        if (ICacheStreamPtr < 7)
-        {
-            u64 time = ICacheStreamTimes[6] - 6; // checkme: minus 6?
-            if (NDS.ARM9Timestamp < time) NDS.ARM9Timestamp = time;
-        }
-
-        WriteBufferCheck<2>();
         QueueFunction(&ARMv5::DWrite16_3);
     }
     else
@@ -2951,6 +2987,21 @@ void ARMv5::DWrite16_2()
 }
 
 void ARMv5::DWrite16_3()
+{
+    if (NDS.ARM9Timestamp < NDS.DMA9Timestamp) NDS.ARM9Timestamp = NDS.DMA9Timestamp;
+    // bus reads can only overlap with icache streaming by 6 cycles
+    // checkme: do buffered writes trigger this?
+    if (ICacheStreamPtr < 7)
+    {
+        u64 time = ICacheStreamTimes[6] - 6; // checkme: minus 6?
+        if (NDS.ARM9Timestamp < time) NDS.ARM9Timestamp = time;
+    }
+
+    WriteBufferCheck<2>();
+    QueueFunction(&ARMv5::DWrite16_4);
+}
+
+void ARMv5::DWrite16_4()
 {
     u8 reg = __builtin_ctz(STRRegs);
     u32 addr = FetchAddr[reg];
@@ -3048,16 +3099,6 @@ void ARMv5::DWrite32_2()
 
     if (!(PU_Map[addr>>12] & 0x30))
     {
-        if (NDS.ARM9Timestamp < NDS.DMA9Timestamp) NDS.ARM9Timestamp = NDS.DMA9Timestamp;
-        // bus reads can only overlap with icache streaming by 6 cycles
-        // checkme: do buffered writes trigger this?
-        if (ICacheStreamPtr < 7)
-        {
-            u64 time = ICacheStreamTimes[6] - 6; // checkme: minus 6?
-            if (NDS.ARM9Timestamp < time) NDS.ARM9Timestamp = time;
-        }
-
-        WriteBufferCheck<2>();
         QueueFunction(&ARMv5::DWrite32_3);
     }
     else
@@ -3071,6 +3112,21 @@ void ARMv5::DWrite32_2()
 }
 
 void ARMv5::DWrite32_3()
+{
+    if (NDS.ARM9Timestamp < NDS.DMA9Timestamp) NDS.ARM9Timestamp = NDS.DMA9Timestamp;
+    // bus reads can only overlap with icache streaming by 6 cycles
+    // checkme: do buffered writes trigger this?
+    if (ICacheStreamPtr < 7)
+    {
+        u64 time = ICacheStreamTimes[6] - 6; // checkme: minus 6?
+        if (NDS.ARM9Timestamp < time) NDS.ARM9Timestamp = time;
+    }
+
+    WriteBufferCheck<2>();
+    QueueFunction(&ARMv5::DWrite32_4);
+}
+
+void ARMv5::DWrite32_4()
 {
     u8 reg = __builtin_ctz(STRRegs);
     u32 addr = FetchAddr[reg];
@@ -3162,15 +3218,6 @@ void ARMv5::DWrite32S_2()
 
     if (!(PU_Map[addr>>12] & 0x30)) // non-bufferable
     {
-        if (NDS.ARM9Timestamp < NDS.DMA9Timestamp) NDS.ARM9Timestamp = NDS.DMA9Timestamp;
-        // bus reads can only overlap with icache streaming by 6 cycles
-        // checkme: do buffered writes trigger this?
-        if (ICacheStreamPtr < 7)
-        {
-            u64 time = ICacheStreamTimes[6] - 6; // checkme: minus 6?
-            if (NDS.ARM9Timestamp < time) NDS.ARM9Timestamp = time;
-        }
-        WriteBufferCheck<2>();
         QueueFunction(&ARMv5::DWrite32S_3);
     }
     else
@@ -3181,6 +3228,20 @@ void ARMv5::DWrite32S_2()
 }
 
 void ARMv5::DWrite32S_3()
+{
+    if (NDS.ARM9Timestamp < NDS.DMA9Timestamp) NDS.ARM9Timestamp = NDS.DMA9Timestamp;
+    // bus reads can only overlap with icache streaming by 6 cycles
+    // checkme: do buffered writes trigger this?
+    if (ICacheStreamPtr < 7)
+    {
+        u64 time = ICacheStreamTimes[6] - 6; // checkme: minus 6?
+        if (NDS.ARM9Timestamp < time) NDS.ARM9Timestamp = time;
+    }
+    WriteBufferCheck<2>();
+    QueueFunction(&ARMv5::DWrite32S_4);
+}
+
+void ARMv5::DWrite32S_4()
 {
     u8 reg = __builtin_ctz(STRRegs);
     u32 addr = FetchAddr[reg];

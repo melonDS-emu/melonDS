@@ -723,14 +723,8 @@ public:
      * @return Value of the cp15 register
      */
     u32 CP15Read(const u32 id) const;
-    
-    inline void QueueFunction(void (ARMv5::*QueueEntry)(void))
-    {
-        if (MRTrack.Type != MainRAMType::Null)
-            FuncQueue[FuncQueueFill++] = QueueEntry;
-        else
-            (this->*QueueEntry)();
-    }
+
+    void QueueFunction(void (ARMv5::*QueueEntry)(void));
 
     // Queue Functions
     void StartExecARM();
@@ -744,27 +738,36 @@ public:
     void JumpTo_3C();
     void JumpTo_4();
     void CodeRead32_2();
+    void CodeRead32_3();
     void ICacheLookup_2();
     void DAbortHandle();
     void DCacheFin8();
     void DRead8_2();
     void DRead8_3();
+    void DRead8_4();
     void DCacheFin16();
     void DRead16_2();
     void DRead16_3();
+    void DRead16_4();
     void DCacheFin32();
     void DRead32_2();
     void DRead32_3();
+    void DRead32_4();
     void DRead32S_2();
     void DRead32S_3();
+    void DRead32S_4();
     void DWrite8_2();
     void DWrite8_3();
+    void DWrite8_4();
     void DWrite16_2();
     void DWrite16_3();
+    void DWrite16_4();
     void DWrite32_2();
     void DWrite32_3();
+    void DWrite32_4();
     void DWrite32S_2();
     void DWrite32S_3();
+    void DWrite32S_4();
     void WBCheck_2();
     void ICachePrefetch_2();
     void DCacheLookup_2();
@@ -933,13 +936,7 @@ public:
     void AddCycles_CDI() override;
     void AddCycles_CD() override;
     
-    inline void QueueFunction(void (ARMv4::*QueueEntry)(void))
-    {
-        if (MRTrack.Type != MainRAMType::Null)
-            FuncQueue[FuncQueueFill++] = QueueEntry;
-        else
-            (this->*QueueEntry)();
-    }
+    void QueueFunction(void (ARMv4::*QueueEntry)(void));
     
     void StartExecARM();
     void StartExecTHUMB();

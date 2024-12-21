@@ -1447,6 +1447,22 @@ void ARMv5::ForceInterlock_2()
     NDS.ARM9Timestamp = TimestampMemory + ILForceDelay;
 }
 
+void ARMv5::QueueFunction(void (ARMv5::*QueueEntry)(void))
+{
+    if ((NDS.ARM9Timestamp >= NDS.ARM9Target) || (MRTrack.Type != MainRAMType::Null))
+        FuncQueue[FuncQueueFill++] = QueueEntry;
+    else
+        (this->*QueueEntry)();
+}
+
+void ARMv4::QueueFunction(void (ARMv4::*QueueEntry)(void))
+{
+    if ((NDS.ARM7Timestamp >= NDS.ARM7Target) || (MRTrack.Type != MainRAMType::Null))
+        FuncQueue[FuncQueueFill++] = QueueEntry;
+    else
+        (this->*QueueEntry)();
+}
+
 void ARMv4::CodeRead16(u32 addr)
 {
     if ((addr >> 24) == 0x02)

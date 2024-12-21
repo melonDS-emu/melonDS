@@ -792,7 +792,7 @@ void NDS::SetARM9BIOS(const std::array<u8, ARM9BIOSSize>& bios) noexcept
 
 u64 NDS::NextTarget()
 {
-    u64 minEvent = UINT64_MAX;
+    u64 minEvent = std::max(SysTimestamp+1, NDSCartSlot.ROMTransferTime[0]);
 
     u32 mask = SchedListMask;
     for (int i = 0; i < Event_MAX; i++)
@@ -1740,7 +1740,6 @@ u32 NDS::RunFrame()
                 u64 target = NextTarget();
 
                 ARM9Target = target << ARM9ClockShift;
-                //ARM7Target = target;
 
                 while (std::max(std::max(ARM9Timestamp, DMA9Timestamp), A9ContentionTS << ARM9ClockShift) < ARM9Target)
                 {
@@ -1776,12 +1775,10 @@ u32 NDS::RunFrame()
                     }
 
                     //printf("MAIN LOOP: 9 %lli %08X %08llX %i 7 %lli %08X %08llX %i %i %08X\n", ARM9Timestamp>>ARM9ClockShift, ARM9.PC, ARM9.CurInstr, (u8)ARM9.MRTrack.Type, ARM7Timestamp, ARM7.R[15], ARM7.CurInstr, (u8)ARM7.MRTrack.Type, IME[1], IE[1]);
-                    
-                    NDSCartSlot.ROMPrepareData();
+
                     RunTimers(0);
                     GPU.GPU3D.Run();
 
-                    //if (MainRAMHandle()) break;
                     MainRAMHandle();
 
                     target = std::max(std::max(ARM9Timestamp, DMA9Timestamp) >> ARM9ClockShift, A9ContentionTS);
@@ -1816,12 +1813,12 @@ u32 NDS::RunFrame()
                         }
 
                         RunTimers(1);
-                        NDSCartSlot.ROMPrepareData();
 
                         if (!MainRAMHandle()) break;
                     }
                 }
-
+                
+                NDSCartSlot.ROMPrepareData();
                 RunSystem(target);
 
                 if (CPUStop & CPUStop_Sleep)

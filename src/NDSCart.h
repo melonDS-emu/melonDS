@@ -420,6 +420,8 @@ public:
     [[nodiscard]] u16 GetSPICnt() const noexcept { return SPICnt; }
     void SetSPICnt(u16 val) noexcept { SPICnt = val; }
 
+    u64 ROMTransferTime[2];
+
 private:
     friend class CartCommon;
     melonDS::NDS& NDS;
@@ -444,8 +446,6 @@ private:
 
     u64 Key2_X = 0;
     u64 Key2_Y = 0;
-
-    u64 ROMTransferTime[2];
 
     void Key1_Encrypt(u32* data) const noexcept;
     void Key1_Decrypt(u32* data) const noexcept;
