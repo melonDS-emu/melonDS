@@ -37,7 +37,8 @@ namespace NDSCart
 
 enum
 {
-    ROMTransfer_End = 0
+    ROMTransfer_PrepareData = 0,
+    ROMTransfer_End
 };
 
 // SRAM TODO: emulate write delays???
@@ -1442,6 +1443,7 @@ NDSCartSlot::NDSCartSlot(melonDS::NDS& nds, std::unique_ptr<CartCommon>&& rom) n
 {
     NDS.RegisterEventFuncs(Event_ROMTransfer, this,
     {
+        MakeEventThunk(NDSCartSlot, ROMPrepareData),
         MakeEventThunk(NDSCartSlot, ROMEndTransfer)
     });
     NDS.RegisterEventFuncs(Event_ROMSPITransfer, this, {MakeEventThunk(NDSCartSlot, SPITransferDone)});
@@ -1797,8 +1799,7 @@ void NDSCartSlot::ResetCart() noexcept
     TransferDir = 0;
     memset(TransferCmd.data(), 0, sizeof(TransferCmd));
     TransferCmd[0] = 0xFF;
-    ROMTransferTime[0] = -1;
-    ROMTransferTime[1] = -1;
+    ROMTransferTime = -1;
 
     if (Cart) Cart->Reset();
 }
@@ -1815,14 +1816,8 @@ void NDSCartSlot::ROMEndTransfer(u32 param) noexcept
         Cart->ROMCommandFinish(TransferCmd.data(), TransferData.data(), TransferLen);
 }
 
-void NDSCartSlot::ROMPrepareData() noexcept
+void NDSCartSlot::ROMPrepareData(u32 param) noexcept
 {
-    u64 curts;
-    if (NDS.ExMemCnt[0] & (1<<11)) curts = NDS.ARM7Timestamp;
-    else                           curts = (std::max(NDS.ARM9Timestamp, NDS.DMA9Timestamp) + ((1<<NDS.ARM9ClockShift)-1)) >> NDS.ARM9ClockShift;
-
-    if (curts < ROMTransferTime[0]) return;
-
     if (TransferDir == 0)
     {
         if (TransferPos >= TransferLen)
@@ -1832,8 +1827,6 @@ void NDSCartSlot::ROMPrepareData() noexcept
 
         TransferPos += 4;
     }
-
-    ROMTransferTime[0] = -1;
 
     ROMCnt |= (1<<23);
 
@@ -1845,7 +1838,7 @@ void NDSCartSlot::ROMPrepareData() noexcept
 
 u32 NDSCartSlot::GetROMCnt() noexcept
 {
-    ROMPrepareData();
+    NDS.RunEventManual(Event_ROMTransfer);
     return ROMCnt;
 }
 
@@ -1936,16 +1929,13 @@ void NDSCartSlot::WriteROMCnt(u32 val) noexcept
         NDS.ScheduleEvent(Event_ROMTransfer, false, xfercycle*cmddelay, ROMTransfer_End, 0);
     else
     {
+        NDS.ScheduleEvent(Event_ROMTransfer, false, xfercycle*(cmddelay+4), ROMTransfer_PrepareData, 0);
+        
         u64 curts;
         if (NDS.ExMemCnt[0] & (1<<11)) curts = NDS.ARM7Timestamp;
         else                           curts = (std::max(NDS.ARM9Timestamp, NDS.DMA9Timestamp) + ((1<<NDS.ARM9ClockShift)-1)) >> NDS.ARM9ClockShift;
 
-        ROMTransferTime[0] = (xfercycle*(cmddelay+4)) + curts;
-
-        if ((TransferPos + 4) < TransferLen)
-            ROMTransferTime[1] = (xfercycle*(cmddelay+8)) + curts;
-        else
-            ROMTransferTime[1] = -1;
+        ROMTransferTime = (xfercycle*(cmddelay+8)) + curts;
     }
 }
 
@@ -1966,14 +1956,10 @@ void NDSCartSlot::AdvanceROMTransfer() noexcept
         u64 curts;
         if (NDS.ExMemCnt[0] & (1<<11)) curts = NDS.ARM7Timestamp;
         else                           curts = (std::max(NDS.ARM9Timestamp, NDS.DMA9Timestamp) + ((1<<NDS.ARM9ClockShift)-1)) >> NDS.ARM9ClockShift;
+        
+        NDS.ScheduleEvent(Event_ROMTransfer, false, ROMTransferTime-curts, ROMTransfer_PrepareData, 0);
 
-        ROMTransferTime[0] = ROMTransferTime[1];
-
-        if ((TransferPos + 4) < TransferLen)
-            ROMTransferTime[1] = (xfercycle*delay) + std::max(curts, ROMTransferTime[0]);
-        else
-            ROMTransferTime[1] = -1;
-
+        ROMTransferTime = (xfercycle*delay) + std::max(curts, ROMTransferTime);
     }
     else
         ROMEndTransfer(0);
@@ -1982,8 +1968,8 @@ void NDSCartSlot::AdvanceROMTransfer() noexcept
 u32 NDSCartSlot::ReadROMData() noexcept
 {
     if (ROMCnt & (1<<30)) return 0;
-
-    ROMPrepareData();
+    
+    NDS.RunEventManual(Event_ROMTransfer);
 
     if (ROMCnt & (1<<23))
     {
@@ -1996,8 +1982,8 @@ u32 NDSCartSlot::ReadROMData() noexcept
 void NDSCartSlot::WriteROMData(u32 val) noexcept
 {
     if (!(ROMCnt & (1<<30))) return;
-
-    ROMPrepareData();
+    
+    NDS.RunEventManual(Event_ROMTransfer);
 
     ROMData = val;
 

@@ -797,7 +797,7 @@ void NDS::SetARM9BIOS(const std::array<u8, ARM9BIOSSize>& bios) noexcept
 
 u64 NDS::NextTarget()
 {
-    u64 minEvent = std::max(SysTimestamp+1, NDSCartSlot.ROMTransferTime[0]);
+    u64 minEvent = UINT64_MAX;
 
     u32 mask = SchedListMask;
     for (int i = 0; i < Event_MAX; i++)
@@ -842,6 +842,21 @@ void NDS::RunSystem(u64 timestamp)
         }
 
         mask >>= 1;
+    }
+}
+
+void NDS::RunEventManual(u32 id)
+{
+    if (SchedListMask & (1<<id))
+    {
+        u64 curts = CurCPU ? ARM7Timestamp : (std::max(ARM9Timestamp, DMA9Timestamp) >> ARM9ClockShift);
+        SchedEvent& evt = SchedList[id];
+
+        if (evt.Timestamp <= curts)
+        {
+            evt.Funcs[evt.FuncID](evt.That, evt.Param);
+            SchedListMask &= ~(1<<id);
+        }
     }
 }
 
@@ -1824,7 +1839,6 @@ u32 NDS::RunFrame()
                 }
                 
                 RunSystem(target);
-                NDSCartSlot.ROMPrepareData();
 
                 if (CPUStop & CPUStop_Sleep)
                 {

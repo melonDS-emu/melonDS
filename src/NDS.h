@@ -432,6 +432,7 @@ public: // TODO: Encapsulate the rest of these members
     void UnregisterEventFuncs(u32 id);
     void ScheduleEvent(u32 id, bool periodic, s32 delay, u32 funcid, u32 param);
     void CancelEvent(u32 id);
+    void RunEventManual(u32 id);
 
     void debug(u32 p);
 
