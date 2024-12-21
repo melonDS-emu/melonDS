@@ -1799,6 +1799,7 @@ void NDSCartSlot::ResetCart() noexcept
     TransferDir = 0;
     memset(TransferCmd.data(), 0, sizeof(TransferCmd));
     TransferCmd[0] = 0xFF;
+    ROMTransferTime = -1;
 
     if (Cart) Cart->Reset();
 }
@@ -1833,6 +1834,12 @@ void NDSCartSlot::ROMPrepareData(u32 param) noexcept
         NDS.CheckDMAs(1, 0x12);
     else
         NDS.CheckDMAs(0, 0x05);
+}
+
+u32 NDSCartSlot::GetROMCnt() noexcept
+{
+    NDS.RunEventManual(Event_ROMTransfer);
+    return ROMCnt;
 }
 
 void NDSCartSlot::WriteROMCnt(u32 val) noexcept
@@ -1921,7 +1928,15 @@ void NDSCartSlot::WriteROMCnt(u32 val) noexcept
     if (datasize == 0)
         NDS.ScheduleEvent(Event_ROMTransfer, false, xfercycle*cmddelay, ROMTransfer_End, 0);
     else
+    {
         NDS.ScheduleEvent(Event_ROMTransfer, false, xfercycle*(cmddelay+4), ROMTransfer_PrepareData, 0);
+        
+        u64 curts;
+        if (NDS.ExMemCnt[0] & (1<<11)) curts = NDS.ARM7Timestamp;
+        else                           curts = (std::max(NDS.ARM9Timestamp, NDS.DMA9Timestamp) + ((1<<NDS.ARM9ClockShift)-1)) >> NDS.ARM9ClockShift;
+
+        ROMTransferTime = (xfercycle*(cmddelay+8)) + curts;
+    }
 }
 
 void NDSCartSlot::AdvanceROMTransfer() noexcept
@@ -1934,11 +1949,17 @@ void NDSCartSlot::AdvanceROMTransfer() noexcept
         u32 delay = 4;
         if (!(ROMCnt & (1<<30)))
         {
-            if (!(TransferPos & 0x1FF))
+            if (!((TransferPos+4) & 0x1FF))
                 delay += ((ROMCnt >> 16) & 0x3F);
         }
+        
+        u64 curts;
+        if (NDS.ExMemCnt[0] & (1<<11)) curts = NDS.ARM7Timestamp;
+        else                           curts = (std::max(NDS.ARM9Timestamp, NDS.DMA9Timestamp) + ((1<<NDS.ARM9ClockShift)-1)) >> NDS.ARM9ClockShift;
+        
+        NDS.ScheduleEvent(Event_ROMTransfer, false, ROMTransferTime-curts, ROMTransfer_PrepareData, 0);
 
-        NDS.ScheduleEvent(Event_ROMTransfer, false, xfercycle*delay, ROMTransfer_PrepareData, 0);
+        ROMTransferTime = (xfercycle*delay) + std::max(curts, ROMTransferTime);
     }
     else
         ROMEndTransfer(0);
@@ -1947,6 +1968,8 @@ void NDSCartSlot::AdvanceROMTransfer() noexcept
 u32 NDSCartSlot::ReadROMData() noexcept
 {
     if (ROMCnt & (1<<30)) return 0;
+    
+    NDS.RunEventManual(Event_ROMTransfer);
 
     if (ROMCnt & (1<<23))
     {
@@ -1959,6 +1982,8 @@ u32 NDSCartSlot::ReadROMData() noexcept
 void NDSCartSlot::WriteROMData(u32 val) noexcept
 {
     if (!(ROMCnt & (1<<30))) return;
+    
+    NDS.RunEventManual(Event_ROMTransfer);
 
     ROMData = val;
 
