@@ -762,7 +762,7 @@ void ARMv5::Execute()
     if constexpr (mode == CPUExecuteMode::InterpreterGDB)
         GdbCheckB();
 
-    if (!FuncQueueActive && Halted)
+    if (Halted)
     {
         if (Halted == 2)
         {
@@ -955,7 +955,7 @@ void ARMv4::Execute()
     if constexpr (mode == CPUExecuteMode::InterpreterGDB)
         GdbCheckB();
     
-    if (!FuncQueueActive && Halted)
+    if (Halted)
     {
         if (Halted == 2)
         {
