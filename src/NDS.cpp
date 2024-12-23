@@ -969,7 +969,7 @@ void NDS::MainRAMHandleARM9()
                 }
                 MainRAMLastAccess = A9LAST;
             }
-            ARM9Timestamp = (A9ContentionTS << ARM9ClockShift) - 1;
+            DMA9Timestamp = ARM9Timestamp = (A9ContentionTS << ARM9ClockShift) - 1;
 
             if (var & MRCodeFetch)
             {

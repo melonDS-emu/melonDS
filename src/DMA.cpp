@@ -217,12 +217,7 @@ void DMA::Start()
 
     if (CPU == 0)
     {
-        u64 ts;
-        /*if (StartMode == 0x00)
-        {
-            ts = (NDS.ARM9Timestamp + ((1<<NDS.ARM9ClockShift)-1)) & ~((1<<NDS.ARM9ClockShift)-1);
-        }
-        else*/ ts = NDS.SysTimestamp << NDS.ARM9ClockShift;
+        u64 ts = NDS.SysTimestamp << NDS.ARM9ClockShift;
 
         if (NDS.DMA9Timestamp < ts) NDS.DMA9Timestamp = ts;
     }
@@ -246,68 +241,7 @@ u32 DMA::UnitTimings9_16(int burststart)
     dst_n = NDS.ARM9MemTimings[dst_id][4];
     dst_s = NDS.ARM9MemTimings[dst_id][5];
     
-    /*if (src_rgn == Mem9_MainRAM)
-    {
-        if (dst_rgn == Mem9_MainRAM)
-        {
-            return (burststart == 2) ? 11 : 16;
-        }
-
-        if (SrcAddrInc > 0)
-        {
-            if ((burststart == 2) || MRAMBurstTable[MRAMBurstCount] == 0)
-            {
-                MRAMBurstCount = 0;
-
-                if (dst_rgn == Mem9_GBAROM)
-                {
-                    if (dst_s == 4)
-                        MRAMBurstTable = DMATiming::MRAMRead16Bursts[1];
-                    else
-                        MRAMBurstTable = DMATiming::MRAMRead16Bursts[2];
-                }
-                else
-                    MRAMBurstTable = DMATiming::MRAMRead16Bursts[0];
-            }
-
-            u32 ret = MRAMBurstTable[MRAMBurstCount++];
-            return ret;
-        }
-        else
-        {
-            // TODO: not quite right for GBA slot
-            return (((CurSrcAddr & 0x1F) == 0x1E) ? 7 : 8) +
-                   ((burststart == 2) ? dst_n : dst_s);
-        }
-    }
-    else if (dst_rgn == Mem9_MainRAM)
-    {
-        if (DstAddrInc > 0)
-        {
-            if ((burststart == 2) || MRAMBurstTable[MRAMBurstCount] == 0)
-            {
-                MRAMBurstCount = 0;
-
-                if (src_rgn == Mem9_GBAROM)
-                {
-                    if (src_s == 4)
-                        MRAMBurstTable = DMATiming::MRAMWrite16Bursts[1];
-                    else
-                        MRAMBurstTable = DMATiming::MRAMWrite16Bursts[2];
-                }
-                else
-                    MRAMBurstTable = DMATiming::MRAMWrite16Bursts[0];
-            }
-
-            u32 ret = MRAMBurstTable[MRAMBurstCount++];
-            return ret;
-        }
-        else
-        {
-            return ((burststart == 2) ? src_n : src_s) + 7;
-        }
-    }
-    else*/ if (src_rgn & dst_rgn)
+    if (src_rgn & dst_rgn)
     {
         if (burststart != 1)
             return src_n + dst_n + (src_n == 1 || burststart <= 0);
@@ -337,70 +271,7 @@ u32 DMA::UnitTimings9_32(int burststart)
     dst_n = NDS.ARM9MemTimings[dst_id][6];
     dst_s = NDS.ARM9MemTimings[dst_id][7];
 
-    /*if (src_rgn == Mem9_MainRAM)
-    {
-        if (dst_rgn == Mem9_MainRAM)
-            return (burststart == 2) ? 13 : 18;
-
-        if (SrcAddrInc > 0)
-        {
-            if ((burststart == 2) || MRAMBurstTable[MRAMBurstCount] == 0)
-            {
-                MRAMBurstCount = 0;
-
-                if (dst_rgn == Mem9_GBAROM)
-                {
-                    if (dst_s == 8)
-                        MRAMBurstTable = DMATiming::MRAMRead32Bursts[2];
-                    else
-                        MRAMBurstTable = DMATiming::MRAMRead32Bursts[3];
-                }
-                else if (dst_n == 2)
-                    MRAMBurstTable = DMATiming::MRAMRead32Bursts[0];
-                else
-                    MRAMBurstTable = DMATiming::MRAMRead32Bursts[1];
-            }
-
-            u32 ret = MRAMBurstTable[MRAMBurstCount++];
-            return ret;
-        }
-        else
-        {
-            // TODO: not quite right for GBA slot
-            return (((CurSrcAddr & 0x1F) == 0x1C) ? (dst_n==2 ? 7:8) : 9) +
-                   ((burststart == 2) ? dst_n : dst_s);
-        }
-    }
-    else if (dst_rgn == Mem9_MainRAM)
-    {
-        if (DstAddrInc > 0)
-        {
-            if ((burststart == 2) || MRAMBurstTable[MRAMBurstCount] == 0)
-            {
-                MRAMBurstCount = 0;
-
-                if (src_rgn == Mem9_GBAROM)
-                {
-                    if (src_s == 8)
-                        MRAMBurstTable = DMATiming::MRAMWrite32Bursts[2];
-                    else
-                        MRAMBurstTable = DMATiming::MRAMWrite32Bursts[3];
-                }
-                else if (src_n == 2)
-                    MRAMBurstTable = DMATiming::MRAMWrite32Bursts[0];
-                else
-                    MRAMBurstTable = DMATiming::MRAMWrite32Bursts[1];
-            }
-
-            u32 ret = MRAMBurstTable[MRAMBurstCount++];
-            return ret;
-        }
-        else
-        {
-            return ((burststart == 2) ? src_n : src_s) + 8;
-        }
-    }
-    else*/ if (src_rgn & dst_rgn)
+    if (src_rgn & dst_rgn)
     {
         if (burststart != 1)
             return src_n + dst_n + (src_n == 1 || burststart <= 0);
@@ -432,66 +303,7 @@ u32 DMA::UnitTimings7_16(int burststart)
     dst_n = NDS.ARM7MemTimings[dst_id][0];
     dst_s = NDS.ARM7MemTimings[dst_id][1];
 
-    /*if (src_rgn == Mem7_MainRAM)
-    {
-        if (dst_rgn == Mem7_MainRAM)
-            return 16;
-
-        if (SrcAddrInc > 0)
-        {
-            if (burststart || MRAMBurstTable[MRAMBurstCount] == 0)
-            {
-                MRAMBurstCount = 0;
-
-                if (dst_rgn == Mem7_GBAROM || dst_rgn == Mem7_Wifi0 || dst_rgn == Mem7_Wifi1)
-                {
-                    if (dst_s == 4)
-                        MRAMBurstTable = DMATiming::MRAMRead16Bursts[1];
-                    else
-                        MRAMBurstTable = DMATiming::MRAMRead16Bursts[2];
-                }
-                else
-                    MRAMBurstTable = DMATiming::MRAMRead16Bursts[0];
-            }
-
-            u32 ret = MRAMBurstTable[MRAMBurstCount++];
-            return ret;
-        }
-        else
-        {
-            // TODO: not quite right for GBA slot
-            return (((CurSrcAddr & 0x1F) == 0x1E) ? 7 : 8) +
-                   (burststart ? dst_n : dst_s);
-        }
-    }
-    else if (dst_rgn == Mem7_MainRAM)
-    {
-        if (DstAddrInc > 0)
-        {
-            if (burststart || MRAMBurstTable[MRAMBurstCount] == 0)
-            {
-                MRAMBurstCount = 0;
-
-                if (src_rgn == Mem7_GBAROM || src_rgn == Mem7_Wifi0 || src_rgn == Mem7_Wifi1)
-                {
-                    if (src_s == 4)
-                        MRAMBurstTable = DMATiming::MRAMWrite16Bursts[1];
-                    else
-                        MRAMBurstTable = DMATiming::MRAMWrite16Bursts[2];
-                }
-                else
-                    MRAMBurstTable = DMATiming::MRAMWrite16Bursts[0];
-            }
-
-            u32 ret = MRAMBurstTable[MRAMBurstCount++];
-            return ret;
-        }
-        else
-        {
-            return (burststart ? src_n : src_s) + 7;
-        }
-    }
-    else*/ if (src_rgn & dst_rgn)
+    if (src_rgn & dst_rgn)
     {
         if (burststart != 1)
             return src_n + dst_n + (src_n == 1 || burststart <= 0);
@@ -521,70 +333,7 @@ u32 DMA::UnitTimings7_32(int burststart)
     dst_n = NDS.ARM7MemTimings[dst_id][2];
     dst_s = NDS.ARM7MemTimings[dst_id][3];
 
-    /*if (src_rgn == Mem7_MainRAM)
-    {
-        if (dst_rgn == Mem7_MainRAM)
-            return 18;
-
-        if (SrcAddrInc > 0)
-        {
-            if (burststart || MRAMBurstTable[MRAMBurstCount] == 0)
-            {
-                MRAMBurstCount = 0;
-
-                if (dst_rgn == Mem7_GBAROM || dst_rgn == Mem7_Wifi0 || dst_rgn == Mem7_Wifi1)
-                {
-                    if (dst_s == 8)
-                        MRAMBurstTable = DMATiming::MRAMRead32Bursts[2];
-                    else
-                        MRAMBurstTable = DMATiming::MRAMRead32Bursts[3];
-                }
-                else if (dst_n == 2)
-                    MRAMBurstTable = DMATiming::MRAMRead32Bursts[0];
-                else
-                    MRAMBurstTable = DMATiming::MRAMRead32Bursts[1];
-            }
-
-            u32 ret = MRAMBurstTable[MRAMBurstCount++];
-            return ret;
-        }
-        else
-        {
-            // TODO: not quite right for GBA slot
-            return (((CurSrcAddr & 0x1F) == 0x1C) ? (dst_n==2 ? 7:8) : 9) +
-                   (burststart ? dst_n : dst_s);
-        }
-    }
-    else if (dst_rgn == Mem7_MainRAM)
-    {
-        if (DstAddrInc > 0)
-        {
-            if (burststart || MRAMBurstTable[MRAMBurstCount] == 0)
-            {
-                MRAMBurstCount = 0;
-
-                if (src_rgn == Mem7_GBAROM || src_rgn == Mem7_Wifi0 || src_rgn == Mem7_Wifi1)
-                {
-                    if (src_s == 8)
-                        MRAMBurstTable = DMATiming::MRAMWrite32Bursts[2];
-                    else
-                        MRAMBurstTable = DMATiming::MRAMWrite32Bursts[3];
-                }
-                else if (src_n == 2)
-                    MRAMBurstTable = DMATiming::MRAMWrite32Bursts[0];
-                else
-                    MRAMBurstTable = DMATiming::MRAMWrite32Bursts[1];
-            }
-
-            u32 ret = MRAMBurstTable[MRAMBurstCount++];
-            return ret;
-        }
-        else
-        {
-            return (burststart ? src_n : src_s) + 8;
-        }
-    }
-    else*/ if (src_rgn & dst_rgn)
+    if (src_rgn & dst_rgn)
     {
         if (burststart != 1)
             return src_n + dst_n + (src_n == 1 || burststart <= 0);
@@ -605,7 +354,7 @@ void DMA::Run9()
     //NDS.DMA9Timestamp = std::max(NDS.DMA9Timestamp, NDS.SysTimestamp << NDS.ARM9ClockShift);
     //NDS.DMA9Timestamp = (NDS.DMA9Timestamp + ((1<<NDS.ARM9ClockShift)-1)) & ~((1<<NDS.ARM9ClockShift)-1);
 
-    if (NDS.DMA9Timestamp-1 >= NDS.ARM9Target) return;
+    if (NDS.DMA9Timestamp >= NDS.ARM9Target) return;
 
     Executing = true;
 
@@ -634,7 +383,7 @@ void DMA::Run9()
             IterCount--;
             RemCount--;
 
-            if (NDS.DMA9Timestamp-1 >= NDS.ARM9Target) break;
+            if (NDS.DMA9Timestamp >= NDS.ARM9Target) break;
         }
     }
     else
@@ -659,7 +408,7 @@ void DMA::Run9()
             IterCount--;
             RemCount--;
 
-            if (NDS.DMA9Timestamp-1 >= NDS.ARM9Target) break;
+            if (NDS.DMA9Timestamp >= NDS.ARM9Target) break;
         }
     }
 

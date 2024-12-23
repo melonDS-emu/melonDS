@@ -2268,7 +2268,7 @@ void ARMv5::CodeRead32_4()
 
     u8 cycles = MemTimings[addr >> 14][1];
 
-    NDS.ARM9Timestamp += cycles;
+    NDS.DMA9Timestamp = NDS.ARM9Timestamp += cycles;
 
     if (WBTimestamp < ((NDS.ARM9Timestamp - (3<<NDS.ARM9ClockShift) + ((1<<NDS.ARM9ClockShift)-1)) & ~((1<<NDS.ARM9ClockShift)-1)))
         WBTimestamp = (NDS.ARM9Timestamp - (3<<NDS.ARM9ClockShift) + ((1<<NDS.ARM9ClockShift)-1)) & ~((1<<NDS.ARM9ClockShift)-1);
@@ -2419,7 +2419,7 @@ void ARMv5::DRead8_5()
 
     if (NDS.ARM9Timestamp < NDS.DMA9Timestamp) NDS.ARM9Timestamp = NDS.DMA9Timestamp;
 
-    NDS.ARM9Timestamp += MemTimings[addr >> 14][0];
+    NDS.DMA9Timestamp = NDS.ARM9Timestamp += MemTimings[addr >> 14][0];
     DataCycles = 3<<NDS.ARM9ClockShift;
     
     if (WBTimestamp < ((NDS.ARM9Timestamp - (3<<NDS.ARM9ClockShift) + ((1<<NDS.ARM9ClockShift)-1)) & ~((1<<NDS.ARM9ClockShift)-1)))
@@ -2556,7 +2556,7 @@ void ARMv5::DRead16_5()
 
     if (NDS.ARM9Timestamp < NDS.DMA9Timestamp) NDS.ARM9Timestamp = NDS.DMA9Timestamp;
 
-    NDS.ARM9Timestamp += MemTimings[addr >> 14][0];
+    NDS.DMA9Timestamp = NDS.ARM9Timestamp += MemTimings[addr >> 14][0];
     DataCycles = 3<<NDS.ARM9ClockShift;
 
     if (WBTimestamp < ((NDS.ARM9Timestamp - (3<<NDS.ARM9ClockShift) + ((1<<NDS.ARM9ClockShift)-1)) & ~((1<<NDS.ARM9ClockShift)-1)))
@@ -2696,7 +2696,7 @@ void ARMv5::DRead32_5()
 
     if (NDS.ARM9Timestamp < NDS.DMA9Timestamp) NDS.ARM9Timestamp = NDS.DMA9Timestamp;
 
-    NDS.ARM9Timestamp += MemTimings[addr >> 14][1];
+    NDS.DMA9Timestamp = NDS.ARM9Timestamp += MemTimings[addr >> 14][1];
     DataCycles = 3<<NDS.ARM9ClockShift;
     
     if (WBTimestamp < ((NDS.ARM9Timestamp - (3<<NDS.ARM9ClockShift) + ((1<<NDS.ARM9ClockShift)-1)) & ~((1<<NDS.ARM9ClockShift)-1)))
@@ -2845,7 +2845,7 @@ void ARMv5::DRead32S_5A()
 
     if (NDS.ARM9Timestamp < NDS.DMA9Timestamp) NDS.ARM9Timestamp = NDS.DMA9Timestamp;
 
-    NDS.ARM9Timestamp += MemTimings[addr>>14][2];
+    NDS.DMA9Timestamp = NDS.ARM9Timestamp += MemTimings[addr>>14][2];
     DataCycles = MemTimings[addr>>14][2];
     
     if (WBTimestamp < ((NDS.ARM9Timestamp - (3<<NDS.ARM9ClockShift) + ((1<<NDS.ARM9ClockShift)-1)) & ~((1<<NDS.ARM9ClockShift)-1)))
@@ -2992,7 +2992,7 @@ void ARMv5::DWrite8_5()
 
     if (NDS.ARM9Timestamp < NDS.DMA9Timestamp) NDS.ARM9Timestamp = NDS.DMA9Timestamp;
 
-    NDS.ARM9Timestamp += MemTimings[addr >> 14][0];
+    NDS.DMA9Timestamp = NDS.ARM9Timestamp += MemTimings[addr >> 14][0];
     DataCycles = 3<<NDS.ARM9ClockShift;
     DataRegion = NDS.ARM9Regions[addr>>14];
         
@@ -3123,7 +3123,7 @@ void ARMv5::DWrite16_5()
 
     if (NDS.ARM9Timestamp < NDS.DMA9Timestamp) NDS.ARM9Timestamp = NDS.DMA9Timestamp;
 
-    NDS.ARM9Timestamp += MemTimings[addr >> 14][0];
+    NDS.DMA9Timestamp = NDS.ARM9Timestamp += MemTimings[addr >> 14][0];
     DataCycles = 3<<NDS.ARM9ClockShift;
     DataRegion = NDS.ARM9Regions[addr>>14];
         
@@ -3262,7 +3262,7 @@ void ARMv5::DWrite32_5()
 
     if (NDS.ARM9Timestamp < NDS.DMA9Timestamp) NDS.ARM9Timestamp = NDS.DMA9Timestamp;
 
-    NDS.ARM9Timestamp += MemTimings[addr >> 14][1];
+    NDS.DMA9Timestamp = NDS.ARM9Timestamp += MemTimings[addr >> 14][1];
     DataCycles = 3<<NDS.ARM9ClockShift;
     DataRegion = NDS.ARM9Regions[addr>>14];
         
@@ -3410,7 +3410,7 @@ void ARMv5::DWrite32S_5A()
 
     if (NDS.ARM9Timestamp < NDS.DMA9Timestamp) NDS.ARM9Timestamp = NDS.DMA9Timestamp;
 
-    NDS.ARM9Timestamp += MemTimings[addr>>14][2];
+    NDS.DMA9Timestamp = NDS.ARM9Timestamp += MemTimings[addr>>14][2];
     DataRegion = NDS.ARM9Regions[addr>>14];
 
     if (WBTimestamp < ((NDS.ARM9Timestamp + ((1<<NDS.ARM9ClockShift)-1)) & ~((1<<NDS.ARM9ClockShift)-1)))
@@ -3428,7 +3428,7 @@ void ARMv5::DWrite32S_5B()
 
     if (NDS.ARM9Timestamp < NDS.DMA9Timestamp) NDS.ARM9Timestamp = NDS.DMA9Timestamp;
 
-    NDS.ARM9Timestamp += MemTimings[addr>>14][1];
+    NDS.DMA9Timestamp = NDS.ARM9Timestamp += MemTimings[addr>>14][1];
     DataCycles = 3 << NDS.ARM9ClockShift;
     DataRegion = NDS.ARM9Regions[addr>>14];
 
