@@ -1279,6 +1279,7 @@ void DSi::ApplyNewRAMSize(u32 size)
 void DSi::Set_SCFG_Clock9(u16 val)
 {
     ARM9Timestamp >>= ARM9ClockShift;
+    DMA9Timestamp >>= ARM9ClockShift;
     ARM9Target    >>= ARM9ClockShift;
     for (int i = 0; i < 7; i++)
     {
@@ -1301,6 +1302,7 @@ void DSi::Set_SCFG_Clock9(u16 val)
     else                      ARM9ClockShift = 1;
 
     ARM9Timestamp <<= ARM9ClockShift;
+    DMA9Timestamp <<= ARM9ClockShift;
     ARM9Target    <<= ARM9ClockShift;
     for (int i = 0; i < 7; i++)
     {
