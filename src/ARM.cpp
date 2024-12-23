@@ -115,7 +115,7 @@ ARM::ARM(u32 num, bool jit, std::optional<GDBArgs> gdb, melonDS::NDS& nds) :
     Num(num), // well uh
     NDS(nds)
 {
-    SetGdbArgs(jit ? gdb : std::nullopt);
+    SetGdbArgs(jit ? std::nullopt : gdb);
 }
 
 ARM::~ARM()
