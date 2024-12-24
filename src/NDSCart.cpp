@@ -1909,13 +1909,13 @@ void NDSCartSlot::WriteROMCnt(u32 val) noexcept
 
     // ROM transfer timings
     // the bus is parallel with 8 bits
-    // thus a command would take 8 cycles to be transferred
+    // thus a command would take 8 cycles to be transferred (...actually it's 9? 1 cycle for processing?)
     // and it would take 4 cycles to receive a word of data
     // TODO: advance read position if bit28 is set
     // TODO: during a write transfer, bit23 is set immediately when beginning the transfer(?)
 
     u32 xfercycle = (ROMCnt & (1<<27)) ? 8 : 5;
-    u32 cmddelay = 8;
+    u32 cmddelay = 9;
 
     // delays are only applied when the WR bit is cleared
     // CHECKME: do the delays apply at the end (instead of start) when WR is set?
@@ -1926,16 +1926,16 @@ void NDSCartSlot::WriteROMCnt(u32 val) noexcept
     }
 
     if (datasize == 0)
-        NDS.ScheduleEvent(Event_ROMTransfer, false, xfercycle*cmddelay, ROMTransfer_End, 0);
+        NDS.ScheduleEvent(Event_ROMTransfer, false, xfercycle*cmddelay+3, ROMTransfer_End, 0);
     else
     {
-        NDS.ScheduleEvent(Event_ROMTransfer, false, xfercycle*(cmddelay+4), ROMTransfer_PrepareData, 0);
+        NDS.ScheduleEvent(Event_ROMTransfer, false, xfercycle*(cmddelay+4)+3, ROMTransfer_PrepareData, 0);
         
         u64 curts;
         if (NDS.ExMemCnt[0] & (1<<11)) curts = NDS.ARM7Timestamp;
         else                           curts = (std::max(NDS.ARM9Timestamp, NDS.DMA9Timestamp) + ((1<<NDS.ARM9ClockShift)-1)) >> NDS.ARM9ClockShift;
 
-        ROMTransferTime = (xfercycle*(cmddelay+8)) + curts;
+        ROMTransferTime = (xfercycle*(cmddelay+8)) + curts + 3;
     }
 }
 
@@ -1957,9 +1957,9 @@ void NDSCartSlot::AdvanceROMTransfer() noexcept
         if (NDS.ExMemCnt[0] & (1<<11)) curts = NDS.ARM7Timestamp;
         else                           curts = (std::max(NDS.ARM9Timestamp, NDS.DMA9Timestamp) + ((1<<NDS.ARM9ClockShift)-1)) >> NDS.ARM9ClockShift;
         
-        NDS.ScheduleEvent(Event_ROMTransfer, false, ROMTransferTime-curts, ROMTransfer_PrepareData, 0);
+        NDS.ScheduleEvent(Event_ROMTransfer, false, std::max((int)(ROMTransferTime-curts), 3), ROMTransfer_PrepareData, 0);
 
-        ROMTransferTime = (xfercycle*delay) + std::max(curts, ROMTransferTime);
+        ROMTransferTime = (xfercycle*delay) + std::max(curts+3, ROMTransferTime);
     }
     else
         ROMEndTransfer(0);
