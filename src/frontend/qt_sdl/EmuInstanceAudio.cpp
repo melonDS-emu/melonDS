@@ -29,7 +29,7 @@ using namespace melonDS;
 
 int EmuInstance::audioGetNumSamplesOut(int outlen)
 {
-    float f_len_in = (outlen * 32823.6328125) / (float)audioFreq;
+    float f_len_in = (outlen * 32823.6328125 * (curFPS/60.0)) / (float)audioFreq;
     f_len_in += audioSampleFrac;
     int len_in = (int)floor(f_len_in);
     audioSampleFrac = f_len_in - len_in;
@@ -73,6 +73,7 @@ void EmuInstance::audioCallback(void* data, Uint8* stream, int len)
     // resample incoming audio to match the output sample rate
 
     int len_in = inst->audioGetNumSamplesOut(len);
+    if (len_in > 1024) len_in = 1024;
     s16 buf_in[1024*2];
     int num_in;
 
