@@ -21,10 +21,13 @@
 
 #include <algorithm>
 #include <optional>
+#include <cstring>
 
 #include "types.h"
 #include "MemRegion.h"
 #include "MemConstants.h"
+#include "CP15_Constants.h"
+#include "Platform.h"
 
 #ifdef GDBSTUB_ENABLED
 #include "debug/GdbStub.h"
@@ -52,6 +55,50 @@ enum class CPUExecuteMode : u32
 #endif
 };
 
+enum class WBMode
+{
+    Check,
+    Force,
+    SingleBurst,
+    WaitEntry,
+};
+
+enum class MainRAMType : u8
+{
+    Null = 0,
+    Fetch,
+    ICacheStream,
+    DCacheStream,
+    DMA16,
+    DMA32,
+
+    WriteBufferCmds, // all write buffer commands must be below this one; wb cmds are not strictly used for main ram
+
+    WBDrain,
+    WBWrite,
+    WBCheck,
+    WBWaitRead,
+    WBWaitWrite,
+};
+
+// each one represents a bit in the field
+enum FetchFlags
+{
+    MR8 = 0x00, // tbh it only exists because it felt wrong to write nothing to the field for 8 bit reads
+    MR16 = 0x01,
+    MR32 = 0x02,
+    MRWrite = 0x20,
+    MRSequential = 0x40,
+    MRCodeFetch = 0x80,
+};
+
+struct MainRAMTrackers
+{
+    MainRAMType Type;
+    u8 Var;
+    u8 Progress;
+};
+
 struct GDBArgs;
 class ARMJIT;
 class GPU;
@@ -76,7 +123,7 @@ public:
 
     virtual void FillPipeline() = 0;
 
-    virtual void JumpTo(u32 addr, bool restorecpsr = false) = 0;
+    virtual void JumpTo(u32 addr, bool restorecpsr = false, u8 R15 = 0) = 0;
     void RestoreCPSR();
 
     void Halt(u32 halt)
@@ -130,19 +177,20 @@ public:
 
     void UpdateMode(u32 oldmode, u32 newmode, bool phony = false);
 
+    template <CPUExecuteMode mode>
     void TriggerIRQ();
 
     void SetupCodeMem(u32 addr);
 
 
-    virtual void DataRead8(u32 addr, u32* val) = 0;
-    virtual void DataRead16(u32 addr, u32* val) = 0;
-    virtual void DataRead32(u32 addr, u32* val) = 0;
-    virtual void DataRead32S(u32 addr, u32* val) = 0;
-    virtual void DataWrite8(u32 addr, u8 val) = 0;
-    virtual void DataWrite16(u32 addr, u16 val) = 0;
-    virtual void DataWrite32(u32 addr, u32 val) = 0;
-    virtual void DataWrite32S(u32 addr, u32 val) = 0;
+    virtual bool DataRead8(u32 addr, u8 reg) = 0;
+    virtual bool DataRead16(u32 addr, u8 reg) = 0;
+    virtual bool DataRead32(u32 addr, u8 reg) = 0;
+    virtual bool DataRead32S(u32 addr, u8 reg) = 0;
+    virtual bool DataWrite8(u32 addr, u8 val, u8 reg) = 0;
+    virtual bool DataWrite16(u32 addr, u16 val, u8 reg) = 0;
+    virtual bool DataWrite32(u32 addr, u32 val, u8 reg) = 0;
+    virtual bool DataWrite32S(u32 addr, u32 val, u8 reg) = 0;
 
     virtual void AddCycles_C() = 0;
     virtual void AddCycles_CI(s32 numI) = 0;
@@ -171,19 +219,47 @@ public:
     u32 DataRegion;
     s32 DataCycles;
 
-    u32 R[16]; // heh
+    alignas(64) u32 R[16]; // heh
     u32 CPSR;
     u32 R_FIQ[8]; // holding SPSR too
     u32 R_SVC[3];
     u32 R_ABT[3];
     u32 R_IRQ[3];
     u32 R_UND[3];
-    u32 CurInstr;
-    u32 NextInstr[2];
+    u64 CurInstr;
+    u64 NextInstr[2];
 
     u32 ExceptionBase;
 
     MemRegion CodeMem;
+
+    MainRAMTrackers MRTrack;
+
+    u32 BranchAddr;
+    u8 BranchUpdate;
+    bool BranchRestore;
+
+    u32 QueueMode[2];
+    u8 ExtReg;
+    u8 ExtROROffs;
+
+    u64 RetVal;
+
+    u16 LDRRegs;
+    u16 LDRFailedRegs;
+    u16 STRRegs;
+    u32 FetchAddr[17];
+    u32 STRVal[16];
+    
+    // debugging crud: REMOVE ME
+    u8 abt;
+    u64 iter;
+
+    u8 FuncQueueFill;
+    u8 FuncQueueEnd;
+    u8 FuncQueueProg;
+    u8 ExecuteCycles;
+    bool FuncQueueActive;
 
 #ifdef JIT_ENABLED
     u32 FastBlockLookupStart, FastBlockLookupSize;
@@ -243,7 +319,7 @@ public:
 
     void FillPipeline() override;
 
-    void JumpTo(u32 addr, bool restorecpsr = false) override;
+    void JumpTo(u32 addr, bool restorecpsr = false, u8 R15 = 0) override;
 
     void PrefetchAbort();
     void DataAbort();
@@ -252,119 +328,576 @@ public:
     void Execute();
 
     // all code accesses are forced nonseq 32bit
-    u32 CodeRead32(u32 addr, bool branch);
+    void CodeRead32(const u32 addr);
 
-    void DataRead8(u32 addr, u32* val) override;
-    void DataRead16(u32 addr, u32* val) override;
-    void DataRead32(u32 addr, u32* val) override;
-    void DataRead32S(u32 addr, u32* val) override;
-    void DataWrite8(u32 addr, u8 val) override;
-    void DataWrite16(u32 addr, u16 val) override;
-    void DataWrite32(u32 addr, u32 val) override;
-    void DataWrite32S(u32 addr, u32 val) override;
+    bool DataRead8(u32 addr, u8 reg) override;
+    bool DataRead16(u32 addr, u8 reg) override;
+    bool DataRead32(u32 addr, u8 reg) override;
+    bool DataRead32S(u32 addr, u8 reg) override;
+    bool DataWrite8(u32 addr, u8 val, u8 reg) override;
+    bool DataWrite16(u32 addr, u16 val, u8 reg) override;
+    bool DataWrite32(u32 addr, u32 val, u8 reg) override;
+    bool DataWrite32S(u32 addr, u32 val, u8 reg) override;
+
+    void CodeFetch();
 
     void AddCycles_C() override
     {
-        // code only. always nonseq 32-bit for ARM9.
-        s32 numC = (R[15] & 0x2) ? 0 : CodeCycles;
-        Cycles += numC;
+        ExecuteCycles = 0;
+        CodeFetch();
     }
 
-    void AddCycles_CI(s32 numI) override
+    void AddCycles_CI(s32 numX) override
     {
-        // code+internal
-        s32 numC = (R[15] & 0x2) ? 0 : CodeCycles;
-        Cycles += numC + numI;
+        ExecuteCycles = numX;
+        CodeFetch();
+    }
+
+    void AddCycles_MW(s32 numM)
+    {
+        DataCycles = numM;
+        QueueFunction(&ARMv5::AddCycles_MW_2);
     }
 
     void AddCycles_CDI() override
     {
-        // LDR/LDM cycles. ARM9 seems to skip the internal cycle there.
-        // TODO: ITCM data fetches shouldn't be parallelized, they say
-        s32 numC = (R[15] & 0x2) ? 0 : CodeCycles;
-        s32 numD = DataCycles;
-
-        //if (DataRegion != CodeRegion)
-            Cycles += std::max(numC + numD - 6, std::max(numC, numD));
-        //else
-        //    Cycles += numC + numD;
+        AddCycles_MW(DataCycles);
     }
 
     void AddCycles_CD() override
     {
-        // TODO: ITCM data fetches shouldn't be parallelized, they say
-        s32 numC = (R[15] & 0x2) ? 0 : CodeCycles;
-        s32 numD = DataCycles;
-
-        //if (DataRegion != CodeRegion)
-            Cycles += std::max(numC + numD - 6, std::max(numC, numD));
-        //else
-        //    Cycles += numC + numD;
+        Store = true; // todo: queue this
+        AddCycles_MW(DataCycles);
     }
 
-    void GetCodeMemRegion(u32 addr, MemRegion* region);
+    void DelayIfITCM(s8 delay)
+    {
+        ITCMDelay = delay;
+        QueueFunction(&ARMv5::DelayIfITCM_2);
+    }
 
+    inline void SetupInterlock(u8 reg, s8 delay = 0)
+    {
+        ILQueueReg = reg;
+        ILQueueDelay = delay;
+
+        QueueFunction(&ARMv5::SetupInterlock_2);
+    }
+
+    template <bool bitfield>
+    inline void HandleInterlocksExecute(u16 ilmask, u8* times = NULL)
+    {
+        if constexpr (bitfield) ILQueueMask = ilmask;
+        else ILQueueMask = 1<<ilmask;
+
+        if (times == NULL) memset(ILQueueTimes, 0, sizeof(ILQueueTimes));
+        else               memcpy(ILQueueTimes, times, sizeof(ILQueueTimes));
+
+        QueueFunction(&ARMv5::HandleInterlocksExecute_2);
+    }
+
+    inline void ForceInterlock(s8 delay = 0)
+    {
+        ILForceDelay = delay;
+        QueueFunction(&ARMv5::ForceInterlock_2);
+    }
+
+    inline void HandleInterlocksMemory(u8 reg)
+    {
+        ILQueueMemReg = reg;
+
+        QueueFunction(&ARMv5::HandleInterlocksMemory_2);
+    }
+
+    void GetCodeMemRegion(const u32 addr, MemRegion* region);
+
+    /**
+     * @brief Resets the state of all CP15 registers and variables
+     * to power up state.
+     * @par Returns
+     *      Nothing
+     */
     void CP15Reset();
+
+    /**
+     * @brief handles read and write operations to a save-state
+     * file.
+     * @param [in] file Savestate file
+     * @par Returns
+     *      Nothing
+     */
     void CP15DoSavestate(Savestate* file);
 
+    /**
+     * @brief Calculates the internal state from @ref DTCMSettings
+     * @par Returns
+     *      Nothing
+     */
     void UpdateDTCMSetting();
+
+    /**
+     * @brief Calculates the internal state from @ref ITCMSettings
+     * @par Returns
+     *      Nothing
+     */
     void UpdateITCMSetting();
 
-    void UpdatePURegion(u32 n);
-    void UpdatePURegions(bool update_all);
+    /**
+     * @brief Calculates the internal state from the
+     * region protection bits of a specific region number
+     * @details
+     * This function updates the PU_####Map array in all
+     * parts that are occupied by this region. Updating a single
+     * region does not take into account the priority of the 
+     * regions.
+     * @param [in] n index of the region from 0 to @ref CP15_REGION_COUNT - 1
+     * @par Returns
+     *      Nothing
+     */
+    void UpdatePURegion(const u32 n);
+
+    /** 
+     * @brief Calculates the internal state from all region
+     * protection bits.
+     * @details
+     * This function updates the internal state in order from the
+     * least to the most priotized regions, so that the 
+     * priority of the regions match the internal state
+     * @par Returns
+     *      Nothing
+     */
+    void UpdatePURegions(const bool update_all);
 
     u32 RandomLineIndex();
 
-    void ICacheLookup(u32 addr);
-    void ICacheInvalidateByAddr(u32 addr);
+    /**
+     * @brief Perform an instruction cache lookup handle
+     * @details
+     * A cache lookup is performed, if not disabled in 
+     * @ref CP15BISTTestStateRegister, a hit will returned the 
+     * cached data, otherwise it returns the result of an memory 
+     * access instead.
+     * If the cache lookup results in a cachemiss and linefill is
+     * not disabled in @ref CP15BISTTestStateRegister, will fill
+     * fetch all data to fill the entire cacheline directly
+     * from the ITCM or bus
+     * @param [in] addr Address of the memory to be retreived from
+     * cache. The address is internally aligned to an word boundary
+     * @return Value of the word at addr
+     */
+    bool ICacheLookup(const u32 addr);
+
+    /**
+     * @brief Check if an address is within a instruction cachable 
+     * region
+     * @details
+     * Checks the address by looking up the PU_map flags for 
+     * the address and returns the status of the instruction
+     * cache enable flag
+     * 
+     * @param [in] addr Address. May be unaligned.
+     * @retval true If the address points to a region, that is
+     * enabled for instruction fetches to be cached.
+     */
+    inline bool IsAddressICachable(const u32 addr) const;
+
+    /**
+     * @brief Invalidates all instruction cache lines
+     * @details
+     * Clears the @ref CACHE_FLAG_VALID of each cache line in the 
+     * instruction cache. All other flags and values are kept.
+     * @par Returns
+     *      Nothing
+     */
     void ICacheInvalidateAll();
+    
+    template <WBMode mode> bool WriteBufferHandle();
+    template <int next> void WriteBufferCheck();
+    void WriteBufferWrite(u32 val, u8 flag, u32 addr = 0);
+    void WriteBufferDrain();
 
-    void CP15Write(u32 id, u32 val);
-    u32 CP15Read(u32 id) const;
+    /** 
+     * @brief Invalidates the instruction cacheline containing 
+     * the data of an address.
+     * @details 
+     * Searches the cacheline containing the data of an address, and
+     * if found clears the @ref CACHE_FLAG_VALID of this cache line.
+     * Nothing is done if the address is not present in the cache.
+     * @param [in] addr Memory address of the data in the cache line
+     * @par Returns
+     *      Nothing
+     */
+    void ICacheInvalidateByAddr(const u32 addr);
 
-    u32 CP15Control;
+    /**
+     * @brief Invalidates an instruction cache line
+     * @details
+     * Clears the @ref CACHE_FLAG_VALID of the cacheline given by 
+     * set and index within the set. Nothing is done if the cache
+     * line does not exist.
+     * @param [in] cacheSet index of the internal cache set from
+     * 0 to @ref ICACHE_SETS - 1
+     * @param [in] cacheLine index of the line within the cache set
+     * from 0 to @ref ICACHE_LINESPERSET - 1
+     * @par Returns
+     *      Nothing
+     */
+    void ICacheInvalidateBySetAndWay(const u8 cacheSet, const u8 cacheLine);
 
-    u32 RNGSeed;
-    u32 TraceProcessID;
+    /**
+     * @brief Perform an data cache lookup handle
+     * @details
+     * A cache lookup is performed, if not disabled in 
+     * @ref CP15BISTTestStateRegister, a hit will returned the 
+     * cached data, otherwise it returns the result of an memory 
+     * access instead.
+     * If the cache lookup results in a cachemiss and linefill is
+     * not disabled in @ref CP15BISTTestStateRegister, will fill
+     * fetch all data to fill the entire cacheline directly
+     * from the ITCM, DTCM or bus
+     * @param [in] addr Address of the memory to be retreived from
+     * cache. The address is internally aligned to an word boundary
+     * @return Value of the word at addr
+     */
+    bool DCacheLookup(const u32 addr);
 
-    u32 DTCMSetting, ITCMSetting;
+    /**
+     * @brief Updates a word in the data cache if present
+     * @param [in] addr Memory address which is written
+     * @param [in] val Word value to be written
+     * @retval true, if the data was written into the cache and
+     *               does not need to be updated until cache is
+     *               cleaned
+     *         false, to write through
+     */
+    bool DCacheWrite32(const u32 addr, const u32 val);
+
+    /**
+     * @brief Updates a word in the data cache if present
+     * @param [in] addr Memory address which is written
+     * @param [in] val Half-Word value to be written
+     * @retval true, if the data was written into the cache and
+     *               does not need to be updated until cache is
+     *               cleaned
+     *         false, to write through
+     */
+    bool DCacheWrite16(const u32 addr, const u16 val);
+
+    /**
+     * @brief Updates a word in the data cache if present
+     * @param [in] addr Memory address which is written
+     * @param [in] val Byte value to be written
+     * @retval true, if the data was written into the cache and
+     *               does not need to be updated until cache is
+     *               cleaned
+     *         false, to write through
+     */
+    bool DCacheWrite8(const u32 addr, const u8 val);
+
+    /**
+     * @brief Check if an address is within a data cachable region
+     * @details
+     * Checks the address by looking up the PU_map flags for 
+     * the address and returns the status of the data cache enable 
+     * flag
+     * 
+     * @param [in] addr Address. May be unaligned.
+     * @retval true If the address points to a region, that is
+     * enabled for instruction fetches to be cached.
+     */
+    inline bool IsAddressDCachable(const u32 addr) const;
+
+    /** 
+     * @brief Invalidates the data cacheline containing the data of 
+     * an address.
+     * @details 
+     * Searches the cacheline containing the data of an address, and
+     * if found clears the @ref CACHE_FLAG_VALID of this cache line.
+     * Nothing is done if the address is not present in the cache.
+     * @par Returns
+     *      Nothing
+     */
+    void DCacheInvalidateAll();
+    
+     /** 
+     * @brief Invalidates the data cacheline containing the data of 
+     * an address.
+     * @details 
+     * Searches the cacheline containing the data of an address, and
+     * if found clears the @ref CACHE_FLAG_VALID of this cache line.
+     * Nothing is done if the address is not present in the cache.
+     * @par Returns
+     *      Nothing
+     */     
+    void DCacheInvalidateByAddr(const u32 addr);
+    
+    /**
+     * @brief Invalidates an data cache line
+     * @details
+     * Clears the @ref CACHE_FLAG_VALID of the cacheline given by 
+     * set and index within the set. Nothing is done if the cache
+     * line does not exist.
+     * @param [in] cacheSet index of the internal cache set from
+     * 0 to @ref DCACHE_SETS - 1
+     * @param [in] cacheLine index of the line within the cache set
+     * from 0 to @ref DCACHE_LINESPERSET - 1
+     * @par Returns
+     *      Nothing
+     */
+    void DCacheInvalidateBySetAndWay(const u8 cacheSet, const u8 cacheLine);
+    
+    /**
+     * @brief Cleans the entire data cache
+     * @details
+     * If write-back is enabled in conjunction with the data cache
+     * the dirty flags in tags are set if the corresponding cache
+     * line is written to.
+     * A clean will write the parts of the cache line back
+     * that is marked dirty and adds the required cycles to the
+     * @ref DataCyces member.
+     * @par Returns
+     *      Nothing
+     */
+    void DCacheClearAll();
+
+    /**
+     * @brief Cleans a data cache line
+     * @details
+     * If write-back is enabled in conjunction with the data cache
+     * the dirty flags in tags are set if the corresponding cache
+     * line is written to.
+     * A clean will write the parts of the cache line back
+     * that is marked dirty and adds the required cycles to the
+     * @ref DataCyces member.
+     * @param [in] addr Memory address of the data in the cache line
+     * @par Returns
+     *      Nothing
+     */
+    void DCacheClearByAddr(const u32 addr);
+
+    /**
+     * @brief Cleans a data cache line
+     * @details
+     * If write-back is enabled in conjunction with the data cache
+     * the dirty flags in tags are set if the corresponding cache
+     * line is written to.
+     * A clean will write the parts of the cache line back
+     * that is marked dirty and adds the required cycles to the
+     * @ref DataCyces member.
+     * @param [in] cacheSet index of the internal cache set from
+     * 0 to @ref DCACHE_SETS - 1
+     * @param [in] cacheLine index of the line within the cache set
+     * from 0 to @ref DCACHE_LINESPERSET - 1
+     * @par Returns
+     *      Nothing
+     */
+    void DCacheClearByASetAndWay(const u8 cacheSet, const u8 cacheLine);
+
+    /**
+     * @brief Handles MCR operations writing to cp15 registers
+     * @details
+     * This function updates the internal state of the emulator when
+     * a cp15 register is written, or triggers the corresponding action
+     * like flushing caches.
+     * 
+     * @param [in] id the operation id to be performed, consisting of 
+     * (from lower to higher nibble) opcode2, intermediate register, 
+     * register and opcode1. Most write operations just take the first 3
+     * into account.
+     * param [in] val value to be written to the cp15 register
+     * @par Returns
+     *      Nothing
+     */
+    void CP15Write(const u32 id, const u32 val);
+
+    /**
+     * @brief handles MRC operations reading from cp15 registers
+     * @details
+     * This function accumulates the regsiter states from the internal
+     * emulator state. It does not modify the internal state of the
+     * emulator or cp15.
+     * @param  [in] id the operation id to be performed, consisting of 
+     * (from lower to higher nibble) opcode2, intermediate register, 
+     * register and opcode1. Most read operations just take the first 3
+     * into account.
+     * @return Value of the cp15 register
+     */
+    u32 CP15Read(const u32 id) const;
+
+    void QueueFunction(void (ARMv5::*QueueEntry)(void));
+
+    // Queue Functions
+    void StartExecARM();
+    void StartExecTHUMB();
+    void AddExecute();
+    void AddCycles_MW_2();
+    void DelayIfITCM_2();
+    void JumpTo_2();
+    void JumpTo_3A();
+    void JumpTo_3B();
+    void JumpTo_3C();
+    void JumpTo_4();
+    void CodeRead32_2();
+    void CodeRead32_3();
+    void CodeRead32_4();
+    void ICacheLookup_2();
+    void DAbortHandle();
+    void DCacheFin8();
+    void DRead8_2();
+    void DRead8_3();
+    void DRead8_4();
+    void DRead8_5();
+    void DCacheFin16();
+    void DRead16_2();
+    void DRead16_3();
+    void DRead16_4();
+    void DRead16_5();
+    void DCacheFin32();
+    void DRead32_2();
+    void DRead32_3();
+    void DRead32_4();
+    void DRead32_5();
+    void DRead32S_2();
+    void DRead32S_3();
+    void DRead32S_4();
+    void DRead32S_5A();
+    void DRead32S_5B();
+    void DWrite8_2();
+    void DWrite8_3();
+    void DWrite8_4();
+    void DWrite8_5();
+    void DWrite16_2();
+    void DWrite16_3();
+    void DWrite16_4();
+    void DWrite16_5();
+    void DWrite32_2();
+    void DWrite32_3();
+    void DWrite32_4();
+    void DWrite32_5();
+    void DWrite32S_2();
+    void DWrite32S_3();
+    void DWrite32S_4();
+    void DWrite32S_5A();
+    void DWrite32S_5B();
+    void WBCheck_2();
+    void ICachePrefetch_2();
+    void DCacheLookup_2();
+    void DCacheLookup_3();
+    void DCClearAddr_2();
+    void DCClearSetWay_2();
+    void DCClearInvalidateAddr_2();
+    void DCClearInvalidateSetWay_2();
+    void SetupInterlock_2();
+    void HandleInterlocksExecute_2();
+    void HandleInterlocksMemory_2();
+    void ForceInterlock_2();
+    void QueueUpdateMode() { UpdateMode(QueueMode[0], QueueMode[1], true); }
+    void SignExtend8() { R[ExtReg] = (s8)R[ExtReg]; }
+    void SignExtend16() { R[ExtReg] = (s16)R[ExtReg]; }
+    void ROR32() { R[ExtReg] = ROR(R[ExtReg], ExtROROffs); }
+
+
+    u32 CP15Control;                                //! CP15 Register 1: Control Register
+
+    u32 RNGSeed;                                    //! Global cache line fill seed. Used for pseudo random replacement strategy with the instruction and data cache
+
+    u32 DTCMSetting;                                //! CP15 Register 9 Intermediate 1 Opcode2 0: Data Tightly-Coupled Memory register
+    u32 ITCMSetting;                                //! CP15 Register 9 Intermediate 1 Opcode2 1: Instruction Tightly-Coupled Memory register
+    u32 DCacheLockDown;                             //! CP15 Register 9 Intermediate 0 Opcode2 0: Data Cache Lockdown Register
+    u32 ICacheLockDown;                             //! CP15 Register 9 Intermediate 0 Opcode2 1: Instruction Cache Lockdown Register
+    u32 CacheDebugRegisterIndex;                    //! CP15: Cache Debug Index Register
+    u32 CP15TraceProcessId;                         //! CP15: Trace Process Id Register
+    u32 CP15BISTTestStateRegister;                  //! CP15: BIST Test State Register
 
     // for aarch64 JIT they need to go up here
     // to be addressable by a 12-bit immediate
-    u32 ITCMSize;
-    u32 DTCMBase, DTCMMask;
-    s32 RegionCodeCycles;
+    u32 ITCMSize;                                   //! Internal: Size of the memory ITCM is mapped to. @ref ITCM data repeats every @ref ITCMPhysicalSize withhin
+    u32 DTCMBase;                                   //! Internal: DTCMBase Address. The DTCM can be accessed if the address & ~ @ref DTCMMask is equal to thhis base address
+    u32 DTCMMask;                                   //! Internal: DTCM Address Mask used in conjunction with @ref DTCMBase to check for DTCM access
+    s32 RegionCodeCycles;                           //! Internal: Cached amount of cycles to fetch instruction from the current code region.
 
-    u8 ITCM[ITCMPhysicalSize];
-    u8* DTCM;
+    alignas(u32) u8 ITCM[ITCMPhysicalSize];                      //! Content of the ITCM
+    u8* DTCM;                                       //! Content of the DTCM
 
-    u8 ICache[0x2000];
-    u32 ICacheTags[64*4];
-    u8 ICacheCount[64];
+    alignas(u32) u8 ICache[ICACHE_SIZE];                         //! Instruction Cache Content organized in @ref ICACHE_LINESPERSET times @ref ICACHE_SETS times @ref ICACHE_LINELENGTH bytes
+    u32 ICacheTags[ICACHE_LINESPERSET*ICACHE_SETS]; //! Instruction Cache Tags organized in @ref ICACHE_LINESPERSET times @ref ICACHE_SETS Tags
+    u8 ICacheCount;                                 //! Global instruction line fill counter. Used for round-robin replacement strategy with the instruction cache
 
-    u32 PU_CodeCacheable;
-    u32 PU_DataCacheable;
-    u32 PU_DataCacheWrite;
+    alignas(u32) u8 DCache[DCACHE_SIZE];                         //! Data Cache Content organized in @ref DCACHE_LINESPERSET times @ref DCACHE_SETS times @ref DCACHE_LINELENGTH bytes
+    u32 DCacheTags[DCACHE_LINESPERSET*DCACHE_SETS]; //! Data Cache Tags organized in @ref DCACHE_LINESPERSET times @ref DCACHE_SETS Tags
+    u8 DCacheCount;                                 //! Global data line fill counter. Used for round-robin replacement strategy with the instruction cache
 
-    u32 PU_CodeRW;
-    u32 PU_DataRW;
+    u32 PU_CodeCacheable;                           //! CP15 Register 2 Opcode2 1: Code Cachable Bits
+    u32 PU_DataCacheable;                           //! CP15 Register 2 Opcode2 0: Data Cachable Bits
+    u32 PU_WriteBufferability;                      //! CP15 Register 3 Opcode2 0: Write Buffer Control Register
 
-    u32 PU_Region[8];
+    u32 PU_CodeRW;                                  //! CP15 Register 5 Opcode2 3: Code Access Permission register
+    u32 PU_DataRW;                                  //! CP15 Register 5 Opcode2 2: Data Access Permission register
+
+    u32 PU_Region[CP15_REGION_COUNT];               //! CP15 Register 6 Opcode2 0..7: Protection Region Base and Size Register
 
     // 0=dataR 1=dataW 2=codeR 4=datacache 5=datawrite 6=codecache
-    u8 PU_PrivMap[0x100000];
-    u8 PU_UserMap[0x100000];
-
-    // games operate under system mode, generally
-    //#define PU_Map PU_PrivMap
-    u8* PU_Map;
+    u8 PU_PrivMap[CP15_MAP_ENTRYCOUNT];                        /** 
+                                                     * Memory mapping flags for Privileged Modes
+                                                     * Bits:
+                                                     *      0 - CP15_MAP_READABLE
+                                                     *      1 - CP15_MAP_WRITEABLE
+                                                     *      2 - CP15_MAP_EXECUTABLE
+                                                     *      4 - CP15_MAP_DCACHEABLE
+                                                     *      5 - CP15_MAP_BUFFERABLE
+                                                     *      6 - CP15_MAP_ICACHEABLE
+                                                     */
+    u8 PU_UserMap[CP15_MAP_ENTRYCOUNT];             //! Memory mapping flags for User Mode
+    u8* PU_Map;                                     //! Current valid Region Mapping (is either @ref PU_PrivMap or PU_UserMap)
 
     // code/16N/32N/32S
-    u8 MemTimings[0x100000][4];
-
-    u8* CurICacheLine;
+    u8 MemTimings[0x40000][3];
 
     bool (*GetMemRegion)(u32 addr, bool write, MemRegion* region);
+    
+    alignas(64) void (ARMv5::*DelayedQueue)(void); // adding more than one new entry to the queue while it's already active does not work. so uh. we use this to work around that. it's less than ideal...
+    void (ARMv5::*StartExec)(void);
+    void (ARMv5::*FuncQueue[32])(void);
+    u64 ITCMTimestamp;
+    u64 TimestampMemory;
+    u32 PC;
+    bool NullFetch;
+    bool Store;
+    s8 ITCMDelay;
+    u32 QueuedDCacheLine;
+    u32 CP15Queue;
+
+    u8 ILCurrReg;
+    u8 ILPrevReg;
+    u64 ILCurrTime;
+    u64 ILPrevTime;
+    u8 ILQueueReg;
+    s8 ILQueueDelay;
+    u8 ILQueueMemReg;
+    u8 ILQueueTimes[16];
+    u16 ILQueueMask;
+
+    u8 ICacheStreamPtr;
+    u8 DCacheStreamPtr;
+    u64 ICacheStreamTimes[7];
+    u64 DCacheStreamTimes[7];
+
+    s8 ILForceDelay;
+    u8 WBWritePointer; // which entry to attempt to write next; should always be ANDed with 0xF after incrementing
+    u8 WBFillPointer; // where the next entry should be added; should always be ANDed with 0xF after incrementing
+    u8 WBWriting; // whether the buffer is actively trying to perform a write
+    u32 WBCurAddr; // address the write buffer is currently writing to
+    u64 WBCurVal; // current value being written; 0-31: val | 61-63: flag; 0 = byte ns; 1 = halfword ns; 2 = word ns; 3 = word s; 4 = address (invalid in this variable)
+    u32 WBAddrQueued[40];
+    u32 storeaddr[16]; // temp until i figure out why using the fifo address entries directly didn't work
+    u64 WBValQueued[40];
+    u64 WriteBufferFifo[16]; // 0-31: val | 61-63: flag; 0 = byte ns; 1 = halfword ns; 2 = word ns; 3 = word s; 4 = address
+    u64 WBTimestamp; // current timestamp
+    //u64 WBMainRAMDelay; // timestamp used to emulate the delay before the next main ram write can begin
+    u64 WBDelay; // timestamp in bus cycles use for the delay before next write to the write buffer can occur (seems to be a 1 cycle delay after a write to it)
+    u32 WBLastRegion; // the last region written to by the write buffer
+    u64 WBReleaseTS; // the timestamp on which the write buffer relinquished control of the bus back
+    u64 WBInitialTS; // what cycle the entry was first sent in
 
 #ifdef GDBSTUB_ENABLED
     u32 ReadMem(u32 addr, int size) override;
@@ -384,36 +917,59 @@ class ARMv4 : public ARM
 {
 public:
     ARMv4(melonDS::NDS& nds, std::optional<GDBArgs> gdb, bool jit);
+    
+    void Reset() override;
 
     void FillPipeline() override;
 
-    void JumpTo(u32 addr, bool restorecpsr = false) override;
+    void JumpTo(u32 addr, bool restorecpsr = false, u8 R15 = 0) override;
 
     template <CPUExecuteMode mode>
     void Execute();
 
-    u16 CodeRead16(u32 addr)
-    {
-        return BusRead16(addr);
-    }
+    alignas(64) void (ARMv4::*StartExec)(void);
+    void (ARMv4::*FuncQueue[32])(void);
+    bool Nonseq;
 
-    u32 CodeRead32(u32 addr)
-    {
-        return BusRead32(addr);
-    }
+    void CodeRead16(u32 addr);
+    void CodeRead32(u32 addr);
 
-    void DataRead8(u32 addr, u32* val) override;
-    void DataRead16(u32 addr, u32* val) override;
-    void DataRead32(u32 addr, u32* val) override;
-    void DataRead32S(u32 addr, u32* val) override;
-    void DataWrite8(u32 addr, u8 val) override;
-    void DataWrite16(u32 addr, u16 val) override;
-    void DataWrite32(u32 addr, u32 val) override;
-    void DataWrite32S(u32 addr, u32 val) override;
+    bool DataRead8(u32 addr, u8 reg) override;
+    bool DataRead16(u32 addr, u8 reg) override;
+    bool DataRead32(u32 addr, u8 reg) override;
+    bool DataRead32S(u32 addr, u8 reg) override;
+    bool DataWrite8(u32 addr, u8 val, u8 reg) override;
+    bool DataWrite16(u32 addr, u16 val, u8 reg) override;
+    bool DataWrite32(u32 addr, u32 val, u8 reg) override;
+    bool DataWrite32S(u32 addr, u32 val, u8 reg) override;
     void AddCycles_C() override;
     void AddCycles_CI(s32 num) override;
     void AddCycles_CDI() override;
     void AddCycles_CD() override;
+    
+    void QueueFunction(void (ARMv4::*QueueEntry)(void));
+    
+    void StartExecARM();
+    void StartExecTHUMB();
+    void UpdateNextInstr1() { NextInstr[1] = RetVal; }
+    void JumpTo_2();
+    void JumpTo_3A();
+    void JumpTo_3B();
+    void DRead8_2();
+    void DRead16_2();
+    void DRead32_2();
+    void DRead32S_2();
+    void DWrite8_2();
+    void DWrite16_2();
+    void DWrite32_2();
+    void DWrite32S_2();
+    void AddExecute();
+    void AddExtraCycle();
+    void QueueUpdateMode() { UpdateMode(QueueMode[0], QueueMode[1], true); }
+    void SignExtend8() { if (!(LDRFailedRegs & 1<<ExtReg)) R[ExtReg] = (s8)R[ExtReg]; }
+    void SignExtend16() { if (!(LDRFailedRegs & 1<<ExtReg)) R[ExtReg] = (s16)R[ExtReg]; }
+    void ROR32() { if (!(LDRFailedRegs & 1<<ExtReg)) R[ExtReg] = ROR(R[ExtReg], ExtROROffs); }
+
 protected:
     u8 BusRead8(u32 addr) override;
     u16 BusRead16(u32 addr) override;
