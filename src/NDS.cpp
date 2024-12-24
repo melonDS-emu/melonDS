@@ -1951,7 +1951,7 @@ void NDS::ScheduleEvent(u32 id, bool periodic, s32 delay, u32 funcid, u32 param)
     else
     {
         if (CurCPU == 0)
-            evt.Timestamp = ((ARM9Timestamp + ((1<<ARM9ClockShift)-1)) >> ARM9ClockShift) + delay;
+            evt.Timestamp = ((std::max(ARM9Timestamp, DMA9Timestamp) + ((1<<ARM9ClockShift)-1)) >> ARM9ClockShift) + delay;
         else
             evt.Timestamp = ARM7Timestamp + delay;
     }
