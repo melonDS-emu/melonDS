@@ -54,7 +54,7 @@ public:
     }
 
 private slots:
-    void done(int r);
+    void done(int r) override;
 
     //
 
