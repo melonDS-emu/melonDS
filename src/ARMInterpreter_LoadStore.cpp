@@ -27,11 +27,7 @@ namespace melonDS::ARMInterpreter
 template <bool bitfield>
 inline bool ExecuteStage(ARM* cpu, u16 ilmask)
 {
-    if (cpu->Num == 0)
-    {
-        if (cpu->CheckInterlock) { ((ARMv5*)cpu)->HandleInterlocksExecute<bitfield>(ilmask); return false;}
-        ((ARMv5*)cpu)->AddCycles_C();
-    }
+    if (cpu->CheckInterlock) { ((ARMv5*)cpu)->HandleInterlocksExecute<bitfield>(ilmask); return false;}
     return true;
 }
 

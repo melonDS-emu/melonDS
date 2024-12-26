@@ -250,10 +250,6 @@ public:
     u16 STRRegs;
     u32 FetchAddr[17];
     u32 STRVal[16];
-    
-    // debugging crud: REMOVE ME
-    u8 abt;
-    u64 iter;
 
     u64 IRQTimestamp;
 

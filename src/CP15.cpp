@@ -1808,6 +1808,7 @@ void ARMv5::CP15Write(u32 id, u32 val)
         // if it wasn't cached yet, it will be loaded into cache
         // low bits are set to 0x1C to trick cache streaming
         CP15Queue = val;
+        DelayedQueue = nullptr;
         QueueFunction(&ARMv5::ICachePrefetch_2);
         return;
 

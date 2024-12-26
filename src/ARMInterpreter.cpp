@@ -262,14 +262,10 @@ void A_MRS(ARM* cpu)
 
 void A_MCR(ARM* cpu)
 {
-    if (cpu->CheckInterlock)
-    {
-        if (!((cpu->CPSR & 0x1F) == 0x10)) ((ARMv5*)cpu)->HandleInterlocksExecute<false>((cpu->CurInstr>>12)&0xF);
-        return;
-    }
-
     if ((cpu->CPSR & 0x1F) == 0x10)
         return A_UNK(cpu);
+
+    if (cpu->CheckInterlock) return ((ARMv5*)cpu)->HandleInterlocksExecute<false>((cpu->CurInstr>>12)&0xF);
 
     u32 cp = (cpu->CurInstr >> 8) & 0xF;
     u32 op = (cpu->CurInstr >> 21) & 0x7;
@@ -281,7 +277,7 @@ void A_MCR(ARM* cpu)
 
     if (cpu->Num==0 && cp==15)
     {
-        ((ARMv5*)cpu)->CP15Write((cn<<8)|(cm<<4)|cpinfo|(op<<12), val); // TODO: IF THIS RAISES AN EXCEPTION WE DO A DOUBLE CODE FETCH; FIX THAT
+        ((ARMv5*)cpu)->CP15Write((cn<<8)|(cm<<4)|cpinfo|(op<<12), val);
     }
     else if (cpu->Num==1 && cp==14)
     {
@@ -293,21 +289,16 @@ void A_MCR(ARM* cpu)
         return A_UNK(cpu); // TODO: check what kind of exception it really is
     }
     
-    // TODO: SINCE THIS DOES A CODE FETCH WE NEED TO DELAY ANY MPU UPDATES UNTIL *AFTER* THE CODE FETCH
     if (cpu->Num==0) cpu->AddCycles_CI(5); // checkme
     else /* ARM7 */  cpu->AddCycles_CI(1 + 1); // TODO: checkme
 }
 
 void A_MRC(ARM* cpu)
 {
-    if (cpu->CheckInterlock)
-    {
-        if (!((cpu->CPSR & 0x1F) == 0x10)) ((ARMv5*)cpu)->HandleInterlocksExecute<false>((cpu->CurInstr>>12)&0xF);
-        return;
-    }
-
     if ((cpu->CPSR & 0x1F) == 0x10)
         return A_UNK(cpu);
+
+    if (cpu->CheckInterlock) return ((ARMv5*)cpu)->HandleInterlocksExecute<false>((cpu->CurInstr>>12)&0xF);
 
     u32 cp = (cpu->CurInstr >> 8) & 0xF;
     u32 op = (cpu->CurInstr >> 21) & 0x7;
@@ -322,7 +313,7 @@ void A_MRC(ARM* cpu)
         else
         {
             // r15 updates the top 4 bits of the cpsr, done to "allow for conditional branching based on coprocessor status"
-            u32 flags = ((ARMv5*)cpu)->CP15Read((cn<<8)|(cm<<4)|cpinfo|(op<<12)) & 0xF0000000; // TODO: IF THIS RAISES AN EXCEPTION WE DO A DOUBLE CODE FETCH; FIX THAT
+            u32 flags = ((ARMv5*)cpu)->CP15Read((cn<<8)|(cm<<4)|cpinfo|(op<<12)) & 0xF0000000;
             cpu->CPSR = (cpu->CPSR & ~0xF0000000) | flags;
         }
     }

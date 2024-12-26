@@ -896,6 +896,7 @@ void ARMv5::Execute()
             {
                 while (FuncQueueActive)
                 {
+                    //printf("A9: A:%i, F:%i, P:%i, E:%i, I:%08llX, N:%08llX, 7:%08llX 15:%08X\n", FuncQueueActive, FuncQueueFill, FuncQueueProg, FuncQueueEnd, CurInstr, NextInstr[0], NDS.ARM7.CurInstr, R[15]);
                     (this->*FuncQueue[FuncQueueProg])();
 
                     if (FuncQueueFill == FuncQueueProg)
@@ -938,7 +939,7 @@ void ARMv5::Execute()
                     if constexpr (mode == CPUExecuteMode::InterpreterGDB)
                         GdbCheckC(); // gdb might throw a hissy fit about this change but idc
 
-                    //printf("A9: A:%i, F:%i, P:%i, E:%i, I:%08llX, P:%08X, 15:%08X\n", FuncQueueActive, FuncQueueFill, FuncQueueProg, FuncQueueEnd, CurInstr, PC, R[15]);
+                    //printf("A9: A:%i, F:%i, P:%i, E:%i, I:%08llX, N:%08llX, 7:%08llX 15:%08X\n", FuncQueueActive, FuncQueueFill, FuncQueueProg, FuncQueueEnd, CurInstr, NextInstr[0], NDS.ARM7.CurInstr, R[15]);
                     (this->*FuncQueue[FuncQueueProg])();
 
                     if (FuncQueueFill > 0) // check if we started the queue up
@@ -1098,6 +1099,7 @@ void ARMv4::Execute()
             {
                 while (FuncQueueActive)
                 {
+                    //printf("A7: A:%i, F:%i, P:%i, E:%i, I:%08llX, N:%08llX 15:%08X\n", FuncQueueActive, FuncQueueFill, FuncQueueProg, FuncQueueEnd, CurInstr, NextInstr[0], R[15]);
                     (this->*FuncQueue[FuncQueueProg])();
 
                     if (FuncQueueFill == FuncQueueProg)
@@ -1139,7 +1141,7 @@ void ARMv4::Execute()
                     if constexpr (mode == CPUExecuteMode::InterpreterGDB)
                         GdbCheckC();
                 
-                    //printf("A7: A:%i, F:%i, P:%i, E:%i, I:%08llX, 15:%08X\n", FuncQueueActive, FuncQueueFill, FuncQueueProg, FuncQueueEnd, CurInstr, R[15]);
+                    //printf("A7: A:%i, F:%i, P:%i, E:%i, I:%08llX, N:%08llX 15:%08X\n", FuncQueueActive, FuncQueueFill, FuncQueueProg, FuncQueueEnd, CurInstr, NextInstr[0], R[15]);
                     (this->*FuncQueue[FuncQueueProg])();
 
                     if (FuncQueueFill > 0) // check if we started the queue up
@@ -1511,6 +1513,7 @@ void ARMv5::ForceInterlock_2()
 
 void ARMv5::QueueFunction(void (ARMv5::*QueueEntry)(void))
 {
+    if (QueueEntry == nullptr) return;
     if ((NDS.ARM9Timestamp >= NDS.ARM9Target) || (MRTrack.Type != MainRAMType::Null))
         FuncQueue[FuncQueueFill++] = QueueEntry;
     else
