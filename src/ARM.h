@@ -262,6 +262,7 @@ public:
     u8 FuncQueueProg;
     u8 ExecuteCycles;
     bool FuncQueueActive;
+    bool CheckInterlock;
 
 #ifdef JIT_ENABLED
     u32 FastBlockLookupStart, FastBlockLookupSize;
@@ -345,14 +346,14 @@ public:
 
     void AddCycles_C() override
     {
-        ExecuteCycles = 0;
-        CodeFetch();
+        //ExecuteCycles = 0;
+        //CodeFetch();
     }
 
     void AddCycles_CI(s32 numX) override
     {
         ExecuteCycles = numX;
-        CodeFetch();
+        QueueFunction(&ARMv5::AddExecute);
     }
 
     void AddCycles_MW(s32 numM)
@@ -730,7 +731,9 @@ public:
 
     // Queue Functions
     void StartExecARM();
+    void ContExecARM();
     void StartExecTHUMB();
+    void ContExecTHUMB();
     void AddExecute();
     void AddCycles_MW_2();
     void DelayIfITCM_2();

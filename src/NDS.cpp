@@ -1810,7 +1810,7 @@ u32 NDS::RunFrame()
                             }
                         }
 
-                        //printf("A9 LOOP: 9 %lli %lli %08X %08llX %i 7 %lli %lli %08X %08llX %i\n", ARM9Timestamp, ARM9Target, ARM9.PC, ARM9.CurInstr, (u8)ARM9.MRTrack.Type, ARM7Timestamp, ARM7Target, ARM7.R[15], ARM7.CurInstr, (u8)ARM7.MRTrack.Type);
+                        //printf("A9 LOOP: 9 %lli %lli %08X %08llX %i 7 %lli %lli %08X %08llX %i\n", ARM9Timestamp, ARM9Target, ARM9.R[15], ARM9.CurInstr, (u8)ARM9.MRTrack.Type, ARM7Timestamp, ARM7Target, ARM7.R[15], ARM7.CurInstr, (u8)ARM7.MRTrack.Type);
 
                         RunTimers(0);
                         GPU.GPU3D.Run();

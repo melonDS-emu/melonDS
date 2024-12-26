@@ -36,6 +36,7 @@ namespace melonDS::ARMInterpreter
 
 void A_UNK(ARM* cpu)
 {
+    if (cpu->CheckInterlock) return;
     cpu->AddCycles_C();
     Log(LogLevel::Warn, "undefined ARM%d instruction %08X @ %08X\n", cpu->Num?7:9, cpu->CurInstr, cpu->R[15]-8);
 #ifdef GDBSTUB_ENABLED
@@ -56,6 +57,7 @@ void A_UNK(ARM* cpu)
 
 void T_UNK(ARM* cpu)
 {
+    if (cpu->CheckInterlock) return;
     cpu->AddCycles_C();
     Log(LogLevel::Warn, "undefined THUMB%d instruction %04X @ %08X\n", cpu->Num?7:9, cpu->CurInstr, cpu->R[15]-4);
 #ifdef GDBSTUB_ENABLED
@@ -75,6 +77,7 @@ void T_UNK(ARM* cpu)
 
 void A_BKPT(ARM* cpu)
 {
+    if (cpu->CheckInterlock) return;
     if (cpu->Num == 1) return A_UNK(cpu); // checkme
     
     Log(LogLevel::Warn, "BKPT: "); // combine with the prefetch abort warning message
@@ -85,6 +88,7 @@ void A_BKPT(ARM* cpu)
 
 void A_MSR_IMM(ARM* cpu)
 {
+    if (cpu->CheckInterlock) return;
     if ((cpu->Num != 1) && (cpu->CurInstr & ((0x7<<16)|(1<<22)))) cpu->AddCycles_CI(2); // arm9 cpsr_sxc & spsr
     else cpu->AddCycles_C();
 
@@ -150,7 +154,7 @@ void A_MSR_IMM(ARM* cpu)
 
 void A_MSR_REG(ARM* cpu)
 {
-    if (cpu->Num == 0) ((ARMv5*)cpu)->HandleInterlocksExecute<false>(cpu->CurInstr & 0xF);
+    if (cpu->CheckInterlock) return ((ARMv5*)cpu)->HandleInterlocksExecute<false>(cpu->CurInstr & 0xF);
 
     if ((cpu->Num != 1) && (cpu->CurInstr & ((0x7<<16)|(1<<22)))) cpu->AddCycles_CI(2); // arm9 cpsr_sxc & spsr
     else cpu->AddCycles_C();
@@ -217,6 +221,7 @@ void A_MSR_REG(ARM* cpu)
 
 void A_MRS(ARM* cpu)
 {
+    if (cpu->CheckInterlock) return;
     u32 psr;
     if (cpu->CurInstr & (1<<22))
     {
@@ -257,6 +262,12 @@ void A_MRS(ARM* cpu)
 
 void A_MCR(ARM* cpu)
 {
+    if (cpu->CheckInterlock)
+    {
+        if (!((cpu->CPSR & 0x1F) == 0x10)) ((ARMv5*)cpu)->HandleInterlocksExecute<false>((cpu->CurInstr>>12)&0xF);
+        return;
+    }
+
     if ((cpu->CPSR & 0x1F) == 0x10)
         return A_UNK(cpu);
 
@@ -267,8 +278,6 @@ void A_MCR(ARM* cpu)
     u32 cpinfo = (cpu->CurInstr >> 5) & 0x7;
     u32 val = cpu->R[(cpu->CurInstr>>12)&0xF];
     if (((cpu->CurInstr>>12) & 0xF) == 15) val += 4;
-
-    if (cpu->Num == 0) ((ARMv5*)cpu)->HandleInterlocksExecute<false>((cpu->CurInstr>>12)&0xF);
 
     if (cpu->Num==0 && cp==15)
     {
@@ -291,6 +300,12 @@ void A_MCR(ARM* cpu)
 
 void A_MRC(ARM* cpu)
 {
+    if (cpu->CheckInterlock)
+    {
+        if (!((cpu->CPSR & 0x1F) == 0x10)) ((ARMv5*)cpu)->HandleInterlocksExecute<false>((cpu->CurInstr>>12)&0xF);
+        return;
+    }
+
     if ((cpu->CPSR & 0x1F) == 0x10)
         return A_UNK(cpu);
 
@@ -334,6 +349,7 @@ void A_MRC(ARM* cpu)
 
 void A_SVC(ARM* cpu) // A_SWI
 {
+    if (cpu->CheckInterlock) return;
     cpu->AddCycles_C();
     u32 oldcpsr = cpu->CPSR;
     cpu->CPSR &= ~0xBF;
@@ -348,6 +364,7 @@ void A_SVC(ARM* cpu) // A_SWI
 
 void T_SVC(ARM* cpu) // T_SWI
 {
+    if (cpu->CheckInterlock) return;
     cpu->AddCycles_C();
     u32 oldcpsr = cpu->CPSR;
     cpu->CPSR &= ~0xBF;

@@ -27,6 +27,7 @@ using Platform::LogLevel;
 
 void A_B(ARM* cpu)
 {
+    if (cpu->CheckInterlock) return;
     cpu->AddCycles_C();
     s32 offset = (s32)(cpu->CurInstr << 8) >> 6;
     cpu->JumpTo(cpu->R[15] + offset);
@@ -34,6 +35,7 @@ void A_B(ARM* cpu)
 
 void A_BL(ARM* cpu)
 {
+    if (cpu->CheckInterlock) return;
     cpu->AddCycles_C();
     s32 offset = (s32)(cpu->CurInstr << 8) >> 6;
     cpu->R[14] = cpu->R[15] - 4;
@@ -42,6 +44,7 @@ void A_BL(ARM* cpu)
 
 void A_BLX_IMM(ARM* cpu)
 {
+    if (cpu->CheckInterlock) return;
     cpu->AddCycles_C();
     s32 offset = (s32)(cpu->CurInstr << 8) >> 6;
     if (cpu->CurInstr & 0x01000000) offset += 2;
@@ -51,14 +54,14 @@ void A_BLX_IMM(ARM* cpu)
 
 void A_BX(ARM* cpu)
 {
-    if (cpu->Num==0) ((ARMv5*)cpu)->HandleInterlocksExecute<false>(cpu->CurInstr&0xF);
+    if (cpu->CheckInterlock) return ((ARMv5*)cpu)->HandleInterlocksExecute<false>(cpu->CurInstr&0xF);
     cpu->AddCycles_C();
     cpu->JumpTo(cpu->R[cpu->CurInstr & 0xF]);
 }
 
 void A_BLX_REG(ARM* cpu)
 {
-    if (cpu->Num==0) ((ARMv5*)cpu)->HandleInterlocksExecute<false>(cpu->CurInstr&0xF);
+    if (cpu->CheckInterlock) return ((ARMv5*)cpu)->HandleInterlocksExecute<false>(cpu->CurInstr&0xF);
     cpu->AddCycles_C();
     u32 lr = cpu->R[15] - 4;
     cpu->JumpTo(cpu->R[cpu->CurInstr & 0xF]);
@@ -69,6 +72,7 @@ void A_BLX_REG(ARM* cpu)
 
 void T_BCOND(ARM* cpu)
 {
+    if (cpu->CheckInterlock) return;
     cpu->AddCycles_C();
     if (cpu->CheckCondition((cpu->CurInstr >> 8) & 0xF))
     {
@@ -79,14 +83,14 @@ void T_BCOND(ARM* cpu)
 
 void T_BX(ARM* cpu)
 {
-    if (cpu->Num==0) ((ARMv5*)cpu)->HandleInterlocksExecute<false>((cpu->CurInstr >> 3) & 0xF);
+    if (cpu->CheckInterlock) return ((ARMv5*)cpu)->HandleInterlocksExecute<false>((cpu->CurInstr >> 3) & 0xF);
     cpu->AddCycles_C();
     cpu->JumpTo(cpu->R[(cpu->CurInstr >> 3) & 0xF]);
 }
 
 void T_BLX_REG(ARM* cpu)
 {
-    if (cpu->Num==0) ((ARMv5*)cpu)->HandleInterlocksExecute<false>((cpu->CurInstr >> 3) & 0xF);
+    if (cpu->CheckInterlock) return ((ARMv5*)cpu)->HandleInterlocksExecute<false>((cpu->CurInstr >> 3) & 0xF);
     cpu->AddCycles_C();
     if (cpu->Num==1)
     {
@@ -101,6 +105,7 @@ void T_BLX_REG(ARM* cpu)
 
 void T_B(ARM* cpu)
 {
+    if (cpu->CheckInterlock) return;
     cpu->AddCycles_C();
     s32 offset = (s32)((cpu->CurInstr & 0x7FF) << 21) >> 20;
     cpu->JumpTo(cpu->R[15] + offset + 1);
@@ -108,6 +113,7 @@ void T_B(ARM* cpu)
 
 void T_BL_LONG_1(ARM* cpu)
 {
+    if (cpu->CheckInterlock) return;
     s32 offset = (s32)((cpu->CurInstr & 0x7FF) << 21) >> 9;
     cpu->R[14] = cpu->R[15] + offset;
     cpu->AddCycles_C();
@@ -118,6 +124,8 @@ void T_BL_LONG_2(ARM* cpu)
     if ((cpu->CurInstr & 0x1801) == 0x0801) // "BLX" with bit 0 set is an undefined instruction.
         return T_UNK(cpu); // TODO: Check ARM7 for exceptions
     
+    if (cpu->CheckInterlock) return;
+
     cpu->AddCycles_C();
     s32 offset = (cpu->CurInstr & 0x7FF) << 1;
     u32 pc = cpu->R[14] + offset;

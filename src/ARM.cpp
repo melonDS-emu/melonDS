@@ -159,6 +159,7 @@ void ARM::Reset()
     Cycles = 0;
     Halted = 0;
     DataCycles = 0;
+    CheckInterlock = false;
 
     IRQ = 0;
     IRQTimestamp = -1;
@@ -701,11 +702,43 @@ void ARMv5::StartExecTHUMB()
     R[15] += 2;
     CurInstr = NextInstr[0];
     NextInstr[0] = NextInstr[1];
-    // code fetch is done during the execute stage cycle handling
-    if (R[15] & 0x2) NullFetch = true;
-    else NullFetch = false;
-    PC = R[15];
+    
+    CheckInterlock = true;
+    // check for interlocks
+    if (CurInstr > 0xFFFFFFFF) [[unlikely]] // handle aborted instructions
+    {
+        // abt
+    }
+    else [[likely]] // actually execute
+    {
+        u32 icode = (CurInstr >> 6) & 0x3FF;
+        ARMInterpreter::THUMBInstrTable[icode](this);
+    }
 
+    if (R[15] & 0x2)
+    {
+        // the value we need is cached by the bus
+        // in practice we can treat this as a 1 cycle fetch, with no penalties
+        RetVal = NextInstr[1] >> 16;
+        NDS.ARM9Timestamp++;
+        if (NDS.ARM9Timestamp < TimestampMemory) NDS.ARM9Timestamp = TimestampMemory;
+        Store = false;
+        DataRegion = Mem9_Null;
+
+        QueueFunction(&ARMv5::ContExecTHUMB);
+    }
+    else
+    {
+        DelayedQueue = &ARMv5::ContExecTHUMB;
+        CodeRead32(R[15]);
+    }
+}
+
+void ARMv5::ContExecTHUMB()
+{
+    NextInstr[1] = RetVal;
+
+    CheckInterlock = false;
     if ((NDS.ARM9Timestamp >= IRQTimestamp) && !(CPSR & 0x80)) TriggerIRQ<CPUExecuteMode::Interpreter>();
     else if (CurInstr > 0xFFFFFFFF) [[unlikely]] // handle aborted instructions
     {
@@ -725,10 +758,36 @@ void ARMv5::StartExecARM()
     R[15] += 4;
     CurInstr = NextInstr[0];
     NextInstr[0] = NextInstr[1];
-    // code fetch is done during the execute stage cycle handling
-    NullFetch = false;
-    PC = R[15];
 
+    CheckInterlock = true;
+    // check for interlocks
+    if (CurInstr & ((u64)1<<63)) [[unlikely]] // handle aborted instructions
+    {
+        // abt
+    }
+    else if (CheckCondition(CurInstr >> 28)) [[likely]] // actually execute
+    {
+        u32 icode = ((CurInstr >> 4) & 0xF) | ((CurInstr >> 16) & 0xFF0);
+        ARMInterpreter::ARMInstrTable[icode](this);
+    }
+    else if ((CurInstr & 0xFE000000) == 0xFA000000)
+    {
+        ARMInterpreter::A_BLX_IMM(this);
+    }
+    else if ((CurInstr & 0x0FF000F0) == 0x01200070)
+    {
+        ARMInterpreter::A_BKPT(this); // always passes regardless of condition code
+    }
+
+    DelayedQueue = &ARMv5::ContExecARM;
+    CodeRead32(R[15]);
+}
+
+void ARMv5::ContExecARM()
+{
+    NextInstr[1] = RetVal;
+
+    CheckInterlock = false;
     if ((NDS.ARM9Timestamp >= IRQTimestamp) && !(CPSR & 0x80)) TriggerIRQ<CPUExecuteMode::Interpreter>();
     else if (CurInstr & ((u64)1<<63)) [[unlikely]] // handle aborted instructions
     {
@@ -749,6 +808,7 @@ void ARMv5::StartExecARM()
     }
     else
         AddCycles_C();
+
     QueueFunction(&ARMv5::WBCheck_2);
 }
 
@@ -855,6 +915,7 @@ void ARMv5::Execute()
                     else
                     {
                         // we got a new addition to the list; redo the current entry and exit to resolve main ram
+                        if (FuncQueueEnd < FuncQueueFill) FuncQueueEnd = FuncQueueFill; 
                         FuncQueueFill = FuncQueueProg;
                         return;
                     }
@@ -1357,28 +1418,10 @@ u32 ARMv5::ReadMem(u32 addr, int size)
 
 void ARMv5::CodeFetch()
 {
-    if (NullFetch)
-    {
-        // the value we need is cached by the bus
-        // in practice we can treat this as a 1 cycle fetch, with no penalties
-        RetVal = NextInstr[1] >> 16;
-        NDS.ARM9Timestamp++;
-        if (NDS.ARM9Timestamp < TimestampMemory) NDS.ARM9Timestamp = TimestampMemory;
-        Store = false;
-        DataRegion = Mem9_Null;
-        QueueFunction(&ARMv5::AddExecute);
-    }
-    else
-    {
-        DelayedQueue = &ARMv5::AddExecute;
-        CodeRead32(PC);
-    }
 }
 
 void ARMv5::AddExecute()
 {
-    NextInstr[1] = RetVal;
-
     NDS.ARM9Timestamp += ExecuteCycles;
 }
 

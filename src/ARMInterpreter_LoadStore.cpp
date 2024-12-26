@@ -25,13 +25,14 @@ namespace melonDS::ARMInterpreter
 {
 
 template <bool bitfield>
-inline void ExecuteStage(ARM* cpu, u16 ilmask)
+inline bool ExecuteStage(ARM* cpu, u16 ilmask)
 {
     if (cpu->Num == 0)
     {
-        ((ARMv5*)cpu)->HandleInterlocksExecute<bitfield>(ilmask);
+        if (cpu->CheckInterlock) { ((ARMv5*)cpu)->HandleInterlocksExecute<bitfield>(ilmask); return false;}
         ((ARMv5*)cpu)->AddCycles_C();
     }
+    return true;
 }
 
 
@@ -85,7 +86,7 @@ void LoadSingle(ARM* cpu, const u8 rd, const u8 rn, const s32 offset, const u16 
     cpu->LDRFailedRegs = 0;
     static_assert((size == 8) || (size == 16) || (size == 32), "dummy this function only takes 8/16/32 for size!!!");
     
-    ExecuteStage<multireg>(cpu, (ilmask | (1<<rn)));
+    if (!ExecuteStage<multireg>(cpu, (ilmask | (1<<rn)))) return;
 
     u32 addr;
     if constexpr (writeback < Writeback::Post) addr = offset + cpu->R[rn];
@@ -182,7 +183,7 @@ void StoreSingle(ARM* cpu, const u8 rd, const u8 rn, const s32 offset, const u16
 {
     static_assert((size == 8) || (size == 16) || (size == 32), "dummy this function only takes 8/16/32 for size!!!");
 
-    ExecuteStage<multireg>(cpu, (ilmask | (1<<rn)));
+    if (!ExecuteStage<multireg>(cpu, (ilmask | (1<<rn)))) return;
 
     u32 addr;
     if constexpr (writeback < Writeback::Post) addr = offset + cpu->R[rn];
@@ -363,7 +364,7 @@ A_IMPLEMENT_WB_LDRSTR(LDRB)
     u32 r = (cpu->CurInstr>>12) & 0xF; \
     if (r&1) { A_UNK(cpu); return; } \
     cpu->LDRFailedRegs = 0; \
-    ExecuteStage<true>(cpu, ilmask | (1 << ((cpu->CurInstr>>16) & 0xF))); \
+    if (!ExecuteStage<true>(cpu, ilmask | (1 << ((cpu->CurInstr>>16) & 0xF)))) return; \
     bool dabort = !cpu->DataRead32(offset, r); \
     u32 oldval = cpu->R[r+1]; dabort |= !cpu->DataRead32S(offset+4, r+1); \
     ((ARMv5*)cpu)->DelayIfITCM(2); \
@@ -385,7 +386,7 @@ A_IMPLEMENT_WB_LDRSTR(LDRB)
     u32 r = (cpu->CurInstr>>12) & 0xF; \
     if (r&1) { A_UNK(cpu); return; } \
     cpu->LDRFailedRegs = 0; \
-    ExecuteStage<true>(cpu, ilmask | (1 << ((cpu->CurInstr>>16) & 0xF))); \
+    if (!ExecuteStage<true>(cpu, ilmask | (1 << ((cpu->CurInstr>>16) & 0xF)))) return; \
     bool dabort = !cpu->DataRead32(addr, r); \
     u32 oldval = cpu->R[r+1]; dabort |= !cpu->DataRead32S(addr+4, r+1); \
     ((ARMv5*)cpu)->DelayIfITCM(2); \
@@ -406,7 +407,7 @@ A_IMPLEMENT_WB_LDRSTR(LDRB)
     offset += cpu->R[(cpu->CurInstr>>16) & 0xF]; \
     u32 r = (cpu->CurInstr>>12) & 0xF; \
     if (r&1) { A_UNK(cpu); return; } \
-    ExecuteStage<true>(cpu, ilmask | (1 << ((cpu->CurInstr>>16) & 0xF))); \
+    if (!ExecuteStage<true>(cpu, ilmask | (1 << ((cpu->CurInstr>>16) & 0xF)))) return; \
     ((ARMv5*)cpu)->HandleInterlocksMemory(r); \
     bool dabort = !cpu->DataWrite32(offset, cpu->R[r], r); \
     u32 storeval = cpu->R[r+1]; if (r+1 == 15) storeval+=4; \
@@ -423,7 +424,7 @@ A_IMPLEMENT_WB_LDRSTR(LDRB)
     u32 addr = cpu->R[(cpu->CurInstr>>16) & 0xF]; \
     u32 r = (cpu->CurInstr>>12) & 0xF; \
     if (r&1) { A_UNK(cpu); return; } \
-    ExecuteStage<true>(cpu, ilmask | (1 << ((cpu->CurInstr>>16) & 0xF))); \
+    if (!ExecuteStage<true>(cpu, ilmask | (1 << ((cpu->CurInstr>>16) & 0xF)))) return; \
     ((ARMv5*)cpu)->HandleInterlocksMemory(r); \
     bool dabort = !cpu->DataWrite32(addr, cpu->R[r], r); \
     u32 storeval = cpu->R[r+1]; if (r+1 == 15) storeval+=4; \
@@ -494,7 +495,7 @@ A_IMPLEMENT_HD_LDRSTR(LDRSH)
 template<bool byte>
 inline void SWP(ARM* cpu)
 {
-    ExecuteStage<false>(cpu, ((cpu->CurInstr >> 16) & 0xF));
+    if (!ExecuteStage<false>(cpu, ((cpu->CurInstr >> 16) & 0xF))) return;
     cpu->LDRFailedRegs = 0;
     u32 base = cpu->R[(cpu->CurInstr >> 16) & 0xF];
     u32 rd = (cpu->CurInstr >> 12) & 0xF;
@@ -603,8 +604,10 @@ void EmptyRListLDMSTM(ARM* cpu, const u8 baseid, const u8 flags)
 
 void A_LDM(ARM* cpu)
 {
-    cpu->LDRFailedRegs = 0;
     u32 baseid = (cpu->CurInstr >> 16) & 0xF;
+    if (!ExecuteStage<false>(cpu, baseid)) return;
+
+    cpu->LDRFailedRegs = 0;
     u32 base = cpu->R[baseid];
     u32 wbbase;
     u32 oldbase = base;
@@ -621,8 +624,6 @@ void A_LDM(ARM* cpu)
                                        (((cpu->CurInstr >> 22) & 1) << 4))); // restore
         return;
     }
-
-    ExecuteStage<false>(cpu, baseid);
 
     if (!(cpu->CurInstr & (1<<23))) // decrement
     {
@@ -750,6 +751,8 @@ void A_LDM(ARM* cpu)
 void A_STM(ARM* cpu)
 {
     u32 baseid = (cpu->CurInstr >> 16) & 0xF;
+    if (!ExecuteStage<false>(cpu, baseid)) return;
+
     u32 base = cpu->R[baseid];
     u32 oldbase = base;
     u32 preinc = (cpu->CurInstr & (1<<24));
@@ -765,8 +768,6 @@ void A_STM(ARM* cpu)
                                        (0 << 4)));                           // thumb
         return;
     }
-    
-    ExecuteStage<false>(cpu, baseid);
 
     if (!(cpu->CurInstr & (1<<23)))
     {
@@ -860,7 +861,8 @@ void A_STM(ARM* cpu)
 
 void T_LDR_PCREL(ARM* cpu)
 {
-    ExecuteStage<false>(cpu, 15);
+    if (!ExecuteStage<false>(cpu, 15)) return;
+
     cpu->LDRFailedRegs = 0;
     u32 addr = (cpu->R[15] & ~0x2) + ((cpu->CurInstr & 0xFF) << 2);
     bool dabort = !cpu->DataRead32(addr, (cpu->CurInstr >> 8) & 0x7);
@@ -961,7 +963,8 @@ void T_LDR_SPREL(ARM* cpu)
 
 void T_PUSH(ARM* cpu)
 {
-    ExecuteStage<false>(cpu, 13);
+    if (!ExecuteStage<false>(cpu, 13)) return;
+
     int nregs = 0;
     bool first = true;
     bool dabort = false;
@@ -1033,7 +1036,8 @@ void T_PUSH(ARM* cpu)
 
 void T_POP(ARM* cpu)
 {
-    ExecuteStage<false>(cpu, 13);
+    if (!ExecuteStage<false>(cpu, 13)) return;
+
     cpu->LDRFailedRegs = 0;
     u32 base = cpu->R[13];
     bool first = true;
@@ -1128,7 +1132,8 @@ void T_POP(ARM* cpu)
 
 void T_STMIA(ARM* cpu)
 {
-    ExecuteStage<false>(cpu, ((cpu->CurInstr >> 8) & 0x7));
+    if (!ExecuteStage<false>(cpu, ((cpu->CurInstr >> 8) & 0x7))) return;
+
     u32 base = cpu->R[(cpu->CurInstr >> 8) & 0x7];
     bool first = true;
     bool dabort = false;
@@ -1181,7 +1186,8 @@ void T_STMIA(ARM* cpu)
 
 void T_LDMIA(ARM* cpu)
 {
-    ExecuteStage<false>(cpu, ((cpu->CurInstr >> 8) & 0x7));
+    if (!ExecuteStage<false>(cpu, ((cpu->CurInstr >> 8) & 0x7))) return;
+
     u32 base = cpu->R[(cpu->CurInstr >> 8) & 0x7];
     bool first = true;
     bool dabort = false;
