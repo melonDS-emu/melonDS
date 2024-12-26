@@ -161,6 +161,7 @@ void ARM::Reset()
     DataCycles = 0;
 
     IRQ = 0;
+    IRQTimestamp = -1;
 
     for (int i = 0; i < 16; i++)
         R[i] = 0;
@@ -705,7 +706,7 @@ void ARMv5::StartExecTHUMB()
     else NullFetch = false;
     PC = R[15];
 
-    if (IRQ && !(CPSR & 0x80)) TriggerIRQ<CPUExecuteMode::Interpreter>();
+    if ((NDS.ARM9Timestamp >= IRQTimestamp) && !(CPSR & 0x80)) TriggerIRQ<CPUExecuteMode::Interpreter>();
     else if (CurInstr > 0xFFFFFFFF) [[unlikely]] // handle aborted instructions
     {
         PrefetchAbort();
@@ -728,7 +729,7 @@ void ARMv5::StartExecARM()
     NullFetch = false;
     PC = R[15];
 
-    if (IRQ && !(CPSR & 0x80)) TriggerIRQ<CPUExecuteMode::Interpreter>();
+    if ((NDS.ARM9Timestamp >= IRQTimestamp) && !(CPSR & 0x80)) TriggerIRQ<CPUExecuteMode::Interpreter>();
     else if (CurInstr & ((u64)1<<63)) [[unlikely]] // handle aborted instructions
     {
         PrefetchAbort();
@@ -775,9 +776,9 @@ void ARMv5::Execute()
             {
 #ifdef JIT_ENABLED
                 if constexpr (mode == CPUExecuteMode::JIT) TriggerIRQ<mode>();
-                else
+                //else
 #endif
-                    IRQ = 1;
+                    //IRQ = 1;
             }
         }
         else
@@ -921,7 +922,7 @@ void ARMv4::StartExecTHUMB()
     CodeRead16(R[15]);
     QueueFunction(&ARMv4::UpdateNextInstr1);
 
-    if (IRQ && !(CPSR & 0x80)) TriggerIRQ<CPUExecuteMode::Interpreter>();
+    if ((NDS.ARM7Timestamp >= IRQTimestamp) && !(CPSR & 0x80)) TriggerIRQ<CPUExecuteMode::Interpreter>();
     else
     {
         // actually execute
@@ -939,7 +940,7 @@ void ARMv4::StartExecARM()
     CodeRead32(R[15]);
     QueueFunction(&ARMv4::UpdateNextInstr1);
 
-    if (IRQ && !(CPSR & 0x80)) TriggerIRQ<CPUExecuteMode::Interpreter>();
+    if ((NDS.ARM7Timestamp >= IRQTimestamp) && !(CPSR & 0x80)) TriggerIRQ<CPUExecuteMode::Interpreter>();
     else if (CheckCondition(CurInstr >> 28)) // actually execute
     {
         u32 icode = ((CurInstr >> 4) & 0xF) | ((CurInstr >> 16) & 0xFF0);
@@ -968,9 +969,9 @@ void ARMv4::Execute()
             {
 #ifdef JIT_ENABLED
                 if constexpr (mode == CPUExecuteMode::JIT) TriggerIRQ<mode>();
-                else
+                //else
 #endif
-                    IRQ = 1;
+                    //IRQ = 1;
             }
         }
         else

@@ -255,6 +255,8 @@ public:
     u8 abt;
     u64 iter;
 
+    u64 IRQTimestamp;
+
     u8 FuncQueueFill;
     u8 FuncQueueEnd;
     u8 FuncQueueProg;

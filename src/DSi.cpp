@@ -1288,6 +1288,7 @@ void DSi::Set_SCFG_Clock9(u16 val)
     }
     ARM9.TimestampMemory >>= ARM9ClockShift;
     ARM9.ITCMTimestamp   >>= ARM9ClockShift;
+    ARM9.IRQTimestamp >>= ARM9ClockShift;
     ARM9.WBTimestamp >>= ARM9ClockShift;
     ARM9.WBDelay     >>= ARM9ClockShift;
     ARM9.WBReleaseTS >>= ARM9ClockShift;
@@ -1311,6 +1312,7 @@ void DSi::Set_SCFG_Clock9(u16 val)
     }
     ARM9.TimestampMemory <<= ARM9ClockShift;
     ARM9.ITCMTimestamp   <<= ARM9ClockShift;
+    ARM9.IRQTimestamp <<= ARM9ClockShift;
     ARM9.WBTimestamp <<= ARM9ClockShift;
     ARM9.WBDelay     <<= ARM9ClockShift;
     ARM9.WBReleaseTS <<= ARM9ClockShift;

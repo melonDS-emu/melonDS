@@ -1851,6 +1851,7 @@ u32 NDS::RunFrame()
                     }
                 }
                 
+                CurCPU = 2;
                 RunSystem(ARM7Target);
 
                 if (CPUStop & CPUStop_Sleep)
@@ -2170,17 +2171,48 @@ void NDS::SetGBASlotTimings()
 void NDS::UpdateIRQ(u32 cpu)
 {
     ARM& arm = cpu ? (ARM&)ARM7 : (ARM&)ARM9;
+    u64 time;
 
-    if (IME[cpu] & 0x1)
+    if (CurCPU == 0)
     {
-        arm.IRQ = !!(IE[cpu] & IF[cpu]);
-        if ((ConsoleType == 1) && cpu)
-            arm.IRQ |= !!(IE2 & IF2);
+        time = (std::max(ARM9Timestamp, DMA9Timestamp) >> ARM9ClockShift) + 4;
+    }
+    else if (CurCPU == 1)
+    {
+        time = ARM7Timestamp + 4;
     }
     else
     {
-        arm.IRQ = 0;
+        time = SysTimestamp + 4;
     }
+
+    if (IME[cpu] & 0x1)
+    {
+        /*arm.IRQ = !!(IE[cpu] & IF[cpu]);
+        if ((ConsoleType == 1) && cpu)
+            arm.IRQ |= !!(IE2 & IF2);*/
+        
+        {
+            if ((IE[cpu] & IF[cpu]))
+            {
+                if (time < arm.IRQTimestamp) arm.IRQTimestamp = time;
+            }
+            else if (((ConsoleType == 1) && cpu) && (IE2 & IF2))
+            {
+                if (time < arm.IRQTimestamp) arm.IRQTimestamp = time;
+            }
+            else
+            {
+                arm.IRQTimestamp = UINT64_MAX;
+            }
+        }
+    }
+    else
+    {
+        arm.IRQTimestamp = UINT64_MAX;
+    }
+
+    if (cpu == 0) arm.IRQTimestamp <<= ARM9ClockShift;
 }
 
 void NDS::SetIRQ(u32 cpu, u32 irq)
