@@ -823,7 +823,7 @@ void ARMv5::Execute()
     if constexpr (mode == CPUExecuteMode::InterpreterGDB)
         GdbCheckB();
 
-    if (Halted)
+    if (Halted && !FuncQueueActive)
     {
         if (Halted == 2)
         {
@@ -831,6 +831,7 @@ void ARMv5::Execute()
         }
         else if (NDS.HaltInterrupted(0))
         {
+            NDS.ARM9Timestamp = IRQTimestamp;
             Halted = 0;
             if (NDS.IME[0] & 0x1)
             {
@@ -910,6 +911,14 @@ void ARMv5::Execute()
                             FuncQueueEnd = 0;
                             FuncQueueActive = false;
                             FuncQueue[0] = StartExec;
+                            if (Halted)
+                            {
+                                if (Halted == 1 && NDS.ARM9Timestamp < NDS.ARM9Target)
+                                {
+                                    NDS.ARM9Timestamp = NDS.ARM9Target;
+                                }
+                                goto exit;
+                            }
                         }
                     }
                     else
@@ -942,7 +951,7 @@ void ARMv5::Execute()
                     if (MRTrack.Type != MainRAMType::Null) return; // check if we need to resolve main ram
 
                     // TODO optimize this shit!!!
-                    if (Halted)
+                    if (Halted && !FuncQueueActive)
                     {
                         if (Halted == 1 && NDS.ARM9Timestamp < NDS.ARM9Target)
                         {
@@ -965,7 +974,7 @@ void ARMv5::Execute()
 
     exit:
     
-    if (Halted == 2)
+    if (Halted == 2 && !FuncQueueActive)
         Halted = 0;
 }
 template void ARMv5::Execute<CPUExecuteMode::Interpreter>();
@@ -1017,7 +1026,7 @@ void ARMv4::Execute()
     if constexpr (mode == CPUExecuteMode::InterpreterGDB)
         GdbCheckB();
     
-    if (Halted)
+    if (Halted && !FuncQueueActive)
     {
         if (Halted == 2)
         {
@@ -1025,6 +1034,7 @@ void ARMv4::Execute()
         }
         else if (NDS.HaltInterrupted(1))
         {
+            NDS.ARM7Timestamp = IRQTimestamp;
             Halted = 0;
             if (NDS.IME[1] & 0x1)
             {
@@ -1103,6 +1113,14 @@ void ARMv4::Execute()
                             FuncQueueEnd = 0;
                             FuncQueueActive = false;
                             FuncQueue[0] = StartExec;
+                            if (Halted)
+                            {
+                                if (Halted == 1 && NDS.ARM7Timestamp < NDS.ARM7Target)
+                                {
+                                    NDS.ARM7Timestamp = NDS.ARM7Target;
+                                }
+                                goto exit;
+                            }
                         }
                     }
                     else
@@ -1134,7 +1152,7 @@ void ARMv4::Execute()
                     if (MRTrack.Type != MainRAMType::Null) return; // check if we need to resolve main ram
 
                     // TODO optimize this shit!!!
-                    if (Halted)
+                    if (Halted && !FuncQueueActive)
                     {
                         if (Halted == 1 && NDS.ARM7Timestamp < NDS.ARM7Target)
                         {
@@ -1149,10 +1167,10 @@ void ARMv4::Execute()
 
     exit:
 
-    if (Halted == 2)
+    if (Halted == 2 && !FuncQueueActive)
         Halted = 0;
 
-    if (Halted == 4)
+    if (Halted == 4 && !FuncQueueActive)
     {
         assert(NDS.ConsoleType == 1);
         auto& dsi = dynamic_cast<melonDS::DSi&>(NDS);

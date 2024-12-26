@@ -1874,7 +1874,7 @@ u32 NDS::RunFrame()
         SPU.TransferOutput();
         break;
     }
-    //printf("MAIN LOOP: 9 %lli %lli %08X %08llX %i %i %i 7 %lli %lli %08X %08llX %i %i %i\n", ARM9Timestamp, ARM9Target, ARM9.PC, ARM9.CurInstr, (u8)ARM9.MRTrack.Type, ARM9.Halted, ARM9.FuncQueueActive, ARM7Timestamp, ARM7Target, ARM7.R[15], ARM7.CurInstr, (u8)ARM7.MRTrack.Type, ARM7.Halted, ARM7.FuncQueueActive);
+    //printf("MAIN LOOP: 9 %lli %lli %08X %08llX %i %i %i 7 %lli %lli %08X %08llX %i %i %i\n", ARM9Timestamp, ARM9Target, ARM9.R[15], ARM9.CurInstr, (u8)ARM9.MRTrack.Type, ARM9.Halted, ARM9.FuncQueueActive, ARM7Timestamp, ARM7Target, ARM7.R[15], ARM7.CurInstr, (u8)ARM7.MRTrack.Type, ARM7.Halted, ARM7.FuncQueueActive);
     
     // In the context of TASes, frame count is traditionally the primary measure of emulated time,
     // so it needs to be tracked even if NDS is powered off.
