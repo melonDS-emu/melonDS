@@ -1086,7 +1086,7 @@ std::optional<DSi_NAND::NANDImage> EmuInstance::loadNAND(const std::array<u8, DS
 
             // setting up username
             auto username = firmcfg.GetQString("Username");
-            size_t usernameLength = std::min(username.length(), (qsizetype) 10);
+            size_t usernameLength = std::min((int) username.length(), 10);
             memset(&settings.Nickname, 0, sizeof(settings.Nickname));
             memcpy(&settings.Nickname, username.utf16(), usernameLength * sizeof(char16_t));
 
@@ -1102,7 +1102,7 @@ std::optional<DSi_NAND::NANDImage> EmuInstance::loadNAND(const std::array<u8, DS
 
             // setup message
             auto message = firmcfg.GetQString("Message");
-            size_t messageLength = std::min(message.length(), (qsizetype) 26);
+            size_t messageLength = std::min((int) message.length(), 26);
             memset(&settings.Message, 0, sizeof(settings.Message));
             memcpy(&settings.Message, message.utf16(), messageLength * sizeof(char16_t));
 
@@ -1673,7 +1673,7 @@ void EmuInstance::customizeFirmware(Firmware& firmware, bool overridesettings) n
         auto username = firmcfg.GetQString("Username");
         if (!username.isEmpty())
         { // If the frontend defines a username, take it. If not, leave the existing one.
-            size_t usernameLength = std::min(username.length(), (qsizetype) 10);
+            size_t usernameLength = std::min((int) username.length(), 10);
             currentData.NameLength = usernameLength;
             memcpy(currentData.Nickname, username.utf16(), usernameLength * sizeof(char16_t));
         }
@@ -1708,7 +1708,7 @@ void EmuInstance::customizeFirmware(Firmware& firmware, bool overridesettings) n
         auto message = firmcfg.GetQString("Message");
         if (!message.isEmpty())
         {
-            size_t messageLength = std::min(message.length(), (qsizetype) 26);
+            size_t messageLength = std::min((int) message.length(), 26);
             currentData.MessageLength = messageLength;
             memcpy(currentData.Message, message.data(), messageLength * sizeof(char16_t));
         }
