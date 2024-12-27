@@ -1743,7 +1743,7 @@ void MainWindow::onOpenTitleManager()
 
 void MainWindow::onMPNewInstance()
 {
-    createEmuInstance();
+    createEmuInstance(std::nullopt, std::nullopt);
 }
 
 void MainWindow::onLANStartHost()
