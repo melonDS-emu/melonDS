@@ -2168,43 +2168,37 @@ void NDS::SetGBASlotTimings()
 }
 
 
-void NDS::UpdateIRQ(u32 cpu)
+void NDS::UpdateIRQ(u32 cpu, s32 delay)
 {
     ARM& arm = cpu ? (ARM&)ARM7 : (ARM&)ARM9;
     u64 time;
 
     if (CurCPU == 0)
     {
-        time = (std::max(ARM9Timestamp, DMA9Timestamp) >> ARM9ClockShift) + 4;
+        time = (std::max(ARM9Timestamp, DMA9Timestamp) >> ARM9ClockShift) + 4 + delay;
     }
     else if (CurCPU == 1)
     {
-        time = ARM7Timestamp + 4;
+        time = ARM7Timestamp + 4 + delay;
     }
     else
     {
-        time = SysTimestamp + 4;
+        time = SysTimestamp + 4 + delay;
     }
 
     if (IME[cpu] & 0x1)
-    {
-        /*arm.IRQ = !!(IE[cpu] & IF[cpu]);
-        if ((ConsoleType == 1) && cpu)
-            arm.IRQ |= !!(IE2 & IF2);*/
-        
+    {        
+        if ((IE[cpu] & IF[cpu]))
         {
-            if ((IE[cpu] & IF[cpu]))
-            {
-                if (time < arm.IRQTimestamp) arm.IRQTimestamp = time;
-            }
-            else if (((ConsoleType == 1) && cpu) && (IE2 & IF2))
-            {
-                if (time < arm.IRQTimestamp) arm.IRQTimestamp = time;
-            }
-            else
-            {
-                arm.IRQTimestamp = UINT64_MAX;
-            }
+            if (time < arm.IRQTimestamp) arm.IRQTimestamp = time;
+        }
+        else if (((ConsoleType == 1) && cpu) && (IE2 & IF2))
+        {
+            if (time < arm.IRQTimestamp) arm.IRQTimestamp = time;
+        }
+        else
+        {
+            arm.IRQTimestamp = UINT64_MAX;
         }
     }
     else
@@ -2215,10 +2209,10 @@ void NDS::UpdateIRQ(u32 cpu)
     if (cpu == 0) arm.IRQTimestamp <<= ARM9ClockShift;
 }
 
-void NDS::SetIRQ(u32 cpu, u32 irq)
+void NDS::SetIRQ(u32 cpu, u32 irq, s32 delay)
 {
     IF[cpu] |= (1 << irq);
-    UpdateIRQ(cpu);
+    UpdateIRQ(cpu, delay);
 
     if ((cpu == 1) && (CPUStop & CPUStop_Sleep))
     {
@@ -2455,9 +2449,10 @@ void NDS::HandleTimerOverflow(u32 tid)
 {
     Timer* timer = &Timers[tid];
 
-    timer->Counter += (timer->Reload << 10);
     if (timer->Cnt & (1<<6))
-        SetIRQ(tid >> 2, IRQ_Timer0 + (tid & 0x3));
+        SetIRQ(tid >> 2, IRQ_Timer0 + (tid & 0x3), -(timer->Counter >> timer->CycleShift));
+
+    timer->Counter += (timer->Reload << 10);
 
     if ((tid & 0x3) == 3)
         return;

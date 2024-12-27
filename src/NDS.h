@@ -440,8 +440,8 @@ public: // TODO: Encapsulate the rest of these members
 
     void MapSharedWRAM(u8 val);
 
-    void UpdateIRQ(u32 cpu);
-    void SetIRQ(u32 cpu, u32 irq);
+    void UpdateIRQ(u32 cpu, s32 delay = 0);
+    void SetIRQ(u32 cpu, u32 irq, s32 delay = 0);
     void ClearIRQ(u32 cpu, u32 irq);
     void SetIRQ2(u32 irq);
     void ClearIRQ2(u32 irq);
