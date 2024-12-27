@@ -2417,7 +2417,7 @@ void GPU3D::CheckFIFOIRQ() noexcept
     case 2: irq = CmdFIFO.IsEmpty(); break;
     }
 
-    if (irq) NDS.SetIRQ(0, IRQ_GXFIFO);
+    if (irq) NDS.SetIRQ(0, IRQ_GXFIFO, CycleCount);
     else     NDS.ClearIRQ(0, IRQ_GXFIFO);
 }
 
