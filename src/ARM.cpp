@@ -1513,7 +1513,6 @@ void ARMv5::ForceInterlock_2()
 
 void ARMv5::QueueFunction(void (ARMv5::*QueueEntry)(void))
 {
-    if (QueueEntry == nullptr) return;
     if ((NDS.ARM9Timestamp >= NDS.ARM9Target) || (MRTrack.Type != MainRAMType::Null))
         FuncQueue[FuncQueueFill++] = QueueEntry;
     else

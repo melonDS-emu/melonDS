@@ -443,7 +443,7 @@ bool ARMv5::ICacheLookup(const u32 addr)
             Store = false;
 
             RetVal = cacheLine[(addr & (ICACHE_LINELENGTH -1)) / 4];
-            QueueFunction(DelayedQueue);
+            if (DelayedQueue != nullptr) QueueFunction(DelayedQueue);
             return true;
         }
     }
@@ -556,7 +556,7 @@ void ARMv5::ICacheLookup_2()
     }
     Store = false;
     DataRegion = Mem9_Null;
-    QueueFunction(DelayedQueue);
+    if (DelayedQueue != nullptr) QueueFunction(DelayedQueue);
 }
 
 void ARMv5::ICacheInvalidateByAddr(const u32 addr)
