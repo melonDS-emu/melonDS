@@ -1082,13 +1082,13 @@ std::optional<DSi_NAND::NANDImage> EmuInstance::loadNAND(const std::array<u8, DS
             auto firmcfg = localCfg.GetTable("Firmware");
 
             // we store relevant strings as UTF-8, so we need to convert them to UTF-16
-            auto converter = wstring_convert<std::codecvt_utf8_utf16<char16_t>, char16_t>{};
+            //auto converter = wstring_convert<std::codecvt_utf8_utf16<char16_t>, char16_t>{};
 
             // setting up username
-            std::u16string username = converter.from_bytes(firmcfg.GetString("Username"));
-            size_t usernameLength = std::min(username.length(), (size_t) 10);
+            auto username = firmcfg.GetQString("Username");
+            size_t usernameLength = std::min((int) username.length(), 10);
             memset(&settings.Nickname, 0, sizeof(settings.Nickname));
-            memcpy(&settings.Nickname, username.data(), usernameLength * sizeof(char16_t));
+            memcpy(&settings.Nickname, username.utf16(), usernameLength * sizeof(char16_t));
 
             // setting language
             settings.Language = static_cast<Firmware::Language>(firmcfg.GetInt("Language"));
@@ -1101,10 +1101,10 @@ std::optional<DSi_NAND::NANDImage> EmuInstance::loadNAND(const std::array<u8, DS
             settings.BirthdayDay = firmcfg.GetInt("BirthdayDay");
 
             // setup message
-            std::u16string message = converter.from_bytes(firmcfg.GetString("Message"));
-            size_t messageLength = std::min(message.length(), (size_t) 26);
+            auto message = firmcfg.GetQString("Message");
+            size_t messageLength = std::min((int) message.length(), 26);
             memset(&settings.Message, 0, sizeof(settings.Message));
-            memcpy(&settings.Message, message.data(), messageLength * sizeof(char16_t));
+            memcpy(&settings.Message, message.utf16(), messageLength * sizeof(char16_t));
 
             // TODO: make other items configurable?
         }
@@ -1292,7 +1292,7 @@ bool EmuInstance::updateConsole() noexcept
     };
     auto gdbargs = gdbopt.GetBool("Enabled") ? std::make_optional(_gdbargs) : std::nullopt;
 #else
-    optional<GDBArgs> gdbargs = std::nullopt;
+    std::optional<GDBArgs> gdbargs = std::nullopt;
 #endif
 
     NDSArgs ndsargs {
@@ -1670,14 +1670,12 @@ void EmuInstance::customizeFirmware(Firmware& firmware, bool overridesettings) n
         auto firmcfg = localCfg.GetTable("Firmware");
 
         // setting up username
-        std::string orig_username = firmcfg.GetString("Username");
-        if (!orig_username.empty())
+        auto username = firmcfg.GetQString("Username");
+        if (!username.isEmpty())
         { // If the frontend defines a username, take it. If not, leave the existing one.
-            std::u16string username = std::wstring_convert<std::codecvt_utf8_utf16<char16_t>, char16_t>{}.from_bytes(
-                    orig_username);
-            size_t usernameLength = std::min(username.length(), (size_t) 10);
+            size_t usernameLength = std::min((int) username.length(), 10);
             currentData.NameLength = usernameLength;
-            memcpy(currentData.Nickname, username.data(), usernameLength * sizeof(char16_t));
+            memcpy(currentData.Nickname, username.utf16(), usernameLength * sizeof(char16_t));
         }
 
         auto language = static_cast<Firmware::Language>(firmcfg.GetInt("Language"));
@@ -1707,12 +1705,10 @@ void EmuInstance::customizeFirmware(Firmware& firmware, bool overridesettings) n
         }
 
         // setup message
-        std::string orig_message = firmcfg.GetString("Message");
-        if (!orig_message.empty())
+        auto message = firmcfg.GetQString("Message");
+        if (!message.isEmpty())
         {
-            std::u16string message = std::wstring_convert<std::codecvt_utf8_utf16<char16_t>, char16_t>{}.from_bytes(
-                    orig_message);
-            size_t messageLength = std::min(message.length(), (size_t) 26);
+            size_t messageLength = std::min((int) message.length(), 26);
             currentData.MessageLength = messageLength;
             memcpy(currentData.Message, message.data(), messageLength * sizeof(char16_t));
         }

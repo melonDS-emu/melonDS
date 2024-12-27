@@ -403,6 +403,8 @@ void LANDialog::doUpdatePlayerList()
             case LAN::Player_Disconnected:
                 status = "Connection lost";
                 break;
+            case LAN::Player_None:
+                break;
         }
         model->item(i, 2)->setText(status);
 
