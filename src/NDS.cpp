@@ -1179,7 +1179,7 @@ void NDS::MainRAMHandleARM9()
                 if (burststart <= 1) dma->Running = 1;
                 else dma->Running = 2;
                 
-                if ((dma->IterCount == 0) || ((ARM9Regions[dma->CurSrcAddr>>14] != Mem9_MainRAM) && (ARM9Regions[dma->CurDstAddr>>14] != Mem9_MainRAM)))
+                if ((dma->IterCount == 0) || ((ARM9Regions[dma->CurSrcAddr>>14] != Mem9_MainRAM) && (ARM9Regions[dma->CurDstAddr>>14] != Mem9_MainRAM)) || (DMA9Timestamp > ARM9Target))
                     memset(&ARM9.MRTrack, 0, sizeof(ARM9.MRTrack));
                 else
                     ARM9.MRTrack.Progress = 0;
@@ -1285,7 +1285,7 @@ void NDS::MainRAMHandleARM9()
                 if (burststart <= 1) dma->Running = 1;
                 else dma->Running = 2;
                 
-                if ((dma->IterCount == 0) || ((ARM9Regions[dma->CurSrcAddr>>14] != Mem9_MainRAM) && (ARM9Regions[dma->CurDstAddr>>14] != Mem9_MainRAM)))
+                if ((dma->IterCount == 0) || ((ARM9Regions[dma->CurSrcAddr>>14] != Mem9_MainRAM) && (ARM9Regions[dma->CurDstAddr>>14] != Mem9_MainRAM)) || (DMA9Timestamp > ARM9Target))
                     memset(&ARM9.MRTrack, 0, sizeof(ARM9.MRTrack));
                 else
                     ARM9.MRTrack.Progress = 0;
@@ -1535,7 +1535,7 @@ void NDS::MainRAMHandleARM7()
                 if (burststart <= 1) dma->Running = 1;
                 else dma->Running = 2;
                 
-                if ((dma->IterCount == 0) || ((ARM7Regions[dma->CurSrcAddr>>15] != Mem7_MainRAM) && (ARM7Regions[dma->CurDstAddr>>15] != Mem7_MainRAM)))
+                if ((dma->IterCount == 0) || ((ARM7Regions[dma->CurSrcAddr>>15] != Mem7_MainRAM) && (ARM7Regions[dma->CurDstAddr>>15] != Mem7_MainRAM)) || (ARM7Timestamp > ARM7Target))
                     memset(&ARM7.MRTrack, 0, sizeof(ARM7.MRTrack));
                 else
                     ARM7.MRTrack.Progress = 0;
@@ -1635,7 +1635,7 @@ void NDS::MainRAMHandleARM7()
                 if (burststart <= 1) dma->Running = 1;
                 else dma->Running = 2;
                 
-                if ((dma->IterCount == 0) || ((ARM7Regions[dma->CurSrcAddr>>15] != Mem7_MainRAM) && (ARM7Regions[dma->CurDstAddr>>15] != Mem7_MainRAM)))
+                if ((dma->IterCount == 0) || ((ARM7Regions[dma->CurSrcAddr>>15] != Mem7_MainRAM) && (ARM7Regions[dma->CurDstAddr>>15] != Mem7_MainRAM)) || (ARM7Timestamp > ARM7Target))
                     memset(&ARM7.MRTrack, 0, sizeof(ARM7.MRTrack));
                 else
                     ARM7.MRTrack.Progress = 0;
