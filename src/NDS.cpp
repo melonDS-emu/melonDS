@@ -1083,6 +1083,12 @@ void NDS::MainRAMHandleARM9()
 
         case MainRAMType::DMA32:
         {
+            if (CPUStop & ((1<<ARM9.MRTrack.Var)-1))
+            {
+                memset(&ARM9.MRTrack, 0, sizeof(ARM9.MRTrack));
+                break;
+            }
+
             DMA* dma = &DMAs[ARM9.MRTrack.Var];
             int burststart = dma->Running - 1;
             
@@ -1189,6 +1195,12 @@ void NDS::MainRAMHandleARM9()
 
         case MainRAMType::DMA16:
         {
+            if (CPUStop & ((1<<ARM9.MRTrack.Var)-1))
+            {
+                memset(&ARM9.MRTrack, 0, sizeof(ARM9.MRTrack));
+                break;
+            }
+
             DMA* dma = &DMAs[ARM9.MRTrack.Var];
             int burststart = dma->Running - 1;
             
@@ -1445,6 +1457,12 @@ void NDS::MainRAMHandleARM7()
 
         case MainRAMType::DMA32:
         {
+            if (CPUStop & CPUStop_DMA7 & ((1<<ARM7.MRTrack.Var)-1))
+            {
+                memset(&ARM7.MRTrack, 0, sizeof(ARM7.MRTrack));
+                break;
+            }
+
             DMA* dma = &DMAs[ARM7.MRTrack.Var];
             int burststart = dma->Running - 1;
             
@@ -1545,6 +1563,12 @@ void NDS::MainRAMHandleARM7()
 
         case MainRAMType::DMA16:
         {
+            if (CPUStop & CPUStop_DMA7 & ((1<<ARM7.MRTrack.Var)-1))
+            {
+                memset(&ARM7.MRTrack, 0, sizeof(ARM7.MRTrack));
+                break;
+            }
+
             DMA* dma = &DMAs[ARM7.MRTrack.Var];
             int burststart = dma->Running - 1;
             
