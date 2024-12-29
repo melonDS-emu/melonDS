@@ -58,6 +58,7 @@ enum
     Event_Wifi,
     Event_RTC,
 
+    Event_GX,
     Event_DisplayFIFO,
     Event_ROMTransfer,
     Event_ROMSPITransfer,

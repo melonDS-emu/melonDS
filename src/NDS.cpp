@@ -2313,7 +2313,7 @@ void NDS::GXFIFOStall()
     if (CurCPU == 1) ARM9.Halt(2);
     else
     {
-        DMAs[0].StallIfRunning();
+        /*DMAs[0].StallIfRunning();
         DMAs[1].StallIfRunning();
         DMAs[2].StallIfRunning();
         DMAs[3].StallIfRunning();
@@ -2321,8 +2321,9 @@ void NDS::GXFIFOStall()
         {
             auto& dsi = dynamic_cast<melonDS::DSi&>(*this);
             dsi.StallNDMAs();
-        }
+        }*/
     }
+    Reschedule(std::max(ARM9Timestamp, DMA9Timestamp) >> ARM9ClockShift);
 }
 
 void NDS::GXFIFOUnstall()

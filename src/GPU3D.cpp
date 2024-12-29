@@ -145,6 +145,11 @@ GPU3D::GPU3D(melonDS::NDS& nds, std::unique_ptr<Renderer3D>&& renderer) noexcept
     NDS(nds),
     CurrentRenderer(renderer ? std::move(renderer) : std::make_unique<SoftRenderer>())
 {
+    NDS.RegisterEventFuncs(Event_GX, this,
+    {
+        MakeEventThunk(GPU3D, EventFIFOEmpty),
+        MakeEventThunk(GPU3D, EventFIFOHalf)
+    });
 }
 
 void Vertex::DoSavestate(Savestate* file) noexcept
@@ -191,6 +196,7 @@ void GPU3D::Reset() noexcept
     CmdPIPE.Clear();
 
     CmdStallQueue.Clear();
+    CmdFIFORes.Clear();
 
     ZeroDotWLimit = 0xFFFFFF;
 
@@ -1682,13 +1688,24 @@ void GPU3D::VecTest(u32 param) noexcept
 
 void GPU3D::CmdFIFOWrite(const CmdFIFOEntry& entry) noexcept
 {
-    if (CmdFIFO.IsEmpty() && !CmdPIPE.IsFull())
+    /*if (CmdFIFO.IsEmpty() && !CmdPIPE.IsFull())
     {
+        if (CmdFIFORes.IsFull())
+        {
+            // store it to the stall queue. stall the system.
+            // worst case is if a STMxx opcode causes this, which is why our stall queue
+            // has 64 entries. this is less complicated than trying to make STMxx stall-able.
+
+            CmdStallQueue.Write(entry);
+            NDS.GXFIFOStall();
+            return;
+        }
+
         CmdPIPE.Write(entry);
     }
     else
     {
-        if (CmdFIFO.IsFull())
+        if (CmdFIFORes.IsFull())
         {
             // store it to the stall queue. stall the system.
             // worst case is if a STMxx opcode causes this, which is why our stall queue
@@ -1700,7 +1717,20 @@ void GPU3D::CmdFIFOWrite(const CmdFIFOEntry& entry) noexcept
         }
 
         CmdFIFO.Write(entry);
+    }*/
+    
+    if (CmdFIFORes.IsFull())
+    {
+        // store it to the stall queue. stall the system.
+        // worst case is if a STMxx opcode causes this, which is why our stall queue
+        // has 64 entries. this is less complicated than trying to make STMxx stall-able.
+
+        CmdStallQueue.Write(entry);
+        NDS.GXFIFOStall();
+        return;
     }
+    
+    CurCmd = entry;
 
     GXStat |= (1<<27);
 
@@ -1714,37 +1744,39 @@ void GPU3D::CmdFIFOWrite(const CmdFIFOEntry& entry) noexcept
         GXStat |= (1<<0); // box/pos/vec test
         NumTestCommands++;
     }
+
+    CycleCount = 0;
+    ExecuteCommand();
+    CmdFIFORes.Write(CycleCount);
+    
+    CheckFIFOIRQ();
 }
 
 GPU3D::CmdFIFOEntry GPU3D::CmdFIFORead() noexcept
 {
-    CmdFIFOEntry ret = CmdPIPE.Read();
+    CmdFIFOEntry ret;//CmdPIPE.Read();
 
-    if (CmdPIPE.Level() <= 2)
+    /*if (CmdPIPE.Level() <= 2)
     {
         if (!CmdFIFO.IsEmpty())
             CmdPIPE.Write(CmdFIFO.Read());
         if (!CmdFIFO.IsEmpty())
-            CmdPIPE.Write(CmdFIFO.Read());
+            CmdPIPE.Write(CmdFIFO.Read());*/
 
         // empty stall queue if needed
         // CmdFIFO should not be full at this point.
-        if (!CmdStallQueue.IsEmpty())
-        {
-            while (!CmdStallQueue.IsEmpty())
-            {
-                if (CmdFIFO.IsFull()) break;
-                CmdFIFOEntry entry = CmdStallQueue.Read();
-                CmdFIFOWrite(entry);
-            }
+    if (!CmdStallQueue.IsEmpty())
+    {
+        ret = CmdStallQueue.Read();
 
-            if (CmdStallQueue.IsEmpty())
-                NDS.GXFIFOUnstall();
-        }
-
-        CheckFIFODMA();
-        CheckFIFOIRQ();
+        if (CmdStallQueue.IsEmpty())
+            NDS.GXFIFOUnstall();
     }
+    else ret = CurCmd;
+
+        //CheckFIFODMA();
+        //CheckFIFOIRQ();
+    //}
 
     return ret;
 }
@@ -2353,10 +2385,26 @@ void GPU3D::ExecuteCommand() noexcept
     }
 }
 
+void GPU3D::ResolveCommands() noexcept
+{
+    u32 cycles = CmdFIFORes.Peek();
+
+    if (cycles <= -CycleCount)
+    {
+        CycleCount += cycles;
+        CmdFIFORes.Read();
+    }
+    else
+    {
+        CmdFIFORes.Edit(cycles + CycleCount);
+        CycleCount = 0;
+    }
+}
+
 s32 GPU3D::CyclesToRunFor() const noexcept
 {
-    if (CycleCount < 0) return 0;
-    return CycleCount;
+    //if (CycleCount < 0) return 0;
+    return CmdFIFORes.Peek();//CycleCount;
 }
 
 void GPU3D::FinishWork(s32 cycles) noexcept
@@ -2376,28 +2424,38 @@ void GPU3D::FinishWork(s32 cycles) noexcept
 void GPU3D::Run() noexcept
 {
     if (!GeometryEnabled || FlushRequest ||
-        (CmdPIPE.IsEmpty() && !(GXStat & (1<<27))))
+        (CmdFIFORes.IsEmpty() && !(GXStat & (1<<27))))
     {
         Timestamp = std::max(NDS.ARM9Timestamp, NDS.DMA9Timestamp) >> NDS.ARM9ClockShift;
         return;
     }
 
     s32 cycles = (std::max(NDS.ARM9Timestamp, NDS.DMA9Timestamp) >> NDS.ARM9ClockShift) - Timestamp;
-    CycleCount -= cycles;
+    CycleCount = -cycles;
     Timestamp = std::max(NDS.ARM9Timestamp, NDS.DMA9Timestamp) >> NDS.ARM9ClockShift;
 
-    if (CycleCount <= 0)
+    if (CycleCount < 0)
     {
-        while (CycleCount <= 0 && !CmdPIPE.IsEmpty())
+        while (CycleCount < 0 && !CmdFIFORes.IsEmpty())
         {
             if (NumPushPopCommands == 0) GXStat &= ~(1<<14);
             if (NumTestCommands == 0)    GXStat &= ~(1<<0);
 
-            ExecuteCommand();
+            //ExecuteCommand();
+            ResolveCommands();
+            if (!CmdStallQueue.IsEmpty() && !CmdFIFORes.IsFull())
+            {
+                s32 oldcycle = CycleCount;
+                CycleCount = 0;
+                ExecuteCommand();
+                CmdFIFORes.Write(CycleCount);
+                CycleCount = oldcycle;
+                CheckFIFOIRQ();
+            }
         }
     }
 
-    if (CycleCount <= 0 && CmdPIPE.IsEmpty())
+    if (CycleCount < 0 && CmdFIFORes.IsEmpty())
     {
         if (GXStat & (1<<27)) FinishWork(-CycleCount);
         else                  CycleCount = 0;
@@ -2408,23 +2466,102 @@ void GPU3D::Run() noexcept
 }
 
 
+void GPU3D::EventFIFOEmpty(u32 param)
+{
+    if ((GXStat >> 30) == 2) NDS.SetIRQ(0, IRQ_GXFIFO);
+}
+
+void GPU3D::EventFIFOHalf(u32 param)
+{
+    NDS.CheckDMAs(0, 0x07);
+
+    if ((GXStat >> 30) == 1)
+        NDS.SetIRQ(0, IRQ_GXFIFO);
+    
+    if ((GXStat >> 30) == 2)
+    {
+        if (CmdFIFORes.Level() > 4)
+        {
+            u64 entries = CmdFIFORes.Level() - 4;
+            u64 time = 0;
+            for (int i = 0; i < entries; i++)
+            {
+                time += CmdFIFORes.Peek(i);
+            }
+
+            NDS.CancelEvent(Event_GX);
+            NDS.ScheduleEvent(Event_GX, false, time, 0, 0);
+            NDS.ClearIRQ(0, IRQ_GXFIFO);
+        }
+        else
+        {
+            EventFIFOEmpty(0);
+        }
+    }
+}
+
 void GPU3D::CheckFIFOIRQ() noexcept
 {
-    bool irq = false;
-    switch (GXStat >> 30)
+    u8 irq = (GXStat >> 30);
+    if (NDS.DMAsInMode(0, 0x07) || (irq == 1))
     {
-    case 1: irq = (CmdFIFO.Level() < 128); break;
-    case 2: irq = CmdFIFO.IsEmpty(); break;
-    }
+        if ((CmdFIFORes.Level() >= 128+4))
+        {
+            u64 time = 0;
+            u64 entries = CmdFIFORes.Level() - (127+4);
+            for (int i = 0; i < entries; i++)
+            {
+                time += CmdFIFORes.Peek(i);
+            }
 
-    if (irq) NDS.SetIRQ(0, IRQ_GXFIFO, CycleCount);
-    else     NDS.ClearIRQ(0, IRQ_GXFIFO);
+            NDS.CancelEvent(Event_GX);
+            NDS.ScheduleEvent(Event_GX, false, time, 1, 0);
+            NDS.ClearIRQ(0, IRQ_GXFIFO);
+        }
+        else
+        {
+            EventFIFOHalf(0);
+        }
+    }
+    else if (irq == 2)
+    {
+        if (CmdFIFORes.Level() > 4)
+        {
+            u64 entries = CmdFIFORes.Level() - 4;
+            u64 time = 0;
+            for (int i = 0; i < entries; i++)
+            {
+                time += CmdFIFORes.Peek(i);
+            }
+
+            NDS.CancelEvent(Event_GX);
+            NDS.ScheduleEvent(Event_GX, false, time, 0, 0);
+            NDS.ClearIRQ(0, IRQ_GXFIFO);
+        }
+        else
+        {
+            EventFIFOEmpty(0);
+        }
+    }
 }
 
 void GPU3D::CheckFIFODMA() noexcept
 {
-    if (CmdFIFO.Level() < 128)
+    if (CmdFIFORes.Level() < 128+4)
         NDS.CheckDMAs(0, 0x07);
+    else
+    {
+        u64 time = 0;
+            u64 entries = CmdFIFORes.Level() - (127+4);
+        for (int i = 0; i < entries; i++)
+        {
+            time += CmdFIFORes.Peek(i);
+        }
+
+        NDS.CancelEvent(Event_GX);
+        NDS.ScheduleEvent(Event_GX, false, time, 1, 0);
+        NDS.ClearIRQ(0, IRQ_GXFIFO);
+    }
 }
 
 void GPU3D::VCount144(GPU& gpu) noexcept

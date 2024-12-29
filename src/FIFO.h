@@ -89,6 +89,11 @@ public:
         return Entries[pos];
     }
 
+    void Edit(T val)
+    {
+        Entries[ReadPos] = val;
+    }
+
     u32 Level() const { return NumOccupied; }
     bool IsEmpty() const { return NumOccupied == 0; }
     bool IsFull() const { return NumOccupied >= NumEntries; }
