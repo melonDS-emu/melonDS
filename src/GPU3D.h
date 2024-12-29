@@ -154,9 +154,6 @@ private:
     void VecTest(u32 param) noexcept;
     void CmdFIFOWrite(const CmdFIFOEntry& entry) noexcept;
     CmdFIFOEntry CmdFIFORead() noexcept;
-    void ResolveCommands() noexcept;
-    void EventFIFOEmpty(u32 param);
-    void EventFIFOHalf(u32 param);
     void FinishWork(s32 cycles) noexcept;
     void VertexPipelineSubmitCmd() noexcept
     {
@@ -199,9 +196,6 @@ public:
     FIFO<CmdFIFOEntry, 4> CmdPIPE {};
 
     FIFO<CmdFIFOEntry, 64> CmdStallQueue {};
-
-    CmdFIFOEntry CurCmd {};
-    FIFO<u32, 260> CmdFIFORes {};
 
     u32 ZeroDotWLimit = 0xFFFFFF;
 

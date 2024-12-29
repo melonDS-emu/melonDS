@@ -363,7 +363,7 @@ void DMA::Run9()
 
     if (!(Cnt & (1<<26)))
     {
-        while (IterCount > 0)
+        while (IterCount > 0 && !Stall)
         {
             u32 rgn = NDS.ARM9Regions[CurSrcAddr>>14] | NDS.ARM9Regions[CurDstAddr>>14];
             if (rgn & Mem9_MainRAM)
@@ -388,7 +388,7 @@ void DMA::Run9()
     }
     else
     {
-        while (IterCount > 0)
+        while (IterCount > 0 && !Stall)
         {
             u32 rgn = NDS.ARM9Regions[CurSrcAddr>>14] | NDS.ARM9Regions[CurDstAddr>>14];
             if (rgn & Mem9_MainRAM)
@@ -418,6 +418,7 @@ void DMA::Run9()
     else Running = 2;
 
     Executing = false;
+    Stall = false;
 
     if (RemCount)
     {
@@ -457,7 +458,7 @@ void DMA::Run7()
 
     if (!(Cnt & (1<<26)))
     {
-        while (IterCount > 0)
+        while (IterCount > 0 && !Stall)
         {
             u32 rgn = NDS.ARM7Regions[CurSrcAddr>>15] | NDS.ARM7Regions[CurDstAddr>>15];
             if (rgn & Mem7_MainRAM)
@@ -482,7 +483,7 @@ void DMA::Run7()
     }
     else
     {
-        while (IterCount > 0)
+        while (IterCount > 0 && !Stall)
         {
             u32 rgn = NDS.ARM7Regions[CurSrcAddr>>15] | NDS.ARM7Regions[CurDstAddr>>15];
             if (rgn & Mem7_MainRAM)
@@ -510,6 +511,7 @@ void DMA::Run7()
     else Running = 2;
 
     Executing = false;
+    Stall = false;
 
     if (RemCount)
     {
