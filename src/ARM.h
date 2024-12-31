@@ -724,6 +724,160 @@ public:
     u32 CP15Read(const u32 id) const;
 
     void QueueFunction(void (ARMv5::*QueueEntry)(void));
+    
+    int GetIDFromQueueFunc(void (ARMv5::*funcptr)(void))
+    {
+        if (funcptr == &ARMv5::StartExecARM) return 0;
+        else if (funcptr == &ARMv5::ContExecARM) return 1;
+        else if (funcptr == &ARMv5::StartExecTHUMB) return 2;
+        else if (funcptr == &ARMv5::ContExecTHUMB) return 3;
+        else if (funcptr == &ARMv5::AddExecute) return 4;
+        else if (funcptr == &ARMv5::AddCycles_MW_2) return 5;
+        else if (funcptr == &ARMv5::DelayIfITCM_2) return 6;
+        else if (funcptr == &ARMv5::JumpTo_2) return 7;
+        else if (funcptr == &ARMv5::JumpTo_3A) return 8;
+        else if (funcptr == &ARMv5::JumpTo_3B) return 9;
+        else if (funcptr == &ARMv5::JumpTo_3C) return 10;
+        else if (funcptr == &ARMv5::JumpTo_4) return 11;
+        else if (funcptr == &ARMv5::CodeRead32_2) return 12;
+        else if (funcptr == &ARMv5::CodeRead32_3) return 13;
+        else if (funcptr == &ARMv5::CodeRead32_4) return 14;
+        else if (funcptr == &ARMv5::ICacheLookup_2) return 15;
+        else if (funcptr == &ARMv5::DAbortHandle) return 16;
+        else if (funcptr == &ARMv5::DCacheFin8) return 17;
+        else if (funcptr == &ARMv5::DRead8_2) return 18;
+        else if (funcptr == &ARMv5::DRead8_3) return 19;
+        else if (funcptr == &ARMv5::DRead8_4) return 20;
+        else if (funcptr == &ARMv5::DRead8_5) return 21;
+        else if (funcptr == &ARMv5::DCacheFin16) return 22;
+        else if (funcptr == &ARMv5::DRead16_2) return 23;
+        else if (funcptr == &ARMv5::DRead16_3) return 24;
+        else if (funcptr == &ARMv5::DRead16_4) return 25;
+        else if (funcptr == &ARMv5::DRead16_5) return 26;
+        else if (funcptr == &ARMv5::DCacheFin32) return 27;
+        else if (funcptr == &ARMv5::DRead32_2) return 28;
+        else if (funcptr == &ARMv5::DRead32_3) return 29;
+        else if (funcptr == &ARMv5::DRead32_4) return 30;
+        else if (funcptr == &ARMv5::DRead32_5) return 31;
+        else if (funcptr == &ARMv5::DRead32S_2) return 32;
+        else if (funcptr == &ARMv5::DRead32S_3) return 33;
+        else if (funcptr == &ARMv5::DRead32S_4) return 34;
+        else if (funcptr == &ARMv5::DRead32S_5A) return 35;
+        else if (funcptr == &ARMv5::DRead32S_5B) return 36;
+        else if (funcptr == &ARMv5::DWrite8_2) return 37;
+        else if (funcptr == &ARMv5::DWrite8_3) return 38;
+        else if (funcptr == &ARMv5::DWrite8_4) return 39;
+        else if (funcptr == &ARMv5::DWrite8_5) return 40;
+        else if (funcptr == &ARMv5::DWrite16_2) return 41;
+        else if (funcptr == &ARMv5::DWrite16_3) return 42;
+        else if (funcptr == &ARMv5::DWrite16_4) return 43;
+        else if (funcptr == &ARMv5::DWrite16_5) return 44;
+        else if (funcptr == &ARMv5::DWrite32_2) return 45;
+        else if (funcptr == &ARMv5::DWrite32_3) return 46;
+        else if (funcptr == &ARMv5::DWrite32_4) return 47;
+        else if (funcptr == &ARMv5::DWrite32_5) return 48;
+        else if (funcptr == &ARMv5::DWrite32S_2) return 49;
+        else if (funcptr == &ARMv5::DWrite32S_3) return 50;
+        else if (funcptr == &ARMv5::DWrite32S_4) return 51;
+        else if (funcptr == &ARMv5::DWrite32S_5A) return 52;
+        else if (funcptr == &ARMv5::DWrite32S_5B) return 53;
+        else if (funcptr == &ARMv5::WBCheck_2) return 54;
+        else if (funcptr == &ARMv5::ICachePrefetch_2) return 55;
+        else if (funcptr == &ARMv5::DCacheLookup_2) return 56;
+        else if (funcptr == &ARMv5::DCacheLookup_3) return 57;
+        else if (funcptr == &ARMv5::DCClearAddr_2) return 58;
+        else if (funcptr == &ARMv5::DCClearSetWay_2) return 59;
+        else if (funcptr == &ARMv5::DCClearInvalidateAddr_2) return 60;
+        else if (funcptr == &ARMv5::DCClearInvalidateSetWay_2) return 61;
+        else if (funcptr == &ARMv5::SetupInterlock_2) return 62;
+        else if (funcptr == &ARMv5::HandleInterlocksExecute_2) return 63;
+        else if (funcptr == &ARMv5::HandleInterlocksMemory_2) return 64;
+        else if (funcptr == &ARMv5::ForceInterlock_2) return 65;
+        else if (funcptr == &ARMv5::QueueUpdateMode) return 66;
+        else if (funcptr == &ARMv5::SignExtend8) return 67;
+        else if (funcptr == &ARMv5::SignExtend16) return 68;
+        else if (funcptr == &ARMv5::ROR32) return 69;
+        else { Platform::Log(Platform::LogLevel::Error, "ARM9: INVALID FUNCTION POINTER FOR SAVESTATES; DID SOMEONE FORGET TO UPDATE SERIALIZATION?\n"); return -1; }
+    }
+
+    typedef void (ARMv5::*funcptrA9)(void);
+    funcptrA9 GetQueueFuncFromID(int funcid)
+    {
+        switch(funcid)
+        {
+        case 0: return &ARMv5::StartExecARM;
+        case 1: return &ARMv5::ContExecARM;
+        case 2: return &ARMv5::StartExecTHUMB;
+        case 3: return &ARMv5::ContExecTHUMB;
+        case 4: return &ARMv5::AddExecute;
+        case 5: return &ARMv5::AddCycles_MW_2;
+        case 6: return &ARMv5::DelayIfITCM_2;
+        case 7: return &ARMv5::JumpTo_2;
+        case 8: return &ARMv5::JumpTo_3A;
+        case 9: return &ARMv5::JumpTo_3B;
+        case 10: return &ARMv5::JumpTo_3C;
+        case 11: return &ARMv5::JumpTo_4;
+        case 12: return &ARMv5::CodeRead32_2;
+        case 13: return &ARMv5::CodeRead32_3;
+        case 14: return &ARMv5::CodeRead32_4;
+        case 15: return &ARMv5::ICacheLookup_2;
+        case 16: return &ARMv5::DAbortHandle;
+        case 17: return &ARMv5::DCacheFin8;
+        case 18: return &ARMv5::DRead8_2;
+        case 19: return &ARMv5::DRead8_3;
+        case 20: return &ARMv5::DRead8_4;
+        case 21: return &ARMv5::DRead8_5;
+        case 22: return &ARMv5::DCacheFin16;
+        case 23: return &ARMv5::DRead16_2;
+        case 24: return &ARMv5::DRead16_3;
+        case 25: return &ARMv5::DRead16_4;
+        case 26: return &ARMv5::DRead16_5;
+        case 27: return &ARMv5::DCacheFin32;
+        case 28: return &ARMv5::DRead32_2;
+        case 29: return &ARMv5::DRead32_3;
+        case 30: return &ARMv5::DRead32_4;
+        case 31: return &ARMv5::DRead32_5;
+        case 32: return &ARMv5::DRead32S_2;
+        case 33: return &ARMv5::DRead32S_3;
+        case 34: return &ARMv5::DRead32S_4;
+        case 35: return &ARMv5::DRead32S_5A;
+        case 36: return &ARMv5::DRead32S_5B;
+        case 37: return &ARMv5::DWrite8_2;
+        case 38: return &ARMv5::DWrite8_3;
+        case 39: return &ARMv5::DWrite8_4;
+        case 40: return &ARMv5::DWrite8_5;
+        case 41: return &ARMv5::DWrite16_2;
+        case 42: return &ARMv5::DWrite16_3;
+        case 43: return &ARMv5::DWrite16_4;
+        case 44: return &ARMv5::DWrite16_5;
+        case 45: return &ARMv5::DWrite32_2;
+        case 46: return &ARMv5::DWrite32_3;
+        case 47: return &ARMv5::DWrite32_4;
+        case 48: return &ARMv5::DWrite32_5;
+        case 49: return &ARMv5::DWrite32S_2;
+        case 50: return &ARMv5::DWrite32S_3;
+        case 51: return &ARMv5::DWrite32S_4;
+        case 52: return &ARMv5::DWrite32S_5A;
+        case 53: return &ARMv5::DWrite32S_5B;
+        case 54: return &ARMv5::WBCheck_2;
+        case 55: return &ARMv5::ICachePrefetch_2;
+        case 56: return &ARMv5::DCacheLookup_2;
+        case 57: return &ARMv5::DCacheLookup_3;
+        case 58: return &ARMv5::DCClearAddr_2;
+        case 59: return &ARMv5::DCClearSetWay_2;
+        case 60: return &ARMv5::DCClearInvalidateAddr_2;
+        case 61: return &ARMv5::DCClearInvalidateSetWay_2;
+        case 62: return &ARMv5::SetupInterlock_2;
+        case 63: return &ARMv5::HandleInterlocksExecute_2;
+        case 64: return &ARMv5::HandleInterlocksMemory_2;
+        case 65: return &ARMv5::ForceInterlock_2;
+        case 66: return &ARMv5::QueueUpdateMode;
+        case 67: return &ARMv5::SignExtend8;
+        case 68: return &ARMv5::SignExtend16;
+        case 69: return &ARMv5::ROR32;
+        default: Platform::Log(Platform::LogLevel::Error, "ARM9: INVALID FUNCTION ID FOR LOADING SAVESTATES; EITHER THE SAVESTATE IS BORKED OR SOMEONE FORGOT TO UPDATE SERIALIZATION\n"); return nullptr;
+        }
+    }
 
     // Queue Functions
     void StartExecARM();
@@ -798,6 +952,7 @@ public:
     void ROR32() { R[ExtReg] = ROR(R[ExtReg], ExtROROffs); }
 
 
+
     u32 CP15Control;                                //! CP15 Register 1: Control Register
 
     u32 RNGSeed;                                    //! Global cache line fill seed. Used for pseudo random replacement strategy with the instruction and data cache
@@ -855,14 +1010,12 @@ public:
     u8 MemTimings[0x40000][3];
 
     bool (*GetMemRegion)(u32 addr, bool write, MemRegion* region);
-    
+
     alignas(64) void (ARMv5::*DelayedQueue)(void); // adding more than one new entry to the queue while it's already active does not work. so uh. we use this to work around that. it's less than ideal...
     void (ARMv5::*StartExec)(void);
     void (ARMv5::*FuncQueue[32])(void);
     u64 ITCMTimestamp;
     u64 TimestampMemory;
-    u32 PC;
-    bool NullFetch;
     bool Store;
     s8 ITCMDelay;
     u32 QueuedDCacheLine;
@@ -921,6 +1074,8 @@ public:
     
     void Reset() override;
 
+    void DoSavestate(Savestate* file) override;
+
     void FillPipeline() override;
 
     void JumpTo(u32 addr, bool restorecpsr = false, u8 R15 = 0) override;
@@ -949,7 +1104,62 @@ public:
     void AddCycles_CD() override;
     
     void QueueFunction(void (ARMv4::*QueueEntry)(void));
-    
+
+    int GetIDFromQueueFunc(void (ARMv4::*funcptr)(void))
+    {
+        if (funcptr == &ARMv4::StartExecARM) return 0;
+        else if (funcptr == &ARMv4::StartExecTHUMB) return 1;
+        else if (funcptr == &ARMv4::UpdateNextInstr1) return 2;
+        else if (funcptr == &ARMv4::JumpTo_2) return 3;
+        else if (funcptr == &ARMv4::JumpTo_3A) return 4;
+        else if (funcptr == &ARMv4::JumpTo_3B) return 5;
+        else if (funcptr == &ARMv4::DRead8_2) return 6; 
+        else if (funcptr == &ARMv4::DRead16_2) return 7;
+        else if (funcptr == &ARMv4::DRead32_2) return 8;
+        else if (funcptr == &ARMv4::DRead32S_2) return 9;
+        else if (funcptr == &ARMv4::DWrite8_2) return 10;
+        else if (funcptr == &ARMv4::DWrite16_2) return 11;
+        else if (funcptr == &ARMv4::DWrite32_2) return 12;
+        else if (funcptr == &ARMv4::DWrite32S_2) return 13;
+        else if (funcptr == &ARMv4::AddExecute) return 14;
+        else if (funcptr == &ARMv4::AddExtraCycle) return 15;
+        else if (funcptr == &ARMv4::QueueUpdateMode) return 16;
+        else if (funcptr == &ARMv4::SignExtend8) return 17;
+        else if (funcptr == &ARMv4::SignExtend16) return 18;
+        else if (funcptr == &ARMv4::ROR32) return 19;
+        else { Platform::Log(Platform::LogLevel::Error, "ARM7: INVALID FUNCTION POINTER FOR SAVESTATES; DID SOMEONE FORGET TO UPDATE SERIALIZATION?\n"); return -1; }
+    }
+
+    typedef void (ARMv4::*funcptrA7)(void);
+    funcptrA7 GetQueueFuncFromID(int funcid)
+    {
+        switch (funcid)
+        {
+        case 0: return &ARMv4::StartExecARM;
+        case 1: return &ARMv4::StartExecTHUMB;
+        case 2: return &ARMv4::UpdateNextInstr1;
+        case 3: return &ARMv4::JumpTo_2;
+        case 4: return &ARMv4::JumpTo_3A;
+        case 5: return &ARMv4::JumpTo_3B;
+        case 6: return &ARMv4::DRead8_2;
+        case 7: return &ARMv4::DRead16_2;
+        case 8: return &ARMv4::DRead32_2;
+        case 9: return &ARMv4::DRead32S_2;
+        case 10: return &ARMv4::DWrite8_2;
+        case 11: return &ARMv4::DWrite16_2;
+        case 12: return &ARMv4::DWrite32_2;
+        case 13: return &ARMv4::DWrite32S_2;
+        case 14: return &ARMv4::AddExecute;
+        case 15: return &ARMv4::AddExtraCycle;
+        case 16: return &ARMv4::QueueUpdateMode;
+        case 17: return &ARMv4::SignExtend8;
+        case 18: return &ARMv4::SignExtend16;
+        case 19: return &ARMv4::ROR32;
+        default: Platform::Log(Platform::LogLevel::Error, "ARM7: INVALID FUNCTION ID FOR LOADING SAVESTATES; EITHER THE SAVESTATE IS BORKED OR SOMEONE FORGOT TO UPDATE SERIALIZATION\n"); return nullptr;
+        }
+    }
+
+    // Queue Functions
     void StartExecARM();
     void StartExecTHUMB();
     void UpdateNextInstr1() { NextInstr[1] = RetVal; }

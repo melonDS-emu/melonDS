@@ -1485,6 +1485,7 @@ void NDSCartSlot::DoSavestate(Savestate* file) noexcept
     file->Var32(&TransferLen);
     file->Var32(&TransferDir);
     file->VarArray(TransferCmd.data(), sizeof(TransferCmd));
+    file->Var64(&ROMTransferTime);
 
     // cart inserted/len/ROM/etc should be already populated
     // savestate should be loaded after the right game is loaded

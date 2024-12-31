@@ -691,15 +691,26 @@ bool NDS::DoSavestate(Savestate* file)
     }
     file->Var32(&SchedListMask);
     file->Var64(&ARM9Timestamp);
+    file->Var64(&DMA9Timestamp);
     file->Var64(&ARM9Target);
     file->Var64(&ARM7Timestamp);
     file->Var64(&ARM7Target);
     file->Var64(&SysTimestamp);
+    file->Var64(&MainRAMTimestamp);
+    file->Var64(&MainRAMBurstStart);
+    file->Var64(&A9ContentionTS);
+    file->Bool32(&ConTSLock);
     file->Var64(&LastSysClockCycles);
     file->Var64(&FrameStartTimestamp);
     file->Var32(&NumFrames);
     file->Var32(&NumLagFrames);
     file->Bool32(&LagFrameFlag);
+    file->VarArray(DMAReadHold, sizeof(DMAReadHold));
+    file->VarArray(DMAsQueued, sizeof(DMAsQueued));
+    file->Var8(&DMAQueuePtr);
+    file->Bool32(&MainRAMBork);
+    file->Bool32(&MainRAMLastAccess);
+    file->Bool32(&DMALastWasMainRAM);
 
     // TODO: save KeyInput????
     file->VarArray(KeyCnt, 2*sizeof(u16));

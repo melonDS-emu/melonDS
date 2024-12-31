@@ -275,6 +275,22 @@ void ARM::DoSavestate(Savestate* file)
 #endif
     file->VarArray(NextInstr, 2*sizeof(u64));
 
+    file->VarArray(&MRTrack, sizeof(MRTrack));
+    file->Var32(&BranchAddr);
+    file->VarArray(QueueMode, sizeof(QueueMode));
+    file->Var8(&ExtReg);
+    file->Var8(&ExtROROffs);
+    file->Var64(&RetVal);
+    file->Var16(&LDRRegs);
+    file->Var16(&LDRFailedRegs);
+    file->VarArray(FetchAddr, sizeof(FetchAddr));
+    file->VarArray(STRVal, sizeof(STRVal));
+    file->Var64(&IRQTimestamp);
+    file->Var8(&FuncQueueFill);
+    file->Var8(&FuncQueueEnd);
+    file->Var8(&ExecuteCycles);
+    file->Bool32(&FuncQueueActive);
+    file->Bool32(&CheckInterlock);
     file->Var32(&ExceptionBase);
 
     if (!file->Saving)
@@ -306,8 +322,105 @@ void ARM::DoSavestate(Savestate* file)
 
 void ARMv5::DoSavestate(Savestate* file)
 {
+    file->Var64(&ITCMTimestamp);
+    file->Var64(&TimestampMemory);
+    file->Bool32(&Store);
+    file->Var8((u8*)&ITCMDelay);
+    file->Var32(&QueuedDCacheLine);
+    file->Var32(&CP15Queue);
+
+    file->Var8(&ILCurrReg);
+    file->Var8(&ILPrevReg);
+    file->Var64(&ILCurrTime);
+    file->Var64(&ILPrevTime);
+    file->Var8(&ILQueueReg);
+    file->Var8((u8*)&ILQueueDelay);
+    file->Var8(&ILQueueMemReg);
+    file->VarArray(ILQueueTimes, sizeof(ILQueueTimes));
+    file->Var16(&ILQueueMask);
+
+    file->Var8(&ICacheStreamPtr);
+    file->Var8(&DCacheStreamPtr);
+    file->VarArray(ICacheStreamTimes, sizeof(ICacheStreamTimes));
+    file->VarArray(DCacheStreamTimes, sizeof(DCacheStreamTimes));
+
+    file->Var8((u8*)&ILForceDelay);
+    file->Var8(&WBWritePointer);
+    file->Var8(&WBFillPointer);
+    file->Var8(&WBWriting);
+    file->Var32(&WBCurAddr);
+    file->Var64(&WBCurVal);
+    file->VarArray(WBAddrQueued, sizeof(WBAddrQueued));
+    file->VarArray(storeaddr, sizeof(storeaddr));
+    file->VarArray(WBValQueued, sizeof(WBValQueued));
+    file->VarArray(WriteBufferFifo, sizeof(WriteBufferFifo));
+    file->Var64(&WBTimestamp);
+    file->Var64(&WBDelay);
+    file->Var32(&WBLastRegion);
+    file->Var64(&WBReleaseTS);
+    file->Var64(&WBInitialTS);
+
     ARM::DoSavestate(file);
     CP15DoSavestate(file);
+
+    if (!file->Saving)
+    {
+        int id;
+        file->Var32((u32*)&id);
+        DelayedQueue = GetQueueFuncFromID(id);
+
+        file->Var32((u32*)&id);
+        StartExec = GetQueueFuncFromID(id);
+
+        for (int i = 0; i <= FuncQueueEnd; i++)
+        {
+            file->Var32((u32*)&id);
+            FuncQueue[i] = GetQueueFuncFromID(id);
+        }
+    }
+    else
+    {
+        int id = GetIDFromQueueFunc(DelayedQueue);
+        file->Var32((u32*)&id);
+
+        id = GetIDFromQueueFunc(StartExec);
+        file->Var32((u32*)&id);
+
+        for (int i = 0; i <= FuncQueueEnd; i++)
+        {
+            id = GetIDFromQueueFunc(FuncQueue[i]);
+            file->Var32((u32*)&id);
+        }
+    }
+}
+
+void ARMv4::DoSavestate(Savestate* file)
+{
+    file->Bool32(&Nonseq);
+
+    ARM::DoSavestate(file);
+
+    if (!file->Saving)
+    {
+        int id;
+        file->Var32((u32*)&id);
+        StartExec = GetQueueFuncFromID(id);
+        for (int i = 0; i <= FuncQueueEnd; i++)
+        {
+            file->Var32((u32*)&id);
+            FuncQueue[i] = GetQueueFuncFromID(id);
+        }
+    }
+    else
+    {
+        int id = GetIDFromQueueFunc(StartExec);
+        file->Var32((u32*)&id);
+        for (int i = 0; i <= FuncQueueEnd; i++)
+        {
+            id = GetIDFromQueueFunc(FuncQueue[i]);
+            file->Var32((u32*)&id);
+        }
+    }
 }
 
 

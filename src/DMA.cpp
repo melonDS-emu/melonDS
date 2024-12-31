@@ -110,6 +110,7 @@ void DMA::DoSavestate(Savestate* file)
     file->Var32(&MRAMBurstCount);
     file->Bool32(&Executing);
     file->Bool32(&Stall);
+    file->Bool32(&DMAQueued);
 
     file->VarArray(MRAMBurstTable.data(), sizeof(MRAMBurstTable));
 }
