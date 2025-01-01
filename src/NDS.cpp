@@ -165,9 +165,9 @@ void NDS::SetARM9RegionTimings(u32 addrstart, u32 addrend, u32 region, int buswi
     for (u32 i = addrstart; i < addrend; i++)
     {
         // CPU timings
-        ARM9MemTimings[i][0] = N16 + cpuN;
+        ARM9MemTimings[i][0] = N16;// + cpuN;
         ARM9MemTimings[i][1] = S16;
-        ARM9MemTimings[i][2] = N32 + cpuN;
+        ARM9MemTimings[i][2] = N32;// + cpuN;
         ARM9MemTimings[i][3] = S32;
 
         // DMA timings
@@ -2532,7 +2532,7 @@ void NDS::RunTimers(u32 cpu)
     s32 cycles;
 
     if (cpu == 0)
-        cycles = (ARM9Timestamp >> ARM9ClockShift) - TimerTimestamp[0];
+        cycles = (std::max(ARM9Timestamp, DMA9Timestamp) >> ARM9ClockShift) - TimerTimestamp[0];
     else
         cycles = ARM7Timestamp - TimerTimestamp[1];
 
