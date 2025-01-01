@@ -806,136 +806,6 @@ void NDS::SetARM9BIOS(const std::array<u8, ARM9BIOSSize>& bios) noexcept
     ARM9BIOSNative = CRC32(ARM9BIOS.data(), ARM9BIOS.size()) == ARM9BIOSCRC32;
 }
 
-u64 NDS::NextTarget()
-{
-    u64 minEvent = UINT64_MAX;
-
-    u32 mask = SchedListMask;
-    for (int i = 0; i < Event_MAX; i++)
-    {
-        if (!mask) break;
-        if (mask & 0x1)
-        {
-            if (SchedList[i].Timestamp < minEvent)
-                minEvent = SchedList[i].Timestamp;
-        }
-
-        mask >>= 1;
-    }
-
-    u64 max = SysTimestamp + kMaxIterationCycles;
-
-    if (minEvent < max + kIterationCycleMargin)
-        return minEvent;
-
-    return max;
-}
-
-void NDS::RunSystem(u64 timestamp)
-{
-    SysTimestamp = timestamp;
-
-    u32 mask = SchedListMask;
-    for (int i = 0; i < Event_MAX; i++)
-    {
-        if (!mask) break;
-        if (mask & 0x1)
-        {
-            SchedEvent& evt = SchedList[i];
-
-            if (evt.Timestamp <= SysTimestamp)
-            {
-                SchedListMask &= ~(1<<i);
-
-                EventFunc func = evt.Funcs[evt.FuncID];
-                func(evt.That, evt.Param);
-            }
-        }
-
-        mask >>= 1;
-    }
-}
-
-void NDS::RunEventManual(u32 id)
-{
-    if (SchedListMask & (1<<id))
-    {
-        u64 curts = CurCPU ? ARM7Timestamp : (std::max(ARM9Timestamp, DMA9Timestamp) >> ARM9ClockShift);
-        SchedEvent& evt = SchedList[id];
-
-        if (evt.Timestamp <= curts)
-        {
-            evt.Funcs[evt.FuncID](evt.That, evt.Param);
-            SchedListMask &= ~(1<<id);
-        }
-    }
-}
-
-u64 NDS::NextTargetSleep()
-{
-    u64 minEvent = UINT64_MAX;
-
-    u32 mask = SchedListMask;
-    for (int i = 0; i < Event_MAX; i++)
-    {
-        if (!mask) break;
-        if (i == Event_SPU || i == Event_RTC)
-        {
-            if (mask & 0x1)
-            {
-                if (SchedList[i].Timestamp < minEvent)
-                    minEvent = SchedList[i].Timestamp;
-            }
-        }
-
-        mask >>= 1;
-    }
-
-    return minEvent;
-}
-
-void NDS::RunSystemSleep(u64 timestamp)
-{
-    u64 offset = timestamp - SysTimestamp;
-    SysTimestamp = timestamp;
-
-    u32 mask = SchedListMask;
-    for (int i = 0; i < Event_MAX; i++)
-    {
-        if (!mask) break;
-        if (i == Event_SPU || i == Event_RTC)
-        {
-            if (mask & 0x1)
-            {
-                SchedEvent& evt = SchedList[i];
-
-                if (evt.Timestamp <= SysTimestamp)
-                {
-                    SchedListMask &= ~(1<<i);
-
-                    u32 param;
-                    if (i == Event_SPU)
-                        param = 1;
-                    else
-                        param = evt.Param;
-
-                    EventFunc func = evt.Funcs[evt.FuncID];
-                    func(evt.That, param);
-                }
-            }
-        }
-        else if (mask & 0x1)
-        {
-            if (SchedList[i].Timestamp <= SysTimestamp)
-            {
-                SchedList[i].Timestamp += offset;
-            }
-        }
-
-        mask >>= 1;
-    }
-}
-
 #define A9WENTLAST (!MainRAMLastAccess)
 #define A7WENTLAST ( MainRAMLastAccess)
 #define A9LAST false
@@ -1746,6 +1616,136 @@ bool NDS::MainRAMHandle()
 #undef A7LAST
 #undef A9PRIORITY
 #undef A7PRIORITY
+
+u64 NDS::NextTarget()
+{
+    u64 minEvent = UINT64_MAX;
+
+    u32 mask = SchedListMask;
+    for (int i = 0; i < Event_MAX; i++)
+    {
+        if (!mask) break;
+        if (mask & 0x1)
+        {
+            if (SchedList[i].Timestamp < minEvent)
+                minEvent = SchedList[i].Timestamp;
+        }
+
+        mask >>= 1;
+    }
+
+    u64 max = SysTimestamp + kMaxIterationCycles;
+
+    if (minEvent < max + kIterationCycleMargin)
+        return minEvent;
+
+    return max;
+}
+
+void NDS::RunSystem(u64 timestamp)
+{
+    SysTimestamp = timestamp;
+
+    u32 mask = SchedListMask;
+    for (int i = 0; i < Event_MAX; i++)
+    {
+        if (!mask) break;
+        if (mask & 0x1)
+        {
+            SchedEvent& evt = SchedList[i];
+
+            if (evt.Timestamp <= SysTimestamp)
+            {
+                SchedListMask &= ~(1<<i);
+
+                EventFunc func = evt.Funcs[evt.FuncID];
+                func(evt.That, evt.Param);
+            }
+        }
+
+        mask >>= 1;
+    }
+}
+
+void NDS::RunEventManual(u32 id)
+{
+    if (SchedListMask & (1<<id))
+    {
+        u64 curts = CurCPU ? ARM7Timestamp : (std::max(ARM9Timestamp, DMA9Timestamp) >> ARM9ClockShift);
+        SchedEvent& evt = SchedList[id];
+
+        if (evt.Timestamp <= curts)
+        {
+            evt.Funcs[evt.FuncID](evt.That, evt.Param);
+            SchedListMask &= ~(1<<id);
+        }
+    }
+}
+
+u64 NDS::NextTargetSleep()
+{
+    u64 minEvent = UINT64_MAX;
+
+    u32 mask = SchedListMask;
+    for (int i = 0; i < Event_MAX; i++)
+    {
+        if (!mask) break;
+        if (i == Event_SPU || i == Event_RTC)
+        {
+            if (mask & 0x1)
+            {
+                if (SchedList[i].Timestamp < minEvent)
+                    minEvent = SchedList[i].Timestamp;
+            }
+        }
+
+        mask >>= 1;
+    }
+
+    return minEvent;
+}
+
+void NDS::RunSystemSleep(u64 timestamp)
+{
+    u64 offset = timestamp - SysTimestamp;
+    SysTimestamp = timestamp;
+
+    u32 mask = SchedListMask;
+    for (int i = 0; i < Event_MAX; i++)
+    {
+        if (!mask) break;
+        if (i == Event_SPU || i == Event_RTC)
+        {
+            if (mask & 0x1)
+            {
+                SchedEvent& evt = SchedList[i];
+
+                if (evt.Timestamp <= SysTimestamp)
+                {
+                    SchedListMask &= ~(1<<i);
+
+                    u32 param;
+                    if (i == Event_SPU)
+                        param = 1;
+                    else
+                        param = evt.Param;
+
+                    EventFunc func = evt.Funcs[evt.FuncID];
+                    func(evt.That, param);
+                }
+            }
+        }
+        else if (mask & 0x1)
+        {
+            if (SchedList[i].Timestamp <= SysTimestamp)
+            {
+                SchedList[i].Timestamp += offset;
+            }
+        }
+
+        mask >>= 1;
+    }
+}
 
 template <CPUExecuteMode cpuMode>
 u32 NDS::RunFrame()
