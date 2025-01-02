@@ -436,7 +436,7 @@ bool ARMv5::ICacheLookup(const u32 addr)
     if (CP15BISTTestStateRegister & CP15_BIST_TR_DISABLE_ICACHE_LINEFILL) [[unlikely]]
         return false;
         
-    if (NDS.ARM9Timestamp < NDS.DMA9Timestamp) NDS.ARM9Timestamp = NDS.DMA9Timestamp;
+    //if (NDS.ARM9Timestamp < NDS.DMA9Timestamp) NDS.ARM9Timestamp = NDS.DMA9Timestamp;
     WriteBufferDrain();
     FetchAddr[16] = addr;
     QueueFunction(&ARMv5::ICacheLookup_2);
@@ -760,7 +760,7 @@ void ARMv5::DCacheLookup_3()
             u32 stall = (4 - NDS.ARM9ClockShift) << NDS.ARM9ClockShift;
 
             NDS.ARM9Timestamp += (MemTimings[tag >> 14][1] + stall) + ((MemTimings[tag >> 14][2] + 1) * ((DCACHE_LINELENGTH / 4) - 1));
-            DataCycles = MemTimings[tag>>14][2] + 1;
+            DataCycles = MemTimings[tag>>14][2]; // checkme
         
             DataRegion = NDS.ARM9Regions[addr>>14];
             if (((NDS.ARM9Timestamp <= WBReleaseTS) && (NDS.ARM9Regions[addr>>14] == WBLastRegion)) // check write buffer
@@ -782,7 +782,7 @@ void ARMv5::DCacheLookup_3()
             u8 linepos = (addr & 0x1F) >> 2; // technically this is one too low, but we want that actually
 
             u64 cycles = ns + (seq * linepos);
-            DataCycles = 3<<NDS.ARM9ClockShift;
+            DataCycles = 3<<NDS.ARM9ClockShift; // checkme
             NDS.ARM9Timestamp += DataCycles;
             cycles = NDS.ARM9Timestamp;
 
@@ -2207,7 +2207,7 @@ void ARMv5::CodeRead32(u32 addr)
 
 void ARMv5::CodeRead32_2()
 {
-    if (NDS.ARM9Timestamp < NDS.DMA9Timestamp) NDS.ARM9Timestamp = NDS.DMA9Timestamp;
+    //if (NDS.ARM9Timestamp < NDS.DMA9Timestamp) NDS.ARM9Timestamp = NDS.DMA9Timestamp;
     // bus reads can only overlap with dcache streaming by 6 cycles
     if (DCacheStreamPtr < 7)
     {
@@ -2251,7 +2251,7 @@ void ARMv5::CodeRead32_4()
 {
     u32 addr = FetchAddr[16];
 
-    if (NDS.ARM9Timestamp < NDS.DMA9Timestamp) NDS.ARM9Timestamp = (NDS.DMA9Timestamp + ((1<<NDS.ARM9ClockShift)-1)) & ~((1<<NDS.ARM9ClockShift)-1);
+    //if (NDS.ARM9Timestamp < NDS.DMA9Timestamp) NDS.ARM9Timestamp = (NDS.DMA9Timestamp + ((1<<NDS.ARM9ClockShift)-1)) & ~((1<<NDS.ARM9ClockShift)-1);
 
     NDS.DMA9Timestamp = NDS.ARM9Timestamp += (4 - NDS.ARM9ClockShift) << NDS.ARM9ClockShift;
 
@@ -3447,7 +3447,7 @@ void ARMv5::DWrite32S_5B()
 
     NDS.DMA9Timestamp = NDS.ARM9Timestamp -= 1;
 
-    DataCycles = 3 << NDS.ARM9ClockShift;
+    DataCycles = 3 << NDS.ARM9ClockShift; // checkme
     DataRegion = NDS.ARM9Regions[addr>>14];
 
     if (WBTimestamp < ((NDS.ARM9Timestamp + ((1<<NDS.ARM9ClockShift)-1)) & ~((1<<NDS.ARM9ClockShift)-1)))
