@@ -1340,10 +1340,16 @@ void DSi::Set_SCFG_MC(u32 val)
 
 void DSi::SetVRAMTimings(bool extrabuswidth)
 {
-    if (extrabuswidth)
-        SetARM9RegionTimings(0x06000, 0x07000, Mem9_VRAM, 32, 1, 1); // dsi vram
-    else
-        SetARM9RegionTimings(0x06000, 0x07000, Mem9_VRAM, 16, 1, 1); // ds vram
+    if (extrabuswidth) // 32 bit bus; arm9 can do 8 bit writes
+    {
+        SetARM9RegionTimings(0x06000, 0x07000, Mem9_VRAM, 32, 1, 1);
+        SetARM7RegionTimings(0x06000, 0x07000, Mem7_VRAM, 32, 1, 1);
+    }
+    else // 16 bit bus; arm9 cannot do 8 bit writes
+    {
+        SetARM9RegionTimings(0x06000, 0x07000, Mem9_VRAM, 16, 1, 1);
+        SetARM7RegionTimings(0x06000, 0x07000, Mem7_VRAM, 16, 1, 1);
+    }
 }
 
 

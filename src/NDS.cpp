@@ -270,7 +270,7 @@ void NDS::InitTimings()
     SetARM7RegionTimings(0x02000, 0x03000, Mem7_MainRAM, 16, 8, 1); // main RAM
     SetARM7RegionTimings(0x03000, 0x04000, Mem7_WRAM,    32, 1, 1); // ARM7/shared WRAM
     SetARM7RegionTimings(0x04000, 0x04800, Mem7_IO,      32, 1, 1); // IO
-    SetARM7RegionTimings(0x06000, 0x07000, Mem7_VRAM,    32, 1, 1); // ARM7 VRAM
+    SetARM7RegionTimings(0x06000, 0x07000, Mem7_VRAM,    16, 1, 1); // ARM7 VRAM
 
     // handled later: GBA slot, wifi
 }
