@@ -64,8 +64,10 @@ add_library(core STATIC
 
     sha1/sha1.c
     tiny-AES-c/aes.c
-    xxhash/xxhash.c)
+    xxhash/xxhash.c
 
+    H8300.cpp
+    H8300.h)
 if (ENABLE_GDBSTUB)
     message(NOTICE "Enabling GDB stub")
     target_sources(core PRIVATE
@@ -100,7 +102,7 @@ if (ENABLE_JIT)
         ARMJIT_Global.cpp
 
         dolphin/CommonFuncs.cpp)
-    
+
     if (WIN32)
         # Required for memory mapping-related functions introduced in Windows 8
         target_compile_definitions(core PRIVATE -D_WIN32_WINNT=_WIN32_WINNT_WIN8)
@@ -211,4 +213,3 @@ endif()
 #    BEFORE PUBLIC -fsanitize=undefined PUBLIC -fsanitize=address
 #  )
 #endif()
-

@@ -29,7 +29,7 @@
 #include "NDS_Header.h"
 #include "FATStorage.h"
 #include "ROMList.h"
-
+#include "H8300.h"
 namespace melonDS
 {
 class NDS;
@@ -233,6 +233,7 @@ public:
 private:
     u32 IRVersion = 0;
     u8 IRCmd = 0;
+    H8300 IRChip;
 };
 
 // CartRetailBT - Pok�mon Typing Adventure (SPI BT controller)
@@ -470,3 +471,4 @@ std::unique_ptr<CartCommon> ParseROM(std::unique_ptr<u8[]>&& romdata, u32 romlen
 }
 
 #endif
+
