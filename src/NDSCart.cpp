@@ -1129,48 +1129,17 @@ u8 CartRetailIR::SPIWrite(u8 val, u32 pos, bool last)
 	//Kind of like an init sequence, we only really care about commands after this first one
     if (pos == 0)
     {
-//	printf("IRCmd: %d		val:%d   pos: %ld   last: %d\n", val, val, pos, last);
         IRCmd = val;
         return 0;
     }
-
     // TODO: emulate actual IR comm
     if (IRCmd == 0){
 	return CartRetail::SPIWrite(val, pos-1, last);
-
     }
-
+    //Yay I am doing the TODO :) Thanks to the giants that came before me!
     else{
 	return IRChip.handleSPI(IRCmd, val, pos, last);
-
     }
-
-
-    /*
-    switch (IRCmd)
-    {
-    case 0x00: // pass-through
-        return CartRetail::SPIWrite(val, pos-1, last);
-
-
-    case 0xaa:
-	u8 rtnval;
-	if (pos == 1){
-		rtnval = 0x01;
-	}
-	if (pos == 2){
-		rtnval = 0x56;
-	}
-	printf("	returning: 0x%02x   val: %d   pos: %ld   last: %d\n", rtnval, val, pos, last);
-	return rtnval;
-
-
-    case 0x08: // ID
-        return 0xAA;
-    }
-    return IRChip.handleSPI(val, pos,last);
-    //printf("	Unhandled Case:   val: 0x%02x\n", val);
-    //return 0;*/
 }
 //BARRET END CHANGES
 CartRetailBT::CartRetailBT(const u8* rom, u32 len, u32 chipid, ROMListEntry romparams, std::unique_ptr<u8[]>&& sram, u32 sramlen, void* userdata) :

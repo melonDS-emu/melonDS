@@ -23,8 +23,24 @@ public:
 	u8 handleSPI(u8& IRCmd, u8& val, u32&pos, bool& last);
 
 
+
+	//TODO add options later
+	int configureSerialPort();
+	int debugSerialPort();
+	int readSerialPort();
+	int sendSerialPort();
+
 private:
-	int exampleInt;
+	int sessionStatus = 0;
+	//file where the TTY will be stores
+	int fd = -1;
+
+	u8 recvLen = 0;
+	char buf[0xB8];
+
+
+	char sendBuf[0xB8];
+	u8 sendLen;
 };
 
 #endif
