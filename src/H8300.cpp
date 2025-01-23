@@ -20,11 +20,77 @@ H8300::H8300(){
 }
 
 H8300::~H8300(){
+
+
+	close(fd);
+
 	printf("H8/300 has been killed");
 }
 
 void H8300::speak(){
 	printf("H8 CHIP IS SPEAKING");
+}
+
+int H8300::debugSerialPort(){
+	int option = 0;
+	while(option != 9){
+		printf("\n\nWelcome to the mini H8/300 Debugger. Please select an option.\n");
+		printf("1. Read\n");
+		printf("2. Write\n");
+		printf("3. FD status\n");
+		printf("4. Configure Serial Port\n");
+		printf("5. Close serial port\n");
+		printf("8. Exit without closing port\n");
+		printf("9. Exit and close serial port\n");
+		scanf("%d", &option);
+		if (option ==1){
+			printf("You have 5 seconds to send me some data!!!\n");
+			sleep(5);
+
+			memset(buf, 0, sizeof(buf));
+			printf("reading");
+
+			int len;
+			len = read(fd, buf, sizeof(buf));
+
+			if (len == -1){
+				perror("Failed to read port");
+			}
+			printf("Rxed %d bytes\n", len);
+
+			for (int i = 0; i < len; i++){
+				printf("0x%02x ", (unsigned char)buf[i]);
+			}
+			printf("\n");
+		}
+
+		else if (option == 2){
+			printf("writing not implemented\n");
+		}
+		else if (option == 3){
+
+			printf("FD status: %d\n", fd);
+		}
+
+		else if (option == 4){
+			configureSerialPort();
+		}
+		else if (option == 5){
+			close(fd);
+			printf("hopefully closed fd\n");
+		}
+
+		else if (option == 8){
+			break;
+		}
+
+		else if (option == 9){
+			close(fd);
+			printf("Exiting.\n");
+			break;
+		}
+	}
+	return 0;
 }
 
 
@@ -40,6 +106,7 @@ int H8300::configureSerialPort(){
 	fd = open(portname, O_RDWR | O_NOCTTY | O_NDELAY);
 	if (fd == -1){
 		printf("H8/300 failed to open the serial port\n");
+		perror("Err:");
 		return 1;
 	}
 
@@ -80,18 +147,14 @@ int H8300::configureSerialPort(){
 }
 
 
+//Working
 
 int H8300::readSerialPort(){
-
-	//needs to be done this way so we dont have spliced packets. 4ms of no comms indicates eof. Try to ignore and just wait till there are no packets
-
-
-
-	/* WORKING BETTER*/
 	char tempBuf[0xB8];
 	int len = 1;  //read(fd, tempBuf, sizeof(tempBuf));
 	u8 pointer = 0;
 	while (len > 0){
+
 		usleep(4000);
 		len = read(fd, tempBuf, sizeof(tempBuf));
 
@@ -104,6 +167,9 @@ int H8300::readSerialPort(){
 		}
 		pointer = pointer + len;
 	}
+
+
+	tcflush(fd, TCIFLUSH);
 	recvLen = pointer;
 
 	if (recvLen == 0) return 0;
@@ -118,9 +184,12 @@ int H8300::readSerialPort(){
 
 
 	return recvLen;
+}
 
 /*
-	printf("trying to recieve\n");
+int H8300::readSerialPort(){
+
+
 	struct timeval tv;
 	gettimeofday(&tv, NULL);
 	long lastRxTime = tv.tv_usec;
@@ -131,17 +200,32 @@ int H8300::readSerialPort(){
 	u8 pointer = 0;
 
 	if (len > 0){
-		printf("we are rxing a packer");
+		printf("\nConstructing a packet: %d + ", len);
+
+		lastRxTime = tv.tv_usec;
+		for(int i = 0; i < len; i++){
+			buf[pointer + i] = tempBuf[i];
+		}
+		pointer = pointer + len;
+
+
+
 		//We are now recieving a packet
 		long cond = tv.tv_usec - lastRxTime;
-		while(cond < 3500){
+		while(cond < 4000){
+			//printf("last checkd cond: %ld\n", cond);
 			cond = tv.tv_usec - lastRxTime;
 			gettimeofday(&tv, NULL);
 
 			len = read(fd, tempBuf, sizeof(tempBuf));
 
-			if (len < 0) continue;
+
+
+
+			if (len < 0){ continue;}
+
 			else{
+				printf("%d + ", len);
 				lastRxTime = tv.tv_usec;
 				for(int i = 0; i < len; i++){
 					buf[pointer + i] = tempBuf[i];
@@ -150,35 +234,31 @@ int H8300::readSerialPort(){
 			}
 
 		}
+
+//		printf("STOPPED\n");
+//		getchar();
 	}
+
 
 	recvLen = pointer;
 
 	if (recvLen == 0) return 0;
 
-
 	printf("\nrecieved a packet of len: %d\n", recvLen);
 
-	for (int i = 0; i < recvLen; i++){
-		printf("0x%02x ", (u8)buf[i] ^ 0xaa);
-	}
+//	for (int i = 0; i < recvLen; i++){
+//		printf("0x%02x ", (u8)buf[i] ^ 0xaa);
+//	}
 	printf("\n");
-
-
 	return recvLen;
-
-
-*/
 }
-
+*/
 int H8300::sendSerialPort(){
 
 
-	tcflush(fd, TCIFLUSH);
 
 
-	//printf("Send packet requested\n");
-	printf("\n Sending %d Bytes: %d", sendLen);
+//	printf("\n Sending %d Bytes: %d\n", sendLen);
 	/*
 	for (int i = 0; i < sendLen; i++){
 
@@ -198,70 +278,7 @@ int H8300::sendSerialPort(){
 
 
 
-int H8300::debugSerialPort(){
 
-
-	int option = 0;
-	while(option != 9){
-
-		printf("\n\nWelcome to the mini H8/300 Debugger. Please select an option.\n");
-		printf("1. Read\n");
-		printf("2. Write\n");
-		printf("3. FD status\n");
-		printf("4. Configure Serial Port\n");
-		printf("5. Close serial port\n");
-		printf("8. Exit without closing port\n");
-		printf("9. Exit and close serial port\n");
-		scanf("%d", &option);
-
-		if (option ==1){
-			//printf("You have 5 seconds to send me some data!!!\n");
-			//sleep(5);
-
-			memset(buf, 0, sizeof(buf));
-			int len = -1;
-
-			while (len < 0){
-
-				len = read(fd, buf, sizeof(buf));
-			}
-
-			printf("Rxed %d bytes\n", len);
-
-			for (int i = 0; i < len; i++){
-				printf("0x%02x ", (unsigned char)buf[i]);
-			}
-			printf("\n");
-		}
-
-		else if (option == 2){
-			printf("writing not implemented\n");
-		}
-		else if (option == 3){
-
-			printf("FD status: %d\n", fd);
-		}
-
-		else if (option == 4){
-			configureSerialPort();
-		}
-		else if (option == 5){
-			close(fd);
-			printf("hopefully closed fd\n");
-		}
-
-		else if (option == 8){
-			break;
-		}
-
-		else if (option == 9){
-			close(fd);
-			printf("Exiting.\n");
-			break;
-		}
-	}
-	return 0;
-}
 
 
 
@@ -280,7 +297,7 @@ u8 H8300::handleSPI(u8& IRCmd, u8& val, u32&pos, bool& last){
 
 
 
-   // printf("IRCmd: %d		val:%02x   pos: %ld   last: %d\n", IRCmd, val, pos, last);
+//    printf("IRCmd: %d		val:%02x   pos: %ld   last: %d\n", IRCmd, val, pos, last);
     switch (IRCmd)
     {
     case 0x00: // pass-through
@@ -291,6 +308,7 @@ u8 H8300::handleSPI(u8& IRCmd, u8& val, u32&pos, bool& last){
     case 0x01:
 
 	if (pos == 0){
+		printf("beginning new spi seq\n");
 		return 0x00;
 	}
 	if (pos == 1){
@@ -329,6 +347,8 @@ u8 H8300::handleSPI(u8& IRCmd, u8& val, u32&pos, bool& last){
 	if (fd <0){
 		printf("Configuring port during IR init sequence\n");
 		configureSerialPort();
+
+		tcflush(fd, TCIFLUSH);
 	}
 
         return 0xAA;
