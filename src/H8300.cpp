@@ -112,7 +112,11 @@ int H8300::configureSerialPort(){
 
 	struct termios options;
 	tcgetattr(fd, &options);
-
+	if (tcgetattr(fd, &options) == -1){
+		printf("H8/300 failed to configure the serial port\n");
+		close(fd);
+		return 1;
+	}
 	//Set walker params. We can potentially make this different if we want to talk to walker EMUS
 
 
@@ -129,20 +133,22 @@ int H8300::configureSerialPort(){
 	options.c_cflag |= CS8;
 	options.c_cflag &= ~CRTSCTS;
 	options.c_cflag |= CREAD | CLOCAL;
-
-
+	options.c_lflag &= ~(ICANON | ECHO | ECHOE | ISIG);
+	options.c_iflag &= ~(IXON | IXOFF | IXANY);  // Disable software flow control
+	options.c_iflag &= ~(ICRNL | INLCR);
 //	options.c_cc[VTIME] = 1;
 //	options.c_cc[VMIN] = 0;
 
 
+
+	options.c_iflag = 0;
+	options.c_oflag = 0;
+
+	tcflush(fd, TCIOFLUSH);
 	tcflush(fd, TCIFLUSH);
 	tcsetattr(fd, TCSANOW, &options);
 
-	if (tcgetattr(fd, &options) == -1){
-		printf("H8/300 failed to configure the serial port\n");
-		close(fd);
-		return 1;
-	}
+
 	return 0;
 }
 
@@ -158,7 +164,10 @@ int H8300::readSerialPort(){
 		usleep(4000);
 		len = read(fd, tempBuf, sizeof(tempBuf));
 
-		if (len < 0) break;
+		if (len < 0){
+	//		perror("err:");
+			break;
+		}
 
 		for(int i = 0; i < len; i++){
 
@@ -168,7 +177,7 @@ int H8300::readSerialPort(){
 		pointer = pointer + len;
 	}
 
-
+	tcflush(fd, TCIOFLUSH);
 	tcflush(fd, TCIFLUSH);
 	recvLen = pointer;
 
@@ -236,7 +245,7 @@ int H8300::readSerialPort(){
 		}
 
 //		printf("STOPPED\n");
-//		getchar();
+//		getchatcflush(fd, TCIOFLUSH);r();
 	}
 
 
@@ -254,7 +263,7 @@ int H8300::readSerialPort(){
 }
 */
 int H8300::sendSerialPort(){
-
+tcflush(fd, TCIOFLUSH);
 
 
 
