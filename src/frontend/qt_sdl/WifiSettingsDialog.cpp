@@ -48,6 +48,8 @@ void NetInit();
 
 WifiSettingsDialog::WifiSettingsDialog(QWidget* parent) : QDialog(parent), ui(new Ui::WifiSettingsDialog)
 {
+
+    printf("Hi I am wifi settings");	
     ui->setupUi(this);
     setAttribute(Qt::WA_DeleteOnClose);
 

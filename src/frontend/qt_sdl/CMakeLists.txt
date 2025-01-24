@@ -27,6 +27,7 @@ set(SOURCES_QT_SDL
     PathSettingsDialog.cpp
     MPSettingsDialog.cpp
     WifiSettingsDialog.cpp
+    IRSettingsDialog.cpp
     InterfaceSettingsDialog.cpp
     ROMInfoDialog.cpp
     RAMInfoDialog.cpp
@@ -57,6 +58,7 @@ set(SOURCES_QT_SDL
 
     LANDialog.cpp
     NetplayDialog.cpp
+
 )
 
 option(USE_QT6 "Use Qt 6 instead of Qt 5" ON)

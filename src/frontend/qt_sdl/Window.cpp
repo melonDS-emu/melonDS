@@ -63,6 +63,7 @@
 #include "PathSettingsDialog.h"
 #include "MPSettingsDialog.h"
 #include "WifiSettingsDialog.h"
+#include "IRSettingsDialog.h"
 #include "InterfaceSettingsDialog.h"
 #include "ROMInfoDialog.h"
 #include "RAMInfoDialog.h"
@@ -634,6 +635,9 @@ MainWindow::MainWindow(int id, EmuInstance* inst, QWidget* parent) :
             actWifiSettings = menu->addAction("Wifi settings");
             connect(actWifiSettings, &QAction::triggered, this, &MainWindow::onOpenWifiSettings);
 
+            actIRSettings = menu->addAction("IR settings");
+            connect(actIRSettings, &QAction::triggered, this, &MainWindow::onOpenIRSettings);
+
             actFirmwareSettings = menu->addAction("Firmware settings");
             connect(actFirmwareSettings, &QAction::triggered, this, &MainWindow::onOpenFirmwareSettings);
 
@@ -778,6 +782,7 @@ MainWindow::MainWindow(int id, EmuInstance* inst, QWidget* parent) :
             actVideoSettings->setEnabled(false);
             actMPSettings->setEnabled(false);
             actWifiSettings->setEnabled(false);
+            actIRSettings->setEnabled(false);
             actInterfaceSettings->setEnabled(false);
 
 #ifdef __APPLE__
@@ -1981,6 +1986,22 @@ void MainWindow::onOpenWifiSettings()
 void MainWindow::onWifiSettingsFinished(int res)
 {
     if (WifiSettingsDialog::needsReset)
+        onReset();
+
+    emuThread->emuUnpause();
+}
+
+void MainWindow::onOpenIRSettings()
+{
+    emuThread->emuPause();
+
+    IRSettingsDialog* dlg = IRSettingsDialog::openDlg(this);
+    connect(dlg, &IRSettingsDialog::finished, this, &MainWindow::onIRSettingsFinished);
+}
+
+void MainWindow::onIRSettingsFinished(int res)
+{
+    if (IRSettingsDialog::needsReset)
         onReset();
 
     emuThread->emuUnpause();

@@ -100,7 +100,7 @@ int H8300::configureSerialPort(){
 
 	memset(buf, 0, sizeof(buf));
 	//This should be configures in options
-	const char *portname = "/dev/ttyUSB0";
+	const char *portname = "/dev/ttyUSB1";
 
 	//sudo chmod 666 /dev/ttyUSB0
 	fd = open(portname, O_RDWR | O_NOCTTY | O_NDELAY);
