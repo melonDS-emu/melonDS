@@ -6,8 +6,6 @@ on:
       - master
       - ci/*
   pull_request:
-    branches:
-      - master
 
 env:
   MELONDS_GIT_BRANCH: ${{ github.ref }}
