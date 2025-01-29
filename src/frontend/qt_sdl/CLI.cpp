@@ -65,19 +65,19 @@ CommandLineOptions* ManageArgs(QApplication& melon)
 #ifdef GDBSTUB_ENABLED
     if (parser.isSet("break-arm9"))
     {
-        options->arm9BreakOnStartup = true;
+        options->arm9BreakOnStart = true;
     }
     if (parser.isSet("no-break-arm9"))
     {
-        options->arm9BreakOnStartup = false;
+        options->arm9BreakOnStart = false;
     }
     if (parser.isSet("break-arm7"))
     {
-        options->arm7BreakOnStartup = true;
+        options->arm7BreakOnStart = true;
     }
     if (parser.isSet("no-break-arm7"))
     {
-        options->arm7BreakOnStartup = false;
+        options->arm7BreakOnStart = false;
     }
 #endif
 

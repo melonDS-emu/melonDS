@@ -21,6 +21,12 @@
 
 #include <SDL2/SDL.h>
 
+struct InstanceStartupOptions
+{
+    std::optional<bool> arm9BreakOnStart;
+    std::optional<bool> arm7BreakOnStart;
+};
+
 #include "Platform.h"
 #include "main.h"
 #include "NDS.h"
@@ -84,7 +90,7 @@ class EmuInstance
 {
 public:
     EmuInstance(int inst);
-    EmuInstance(int inst, std::optional<bool> arm9BreakOnStart, std::optional<bool> arm7BreakOnStart);
+    EmuInstance(int inst, InstanceStartupOptions options);
     ~EmuInstance();
 
     int getInstanceID() { return instanceID; }

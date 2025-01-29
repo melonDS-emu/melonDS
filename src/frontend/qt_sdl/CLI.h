@@ -35,8 +35,8 @@ struct CommandLineOptions
     bool fullscreen;
     bool boot;
 #ifdef GDBSTUB_ENABLED
-    std::optional<bool> arm9BreakOnStartup;
-    std::optional<bool> arm7BreakOnStartup;
+    std::optional<bool> arm9BreakOnStart;
+    std::optional<bool> arm7BreakOnStart;
 #endif
 };
 

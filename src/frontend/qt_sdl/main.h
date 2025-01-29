@@ -54,7 +54,7 @@ extern QString emuDirectory;
 
 extern QElapsedTimer sysTimer;
 
-bool createEmuInstance(std::optional<bool> arm9BreakOnStartup, std::optional<bool> arm7BreakOnStartup);
+bool createEmuInstance(InstanceStartupOptions options);
 void deleteEmuInstance(int id);
 void deleteAllEmuInstances(int first = 0);
 int numEmuInstances();
