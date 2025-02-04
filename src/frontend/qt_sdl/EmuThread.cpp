@@ -169,6 +169,10 @@ void EmuThread::run()
         if (emuInstance->hotkeyPressed(HK_SwapScreens)) emit swapScreensToggle();
         if (emuInstance->hotkeyPressed(HK_SwapScreenEmphasis)) emit screenEmphasisToggle();
 
+        if (emuInstance->hotkeyPressed(HK_TakeScreenshot)) {
+            emuInstance->osdAddMessage(0, "Screenshot taken: %s", "some-random-file.png");
+        }
+
         if (emuStatus == emuStatus_Running || emuStatus == emuStatus_FrameStep)
         {
             if (emuStatus == emuStatus_FrameStep) emuStatus = emuStatus_Paused;
