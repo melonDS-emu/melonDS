@@ -169,9 +169,7 @@ void EmuThread::run()
         if (emuInstance->hotkeyPressed(HK_SwapScreens)) emit swapScreensToggle();
         if (emuInstance->hotkeyPressed(HK_SwapScreenEmphasis)) emit screenEmphasisToggle();
 
-        if (emuInstance->hotkeyPressed(HK_TakeScreenshot)) {
-            emuInstance->osdAddMessage(0, "Screenshot taken: %s", "some-random-file.png");
-        }
+        if (emuInstance->hotkeyPressed(HK_TakeScreenshot)) emuScreenshot();
 
         if (emuStatus == emuStatus_Running || emuStatus == emuStatus_FrameStep)
         {
@@ -562,6 +560,54 @@ void EmuThread::handleMessages()
             emuInstance->osdAddMessage(0, "Reset");
             break;
 
+        case msg_EmuScreenshot:
+            if  (emuIsActive()) {
+                auto nds = emuInstance->getNDS();
+
+                assert(nds != nullptr);
+
+                auto capture = QImage(256, 192 * 2, QImage::Format_RGB32);
+
+                frontBufferLock.lock();
+#ifdef OGLRENDERER_ENABLED
+                if (nds->GPU.GetRenderer3D().Accelerated)
+                {
+                    /* Haven't figured out how to extract these frame buffers yet. */
+                    emuInstance->osdAddMessage(0, "HW Accelerated Screenshots Not Supported");
+                    frontBufferLock.unlock();
+                    break;
+                } else
+#endif
+                {
+                    int frontbuf = frontBuffer;
+                    if (!nds->GPU.Framebuffer[frontbuf][0] || !nds->GPU.Framebuffer[frontbuf][1])
+                    {
+                        frontBufferLock.unlock();
+                        return;
+                    }
+                    
+                    memcpy(capture.scanLine(0), nds->GPU.Framebuffer[frontbuf][0].get(), 256 * 192 * 4);
+                    memcpy(capture.scanLine(192), nds->GPU.Framebuffer[frontbuf][1].get(), 256 * 192 * 4);
+                }
+                frontBufferLock.unlock();
+
+                time_t curr_time;
+                time(&curr_time);
+                tm* curr_tm = std::localtime(&curr_time);
+                char filename[64];
+                std::strftime(filename, 64, "melonDS-%Y-%m-%d-%H%M%S", curr_tm);
+
+                std::string screenshotFile = 
+                emuInstance->getAssetPath(false, emuInstance->localCfg.GetString("ScreenshotPath"), ".png", filename);
+
+                if (capture.save(screenshotFile.c_str(), "png")) {
+                    emuInstance->osdAddMessage(0, "Screenshot taken: %s", screenshotFile.c_str());
+                } else {               
+                    emuInstance->osdAddMessage(0, "Failed to save: %s", screenshotFile.c_str());
+                }
+            }
+            break;
+
         case msg_InitGL:
             emuInstance->initOpenGL(msg.param.value<int>());
             useOpenGL = true;
@@ -763,6 +809,12 @@ void EmuThread::emuFrameStep()
 void EmuThread::emuReset()
 {
     sendMessage(msg_EmuReset);
+    waitMessage();
+}
+
+void EmuThread::emuScreenshot()
+{
+    sendMessage(msg_EmuScreenshot);
     waitMessage();
 }
 
