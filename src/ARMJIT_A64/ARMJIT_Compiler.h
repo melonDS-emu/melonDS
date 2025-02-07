@@ -275,6 +275,7 @@ public:
     void* JitRWStart;
     void* JitRXStart;
 #endif
+    void* CodeMemBase;
 
     void* ReadBanked, *WriteBanked;
 

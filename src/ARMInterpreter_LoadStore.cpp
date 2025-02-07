@@ -430,9 +430,9 @@ void A_LDM(ARM* cpu)
         }
     }
 
+    u32 pc = 0;
     if (cpu->CurInstr & (1<<15))
     {
-        u32 pc;
         if (preinc) base += 4;
         if (first) cpu->DataRead32 (base, &pc);
         else       cpu->DataRead32S(base, &pc);
@@ -440,12 +440,7 @@ void A_LDM(ARM* cpu)
 
         if (cpu->Num == 1)
             pc &= ~0x1;
-
-        cpu->JumpTo(pc, cpu->CurInstr & (1<<22));
     }
-
-    if ((cpu->CurInstr & (1<<22)) && !(cpu->CurInstr & (1<<15)))
-        cpu->UpdateMode((cpu->CPSR&~0x1F)|0x10, cpu->CPSR, true);
 
     if (cpu->CurInstr & (1<<21))
     {
@@ -465,6 +460,12 @@ void A_LDM(ARM* cpu)
         else
             cpu->R[baseid] = wbbase;
     }
+
+    if ((cpu->CurInstr & (1<<22)) && !(cpu->CurInstr & (1<<15)))
+        cpu->UpdateMode((cpu->CPSR&~0x1F)|0x10, cpu->CPSR, true);
+
+    if (cpu->CurInstr & (1<<15))
+        cpu->JumpTo(pc, cpu->CurInstr & (1<<22));
 
     cpu->AddCycles_CDI();
 }

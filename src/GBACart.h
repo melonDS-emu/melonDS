@@ -158,6 +158,8 @@ public:
     void DoSavestate(Savestate* file) override;
 
     int SetInput(int num, bool pressed) override;
+    void SetLightLevel(u8 level) noexcept;
+    [[nodiscard]] u8 GetLightLevel() const noexcept { return LightLevel; }
 
 protected:
     void ProcessGPIO() override;
@@ -239,8 +241,6 @@ public:
     [[nodiscard]] CartCommon* GetCart() noexcept { return Cart.get(); }
     [[nodiscard]] const CartCommon* GetCart() const noexcept { return Cart.get(); }
 
-    void LoadAddon(void* userdata, int type) noexcept;
-
     /// @return The cart that was in the cart slot if any,
     /// or \c nullptr if the cart slot was empty.
     std::unique_ptr<CartCommon> EjectCart() noexcept;
@@ -306,6 +306,8 @@ std::unique_ptr<CartCommon> ParseROM(const u8* romdata, u32 romlen, const u8* sr
 /// @return Unique pointer to the parsed GBA cart,
 /// or \c nullptr if there was an error.
 std::unique_ptr<CartCommon> ParseROM(std::unique_ptr<u8[]>&& romdata, u32 romlen, std::unique_ptr<u8[]>&& sramdata, u32 sramlen, void* userdata = nullptr);
+
+std::unique_ptr<CartCommon> LoadAddon(int type, void* userdata);
 
 }
 

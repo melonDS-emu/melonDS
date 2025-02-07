@@ -109,20 +109,13 @@ const u32 ARM::ConditionTable[16] =
 
 ARM::ARM(u32 num, bool jit, std::optional<GDBArgs> gdb, melonDS::NDS& nds) :
 #ifdef GDBSTUB_ENABLED
-    GdbStub(this, gdb ? (num ? gdb->PortARM7 : gdb->PortARM9) : 0),
+    GdbStub(this),
+    BreakOnStartup(false),
 #endif
     Num(num), // well uh
     NDS(nds)
 {
-#ifdef GDBSTUB_ENABLED
-    if (gdb
-#ifdef JIT_ENABLED
-            && !jit // TODO: Should we support toggling the GdbStub without destroying the ARM?
-#endif
-    )
-        GdbStub.Init();
-    IsSingleStep = false;
-#endif
+    SetGdbArgs(jit ? std::nullopt : gdb);
 }
 
 ARM::~ARM()
@@ -145,6 +138,20 @@ ARMv4::ARMv4(melonDS::NDS& nds, std::optional<GDBArgs> gdb, bool jit) : ARM(1, j
 ARMv5::~ARMv5()
 {
     // DTCM is owned by Memory, not going to delete it
+}
+
+void ARM::SetGdbArgs(std::optional<GDBArgs> gdb)
+{
+#ifdef GDBSTUB_ENABLED
+    GdbStub.Close();
+    if (gdb)
+    {
+        int port = Num ? gdb->PortARM7 : gdb->PortARM9;
+        GdbStub.Init(port);
+        BreakOnStartup = Num ? gdb->ARM7BreakOnStartup : gdb->ARM9BreakOnStartup;
+    }
+    IsSingleStep = false;
+#endif
 }
 
 void ARM::Reset()
@@ -609,6 +616,7 @@ void ARMv5::Execute()
 
     while (NDS.ARM9Timestamp < NDS.ARM9Target)
     {
+#ifdef JIT_ENABLED
         if constexpr (mode == CPUExecuteMode::JIT)
         {
             u32 instrAddr = R[15] - ((CPSR&0x20)?2:4);
@@ -647,6 +655,7 @@ void ARMv5::Execute()
             }
         }
         else
+#endif
         {
             if (CPSR & 0x20) // THUMB
             {
@@ -747,6 +756,7 @@ void ARMv4::Execute()
 
     while (NDS.ARM7Timestamp < NDS.ARM7Target)
     {
+#ifdef JIT_ENABLED
         if constexpr (mode == CPUExecuteMode::JIT)
         {
             u32 instrAddr = R[15] - ((CPSR&0x20)?2:4);
@@ -784,6 +794,7 @@ void ARMv4::Execute()
             }
         }
         else
+#endif
         {
             if (CPSR & 0x20) // THUMB
             {

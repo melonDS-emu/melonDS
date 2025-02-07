@@ -582,6 +582,11 @@ int CartGameSolarSensor::SetInput(int num, bool pressed)
     return -1;
 }
 
+void CartGameSolarSensor::SetLightLevel(u8 level) noexcept
+{
+    LightLevel = std::clamp<u8>(level, 0, 10);
+}
+
 void CartGameSolarSensor::ProcessGPIO()
 {
     if (GPIO.data & 4) return; // Boktai chip select
@@ -827,13 +832,34 @@ std::unique_ptr<CartCommon> ParseROM(std::unique_ptr<u8[]>&& romdata, u32 romlen
     return cart;
 }
 
+std::unique_ptr<CartCommon> LoadAddon(int type, void* userdata)
+{
+    std::unique_ptr<CartCommon> cart;
+    switch (type)
+    {
+    case GBAAddon_RAMExpansion:
+        cart = std::make_unique<CartRAMExpansion>();
+        break;
+    case GBAAddon_RumblePak:
+        cart = std::make_unique<CartRumblePak>(userdata);
+        break;
+
+    default:
+        Log(LogLevel::Warn, "GBACart: !! invalid addon type %d\n", type);
+        return nullptr;
+    }
+
+    cart->Reset();
+    return cart;
+}
+
 void GBACartSlot::SetCart(std::unique_ptr<CartCommon>&& cart) noexcept
 {
     Cart = std::move(cart);
 
     if (!Cart)
     {
-        Log(LogLevel::Info, "Ejected GBA cart");
+        Log(LogLevel::Info, "Ejected GBA cart\n");
         return;
     }
 
@@ -856,23 +882,6 @@ void GBACartSlot::SetSaveMemory(const u8* savedata, u32 savelen) noexcept
     if (Cart)
     {
         Cart->SetSaveMemory(savedata, savelen);
-    }
-}
-
-void GBACartSlot::LoadAddon(void* userdata, int type) noexcept
-{
-    switch (type)
-    {
-    case GBAAddon_RAMExpansion:
-        Cart = std::make_unique<CartRAMExpansion>();
-        break;
-    case GBAAddon_RumblePak:
-        Cart = std::make_unique<CartRumblePak>(userdata);
-        break;
-
-    default:
-        Log(LogLevel::Warn, "GBACart: !! invalid addon type %d\n", type);
-        return;
     }
 }
 

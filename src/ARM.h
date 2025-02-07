@@ -68,6 +68,8 @@ public:
     ARM(u32 num, bool jit, std::optional<GDBArgs> gdb, NDS& nds);
     virtual ~ARM(); // destroy shit
 
+    void SetGdbArgs(std::optional<GDBArgs> gdb);
+
     virtual void Reset();
 
     virtual void DoSavestate(Savestate* file);
@@ -323,6 +325,7 @@ public:
     u32 CP15Control;
 
     u32 RNGSeed;
+    u32 TraceProcessID;
 
     u32 DTCMSetting, ITCMSetting;
 

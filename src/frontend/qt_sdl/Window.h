@@ -35,6 +35,7 @@
 
 #include "Screen.h"
 #include "Config.h"
+#include "MPInterface.h"
 
 
 class EmuInstance;
@@ -109,6 +110,13 @@ public:
 
     EmuInstance* getEmuInstance() { return emuInstance; }
     Config::Table& getWindowConfig() { return windowCfg; }
+    int getWindowID() { return windowID; }
+
+    bool winHasMenu() { return hasMenu; }
+
+    void saveEnabled(bool enabled);
+
+    void toggleFullscreen();
 
     bool hasOpenGL() { return hasOGL; }
     GL::Context* getOGLContext();
@@ -123,7 +131,17 @@ public:
 
     void onAppStateChanged(Qt::ApplicationState state);
 
+    void onFocusIn();
+    void onFocusOut();
+    bool isFocused() { return focused; }
+
     void osdAddMessage(unsigned int color, const char* msg);
+
+    // called when the MP interface is changed
+    void updateMPInterface(melonDS::MPInterfaceType type);
+
+    void loadRecentFilesMenu(bool loadcfg);
+    //void updateVideoSettings(bool glchange);
 
 protected:
     void keyPressEvent(QKeyEvent* event) override;
@@ -167,6 +185,11 @@ private slots:
     void onRAMInfo();
     void onOpenTitleManager();
     void onMPNewInstance();
+    void onLANStartHost();
+    void onLANStartClient();
+    void onNPStartHost();
+    void onNPStartClient();
+    void onNPTest();
 
     void onOpenEmuSettings();
     void onEmuSettingsDialogFinished(int res);
@@ -199,6 +222,7 @@ private slots:
     void onChangeScreenSizing(QAction* act);
     void onChangeScreenAspect(QAction* act);
     void onChangeIntegerScaling(bool checked);
+    void onOpenNewWindow();
     void onChangeScreenFiltering(bool checked);
     void onChangeShowOSD(bool checked);
     void onChangeLimitFramerate(bool checked);
@@ -232,6 +256,8 @@ private:
 
     void createScreenPanel();
 
+    bool lanWarning(bool host);
+
     bool showOSD;
 
     bool hasOGL;
@@ -240,6 +266,9 @@ private:
     bool pausedManually;
 
     int windowID;
+    bool enabledSaved;
+
+    bool focused;
 
     EmuInstance* emuInstance;
     EmuThread* emuThread;
@@ -251,6 +280,8 @@ private:
 public:
     ScreenPanel* panel;
 
+    bool hasMenu;
+
     QAction* actOpenROM;
     QAction* actBootFirmware;
     QAction* actCurrentCart;
@@ -258,7 +289,7 @@ public:
     QAction* actEjectCart;
     QAction* actCurrentGBACart;
     QAction* actInsertGBACart;
-    QAction* actInsertGBAAddon[2];
+    QList<QAction*> actInsertGBAAddon;
     QAction* actEjectGBACart;
     QAction* actImportSavefile;
     QAction* actSaveState[9];
@@ -279,6 +310,11 @@ public:
     QAction* actRAMInfo;
     QAction* actTitleManager;
     QAction* actMPNewInstance;
+    QAction* actLANStartHost;
+    QAction* actLANStartClient;
+    QAction* actNPStartHost;
+    QAction* actNPStartClient;
+    QAction* actNPTest;
 
     QAction* actEmuSettings;
 #ifdef __APPLE__
@@ -309,12 +345,13 @@ public:
     QAction** actScreenAspectTop;
     QActionGroup* grpScreenAspectBot;
     QAction** actScreenAspectBot;
+    QAction* actNewWindow;
     QAction* actScreenFiltering;
     QAction* actShowOSD;
     QAction* actLimitFramerate;
     QAction* actAudioSync;
-};
 
-void ToggleFullscreen(MainWindow* mainWindow);
+    QAction* actAbout;
+};
 
 #endif // WINDOW_H

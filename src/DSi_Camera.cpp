@@ -40,8 +40,8 @@ const u32 DSi_CamModule::kTransferStart = 60000;
 
 DSi_CamModule::DSi_CamModule(melonDS::DSi& dsi) : DSi(dsi)
 {
-    DSi.RegisterEventFunc(Event_DSi_CamIRQ, 0, MemberEventFunc(DSi_CamModule, IRQ));
-    DSi.RegisterEventFunc(Event_DSi_CamTransfer, 0, MemberEventFunc(DSi_CamModule, TransferScanline));
+    DSi.RegisterEventFuncs(Event_DSi_CamIRQ, this, {MakeEventThunk(DSi_CamModule, IRQ)});
+    DSi.RegisterEventFuncs(Event_DSi_CamTransfer, this, {MakeEventThunk(DSi_CamModule, TransferScanline)});
 
     Camera0 = DSi.I2C.GetOuterCamera();
     Camera1 = DSi.I2C.GetInnerCamera();
@@ -52,8 +52,8 @@ DSi_CamModule::~DSi_CamModule()
     Camera0 = nullptr;
     Camera1 = nullptr;
 
-    DSi.UnregisterEventFunc(Event_DSi_CamIRQ, 0);
-    DSi.UnregisterEventFunc(Event_DSi_CamTransfer, 0);
+    DSi.UnregisterEventFuncs(Event_DSi_CamIRQ);
+    DSi.UnregisterEventFuncs(Event_DSi_CamTransfer);
 }
 
 void DSi_CamModule::Reset()

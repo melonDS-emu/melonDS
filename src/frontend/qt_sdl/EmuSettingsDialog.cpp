@@ -82,9 +82,6 @@ EmuSettingsDialog::EmuSettingsDialog(QWidget* parent) : QDialog(parent), ui(new 
     ui->chkJITBranchOptimisations->setChecked(cfg.GetBool("JIT.BranchOptimisations"));
     ui->chkJITLiteralOptimisations->setChecked(cfg.GetBool("JIT.LiteralOptimisations"));
     ui->chkJITFastMemory->setChecked(cfg.GetBool("JIT.FastMemory"));
-    #ifdef __APPLE__
-        ui->chkJITFastMemory->setDisabled(true);
-    #endif
     ui->spnJITMaximumBlockSize->setValue(cfg.GetInt("JIT.MaxBlockSize"));
 #else
     ui->chkEnableJIT->setDisabled(true);
@@ -95,7 +92,7 @@ EmuSettingsDialog::EmuSettingsDialog(QWidget* parent) : QDialog(parent), ui(new 
 #endif
 
 #ifdef GDBSTUB_ENABLED
-    ui->cbGdbEnabled->setChecked(cfg.GetBool("Gdb.Enabled"));
+    ui->cbGdbEnabled->setChecked(instcfg.GetBool("Gdb.Enabled"));
     ui->intGdbPortA7->setValue(instcfg.GetInt("Gdb.ARM7.Port"));
     ui->intGdbPortA9->setValue(instcfg.GetInt("Gdb.ARM9.Port"));
     ui->cbGdbBOSA7->setChecked(instcfg.GetBool("Gdb.ARM7.BreakOnStartup"));
@@ -215,6 +212,13 @@ void EmuSettingsDialog::verifyFirmware()
 
 void EmuSettingsDialog::done(int r)
 {
+    if (!((MainWindow*)parent())->getEmuInstance())
+    {
+        QDialog::done(r);
+        closeDlg();
+        return;
+    }
+
     needsReset = false;
 
     if (r == QDialog::Accepted)
@@ -286,7 +290,7 @@ void EmuSettingsDialog::done(int r)
             cfg.SetBool("JIT.FastMemory", ui->chkJITFastMemory->isChecked());
 #endif
 #ifdef GDBSTUB_ENABLED
-            cfg.SetBool("Gdb.Enabled", ui->cbGdbEnabled->isChecked());
+            instcfg.SetBool("Gdb.Enabled", ui->cbGdbEnabled->isChecked());
             instcfg.SetInt("Gdb.ARM7.Port", ui->intGdbPortA7->value());
             instcfg.SetInt("Gdb.ARM9.Port", ui->intGdbPortA9->value());
             instcfg.SetBool("Gdb.ARM7.BreakOnStartup", ui->cbGdbBOSA7->isChecked());
@@ -532,11 +536,14 @@ void EmuSettingsDialog::on_btnDSiSDFolderBrowse_clicked()
 void EmuSettingsDialog::on_chkEnableJIT_toggled()
 {
     bool disabled = !ui->chkEnableJIT->isChecked();
+#ifdef JIT_ENABLED
+    bool fastmemSupported = ARMJIT_Memory::IsFastMemSupported();
+#else
+    bool fastmemSupported = false;
+#endif
     ui->chkJITBranchOptimisations->setDisabled(disabled);
     ui->chkJITLiteralOptimisations->setDisabled(disabled);
-    #ifndef __APPLE__
-        ui->chkJITFastMemory->setDisabled(disabled);
-    #endif
+    ui->chkJITFastMemory->setDisabled(disabled || !fastmemSupported);
     ui->spnJITMaximumBlockSize->setDisabled(disabled);
 
     on_cbGdbEnabled_toggled();

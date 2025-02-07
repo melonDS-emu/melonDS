@@ -60,6 +60,16 @@ private slots:
 
     void on_cbMouseHide_clicked();
 
+    void on_pbClean_clicked();
+    void on_pbAccurate_clicked();
+
+    void on_pb2x_clicked();
+    void on_pb3x_clicked();
+    void on_pbMAX_clicked();
+
+    void on_pbHalf_clicked();
+    void on_pbQuarter_clicked();
+
 private:
     Ui::InterfaceSettingsDialog* ui;
 

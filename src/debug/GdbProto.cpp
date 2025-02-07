@@ -5,12 +5,14 @@
 #include <winsock2.h>
 #endif
 
+#include <assert.h>
 #include <stdlib.h>
 #include <stdio.h>
 #include <unistd.h>
 #include <string.h>
 #include <sys/types.h>
 #include <errno.h>
+#include <algorithm>
 
 #ifndef _WIN32
 #include <poll.h>
@@ -21,8 +23,7 @@
 #include "../Platform.h"
 #include "hexutil.h"
 
-#include "GdbProto.h"
-
+#include "GdbStub.h"
 
 using namespace melonDS;
 using Platform::Log;
@@ -42,87 +43,128 @@ namespace Gdb
  * vKill;pid
  * qRcmd? qSupported?
  */
-u8 Cmdbuf[GDBPROTO_BUFFER_CAPACITY];
-ssize_t Cmdlen;
 
-namespace Proto
+
+Gdb::ReadResult GdbStub::TryParsePacket(size_t start, size_t& packetStart, size_t& packetSize, size_t& packetContentSize)
 {
-
-u8 PacketBuf[GDBPROTO_BUFFER_CAPACITY];
-u8 RespBuf[GDBPROTO_BUFFER_CAPACITY+5];
-
-ReadResult MsgRecv(int connfd, u8 cmd_dest[/*static GDBPROTO_BUFFER_CAPACITY*/])
-{
-	static ssize_t dataoff = 0;
-
-	ssize_t recv_total = dataoff;
-	ssize_t cksumoff = -1;
-	u8 sum = 0;
-
-	bool first = true;
-
-	//printf("--- dataoff=%zd\n", dataoff);
-	if (dataoff != 0) {
-		printf("--- got preexisting: %s\n", PacketBuf);
-
-		ssize_t datastart = 0;
-		while (true)
+	RecvBuffer[RecvBufferFilled] = '\0';
+	//Log(LogLevel::Debug, "[GDB] Trying to parse packet %s %d %d\n", &RecvBuffer[0], start, RecvBufferFilled);
+	size_t i = start;
+	while (i < RecvBufferFilled)
+	{
+		char curChar = RecvBuffer[i++];
+		if (curChar == '\x04') return ReadResult::Eof;
+		else if (curChar == '\x03')
 		{
-			if (PacketBuf[datastart] == '\x04') return ReadResult::Eof;
-			else if (PacketBuf[datastart] == '+' || PacketBuf[datastart] == '-')
+			packetStart = i - 1;
+			packetSize = packetContentSize = 1;
+			return ReadResult::Break;
+		}
+		else if (curChar == '+' || curChar == '-') continue;
+		else if (curChar == '$')
+		{
+			packetStart = i;
+			uint8_t checksumGot = 0;
+			while (i < RecvBufferFilled)
 			{
-				/*if (PacketBuf[datastart] == '+') SendAck(connfd);
-				else SendNak(connfd);*/
-				++datastart;
-				continue;
-			}
-			else if (PacketBuf[datastart] == '$')
-			{
-				++datastart;
-				break;
-			}
-			else
-			{
-				__builtin_trap();
-				return ReadResult::Wut;
+				curChar = RecvBuffer[i];
+				if (curChar == '#' && i + 2 < RecvBufferFilled)
+				{
+					u8 checksumShould = (hex2nyb(RecvBuffer[i+1]) << 4)
+						| hex2nyb(RecvBuffer[i+2]);
+
+					Log(LogLevel::Debug, "[GDB] found pkt, checksumGot: %02x vs %02x\n", checksumShould, checksumGot);
+
+					if (checksumShould != checksumGot)
+					{
+						return ReadResult::CksumErr;
+					}
+
+					packetContentSize = i - packetStart;
+					packetSize = packetContentSize + 3;
+					return ReadResult::CmdRecvd;
+				}
+				else
+				{
+					checksumGot += curChar;
+				}
+
+				i++;
 			}
 		}
-		printf("--- datastart=%zd\n", datastart);
-
-		for (ssize_t i = datastart; i < dataoff; ++i)
+		else
 		{
-			if (PacketBuf[i] == '#')
-			{
-				cksumoff = i + 1;
-				printf("--- cksumoff=%zd\n", cksumoff);
-				break;
-			}
-
-			sum += PacketBuf[i];
-		}
-
-		if (cksumoff >= 0)
-		{
-			recv_total = dataoff - datastart + 1;
-			dataoff = cksumoff + 2 - datastart + 1;
-			cksumoff -= datastart - 1;
-
-			memmove(&PacketBuf[1], &PacketBuf[datastart], recv_total);
-			PacketBuf[0] = '$';
-			PacketBuf[recv_total] = 0;
-
-			printf("=== cksumoff=%zi recv_total=%zi datastart=%zi dataoff=%zi\n==> %s\n",
-					cksumoff, recv_total, datastart, dataoff, PacketBuf);
-			//break;
+			Log(LogLevel::Error, "[GDB] Received unknown character %c (%d)\n", curChar, curChar);
+			return ReadResult::Wut;
 		}
 	}
 
-	while (cksumoff < 0)
-	{
-		u8* pkt = &PacketBuf[dataoff];
-		ssize_t n, blehoff = 0;
+	return ReadResult::NoPacket;
+}
 
-		memset(pkt, 0, sizeof(PacketBuf) - dataoff);
+Gdb::ReadResult GdbStub::ParseAndSetupPacket()
+{
+	// This complicated logic seems to be unfortunately necessary
+	// to handle the case of packet resends when we answered too slowly.
+	// GDB only expects a single response (as it assumes the previous packet was dropped)
+	size_t i = 0;
+	size_t prevPacketStart = SIZE_MAX, prevPacketSize, prevPacketContentSize;
+	size_t packetStart, packetSize, packetContentSize;
+	ReadResult result, prevResult;
+	while (true)
+	{
+		result = TryParsePacket(i, packetStart, packetSize, packetContentSize);
+		if (result == ReadResult::NoPacket)
+			break;
+		if (result != ReadResult::CmdRecvd && result != ReadResult::Break)
+			return result;
+
+		// looks like there is a different packet coming up
+		// so we quit here
+		if (prevPacketStart != SIZE_MAX &&
+			(packetContentSize != prevPacketContentSize ||
+				memcmp(&RecvBuffer[packetStart], &RecvBuffer[prevPacketStart], prevPacketContentSize) != 0))
+		{
+			Log(LogLevel::Debug, "[GDB] found differing packet further back %zu %zu\n", packetContentSize, prevPacketContentSize);
+			break;
+		}
+
+		i = packetStart + packetSize;
+		prevPacketStart = packetStart;
+		prevPacketSize = packetSize;
+		prevPacketContentSize = packetContentSize;
+		prevResult = result;
+	}
+
+	if (prevPacketStart != SIZE_MAX)
+	{
+		memcpy(&Cmdbuf[0], &RecvBuffer[prevPacketStart], prevPacketContentSize);
+		Cmdbuf[prevPacketContentSize] = '\0';
+		Cmdlen = static_cast<ssize_t>(prevPacketContentSize);
+
+		RecvBufferFilled -= prevPacketStart + prevPacketSize;
+		if (RecvBufferFilled > 0)
+			memmove(&RecvBuffer[0], &RecvBuffer[prevPacketStart + prevPacketSize], RecvBufferFilled);
+
+		assert(prevResult == ReadResult::CmdRecvd || prevResult == ReadResult::Break);
+		return prevResult;
+	}
+
+	assert(result == ReadResult::NoPacket);
+	return ReadResult::NoPacket;
+}
+
+ReadResult GdbStub::MsgRecv()
+{
+	{
+		ReadResult result = ParseAndSetupPacket();
+		if (result != ReadResult::NoPacket)
+			return result;
+	}
+
+	bool first = true;
+	while (true)
+	{
 		int flag = 0;
 #if MOCKTEST
 		static bool FIRST = false;
@@ -142,113 +184,35 @@ ReadResult MsgRecv(int connfd, u8 cmd_dest[/*static GDBPROTO_BUFFER_CAPACITY*/])
 #else
 #ifndef _WIN32
 		if (first) flag |= MSG_DONTWAIT;
-		n = recv(connfd, pkt, sizeof(PacketBuf) - dataoff, flag);
+		ssize_t receivedNum = recv(ConnFd, &RecvBuffer[RecvBufferFilled], sizeof(RecvBuffer) - RecvBufferFilled, flag);
+		Log(LogLevel::Debug, "[GDB] receiving from stream %d\n", receivedNum);
 #else
 		// fuck windows
-		n = recv(connfd, (char*)pkt, sizeof(PacketBuf) - dataoff, flag);
+		ssize_t receivedNum = recv(ConnFd, (char*)&RecvBuffer[RecvBufferFilled], sizeof(RecvBuffer) - RecvBufferFilled, flag);
 #endif
 #endif
 
-		if (n <= 0)
+		if (receivedNum <= 0)
 		{
 			if (first) return ReadResult::NoPacket;
 			else
 			{
-				Log(LogLevel::Debug, "[GDB] recv() error %zi, errno=%d (%s)\n", n, errno, strerror(errno));
+				Log(LogLevel::Debug, "[GDB] recv() error %zi, errno=%d (%s)\n", receivedNum, errno, strerror(errno));
 				return ReadResult::Eof;
 			}
 		}
+		RecvBufferFilled += static_cast<u32>(receivedNum); 
 
-		Log(LogLevel::Debug, "[GDB] recv() %zd bytes: '%s' (%02x)\n", n, pkt, pkt[0]);
-		first = false;
-
-		do
-		{
-			if (dataoff == 0)
-			{
-				if (pkt[blehoff] == '\x04') return ReadResult::Eof;
-				else if (pkt[blehoff] == '\x03') return ReadResult::Break;
-				else if (pkt[blehoff] != '$')
-				{
-					++blehoff;
-					--n;
-				}
-				else break;
-
-				if (n == 0) goto next_outer;
-			}
-		}
-		while (true);
-
-		if (blehoff > 0)
-		{
-			memmove(pkt, &pkt[blehoff], n - blehoff + 1);
-			n -= blehoff - 1; // ???
-		}
-
-		recv_total += n;
-
-		Log(LogLevel::Debug, "[GDB] recv() after skipping: n=%zd, recv_total=%zd\n", n, recv_total);
-
-		for (ssize_t i = (dataoff == 0) ? 1 : 0; i < n; ++i)
-		{
-			u8 v = pkt[i];
-			if (v == '#')
-			{
-				cksumoff = dataoff + i + 1;
-				break;
-			}
-
-			sum += pkt[i];
-		}
-
-		if (cksumoff < 0)
-		{
-			// oops, need more data
-			dataoff += n;
-		}
-
-	next_outer:;
+		ReadResult result = ParseAndSetupPacket();
+		if (result != ReadResult::NoPacket)
+			return result;
 	}
-
-	u8 ck = (hex2nyb(PacketBuf[cksumoff+0]) << 4)
-		| hex2nyb(PacketBuf[cksumoff+1]);
-
-	Log(LogLevel::Debug, "[GDB] got pkt, checksum: %02x vs %02x\n", ck, sum);
-
-	if (ck != sum)
-	{
-		//__builtin_trap();
-		return ReadResult::CksumErr;
-	}
-
-	if (cksumoff + 2 > recv_total)
-	{
-		Log(LogLevel::Error, "[GDB] BIG MISTAKE: %zi > %zi which shouldn't happen!\n", cksumoff + 2, recv_total);
-		//__builtin_trap();
-		return ReadResult::Wut;
-	}
-	else
-	{
-		Cmdlen = cksumoff - 2;
-		memcpy(Cmdbuf, &PacketBuf[1], Cmdlen);
-		Cmdbuf[Cmdlen] = 0;
-
-		if (cksumoff + 2 < recv_total) {
-			// huh, we have the start of the next packet
-			dataoff = recv_total - (cksumoff + 2);
-			memmove(PacketBuf, &PacketBuf[cksumoff + 2], (size_t)dataoff);
-			PacketBuf[dataoff] = 0;
-			Log(LogLevel::Debug, "[GDB] got more: cksumoff=%zd, recvtotal=%zd, remain=%zd\n==> %s\n", cksumoff, recv_total, dataoff, PacketBuf);
-		}
-		else dataoff = 0;
-	}
-
-	return ReadResult::CmdRecvd;
 }
 
-int SendAck(int connfd)
+int GdbStub::SendAck()
 {
+	if (NoAck) return 1;
+
 	Log(LogLevel::Debug, "[GDB] send ack\n");
 	u8 v = '+';
 #if MOCKTEST
@@ -257,14 +221,16 @@ int SendAck(int connfd)
 
 #ifdef _WIN32
 	// fuck windows
-	return send(connfd, (const char*)&v, 1, 0);
+	return send(ConnFd, (const char*)&v, 1, 0);
 #else
-	return send(connfd, &v, 1, 0);
+	return send(ConnFd, &v, 1, 0);
 #endif
 }
 
-int SendNak(int connfd)
+int GdbStub::SendNak()
 {
+	if (NoAck) return 1;
+
 	Log(LogLevel::Debug, "[GDB] send nak\n");
 	u8 v = '-';
 #if MOCKTEST
@@ -273,13 +239,13 @@ int SendNak(int connfd)
 
 #ifdef _WIN32
 	// fuck windows
-	return send(connfd, (const char*)&v, 1, 0);
+	return send(ConnFd, (const char*)&v, 1, 0);
 #else
-	return send(connfd, &v, 1, 0);
+	return send(ConnFd, &v, 1, 0);
 #endif
 }
 
-int WaitAckBlocking(int connfd, u8* ackp, int to_ms)
+int GdbStub::WaitAckBlocking(u8* ackp, int to_ms)
 {
 #if MOCKTEST
 	*ackp = '+';
@@ -289,18 +255,18 @@ int WaitAckBlocking(int connfd, u8* ackp, int to_ms)
 #ifdef _WIN32
 	fd_set infd, outfd, errfd;
 	FD_ZERO(&infd); FD_ZERO(&outfd); FD_ZERO(&errfd);
-	FD_SET(connfd, &infd);
+	FD_SET(ConnFd, &infd);
 
 	struct timeval to;
 	to.tv_sec = to_ms / 1000;
 	to.tv_usec = (to_ms % 1000) * 1000;
 
-	int r = select(connfd+1, &infd, &outfd, &errfd, &to);
+	int r = select(ConnFd+1, &infd, &outfd, &errfd, &to);
 
-	if (FD_ISSET(connfd, &errfd)) return -1;
-	else if (FD_ISSET(connfd, &infd))
+	if (FD_ISSET(ConnFd, &errfd)) return -1;
+	else if (FD_ISSET(ConnFd, &infd))
 	{
-		r = recv(connfd, (char*)ackp, 1, 0);
+		r = recv(ConnFd, (char*)ackp, 1, 0);
 		if (r < 0) return r;
 		return 0;
 	}
@@ -309,7 +275,7 @@ int WaitAckBlocking(int connfd, u8* ackp, int to_ms)
 #else
 	struct pollfd pfd;
 
-	pfd.fd = connfd;
+	pfd.fd = ConnFd;
 	pfd.events = POLLIN;
 	pfd.revents = 0;
 
@@ -319,14 +285,14 @@ int WaitAckBlocking(int connfd, u8* ackp, int to_ms)
 
 	if (pfd.revents & (POLLHUP|POLLERR)) return -69;
 
-	r = recv(connfd, ackp, 1, 0);
+	r = recv(ConnFd, ackp, 1, 0);
 	if (r < 0) return r;
 
 	return (r == 1) ? 0 : -1;
 #endif
 }
 
-int Resp(int connfd, const u8* data1, size_t len1, const u8* data2, size_t len2, bool noack)
+int GdbStub::Resp(const u8* data1, size_t len1, const u8* data2, size_t len2, bool noack)
 {
 	u8 cksum = 0;
 	int tries = 0;
@@ -359,22 +325,22 @@ int Resp(int connfd, const u8* data1, size_t len1, const u8* data2, size_t len2,
 		ssize_t r;
 		u8 ack;
 
-		Log(LogLevel::Debug, "[GDB] send resp: '%s'\n", RespBuf);
+		Log(LogLevel::Debug, "[GDB] send resp: '%s'\n", &RespBuf[0]);
 #if MOCKTEST
 		r = totallen+4;
 #else
 #ifdef _WIN32
-		r = send(connfd, (const char*)RespBuf, totallen+4, 0);
+		r = send(ConnFd, (const char*)&RespBuf[0], totallen+4, 0);
 #else
-		r = send(connfd, RespBuf, totallen+4, 0);
+		r = send(ConnFd, &RespBuf[0], totallen+4, 0);
 #endif
 #endif
 		if (r < 0) return r;
 
 		if (noack) break;
 
-		r = WaitAckBlocking(connfd, &ack, 2000);
-		//Log(LogLevel::Debug, "[GDB] got ack: '%c'\n", ack);
+		r = WaitAckBlocking(&ack, 2000);
+		Log(LogLevel::Debug, "[GDB] got ack: '%c'\n", ack);
 		if (r == 0 && ack == '+') break;
 
 		++tries;
@@ -386,5 +352,4 @@ int Resp(int connfd, const u8* data1, size_t len1, const u8* data2, size_t len2,
 
 }
 
-}
 
