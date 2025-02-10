@@ -10,6 +10,7 @@ on:
       - master
 
 env:
+  VCPKG_COMMIT: 6f29f12e82a8293156836ad81cc9bf5af41fe836
   MELONDS_GIT_BRANCH: ${{ github.ref }}
   MELONDS_GIT_HASH: ${{ github.sha }}
   MELONDS_BUILD_PROVIDER: GitHub Actions
@@ -34,7 +35,7 @@ jobs:
       - name: Set up vcpkg
         uses: lukka/run-vcpkg@v11
         with:
-          vcpkgGitCommitId: b2cb0da531c2f1f740045bfe7c4dac59f0b2b69c
+          vcpkgGitCommitId: ${{ env.VCPKG_COMMIT }}
       - name: Build
         uses: lukka/run-cmake@v10
         with:
