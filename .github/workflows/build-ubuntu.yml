@@ -48,20 +48,16 @@ jobs:
         name: melonDS-ubuntu-${{ matrix.arch.name }}
         path: AppDir/usr/bin/melonDS
     - name: Fetch AppImage tools
-      # linuxdeploy doesn't seem to work on the aarch64 runners?
-      if: matrix.arch.name != 'aarch64'
       run: |
         wget https://github.com/linuxdeploy/linuxdeploy/releases/download/continuous/linuxdeploy-${{ matrix.arch.name }}.AppImage
         wget https://github.com/linuxdeploy/linuxdeploy-plugin-qt/releases/download/continuous/linuxdeploy-plugin-qt-${{ matrix.arch.name }}.AppImage
         chmod a+x linuxdeploy-*.AppImage
     - name: Build the AppImage
-      if: matrix.arch.name != 'aarch64'
       env:
         QMAKE: /usr/lib/qt6/bin/qmake
       run: |
         ./linuxdeploy-${{ matrix.arch.name }}.AppImage --appdir AppDir --plugin qt --output appimage
     - uses: actions/upload-artifact@v4
-      if: matrix.arch.name != 'aarch64'
       with:
         name: melonDS-appimage-${{ matrix.arch.name }}
         path: melonDS*.AppImage
