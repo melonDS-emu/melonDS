@@ -156,6 +156,8 @@ uint32_t calculatePlayerAddress(uint32_t baseAddress, uint8_t playerPosition, in
     return static_cast<uint32_t>(result);
 }
 
+bool isAltForm;
+
 melonDS::u32 baseIsAltFormAddr;
 melonDS::u32 baseLoadedSpecialWeaponAddr;
 melonDS::u32 baseWeaponChangeAddr;
@@ -171,8 +173,6 @@ melonDS::u32 aimXAddr;
 melonDS::u32 aimYAddr;
 melonDS::u32 isInAdventureAddr;
 melonDS::u32 isMapOrUserActionPausedAddr; // for issue in AdventureMode, Aim Stopping when SwitchingWeapon. 
-
-bool isAltForm;
 
 
 void detectRomAndSetAddresses(EmuInstance* emuInstance) {
@@ -543,7 +543,7 @@ void EmuThread::run()
                 emuInstance->renderLock.lock();
                 if (useOpenGL)
                 {
-                    emuInstance->setVSyncGL(true);
+                    emuInstance->setVSyncGL(true); // is this really needed??
                     videoRenderer = globalCfg.GetInt("3D.Renderer");
                 }
 #ifdef OGLRENDERER_ENABLED
@@ -1126,16 +1126,26 @@ void EmuThread::run()
                 // Set the initialization complete flag
                 hasInitialized = true;
 
-                // VSync Off
-                emuInstance->setVSyncGL(false); // MelonPrimeDS
+                // getVsyncFlag
+                bool vsyncFlag = emuInstance->getGlobalConfig().GetBool("Screen.VSync");  // MelonPrimeDS
+                // VSync Override
+                emuInstance->setVSyncGL(vsyncFlag); // MelonPrimeDS
 
                 // updateRenderer because of using softwareRenderer when not in Game.
                 videoRenderer = emuInstance->getGlobalConfig().GetInt("3D.Renderer");
                 updateRenderer();
 
-                // VSync Off
-                emuInstance->setVSyncGL(false); // MelonPrimeDS
+                // VSync Override
+                emuInstance->setVSyncGL(vsyncFlag); // MelonPrimeDS
 
+                /* MelonPrimeDS test
+                if (vsyncFlag) {
+                    emuInstance->osdAddMessage(0, "Vsync is enabled.");
+                }
+                else {
+                    emuInstance->osdAddMessage(0, "Vsync is disabled.");
+                }
+                */
 
 
                 // Hide cursor
@@ -1545,8 +1555,8 @@ void EmuThread::run()
                             };
 
                         auto hasEnoughAmmo = [weaponAmmo, missileAmmo, isWeavel](uint8_t weapon, uint8_t minAmmo) {
-                            if (weapon == 0 || weapon == 8) return true;
-                            if (weapon == 2) return missileAmmo >= 0xA;
+                            if (weapon == 0 || weapon == 8) return true; // PowerBeam or OmegaCannon
+                            if (weapon == 2) return missileAmmo >= 0xA; // Missile
                             if (weapon == 3 && isWeavel) return weaponAmmo >= 0x5; // Prime Hunter check is needless, if we have only 0x4 ammo, we can equipt battleHammer but can't shoot. it's a bug of MPH. so what we need to check is only it's weavel or not.
                             return weaponAmmo >= minAmmo;
                             };
@@ -1594,7 +1604,9 @@ void EmuThread::run()
                                 for (int i = 0; i < 30; i++) {
                                     // still allow movement whilst we're enabling scan visor
                                     processMoveInput();
+
                                     emuInstance->nds->SetKeyMask(emuInstance->getInputMask());
+
                                     frameAdvanceOnce();
                                 }
                             }
@@ -1801,10 +1813,23 @@ void EmuThread::handleMessages()
                 // MelonPrimeDS {
                 // applyVideoSettings Immediately when resumed
                 if(isInGame){
-                    emuInstance->setVSyncGL(false); // MelonPrimeDS
+
+                    bool vsyncFlag = emuInstance->getGlobalConfig().GetBool("Screen.VSync");// MelonPrimeDS
+                    
+                    emuInstance->setVSyncGL(vsyncFlag); // MelonPrimeDS
                     videoRenderer = emuInstance->getGlobalConfig().GetInt("3D.Renderer");
                     updateRenderer();
-                    emuInstance->setVSyncGL(false); // MelonPrimeDS
+                    emuInstance->setVSyncGL(vsyncFlag); // MelonPrimeDS
+
+                    /* MelonPrimeDS test
+                    if (vsyncFlag) {
+                        emuInstance->osdAddMessage(0, "Vsync is enabled.");
+                    }
+                    else {
+                        emuInstance->osdAddMessage(0, "Vsync is disabled.");
+                    }
+                    */
+
                 }
                 // MelonPrimeDS }
             }
