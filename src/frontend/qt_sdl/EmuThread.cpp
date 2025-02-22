@@ -156,6 +156,8 @@ uint32_t calculatePlayerAddress(uint32_t baseAddress, uint8_t playerPosition, in
     return static_cast<uint32_t>(result);
 }
 
+bool isAltForm;
+
 melonDS::u32 baseIsAltFormAddr;
 melonDS::u32 baseLoadedSpecialWeaponAddr;
 melonDS::u32 baseWeaponChangeAddr;
@@ -171,8 +173,6 @@ melonDS::u32 aimXAddr;
 melonDS::u32 aimYAddr;
 melonDS::u32 isInAdventureAddr;
 melonDS::u32 isMapOrUserActionPausedAddr; // for issue in AdventureMode, Aim Stopping when SwitchingWeapon. 
-
-bool isAltForm;
 
 
 void detectRomAndSetAddresses(EmuInstance* emuInstance) {
@@ -543,7 +543,7 @@ void EmuThread::run()
                 emuInstance->renderLock.lock();
                 if (useOpenGL)
                 {
-                    emuInstance->setVSyncGL(true);
+                    emuInstance->setVSyncGL(true); // is this really needed??
                     videoRenderer = globalCfg.GetInt("3D.Renderer");
                 }
 #ifdef OGLRENDERER_ENABLED
@@ -1126,16 +1126,26 @@ void EmuThread::run()
                 // Set the initialization complete flag
                 hasInitialized = true;
 
-                // VSync Off
-                emuInstance->setVSyncGL(false); // MelonPrimeDS
+                // getVsyncFlag
+                bool vsyncFlag = emuInstance->getGlobalConfig().GetBool("Screen.VSync");  // MelonPrimeDS
+                // VSync Override
+                emuInstance->setVSyncGL(vsyncFlag); // MelonPrimeDS
 
-                // updateRenderer
+                // updateRenderer because of using softwareRenderer when not in Game.
                 videoRenderer = emuInstance->getGlobalConfig().GetInt("3D.Renderer");
                 updateRenderer();
 
-                // VSync Off
-                emuInstance->setVSyncGL(false); // MelonPrimeDS
+                // VSync Override
+                emuInstance->setVSyncGL(vsyncFlag); // MelonPrimeDS
 
+                /* MelonPrimeDS test
+                if (vsyncFlag) {
+                    emuInstance->osdAddMessage(0, "Vsync is enabled.");
+                }
+                else {
+                    emuInstance->osdAddMessage(0, "Vsync is disabled.");
+                }
+                */
 
 
                 // Hide cursor
@@ -1355,13 +1365,13 @@ void EmuThread::run()
                         }
 
                         // Read the current jump flag value
-                        uint8_t currentFlags = emuInstance->nds->ARM9Read8(jumpFlagAddr);
+                        uint8_t currentJumpFlags = emuInstance->nds->ARM9Read8(jumpFlagAddr);
 
                         // Check if the upper 4 bits are odd (1 or 3)
                         // this is for fixing issue: Shooting and transforming become impossible, when changing weapons at high speed while transitioning from transformed to normal form.
-                        bool isTransforming = currentFlags & 0x10;
+                        bool isTransforming = currentJumpFlags & 0x10;
 
-                        uint8_t jumpFlag = currentFlags & 0x0F;  // Get the lower 4 bits
+                        uint8_t jumpFlag = currentJumpFlags & 0x0F;  // Get the lower 4 bits
                         //emuInstance->osdAddMessage(0, ("JumpFlag:" + std::string(1, "0123456789ABCDEF"[emuInstance->nds->ARM9Read8(jumpFlagAddr) & 0x0F])).c_str());
 
                         bool isRestoreNeeded = false;
@@ -1371,7 +1381,7 @@ void EmuThread::run()
 
                         // If not jumping (jumpFlag == 0) and in normal form, temporarily set to jumped state (jumpFlag == 1)
                         if (!isTransforming && jumpFlag == 0 && !isAltForm) {
-                            uint8_t newFlags = (currentFlags & 0xF0) | 0x01;  // Set lower 4 bits to 1
+                            uint8_t newFlags = (currentJumpFlags & 0xF0) | 0x01;  // Set lower 4 bits to 1
                             emuInstance->nds->ARM9Write8(jumpFlagAddr, newFlags);
                             isRestoreNeeded = true;
                             //emuInstance->osdAddMessage(0, ("JumpFlag:" + std::string(1, "0123456789ABCDEF"[emuInstance->nds->ARM9Read8(jumpFlagAddr) & 0x0F])).c_str());
@@ -1413,8 +1423,8 @@ void EmuThread::run()
 
                         // Restore the jump flag to its original value (if necessary)
                         if (isRestoreNeeded) {
-                            currentFlags = emuInstance->nds->ARM9Read8(jumpFlagAddr);
-                            uint8_t restoredFlags = (currentFlags & 0xF0) | jumpFlag;
+                            currentJumpFlags = emuInstance->nds->ARM9Read8(jumpFlagAddr);
+                            uint8_t restoredFlags = (currentJumpFlags & 0xF0) | jumpFlag;
                             emuInstance->nds->ARM9Write8(jumpFlagAddr, restoredFlags);
                             //emuInstance->osdAddMessage(0, ("JumpFlag:" + std::string(1, "0123456789ABCDEF"[emuInstance->nds->ARM9Read8(jumpFlagAddr) & 0x0F])).c_str());
                             //emuInstance->osdAddMessage(0, "Restored jumpFlag.");
@@ -1545,8 +1555,8 @@ void EmuThread::run()
                             };
 
                         auto hasEnoughAmmo = [weaponAmmo, missileAmmo, isWeavel](uint8_t weapon, uint8_t minAmmo) {
-                            if (weapon == 0 || weapon == 8) return true;
-                            if (weapon == 2) return missileAmmo >= 0xA;
+                            if (weapon == 0 || weapon == 8) return true; // PowerBeam or OmegaCannon
+                            if (weapon == 2) return missileAmmo >= 0xA; // Missile
                             if (weapon == 3 && isWeavel) return weaponAmmo >= 0x5; // Prime Hunter check is needless, if we have only 0x4 ammo, we can equipt battleHammer but can't shoot. it's a bug of MPH. so what we need to check is only it's weavel or not.
                             return weaponAmmo >= minAmmo;
                             };
@@ -1594,7 +1604,9 @@ void EmuThread::run()
                                 for (int i = 0; i < 30; i++) {
                                     // still allow movement whilst we're enabling scan visor
                                     processMoveInput();
+
                                     emuInstance->nds->SetKeyMask(emuInstance->getInputMask());
+
                                     frameAdvanceOnce();
                                 }
                             }
@@ -1672,6 +1684,7 @@ void EmuThread::run()
 #endif
                     }
 
+                    // Resolve Menu flickering
                     if(videoRenderer != renderer3D_Software){
                         videoRenderer = renderer3D_Software;
                         updateRenderer();
@@ -1799,11 +1812,25 @@ void EmuThread::handleMessages()
 
                 // MelonPrimeDS {
                 // applyVideoSettings Immediately when resumed
-                emuInstance->setVSyncGL(false); // MelonPrimeDS
-                videoRenderer = emuInstance->getGlobalConfig().GetInt("3D.Renderer");
-                updateRenderer();
-                emuInstance->setVSyncGL(false); // MelonPrimeDS
+                if(isInGame){
 
+                    bool vsyncFlag = emuInstance->getGlobalConfig().GetBool("Screen.VSync");// MelonPrimeDS
+                    
+                    emuInstance->setVSyncGL(vsyncFlag); // MelonPrimeDS
+                    videoRenderer = emuInstance->getGlobalConfig().GetInt("3D.Renderer");
+                    updateRenderer();
+                    emuInstance->setVSyncGL(vsyncFlag); // MelonPrimeDS
+
+                    /* MelonPrimeDS test
+                    if (vsyncFlag) {
+                        emuInstance->osdAddMessage(0, "Vsync is enabled.");
+                    }
+                    else {
+                        emuInstance->osdAddMessage(0, "Vsync is disabled.");
+                    }
+                    */
+
+                }
                 // MelonPrimeDS }
             }
             break;

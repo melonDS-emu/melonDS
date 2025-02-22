@@ -2357,7 +2357,7 @@
 			    <item row="5" column="0">
 				    <widget class="QPushButton" name="metroidSetVideoQualityToHigh">
 					    <property name="text">
-						    <string>Video quality: High (Lower Performance, Menu flickering)</string>
+						    <string>Video quality: High (Lower Performance)</string>
 					    </property>
 				    </widget>
 			    </item>
@@ -2366,7 +2366,7 @@
 				<item row="6" column="0">
 					<widget class="QPushButton" name="metroidSetVideoQualityToHigh2">
 						<property name="text">
-							<string>Video quality: High2 (Recommended. Best Performance, Menu flickering, Minor Visual Glitches) </string>
+							<string>Video quality: High2 (Recommended. Best Performance, Minor Visual Glitches) </string>
 						</property>
 					</widget>
 				</item>
