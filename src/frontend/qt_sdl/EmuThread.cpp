@@ -566,20 +566,26 @@ void EmuThread::handleMessages()
 
                 assert(nds != nullptr);
 
-                auto capture = QImage(256, 192 * 2, QImage::Format_RGB32);
+                QImage capture;
 
                 frontBufferLock.lock();
+                int frontbuf = frontBuffer;
+
 #ifdef OGLRENDERER_ENABLED
                 if (nds->GPU.GetRenderer3D().Accelerated)
                 {
-                    /* Haven't figured out how to extract these frame buffers yet. */
-                    emuInstance->osdAddMessage(0, "HW Accelerated Screenshots Not Supported");
-                    frontBufferLock.unlock();
-                    break;
+                    int scaleFactor = nds->GPU.GetRenderer3D().GetScaleFactor();
+                    capture = QImage(256 * scaleFactor, (192 * 2 + 2) * scaleFactor, QImage::Format_RGB32);
+                    GLint currentBinding;
+                    glGetIntegerv(GL_PIXEL_PACK_BUFFER_BINDING, &currentBinding); /* Is this Necessary? */
+                    glBindBuffer(GL_PIXEL_PACK_BUFFER, 0);
+                    nds->GPU.GetRenderer3D().BindOutputTexture(frontbuf);
+                    glGetTexImage(GL_TEXTURE_2D, 0, GL_RGBA, GL_UNSIGNED_BYTE, capture.scanLine(0));
+                    glBindBuffer(GL_PIXEL_PACK_BUFFER, currentBinding); /* Is this Necessary? */
                 } else
 #endif
                 {
-                    int frontbuf = frontBuffer;
+                    capture = QImage(256, 192 * 2, QImage::Format_RGB32);
                     if (!nds->GPU.Framebuffer[frontbuf][0] || !nds->GPU.Framebuffer[frontbuf][1])
                     {
                         frontBufferLock.unlock();

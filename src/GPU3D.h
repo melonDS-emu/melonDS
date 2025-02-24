@@ -338,6 +338,8 @@ public:
     Renderer3D& operator=(const Renderer3D&) = delete;
 
     virtual void Reset(GPU& gpu) = 0;
+    
+    virtual int GetScaleFactor() const noexcept { return 1; }
 
     // This "Accelerated" flag currently communicates if the framebuffer should
     // be allocated differently and other little misc handlers. Ideally there
