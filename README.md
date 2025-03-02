@@ -140,9 +140,6 @@ Downloadable builds were made using GitHub actions
 - VSync is now forcibly disabled internally to minimize latency (this also reduces latency in OpenGL Classic mode).
 - The newly implemented SnapTap feature enables faster directional key switching, allowing for smoother technical movements such as strafing. This feature can be enabled from the settings menu. Learn more about SnapTap in this video: [SnapTap Introduction](https://www.youtube.com/watch?v=wDcRf4uCzuM).
 
-### Todo
-
--   Update to latest melonDS
 
 <p align="center"><img src="./res/icon/melon_128x128.png"></p>
 <h1 align="center"><b>melonPrimeDS</b></h1>
@@ -251,7 +248,3 @@ ninja
 ```
 
 ダウンロード可能なビルドはGitHub actionsを使用して作成されました
-
-### Todo
-
--   最新のmelonDSに更新する
