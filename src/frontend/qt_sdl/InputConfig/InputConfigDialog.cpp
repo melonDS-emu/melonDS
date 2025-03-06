@@ -49,14 +49,19 @@ InputConfigDialog::InputConfigDialog(QWidget* parent) : QDialog(parent), ui(new 
     Config::Table keycfg = instcfg.GetTable("Keyboard");
     Config::Table joycfg = instcfg.GetTable("Joystick");
 
+    /*
+    * MelonPrimeDS remove DSKeypadTab
     for (int i = 0; i < keypad_num; i++)
     {
         const char* btn = EmuInstance::buttonNames[dskeyorder[i]];
         keypadKeyMap[i] = keycfg.GetInt(btn);
         keypadJoyMap[i] = joycfg.GetInt(btn);
     }
+    */
 
     int i = 0;
+    /*
+    * MelonPrimeDS remove SolarFunctionTab
     for (int hotkey : hk_addons)
     {
         const char* btn = EmuInstance::hotkeyNames[hotkey];
@@ -65,7 +70,9 @@ InputConfigDialog::InputConfigDialog(QWidget* parent) : QDialog(parent), ui(new 
         i++;
     }
 
+
     i = 0;
+        */
     for (int hotkey : hk_general)
     {
         const char* btn = EmuInstance::hotkeyNames[hotkey];
@@ -74,7 +81,11 @@ InputConfigDialog::InputConfigDialog(QWidget* parent) : QDialog(parent), ui(new 
         i++;
     }
 
+    /*
+    * MelonPrimeDS remove SolarFunctionTab
     populatePage(ui->tabAddons, hk_addons_labels, addonsKeyMap, addonsJoyMap);
+    */
+
     populatePage(ui->tabHotkeysGeneral, hk_general_labels, hkGeneralKeyMap, hkGeneralJoyMap);
 
     // MelonPrimeDS { // load Config
@@ -92,8 +103,18 @@ InputConfigDialog::InputConfigDialog(QWidget* parent) : QDialog(parent), ui(new 
         i++;
     }
 
+    i = 0;
+    for (int hotkey : hk_tabAddonsMetroid2)
+    {
+        const char* btn = EmuInstance::hotkeyNames[hotkey];
+        addonsMetroid2KeyMap[i] = keycfg.GetInt(btn);
+        addonsMetroid2JoyMap[i] = joycfg.GetInt(btn);
+        i++;
+    }
+
     // load labels
     populatePage(ui->tabAddonsMetroid, hk_tabAddonsMetroid_labels, addonsMetroidKeyMap, addonsMetroidJoyMap);
+    populatePage(ui->tabAddonsMetroid2, hk_tabAddonsMetroid2_labels, addonsMetroid2KeyMap, addonsMetroid2JoyMap);
 
     // Other Metroid Settings Tab
 
@@ -122,7 +143,7 @@ InputConfigDialog::InputConfigDialog(QWidget* parent) : QDialog(parent), ui(new 
         ui->cbxJoystick->setEnabled(false);
     }
 
-    setupKeypadPage();
+    // setupKeypadPage(); //MelonPrimeDS remove DSKeypadConfig
 
     int inst = emuInstance->getInstanceID();
     if (inst > 0)
@@ -136,8 +157,11 @@ InputConfigDialog::~InputConfigDialog()
     delete ui;
 }
 
+/*
+* MelonPrimeDS remove DSKeypadConfig
 void InputConfigDialog::setupKeypadPage()
 {
+    return;// MelonPrimeDS remove DSKeypadConfig
     for (int i = 0; i < keypad_num; i++)
     {
         QPushButton* pushButtonKey = this->findChild<QPushButton*>(QStringLiteral("btnKey") + dskeylabels[i]);
@@ -158,13 +182,15 @@ void InputConfigDialog::setupKeypadPage()
         }
     }
 }
+*/
 
 void InputConfigDialog::populatePage(QWidget* page,
     const std::initializer_list<const char*>& labels,
     int* keymap, int* joymap)
 {
     // kind of a hack
-    bool ishotkey = (page != ui->tabInput);
+    bool ishotkey = true; // MelonPrimeDS remove DSKeypadConfig
+        //(page != ui->tabInput); // MelonPrimeDS remove DSKeypadConfig
 
     QHBoxLayout* main_layout = new QHBoxLayout();
 
@@ -216,14 +242,20 @@ void InputConfigDialog::on_InputConfigDialog_accepted()
     Config::Table keycfg = instcfg.GetTable("Keyboard");
     Config::Table joycfg = instcfg.GetTable("Joystick");
 
+    /*
+    * MelonPrimeDS remove DSKeypadTab
     for (int i = 0; i < keypad_num; i++)
     {
         const char* btn = EmuInstance::buttonNames[dskeyorder[i]];
         keycfg.SetInt(btn, keypadKeyMap[i]);
         joycfg.SetInt(btn, keypadJoyMap[i]);
     }
+    */
+
 
     int i = 0;
+    /*
+    * MelonPrimeDS remove SolarFunctionTab
     for (int hotkey : hk_addons)
     {
         const char* btn = EmuInstance::hotkeyNames[hotkey];
@@ -232,7 +264,9 @@ void InputConfigDialog::on_InputConfigDialog_accepted()
         i++;
     }
 
+
     i = 0;
+        */
     for (int hotkey : hk_general)
     {
         const char* btn = EmuInstance::hotkeyNames[hotkey];
@@ -253,6 +287,16 @@ void InputConfigDialog::on_InputConfigDialog_accepted()
         joycfg.SetInt(btn, addonsMetroidJoyMap[i]);
         i++;
     }
+
+    i = 0;
+    for (int hotkey : hk_tabAddonsMetroid2)
+    {
+        const char* btn = EmuInstance::hotkeyNames[hotkey];
+        keycfg.SetInt(btn, addonsMetroid2KeyMap[i]);
+        joycfg.SetInt(btn, addonsMetroid2JoyMap[i]);
+        i++;
+    }
+
 
     // Sensitivities
     instcfg.SetInt("Metroid.Sensitivity.Aim", ui->metroidAimSensitvitySpinBox->value());
@@ -276,6 +320,8 @@ void InputConfigDialog::on_InputConfigDialog_rejected()
     closeDlg();
 }
 
+/*
+ * MelonPrimeDS remove DSKeypadConfig
 void InputConfigDialog::on_btnKeyMapSwitch_clicked()
 {
     ui->stackMapping->setCurrentIndex(0);
@@ -285,6 +331,7 @@ void InputConfigDialog::on_btnJoyMapSwitch_clicked()
 {
     ui->stackMapping->setCurrentIndex(1);
 }
+*/
 
 void InputConfigDialog::on_cbxJoystick_currentIndexChanged(int id)
 {

@@ -787,22 +787,35 @@ void EmuThread::run()
     bool enableAim = true;
     bool wasLastFrameFocused = false;
 
+    /**
+     * @brief Function to show or hide the cursor on MelonPrimeDS
+     *
+     * Controls the mouse cursor visibility state on MelonPrimeDS. Does nothing if
+     * the requested state is the same as the current state. When changing cursor
+     * visibility, uses Qt::QueuedConnection to safely execute on the UI thread.
+     *
+     * @param show true to show the cursor, false to hide it
+     */
     auto showCursorOnMelonPrimeDS = [&](bool show) {
+        // Do nothing if the requested state is the same as current state (optimization)
         if (show == isCursorVisible) return;
 
+        // Get and verify panel exists
         auto* panel = emuInstance->getMainWindow()->panel;
         if (!panel) return;
 
+        // Use Qt::QueuedConnection to safely execute on the UI thread
         QMetaObject::invokeMethod(panel,
             [panel, show]() {
+                // Set cursor visibility (normal ArrowCursor or invisible BlankCursor)
                 panel->setCursor(show ? Qt::ArrowCursor : Qt::BlankCursor);
             },
             Qt::ConnectionType::QueuedConnection
         );
 
+        // Record the state change
         isCursorVisible = show;
         };
-
 
 // #define STYLUS_MODE 1 // this is for stylus user
 
@@ -971,6 +984,8 @@ void EmuThread::run()
             (uint32_t(emuInstance->hotkeyDown(HK_MetroidMoveRight)) << 3);
 
         if (localCfg.GetBool("Metroid.Operation.SnapTap")) {
+            // SnapTap mode
+
             // Detect newly pressed keys
             uint32_t newlyPressed = currentInputBitmap & ~lastInputBitmap;
 
