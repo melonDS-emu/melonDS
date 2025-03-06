@@ -35,6 +35,8 @@
      <property name="currentIndex">
       <number>0</number>
      </property>
+	<!--
+	 MelonPrimeDS remove DSKeypadConfig
      <widget class="QWidget" name="tabInput">
       <attribute name="title">
        <string>DS keypad</string>
@@ -2267,11 +2269,16 @@
        </item>
       </layout>
      </widget>
+	  -->
+     <!--
+     MelonPrimeDS remove Solar Function tab 
      <widget class="QWidget" name="tabAddons">
       <attribute name="title">
        <string>Add-ons</string>
       </attribute>
      </widget>
+	  -->
+		
      <widget class="QWidget" name="tabHotkeysGeneral">
       <attribute name="title">
        <string>General hotkeys</string>
@@ -2285,6 +2292,13 @@
 			    <string>Add-ons (Metroid)</string>
 		    </attribute>
 	    </widget>
+
+		<!-- Tab Add-ons (Metroid)2 -->
+		<widget class="QWidget" name="tabAddonsMetroid2">
+			<attribute name="title">
+				<string>Add-ons (Metroid) 2</string>
+			</attribute>
+		</widget>
 
 		<!-- Tab Other Metroid settings -->
 	    <widget class="QWidget" name="tabMetroid">
@@ -2428,6 +2442,8 @@
    </item>
   </layout>
  </widget>
+<!--
+  MelonPrimeDS remove DSKeypadConfig
  <tabstops>
   <tabstop>tabWidget</tabstop>
   <tabstop>btnJoyMapSwitch</tabstop>
@@ -2458,6 +2474,8 @@
   <tabstop>btnJoyStart</tabstop>
   <tabstop>cbxJoystick</tabstop>
  </tabstops>
+ -->
+ 
  <resources>
   <include location="resources/ds.qrc"/>
  </resources>
