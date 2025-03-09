@@ -35,6 +35,25 @@ enum CartType
     RumblePak = 0x202,
 };
 
+// See https://problemkaputt.de/gbatek.htm#gbacartridgeheader for details
+struct GBAHeader
+{
+    u32 EntryPoint;
+    u8 NintendoLogo[156]; // must be valid
+    char Title[12];
+    char GameCode[4];
+    char MakerCode[2];
+    u8 FixedValue; // must be 0x96
+    u8 MainUnitCode;
+    u8 DeviceType;
+    u8 Reserved0[7];
+    u8 SoftwareVersion;
+    u8 ComplementCheck;
+    u8 Reserved1[2];
+};
+
+static_assert(sizeof(GBAHeader) == 192, "GBAHeader should be 192 bytes");
+
 // CartCommon -- base code shared by all cart types
 class CartCommon
 {
@@ -91,6 +110,8 @@ public:
 
     [[nodiscard]] const u8* GetROM() const override { return ROM.get(); }
     [[nodiscard]] u32 GetROMLength() const override { return ROMLength; }
+    [[nodiscard]] const GBAHeader& GetHeader() const noexcept { return *reinterpret_cast<const GBAHeader*>(ROM.get()); }
+    [[nodiscard]] GBAHeader& GetHeader() noexcept { return *reinterpret_cast<GBAHeader*>(ROM.get()); }
 
     u8* GetSaveMemory() const override;
     u32 GetSaveMemoryLength() const override;
@@ -309,6 +330,23 @@ std::unique_ptr<CartCommon> ParseROM(std::unique_ptr<u8[]>&& romdata, u32 romlen
 
 std::unique_ptr<CartCommon> LoadAddon(int type, void* userdata);
 
+/// Creates a solar sensor-enabled GBA cart without needing a real Boktai ROM.
+/// This enables the solar sensor to be used in supported games.
+/// Will not contain any SRAM.
+/// @param gamecode
+/// @param logo The Nintendo logo data embedded in the headers for GBA ROMs and NDS ROMs.
+/// Required for the cart to be recognized as a valid GBA cart.
+/// Overloads that accept cart objects directly exist as well.
+/// If not provided, then it will have to be patched with equivalent data
+/// from a real ROM (NDS or GBA) before booting the emulator.
+/// @param userdata Optional user data to associate with the cart.
+/// @return A CartGameSolarSensor if the ROM was created successfully,
+/// or nullptr if any argument is wrong (e.g. an incorrect game code).
+std::unique_ptr<CartGameSolarSensor> CreateFakeSolarSensorROM(const char* gamecode, const u8* logo, void* userdata = nullptr) noexcept;
+std::unique_ptr<CartGameSolarSensor> CreateFakeSolarSensorROM(const char* gamecode, const NDSCart::CartCommon& cart, void* userdata = nullptr) noexcept;
+std::unique_ptr<CartGameSolarSensor> CreateFakeSolarSensorROM(const char* gamecode, const GBACart::CartGame& cart, void* userdata = nullptr) noexcept;
+
+constexpr const char* BOKTAI_STUB_TITLE = "BOKTAI STUB";
 }
 
 #endif // GBACART_H
