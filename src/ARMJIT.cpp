@@ -586,7 +586,7 @@ void ARMJIT::CompileBlock(ARM* cpu) noexcept
     u32 numWriteAddrs = 0, writeAddrsTranslated = 0;
 
     cpu->FillPipeline();
-    u32 nextInstr[2] = {cpu->NextInstr[0], cpu->NextInstr[1]};
+    u32 nextInstr[2] = {(u32)cpu->NextInstr[0], (u32)cpu->NextInstr[1]};
     u32 nextInstrAddr[2] = {blockAddr, r15};
 
     JIT_DEBUGPRINT("start block %x %08x (%x)\n", blockAddr, cpu->CPSR, localAddr);
