@@ -238,6 +238,7 @@ private:
             dx = 0;
 
             this->x0 = x0;
+            this->y0 = y0;
             this->xmin = x0;
             this->xmax = x0;
 
@@ -247,7 +248,7 @@ private:
             Interp.Setup(0, 0, 0, 0);
             Interp.SetX(0);
 
-            xcov_incr = 0;
+            XCov_Incr = 0;
 
             return x0;
         }
@@ -255,6 +256,7 @@ private:
         constexpr s32 Setup(s32 x0, s32 x1, s32 y0, s32 y1, s32 w0, s32 w1, s32 y)
         {
             this->x0 = x0;
+            this->y0 = y0;
             this->y = y;
 
             if (x1 > x0)
@@ -322,7 +324,7 @@ private:
             Interp.SetX(y);
 
             // used for calculating AA coverage
-            if (XMajor) xcov_incr = (ylen << 10) / xlen;
+            if (XMajor) XCov_Incr = ((ylen << 10) / xlen) & 0x3FF;
 
             return x;
         }
@@ -347,19 +349,15 @@ private:
             else if (ret > xmax) ret = xmax;
             return ret;
         }
-
-        template<bool swapped>
-        constexpr void EdgeParams_XMajor(s32* length, s32* coverage) const
+        
+        constexpr void EdgeParams_XMajor(s32* length, s32* coverage, bool swapped) const
         {
             // only do length calc for right side when swapped as it's
             // only needed for aa calcs, as actual line spans are broken
-            if constexpr (!swapped || side)
-            {
-                if (side ^ Negative)
-                    *length = (dx >> 18) - ((dx-Increment) >> 18);
-                else
-                    *length = ((dx+Increment) >> 18) - (dx >> 18);
-            }
+            if (side ^ Negative)
+                *length = (dx >> 18) - ((dx-Increment) >> 18);
+            else
+                *length = ((dx+Increment) >> 18) - (dx >> 18);
 
             // for X-major edges, we return the coverage
             // for the first pixel, and the increment for
@@ -369,13 +367,20 @@ private:
             if (side)     startx = startx - *length + 1;
 
             s32 startcov = (((startx << 10) + 0x1FF) * ylen) / xlen;
-            *coverage = (1<<31) | ((startcov & 0x3FF) << 12) | (xcov_incr & 0x3FF);
 
-            if constexpr (swapped) *length = 1;
+            // fix the y value for negative slopes
+            s32 ycoord = Negative ? (ylen << 10) - startcov >> 10 : startcov >> 10;
+            // if yvalue is not equal to actual y value, invert coverage value
+            startcov &= 0x3FF;
+            if (ycoord != y - y0) startcov = 0x3FF - startcov;
+            if (side ^ swapped) startcov = 0x3FF - startcov;
+
+            *coverage = startcov;
+
+            if (swapped) *length = 1;
         }
 
-        template<bool swapped>
-        constexpr void EdgeParams_YMajor(s32* length, s32* coverage) const
+        constexpr void EdgeParams_YMajor(s32* length, s32* coverage, bool swapped) const
         {
             *length = 1;
 
@@ -383,51 +388,39 @@ private:
             {
                 // for some reason vertical edges' aa values
                 // are inverted too when the edges are swapped
-                if constexpr (swapped)
-                    *coverage = 0;
-                else
-                    *coverage = 31;
+                *coverage = swapped ? 0 : 31 << 5;
             }
             else
             {
                 s32 cov = ((dx >> 9) + (Increment >> 10)) >> 4;
                 if ((cov >> 5) != (dx >> 18)) cov = 31;
                 cov &= 0x1F;
-                if constexpr (swapped)
-                {
-                    if (side ^ Negative) cov = 0x1F - cov;
-                }
-                else
-                {
-                    if (!(side ^ Negative)) cov = 0x1F - cov;
-                }
+                if (side ^ !Negative ^ swapped) cov = 0x1F - cov;
 
-                *coverage = cov;
+                // shift left 5 just to make it align with xmajor coverage values
+                *coverage = cov << 5;
             }
         }
-
-        template<bool swapped>
-        constexpr void EdgeParams(s32* length, s32* coverage) const
+        
+        constexpr void EdgeParams(s32* length, s32* coverage, bool swapped) const
         {
             if (XMajor)
-                return EdgeParams_XMajor<swapped>(length, coverage);
+                return EdgeParams_XMajor(length, coverage, swapped);
             else
-                return EdgeParams_YMajor<swapped>(length, coverage);
+                return EdgeParams_YMajor(length, coverage, swapped);
         }
 
         s32 Increment;
         bool Negative;
         bool XMajor;
         Interpolator<1> Interp;
+        s32 XCov_Incr;
 
     private:
-        s32 x0, xmin, xmax;
+        s32 x0, y0, xmin, xmax;
         s32 xlen, ylen;
         s32 dx;
         s32 y;
-
-        s32 xcov_incr;
-        s32 ycoverage, ycov_incr;
     };
 
     u32 AlphaBlend(const GPU3D& gpu3d, u32 srccolor, u32 dstcolor, u32 alpha) const noexcept;
