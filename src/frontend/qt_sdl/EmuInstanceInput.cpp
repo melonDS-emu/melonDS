@@ -47,7 +47,7 @@ const char* EmuInstance::hotkeyNames[HK_MAX] =
     "HK_Pause",
     "HK_Reset",
     "HK_FastForward",
-    "HK_FastForwardToggle",
+    "HK_FrameLimitToggle",
     "HK_FullscreenToggle",
     "HK_SwapScreens",
     "HK_SwapScreenEmphasis",
@@ -56,7 +56,10 @@ const char* EmuInstance::hotkeyNames[HK_MAX] =
     "HK_FrameStep",
     "HK_PowerButton",
     "HK_VolumeUp",
-    "HK_VolumeDown"
+    "HK_VolumeDown",
+    "HK_SlowMo",
+    "HK_FastForwardToggle",
+    "HK_SlowMoToggle"
 };
 
 
@@ -70,6 +73,10 @@ void EmuInstance::inputInit()
     joyHotkeyMask = 0;
     hotkeyMask = 0;
     lastHotkeyMask = 0;
+
+    isTouching = false;
+    touchX = 0;
+    touchY = 0;
 
     joystick = nullptr;
     controller = nullptr;
@@ -349,4 +356,16 @@ void EmuInstance::inputProcess()
     hotkeyPress = hotkeyMask & ~lastHotkeyMask;
     hotkeyRelease = lastHotkeyMask & ~hotkeyMask;
     lastHotkeyMask = hotkeyMask;
+}
+
+void EmuInstance::touchScreen(int x, int y)
+{
+    touchX = x;
+    touchY = y;
+    isTouching = true;
+}
+
+void EmuInstance::releaseScreen()
+{
+    isTouching = false;
 }

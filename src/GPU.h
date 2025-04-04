@@ -499,6 +499,17 @@ public:
         OAMDirty |= 1 << (addr / 1024);
     }
 
+    template <typename T>
+    inline T ReadVRAMFlat_Texture(u32 addr) const
+    {
+        return *(T*)&VRAMFlat_Texture[addr & 0x7FFFF];
+    }
+    template <typename T>
+    inline T ReadVRAMFlat_TexPal(u32 addr) const
+    {
+        return *(T*)&VRAMFlat_TexPal[addr & 0x1FFFF];
+    }
+
     void SetPowerCnt(u32 val) noexcept;
 
     void StartFrame() noexcept;

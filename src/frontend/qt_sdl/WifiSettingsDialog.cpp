@@ -94,6 +94,13 @@ WifiSettingsDialog::~WifiSettingsDialog()
 
 void WifiSettingsDialog::done(int r)
 {
+    if (!((MainWindow*)parent())->getEmuInstance())
+    {
+        QDialog::done(r);
+        closeDlg();
+        return;
+    }
+
     needsReset = false;
 
     if (r == QDialog::Accepted)
@@ -145,14 +152,14 @@ void WifiSettingsDialog::on_cbxDirectAdapter_currentIndexChanged(int sel)
     melonDS::AdapterData* adapter = &adapters[sel];
     char tmp[64];
 
-    sprintf(tmp, "%02X:%02X:%02X:%02X:%02X:%02X",
-            adapter->MAC[0], adapter->MAC[1], adapter->MAC[2],
-            adapter->MAC[3], adapter->MAC[4], adapter->MAC[5]);
+    snprintf(tmp, sizeof(tmp), "%02X:%02X:%02X:%02X:%02X:%02X",
+             adapter->MAC[0], adapter->MAC[1], adapter->MAC[2],
+             adapter->MAC[3], adapter->MAC[4], adapter->MAC[5]);
     ui->lblAdapterMAC->setText(QString(tmp));
 
-    sprintf(tmp, "%d.%d.%d.%d",
-            adapter->IP_v4[0], adapter->IP_v4[1],
-            adapter->IP_v4[2], adapter->IP_v4[3]);
+    snprintf(tmp, sizeof(tmp), "%d.%d.%d.%d",
+             adapter->IP_v4[0], adapter->IP_v4[1],
+             adapter->IP_v4[2], adapter->IP_v4[3]);
     ui->lblAdapterIP->setText(QString(tmp));
 }
 

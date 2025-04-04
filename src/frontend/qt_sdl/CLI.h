@@ -28,8 +28,6 @@ namespace CLI {
 
 struct CommandLineOptions
 {
-    QStringList errorsToDisplay = {};
-
     std::optional<QString> dsRomPath;
     std::optional<QString> dsRomArchivePath;
     std::optional<QString> gbaRomPath;

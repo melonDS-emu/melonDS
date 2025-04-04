@@ -63,6 +63,12 @@ NetplayStartHostDialog::~NetplayStartHostDialog()
 
 void NetplayStartHostDialog::done(int r)
 {
+    if (!((MainWindow*)parent())->getEmuInstance())
+    {
+        QDialog::done(r);
+        return;
+    }
+
     if (r == QDialog::Accepted)
     {
         std::string player = ui->txtPlayerName->text().toStdString();
@@ -94,6 +100,12 @@ NetplayStartClientDialog::~NetplayStartClientDialog()
 
 void NetplayStartClientDialog::done(int r)
 {
+    if (!((MainWindow*)parent())->getEmuInstance())
+    {
+        QDialog::done(r);
+        return;
+    }
+
     if (r == QDialog::Accepted)
     {
         std::string player = ui->txtPlayerName->text().toStdString();
@@ -175,7 +187,7 @@ void NetplayDialog::doUpdatePlayerList(Netplay::Player* players, int num)
 
         char ip[32];
         u32 addr = player->Address;
-        sprintf(ip, "%d.%d.%d.%d", addr&0xFF, (addr>>8)&0xFF, (addr>>16)&0xFF, addr>>24);
+        snprintf(ip, sizeof(ip), "%d.%d.%d.%d", addr&0xFF, (addr>>8)&0xFF, (addr>>16)&0xFF, addr>>24);
         model->setItem(i, 4, new QStandardItem(ip));
     }
 }

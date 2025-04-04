@@ -9,6 +9,13 @@ on:
     branches:
       - master
 
+env:
+  VCPKG_COMMIT: 6f29f12e82a8293156836ad81cc9bf5af41fe836
+  MELONDS_GIT_BRANCH: ${{ github.ref }}
+  MELONDS_GIT_HASH: ${{ github.sha }}
+  MELONDS_BUILD_PROVIDER: GitHub Actions
+  MELONDS_VERSION_SUFFIX: " RC"
+
 jobs:
   build-macos:
     strategy:
@@ -28,12 +35,13 @@ jobs:
       - name: Set up vcpkg
         uses: lukka/run-vcpkg@v11
         with:
-          vcpkgGitCommitId: 3508985146f1b1d248c67ead13f8f54be5b4f5da
+          vcpkgGitCommitId: ${{ env.VCPKG_COMMIT }}
       - name: Build
         uses: lukka/run-cmake@v10
         with:
           configurePreset: release-mac-${{ matrix.arch }}
           buildPreset: release-mac-${{ matrix.arch }}
+          configurePresetAdditionalArgs: "['-DMELONDS_EMBED_BUILD_INFO=ON']"
       - name: Compress app bundle
         shell: bash
         run: |

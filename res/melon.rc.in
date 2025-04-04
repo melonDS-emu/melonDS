@@ -6,8 +6,8 @@
 
 //include version information in .exe, modify these values to match your needs
 1 VERSIONINFO
-FILEVERSION ${melonDS_VERSION_MAJOR},${melonDS_VERSION_MINOR},${melonDS_VERSION_PATCH},0
-PRODUCTVERSION ${melonDS_VERSION_MAJOR},${melonDS_VERSION_MINOR},${melonDS_VERSION_PATCH},0
+FILEVERSION ${MELON_RC_VERSION}
+PRODUCTVERSION ${MELON_RC_VERSION}
 FILETYPE VFT_APP
 {
   BLOCK "StringFileInfo"

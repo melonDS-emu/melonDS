@@ -201,10 +201,10 @@ void SoftRenderer::TextureLookup(const GPU& gpu, u32 texparam, u32 texpal, s16 s
     case 1: // A3I5
         {
             vramaddr += ((t * width) + s);
-            u8 pixel = ReadVRAM_Texture<u8>(vramaddr, gpu);
+            u8 pixel = gpu.ReadVRAMFlat_Texture<u8>(vramaddr);
 
             texpal <<= 4;
-            u16 color = ReadVRAM_TexPal<u16>(texpal + ((pixel&0x1F)<<1), gpu);
+            u16 color = gpu.ReadVRAMFlat_TexPal<u16>(texpal + ((pixel&0x1F)<<1));
             *alpha = ((pixel >> 3) & 0x1C) + (pixel >> 6);
 
             ColorConv<true>(color, tr, tg, tb);
@@ -214,12 +214,12 @@ void SoftRenderer::TextureLookup(const GPU& gpu, u32 texparam, u32 texpal, s16 s
     case 2: // 4-color
         {
             vramaddr += (((t * width) + s) >> 2);
-            u8 pixel = ReadVRAM_Texture<u8>(vramaddr, gpu);
+            u8 pixel = gpu.ReadVRAMFlat_Texture<u8>(vramaddr);
             pixel >>= ((s & 0x3) << 1);
             pixel &= 0x3;
 
             texpal <<= 3;
-            u16 color = ReadVRAM_TexPal<u16>(texpal + (pixel<<1), gpu);
+            u16 color = gpu.ReadVRAMFlat_TexPal<u16>(texpal + (pixel<<1));
             *alpha = (pixel==0) ? alpha0 : 31;
 
             ColorConv<true>(color, tr, tg, tb);
@@ -229,12 +229,12 @@ void SoftRenderer::TextureLookup(const GPU& gpu, u32 texparam, u32 texpal, s16 s
     case 3: // 16-color
         {
             vramaddr += (((t * width) + s) >> 1);
-            u8 pixel = ReadVRAM_Texture<u8>(vramaddr, gpu);
+            u8 pixel = gpu.ReadVRAMFlat_Texture<u8>(vramaddr);
             if (s & 0x1) pixel >>= 4;
             else         pixel &= 0xF;
 
             texpal <<= 4;
-            u16 color = ReadVRAM_TexPal<u16>(texpal + (pixel<<1), gpu);
+            u16 color = gpu.ReadVRAMFlat_TexPal<u16>(texpal + (pixel<<1));
             *alpha = (pixel==0) ? alpha0 : 31;
 
             ColorConv<true>(color, tr, tg, tb);
@@ -244,10 +244,10 @@ void SoftRenderer::TextureLookup(const GPU& gpu, u32 texparam, u32 texpal, s16 s
     case 4: // 256-color
         {
             vramaddr += ((t * width) + s);
-            u8 pixel = ReadVRAM_Texture<u8>(vramaddr, gpu);
+            u8 pixel = gpu.ReadVRAMFlat_Texture<u8>(vramaddr);
 
             texpal <<= 4;
-            u16 color = ReadVRAM_TexPal<u16>(texpal + (pixel<<1), gpu);
+            u16 color = gpu.ReadVRAMFlat_TexPal<u16>(texpal + (pixel<<1));
             *alpha = (pixel==0) ? alpha0 : 31;
 
             ColorConv<true>(color, tr, tg, tb);
@@ -273,11 +273,11 @@ void SoftRenderer::TextureLookup(const GPU& gpu, u32 texparam, u32 texpal, s16 s
                 val = 0;
             else
             {
-                val = ReadVRAM_Texture<u8>(vramaddr, gpu);
+                val = gpu.ReadVRAMFlat_Texture<u8>(vramaddr);
                 val >>= (2 * (s & 0x3));
             }
 
-            u16 palinfo = ReadVRAM_Texture<u16>(slot1addr, gpu);
+            u16 palinfo = gpu.ReadVRAMFlat_Texture<u16>(slot1addr);
             u32 paloffset = (palinfo & 0x3FFF) << 2;
             texpal <<= 4;
 
@@ -285,7 +285,7 @@ void SoftRenderer::TextureLookup(const GPU& gpu, u32 texparam, u32 texpal, s16 s
             {
             case 0:
             {
-                u16 color = ReadVRAM_TexPal<u16>(texpal + paloffset, gpu);
+                u16 color = gpu.ReadVRAMFlat_TexPal<u16>(texpal + paloffset);
                 *alpha = 31;
                 if (!((palinfo >> 14) & 0x1))
                     ColorConv<true>(color, tr, tg, tb);
@@ -296,7 +296,7 @@ void SoftRenderer::TextureLookup(const GPU& gpu, u32 texparam, u32 texpal, s16 s
 
             case 1:
             {
-                u16 color = ReadVRAM_TexPal<u16>(texpal + paloffset + 2, gpu);
+                u16 color = gpu.ReadVRAMFlat_TexPal<u16>(texpal + paloffset + 2);
                 *alpha = 31;
                 if (!((palinfo >> 14) & 0x1))
                     ColorConv<true>(color, tr, tg, tb);
@@ -308,8 +308,8 @@ void SoftRenderer::TextureLookup(const GPU& gpu, u32 texparam, u32 texpal, s16 s
             case 2:
                 if ((palinfo >> 14) == 1)
                 {
-                    u16 color0 = ReadVRAM_TexPal<u16>(texpal + paloffset, gpu);
-                    u16 color1 = ReadVRAM_TexPal<u16>(texpal + paloffset + 2, gpu);
+                    u16 color0 = gpu.ReadVRAMFlat_TexPal<u16>(texpal + paloffset);
+                    u16 color1 = gpu.ReadVRAMFlat_TexPal<u16>(texpal + paloffset + 2);
 
                     u32 r0 = color0 & 0x001F;
                     u32 g0 = color0 & 0x03E0;
@@ -324,8 +324,8 @@ void SoftRenderer::TextureLookup(const GPU& gpu, u32 texparam, u32 texpal, s16 s
                 }
                 else if ((palinfo >> 14) == 3)
                 {
-                    u16 color0 = ReadVRAM_TexPal<u16>(texpal + paloffset, gpu);
-                    u16 color1 = ReadVRAM_TexPal<u16>(texpal + paloffset + 2, gpu);
+                    u16 color0 = gpu.ReadVRAMFlat_TexPal<u16>(texpal + paloffset);
+                    u16 color1 = gpu.ReadVRAMFlat_TexPal<u16>(texpal + paloffset + 2);
 
                     u32 r0 = color0 & 0x001F;
                     u32 g0 = color0 & 0x03E0;
@@ -340,7 +340,7 @@ void SoftRenderer::TextureLookup(const GPU& gpu, u32 texparam, u32 texpal, s16 s
                 }
                 else
                 {
-                    u16 color = ReadVRAM_TexPal<u16>(texpal + paloffset + 4, gpu);
+                    u16 color = gpu.ReadVRAMFlat_TexPal<u16>(texpal + paloffset + 4);
                     ColorConv<true>(color, tr, tg, tb);
                 }
                 *alpha = 31;
@@ -349,14 +349,14 @@ void SoftRenderer::TextureLookup(const GPU& gpu, u32 texparam, u32 texpal, s16 s
             case 3:
                 if ((palinfo >> 14) == 2)
                 {
-                    u16 color = ReadVRAM_TexPal<u16>(texpal + paloffset + 6, gpu);
+                    u16 color = gpu.ReadVRAMFlat_TexPal<u16>(texpal + paloffset + 6);
                     ColorConv<true>(color, tr, tg, tb);
                     *alpha = 31;
                 }
                 else if ((palinfo >> 14) == 3)
                 {
-                    u16 color0 = ReadVRAM_TexPal<u16>(texpal + paloffset, gpu);
-                    u16 color1 = ReadVRAM_TexPal<u16>(texpal + paloffset + 2, gpu);
+                    u16 color0 = gpu.ReadVRAMFlat_TexPal<u16>(texpal + paloffset);
+                    u16 color1 = gpu.ReadVRAMFlat_TexPal<u16>(texpal + paloffset + 2);
 
                     u32 r0 = color0 & 0x001F;
                     u32 g0 = color0 & 0x03E0;
@@ -386,10 +386,10 @@ void SoftRenderer::TextureLookup(const GPU& gpu, u32 texparam, u32 texpal, s16 s
     case 6: // A5I3
         {
             vramaddr += ((t * width) + s);
-            u8 pixel = ReadVRAM_Texture<u8>(vramaddr, gpu);
+            u8 pixel = gpu.ReadVRAMFlat_Texture<u8>(vramaddr);
 
             texpal <<= 4;
-            u16 color = ReadVRAM_TexPal<u16>(texpal + ((pixel&0x7)<<1), gpu);
+            u16 color = gpu.ReadVRAMFlat_TexPal<u16>(texpal + ((pixel&0x7)<<1));
             ColorConv<true>(color, tr, tg, tb);
             *alpha = (pixel >> 3);
         }
@@ -398,7 +398,7 @@ void SoftRenderer::TextureLookup(const GPU& gpu, u32 texparam, u32 texpal, s16 s
     case 7: // direct color
         {
             vramaddr += (((t * width) + s) << 1);
-            u16 color = ReadVRAM_Texture<u16>(vramaddr, gpu);
+            u16 color = gpu.ReadVRAMFlat_Texture<u16>(vramaddr);
             ColorConv<true>(color, tr, tg, tb);
             *alpha = (color & 0x8000) ? 31 : 0;
         }
@@ -1690,8 +1690,8 @@ void SoftRenderer::ClearBuffers(const GPU& gpu)
         {
             for (int x = 0; x < 256; x++)
             {
-                u16 val2 = ReadVRAM_Texture<u16>(0x40000 + (yoff << 9) + (xoff << 1), gpu);
-                u16 val3 = ReadVRAM_Texture<u16>(0x60000 + (yoff << 9) + (xoff << 1), gpu);
+                u16 val2 = gpu.ReadVRAMFlat_Texture<u16>(0x40000 + (yoff << 9) + (xoff << 1));
+                u16 val3 = gpu.ReadVRAMFlat_Texture<u16>(0x60000 + (yoff << 9) + (xoff << 1));
 
                 // TODO: confirm color conversion
                 u32 r = (val2 << 1) & 0x3E; if (r) r++;

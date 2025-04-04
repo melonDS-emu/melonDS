@@ -65,6 +65,12 @@ LANStartHostDialog::~LANStartHostDialog()
 
 void LANStartHostDialog::done(int r)
 {
+    if (!((MainWindow*)parent())->getEmuInstance())
+    {
+        QDialog::done(r);
+        return;
+    }
+
     if (r == QDialog::Accepted)
     {
         if (ui->txtPlayerName->text().trimmed().isEmpty())
@@ -186,6 +192,12 @@ void LANStartClientDialog::onDirectConnect()
 
 void LANStartClientDialog::done(int r)
 {
+    if (!((MainWindow*)parent())->getEmuInstance())
+    {
+        QDialog::done(r);
+        return;
+    }
+
     if (r == QDialog::Accepted)
     {
         if (ui->txtPlayerName->text().trimmed().isEmpty())
@@ -313,6 +325,12 @@ void LANDialog::on_btnLeaveGame_clicked()
 
 void LANDialog::done(int r)
 {
+    if (!((MainWindow*)parent())->getEmuInstance())
+    {
+        QDialog::done(r);
+        return;
+    }
+
     bool showwarning = true;
     if (lan().GetNumPlayers() < 2)
         showwarning = false;
@@ -384,6 +402,8 @@ void LANDialog::doUpdatePlayerList()
                 break;
             case LAN::Player_Disconnected:
                 status = "Connection lost";
+                break;
+            case LAN::Player_None:
                 break;
         }
         model->item(i, 2)->setText(status);

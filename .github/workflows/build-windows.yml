@@ -9,6 +9,13 @@ on:
     branches:
       - master
 
+env:
+  VCPKG_COMMIT: 6f29f12e82a8293156836ad81cc9bf5af41fe836
+  MELONDS_GIT_BRANCH: ${{ github.ref }}
+  MELONDS_GIT_HASH: ${{ github.sha }}
+  MELONDS_BUILD_PROVIDER: GitHub Actions
+  MELONDS_VERSION_SUFFIX: " RC"
+
 jobs:
   build:
     runs-on: windows-latest
@@ -27,9 +34,9 @@ jobs:
     - name: Set up vcpkg
       uses: lukka/run-vcpkg@v11
       with:
-        vcpkgGitCommitId: 3508985146f1b1d248c67ead13f8f54be5b4f5da
+        vcpkgGitCommitId: ${{ env.VCPKG_COMMIT }}
     - name: Configure
-      run: cmake --preset=release-mingw-x86_64
+      run: cmake --preset=release-mingw-x86_64 -DMELONDS_EMBED_BUILD_INFO=ON
     - name: Build
       run: cmake --build --preset=release-mingw-x86_64
     - uses: actions/upload-artifact@v4

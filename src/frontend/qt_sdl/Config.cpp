@@ -55,7 +55,6 @@ DefaultList<int> DefaultInts =
     {"Screen.VSyncInterval", 1},
     {"3D.Renderer", renderer3D_Software},
     {"3D.GL.ScaleFactor", 1},
-    {"MaxFPS", 1000},
 #ifdef JIT_ENABLED
     {"JIT.MaxBlockSize", 32},
 #endif
@@ -81,7 +80,7 @@ RangeList IntRanges =
     {"3D.Renderer", {0, renderer3D_Max-1}},
     {"Screen.VSyncInterval", {1, 20}},
     {"3D.GL.ScaleFactor", {1, 16}},
-    {"Audio.Interpolation", {0, 3}},
+    {"Audio.Interpolation", {0, 4}},
     {"Instance*.Audio.Volume", {0, 256}},
     {"Mic.InputType", {0, micInputType_MAX-1}},
     {"Instance*.Window*.ScreenRotation", {0, screenRot_MAX-1}},
@@ -100,7 +99,7 @@ DefaultList<bool> DefaultBools =
     {"3D.Soft.Threaded", true},
     {"3D.GL.HiresCoordinates", true},
     {"LimitFPS", true},
-    {"Window*.ShowOSD", true},
+    {"Instance*.Window*.ShowOSD", true},
     {"Emu.DirectBoot", true},
     {"Instance*.DS.Battery.LevelOkay", true},
     {"Instance*.DSi.Battery.Charging", true},
@@ -118,6 +117,13 @@ DefaultList<std::string> DefaultStrings =
     {"DLDI.ImagePath",                  "dldi.bin"},
     {"DSi.SD.ImagePath",                "dsisd.bin"},
     {"Instance*.Firmware.Username",     "melonDS"}
+};
+
+DefaultList<double> DefaultDoubles =
+{
+    {"TargetFPS", 60.0},
+    {"FastForwardFPS", 1000.0},
+    {"SlowmoFPS", 30.0},
 };
 
 LegacyEntry LegacyFile[] =
@@ -153,7 +159,7 @@ LegacyEntry LegacyFile[] =
     {"HKKey_Pause",               0, "Keyboard.HK_Pause", true},
     {"HKKey_Reset",               0, "Keyboard.HK_Reset", true},
     {"HKKey_FastForward",         0, "Keyboard.HK_FastForward", true},
-    {"HKKey_FastForwardToggle",   0, "Keyboard.HK_FastForwardToggle", true},
+    {"HKKey_FastForwardToggle",   0, "Keyboard.HK_FrameLimitToggle", true},
     {"HKKey_FullscreenToggle",    0, "Keyboard.HK_FullscreenToggle", true},
     {"HKKey_SwapScreens",         0, "Keyboard.HK_SwapScreens", true},
     {"HKKey_SwapScreenEmphasis",  0, "Keyboard.HK_SwapScreenEmphasis", true},
@@ -169,7 +175,7 @@ LegacyEntry LegacyFile[] =
     {"HKJoy_Pause",               0, "Joystick.HK_Pause", true},
     {"HKJoy_Reset",               0, "Joystick.HK_Reset", true},
     {"HKJoy_FastForward",         0, "Joystick.HK_FastForward", true},
-    {"HKJoy_FastForwardToggle",   0, "Joystick.HK_FastForwardToggle", true},
+    {"HKJoy_FastForwardToggle",   0, "Joystick.HK_FrameLimitToggle", true},
     {"HKJoy_FullscreenToggle",    0, "Joystick.HK_FullscreenToggle", true},
     {"HKJoy_SwapScreens",         0, "Joystick.HK_SwapScreens", true},
     {"HKJoy_SwapScreenEmphasis",  0, "Joystick.HK_SwapScreenEmphasis", true},
@@ -434,6 +440,18 @@ std::string Array::GetString(const int id)
     return tval.as_string();
 }
 
+double Array::GetDouble(const int id)
+{
+    while (Data.size() < id+1)
+        Data.push_back(0.0);
+
+    toml::value& tval = Data[id];
+    if (!tval.is_floating())
+        tval = 0.0;
+
+    return tval.as_floating();
+}
+
 void Array::SetInt(const int id, int val)
 {
     while (Data.size() < id+1)
@@ -465,6 +483,15 @@ void Array::SetString(const int id, const std::string& val)
 {
     while (Data.size() < id+1)
         Data.push_back("");
+
+    toml::value& tval = Data[id];
+    tval = val;
+}
+
+void Array::SetDouble(const int id, double val)
+{
+    while (Data.size() < id+1)
+        Data.push_back(0.0);
 
     toml::value& tval = Data[id];
     tval = val;
@@ -562,6 +589,15 @@ std::string Table::GetString(const std::string& path)
     return tval.as_string();
 }
 
+double Table::GetDouble(const std::string& path)
+{
+    toml::value& tval = ResolvePath(path);
+    if (!tval.is_floating())
+        tval = FindDefault(path, 0.0, DefaultDoubles);
+
+    return tval.as_floating();
+}
+
 void Table::SetInt(const std::string& path, int val)
 {
     std::string rngkey = GetDefaultKey(PathPrefix+path);
@@ -591,6 +627,13 @@ void Table::SetString(const std::string& path, const std::string& val)
 {
     toml::value& tval = ResolvePath(path);
     tval = val;
+}
+
+void Table::SetDouble(const std::string& path, double val)
+{
+    toml::value& tval = ResolvePath(path);
+    toml::floating_format_info info = {.prec=10};
+    tval = toml::value(val, info);
 }
 
 toml::value& Table::ResolvePath(const std::string& path)
@@ -774,7 +817,7 @@ Table GetLocalTable(int instance)
 
     std::string key = "Instance" + std::to_string(instance);
     toml::value& tbl = RootTable[key];
-    if (tbl.is_uninitialized())
+    if (tbl.is_empty())
         RootTable[key] = RootTable["Instance0"];
 
     return Table(tbl, key);
