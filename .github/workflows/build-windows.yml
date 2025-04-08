@@ -43,6 +43,7 @@ jobs:
         export CXX=g++
         cmake --preset=release-mingw-x86_64 \
           -DMELONDS_EMBED_BUILD_INFO=ON \
+          -DVCPKG_TARGET_TRIPLET=x64-mingw-dynamic \
           -DCMAKE_MAKE_PROGRAM=/ucrt64/bin/ninja -G Ninja
     - name: Build
       run: cmake --build --preset=release-mingw-x86_64
