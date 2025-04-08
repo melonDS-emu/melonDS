@@ -1,5 +1,4 @@
 name: Windows
-
 on:
   workflow_dispatch:
   push:
@@ -9,14 +8,11 @@ on:
   pull_request:
     branches:
       - master
-
-
 env:
   MELONDS_GIT_BRANCH: ${{ github.ref }}
   MELONDS_GIT_HASH: ${{ github.sha }}
   MELONDS_BUILD_PROVIDER: GitHub Actions
   MELONDS_VERSION_SUFFIX: " RC"
-
 jobs:
   build:
     runs-on: windows-latest
@@ -31,13 +27,30 @@ jobs:
       with:
         msystem: ucrt64
         update: true
-        pacboy: gcc:p cmake:p ninja:p make:p
+        install: >-
+          mingw-w64-ucrt-x86_64-gcc
+          mingw-w64-ucrt-x86_64-cmake
+          mingw-w64-ucrt-x86_64-ninja
+          mingw-w64-ucrt-x86_64-make
+        path-type: inherit
+    - name: Setup environment
+      run: |
+        echo "::add-path::$RUNNER_TEMP/msys64/ucrt64/bin"
+        gcc --version
+        cmake --version
+        ninja --version
     - name: Set up vcpkg
       uses: lukka/run-vcpkg@v11
       with:
+        # Try a more recent commit
         vcpkgGitCommitId: b02e341c927f16d991edbd915d8ea43eac52096c
     - name: Configure
-      run: cmake --preset=release-mingw-x86_64 -DMELONDS_EMBED_BUILD_INFO=ON
+      run: |
+        cmake --preset=release-mingw-x86_64 \
+          -DMELONDS_EMBED_BUILD_INFO=ON \
+          -DCMAKE_C_COMPILER=gcc \
+          -DCMAKE_CXX_COMPILER=g++ \
+          -DCMAKE_MAKE_PROGRAM=ninja
     - name: Build
       run: cmake --build --preset=release-mingw-x86_64
     - uses: actions/upload-artifact@v4
