@@ -37,7 +37,6 @@ jobs:
       with:
         vcpkgGitCommitId: ${{ env.VCPKG_COMMIT }}
         runVcpkgInstall: true
-        vcpkgTriplet: x64-mingw-dynamic
     - name: Configure
       run: cmake --preset=release-mingw-x86_64 -DMELONDS_EMBED_BUILD_INFO=ON
     - name: Build
