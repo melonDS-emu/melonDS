@@ -39,8 +39,8 @@ jobs:
     - name: Configure
       run: |
         export PATH="/ucrt64/bin:$PATH"
-        export CC=gcc
-        export CXX=g++
+        export CC=/ucrt64/bin/gcc
+        export CXX=/ucrt64/bin/g++
         cmake --preset=release-mingw-x86_64 \
           -DMELONDS_EMBED_BUILD_INFO=ON \
           -DVCPKG_TARGET_TRIPLET=x64-mingw-dynamic \
