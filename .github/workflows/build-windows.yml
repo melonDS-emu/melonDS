@@ -38,7 +38,9 @@ jobs:
         vcpkgGitCommitId: ${{ env.VCPKG_COMMIT }}
     - name: Configure
       run: |
-        cmake --preset=release-mingw-x86_64 -DMELONDS_EMBED_BUILD_INFO=ON \
+        export PATH="/ucrt64/bin:$PATH"
+        cmake --preset=release-mingw-x86_64 \
+          -DMELONDS_EMBED_BUILD_INFO=ON \
           -DCMAKE_TOOLCHAIN_FILE="${{ github.workspace }}/vcpkg/scripts/buildsystems/vcpkg.cmake" \
           -DVCPKG_TARGET_TRIPLET=x64-mingw-dynamic \
           -DCMAKE_MAKE_PROGRAM=$(which ninja)
