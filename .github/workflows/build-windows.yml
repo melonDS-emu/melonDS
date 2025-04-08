@@ -57,3 +57,9 @@ jobs:
       run: |
         echo '========== vcpkg-manifest-install.log =========='
         cat ./build/release-mingw-x86_64/vcpkg-manifest-install.log || echo "log not found"
+
+    - name: Show libarchive build log
+      if: failure()
+      run: |
+        echo '========== libarchive build log =========='
+        cat ./vcpkg/buildtrees/libarchive/config-x64-mingw-dynamic-out.log || echo "log not found"
