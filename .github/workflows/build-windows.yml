@@ -10,8 +10,8 @@ on:
     branches:
       - master
 
-
 env:
+  VCPKG_COMMIT: 6f29f12e82a8293156836ad81cc9bf5af41fe836
   MELONDS_GIT_BRANCH: ${{ github.ref }}
   MELONDS_GIT_HASH: ${{ github.sha }}
   MELONDS_BUILD_PROVIDER: GitHub Actions
@@ -35,12 +35,36 @@ jobs:
     - name: Set up vcpkg
       uses: lukka/run-vcpkg@v11
       with:
-        vcpkgGitCommitId: b2cb0da531c2f1f740045bfe7c4dac59f0b2b69c
+        vcpkgGitCommitId: ${{ env.VCPKG_COMMIT }}
     - name: Configure
-      run: cmake --preset=release-mingw-x86_64 -DMELONDS_EMBED_BUILD_INFO=ON
+      run: |
+        export PATH="/ucrt64/bin:$PATH"
+        export CC=gcc
+        export CXX=g++
+        cmake --preset=release-mingw-x86_64 \
+          -DMELONDS_EMBED_BUILD_INFO=ON \
+          -DVCPKG_TARGET_TRIPLET=x64-mingw-dynamic \
+          -DCMAKE_MAKE_PROGRAM=/ucrt64/bin/ninja -G Ninja
     - name: Build
       run: cmake --build --preset=release-mingw-x86_64
     - uses: actions/upload-artifact@v4
       with:
         name: melonDS-windows-x86_64
         path: .\build\release-mingw-x86_64\melonDS.exe
+
+    - name: Show vcpkg build log on failure
+      if: failure()
+      run: |
+        echo '========== vcpkg-manifest-install.log =========='
+        cat ./build/release-mingw-x86_64/vcpkg-manifest-install.log || echo "log not found"
+
+    - name: Show libarchive build log
+      if: failure()
+      run: |
+        echo '========== libarchive build log =========='
+        cat ./vcpkg/buildtrees/libarchive/config-x64-mingw-dynamic-out.log || echo "log not found"
+    - name: Show double-conversion build log
+      if: failure()
+      run: |
+        echo '========== double-conversion build log =========='
+        cat ./vcpkg/buildtrees/double-conversion/config-x64-mingw-dynamic-out.log || echo "log not found"
