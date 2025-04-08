@@ -38,12 +38,9 @@ jobs:
         vcpkgGitCommitId: ${{ env.VCPKG_COMMIT }}
     - name: Configure
       run: |
-        export PATH="/ucrt64/bin:$PATH"
         cmake --preset=release-mingw-x86_64 \
           -DMELONDS_EMBED_BUILD_INFO=ON \
-          -DCMAKE_TOOLCHAIN_FILE="${{ github.workspace }}/vcpkg/scripts/buildsystems/vcpkg.cmake" \
-          -DVCPKG_TARGET_TRIPLET=x64-mingw-dynamic \
-          -DCMAKE_MAKE_PROGRAM=$(which ninja)
+          -DCMAKE_MAKE_PROGRAM=/usr/bin/ninja -G Ninja
     - name: Build
       run: cmake --build --preset=release-mingw-x86_64
     - uses: actions/upload-artifact@v4
