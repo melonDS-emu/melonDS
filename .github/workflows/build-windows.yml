@@ -40,7 +40,7 @@ jobs:
       run: |
         cmake --preset=release-mingw-x86_64 \
           -DMELONDS_EMBED_BUILD_INFO=ON \
-          -DCMAKE_MAKE_PROGRAM=/usr/bin/ninja -G Ninja
+          -DCMAKE_MAKE_PROGRAM=/ucrt64/bin/ninja -G Ninja
     - name: Build
       run: cmake --build --preset=release-mingw-x86_64
     - uses: actions/upload-artifact@v4
