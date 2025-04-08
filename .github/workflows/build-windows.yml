@@ -34,15 +34,16 @@ jobs:
           mingw-w64-ucrt-x86_64-make
         path-type: inherit
     - name: Setup environment
+      # Using the new way to modify PATH
       run: |
-        echo "::add-path::$RUNNER_TEMP/msys64/ucrt64/bin"
+        echo "$MSYSTEM_PREFIX/bin" >> $GITHUB_PATH
         gcc --version
         cmake --version
         ninja --version
     - name: Set up vcpkg
       uses: lukka/run-vcpkg@v11
       with:
-        # Try a more recent commit
+        # Using a more recent commit
         vcpkgGitCommitId: b02e341c927f16d991edbd915d8ea43eac52096c
     - name: Configure
       run: |
