@@ -1,4 +1,5 @@
 name: Windows
+
 on:
   workflow_dispatch:
   push:
@@ -8,68 +9,37 @@ on:
   pull_request:
     branches:
       - master
+
+
 env:
   MELONDS_GIT_BRANCH: ${{ github.ref }}
   MELONDS_GIT_HASH: ${{ github.sha }}
   MELONDS_BUILD_PROVIDER: GitHub Actions
   MELONDS_VERSION_SUFFIX: " RC"
+
 jobs:
   build:
     runs-on: windows-latest
+    defaults:
+      run:
+        shell: msys2 {0}
     steps:
     - name: Check out sources
       uses: actions/checkout@v3
-      with:
-        submodules: true  # vcpkgをサブモジュールとして使用している場合
-    
-    # 通常のWindowsシェルを使用してvcpkgを設定
-    - name: Set up vcpkg
-      shell: powershell
-      run: |
-        git clone https://github.com/microsoft/vcpkg.git
-        cd vcpkg
-        git checkout 8eb57355a4ffb410a2e94c07b4dca2dffbee8e50
-        .\bootstrap-vcpkg.bat
-    
-    # MSYS2環境のセットアップ
     - name: Set up MSYS2
       uses: msys2/setup-msys2@v2
       with:
         msystem: ucrt64
         update: true
-        install: >-
-          mingw-w64-ucrt-x86_64-gcc
-          mingw-w64-ucrt-x86_64-cmake
-          mingw-w64-ucrt-x86_64-ninja
-          mingw-w64-ucrt-x86_64-make
-          git
-        path-type: inherit
-    
-    # ビルド処理（MSYS2シェルを使用）
-    - name: Configure and build
-      shell: msys2 {0}
-      run: |
-        # 環境確認
-        gcc --version
-        cmake --version
-        ninja --version
-        git --version
-        
-        # vcpkgの場所を設定
-        export VCPKG_ROOT=$(pwd)/vcpkg
-        
-        # CMake設定とビルド
-        cmake --preset=release-mingw-x86_64 \
-          -DMELONDS_EMBED_BUILD_INFO=ON \
-          -DCMAKE_C_COMPILER=gcc \
-          -DCMAKE_CXX_COMPILER=g++ \
-          -DCMAKE_MAKE_PROGRAM=ninja \
-          -DCMAKE_TOOLCHAIN_FILE=$VCPKG_ROOT/scripts/buildsystems/vcpkg.cmake \
-          -DVCPKG_TARGET_TRIPLET=x64-mingw-dynamic
-        
-        cmake --build --preset=release-mingw-x86_64
-    
-    # 成果物のアップロード
+        pacboy: gcc:p cmake:p ninja:p make:p
+    - name: Set up vcpkg
+      uses: lukka/run-vcpkg@v11
+      with:
+        vcpkgGitCommitId: b2cb0da531c2f1f740045bfe7c4dac59f0b2b69c
+    - name: Configure
+      run: cmake --preset=release-mingw-x86_64 -DMELONDS_EMBED_BUILD_INFO=ON
+    - name: Build
+      run: cmake --build --preset=release-mingw-x86_64
     - uses: actions/upload-artifact@v4
       with:
         name: melonDS-windows-x86_64
