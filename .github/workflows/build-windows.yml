@@ -34,25 +34,26 @@ jobs:
           mingw-w64-ucrt-x86_64-make
         path-type: inherit
     - name: Setup environment
-      # Using the new way to modify PATH
       run: |
-        echo "$MSYSTEM_PREFIX/bin" >> $GITHUB_PATH
+        # 環境変数を設定してvcpkgが内部のNinjaを使用するようにする
+        echo "VCPKG_FORCE_SYSTEM_BINARIES=1" >> $GITHUB_ENV
+        echo "PATH=$MSYSTEM_PREFIX/bin:$PATH" >> $GITHUB_ENV
         gcc --version
         cmake --version
         ninja --version
     - name: Set up vcpkg
       uses: lukka/run-vcpkg@v11
       with:
-        # Using a more recent commit
         vcpkgGitCommitId: b02e341c927f16d991edbd915d8ea43eac52096c
     - name: Configure
       run: |
+        # 内部のNinjaを使用するためのオプションを追加
         cmake --preset=release-mingw-x86_64 \
           -DMELONDS_EMBED_BUILD_INFO=ON \
           -DCMAKE_C_COMPILER=gcc \
           -DCMAKE_CXX_COMPILER=g++ \
-          -DVCPKG_TARGET_TRIPLET=x64-mingw-dynamic \
-          -DCMAKE_MAKE_PROGRAM=ninja
+          -DCMAKE_MAKE_PROGRAM=$(which ninja) \
+          -DVCPKG_USE_EXTERNAL_NINJA=OFF
     - name: Build
       run: cmake --build --preset=release-mingw-x86_64
     - uses: actions/upload-artifact@v4
