@@ -36,6 +36,7 @@ jobs:
       uses: lukka/run-vcpkg@v11
       with:
         vcpkgGitCommitId: ${{ env.VCPKG_COMMIT }}
+        doNotCache: true
     - name: Configure
       run: |
         export PATH="/ucrt64/bin:$PATH"
