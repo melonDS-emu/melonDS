@@ -51,6 +51,7 @@ jobs:
           -DMELONDS_EMBED_BUILD_INFO=ON \
           -DCMAKE_C_COMPILER=gcc \
           -DCMAKE_CXX_COMPILER=g++ \
+          -DVCPKG_TARGET_TRIPLET=x64-mingw-dynamic \
           -DCMAKE_MAKE_PROGRAM=ninja
     - name: Build
       run: cmake --build --preset=release-mingw-x86_64
