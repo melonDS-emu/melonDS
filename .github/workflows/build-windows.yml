@@ -38,6 +38,9 @@ jobs:
         vcpkgGitCommitId: ${{ env.VCPKG_COMMIT }}
     - name: Configure
       run: |
+        export PATH="/ucrt64/bin:$PATH"
+        export CC=gcc
+        export CXX=g++
         cmake --preset=release-mingw-x86_64 \
           -DMELONDS_EMBED_BUILD_INFO=ON \
           -DCMAKE_MAKE_PROGRAM=/ucrt64/bin/ninja -G Ninja
@@ -47,3 +50,9 @@ jobs:
       with:
         name: melonDS-windows-x86_64
         path: .\build\release-mingw-x86_64\melonDS.exe
+
+    - name: Show vcpkg build log on failure
+      if: failure()
+      run: |
+        echo '========== vcpkg-manifest-install.log =========='
+        cat ./build/release-mingw-x86_64/vcpkg-manifest-install.log || echo "log not found"
