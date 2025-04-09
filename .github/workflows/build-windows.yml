@@ -34,6 +34,7 @@ jobs:
           mingw-w64-ucrt-x86_64-qt6-base
           mingw-w64-ucrt-x86_64-qt6-svg
           mingw-w64-ucrt-x86_64-qt6-tools
+          mingw-w64-ucrt-x86_64-qt6-multimedia
           mingw-w64-ucrt-x86_64-SDL2
           git
 
@@ -51,7 +52,7 @@ jobs:
         }
         "@
     
-    # CMakeを使用して設定 (vcpkgマニフェストモードを無効化)
+    # CMakeを使用して設定
     - name: Configure
       shell: msys2 {0}
       run: |
