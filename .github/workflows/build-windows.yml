@@ -30,8 +30,14 @@ jobs:
       uses: msys2/setup-msys2@v2
       with:
         msystem: ucrt64
-        update: true
+        update: false
+        path-type: inherit
+        msys2-release: '20231216'  # 正しいパラメータ名とフォーマット
         pacboy: gcc:p cmake:p ninja:p make:p
+
+    - name: Install Git
+      run: pacman -S --noconfirm git
+
     - name: Set up vcpkg
       uses: lukka/run-vcpkg@v11
       with:

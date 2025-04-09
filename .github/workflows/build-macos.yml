@@ -1,5 +1,4 @@
 name: macOS
-
 on:
   workflow_dispatch:
   push:
@@ -9,51 +8,58 @@ on:
   pull_request:
     branches:
       - master
-
 env:
   MELONDS_GIT_BRANCH: ${{ github.ref }}
   MELONDS_GIT_HASH: ${{ github.sha }}
   MELONDS_BUILD_PROVIDER: GitHub Actions
   MELONDS_VERSION_SUFFIX: " RC"
-
+  CMAKE_VERSION: "3.28.3"
 jobs:
   build-macos:
     strategy:
       matrix:
         arch: [x86_64, arm64]
-
     name: ${{ matrix.arch }}
     runs-on: macos-14
     steps:
       - name: Check out sources
         uses: actions/checkout@v3
+        
       - name: Install dependencies for package building
         run: |
           brew install autoconf automake autoconf-archive libtool python-setuptools
-      - name: Set up CMake
-        uses: lukka/get-cmake@latest
+        
+      # 特定バージョンのCMakeをインストール（最小限の変更）
+      - name: Install specific CMake version
+        run: |
+          wget https://github.com/Kitware/CMake/releases/download/v${{ env.CMAKE_VERSION }}/cmake-${{ env.CMAKE_VERSION }}-macos-universal.tar.gz
+          tar -xzf cmake-${{ env.CMAKE_VERSION }}-macos-universal.tar.gz
+          echo "${{ github.workspace }}/cmake-${{ env.CMAKE_VERSION }}-macos-universal/CMake.app/Contents/bin" >> $GITHUB_PATH
+        
       - name: Set up vcpkg
         uses: lukka/run-vcpkg@v11
         with:
           vcpkgGitCommitId: b2cb0da531c2f1f740045bfe7c4dac59f0b2b69c
+          
       - name: Build
         uses: lukka/run-cmake@v10
         with:
           configurePreset: release-mac-${{ matrix.arch }}
           buildPreset: release-mac-${{ matrix.arch }}
           configurePresetAdditionalArgs: "['-DMELONDS_EMBED_BUILD_INFO=ON']"
+          
       - name: Compress app bundle
         shell: bash
         run: |
           cd build/release-mac-${{ matrix.arch }}
           zip -r -y ../../macOS-${{ matrix.arch }}.zip melonDS.app
+          
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
           name: macOS-${{ matrix.arch }}
           path: macOS-${{ matrix.arch }}.zip
           retention-days: 1
-
   universal-binary:
     name: Universal binary
     needs: [build-macos]
@@ -85,10 +91,3 @@ jobs:
         with:
           name: macOS-universal
           path: macOS-universal.zip
-#     - name: Clean up architecture-specific artifacts
-#       uses: geekyeggo/delete-artifact@v4
-#       with:
-#         failOnError: false
-#         name: |
-#           macOS-x86_64
-#           macOS-arm64
