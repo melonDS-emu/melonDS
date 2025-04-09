@@ -16,11 +16,13 @@ env:
 jobs:
   build:
     runs-on: windows-latest
+    defaults:
+      run:
+        shell: msys2 {0}
     steps:
     - name: Check out sources
       uses: actions/checkout@v3
       
-    # MSYS2をセットアップ
     - name: Set up MSYS2
       uses: msys2/setup-msys2@v2
       with:
@@ -31,50 +33,22 @@ jobs:
           mingw-w64-ucrt-x86_64-cmake
           mingw-w64-ucrt-x86_64-ninja
           mingw-w64-ucrt-x86_64-make
-          mingw-w64-ucrt-x86_64-qt6-base
-          mingw-w64-ucrt-x86_64-qt6-svg
-          mingw-w64-ucrt-x86_64-qt6-tools
-          mingw-w64-ucrt-x86_64-qt6-multimedia
-          mingw-w64-ucrt-x86_64-SDL2
           git
-
-    # vcpkgの直接的な依存関係をスキップするカスタム設定
-    - name: Create vcpkg.json override
-      shell: pwsh
+          
+    - name: Install vcpkg dependencies
       run: |
-        $vcpkgDir = Join-Path $env:GITHUB_WORKSPACE "vcpkg-manifest"
-        New-Item -Path $vcpkgDir -ItemType Directory -Force
-        Set-Content -Path (Join-Path $vcpkgDir "vcpkg.json") -Value @"
-        {
-          "name": "melonds",
-          "version-string": "0.9.5",
-          "dependencies": []
-        }
-        "@
-    
-    # CMakeを使用して設定
+        pacman -S --noconfirm mingw-w64-ucrt-x86_64-qt6-base mingw-w64-ucrt-x86_64-qt6-svg mingw-w64-ucrt-x86_64-qt6-tools mingw-w64-ucrt-x86_64-qt6-multimedia mingw-w64-ucrt-x86_64-SDL2 mingw-w64-ucrt-x86_64-libarchive mingw-w64-ucrt-x86_64-zstd mingw-w64-ucrt-x86_64-enet
+      
     - name: Configure
-      shell: msys2 {0}
       run: |
-        export PATH=/ucrt64/bin:$PATH
-        cmake -B build/release-mingw-x86_64 \
-          -DCMAKE_BUILD_TYPE=Release \
-          -G "MinGW Makefiles" \
-          -DCMAKE_MAKE_PROGRAM=/ucrt64/bin/mingw32-make.exe \
-          -DCMAKE_C_COMPILER=/ucrt64/bin/gcc.exe \
-          -DCMAKE_CXX_COMPILER=/ucrt64/bin/g++.exe \
-          -DMELONDS_EMBED_BUILD_INFO=ON \
-          -DVCPKG_MANIFEST_MODE=OFF \
-          -DCMAKE_PREFIX_PATH=/ucrt64
+        export PATH=$PATH:/ucrt64/bin
+        cmake -B build/release-mingw-x86_64 -DCMAKE_BUILD_TYPE=Release -G "MinGW Makefiles" -DCMAKE_PREFIX_PATH=/ucrt64 -DMELONDS_EMBED_BUILD_INFO=ON -DVCPKG_MANIFEST_MODE=OFF
       
-    # ビルド実行
     - name: Build
-      shell: msys2 {0}
       run: |
-        export PATH=/ucrt64/bin:$PATH
-        cmake --build build/release-mingw-x86_64 --config Release
+        export PATH=$PATH:/ucrt64/bin
+        cmake --build build/release-mingw-x86_64
       
-    # 成果物をアップロード
     - uses: actions/upload-artifact@v4
       with:
         name: melonDS-windows-x86_64
