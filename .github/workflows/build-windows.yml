@@ -1,5 +1,4 @@
 name: Windows
-
 on:
   workflow_dispatch:
   push:
@@ -9,37 +8,58 @@ on:
   pull_request:
     branches:
       - master
-
-
 env:
   MELONDS_GIT_BRANCH: ${{ github.ref }}
   MELONDS_GIT_HASH: ${{ github.sha }}
   MELONDS_BUILD_PROVIDER: GitHub Actions
   MELONDS_VERSION_SUFFIX: " RC"
-
 jobs:
   build:
     runs-on: windows-latest
-    defaults:
-      run:
-        shell: msys2 {0}
     steps:
     - name: Check out sources
       uses: actions/checkout@v3
+      
+    # vcpkgをセットアップ (MSYS2の前に実行)
+    - name: Set up vcpkg
+      uses: lukka/run-vcpkg@v11
+      with:
+        vcpkgGitCommitId: b2cb0da531c2f1f740045bfe7c4dac59f0b2b69c
+        
+    # MSYS2をセットアップ
     - name: Set up MSYS2
       uses: msys2/setup-msys2@v2
       with:
         msystem: ucrt64
         update: true
-        pacboy: gcc:p cmake:p ninja:p make:p
-    - name: Set up vcpkg
-      uses: lukka/run-vcpkg@v11
-      with:
-        vcpkgGitCommitId: b2cb0da531c2f1f740045bfe7c4dac59f0b2b69c
+        install: >-
+          mingw-w64-ucrt-x86_64-gcc
+          mingw-w64-ucrt-x86_64-cmake
+          mingw-w64-ucrt-x86_64-ninja
+          mingw-w64-ucrt-x86_64-make
+          git
+        
+    # 環境変数とパスを設定
+    - name: Setup environment
+      shell: powershell
+      run: |
+        echo "CMAKE_GENERATOR=Ninja" | Out-File -FilePath $env:GITHUB_ENV -Append
+    
+    # CMakeを使用して設定 (Ninjaの問題を回避するためにMakefilesを使用)
     - name: Configure
-      run: cmake --preset=release-mingw-x86_64 -DMELONDS_EMBED_BUILD_INFO=ON -DCMAKE_C_COMPILER=gcc -DCMAKE_CXX_COMPILER=g++ -DCMAKE_MAKE_PROGRAM=/ucrt64/bin/ninja.exe
+      shell: msys2 {0}
+      run: |
+        export PATH=$PATH:/ucrt64/bin
+        cmake --preset=release-mingw-x86_64 -DMELONDS_EMBED_BUILD_INFO=ON -DCMAKE_C_COMPILER=gcc -DCMAKE_CXX_COMPILER=g++ -G "MinGW Makefiles"
+      
+    # ビルド実行
     - name: Build
-      run: cmake --build --preset=release-mingw-x86_64
+      shell: msys2 {0}
+      run: |
+        export PATH=$PATH:/ucrt64/bin
+        cmake --build --preset=release-mingw-x86_64
+      
+    # 成果物をアップロード
     - uses: actions/upload-artifact@v4
       with:
         name: melonDS-windows-x86_64
