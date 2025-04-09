@@ -1,5 +1,4 @@
 name: macOS
-
 on:
   workflow_dispatch:
   push:
@@ -9,55 +8,76 @@ on:
   pull_request:
     branches:
       - master
-
 env:
   MELONDS_GIT_BRANCH: ${{ github.ref }}
   MELONDS_GIT_HASH: ${{ github.sha }}
   MELONDS_BUILD_PROVIDER: GitHub Actions
   MELONDS_VERSION_SUFFIX: " RC"
-
 jobs:
   build-macos:
     strategy:
       matrix:
         arch: [x86_64, arm64]
-
     name: ${{ matrix.arch }}
     runs-on: macos-14
     steps:
       - name: Check out sources
         uses: actions/checkout@v3
-      - name: Install dependencies for package building
+        
+      - name: Install dependencies with Homebrew
         run: |
           brew install autoconf automake autoconf-archive libtool python-setuptools
-      - name: Set up CMake
-        uses: lukka/get-cmake@latest
+          brew install cmake ninja pkg-config
+          brew install qt@6 sdl2 libarchive zstd enet
+        
       - name: Set up vcpkg
         uses: lukka/run-vcpkg@v11
         with:
           vcpkgGitCommitId: b2cb0da531c2f1f740045bfe7c4dac59f0b2b69c
+        
+      - name: Configure CMake
+        run: |
+          # QtのパスをCMAKE_PREFIX_PATHに追加
+          QT_PATH=$(brew --prefix qt@6)
+          
+          # 環境に応じてCMakeプリセットを作成
+          cmake -B build/release-mac-${{ matrix.arch }} \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DCMAKE_OSX_ARCHITECTURES=${{ matrix.arch }} \
+            -DCMAKE_PREFIX_PATH="${QT_PATH}" \
+            -DMELONDS_EMBED_BUILD_INFO=ON \
+            -DVCPKG_MANIFEST_MODE=OFF
+        
       - name: Build
-        uses: lukka/run-cmake@v10
-        with:
-          configurePreset: release-mac-${{ matrix.arch }}
-          buildPreset: release-mac-${{ matrix.arch }}
-          configurePresetAdditionalArgs: "['-DMELONDS_EMBED_BUILD_INFO=ON']"
+        run: |
+          cmake --build build/release-mac-${{ matrix.arch }} --config Release
+        
+      - name: Create app bundle
+        run: |
+          cd build/release-mac-${{ matrix.arch }}
+          # macOSバンドルの作成
+          cmake --install . --prefix=./install
+          # QtライブラリをバンドルにデプロイするためのmacdeployQtを実行
+          QT_PATH=$(brew --prefix qt@6)
+          $QT_PATH/bin/macdeployqt melonDS.app -verbose=2
+        
       - name: Compress app bundle
         shell: bash
         run: |
           cd build/release-mac-${{ matrix.arch }}
           zip -r -y ../../macOS-${{ matrix.arch }}.zip melonDS.app
+          
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
           name: macOS-${{ matrix.arch }}
           path: macOS-${{ matrix.arch }}.zip
           retention-days: 1
-
+          
   universal-binary:
     name: Universal binary
     needs: [build-macos]
-    runs-on: macos-13
+    runs-on: macos-14
     continue-on-error: true
     steps:
       - name: Download x86_64
@@ -65,11 +85,13 @@ jobs:
         with:
           name: macOS-x86_64
           path: x86_64
+          
       - name: Download arm64
         uses: actions/download-artifact@v4
         with:
           name: macOS-arm64
           path: arm64
+          
       - name: Combine app bundles
         shell: bash
         run: |
@@ -80,15 +102,9 @@ jobs:
           cp melonDS melonDS.app/Contents/MacOS/melonDS
           codesign -s - --deep melonDS.app
           zip -r -y macOS-universal.zip melonDS.app
+          
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
           name: macOS-universal
           path: macOS-universal.zip
-#     - name: Clean up architecture-specific artifacts
-#       uses: geekyeggo/delete-artifact@v4
-#       with:
-#         failOnError: false
-#         name: |
-#           macOS-x86_64
-#           macOS-arm64
