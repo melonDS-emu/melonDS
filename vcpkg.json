@@ -7,10 +7,7 @@
 			"platform": "linux",
 			"features": [ "alsa" ]
 		},
-		{
-			"name": "libarchive",
-			"platform": "!windows"
-		},
+		"libarchive",
 		"zstd",
 		"enet",
 		{
