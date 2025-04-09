@@ -31,8 +31,12 @@ jobs:
           mingw-w64-ucrt-x86_64-cmake
           mingw-w64-ucrt-x86_64-ninja
           mingw-w64-ucrt-x86_64-make
+          mingw-w64-ucrt-x86_64-qt6-base
+          mingw-w64-ucrt-x86_64-qt6-svg
+          mingw-w64-ucrt-x86_64-qt6-tools
+          mingw-w64-ucrt-x86_64-SDL2
           git
-    
+
     # vcpkgの直接的な依存関係をスキップするカスタム設定
     - name: Create vcpkg.json override
       shell: pwsh
@@ -59,7 +63,8 @@ jobs:
           -DCMAKE_C_COMPILER=/ucrt64/bin/gcc.exe \
           -DCMAKE_CXX_COMPILER=/ucrt64/bin/g++.exe \
           -DMELONDS_EMBED_BUILD_INFO=ON \
-          -DVCPKG_MANIFEST_MODE=OFF
+          -DVCPKG_MANIFEST_MODE=OFF \
+          -DCMAKE_PREFIX_PATH=/ucrt64
       
     # ビルド実行
     - name: Build
