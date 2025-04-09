@@ -27,9 +27,13 @@ jobs:
       uses: msys2/setup-msys2@v2
       with:
         msystem: ucrt64
-        update: false  # 更新を無効化
-        release: '2023-12-16'  # 特定のリリース日付を指定（CMake 4.0より前）
+        update: false
+        path-type: inherit
+        msys2-release: '20231216'  # 正しいパラメータ名とフォーマット
         pacboy: gcc:p cmake:p ninja:p make:p
+        
+    - name: Install Git
+      run: pacman -S --noconfirm git
         
     - name: Set up vcpkg
       uses: lukka/run-vcpkg@v11
