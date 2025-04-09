@@ -37,7 +37,7 @@ jobs:
       with:
         vcpkgGitCommitId: b2cb0da531c2f1f740045bfe7c4dac59f0b2b69c
     - name: Configure
-      run: cmake --preset=release-mingw-x86_64 -DMELONDS_EMBED_BUILD_INFO=ON
+      run: cmake --preset=release-mingw-x86_64 -DMELONDS_EMBED_BUILD_INFO=ON -DCMAKE_MAKE_PROGRAM=/ucrt64/bin/ninja.exe
     - name: Build
       run: cmake --build --preset=release-mingw-x86_64
     - uses: actions/upload-artifact@v4
