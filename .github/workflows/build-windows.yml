@@ -28,50 +28,31 @@ jobs:
       with:
         msystem: ucrt64
         update: true
-        install: >-
-          mingw-w64-ucrt-x86_64-gcc
-          mingw-w64-ucrt-x86_64-cmake
-          mingw-w64-ucrt-x86_64-ninja
-          mingw-w64-ucrt-x86_64-make
-          mingw-w64-ucrt-x86_64-qt6-base
-          mingw-w64-ucrt-x86_64-qt6-svg
-          mingw-w64-ucrt-x86_64-qt6-tools
-          mingw-w64-ucrt-x86_64-qt6-multimedia
-          mingw-w64-ucrt-x86_64-SDL2
-          mingw-w64-ucrt-x86_64-libarchive
-          mingw-w64-ucrt-x86_64-zstd
-          mingw-w64-ucrt-x86_64-enet
-          git
-          
-    - name: Configure for static build
-      run: |
-        export PATH=$PATH:/ucrt64/bin
-        # 静的リンクのための設定
-        cmake -B build/release-mingw-x86_64 \
-          -DCMAKE_BUILD_TYPE=Release \
-          -G "MinGW Makefiles" \
-          -DCMAKE_PREFIX_PATH=/ucrt64 \
-          -DMELONDS_EMBED_BUILD_INFO=ON \
-          -DVCPKG_MANIFEST_MODE=OFF \
-          -DBUILD_SHARED_LIBS=OFF \
-          -DCMAKE_EXE_LINKER_FLAGS="-static" \
-          -DCMAKE_FIND_LIBRARY_SUFFIXES=".a" \
-          -DCMAKE_EXE_LINKER_FLAGS_RELEASE="-static-libgcc -static-libstdc++"
-      
-    - name: Build static executable
-      run: |
-        export PATH=$PATH:/ucrt64/bin
-        cmake --build build/release-mingw-x86_64 --config Release
-      
-    - name: Package with UPX (optional)
-      run: |
-        # UPXをインストール
-        pacman -S --noconfirm mingw-w64-ucrt-x86_64-upx
+        pacboy: gcc:p cmake:p ninja:p make:p
         
-        # 実行ファイルを圧縮
-        upx --best build/release-mingw-x86_64/melonDS.exe
-      
+    - name: Install Git in MSYS2
+      run: pacman -S --noconfirm git
+        
+    - name: Set up vcpkg
+      uses: lukka/run-vcpkg@v11
+      with:
+        vcpkgGitCommitId: b2cb0da531c2f1f740045bfe7c4dac59f0b2b69c
+        
+    - name: Configure
+      run: |
+        export PATH=$PATH:/ucrt64/bin
+        # vcpkgでの静的リンク設定を追加
+        echo "set(VCPKG_TARGET_TRIPLET x64-mingw-static)" > $GITHUB_WORKSPACE/vcpkg-configuration.cmake
+        echo "set(VCPKG_BUILD_TYPE release)" >> $GITHUB_WORKSPACE/vcpkg-configuration.cmake
+        
+        cmake --preset=release-mingw-x86_64 -DMELONDS_EMBED_BUILD_INFO=ON -DCMAKE_TOOLCHAIN_FILE=$GITHUB_WORKSPACE/vcpkg/scripts/buildsystems/vcpkg.cmake -DVCPKG_OVERLAY_TRIPLETS=$GITHUB_WORKSPACE/triplets
+        
+    - name: Build
+      run: |
+        export PATH=$PATH:/ucrt64/bin
+        cmake --build --preset=release-mingw-x86_64
+        
     - uses: actions/upload-artifact@v4
       with:
         name: melonDS-windows-x86_64
-        path: build/release-mingw-x86_64/melonDS.exe
+        path: .\build\release-mingw-x86_64\melonDS.exe
