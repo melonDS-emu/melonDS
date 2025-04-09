@@ -296,6 +296,7 @@ private:
 
     SDL_AudioDeviceID audioDevice;
     int audioFreq;
+    int audioBufSize;
     float audioSampleFrac;
     bool audioMuted;
     SDL_cond* audioSyncCond;
