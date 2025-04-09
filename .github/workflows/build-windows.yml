@@ -33,21 +33,43 @@ jobs:
           mingw-w64-ucrt-x86_64-cmake
           mingw-w64-ucrt-x86_64-ninja
           mingw-w64-ucrt-x86_64-make
+          mingw-w64-ucrt-x86_64-qt6-base
+          mingw-w64-ucrt-x86_64-qt6-svg
+          mingw-w64-ucrt-x86_64-qt6-tools
+          mingw-w64-ucrt-x86_64-qt6-multimedia
+          mingw-w64-ucrt-x86_64-SDL2
+          mingw-w64-ucrt-x86_64-libarchive
+          mingw-w64-ucrt-x86_64-zstd
+          mingw-w64-ucrt-x86_64-enet
           git
           
-    - name: Install vcpkg dependencies
-      run: |
-        pacman -S --noconfirm mingw-w64-ucrt-x86_64-qt6-base mingw-w64-ucrt-x86_64-qt6-svg mingw-w64-ucrt-x86_64-qt6-tools mingw-w64-ucrt-x86_64-qt6-multimedia mingw-w64-ucrt-x86_64-SDL2 mingw-w64-ucrt-x86_64-libarchive mingw-w64-ucrt-x86_64-zstd mingw-w64-ucrt-x86_64-enet
-      
-    - name: Configure
+    - name: Configure for static build
       run: |
         export PATH=$PATH:/ucrt64/bin
-        cmake -B build/release-mingw-x86_64 -DCMAKE_BUILD_TYPE=Release -G "MinGW Makefiles" -DCMAKE_PREFIX_PATH=/ucrt64 -DMELONDS_EMBED_BUILD_INFO=ON -DVCPKG_MANIFEST_MODE=OFF
+        # 静的リンクのための設定
+        cmake -B build/release-mingw-x86_64 \
+          -DCMAKE_BUILD_TYPE=Release \
+          -G "MinGW Makefiles" \
+          -DCMAKE_PREFIX_PATH=/ucrt64 \
+          -DMELONDS_EMBED_BUILD_INFO=ON \
+          -DVCPKG_MANIFEST_MODE=OFF \
+          -DBUILD_SHARED_LIBS=OFF \
+          -DCMAKE_EXE_LINKER_FLAGS="-static" \
+          -DCMAKE_FIND_LIBRARY_SUFFIXES=".a" \
+          -DCMAKE_EXE_LINKER_FLAGS_RELEASE="-static-libgcc -static-libstdc++"
       
-    - name: Build
+    - name: Build static executable
       run: |
         export PATH=$PATH:/ucrt64/bin
-        cmake --build build/release-mingw-x86_64
+        cmake --build build/release-mingw-x86_64 --config Release
+      
+    - name: Package with UPX (optional)
+      run: |
+        # UPXをインストール
+        pacman -S --noconfirm mingw-w64-ucrt-x86_64-upx
+        
+        # 実行ファイルを圧縮
+        upx --best build/release-mingw-x86_64/melonDS.exe
       
     - uses: actions/upload-artifact@v4
       with:
