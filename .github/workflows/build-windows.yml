@@ -20,12 +20,6 @@ jobs:
     - name: Check out sources
       uses: actions/checkout@v3
       
-    # vcpkgをセットアップ (MSYS2の前に実行)
-    - name: Set up vcpkg
-      uses: lukka/run-vcpkg@v11
-      with:
-        vcpkgGitCommitId: b2cb0da531c2f1f740045bfe7c4dac59f0b2b69c
-        
     # MSYS2をセットアップ
     - name: Set up MSYS2
       uses: msys2/setup-msys2@v2
@@ -38,29 +32,44 @@ jobs:
           mingw-w64-ucrt-x86_64-ninja
           mingw-w64-ucrt-x86_64-make
           git
-        
-    # 環境変数とパスを設定
-    - name: Setup environment
-      shell: powershell
-      run: |
-        echo "CMAKE_GENERATOR=Ninja" | Out-File -FilePath $env:GITHUB_ENV -Append
     
-    # CMakeを使用して設定 (Ninjaの問題を回避するためにMakefilesを使用)
+    # vcpkgの直接的な依存関係をスキップするカスタム設定
+    - name: Create vcpkg.json override
+      shell: pwsh
+      run: |
+        $vcpkgDir = Join-Path $env:GITHUB_WORKSPACE "vcpkg-manifest"
+        New-Item -Path $vcpkgDir -ItemType Directory -Force
+        Set-Content -Path (Join-Path $vcpkgDir "vcpkg.json") -Value @"
+        {
+          "name": "melonds",
+          "version-string": "0.9.5",
+          "dependencies": []
+        }
+        "@
+    
+    # CMakeを使用して設定 (vcpkgマニフェストモードを無効化)
     - name: Configure
       shell: msys2 {0}
       run: |
-        export PATH=$PATH:/ucrt64/bin
-        cmake --preset=release-mingw-x86_64 -DMELONDS_EMBED_BUILD_INFO=ON -DCMAKE_C_COMPILER=gcc -DCMAKE_CXX_COMPILER=g++ -G "MinGW Makefiles"
+        export PATH=/ucrt64/bin:$PATH
+        cmake -B build/release-mingw-x86_64 \
+          -DCMAKE_BUILD_TYPE=Release \
+          -G "MinGW Makefiles" \
+          -DCMAKE_MAKE_PROGRAM=/ucrt64/bin/mingw32-make.exe \
+          -DCMAKE_C_COMPILER=/ucrt64/bin/gcc.exe \
+          -DCMAKE_CXX_COMPILER=/ucrt64/bin/g++.exe \
+          -DMELONDS_EMBED_BUILD_INFO=ON \
+          -DVCPKG_MANIFEST_MODE=OFF
       
     # ビルド実行
     - name: Build
       shell: msys2 {0}
       run: |
-        export PATH=$PATH:/ucrt64/bin
-        cmake --build --preset=release-mingw-x86_64
+        export PATH=/ucrt64/bin:$PATH
+        cmake --build build/release-mingw-x86_64 --config Release
       
     # 成果物をアップロード
     - uses: actions/upload-artifact@v4
       with:
         name: melonDS-windows-x86_64
-        path: .\build\release-mingw-x86_64\melonDS.exe
+        path: build/release-mingw-x86_64/melonDS.exe
