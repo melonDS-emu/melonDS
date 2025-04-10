@@ -90,6 +90,9 @@ void DSi_AES::Reset()
     *(u32*)&KeyX[1][8] = (u32)(consoleid >> 32) ^ 0xC80C4B72;
     *(u32*)&KeyX[1][12] = (u32)consoleid;
 
+    // slot 2: For 'Tad'
+    std::memcpy(KeyX[2], &DSi.ARM9iBIOS[0x8B8C], 0x10);
+
     // slot 3: console-unique eMMC crypto
     *(u32*)&KeyX[3][0] = (u32)consoleid;
     *(u32*)&KeyX[3][4] = (u32)consoleid ^ 0x24EE6906;
