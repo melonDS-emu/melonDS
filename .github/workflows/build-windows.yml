@@ -1,7 +1,6 @@
 name: Windows
 
 on:
-  workflow_dispatch:
   push:
     branches:
       - master
@@ -10,8 +9,8 @@ on:
     branches:
       - master
 
-
 env:
+  VCPKG_COMMIT: 2ad004460f5db4d3b66f62f5799ff66c265c4b5d
   MELONDS_GIT_BRANCH: ${{ github.ref }}
   MELONDS_GIT_HASH: ${{ github.sha }}
   MELONDS_BUILD_PROVIDER: GitHub Actions
@@ -30,18 +29,12 @@ jobs:
       uses: msys2/setup-msys2@v2
       with:
         msystem: ucrt64
-        update: false
-        path-type: inherit
-        msys2-release: '20231216'  # 正しいパラメータ名とフォーマット
+        update: true
         pacboy: gcc:p cmake:p ninja:p make:p
-
-    - name: Install Git
-      run: pacman -S --noconfirm git
-
     - name: Set up vcpkg
       uses: lukka/run-vcpkg@v11
       with:
-        vcpkgGitCommitId: b2cb0da531c2f1f740045bfe7c4dac59f0b2b69c
+        vcpkgGitCommitId: ${{ env.VCPKG_COMMIT }}
     - name: Configure
       run: cmake --preset=release-mingw-x86_64 -DMELONDS_EMBED_BUILD_INFO=ON
     - name: Build
