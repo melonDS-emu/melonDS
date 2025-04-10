@@ -130,19 +130,20 @@ public:
 
     void UpdateMode(u32 oldmode, u32 newmode, bool phony = false);
 
+    template <CPUExecuteMode mode>
     void TriggerIRQ();
 
     void SetupCodeMem(u32 addr);
 
 
-    virtual void DataRead8(u32 addr, u32* val) = 0;
-    virtual void DataRead16(u32 addr, u32* val) = 0;
-    virtual void DataRead32(u32 addr, u32* val) = 0;
-    virtual void DataRead32S(u32 addr, u32* val) = 0;
-    virtual void DataWrite8(u32 addr, u8 val) = 0;
-    virtual void DataWrite16(u32 addr, u16 val) = 0;
-    virtual void DataWrite32(u32 addr, u32 val) = 0;
-    virtual void DataWrite32S(u32 addr, u32 val) = 0;
+    virtual bool DataRead8(u32 addr, u32* val) = 0;
+    virtual bool DataRead16(u32 addr, u32* val) = 0;
+    virtual bool DataRead32(u32 addr, u32* val) = 0;
+    virtual bool DataRead32S(u32 addr, u32* val) = 0;
+    virtual bool DataWrite8(u32 addr, u8 val) = 0;
+    virtual bool DataWrite16(u32 addr, u16 val) = 0;
+    virtual bool DataWrite32(u32 addr, u32 val) = 0;
+    virtual bool DataWrite32S(u32 addr, u32 val) = 0;
 
     virtual void AddCycles_C() = 0;
     virtual void AddCycles_CI(s32 numI) = 0;
@@ -178,8 +179,8 @@ public:
     u32 R_ABT[3];
     u32 R_IRQ[3];
     u32 R_UND[3];
-    u32 CurInstr;
-    u32 NextInstr[2];
+    u64 CurInstr;
+    u64 NextInstr[2];
 
     u32 ExceptionBase;
 
@@ -252,16 +253,16 @@ public:
     void Execute();
 
     // all code accesses are forced nonseq 32bit
-    u32 CodeRead32(u32 addr, bool branch);
+    u64 CodeRead32(u32 addr, bool branch);
 
-    void DataRead8(u32 addr, u32* val) override;
-    void DataRead16(u32 addr, u32* val) override;
-    void DataRead32(u32 addr, u32* val) override;
-    void DataRead32S(u32 addr, u32* val) override;
-    void DataWrite8(u32 addr, u8 val) override;
-    void DataWrite16(u32 addr, u16 val) override;
-    void DataWrite32(u32 addr, u32 val) override;
-    void DataWrite32S(u32 addr, u32 val) override;
+    bool DataRead8(u32 addr, u32* val) override;
+    bool DataRead16(u32 addr, u32* val) override;
+    bool DataRead32(u32 addr, u32* val) override;
+    bool DataRead32S(u32 addr, u32* val) override;
+    bool DataWrite8(u32 addr, u8 val) override;
+    bool DataWrite16(u32 addr, u16 val) override;
+    bool DataWrite32(u32 addr, u32 val) override;
+    bool DataWrite32S(u32 addr, u32 val) override;
 
     void AddCycles_C() override
     {
@@ -402,18 +403,19 @@ public:
         return BusRead32(addr);
     }
 
-    void DataRead8(u32 addr, u32* val) override;
-    void DataRead16(u32 addr, u32* val) override;
-    void DataRead32(u32 addr, u32* val) override;
-    void DataRead32S(u32 addr, u32* val) override;
-    void DataWrite8(u32 addr, u8 val) override;
-    void DataWrite16(u32 addr, u16 val) override;
-    void DataWrite32(u32 addr, u32 val) override;
-    void DataWrite32S(u32 addr, u32 val) override;
+    bool DataRead8(u32 addr, u32* val) override;
+    bool DataRead16(u32 addr, u32* val) override;
+    bool DataRead32(u32 addr, u32* val) override;
+    bool DataRead32S(u32 addr, u32* val) override;
+    bool DataWrite8(u32 addr, u8 val) override;
+    bool DataWrite16(u32 addr, u16 val) override;
+    bool DataWrite32(u32 addr, u32 val) override;
+    bool DataWrite32S(u32 addr, u32 val) override;
     void AddCycles_C() override;
     void AddCycles_CI(s32 num) override;
     void AddCycles_CDI() override;
     void AddCycles_CD() override;
+
 protected:
     u8 BusRead8(u32 addr) override;
     u16 BusRead16(u32 addr) override;
