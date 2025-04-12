@@ -49,7 +49,7 @@
 #include "main.h"
 
 /* melonPrimeDS { */
-// #include <QMessageBox>
+#include <QMessageBox>
 #include "melonPrime/def.h"
 
 // Global variable definitions with initialization
@@ -1941,20 +1941,16 @@ bool EmuInstance::loadROM(QStringList filepath, bool reset, QString& errorstr)
     if (globalChecksum != RomVersions::US1_0 && globalChecksum != RomVersions::US1_1 &&
         globalChecksum != RomVersions::EU1_0 && globalChecksum != RomVersions::EU1_1 &&
         globalChecksum != RomVersions::JP1_0 && globalChecksum != RomVersions::JP1_1 &&
-        globalChecksum != RomVersions::KR1_0 && globalChecksum != RomVersions::EU1_BALANCED)
+        globalChecksum != RomVersions::KR1_0)
     {
-        char message[256];
-        sprintf(message, "Unknown ROM (Checksum: 0x%08X). Please make sure to use the untrimmed and unmodified Metroid Prime Hunters ROM which is not encrypted.", globalChecksum);
-        osdAddMessage(0xFFA0A0, message);
-        /*
         QMessageBox::warning(
             nullptr,
             "Unknown ROM",
-            QString("Unknown ROM (Checksum: 0x%1). Please make sure to use the untrimmed and unmodified Metroid Prime Hunters ROM which is not encrypted.")
-                .arg(globalChecksum, 0, 16)
+            // "Please make sure to use\nMetroid Prime Hunters USA version 1.1"
+            "Please make sure to use\nthe untrimmed and unmodified Metroid Prime Hunters ROM which is not encrypted."
         );
-        */
     }
+
     // } MelonPrimeDS
 
     if (reset)

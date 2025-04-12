@@ -301,27 +301,6 @@ void detectRomAndSetAddresses(EmuInstance* emuInstance) {
 
         break;
 
-    case RomVersions::EU1_BALANCED:
-        // EU1_BALANCED making
-        baseChosenHunterAddr = 0x020CBE44; // BattleConfig:ChosenHunter
-        inGameAddr = 0x020eece0 + 0x8F0; // inGame:1
-        PlayerPosAddr = 0x020DA5D8;
-        inVisorOrMapAddr = PlayerPosAddr - 0xabb; // Estimated address
-        baseIsAltFormAddr = 0x020DC6D8 - 0x15A0; // 1p(host)
-        baseLoadedSpecialWeaponAddr = baseIsAltFormAddr + 0x56; // 1p(host). For special weapons only. Missile and powerBeam are not special weapon.
-        baseWeaponChangeAddr = 0x020DCA9B - 0x15A0; // 1p(host)
-        baseSelectedWeaponAddr = 0x020DCAA3 - 0x15A0; // 1p(host)
-        baseJumpFlagAddr = baseSelectedWeaponAddr - 0xA;
-        baseAimXAddr = 0x020dee46;
-        baseAimYAddr = 0x020dee4e;
-        isInAdventureAddr = 0x020E845C; // Read8 0x02: ADV, 0x03: Multi
-        isMapOrUserActionPausedAddr = 0x020FBFB8; // 0x00000001: true, 0x00000000 false. Read8 is enough though.
-        emuInstance->osdAddMessage(0, "MPH Rom version detected: EU1.1 BALANCED");
-
-        isRomDetected = true;
-
-        break;
-
     case RomVersions::KR1_0:
         // Korea1.0
         baseChosenHunterAddr = 0x020C4B88; // BattleConfig:ChosenHunter
