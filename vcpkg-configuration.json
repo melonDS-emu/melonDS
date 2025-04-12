@@ -1,0 +1,11 @@
+{
+  "default-triplet": "x64-mingw-static-release",
+  "overlay-triplets": ["cmake/overlay-triplets"],
+  "overrides": [
+    {
+      "name": "harfbuzz",
+      "version": "10.2.0",
+      "port-version": 3
+    }
+  ]
+}
