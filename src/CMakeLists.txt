@@ -21,6 +21,7 @@ add_library(core STATIC
     DSi_Camera.cpp
     DSi_DSP.cpp
     DSi_I2C.cpp
+    DSi_I2S.cpp
     DSi_NAND.cpp
     DSi_NDMA.cpp
     DSi_NWifi.cpp
