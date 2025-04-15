@@ -59,6 +59,8 @@ void CameraFrameDumper::present(const QVideoFrame& _frame)
     case QVideoFrameFormat::Format_NV12:
         cam->feedFrame_NV12((u8*)frame.bits(0), (u8*)frame.bits(1), frame.width(), frame.height());
         break;
+    default:
+        break;
     }
 
     frame.unmap();

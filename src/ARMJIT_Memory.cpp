@@ -900,7 +900,7 @@ ARMJIT_Memory::ARMJIT_Memory(melonDS::NDS& nds) : NDS(nds)
     }
 #else
     char fastmemPidName[snprintf(NULL, 0, "/melondsfastmem%d", getpid()) + 1];
-    sprintf(fastmemPidName, "/melondsfastmem%d", getpid());
+    snprintf(fastmemPidName, sizeof(fastmemPidName), "/melondsfastmem%d", getpid());
     MemoryFile = shm_open(fastmemPidName, O_RDWR | O_CREAT | O_EXCL, 0600);
     if (MemoryFile == -1)
     {
@@ -951,7 +951,6 @@ ARMJIT_Memory::~ARMJIT_Memory() noexcept
             MemoryBase = nullptr;
             FastMem9Start = nullptr;
             FastMem7Start = nullptr;
-            printf("unmappinged everything\n");
         }
 
         if (MemoryFile)
@@ -978,6 +977,8 @@ ARMJIT_Memory::~ARMJIT_Memory() noexcept
         close(MemoryFile);
         MemoryFile = -1;
     }
+
+    Log(LogLevel::Info, "unmappinged everything\n");
 
 #if defined(__ANDROID__)
     if (Libandroid)

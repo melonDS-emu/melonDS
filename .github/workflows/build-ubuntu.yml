@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - master
+      - ci/*
   pull_request:
     branches:
       - master
@@ -15,16 +16,24 @@ env:
   MELONDS_VERSION_SUFFIX: " RC"
 
 jobs:
-  build-x86_64:
-    name: x86_64
-    runs-on: ubuntu-22.04
+  build:
+    continue-on-error: true
+    strategy:
+      matrix:
+        arch:
+          - runner: ubuntu-22.04
+            name: x86_64
+          - runner: ubuntu-22.04-arm
+            name: aarch64
+
+    name: ${{ matrix.arch.name }}
+    runs-on: ${{ matrix.arch.runner }}
 
     steps:
     - uses: actions/checkout@v4
       name: Check out sources
     - name: Install dependencies
       run: |
-        sudo rm -f /etc/apt/sources.list.d/dotnetdev.list /etc/apt/sources.list.d/microsoft-prod.list
         sudo apt update
         sudo apt install --allow-downgrades cmake ninja-build extra-cmake-modules libpcap0.8-dev libsdl2-dev libenet-dev \
           qt6-{base,base-private,multimedia}-dev libqt6svg6-dev libarchive-dev libzstd-dev libfuse2 liblua5.4-dev
@@ -36,21 +45,21 @@ jobs:
         DESTDIR=AppDir cmake --install build
     - uses: actions/upload-artifact@v4
       with:
-        name: melonDS-ubuntu-x86_64
+        name: melonDS-ubuntu-${{ matrix.arch.name }}
         path: AppDir/usr/bin/melonDS
     - name: Fetch AppImage tools
       run: |
-        wget https://github.com/linuxdeploy/linuxdeploy/releases/download/continuous/linuxdeploy-x86_64.AppImage
-        wget https://github.com/linuxdeploy/linuxdeploy-plugin-qt/releases/download/continuous/linuxdeploy-plugin-qt-x86_64.AppImage
+        wget https://github.com/linuxdeploy/linuxdeploy/releases/download/continuous/linuxdeploy-${{ matrix.arch.name }}.AppImage
+        wget https://github.com/linuxdeploy/linuxdeploy-plugin-qt/releases/download/continuous/linuxdeploy-plugin-qt-${{ matrix.arch.name }}.AppImage
         chmod a+x linuxdeploy-*.AppImage
     - name: Build the AppImage
       env:
         QMAKE: /usr/lib/qt6/bin/qmake
       run: |
-        ./linuxdeploy-x86_64.AppImage --appdir AppDir --plugin qt --output appimage
+        ./linuxdeploy-${{ matrix.arch.name }}.AppImage --appdir AppDir --plugin qt --output appimage
     - uses: actions/upload-artifact@v4
       with:
-        name: melonDS-appimage-x86_64
+        name: melonDS-appimage-${{ matrix.arch.name }}
         path: melonDS*.AppImage
 
   build-aarch64:
