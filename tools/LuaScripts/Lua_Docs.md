@@ -69,6 +69,10 @@ end
     end
     ```
 
+`nAxisValue GetJoyStick(nAxisNum)`
+- Returns the current value of the connected analoge joystick axis 
+- nAxisNum is a 4 bit int, (0-15)
+
 `tJoyState GetJoy()`
 - Returns a lua table of the Joypad button states.
 - Table keys are: `A,B,Select,Start,Right,Left,Up,Down,R,L,X,Y`

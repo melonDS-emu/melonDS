@@ -149,6 +149,8 @@ public:
     std::vector<int> heldKeys;
     std::vector<int> keyStrokes;
 
+    Sint16 getJoyStickAxis(int axisNum);
+
     void touchScreen(int x, int y);
     void releaseScreen();
 

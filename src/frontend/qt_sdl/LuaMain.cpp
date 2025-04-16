@@ -347,10 +347,9 @@ AddLuaFunction(Lua_Reads32,Reads32);
 int Lua_NDSTapDown(lua_State* L)
 {
     LuaBundle* bundle = get_bundle(L);
-    melonDS::NDS* nds = bundle->getEmuInstance()->getNDS();
     int x = luaL_checkinteger(L,1);
     int y = luaL_checkinteger(L,2);
-    nds->TouchScreen(x,y);
+    bundle->getEmuInstance()->touchScreen(x,y);
     return 0;
 }
 AddLuaFunction(Lua_NDSTapDown,NDSTapDown);
@@ -358,8 +357,7 @@ AddLuaFunction(Lua_NDSTapDown,NDSTapDown);
 int Lua_NDSTapUp(lua_State* L)
 {
     LuaBundle* bundle = get_bundle(L);
-    melonDS::NDS* nds = bundle->getEmuInstance()->getNDS();
-    nds->ReleaseScreen();
+    bundle->getEmuInstance()->releaseScreen();
     return 0;
 }
 AddLuaFunction(Lua_NDSTapUp,NDSTapUp);
@@ -629,5 +627,15 @@ int Lua_getJoy(lua_State* L)
     return 1;
 }
 AddLuaFunction(Lua_getJoy,GetJoy);
+
+int Lua_getJoyStick(lua_State* L)
+{
+    LuaBundle* bundle = get_bundle(L);
+    int axisNum = luaL_checknumber(L,1);
+    int val = bundle->getEmuInstance()->getJoyStickAxis(axisNum);
+    lua_pushinteger(L,val);
+    return 1;
+}
+AddLuaFunction(Lua_getJoyStick,GetJoyStick);
 
 }

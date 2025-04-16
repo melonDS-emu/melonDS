@@ -46,7 +46,8 @@ function _Update()
         MousePosText,
         MouseButtonText,
         KeysText,
-        JoyText
+        JoyText,
+        JoyStickText,
     }) do
         y = y+10
         Text(0,y,tfunct(),0xffffff)
@@ -88,6 +89,12 @@ end
 function MousePosText()
     mouse = GetMouse()
     return "MousePos:"..mouse.X..","..mouse.Y
+end
+
+function JoyStickText()
+    local x = GetJoyStick(0)
+    local y = GetJoyStick(1)
+    return "JoyStick:"..x..","..y
 end
 
 function MouseButtonText()

@@ -361,6 +361,16 @@ void EmuInstance::inputProcess()
     lastHotkeyMask = hotkeyMask;
 }
 
+//Used By Lua Scripts
+Sint16 EmuInstance::getJoyStickAxis(int axisNum){
+    if (joystick)
+    {
+        axisNum = axisNum & 0xF;
+        return SDL_JoystickGetAxis(joystick, axisNum);
+    }
+    return 0;
+}
+
 void EmuInstance::touchScreen(int x, int y)
 {
     touchX = x;

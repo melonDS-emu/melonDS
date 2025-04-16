@@ -1163,17 +1163,18 @@ void ScreenPanelGL::drawOverlays(int screenType,int screen)
             glTexSubImage2D(GL_TEXTURE_2D,0,0,0,overlay.rectangle.width(),overlay.rectangle.height(),GL_RGBA,GL_UNSIGNED_BYTE,overlay.displayBuffer->bits());
             overlay.flipped = false;
         }
-
+        
         glBindTexture(GL_TEXTURE_2D, overlay.GLTexture);
-        glUniform2f(overlayPosULoc,overlay.rectangle.left(),overlay.rectangle.top());
-        glUniform2f(overlaySizeULoc,overlay.rectangle.width(),overlay.rectangle.height());
-
+        
         if(screenType == canvasTarget_OSD) // OSD gets drawn differently then top or bottom screen target
         {
+            glUniform2i(osdPosULoc,overlay.rectangle.left(),overlay.rectangle.top());
+            glUniform2i(osdSizeULoc,overlay.rectangle.width(),overlay.rectangle.height());
             glDrawArrays(GL_TRIANGLES, 0, 2*3);
             continue;
         }
-
+        glUniform2f(overlayPosULoc,overlay.rectangle.left(),overlay.rectangle.top());
+        glUniform2f(overlaySizeULoc,overlay.rectangle.width(),overlay.rectangle.height());
         glUniform1i(overlayScreenTypeULoc, screenType);
         glUniformMatrix2x3fv(overlayTransformULoc, 1, GL_TRUE,screenMatrix[screen]);
         glDrawArrays(GL_TRIANGLES,screenType == 0 ? 0 : 2*3, 2*3);
