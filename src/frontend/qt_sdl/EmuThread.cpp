@@ -995,7 +995,35 @@ void EmuThread::run()
             (uint32_t(emuInstance->hotkeyDown(HK_MetroidMoveLeft)) << 2) |
             (uint32_t(emuInstance->hotkeyDown(HK_MetroidMoveRight)) << 3);
 
-        if (localCfg.GetBool("Metroid.Operation.SnapTap")) {
+        // Use LUT to get final state
+        static constexpr uint32_t PACKED_LUT[16] = {
+            0x00000000u,
+            INPUT_PACKED_UP,
+            INPUT_PACKED_DOWN,
+            0x00000000u,
+            INPUT_PACKED_LEFT,
+            INPUT_PACKED_UP | INPUT_PACKED_LEFT,
+            INPUT_PACKED_DOWN | INPUT_PACKED_LEFT,
+            INPUT_PACKED_LEFT,
+            INPUT_PACKED_RIGHT,
+            INPUT_PACKED_UP | INPUT_PACKED_RIGHT,
+            INPUT_PACKED_DOWN | INPUT_PACKED_RIGHT,
+            INPUT_PACKED_RIGHT,
+            0x00000000u,
+            INPUT_PACKED_UP,
+            INPUT_PACKED_DOWN,
+            0x00000000u
+        };
+
+        uint32_t finalState;
+
+        if (!localCfg.GetBool("Metroid.Operation.SnapTap")) {
+            // Normal mode processing
+
+            finalState = PACKED_LUT[currentInputBitmap];
+        }
+        else {
+
             // SnapTap mode
 
             // Detect newly pressed keys
@@ -1035,93 +1063,33 @@ void EmuThread::run()
                 finalInputBitmap |= priorityInput & ((1u << 0) | (1u << 1));
             }
 
-            // Use LUT to get final state
-            static constexpr uint32_t PACKED_LUT[16] = {
-                0x00000000u,
-                INPUT_PACKED_UP,
-                INPUT_PACKED_DOWN,
-                0x00000000u,
-                INPUT_PACKED_LEFT,
-                INPUT_PACKED_UP | INPUT_PACKED_LEFT,
-                INPUT_PACKED_DOWN | INPUT_PACKED_LEFT,
-                INPUT_PACKED_LEFT,
-                INPUT_PACKED_RIGHT,
-                INPUT_PACKED_UP | INPUT_PACKED_RIGHT,
-                INPUT_PACKED_DOWN | INPUT_PACKED_RIGHT,
-                INPUT_PACKED_RIGHT,
-                0x00000000u,
-                INPUT_PACKED_UP,
-                INPUT_PACKED_DOWN,
-                0x00000000u
-            };
-
-            uint32_t finalState = PACKED_LUT[finalInputBitmap & 0xF];
-
-            // Apply inputs
-            static const auto applyInput = [&](uint32_t packedInput, uint32_t state) {
-                if (state & packedInput & 0xF) {
-                    FN_INPUT_PRESS(packedInput >> 16);
-                }
-                else {
-                    FN_INPUT_RELEASE(packedInput >> 16);
-                }
-                };
-
-            static constexpr uint32_t ALL_INPUTS[] = {
-                INPUT_PACKED_UP, INPUT_PACKED_DOWN,
-                INPUT_PACKED_LEFT, INPUT_PACKED_RIGHT
-            };
-
-#pragma unroll
-            for (const auto& input : ALL_INPUTS) {
-                applyInput(input, finalState);
-            }
-
             // Store current input state for next frame
             lastInputBitmap = currentInputBitmap;
+
+            finalState = PACKED_LUT[finalInputBitmap];
+
         }
-        else {
-            // Normal mode processing
-            static constexpr uint32_t PACKED_LUT[16] = {
-                0x00000000u,
-                INPUT_PACKED_UP,
-                INPUT_PACKED_DOWN,
-                0x00000000u,
-                INPUT_PACKED_LEFT,
-                INPUT_PACKED_UP | INPUT_PACKED_LEFT,
-                INPUT_PACKED_DOWN | INPUT_PACKED_LEFT,
-                INPUT_PACKED_LEFT,
-                INPUT_PACKED_RIGHT,
-                INPUT_PACKED_UP | INPUT_PACKED_RIGHT,
-                INPUT_PACKED_DOWN | INPUT_PACKED_RIGHT,
-                INPUT_PACKED_RIGHT,
-                0x00000000u,
-                INPUT_PACKED_UP,
-                INPUT_PACKED_DOWN,
-                0x00000000u
+
+        // Apply inputs
+        static const auto applyInput = [&](uint32_t packedInput, uint32_t state) {
+            if (state & packedInput & 0xF) {
+                FN_INPUT_PRESS(packedInput >> 16);
+            }
+            else {
+                FN_INPUT_RELEASE(packedInput >> 16);
+            }
             };
 
-            uint32_t finalState = PACKED_LUT[currentInputBitmap & 0xF];
-
-            static const auto applyInput = [&](uint32_t packedInput, uint32_t state) {
-                if (state & packedInput & 0xF) {
-                    FN_INPUT_PRESS(packedInput >> 16);
-                }
-                else {
-                    FN_INPUT_RELEASE(packedInput >> 16);
-                }
-                };
-
-            static constexpr uint32_t ALL_INPUTS[] = {
-                INPUT_PACKED_UP, INPUT_PACKED_DOWN,
-                INPUT_PACKED_LEFT, INPUT_PACKED_RIGHT
-            };
+        static constexpr uint32_t ALL_INPUTS[] = {
+            INPUT_PACKED_UP, INPUT_PACKED_DOWN,
+            INPUT_PACKED_LEFT, INPUT_PACKED_RIGHT
+        };
 
 #pragma unroll
-            for (const auto& input : ALL_INPUTS) {
-                applyInput(input, finalState);
-            }
+        for (const auto& input : ALL_INPUTS) {
+            applyInput(input, finalState);
         }
+
         };
     // /processMoveInputFunction }
 
