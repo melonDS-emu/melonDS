@@ -175,10 +175,42 @@ melonDS::u32 isInAdventureAddr;
 melonDS::u32 isMapOrUserActionPausedAddr; // for issue in AdventureMode, Aim Stopping when SwitchingWeapon. 
 
 
+void initializeAddressesForEU1(uint32_t globalChecksum, EmuInstance* emuInstance, bool& isRomDetected) {
+    // Common addresses for EU1.1 and EU1_BALANCED
+    baseChosenHunterAddr = 0x020CBE44; // BattleConfig:ChosenHunter
+    inGameAddr = 0x020eece0 + 0x8F0; // inGame:1
+    PlayerPosAddr = 0x020DA5D8;
+    inVisorOrMapAddr = PlayerPosAddr - 0xabb; // Estimated address
+    baseIsAltFormAddr = 0x020DC6D8 - 0x15A0; // 1p(host)
+    baseLoadedSpecialWeaponAddr = baseIsAltFormAddr + 0x56; // 1p(host). For special weapons only. Missile and powerBeam are not special weapon.
+    baseWeaponChangeAddr = 0x020DCA9B - 0x15A0; // 1p(host)
+    baseSelectedWeaponAddr = 0x020DCAA3 - 0x15A0; // 1p(host)
+    baseJumpFlagAddr = baseSelectedWeaponAddr - 0xA;
+    baseAimXAddr = 0x020dee46;
+    baseAimYAddr = 0x020dee4e;
+    isInAdventureAddr = 0x020E845C; // Read8 0x02: ADV, 0x03: Multi
+    isMapOrUserActionPausedAddr = 0x020FBFB8; // 0x00000001: true, 0x00000000 false. Read8 is enough though.
+
+    // Version-specific message
+    if (globalChecksum == RomVersions::EU1_1) {
+        emuInstance->osdAddMessage(0, "MPH Rom version detected: EU1.1");
+    }
+    else {
+        emuInstance->osdAddMessage(0, "MPH Rom version detected: EU1.1 BALANCED");
+    }
+
+    isRomDetected = true;
+}
+
 void detectRomAndSetAddresses(EmuInstance* emuInstance) {
 
 
     switch (globalChecksum) {
+    case RomVersions::EU1_1:
+    case RomVersions::EU1_BALANCED:
+        initializeAddressesForEU1(globalChecksum, emuInstance, isRomDetected);
+        break;
+
     case RomVersions::US1_1:
         // USA1.1
 
@@ -277,48 +309,6 @@ void detectRomAndSetAddresses(EmuInstance* emuInstance) {
         isMapOrUserActionPausedAddr = 0x020FBF38; // 0x00000001: true, 0x00000000 false. Read8 is enough though.
         isRomDetected = true;
         emuInstance->osdAddMessage(0, "MPH Rom version detected: EU1.0");
-
-        break;
-
-    case RomVersions::EU1_1:
-        // EU1.1
-        baseChosenHunterAddr = 0x020CBE44; // BattleConfig:ChosenHunter
-        inGameAddr = 0x020eece0 + 0x8F0; // inGame:1
-        PlayerPosAddr = 0x020DA5D8;
-        inVisorOrMapAddr = PlayerPosAddr - 0xabb; // Estimated address
-        baseIsAltFormAddr = 0x020DC6D8 - 0x15A0; // 1p(host)
-        baseLoadedSpecialWeaponAddr = baseIsAltFormAddr + 0x56; // 1p(host). For special weapons only. Missile and powerBeam are not special weapon.
-        baseWeaponChangeAddr = 0x020DCA9B - 0x15A0; // 1p(host)
-        baseSelectedWeaponAddr = 0x020DCAA3 - 0x15A0; // 1p(host)
-        baseJumpFlagAddr = baseSelectedWeaponAddr - 0xA;
-        baseAimXAddr = 0x020dee46;
-        baseAimYAddr = 0x020dee4e;
-        isInAdventureAddr = 0x020E845C; // Read8 0x02: ADV, 0x03: Multi
-        isMapOrUserActionPausedAddr = 0x020FBFB8; // 0x00000001: true, 0x00000000 false. Read8 is enough though.
-        emuInstance->osdAddMessage(0, "MPH Rom version detected: EU1.1");
-
-        isRomDetected = true;
-
-        break;
-
-    case RomVersions::EU1_BALANCED:
-        // EU1_BALANCED making
-        baseChosenHunterAddr = 0x020CBE44; // BattleConfig:ChosenHunter
-        inGameAddr = 0x020eece0 + 0x8F0; // inGame:1
-        PlayerPosAddr = 0x020DA5D8;
-        inVisorOrMapAddr = PlayerPosAddr - 0xabb; // Estimated address
-        baseIsAltFormAddr = 0x020DC6D8 - 0x15A0; // 1p(host)
-        baseLoadedSpecialWeaponAddr = baseIsAltFormAddr + 0x56; // 1p(host). For special weapons only. Missile and powerBeam are not special weapon.
-        baseWeaponChangeAddr = 0x020DCA9B - 0x15A0; // 1p(host)
-        baseSelectedWeaponAddr = 0x020DCAA3 - 0x15A0; // 1p(host)
-        baseJumpFlagAddr = baseSelectedWeaponAddr - 0xA;
-        baseAimXAddr = 0x020dee46;
-        baseAimYAddr = 0x020dee4e;
-        isInAdventureAddr = 0x020E845C; // Read8 0x02: ADV, 0x03: Multi
-        isMapOrUserActionPausedAddr = 0x020FBFB8; // 0x00000001: true, 0x00000000 false. Read8 is enough though.
-        emuInstance->osdAddMessage(0, "MPH Rom version detected: EU1.1 BALANCED");
-
-        isRomDetected = true;
 
         break;
 
