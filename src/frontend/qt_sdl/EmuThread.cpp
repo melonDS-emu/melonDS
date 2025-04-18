@@ -889,7 +889,8 @@ void EmuThread::run()
         // Get the actual game display area instead of full window
         const QRect displayRect = emuInstance->getMainWindow()->panel->geometry();
         QPoint adjustedCenter = emuInstance->getMainWindow()->panel->mapToGlobal(
-            QPoint(displayRect.width() / 2, displayRect.height() / 2)
+            // QPoint(displayRect.width() / 2, displayRect.height() / 2)
+            QPoint(displayRect.width() >> 1, displayRect.height() >> 1) // Use bit shifting to speed up
         );
 
         // Screen layout adjustment constants
