@@ -175,10 +175,42 @@ melonDS::u32 isInAdventureAddr;
 melonDS::u32 isMapOrUserActionPausedAddr; // for issue in AdventureMode, Aim Stopping when SwitchingWeapon. 
 
 
+void initializeAddressesForEU1(uint32_t globalChecksum, EmuInstance* emuInstance, bool& isRomDetected) {
+    // Common addresses for EU1.1 and EU1_BALANCED
+    baseChosenHunterAddr = 0x020CBE44; // BattleConfig:ChosenHunter
+    inGameAddr = 0x020eece0 + 0x8F0; // inGame:1
+    PlayerPosAddr = 0x020DA5D8;
+    inVisorOrMapAddr = PlayerPosAddr - 0xabb; // Estimated address
+    baseIsAltFormAddr = 0x020DC6D8 - 0x15A0; // 1p(host)
+    baseLoadedSpecialWeaponAddr = baseIsAltFormAddr + 0x56; // 1p(host). For special weapons only. Missile and powerBeam are not special weapon.
+    baseWeaponChangeAddr = 0x020DCA9B - 0x15A0; // 1p(host)
+    baseSelectedWeaponAddr = 0x020DCAA3 - 0x15A0; // 1p(host)
+    baseJumpFlagAddr = baseSelectedWeaponAddr - 0xA;
+    baseAimXAddr = 0x020dee46;
+    baseAimYAddr = 0x020dee4e;
+    isInAdventureAddr = 0x020E845C; // Read8 0x02: ADV, 0x03: Multi
+    isMapOrUserActionPausedAddr = 0x020FBFB8; // 0x00000001: true, 0x00000000 false. Read8 is enough though.
+
+    // Version-specific message
+    if (globalChecksum == RomVersions::EU1_1) {
+        emuInstance->osdAddMessage(0, "MPH Rom version detected: EU1.1");
+    }
+    else {
+        emuInstance->osdAddMessage(0, "MPH Rom version detected: EU1.1 BALANCED");
+    }
+
+    isRomDetected = true;
+}
+
 void detectRomAndSetAddresses(EmuInstance* emuInstance) {
 
 
     switch (globalChecksum) {
+    case RomVersions::EU1_1:
+    case RomVersions::EU1_BALANCED:
+        initializeAddressesForEU1(globalChecksum, emuInstance, isRomDetected);
+        break;
+
     case RomVersions::US1_1:
         // USA1.1
 
@@ -277,48 +309,6 @@ void detectRomAndSetAddresses(EmuInstance* emuInstance) {
         isMapOrUserActionPausedAddr = 0x020FBF38; // 0x00000001: true, 0x00000000 false. Read8 is enough though.
         isRomDetected = true;
         emuInstance->osdAddMessage(0, "MPH Rom version detected: EU1.0");
-
-        break;
-
-    case RomVersions::EU1_1:
-        // EU1.1
-        baseChosenHunterAddr = 0x020CBE44; // BattleConfig:ChosenHunter
-        inGameAddr = 0x020eece0 + 0x8F0; // inGame:1
-        PlayerPosAddr = 0x020DA5D8;
-        inVisorOrMapAddr = PlayerPosAddr - 0xabb; // Estimated address
-        baseIsAltFormAddr = 0x020DC6D8 - 0x15A0; // 1p(host)
-        baseLoadedSpecialWeaponAddr = baseIsAltFormAddr + 0x56; // 1p(host). For special weapons only. Missile and powerBeam are not special weapon.
-        baseWeaponChangeAddr = 0x020DCA9B - 0x15A0; // 1p(host)
-        baseSelectedWeaponAddr = 0x020DCAA3 - 0x15A0; // 1p(host)
-        baseJumpFlagAddr = baseSelectedWeaponAddr - 0xA;
-        baseAimXAddr = 0x020dee46;
-        baseAimYAddr = 0x020dee4e;
-        isInAdventureAddr = 0x020E845C; // Read8 0x02: ADV, 0x03: Multi
-        isMapOrUserActionPausedAddr = 0x020FBFB8; // 0x00000001: true, 0x00000000 false. Read8 is enough though.
-        emuInstance->osdAddMessage(0, "MPH Rom version detected: EU1.1");
-
-        isRomDetected = true;
-
-        break;
-
-    case RomVersions::EU1_BALANCED:
-        // EU1_BALANCED making
-        baseChosenHunterAddr = 0x020CBE44; // BattleConfig:ChosenHunter
-        inGameAddr = 0x020eece0 + 0x8F0; // inGame:1
-        PlayerPosAddr = 0x020DA5D8;
-        inVisorOrMapAddr = PlayerPosAddr - 0xabb; // Estimated address
-        baseIsAltFormAddr = 0x020DC6D8 - 0x15A0; // 1p(host)
-        baseLoadedSpecialWeaponAddr = baseIsAltFormAddr + 0x56; // 1p(host). For special weapons only. Missile and powerBeam are not special weapon.
-        baseWeaponChangeAddr = 0x020DCA9B - 0x15A0; // 1p(host)
-        baseSelectedWeaponAddr = 0x020DCAA3 - 0x15A0; // 1p(host)
-        baseJumpFlagAddr = baseSelectedWeaponAddr - 0xA;
-        baseAimXAddr = 0x020dee46;
-        baseAimYAddr = 0x020dee4e;
-        isInAdventureAddr = 0x020E845C; // Read8 0x02: ADV, 0x03: Multi
-        isMapOrUserActionPausedAddr = 0x020FBFB8; // 0x00000001: true, 0x00000000 false. Read8 is enough though.
-        emuInstance->osdAddMessage(0, "MPH Rom version detected: EU1.1 BALANCED");
-
-        isRomDetected = true;
 
         break;
 
@@ -899,7 +889,8 @@ void EmuThread::run()
         // Get the actual game display area instead of full window
         const QRect displayRect = emuInstance->getMainWindow()->panel->geometry();
         QPoint adjustedCenter = emuInstance->getMainWindow()->panel->mapToGlobal(
-            QPoint(displayRect.width() / 2, displayRect.height() / 2)
+            // QPoint(displayRect.width() / 2, displayRect.height() / 2)
+            QPoint(displayRect.width() >> 1, displayRect.height() >> 1) // Use bit shifting to speed up
         );
 
         // Screen layout adjustment constants
@@ -1004,7 +995,35 @@ void EmuThread::run()
             (uint32_t(emuInstance->hotkeyDown(HK_MetroidMoveLeft)) << 2) |
             (uint32_t(emuInstance->hotkeyDown(HK_MetroidMoveRight)) << 3);
 
-        if (localCfg.GetBool("Metroid.Operation.SnapTap")) {
+        // Use LUT to get final state
+        static constexpr uint32_t PACKED_LUT[16] = {
+            0x00000000u,
+            INPUT_PACKED_UP,
+            INPUT_PACKED_DOWN,
+            0x00000000u,
+            INPUT_PACKED_LEFT,
+            INPUT_PACKED_UP | INPUT_PACKED_LEFT,
+            INPUT_PACKED_DOWN | INPUT_PACKED_LEFT,
+            INPUT_PACKED_LEFT,
+            INPUT_PACKED_RIGHT,
+            INPUT_PACKED_UP | INPUT_PACKED_RIGHT,
+            INPUT_PACKED_DOWN | INPUT_PACKED_RIGHT,
+            INPUT_PACKED_RIGHT,
+            0x00000000u,
+            INPUT_PACKED_UP,
+            INPUT_PACKED_DOWN,
+            0x00000000u
+        };
+
+        uint32_t finalState;
+
+        if (!localCfg.GetBool("Metroid.Operation.SnapTap")) {
+            // Normal mode processing
+
+            finalState = PACKED_LUT[currentInputBitmap];
+        }
+        else {
+
             // SnapTap mode
 
             // Detect newly pressed keys
@@ -1044,93 +1063,33 @@ void EmuThread::run()
                 finalInputBitmap |= priorityInput & ((1u << 0) | (1u << 1));
             }
 
-            // Use LUT to get final state
-            static constexpr uint32_t PACKED_LUT[16] = {
-                0x00000000u,
-                INPUT_PACKED_UP,
-                INPUT_PACKED_DOWN,
-                0x00000000u,
-                INPUT_PACKED_LEFT,
-                INPUT_PACKED_UP | INPUT_PACKED_LEFT,
-                INPUT_PACKED_DOWN | INPUT_PACKED_LEFT,
-                INPUT_PACKED_LEFT,
-                INPUT_PACKED_RIGHT,
-                INPUT_PACKED_UP | INPUT_PACKED_RIGHT,
-                INPUT_PACKED_DOWN | INPUT_PACKED_RIGHT,
-                INPUT_PACKED_RIGHT,
-                0x00000000u,
-                INPUT_PACKED_UP,
-                INPUT_PACKED_DOWN,
-                0x00000000u
-            };
-
-            uint32_t finalState = PACKED_LUT[finalInputBitmap & 0xF];
-
-            // Apply inputs
-            static const auto applyInput = [&](uint32_t packedInput, uint32_t state) {
-                if (state & packedInput & 0xF) {
-                    FN_INPUT_PRESS(packedInput >> 16);
-                }
-                else {
-                    FN_INPUT_RELEASE(packedInput >> 16);
-                }
-                };
-
-            static constexpr uint32_t ALL_INPUTS[] = {
-                INPUT_PACKED_UP, INPUT_PACKED_DOWN,
-                INPUT_PACKED_LEFT, INPUT_PACKED_RIGHT
-            };
-
-#pragma unroll
-            for (const auto& input : ALL_INPUTS) {
-                applyInput(input, finalState);
-            }
-
             // Store current input state for next frame
             lastInputBitmap = currentInputBitmap;
+
+            finalState = PACKED_LUT[finalInputBitmap];
+
         }
-        else {
-            // Normal mode processing
-            static constexpr uint32_t PACKED_LUT[16] = {
-                0x00000000u,
-                INPUT_PACKED_UP,
-                INPUT_PACKED_DOWN,
-                0x00000000u,
-                INPUT_PACKED_LEFT,
-                INPUT_PACKED_UP | INPUT_PACKED_LEFT,
-                INPUT_PACKED_DOWN | INPUT_PACKED_LEFT,
-                INPUT_PACKED_LEFT,
-                INPUT_PACKED_RIGHT,
-                INPUT_PACKED_UP | INPUT_PACKED_RIGHT,
-                INPUT_PACKED_DOWN | INPUT_PACKED_RIGHT,
-                INPUT_PACKED_RIGHT,
-                0x00000000u,
-                INPUT_PACKED_UP,
-                INPUT_PACKED_DOWN,
-                0x00000000u
+
+        // Apply inputs
+        static const auto applyInput = [&](uint32_t packedInput, uint32_t state) {
+            if (state & packedInput & 0xF) {
+                FN_INPUT_PRESS(packedInput >> 16);
+            }
+            else {
+                FN_INPUT_RELEASE(packedInput >> 16);
+            }
             };
 
-            uint32_t finalState = PACKED_LUT[currentInputBitmap & 0xF];
-
-            static const auto applyInput = [&](uint32_t packedInput, uint32_t state) {
-                if (state & packedInput & 0xF) {
-                    FN_INPUT_PRESS(packedInput >> 16);
-                }
-                else {
-                    FN_INPUT_RELEASE(packedInput >> 16);
-                }
-                };
-
-            static constexpr uint32_t ALL_INPUTS[] = {
-                INPUT_PACKED_UP, INPUT_PACKED_DOWN,
-                INPUT_PACKED_LEFT, INPUT_PACKED_RIGHT
-            };
+        static constexpr uint32_t ALL_INPUTS[] = {
+            INPUT_PACKED_UP, INPUT_PACKED_DOWN,
+            INPUT_PACKED_LEFT, INPUT_PACKED_RIGHT
+        };
 
 #pragma unroll
-            for (const auto& input : ALL_INPUTS) {
-                applyInput(input, finalState);
-            }
+        for (const auto& input : ALL_INPUTS) {
+            applyInput(input, finalState);
         }
+
         };
     // /processMoveInputFunction }
 
