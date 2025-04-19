@@ -31,16 +31,18 @@ jobs:
         update: true
         pacboy: gcc:p cmake:p ninja:p make:p
         
+    - name: Cache vcpkg
+      uses: actions/cache@v3
+      with:
+        path: |
+          ${{ github.workspace }}/vcpkg
+          ${{ github.workspace }}/vcpkg_installed
+        key: ${{ runner.os }}-vcpkg-${{ env.VCPKG_COMMIT }}
+        
     - name: Set up vcpkg
       uses: lukka/run-vcpkg@v11
       with:
         vcpkgGitCommitId: ${{ env.VCPKG_COMMIT }}
-        
-    - name: Cache vcpkg packages
-      uses: actions/cache@v3
-      with:
-        path: ${{ github.workspace }}/vcpkg_installed
-        key: ${{ runner.os }}-vcpkg-${{ env.VCPKG_COMMIT }}-${{ hashFiles('**/vcpkg.json') }}
         
     - name: Configure
       run: cmake --preset=release-mingw-x86_64 -DMELONDS_EMBED_BUILD_INFO=ON
@@ -52,4 +54,3 @@ jobs:
       with:
         name: melonDS-windows-x86_64
         path: .\build\release-mingw-x86_64\melonDS.exe
-        compression-level: 9
