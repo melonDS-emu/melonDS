@@ -1114,17 +1114,8 @@ void EmuThread::run()
         if (isRomDetected) {
             isInGame = emuInstance->nds->ARM9Read16(inGameAddr) == 0x0001;
 
-            if (isInGame){
-                isCursorMode = false;
-
-                if (isInAdventure && isPaused) {
-                    isCursorMode = true;
-                }
-            }
-            else {
-                // !isInGame
-                isCursorMode = true;
-            }
+            // カーソルモードかどうかを1箇所で判断
+            bool shouldBeCursorMode = !isInGame || (isInAdventure && isPaused);
 
             if (isInGame && !hasInitialized) {
                 // Run once at game start
@@ -1678,8 +1669,6 @@ void EmuThread::run()
 
                     isInAdventure = false;
 
-                    isCursorMode = true;
-
                     // Resolve Menu flickering
                     if (videoRenderer != renderer3D_Software) {
                         videoRenderer = renderer3D_Software;
@@ -1688,15 +1677,19 @@ void EmuThread::run()
 
                 }
 
+                if (shouldBeCursorMode != isCursorMode) {
+                    isCursorMode = shouldBeCursorMode;
+#ifndef STYLUS_MODE
+                    showCursorOnMelonPrimeDS(isCursorMode);
+#endif
+                }
+
                 if (isCursorMode) {
 
                     if (!isInGame && hasInitialized) {
                         hasInitialized = false;
                     }
 
-#ifndef STYLUS_MODE
-                    showCursorOnMelonPrimeDS(true);
-#endif
 
                     if (emuInstance->isTouching) {
                         emuInstance->nds->TouchScreen(emuInstance->touchX, emuInstance->touchY);
@@ -1720,12 +1713,6 @@ void EmuThread::run()
                     else {
                         FN_INPUT_RELEASE(INPUT_R);
                     }
-                }
-                else {
-                    // Hide cursor
-#ifndef STYLUS_MODE
-                    showCursorOnMelonPrimeDS(false);
-#endif
                 }
 
                 // Start / View Match progress, points / Map(Adventure)
