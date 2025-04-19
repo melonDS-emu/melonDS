@@ -1356,7 +1356,7 @@ void EmuThread::run()
                         }
 
                         // Check isMapOrUserActionPaused, for the issue "If you switch weapons while the map is open, the aiming mechanism may become stuck."
-                        if (isInAdventure && emuInstance->nds->ARM9Read8(isMapOrUserActionPausedAddr) == 0x1) {
+                        if (isInAdventure && isPaused) {
                             return;
                         }
 
@@ -1675,6 +1675,22 @@ void EmuThread::run()
                         updateRenderer();
                     }
 
+                    // L For Hunter License
+                    if (emuInstance->hotkeyPressed(HK_MetroidUILeft)) {
+                        FN_INPUT_PRESS(INPUT_L);
+                    }
+                    else {
+                        FN_INPUT_RELEASE(INPUT_L);
+                    }
+
+                    // R For Hunter License
+                    if (emuInstance->hotkeyPressed(HK_MetroidUIRight)) {
+                        FN_INPUT_PRESS(INPUT_R);
+                    }
+                    else {
+                        FN_INPUT_RELEASE(INPUT_R);
+                    }
+
                 }
 
                 if (shouldBeCursorMode != isCursorMode) {
@@ -1698,21 +1714,6 @@ void EmuThread::run()
                         emuInstance->nds->ReleaseScreen();
                     }
 
-                    // L For Hunter License
-                    if (emuInstance->hotkeyPressed(HK_MetroidUILeft)) {
-                        FN_INPUT_PRESS(INPUT_L);
-                    }
-                    else {
-                        FN_INPUT_RELEASE(INPUT_L);
-                    }
-
-                    // R For Hunter License
-                    if (emuInstance->hotkeyPressed(HK_MetroidUIRight)) {
-                        FN_INPUT_PRESS(INPUT_R);
-                    }
-                    else {
-                        FN_INPUT_RELEASE(INPUT_R);
-                    }
                 }
 
                 // Start / View Match progress, points / Map(Adventure)
