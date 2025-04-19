@@ -1,5 +1,4 @@
 name: Windows
-
 on:
   workflow_dispatch:
   push:
@@ -9,14 +8,12 @@ on:
   pull_request:
     branches:
       - master
-
 env:
   VCPKG_COMMIT: 2ad004460f5db4d3b66f62f5799ff66c265c4b5d
   MELONDS_GIT_BRANCH: ${{ github.ref }}
   MELONDS_GIT_HASH: ${{ github.sha }}
   MELONDS_BUILD_PROVIDER: GitHub Actions
   MELONDS_VERSION_SUFFIX: " RC"
-
 jobs:
   build:
     runs-on: windows-latest
@@ -26,21 +23,33 @@ jobs:
     steps:
     - name: Check out sources
       uses: actions/checkout@v3
+      
     - name: Set up MSYS2
       uses: msys2/setup-msys2@v2
       with:
         msystem: ucrt64
         update: true
         pacboy: gcc:p cmake:p ninja:p make:p
+        
     - name: Set up vcpkg
       uses: lukka/run-vcpkg@v11
       with:
         vcpkgGitCommitId: ${{ env.VCPKG_COMMIT }}
+        
+    - name: Cache vcpkg packages
+      uses: actions/cache@v3
+      with:
+        path: ${{ github.workspace }}/vcpkg_installed
+        key: ${{ runner.os }}-vcpkg-${{ env.VCPKG_COMMIT }}-${{ hashFiles('**/vcpkg.json') }}
+        
     - name: Configure
       run: cmake --preset=release-mingw-x86_64 -DMELONDS_EMBED_BUILD_INFO=ON
+      
     - name: Build
-      run: cmake --build --preset=release-mingw-x86_64
+      run: cmake --build --preset=release-mingw-x86_64 --parallel $(nproc)
+      
     - uses: actions/upload-artifact@v4
       with:
         name: melonDS-windows-x86_64
         path: .\build\release-mingw-x86_64\melonDS.exe
+        compression-level: 9
