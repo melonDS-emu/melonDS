@@ -284,7 +284,7 @@ void ScreenPanel::mousePressEvent(QMouseEvent* event)
 // #define STYLUS_MODE 1 // this is for stylus user
 
 #ifndef STYLUS_MODE
-        if (emuInstance->getEmuThread()->isInGame) {
+        if (!emuInstance->getEmuThread()->isCursorMode) {
             // BlankCursor when it's focused and inGame.
             setCursor(Qt::BlankCursor);
         }
