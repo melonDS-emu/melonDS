@@ -157,6 +157,7 @@ uint32_t calculatePlayerAddress(uint32_t baseAddress, uint8_t playerPosition, in
 }
 
 bool isAltForm;
+bool isInGame = false; // MelonPrimeDS
 
 melonDS::u32 baseIsAltFormAddr;
 melonDS::u32 baseLoadedSpecialWeaponAddr;
