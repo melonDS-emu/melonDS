@@ -157,6 +157,7 @@ uint32_t calculatePlayerAddress(uint32_t baseAddress, uint8_t playerPosition, in
 }
 
 bool isAltForm;
+bool isInGame = false; // MelonPrimeDS
 
 melonDS::u32 baseIsAltFormAddr;
 melonDS::u32 baseLoadedSpecialWeaponAddr;
@@ -166,7 +167,7 @@ melonDS::u32 baseChosenHunterAddr;
 melonDS::u32 baseJumpFlagAddr;
 melonDS::u32 inGameAddr;
 melonDS::u32 PlayerPosAddr;
-melonDS::u32 inVisorOrMapAddr;
+melonDS::u32 isInVisorOrMapAddr;
 melonDS::u32 baseAimXAddr;
 melonDS::u32 baseAimYAddr;
 melonDS::u32 aimXAddr;
@@ -180,7 +181,7 @@ void initializeAddressesForEU1(uint32_t globalChecksum, EmuInstance* emuInstance
     baseChosenHunterAddr = 0x020CBE44; // BattleConfig:ChosenHunter
     inGameAddr = 0x020eece0 + 0x8F0; // inGame:1
     PlayerPosAddr = 0x020DA5D8;
-    inVisorOrMapAddr = PlayerPosAddr - 0xabb; // Estimated address
+    isInVisorOrMapAddr = PlayerPosAddr - 0xabb; // Estimated address
     baseIsAltFormAddr = 0x020DC6D8 - 0x15A0; // 1p(host)
     baseLoadedSpecialWeaponAddr = baseIsAltFormAddr + 0x56; // 1p(host). For special weapons only. Missile and powerBeam are not special weapon.
     baseWeaponChangeAddr = 0x020DCA9B - 0x15A0; // 1p(host)
@@ -216,7 +217,7 @@ void detectRomAndSetAddresses(EmuInstance* emuInstance) {
 
         baseChosenHunterAddr = 0x020CBDA4; // BattleConfig:ChosenHunter 0 samus 1 kanden 2 trace 3 sylux 4 noxus 5 spire 6 weavel
         inGameAddr = 0x020eec40 + 0x8F0; // inGame:1
-        inVisorOrMapAddr = 0x020D9A7D; // Estimated address
+        isInVisorOrMapAddr = 0x020D9A7D; // Estimated address
         PlayerPosAddr = 0x020DA538;
         baseIsAltFormAddr = 0x020DB098; // 1p(host)
         baseLoadedSpecialWeaponAddr = baseIsAltFormAddr + 0x56; // 1p(host). For special weapons only. Missile and powerBeam are not special weapon.
@@ -237,7 +238,7 @@ void detectRomAndSetAddresses(EmuInstance* emuInstance) {
         baseChosenHunterAddr = 0x020CB51C; // BattleConfig:ChosenHunter
         inGameAddr = 0x020ee180 + 0x8F0; // inGame:1
         PlayerPosAddr = 0x020D9CB8;
-        inVisorOrMapAddr = PlayerPosAddr - 0xabb; // Estimated address
+        isInVisorOrMapAddr = PlayerPosAddr - 0xabb; // Estimated address
         baseIsAltFormAddr = 0x020DC6D8 - 0x1EC0; // 1p(host)
         baseLoadedSpecialWeaponAddr = baseIsAltFormAddr + 0x56; // 1p(host). For special weapons only. Missile and powerBeam are not special weapon.
         baseWeaponChangeAddr = 0x020DCA9B - 0x1EC0; // 1p(host)
@@ -257,7 +258,7 @@ void detectRomAndSetAddresses(EmuInstance* emuInstance) {
         baseChosenHunterAddr = 0x020CD358; // BattleConfig:ChosenHunter
         inGameAddr = 0x020F0BB0; // inGame:1
         PlayerPosAddr = 0x020DBB78;
-        inVisorOrMapAddr = PlayerPosAddr - 0xabb; // Estimated address
+        isInVisorOrMapAddr = PlayerPosAddr - 0xabb; // Estimated address
         baseIsAltFormAddr = 0x020DC6D8; // 1p(host)
         baseLoadedSpecialWeaponAddr = baseIsAltFormAddr + 0x56; // 1p(host). For special weapons only. Missile and powerBeam are not special weapon.
         baseWeaponChangeAddr = 0x020DCA9B; // 1p(host)
@@ -277,7 +278,7 @@ void detectRomAndSetAddresses(EmuInstance* emuInstance) {
         baseChosenHunterAddr = 0x020CD318; // BattleConfig:ChosenHunter
         inGameAddr = 0x020F0280 + 0x8F0; // inGame:1
         PlayerPosAddr = 0x020DBB38;
-        inVisorOrMapAddr = PlayerPosAddr - 0xabb; // Estimated address
+        isInVisorOrMapAddr = PlayerPosAddr - 0xabb; // Estimated address
         baseIsAltFormAddr = 0x020DC6D8 - 0x64; // 1p(host)
         baseLoadedSpecialWeaponAddr = baseIsAltFormAddr + 0x56; // 1p(host). For special weapons only. Missile and powerBeam are not special weapon.
         baseWeaponChangeAddr = 0x020DCA9B - 0x40; // 1p(host)
@@ -297,7 +298,7 @@ void detectRomAndSetAddresses(EmuInstance* emuInstance) {
         baseChosenHunterAddr = 0x020CBDC4; // BattleConfig:ChosenHunter
         inGameAddr = 0x020eec60 + 0x8F0; // inGame:1
         PlayerPosAddr = 0x020DA558;
-        inVisorOrMapAddr = PlayerPosAddr - 0xabb; // Estimated address
+        isInVisorOrMapAddr = PlayerPosAddr - 0xabb; // Estimated address
         baseIsAltFormAddr = 0x020DC6D8 - 0x1620; // 1p(host)
         baseLoadedSpecialWeaponAddr = baseIsAltFormAddr + 0x56; // 1p(host). For special weapons only. Missile and powerBeam are not special weapon.
         baseWeaponChangeAddr = 0x020DCA9B - 0x1620; // 1p(host)
@@ -316,7 +317,7 @@ void detectRomAndSetAddresses(EmuInstance* emuInstance) {
         // Korea1.0
         baseChosenHunterAddr = 0x020C4B88; // BattleConfig:ChosenHunter
         inGameAddr = 0x020E81B4; // inGame:1
-        inVisorOrMapAddr = PlayerPosAddr - 0xabb; // Estimated address
+        isInVisorOrMapAddr = PlayerPosAddr - 0xabb; // Estimated address
         PlayerPosAddr = 0x020D33A9; // it's weird but "3A9" is correct.
         baseIsAltFormAddr = 0x020DC6D8 - 0x87F4; // 1p(host)
         baseLoadedSpecialWeaponAddr = baseIsAltFormAddr + 0x56; // 1p(host). For special weapons only. Missile and powerBeam are not special weapon.
@@ -797,6 +798,7 @@ void EmuThread::run()
     bool isCursorVisible = true;
     bool enableAim = true;
     bool wasLastFrameFocused = false;
+    bool isInVisor = false;
 
     /**
      * @brief Function to show or hide the cursor on MelonPrimeDS
@@ -871,7 +873,7 @@ void EmuThread::run()
     bool isSamus;
 
     bool isWeavel;
-
+    bool isPaused = false; // MelonPrimeDS
 
     // The QPoint class defines a point in the plane using integer precision. 
     // auto mouseRel = rawInputThread->fetchMouseDelta();
@@ -1114,6 +1116,8 @@ void EmuThread::run()
         if (isRomDetected) {
             isInGame = emuInstance->nds->ARM9Read16(inGameAddr) == 0x0001;
 
+            // Determine whether it is cursor mode in one place
+            bool shouldBeCursorMode = !isInGame || (isInAdventure && isPaused);
 
             if (isInGame && !hasInitialized) {
                 // Run once at game start
@@ -1141,12 +1145,6 @@ void EmuThread::run()
                     emuInstance->osdAddMessage(0, "Vsync is disabled.");
                 }
                 */
-
-
-                // Hide cursor
-#ifndef STYLUS_MODE
-                showCursorOnMelonPrimeDS(false);
-#endif
 
                 // Read the player position
                 playerPosition = emuInstance->nds->ARM9Read8(PlayerPosAddr);
@@ -1218,79 +1216,82 @@ void EmuThread::run()
 #ifndef STYLUS_MODE
                     // processAimInput
 
-                    // Check hotkey status
-                    bool isLayoutChanging = emuInstance->hotkeyPressed(HK_SwapScreens) || emuInstance->hotkeyPressed(HK_FullscreenToggle);
-
-                    // These conditional branches cannot be simplified to a simple else statement
-                    // because they handle different independent cases:
-                    // 1. Recalculating center position when focus is gained or layout is changing
-                    // 2. Updating relative position only when focused and layout is not changing
-
-                    // Recalculate center position when focus is gained or layout is changing
-                    if (!wasLastFrameFocused || isLayoutChanging) {
-                        // emuInstance->osdAddMessage(0, "adjust change needed"); // TODO DELETE THIS
-                        adjustedCenter = getAdjustedCenter();// emuInstance->getMainWindow()
-                    }
-
-                    // Update relative position only when not changing layout
-                    if (wasLastFrameFocused && !isLayoutChanging) {
-                        mouseRel = QCursor::pos() - adjustedCenter;
-                    }
-                    else {
-                        mouseRel = QPoint(0, 0);  // Initialize to origin
-                    }
-
-                    // Recenter cursor
-                    QCursor::setPos(adjustedCenter);
+                    if (!isCursorMode) {
 
 
-                    // Aiming
+                        // Check hotkey status
+                        bool isLayoutChanging = emuInstance->hotkeyPressed(HK_SwapScreens) || emuInstance->hotkeyPressed(HK_FullscreenToggle);
 
-                    // Lambda function to adjust scaled mouse input
-                    auto adjustMouseInput = [](float value) {
-                        // For positive values between 0.5 and 1, set to 1
-                        if (value >= 0.5f && value < 1.0f) {
-                            return 1.0f;
+                        // These conditional branches cannot be simplified to a simple else statement
+                        // because they handle different independent cases:
+                        // 1. Recalculating center position when focus is gained or layout is changing
+                        // 2. Updating relative position only when focused and layout is not changing
+
+                        // Recalculate center position when focus is gained or layout is changing
+                        if (!wasLastFrameFocused || isLayoutChanging) {
+                            // emuInstance->osdAddMessage(0, "adjust change needed"); // TODO DELETE THIS
+                            adjustedCenter = getAdjustedCenter();// emuInstance->getMainWindow()
                         }
-                        // For negative values between -0.5 and -1, set to -1
-                        else if (value <= -0.5f && value > -1.0f) {
-                            return -1.0f;
+
+                        // Update relative position only when not changing layout
+                        if (wasLastFrameFocused && !isLayoutChanging) {
+                            mouseRel = QCursor::pos() - adjustedCenter;
                         }
-                        // For other values, return as is
-                        return value;
-                        };
+                        else {
+                            mouseRel = QPoint(0, 0);  // Initialize to origin
+                        }
 
-                    // Define sensitivity factor as a constant
-                    int currentSensitivity = localCfg.GetInt("Metroid.Sensitivity.Aim");
-                    const float SENSITIVITY_FACTOR = currentSensitivity * 0.01f;
+                        // Recenter cursor
+                        QCursor::setPos(adjustedCenter);
 
-                    // Processing for the X-axis
-                    float mouseX = mouseRel.x();
-                    // We don't use abs() here to preserve the sign of the movement
-                    // This allows us to detect and process even very small movements in either direction
-                    if (mouseX != 0) {
-                        // Scale the mouse X movement
-                        float scaledMouseX = mouseX * SENSITIVITY_FACTOR;
-                        // Adjust the scaled value to ensure minimal movement is registered
-                        scaledMouseX = adjustMouseInput(scaledMouseX);
-                        // Convert to 16-bit integer and write the adjusted X value to the NDS memory
-                        emuInstance->nds->ARM9Write16(aimXAddr, static_cast<uint16_t>(scaledMouseX));
-                        enableAim = true;
-                    }
 
-                    // Processing for the Y-axis
-                    float mouseY = mouseRel.y();
-                    // Again, we avoid using abs() to maintain directional information
-                    // This ensures that even slight movements are captured and processed
-                    if (mouseY != 0) {
-                        // Scale the mouse Y movement and apply aspect ratio correction
-                        float scaledMouseY = mouseY * aimAspectRatio * SENSITIVITY_FACTOR;
-                        // Adjust the scaled value to ensure minimal movement is registered
-                        scaledMouseY = adjustMouseInput(scaledMouseY);
-                        // Convert to 16-bit integer and write the adjusted Y value to the NDS memory
-                        emuInstance->nds->ARM9Write16(aimYAddr, static_cast<uint16_t>(scaledMouseY));
-                        enableAim = true;
-                    }
+                        // Aiming
+
+                        // Lambda function to adjust scaled mouse input
+                        auto adjustMouseInput = [](float value) {
+                            // For positive values between 0.5 and 1, set to 1
+                            if (value >= 0.5f && value < 1.0f) {
+                                return 1.0f;
+                            }
+                            // For negative values between -0.5 and -1, set to -1
+                            else if (value <= -0.5f && value > -1.0f) {
+                                return -1.0f;
+                            }
+                            // For other values, return as is
+                            return value;
+                            };
+
+                        // Define sensitivity factor as a constant
+                        int currentSensitivity = localCfg.GetInt("Metroid.Sensitivity.Aim");
+                        const float SENSITIVITY_FACTOR = currentSensitivity * 0.01f;
+
+                        // Processing for the X-axis
+                        float mouseX = mouseRel.x();
+                        // We don't use abs() here to preserve the sign of the movement
+                        // This allows us to detect and process even very small movements in either direction
+                        if (mouseX != 0) {
+                            // Scale the mouse X movement
+                            float scaledMouseX = mouseX * SENSITIVITY_FACTOR;
+                            // Adjust the scaled value to ensure minimal movement is registered
+                            scaledMouseX = adjustMouseInput(scaledMouseX);
+                            // Convert to 16-bit integer and write the adjusted X value to the NDS memory
+                            emuInstance->nds->ARM9Write16(aimXAddr, static_cast<uint16_t>(scaledMouseX));
+                            enableAim = true;
+                        }
+
+                        // Processing for the Y-axis
+                        float mouseY = mouseRel.y();
+                        // Again, we avoid using abs() to maintain directional information
+                        // This ensures that even slight movements are captured and processed
+                        if (mouseY != 0) {
+                            // Scale the mouse Y movement and apply aspect ratio correction
+                            float scaledMouseY = mouseY * aimAspectRatio * SENSITIVITY_FACTOR;
+                            // Adjust the scaled value to ensure minimal movement is registered
+                            scaledMouseY = adjustMouseInput(scaledMouseY);
+                            // Convert to 16-bit integer and write the adjusted Y value to the NDS memory
+                            emuInstance->nds->ARM9Write16(aimYAddr, static_cast<uint16_t>(scaledMouseY));
+                            enableAim = true;
+                        }
 #else
                     if (emuInstance->isTouching) {
                         emuInstance->nds->TouchScreen(emuInstance->touchX, emuInstance->touchY);
@@ -1299,6 +1300,8 @@ void EmuThread::run()
                         emuInstance->nds->ReleaseScreen();
                     }
 #endif
+                    }
+
 
                     // Move hunter
                     processMoveInput();
@@ -1354,9 +1357,17 @@ void EmuThread::run()
                             return; // Early return if the weapon is already equipped
                         }
 
-                        // Check isMapOrUserActionPaused, for the issue "If you switch weapons while the map is open, the aiming mechanism may become stuck."
-                        if (isInAdventure && emuInstance->nds->ARM9Read8(isMapOrUserActionPausedAddr) == 0x1) {
-                            return;
+                        if (isInAdventure) {
+
+                            // Check isMapOrUserActionPaused, for the issue "If you switch weapons while the map is open, the aiming mechanism may become stuck."
+                            if (isPaused) {
+                                return;
+                            }
+
+                            // Prevent visual glitches during weapon switching in visor mode
+                            if (isInVisor) {
+                                return;
+                            }
                         }
 
                         // Read the current jump flag value
@@ -1569,31 +1580,25 @@ void EmuThread::run()
                         } while (currentIndex != startIndex);
                     }
 
-                    // Start / View Match progress, points
-                    if (emuInstance->hotkeyDown(HK_MetroidMenu)) {
-                        FN_INPUT_PRESS(INPUT_START);
-                    }
-                    else {
-                        FN_INPUT_RELEASE(INPUT_START);
-                    }
-
-
                     if (isInAdventure) {
                         // Adventure Mode Functions
 
+                        // To determine the state of pause or user operation stop (to detect the state of map or action pause)
+                        isPaused = emuInstance->nds->ARM9Read8(isMapOrUserActionPausedAddr) == 0x1;
 
                         // Scan Visor
                         if (emuInstance->hotkeyPressed(HK_MetroidScanVisor)) {
                             emuInstance->nds->ReleaseScreen();
                             frameAdvance(2);
 
-                            bool inVisor = emuInstance->nds->ARM9Read8(inVisorOrMapAddr) == 0x1;
+                            isInVisor = emuInstance->nds->ARM9Read8(isInVisorOrMapAddr) == 0x1;
                             // emuInstance->osdAddMessage(0, "in visor %d", inVisor);
 
                             emuInstance->nds->TouchScreen(128, 173);
 
-                            if (inVisor) {
+                            if (isInVisor) {
                                 frameAdvance(2);
+                                isInVisor = false;
                             }
                             else {
                                 for (int i = 0; i < 30; i++) {
@@ -1604,6 +1609,7 @@ void EmuThread::run()
 
                                     frameAdvanceOnce();
                                 }
+                                isInVisor = true;
                             }
 
                             emuInstance->nds->ReleaseScreen();
@@ -1672,24 +1678,13 @@ void EmuThread::run()
                 else {
                     // !isInGame
 
-                    if(hasInitialized){
-                        hasInitialized = false;
-#ifndef STYLUS_MODE
-                        showCursorOnMelonPrimeDS(true);
-#endif
-                    }
+                    isInAdventure = false;
+                    isInVisor = false;
 
                     // Resolve Menu flickering
-                    if(videoRenderer != renderer3D_Software){
+                    if (videoRenderer != renderer3D_Software) {
                         videoRenderer = renderer3D_Software;
                         updateRenderer();
-                    }
-
-                    if (emuInstance->isTouching) {
-                        emuInstance->nds->TouchScreen(emuInstance->touchX, emuInstance->touchY);
-                    }
-                    else {
-                        emuInstance->nds->ReleaseScreen();
                     }
 
                     // L For Hunter License
@@ -1710,6 +1705,36 @@ void EmuThread::run()
 
                 }
 
+                if (shouldBeCursorMode != isCursorMode) {
+                    isCursorMode = shouldBeCursorMode;
+#ifndef STYLUS_MODE
+                    showCursorOnMelonPrimeDS(isCursorMode);
+#endif
+                }
+
+                if (isCursorMode) {
+
+                    if (!isInGame && hasInitialized) {
+                        hasInitialized = false;
+                    }
+
+
+                    if (emuInstance->isTouching) {
+                        emuInstance->nds->TouchScreen(emuInstance->touchX, emuInstance->touchY);
+                    }
+                    else {
+                        emuInstance->nds->ReleaseScreen();
+                    }
+
+                }
+
+                // Start / View Match progress, points / Map(Adventure)
+                if (emuInstance->hotkeyDown(HK_MetroidMenu)) {
+                    FN_INPUT_PRESS(INPUT_START);
+                }
+                else {
+                    FN_INPUT_RELEASE(INPUT_START);
+                }
 
             }// END of if(isFocused)
 
