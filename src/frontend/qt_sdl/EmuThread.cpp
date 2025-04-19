@@ -872,7 +872,7 @@ void EmuThread::run()
     bool isSamus;
 
     bool isWeavel;
-
+    bool isPaused = false; // MelonPrimeDS
 
     // The QPoint class defines a point in the plane using integer precision. 
     // auto mouseRel = rawInputThread->fetchMouseDelta();
