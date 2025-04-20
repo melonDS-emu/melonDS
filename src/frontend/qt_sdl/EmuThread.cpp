@@ -1181,6 +1181,98 @@ void EmuThread::run()
 #endif
             };
 
+        // Define a lambda function to switch weapons
+        auto SwitchWeapon = [&](int weaponIndex) {
+
+            // Check for Already equipped
+            if (emuInstance->nds->ARM9Read8(selectedWeaponAddr) == weaponIndex) {
+                // emuInstance->osdAddMessage(0, "Weapon switch unnecessary: Already equipped");
+                return; // Early return if the weapon is already equipped
+            }
+
+            if (isInAdventure) {
+
+                // Check isMapOrUserActionPaused, for the issue "If you switch weapons while the map is open, the aiming mechanism may become stuck."
+                if (isPaused) {
+                    return;
+                }
+
+                // Prevent visual glitches during weapon switching in visor mode
+                if (isInVisor) {
+                    return;
+                }
+            }
+
+            // Read the current jump flag value
+            uint8_t currentJumpFlags = emuInstance->nds->ARM9Read8(jumpFlagAddr);
+
+            // Check if the upper 4 bits are odd (1 or 3)
+            // this is for fixing issue: Shooting and transforming become impossible, when changing weapons at high speed while transitioning from transformed to normal form.
+            bool isTransforming = currentJumpFlags & 0x10;
+
+            uint8_t jumpFlag = currentJumpFlags & 0x0F;  // Get the lower 4 bits
+            //emuInstance->osdAddMessage(0, ("JumpFlag:" + std::string(1, "0123456789ABCDEF"[emuInstance->nds->ARM9Read8(jumpFlagAddr) & 0x0F])).c_str());
+
+            bool isRestoreNeeded = false;
+
+            // Check if in alternate form (transformed state)
+            isAltForm = emuInstance->nds->ARM9Read8(isAltFormAddr) == 0x02;
+
+            // If not jumping (jumpFlag == 0) and in normal form, temporarily set to jumped state (jumpFlag == 1)
+            if (!isTransforming && jumpFlag == 0 && !isAltForm) {
+                uint8_t newFlags = (currentJumpFlags & 0xF0) | 0x01;  // Set lower 4 bits to 1
+                emuInstance->nds->ARM9Write8(jumpFlagAddr, newFlags);
+                isRestoreNeeded = true;
+                //emuInstance->osdAddMessage(0, ("JumpFlag:" + std::string(1, "0123456789ABCDEF"[emuInstance->nds->ARM9Read8(jumpFlagAddr) & 0x0F])).c_str());
+                //emuInstance->osdAddMessage(0, "Done setting jumpFlag.");
+            }
+
+            // Lambda to set the weapon-changing state
+            auto setChangingWeapon = [](int value) -> int {
+                // Apply mask to set the lower 4 bits to 1011 (B in hexadecimal)
+                return (value & 0xF0) | 0x0B; // Keep the upper 4 bits, set lower 4 bits to 1011
+                };
+
+            // Modify the value using the lambda
+            int valueOfWeaponChange = setChangingWeapon(emuInstance->nds->ARM9Read8(weaponChangeAddr));
+
+            // Write the weapon change command to ARM9
+            emuInstance->nds->ARM9Write8(weaponChangeAddr, valueOfWeaponChange); // Only change the lower 4 bits to B
+
+            // Change the weapon
+            emuInstance->nds->ARM9Write8(selectedWeaponAddr, weaponIndex);  // Write the address of the corresponding weapon
+
+            // Release the screen (for weapon change)
+            emuInstance->nds->ReleaseScreen();
+
+            // Advance frames (for reflection of ReleaseScreen, WeaponChange)
+            frameAdvance(2);
+
+            // Need Touch after ReleaseScreen for aiming.
+#ifndef STYLUS_MODE
+            emuInstance->nds->TouchScreen(128, 88);
+#else
+            if (emuInstance->isTouching) {
+                emuInstance->nds->TouchScreen(emuInstance->touchX, emuInstance->touchY);
+            }
+#endif
+
+            // Advance frames (for reflection of Touch. This is necessary for no jump)
+            frameAdvance(2);
+
+            // Restore the jump flag to its original value (if necessary)
+            if (isRestoreNeeded) {
+                currentJumpFlags = emuInstance->nds->ARM9Read8(jumpFlagAddr);
+                uint8_t restoredFlags = (currentJumpFlags & 0xF0) | jumpFlag;
+                emuInstance->nds->ARM9Write8(jumpFlagAddr, restoredFlags);
+                //emuInstance->osdAddMessage(0, ("JumpFlag:" + std::string(1, "0123456789ABCDEF"[emuInstance->nds->ARM9Read8(jumpFlagAddr) & 0x0F])).c_str());
+                //emuInstance->osdAddMessage(0, "Restored jumpFlag.");
+
+            }
+
+            };
+
+
     while (emuStatus != emuStatus_Exit) {
 
         // MelonPrimeDS Functions START
@@ -1352,97 +1444,6 @@ void EmuThread::run()
                             }
                         }
                     }
-
-                    // Define a lambda function to switch weapons
-                    auto SwitchWeapon = [&](int weaponIndex) {
-
-                        // Check for Already equipped
-                        if (emuInstance->nds->ARM9Read8(selectedWeaponAddr) == weaponIndex) {
-                            // emuInstance->osdAddMessage(0, "Weapon switch unnecessary: Already equipped");
-                            return; // Early return if the weapon is already equipped
-                        }
-
-                        if (isInAdventure) {
-
-                            // Check isMapOrUserActionPaused, for the issue "If you switch weapons while the map is open, the aiming mechanism may become stuck."
-                            if (isPaused) {
-                                return;
-                            }
-
-                            // Prevent visual glitches during weapon switching in visor mode
-                            if (isInVisor) {
-                                return;
-                            }
-                        }
-
-                        // Read the current jump flag value
-                        uint8_t currentJumpFlags = emuInstance->nds->ARM9Read8(jumpFlagAddr);
-
-                        // Check if the upper 4 bits are odd (1 or 3)
-                        // this is for fixing issue: Shooting and transforming become impossible, when changing weapons at high speed while transitioning from transformed to normal form.
-                        bool isTransforming = currentJumpFlags & 0x10;
-
-                        uint8_t jumpFlag = currentJumpFlags & 0x0F;  // Get the lower 4 bits
-                        //emuInstance->osdAddMessage(0, ("JumpFlag:" + std::string(1, "0123456789ABCDEF"[emuInstance->nds->ARM9Read8(jumpFlagAddr) & 0x0F])).c_str());
-
-                        bool isRestoreNeeded = false;
-
-                        // Check if in alternate form (transformed state)
-                        isAltForm = emuInstance->nds->ARM9Read8(isAltFormAddr) == 0x02;
-
-                        // If not jumping (jumpFlag == 0) and in normal form, temporarily set to jumped state (jumpFlag == 1)
-                        if (!isTransforming && jumpFlag == 0 && !isAltForm) {
-                            uint8_t newFlags = (currentJumpFlags & 0xF0) | 0x01;  // Set lower 4 bits to 1
-                            emuInstance->nds->ARM9Write8(jumpFlagAddr, newFlags);
-                            isRestoreNeeded = true;
-                            //emuInstance->osdAddMessage(0, ("JumpFlag:" + std::string(1, "0123456789ABCDEF"[emuInstance->nds->ARM9Read8(jumpFlagAddr) & 0x0F])).c_str());
-                            //emuInstance->osdAddMessage(0, "Done setting jumpFlag.");
-                        }
-
-                        // Lambda to set the weapon-changing state
-                        auto setChangingWeapon = [](int value) -> int {
-                            // Apply mask to set the lower 4 bits to 1011 (B in hexadecimal)
-                            return (value & 0xF0) | 0x0B; // Keep the upper 4 bits, set lower 4 bits to 1011
-                            };
-
-                        // Modify the value using the lambda
-                        int valueOfWeaponChange = setChangingWeapon(emuInstance->nds->ARM9Read8(weaponChangeAddr));
-
-                        // Write the weapon change command to ARM9
-                        emuInstance->nds->ARM9Write8(weaponChangeAddr, valueOfWeaponChange); // Only change the lower 4 bits to B
-
-                        // Change the weapon
-                        emuInstance->nds->ARM9Write8(selectedWeaponAddr, weaponIndex);  // Write the address of the corresponding weapon
-
-                        // Release the screen (for weapon change)
-                        emuInstance->nds->ReleaseScreen();
-
-                        // Advance frames (for reflection of ReleaseScreen, WeaponChange)
-                        frameAdvance(2);
-
-                        // Need Touch after ReleaseScreen for aiming.
-#ifndef STYLUS_MODE
-                        emuInstance->nds->TouchScreen(128, 88);
-#else
-                        if (emuInstance->isTouching) {
-                            emuInstance->nds->TouchScreen(emuInstance->touchX, emuInstance->touchY);
-                        }
-#endif
-
-                        // Advance frames (for reflection of Touch. This is necessary for no jump)
-                        frameAdvance(2);
-
-                        // Restore the jump flag to its original value (if necessary)
-                        if (isRestoreNeeded) {
-                            currentJumpFlags = emuInstance->nds->ARM9Read8(jumpFlagAddr);
-                            uint8_t restoredFlags = (currentJumpFlags & 0xF0) | jumpFlag;
-                            emuInstance->nds->ARM9Write8(jumpFlagAddr, restoredFlags);
-                            //emuInstance->osdAddMessage(0, ("JumpFlag:" + std::string(1, "0123456789ABCDEF"[emuInstance->nds->ARM9Read8(jumpFlagAddr) & 0x0F])).c_str());
-                            //emuInstance->osdAddMessage(0, "Restored jumpFlag.");
-
-                        }
-
-                        };
 
                     // Switch to Power Beam
                     if (emuInstance->hotkeyPressed(HK_MetroidWeaponBeam)) {
