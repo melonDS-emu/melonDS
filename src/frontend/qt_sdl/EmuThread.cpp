@@ -1305,7 +1305,7 @@ void EmuThread::run()
 #endif
 
                     } // end !isCursorMode
-
+                    // processAimInput end
 
                     // Move hunter
                     processMoveInput();
