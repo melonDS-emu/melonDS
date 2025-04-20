@@ -1213,11 +1213,14 @@ void EmuThread::run()
                     }
                     */
 
-#ifndef STYLUS_MODE
+
+
+
                     // processAimInput
 
                     if (!isCursorMode) {
 
+#ifndef STYLUS_MODE
 
                         // Check hotkey status
                         bool isLayoutChanging = emuInstance->hotkeyPressed(HK_SwapScreens) || emuInstance->hotkeyPressed(HK_FullscreenToggle);
@@ -1300,7 +1303,8 @@ void EmuThread::run()
                         emuInstance->nds->ReleaseScreen();
                     }
 #endif
-                    }
+
+                    } // end !isCursorMode
 
 
                     // Move hunter
@@ -1737,7 +1741,8 @@ void EmuThread::run()
                 }
 
             }// END of if(isFocused)
-
+            
+            // Apply input
             emuInstance->nds->SetKeyMask(emuInstance->getInputMask());
 
             // record last frame was forcused or not
