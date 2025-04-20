@@ -1095,7 +1095,91 @@ void EmuThread::run()
         };
     // /processMoveInputFunction }
 
+        auto processAimInput = [&]() {
+#ifndef STYLUS_MODE
 
+            // Check hotkey status
+            bool isLayoutChanging = emuInstance->hotkeyPressed(HK_SwapScreens) || emuInstance->hotkeyPressed(HK_FullscreenToggle);
+
+            // These conditional branches cannot be simplified to a simple else statement
+            // because they handle different independent cases:
+            // 1. Recalculating center position when focus is gained or layout is changing
+            // 2. Updating relative position only when focused and layout is not changing
+
+            // Recalculate center position when focus is gained or layout is changing
+            if (!wasLastFrameFocused || isLayoutChanging) {
+                // emuInstance->osdAddMessage(0, "adjust change needed"); // TODO DELETE THIS
+                adjustedCenter = getAdjustedCenter();// emuInstance->getMainWindow()
+            }
+
+            // Update relative position only when not changing layout
+            if (wasLastFrameFocused && !isLayoutChanging) {
+                mouseRel = QCursor::pos() - adjustedCenter;
+            }
+            else {
+                mouseRel = QPoint(0, 0);  // Initialize to origin
+            }
+
+            // Recenter cursor
+            QCursor::setPos(adjustedCenter);
+
+
+            // Aiming
+
+            // Lambda function to adjust scaled mouse input
+            auto adjustMouseInput = [](float value) {
+                // For positive values between 0.5 and 1, set to 1
+                if (value >= 0.5f && value < 1.0f) {
+                    return 1.0f;
+                }
+                // For negative values between -0.5 and -1, set to -1
+                else if (value <= -0.5f && value > -1.0f) {
+                    return -1.0f;
+                }
+                // For other values, return as is
+                return value;
+                };
+
+            // Define sensitivity factor as a constant
+            int currentSensitivity = localCfg.GetInt("Metroid.Sensitivity.Aim");
+            const float SENSITIVITY_FACTOR = currentSensitivity * 0.01f;
+
+            // Processing for the X-axis
+            float mouseX = mouseRel.x();
+            // We don't use abs() here to preserve the sign of the movement
+            // This allows us to detect and process even very small movements in either direction
+            if (mouseX != 0) {
+                // Scale the mouse X movement
+                float scaledMouseX = mouseX * SENSITIVITY_FACTOR;
+                // Adjust the scaled value to ensure minimal movement is registered
+                scaledMouseX = adjustMouseInput(scaledMouseX);
+                // Convert to 16-bit integer and write the adjusted X value to the NDS memory
+                emuInstance->nds->ARM9Write16(aimXAddr, static_cast<uint16_t>(scaledMouseX));
+                enableAim = true;
+            }
+
+            // Processing for the Y-axis
+            float mouseY = mouseRel.y();
+            // Again, we avoid using abs() to maintain directional information
+            // This ensures that even slight movements are captured and processed
+            if (mouseY != 0) {
+                // Scale the mouse Y movement and apply aspect ratio correction
+                float scaledMouseY = mouseY * aimAspectRatio * SENSITIVITY_FACTOR;
+                // Adjust the scaled value to ensure minimal movement is registered
+                scaledMouseY = adjustMouseInput(scaledMouseY);
+                // Convert to 16-bit integer and write the adjusted Y value to the NDS memory
+                emuInstance->nds->ARM9Write16(aimYAddr, static_cast<uint16_t>(scaledMouseY));
+                enableAim = true;
+            }
+#else
+            if (emuInstance->isTouching) {
+                emuInstance->nds->TouchScreen(emuInstance->touchX, emuInstance->touchY);
+            }
+            else {
+                emuInstance->nds->ReleaseScreen();
+            }
+#endif
+            };
 
     while (emuStatus != emuStatus_Exit) {
 
@@ -1220,90 +1304,7 @@ void EmuThread::run()
 
                     if (!isCursorMode) {
 
-#ifndef STYLUS_MODE
-
-                        // Check hotkey status
-                        bool isLayoutChanging = emuInstance->hotkeyPressed(HK_SwapScreens) || emuInstance->hotkeyPressed(HK_FullscreenToggle);
-
-                        // These conditional branches cannot be simplified to a simple else statement
-                        // because they handle different independent cases:
-                        // 1. Recalculating center position when focus is gained or layout is changing
-                        // 2. Updating relative position only when focused and layout is not changing
-
-                        // Recalculate center position when focus is gained or layout is changing
-                        if (!wasLastFrameFocused || isLayoutChanging) {
-                            // emuInstance->osdAddMessage(0, "adjust change needed"); // TODO DELETE THIS
-                            adjustedCenter = getAdjustedCenter();// emuInstance->getMainWindow()
-                        }
-
-                        // Update relative position only when not changing layout
-                        if (wasLastFrameFocused && !isLayoutChanging) {
-                            mouseRel = QCursor::pos() - adjustedCenter;
-                        }
-                        else {
-                            mouseRel = QPoint(0, 0);  // Initialize to origin
-                        }
-
-                        // Recenter cursor
-                        QCursor::setPos(adjustedCenter);
-
-
-                        // Aiming
-
-                        // Lambda function to adjust scaled mouse input
-                        auto adjustMouseInput = [](float value) {
-                            // For positive values between 0.5 and 1, set to 1
-                            if (value >= 0.5f && value < 1.0f) {
-                                return 1.0f;
-                            }
-                            // For negative values between -0.5 and -1, set to -1
-                            else if (value <= -0.5f && value > -1.0f) {
-                                return -1.0f;
-                            }
-                            // For other values, return as is
-                            return value;
-                            };
-
-                        // Define sensitivity factor as a constant
-                        int currentSensitivity = localCfg.GetInt("Metroid.Sensitivity.Aim");
-                        const float SENSITIVITY_FACTOR = currentSensitivity * 0.01f;
-
-                        // Processing for the X-axis
-                        float mouseX = mouseRel.x();
-                        // We don't use abs() here to preserve the sign of the movement
-                        // This allows us to detect and process even very small movements in either direction
-                        if (mouseX != 0) {
-                            // Scale the mouse X movement
-                            float scaledMouseX = mouseX * SENSITIVITY_FACTOR;
-                            // Adjust the scaled value to ensure minimal movement is registered
-                            scaledMouseX = adjustMouseInput(scaledMouseX);
-                            // Convert to 16-bit integer and write the adjusted X value to the NDS memory
-                            emuInstance->nds->ARM9Write16(aimXAddr, static_cast<uint16_t>(scaledMouseX));
-                            enableAim = true;
-                        }
-
-                        // Processing for the Y-axis
-                        float mouseY = mouseRel.y();
-                        // Again, we avoid using abs() to maintain directional information
-                        // This ensures that even slight movements are captured and processed
-                        if (mouseY != 0) {
-                            // Scale the mouse Y movement and apply aspect ratio correction
-                            float scaledMouseY = mouseY * aimAspectRatio * SENSITIVITY_FACTOR;
-                            // Adjust the scaled value to ensure minimal movement is registered
-                            scaledMouseY = adjustMouseInput(scaledMouseY);
-                            // Convert to 16-bit integer and write the adjusted Y value to the NDS memory
-                            emuInstance->nds->ARM9Write16(aimYAddr, static_cast<uint16_t>(scaledMouseY));
-                            enableAim = true;
-                        }
-#else
-                    if (emuInstance->isTouching) {
-                        emuInstance->nds->TouchScreen(emuInstance->touchX, emuInstance->touchY);
-                    }
-                    else {
-                        emuInstance->nds->ReleaseScreen();
-                    }
-#endif
-
+                        processAimInput();
                     } // end !isCursorMode
                     // processAimInput end
 
@@ -1607,6 +1608,7 @@ void EmuThread::run()
                             else {
                                 for (int i = 0; i < 30; i++) {
                                     // still allow movement whilst we're enabling scan visor
+                                    processAimInput();
                                     processMoveInput();
 
                                     emuInstance->nds->SetKeyMask(emuInstance->getInputMask());
@@ -1685,6 +1687,10 @@ void EmuThread::run()
                     isInAdventure = false;
                     isInVisor = false;
 
+                    if (hasInitialized) {
+                        hasInitialized = false;
+                    }
+
                     // Resolve Menu flickering
                     if (videoRenderer != renderer3D_Software) {
                         videoRenderer = renderer3D_Software;
@@ -1717,11 +1723,6 @@ void EmuThread::run()
                 }
 
                 if (isCursorMode) {
-
-                    if (!isInGame && hasInitialized) {
-                        hasInitialized = false;
-                    }
-
 
                     if (emuInstance->isTouching) {
                         emuInstance->nds->TouchScreen(emuInstance->touchX, emuInstance->touchY);
