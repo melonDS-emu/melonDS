@@ -14,6 +14,8 @@ env:
   MELONDS_GIT_HASH: ${{ github.sha }}
   MELONDS_BUILD_PROVIDER: GitHub Actions
   MELONDS_VERSION_SUFFIX: " RC"
+  VCPKG_MAX_CONCURRENCY: 8
+  CMAKE_BUILD_PARALLEL_LEVEL: 8
 jobs:
   build:
     runs-on: windows-latest
@@ -31,25 +33,50 @@ jobs:
         update: true
         pacboy: gcc:p cmake:p ninja:p make:p
         
+    - name: Cache MSYS2 packages
+      uses: actions/cache@v3
+      with:
+        path: C:/msys64/var/cache/pacman/pkg
+        key: ${{ runner.os }}-msys2-pacman-${{ hashFiles('**/setup-msys2.yml') }}
+        
+    - name: Set vcpkg cache key
+      id: vcpkg-cache-key
+      run: echo "key=$(md5sum CMakeLists.txt | cut -d' ' -f1)" >> $GITHUB_OUTPUT
+        
     - name: Cache vcpkg
       uses: actions/cache@v3
       with:
         path: |
           ${{ github.workspace }}/vcpkg
           ${{ github.workspace }}/vcpkg_installed
-        key: ${{ runner.os }}-vcpkg-${{ env.VCPKG_COMMIT }}
+        key: ${{ runner.os }}-vcpkg-${{ env.VCPKG_COMMIT }}-${{ steps.vcpkg-cache-key.outputs.key }}
         
     - name: Set up vcpkg
       uses: lukka/run-vcpkg@v11
       with:
         vcpkgGitCommitId: ${{ env.VCPKG_COMMIT }}
         
+    - name: Cache CMake build directory
+      uses: actions/cache@v3
+      with:
+        path: ${{ github.workspace }}/build
+        key: ${{ runner.os }}-cmake-build-${{ hashFiles('CMakeLists.txt', 'src/**', 'include/**') }}
+        
     - name: Configure
-      run: cmake --preset=release-mingw-x86_64 -DMELONDS_EMBED_BUILD_INFO=ON
-      
+      run: |
+        if [ ! -f ./build/release-mingw-x86_64/build.ninja ]; then
+          cmake --preset=release-mingw-x86_64 -DMELONDS_EMBED_BUILD_INFO=ON -DCMAKE_BUILD_PARALLEL_LEVEL=${{ env.CMAKE_BUILD_PARALLEL_LEVEL }}
+        else
+          echo "Using cached CMake configuration."
+        fi
+      env:
+        NINJA_STATUS: "[%f/%t %o/s %es] "
+        
     - name: Build
-      run: cmake --build --preset=release-mingw-x86_64 --parallel $(nproc)
-      
+      run: cmake --build --preset=release-mingw-x86_64 --parallel ${{ env.CMAKE_BUILD_PARALLEL_LEVEL }}
+      env:
+        NINJA_STATUS: "[%f/%t %o/s %es] "
+        
     - uses: actions/upload-artifact@v4
       with:
         name: melonDS-windows-x86_64
