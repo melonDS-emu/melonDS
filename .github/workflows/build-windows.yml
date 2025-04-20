@@ -26,6 +26,18 @@ jobs:
     - name: Check out sources
       uses: actions/checkout@v3
       
+    - name: Cache MSYS2 packages
+      uses: actions/cache@v3
+      with:
+        path: |
+          C:/msys64/var/cache/pacman/pkg
+          C:/msys64/etc/pacman.d/gnupg
+          D:/a/_temp/msys64/var/cache/pacman/pkg
+          D:/a/melonPrimeDS/melonPrimeDS/vcpkg/downloads/tools/msys2
+        key: ${{ runner.os }}-msys2-pacman-${{ hashFiles('**/*.cmake') }}
+        restore-keys: |
+          ${{ runner.os }}-msys2-pacman-
+        
     - name: Set up MSYS2
       uses: msys2/setup-msys2@v2
       with:
@@ -33,23 +45,15 @@ jobs:
         update: true
         pacboy: gcc:p cmake:p ninja:p make:p
         
-    - name: Cache MSYS2 packages
-      uses: actions/cache@v3
-      with:
-        path: C:/msys64/var/cache/pacman/pkg
-        key: ${{ runner.os }}-msys2-pacman-${{ hashFiles('**/setup-msys2.yml') }}
-        
-    - name: Set vcpkg cache key
-      id: vcpkg-cache-key
-      run: echo "key=$(md5sum CMakeLists.txt | cut -d' ' -f1)" >> $GITHUB_OUTPUT
-        
     - name: Cache vcpkg
       uses: actions/cache@v3
       with:
         path: |
           ${{ github.workspace }}/vcpkg
           ${{ github.workspace }}/vcpkg_installed
-        key: ${{ runner.os }}-vcpkg-${{ env.VCPKG_COMMIT }}-${{ steps.vcpkg-cache-key.outputs.key }}
+        key: ${{ runner.os }}-vcpkg-${{ env.VCPKG_COMMIT }}-${{ hashFiles('CMakeLists.txt') }}
+        restore-keys: |
+          ${{ runner.os }}-vcpkg-${{ env.VCPKG_COMMIT }}-
         
     - name: Set up vcpkg
       uses: lukka/run-vcpkg@v11
@@ -61,14 +65,11 @@ jobs:
       with:
         path: ${{ github.workspace }}/build
         key: ${{ runner.os }}-cmake-build-${{ hashFiles('CMakeLists.txt', 'src/**', 'include/**') }}
+        restore-keys: |
+          ${{ runner.os }}-cmake-build-
         
     - name: Configure
-      run: |
-        if [ ! -f ./build/release-mingw-x86_64/build.ninja ]; then
-          cmake --preset=release-mingw-x86_64 -DMELONDS_EMBED_BUILD_INFO=ON -DCMAKE_BUILD_PARALLEL_LEVEL=${{ env.CMAKE_BUILD_PARALLEL_LEVEL }}
-        else
-          echo "Using cached CMake configuration."
-        fi
+      run: cmake --preset=release-mingw-x86_64 -DMELONDS_EMBED_BUILD_INFO=ON -DCMAKE_BUILD_PARALLEL_LEVEL=${{ env.CMAKE_BUILD_PARALLEL_LEVEL }}
       env:
         NINJA_STATUS: "[%f/%t %o/s %es] "
         
