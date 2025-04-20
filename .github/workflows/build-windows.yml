@@ -1,5 +1,4 @@
 name: Windows
-
 on:
   workflow_dispatch:
   push:
@@ -9,14 +8,14 @@ on:
   pull_request:
     branches:
       - master
-
 env:
   VCPKG_COMMIT: 2ad004460f5db4d3b66f62f5799ff66c265c4b5d
   MELONDS_GIT_BRANCH: ${{ github.ref }}
   MELONDS_GIT_HASH: ${{ github.sha }}
   MELONDS_BUILD_PROVIDER: GitHub Actions
   MELONDS_VERSION_SUFFIX: " RC"
-
+  VCPKG_MAX_CONCURRENCY: 8
+  CMAKE_BUILD_PARALLEL_LEVEL: 8
 jobs:
   build:
     runs-on: windows-latest
@@ -26,20 +25,59 @@ jobs:
     steps:
     - name: Check out sources
       uses: actions/checkout@v3
+      
+    - name: Cache MSYS2 packages
+      uses: actions/cache@v3
+      with:
+        path: |
+          C:/msys64/var/cache/pacman/pkg
+          C:/msys64/etc/pacman.d/gnupg
+          D:/a/_temp/msys64/var/cache/pacman/pkg
+          D:/a/melonPrimeDS/melonPrimeDS/vcpkg/downloads/tools/msys2
+        key: ${{ runner.os }}-msys2-pacman-${{ hashFiles('**/*.cmake') }}
+        restore-keys: |
+          ${{ runner.os }}-msys2-pacman-
+        
     - name: Set up MSYS2
       uses: msys2/setup-msys2@v2
       with:
         msystem: ucrt64
         update: true
         pacboy: gcc:p cmake:p ninja:p make:p
+        
+    - name: Cache vcpkg
+      uses: actions/cache@v3
+      with:
+        path: |
+          ${{ github.workspace }}/vcpkg
+          ${{ github.workspace }}/vcpkg_installed
+        key: ${{ runner.os }}-vcpkg-${{ env.VCPKG_COMMIT }}-${{ hashFiles('CMakeLists.txt') }}
+        restore-keys: |
+          ${{ runner.os }}-vcpkg-${{ env.VCPKG_COMMIT }}-
+        
     - name: Set up vcpkg
       uses: lukka/run-vcpkg@v11
       with:
         vcpkgGitCommitId: ${{ env.VCPKG_COMMIT }}
+        
+    - name: Cache CMake build directory
+      uses: actions/cache@v3
+      with:
+        path: ${{ github.workspace }}/build
+        key: ${{ runner.os }}-cmake-build-${{ hashFiles('CMakeLists.txt', 'src/**', 'include/**') }}
+        restore-keys: |
+          ${{ runner.os }}-cmake-build-
+        
     - name: Configure
-      run: cmake --preset=release-mingw-x86_64 -DMELONDS_EMBED_BUILD_INFO=ON
+      run: cmake --preset=release-mingw-x86_64 -DMELONDS_EMBED_BUILD_INFO=ON -DCMAKE_BUILD_PARALLEL_LEVEL=${{ env.CMAKE_BUILD_PARALLEL_LEVEL }}
+      env:
+        NINJA_STATUS: "[%f/%t %o/s %es] "
+        
     - name: Build
-      run: cmake --build --preset=release-mingw-x86_64
+      run: cmake --build --preset=release-mingw-x86_64 --parallel ${{ env.CMAKE_BUILD_PARALLEL_LEVEL }}
+      env:
+        NINJA_STATUS: "[%f/%t %o/s %es] "
+        
     - uses: actions/upload-artifact@v4
       with:
         name: melonDS-windows-x86_64
