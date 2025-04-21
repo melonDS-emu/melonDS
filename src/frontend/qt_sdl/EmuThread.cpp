@@ -266,6 +266,7 @@ void detectRomAndSetAddresses(EmuInstance* emuInstance) {
         baseJumpFlagAddr = baseSelectedWeaponAddr - 0xA;
         baseAimXAddr = 0x020E03E6;
         baseAimYAddr = 0x020E03EE;
+        // 220E090E 0000000C Fast Scan Visor
         isInAdventureAddr = 0x020E9A3C; // Read8 0x02: ADV, 0x03: Multi
         isMapOrUserActionPausedAddr = 0x020FD598; // 0x00000001: true, 0x00000000 false. Read8 is enough though.
         isRomDetected = true;
@@ -1095,183 +1096,182 @@ void EmuThread::run()
         };
     // /processMoveInputFunction }
 
-        auto processAimInput = [&]() {
+    auto processAimInput = [&]() {
 #ifndef STYLUS_MODE
 
-            // Check hotkey status
-            bool isLayoutChanging = emuInstance->hotkeyPressed(HK_SwapScreens) || emuInstance->hotkeyPressed(HK_FullscreenToggle);
+        // Check hotkey status
+        bool isLayoutChanging = emuInstance->hotkeyPressed(HK_SwapScreens) || emuInstance->hotkeyPressed(HK_FullscreenToggle);
 
-            // These conditional branches cannot be simplified to a simple else statement
-            // because they handle different independent cases:
-            // 1. Recalculating center position when focus is gained or layout is changing
-            // 2. Updating relative position only when focused and layout is not changing
+        // These conditional branches cannot be simplified to a simple else statement
+        // because they handle different independent cases:
+        // 1. Recalculating center position when focus is gained or layout is changing
+        // 2. Updating relative position only when focused and layout is not changing
 
-            // Recalculate center position when focus is gained or layout is changing
-            if (!wasLastFrameFocused || isLayoutChanging) {
-                // emuInstance->osdAddMessage(0, "adjust change needed"); // TODO DELETE THIS
-                adjustedCenter = getAdjustedCenter();// emuInstance->getMainWindow()
+        // Recalculate center position when focus is gained or layout is changing
+        if (!wasLastFrameFocused || isLayoutChanging) {
+            // emuInstance->osdAddMessage(0, "adjust change needed"); // TODO DELETE THIS
+            adjustedCenter = getAdjustedCenter();// emuInstance->getMainWindow()
+        }
+
+        // Update relative position only when not changing layout
+        if (wasLastFrameFocused && !isLayoutChanging) {
+            mouseRel = QCursor::pos() - adjustedCenter;
+        }
+        else {
+            mouseRel = QPoint(0, 0);  // Initialize to origin
+        }
+
+        // Recenter cursor
+        QCursor::setPos(adjustedCenter);
+
+
+        // Aiming
+
+        // Lambda function to adjust scaled mouse input
+        auto adjustMouseInput = [](float value) {
+            // For positive values between 0.5 and 1, set to 1
+            if (value >= 0.5f && value < 1.0f) {
+                return 1.0f;
             }
-
-            // Update relative position only when not changing layout
-            if (wasLastFrameFocused && !isLayoutChanging) {
-                mouseRel = QCursor::pos() - adjustedCenter;
+            // For negative values between -0.5 and -1, set to -1
+            else if (value <= -0.5f && value > -1.0f) {
+                return -1.0f;
             }
-            else {
-                mouseRel = QPoint(0, 0);  // Initialize to origin
-            }
-
-            // Recenter cursor
-            QCursor::setPos(adjustedCenter);
-
-
-            // Aiming
-
-            // Lambda function to adjust scaled mouse input
-            auto adjustMouseInput = [](float value) {
-                // For positive values between 0.5 and 1, set to 1
-                if (value >= 0.5f && value < 1.0f) {
-                    return 1.0f;
-                }
-                // For negative values between -0.5 and -1, set to -1
-                else if (value <= -0.5f && value > -1.0f) {
-                    return -1.0f;
-                }
-                // For other values, return as is
-                return value;
-                };
-
-            // Define sensitivity factor as a constant
-            int currentSensitivity = localCfg.GetInt("Metroid.Sensitivity.Aim");
-            const float SENSITIVITY_FACTOR = currentSensitivity * 0.01f;
-
-            // Processing for the X-axis
-            float mouseX = mouseRel.x();
-            // We don't use abs() here to preserve the sign of the movement
-            // This allows us to detect and process even very small movements in either direction
-            if (mouseX != 0) {
-                // Scale the mouse X movement
-                float scaledMouseX = mouseX * SENSITIVITY_FACTOR;
-                // Adjust the scaled value to ensure minimal movement is registered
-                scaledMouseX = adjustMouseInput(scaledMouseX);
-                // Convert to 16-bit integer and write the adjusted X value to the NDS memory
-                emuInstance->nds->ARM9Write16(aimXAddr, static_cast<uint16_t>(scaledMouseX));
-                enableAim = true;
-            }
-
-            // Processing for the Y-axis
-            float mouseY = mouseRel.y();
-            // Again, we avoid using abs() to maintain directional information
-            // This ensures that even slight movements are captured and processed
-            if (mouseY != 0) {
-                // Scale the mouse Y movement and apply aspect ratio correction
-                float scaledMouseY = mouseY * aimAspectRatio * SENSITIVITY_FACTOR;
-                // Adjust the scaled value to ensure minimal movement is registered
-                scaledMouseY = adjustMouseInput(scaledMouseY);
-                // Convert to 16-bit integer and write the adjusted Y value to the NDS memory
-                emuInstance->nds->ARM9Write16(aimYAddr, static_cast<uint16_t>(scaledMouseY));
-                enableAim = true;
-            }
-#else
-            if (emuInstance->isTouching) {
-                emuInstance->nds->TouchScreen(emuInstance->touchX, emuInstance->touchY);
-            }
-            else {
-                emuInstance->nds->ReleaseScreen();
-            }
-#endif
+            // For other values, return as is
+            return value;
             };
 
-        // Define a lambda function to switch weapons
-        auto SwitchWeapon = [&](int weaponIndex) {
+        // Define sensitivity factor as a constant
+        int currentSensitivity = localCfg.GetInt("Metroid.Sensitivity.Aim");
+        const float SENSITIVITY_FACTOR = currentSensitivity * 0.01f;
 
-            // Check for Already equipped
-            if (emuInstance->nds->ARM9Read8(selectedWeaponAddr) == weaponIndex) {
-                // emuInstance->osdAddMessage(0, "Weapon switch unnecessary: Already equipped");
-                return; // Early return if the weapon is already equipped
-            }
+        // Processing for the X-axis
+        float mouseX = mouseRel.x();
+        // We don't use abs() here to preserve the sign of the movement
+        // This allows us to detect and process even very small movements in either direction
+        if (mouseX != 0) {
+            // Scale the mouse X movement
+            float scaledMouseX = mouseX * SENSITIVITY_FACTOR;
+            // Adjust the scaled value to ensure minimal movement is registered
+            scaledMouseX = adjustMouseInput(scaledMouseX);
+            // Convert to 16-bit integer and write the adjusted X value to the NDS memory
+            emuInstance->nds->ARM9Write16(aimXAddr, static_cast<uint16_t>(scaledMouseX));
+            enableAim = true;
+        }
 
-            if (isInAdventure) {
-
-                // Check isMapOrUserActionPaused, for the issue "If you switch weapons while the map is open, the aiming mechanism may become stuck."
-                if (isPaused) {
-                    return;
-                }
-
-                // Prevent visual glitches during weapon switching in visor mode
-                if (isInVisor) {
-                    return;
-                }
-            }
-
-            // Read the current jump flag value
-            uint8_t currentJumpFlags = emuInstance->nds->ARM9Read8(jumpFlagAddr);
-
-            // Check if the upper 4 bits are odd (1 or 3)
-            // this is for fixing issue: Shooting and transforming become impossible, when changing weapons at high speed while transitioning from transformed to normal form.
-            bool isTransforming = currentJumpFlags & 0x10;
-
-            uint8_t jumpFlag = currentJumpFlags & 0x0F;  // Get the lower 4 bits
-            //emuInstance->osdAddMessage(0, ("JumpFlag:" + std::string(1, "0123456789ABCDEF"[emuInstance->nds->ARM9Read8(jumpFlagAddr) & 0x0F])).c_str());
-
-            bool isRestoreNeeded = false;
-
-            // Check if in alternate form (transformed state)
-            isAltForm = emuInstance->nds->ARM9Read8(isAltFormAddr) == 0x02;
-
-            // If not jumping (jumpFlag == 0) and in normal form, temporarily set to jumped state (jumpFlag == 1)
-            if (!isTransforming && jumpFlag == 0 && !isAltForm) {
-                uint8_t newFlags = (currentJumpFlags & 0xF0) | 0x01;  // Set lower 4 bits to 1
-                emuInstance->nds->ARM9Write8(jumpFlagAddr, newFlags);
-                isRestoreNeeded = true;
-                //emuInstance->osdAddMessage(0, ("JumpFlag:" + std::string(1, "0123456789ABCDEF"[emuInstance->nds->ARM9Read8(jumpFlagAddr) & 0x0F])).c_str());
-                //emuInstance->osdAddMessage(0, "Done setting jumpFlag.");
-            }
-
-            // Lambda to set the weapon-changing state
-            auto setChangingWeapon = [](int value) -> int {
-                // Apply mask to set the lower 4 bits to 1011 (B in hexadecimal)
-                return (value & 0xF0) | 0x0B; // Keep the upper 4 bits, set lower 4 bits to 1011
-                };
-
-            // Modify the value using the lambda
-            int valueOfWeaponChange = setChangingWeapon(emuInstance->nds->ARM9Read8(weaponChangeAddr));
-
-            // Write the weapon change command to ARM9
-            emuInstance->nds->ARM9Write8(weaponChangeAddr, valueOfWeaponChange); // Only change the lower 4 bits to B
-
-            // Change the weapon
-            emuInstance->nds->ARM9Write8(selectedWeaponAddr, weaponIndex);  // Write the address of the corresponding weapon
-
-            // Release the screen (for weapon change)
+        // Processing for the Y-axis
+        float mouseY = mouseRel.y();
+        // Again, we avoid using abs() to maintain directional information
+        // This ensures that even slight movements are captured and processed
+        if (mouseY != 0) {
+            // Scale the mouse Y movement and apply aspect ratio correction
+            float scaledMouseY = mouseY * aimAspectRatio * SENSITIVITY_FACTOR;
+            // Adjust the scaled value to ensure minimal movement is registered
+            scaledMouseY = adjustMouseInput(scaledMouseY);
+            // Convert to 16-bit integer and write the adjusted Y value to the NDS memory
+            emuInstance->nds->ARM9Write16(aimYAddr, static_cast<uint16_t>(scaledMouseY));
+            enableAim = true;
+        }
+#else
+        if (emuInstance->isTouching) {
+            emuInstance->nds->TouchScreen(emuInstance->touchX, emuInstance->touchY);
+        }
+        else {
             emuInstance->nds->ReleaseScreen();
-
-            // Advance frames (for reflection of ReleaseScreen, WeaponChange)
-            frameAdvance(2);
-
-            // Need Touch after ReleaseScreen for aiming.
-#ifndef STYLUS_MODE
-            emuInstance->nds->TouchScreen(128, 88);
-#else
-            if (emuInstance->isTouching) {
-                emuInstance->nds->TouchScreen(emuInstance->touchX, emuInstance->touchY);
-            }
+        }
 #endif
+        };
 
-            // Advance frames (for reflection of Touch. This is necessary for no jump)
-            frameAdvance(2);
+    // Define a lambda function to switch weapons
+    auto SwitchWeapon = [&](int weaponIndex) {
 
-            // Restore the jump flag to its original value (if necessary)
-            if (isRestoreNeeded) {
-                currentJumpFlags = emuInstance->nds->ARM9Read8(jumpFlagAddr);
-                uint8_t restoredFlags = (currentJumpFlags & 0xF0) | jumpFlag;
-                emuInstance->nds->ARM9Write8(jumpFlagAddr, restoredFlags);
-                //emuInstance->osdAddMessage(0, ("JumpFlag:" + std::string(1, "0123456789ABCDEF"[emuInstance->nds->ARM9Read8(jumpFlagAddr) & 0x0F])).c_str());
-                //emuInstance->osdAddMessage(0, "Restored jumpFlag.");
+        // Check for Already equipped
+        if (emuInstance->nds->ARM9Read8(selectedWeaponAddr) == weaponIndex) {
+            // emuInstance->osdAddMessage(0, "Weapon switch unnecessary: Already equipped");
+            return; // Early return if the weapon is already equipped
+        }
 
+        if (isInAdventure) {
+
+            // Check isMapOrUserActionPaused, for the issue "If you switch weapons while the map is open, the aiming mechanism may become stuck."
+            if (isPaused) {
+                return;
             }
 
+            // Prevent visual glitches during weapon switching in visor mode
+            if (isInVisor) {
+                return;
+            }
+        }
+
+        // Read the current jump flag value
+        uint8_t currentJumpFlags = emuInstance->nds->ARM9Read8(jumpFlagAddr);
+
+        // Check if the upper 4 bits are odd (1 or 3)
+        // this is for fixing issue: Shooting and transforming become impossible, when changing weapons at high speed while transitioning from transformed to normal form.
+        bool isTransforming = currentJumpFlags & 0x10;
+
+        uint8_t jumpFlag = currentJumpFlags & 0x0F;  // Get the lower 4 bits
+        //emuInstance->osdAddMessage(0, ("JumpFlag:" + std::string(1, "0123456789ABCDEF"[emuInstance->nds->ARM9Read8(jumpFlagAddr) & 0x0F])).c_str());
+
+        bool isRestoreNeeded = false;
+
+        // Check if in alternate form (transformed state)
+        isAltForm = emuInstance->nds->ARM9Read8(isAltFormAddr) == 0x02;
+
+        // If not jumping (jumpFlag == 0) and in normal form, temporarily set to jumped state (jumpFlag == 1)
+        if (!isTransforming && jumpFlag == 0 && !isAltForm) {
+            uint8_t newFlags = (currentJumpFlags & 0xF0) | 0x01;  // Set lower 4 bits to 1
+            emuInstance->nds->ARM9Write8(jumpFlagAddr, newFlags);
+            isRestoreNeeded = true;
+            //emuInstance->osdAddMessage(0, ("JumpFlag:" + std::string(1, "0123456789ABCDEF"[emuInstance->nds->ARM9Read8(jumpFlagAddr) & 0x0F])).c_str());
+            //emuInstance->osdAddMessage(0, "Done setting jumpFlag.");
+        }
+
+        // Lambda to set the weapon-changing state
+        auto setChangingWeapon = [](int value) -> int {
+            // Apply mask to set the lower 4 bits to 1011 (B in hexadecimal)
+            return (value & 0xF0) | 0x0B; // Keep the upper 4 bits, set lower 4 bits to 1011
             };
 
+        // Modify the value using the lambda
+        int valueOfWeaponChange = setChangingWeapon(emuInstance->nds->ARM9Read8(weaponChangeAddr));
+
+        // Write the weapon change command to ARM9
+        emuInstance->nds->ARM9Write8(weaponChangeAddr, valueOfWeaponChange); // Only change the lower 4 bits to B
+
+        // Change the weapon
+        emuInstance->nds->ARM9Write8(selectedWeaponAddr, weaponIndex);  // Write the address of the corresponding weapon
+
+        // Release the screen (for weapon change)
+        emuInstance->nds->ReleaseScreen();
+
+        // Advance frames (for reflection of ReleaseScreen, WeaponChange)
+        frameAdvance(2);
+
+        // Need Touch after ReleaseScreen for aiming.
+#ifndef STYLUS_MODE
+        emuInstance->nds->TouchScreen(128, 88);
+#else
+        if (emuInstance->isTouching) {
+            emuInstance->nds->TouchScreen(emuInstance->touchX, emuInstance->touchY);
+        }
+#endif
+
+        // Advance frames (for reflection of Touch. This is necessary for no jump)
+        frameAdvance(2);
+
+        // Restore the jump flag to its original value (if necessary)
+        if (isRestoreNeeded) {
+            currentJumpFlags = emuInstance->nds->ARM9Read8(jumpFlagAddr);
+            uint8_t restoredFlags = (currentJumpFlags & 0xF0) | jumpFlag;
+            emuInstance->nds->ARM9Write8(jumpFlagAddr, restoredFlags);
+            //emuInstance->osdAddMessage(0, ("JumpFlag:" + std::string(1, "0123456789ABCDEF"[emuInstance->nds->ARM9Read8(jumpFlagAddr) & 0x0F])).c_str());
+            //emuInstance->osdAddMessage(0, "Restored jumpFlag.");
+
+        }
+
+        };
 
     while (emuStatus != emuStatus_Exit) {
 
@@ -1561,12 +1561,12 @@ void EmuThread::run()
                         const uint8_t startIndex = currentIndex;
 
                         // Inline weapon checking logic for better performance
-                        auto hasWeapon = [havingWeapons](uint8_t weapon, uint16_t mask) {
+                        auto hasWeapon = [](uint8_t weapon, uint16_t mask, uint16_t havingWeapons) {
                             // return weapon == 0 || weapon == 2 || (havingWeapons & mask);
                             return havingWeapons & mask;
                             };
 
-                        auto hasEnoughAmmo = [weaponAmmo, missileAmmo, isWeavel](uint8_t weapon, uint8_t minAmmo) {
+                        auto hasEnoughAmmo = [](uint8_t weapon, uint8_t minAmmo, uint16_t weaponAmmo, uint16_t missileAmmo, bool isWeavel) {
                             if (weapon == 0 || weapon == 8) return true; // PowerBeam or OmegaCannon
                             if (weapon == 2) return missileAmmo >= 0xA; // Missile
                             if (weapon == 3 && isWeavel) return weaponAmmo >= 0x5; // Prime Hunter check is needless, if we have only 0x4 ammo, we can equipt battleHammer but can't shoot. it's a bug of MPH. so what we need to check is only it's weavel or not.
@@ -1578,8 +1578,8 @@ void EmuThread::run()
                             currentIndex = (currentIndex + (nextTrigger ? 1 : WEAPON_COUNT - 1)) % WEAPON_COUNT;
                             uint8_t nextWeapon = WEAPON_ORDER[currentIndex];
 
-                            if (hasWeapon(nextWeapon, WEAPON_MASKS[currentIndex]) &&
-                                hasEnoughAmmo(nextWeapon, MIN_AMMO[nextWeapon])) {
+                            if (hasWeapon(nextWeapon, WEAPON_MASKS[currentIndex], havingWeapons) &&
+                                hasEnoughAmmo(nextWeapon, MIN_AMMO[nextWeapon], weaponAmmo, missileAmmo, isWeavel)) {
                                 SwitchWeapon(nextWeapon);
                                 break;
                             }
