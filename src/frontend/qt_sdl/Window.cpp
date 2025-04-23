@@ -289,6 +289,7 @@ MainWindow::MainWindow(int id, EmuInstance* inst, QWidget* parent) :
                     GBAAddon_MotionPakHomebrew,
                     GBAAddon_MotionPakRetail,
                     GBAAddon_GuitarGrip,
+                    GBAAddon_Analog,
                     -1
                 };
 

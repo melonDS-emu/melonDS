@@ -95,6 +95,9 @@ void EmuInstance::inputInit()
     touchX = 0;
     touchY = 0;
 
+    analogX = 0.f;
+    analogY = 0.f;
+
     joystick = nullptr;
     controller = nullptr;
     hasRumble = false;
@@ -441,6 +444,16 @@ void EmuInstance::inputProcess()
         for (int i = 0; i < 12; i++)
             if (joystickButtonDown(joyMapping[i]))
                 joyInputMask &= ~(1 << i);
+
+        // TODO: actual mapping for this
+        analogX = ((float) SDL_JoystickGetAxis(joystick, 0)) / 32768.f;
+        analogY = ((float) SDL_JoystickGetAxis(joystick, 1)) / 32768.f;
+        float magnitude = std::hypot(analogX, analogY);
+        if (magnitude < 0.05)
+        {
+            analogX = 0;
+            analogY = 0;
+        }
     }
 
     inputMask = keyInputMask & joyInputMask;
