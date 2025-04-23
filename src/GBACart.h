@@ -350,7 +350,6 @@ public:
     /// or \c nullptr if the cart slot was empty.
     std::unique_ptr<CartCommon> EjectCart() noexcept;
 
-    // TODO: make more flexible, support nonbinary inputs
     int SetInput(int num, bool pressed) noexcept;
     int SetInput(int num, float value) noexcept;
 

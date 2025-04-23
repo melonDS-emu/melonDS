@@ -448,12 +448,8 @@ void EmuInstance::inputProcess()
         // TODO: actual mapping for this
         analogX = ((float) SDL_JoystickGetAxis(joystick, 0)) / 32768.f;
         analogY = ((float) SDL_JoystickGetAxis(joystick, 1)) / 32768.f;
-        float magnitude = std::hypot(analogX, analogY);
-        if (magnitude < 0.05)
-        {
-            analogX = 0;
-            analogY = 0;
-        }
+        if (std::fabs(analogX) < 0.1) analogX = 0;
+        if (std::fabs(analogY) < 0.1) analogY = 0;
     }
 
     inputMask = keyInputMask & joyInputMask;
