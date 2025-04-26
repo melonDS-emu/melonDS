@@ -1157,32 +1157,25 @@ void EmuThread::run()
         int currentSensitivity = localCfg.GetInt("Metroid.Sensitivity.Aim");
         const float SENSITIVITY_FACTOR = currentSensitivity * 0.01f;
 
-        // Processing for the X-axis
-        float mouseX = mouseRel.x();
-        // We don't use abs() here to preserve the sign of the movement
-        // This allows us to detect and process even very small movements in either direction
-        if (mouseX != 0) {
-            // Scale the mouse X movement
-            float scaledMouseX = mouseX * SENSITIVITY_FACTOR;
-            // Adjust the scaled value to ensure minimal movement is registered
-            scaledMouseX = adjustMouseInput(scaledMouseX);
-            // Convert to 16-bit integer and write the adjusted X value to the NDS memory
-            emuInstance->nds->ARM9Write16(aimXAddr, static_cast<uint16_t>(scaledMouseX));
+        // Combined X and Y processing to reduce code duplication
+        if (mouseRel.x() != 0 || mouseRel.y() != 0) {
             enableAim = true;
-        }
 
-        // Processing for the Y-axis
-        float mouseY = mouseRel.y();
-        // Again, we avoid using abs() to maintain directional information
-        // This ensures that even slight movements are captured and processed
-        if (mouseY != 0) {
-            // Scale the mouse Y movement and apply aspect ratio correction
-            float scaledMouseY = mouseY * aimAspectRatio * SENSITIVITY_FACTOR;
-            // Adjust the scaled value to ensure minimal movement is registered
-            scaledMouseY = adjustMouseInput(scaledMouseY);
-            // Convert to 16-bit integer and write the adjusted Y value to the NDS memory
-            emuInstance->nds->ARM9Write16(aimYAddr, static_cast<uint16_t>(scaledMouseY));
-            enableAim = true;
+            // Process X-axis if there's movement
+            if (mouseRel.x() != 0) {
+                // Scale and adjust the mouse X movement
+                const float scaledMouseX = adjustMouseInput(mouseRel.x() * SENSITIVITY_FACTOR);
+                // Write the adjusted X value to the NDS memory
+                emuInstance->nds->ARM9Write16(aimXAddr, static_cast<uint16_t>(scaledMouseX));
+            }
+
+            // Process Y-axis if there's movement
+            if (mouseRel.y() != 0) {
+                // Scale, apply aspect ratio correction, and adjust the mouse Y movement
+                const float scaledMouseY = adjustMouseInput(mouseRel.y() * aimAspectRatio * SENSITIVITY_FACTOR);
+                // Write the adjusted Y value to the NDS memory
+                emuInstance->nds->ARM9Write16(aimYAddr, static_cast<uint16_t>(scaledMouseY));
+            }
         }
 #else
         if (emuInstance->isTouching) {
