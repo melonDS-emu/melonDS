@@ -1,4 +1,4 @@
-name: Windows Intel
+name: Windows
 on:
   workflow_dispatch:
   push:
@@ -19,34 +19,32 @@ env:
 jobs:
   build:
     runs-on: windows-latest
+    defaults:
+      run:
+        shell: msys2 {0}
     steps:
     - name: Check out sources
       uses: actions/checkout@v3
       
-    - name: Install Intel oneAPI
-      shell: powershell
-      timeout-minutes: 15
-      run: |
-        # WindowsのクライアントPCではIntelのwebクライアントインストーラーを使用
-        # Web installerのURLをダウンロード
-        $webClientUrl = "https://registrationcenter-download.intel.com/akdlm/IRC_NAS/992057e9-c9ee-48c4-b6e0-affd0fc327c3/w_dpcpp-cpp-compiler_p_2024.0.2.28.exe"
-        # WebクライアントPCを作成
-        $webClient = New-Object System.Net.WebClient
-        $installer = "$env:TEMP\w_dpcpp-cpp-compiler.exe"
-        # ダウンロード実行
-        try {
-          $webClient.DownloadFile($webClientUrl, $installer)
-          # コンパイラのサイレントインストール実行
-          Start-Process -FilePath $installer -ArgumentList "--silent --eula=accept" -Wait -NoNewWindow
-        } catch {
-          Write-Host "Installer download failed. Using alternative method with Chocolatey."
-          # Chocolateyインストール
-          Set-ExecutionPolicy Bypass -Scope Process -Force
-          [System.Net.ServicePointManager]::SecurityProtocol = [System.Net.ServicePointManager]::SecurityProtocol -bor 3072
-          iex ((New-Object System.Net.WebClient).DownloadString('https://community.chocolatey.org/install.ps1'))
-          # Intel oneAPIコンポーネントをインストール
-          choco install intel-oneapi-compiler-dpcpp-cpp -y
-        }
+    - name: Cache MSYS2 packages
+      uses: actions/cache@v3
+      with:
+        path: |
+          C:/msys64/var/cache/pacman/pkg
+          C:/msys64/etc/pacman.d/gnupg
+          D:/a/_temp/msys64/var/cache/pacman/pkg
+          D:/a/melonPrimeDS/melonPrimeDS/vcpkg/downloads/tools/msys2
+        key: ${{ runner.os }}-msys2-pacman-${{ hashFiles('**/*.cmake') }}
+        restore-keys: |
+          ${{ runner.os }}-msys2-pacman-
+        
+    - name: Set up MSYS2
+      uses: msys2/setup-msys2@v2
+      with:
+        msystem: ucrt64
+        update: false
+        path-type: inherit
+        pacboy: gcc:p cmake:p ninja:p make:p
         
     - name: Cache vcpkg
       uses: actions/cache@v3
@@ -54,9 +52,9 @@ jobs:
         path: |
           ${{ github.workspace }}/vcpkg
           ${{ github.workspace }}/vcpkg_installed
-        key: ${{ runner.os }}-vcpkg-intel-${{ env.VCPKG_COMMIT }}-${{ hashFiles('CMakeLists.txt') }}
+        key: ${{ runner.os }}-vcpkg-${{ env.VCPKG_COMMIT }}-${{ hashFiles('CMakeLists.txt') }}
         restore-keys: |
-          ${{ runner.os }}-vcpkg-intel-${{ env.VCPKG_COMMIT }}-
+          ${{ runner.os }}-vcpkg-${{ env.VCPKG_COMMIT }}-
         
     - name: Set up vcpkg
       uses: lukka/run-vcpkg@v11
@@ -67,33 +65,21 @@ jobs:
       uses: actions/cache@v3
       with:
         path: ${{ github.workspace }}/build
-        key: ${{ runner.os }}-cmake-intel-build-${{ hashFiles('CMakeLists.txt', 'src/**', 'include/**') }}
+        key: ${{ runner.os }}-cmake-build-${{ hashFiles('CMakeLists.txt', 'src/**', 'include/**') }}
         restore-keys: |
-          ${{ runner.os }}-cmake-intel-build-
-          
-    - name: Setup Intel oneAPI environment
-      shell: cmd
-      run: |
-        call "C:\Program Files (x86)\Intel\oneAPI\setvars.bat" intel64
-        set >> %GITHUB_ENV%
-        
-    - name: Configure with Intel compiler
-      shell: cmd
-      run: |
-        call "C:\Program Files (x86)\Intel\oneAPI\setvars.bat" intel64
-        cmake -B build -DCMAKE_C_COMPILER=icx -DCMAKE_CXX_COMPILER=icx -DCMAKE_BUILD_TYPE=Release -DMELONDS_EMBED_BUILD_INFO=ON
+          ${{ runner.os }}-cmake-build-
+
+    - name: Configure
+      run: cmake --preset=release-mingw-x86_64 -DMELONDS_EMBED_BUILD_INFO=ON -DCMAKE_BUILD_PARALLEL_LEVEL=${{ env.CMAKE_BUILD_PARALLEL_LEVEL }}
       env:
         NINJA_STATUS: "[%f/%t %o/s %es] "
-        
-    - name: Build with Intel compiler
-      shell: cmd
-      run: |
-        call "C:\Program Files (x86)\Intel\oneAPI\setvars.bat" intel64
-        cmake --build build --config Release --parallel ${{ env.CMAKE_BUILD_PARALLEL_LEVEL }}
+
+    - name: Build
+      run: cmake --build --preset=release-mingw-x86_64 --parallel ${{ env.CMAKE_BUILD_PARALLEL_LEVEL }}
       env:
         NINJA_STATUS: "[%f/%t %o/s %es] "
         
     - uses: actions/upload-artifact@v4
       with:
-        name: melonDS-windows-intel-x86_64
-        path: .\build\melonDS.exe
+        name: melonDS-windows-x86_64
+        path: .\build\release-mingw-x86_64\melonDS.exe
