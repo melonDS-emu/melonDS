@@ -447,40 +447,43 @@ void EmuThread::run()
         if (emuInstance->hotkeyPressed(HK_SwapScreens)) emit swapScreensToggle();
         if (emuInstance->hotkeyPressed(HK_SwapScreenEmphasis)) emit screenEmphasisToggle();
 
-        // Lambda to update aim sensitivity and display a message
-        auto updateAimSensitivity = [&](int change) {
+        // Define minimum sensitivity as a constant to improve readability and optimization
+        static constexpr int MIN_SENSITIVITY = 1;
 
-            // Store the current sensitivity in a local variable
+        // Lambda function to update aim sensitivity with low latency
+        auto updateAimSensitivity = [&](const int change) {
+            // Get current sensitivity from config
             int currentSensitivity = localCfg.GetInt("Metroid.Sensitivity.Aim");
 
-            // Calculate the new sensitivity
+            // Calculate new sensitivity value
             int newSensitivity = currentSensitivity + change;
 
-            // Check if the new sensitivity is at least 1
-            if (newSensitivity >= 1) {
-                // Update the config only if the value has changed
-                if (newSensitivity != currentSensitivity) {
-                    localCfg.SetInt("Metroid.Sensitivity.Aim", newSensitivity);
-                    // Save the changes to the configuration file (to persist settings for future sessions)
-                    Config::Save();
-                }
-                // Create and display the OSD message
-                emuInstance->osdAddMessage(0, ("AimSensi Updated: " + std::to_string(newSensitivity)).c_str());
+            // Check for minimum value threshold with early return for optimization
+            if (newSensitivity < MIN_SENSITIVITY) {
+                emuInstance->osdAddMessage(0, "AimSensi cannot be decreased below %d", MIN_SENSITIVITY);
+                return;
             }
-            else {
-                // Display a message when trying to decrease below 1
-                emuInstance->osdAddMessage(0, "AimSensi cannot be decreased below 1");
+
+            // Only process if the value has actually changed
+            if (newSensitivity != currentSensitivity) {
+                // Update the configuration with new value
+                localCfg.SetInt("Metroid.Sensitivity.Aim", newSensitivity);
+                Config::Save();
+
+                // Display message using format string instead of concatenation
+                emuInstance->osdAddMessage(0, "AimSensi Updated: %d", newSensitivity);
             }
             };
 
-        // Sensitivity UP
-        if (emuInstance->hotkeyReleased(HK_MetroidIngameSensiUp)) {
-            updateAimSensitivity(1);  // Increase sensitivity by 1
-        }
+        // Optimize hotkey handling with a single expression
+        {
+            const int sensitivityChange =
+                emuInstance->hotkeyReleased(HK_MetroidIngameSensiUp) ? 1 :
+                emuInstance->hotkeyReleased(HK_MetroidIngameSensiDown) ? -1 : 0;
 
-        // Sensitivity DOWN
-        if (emuInstance->hotkeyReleased(HK_MetroidIngameSensiDown)) {
-            updateAimSensitivity(-1);  // Decrease sensitivity by 1
+            if (sensitivityChange != 0) {
+                updateAimSensitivity(sensitivityChange);
+            }
         }
 
         if (emuStatus == emuStatus_Running || emuStatus == emuStatus_FrameStep)
