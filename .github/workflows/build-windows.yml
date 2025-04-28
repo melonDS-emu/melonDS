@@ -23,10 +23,12 @@ jobs:
     - name: Check out sources
       uses: actions/checkout@v3
       
-    - name: Install Intel oneAPI
-      uses: oneapi-src/oneapi-ci@v1
-      with:
-        components: intel-oneapi-compiler-dpcpp-cpp-and-cpp-classic intel-oneapi-mkl
+    - name: Setup Intel oneAPI repository
+      shell: powershell
+      run: |
+        # Download and install required components only
+        Invoke-WebRequest -Uri https://registrationcenter-download.intel.com/akdlm/irc_nas/19079/w_BaseKit_p_2023.0.0.25940_offline.exe -OutFile BaseKit.exe
+        Start-Process -FilePath "BaseKit.exe" -ArgumentList "--silent --eula accept --components=intel.oneapi.win.cpp-compiler" -Wait
         
     - name: Cache vcpkg
       uses: actions/cache@v3
@@ -51,18 +53,18 @@ jobs:
         restore-keys: |
           ${{ runner.os }}-cmake-intel-build-
           
-    - name: Configure
+    - name: Configure with Intel compiler
       shell: cmd
       run: |
-        call "C:\Program Files (x86)\Intel\oneAPI\setvars.bat"
+        call "C:\Program Files (x86)\Intel\oneAPI\setvars.bat" intel64
         cmake -B build -DCMAKE_C_COMPILER=icx -DCMAKE_CXX_COMPILER=icx -DCMAKE_BUILD_TYPE=Release -DMELONDS_EMBED_BUILD_INFO=ON
       env:
         NINJA_STATUS: "[%f/%t %o/s %es] "
         
-    - name: Build
+    - name: Build with Intel compiler
       shell: cmd
       run: |
-        call "C:\Program Files (x86)\Intel\oneAPI\setvars.bat"
+        call "C:\Program Files (x86)\Intel\oneAPI\setvars.bat" intel64
         cmake --build build --config Release --parallel ${{ env.CMAKE_BUILD_PARALLEL_LEVEL }}
       env:
         NINJA_STATUS: "[%f/%t %o/s %es] "
