@@ -23,12 +23,30 @@ jobs:
     - name: Check out sources
       uses: actions/checkout@v3
       
-    - name: Setup Intel oneAPI repository
+    - name: Install Intel oneAPI
       shell: powershell
+      timeout-minutes: 15
       run: |
-        # Download and install required components only
-        Invoke-WebRequest -Uri https://registrationcenter-download.intel.com/akdlm/irc_nas/19079/w_BaseKit_p_2023.0.0.25940_offline.exe -OutFile BaseKit.exe
-        Start-Process -FilePath "BaseKit.exe" -ArgumentList "--silent --eula accept --components=intel.oneapi.win.cpp-compiler" -Wait
+        # WindowsのクライアントPCではIntelのwebクライアントインストーラーを使用
+        # Web installerのURLをダウンロード
+        $webClientUrl = "https://registrationcenter-download.intel.com/akdlm/IRC_NAS/992057e9-c9ee-48c4-b6e0-affd0fc327c3/w_dpcpp-cpp-compiler_p_2024.0.2.28.exe"
+        # WebクライアントPCを作成
+        $webClient = New-Object System.Net.WebClient
+        $installer = "$env:TEMP\w_dpcpp-cpp-compiler.exe"
+        # ダウンロード実行
+        try {
+          $webClient.DownloadFile($webClientUrl, $installer)
+          # コンパイラのサイレントインストール実行
+          Start-Process -FilePath $installer -ArgumentList "--silent --eula=accept" -Wait -NoNewWindow
+        } catch {
+          Write-Host "Installer download failed. Using alternative method with Chocolatey."
+          # Chocolateyインストール
+          Set-ExecutionPolicy Bypass -Scope Process -Force
+          [System.Net.ServicePointManager]::SecurityProtocol = [System.Net.ServicePointManager]::SecurityProtocol -bor 3072
+          iex ((New-Object System.Net.WebClient).DownloadString('https://community.chocolatey.org/install.ps1'))
+          # Intel oneAPIコンポーネントをインストール
+          choco install intel-oneapi-compiler-dpcpp-cpp -y
+        }
         
     - name: Cache vcpkg
       uses: actions/cache@v3
@@ -53,6 +71,12 @@ jobs:
         restore-keys: |
           ${{ runner.os }}-cmake-intel-build-
           
+    - name: Setup Intel oneAPI environment
+      shell: cmd
+      run: |
+        call "C:\Program Files (x86)\Intel\oneAPI\setvars.bat" intel64
+        set >> %GITHUB_ENV%
+        
     - name: Configure with Intel compiler
       shell: cmd
       run: |
