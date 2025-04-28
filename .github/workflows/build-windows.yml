@@ -46,14 +46,20 @@ jobs:
         path-type: inherit
         pacboy: gcc:p cmake:p ninja:p make:p
         
+    # vcpkgキャッシュの改良部分
     - name: Cache vcpkg
       uses: actions/cache@v3
       with:
         path: |
           ${{ github.workspace }}/vcpkg
           ${{ github.workspace }}/vcpkg_installed
-        key: ${{ runner.os }}-vcpkg-${{ env.VCPKG_COMMIT }}-${{ hashFiles('CMakeLists.txt') }}
+          ${{ github.workspace }}/vcpkg/buildtrees
+          ${{ github.workspace }}/vcpkg/downloads
+          ${{ github.workspace }}/vcpkg/packages
+        # キーの計算に使用するファイルを増やして、より正確なキャッシュ検出を実現
+        key: ${{ runner.os }}-vcpkg-${{ env.VCPKG_COMMIT }}-${{ hashFiles('CMakeLists.txt', 'cmake/**', 'cmake/overlay-triplets/*.cmake') }}
         restore-keys: |
+          ${{ runner.os }}-vcpkg-${{ env.VCPKG_COMMIT }}-${{ hashFiles('CMakeLists.txt') }}
           ${{ runner.os }}-vcpkg-${{ env.VCPKG_COMMIT }}-
         
     - name: Set up vcpkg
@@ -65,19 +71,24 @@ jobs:
       uses: actions/cache@v3
       with:
         path: ${{ github.workspace }}/build
-        key: ${{ runner.os }}-cmake-build-${{ hashFiles('CMakeLists.txt', 'src/**', 'include/**') }}
+        key: ${{ runner.os }}-cmake-build-${{ hashFiles('CMakeLists.txt', 'src/**', 'include/**', 'cmake/**') }}
         restore-keys: |
+          ${{ runner.os }}-cmake-build-${{ hashFiles('CMakeLists.txt') }}
           ${{ runner.os }}-cmake-build-
-
+          
     - name: Configure
       run: cmake --preset=release-mingw-x86_64 -DMELONDS_EMBED_BUILD_INFO=ON -DCMAKE_BUILD_PARALLEL_LEVEL=${{ env.CMAKE_BUILD_PARALLEL_LEVEL }}
       env:
         NINJA_STATUS: "[%f/%t %o/s %es] "
-
+        # vcpkgのバイナリキャッシュを有効化
+        VCPKG_BINARY_SOURCES: "clear;files,${{ github.workspace }}/vcpkg_binary_cache,readwrite"
+        
     - name: Build
       run: cmake --build --preset=release-mingw-x86_64 --parallel ${{ env.CMAKE_BUILD_PARALLEL_LEVEL }}
       env:
         NINJA_STATUS: "[%f/%t %o/s %es] "
+        # vcpkgのバイナリキャッシュを有効化
+        VCPKG_BINARY_SOURCES: "clear;files,${{ github.workspace }}/vcpkg_binary_cache,readwrite"
         
     - uses: actions/upload-artifact@v4
       with:
