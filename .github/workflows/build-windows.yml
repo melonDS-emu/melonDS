@@ -42,7 +42,8 @@ jobs:
       uses: msys2/setup-msys2@v2
       with:
         msystem: ucrt64
-        update: true
+        update: false
+        path-type: inherit
         pacboy: gcc:p cmake:p ninja:p make:p
         
     - name: Cache vcpkg
@@ -67,12 +68,12 @@ jobs:
         key: ${{ runner.os }}-cmake-build-${{ hashFiles('CMakeLists.txt', 'src/**', 'include/**') }}
         restore-keys: |
           ${{ runner.os }}-cmake-build-
-        
+
     - name: Configure
       run: cmake --preset=release-mingw-x86_64 -DMELONDS_EMBED_BUILD_INFO=ON -DCMAKE_BUILD_PARALLEL_LEVEL=${{ env.CMAKE_BUILD_PARALLEL_LEVEL }}
       env:
         NINJA_STATUS: "[%f/%t %o/s %es] "
-        
+
     - name: Build
       run: cmake --build --preset=release-mingw-x86_64 --parallel ${{ env.CMAKE_BUILD_PARALLEL_LEVEL }}
       env:
