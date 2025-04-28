@@ -994,91 +994,69 @@ void EmuThread::run()
         static constexpr uint32_t INPUT_PACKED_LEFT = (1u << 2) | (uint32_t(INPUT_LEFT) << 16);
         static constexpr uint32_t INPUT_PACKED_RIGHT = (1u << 3) | (uint32_t(INPUT_RIGHT) << 16);
 
-        // Get current input state
-        uint32_t currentInputBitmap =
-            (uint32_t(emuInstance->hotkeyDown(HK_MetroidMoveForward)) << 0) |
-            (uint32_t(emuInstance->hotkeyDown(HK_MetroidMoveBack)) << 1) |
-            (uint32_t(emuInstance->hotkeyDown(HK_MetroidMoveLeft)) << 2) |
-            (uint32_t(emuInstance->hotkeyDown(HK_MetroidMoveRight)) << 3);
+        // Predefined bitmasks for optimization
+        static constexpr uint32_t HORIZ_MASK = (1u << 2) | (1u << 3);
+        static constexpr uint32_t VERT_MASK = (1u << 0) | (1u << 1);
 
-        // Use LUT to get final state
+        // Get current input state (combined into a single bitmap for performance)
+        const uint32_t currentInputBitmap =
+            (emuInstance->hotkeyDown(HK_MetroidMoveForward) << 0) |
+            (emuInstance->hotkeyDown(HK_MetroidMoveBack) << 1) |
+            (emuInstance->hotkeyDown(HK_MetroidMoveLeft) << 2) |
+            (emuInstance->hotkeyDown(HK_MetroidMoveRight) << 3);
+
+        // Lookup table for input state mapping (pre-computed results)
         static constexpr uint32_t PACKED_LUT[16] = {
-            0x00000000u,
-            INPUT_PACKED_UP,
-            INPUT_PACKED_DOWN,
-            0x00000000u,
-            INPUT_PACKED_LEFT,
-            INPUT_PACKED_UP | INPUT_PACKED_LEFT,
-            INPUT_PACKED_DOWN | INPUT_PACKED_LEFT,
-            INPUT_PACKED_LEFT,
-            INPUT_PACKED_RIGHT,
-            INPUT_PACKED_UP | INPUT_PACKED_RIGHT,
-            INPUT_PACKED_DOWN | INPUT_PACKED_RIGHT,
-            INPUT_PACKED_RIGHT,
-            0x00000000u,
-            INPUT_PACKED_UP,
-            INPUT_PACKED_DOWN,
-            0x00000000u
+            0x00000000u, INPUT_PACKED_UP, INPUT_PACKED_DOWN, 0x00000000u,
+            INPUT_PACKED_LEFT, INPUT_PACKED_UP | INPUT_PACKED_LEFT, INPUT_PACKED_DOWN | INPUT_PACKED_LEFT, INPUT_PACKED_LEFT,
+            INPUT_PACKED_RIGHT, INPUT_PACKED_UP | INPUT_PACKED_RIGHT, INPUT_PACKED_DOWN | INPUT_PACKED_RIGHT, INPUT_PACKED_RIGHT,
+            0x00000000u, INPUT_PACKED_UP, INPUT_PACKED_DOWN, 0x00000000u
         };
 
+        // Final state variable
         uint32_t finalState;
 
-        if (!localCfg.GetBool("Metroid.Operation.SnapTap")) {
-            // Normal mode processing
-
+        // Branch for SnapTap mode (hint that normal mode is more likely)
+        if (__builtin_expect(!localCfg.GetBool("Metroid.Operation.SnapTap"), true)) {
+            // Normal mode processing (hot path)
             finalState = PACKED_LUT[currentInputBitmap];
         }
         else {
-
-            // SnapTap mode
-
+            // SnapTap mode processing
             // Detect newly pressed keys
-            uint32_t newlyPressed = currentInputBitmap & ~lastInputBitmap;
+            const uint32_t newlyPressed = currentInputBitmap & ~lastInputBitmap;
 
-            // Check for directional conflicts
-            bool horizontalConflict = (currentInputBitmap & ((1u << 2) | (1u << 3))) == ((1u << 2) | (1u << 3));  // Left & Right
-            bool verticalConflict = (currentInputBitmap & ((1u << 0) | (1u << 1))) == ((1u << 0) | (1u << 1));    // Up & Down
+            // Check for directional conflicts (optimized to single bit operations)
+            const bool horizontalConflict = (currentInputBitmap & HORIZ_MASK) == HORIZ_MASK;
+            const bool verticalConflict = (currentInputBitmap & VERT_MASK) == VERT_MASK;
 
-            // Update priority when new keys are pressed
+            // Update priority logic - optimized
             if (newlyPressed) {
-                if (horizontalConflict) {
-                    // For horizontal conflict, prioritize the newly pressed key
-                    priorityInput &= ~((1u << 2) | (1u << 3));  // Clear horizontal flags
-                    priorityInput |= newlyPressed & ((1u << 2) | (1u << 3));
-                }
-                if (verticalConflict) {
-                    // For vertical conflict, prioritize the newly pressed key
-                    priorityInput &= ~((1u << 0) | (1u << 1));  // Clear vertical flags
-                    priorityInput |= newlyPressed & ((1u << 0) | (1u << 1));
-                }
+                // Combined horizontal and vertical processing
+                if (horizontalConflict) priorityInput = (priorityInput & ~HORIZ_MASK) | (newlyPressed & HORIZ_MASK);
+                if (verticalConflict) priorityInput = (priorityInput & ~VERT_MASK) | (newlyPressed & VERT_MASK);
             }
 
-            // Clear priority if the prioritized key is released
-            if ((priorityInput & ~currentInputBitmap) != 0) {
-                priorityInput &= currentInputBitmap;
-            }
+            // Clear priority if prioritized key is released (simplified)
+            priorityInput &= currentInputBitmap;
 
-            // Determine final input based on priorities
+            // Determine final input based on priorities (conditional assignment)
             uint32_t finalInputBitmap = currentInputBitmap;
-            if (horizontalConflict) {
-                finalInputBitmap &= ~((1u << 2) | (1u << 3));  // Clear horizontal inputs
-                finalInputBitmap |= priorityInput & ((1u << 2) | (1u << 3));
-            }
-            if (verticalConflict) {
-                finalInputBitmap &= ~((1u << 0) | (1u << 1));  // Clear vertical inputs
-                finalInputBitmap |= priorityInput & ((1u << 0) | (1u << 1));
-            }
+            if (horizontalConflict) finalInputBitmap = (finalInputBitmap & ~HORIZ_MASK) | (priorityInput & HORIZ_MASK);
+            if (verticalConflict) finalInputBitmap = (finalInputBitmap & ~VERT_MASK) | (priorityInput & VERT_MASK);
 
             // Store current input state for next frame
             lastInputBitmap = currentInputBitmap;
 
+            // Get final state from lookup table
             finalState = PACKED_LUT[finalInputBitmap];
-
         }
 
-        // Apply inputs
-        static const auto applyInput = [&](uint32_t packedInput, uint32_t state) {
-            if (state & packedInput & 0xF) {
+        // Apply input function (recommended for inlining)
+        const auto applyInput = [&](uint32_t packedInput, uint32_t state) {
+            // Optimize condition check to single bit operation
+            const bool isPressed = (state & packedInput & 0xF) != 0;
+            if (isPressed) {
                 FN_INPUT_PRESS(packedInput >> 16);
             }
             else {
@@ -1086,16 +1064,11 @@ void EmuThread::run()
             }
             };
 
-        static constexpr uint32_t ALL_INPUTS[] = {
-            INPUT_PACKED_UP, INPUT_PACKED_DOWN,
-            INPUT_PACKED_LEFT, INPUT_PACKED_RIGHT
-        };
-
-#pragma unroll
-        for (const auto& input : ALL_INPUTS) {
-            applyInput(input, finalState);
-        }
-
+        // Apply all inputs (manually unrolled loop for performance)
+        applyInput(INPUT_PACKED_UP, finalState);
+        applyInput(INPUT_PACKED_DOWN, finalState);
+        applyInput(INPUT_PACKED_LEFT, finalState);
+        applyInput(INPUT_PACKED_RIGHT, finalState);
         };
     // /processMoveInputFunction }
 
