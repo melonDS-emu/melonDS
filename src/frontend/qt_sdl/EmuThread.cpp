@@ -1215,6 +1215,8 @@ void EmuThread::run()
                 return;
             }
 
+            isInVisor = emuInstance->nds->ARM9Read8(isInVisorOrMapAddr) == 0x1;
+
             // Prevent visual glitches during weapon switching in visor mode
             if (isInVisor) {
                 return;
@@ -1621,7 +1623,6 @@ void EmuThread::run()
 
                             if (isInVisor) {
                                 frameAdvance(2);
-                                isInVisor = false;
                             }
                             else {
                                 for (int i = 0; i < 30; i++) {
@@ -1633,7 +1634,6 @@ void EmuThread::run()
 
                                     frameAdvanceOnce();
                                 }
-                                isInVisor = true;
                             }
 
                             emuInstance->nds->ReleaseScreen();
