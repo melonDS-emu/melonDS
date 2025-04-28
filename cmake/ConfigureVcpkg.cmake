@@ -9,7 +9,7 @@ if (VCPKG_ROOT STREQUAL "${_DEFAULT_VCPKG_ROOT}")
     endif()
     FetchContent_Declare(vcpkg
         GIT_REPOSITORY "https://github.com/Microsoft/vcpkg.git"
-        GIT_TAG 6f29f12e82a8293156836ad81cc9bf5af41fe836
+        GIT_TAG 2ad004460f5db4d3b66f62f5799ff66c265c4b5d
         EXCLUDE_FROM_ALL
         SOURCE_DIR "${CMAKE_SOURCE_DIR}/vcpkg")
     FetchContent_MakeAvailable(vcpkg)
