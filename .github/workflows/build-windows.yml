@@ -1,4 +1,4 @@
-name: Windows
+name: Windows Intel
 on:
   workflow_dispatch:
   push:
@@ -19,32 +19,14 @@ env:
 jobs:
   build:
     runs-on: windows-latest
-    defaults:
-      run:
-        shell: msys2 {0}
     steps:
     - name: Check out sources
       uses: actions/checkout@v3
       
-    - name: Cache MSYS2 packages
-      uses: actions/cache@v3
+    - name: Install Intel oneAPI
+      uses: oneapi-src/oneapi-ci@v1
       with:
-        path: |
-          C:/msys64/var/cache/pacman/pkg
-          C:/msys64/etc/pacman.d/gnupg
-          D:/a/_temp/msys64/var/cache/pacman/pkg
-          D:/a/melonPrimeDS/melonPrimeDS/vcpkg/downloads/tools/msys2
-        key: ${{ runner.os }}-msys2-pacman-${{ hashFiles('**/*.cmake') }}
-        restore-keys: |
-          ${{ runner.os }}-msys2-pacman-
-        
-    - name: Set up MSYS2
-      uses: msys2/setup-msys2@v2
-      with:
-        msystem: ucrt64
-        update: false
-        path-type: inherit
-        pacboy: gcc:p cmake:p ninja:p make:p
+        components: intel-oneapi-compiler-dpcpp-cpp-and-cpp-classic intel-oneapi-mkl
         
     - name: Cache vcpkg
       uses: actions/cache@v3
@@ -52,9 +34,9 @@ jobs:
         path: |
           ${{ github.workspace }}/vcpkg
           ${{ github.workspace }}/vcpkg_installed
-        key: ${{ runner.os }}-vcpkg-${{ env.VCPKG_COMMIT }}-${{ hashFiles('CMakeLists.txt') }}
+        key: ${{ runner.os }}-vcpkg-intel-${{ env.VCPKG_COMMIT }}-${{ hashFiles('CMakeLists.txt') }}
         restore-keys: |
-          ${{ runner.os }}-vcpkg-${{ env.VCPKG_COMMIT }}-
+          ${{ runner.os }}-vcpkg-intel-${{ env.VCPKG_COMMIT }}-
         
     - name: Set up vcpkg
       uses: lukka/run-vcpkg@v11
@@ -65,21 +47,27 @@ jobs:
       uses: actions/cache@v3
       with:
         path: ${{ github.workspace }}/build
-        key: ${{ runner.os }}-cmake-build-${{ hashFiles('CMakeLists.txt', 'src/**', 'include/**') }}
+        key: ${{ runner.os }}-cmake-intel-build-${{ hashFiles('CMakeLists.txt', 'src/**', 'include/**') }}
         restore-keys: |
-          ${{ runner.os }}-cmake-build-
-
+          ${{ runner.os }}-cmake-intel-build-
+          
     - name: Configure
-      run: cmake --preset=release-mingw-x86_64 -DMELONDS_EMBED_BUILD_INFO=ON -DCMAKE_BUILD_PARALLEL_LEVEL=${{ env.CMAKE_BUILD_PARALLEL_LEVEL }}
+      shell: cmd
+      run: |
+        call "C:\Program Files (x86)\Intel\oneAPI\setvars.bat"
+        cmake -B build -DCMAKE_C_COMPILER=icx -DCMAKE_CXX_COMPILER=icx -DCMAKE_BUILD_TYPE=Release -DMELONDS_EMBED_BUILD_INFO=ON
       env:
         NINJA_STATUS: "[%f/%t %o/s %es] "
-
+        
     - name: Build
-      run: cmake --build --preset=release-mingw-x86_64 --parallel ${{ env.CMAKE_BUILD_PARALLEL_LEVEL }}
+      shell: cmd
+      run: |
+        call "C:\Program Files (x86)\Intel\oneAPI\setvars.bat"
+        cmake --build build --config Release --parallel ${{ env.CMAKE_BUILD_PARALLEL_LEVEL }}
       env:
         NINJA_STATUS: "[%f/%t %o/s %es] "
         
     - uses: actions/upload-artifact@v4
       with:
-        name: melonDS-windows-x86_64
-        path: .\build\release-mingw-x86_64\melonDS.exe
+        name: melonDS-windows-intel-x86_64
+        path: .\build\melonDS.exe
