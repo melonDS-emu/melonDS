@@ -71,7 +71,7 @@ jobs:
           ${{ runner.os }}-cmake-build-
 
     - name: Configure
-      run: cmake --preset=release-mingw-x86_64 -DMELONDS_EMBED_BUILD_INFO=ON -DENABLE_LTO_RELEASE=OFF -DCMAKE_BUILD_PARALLEL_LEVEL=${{ env.CMAKE_BUILD_PARALLEL_LEVEL }}
+      run: cmake --preset=release-mingw-x86_64 -DMELONDS_EMBED_BUILD_INFO=ON -DCMAKE_BUILD_PARALLEL_LEVEL=${{ env.CMAKE_BUILD_PARALLEL_LEVEL }}
       env:
         NINJA_STATUS: "[%f/%t %o/s %es] "
 
