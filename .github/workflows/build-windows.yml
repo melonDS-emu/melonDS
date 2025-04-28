@@ -44,7 +44,7 @@ jobs:
         msystem: ucrt64
         update: false
         path-type: inherit
-        msys2-release: '20241208'
+        release: '20241208'
         pacboy: gcc:p cmake:p ninja:p make:p
         
     - name: Cache vcpkg
