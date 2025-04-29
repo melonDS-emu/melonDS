@@ -1131,7 +1131,6 @@ void EmuThread::run()
 
         // Aiming
 
-        /*
         // Lambda function to adjust scaled mouse input
         auto adjustMouseInput = [](float value) {
             // For positive values between 0.5 and 1, set to 1
@@ -1144,17 +1143,6 @@ void EmuThread::run()
             }
             // For other values, return as is
             return value;
-            };
-        */
-        // Lambda function to adjust scaled mouse input
-
-        auto adjustMouseInput = [](float value) {
-            // Calculate absolute value only once
-            float absValue = value < 0 ? -value : value;
-            // Replace multiple condition checks with a single range check
-            // Tests if 0.5 <= |value| < 1.0
-            return (absValue >= 0.5f && absValue < 1.0f) ?
-                (value >= 0 ? 1.0f : -1.0f) : value;
             };
 
         // Define sensitivity factor as a constant
