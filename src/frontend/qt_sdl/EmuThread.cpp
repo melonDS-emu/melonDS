@@ -802,7 +802,6 @@ void EmuThread::run()
     bool isCursorVisible = true;
     bool enableAim = true;
     bool wasLastFrameFocused = false;
-    bool isInVisor = false;
 
     /**
      * @brief Function to show or hide the cursor on MelonPrimeDS
@@ -1101,7 +1100,7 @@ void EmuThread::run()
     };
     // /processMoveInputFunction }
 
-    auto processAimInput = [&]() {
+    auto processAimInput = [&]() __attribute__((hot, always_inline)) {
 #ifndef STYLUS_MODE
 
         // Check hotkey status
@@ -1200,7 +1199,7 @@ void EmuThread::run()
         };
 
     // Define a lambda function to switch weapons
-    auto SwitchWeapon = [&](int weaponIndex) {
+    auto SwitchWeapon = [&](int weaponIndex) __attribute__((hot, always_inline)) {
 
         // Check for Already equipped
         if (emuInstance->nds->ARM9Read8(selectedWeaponAddr) == weaponIndex) {
@@ -1213,12 +1212,10 @@ void EmuThread::run()
             // Check isMapOrUserActionPaused, for the issue "If you switch weapons while the map is open, the aiming mechanism may become stuck."
             if (isPaused) {
                 return;
-            }
+            } else if (emuInstance->nds->ARM9Read8(isInVisorOrMapAddr) == 0x1) {
+                // isInVisor
 
-            isInVisor = emuInstance->nds->ARM9Read8(isInVisorOrMapAddr) == 0x1;
-
-            // Prevent visual glitches during weapon switching in visor mode
-            if (isInVisor) {
+                // Prevent visual glitches during weapon switching in visor mode
                 return;
             }
         }
@@ -1240,24 +1237,15 @@ void EmuThread::run()
 
         // If not jumping (jumpFlag == 0) and in normal form, temporarily set to jumped state (jumpFlag == 1)
         if (!isTransforming && jumpFlag == 0 && !isAltForm) {
-            uint8_t newFlags = (currentJumpFlags & 0xF0) | 0x01;  // Set lower 4 bits to 1
-            emuInstance->nds->ARM9Write8(jumpFlagAddr, newFlags);
+            // Leave the upper 4 bits of currentJumpFlags as they are and set the lower 4 bits to 0x01
+            emuInstance->nds->ARM9Write8(jumpFlagAddr, (currentJumpFlags & 0xF0) | 0x01);
             isRestoreNeeded = true;
             //emuInstance->osdAddMessage(0, ("JumpFlag:" + std::string(1, "0123456789ABCDEF"[emuInstance->nds->ARM9Read8(jumpFlagAddr) & 0x0F])).c_str());
             //emuInstance->osdAddMessage(0, "Done setting jumpFlag.");
         }
 
-        // Lambda to set the weapon-changing state
-        auto setChangingWeapon = [](int value) -> int {
-            // Apply mask to set the lower 4 bits to 1011 (B in hexadecimal)
-            return (value & 0xF0) | 0x0B; // Keep the upper 4 bits, set lower 4 bits to 1011
-            };
-
-        // Modify the value using the lambda
-        int valueOfWeaponChange = setChangingWeapon(emuInstance->nds->ARM9Read8(weaponChangeAddr));
-
-        // Write the weapon change command to ARM9
-        emuInstance->nds->ARM9Write8(weaponChangeAddr, valueOfWeaponChange); // Only change the lower 4 bits to B
+        // Leave the upper 4 bits of WeaponChangeAddr as they are, and set only the lower 4 bits to 1011 (B in hexadecimal)
+        emuInstance->nds->ARM9Write8(weaponChangeAddr, (emuInstance->nds->ARM9Read8(weaponChangeAddr) & 0xF0) | 0x0B); // Only change the lower 4 bits to B
 
         // Change the weapon
         emuInstance->nds->ARM9Write8(selectedWeaponAddr, weaponIndex);  // Write the address of the corresponding weapon
@@ -1283,8 +1271,8 @@ void EmuThread::run()
         // Restore the jump flag to its original value (if necessary)
         if (isRestoreNeeded) {
             currentJumpFlags = emuInstance->nds->ARM9Read8(jumpFlagAddr);
-            uint8_t restoredFlags = (currentJumpFlags & 0xF0) | jumpFlag;
-            emuInstance->nds->ARM9Write8(jumpFlagAddr, restoredFlags);
+            // Create and set a new value by combining the upper 4 bits of currentJumpFlags and the lower 4 bits of jumpFlag
+            emuInstance->nds->ARM9Write8(jumpFlagAddr, (currentJumpFlags & 0xF0) | jumpFlag);
             //emuInstance->osdAddMessage(0, ("JumpFlag:" + std::string(1, "0123456789ABCDEF"[emuInstance->nds->ARM9Read8(jumpFlagAddr) & 0x0F])).c_str());
             //emuInstance->osdAddMessage(0, "Restored jumpFlag.");
 
@@ -1320,17 +1308,9 @@ void EmuThread::run()
                 // Set the initialization complete flag
                 hasInitialized = true;
 
-                // getVsyncFlag
-                bool vsyncFlag = emuInstance->getGlobalConfig().GetBool("Screen.VSync");  // MelonPrimeDS
-                // VSync Override
-                emuInstance->setVSyncGL(vsyncFlag); // MelonPrimeDS
-
                 // updateRenderer because of using softwareRenderer when not in Game.
                 videoRenderer = emuInstance->getGlobalConfig().GetInt("3D.Renderer");
                 updateRenderer();
-
-                // VSync Override
-                emuInstance->setVSyncGL(vsyncFlag); // MelonPrimeDS
 
                 /* MelonPrimeDS test
                 if (vsyncFlag) {
@@ -1616,12 +1596,12 @@ void EmuThread::run()
                             emuInstance->nds->ReleaseScreen();
                             frameAdvance(2);
 
-                            isInVisor = emuInstance->nds->ARM9Read8(isInVisorOrMapAddr) == 0x1;
                             // emuInstance->osdAddMessage(0, "in visor %d", inVisor);
 
                             emuInstance->nds->TouchScreen(128, 173);
 
-                            if (isInVisor) {
+                            if (emuInstance->nds->ARM9Read8(isInVisorOrMapAddr) == 0x1) {
+                                // isInVisor
                                 frameAdvance(2);
                             }
                             else {
@@ -1703,7 +1683,6 @@ void EmuThread::run()
                     // !isInGame
 
                     isInAdventure = false;
-                    isInVisor = false;
 
                     if (hasInitialized) {
                         hasInitialized = false;
@@ -1857,23 +1836,9 @@ void EmuThread::handleMessages()
                 // MelonPrimeDS {
                 // applyVideoSettings Immediately when resumed
                 if(isInGame){
-
-                    bool vsyncFlag = emuInstance->getGlobalConfig().GetBool("Screen.VSync");// MelonPrimeDS
-                    
-                    emuInstance->setVSyncGL(vsyncFlag); // MelonPrimeDS
+                    // updateRenderer because of using softwareRenderer when not in Game.
                     videoRenderer = emuInstance->getGlobalConfig().GetInt("3D.Renderer");
                     updateRenderer();
-                    emuInstance->setVSyncGL(vsyncFlag); // MelonPrimeDS
-
-                    /* MelonPrimeDS test
-                    if (vsyncFlag) {
-                        emuInstance->osdAddMessage(0, "Vsync is enabled.");
-                    }
-                    else {
-                        emuInstance->osdAddMessage(0, "Vsync is disabled.");
-                    }
-                    */
-
                 }
                 // MelonPrimeDS }
             }
@@ -2187,6 +2152,15 @@ void EmuThread::enableCheats(bool enable)
 
 void EmuThread::updateRenderer()
 {
+    // MelonPrimeDS {
+
+    // getVsyncFlag
+    bool vsyncFlag = emuInstance->getGlobalConfig().GetBool("Screen.VSync");  // MelonPrimeDS
+    // VSync Override
+    emuInstance->setVSyncGL(vsyncFlag); // MelonPrimeDS
+
+	// } MelonPrimeDS
+
     if (videoRenderer != lastVideoRenderer)
     {
         switch (videoRenderer)
@@ -2225,6 +2199,20 @@ void EmuThread::updateRenderer()
             break;
         default: __builtin_unreachable();
     }
+    // MelonPrimeDS {
+    // VSync Override
+    emuInstance->setVSyncGL(vsyncFlag); // MelonPrimeDS
+
+    /* MelonPrimeDS test
+    if (vsyncFlag) {
+        emuInstance->osdAddMessage(0, "Vsync is enabled.");
+    }
+    else {
+        emuInstance->osdAddMessage(0, "Vsync is disabled.");
+    }
+    */
+
+    // } MelonPrimeDS
 }
 
 void EmuThread::compileShaders()
