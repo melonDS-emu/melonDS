@@ -1100,7 +1100,7 @@ void EmuThread::run()
     };
     // /processMoveInputFunction }
 
-    auto processAimInput = [&]() {
+    auto processAimInput = [&]() __attribute__((hot, always_inline)) {
 #ifndef STYLUS_MODE
 
         // Check hotkey status
