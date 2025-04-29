@@ -983,7 +983,6 @@ void EmuThread::run()
     // processMoveInputFunction{
 
     // State variables for SnapTap mode
-    // State variables for SnapTap mode
     static uint32_t lastInputBitmap = 0;
     static uint32_t priorityInput = 0;
 
