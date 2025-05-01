@@ -1006,7 +1006,7 @@ void EmuThread::run()
     alignas(64) static uint32_t lastInputBitmap = 0;
     alignas(64) static uint32_t priorityInput = 0;
 
-    auto processMoveInput = [&]() __attribute__((hot, always_inline, flatten)) {
+    auto processMoveInput = [&]() __attribute__((hot, always_inline)) {
         // Pre-computed packed input constants (compile time constants)
         static constexpr uint32_t INPUT_PACKED_UP = (1u << 0) | (uint32_t(INPUT_UP) << 16);
         static constexpr uint32_t INPUT_PACKED_DOWN = (1u << 1) | (uint32_t(INPUT_DOWN) << 16);
