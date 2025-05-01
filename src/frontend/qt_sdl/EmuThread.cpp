@@ -1,4 +1,4 @@
-/*
+﻿/*
     Copyright 2016-2024 melonDS team
 
     This file is part of melonDS.
@@ -893,10 +893,15 @@ void EmuThread::run()
 
     // test
     // Lambda function to get adjusted center position based on window geometry and screen layout
-    auto getAdjustedCenter = [&]() {
+    auto getAdjustedCenter = [&]()__attribute__((hot, always_inline, flatten)) -> QPoint {
+        // Cache static constants outside the function to avoid recomputation
+        static constexpr float DEFAULT_ADJUSTMENT = 0.25f;
+        static constexpr float HYBRID_RIGHT = 0.333203125f;  // (2133-1280)/2560
+        static constexpr float HYBRID_LEFT = 0.166796875f;   // (1280-853)/2560
+
         auto& windowCfg = emuInstance->getMainWindow()->getWindowConfig();
 
-        // Get current settings
+        // Fast access to current settings - get all at once
         int currentLayout = windowCfg.GetInt("ScreenLayout");
         int currentScreenSizing = windowCfg.GetInt("ScreenSizing");
         bool currentSwapped = windowCfg.GetBool("ScreenSwap");
@@ -916,39 +921,46 @@ void EmuThread::run()
         lastSwapped = currentSwapped;
         lastFullscreen = currentFullscreen;
 
-        // Get display dimensions
-        const QRect displayRect = emuInstance->getMainWindow()->panel->geometry();
-        const int halfWidth = displayRect.width() >> 1;
-        const int halfHeight = displayRect.height() >> 1;
+        // Get display dimensions once
+        const QRect& displayRect = emuInstance->getMainWindow()->panel->geometry();
+        const int displayWidth = displayRect.width();
+        const int displayHeight = displayRect.height();
 
         // Calculate base center position
         adjustedCenter = emuInstance->getMainWindow()->panel->mapToGlobal(
-            QPoint(halfWidth, halfHeight)
+            QPoint(displayWidth >> 1, displayHeight >> 1)
         );
 
-        // Handle special screen sizing cases
+        // Fast path for special cases
         if (currentScreenSizing == screenSizing_TopOnly) {
             return adjustedCenter;
         }
 
         if (currentScreenSizing == screenSizing_BotOnly) {
             if (currentFullscreen) {
-                adjustedCenter.rx() -= static_cast<int>(displayRect.width() * 0.4f);
-                adjustedCenter.ry() -= static_cast<int>(displayRect.height() * 0.4f);
+                // Precompute constants to avoid repeated multiplications
+                const float widthAdjust = displayWidth * 0.4f;
+                const float heightAdjust = displayHeight * 0.4f;
+
+                adjustedCenter.rx() -= static_cast<int>(widthAdjust);
+                adjustedCenter.ry() -= static_cast<int>(heightAdjust);
             }
             return adjustedCenter;
         }
 
-        // Constants for layout adjustments
-        constexpr float DEFAULT_ADJUSTMENT = 0.25f;
-        constexpr float HYBRID_RIGHT = 0.333203125f;  // (2133-1280)/2560
-        constexpr float HYBRID_LEFT = 0.166796875f;   // (1280-853)/2560
+        // Fast path for Hybrid layout with swap
+        if (currentLayout == screenLayout_Hybrid && currentSwapped) {
+            // Directly compute result for this specific case
+            adjustedCenter.rx() += static_cast<int>(displayWidth * HYBRID_RIGHT);
+            adjustedCenter.ry() -= static_cast<int>(displayHeight * DEFAULT_ADJUSTMENT);
+            return adjustedCenter;
+        }
 
-        // Initialize adjustment values
+        // For other cases, determine adjustment values
         float xAdjust = 0.0f;
         float yAdjust = 0.0f;
 
-        // Set adjustment values based on layout type
+        // Simplified switch with fewer branches
         switch (currentLayout) {
         case screenLayout_Natural:
         case screenLayout_Vertical:
@@ -958,24 +970,20 @@ void EmuThread::run()
             xAdjust = DEFAULT_ADJUSTMENT;
             break;
         case screenLayout_Hybrid:
-            if (currentSwapped) {
-                adjustedCenter.rx() += static_cast<int>(displayRect.width() * HYBRID_RIGHT);
-                adjustedCenter.ry() -= static_cast<int>(displayRect.height() * DEFAULT_ADJUSTMENT);
-                return adjustedCenter;
-            }
-            else {
-                xAdjust = HYBRID_LEFT;
-            }
+            // We already handled the swapped case above
+            xAdjust = HYBRID_LEFT;
             break;
         }
 
-        // Apply calculated adjustments
+        // Apply non-zero adjustments only
         if (xAdjust != 0.0f) {
-            adjustedCenter.rx() += static_cast<int>(displayRect.width() * xAdjust * (currentSwapped ? 1.0f : -1.0f));
+            // Using direct ternary operator instead of swapFactor variable
+            adjustedCenter.rx() += static_cast<int>(displayWidth * xAdjust * (currentSwapped ? 1.0f : -1.0f));
         }
 
         if (yAdjust != 0.0f) {
-            adjustedCenter.ry() += static_cast<int>(displayRect.height() * yAdjust * (currentSwapped ? 1.0f : -1.0f));
+            // Using direct ternary operator instead of swapFactor variable
+            adjustedCenter.ry() += static_cast<int>(displayHeight * yAdjust * (currentSwapped ? 1.0f : -1.0f));
         }
 
         return adjustedCenter;
@@ -998,7 +1006,7 @@ void EmuThread::run()
     alignas(64) static uint32_t lastInputBitmap = 0;
     alignas(64) static uint32_t priorityInput = 0;
 
-    auto processMoveInput = [&]() __attribute__((hot, always_inline)) {
+    auto processMoveInput = [&]() __attribute__((hot, always_inline, flatten)) {
         // Pre-computed packed input constants (compile time constants)
         static constexpr uint32_t INPUT_PACKED_UP = (1u << 0) | (uint32_t(INPUT_UP) << 16);
         static constexpr uint32_t INPUT_PACKED_DOWN = (1u << 1) | (uint32_t(INPUT_DOWN) << 16);
@@ -1111,7 +1119,7 @@ void EmuThread::run()
     };
     // /processMoveInputFunction }
 
-    auto processAimInput = [&]() __attribute__((hot, always_inline)) {
+    auto processAimInput = [&]() __attribute__((hot, always_inline, flatten)) {
 #ifndef STYLUS_MODE
 
         // Check hotkey status
