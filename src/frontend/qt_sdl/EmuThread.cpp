@@ -1,4 +1,4 @@
-/*
+﻿/*
     Copyright 2016-2024 melonDS team
 
     This file is part of melonDS.
@@ -885,85 +885,105 @@ void EmuThread::run()
     // Initialize Adjusted Center 
     QPoint adjustedCenter;
 
+    int lastLayout = -1;
+    int lastScreenSizing = -1;
+    bool lastSwapped = false;
+    bool lastFullscreen = false;
+
 
     // test
     // Lambda function to get adjusted center position based on window geometry and screen layout
-    auto getAdjustedCenter = [&]() {
+    auto getAdjustedCenter = [&]()__attribute__((hot, always_inline, flatten)) -> QPoint {
+        // Cache static constants outside the function to avoid recomputation
+        static constexpr float DEFAULT_ADJUSTMENT = 0.25f;
+        static constexpr float HYBRID_RIGHT = 0.333203125f;  // (2133-1280)/2560
+        static constexpr float HYBRID_LEFT = 0.166796875f;   // (1280-853)/2560
+
         auto& windowCfg = emuInstance->getMainWindow()->getWindowConfig();
 
-        // Get the actual game display area instead of full window
-        const QRect displayRect = emuInstance->getMainWindow()->panel->geometry();
-        QPoint adjustedCenter = emuInstance->getMainWindow()->panel->mapToGlobal(
-            // QPoint(displayRect.width() / 2, displayRect.height() / 2)
-            QPoint(displayRect.width() >> 1, displayRect.height() >> 1) // Use bit shifting to speed up
+        // Fast access to current settings - get all at once
+        int currentLayout = windowCfg.GetInt("ScreenLayout");
+        int currentScreenSizing = windowCfg.GetInt("ScreenSizing");
+        bool currentSwapped = windowCfg.GetBool("ScreenSwap");
+        bool currentFullscreen = emuInstance->getMainWindow()->isFullScreen();
+
+        // Return cached value if settings haven't changed
+        if (currentLayout == lastLayout &&
+            currentScreenSizing == lastScreenSizing &&
+            currentSwapped == lastSwapped &&
+            currentFullscreen == lastFullscreen) {
+            return adjustedCenter;
+        }
+
+        // Update cached settings
+        lastLayout = currentLayout;
+        lastScreenSizing = currentScreenSizing;
+        lastSwapped = currentSwapped;
+        lastFullscreen = currentFullscreen;
+
+        // Get display dimensions once
+        const QRect& displayRect = emuInstance->getMainWindow()->panel->geometry();
+        const int displayWidth = displayRect.width();
+        const int displayHeight = displayRect.height();
+
+        // Calculate base center position
+        adjustedCenter = emuInstance->getMainWindow()->panel->mapToGlobal(
+            QPoint(displayWidth >> 1, displayHeight >> 1)
         );
 
-        // Screen layout adjustment constants
-        constexpr float DEFAULT_ADJUSTMENT = 0.25f;
-        constexpr float HYBRID_RIGHT = 0.333203125f;  // (2133-1280)/2560
-        constexpr float HYBRID_LEFT = 0.166796875f;   // (1280-853)/2560
+        // Fast path for special cases
+        if (currentScreenSizing == screenSizing_TopOnly) {
+            return adjustedCenter;
+        }
 
-        // Inner lambda for getting screen-specific adjustment factors
-        auto getScreenAdjustment = [&](bool isFullscreen) {
-            struct ScreenAdjustment {
-                float x;
-                float y;
-            };
+        if (currentScreenSizing == screenSizing_BotOnly) {
+            if (currentFullscreen) {
+                // Precompute constants to avoid repeated multiplications
+                const float widthAdjust = displayWidth * 0.4f;
+                const float heightAdjust = displayHeight * 0.4f;
 
-            // Base adjustment values
-            static const std::map<int, ScreenAdjustment> layoutAdjustments = {
-                {screenLayout_Natural,    {0.0f,  DEFAULT_ADJUSTMENT}},
-                {screenLayout_Horizontal,   {DEFAULT_ADJUSTMENT, 0.0f}},
-                {screenLayout_Vertical, {0.0f,  DEFAULT_ADJUSTMENT}},
-                {screenLayout_Hybrid,     {HYBRID_LEFT, DEFAULT_ADJUSTMENT}}
-            };
-
-            // Get base adjustment for current layout
-            ScreenAdjustment adj = layoutAdjustments.at(windowCfg.GetInt("ScreenLayout"));
-
-            return adj;
-            };
-
-        // Get current state
-        bool isFullscreen = emuInstance->getMainWindow()->isFullScreen();
-        bool isSwapped = windowCfg.GetBool("ScreenSwap");
-        int screenSizing = windowCfg.GetInt("ScreenSizing");
-
-        // Get base adjustment values
-        auto adj = getScreenAdjustment(isFullscreen);
-
-        // Handle special cases first
-        if (screenSizing == screenSizing_BotOnly) {
-            if (isFullscreen) {
-                adjustedCenter.rx() -= static_cast<int>(displayRect.width() * 0.4f);
-                adjustedCenter.ry() -= static_cast<int>(displayRect.height() * 0.4f);
+                adjustedCenter.rx() -= static_cast<int>(widthAdjust);
+                adjustedCenter.ry() -= static_cast<int>(heightAdjust);
             }
             return adjustedCenter;
         }
 
-        if (screenSizing == screenSizing_TopOnly) {
+        // Fast path for Hybrid layout with swap
+        if (currentLayout == screenLayout_Hybrid && currentSwapped) {
+            // Directly compute result for this specific case
+            adjustedCenter.rx() += static_cast<int>(displayWidth * HYBRID_RIGHT);
+            adjustedCenter.ry() -= static_cast<int>(displayHeight * DEFAULT_ADJUSTMENT);
             return adjustedCenter;
         }
 
-        // Apply layout-specific adjustments
-        switch (windowCfg.GetInt("ScreenLayout")) {
-        case screenLayout_Hybrid:
-            if (isSwapped) {
-                adjustedCenter.rx() += static_cast<int>(displayRect.width() * HYBRID_RIGHT);
-                adjustedCenter.ry() -= static_cast<int>(displayRect.height() * adj.y);
-            }
-            else {
-                adjustedCenter.rx() -= static_cast<int>(displayRect.width() * adj.x);
-            }
-            break;
+        // For other cases, determine adjustment values
+        float xAdjust = 0.0f;
+        float yAdjust = 0.0f;
 
+        // Simplified switch with fewer branches
+        switch (currentLayout) {
         case screenLayout_Natural:
         case screenLayout_Vertical:
-            adjustedCenter.ry() += static_cast<int>(displayRect.height() * adj.y * (isSwapped ? 1.0f : -1.0f));
+            yAdjust = DEFAULT_ADJUSTMENT;
             break;
         case screenLayout_Horizontal:
-            adjustedCenter.rx() += static_cast<int>(displayRect.width() * adj.x * (isSwapped ? 1.0f : -1.0f));
+            xAdjust = DEFAULT_ADJUSTMENT;
             break;
+        case screenLayout_Hybrid:
+            // We already handled the swapped case above
+            xAdjust = HYBRID_LEFT;
+            break;
+        }
+
+        // Apply non-zero adjustments only
+        if (xAdjust != 0.0f) {
+            // Using direct ternary operator instead of swapFactor variable
+            adjustedCenter.rx() += static_cast<int>(displayWidth * xAdjust * (currentSwapped ? 1.0f : -1.0f));
+        }
+
+        if (yAdjust != 0.0f) {
+            // Using direct ternary operator instead of swapFactor variable
+            adjustedCenter.ry() += static_cast<int>(displayHeight * yAdjust * (currentSwapped ? 1.0f : -1.0f));
         }
 
         return adjustedCenter;
@@ -986,7 +1006,7 @@ void EmuThread::run()
     alignas(64) static uint32_t lastInputBitmap = 0;
     alignas(64) static uint32_t priorityInput = 0;
 
-    auto processMoveInput = [&]() __attribute__((hot, always_inline)) {
+    auto processMoveInput = [&]() __attribute__((hot, always_inline, flatten)) {
         // Pre-computed packed input constants (compile time constants)
         static constexpr uint32_t INPUT_PACKED_UP = (1u << 0) | (uint32_t(INPUT_UP) << 16);
         static constexpr uint32_t INPUT_PACKED_DOWN = (1u << 1) | (uint32_t(INPUT_DOWN) << 16);
