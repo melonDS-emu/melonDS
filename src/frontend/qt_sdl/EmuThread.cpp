@@ -885,85 +885,97 @@ void EmuThread::run()
     // Initialize Adjusted Center 
     QPoint adjustedCenter;
 
+    int lastLayout = -1;
+    int lastScreenSizing = -1;
+    bool lastSwapped = false;
+    bool lastFullscreen = false;
+
 
     // test
     // Lambda function to get adjusted center position based on window geometry and screen layout
     auto getAdjustedCenter = [&]() {
         auto& windowCfg = emuInstance->getMainWindow()->getWindowConfig();
 
-        // Get the actual game display area instead of full window
+        // Get current settings
+        int currentLayout = windowCfg.GetInt("ScreenLayout");
+        int currentScreenSizing = windowCfg.GetInt("ScreenSizing");
+        bool currentSwapped = windowCfg.GetBool("ScreenSwap");
+        bool currentFullscreen = emuInstance->getMainWindow()->isFullScreen();
+
+        // Return cached value if settings haven't changed
+        if (currentLayout == lastLayout &&
+            currentScreenSizing == lastScreenSizing &&
+            currentSwapped == lastSwapped &&
+            currentFullscreen == lastFullscreen) {
+            return adjustedCenter;
+        }
+
+        // Update cached settings
+        lastLayout = currentLayout;
+        lastScreenSizing = currentScreenSizing;
+        lastSwapped = currentSwapped;
+        lastFullscreen = currentFullscreen;
+
+        // Get display dimensions
         const QRect displayRect = emuInstance->getMainWindow()->panel->geometry();
-        QPoint adjustedCenter = emuInstance->getMainWindow()->panel->mapToGlobal(
-            // QPoint(displayRect.width() / 2, displayRect.height() / 2)
-            QPoint(displayRect.width() >> 1, displayRect.height() >> 1) // Use bit shifting to speed up
+        const int halfWidth = displayRect.width() >> 1;
+        const int halfHeight = displayRect.height() >> 1;
+
+        // Calculate base center position
+        adjustedCenter = emuInstance->getMainWindow()->panel->mapToGlobal(
+            QPoint(halfWidth, halfHeight)
         );
 
-        // Screen layout adjustment constants
-        constexpr float DEFAULT_ADJUSTMENT = 0.25f;
-        constexpr float HYBRID_RIGHT = 0.333203125f;  // (2133-1280)/2560
-        constexpr float HYBRID_LEFT = 0.166796875f;   // (1280-853)/2560
+        // Handle special screen sizing cases
+        if (currentScreenSizing == screenSizing_TopOnly) {
+            return adjustedCenter;
+        }
 
-        // Inner lambda for getting screen-specific adjustment factors
-        auto getScreenAdjustment = [&](bool isFullscreen) {
-            struct ScreenAdjustment {
-                float x;
-                float y;
-            };
-
-            // Base adjustment values
-            static const std::map<int, ScreenAdjustment> layoutAdjustments = {
-                {screenLayout_Natural,    {0.0f,  DEFAULT_ADJUSTMENT}},
-                {screenLayout_Horizontal,   {DEFAULT_ADJUSTMENT, 0.0f}},
-                {screenLayout_Vertical, {0.0f,  DEFAULT_ADJUSTMENT}},
-                {screenLayout_Hybrid,     {HYBRID_LEFT, DEFAULT_ADJUSTMENT}}
-            };
-
-            // Get base adjustment for current layout
-            ScreenAdjustment adj = layoutAdjustments.at(windowCfg.GetInt("ScreenLayout"));
-
-            return adj;
-            };
-
-        // Get current state
-        bool isFullscreen = emuInstance->getMainWindow()->isFullScreen();
-        bool isSwapped = windowCfg.GetBool("ScreenSwap");
-        int screenSizing = windowCfg.GetInt("ScreenSizing");
-
-        // Get base adjustment values
-        auto adj = getScreenAdjustment(isFullscreen);
-
-        // Handle special cases first
-        if (screenSizing == screenSizing_BotOnly) {
-            if (isFullscreen) {
+        if (currentScreenSizing == screenSizing_BotOnly) {
+            if (currentFullscreen) {
                 adjustedCenter.rx() -= static_cast<int>(displayRect.width() * 0.4f);
                 adjustedCenter.ry() -= static_cast<int>(displayRect.height() * 0.4f);
             }
             return adjustedCenter;
         }
 
-        if (screenSizing == screenSizing_TopOnly) {
-            return adjustedCenter;
-        }
+        // Constants for layout adjustments
+        constexpr float DEFAULT_ADJUSTMENT = 0.25f;
+        constexpr float HYBRID_RIGHT = 0.333203125f;  // (2133-1280)/2560
+        constexpr float HYBRID_LEFT = 0.166796875f;   // (1280-853)/2560
 
-        // Apply layout-specific adjustments
-        switch (windowCfg.GetInt("ScreenLayout")) {
-        case screenLayout_Hybrid:
-            if (isSwapped) {
-                adjustedCenter.rx() += static_cast<int>(displayRect.width() * HYBRID_RIGHT);
-                adjustedCenter.ry() -= static_cast<int>(displayRect.height() * adj.y);
-            }
-            else {
-                adjustedCenter.rx() -= static_cast<int>(displayRect.width() * adj.x);
-            }
-            break;
+        // Initialize adjustment values
+        float xAdjust = 0.0f;
+        float yAdjust = 0.0f;
 
+        // Set adjustment values based on layout type
+        switch (currentLayout) {
         case screenLayout_Natural:
         case screenLayout_Vertical:
-            adjustedCenter.ry() += static_cast<int>(displayRect.height() * adj.y * (isSwapped ? 1.0f : -1.0f));
+            yAdjust = DEFAULT_ADJUSTMENT;
             break;
         case screenLayout_Horizontal:
-            adjustedCenter.rx() += static_cast<int>(displayRect.width() * adj.x * (isSwapped ? 1.0f : -1.0f));
+            xAdjust = DEFAULT_ADJUSTMENT;
             break;
+        case screenLayout_Hybrid:
+            if (currentSwapped) {
+                adjustedCenter.rx() += static_cast<int>(displayRect.width() * HYBRID_RIGHT);
+                adjustedCenter.ry() -= static_cast<int>(displayRect.height() * DEFAULT_ADJUSTMENT);
+                return adjustedCenter;
+            }
+            else {
+                xAdjust = HYBRID_LEFT;
+            }
+            break;
+        }
+
+        // Apply calculated adjustments
+        if (xAdjust != 0.0f) {
+            adjustedCenter.rx() += static_cast<int>(displayRect.width() * xAdjust * (currentSwapped ? 1.0f : -1.0f));
+        }
+
+        if (yAdjust != 0.0f) {
+            adjustedCenter.ry() += static_cast<int>(displayRect.height() * yAdjust * (currentSwapped ? 1.0f : -1.0f));
         }
 
         return adjustedCenter;
