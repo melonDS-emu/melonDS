@@ -1077,7 +1077,7 @@ void EmuThread::run()
             lastInputBitmap = currentInputBitmap;
 
             // Get final state from LUT
-            finalState = PACKED_LUT[finalInputBitmap & 0xF];
+            finalState = PACKED_LUT[finalInputBitmap];
         }
 
         // Highly optimized input application (fully unrolled)
