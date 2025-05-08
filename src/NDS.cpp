@@ -921,7 +921,6 @@ u32 NDS::RunFrame()
     GPU.TotalScanlines = 0;
 
     LagFrameFlag = true;
-    bool runFrame = Running && !(CPUStop & CPUStop_Sleep);
     while (Running)
     {
         u64 frametarget = SysTimestamp + 560190;
