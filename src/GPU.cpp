@@ -272,12 +272,14 @@ void GPU::DoSavestate(Savestate* file) noexcept
             VRAMPtr_BOBJ[i] = GetUniqueBankPtr(VRAMMap_BOBJ[i], i << 14);
     }
 
+    // This should happen before re-rendering the 3D buffer.
+    if (!file->Saving)
+        ResetVRAMCache();
+
     GPU2D_A.DoSavestate(file);
     GPU2D_B.DoSavestate(file);
     GPU3D.DoSavestate(file);
 
-    if (!file->Saving)
-        ResetVRAMCache();
 }
 
 void GPU::AssignFramebuffers() noexcept
