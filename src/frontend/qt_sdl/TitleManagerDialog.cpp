@@ -119,7 +119,7 @@ void TitleManagerDialog::createTitleItem(u32 category, u32 titleid)
 
     // TODO: make it possible to select other languages?
     QString title = QString::fromUtf16(banner.EnglishTitle, 128);
-    title = title.left(title.indexOf('\0'));
+    title = title.left(title.indexOf(QChar('\0')));
     title.replace("\n", " · ");
 
     char gamecode[5];
