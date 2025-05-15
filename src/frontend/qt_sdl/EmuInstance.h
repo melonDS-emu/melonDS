@@ -146,6 +146,10 @@ public:
     void setJoystick(int id);
     int getJoystickID() { return joystickID; }
     SDL_Joystick* getJoystick() { return joystick; }
+    std::vector<int> heldKeys;
+    std::vector<int> keyStrokes;
+
+    Sint16 getJoyStickAxis(int axisNum);
 
     void touchScreen(int x, int y);
     void releaseScreen();
@@ -285,6 +289,8 @@ public:
     bool fastForwardToggled;
     bool slowmoToggled;
     bool doAudioSync;
+
+    melonDS::u32 getInputMask(){return inputMask;}
 private:
 
     std::unique_ptr<melonDS::Savestate> backupState;
