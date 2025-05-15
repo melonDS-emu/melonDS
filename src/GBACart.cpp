@@ -242,8 +242,6 @@ u16 CartGame::ROMRead(u32 addr) const
             case 0xC8: return GPIO.control;
             }
         }
-        else
-            return 0;
     }
 
     // CHECKME: does ROM mirror?
