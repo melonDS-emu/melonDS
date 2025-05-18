@@ -123,12 +123,15 @@ private slots:
     void on_btnKeyMapSwitch_clicked();
     void on_btnJoyMapSwitch_clicked();
     void on_cbxJoystick_currentIndexChanged(int id);
+    void on_cbAutoMap_checkStateChanged(Qt::CheckState state);
 
 private:
     void populatePage(QWidget* page,
         const std::initializer_list<const char*>& labels,
         int* keymap, int* joymap);
     void setupKeypadPage();
+
+    void setJoyMappingEnabled(bool enabled);
 
     Ui::InputConfigDialog* ui;
 
