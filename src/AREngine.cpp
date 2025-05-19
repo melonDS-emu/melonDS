@@ -58,7 +58,8 @@ void AREngine::RunCheat(const ARCode& arcode)
 
     for (;;)
     {
-        if (code >= &arcode.Code[arcode.Code.size()])
+        if (code > &arcode.Code[arcode.Code.size() - 1])
+            // If the instruction pointer is past the end of the cheat code...
             break;
 
         u32 a = *code++;
