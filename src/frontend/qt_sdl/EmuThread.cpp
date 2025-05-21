@@ -999,7 +999,6 @@ void EmuThread::run()
     //const float aimAspectRatio = 6.0 / 4.0; // i have no idea
     const float aimAspectRatio = 1.5f; // i have no idea  6.0 / 4.0
 
-    /*
 
     // processMoveInputFunction{
 
@@ -1119,8 +1118,8 @@ void EmuThread::run()
         else { FN_INPUT_RELEASE(INPUT_RIGHT); }
     };
     // /processMoveInputFunction }
-    */
 
+    /*
     // processMoveInputFunction{
 
     // State variables for SnapTap mode
@@ -1234,6 +1233,7 @@ auto processMoveInput = [&]() {
 
     };
 // /processMoveInputFunction }
+    */
 
     auto processAimInput = [&]() __attribute__((hot, always_inline, flatten)) {
 #ifndef STYLUS_MODE
