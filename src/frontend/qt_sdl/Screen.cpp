@@ -118,13 +118,16 @@ void ScreenPanel::loadConfig()
     auto& cfg = mainWindow->getWindowConfig();
     
     screenRotation = cfg.GetInt("ScreenRotation");
-    screenGap = cfg.GetInt("ScreenGap");
     screenLayout = cfg.GetInt("ScreenLayout");
+    screenGap = cfg.GetInt("ScreenGap");
+	hybridRatio = cfg.GetInt("HybridRatio");
     screenSwap = cfg.GetBool("ScreenSwap");
     screenSizing = cfg.GetInt("ScreenSizing");
     integerScaling = cfg.GetBool("IntegerScaling");
     screenAspectTop = cfg.GetInt("ScreenAspectTop");
     screenAspectBot = cfg.GetInt("ScreenAspectBot");
+
+	currentScreenGap = screenLayout != screenLayout_Hybrid ? screenGap : hybridRatio;
 }
 
 void ScreenPanel::setFilter(bool filter)
@@ -168,7 +171,7 @@ void ScreenPanel::setupScreenLayout()
                 static_cast<ScreenLayoutType>(screenLayout),
                 static_cast<ScreenRotation>(screenRotation),
                 static_cast<ScreenSizing>(sizing),
-                screenGap,
+                currentScreenGap,
                 integerScaling != 0,
                 screenSwap != 0,
                 aspectTop,
@@ -183,7 +186,7 @@ QSize ScreenPanel::screenGetMinSize(int factor = 1)
 {
     bool isHori = (screenRotation == screenRot_90Deg
         || screenRotation == screenRot_270Deg);
-    int gap = screenGap * factor;
+    int gap = currentScreenGap * factor;
 
     int w = 256 * factor;
     int h = 192 * factor;
