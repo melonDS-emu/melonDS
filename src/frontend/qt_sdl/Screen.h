@@ -29,6 +29,7 @@
 #include <QScreen>
 #include <QCloseEvent>
 #include <QTimer>
+#include <QPainter>
 
 #include "glad/glad.h"
 #include "ScreenLayout.h"
@@ -166,6 +167,7 @@ protected:
 
 private:
     void setupScreenLayout() override;
+    void drawOverlays(QPainter* painter,int type);
 
     QImage screen[2];
     QTransform screenTrans[kMaxScreenTransforms];
@@ -204,6 +206,7 @@ protected:
 
 private:
     void setupScreenLayout() override;
+    void drawOverlays(int type,int screen);
 
     std::unique_ptr<GL::Context> glContext;
     bool glInited;
@@ -230,6 +233,10 @@ private:
 
     void osdRenderItem(OSDItem* item) override;
     void osdDeleteItem(OSDItem* item) override;
+
+    GLuint overlayShader;
+    GLuint overlayScreenSizeULoc, overlayTransformULoc;
+    GLuint overlayPosULoc, overlaySizeULoc, overlayScreenTypeULoc;
 };
 
 #endif // SCREEN_H
