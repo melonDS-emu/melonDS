@@ -429,10 +429,7 @@ void EmuThread::run()
     emuInstance->slowmoToggled = false;
 
 
-    auto frameAdvanceOnce{
-    [&]()
-//    while (emuStatus != emuStatus_Exit)
-    {
+    auto frameAdvanceOnce = [&]()  __attribute__((hot, always_inline, flatten)) {
         MPInterface::Get().Process();
         emuInstance->inputProcess();
 
@@ -784,16 +781,15 @@ void EmuThread::run()
         }
 
         handleMessages();
-    }
-    };
+};
 
 
-    auto frameAdvance{
-    [&](int n)
-    {
-        for (int i = 0; i < n; i++) frameAdvanceOnce();
-    }
-    };
+
+    auto frameAdvance = [&](int n)  __attribute__((hot, always_inline, flatten)) {
+        for (int i = 0; i < n; i++) {
+            frameAdvanceOnce();
+        }
+        };
 
 
 
@@ -812,7 +808,7 @@ void EmuThread::run()
      *
      * @param show true to show the cursor, false to hide it
      */
-    auto showCursorOnMelonPrimeDS = [&](bool show) {
+    auto showCursorOnMelonPrimeDS = [&](bool show) __attribute__((always_inline, flatten)) {
         // Do nothing if the requested state is the same as current state (optimization)
         if (show == isCursorVisible) return;
 
