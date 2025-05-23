@@ -808,7 +808,7 @@ void EmuThread::run()
      *
      * @param show true to show the cursor, false to hide it
      */
-    auto showCursorOnMelonPrimeDS = [&](bool show) {
+    auto showCursorOnMelonPrimeDS = [&](bool show) __attribute__((always_inline, flatten)) {
         // Do nothing if the requested state is the same as current state (optimization)
         if (show == isCursorVisible) return;
 
