@@ -16,6 +16,7 @@
     with melonDS. If not, see http://www.gnu.org/licenses/.
 */
 
+#include "NDS.h"
 #include <stdlib.h>
 #include <time.h>
 #include <stdio.h>
@@ -320,7 +321,18 @@ MainWindow::MainWindow(int id, EmuInstance* inst, QWidget* parent) :
                 QMenu * submenu = menu->addMenu("Insert add-on cart");
                 QAction *act;
 
-                int addons[] = {GBAAddon_RAMExpansion, GBAAddon_RumblePak, GBAAddon_SolarSensorBoktai1, GBAAddon_SolarSensorBoktai2, GBAAddon_SolarSensorBoktai3, -1};
+                int addons[] = {
+                    GBAAddon_RAMExpansion,
+                    GBAAddon_RumblePak,
+                    GBAAddon_SolarSensorBoktai1,
+                    GBAAddon_SolarSensorBoktai2,
+                    GBAAddon_SolarSensorBoktai3,
+                    GBAAddon_MotionPakHomebrew,
+                    GBAAddon_MotionPakRetail,
+                    GBAAddon_GuitarGrip,
+                    -1
+                };
+
                 for (int i = 0; addons[i] != -1; i++)
                 {
                     int addon = addons[i];
