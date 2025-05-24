@@ -54,9 +54,6 @@ public:
     u32 Read32(u32 addr);
     void Write32(u32 addr, u32 val);
 
-    u16 ReadSNDExCnt() const { return SNDExCnt; }
-    void WriteSNDExCnt(u16 val, u16 mask);
-
     // NOTE: checks SCFG_CLK9
     void Run(u32 cycles);
 
@@ -70,8 +67,6 @@ public:
 
 private:
     melonDS::DSi& DSi;
-    // not sure whether to not rather put it somewhere else
-    u16 SNDExCnt;
 
     Teakra::Teakra* TeakraCore;
 
