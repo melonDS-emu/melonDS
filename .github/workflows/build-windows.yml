@@ -30,7 +30,23 @@ jobs:
       with:
         msystem: ucrt64
         update: true
-        pacboy: gcc:p cmake:p ninja:p make:p
+    - name: Download GCC packages
+      run: |
+        # download gcc 14.2
+        curl -LO https://repo.msys2.org/mingw/ucrt64/mingw-w64-ucrt-x86_64-gcc-14.2.0-3-any.pkg.tar.zst
+        curl -LO https://repo.msys2.org/mingw/ucrt64/mingw-w64-ucrt-x86_64-gcc-libs-14.2.0-3-any.pkg.tar.zst
+        
+        # setup gcc 14.2
+        pacman -U --noconfirm \
+          mingw-w64-ucrt-x86_64-gcc-libs-14.2.0-3-any.pkg.tar.zst \
+          mingw-w64-ucrt-x86_64-gcc-14.2.0-3-any.pkg.tar.zst
+          
+        # setup build tools
+        pacman -S --needed --noconfirm \
+          mingw-w64-ucrt-x86_64-cmake \
+          mingw-w64-ucrt-x86_64-ninja \
+          mingw-w64-ucrt-x86_64-make
+
     - name: Set up vcpkg
       uses: lukka/run-vcpkg@v11
       with:
