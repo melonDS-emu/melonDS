@@ -68,34 +68,63 @@ _sendcmd:
 	tst r0, #0x01
 	bne __send_write
 	@ receive data
+	tst r2, #0x3
+	bne __read_unal_loop
 __read_busyloop:
 	ldr r0, [r12, #0x4]
+	tst r0, #0x80000000
+    bxeq lr
 	tst r0, #0x00800000
 	ldrne r1, [r3, #0x10] @ load data
-	cmpne r2, #0
 	strne r1, [r2], #4
-	tst r0, #0x80000000
-	bne __read_busyloop
-	bx lr
+	b __read_busyloop
+__read_unal_loop:
+    ldr r0, [r12, #0x4]
+    tst r0, #0x80000000
+    bxeq lr
+    tst r0, #0x00800000
+    beq __read_unal_loop
+    ldr r1, [r3, #0x10] @ load data
+    strb r1, [r2], #1
+    mov r1, r1, lsr #8
+    strb r1, [r2], #1
+    mov r1, r1, lsr #8
+    strb r1, [r2], #1
+    mov r1, r1, lsr #8
+    strb r1, [r2], #1
+    b __read_unal_loop
 	@ send data
 __send_write:
 	mov r1, #0
+	tst r2, #0x3
+    bne __write_unal_loop
 __write_busyloop:
 	ldr r0, [r12, #0x4]
+	tst r0, #0x80000000
+	bxeq lr
 	tst r0, #0x00800000
-	cmpne r2, #0
 	ldrne r1, [r2], #4
 	strne r1, [r3, #0x10] @ store data
+	b __write_busyloop
+__write_unal_loop:
+	ldr r0, [r12, #0x4]
 	tst r0, #0x80000000
-	bne __write_busyloop
-	bx lr
-	
+	bxeq lr
+	tst r0, #0x00800000
+	beq __write_unal_loop
+	ldrb r1, [r2], #1
+	ldrb r0, [r2], #1
+	orr r1, r1, r0, lsl #8
+	ldrb r0, [r2], #1
+	orr r1, r1, r0, lsl #16
+	ldrb r0, [r2], #1
+	orr r1, r1, r0, lsl #24
+	str r1, [r3, #0x10] @ store data
+	b __write_unal_loop
+
 	
 @ r0=sector r1=numsectors r2=out
 melon_readSectors:
-	tst r2, #0x3
-	movne r0, #0
-	bxne lr
 	stmdb sp!, {r3-r6, lr}
 	mov r4, r0
 	mov r5, r1
@@ -114,9 +143,6 @@ _readloop:
 	
 @ r0=sector r1=numsectors r2=out
 melon_writeSectors:
-	tst r2, #0x3
-	movne r0, #0
-	bxne lr
 	stmdb sp!, {r3-r6, lr}
 	mov r4, r0
 	mov r5, r1
