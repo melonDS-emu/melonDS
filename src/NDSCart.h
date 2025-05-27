@@ -414,9 +414,11 @@ public:
     [[nodiscard]] u8 GetROMCommand(u8 index) const noexcept { return ROMCommand[index]; }
     void SetROMCommand(u8 index, u8 val) noexcept { ROMCommand[index] = val; }
 
-    [[nodiscard]] u32 GetROMCnt() const noexcept { return ROMCnt; }
+    [[nodiscard]] u32 GetROMCnt() noexcept;
+
     [[nodiscard]] u16 GetSPICnt() const noexcept { return SPICnt; }
     void SetSPICnt(u16 val) noexcept { SPICnt = val; }
+
 private:
     friend class CartCommon;
     melonDS::NDS& NDS;
@@ -441,6 +443,7 @@ private:
 
     u64 Key2_X = 0;
     u64 Key2_Y = 0;
+    u64 ROMTransferTime;
 
     void Key1_Encrypt(u32* data) const noexcept;
     void Key1_Decrypt(u32* data) const noexcept;
