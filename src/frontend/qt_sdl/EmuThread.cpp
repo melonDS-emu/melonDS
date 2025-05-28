@@ -1263,16 +1263,9 @@ auto processMoveInput = [&]() {
         // Aiming
 
         // Lambda function to adjust scaled mouse input
-        auto adjustMouseInput = [](float value) {
-            // For positive values between 0.5 and 1, set to 1
-            if (value >= 0.5f && value < 1.0f) {
-                return 1.0f;
-            }
-            // For negative values between -0.5 and -1, set to -1
-            else if (value <= -0.5f && value > -1.0f) {
-                return -1.0f;
-            }
-            // For other values, return as is
+        auto adjustMouseInput = [](float value) __attribute__((always_inline, flatten)) {
+            if (value >= 0.5f && value < 1.0f) return 1.0f;
+            if (value <= -0.5f && value > -1.0f) return -1.0f;
             return value;
             };
 
@@ -1681,8 +1674,7 @@ auto processMoveInput = [&]() {
                         const uint8_t startIndex = currentIndex;
 
                         // Inline weapon checking logic for better performance
-                        auto hasWeapon = [](uint8_t weapon, uint16_t mask, uint16_t havingWeapons) {
-                            // return weapon == 0 || weapon == 2 || (havingWeapons & mask);
+                        auto hasWeapon = [](uint16_t mask, uint16_t havingWeapons) {
                             return havingWeapons & mask;
                             };
 
@@ -1698,7 +1690,7 @@ auto processMoveInput = [&]() {
                             currentIndex = (currentIndex + (nextTrigger ? 1 : WEAPON_COUNT - 1)) % WEAPON_COUNT;
                             uint8_t nextWeapon = WEAPON_ORDER[currentIndex];
 
-                            if (hasWeapon(nextWeapon, WEAPON_MASKS[currentIndex], havingWeapons) &&
+                            if (hasWeapon(WEAPON_MASKS[currentIndex], havingWeapons) &&
                                 hasEnoughAmmo(nextWeapon, MIN_AMMO[nextWeapon], weaponAmmo, missileAmmo, isWeavel)) {
                                 SwitchWeapon(nextWeapon);
                                 break;
