@@ -158,6 +158,7 @@ uint32_t calculatePlayerAddress(uint32_t baseAddress, uint8_t playerPosition, in
 
 bool isAltForm;
 bool isInGame = false; // MelonPrimeDS
+bool isLayoutChangePending = false;  // MelonPrimeDSレイアウト変更フラグ
 
 melonDS::u32 baseIsAltFormAddr;
 melonDS::u32 baseLoadedSpecialWeaponAddr;
@@ -428,6 +429,9 @@ void EmuThread::run()
     emuInstance->fastForwardToggled = false;
     emuInstance->slowmoToggled = false;
 
+    
+
+
 
     auto frameAdvanceOnce = [&]()  __attribute__((hot, always_inline, flatten)) {
         MPInterface::Get().Process();
@@ -439,11 +443,21 @@ void EmuThread::run()
         if (emuInstance->hotkeyPressed(HK_Reset)) emuReset();
         if (emuInstance->hotkeyPressed(HK_FrameStep)) emuFrameStep();
 
-        if (emuInstance->hotkeyPressed(HK_FullscreenToggle)) emit windowFullscreenToggle();
+        // MelonPrimeDS ホットキー処理部分を修正
+        if (emuInstance->hotkeyPressed(HK_FullscreenToggle)) {
+            emit windowFullscreenToggle();
+            isLayoutChangePending = true;  // フラグを立てる
+        }
 
-        if (emuInstance->hotkeyPressed(HK_SwapScreens)) emit swapScreensToggle();
-        if (emuInstance->hotkeyPressed(HK_SwapScreenEmphasis)) emit screenEmphasisToggle();
+        if (emuInstance->hotkeyPressed(HK_SwapScreens)) {
+            emit swapScreensToggle();
+            isLayoutChangePending = true;  // フラグを立てる
+        }
 
+        if (emuInstance->hotkeyPressed(HK_SwapScreenEmphasis)) {
+            emit screenEmphasisToggle();
+            isLayoutChangePending = true;  // フラグを立てる
+        }
         // Define minimum sensitivity as a constant to improve readability and optimization
         static constexpr int MIN_SENSITIVITY = 1;
 
@@ -1230,77 +1244,89 @@ auto processMoveInput = [&]() {
     };
 // /processMoveInputFunction }
     */
-
+    /**
+     * エイム入力処理（センター補正優先）.
+     *
+     * レイアウト変更やフォーカス復帰を最優先で処理し、
+     * それ以外の通常マウス移動を続いて処理。
+     */
     auto processAimInput = [&]() __attribute__((hot, always_inline, flatten)) {
-#ifndef STYLUS_MODE
-
-        // レイアウト変更チェックを最小化
-        static bool layoutChangePending = false;
-
-        if (emuInstance->hotkeyPressed(HK_SwapScreens) ||
-            emuInstance->hotkeyPressed(HK_FullscreenToggle)) {
-            layoutChangePending = true;
-        }
-
-        // マウス入力がある場合のみ処理
+    #ifndef STYLUS_MODE
+        // 現在のマウス位置を取得
         QPoint currentPos = QCursor::pos();
+
+        // 前フレーム位置（初期化）
         static QPoint lastPos = currentPos;
 
-        if (currentPos != lastPos || layoutChangePending) {
-            if (!wasLastFrameFocused || layoutChangePending) {
-                adjustedCenter = getAdjustedCenter();
-                layoutChangePending = false;
-            }
-
-            if (wasLastFrameFocused) {
-                mouseRel = currentPos - adjustedCenter;
-
-                // 感度計算を事前に行う
-                static int cachedSensitivity = -1;
-                static float sensitivityFactor = 0.01f;
-
-                int currentSensitivity = localCfg.GetInt("Metroid.Sensitivity.Aim");
-                if (currentSensitivity != cachedSensitivity) {
-                    cachedSensitivity = currentSensitivity;
-                    sensitivityFactor = currentSensitivity * 0.01f;
-                }
-
-                // X軸とY軸の処理を統合
-                if (mouseRel.x() != 0 || mouseRel.y() != 0) {
-                    float scaledX = mouseRel.x()  * sensitivityFactor;
-                    // float scaledY = mouseRel.y() * aimAspectRatio * sensitivityFactor;
-                    float scaledY = mouseRel.y() * dsAspectRatio * sensitivityFactor;
-
-                    // 調整関数をインライン化
-                    auto adjust = [](float v) -> float {
-                        if (v >= 0.5f && v < 1.0f) return 1.0f;
-                        if (v <= -0.5f && v > -1.0f) return -1.0f;
-                        return v;
-                        };
-
-                    if (mouseRel.x() != 0) {
-                        emuInstance->nds->ARM9Write16(aimXAddr, static_cast<uint16_t>(adjust(scaledX)));
-                    }
-                    if (mouseRel.y() != 0) {
-                        emuInstance->nds->ARM9Write16(aimYAddr, static_cast<uint16_t>(adjust(scaledY)));
-                    }
-
-                    enableAim = true;
-                }
-            }
-
-            QCursor::setPos(adjustedCenter);
-            lastPos = adjustedCenter;
+        // レイアウト変更時のセンター再配置
+        if (isLayoutChangePending) {
+            adjustedCenter = getAdjustedCenter();       // センター再取得(レイアウト変更時)
+            QCursor::setPos(adjustedCenter);            // カーソル再配置
+            lastPos = adjustedCenter;                   // 前回座標を更新
+            isLayoutChangePending = false;              // フラグクリア
+            return;
         }
-#else
+
+        // フォーカスを失った直後の補正処理
+        if (!wasLastFrameFocused) {
+            adjustedCenter = getAdjustedCenter();       // センター再取得(フォーカス復帰時)
+            mouseRel = QPoint(0, 0);                    // 相対移動ゼロ初期化
+            QCursor::setPos(adjustedCenter);            // カーソル再配置
+            lastPos = adjustedCenter;                   // 前回座標を更新
+            return;
+        }
+
+        // 相対移動の計算（マウス移動）
+        mouseRel = currentPos - adjustedCenter;
+
+        // 実際に移動があった場合にのみ処理
+        if (mouseRel.x() | mouseRel.y()) {
+            // 感度設定のキャッシュ
+            static int cachedSensitivity = -1;
+            static float sensitivityFactor = 0.01f;
+            int currentSensitivity = localCfg.GetInt("Metroid.Sensitivity.Aim");
+            if (currentSensitivity != cachedSensitivity) {
+                cachedSensitivity = currentSensitivity;
+                sensitivityFactor = currentSensitivity * 0.01f;
+            }
+
+            // スケーリング
+            float scaledX = mouseRel.x() * sensitivityFactor;
+            float scaledY = mouseRel.y() * dsAspectRatio * sensitivityFactor;
+
+            // 小移動の補正関数
+            static constexpr auto adjust = [](float v) -> float {
+                return (v >= 0.5f && v < 1.0f) ? 1.0f :
+                    (v <= -0.5f && v > -1.0f) ? -1.0f : v;
+                };
+
+            // エイム書き込み（条件ごとに実行）
+            if (mouseRel.x()) {
+                emuInstance->nds->ARM9Write16(aimXAddr, static_cast<uint16_t>(adjust(scaledX)));
+            }
+            if (mouseRel.y()) {
+                emuInstance->nds->ARM9Write16(aimYAddr, static_cast<uint16_t>(adjust(scaledY)));
+            }
+
+            // エイム有効化
+            enableAim = true;
+        }
+
+        // カーソルを中央に戻す（動いたかどうかに関係なく）
+        QCursor::setPos(adjustedCenter);
+        lastPos = adjustedCenter;
+
+    #else
+        // スタイラスモード入力処理
         if (emuInstance->isTouching) {
-            emuInstance->nds->TouchScreen(emuInstance->touchX, emuInstance->touchY);
+            emuInstance->nds->TouchScreen(emuInstance->touchX, emuInstance->touchY); // タッチ送信
         }
         else {
-            emuInstance->nds->ReleaseScreen();
+            emuInstance->nds->ReleaseScreen(); // タッチ解除
         }
-#endif
-        };
+    #endif
+    };
+
 
     // Define a lambda function to switch weapons
     auto SwitchWeapon = [&](int weaponIndex) __attribute__((hot, always_inline)) {
