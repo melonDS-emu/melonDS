@@ -1274,32 +1274,13 @@ auto processMoveInput = [&]() {
             float scaledX = deltaX * sensitivityFactor;
             float scaledY = deltaY * (dsAspectRatio * sensitivityFactor);
 
-            // インライン補正（分岐なし版）
-
-            /*
-            static constexpr auto adjust = [](float v) -> int16_t {
-                // ビット演算で符号判定
-                int sign = (v > 0) - (v < 0);
-                float abs_v = v * sign;
-                return static_cast<int16_t>((abs_v >= 0.5f && abs_v < 1.0f) ? sign : v);
-                };
-            */
-
             // 補正関数（インライン最適化）
             static constexpr auto adjust = [](float value) __attribute__((hot, always_inline, flatten)) -> int16_t {
                 if (value >= 0.5f && value < 1.0f) return static_cast<int16_t>(1.0f);
                 if (value <= -0.5f && value > -1.0f) return static_cast<int16_t>(-1.0f);
                 return static_cast<int16_t>(value);
             };
-                        /*
-            // コンパイル時定数として定義（最適化向上）
-            static constexpr auto adjust = [](float v) -> int16_t {
-                return static_cast<int16_t>(
-                    (v >= 0.5f && v < 1.0f) ? 1.0f :
-                    (v <= -0.5f && v > -1.0f) ? -1.0f : v
-                    );
-                };
-*/
+
             // メモリ書き込み（パイプライン最適化）
             emuInstance->nds->ARM9Write16(aimXAddr, adjust(scaledX));
             emuInstance->nds->ARM9Write16(aimYAddr, adjust(scaledY));
