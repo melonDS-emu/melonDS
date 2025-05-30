@@ -1255,24 +1255,12 @@ auto processMoveInput = [&]() {
         // 現在のマウス位置を取得
         QPoint currentPos = QCursor::pos();
 
-        // 前フレーム位置（初期化）
-        static QPoint lastPos = currentPos;
-
         // レイアウト変更時のセンター再配置
-        if (isLayoutChangePending) {
-            adjustedCenter = getAdjustedCenter();       // センター再取得(レイアウト変更時)
+        if (isLayoutChangePending || !wasLastFrameFocused) {
+            adjustedCenter = getAdjustedCenter();       // センター再取得
             QCursor::setPos(adjustedCenter);            // カーソル再配置
-            lastPos = adjustedCenter;                   // 前回座標を更新
-            isLayoutChangePending = false;              // フラグクリア
-            return;
-        }
-
-        // フォーカスを失った直後の補正処理
-        if (!wasLastFrameFocused) {
-            adjustedCenter = getAdjustedCenter();       // センター再取得(フォーカス復帰時)
             mouseRel = QPoint(0, 0);                    // 相対移動ゼロ初期化
-            QCursor::setPos(adjustedCenter);            // カーソル再配置
-            lastPos = adjustedCenter;                   // 前回座標を更新
+            isLayoutChangePending = false;              // フラグクリア
             return;
         }
 
@@ -1314,7 +1302,6 @@ auto processMoveInput = [&]() {
 
         // カーソルを中央に戻す（動いたかどうかに関係なく）
         QCursor::setPos(adjustedCenter);
-        lastPos = adjustedCenter;
 
     #else
         // スタイラスモード入力処理
