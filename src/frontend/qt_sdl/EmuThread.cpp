@@ -1286,7 +1286,7 @@ auto processMoveInput = [&]() {
             */
 
             // 補正関数（インライン最適化）
-            static constexpr auto adjust = [](float value) -> int16_t {
+            static constexpr auto adjust = [](float value) __attribute__((hot, always_inline, flatten)) -> int16_t {
                 if (value >= 0.5f && value < 1.0f) return static_cast<int16_t>(1.0f);
                 if (value <= -0.5f && value > -1.0f) return static_cast<int16_t>(-1.0f);
                 return static_cast<int16_t>(value);
