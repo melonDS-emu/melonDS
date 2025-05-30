@@ -894,11 +894,6 @@ void EmuThread::run()
 
     // Initialize Adjusted Center 
 
-    int lastLayout = -1;
-    int lastScreenSizing = -1;
-    bool lastSwapped = false;
-    bool lastFullscreen = false;
-
 
     // test
     // Lambda function to get adjusted center position based on window geometry and screen layout
@@ -908,6 +903,10 @@ void EmuThread::run()
         static constexpr float HYBRID_RIGHT = 0.333203125f;  // (2133-1280)/2560
         static constexpr float HYBRID_LEFT = 0.166796875f;   // (1280-853)/2560
         static QPoint adjustedCenter;
+        static bool lastFullscreen = false;
+        static bool lastSwapped = false;
+        static int lastScreenSizing = -1;
+        static int lastLayout = -1;
 
         auto& windowCfg = emuInstance->getMainWindow()->getWindowConfig();
 
@@ -999,24 +998,14 @@ void EmuThread::run()
         return adjustedCenter;
         };
 
-    // Get adjusted center position
-    // adjustedCenter = getAdjustedCenter();
-
-
-
-    //const float dsAspectRatio = 4.0 / 3.0;
-    const float dsAspectRatio = 1.333333333f;
-    //const float aimAspectRatio = 6.0 / 4.0; // i have no idea
-    // const float aimAspectRatio = 1.5f; // i have no idea  6.0 / 4.0
-    // const float aimAspectRatioX = 0.75f; // i have no idea  6.0 / 4.0
-
     // processMoveInputFunction{
 
-    // State variables for SnapTap mode - cache aligned for performance
-    alignas(64) static uint32_t lastInputBitmap = 0;
-    alignas(64) static uint32_t priorityInput = 0;
 
     auto processMoveInput = [&]() __attribute__((hot, always_inline, flatten)) {
+        // State variables for SnapTap mode - cache aligned for performance
+        alignas(64) static uint32_t lastInputBitmap = 0;
+        alignas(64) static uint32_t priorityInput = 0;
+
         // Pre-computed packed input constants (compile time constants)
         static constexpr uint32_t INPUT_PACKED_UP = (1u << 0) | (uint32_t(INPUT_UP) << 16);
         static constexpr uint32_t INPUT_PACKED_DOWN = (1u << 1) | (uint32_t(INPUT_DOWN) << 16);
@@ -1260,6 +1249,7 @@ auto processMoveInput = [&]() {
             int adjustedCenterY = 0;
             int cachedSensitivity = -1;
             float sensitivityFactor = 0.01f;
+            float dsAspectRatio = 1.333333333f;
         } s;
 
         // 初期化チェック（分岐予測最適化）
@@ -1292,7 +1282,7 @@ auto processMoveInput = [&]() {
 
         // スケーリング計算（乗算を最小化）
         float scaledX = deltaX * s.sensitivityFactor;
-        float scaledY = deltaY * (dsAspectRatio * s.sensitivityFactor);
+        float scaledY = deltaY * (s.dsAspectRatio * s.sensitivityFactor);
 
         // 補正関数（インライン化）
         auto adjust = [](float v) -> float {
