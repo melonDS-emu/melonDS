@@ -1276,12 +1276,21 @@ auto processMoveInput = [&]() {
 
             // インライン補正（分岐なし版）
 
+            /*
             static constexpr auto adjust = [](float v) -> int16_t {
                 // ビット演算で符号判定
                 int sign = (v > 0) - (v < 0);
                 float abs_v = v * sign;
                 return static_cast<int16_t>((abs_v >= 0.5f && abs_v < 1.0f) ? sign : v);
                 };
+            */
+
+            // 補正関数（インライン最適化）
+            static constexpr auto adjust = [](float value) -> int16_t {
+                if (value >= 0.5f && value < 1.0f) return static_cast<int16_t>(1.0f);
+                if (value <= -0.5f && value > -1.0f) return static_cast<int16_t>(-1.0f);
+                return static_cast<int16_t>(value);
+            };
                         /*
             // コンパイル時定数として定義（最適化向上）
             static constexpr auto adjust = [](float v) -> int16_t {
