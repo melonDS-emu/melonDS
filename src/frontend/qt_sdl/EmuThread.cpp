@@ -890,10 +890,12 @@ void EmuThread::run()
 
     // The QPoint class defines a point in the plane using integer precision. 
     // auto mouseRel = rawInputThread->fetchMouseDelta();
-    QPoint mouseRel;
+    // QPoint mouseRel;
 
     // Initialize Adjusted Center 
     QPoint adjustedCenter;
+    int adjustedCenterX = 0;
+    int adjustedCenterY = 0;
 
     int lastLayout = -1;
     int lastScreenSizing = -1;
@@ -1252,24 +1254,32 @@ auto processMoveInput = [&]() {
      */
     auto processAimInput = [&]() __attribute__((hot, always_inline, flatten)) {
     #ifndef STYLUS_MODE
-        // 現在のマウス位置を取得
-        QPoint currentPos = QCursor::pos();
 
-        // レイアウト変更時のセンター再配置
-        if (isLayoutChangePending || !wasLastFrameFocused) {
-            adjustedCenter = getAdjustedCenter();       // センター再取得
-            QCursor::setPos(adjustedCenter);            // カーソル再配置
-            mouseRel = QPoint(0, 0);                    // 相対移動ゼロ初期化
-            isLayoutChangePending = false;              // フラグクリア
-            return;
+        // 初期化状態フラグを保持(一度だけ初期化するため)
+        static bool adjustedCenterInitialized = false;
+
+        // レイアウト変更または初回実行、または前フレームでフォーカスされていない場合
+        if (!adjustedCenterInitialized || isLayoutChangePending || !wasLastFrameFocused) {
+            adjustedCenter = getAdjustedCenter(); // センター再取得(画面サイズ変更や初回時)
+            adjustedCenterX = adjustedCenter.x(); // X座標キャッシュ
+            adjustedCenterY = adjustedCenter.y(); // Y座標キャッシュ
+            QCursor::setPos(adjustedCenter); // カーソルを中央に再配置(相対移動の基準)
+            isLayoutChangePending = false; // レイアウト変更フラグ解除
+            adjustedCenterInitialized = true; // 初期化済みに設定
+            return; // 初期化後は入力処理せず終了
         }
 
-        // 相対移動の計算（マウス移動）
-        mouseRel = currentPos - adjustedCenter;
+        // 現在のマウス位置を取得(まだdelta計算はしない)
+        QPoint currentPos = QCursor::pos();
 
-        // 実際に移動があった場合にのみ処理
-        if (mouseRel.x() | mouseRel.y()) {
-            // 感度設定のキャッシュ
+        // 相対移動の計算(X,Yを個別に保存)
+        int deltaX = currentPos.x() - adjustedCenterX; // X方向の移動量
+        int deltaY = currentPos.y() - adjustedCenterY; // Y方向の移動量
+
+        // 実際に移動があった場合のみ感度処理を行う(無駄な演算を避ける)
+		// 移動がなかったらdeltaXとdeltaYの計算結果は0になる。前フレームでajustedCenterを更新しているので±0となる。
+        if (deltaX || deltaY) {
+            // 感度キャッシュ(頻繁な読み込みを避けるためにキャッシュ化)
             static int cachedSensitivity = -1;
             static float sensitivityFactor = 0.01f;
             int currentSensitivity = localCfg.GetInt("Metroid.Sensitivity.Aim");
@@ -1278,41 +1288,44 @@ auto processMoveInput = [&]() {
                 sensitivityFactor = currentSensitivity * 0.01f;
             }
 
-            // スケーリング
-            float scaledX = mouseRel.x() * sensitivityFactor;
-            float scaledY = mouseRel.y() * dsAspectRatio * sensitivityFactor;
+            // スケーリング(感度とアスペクト比を反映)
+            float scaledX = deltaX * sensitivityFactor;
+            float scaledY = deltaY * dsAspectRatio * sensitivityFactor;
 
-            // 小移動の補正関数
+            // 微小値の補正(中間の小移動を明確化するための定義関数)
             static constexpr auto adjust = [](float v) -> float {
                 return (v >= 0.5f && v < 1.0f) ? 1.0f :
                     (v <= -0.5f && v > -1.0f) ? -1.0f : v;
                 };
 
-            // エイム書き込み（条件ごとに実行）
-            if (mouseRel.x()) {
-                emuInstance->nds->ARM9Write16(aimXAddr, static_cast<uint16_t>(adjust(scaledX)));
-            }
-            if (mouseRel.y()) {
-                emuInstance->nds->ARM9Write16(aimYAddr, static_cast<uint16_t>(adjust(scaledY)));
+            // X方向のエイム適用
+            if (deltaX) {
+                emuInstance->nds->ARM9Write16(aimXAddr, static_cast<int16_t>(adjust(scaledX)));
             }
 
-            // エイム有効化
+            // Y方向のエイム適用
+            if (deltaY) {
+                emuInstance->nds->ARM9Write16(aimYAddr, static_cast<int16_t>(adjust(scaledY)));
+            }
+
+            // このフレームでエイム入力が発生したことを記録
             enableAim = true;
         }
 
-        // カーソルを中央に戻す（動いたかどうかに関係なく）
+        // 入力処理後もカーソルは中央へ戻す(次フレームの相対位置を得るため)
         QCursor::setPos(adjustedCenter);
 
     #else
-        // スタイラスモード入力処理
+        // スタイラスモードでのタッチ処理(指が触れているかで分岐)
         if (emuInstance->isTouching) {
-            emuInstance->nds->TouchScreen(emuInstance->touchX, emuInstance->touchY); // タッチ送信
+            emuInstance->nds->TouchScreen(emuInstance->touchX, emuInstance->touchY); // タッチ位置を送信
         }
         else {
-            emuInstance->nds->ReleaseScreen(); // タッチ解除
+            emuInstance->nds->ReleaseScreen(); // タッチ解除(指が離れたとき)
         }
     #endif
     };
+
 
 
     // Define a lambda function to switch weapons
