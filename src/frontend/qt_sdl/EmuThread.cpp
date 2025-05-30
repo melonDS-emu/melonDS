@@ -1239,81 +1239,76 @@ auto processMoveInput = [&]() {
      * レイアウト変更やフォーカス復帰を最優先で処理し、
      * それ以外の通常マウス移動を続いて処理。
      */
-    auto processAimInput = [&]() __attribute__((hot, always_inline, flatten)) {
-    #ifndef STYLUS_MODE
-        // 静的変数を構造体にまとめて局所性を向上
-        static struct {
-            bool initialized = false;
-            QPoint adjustedCenter;
-            int adjustedCenterX = 0;
-            int adjustedCenterY = 0;
-            int cachedSensitivity = -1;
-            float sensitivityFactor = 0.01f;
-            float dsAspectRatio = 1.333333333f;
-        } s;
+     auto processAimInput = [&]() __attribute__((hot, always_inline, flatten)) {
+#ifndef STYLUS_MODE
+     // 最頻繁アクセス変数は個別に配置（レジスタ最適化）
+         static bool initialized = false;
+         static int centerX = 0;
+         static int centerY = 0;
+         static float sensitivityFactor = 0.01f;
+         static int cachedSensitivity = -1;
+         static float dsAspectRatio = 1.333333333f;
 
-        // 初期化チェック（分岐予測最適化）
-        if (__builtin_expect(!s.initialized || isLayoutChangePending || !wasLastFrameFocused, 0)) {
-            s.adjustedCenter = getAdjustedCenter();
-            s.adjustedCenterX = s.adjustedCenter.x();
-            s.adjustedCenterY = s.adjustedCenter.y();
-            QCursor::setPos(s.adjustedCenter);
-            isLayoutChangePending = false;
-            s.initialized = true;
-            return;
-        }
+         // ホットパス：初期化済みの場合（99%のケース）
+         if (__builtin_expect(initialized && !isLayoutChangePending && wasLastFrameFocused, 1)) {
+             // レジスタに載せやすい形で位置取得
+             QPoint currentPos = QCursor::pos();
+             int posX = currentPos.x();
+             int posY = currentPos.y();
 
-        // マウス位置取得と差分計算を一体化
-        QPoint currentPos = QCursor::pos();
-        int deltaX = currentPos.x() - s.adjustedCenterX;
-        int deltaY = currentPos.y() - s.adjustedCenterY;
+             // デルタ計算（レジスタ演算）
+             int deltaX = posX - centerX;
+             int deltaY = posY - centerY;
 
-        // 早期リターン（移動なし）
-        if (!(deltaX | deltaY)) {
-            return;
-        }
+             // 早期終了（ビット演算で高速判定）
+             if (!(deltaX | deltaY)) return;
 
-        // 感度更新チェック（分岐予測最適化）
-        int currentSensitivity = localCfg.GetInt("Metroid.Sensitivity.Aim");
-        if (__builtin_expect(currentSensitivity != s.cachedSensitivity, 0)) {
-            s.cachedSensitivity = currentSensitivity;
-            s.sensitivityFactor = currentSensitivity * 0.01f;
-        }
+             // 感度チェック（unlikely分岐）
+             int sens = localCfg.GetInt("Metroid.Sensitivity.Aim");
+             if (__builtin_expect(sens != cachedSensitivity, 0)) {
+                 cachedSensitivity = sens;
+                 sensitivityFactor = sens * 0.01f;
+             }
 
-        // スケーリング計算（乗算を最小化）
-        float scaledX = deltaX * s.sensitivityFactor;
-        float scaledY = deltaY * (s.dsAspectRatio * s.sensitivityFactor);
+             // スケーリング（定数畳み込み）
+             float scaledX = deltaX * sensitivityFactor;
+             float scaledY = deltaY * (dsAspectRatio * sensitivityFactor);
 
-        // 補正関数（インライン化）
-        auto adjust = [](float v) -> float {
-            // ビット演算で符号判定
-            int sign = (v > 0) - (v < 0);
-            float abs_v = v * sign;
-            return (abs_v >= 0.5f && abs_v < 1.0f) ? sign : v;
-            };
+             // インライン補正（分岐なし版）
+             auto adjust = [](float v) -> int16_t {
+                 float abs_v = fabsf(v);
+                 if (abs_v >= 0.5f && abs_v < 1.0f) {
+                     return (v > 0) ? 1 : -1;
+                 }
+                 return static_cast<int16_t>(v);
+                 };
 
-        // メモリ書き込みを最適化（条件分岐を削除）
-        int16_t adjustedX = static_cast<int16_t>(adjust(scaledX));
-        int16_t adjustedY = static_cast<int16_t>(adjust(scaledY));
+             // メモリ書き込み（パイプライン最適化）
+             emuInstance->nds->ARM9Write16(aimXAddr, adjust(scaledX));
+             emuInstance->nds->ARM9Write16(aimYAddr, adjust(scaledY));
 
-        // 一度に両方の値を書き込む（キャッシュ効率向上）
-        emuInstance->nds->ARM9Write16(aimXAddr, adjustedX);
-        emuInstance->nds->ARM9Write16(aimYAddr, adjustedY);
+             enableAim = true;
+             QCursor::setPos(centerX, centerY);
+             return;
+         }
 
-        enableAim = true;
-        QCursor::setPos(s.adjustedCenter);
+         // コールドパス：初期化処理（1%のケース）
+         QPoint center = getAdjustedCenter();
+         centerX = center.x();
+         centerY = center.y();
+         QCursor::setPos(center);
+         isLayoutChangePending = false;
+         initialized = true;
 
-    #else
-        // スタイラスモード（分岐予測最適化）
-        if (__builtin_expect(emuInstance->isTouching, 1)) {
-            emuInstance->nds->TouchScreen(emuInstance->touchX, emuInstance->touchY);
-        }
-        else {
-            emuInstance->nds->ReleaseScreen();
-        }
-    #endif
-    };
-
+#else
+         if (__builtin_expect(emuInstance->isTouching, 1)) {
+             emuInstance->nds->TouchScreen(emuInstance->touchX, emuInstance->touchY);
+         }
+         else {
+             emuInstance->nds->ReleaseScreen();
+         }
+#endif
+     };
 
 
     // Define a lambda function to switch weapons
