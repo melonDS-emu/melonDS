@@ -158,7 +158,8 @@ uint32_t calculatePlayerAddress(uint32_t baseAddress, uint8_t playerPosition, in
 
 bool isAltForm;
 bool isInGame = false; // MelonPrimeDS
-bool isLayoutChangePending = false;  // MelonPrimeDSレイアウト変更フラグ
+bool isLayoutChangePending = true;  // MelonPrimeDSレイアウト変更フラグ 初回実行させるためtrueにしている。
+bool isSensitivityChangePending = true;  // MelonPrimeDS 感度変更フラグ 初回実行させるためtrueにしている。
 
 melonDS::u32 baseIsAltFormAddr;
 melonDS::u32 baseLoadedSpecialWeaponAddr;
@@ -483,6 +484,7 @@ void EmuThread::run()
 
                 // Display message using format string instead of concatenation
                 emuInstance->osdAddMessage(0, "AimSensi Updated: %d", newSensitivity);
+				isSensitivityChangePending = true;  // フラグを立てる
             }
             };
 
@@ -1239,76 +1241,88 @@ auto processMoveInput = [&]() {
      * レイアウト変更やフォーカス復帰を最優先で処理し、
      * それ以外の通常マウス移動を続いて処理。
      */
-     auto processAimInput = [&]() __attribute__((hot, always_inline, flatten)) {
-#ifndef STYLUS_MODE
-     // 最頻繁アクセス変数は個別に配置（レジスタ最適化）
-         static bool initialized = false;
-         static int centerX = 0;
-         static int centerY = 0;
-         static float sensitivityFactor = 0.01f;
-         static int cachedSensitivity = -1;
-         static float dsAspectRatio = 1.333333333f;
+    auto processAimInput = [&]() __attribute__((hot, always_inline, flatten)) {
+    #ifndef STYLUS_MODE
+        // 最頻繁アクセス変数（レジスタ最適化）
+        static int centerX = 0;
+        static int centerY = 0;
+        static float sensitivityFactor = 0.01f;
+        static float dsAspectRatio = 1.333333333f;
 
-         // ホットパス：初期化済みの場合（99%のケース）
-         if (__builtin_expect(initialized && !isLayoutChangePending && wasLastFrameFocused, 1)) {
-             // レジスタに載せやすい形で位置取得
-             QPoint currentPos = QCursor::pos();
-             int posX = currentPos.x();
-             int posY = currentPos.y();
+        // ホットパス：初期化済みの場合（99%のケース）
+        if (__builtin_expect(!isLayoutChangePending && wasLastFrameFocused, 1)) {
+            // レジスタに載せやすい形で位置取得
+            QPoint currentPos = QCursor::pos();
+            int posX = currentPos.x();
+            int posY = currentPos.y();
 
-             // デルタ計算（レジスタ演算）
-             int deltaX = posX - centerX;
-             int deltaY = posY - centerY;
+            // デルタ計算（レジスタ演算）
+            int deltaX = posX - centerX;
+            int deltaY = posY - centerY;
 
-             // 早期終了（ビット演算で高速判定）
-             if (!(deltaX | deltaY)) return;
+            // 早期終了（ビット演算で高速判定）
+            if (!(deltaX | deltaY)) return;
 
-             // 感度チェック（unlikely分岐）
-             int sens = localCfg.GetInt("Metroid.Sensitivity.Aim");
-             if (__builtin_expect(sens != cachedSensitivity, 0)) {
-                 cachedSensitivity = sens;
-                 sensitivityFactor = sens * 0.01f;
-             }
+            // 感度更新（フラグチェックのみで高速化）
+            if (__builtin_expect(isSensitivityChangePending, 0)) {
+                int sens = localCfg.GetInt("Metroid.Sensitivity.Aim");
+                sensitivityFactor = sens * 0.01f;
+                isSensitivityChangePending = false;  // フラグをクリア
+            }
 
-             // スケーリング（定数畳み込み）
-             float scaledX = deltaX * sensitivityFactor;
-             float scaledY = deltaY * (dsAspectRatio * sensitivityFactor);
+            // スケーリング（定数畳み込み）
+            float scaledX = deltaX * sensitivityFactor;
+            float scaledY = deltaY * (dsAspectRatio * sensitivityFactor);
 
-             // インライン補正（分岐なし版）
-             auto adjust = [](float v) -> int16_t {
-                 float abs_v = fabsf(v);
-                 if (abs_v >= 0.5f && abs_v < 1.0f) {
-                     return (v > 0) ? 1 : -1;
-                 }
-                 return static_cast<int16_t>(v);
-                 };
+            // インライン補正（分岐なし版）
 
-             // メモリ書き込み（パイプライン最適化）
-             emuInstance->nds->ARM9Write16(aimXAddr, adjust(scaledX));
-             emuInstance->nds->ARM9Write16(aimYAddr, adjust(scaledY));
+            static constexpr auto adjust = [](float v) -> int16_t {
+                // ビット演算で符号判定
+                int sign = (v > 0) - (v < 0);
+                float abs_v = v * sign;
+                return static_cast<int16_t>((abs_v >= 0.5f && abs_v < 1.0f) ? sign : v);
+                };
+                        /*
+            // コンパイル時定数として定義（最適化向上）
+            static constexpr auto adjust = [](float v) -> int16_t {
+                return static_cast<int16_t>(
+                    (v >= 0.5f && v < 1.0f) ? 1.0f :
+                    (v <= -0.5f && v > -1.0f) ? -1.0f : v
+                    );
+                };
+*/
+            // メモリ書き込み（パイプライン最適化）
+            emuInstance->nds->ARM9Write16(aimXAddr, adjust(scaledX));
+            emuInstance->nds->ARM9Write16(aimYAddr, adjust(scaledY));
 
-             enableAim = true;
-             QCursor::setPos(centerX, centerY);
-             return;
-         }
+            enableAim = true;
+            QCursor::setPos(centerX, centerY);
+            return;
+        }
 
-         // コールドパス：初期化処理（1%のケース）
-         QPoint center = getAdjustedCenter();
-         centerX = center.x();
-         centerY = center.y();
-         QCursor::setPos(center);
-         isLayoutChangePending = false;
-         initialized = true;
+        // コールドパス：初期化処理（1%のケース）
+        QPoint center = getAdjustedCenter();
+        centerX = center.x();
+        centerY = center.y();
+        QCursor::setPos(center);
+        isLayoutChangePending = false;
 
-#else
-         if (__builtin_expect(emuInstance->isTouching, 1)) {
-             emuInstance->nds->TouchScreen(emuInstance->touchX, emuInstance->touchY);
-         }
-         else {
-             emuInstance->nds->ReleaseScreen();
-         }
-#endif
-     };
+        // 初期化時に感度も取得
+        if (isSensitivityChangePending) {
+            int sens = localCfg.GetInt("Metroid.Sensitivity.Aim");
+            sensitivityFactor = sens * 0.01f;
+            isSensitivityChangePending = false;
+        }
+
+    #else
+        if (__builtin_expect(emuInstance->isTouching, 1)) {
+            emuInstance->nds->TouchScreen(emuInstance->touchX, emuInstance->touchY);
+        }
+        else {
+            emuInstance->nds->ReleaseScreen();
+        }
+    #endif
+    };
 
 
     // Define a lambda function to switch weapons
