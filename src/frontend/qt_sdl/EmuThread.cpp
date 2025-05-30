@@ -893,9 +893,6 @@ void EmuThread::run()
     // QPoint mouseRel;
 
     // Initialize Adjusted Center 
-    QPoint adjustedCenter;
-    int adjustedCenterX = 0;
-    int adjustedCenterY = 0;
 
     int lastLayout = -1;
     int lastScreenSizing = -1;
@@ -910,6 +907,7 @@ void EmuThread::run()
         static constexpr float DEFAULT_ADJUSTMENT = 0.25f;
         static constexpr float HYBRID_RIGHT = 0.333203125f;  // (2133-1280)/2560
         static constexpr float HYBRID_LEFT = 0.166796875f;   // (1280-853)/2560
+        static QPoint adjustedCenter;
 
         auto& windowCfg = emuInstance->getMainWindow()->getWindowConfig();
 
@@ -1002,7 +1000,7 @@ void EmuThread::run()
         };
 
     // Get adjusted center position
-    adjustedCenter = getAdjustedCenter();
+    // adjustedCenter = getAdjustedCenter();
 
 
 
@@ -1257,18 +1255,19 @@ auto processMoveInput = [&]() {
         // 静的変数を構造体にまとめて局所性を向上
         static struct {
             bool initialized = false;
-            int centerX = 0;
-            int centerY = 0;
+            QPoint adjustedCenter;
+            int adjustedCenterX = 0;
+            int adjustedCenterY = 0;
             int cachedSensitivity = -1;
             float sensitivityFactor = 0.01f;
         } s;
 
         // 初期化チェック（分岐予測最適化）
         if (__builtin_expect(!s.initialized || isLayoutChangePending || !wasLastFrameFocused, 0)) {
-            adjustedCenter = getAdjustedCenter();
-            s.centerX = adjustedCenter.x();
-            s.centerY = adjustedCenter.y();
-            QCursor::setPos(adjustedCenter);
+            s.adjustedCenter = getAdjustedCenter();
+            s.adjustedCenterX = s.adjustedCenter.x();
+            s.adjustedCenterY = s.adjustedCenter.y();
+            QCursor::setPos(s.adjustedCenter);
             isLayoutChangePending = false;
             s.initialized = true;
             return;
@@ -1276,8 +1275,8 @@ auto processMoveInput = [&]() {
 
         // マウス位置取得と差分計算を一体化
         QPoint currentPos = QCursor::pos();
-        int deltaX = currentPos.x() - s.centerX;
-        int deltaY = currentPos.y() - s.centerY;
+        int deltaX = currentPos.x() - s.adjustedCenterX;
+        int deltaY = currentPos.y() - s.adjustedCenterY;
 
         // 早期リターン（移動なし）
         if (!(deltaX | deltaY)) {
@@ -1312,7 +1311,7 @@ auto processMoveInput = [&]() {
         emuInstance->nds->ARM9Write16(aimYAddr, adjustedY);
 
         enableAim = true;
-        QCursor::setPos(adjustedCenter);
+        QCursor::setPos(s.adjustedCenter);
 
     #else
         // スタイラスモード（分岐予測最適化）
