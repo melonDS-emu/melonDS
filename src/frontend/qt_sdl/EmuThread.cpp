@@ -160,6 +160,7 @@ bool isAltForm;
 bool isInGame = false; // MelonPrimeDS
 bool isLayoutChangePending = true;  // MelonPrimeDSレイアウト変更フラグ 初回実行させるためtrueにしている。
 bool isSensitivityChangePending = true;  // MelonPrimeDS 感度変更フラグ 初回実行させるためtrueにしている。
+bool isSnapTapMode = false;
 
 melonDS::u32 baseIsAltFormAddr;
 melonDS::u32 baseLoadedSpecialWeaponAddr;
@@ -386,6 +387,7 @@ void EmuThread::run()
 {
     Config::Table& globalCfg = emuInstance->getGlobalConfig();
     Config::Table& localCfg = emuInstance->getLocalConfig();
+    isSnapTapMode = localCfg.GetBool("Metroid.Operation.SnapTap"); // MelonPrimeDS
     u32 mainScreenPos[3];
 
     //emuInstance->updateConsole();
@@ -1001,123 +1003,247 @@ void EmuThread::run()
         };
 
     // processMoveInputFunction{
+        // snapTapモードじゃないときは。左右キー　同時押しで左右移動をストップしないといけない。上下キーも同様
+        // snapTapの時は左を押しているときに右を押しても右移動できる。上下も同様。
 
+        static const auto processMoveInput = [&]() __attribute__((hot, always_inline, flatten)) {
+            // Cache-aligned state structure
+            struct alignas(64) {
+                uint32_t lastInputBitmap;
+                uint32_t horizontalPriority;  // 0=none, 2=left, 3=right
+                uint32_t verticalPriority;    // 0=up, 1=down
+                uint32_t configCounter;
+            } static state = { 0, 0, 0, 0   };
 
-    static const auto processMoveInput = [&]() __attribute__((hot, always_inline, flatten)) {
-        // State variables for SnapTap mode - cache aligned for performance
-        alignas(64) static uint32_t lastInputBitmap = 0;
-        alignas(64) static uint32_t priorityInput = 0;
+            // Prefetch state and input sources
+            __builtin_prefetch(&state, 1, 3);
+            __builtin_prefetch(emuInstance, 0, 3);
 
-        // Pre-computed packed input constants (compile time constants)
-        static constexpr uint32_t INPUT_PACKED_UP = (1u << 0) | (uint32_t(INPUT_UP) << 16);
-        static constexpr uint32_t INPUT_PACKED_DOWN = (1u << 1) | (uint32_t(INPUT_DOWN) << 16);
-        static constexpr uint32_t INPUT_PACKED_LEFT = (1u << 2) | (uint32_t(INPUT_LEFT) << 16);
-        static constexpr uint32_t INPUT_PACKED_RIGHT = (1u << 3) | (uint32_t(INPUT_RIGHT) << 16);
+            // Gather inputs in parallel
+            const uint32_t inputs[4] = {
+                emuInstance->hotkeyDown(HK_MetroidMoveForward),
+                emuInstance->hotkeyDown(HK_MetroidMoveBack),
+                emuInstance->hotkeyDown(HK_MetroidMoveLeft),
+                emuInstance->hotkeyDown(HK_MetroidMoveRight)
+            };
 
-        // Optimize bit masks as constants
-        static constexpr uint32_t HORIZ_MASK = (1u << 2) | (1u << 3);  // LEFT | RIGHT
-        static constexpr uint32_t VERT_MASK = (1u << 0) | (1u << 1);   // UP | DOWN
+            const uint32_t currentInputBitmap =
+                (inputs[0] << 0) | (inputs[1] << 1) | (inputs[2] << 2) | (inputs[3] << 3);
 
-        // Prefetch config value to hide memory latency
-        const bool isSnapTapMode = __builtin_expect(localCfg.GetBool("Metroid.Operation.SnapTap"), 0);
-
-        // Fast path for input gathering - reduced instruction count
-        // Using parallel reads for maximum instruction-level parallelism
-        const uint32_t fwd = emuInstance->hotkeyDown(HK_MetroidMoveForward);
-        const uint32_t back = emuInstance->hotkeyDown(HK_MetroidMoveBack);
-        const uint32_t left = emuInstance->hotkeyDown(HK_MetroidMoveLeft);
-        const uint32_t right = emuInstance->hotkeyDown(HK_MetroidMoveRight);
-
-        const uint32_t currentInputBitmap =
-            (fwd << 0) | (back << 1) | (left << 2) | (right << 3);
-
-        // Cache-aligned lookup table (16-entries)
-        alignas(64) static constexpr uint32_t PACKED_LUT[16] = {
-            0x00000000u,
-            INPUT_PACKED_UP,
-            INPUT_PACKED_DOWN,
-            0x00000000u,
-            INPUT_PACKED_LEFT,
-            INPUT_PACKED_UP | INPUT_PACKED_LEFT,
-            INPUT_PACKED_DOWN | INPUT_PACKED_LEFT,
-            INPUT_PACKED_LEFT,
-            INPUT_PACKED_RIGHT,
-            INPUT_PACKED_UP | INPUT_PACKED_RIGHT,
-            INPUT_PACKED_DOWN | INPUT_PACKED_RIGHT,
-            INPUT_PACKED_RIGHT,
-            0x00000000u,
-            INPUT_PACKED_UP,
-            INPUT_PACKED_DOWN,
-            0x00000000u
-        };
-
-        // Final state calculation - optimized path selection
-        uint32_t finalState;
-
-        if (!isSnapTapMode) {
-            // Normal mode - direct lookup (fastest path)
-            finalState = PACKED_LUT[currentInputBitmap];
-        }
-        else {
-            // SnapTap mode - optimized with minimal branches
-            // Pre-compute all state values for later use
-            const uint32_t newlyPressed = currentInputBitmap & ~lastInputBitmap;
-            const bool horizontalConflict = (currentInputBitmap & HORIZ_MASK) == HORIZ_MASK;
-            const bool verticalConflict = (currentInputBitmap & VERT_MASK) == VERT_MASK;
-
-            // Update priority (optimized for single pass)
-            if (newlyPressed) {
-                // Updated horizontal priority
-                if (horizontalConflict) {
-                    priorityInput = (priorityInput & ~HORIZ_MASK) | (newlyPressed & HORIZ_MASK);
-                }
-
-                // Updated vertical priority
-                if (verticalConflict) {
-                    priorityInput = (priorityInput & ~VERT_MASK) | (newlyPressed & VERT_MASK);
-                }
-            }
-
-            // Clear released priorities (optimized bit operation)
-            priorityInput &= currentInputBitmap;
-
-            // Final input calculation (optimized path)
+            // Fast path for non-SnapTap mode
             uint32_t finalInputBitmap = currentInputBitmap;
 
-            // Apply horizontal conflict resolution if needed
-            if (horizontalConflict) {
-                finalInputBitmap = (finalInputBitmap & ~HORIZ_MASK) | (priorityInput & HORIZ_MASK);
+            if (__builtin_expect(!isSnapTapMode, 1)) {
+                // Normal mode: cancel movement on simultaneous opposite inputs
+                const uint32_t leftPressed = (currentInputBitmap >> 2) & 1;
+                const uint32_t rightPressed = (currentInputBitmap >> 3) & 1;
+                const uint32_t upPressed = (currentInputBitmap >> 0) & 1;
+                const uint32_t downPressed = (currentInputBitmap >> 1) & 1;
+
+                // Cancel horizontal movement if both left and right are pressed
+                const uint32_t horizCancel = leftPressed & rightPressed;
+                // Cancel vertical movement if both up and down are pressed
+                const uint32_t vertCancel = upPressed & downPressed;
+
+                // Apply cancellation masks
+                finalInputBitmap = currentInputBitmap & ~(horizCancel * 0xC) & ~(vertCancel * 0x3);
+            }
+            else {
+                // Parallel computation of state changes
+                const uint32_t newlyPressed = currentInputBitmap & ~state.lastInputBitmap;
+                const uint32_t released = state.lastInputBitmap & ~currentInputBitmap;
+
+                // Branchless horizontal priority update
+                const uint32_t leftNew = (newlyPressed >> 2) & 1;
+                const uint32_t rightNew = (newlyPressed >> 3) & 1;
+                const uint32_t horizNew = leftNew | rightNew;
+
+                // Update horizontal priority with minimal branches
+                uint32_t newHorizPriority = state.horizontalPriority;
+                newHorizPriority = (leftNew * 2) | (rightNew * 3) | (!horizNew * newHorizPriority);
+
+                // Check if priority key was released
+                const uint32_t horizReleased = (released >> state.horizontalPriority) & 1;
+                const uint32_t leftStillPressed = (currentInputBitmap >> 2) & 1;
+                const uint32_t rightStillPressed = (currentInputBitmap >> 3) & 1;
+
+                // Branchless priority reassignment on release
+                const uint32_t fallbackHoriz = (leftStillPressed * 2) | (rightStillPressed * 3);
+                state.horizontalPriority = horizReleased ? fallbackHoriz : newHorizPriority;
+
+                // Branchless vertical priority update
+                const uint32_t upNew = (newlyPressed >> 0) & 1;
+                const uint32_t downNew = (newlyPressed >> 1) & 1;
+                const uint32_t vertNew = upNew | downNew;
+
+                uint32_t newVertPriority = state.verticalPriority;
+                newVertPriority = (downNew * 1) | (!vertNew * newVertPriority);
+
+                // Check if priority key was released
+                const uint32_t vertReleased = (released >> state.verticalPriority) & 1;
+                const uint32_t upStillPressed = (currentInputBitmap >> 0) & 1;
+                const uint32_t downStillPressed = (currentInputBitmap >> 1) & 1;
+
+                // Branchless priority reassignment on release
+                const uint32_t fallbackVert = (downStillPressed * 1);
+                state.verticalPriority = vertReleased ? fallbackVert : newVertPriority;
+
+                // Build final bitmap with conflict resolution
+                const uint32_t horizBoth = leftStillPressed & rightStillPressed;
+                const uint32_t vertBoth = upStillPressed & downStillPressed;
+
+                // Branchless selection
+                const uint32_t horizMask = horizBoth ? (1u << state.horizontalPriority) : (currentInputBitmap & 0xC);
+                const uint32_t vertMask = vertBoth ? (1u << state.verticalPriority) : (currentInputBitmap & 0x3);
+
+                finalInputBitmap = horizMask | vertMask;
+                state.lastInputBitmap = currentInputBitmap;
             }
 
-            // Apply vertical conflict resolution if needed
-            if (verticalConflict) {
-                finalInputBitmap = (finalInputBitmap & ~VERT_MASK) | (priorityInput & VERT_MASK);
+            // Ultra-fast input application with __builtin_expect
+            // Most inputs are released, so optimize for that path
+            if (__builtin_expect(finalInputBitmap & 1, 0)) {
+                FN_INPUT_PRESS(INPUT_UP);
+            }
+            else {
+                FN_INPUT_RELEASE(INPUT_UP);
             }
 
-            // Save state for next frame
-            lastInputBitmap = currentInputBitmap;
+            if (__builtin_expect((finalInputBitmap >> 1) & 1, 0)) {
+                FN_INPUT_PRESS(INPUT_DOWN);
+            }
+            else {
+                FN_INPUT_RELEASE(INPUT_DOWN);
+            }
 
-            // Get final state from LUT
-            finalState = PACKED_LUT[finalInputBitmap];
-        }
+            if (__builtin_expect((finalInputBitmap >> 2) & 1, 0)) {
+                FN_INPUT_PRESS(INPUT_LEFT);
+            }
+            else {
+                FN_INPUT_RELEASE(INPUT_LEFT);
+            }
 
-        // Highly optimized input application (fully unrolled)
-        // Pre-compute button states for maximum parallelism
-        const bool pressUp = (finalState & INPUT_PACKED_UP & 0xF) != 0;
-        const bool pressDown = (finalState & INPUT_PACKED_DOWN & 0xF) != 0;
-        const bool pressLeft = (finalState & INPUT_PACKED_LEFT & 0xF) != 0;
-        const bool pressRight = (finalState & INPUT_PACKED_RIGHT & 0xF) != 0;
+            if (__builtin_expect((finalInputBitmap >> 3) & 1, 0)) {
+                FN_INPUT_PRESS(INPUT_RIGHT);
+            }
+            else {
+                FN_INPUT_RELEASE(INPUT_RIGHT);
+            }
+        };
+        /*
+        static const auto processMoveInput = [&]() __attribute__((hot, always_inline, flatten)) {
+            // State variables for SnapTap mode - cache aligned for performance
+            alignas(64) static uint32_t lastInputBitmap = 0;
+            alignas(64) static uint32_t priorityInput = 0;
 
-        // Apply button states (compiler can reorder these for best performance)
-        if (pressUp) { FN_INPUT_PRESS(INPUT_UP); }
-        else { FN_INPUT_RELEASE(INPUT_UP); }
-        if (pressDown) { FN_INPUT_PRESS(INPUT_DOWN); }
-        else { FN_INPUT_RELEASE(INPUT_DOWN); }
-        if (pressLeft) { FN_INPUT_PRESS(INPUT_LEFT); }
-        else { FN_INPUT_RELEASE(INPUT_LEFT); }
-        if (pressRight) { FN_INPUT_PRESS(INPUT_RIGHT); }
-        else { FN_INPUT_RELEASE(INPUT_RIGHT); }
-    };
+            // Pre-computed packed input constants (compile time constants)
+            static constexpr uint32_t INPUT_PACKED_UP = (1u << 0) | (uint32_t(INPUT_UP) << 16);
+            static constexpr uint32_t INPUT_PACKED_DOWN = (1u << 1) | (uint32_t(INPUT_DOWN) << 16);
+            static constexpr uint32_t INPUT_PACKED_LEFT = (1u << 2) | (uint32_t(INPUT_LEFT) << 16);
+            static constexpr uint32_t INPUT_PACKED_RIGHT = (1u << 3) | (uint32_t(INPUT_RIGHT) << 16);
+
+            // Optimize bit masks as constants
+            static constexpr uint32_t HORIZ_MASK = (1u << 2) | (1u << 3);  // LEFT | RIGHT
+            static constexpr uint32_t VERT_MASK = (1u << 0) | (1u << 1);   // UP | DOWN
+
+            // Fast path for input gathering - reduced instruction count
+            // Using parallel reads for maximum instruction-level parallelism
+            const uint32_t fwd = emuInstance->hotkeyDown(HK_MetroidMoveForward);
+            const uint32_t back = emuInstance->hotkeyDown(HK_MetroidMoveBack);
+            const uint32_t left = emuInstance->hotkeyDown(HK_MetroidMoveLeft);
+            const uint32_t right = emuInstance->hotkeyDown(HK_MetroidMoveRight);
+
+            const uint32_t currentInputBitmap =
+                (fwd << 0) | (back << 1) | (left << 2) | (right << 3);
+
+            // Cache-aligned lookup table (16-entries)
+            alignas(64) static constexpr uint32_t PACKED_LUT[16] = {
+                0x00000000u,
+                INPUT_PACKED_UP,
+                INPUT_PACKED_DOWN,
+                0x00000000u,
+                INPUT_PACKED_LEFT,
+                INPUT_PACKED_UP | INPUT_PACKED_LEFT,
+                INPUT_PACKED_DOWN | INPUT_PACKED_LEFT,
+                INPUT_PACKED_LEFT,
+                INPUT_PACKED_RIGHT,
+                INPUT_PACKED_UP | INPUT_PACKED_RIGHT,
+                INPUT_PACKED_DOWN | INPUT_PACKED_RIGHT,
+                INPUT_PACKED_RIGHT,
+                0x00000000u,
+                INPUT_PACKED_UP,
+                INPUT_PACKED_DOWN,
+                0x00000000u
+            };
+
+            // Final state calculation - optimized path selection
+            uint32_t finalState;
+
+            if (!isSnapTapMode) {
+                // Normal mode - direct lookup (fastest path)
+                finalState = PACKED_LUT[currentInputBitmap];
+            }
+            else {
+                // SnapTap mode - optimized with minimal branches
+                // Pre-compute all state values for later use
+                const uint32_t newlyPressed = currentInputBitmap & ~lastInputBitmap;
+                const bool horizontalConflict = (currentInputBitmap & HORIZ_MASK) == HORIZ_MASK;
+                const bool verticalConflict = (currentInputBitmap & VERT_MASK) == VERT_MASK;
+
+                // Update priority (optimized for single pass)
+                if (newlyPressed) {
+                    // Updated horizontal priority
+                    if (horizontalConflict) {
+                        priorityInput = (priorityInput & ~HORIZ_MASK) | (newlyPressed & HORIZ_MASK);
+                    }
+
+                    // Updated vertical priority
+                    if (verticalConflict) {
+                        priorityInput = (priorityInput & ~VERT_MASK) | (newlyPressed & VERT_MASK);
+                    }
+                }
+
+                // Clear released priorities (optimized bit operation)
+                priorityInput &= currentInputBitmap;
+
+                // Final input calculation (optimized path)
+                uint32_t finalInputBitmap = currentInputBitmap;
+
+                // Apply horizontal conflict resolution if needed
+                if (horizontalConflict) {
+                    finalInputBitmap = (finalInputBitmap & ~HORIZ_MASK) | (priorityInput & HORIZ_MASK);
+                }
+
+                // Apply vertical conflict resolution if needed
+                if (verticalConflict) {
+                    finalInputBitmap = (finalInputBitmap & ~VERT_MASK) | (priorityInput & VERT_MASK);
+                }
+
+                // Save state for next frame
+                lastInputBitmap = currentInputBitmap;
+
+                // Get final state from LUT
+                finalState = PACKED_LUT[finalInputBitmap];
+            }
+
+            // Highly optimized input application (fully unrolled)
+            // Pre-compute button states for maximum parallelism
+            const bool pressUp = (finalState & INPUT_PACKED_UP & 0xF) != 0;
+            const bool pressDown = (finalState & INPUT_PACKED_DOWN & 0xF) != 0;
+            const bool pressLeft = (finalState & INPUT_PACKED_LEFT & 0xF) != 0;
+            const bool pressRight = (finalState & INPUT_PACKED_RIGHT & 0xF) != 0;
+
+            // Apply button states (compiler can reorder these for best performance)
+            if (pressUp) { FN_INPUT_PRESS(INPUT_UP); }
+            else { FN_INPUT_RELEASE(INPUT_UP); }
+            if (pressDown) { FN_INPUT_PRESS(INPUT_DOWN); }
+            else { FN_INPUT_RELEASE(INPUT_DOWN); }
+            if (pressLeft) { FN_INPUT_PRESS(INPUT_LEFT); }
+            else { FN_INPUT_RELEASE(INPUT_LEFT); }
+            if (pressRight) { FN_INPUT_PRESS(INPUT_RIGHT); }
+            else { FN_INPUT_RELEASE(INPUT_RIGHT); }
+        };
+        */
     // /processMoveInputFunction }
 
     /*
@@ -2026,6 +2152,7 @@ void EmuThread::handleMessages()
                     // updateRenderer because of using softwareRenderer when not in Game.
                     videoRenderer = emuInstance->getGlobalConfig().GetInt("3D.Renderer");
                     updateRenderer();
+                    isSnapTapMode = emuInstance->getLocalConfig().GetBool("Metroid.Operation.SnapTap");
                 }
                 // MelonPrimeDS }
             }
