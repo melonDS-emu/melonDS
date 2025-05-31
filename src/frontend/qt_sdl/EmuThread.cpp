@@ -1003,7 +1003,7 @@ void EmuThread::run()
     // processMoveInputFunction{
 
 
-    static auto processMoveInput = [&]() __attribute__((hot, always_inline, flatten)) {
+    static const auto processMoveInput = [&]() __attribute__((hot, always_inline, flatten)) {
         // State variables for SnapTap mode - cache aligned for performance
         alignas(64) static uint32_t lastInputBitmap = 0;
         alignas(64) static uint32_t priorityInput = 0;
@@ -1241,7 +1241,7 @@ auto processMoveInput = [&]() {
      * レイアウト変更やフォーカス復帰を最優先で処理し、
      * それ以外の通常マウス移動を続いて処理。
      */
-    static auto processAimInput = [&]() __attribute__((hot, always_inline, flatten)) {
+    static const auto processAimInput = [&]() __attribute__((hot, always_inline, flatten)) {
     #ifndef STYLUS_MODE
         // 最頻繁アクセス変数（レジスタ最適化）
         static int centerX = 0;
@@ -1316,7 +1316,7 @@ auto processMoveInput = [&]() {
 
 
     // Define a lambda function to switch weapons
-    static auto SwitchWeapon = [&](int weaponIndex) __attribute__((hot, always_inline)) {
+    static const auto SwitchWeapon = [&](int weaponIndex) __attribute__((hot, always_inline)) {
 
         // Check for Already equipped
         if (emuInstance->nds->ARM9Read8(selectedWeaponAddr) == weaponIndex) {
