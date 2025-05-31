@@ -160,6 +160,7 @@ bool isAltForm;
 bool isInGame = false; // MelonPrimeDS
 bool isLayoutChangePending = true;  // MelonPrimeDSレイアウト変更フラグ 初回実行させるためtrueにしている。
 bool isSensitivityChangePending = true;  // MelonPrimeDS 感度変更フラグ 初回実行させるためtrueにしている。
+bool isSnapTapMode = false;
 
 melonDS::u32 baseIsAltFormAddr;
 melonDS::u32 baseLoadedSpecialWeaponAddr;
@@ -386,6 +387,7 @@ void EmuThread::run()
 {
     Config::Table& globalCfg = emuInstance->getGlobalConfig();
     Config::Table& localCfg = emuInstance->getLocalConfig();
+    isSnapTapMode = localCfg.GetBool("Metroid.Operation.SnapTap"); // MelonPrimeDS
     u32 mainScreenPos[3];
 
     //emuInstance->updateConsole();
@@ -899,7 +901,7 @@ void EmuThread::run()
 
     // test
     // Lambda function to get adjusted center position based on window geometry and screen layout
-    auto getAdjustedCenter = [&]()__attribute__((hot, always_inline, flatten)) -> QPoint {
+    static auto getAdjustedCenter = [&]()__attribute__((hot, always_inline, flatten)) -> QPoint {
         // Cache static constants outside the function to avoid recomputation
         static constexpr float DEFAULT_ADJUSTMENT = 0.25f;
         static constexpr float HYBRID_RIGHT = 0.333203125f;  // (2133-1280)/2560
@@ -1001,123 +1003,247 @@ void EmuThread::run()
         };
 
     // processMoveInputFunction{
+        // snapTapモードじゃないときは。左右キー　同時押しで左右移動をストップしないといけない。上下キーも同様
+        // snapTapの時は左を押しているときに右を押しても右移動できる。上下も同様。
 
+        static const auto processMoveInput = [&]() __attribute__((hot, always_inline, flatten)) {
+            // Cache-aligned state structure
+            struct alignas(64) {
+                uint32_t lastInputBitmap;
+                uint32_t horizontalPriority;  // 0=none, 2=left, 3=right
+                uint32_t verticalPriority;    // 0=up, 1=down
+                uint32_t configCounter;
+            } static state = { 0, 0, 0, 0   };
 
-    auto processMoveInput = [&]() __attribute__((hot, always_inline, flatten)) {
-        // State variables for SnapTap mode - cache aligned for performance
-        alignas(64) static uint32_t lastInputBitmap = 0;
-        alignas(64) static uint32_t priorityInput = 0;
+            // Prefetch state and input sources
+            __builtin_prefetch(&state, 1, 3);
+            __builtin_prefetch(emuInstance, 0, 3);
 
-        // Pre-computed packed input constants (compile time constants)
-        static constexpr uint32_t INPUT_PACKED_UP = (1u << 0) | (uint32_t(INPUT_UP) << 16);
-        static constexpr uint32_t INPUT_PACKED_DOWN = (1u << 1) | (uint32_t(INPUT_DOWN) << 16);
-        static constexpr uint32_t INPUT_PACKED_LEFT = (1u << 2) | (uint32_t(INPUT_LEFT) << 16);
-        static constexpr uint32_t INPUT_PACKED_RIGHT = (1u << 3) | (uint32_t(INPUT_RIGHT) << 16);
+            // Gather inputs in parallel
+            const uint32_t inputs[4] = {
+                emuInstance->hotkeyDown(HK_MetroidMoveForward),
+                emuInstance->hotkeyDown(HK_MetroidMoveBack),
+                emuInstance->hotkeyDown(HK_MetroidMoveLeft),
+                emuInstance->hotkeyDown(HK_MetroidMoveRight)
+            };
 
-        // Optimize bit masks as constants
-        static constexpr uint32_t HORIZ_MASK = (1u << 2) | (1u << 3);  // LEFT | RIGHT
-        static constexpr uint32_t VERT_MASK = (1u << 0) | (1u << 1);   // UP | DOWN
+            const uint32_t currentInputBitmap =
+                (inputs[0] << 0) | (inputs[1] << 1) | (inputs[2] << 2) | (inputs[3] << 3);
 
-        // Prefetch config value to hide memory latency
-        const bool isSnapTapMode = __builtin_expect(localCfg.GetBool("Metroid.Operation.SnapTap"), 0);
-
-        // Fast path for input gathering - reduced instruction count
-        // Using parallel reads for maximum instruction-level parallelism
-        const uint32_t fwd = emuInstance->hotkeyDown(HK_MetroidMoveForward);
-        const uint32_t back = emuInstance->hotkeyDown(HK_MetroidMoveBack);
-        const uint32_t left = emuInstance->hotkeyDown(HK_MetroidMoveLeft);
-        const uint32_t right = emuInstance->hotkeyDown(HK_MetroidMoveRight);
-
-        const uint32_t currentInputBitmap =
-            (fwd << 0) | (back << 1) | (left << 2) | (right << 3);
-
-        // Cache-aligned lookup table (16-entries)
-        alignas(64) static constexpr uint32_t PACKED_LUT[16] = {
-            0x00000000u,
-            INPUT_PACKED_UP,
-            INPUT_PACKED_DOWN,
-            0x00000000u,
-            INPUT_PACKED_LEFT,
-            INPUT_PACKED_UP | INPUT_PACKED_LEFT,
-            INPUT_PACKED_DOWN | INPUT_PACKED_LEFT,
-            INPUT_PACKED_LEFT,
-            INPUT_PACKED_RIGHT,
-            INPUT_PACKED_UP | INPUT_PACKED_RIGHT,
-            INPUT_PACKED_DOWN | INPUT_PACKED_RIGHT,
-            INPUT_PACKED_RIGHT,
-            0x00000000u,
-            INPUT_PACKED_UP,
-            INPUT_PACKED_DOWN,
-            0x00000000u
-        };
-
-        // Final state calculation - optimized path selection
-        uint32_t finalState;
-
-        if (!isSnapTapMode) {
-            // Normal mode - direct lookup (fastest path)
-            finalState = PACKED_LUT[currentInputBitmap];
-        }
-        else {
-            // SnapTap mode - optimized with minimal branches
-            // Pre-compute all state values for later use
-            const uint32_t newlyPressed = currentInputBitmap & ~lastInputBitmap;
-            const bool horizontalConflict = (currentInputBitmap & HORIZ_MASK) == HORIZ_MASK;
-            const bool verticalConflict = (currentInputBitmap & VERT_MASK) == VERT_MASK;
-
-            // Update priority (optimized for single pass)
-            if (newlyPressed) {
-                // Updated horizontal priority
-                if (horizontalConflict) {
-                    priorityInput = (priorityInput & ~HORIZ_MASK) | (newlyPressed & HORIZ_MASK);
-                }
-
-                // Updated vertical priority
-                if (verticalConflict) {
-                    priorityInput = (priorityInput & ~VERT_MASK) | (newlyPressed & VERT_MASK);
-                }
-            }
-
-            // Clear released priorities (optimized bit operation)
-            priorityInput &= currentInputBitmap;
-
-            // Final input calculation (optimized path)
+            // Fast path for non-SnapTap mode
             uint32_t finalInputBitmap = currentInputBitmap;
 
-            // Apply horizontal conflict resolution if needed
-            if (horizontalConflict) {
-                finalInputBitmap = (finalInputBitmap & ~HORIZ_MASK) | (priorityInput & HORIZ_MASK);
+            if (__builtin_expect(!isSnapTapMode, 1)) {
+                // Normal mode: cancel movement on simultaneous opposite inputs
+                const uint32_t leftPressed = (currentInputBitmap >> 2) & 1;
+                const uint32_t rightPressed = (currentInputBitmap >> 3) & 1;
+                const uint32_t upPressed = (currentInputBitmap >> 0) & 1;
+                const uint32_t downPressed = (currentInputBitmap >> 1) & 1;
+
+                // Cancel horizontal movement if both left and right are pressed
+                const uint32_t horizCancel = leftPressed & rightPressed;
+                // Cancel vertical movement if both up and down are pressed
+                const uint32_t vertCancel = upPressed & downPressed;
+
+                // Apply cancellation masks
+                finalInputBitmap = currentInputBitmap & ~(horizCancel * 0xC) & ~(vertCancel * 0x3);
+            }
+            else {
+                // Parallel computation of state changes
+                const uint32_t newlyPressed = currentInputBitmap & ~state.lastInputBitmap;
+                const uint32_t released = state.lastInputBitmap & ~currentInputBitmap;
+
+                // Branchless horizontal priority update
+                const uint32_t leftNew = (newlyPressed >> 2) & 1;
+                const uint32_t rightNew = (newlyPressed >> 3) & 1;
+                const uint32_t horizNew = leftNew | rightNew;
+
+                // Update horizontal priority with minimal branches
+                uint32_t newHorizPriority = state.horizontalPriority;
+                newHorizPriority = (leftNew * 2) | (rightNew * 3) | (!horizNew * newHorizPriority);
+
+                // Check if priority key was released
+                const uint32_t horizReleased = (released >> state.horizontalPriority) & 1;
+                const uint32_t leftStillPressed = (currentInputBitmap >> 2) & 1;
+                const uint32_t rightStillPressed = (currentInputBitmap >> 3) & 1;
+
+                // Branchless priority reassignment on release
+                const uint32_t fallbackHoriz = (leftStillPressed * 2) | (rightStillPressed * 3);
+                state.horizontalPriority = horizReleased ? fallbackHoriz : newHorizPriority;
+
+                // Branchless vertical priority update
+                const uint32_t upNew = (newlyPressed >> 0) & 1;
+                const uint32_t downNew = (newlyPressed >> 1) & 1;
+                const uint32_t vertNew = upNew | downNew;
+
+                uint32_t newVertPriority = state.verticalPriority;
+                newVertPriority = (downNew * 1) | (!vertNew * newVertPriority);
+
+                // Check if priority key was released
+                const uint32_t vertReleased = (released >> state.verticalPriority) & 1;
+                const uint32_t upStillPressed = (currentInputBitmap >> 0) & 1;
+                const uint32_t downStillPressed = (currentInputBitmap >> 1) & 1;
+
+                // Branchless priority reassignment on release
+                const uint32_t fallbackVert = (downStillPressed * 1);
+                state.verticalPriority = vertReleased ? fallbackVert : newVertPriority;
+
+                // Build final bitmap with conflict resolution
+                const uint32_t horizBoth = leftStillPressed & rightStillPressed;
+                const uint32_t vertBoth = upStillPressed & downStillPressed;
+
+                // Branchless selection
+                const uint32_t horizMask = horizBoth ? (1u << state.horizontalPriority) : (currentInputBitmap & 0xC);
+                const uint32_t vertMask = vertBoth ? (1u << state.verticalPriority) : (currentInputBitmap & 0x3);
+
+                finalInputBitmap = horizMask | vertMask;
+                state.lastInputBitmap = currentInputBitmap;
             }
 
-            // Apply vertical conflict resolution if needed
-            if (verticalConflict) {
-                finalInputBitmap = (finalInputBitmap & ~VERT_MASK) | (priorityInput & VERT_MASK);
+            // Ultra-fast input application with __builtin_expect
+            // Most inputs are released, so optimize for that path
+            if (__builtin_expect(finalInputBitmap & 1, 0)) {
+                FN_INPUT_PRESS(INPUT_UP);
+            }
+            else {
+                FN_INPUT_RELEASE(INPUT_UP);
             }
 
-            // Save state for next frame
-            lastInputBitmap = currentInputBitmap;
+            if (__builtin_expect((finalInputBitmap >> 1) & 1, 0)) {
+                FN_INPUT_PRESS(INPUT_DOWN);
+            }
+            else {
+                FN_INPUT_RELEASE(INPUT_DOWN);
+            }
 
-            // Get final state from LUT
-            finalState = PACKED_LUT[finalInputBitmap];
-        }
+            if (__builtin_expect((finalInputBitmap >> 2) & 1, 0)) {
+                FN_INPUT_PRESS(INPUT_LEFT);
+            }
+            else {
+                FN_INPUT_RELEASE(INPUT_LEFT);
+            }
 
-        // Highly optimized input application (fully unrolled)
-        // Pre-compute button states for maximum parallelism
-        const bool pressUp = (finalState & INPUT_PACKED_UP & 0xF) != 0;
-        const bool pressDown = (finalState & INPUT_PACKED_DOWN & 0xF) != 0;
-        const bool pressLeft = (finalState & INPUT_PACKED_LEFT & 0xF) != 0;
-        const bool pressRight = (finalState & INPUT_PACKED_RIGHT & 0xF) != 0;
+            if (__builtin_expect((finalInputBitmap >> 3) & 1, 0)) {
+                FN_INPUT_PRESS(INPUT_RIGHT);
+            }
+            else {
+                FN_INPUT_RELEASE(INPUT_RIGHT);
+            }
+        };
+        /*
+        static const auto processMoveInput = [&]() __attribute__((hot, always_inline, flatten)) {
+            // State variables for SnapTap mode - cache aligned for performance
+            alignas(64) static uint32_t lastInputBitmap = 0;
+            alignas(64) static uint32_t priorityInput = 0;
 
-        // Apply button states (compiler can reorder these for best performance)
-        if (pressUp) { FN_INPUT_PRESS(INPUT_UP); }
-        else { FN_INPUT_RELEASE(INPUT_UP); }
-        if (pressDown) { FN_INPUT_PRESS(INPUT_DOWN); }
-        else { FN_INPUT_RELEASE(INPUT_DOWN); }
-        if (pressLeft) { FN_INPUT_PRESS(INPUT_LEFT); }
-        else { FN_INPUT_RELEASE(INPUT_LEFT); }
-        if (pressRight) { FN_INPUT_PRESS(INPUT_RIGHT); }
-        else { FN_INPUT_RELEASE(INPUT_RIGHT); }
-    };
+            // Pre-computed packed input constants (compile time constants)
+            static constexpr uint32_t INPUT_PACKED_UP = (1u << 0) | (uint32_t(INPUT_UP) << 16);
+            static constexpr uint32_t INPUT_PACKED_DOWN = (1u << 1) | (uint32_t(INPUT_DOWN) << 16);
+            static constexpr uint32_t INPUT_PACKED_LEFT = (1u << 2) | (uint32_t(INPUT_LEFT) << 16);
+            static constexpr uint32_t INPUT_PACKED_RIGHT = (1u << 3) | (uint32_t(INPUT_RIGHT) << 16);
+
+            // Optimize bit masks as constants
+            static constexpr uint32_t HORIZ_MASK = (1u << 2) | (1u << 3);  // LEFT | RIGHT
+            static constexpr uint32_t VERT_MASK = (1u << 0) | (1u << 1);   // UP | DOWN
+
+            // Fast path for input gathering - reduced instruction count
+            // Using parallel reads for maximum instruction-level parallelism
+            const uint32_t fwd = emuInstance->hotkeyDown(HK_MetroidMoveForward);
+            const uint32_t back = emuInstance->hotkeyDown(HK_MetroidMoveBack);
+            const uint32_t left = emuInstance->hotkeyDown(HK_MetroidMoveLeft);
+            const uint32_t right = emuInstance->hotkeyDown(HK_MetroidMoveRight);
+
+            const uint32_t currentInputBitmap =
+                (fwd << 0) | (back << 1) | (left << 2) | (right << 3);
+
+            // Cache-aligned lookup table (16-entries)
+            alignas(64) static constexpr uint32_t PACKED_LUT[16] = {
+                0x00000000u,
+                INPUT_PACKED_UP,
+                INPUT_PACKED_DOWN,
+                0x00000000u,
+                INPUT_PACKED_LEFT,
+                INPUT_PACKED_UP | INPUT_PACKED_LEFT,
+                INPUT_PACKED_DOWN | INPUT_PACKED_LEFT,
+                INPUT_PACKED_LEFT,
+                INPUT_PACKED_RIGHT,
+                INPUT_PACKED_UP | INPUT_PACKED_RIGHT,
+                INPUT_PACKED_DOWN | INPUT_PACKED_RIGHT,
+                INPUT_PACKED_RIGHT,
+                0x00000000u,
+                INPUT_PACKED_UP,
+                INPUT_PACKED_DOWN,
+                0x00000000u
+            };
+
+            // Final state calculation - optimized path selection
+            uint32_t finalState;
+
+            if (!isSnapTapMode) {
+                // Normal mode - direct lookup (fastest path)
+                finalState = PACKED_LUT[currentInputBitmap];
+            }
+            else {
+                // SnapTap mode - optimized with minimal branches
+                // Pre-compute all state values for later use
+                const uint32_t newlyPressed = currentInputBitmap & ~lastInputBitmap;
+                const bool horizontalConflict = (currentInputBitmap & HORIZ_MASK) == HORIZ_MASK;
+                const bool verticalConflict = (currentInputBitmap & VERT_MASK) == VERT_MASK;
+
+                // Update priority (optimized for single pass)
+                if (newlyPressed) {
+                    // Updated horizontal priority
+                    if (horizontalConflict) {
+                        priorityInput = (priorityInput & ~HORIZ_MASK) | (newlyPressed & HORIZ_MASK);
+                    }
+
+                    // Updated vertical priority
+                    if (verticalConflict) {
+                        priorityInput = (priorityInput & ~VERT_MASK) | (newlyPressed & VERT_MASK);
+                    }
+                }
+
+                // Clear released priorities (optimized bit operation)
+                priorityInput &= currentInputBitmap;
+
+                // Final input calculation (optimized path)
+                uint32_t finalInputBitmap = currentInputBitmap;
+
+                // Apply horizontal conflict resolution if needed
+                if (horizontalConflict) {
+                    finalInputBitmap = (finalInputBitmap & ~HORIZ_MASK) | (priorityInput & HORIZ_MASK);
+                }
+
+                // Apply vertical conflict resolution if needed
+                if (verticalConflict) {
+                    finalInputBitmap = (finalInputBitmap & ~VERT_MASK) | (priorityInput & VERT_MASK);
+                }
+
+                // Save state for next frame
+                lastInputBitmap = currentInputBitmap;
+
+                // Get final state from LUT
+                finalState = PACKED_LUT[finalInputBitmap];
+            }
+
+            // Highly optimized input application (fully unrolled)
+            // Pre-compute button states for maximum parallelism
+            const bool pressUp = (finalState & INPUT_PACKED_UP & 0xF) != 0;
+            const bool pressDown = (finalState & INPUT_PACKED_DOWN & 0xF) != 0;
+            const bool pressLeft = (finalState & INPUT_PACKED_LEFT & 0xF) != 0;
+            const bool pressRight = (finalState & INPUT_PACKED_RIGHT & 0xF) != 0;
+
+            // Apply button states (compiler can reorder these for best performance)
+            if (pressUp) { FN_INPUT_PRESS(INPUT_UP); }
+            else { FN_INPUT_RELEASE(INPUT_UP); }
+            if (pressDown) { FN_INPUT_PRESS(INPUT_DOWN); }
+            else { FN_INPUT_RELEASE(INPUT_DOWN); }
+            if (pressLeft) { FN_INPUT_PRESS(INPUT_LEFT); }
+            else { FN_INPUT_RELEASE(INPUT_LEFT); }
+            if (pressRight) { FN_INPUT_PRESS(INPUT_RIGHT); }
+            else { FN_INPUT_RELEASE(INPUT_RIGHT); }
+        };
+        */
     // /processMoveInputFunction }
 
     /*
@@ -1241,7 +1367,7 @@ auto processMoveInput = [&]() {
      * レイアウト変更やフォーカス復帰を最優先で処理し、
      * それ以外の通常マウス移動を続いて処理。
      */
-    auto processAimInput = [&]() __attribute__((hot, always_inline, flatten)) {
+    static const auto processAimInput = [&]() __attribute__((hot, always_inline, flatten)) {
     #ifndef STYLUS_MODE
         // 最頻繁アクセス変数（レジスタ最適化）
         static int centerX = 0;
@@ -1274,32 +1400,13 @@ auto processMoveInput = [&]() {
             float scaledX = deltaX * sensitivityFactor;
             float scaledY = deltaY * (dsAspectRatio * sensitivityFactor);
 
-            // インライン補正（分岐なし版）
-
-            /*
-            static constexpr auto adjust = [](float v) -> int16_t {
-                // ビット演算で符号判定
-                int sign = (v > 0) - (v < 0);
-                float abs_v = v * sign;
-                return static_cast<int16_t>((abs_v >= 0.5f && abs_v < 1.0f) ? sign : v);
-                };
-            */
-
             // 補正関数（インライン最適化）
             static constexpr auto adjust = [](float value) __attribute__((hot, always_inline, flatten)) -> int16_t {
                 if (value >= 0.5f && value < 1.0f) return static_cast<int16_t>(1.0f);
                 if (value <= -0.5f && value > -1.0f) return static_cast<int16_t>(-1.0f);
                 return static_cast<int16_t>(value);
             };
-                        /*
-            // コンパイル時定数として定義（最適化向上）
-            static constexpr auto adjust = [](float v) -> int16_t {
-                return static_cast<int16_t>(
-                    (v >= 0.5f && v < 1.0f) ? 1.0f :
-                    (v <= -0.5f && v > -1.0f) ? -1.0f : v
-                    );
-                };
-*/
+
             // メモリ書き込み（パイプライン最適化）
             emuInstance->nds->ARM9Write16(aimXAddr, adjust(scaledX));
             emuInstance->nds->ARM9Write16(aimYAddr, adjust(scaledY));
@@ -1335,7 +1442,7 @@ auto processMoveInput = [&]() {
 
 
     // Define a lambda function to switch weapons
-    auto SwitchWeapon = [&](int weaponIndex) __attribute__((hot, always_inline)) {
+    static const auto SwitchWeapon = [&](int weaponIndex) __attribute__((hot, always_inline)) {
 
         // Check for Already equipped
         if (emuInstance->nds->ARM9Read8(selectedWeaponAddr) == weaponIndex) {
@@ -1582,47 +1689,174 @@ auto processMoveInput = [&]() {
                         }
                     }
 
-                    // Switch to Power Beam
-                    if (emuInstance->hotkeyPressed(HK_MetroidWeaponBeam)) {
-                        SwitchWeapon(0);
-                    }
+                    // Low-latency weapon switch system with lambda expressions
+                    #include <cstdint>
+                    #include <algorithm>
 
-                    // Switch to Missile
-                    if (emuInstance->hotkeyPressed(HK_MetroidWeaponMissile)) {
-                        SwitchWeapon(2);
-                    }
+                    // Compile-time constants
+                    static constexpr uint8_t WEAPON_ORDER[] = { 0, 2, 7, 6, 5, 4, 3, 1, 8 };
+                    static constexpr uint16_t WEAPON_MASKS[] = { 0x001, 0x004, 0x080, 0x040, 0x020, 0x010, 0x008, 0x002, 0x100 };
+                    static constexpr uint8_t MIN_AMMO[] = { 0, 0x5, 0xA, 0x4, 0x14, 0x5, 0xA, 0xA, 0 };
+                    static constexpr uint8_t WEAPON_INDEX_MAP[9] = { 0, 7, 1, 6, 5, 4, 3, 2, 8 };
+                    static constexpr uint8_t WEAPON_COUNT = 9;
 
-                    // Array of sub-weapon hotkeys (Associating hotkey definitions with weapon indices)
-                    static constexpr int weaponHotkeys[] = {
-                        HK_MetroidWeapon1,  // ShockCoil    7
-                        HK_MetroidWeapon2,  // Magmaul      6
-                        HK_MetroidWeapon3,  // Judicator    5
-                        HK_MetroidWeapon4,  // Imperialist  4
-                        HK_MetroidWeapon5,  // Battlehammer 3
-                        HK_MetroidWeapon6   // VoltDriver   1
-                                            // Omega Cannon 8 we don't need to set this here, because we need {last used weapon / Omega cannon}
+                    // Hotkey mapping
+                    static constexpr struct {
+                        int hotkey;
+                        uint8_t weapon;
+                    } HOTKEY_MAP[] = {
+                        { HK_MetroidWeaponBeam, 0 },
+                        { HK_MetroidWeaponMissile, 2 },
+                        { HK_MetroidWeapon1, 7 },
+                        { HK_MetroidWeapon2, 6 },
+                        { HK_MetroidWeapon3, 5 },
+                        { HK_MetroidWeapon4, 4 },
+                        { HK_MetroidWeapon5, 3 },
+                        { HK_MetroidWeapon6, 1 },
+                        { HK_MetroidWeaponSpecial, 0xFF }
                     };
 
-                    int weaponIndices[] = { 7, 6, 5, 4, 3, 1 };  // Address of the weapon corresponding to each hotkey
+                    // Branch prediction hints
+                    #define likely(x)   __builtin_expect(!!(x), 1)
+                    #define unlikely(x) __builtin_expect(!!(x), 0)
 
-                    // Sub-weapons processing (handled in a loop)
-                    for (int i = 0; i < 6; i++) {
-                        if (emuInstance->hotkeyPressed(weaponHotkeys[i])) {
-                            SwitchWeapon(weaponIndices[i]);  // Switch to the corresponding weapon
+                    // Main lambda for weapon switching
+                    static const auto processWeaponSwitch = [&]() -> bool {
+                        bool weaponSwitched = false;
 
-                            // Exit loop when hotkey is pressed (because weapon switching is completed)
-                            break;
+                        // Lambda: Gather hotkey states efficiently
+                        static const auto gatherHotkeyStates = [&]() -> uint32_t {
+                            uint32_t states = 0;
+                            for (size_t i = 0; i < 9; ++i) {
+                                if (emuInstance->hotkeyPressed(HOTKEY_MAP[i].hotkey)) {
+                                    states |= (1u << i);
+                                }
+                            }
+                            return states;
+                            };
+
+                        // Lambda: Process hotkeys
+                        static const auto processHotkeys = [&](uint32_t hotkeyStates) -> bool {
+                            if (!hotkeyStates) return false;
+
+                            const int firstSet = __builtin_ctz(hotkeyStates);
+
+                            if (unlikely(firstSet == 8)) {
+                                const uint8_t special = emuInstance->nds->ARM9Read8(loadedSpecialWeaponAddr);
+                                if (special != 0xFF) {
+                                    SwitchWeapon(special);
+                                    return true;
+                                }
+                            }
+                            else {
+                                SwitchWeapon(HOTKEY_MAP[firstSet].weapon);
+                                return true;
+                            }
+                            return false;
+                            };
+
+                        // Lambda: Calculate available weapons
+                        static const auto getAvailableWeapons = [&]() -> uint16_t {
+                            // Batch read weapon data
+                            const uint16_t having = emuInstance->nds->ARM9Read16(havingWeaponsAddr);
+                            const uint32_t ammoData = emuInstance->nds->ARM9Read32(weaponAmmoAddr);
+                            const uint16_t missileAmmo = ammoData >> 16;
+                            const uint16_t weaponAmmo = ammoData & 0xFFFF;
+
+                            uint16_t available = 0;
+
+                            // Check each weapon
+                            for (int i = 0; i < WEAPON_COUNT; ++i) {
+                                const uint8_t weapon = WEAPON_ORDER[i];
+                                const uint16_t mask = WEAPON_MASKS[i];
+
+                                // Check if owned
+                                if (!(having & mask)) continue;
+
+                                // Check ammo requirements
+                                bool hasAmmo = true;
+                                if (weapon == 2) {
+                                    hasAmmo = missileAmmo >= 0xA;
+                                }
+                                else if (weapon > 2 && weapon < 8) {
+                                    uint8_t required = MIN_AMMO[weapon];
+                                    if (weapon == 3 && isWeavel) {
+                                        required = 0x5;
+                                    }
+                                    hasAmmo = weaponAmmo >= required;
+                                }
+
+                                if (hasAmmo) {
+                                    available |= (1u << i);
+                                }
+                            }
+
+                            return available;
+                            };
+
+                        // Lambda: Find next available weapon
+                        static const auto findNextWeapon = [&](uint8_t current, bool forward, uint16_t available) -> int {
+                            if (!available) return -1;  // No weapons available
+
+                            uint8_t startIndex = WEAPON_INDEX_MAP[current];
+                            uint8_t index = startIndex;
+
+                            // Search for next available weapon
+                            for (int attempts = 0; attempts < WEAPON_COUNT; ++attempts) {
+                                if (forward) {
+                                    index = (index + 1) % WEAPON_COUNT;
+                                }
+                                else {
+                                    index = (index + WEAPON_COUNT - 1) % WEAPON_COUNT;
+                                }
+
+                                if (available & (1u << index)) {
+                                    return WEAPON_ORDER[index];
+                                }
+                            }
+
+                            return -1;  // Should not reach here if available != 0
+                            };
+
+                        // Lambda: Process wheel and navigation keys
+                        static const auto processWheelInput = [&]() -> bool {
+                            const int wheelDelta = emuInstance->getMainWindow()->panel->getDelta();
+                            const bool nextKey = emuInstance->hotkeyPressed(HK_MetroidWeaponNext);
+                            const bool prevKey = emuInstance->hotkeyPressed(HK_MetroidWeaponPrevious);
+
+                            if (!wheelDelta && !nextKey && !prevKey) return false;
+
+                            const bool forward = (wheelDelta < 0) || nextKey;
+                            const uint8_t current = emuInstance->nds->ARM9Read8(currentWeaponAddr);
+                            const uint16_t available = getAvailableWeapons();
+
+                            int nextWeapon = findNextWeapon(current, forward, available);
+                            if (nextWeapon >= 0) {
+                                SwitchWeapon(static_cast<uint8_t>(nextWeapon));
+                                return true;
+                            }
+
+                            return false;
+                            };
+
+                        // Main execution flow
+                        const uint32_t hotkeyStates = gatherHotkeyStates();
+
+                        // Try hotkeys first
+                        if (processHotkeys(hotkeyStates)) {
+                            return true;
                         }
-                    }
 
-                    // Change to loaded SpecialWeapon, Last used weapon or Omega Canon
-                    if (emuInstance->hotkeyPressed(HK_MetroidWeaponSpecial)) {
-                        uint8_t loadedSpecialWeapon = emuInstance->nds->ARM9Read8(loadedSpecialWeaponAddr);
-                        if (loadedSpecialWeapon != 0xFF) {
-                            // switchWeapon if special weapon is loaded
-                            SwitchWeapon(loadedSpecialWeapon);
+                        // Try wheel/navigation if no hotkey was pressed
+                        if (processWheelInput()) {
+                            return true;
                         }
-                    }
+
+                        return false;
+                        };
+
+                    // Execute the weapon switch logic
+                    bool weaponSwitched = processWeaponSwitch();
 
                     // Morph ball boost
                     if (isSamus && emuInstance->hotkeyDown(HK_MetroidHoldMorphBallBoost))
@@ -1662,64 +1896,6 @@ auto processMoveInput = [&]() {
                             }
 
                         }
-                    }
-
-
-
-                    // Weapon switching of Next/Previous
-                    const int wheelDelta = emuInstance->getMainWindow()->panel->getDelta();
-                    const bool hasDelta = wheelDelta != 0;
-                    const bool hotkeyNext = hasDelta ? false : emuInstance->hotkeyPressed(HK_MetroidWeaponNext);
-
-                    if (__builtin_expect(hasDelta || hotkeyNext || emuInstance->hotkeyPressed(HK_MetroidWeaponPrevious), true)) {
-                        // Pre-fetch memory values to avoid multiple reads
-                        const uint8_t currentWeapon = emuInstance->nds->ARM9Read8(currentWeaponAddr);
-                        const uint16_t havingWeapons = emuInstance->nds->ARM9Read16(havingWeaponsAddr);
-
-                        // Read both ammo values with a single 32-bit read
-                        // Format: [16-bit missile ammo][16-bit weapon ammo]
-                        const uint32_t ammoData = emuInstance->nds->ARM9Read32(weaponAmmoAddr);
-                        const uint16_t missileAmmo = ammoData >> 16;     // Extract upper 16 bits for missile ammo
-                        const uint16_t weaponAmmo = ammoData & 0xFFFF;   // Extract lower 16 bits for weapon ammo
-                        const bool nextTrigger = (wheelDelta < 0) || hotkeyNext;
-
-                        // Weapon constants as lookup tables
-                        static constexpr uint8_t WEAPON_ORDER[] = { 0, 2, 7, 6, 5, 4, 3, 1, 8 };
-                        static constexpr uint16_t WEAPON_MASKS[] = { 0x001, 0x004, 0x080, 0x040, 0x020, 0x010, 0x008, 0x002, 0x100 };
-                        static constexpr uint8_t  MIN_AMMO[] = { 0, 0x5, 0xA, 0x4, 0x14, 0x5, 0xA, 0xA, 0 };
-
-                        // static constexpr size_t WEAPON_COUNT = sizeof(WEAPON_ORDER) / sizeof(WEAPON_ORDER[0]);
-                        static constexpr uint8_t WEAPON_COUNT = 9;
-
-                        // Find current weapon index using lookup table
-                        static constexpr uint8_t WEAPON_INDEX_MAP[WEAPON_COUNT] = { 0, 7, 1, 6, 5, 4, 3, 2, 8 };
-
-                        uint8_t currentIndex = WEAPON_INDEX_MAP[currentWeapon];
-                        const uint8_t startIndex = currentIndex;
-
-                        // Inline weapon checking logic for better performance
-                        auto hasWeapon = [](uint16_t mask, uint16_t havingWeapons) {
-                            return havingWeapons & mask;
-                            };
-
-                        auto hasEnoughAmmo = [](uint8_t weapon, uint8_t minAmmo, uint16_t weaponAmmo, uint16_t missileAmmo, bool isWeavel) {
-                            if (weapon == 0 || weapon == 8) return true; // PowerBeam or OmegaCannon
-                            if (weapon == 2) return missileAmmo >= 0xA; // Missile
-                            if (weapon == 3 && isWeavel) return weaponAmmo >= 0x5; // Prime Hunter check is needless, if we have only 0x4 ammo, we can equipt battleHammer but can't shoot. it's a bug of MPH. so what we need to check is only it's weavel or not.
-                            return weaponAmmo >= minAmmo;
-                            };
-
-                        // Main weapon selection loop
-                        do {
-                            currentIndex = (currentIndex + (nextTrigger ? 1 : WEAPON_COUNT - 1)) % WEAPON_COUNT;
-                            uint8_t nextWeapon = WEAPON_ORDER[currentIndex];
-
-                            if (hasWeapon(WEAPON_MASKS[currentIndex], havingWeapons) &&
-                                hasEnoughAmmo(nextWeapon, MIN_AMMO[nextWeapon], weaponAmmo, missileAmmo, isWeavel)) {
-                                SwitchWeapon(nextWeapon);
-                                break;
-                            }
-                        } while (currentIndex != startIndex);
                     }
 
                     if (isInAdventure) {
@@ -1976,6 +2152,7 @@ void EmuThread::handleMessages()
                     // updateRenderer because of using softwareRenderer when not in Game.
                     videoRenderer = emuInstance->getGlobalConfig().GetInt("3D.Renderer");
                     updateRenderer();
+                    isSnapTapMode = emuInstance->getLocalConfig().GetBool("Metroid.Operation.SnapTap");
                 }
                 // MelonPrimeDS }
             }
