@@ -899,7 +899,7 @@ void EmuThread::run()
 
     // test
     // Lambda function to get adjusted center position based on window geometry and screen layout
-    auto getAdjustedCenter = [&]()__attribute__((hot, always_inline, flatten)) -> QPoint {
+    static auto getAdjustedCenter = [&]()__attribute__((hot, always_inline, flatten)) -> QPoint {
         // Cache static constants outside the function to avoid recomputation
         static constexpr float DEFAULT_ADJUSTMENT = 0.25f;
         static constexpr float HYBRID_RIGHT = 0.333203125f;  // (2133-1280)/2560
@@ -1003,7 +1003,7 @@ void EmuThread::run()
     // processMoveInputFunction{
 
 
-    auto processMoveInput = [&]() __attribute__((hot, always_inline, flatten)) {
+    static auto processMoveInput = [&]() __attribute__((hot, always_inline, flatten)) {
         // State variables for SnapTap mode - cache aligned for performance
         alignas(64) static uint32_t lastInputBitmap = 0;
         alignas(64) static uint32_t priorityInput = 0;
@@ -1241,7 +1241,7 @@ auto processMoveInput = [&]() {
      * レイアウト変更やフォーカス復帰を最優先で処理し、
      * それ以外の通常マウス移動を続いて処理。
      */
-    auto processAimInput = [&]() __attribute__((hot, always_inline, flatten)) {
+    static auto processAimInput = [&]() __attribute__((hot, always_inline, flatten)) {
     #ifndef STYLUS_MODE
         // 最頻繁アクセス変数（レジスタ最適化）
         static int centerX = 0;
@@ -1316,7 +1316,7 @@ auto processMoveInput = [&]() {
 
 
     // Define a lambda function to switch weapons
-    auto SwitchWeapon = [&](int weaponIndex) __attribute__((hot, always_inline)) {
+    static auto SwitchWeapon = [&](int weaponIndex) __attribute__((hot, always_inline)) {
 
         // Check for Already equipped
         if (emuInstance->nds->ARM9Read8(selectedWeaponAddr) == weaponIndex) {
@@ -1679,11 +1679,11 @@ auto processMoveInput = [&]() {
                         const uint8_t startIndex = currentIndex;
 
                         // Inline weapon checking logic for better performance
-                        auto hasWeapon = [](uint16_t mask, uint16_t havingWeapons) {
+                        static constexpr auto hasWeapon = [](uint16_t mask, uint16_t havingWeapons) {
                             return havingWeapons & mask;
                             };
 
-                        auto hasEnoughAmmo = [](uint8_t weapon, uint8_t minAmmo, uint16_t weaponAmmo, uint16_t missileAmmo, bool isWeavel) {
+                        static constexpr auto hasEnoughAmmo = [](uint8_t weapon, uint8_t minAmmo, uint16_t weaponAmmo, uint16_t missileAmmo, bool isWeavel) {
                             if (weapon == 0 || weapon == 8) return true; // PowerBeam or OmegaCannon
                             if (weapon == 2) return missileAmmo >= 0xA; // Missile
                             if (weapon == 3 && isWeavel) return weaponAmmo >= 0x5; // Prime Hunter check is needless, if we have only 0x4 ammo, we can equipt battleHammer but can't shoot. it's a bug of MPH. so what we need to check is only it's weavel or not.
