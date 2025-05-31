@@ -1005,7 +1005,7 @@ void EmuThread::run()
     // processMoveInputFunction{
         // snapTapモードじゃないときは。左右キー　同時押しで左右移動をストップしないといけない。上下キーも同様
         // snapTapの時は左を押しているときに右を押しても右移動できる。上下も同様。
-
+        /*
         static const auto processMoveInput = [&]() __attribute__((hot, always_inline, flatten)) {
             // Cache-aligned state structure
             struct alignas(64) {
@@ -1130,7 +1130,7 @@ void EmuThread::run()
                 FN_INPUT_RELEASE(INPUT_RIGHT);
             }
         };
-        /*
+        */
         static const auto processMoveInput = [&]() __attribute__((hot, always_inline, flatten)) {
             // State variables for SnapTap mode - cache aligned for performance
             alignas(64) static uint32_t lastInputBitmap = 0;
@@ -1243,7 +1243,6 @@ void EmuThread::run()
             if (pressRight) { FN_INPUT_PRESS(INPUT_RIGHT); }
             else { FN_INPUT_RELEASE(INPUT_RIGHT); }
         };
-        */
     // /processMoveInputFunction }
 
     /*
