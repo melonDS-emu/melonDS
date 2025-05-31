@@ -1564,10 +1564,10 @@ auto processMoveInput = [&]() {
                     }
 
                     // Low-latency weapon switch system with lambda expressions
-#include <cstdint>
-#include <algorithm>
+                    #include <cstdint>
+                    #include <algorithm>
 
-// Compile-time constants
+                    // Compile-time constants
                     static constexpr uint8_t WEAPON_ORDER[] = { 0, 2, 7, 6, 5, 4, 3, 1, 8 };
                     static constexpr uint16_t WEAPON_MASKS[] = { 0x001, 0x004, 0x080, 0x040, 0x020, 0x010, 0x008, 0x002, 0x100 };
                     static constexpr uint8_t MIN_AMMO[] = { 0, 0x5, 0xA, 0x4, 0x14, 0x5, 0xA, 0xA, 0 };
@@ -1591,15 +1591,15 @@ auto processMoveInput = [&]() {
                     };
 
                     // Branch prediction hints
-#define likely(x)   __builtin_expect(!!(x), 1)
-#define unlikely(x) __builtin_expect(!!(x), 0)
+                    #define likely(x)   __builtin_expect(!!(x), 1)
+                    #define unlikely(x) __builtin_expect(!!(x), 0)
 
-// Main lambda for weapon switching
+                    // Main lambda for weapon switching
                     static const auto processWeaponSwitch = [&]() -> bool {
                         bool weaponSwitched = false;
 
                         // Lambda: Gather hotkey states efficiently
-                        auto gatherHotkeyStates = [&]() -> uint32_t {
+                        static const auto gatherHotkeyStates = [&]() -> uint32_t {
                             uint32_t states = 0;
                             for (size_t i = 0; i < 9; ++i) {
                                 if (emuInstance->hotkeyPressed(HOTKEY_MAP[i].hotkey)) {
@@ -1610,7 +1610,7 @@ auto processMoveInput = [&]() {
                             };
 
                         // Lambda: Process hotkeys
-                        auto processHotkeys = [&](uint32_t hotkeyStates) -> bool {
+                        static const auto processHotkeys = [&](uint32_t hotkeyStates) -> bool {
                             if (!hotkeyStates) return false;
 
                             const int firstSet = __builtin_ctz(hotkeyStates);
@@ -1630,7 +1630,7 @@ auto processMoveInput = [&]() {
                             };
 
                         // Lambda: Calculate available weapons
-                        auto getAvailableWeapons = [&]() -> uint16_t {
+                        static const auto getAvailableWeapons = [&]() -> uint16_t {
                             // Batch read weapon data
                             const uint16_t having = emuInstance->nds->ARM9Read16(havingWeaponsAddr);
                             const uint32_t ammoData = emuInstance->nds->ARM9Read32(weaponAmmoAddr);
@@ -1669,7 +1669,7 @@ auto processMoveInput = [&]() {
                             };
 
                         // Lambda: Find next available weapon
-                        auto findNextWeapon = [&](uint8_t current, bool forward, uint16_t available) -> int {
+                        static const auto findNextWeapon = [&](uint8_t current, bool forward, uint16_t available) -> int {
                             if (!available) return -1;  // No weapons available
 
                             uint8_t startIndex = WEAPON_INDEX_MAP[current];
@@ -1693,7 +1693,7 @@ auto processMoveInput = [&]() {
                             };
 
                         // Lambda: Process wheel and navigation keys
-                        auto processWheelInput = [&]() -> bool {
+                        static const auto processWheelInput = [&]() -> bool {
                             const int wheelDelta = emuInstance->getMainWindow()->panel->getDelta();
                             const bool nextKey = emuInstance->hotkeyPressed(HK_MetroidWeaponNext);
                             const bool prevKey = emuInstance->hotkeyPressed(HK_MetroidWeaponPrevious);
