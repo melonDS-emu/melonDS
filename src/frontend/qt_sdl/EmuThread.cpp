@@ -1563,47 +1563,174 @@ auto processMoveInput = [&]() {
                         }
                     }
 
-                    // Switch to Power Beam
-                    if (emuInstance->hotkeyPressed(HK_MetroidWeaponBeam)) {
-                        SwitchWeapon(0);
-                    }
+                    // Low-latency weapon switch system with lambda expressions
+#include <cstdint>
+#include <algorithm>
 
-                    // Switch to Missile
-                    if (emuInstance->hotkeyPressed(HK_MetroidWeaponMissile)) {
-                        SwitchWeapon(2);
-                    }
+// Compile-time constants
+                    static constexpr uint8_t WEAPON_ORDER[] = { 0, 2, 7, 6, 5, 4, 3, 1, 8 };
+                    static constexpr uint16_t WEAPON_MASKS[] = { 0x001, 0x004, 0x080, 0x040, 0x020, 0x010, 0x008, 0x002, 0x100 };
+                    static constexpr uint8_t MIN_AMMO[] = { 0, 0x5, 0xA, 0x4, 0x14, 0x5, 0xA, 0xA, 0 };
+                    static constexpr uint8_t WEAPON_INDEX_MAP[9] = { 0, 7, 1, 6, 5, 4, 3, 2, 8 };
+                    static constexpr uint8_t WEAPON_COUNT = 9;
 
-                    // Array of sub-weapon hotkeys (Associating hotkey definitions with weapon indices)
-                    static constexpr int weaponHotkeys[] = {
-                        HK_MetroidWeapon1,  // ShockCoil    7
-                        HK_MetroidWeapon2,  // Magmaul      6
-                        HK_MetroidWeapon3,  // Judicator    5
-                        HK_MetroidWeapon4,  // Imperialist  4
-                        HK_MetroidWeapon5,  // Battlehammer 3
-                        HK_MetroidWeapon6   // VoltDriver   1
-                                            // Omega Cannon 8 we don't need to set this here, because we need {last used weapon / Omega cannon}
+                    // Hotkey mapping
+                    static constexpr struct {
+                        int hotkey;
+                        uint8_t weapon;
+                    } HOTKEY_MAP[] = {
+                        { HK_MetroidWeaponBeam, 0 },
+                        { HK_MetroidWeaponMissile, 2 },
+                        { HK_MetroidWeapon1, 7 },
+                        { HK_MetroidWeapon2, 6 },
+                        { HK_MetroidWeapon3, 5 },
+                        { HK_MetroidWeapon4, 4 },
+                        { HK_MetroidWeapon5, 3 },
+                        { HK_MetroidWeapon6, 1 },
+                        { HK_MetroidWeaponSpecial, 0xFF }
                     };
 
-                    int weaponIndices[] = { 7, 6, 5, 4, 3, 1 };  // Address of the weapon corresponding to each hotkey
+                    // Branch prediction hints
+#define likely(x)   __builtin_expect(!!(x), 1)
+#define unlikely(x) __builtin_expect(!!(x), 0)
 
-                    // Sub-weapons processing (handled in a loop)
-                    for (int i = 0; i < 6; i++) {
-                        if (emuInstance->hotkeyPressed(weaponHotkeys[i])) {
-                            SwitchWeapon(weaponIndices[i]);  // Switch to the corresponding weapon
+// Main lambda for weapon switching
+                    static const auto processWeaponSwitch = [&]() -> bool {
+                        bool weaponSwitched = false;
 
-                            // Exit loop when hotkey is pressed (because weapon switching is completed)
-                            break;
+                        // Lambda: Gather hotkey states efficiently
+                        auto gatherHotkeyStates = [&]() -> uint32_t {
+                            uint32_t states = 0;
+                            for (size_t i = 0; i < 9; ++i) {
+                                if (emuInstance->hotkeyPressed(HOTKEY_MAP[i].hotkey)) {
+                                    states |= (1u << i);
+                                }
+                            }
+                            return states;
+                            };
+
+                        // Lambda: Process hotkeys
+                        auto processHotkeys = [&](uint32_t hotkeyStates) -> bool {
+                            if (!hotkeyStates) return false;
+
+                            const int firstSet = __builtin_ctz(hotkeyStates);
+
+                            if (unlikely(firstSet == 8)) {
+                                const uint8_t special = emuInstance->nds->ARM9Read8(loadedSpecialWeaponAddr);
+                                if (special != 0xFF) {
+                                    SwitchWeapon(special);
+                                    return true;
+                                }
+                            }
+                            else {
+                                SwitchWeapon(HOTKEY_MAP[firstSet].weapon);
+                                return true;
+                            }
+                            return false;
+                            };
+
+                        // Lambda: Calculate available weapons
+                        auto getAvailableWeapons = [&]() -> uint16_t {
+                            // Batch read weapon data
+                            const uint16_t having = emuInstance->nds->ARM9Read16(havingWeaponsAddr);
+                            const uint32_t ammoData = emuInstance->nds->ARM9Read32(weaponAmmoAddr);
+                            const uint16_t missileAmmo = ammoData >> 16;
+                            const uint16_t weaponAmmo = ammoData & 0xFFFF;
+
+                            uint16_t available = 0;
+
+                            // Check each weapon
+                            for (int i = 0; i < WEAPON_COUNT; ++i) {
+                                const uint8_t weapon = WEAPON_ORDER[i];
+                                const uint16_t mask = WEAPON_MASKS[i];
+
+                                // Check if owned
+                                if (!(having & mask)) continue;
+
+                                // Check ammo requirements
+                                bool hasAmmo = true;
+                                if (weapon == 2) {
+                                    hasAmmo = missileAmmo >= 0xA;
+                                }
+                                else if (weapon > 2 && weapon < 8) {
+                                    uint8_t required = MIN_AMMO[weapon];
+                                    if (weapon == 3 && isWeavel) {
+                                        required = 0x5;
+                                    }
+                                    hasAmmo = weaponAmmo >= required;
+                                }
+
+                                if (hasAmmo) {
+                                    available |= (1u << i);
+                                }
+                            }
+
+                            return available;
+                            };
+
+                        // Lambda: Find next available weapon
+                        auto findNextWeapon = [&](uint8_t current, bool forward, uint16_t available) -> int {
+                            if (!available) return -1;  // No weapons available
+
+                            uint8_t startIndex = WEAPON_INDEX_MAP[current];
+                            uint8_t index = startIndex;
+
+                            // Search for next available weapon
+                            for (int attempts = 0; attempts < WEAPON_COUNT; ++attempts) {
+                                if (forward) {
+                                    index = (index + 1) % WEAPON_COUNT;
+                                }
+                                else {
+                                    index = (index + WEAPON_COUNT - 1) % WEAPON_COUNT;
+                                }
+
+                                if (available & (1u << index)) {
+                                    return WEAPON_ORDER[index];
+                                }
+                            }
+
+                            return -1;  // Should not reach here if available != 0
+                            };
+
+                        // Lambda: Process wheel and navigation keys
+                        auto processWheelInput = [&]() -> bool {
+                            const int wheelDelta = emuInstance->getMainWindow()->panel->getDelta();
+                            const bool nextKey = emuInstance->hotkeyPressed(HK_MetroidWeaponNext);
+                            const bool prevKey = emuInstance->hotkeyPressed(HK_MetroidWeaponPrevious);
+
+                            if (!wheelDelta && !nextKey && !prevKey) return false;
+
+                            const bool forward = (wheelDelta < 0) || nextKey;
+                            const uint8_t current = emuInstance->nds->ARM9Read8(currentWeaponAddr);
+                            const uint16_t available = getAvailableWeapons();
+
+                            int nextWeapon = findNextWeapon(current, forward, available);
+                            if (nextWeapon >= 0) {
+                                SwitchWeapon(static_cast<uint8_t>(nextWeapon));
+                                return true;
+                            }
+
+                            return false;
+                            };
+
+                        // Main execution flow
+                        const uint32_t hotkeyStates = gatherHotkeyStates();
+
+                        // Try hotkeys first
+                        if (processHotkeys(hotkeyStates)) {
+                            return true;
                         }
-                    }
 
-                    // Change to loaded SpecialWeapon, Last used weapon or Omega Canon
-                    if (emuInstance->hotkeyPressed(HK_MetroidWeaponSpecial)) {
-                        uint8_t loadedSpecialWeapon = emuInstance->nds->ARM9Read8(loadedSpecialWeaponAddr);
-                        if (loadedSpecialWeapon != 0xFF) {
-                            // switchWeapon if special weapon is loaded
-                            SwitchWeapon(loadedSpecialWeapon);
+                        // Try wheel/navigation if no hotkey was pressed
+                        if (processWheelInput()) {
+                            return true;
                         }
-                    }
+
+                        return false;
+                        };
+
+                    // Execute the weapon switch logic
+                    bool weaponSwitched = processWeaponSwitch();
 
                     // Morph ball boost
                     if (isSamus && emuInstance->hotkeyDown(HK_MetroidHoldMorphBallBoost))
@@ -1643,64 +1770,6 @@ auto processMoveInput = [&]() {
                             }
 
                         }
-                    }
-
-
-
-                    // Weapon switching of Next/Previous
-                    const int wheelDelta = emuInstance->getMainWindow()->panel->getDelta();
-                    const bool hasDelta = wheelDelta != 0;
-                    const bool hotkeyNext = hasDelta ? false : emuInstance->hotkeyPressed(HK_MetroidWeaponNext);
-
-                    if (__builtin_expect(hasDelta || hotkeyNext || emuInstance->hotkeyPressed(HK_MetroidWeaponPrevious), true)) {
-                        // Pre-fetch memory values to avoid multiple reads
-                        const uint8_t currentWeapon = emuInstance->nds->ARM9Read8(currentWeaponAddr);
-                        const uint16_t havingWeapons = emuInstance->nds->ARM9Read16(havingWeaponsAddr);
-
-                        // Read both ammo values with a single 32-bit read
-                        // Format: [16-bit missile ammo][16-bit weapon ammo]
-                        const uint32_t ammoData = emuInstance->nds->ARM9Read32(weaponAmmoAddr);
-                        const uint16_t missileAmmo = ammoData >> 16;     // Extract upper 16 bits for missile ammo
-                        const uint16_t weaponAmmo = ammoData & 0xFFFF;   // Extract lower 16 bits for weapon ammo
-                        const bool nextTrigger = (wheelDelta < 0) || hotkeyNext;
-
-                        // Weapon constants as lookup tables
-                        static constexpr uint8_t WEAPON_ORDER[] = { 0, 2, 7, 6, 5, 4, 3, 1, 8 };
-                        static constexpr uint16_t WEAPON_MASKS[] = { 0x001, 0x004, 0x080, 0x040, 0x020, 0x010, 0x008, 0x002, 0x100 };
-                        static constexpr uint8_t  MIN_AMMO[] = { 0, 0x5, 0xA, 0x4, 0x14, 0x5, 0xA, 0xA, 0 };
-
-                        // static constexpr size_t WEAPON_COUNT = sizeof(WEAPON_ORDER) / sizeof(WEAPON_ORDER[0]);
-                        static constexpr uint8_t WEAPON_COUNT = 9;
-
-                        // Find current weapon index using lookup table
-                        static constexpr uint8_t WEAPON_INDEX_MAP[WEAPON_COUNT] = { 0, 7, 1, 6, 5, 4, 3, 2, 8 };
-
-                        uint8_t currentIndex = WEAPON_INDEX_MAP[currentWeapon];
-                        const uint8_t startIndex = currentIndex;
-
-                        // Inline weapon checking logic for better performance
-                        static constexpr auto hasWeapon = [](uint16_t mask, uint16_t havingWeapons) {
-                            return havingWeapons & mask;
-                            };
-
-                        static constexpr auto hasEnoughAmmo = [](uint8_t weapon, uint8_t minAmmo, uint16_t weaponAmmo, uint16_t missileAmmo, bool isWeavel) {
-                            if (weapon == 0 || weapon == 8) return true; // PowerBeam or OmegaCannon
-                            if (weapon == 2) return missileAmmo >= 0xA; // Missile
-                            if (weapon == 3 && isWeavel) return weaponAmmo >= 0x5; // Prime Hunter check is needless, if we have only 0x4 ammo, we can equipt battleHammer but can't shoot. it's a bug of MPH. so what we need to check is only it's weavel or not.
-                            return weaponAmmo >= minAmmo;
-                            };
-
-                        // Main weapon selection loop
-                        do {
-                            currentIndex = (currentIndex + (nextTrigger ? 1 : WEAPON_COUNT - 1)) % WEAPON_COUNT;
-                            uint8_t nextWeapon = WEAPON_ORDER[currentIndex];
-
-                            if (hasWeapon(WEAPON_MASKS[currentIndex], havingWeapons) &&
-                                hasEnoughAmmo(nextWeapon, MIN_AMMO[nextWeapon], weaponAmmo, missileAmmo, isWeavel)) {
-                                SwitchWeapon(nextWeapon);
-                                break;
-                            }
-                        } while (currentIndex != startIndex);
                     }
 
                     if (isInAdventure) {
