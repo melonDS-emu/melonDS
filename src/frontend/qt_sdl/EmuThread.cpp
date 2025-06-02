@@ -465,7 +465,7 @@ void EmuThread::run()
         static constexpr int MIN_SENSITIVITY = 1;
 
         // Lambda function to update aim sensitivity with low latency
-        auto updateAimSensitivity = [&](const int change) {
+        static const auto updateAimSensitivity = [&](const int change) {
             // Get current sensitivity from config
             int currentSensitivity = localCfg.GetInt("Metroid.Sensitivity.Aim");
 
@@ -901,7 +901,7 @@ void EmuThread::run()
 
     // test
     // Lambda function to get adjusted center position based on window geometry and screen layout
-    static auto getAdjustedCenter = [&]()__attribute__((hot, always_inline, flatten)) -> QPoint {
+    static const auto getAdjustedCenter = [&]()__attribute__((hot, always_inline, flatten)) -> QPoint {
         // Cache static constants outside the function to avoid recomputation
         static constexpr float DEFAULT_ADJUSTMENT = 0.25f;
         static constexpr float HYBRID_RIGHT = 0.333203125f;  // (2133-1280)/2560
