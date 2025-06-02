@@ -524,6 +524,8 @@ void EmuThread::run()
             }
             */
 
+            /*
+              MelonPrimeDS commentOut
             auto handleDSiInputs = [](EmuInstance* emuInstance, double perfCountsSec) {
                 if (emuInstance->nds->ConsoleType == 1)
                 {
@@ -564,6 +566,8 @@ void EmuThread::run()
                 };
 
             handleDSiInputs(emuInstance, perfCountsSec);
+
+            */
 
             if (useOpenGL)
                 emuInstance->makeCurrentGL();
