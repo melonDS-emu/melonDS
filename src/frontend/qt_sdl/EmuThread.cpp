@@ -1010,105 +1010,84 @@ void EmuThread::run()
     // processMoveInputFunction{
 // 超低遅延SnapTap入力処理 - 分岐予測最適化とキャッシュ効率重視
         static const auto processMoveInput = [&]() __attribute__((hot, always_inline, flatten)) {
-            // SnapTap状態構造体定義(キャッシュライン最適化)
-            alignas(64) static struct {
-                uint32_t lastInputBitmap;    // 前回入力ビットマップ保持
-                uint32_t priorityInput;      // 優先入力ビットマップ保持
-                uint32_t _padding[14];       // 64バイト境界確保
-            } snapTapState = { 0, 0, {} };
+            // 状態変数を単一uint64_tにパック - メモリアクセス最小化
+            alignas(64) static uint64_t packedState = 0;  // 下位32bit=lastInput, 上位32bit=priority
 
-            // 水平・垂直競合用マスク定数定義
-            static constexpr uint32_t HORIZ_MASK = 0xC;   // (1<<2)|(1<<3) - LEFT|RIGHT
-            static constexpr uint32_t VERT_MASK = 0x3;   // (1<<0)|(1<<1) - UP|DOWN
+            // マスク定数 - 最適化されたビット演算
+            static constexpr uint32_t HORIZ_MASK = 0xC;
+            static constexpr uint32_t VERT_MASK = 0x3;
+            static constexpr uint32_t ALL_MASK = 0xF;
 
-            // パックド入力値定数定義
-            static constexpr uint32_t INPUT_PACKED_UP = 0x1 | (uint32_t(INPUT_UP) << 16);
-            static constexpr uint32_t INPUT_PACKED_DOWN = 0x2 | (uint32_t(INPUT_DOWN) << 16);
-            static constexpr uint32_t INPUT_PACKED_LEFT = 0x4 | (uint32_t(INPUT_LEFT) << 16);
-            static constexpr uint32_t INPUT_PACKED_RIGHT = 0x8 | (uint32_t(INPUT_RIGHT) << 16);
-
-            // 超高速LUT - 直接アクセスが最速
-            alignas(64) static constexpr uint32_t FAST_LUT[16] = {
-                0,                                      // 0000: なし
-                INPUT_PACKED_UP,                        // 0001: ↑
-                INPUT_PACKED_DOWN,                      // 0010: ↓
-                0,                                      // 0011: ↑↓(キャンセル)
-                INPUT_PACKED_LEFT,                      // 0100: ←
-                INPUT_PACKED_UP | INPUT_PACKED_LEFT, // 0101: ↑←
-                INPUT_PACKED_DOWN | INPUT_PACKED_LEFT, // 0110: ↓←
-                INPUT_PACKED_LEFT,                      // 0111: ←(↑↓キャンセル)
-                INPUT_PACKED_RIGHT,                     // 1000: →
-                INPUT_PACKED_UP | INPUT_PACKED_RIGHT,// 1001: ↑→
-                INPUT_PACKED_DOWN | INPUT_PACKED_RIGHT,// 1010: ↓→
-                INPUT_PACKED_RIGHT,                     // 1011: →(↑↓キャンセル)
-                0,                                      // 1100: ←→(キャンセル)
-                INPUT_PACKED_UP,                        // 1101: ↑(←→キャンセル)
-                INPUT_PACKED_DOWN,                      // 1110: ↓(←→キャンセル)
-                0                                       // 1111: 全キャンセル
+            // 超コンパクトLUT - L1キャッシュ効率最大化
+            alignas(64) static constexpr uint32_t LUT[16] = {
+                0, // 0000
+                (1 | (INPUT_UP << 16)), // 0001
+                (2 | (INPUT_DOWN << 16)), // 0010
+                0, // 0011
+                (4 | (INPUT_LEFT << 16)), // 0100
+                (5 | (INPUT_UP << 16) | (INPUT_LEFT << 16)), // 0101
+                (6 | (INPUT_DOWN << 16) | (INPUT_LEFT << 16)), // 0110
+                (4 | (INPUT_LEFT << 16)), // 0111
+                (8 | (INPUT_RIGHT << 16)), // 1000
+                (9 | (INPUT_UP << 16) | (INPUT_RIGHT << 16)), // 1001
+                (10 | (INPUT_DOWN << 16) | (INPUT_RIGHT << 16)), // 1010
+                (8 | (INPUT_RIGHT << 16)), // 1011
+                0, // 1100
+                (1 | (INPUT_UP << 16)), // 1101
+                (2 | (INPUT_DOWN << 16)), // 1110
+                0 // 1111
             };
 
-            // 超高速入力取得 - 現代コンパイラが自動最適化
-            const uint32_t f = emuInstance->hotkeyDown(HK_MetroidMoveForward);
-            const uint32_t b = emuInstance->hotkeyDown(HK_MetroidMoveBack);
-            const uint32_t l = emuInstance->hotkeyDown(HK_MetroidMoveLeft);
-            const uint32_t r = emuInstance->hotkeyDown(HK_MetroidMoveRight);
-
-            // 入力ビットマップ生成 - 並列実行最適化
-            const uint32_t curr = f | (b << 1) | (l << 2) | (r << 3);
+            // 入力取得 - 関数呼び出し最小化のためlocal変数化
+            const auto hotkeys = emuInstance; // ポインタキャッシュ
+            const uint32_t curr =
+                hotkeys->hotkeyDown(HK_MetroidMoveForward) |
+                (hotkeys->hotkeyDown(HK_MetroidMoveBack) << 1) |
+                (hotkeys->hotkeyDown(HK_MetroidMoveLeft) << 2) |
+                (hotkeys->hotkeyDown(HK_MetroidMoveRight) << 3);
 
             uint32_t finalState;
 
-            // 分岐予測最適化 - 通常モード優先
+            // 最速パス - 分岐予測最適化
             if (__builtin_expect(!isSnapTapMode, 1)) {
-                // 通常モード - 直接配列アクセス（最速）
-                finalState = FAST_LUT[curr];
+                finalState = LUT[curr];
             }
             else {
-                // SnapTap超高速モード
-                const uint32_t newPressed = curr & ~snapTapState.lastInputBitmap;
+                // SnapTap - パックド状態からデータ抽出
+                const uint32_t lastInput = static_cast<uint32_t>(packedState);
+                uint32_t priority = static_cast<uint32_t>(packedState >> 32);
 
-                // 並列競合判定 - XOR最適化
-                const uint32_t hConflict = (curr & HORIZ_MASK) ^ HORIZ_MASK;
-                const uint32_t vConflict = (curr & VERT_MASK) ^ VERT_MASK;
+                const uint32_t newPressed = curr & ~lastInput;
 
-                // 条件最適化 - 新入力は稀
-                if (__builtin_expect(newPressed != 0, 0)) {
-                    // 超高速branchless更新 - 単一式統合
-                    const uint32_t hMask = -(hConflict == 0);
-                    const uint32_t vMask = -(vConflict == 0);
+                // 並列競合検出 - ビット演算最適化
+                const uint32_t conflicts =
+                    ((curr & HORIZ_MASK) == HORIZ_MASK ? HORIZ_MASK : 0) |
+                    ((curr & VERT_MASK) == VERT_MASK ? VERT_MASK : 0);
 
-                    snapTapState.priorityInput =
-                        (snapTapState.priorityInput & (~HORIZ_MASK | ~hMask) & (~VERT_MASK | ~vMask)) |
-                        ((newPressed & HORIZ_MASK) & hMask) |
-                        ((newPressed & VERT_MASK) & vMask);
+                // 優先度更新 - branchless最適化
+                if (__builtin_expect(newPressed, 0)) {
+                    priority = (priority & ~conflicts) | (newPressed & conflicts);
                 }
+                priority &= curr;
 
-                snapTapState.priorityInput &= curr;
+                // 最終入力計算 - 単一演算
+                const uint32_t finalInput = conflicts ?
+                    ((curr & ~conflicts) | (priority & conflicts)) : curr;
 
-                // 超高速競合解決 - 単一パス処理
-                uint32_t finalInput = curr;
-                const uint32_t conflictMask =
-                    ((hConflict == 0) ? HORIZ_MASK : 0) |
-                    ((vConflict == 0) ? VERT_MASK : 0);
+                // 状態をパック形式で保存 - 単一書き込み
+                packedState = static_cast<uint64_t>(curr) | (static_cast<uint64_t>(priority) << 32);
 
-                if (__builtin_expect(conflictMask != 0, 0)) {
-                    finalInput = (finalInput & ~conflictMask) | (snapTapState.priorityInput & conflictMask);
-                }
-
-                snapTapState.lastInputBitmap = curr;
-
-                // 直接配列アクセス - ポインタより高速
-                finalState = FAST_LUT[finalInput];
+                finalState = LUT[finalInput];
             }
 
-            // 究極の入力適用 - コンパイラ自動最適化
-            const uint32_t states = finalState & 0xF;
+            // 超高速入力適用 - ループ展開 + 予測可能分岐
+            const uint32_t states = finalState & ALL_MASK;
 
-            // 並列実行最適化
-            (states & 1) ? FN_INPUT_PRESS(INPUT_UP) : FN_INPUT_RELEASE(INPUT_UP);
-            (states & 2) ? FN_INPUT_PRESS(INPUT_DOWN) : FN_INPUT_RELEASE(INPUT_DOWN);
-            (states & 4) ? FN_INPUT_PRESS(INPUT_LEFT) : FN_INPUT_RELEASE(INPUT_LEFT);
-            (states & 8) ? FN_INPUT_PRESS(INPUT_RIGHT) : FN_INPUT_RELEASE(INPUT_RIGHT);
+            // 完全展開 - 分岐予測フレンドリー
+            if (__builtin_expect(states & 1, 0)) FN_INPUT_PRESS(INPUT_UP); else FN_INPUT_RELEASE(INPUT_UP);
+            if (__builtin_expect(states & 2, 0)) FN_INPUT_PRESS(INPUT_DOWN); else FN_INPUT_RELEASE(INPUT_DOWN);
+            if (__builtin_expect(states & 4, 0)) FN_INPUT_PRESS(INPUT_LEFT); else FN_INPUT_RELEASE(INPUT_LEFT);
+            if (__builtin_expect(states & 8, 0)) FN_INPUT_PRESS(INPUT_RIGHT); else FN_INPUT_RELEASE(INPUT_RIGHT);
         };
 
     // /processMoveInputFunction }
