@@ -1022,33 +1022,7 @@ void EmuThread::run()
 
             // 水平・垂直競合用マスク定数定義
             static constexpr uint32_t HORIZ_MASK = 0xC;   // (1<<2)|(1<<3) - LEFT|RIGHT
-            static constexpr uint32_t VERT_MASK = 0x3;   // (1<<0)|(1<<1) - UP|DOWN
-
-            // パックド入力値定数定義
-            static constexpr uint32_t INPUT_PACKED_UP = 0x1 | (uint32_t(INPUT_UP) << 16);
-            static constexpr uint32_t INPUT_PACKED_DOWN = 0x2 | (uint32_t(INPUT_DOWN) << 16);
-            static constexpr uint32_t INPUT_PACKED_LEFT = 0x4 | (uint32_t(INPUT_LEFT) << 16);
-            static constexpr uint32_t INPUT_PACKED_RIGHT = 0x8 | (uint32_t(INPUT_RIGHT) << 16);
-
-            // 超高速LUT - 直接アクセスが最速
-            alignas(64) static constexpr uint32_t FAST_LUT[16] = {
-                0,                                      // 0000: なし
-                INPUT_PACKED_UP,                        // 0001: ↑
-                INPUT_PACKED_DOWN,                      // 0010: ↓
-                0,                                      // 0011: ↑↓(キャンセル)
-                INPUT_PACKED_LEFT,                      // 0100: ←
-                INPUT_PACKED_UP | INPUT_PACKED_LEFT, // 0101: ↑←
-                INPUT_PACKED_DOWN | INPUT_PACKED_LEFT, // 0110: ↓←
-                INPUT_PACKED_LEFT,                      // 0111: ←(↑↓キャンセル)
-                INPUT_PACKED_RIGHT,                     // 1000: →
-                INPUT_PACKED_UP | INPUT_PACKED_RIGHT,// 1001: ↑→
-                INPUT_PACKED_DOWN | INPUT_PACKED_RIGHT,// 1010: ↓→
-                INPUT_PACKED_RIGHT,                     // 1011: →(↑↓キャンセル)
-                0,                                      // 1100: ←→(キャンセル)
-                INPUT_PACKED_UP,                        // 1101: ↑(←→キャンセル)
-                INPUT_PACKED_DOWN,                      // 1110: ↓(←→キャンセル)
-                0                                       // 1111: 全キャンセル
-            };
+            static constexpr uint32_t VERT_MASK = 0x3;    // (1<<0)|(1<<1) - UP|DOWN
 
             // 超高速入力取得 - 現代コンパイラが自動最適化
             const uint32_t f = emuInstance->hotkeyDown(HK_MetroidMoveForward);
@@ -1059,26 +1033,34 @@ void EmuThread::run()
             // 入力ビットマップ生成 - 並列実行最適化
             const uint32_t curr = f | (b << 1) | (l << 2) | (r << 3);
 
-            uint32_t finalState;
+            uint32_t finalInput;
 
             // 分岐予測最適化 - 通常モード優先
             if (__builtin_expect(!isSnapTapMode, 1)) {
-                // 通常モード - 直接配列アクセス（最速）
-                finalState = FAST_LUT[curr];
+                // 通常モード - 直接ビット処理
+                finalInput = curr;
+
+                // 競合解決 - 水平・垂直の同時押しをキャンセル
+                if (__builtin_expect((curr & HORIZ_MASK) == HORIZ_MASK, 0)) {
+                    finalInput &= ~HORIZ_MASK;
+                }
+                if (__builtin_expect((curr & VERT_MASK) == VERT_MASK, 0)) {
+                    finalInput &= ~VERT_MASK;
+                }
             }
             else {
                 // SnapTap超高速モード
                 const uint32_t newPressed = curr & ~snapTapState.lastInputBitmap;
 
                 // 並列競合判定 - XOR最適化
-                const uint32_t hConflict = (curr & HORIZ_MASK) ^ HORIZ_MASK;
-                const uint32_t vConflict = (curr & VERT_MASK) ^ VERT_MASK;
+                const uint32_t hConflict = (curr & HORIZ_MASK) == HORIZ_MASK;
+                const uint32_t vConflict = (curr & VERT_MASK) == VERT_MASK;
 
                 // 条件最適化 - 新入力は稀
                 if (__builtin_expect(newPressed != 0, 0)) {
                     // 超高速branchless更新 - 単一式統合
-                    const uint32_t hMask = -(hConflict == 0);
-                    const uint32_t vMask = -(vConflict == 0);
+                    const uint32_t hMask = -hConflict;
+                    const uint32_t vMask = -vConflict;
 
                     snapTapState.priorityInput =
                         (snapTapState.priorityInput & (~HORIZ_MASK | ~hMask) & (~VERT_MASK | ~vMask)) |
@@ -1087,31 +1069,25 @@ void EmuThread::run()
                 }
 
                 snapTapState.priorityInput &= curr;
+                snapTapState.lastInputBitmap = curr;
 
                 // 超高速競合解決 - 単一パス処理
-                uint32_t finalInput = curr;
-                const uint32_t conflictMask =
-                    ((hConflict == 0) ? HORIZ_MASK : 0) |
-                    ((vConflict == 0) ? VERT_MASK : 0);
+                finalInput = curr;
+                const uint32_t conflictMask = (hConflict ? HORIZ_MASK : 0) | (vConflict ? VERT_MASK : 0);
 
                 if (__builtin_expect(conflictMask != 0, 0)) {
                     finalInput = (finalInput & ~conflictMask) | (snapTapState.priorityInput & conflictMask);
                 }
-
-                snapTapState.lastInputBitmap = curr;
-
-                // 直接配列アクセス - ポインタより高速
-                finalState = FAST_LUT[finalInput];
             }
 
-            // 究極の入力適用 - コンパイラ自動最適化
-            const uint32_t states = finalState & 0xF;
+            // 究極のsetBit最適化 - 毎フレーム確実に状態設定
+            // setBitの逆転ロジック: false=PRESS, true=RELEASE
 
-            // 並列実行最適化
-            (states & 1) ? FN_INPUT_PRESS(INPUT_UP) : FN_INPUT_RELEASE(INPUT_UP);
-            (states & 2) ? FN_INPUT_PRESS(INPUT_DOWN) : FN_INPUT_RELEASE(INPUT_DOWN);
-            (states & 4) ? FN_INPUT_PRESS(INPUT_LEFT) : FN_INPUT_RELEASE(INPUT_LEFT);
-            (states & 8) ? FN_INPUT_PRESS(INPUT_RIGHT) : FN_INPUT_RELEASE(INPUT_RIGHT);
+            // 並列実行最適化 - 4つの入力を同時処理
+            emuInstance->inputMask.setBit(INPUT_UP, !(finalInput & 1));
+            emuInstance->inputMask.setBit(INPUT_DOWN, !(finalInput & 2));
+            emuInstance->inputMask.setBit(INPUT_LEFT, !(finalInput & 4));
+            emuInstance->inputMask.setBit(INPUT_RIGHT, !(finalInput & 8));
         };
 
     // /processMoveInputFunction }
