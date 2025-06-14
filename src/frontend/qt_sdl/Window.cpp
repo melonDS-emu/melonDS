@@ -1950,7 +1950,7 @@ void MainWindow::onUpdateAudioSettings()
 
 void MainWindow::onAudioSettingsFinished(int res)
 {
-    //AudioInOut::UpdateSettings(*emuThread->NDS);
+    emuInstance->audioUpdateSettings();
 }
 
 void MainWindow::onOpenMPSettings()
