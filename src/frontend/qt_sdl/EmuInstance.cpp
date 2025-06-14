@@ -1013,28 +1013,35 @@ std::optional<Firmware> EmuInstance::loadFirmware(int type) noexcept
             return generateFirmware(type);
         }
     }
-    //const string& firmwarepath = type == 1 ? Config::DSiFirmwarePath : Config::FirmwarePath;
+
     string firmwarepath;
     if (type == 1)
         firmwarepath = globalCfg.GetString("DSi.FirmwarePath");
     else
         firmwarepath = globalCfg.GetString("DS.FirmwarePath");
 
-    Log(Debug, "SPI firmware: loading from file %s\n", firmwarepath.c_str());
+    string fwpath_inst = firmwarepath + instanceFileSuffix();
 
-    FileHandle* file = OpenLocalFile(firmwarepath, Read);
+    Log(Debug, "Loading firmware from file %s\n", fwpath_inst.c_str());
+    FileHandle* file = OpenLocalFile(fwpath_inst, Read);
 
     if (!file)
     {
-        Log(Error, "SPI firmware: couldn't open firmware file!\n");
-        return std::nullopt;
+        Log(Debug, "Loading firmware from file %s\n", firmwarepath.c_str());
+        file = OpenLocalFile(firmwarepath, Read);
+        if (!file)
+        {
+            Log(Error, "Couldn't open firmware file!\n");
+            return std::nullopt;
+        }
     }
+
     Firmware firmware(file);
     CloseFile(file);
 
     if (!firmware.Buffer())
     {
-        Log(Error, "SPI firmware: couldn't read firmware file!\n");
+        Log(Error, "Couldn't read firmware file!\n");
         return std::nullopt;
     }
 
