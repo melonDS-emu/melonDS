@@ -492,9 +492,12 @@ void EmuInstance::audioUpdateSettings()
 {
     micClose();
 
-    int audiointerp = globalCfg.GetInt("Audio.Interpolation");
-    nds->SPU.SetInterpolation(static_cast<AudioInterpolation>(audiointerp));
-    setupMicInputData();
+    if (nds != nullptr)
+    {
+        int audiointerp = globalCfg.GetInt("Audio.Interpolation");
+        nds->SPU.SetInterpolation(static_cast<AudioInterpolation>(audiointerp));
+        setupMicInputData();
+    }
 
     micOpen();
 }
