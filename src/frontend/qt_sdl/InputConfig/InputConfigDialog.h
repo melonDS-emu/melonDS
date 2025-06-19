@@ -32,12 +32,20 @@ static constexpr std::initializer_list<int> hk_addons =
 {
     HK_SolarSensorIncrease,
     HK_SolarSensorDecrease,
+    HK_GuitarGripGreen,
+    HK_GuitarGripRed,
+    HK_GuitarGripYellow,
+    HK_GuitarGripBlue,
 };
 
 static constexpr std::initializer_list<const char*> hk_addons_labels =
 {
     "[Boktai] Sunlight + ",
     "[Boktai] Sunlight - ",
+    "[Guitar Grip] Green",
+    "[Guitar Grip] Red",
+    "[Guitar Grip] Yellow",
+    "[Guitar Grip] Blue",
 };
 
 static_assert(hk_addons.size() == hk_addons_labels.size());
