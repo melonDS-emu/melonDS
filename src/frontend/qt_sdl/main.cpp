@@ -298,6 +298,9 @@ int main(int argc, char** argv)
 
     // http://stackoverflow.com/questions/14543333/joystick-wont-work-using-sdl
     SDL_SetHint(SDL_HINT_JOYSTICK_ALLOW_BACKGROUND_EVENTS, "1");
+    // Use position-based button mapping instead of label-based
+    // Needed to make auto mapping map the face buttons correctly regardless of layout
+    SDL_SetHint(SDL_HINT_GAMECONTROLLER_USE_BUTTON_LABELS, "0");
 
     SDL_SetHint(SDL_HINT_APP_NAME, "melonDS");
 
