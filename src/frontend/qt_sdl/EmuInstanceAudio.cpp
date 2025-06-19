@@ -73,8 +73,8 @@ void EmuInstance::audioCallback(void* data, Uint8* stream, int len)
     // resample incoming audio to match the output sample rate
 
     int len_in = inst->audioGetNumSamplesOut(len);
-    if (len_in > 1024) len_in = 1024;
-    s16 buf_in[1024*2];
+    if (len_in > inst->audioBufSize) len_in = inst->audioBufSize;
+    s16 buf_in[inst->audioBufSize*2];
     int num_in;
 
     SDL_LockMutex(inst->audioSyncLock);
@@ -416,16 +416,17 @@ void EmuInstance::audioInit()
     audioSyncCond = SDL_CreateCond();
     audioSyncLock = SDL_CreateMutex();
 
-    audioFreq = 48000; // TODO: make configurable?
+    audioFreq = 48000; // TODO: make both of these configurable?
+    audioBufSize = 1024;
     SDL_AudioSpec whatIwant, whatIget;
     memset(&whatIwant, 0, sizeof(SDL_AudioSpec));
     whatIwant.freq = audioFreq;
     whatIwant.format = AUDIO_S16LSB;
     whatIwant.channels = 2;
-    whatIwant.samples = 1024;
+    whatIwant.samples = audioBufSize;
     whatIwant.callback = audioCallback;
     whatIwant.userdata = this;
-    audioDevice = SDL_OpenAudioDevice(NULL, 0, &whatIwant, &whatIget, SDL_AUDIO_ALLOW_FREQUENCY_CHANGE);
+    audioDevice = SDL_OpenAudioDevice(NULL, 0, &whatIwant, &whatIget, SDL_AUDIO_ALLOW_FREQUENCY_CHANGE | SDL_AUDIO_ALLOW_SAMPLES_CHANGE);
     if (!audioDevice)
     {
         Platform::Log(Platform::LogLevel::Error, "Audio init failed: %s\n", SDL_GetError());
@@ -433,7 +434,9 @@ void EmuInstance::audioInit()
     else
     {
         audioFreq = whatIget.freq;
+        audioBufSize = whatIget.samples;
         Platform::Log(Platform::LogLevel::Info, "Audio output frequency: %d Hz\n", audioFreq);
+        Platform::Log(Platform::LogLevel::Info, "Audio output buffer size: %d samples\n", audioBufSize);
         SDL_PauseAudioDevice(audioDevice, 1);
     }
 
@@ -479,7 +482,7 @@ void EmuInstance::audioSync()
     if (audioDevice)
     {
         SDL_LockMutex(audioSyncLock);
-        while (nds->SPU.GetOutputSize() > 1024)
+        while (nds->SPU.GetOutputSize() > audioBufSize)
         {
             int ret = SDL_CondWaitTimeout(audioSyncCond, audioSyncLock, 500);
             if (ret == SDL_MUTEX_TIMEDOUT) break;
