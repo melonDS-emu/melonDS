@@ -432,7 +432,7 @@ void EmuThread::run()
     emuInstance->fastForwardToggled = false;
     emuInstance->slowmoToggled = false;
 
-    
+
 
 
 
@@ -486,7 +486,7 @@ void EmuThread::run()
 
                 // Display message using format string instead of concatenation
                 emuInstance->osdAddMessage(0, "AimSensi Updated: %d", newSensitivity);
-				isSensitivityChangePending = true;  // フラグを立てる
+                isSensitivityChangePending = true;  // フラグを立てる
             }
             };
 
@@ -685,7 +685,7 @@ void EmuThread::run()
                 emit windowUpdate();
                 winUpdateCount = 0;
             }
-            
+
             if (emuInstance->hotkeyPressed(HK_FastForwardToggle)) emuInstance->fastForwardToggled = !emuInstance->fastForwardToggled;
             if (emuInstance->hotkeyPressed(HK_SlowMoToggle)) emuInstance->slowmoToggled = !emuInstance->slowmoToggled;
 
@@ -763,18 +763,18 @@ void EmuThread::run()
                 u32 fps = round(nframes / dt);
                 nframes = 0;
 
-                float fpstarget = 1.0/frametimeStep;
+                float fpstarget = 1.0 / frametimeStep;
 
                 winUpdateFreq = fps / (u32)round(fpstarget);
                 if (winUpdateFreq < 1)
                     winUpdateFreq = 1;
-                    
+
                 double actualfps = (59.8261 * 263.0) / nlines;
                 int inst = emuInstance->instanceID;
                 if (inst == 0)
                     sprintf(melontitle, "[%d/%.0f] melonDS " MELONDS_VERSION, fps, actualfps);
                 else
-                    sprintf(melontitle, "[%d/%.0f] melonDS (%d)", fps, fpstarget, inst+1);
+                    sprintf(melontitle, "[%d/%.0f] melonDS (%d)", fps, fpstarget, inst + 1);
                 changeWindowTitle(melontitle);
             }
         }
@@ -791,7 +791,7 @@ void EmuThread::run()
             if (inst == 0)
                 sprintf(melontitle, "melonDS " MELONDS_VERSION);
             else
-                sprintf(melontitle, "melonDS (%d)", inst+1);
+                sprintf(melontitle, "melonDS (%d)", inst + 1);
             changeWindowTitle(melontitle);
 
             SDL_Delay(75);
@@ -803,7 +803,7 @@ void EmuThread::run()
         }
 
         handleMessages();
-};
+    };
 
 
 
@@ -811,7 +811,7 @@ void EmuThread::run()
         for (int i = 0; i < n; i++) {
             frameAdvanceOnce();
         }
-        };
+    };
 
 
 
@@ -849,9 +849,9 @@ void EmuThread::run()
 
         // Record the state change
         isCursorVisible = show;
-        };
+    };
 
-// #define STYLUS_MODE 1 // this is for stylus user
+    // #define STYLUS_MODE 1 // this is for stylus user
 
 #define INPUT_A 0
 #define INPUT_B 1
@@ -1005,114 +1005,91 @@ void EmuThread::run()
         }
 
         return adjustedCenter;
+    };
+
+    // processMoveInputFunction{
+    // 超低遅延SnapTap入力処理 - 分岐予測最適化とキャッシュ効率重視
+    // 押しっぱなしで移動できるようにすること。
+    // snapTapモードじゃないときは。左右キー　同時押しで左右移動をストップしないといけない。上下キーも同様
+    // snapTapの時は左を押しているときに右を押しても右移動できる。上下も同様。
+    static const auto processMoveInput = [&]() __attribute__((hot, always_inline, flatten)) {
+        // 状態変数 - CPUレジスタ最適化のためローカル変数化
+        static thread_local uint32_t lastInput = 0;
+        static thread_local uint32_t priority = 0;
+
+        // マスク定数 - レジスタ常駐
+        constexpr uint32_t HORIZ_MASK = 0xC;
+        constexpr uint32_t VERT_MASK = 0x3;
+
+        // 超コンパクトLUT - L1キャッシュ効率最大化
+        alignas(16) static constexpr uint8_t LUT[16] = {
+            0,    // 0000: なし
+            1,    // 0001: ↑ 
+            2,    // 0010: ↓
+            0,    // 0011: ↑↓(キャンセル)
+            4,    // 0100: ←
+            5,    // 0101: ↑←
+            6,    // 0110: ↓←
+            4,    // 0111: ←(↑↓キャンセル)
+            8,    // 1000: →
+            9,    // 1001: ↑→
+            10,   // 1010: ↓→
+            8,    // 1011: →(↑↓キャンセル)
+            0,    // 1100: ←→(キャンセル)
+            1,    // 1101: ↑(←→キャンセル)
+            2,    // 1110: ↓(←→キャンセル)
+            0     // 1111: 全キャンセル
         };
 
-        // processMoveInputFunction{
-        // 超低遅延SnapTap入力処理 - 分岐予測最適化とキャッシュ効率重視
-        // 押しっぱなしで移動できるようにすること。
-        // snapTapモードじゃないときは。左右キー　同時押しで左右移動をストップしないといけない。上下キーも同様
-        // snapTapの時は左を押しているときに右を押しても右移動できる。上下も同様。
-        static const auto processMoveInput = [&]() __attribute__((hot, always_inline, flatten)) {
-            // SnapTap状態構造体定義(キャッシュライン最適化)
-            alignas(64) static struct {
-                uint32_t lastInputBitmap;    // 前回入力ビットマップ保持
-                uint32_t priorityInput;      // 優先入力ビットマップ保持
-                uint32_t _padding[14];       // 64バイト境界確保
-            } snapTapState = { 0, 0, {} };
+        // 入力取得 - 並列実行最適化
+        const uint32_t f = emuInstance->hotkeyDown(HK_MetroidMoveForward);
+        const uint32_t b = emuInstance->hotkeyDown(HK_MetroidMoveBack);
+        const uint32_t l = emuInstance->hotkeyDown(HK_MetroidMoveLeft);
+        const uint32_t r = emuInstance->hotkeyDown(HK_MetroidMoveRight);
 
-            // 水平・垂直競合用マスク定数定義
-            static constexpr uint32_t HORIZ_MASK = 0xC;   // (1<<2)|(1<<3) - LEFT|RIGHT
-            static constexpr uint32_t VERT_MASK = 0x3;   // (1<<0)|(1<<1) - UP|DOWN
+        // ビットマップ生成 - 単一命令最適化
+        const uint32_t curr = f | (b << 1) | (l << 2) | (r << 3);
 
-            // パックド入力値定数定義
-            static constexpr uint32_t INPUT_PACKED_UP = 0x1 | (uint32_t(INPUT_UP) << 16);
-            static constexpr uint32_t INPUT_PACKED_DOWN = 0x2 | (uint32_t(INPUT_DOWN) << 16);
-            static constexpr uint32_t INPUT_PACKED_LEFT = 0x4 | (uint32_t(INPUT_LEFT) << 16);
-            static constexpr uint32_t INPUT_PACKED_RIGHT = 0x8 | (uint32_t(INPUT_RIGHT) << 16);
+        uint8_t states;
 
-            // 超高速LUT - 直接アクセスが最速
-            alignas(64) static constexpr uint32_t FAST_LUT[16] = {
-                0,                                      // 0000: なし
-                INPUT_PACKED_UP,                        // 0001: ↑
-                INPUT_PACKED_DOWN,                      // 0010: ↓
-                0,                                      // 0011: ↑↓(キャンセル)
-                INPUT_PACKED_LEFT,                      // 0100: ←
-                INPUT_PACKED_UP | INPUT_PACKED_LEFT, // 0101: ↑←
-                INPUT_PACKED_DOWN | INPUT_PACKED_LEFT, // 0110: ↓←
-                INPUT_PACKED_LEFT,                      // 0111: ←(↑↓キャンセル)
-                INPUT_PACKED_RIGHT,                     // 1000: →
-                INPUT_PACKED_UP | INPUT_PACKED_RIGHT,// 1001: ↑→
-                INPUT_PACKED_DOWN | INPUT_PACKED_RIGHT,// 1010: ↓→
-                INPUT_PACKED_RIGHT,                     // 1011: →(↑↓キャンセル)
-                0,                                      // 1100: ←→(キャンセル)
-                INPUT_PACKED_UP,                        // 1101: ↑(←→キャンセル)
-                INPUT_PACKED_DOWN,                      // 1110: ↓(←→キャンセル)
-                0                                       // 1111: 全キャンセル
-            };
+        // 最速分岐 - likely/unlikely最適化
+        if (__builtin_expect(!isSnapTapMode, 1)) {
+            states = LUT[curr];
+        }
+        else [[unlikely]] {
+            // SnapTap超高速パス
+            const uint32_t newPressed = curr & ~lastInput;
 
-            // 超高速入力取得 - 現代コンパイラが自動最適化
-            const uint32_t f = emuInstance->hotkeyDown(HK_MetroidMoveForward);
-            const uint32_t b = emuInstance->hotkeyDown(HK_MetroidMoveBack);
-            const uint32_t l = emuInstance->hotkeyDown(HK_MetroidMoveLeft);
-            const uint32_t r = emuInstance->hotkeyDown(HK_MetroidMoveRight);
+            // 並列競合検出 - ビット演算最適化
+            const bool hConflict = (curr & HORIZ_MASK) == HORIZ_MASK;
+            const bool vConflict = (curr & VERT_MASK) == VERT_MASK;
 
-            // 入力ビットマップ生成 - 並列実行最適化
-            const uint32_t curr = f | (b << 1) | (l << 2) | (r << 3);
-
-            uint32_t finalState;
-
-            // 分岐予測最適化 - 通常モード優先
-            if (__builtin_expect(!isSnapTapMode, 1)) {
-                // 通常モード - 直接配列アクセス（最速）
-                finalState = FAST_LUT[curr];
-            }
-            else {
-                // SnapTap超高速モード
-                const uint32_t newPressed = curr & ~snapTapState.lastInputBitmap;
-
-                // 並列競合判定 - XOR最適化
-                const uint32_t hConflict = (curr & HORIZ_MASK) ^ HORIZ_MASK;
-                const uint32_t vConflict = (curr & VERT_MASK) ^ VERT_MASK;
-
-                // 条件最適化 - 新入力は稀
-                if (__builtin_expect(newPressed != 0, 0)) {
-                    // 超高速branchless更新 - 単一式統合
-                    const uint32_t hMask = -(hConflict == 0);
-                    const uint32_t vMask = -(vConflict == 0);
-
-                    snapTapState.priorityInput =
-                        (snapTapState.priorityInput & (~HORIZ_MASK | ~hMask) & (~VERT_MASK | ~vMask)) |
-                        ((newPressed & HORIZ_MASK) & hMask) |
-                        ((newPressed & VERT_MASK) & vMask);
-                }
-
-                snapTapState.priorityInput &= curr;
-
-                // 超高速競合解決 - 単一パス処理
-                uint32_t finalInput = curr;
-                const uint32_t conflictMask =
-                    ((hConflict == 0) ? HORIZ_MASK : 0) |
-                    ((vConflict == 0) ? VERT_MASK : 0);
-
-                if (__builtin_expect(conflictMask != 0, 0)) {
-                    finalInput = (finalInput & ~conflictMask) | (snapTapState.priorityInput & conflictMask);
-                }
-
-                snapTapState.lastInputBitmap = curr;
-
-                // 直接配列アクセス - ポインタより高速
-                finalState = FAST_LUT[finalInput];
+            // 優先度更新 - 分岐最小化
+            if (__builtin_expect(newPressed, 0)) [[unlikely]] {
+                if (hConflict) priority = (priority & ~HORIZ_MASK) | (newPressed & HORIZ_MASK);
+                if (vConflict) priority = (priority & ~VERT_MASK) | (newPressed & VERT_MASK);
             }
 
-            // 究極の入力適用 - コンパイラ自動最適化
-            const uint32_t states = finalState & 0xF;
+            priority &= curr;
 
-            // 並列実行最適化
-            (states & 1) ? FN_INPUT_PRESS(INPUT_UP) : FN_INPUT_RELEASE(INPUT_UP);
-            (states & 2) ? FN_INPUT_PRESS(INPUT_DOWN) : FN_INPUT_RELEASE(INPUT_DOWN);
-            (states & 4) ? FN_INPUT_PRESS(INPUT_LEFT) : FN_INPUT_RELEASE(INPUT_LEFT);
-            (states & 8) ? FN_INPUT_PRESS(INPUT_RIGHT) : FN_INPUT_RELEASE(INPUT_RIGHT);
-        };
+            // 最終入力計算 - 超高速
+            uint32_t final = curr;
+            if (__builtin_expect(hConflict, 0)) final = (final & ~HORIZ_MASK) | (priority & HORIZ_MASK);
+            if (__builtin_expect(vConflict, 0)) final = (final & ~VERT_MASK) | (priority & VERT_MASK);
+
+            lastInput = curr;
+            states = LUT[final];
+        }
+
+        // QBitArray超高速更新 - ループ展開 + 最適化
+        auto& mask = emuInstance->inputMask;
+
+        // 並列実行可能な独立した操作
+        mask.setBit(INPUT_UP, !(states & 1));
+        mask.setBit(INPUT_DOWN, !(states & 2));
+        mask.setBit(INPUT_LEFT, !(states & 4));
+        mask.setBit(INPUT_RIGHT, !(states & 8));
+    };
 
     // /processMoveInputFunction }
 
@@ -1123,7 +1100,7 @@ void EmuThread::run()
      * それ以外の通常マウス移動を続いて処理。
      */
     static const auto processAimInput = [&]() __attribute__((hot, always_inline, flatten)) {
-    #ifndef STYLUS_MODE
+#ifndef STYLUS_MODE
         // 最頻繁アクセス変数（レジスタ最適化）
         static int centerX = 0;
         static int centerY = 0;
@@ -1185,14 +1162,14 @@ void EmuThread::run()
             isSensitivityChangePending = false;
         }
 
-    #else
+#else
         if (__builtin_expect(emuInstance->isTouching, 1)) {
             emuInstance->nds->TouchScreen(emuInstance->touchX, emuInstance->touchY);
         }
         else {
             emuInstance->nds->ReleaseScreen();
         }
-    #endif
+#endif
     };
 
 
@@ -1210,7 +1187,8 @@ void EmuThread::run()
             // Check isMapOrUserActionPaused, for the issue "If you switch weapons while the map is open, the aiming mechanism may become stuck."
             if (isPaused) {
                 return;
-            } else if (emuInstance->nds->ARM9Read8(isInVisorOrMapAddr) == 0x1) {
+            }
+            else if (emuInstance->nds->ARM9Read8(isInVisorOrMapAddr) == 0x1) {
                 // isInVisor
 
                 // Prevent visual glitches during weapon switching in visor mode
@@ -1276,7 +1254,7 @@ void EmuThread::run()
 
         }
 
-        };
+    };
 
     while (emuStatus != emuStatus_Exit) {
 
@@ -1445,10 +1423,10 @@ void EmuThread::run()
                     }
 
                     // Low-latency weapon switch system with lambda expressions
-                    #include <cstdint>
-                    #include <algorithm>
+#include <cstdint>
+#include <algorithm>
 
-                    // Compile-time constants
+// Compile-time constants
                     static constexpr uint8_t WEAPON_ORDER[] = { 0, 2, 7, 6, 5, 4, 3, 1, 8 };
                     static constexpr uint16_t WEAPON_MASKS[] = { 0x001, 0x004, 0x080, 0x040, 0x020, 0x010, 0x008, 0x002, 0x100 };
                     static constexpr uint8_t MIN_AMMO[] = { 0, 0x5, 0xA, 0x4, 0x14, 0x5, 0xA, 0xA, 0 };
@@ -1472,10 +1450,10 @@ void EmuThread::run()
                     };
 
                     // Branch prediction hints
-                    #define likely(x)   __builtin_expect(!!(x), 1)
-                    #define unlikely(x) __builtin_expect(!!(x), 0)
+#define likely(x)   __builtin_expect(!!(x), 1)
+#define unlikely(x) __builtin_expect(!!(x), 0)
 
-                    // Main lambda for weapon switching
+// Main lambda for weapon switching
                     static const auto processWeaponSwitch = [&]() -> bool {
                         bool weaponSwitched = false;
 
@@ -1807,14 +1785,14 @@ void EmuThread::run()
                 }
 
             }// END of if(isFocused)
-            
+
             // Apply input
             emuInstance->nds->SetKeyMask(emuInstance->getInputMask());
 
             // record last frame was forcused or not
             wasLastFrameFocused = isFocused;
         } // End of isRomDetected
- 
+
 
         // MelonPrimeDS Functions END
 
@@ -1903,7 +1881,7 @@ void EmuThread::handleMessages()
 
                 // MelonPrimeDS {
                 // applyVideoSettings Immediately when resumed
-                if(isInGame){
+                if (isInGame) {
                     // updateRenderer because of using softwareRenderer when not in Game.
                     videoRenderer = emuInstance->getGlobalConfig().GetInt("3D.Renderer");
                     updateRenderer();
@@ -2014,24 +1992,24 @@ void EmuThread::handleMessages()
             break;
 
         case msg_ImportSavefile:
-            {
-                msgResult = 0;
-                auto f = Platform::OpenFile(msg.param.value<QString>().toStdString(), Platform::FileMode::Read);
-                if (!f) break;
+        {
+            msgResult = 0;
+            auto f = Platform::OpenFile(msg.param.value<QString>().toStdString(), Platform::FileMode::Read);
+            if (!f) break;
 
-                u32 len = FileLength(f);
+            u32 len = FileLength(f);
 
-                std::unique_ptr<u8[]> data = std::make_unique<u8[]>(len);
-                Platform::FileRewind(f);
-                Platform::FileRead(data.get(), len, 1, f);
+            std::unique_ptr<u8[]> data = std::make_unique<u8[]>(len);
+            Platform::FileRewind(f);
+            Platform::FileRead(data.get(), len, 1, f);
 
-                assert(emuInstance->nds != nullptr);
-                emuInstance->nds->SetNDSSave(data.get(), len);
+            assert(emuInstance->nds != nullptr);
+            emuInstance->nds->SetNDSSave(data.get(), len);
 
-                CloseFile(f);
-                msgResult = 1;
-            }
-            break;
+            CloseFile(f);
+            msgResult = 1;
+        }
+        break;
 
         case msg_EnableCheats:
             emuInstance->enableCheats(msg.param.value<bool>());
@@ -2050,13 +2028,13 @@ void EmuThread::changeWindowTitle(char* title)
 
 void EmuThread::initContext(int win)
 {
-    sendMessage({.type = msg_InitGL, .param = win});
+    sendMessage({ .type = msg_InitGL, .param = win });
     waitMessage();
 }
 
 void EmuThread::deinitContext(int win)
 {
-    sendMessage({.type = msg_DeInitGL, .param = win});
+    sendMessage({ .type = msg_DeInitGL, .param = win });
     waitMessage();
 }
 
@@ -2094,7 +2072,7 @@ void EmuThread::emuTogglePause(bool broadcast)
 
 void EmuThread::emuStop(bool external)
 {
-    sendMessage({.type = msg_EmuStop, .param = external});
+    sendMessage({ .type = msg_EmuStop, .param = external });
     waitMessage();
 }
 
@@ -2130,7 +2108,7 @@ bool EmuThread::emuIsActive()
 
 int EmuThread::bootROM(const QStringList& filename, QString& errorstr)
 {
-    sendMessage({.type = msg_BootROM, .param = filename});
+    sendMessage({ .type = msg_BootROM, .param = filename });
     waitMessage();
     if (!msgResult)
     {
@@ -2164,7 +2142,7 @@ int EmuThread::insertCart(const QStringList& filename, bool gba, QString& errors
 {
     MessageType msgtype = gba ? msg_InsertGBACart : msg_InsertCart;
 
-    sendMessage({.type = msgtype, .param = filename});
+    sendMessage({ .type = msgtype, .param = filename });
     waitMessage();
     errorstr = msgResult ? "" : msgError;
     return msgResult;
@@ -2178,7 +2156,7 @@ void EmuThread::ejectCart(bool gba)
 
 int EmuThread::insertGBAAddon(int type, QString& errorstr)
 {
-    sendMessage({.type = msg_InsertGBAAddon, .param = type});
+    sendMessage({ .type = msg_InsertGBAAddon, .param = type });
     waitMessage();
     errorstr = msgResult ? "" : msgError;
     return msgResult;
@@ -2186,14 +2164,14 @@ int EmuThread::insertGBAAddon(int type, QString& errorstr)
 
 int EmuThread::saveState(const QString& filename)
 {
-    sendMessage({.type = msg_SaveState, .param = filename});
+    sendMessage({ .type = msg_SaveState, .param = filename });
     waitMessage();
     return msgResult;
 }
 
 int EmuThread::loadState(const QString& filename)
 {
-    sendMessage({.type = msg_LoadState, .param = filename});
+    sendMessage({ .type = msg_LoadState, .param = filename });
     waitMessage();
     return msgResult;
 }
@@ -2208,14 +2186,14 @@ int EmuThread::undoStateLoad()
 int EmuThread::importSavefile(const QString& filename)
 {
     sendMessage(msg_EmuReset);
-    sendMessage({.type = msg_ImportSavefile, .param = filename});
+    sendMessage({ .type = msg_ImportSavefile, .param = filename });
     waitMessage(2);
     return msgResult;
 }
 
 void EmuThread::enableCheats(bool enable)
 {
-    sendMessage({.type = msg_EnableCheats, .param = enable});
+    sendMessage({ .type = msg_EnableCheats, .param = enable });
     waitMessage();
 }
 
@@ -2228,22 +2206,22 @@ void EmuThread::updateRenderer()
     // VSync Override
     emuInstance->setVSyncGL(vsyncFlag); // MelonPrimeDS
 
-	// } MelonPrimeDS
+    // } MelonPrimeDS
 
     if (videoRenderer != lastVideoRenderer)
     {
         switch (videoRenderer)
         {
-            case renderer3D_Software:
-                emuInstance->nds->GPU.SetRenderer3D(std::make_unique<SoftRenderer>());
-                break;
-            case renderer3D_OpenGL:
-                emuInstance->nds->GPU.SetRenderer3D(GLRenderer::New());
-                break;
-            case renderer3D_OpenGLCompute:
-                emuInstance->nds->GPU.SetRenderer3D(ComputeRenderer::New());
-                break;
-            default: __builtin_unreachable();
+        case renderer3D_Software:
+            emuInstance->nds->GPU.SetRenderer3D(std::make_unique<SoftRenderer>());
+            break;
+        case renderer3D_OpenGL:
+            emuInstance->nds->GPU.SetRenderer3D(GLRenderer::New());
+            break;
+        case renderer3D_OpenGLCompute:
+            emuInstance->nds->GPU.SetRenderer3D(ComputeRenderer::New());
+            break;
+        default: __builtin_unreachable();
         }
     }
     lastVideoRenderer = videoRenderer;
@@ -2251,22 +2229,22 @@ void EmuThread::updateRenderer()
     auto& cfg = emuInstance->getGlobalConfig();
     switch (videoRenderer)
     {
-        case renderer3D_Software:
-            static_cast<SoftRenderer&>(emuInstance->nds->GPU.GetRenderer3D()).SetThreaded(
-                    cfg.GetBool("3D.Soft.Threaded"),
-                    emuInstance->nds->GPU);
-            break;
-        case renderer3D_OpenGL:
-            static_cast<GLRenderer&>(emuInstance->nds->GPU.GetRenderer3D()).SetRenderSettings(
-                    cfg.GetBool("3D.GL.BetterPolygons"),
-                    cfg.GetInt("3D.GL.ScaleFactor"));
-            break;
-        case renderer3D_OpenGLCompute:
-            static_cast<ComputeRenderer&>(emuInstance->nds->GPU.GetRenderer3D()).SetRenderSettings(
-                    cfg.GetInt("3D.GL.ScaleFactor"),
-                    cfg.GetBool("3D.GL.HiresCoordinates"));
-            break;
-        default: __builtin_unreachable();
+    case renderer3D_Software:
+        static_cast<SoftRenderer&>(emuInstance->nds->GPU.GetRenderer3D()).SetThreaded(
+            cfg.GetBool("3D.Soft.Threaded"),
+            emuInstance->nds->GPU);
+        break;
+    case renderer3D_OpenGL:
+        static_cast<GLRenderer&>(emuInstance->nds->GPU.GetRenderer3D()).SetRenderSettings(
+            cfg.GetBool("3D.GL.BetterPolygons"),
+            cfg.GetInt("3D.GL.ScaleFactor"));
+        break;
+    case renderer3D_OpenGLCompute:
+        static_cast<ComputeRenderer&>(emuInstance->nds->GPU.GetRenderer3D()).SetRenderSettings(
+            cfg.GetInt("3D.GL.ScaleFactor"),
+            cfg.GetBool("3D.GL.HiresCoordinates"));
+        break;
+    default: __builtin_unreachable();
     }
     // MelonPrimeDS {
     // VSync Override
@@ -2294,6 +2272,6 @@ void EmuThread::compileShaders()
     {
         emuInstance->nds->GPU.GetRenderer3D().ShaderCompileStep(currentShader, shadersCount);
     } while (emuInstance->nds->GPU.GetRenderer3D().NeedsShaderCompile() &&
-             (SDL_GetPerformanceCounter() - startTime) * perfCountsSec < 1.0 / 6.0);
-    emuInstance->osdAddMessage(0, "Compiling shader %d/%d", currentShader+1, shadersCount);
+        (SDL_GetPerformanceCounter() - startTime) * perfCountsSec < 1.0 / 6.0);
+    emuInstance->osdAddMessage(0, "Compiling shader %d/%d", currentShader + 1, shadersCount);
 }
