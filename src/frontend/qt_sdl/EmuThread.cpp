@@ -1010,7 +1010,7 @@ void EmuThread::run()
     // processMoveInputFunction{
     // 超低遅延SnapTap入力処理 - 分岐予測最適化とキャッシュ効率重視
     // 押しっぱなしで移動できるようにすること。
-    // snapTapモードじゃないときは。左右キー　同時押しで左右移動をストップしないといけない。上下キーも同様
+    // snapTapモードじゃないときは、左右キーを同時押しで左右移動をストップしないといけない。上下キーも同様。
     // snapTapの時は左を押しているときに右を押しても右移動できる。上下も同様。
     static const auto processMoveInput = [&]() __attribute__((hot, always_inline, flatten)) {
         // SnapTap状態構造体定義(キャッシュライン最適化)
@@ -1158,11 +1158,11 @@ void EmuThread::run()
             const float scaledX = deltaX * aimData.sensitivityFactor;
             const float scaledY = deltaY * aimData.combinedSensitivityY;
 
-            // 調整関数(元のコードのまま - ドリフトなし)
-            static const auto adjust = [](float value) __attribute__((hot, always_inline)) -> int16_t {
+            // 補正関数（インライン最適化）
+            static constexpr auto adjust = [](float value) __attribute__((hot, always_inline, flatten)) -> int16_t {
                 if (value >= 0.5f && value < 1.0f) return static_cast<int16_t>(1.0f);
                 if (value <= -0.5f && value > -1.0f) return static_cast<int16_t>(-1.0f);
-                return static_cast<int16_t>(value);  // 切り捨て(0方向への丸め)
+                return static_cast<int16_t>(value);
             };
 
             // 調整値の計算
