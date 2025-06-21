@@ -1064,15 +1064,15 @@ void EmuThread::run()
             // SnapTap超高速モード
             const uint32_t newPressed = curr & ~snapTapState.lastInputBitmap;
 
-            // 並列競合判定 - 直接比較（XOR避ける）
-            const uint32_t hConflict = ((curr & HORIZ_MASK) == HORIZ_MASK);
-            const uint32_t vConflict = ((curr & VERT_MASK) == VERT_MASK);
+            // 並列競合判定 - XOR最適化
+            const uint32_t hConflict = (curr & HORIZ_MASK) ^ HORIZ_MASK;
+            const uint32_t vConflict = (curr & VERT_MASK) ^ VERT_MASK;
 
             // 条件最適化 - 新入力は稀
             if (__builtin_expect(newPressed != 0, 0)) {
                 // 超高速branchless更新 - 単一式統合
-                const uint32_t hMask = -hConflict;
-                const uint32_t vMask = -vConflict;
+                const uint32_t hMask = -(hConflict == 0);
+                const uint32_t vMask = -(vConflict == 0);
 
                 snapTapState.priorityInput =
                     (snapTapState.priorityInput & (~HORIZ_MASK | ~hMask) & (~VERT_MASK | ~vMask)) |
@@ -1085,8 +1085,8 @@ void EmuThread::run()
             // 超高速競合解決 - 単一パス処理
             uint32_t finalInput = curr;
             const uint32_t conflictMask =
-                (hConflict ? HORIZ_MASK : 0) |
-                (vConflict ? VERT_MASK : 0);
+                ((hConflict == 0) ? HORIZ_MASK : 0) |
+                ((vConflict == 0) ? VERT_MASK : 0);
 
             if (__builtin_expect(conflictMask != 0, 0)) {
                 finalInput = (finalInput & ~conflictMask) | (snapTapState.priorityInput & conflictMask);
