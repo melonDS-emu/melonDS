@@ -1113,9 +1113,9 @@ void EmuThread::run()
     // /processMoveInputFunction }
 
     /**
-     * エイム入力処理（超低遅延・ドリフト防止版）
+     * エイム入力処理(超低遅延・ドリフト防止版)
      *
-     * 最適化のポイント：
+     * 最適化のポイント:
      * 1. static変数をキャッシュライン境界に配置
      * 2. 浮動小数点演算を最小化
      * 3. メモリ書き込みを最適化
@@ -1132,56 +1132,56 @@ void EmuThread::run()
             float combinedSensitivityY;  // 事前計算値
         } static aimData = { 0, 0, 0.01f, 1.333333333f, 0.01333333333f };
 
-        // ホットパス：初期化済みの場合（99%のケース）
+        // ホットパス:初期化済みの場合(99%のケース)
         if (__builtin_expect(!isLayoutChangePending && wasLastFrameFocused, 1)) {
-            // マウス位置取得（1回のみ）
+            // マウス位置取得(1回のみ)
             const QPoint currentPos = QCursor::pos();
             const int posX = currentPos.x();
             const int posY = currentPos.y();
 
-            // デルタ計算（整数演算）
+            // デルタ計算(整数演算)
             const int deltaX = posX - aimData.centerX;
             const int deltaY = posY - aimData.centerY;
 
-            // 早期終了（ビット演算で高速判定）
+            // 早期終了(ビット演算で高速判定)
             if ((deltaX | deltaY) == 0) return;
 
-            // 感度更新（レアケース）
+            // 感度更新(レアケース)
             if (__builtin_expect(isSensitivityChangePending, 0)) {
-                int sens = localCfg.GetInt("Metroid.Sensitivity.Aim");
+                const int sens = localCfg.GetInt("Metroid.Sensitivity.Aim");
                 aimData.sensitivityFactor = sens * 0.01f;
                 aimData.combinedSensitivityY = aimData.sensitivityFactor * aimData.dsAspectRatio;
                 isSensitivityChangePending = false;
             }
 
-            // スケーリング（最小限の浮動小数点演算）
+            // スケーリング(最小限の浮動小数点演算)
             const float scaledX = deltaX * aimData.sensitivityFactor;
             const float scaledY = deltaY * aimData.combinedSensitivityY;
 
-            // 調整関数（元のコードのまま - ドリフトなし）
+            // 調整関数(元のコードのまま - ドリフトなし)
             static const auto adjust = [](float value) __attribute__((hot, always_inline)) -> int16_t {
                 if (value >= 0.5f && value < 1.0f) return static_cast<int16_t>(1.0f);
                 if (value <= -0.5f && value > -1.0f) return static_cast<int16_t>(-1.0f);
-                return static_cast<int16_t>(value);  // 切り捨て（0方向への丸め）
+                return static_cast<int16_t>(value);  // 切り捨て(0方向への丸め)
             };
 
             // 調整値の計算
             const int16_t outputX = adjust(scaledX);
             const int16_t outputY = adjust(scaledY);
 
-            // メモリ書き込み（シンプルで確実な方法）
+            // メモリ書き込み(シンプルで確実な方法)
             emuInstance->nds->ARM9Write16(aimXAddr, outputX);
             emuInstance->nds->ARM9Write16(aimYAddr, outputY);
 
             enableAim = true;
 
-            // カーソルリセット（システムコールは最後に）
+            // カーソルリセット(システムコールは最後に)
             QCursor::setPos(aimData.centerX, aimData.centerY);
             return;
         }
 
-        // コールドパス：初期化処理（1%のケース）
-        QPoint center = getAdjustedCenter();
+        // コールドパス:初期化処理(1%のケース)
+        const QPoint center = getAdjustedCenter();
         aimData.centerX = center.x();
         aimData.centerY = center.y();
         QCursor::setPos(center);
@@ -1189,13 +1189,13 @@ void EmuThread::run()
 
         // 初期化時に感度も更新
         if (isSensitivityChangePending) {
-            int sens = localCfg.GetInt("Metroid.Sensitivity.Aim");
+            const int sens = localCfg.GetInt("Metroid.Sensitivity.Aim");
             aimData.sensitivityFactor = sens * 0.01f;
             aimData.combinedSensitivityY = aimData.sensitivityFactor * aimData.dsAspectRatio;
             isSensitivityChangePending = false;
         }
 #else
-        // スタイラスモード（分岐予測最適化）
+        // スタイラスモード(分岐予測最適化)
         if (__builtin_expect(emuInstance->isTouching, 1)) {
             emuInstance->nds->TouchScreen(emuInstance->touchX, emuInstance->touchY);
         }
