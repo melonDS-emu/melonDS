@@ -1113,82 +1113,96 @@ void EmuThread::run()
     // /processMoveInputFunction }
 
     /**
-     * エイム入力処理（センター補正優先）.
+     * エイム入力処理(超低遅延・ドリフト防止版)
      *
-     * レイアウト変更やフォーカス復帰を最優先で処理し、
-     * それ以外の通常マウス移動を続いて処理。
+     * 最適化のポイント:
+     * 1. static変数をキャッシュライン境界に配置
+     * 2. 浮動小数点演算を最小化
+     * 3. メモリ書き込みを最適化
+     * 4. ドリフト防止のための正確な丸め処理
      */
     static const auto processAimInput = [&]() __attribute__((hot, always_inline, flatten)) {
-    #ifndef STYLUS_MODE
-        // 最頻繁アクセス変数（レジスタ最適化）
-        static int centerX = 0;
-        static int centerY = 0;
-        static float sensitivityFactor = 0.01f;
-        static float dsAspectRatio = 1.333333333f;
+#ifndef STYLUS_MODE
+        // キャッシュライン最適化のための構造体
+        struct alignas(64) {
+            int centerX;
+            int centerY;
+            float sensitivityFactor;
+            float dsAspectRatio;
+            float combinedSensitivityY;  // 事前計算値
+        } static aimData = { 0, 0, 0.01f, 1.333333333f, 0.01333333333f };
 
-        // ホットパス：初期化済みの場合（99%のケース）
+        // ホットパス:初期化済みの場合(99%のケース)
         if (__builtin_expect(!isLayoutChangePending && wasLastFrameFocused, 1)) {
-            // レジスタに載せやすい形で位置取得
-            QPoint currentPos = QCursor::pos();
-            int posX = currentPos.x();
-            int posY = currentPos.y();
+            // マウス位置取得(1回のみ)
+            const QPoint currentPos = QCursor::pos();
+            const int posX = currentPos.x();
+            const int posY = currentPos.y();
 
-            // デルタ計算（レジスタ演算）
-            int deltaX = posX - centerX;
-            int deltaY = posY - centerY;
+            // デルタ計算(整数演算)
+            const int deltaX = posX - aimData.centerX;
+            const int deltaY = posY - aimData.centerY;
 
-            // 早期終了（ビット演算で高速判定）
-            if (!(deltaX | deltaY)) return;
+            // 早期終了(ビット演算で高速判定)
+            if ((deltaX | deltaY) == 0) return;
 
-            // 感度更新（フラグチェックのみで高速化）
+            // 感度更新(レアケース)
             if (__builtin_expect(isSensitivityChangePending, 0)) {
-                int sens = localCfg.GetInt("Metroid.Sensitivity.Aim");
-                sensitivityFactor = sens * 0.01f;
-                isSensitivityChangePending = false;  // フラグをクリア
+                const int sens = localCfg.GetInt("Metroid.Sensitivity.Aim");
+                aimData.sensitivityFactor = sens * 0.01f;
+                aimData.combinedSensitivityY = aimData.sensitivityFactor * aimData.dsAspectRatio;
+                isSensitivityChangePending = false;
             }
 
-            // スケーリング（定数畳み込み）
-            float scaledX = deltaX * sensitivityFactor;
-            float scaledY = deltaY * (dsAspectRatio * sensitivityFactor);
+            // スケーリング(最小限の浮動小数点演算)
+            const float scaledX = deltaX * aimData.sensitivityFactor;
+            const float scaledY = deltaY * aimData.combinedSensitivityY;
 
-            // 補正関数（インライン最適化）
-            static constexpr auto adjust = [](float value) __attribute__((hot, always_inline, flatten)) -> int16_t {
+            // 調整関数(元のコードのまま - ドリフトなし)
+            static const auto adjust = [](float value) __attribute__((hot, always_inline)) -> int16_t {
                 if (value >= 0.5f && value < 1.0f) return static_cast<int16_t>(1.0f);
                 if (value <= -0.5f && value > -1.0f) return static_cast<int16_t>(-1.0f);
-                return static_cast<int16_t>(value);
+                return static_cast<int16_t>(value);  // 切り捨て(0方向への丸め)
             };
 
-            // メモリ書き込み（パイプライン最適化）
-            emuInstance->nds->ARM9Write16(aimXAddr, adjust(scaledX));
-            emuInstance->nds->ARM9Write16(aimYAddr, adjust(scaledY));
+            // 調整値の計算
+            const int16_t outputX = adjust(scaledX);
+            const int16_t outputY = adjust(scaledY);
+
+            // メモリ書き込み(シンプルで確実な方法)
+            emuInstance->nds->ARM9Write16(aimXAddr, outputX);
+            emuInstance->nds->ARM9Write16(aimYAddr, outputY);
 
             enableAim = true;
-            QCursor::setPos(centerX, centerY);
+
+            // カーソルリセット(システムコールは最後に)
+            QCursor::setPos(aimData.centerX, aimData.centerY);
             return;
         }
 
-        // コールドパス：初期化処理（1%のケース）
-        QPoint center = getAdjustedCenter();
-        centerX = center.x();
-        centerY = center.y();
+        // コールドパス:初期化処理(1%のケース)
+        const QPoint center = getAdjustedCenter();
+        aimData.centerX = center.x();
+        aimData.centerY = center.y();
         QCursor::setPos(center);
         isLayoutChangePending = false;
 
-        // 初期化時に感度も取得
+        // 初期化時に感度も更新
         if (isSensitivityChangePending) {
-            int sens = localCfg.GetInt("Metroid.Sensitivity.Aim");
-            sensitivityFactor = sens * 0.01f;
+            const int sens = localCfg.GetInt("Metroid.Sensitivity.Aim");
+            aimData.sensitivityFactor = sens * 0.01f;
+            aimData.combinedSensitivityY = aimData.sensitivityFactor * aimData.dsAspectRatio;
             isSensitivityChangePending = false;
         }
-
-    #else
+#else
+        // スタイラスモード(分岐予測最適化)
         if (__builtin_expect(emuInstance->isTouching, 1)) {
             emuInstance->nds->TouchScreen(emuInstance->touchX, emuInstance->touchY);
         }
         else {
             emuInstance->nds->ReleaseScreen();
         }
-    #endif
+#endif
     };
 
 
