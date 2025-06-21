@@ -1010,7 +1010,7 @@ void EmuThread::run()
     // processMoveInputFunction{
     // 超低遅延SnapTap入力処理 - 分岐予測最適化とキャッシュ効率重視
     // 押しっぱなしで移動できるようにすること。
-    // snapTapモードじゃないときは。左右キー　同時押しで左右移動をストップしないといけない。上下キーも同様
+    // snapTapモードじゃないときは、左右キーを同時押しで左右移動をストップしないといけない。上下キーも同様。
     // snapTapの時は左を押しているときに右を押しても右移動できる。上下も同様。
     static const auto processMoveInput = [&]() __attribute__((hot, always_inline, flatten)) {
         // SnapTap状態構造体定義(キャッシュライン最適化)
