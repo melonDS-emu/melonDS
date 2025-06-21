@@ -1158,11 +1158,11 @@ void EmuThread::run()
             const float scaledX = deltaX * aimData.sensitivityFactor;
             const float scaledY = deltaY * aimData.combinedSensitivityY;
 
-            // 調整関数(元のコードのまま - ドリフトなし)
-            static const auto adjust = [](float value) __attribute__((hot, always_inline)) -> int16_t {
+            // 補正関数（インライン最適化）
+            static constexpr auto adjust = [](float value) __attribute__((hot, always_inline, flatten)) -> int16_t {
                 if (value >= 0.5f && value < 1.0f) return static_cast<int16_t>(1.0f);
                 if (value <= -0.5f && value > -1.0f) return static_cast<int16_t>(-1.0f);
-                return static_cast<int16_t>(value);  // 切り捨て(0方向への丸め)
+                return static_cast<int16_t>(value);
             };
 
             // 調整値の計算
