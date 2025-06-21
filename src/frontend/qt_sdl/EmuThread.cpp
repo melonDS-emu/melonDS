@@ -1007,117 +1007,109 @@ void EmuThread::run()
         return adjustedCenter;
         };
 
-        // processMoveInputFunction{
-        // 超低遅延SnapTap入力処理 - 分岐予測最適化とキャッシュ効率重視
-        // 押しっぱなしで移動できるようにすること。
-        // snapTapモードじゃないときは。左右キー　同時押しで左右移動をストップしないといけない。上下キーも同様
-        // snapTapの時は左を押しているときに右を押しても右移動できる。上下も同様。
-        static const auto processMoveInput = [&]() __attribute__((hot, always_inline, flatten)) {
-            // SnapTap状態構造体定義(キャッシュライン最適化)
-            alignas(64) static struct {
-                uint32_t lastInputBitmap;    // 前回入力ビットマップ保持
-                uint32_t priorityInput;      // 優先入力ビットマップ保持
-                uint32_t _padding[14];       // 64バイト境界確保
-            } snapTapState = { 0, 0, {} };
+    // processMoveInputFunction{
+    // 超低遅延SnapTap入力処理 - 分岐予測最適化とキャッシュ効率重視
+    // 押しっぱなしで移動できるようにすること。
+    // snapTapモードじゃないときは。左右キー　同時押しで左右移動をストップしないといけない。上下キーも同様
+    // snapTapの時は左を押しているときに右を押しても右移動できる。上下も同様。
+    static const auto processMoveInput = [&]() __attribute__((hot, always_inline, flatten)) {
+        // SnapTap状態構造体定義(キャッシュライン最適化)
+        alignas(64) static struct {
+            uint32_t lastInputBitmap;    // 前回入力ビットマップ保持
+            uint32_t priorityInput;      // 優先入力ビットマップ保持
+            uint32_t _padding[14];       // 64バイト境界確保
+        } snapTapState = { 0, 0, {} };
 
-            // 水平・垂直競合用マスク定数定義
-            static constexpr uint32_t HORIZ_MASK = 0xC;   // (1<<2)|(1<<3) - LEFT|RIGHT
-            static constexpr uint32_t VERT_MASK = 0x3;   // (1<<0)|(1<<1) - UP|DOWN
+        // 水平・垂直競合用マスク定数定義
+        static constexpr uint32_t HORIZ_MASK = 0xC;   // (1<<2)|(1<<3) - LEFT|RIGHT
+        static constexpr uint32_t VERT_MASK = 0x3;   // (1<<0)|(1<<1) - UP|DOWN
 
-            // パックド入力値定数定義
-            static constexpr uint32_t INPUT_PACKED_UP = 0x1 | (uint32_t(INPUT_UP) << 16);
-            static constexpr uint32_t INPUT_PACKED_DOWN = 0x2 | (uint32_t(INPUT_DOWN) << 16);
-            static constexpr uint32_t INPUT_PACKED_LEFT = 0x4 | (uint32_t(INPUT_LEFT) << 16);
-            static constexpr uint32_t INPUT_PACKED_RIGHT = 0x8 | (uint32_t(INPUT_RIGHT) << 16);
-
-            // 超高速LUT - 直接アクセスが最速
-            alignas(64) static constexpr uint32_t FAST_LUT[16] = {
-                0,                                      // 0000: なし
-                INPUT_PACKED_UP,                        // 0001: ↑
-                INPUT_PACKED_DOWN,                      // 0010: ↓
-                0,                                      // 0011: ↑↓(キャンセル)
-                INPUT_PACKED_LEFT,                      // 0100: ←
-                INPUT_PACKED_UP | INPUT_PACKED_LEFT, // 0101: ↑←
-                INPUT_PACKED_DOWN | INPUT_PACKED_LEFT, // 0110: ↓←
-                INPUT_PACKED_LEFT,                      // 0111: ←(↑↓キャンセル)
-                INPUT_PACKED_RIGHT,                     // 1000: →
-                INPUT_PACKED_UP | INPUT_PACKED_RIGHT,// 1001: ↑→
-                INPUT_PACKED_DOWN | INPUT_PACKED_RIGHT,// 1010: ↓→
-                INPUT_PACKED_RIGHT,                     // 1011: →(↑↓キャンセル)
-                0,                                      // 1100: ←→(キャンセル)
-                INPUT_PACKED_UP,                        // 1101: ↑(←→キャンセル)
-                INPUT_PACKED_DOWN,                      // 1110: ↓(←→キャンセル)
-                0                                       // 1111: 全キャンセル
-            };
-
-            // 超高速入力取得 - 現代コンパイラが自動最適化
-            const uint32_t f = emuInstance->hotkeyDown(HK_MetroidMoveForward);
-            const uint32_t b = emuInstance->hotkeyDown(HK_MetroidMoveBack);
-            const uint32_t l = emuInstance->hotkeyDown(HK_MetroidMoveLeft);
-            const uint32_t r = emuInstance->hotkeyDown(HK_MetroidMoveRight);
-
-            // 入力ビットマップ生成 - 並列実行最適化
-            const uint32_t curr = f | (b << 1) | (l << 2) | (r << 3);
-
-            uint32_t finalState;
-
-            // 分岐予測最適化 - 通常モード優先
-            if (__builtin_expect(!isSnapTapMode, 1)) {
-                // 通常モード - 直接配列アクセス（最速）
-                finalState = FAST_LUT[curr];
-            }
-            else {
-                // SnapTap超高速モード
-                const uint32_t newPressed = curr & ~snapTapState.lastInputBitmap;
-
-                // 並列競合判定 - XOR最適化
-                const uint32_t hConflict = (curr & HORIZ_MASK) ^ HORIZ_MASK;
-                const uint32_t vConflict = (curr & VERT_MASK) ^ VERT_MASK;
-
-                // 条件最適化 - 新入力は稀
-                if (__builtin_expect(newPressed != 0, 0)) {
-                    // 超高速branchless更新 - 単一式統合
-                    const uint32_t hMask = -(hConflict == 0);
-                    const uint32_t vMask = -(vConflict == 0);
-
-                    snapTapState.priorityInput =
-                        (snapTapState.priorityInput & (~HORIZ_MASK | ~hMask) & (~VERT_MASK | ~vMask)) |
-                        ((newPressed & HORIZ_MASK) & hMask) |
-                        ((newPressed & VERT_MASK) & vMask);
-                }
-
-                snapTapState.priorityInput &= curr;
-
-                // 超高速競合解決 - 単一パス処理
-                uint32_t finalInput = curr;
-                const uint32_t conflictMask =
-                    ((hConflict == 0) ? HORIZ_MASK : 0) |
-                    ((vConflict == 0) ? VERT_MASK : 0);
-
-                if (__builtin_expect(conflictMask != 0, 0)) {
-                    finalInput = (finalInput & ~conflictMask) | (snapTapState.priorityInput & conflictMask);
-                }
-
-                snapTapState.lastInputBitmap = curr;
-
-                // 直接配列アクセス - ポインタより高速
-                finalState = FAST_LUT[finalInput];
-            }
-
-            // 究極の入力適用 - コンパイラ自動最適化
-            const uint32_t states = finalState & 0xF;
-
-
-            // QBitArray超高速更新 - ループ展開 + 最適化
-            auto& mask = emuInstance->inputMask;
-
-            // 並列実行可能な独立した操作
-            mask.setBit(INPUT_UP, !(states & 1));
-            mask.setBit(INPUT_DOWN, !(states & 2));
-            mask.setBit(INPUT_LEFT, !(states & 4));
-            mask.setBit(INPUT_RIGHT, !(states & 8));
+        // 超コンパクトLUT - L1キャッシュ効率最大化
+        alignas(16) static constexpr uint8_t LUT[16] = {
+            0,    // 0000: なし
+            1,    // 0001: ↑ 
+            2,    // 0010: ↓
+            0,    // 0011: ↑↓(キャンセル)
+            4,    // 0100: ←
+            5,    // 0101: ↑←
+            6,    // 0110: ↓←
+            4,    // 0111: ←(↑↓キャンセル)
+            8,    // 1000: →
+            9,    // 1001: ↑→
+            10,   // 1010: ↓→
+            8,    // 1011: →(↑↓キャンセル)
+            0,    // 1100: ←→(キャンセル)
+            1,    // 1101: ↑(←→キャンセル)
+            2,    // 1110: ↓(←→キャンセル)
+            0     // 1111: 全キャンセル
         };
 
+        // 超高速入力取得 - 現代コンパイラが自動最適化
+        const uint32_t f = emuInstance->hotkeyDown(HK_MetroidMoveForward);
+        const uint32_t b = emuInstance->hotkeyDown(HK_MetroidMoveBack);
+        const uint32_t l = emuInstance->hotkeyDown(HK_MetroidMoveLeft);
+        const uint32_t r = emuInstance->hotkeyDown(HK_MetroidMoveRight);
+
+        // 入力ビットマップ生成 - 並列実行最適化
+        const uint32_t curr = f | (b << 1) | (l << 2) | (r << 3);
+
+        uint8_t finalState;
+
+        // 分岐予測最適化 - 通常モード優先
+        if (__builtin_expect(!isSnapTapMode, 1)) {
+            // 通常モード - 直接配列アクセス（最速）
+            finalState = LUT[curr];
+        }
+        else {
+            // SnapTap超高速モード
+            const uint32_t newPressed = curr & ~snapTapState.lastInputBitmap;
+
+            // 並列競合判定 - XOR最適化
+            const uint32_t hConflict = (curr & HORIZ_MASK) ^ HORIZ_MASK;
+            const uint32_t vConflict = (curr & VERT_MASK) ^ VERT_MASK;
+
+            // 条件最適化 - 新入力は稀
+            if (__builtin_expect(newPressed != 0, 0)) {
+                // 超高速branchless更新 - 単一式統合
+                const uint32_t hMask = -(hConflict == 0);
+                const uint32_t vMask = -(vConflict == 0);
+
+                snapTapState.priorityInput =
+                    (snapTapState.priorityInput & (~HORIZ_MASK | ~hMask) & (~VERT_MASK | ~vMask)) |
+                    ((newPressed & HORIZ_MASK) & hMask) |
+                    ((newPressed & VERT_MASK) & vMask);
+            }
+
+            snapTapState.priorityInput &= curr;
+
+            // 超高速競合解決 - 単一パス処理
+            uint32_t finalInput = curr;
+            const uint32_t conflictMask =
+                ((hConflict == 0) ? HORIZ_MASK : 0) |
+                ((vConflict == 0) ? VERT_MASK : 0);
+
+            if (__builtin_expect(conflictMask != 0, 0)) {
+                finalInput = (finalInput & ~conflictMask) | (snapTapState.priorityInput & conflictMask);
+            }
+
+            snapTapState.lastInputBitmap = curr;
+
+            // 直接配列アクセス - ポインタより高速
+            finalState = LUT[finalInput];
+        }
+
+        // 究極の入力適用 - コンパイラ自動最適化
+        const uint32_t states = finalState;
+
+        // QBitArray超高速更新 - ループ展開 + 最適化
+        auto& mask = emuInstance->inputMask;
+
+        // 並列実行可能な独立した操作
+        mask.setBit(INPUT_UP, !(states & 1));
+        mask.setBit(INPUT_DOWN, !(states & 2));
+        mask.setBit(INPUT_LEFT, !(states & 4));
+        mask.setBit(INPUT_RIGHT, !(states & 8));
+    };
     // /processMoveInputFunction }
 
     /**
