@@ -80,6 +80,7 @@ enum
     HK_MetroidWeapon4,
     HK_MetroidWeapon5,
     HK_MetroidWeapon6,
+    // HK_MetroidWeaponCheck,
     HK_MetroidMenu,
     HK_MetroidIngameSensiUp,
     HK_MetroidIngameSensiDown,

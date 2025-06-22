@@ -1623,6 +1623,39 @@ void EmuThread::run()
                     // Execute the weapon switch logic
                     bool weaponSwitched = processWeaponSwitch();
 
+
+                    // Weapon check {
+                    /*
+                    // TODO 終了時の武器選択を防ぐ。　マグモールになってしまう
+                    static bool isWeaponCheckActive = false;
+
+                    if (emuInstance->hotkeyDown(HK_MetroidWeaponCheck)) {
+                        if (!isWeaponCheckActive) {
+                            // 初回のみ実行
+                            isWeaponCheckActive = true;
+                            emuInstance->nds->ReleaseScreen();
+                            frameAdvance(2);
+                        }
+
+                        // キーが押されている間は継続
+                        emuInstance->nds->TouchScreen(236, 30);
+                        frameAdvance(2);
+
+                        // still allow movement
+                        processMoveInput();
+                    }
+                    else {
+                        if (isWeaponCheckActive) {
+                            // キーが離されたときの終了処理
+                            emuInstance->nds->ReleaseScreen();
+                            frameAdvance(4);
+                            isWeaponCheckActive = false;
+                        }
+                    }
+                    */
+                    // } Weapon check
+
+
                     // Morph ball boost
                     if (isSamus && emuInstance->hotkeyDown(HK_MetroidHoldMorphBallBoost))
                     {
