@@ -1658,7 +1658,7 @@ void EmuThread::run()
 
 
                     // Morph ball boost
-                    // マウスによるブーストは１回しかできない。　これはエイムのために常にタッチ状態でリリースをしないのが原因。どうしようもない。
+                    // INFO この関数を仕様していないときはマウスによるブーストは１回しかできない。　これはエイムのために常にタッチ状態でリリースをしないのが原因。どうしようもない。
                     if (isSamus && emuInstance->hotkeyDown(HK_MetroidHoldMorphBallBoost))
                     {
                         isAltForm = emuInstance->nds->ARM9Read8(isAltFormAddr) == 0x02;
