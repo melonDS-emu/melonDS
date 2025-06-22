@@ -1452,16 +1452,6 @@ void EmuThread::run()
                         FRAME_ADVANCE_2;
                         emuInstance->nds->TouchScreen(231, 167);
                         FRAME_ADVANCE_2;
-
-                        if (isSamus) {
-                            enableAim = false; // in case isAltForm isnt immediately true
-
-                            // boost ball doesnt work unless i release screen late enough
-                            for (int i = 0; i < 4; i++) {
-                                FRAME_ADVANCE_2;
-                                emuInstance->nds->ReleaseScreen();
-                            }
-                        }
                     }
 
                     // Low-latency weapon switch system with lambda expressions
@@ -1668,6 +1658,7 @@ void EmuThread::run()
 
 
                     // Morph ball boost
+                    // マウスによるブーストは１回しかできない。　これはエイムのために常にタッチ状態でリリースをしないのが原因。どうしようもない。
                     if (isSamus && emuInstance->hotkeyDown(HK_MetroidHoldMorphBallBoost))
                     {
                         isAltForm = emuInstance->nds->ARM9Read8(isAltFormAddr) == 0x02;
