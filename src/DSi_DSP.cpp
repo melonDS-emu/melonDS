@@ -323,7 +323,7 @@ void DSi_DSP::PDataDMAFetch()
 }
 void DSi_DSP::PDataDMAStart()
 {
-    switch ((DSP_PSTS & (3<<2)) >> 2)
+    switch ((DSP_PCFG & (3<<2)) >> 2)
     {
     case 0: PDataDMALen = 1; break;
     case 1: PDataDMALen = 8; break;
