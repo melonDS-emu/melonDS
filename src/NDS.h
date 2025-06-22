@@ -221,6 +221,9 @@ enum
     GBAAddon_SolarSensorBoktai1 = 3,
     GBAAddon_SolarSensorBoktai2 = 4,
     GBAAddon_SolarSensorBoktai3 = 5,
+    GBAAddon_MotionPakHomebrew = 6,
+    GBAAddon_MotionPakRetail = 7,
+    GBAAddon_GuitarGrip = 8,
 };
 
 class SPU;
