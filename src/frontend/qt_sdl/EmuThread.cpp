@@ -812,10 +812,17 @@ void EmuThread::run()
             frameAdvanceOnce();
         }
         };
+
+
+    auto frameAdvanceTwice = [&]() __attribute__((hot, always_inline, flatten)) {
+        frameAdvanceOnce();
+        frameAdvanceOnce();
+    };
     */
 
     // よく使う2フレーム進めるマクロを定義
 #define FRAME_ADVANCE_2 do { frameAdvanceOnce(); frameAdvanceOnce(); } while(0) // 補足：なぜ do { ... } while(0) を使うのか？ これは安全なマクロの基本形であり、if文などの中でブロックとして扱えるようにするためです
+
 
     // melonPrimeDS
 
