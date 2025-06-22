@@ -803,17 +803,19 @@ void EmuThread::run()
         }
 
         handleMessages();
-};
+    };
 
 
-
+    /*
     auto frameAdvance = [&](int n)  __attribute__((hot, always_inline, flatten)) {
         for (int i = 0; i < n; i++) {
             frameAdvanceOnce();
         }
         };
+    */
 
-
+    // よく使う2フレーム進めるマクロを定義
+#define FRAME_ADVANCE_2 do { frameAdvanceOnce(); frameAdvanceOnce(); } while(0) // 補足：なぜ do { ... } while(0) を使うのか？ これは安全なマクロの基本形であり、if文などの中でブロックとして扱えるようにするためです
 
     // melonPrimeDS
 
@@ -1110,6 +1112,8 @@ void EmuThread::run()
         mask.setBit(INPUT_LEFT, !(states & 4));
         mask.setBit(INPUT_RIGHT, !(states & 8));
     };
+
+
     // /processMoveInputFunction }
     /**
      * エイム入力処理(QCursor使用・構造保持・低遅延・ドリフト防止版).
@@ -1130,7 +1134,7 @@ void EmuThread::run()
             float combinedSensitivityY;  // 感度とアスペクト比の積
         } static aimData = { 0, 0, 0.01f, 1.3333333f, 0.013333333f };
 
-        // ドリフト防止のための丸め処理マクロ
+        // ドリフト防止のための丸め処理マクロ（関数呼び出しのオーバーヘッドを削減）
 #define AIM_ADJUST(v) ((v) >= 0.5f && (v) < 1.0f ? 1 : ((v) <= -0.5f && (v) > -1.0f ? -1 : static_cast<int16_t>(v)))
         /*
             // 調整関数（マクロ化前までの）
@@ -1268,7 +1272,7 @@ void EmuThread::run()
         emuInstance->nds->ReleaseScreen();
 
         // Advance frames (for reflection of ReleaseScreen, WeaponChange)
-        frameAdvance(2);
+        FRAME_ADVANCE_2;
 
         // Need Touch after ReleaseScreen for aiming.
 #ifndef STYLUS_MODE
@@ -1280,7 +1284,7 @@ void EmuThread::run()
 #endif
 
         // Advance frames (for reflection of Touch. This is necessary for no jump)
-        frameAdvance(2);
+        FRAME_ADVANCE_2;
 
         // Restore the jump flag to its original value (if necessary)
         if (isRestoreNeeded) {
@@ -1445,16 +1449,16 @@ void EmuThread::run()
                     // Alt-form
                     if (emuInstance->hotkeyPressed(HK_MetroidMorphBall)) {
                         emuInstance->nds->ReleaseScreen();
-                        frameAdvance(2);
+                        FRAME_ADVANCE_2;
                         emuInstance->nds->TouchScreen(231, 167);
-                        frameAdvance(2);
+                        FRAME_ADVANCE_2;
 
                         if (isSamus) {
                             enableAim = false; // in case isAltForm isnt immediately true
 
                             // boost ball doesnt work unless i release screen late enough
                             for (int i = 0; i < 4; i++) {
-                                frameAdvance(2);
+                                FRAME_ADVANCE_2;
                                 emuInstance->nds->ReleaseScreen();
                             }
                         }
@@ -1640,12 +1644,12 @@ void EmuThread::run()
                             // 初回のみ実行
                             isWeaponCheckActive = true;
                             emuInstance->nds->ReleaseScreen();
-                            frameAdvance(2);
+                            FRAME_ADVANCE_2;
                         }
 
                         // キーが押されている間は継続
                         emuInstance->nds->TouchScreen(236, 30);
-                        frameAdvance(2);
+                        FRAME_ADVANCE_2;
 
                         // still allow movement
                         processMoveInput();
@@ -1654,7 +1658,8 @@ void EmuThread::run()
                         if (isWeaponCheckActive) {
                             // キーが離されたときの終了処理
                             emuInstance->nds->ReleaseScreen();
-                            frameAdvance(4);
+                            FRAME_ADVANCE_2;
+                            FRAME_ADVANCE_2;
                             isWeaponCheckActive = false;
                         }
                     }
@@ -1711,7 +1716,7 @@ void EmuThread::run()
                         // Scan Visor
                         if (emuInstance->hotkeyPressed(HK_MetroidScanVisor)) {
                             emuInstance->nds->ReleaseScreen();
-                            frameAdvance(2);
+                            FRAME_ADVANCE_2;
 
                             // emuInstance->osdAddMessage(0, "in visor %d", inVisor);
 
@@ -1719,7 +1724,7 @@ void EmuThread::run()
 
                             if (emuInstance->nds->ARM9Read8(isInVisorOrMapAddr) == 0x1) {
                                 // isInVisor
-                                frameAdvance(2);
+                                FRAME_ADVANCE_2;
                             }
                             else {
                                 for (int i = 0; i < 30; i++) {
@@ -1734,47 +1739,47 @@ void EmuThread::run()
                             }
 
                             emuInstance->nds->ReleaseScreen();
-                            frameAdvance(2);
+                            FRAME_ADVANCE_2;
                         }
 
                         // OK (in scans and messages)
                         if (emuInstance->hotkeyPressed(HK_MetroidUIOk)) {
                             emuInstance->nds->ReleaseScreen();
-                            frameAdvance(2);
+                            FRAME_ADVANCE_2;
                             emuInstance->nds->TouchScreen(128, 142);
-                            frameAdvance(2);
+                            FRAME_ADVANCE_2;
                         }
 
                         // Left arrow (in scans and messages)
                         if (emuInstance->hotkeyPressed(HK_MetroidUILeft)) {
                             emuInstance->nds->ReleaseScreen();
-                            frameAdvance(2);
+                            FRAME_ADVANCE_2;
                             emuInstance->nds->TouchScreen(71, 141);
-                            frameAdvance(2);
+                            FRAME_ADVANCE_2;
                         }
 
                         // Right arrow (in scans and messages)
                         if (emuInstance->hotkeyPressed(HK_MetroidUIRight)) {
                             emuInstance->nds->ReleaseScreen();
-                            frameAdvance(2);
+                            FRAME_ADVANCE_2;
                             emuInstance->nds->TouchScreen(185, 141); // optimization ?
-                            frameAdvance(2);
+                            FRAME_ADVANCE_2;
                         }
 
                         // Enter to Starship
                         if (emuInstance->hotkeyPressed(HK_MetroidUIYes)) {
                             emuInstance->nds->ReleaseScreen();
-                            frameAdvance(2);
+                            FRAME_ADVANCE_2;
                             emuInstance->nds->TouchScreen(96, 142);
-                            frameAdvance(2);
+                            FRAME_ADVANCE_2;
                         }
 
                         // No Enter to Starship
                         if (emuInstance->hotkeyPressed(HK_MetroidUINo)) {
                             emuInstance->nds->ReleaseScreen();
-                            frameAdvance(2);
+                            FRAME_ADVANCE_2;
                             emuInstance->nds->TouchScreen(160, 142);
-                            frameAdvance(2);
+                            FRAME_ADVANCE_2;
                         }
                     } // End of Adventure Functions
 
