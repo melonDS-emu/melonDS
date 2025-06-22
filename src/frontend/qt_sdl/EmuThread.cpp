@@ -1111,42 +1111,51 @@ void EmuThread::run()
         mask.setBit(INPUT_RIGHT, !(states & 8));
     };
     // /processMoveInputFunction }
-
     /**
-     * エイム入力処理(超低遅延・ドリフト防止版)
+     * エイム入力処理(QCursor使用・構造保持・低遅延・ドリフト防止版).
      *
      * 最適化のポイント:
-     * 1. static変数をキャッシュライン境界に配置
-     * 2. 浮動小数点演算を最小化
-     * 3. メモリ書き込みを最適化
-     * 4. ドリフト防止のための正確な丸め処理
+     * 1. キャッシュライン整列構造体によるデータアクセス高速化.
+     * 2. adjust処理のマクロ化によるインライン性能向上.
+     * 3. 自然な処理順序とホットパス/コールドパスの構造維持.
      */
     static const auto processAimInput = [&]() __attribute__((hot, always_inline, flatten)) {
 #ifndef STYLUS_MODE
-        // キャッシュライン最適化のための構造体
+        // エイム処理用の構造体(キャッシュライン境界に配置)
         struct alignas(64) {
             int centerX;
             int centerY;
             float sensitivityFactor;
             float dsAspectRatio;
-            float combinedSensitivityY;  // 事前計算値
-        } static aimData = { 0, 0, 0.01f, 1.333333333f, 0.01333333333f };
+            float combinedSensitivityY;  // 感度とアスペクト比の積
+        } static aimData = { 0, 0, 0.01f, 1.3333333f, 0.013333333f };
 
-        // ホットパス:初期化済みの場合(99%のケース)
+        // ドリフト防止のための丸め処理マクロ
+#define AIM_ADJUST(v) ((v) >= 0.5f && (v) < 1.0f ? 1 : ((v) <= -0.5f && (v) > -1.0f ? -1 : static_cast<int16_t>(v)))
+        /*
+            // 調整関数（マクロ化前までの）
+            static const auto adjust = [](float value) __attribute__((hot, always_inline)) -> int16_t {
+                if (value >= 0.5f && value < 1.0f) return static_cast<int16_t>(1.0f);
+                if (value <= -0.5f && value > -1.0f) return static_cast<int16_t>(-1.0f);
+                return static_cast<int16_t>(value);  // 切り捨て(0方向への丸め)
+            };
+        */
+
+// ホットパス：フォーカスがありレイアウト変更もない場合
         if (__builtin_expect(!isLayoutChangePending && wasLastFrameFocused, 1)) {
-            // マウス位置取得(1回のみ)
+            // 現在のマウス座標を取得
             const QPoint currentPos = QCursor::pos();
             const int posX = currentPos.x();
             const int posY = currentPos.y();
 
-            // デルタ計算(整数演算)
+            // マウス移動量を計算
             const int deltaX = posX - aimData.centerX;
             const int deltaY = posY - aimData.centerY;
 
-            // 早期終了(ビット演算で高速判定)
+            // 移動量がゼロなら何もせず終了
             if ((deltaX | deltaY) == 0) return;
 
-            // 感度更新(レアケース)
+            // 感度が変更された場合の再設定処理
             if (__builtin_expect(isSensitivityChangePending, 0)) {
                 const int sens = localCfg.GetInt("Metroid.Sensitivity.Aim");
                 aimData.sensitivityFactor = sens * 0.01f;
@@ -1154,48 +1163,45 @@ void EmuThread::run()
                 isSensitivityChangePending = false;
             }
 
-            // スケーリング(最小限の浮動小数点演算)
+            // 移動量に感度を掛けたスケーリング
             const float scaledX = deltaX * aimData.sensitivityFactor;
             const float scaledY = deltaY * aimData.combinedSensitivityY;
 
-            // 調整関数
-            static const auto adjust = [](float value) __attribute__((hot, always_inline)) -> int16_t {
-                if (value >= 0.5f && value < 1.0f) return static_cast<int16_t>(1.0f);
-                if (value <= -0.5f && value > -1.0f) return static_cast<int16_t>(-1.0f);
-                return static_cast<int16_t>(value);  // 切り捨て(0方向への丸め)
-            };
+            // スケーリング後の座標を調整(ドリフト防止のため)
+            const int16_t outputX = AIM_ADJUST(scaledX);
+            const int16_t outputY = AIM_ADJUST(scaledY);
 
-            // 調整値の計算
-            const int16_t outputX = adjust(scaledX);
-            const int16_t outputY = adjust(scaledY);
-
-            // メモリ書き込み(シンプルで確実な方法)
+            // メモリ書き込み(NDSエミュレータへ送信)
             emuInstance->nds->ARM9Write16(aimXAddr, outputX);
             emuInstance->nds->ARM9Write16(aimYAddr, outputY);
 
+            // AIM動作フラグを有効化
             enableAim = true;
 
-            // カーソルリセット(システムコールは最後に)
+            // カーソルを中央に戻す(後処理として実行)
             QCursor::setPos(aimData.centerX, aimData.centerY);
             return;
         }
 
-        // コールドパス:初期化処理(1%のケース)
+        // コールドパス：レイアウト変更または初期化時
         const QPoint center = getAdjustedCenter();
         aimData.centerX = center.x();
         aimData.centerY = center.y();
+
+        // カーソル初期位置を設定
         QCursor::setPos(center);
         isLayoutChangePending = false;
 
-        // 初期化時に感度も更新
+        // 感度も初期化(必要に応じて)
         if (isSensitivityChangePending) {
             const int sens = localCfg.GetInt("Metroid.Sensitivity.Aim");
             aimData.sensitivityFactor = sens * 0.01f;
             aimData.combinedSensitivityY = aimData.sensitivityFactor * aimData.dsAspectRatio;
             isSensitivityChangePending = false;
         }
+
 #else
-        // スタイラスモード(分岐予測最適化)
+        // スタイラス入力モード(タッチ処理)
         if (__builtin_expect(emuInstance->isTouching, 1)) {
             emuInstance->nds->TouchScreen(emuInstance->touchX, emuInstance->touchY);
         }
