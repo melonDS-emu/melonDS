@@ -348,7 +348,7 @@ void DSi_DSP::PDataDMACancel()
 }
 u16 DSi_DSP::PDataDMAReadMMIO()
 {
-    u16 ret;
+    u16 ret = 0; // TODO: is this actually 0, or just open bus?
 
     if (!PDATAReadFifo.IsEmpty())
         ret = PDATAReadFifo.Read();
@@ -362,15 +362,9 @@ u16 DSi_DSP::PDataDMAReadMMIO()
 
         for (int i = 0; i < left; ++i)
             PDataDMAFetch();
-
-        ret = PDATAReadFifo.Read();
-    }
-    else
-    {
-        // ah, crap
-        ret = 0; // TODO: is this actually 0, or just open bus?
     }
 
+    // TODO only trigger IRQ if enabled!!
     if (!PDATAReadFifo.IsEmpty() || PDATAReadFifo.IsFull())
         DSi.SetIRQ(0, IRQ_DSi_DSP);
 
