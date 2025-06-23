@@ -1118,9 +1118,9 @@ void EmuThread::run()
         mask.setBit(INPUT_LEFT, !(states & 4));
         mask.setBit(INPUT_RIGHT, !(states & 8));
     };
-
-
     // /processMoveInputFunction }
+
+
     /**
      * エイム入力処理(QCursor使用・構造保持・低遅延・ドリフト防止版).
      *
