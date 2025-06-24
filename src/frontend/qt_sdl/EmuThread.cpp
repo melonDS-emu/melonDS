@@ -1017,9 +1017,79 @@ void EmuThread::run()
 
     // processMoveInputFunction{
     // 超低遅延SnapTap入力処理 - 分岐予測最適化とキャッシュ効率重視
-    // 押しっぱなしで移動できるようにすること。
+    // 押しっぱなしでも移動できるようにすること。
     // snapTapモードじゃないときは、左右キーを同時押しで左右移動をストップしないといけない。上下キーも同様。
+    // 通常モードの同時押しキャンセルは LUT によってすでに表現されている」
     // snapTapの時は左を押しているときに右を押しても右移動できる。上下も同様。
+        static const auto processMoveInput = [&]() __attribute__((hot, always_inline, flatten)) {
+            // SnapTap状態構造体定義（キャッシュ最適化）
+            alignas(64) static struct {
+                uint32_t lastInputBitmap;    // 前回入力ビットマップ保持
+                uint32_t priorityInput;      // 優先入力ビットマップ保持
+            } snapTapState = { 0, 0 };
+
+            // 水平・垂直競合用マスク定義
+            static constexpr uint32_t HORIZ_MASK = 0xC;  // LEFT | RIGHT
+            static constexpr uint32_t VERT_MASK = 0x3;  // UP | DOWN
+
+            // LUT定義（同時押しキャンセル含む）
+            alignas(16) static constexpr uint8_t LUT[16] = {
+                0, 1, 2, 0, 4, 5, 6, 4,
+                8, 9, 10, 8, 0, 1, 2, 0
+            };
+
+            // 現在の入力状態取得
+            const uint32_t curr =
+                emuInstance->hotkeyDown(HK_MetroidMoveForward) |
+                (emuInstance->hotkeyDown(HK_MetroidMoveBack) << 1) |
+                (emuInstance->hotkeyDown(HK_MetroidMoveLeft) << 2) |
+                (emuInstance->hotkeyDown(HK_MetroidMoveRight) << 3);
+
+            uint32_t finalInput;
+
+            // SnapTapモード判定（SnapTap使用が稀ならこの分岐が最速）
+            if (__builtin_expect(!isSnapTapMode, 1)) {
+                // SnapTapなし：即時解決（キャンセルもLUT内で処理済み）
+                finalInput = curr;
+            }
+            else {
+                // SnapTap有効時のみ処理（頻度が低いなら影響は最小）
+                const uint32_t newPressed = curr & ~snapTapState.lastInputBitmap;
+
+                const uint32_t hConflict = ((curr & HORIZ_MASK) == HORIZ_MASK);
+                const uint32_t vConflict = ((curr & VERT_MASK) == VERT_MASK);
+                const uint32_t conflictMask = (hConflict * HORIZ_MASK) | (vConflict * VERT_MASK);
+
+                // 新規入力が競合中なら優先入力を更新
+                if (__builtin_expect(newPressed & conflictMask, 0)) {
+                    const uint32_t hNew = newPressed & HORIZ_MASK & -hConflict;
+                    const uint32_t vNew = newPressed & VERT_MASK & -vConflict;
+                    snapTapState.priorityInput =
+                        (snapTapState.priorityInput & ~conflictMask) | hNew | vNew;
+                }
+
+                // 押されていないキーはマスク
+                snapTapState.priorityInput &= curr;
+
+                // 競合中は優先入力、非競合はそのまま
+                finalInput = (curr & ~conflictMask) | (snapTapState.priorityInput & conflictMask);
+
+                // 状態保存
+                snapTapState.lastInputBitmap = curr;
+            }
+
+            // LUT参照で方向決定（最終出力）
+            const uint8_t moveBits = LUT[finalInput];
+
+            // QBitArray更新（false: 移動、true: 停止）
+            auto& mask = emuInstance->inputMask;
+            mask.setBit(INPUT_UP, !(moveBits & 0x1));
+            mask.setBit(INPUT_DOWN, !(moveBits & 0x2));
+            mask.setBit(INPUT_LEFT, !(moveBits & 0x4));
+            mask.setBit(INPUT_RIGHT, !(moveBits & 0x8));
+        };
+
+    /*
     static const auto processMoveInput = [&]() __attribute__((hot, always_inline, flatten)) {
         // SnapTap状態構造体定義(キャッシュライン最適化)
         alignas(64) static struct {
@@ -1118,6 +1188,7 @@ void EmuThread::run()
         mask.setBit(INPUT_LEFT, !(states & 4));
         mask.setBit(INPUT_RIGHT, !(states & 8));
     };
+    */
     // /processMoveInputFunction }
 
 
