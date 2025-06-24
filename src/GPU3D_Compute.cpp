@@ -323,32 +323,68 @@ void ComputeRenderer::SetRenderSettings(int scale, bool highResolutionCoordinate
     ScreenWidth = 256 * ScaleFactor;
     ScreenHeight = 192 * ScaleFactor;
     /* MelonPrimeDS { */
-    // Calculate TileScale using efficient bit manipulation
-    // First, multiply ScaleFactor by 2 and divide by 9 to get the base scale value
-    TileScale = 2 * ScaleFactor / 9;
+    /* ビット演算版
+    uint8_t range = (ScaleFactor >= 5) + (ScaleFactor >= 9);
+    TileScale = 1 << range;
+    TileSize = 8 << range;
+    // uint8_t is32 = (TileSize >= 32);
+    uint8_t is32 = range >> 1; // ビット演算のみ
+    CoarseTileCountY = 4 + (is32 << 1);
+    ClearCoarseBinMaskLocalSize = 64 - (is32 << 4);
+    
+    */
 
-    // Find the nearest power of 2 using bit manipulation:
-    // 1. __builtin_clz counts leading zeros to find the highest set bit
-    // 2. Uses CPU's native instructions (BSR/LZCNT) for optimal performance
-    // 3. If TileScale is 0, sets to 1; otherwise uses nearest power of 2
-    TileScale = TileScale ? (1u << (31 - __builtin_clz(TileScale))) : 1;
+    // 最もシンプルで効果的な実装
+    /*
+    static uint8_t lastSF = UINT8_MAX;
+    static uint8_t lastTS, lastTSZ, lastCTY, lastCCBMLS;
 
-    // Calculate TileSize using branchless conditional operations:
-    // 1. Multiply TileScale by 8 (shift left by 3)
-    // 2. Check if result is <= 32
-    // 3. If result exceeds 32, clamp it to 32
-    TileSize = (TileScale << 3) & (-(TileScale << 3) <= 32);
-    TileSize = TileSize ? TileSize : 32;
+    if (ScaleFactor != lastSF) {
+        lastSF = ScaleFactor;
+        uint8_t range = (ScaleFactor >= 5) + (ScaleFactor >= 9);
+        lastTS = 1 << range;
+        lastTSZ = 8 << range;
+//        uint8_t is32 = (lastTSZ >= 32);
+        uint8_t is32 = range >> 1; // ビット演算のみ
+        lastCTY = 4 + (is32 << 1);
+        lastCCBMLS = 64 - (is32 << 4);
+    }
 
-    // Set grid parameters using branchless conditional calculation:
-    // - If TileSize >= 32, sets CoarseTileCountY to 6 (4 + 2)
-    // - Otherwise, sets it to 4
-    CoarseTileCountY = 4 + ((TileSize >= 32) << 1);
+    TileScale = lastTS;
+    TileSize = lastTSZ;
+    CoarseTileCountY = lastCTY;
+    ClearCoarseBinMaskLocalSize = lastCCBMLS;
+    */
 
-    // Calculate clear mask size for coarse binning:
-    // - If TileSize >= 32, sets ClearCoarseBinMaskLocalSize to 48 (64 - 16)
-    // - Otherwise, keeps it at 64
-    ClearCoarseBinMaskLocalSize = 64 - ((TileSize >= 32) << 4);
+    // 最速実装: 完全ルックアップテーブル（正しい値）
+    static const struct {
+        uint8_t TileScale;
+        uint8_t TileSize;
+        uint8_t CoarseTileCountY;
+        uint8_t ClearCoarseBinMaskLocalSize;
+    } TileConfig[11] = {
+        // SF 0-4: base=0, MSB=0, <<1=0, +=1 → TileScale=1
+        {1, 8, 4, 64},   // SF=0
+        {1, 8, 4, 64},   // SF=1
+        {1, 8, 4, 64},   // SF=2
+        {1, 8, 4, 64},   // SF=3
+        {1, 8, 4, 64},   // SF=4
+        // SF 5-8: base=1, MSB=1, <<1=2 → TileScale=2
+        {2, 16, 4, 64},  // SF=5
+        {2, 16, 4, 64},  // SF=6
+        {2, 16, 4, 64},  // SF=7
+        {2, 16, 4, 64},  // SF=8
+        // SF 9-10: base=2, MSB=2, <<1=4 → TileScale=4, TileSize=32
+        {4, 32, 6, 48},  // SF=9
+        {4, 32, 6, 48}   // SF=10
+    };
+
+    // 最速: 1回のメモリアクセス）
+    TileScale = TileConfig[ScaleFactor].TileScale;
+    TileSize = TileConfig[ScaleFactor].TileSize;
+    CoarseTileCountY = TileConfig[ScaleFactor].CoarseTileCountY;
+    ClearCoarseBinMaskLocalSize = TileConfig[ScaleFactor].ClearCoarseBinMaskLocalSize;
+
     /* MelonPrimeDS } */
 
     // Final calculation
