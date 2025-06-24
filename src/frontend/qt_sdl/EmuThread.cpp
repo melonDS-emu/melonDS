@@ -1017,22 +1017,23 @@ void EmuThread::run()
 
     // processMoveInputFunction{
     // 超低遅延SnapTap入力処理 - 分岐予測最適化とキャッシュ効率重視
-    // 押しっぱなしで移動できるようにすること。
+    // 押しっぱなしでも移動できるようにすること。
     // snapTapモードじゃないときは、左右キーを同時押しで左右移動をストップしないといけない。上下キーも同様。
+    // 通常モードの同時押しキャンセルは LUT によってすでに表現されている」
     // snapTapの時は左を押しているときに右を押しても右移動できる。上下も同様。
+
     static const auto processMoveInput = [&]() __attribute__((hot, always_inline, flatten)) {
-        // SnapTap状態構造体定義(キャッシュライン最適化)
+        // SnapTap状態構造体定義（キャッシュ最適化）
         alignas(64) static struct {
             uint32_t lastInputBitmap;    // 前回入力ビットマップ保持
             uint32_t priorityInput;      // 優先入力ビットマップ保持
-            uint32_t _padding[14];       // 64バイト境界確保
-        } snapTapState = { 0, 0, {} };
+        } snapTapState = { 0, 0 };
 
-        // 水平・垂直競合用マスク定数定義
-        static constexpr uint32_t HORIZ_MASK = 0xC;   // (1<<2)|(1<<3) - LEFT|RIGHT
-        static constexpr uint32_t VERT_MASK = 0x3;   // (1<<0)|(1<<1) - UP|DOWN
+        // 水平・垂直競合用マスク定義
+        static constexpr uint32_t HORIZ_MASK = 0xC;  // LEFT | RIGHT
+        static constexpr uint32_t VERT_MASK = 0x3;  // UP | DOWN
 
-        // 超コンパクトLUT - L1キャッシュ効率最大化
+        // 超コンパクトLUT（同時押しキャンセル含む） - L1キャッシュ効率最大化
         alignas(16) static constexpr uint8_t LUT[16] = {
             0,    // 0000: なし
             1,    // 0001: ↑ 
@@ -1052,71 +1053,55 @@ void EmuThread::run()
             0     // 1111: 全キャンセル
         };
 
-        // 超高速入力取得 - 現代コンパイラが自動最適化
-        const uint32_t f = emuInstance->hotkeyDown(HK_MetroidMoveForward);
-        const uint32_t b = emuInstance->hotkeyDown(HK_MetroidMoveBack);
-        const uint32_t l = emuInstance->hotkeyDown(HK_MetroidMoveLeft);
-        const uint32_t r = emuInstance->hotkeyDown(HK_MetroidMoveRight);
+        // 現在の入力状態取得
+        const uint32_t curr =
+            emuInstance->hotkeyDown(HK_MetroidMoveForward) |
+            (emuInstance->hotkeyDown(HK_MetroidMoveBack) << 1) |
+            (emuInstance->hotkeyDown(HK_MetroidMoveLeft) << 2) |
+            (emuInstance->hotkeyDown(HK_MetroidMoveRight) << 3);
 
-        // 入力ビットマップ生成 - 並列実行最適化
-        const uint32_t curr = f | (b << 1) | (l << 2) | (r << 3);
+        uint32_t finalInput;
 
-        uint8_t finalState;
-
-        // 分岐予測最適化 - 通常モード優先
+        // SnapTapモード判定（SnapTap使用が稀ならこの分岐が最速）
         if (__builtin_expect(!isSnapTapMode, 1)) {
-            // 通常モード - 直接配列アクセス（最速）
-            finalState = LUT[curr];
+            // SnapTapなし：即時解決（キャンセルもLUT内で処理済み）
+            finalInput = curr;
         }
         else {
-            // SnapTap超高速モード
+            // SnapTap有効時のみ処理（頻度が低いなら影響は最小）
             const uint32_t newPressed = curr & ~snapTapState.lastInputBitmap;
 
-            // 並列競合判定 - XOR最適化
-            const uint32_t hConflict = (curr & HORIZ_MASK) ^ HORIZ_MASK;
-            const uint32_t vConflict = (curr & VERT_MASK) ^ VERT_MASK;
+            const uint32_t hConflict = ((curr & HORIZ_MASK) == HORIZ_MASK);
+            const uint32_t vConflict = ((curr & VERT_MASK) == VERT_MASK);
+            const uint32_t conflictMask = (hConflict * HORIZ_MASK) | (vConflict * VERT_MASK);
 
-            // 条件最適化 - 新入力は稀
-            if (__builtin_expect(newPressed != 0, 0)) {
-                // 超高速branchless更新 - 単一式統合
-                const uint32_t hMask = -(hConflict == 0);
-                const uint32_t vMask = -(vConflict == 0);
-
+            // 新規入力が競合中なら優先入力を更新
+            if (__builtin_expect(newPressed & conflictMask, 0)) {
+                const uint32_t hNew = newPressed & HORIZ_MASK & -hConflict;
+                const uint32_t vNew = newPressed & VERT_MASK & -vConflict;
                 snapTapState.priorityInput =
-                    (snapTapState.priorityInput & (~HORIZ_MASK | ~hMask) & (~VERT_MASK | ~vMask)) |
-                    ((newPressed & HORIZ_MASK) & hMask) |
-                    ((newPressed & VERT_MASK) & vMask);
+                    (snapTapState.priorityInput & ~conflictMask) | hNew | vNew;
             }
 
+            // 押されていないキーはマスク
             snapTapState.priorityInput &= curr;
 
-            // 超高速競合解決 - 単一パス処理
-            uint32_t finalInput = curr;
-            const uint32_t conflictMask =
-                ((hConflict == 0) ? HORIZ_MASK : 0) |
-                ((vConflict == 0) ? VERT_MASK : 0);
+            // 競合中は優先入力、非競合はそのまま
+            finalInput = (curr & ~conflictMask) | (snapTapState.priorityInput & conflictMask);
 
-            if (__builtin_expect(conflictMask != 0, 0)) {
-                finalInput = (finalInput & ~conflictMask) | (snapTapState.priorityInput & conflictMask);
-            }
-
+            // 状態保存
             snapTapState.lastInputBitmap = curr;
-
-            // 直接配列アクセス - ポインタより高速
-            finalState = LUT[finalInput];
         }
 
-        // 究極の入力適用 - コンパイラ自動最適化
-        const uint32_t states = finalState;
+        // LUT参照で方向決定（最終出力）
+        const uint8_t moveBits = LUT[finalInput];
 
-        // QBitArray超高速更新 - ループ展開 + 最適化
+        // QBitArray更新（false: 移動、true: 停止）
         auto& mask = emuInstance->inputMask;
-
-        // 並列実行可能な独立した操作
-        mask.setBit(INPUT_UP, !(states & 1));
-        mask.setBit(INPUT_DOWN, !(states & 2));
-        mask.setBit(INPUT_LEFT, !(states & 4));
-        mask.setBit(INPUT_RIGHT, !(states & 8));
+        mask.setBit(INPUT_UP, !(moveBits & 0x1));
+        mask.setBit(INPUT_DOWN, !(moveBits & 0x2));
+        mask.setBit(INPUT_LEFT, !(moveBits & 0x4));
+        mask.setBit(INPUT_RIGHT, !(moveBits & 0x8));
     };
     // /processMoveInputFunction }
 
@@ -1141,15 +1126,15 @@ void EmuThread::run()
         } static aimData = { 0, 0, 0.01f, 1.3333333f, 0.013333333f };
 
         // ドリフト防止のための丸め処理マクロ（関数呼び出しのオーバーヘッドを削減）
-#define AIM_ADJUST(v) ((v) >= 0.5f && (v) < 1.0f ? 1 : ((v) <= -0.5f && (v) > -1.0f ? -1 : static_cast<int16_t>(v)))
-/*
+// #define AIM_ADJUST(v) ((v) >= 0.5f && (v) < 1.0f ? 1 : ((v) <= -0.5f && (v) > -1.0f ? -1 : static_cast<int16_t>(v)))
+
 // 条件分岐を削減し、パイプラインストールを防止。
 #define AIM_ADJUST(v) \
     (static_cast<int16_t>((v) + \
     ((((v) >= 0.5f) & ((v) < 1.0f)) * (1.0f - (v))) + \
     ((((v) <= -0.5f) & ((v) > -1.0f)) * (-1.0f - (v)))))
 
-
+        /*
             // 調整関数（マクロ化前までの）
             static const auto adjust = [](float value) __attribute__((hot, always_inline)) -> int16_t {
                 if (value >= 0.5f && value < 1.0f) return static_cast<int16_t>(1.0f);
