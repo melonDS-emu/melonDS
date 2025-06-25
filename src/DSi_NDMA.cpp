@@ -269,11 +269,18 @@ void DSi_NDMA::Run9()
 
     if ((StartMode & 0x1F) == 0x10) // CHECKME
     {
+        // no repeat
         Cnt &= ~(1<<31);
         if (Cnt & (1<<30)) DSi.SetIRQ(0, IRQ_DSi_NDMA0 + Num);
     }
-    else if (!(Cnt & (1<<29)))
+    else if (Cnt & (1<<29))
     {
+        // repeat infinitely
+        if (Cnt & (1<<30)) DSi.SetIRQ(0, IRQ_DSi_NDMA0 + Num);
+    }
+    else
+    {
+        // repeat until total count is reached
         if (TotalRemCount == 0)
         {
             Cnt &= ~(1<<31);
@@ -358,11 +365,18 @@ void DSi_NDMA::Run7()
 
     if ((StartMode & 0x1F) == 0x10) // CHECKME
     {
+        // no repeat
         Cnt &= ~(1<<31);
         if (Cnt & (1<<30)) DSi.SetIRQ(1, IRQ_DSi_NDMA0 + Num);
     }
-    else if (!(Cnt & (1<<29)))
+    else if (Cnt & (1<<29))
     {
+        // repeat infinitely
+        if (Cnt & (1<<30)) DSi.SetIRQ(1, IRQ_DSi_NDMA0 + Num);
+    }
+    else
+    {
+        // repeat until total count is reached
         if (TotalRemCount == 0)
         {
             Cnt &= ~(1<<31);
