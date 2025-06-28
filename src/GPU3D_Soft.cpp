@@ -598,11 +598,12 @@ void SoftRenderer::PlotTranslucentPixel(const GPU3D& gpu3d, u32 pixeladdr, u32 c
     AttrBuffer[pixeladdr] = attr;
 }
 
+template <bool oob>
 void SoftRenderer::SetupPolygonLeftEdge(SoftRenderer::RendererPolygon* rp, s32 y) const
 {
     Polygon* polygon = rp->PolyData;
 
-    while (y >= polygon->Vertices[rp->NextVL]->FinalPosition[1] && rp->CurVL != polygon->VBottom)
+    while ((y >= polygon->SlopePosition[rp->NextVL][1]) && rp->CurVL != polygon->VBottom)
     {
         rp->CurVL = rp->NextVL;
 
@@ -620,16 +621,28 @@ void SoftRenderer::SetupPolygonLeftEdge(SoftRenderer::RendererPolygon* rp, s32 y
         }
     }
 
-    rp->XL = rp->SlopeL.Setup(polygon->Vertices[rp->CurVL]->FinalPosition[0], polygon->Vertices[rp->NextVL]->FinalPosition[0],
-                              polygon->Vertices[rp->CurVL]->FinalPosition[1], polygon->Vertices[rp->NextVL]->FinalPosition[1],
-                              polygon->FinalW[rp->CurVL], polygon->FinalW[rp->NextVL], y);
+    // note: if the end or current position in a slope is above the start point
+    // it seems to seek forwards(?) until the value overflows at 256
+    // this can be emulated by just adding 256 to them
+    s32 y1 = polygon->Vertices[rp->NextVL]->FinalPosition[1];
+    if constexpr (oob)
+    {
+        if (y < polygon->Vertices[rp->CurVL]->FinalPosition[1])
+            y += 256;
+
+        if (y1 < polygon->Vertices[rp->CurVL]->FinalPosition[1])
+            y1 += 256;
+    }
+    rp->XL = rp->SlopeL.Setup<oob>(polygon->Vertices[rp->CurVL]->FinalPosition[0], polygon->Vertices[rp->NextVL]->FinalPosition[0],
+                                   polygon->Vertices[rp->CurVL]->FinalPosition[1], y1, polygon->FinalW[rp->CurVL], polygon->FinalW[rp->NextVL], y);
 }
 
+template <bool oob>
 void SoftRenderer::SetupPolygonRightEdge(SoftRenderer::RendererPolygon* rp, s32 y) const
 {
     Polygon* polygon = rp->PolyData;
 
-    while (y >= polygon->Vertices[rp->NextVR]->FinalPosition[1] && rp->CurVR != polygon->VBottom)
+    while ((y >= polygon->SlopePosition[rp->NextVR][1]) && rp->CurVR != polygon->VBottom)
     {
         rp->CurVR = rp->NextVR;
 
@@ -647,11 +660,23 @@ void SoftRenderer::SetupPolygonRightEdge(SoftRenderer::RendererPolygon* rp, s32 
         }
     }
 
-    rp->XR = rp->SlopeR.Setup(polygon->Vertices[rp->CurVR]->FinalPosition[0], polygon->Vertices[rp->NextVR]->FinalPosition[0],
-                              polygon->Vertices[rp->CurVR]->FinalPosition[1], polygon->Vertices[rp->NextVR]->FinalPosition[1],
-                              polygon->FinalW[rp->CurVR], polygon->FinalW[rp->NextVR], y);
+    // note: if the end or current position in a slope is above the start point
+    // it seems to seek forwards(?) until the value overflows at 256
+    // this can be emulated by just adding 256 to them
+    s32 y1 = polygon->Vertices[rp->NextVR]->FinalPosition[1];
+    if constexpr (oob)
+    {
+        if (y < polygon->Vertices[rp->CurVR]->FinalPosition[1])
+            y += 256;
+
+        if (y1 < polygon->Vertices[rp->CurVR]->FinalPosition[1])
+            y1 += 256;
+    }
+    rp->XR = rp->SlopeR.Setup<oob>(polygon->Vertices[rp->CurVR]->FinalPosition[0], polygon->Vertices[rp->NextVR]->FinalPosition[0],
+                                   polygon->Vertices[rp->CurVR]->FinalPosition[1], y1, polygon->FinalW[rp->CurVR], polygon->FinalW[rp->NextVR], y);
 }
 
+template <bool oob>
 void SoftRenderer::SetupPolygon(SoftRenderer::RendererPolygon* rp, Polygon* polygon) const
 {
     u32 nverts = polygon->NumVertices;
@@ -678,8 +703,10 @@ void SoftRenderer::SetupPolygon(SoftRenderer::RendererPolygon* rp, Polygon* poly
         rp->NextVR = rp->CurVR + 1;
         if (rp->NextVR >= nverts) rp->NextVR = 0;
     }
-
-    if (ybot == ytop)
+    
+    // 0px tall line polygons are checked for at rasterization, this matters for when viewports are updated mid-polygon-strip
+    // therefore we need to check if the last two vertices are actually still at the same y axis as the others
+    if ((ybot == ytop) && (ybot == polygon->Vertices[nverts-1]->FinalPosition[1]) && (ybot == polygon->Vertices[nverts-2]->FinalPosition[1]) && (ybot == polygon->Vertices[nverts-3]->FinalPosition[1]))
     {
         vtop = 0; vbot = 0;
         int i;
@@ -700,11 +727,38 @@ void SoftRenderer::SetupPolygon(SoftRenderer::RendererPolygon* rp, Polygon* poly
     }
     else
     {
-        SetupPolygonLeftEdge(rp, ytop);
-        SetupPolygonRightEdge(rp, ytop);
+        // note: if the end or current position in a slope is above the start point
+        // it seems to seek forwards(?) until the value overflows at 256
+        // this can be emulated by just adding 256 to them
+        s32 y = ytop;
+        s32 y1 = polygon->Vertices[rp->NextVL]->FinalPosition[1];
+        if (oob)
+        {
+            if (y < polygon->Vertices[rp->CurVL]->FinalPosition[1])
+                y += 256;
+
+            if (y1 < polygon->Vertices[rp->CurVL]->FinalPosition[1])
+                y1 += 256;
+        }
+        rp->XL = rp->SlopeL.Setup<oob>(polygon->Vertices[rp->CurVL]->FinalPosition[0], polygon->Vertices[rp->NextVL]->FinalPosition[0],
+                                       polygon->Vertices[rp->CurVL]->FinalPosition[1], y1, polygon->FinalW[rp->CurVL], polygon->FinalW[rp->NextVL], y);
+
+        y1 = polygon->Vertices[rp->NextVR]->FinalPosition[1];
+        if constexpr (oob)
+        {
+            y = ytop;
+            if (y < polygon->Vertices[rp->CurVR]->FinalPosition[1])
+                y += 256;
+
+            if (y1 < polygon->Vertices[rp->CurVR]->FinalPosition[1])
+                y1 += 256;
+        }
+        rp->XR = rp->SlopeR.Setup<oob>(polygon->Vertices[rp->CurVR]->FinalPosition[0], polygon->Vertices[rp->NextVR]->FinalPosition[0],
+                                       polygon->Vertices[rp->CurVR]->FinalPosition[1], y1, polygon->FinalW[rp->CurVR], polygon->FinalW[rp->NextVR], y);
     }
 }
 
+template <bool oob>
 void SoftRenderer::RenderShadowMaskScanline(const GPU3D& gpu3d, RendererPolygon* rp, s32 y)
 {
     Polygon* polygon = rp->PolyData;
@@ -730,14 +784,14 @@ void SoftRenderer::RenderShadowMaskScanline(const GPU3D& gpu3d, RendererPolygon*
 
     if (polygon->YTop != polygon->YBottom)
     {
-        if (y >= polygon->Vertices[rp->NextVL]->FinalPosition[1] && rp->CurVL != polygon->VBottom)
+        if ((y >= polygon->SlopePosition[rp->NextVL][1] || (oob && y == polygon->Vertices[rp->CurVL]->FinalPosition[1])) && rp->CurVL != polygon->VBottom)
         {
-            SetupPolygonLeftEdge(rp, y);
+            SetupPolygonLeftEdge<oob>(rp, y);
         }
 
-        if (y >= polygon->Vertices[rp->NextVR]->FinalPosition[1] && rp->CurVR != polygon->VBottom)
+        if ((y >= polygon->SlopePosition[rp->NextVR][1] || (oob && y == polygon->Vertices[rp->CurVR]->FinalPosition[1])) && rp->CurVR != polygon->VBottom)
         {
-            SetupPolygonRightEdge(rp, y);
+            SetupPolygonRightEdge<oob>(rp, y);
         }
     }
 
@@ -746,8 +800,8 @@ void SoftRenderer::RenderShadowMaskScanline(const GPU3D& gpu3d, RendererPolygon*
     bool l_filledge, r_filledge;
     s32 l_edgelen, r_edgelen;
     s32 l_edgecov, r_edgecov;
-    Interpolator<1>* interp_start;
-    Interpolator<1>* interp_end;
+    Interpolator<1, false>* interp_start;
+    Interpolator<1, false>* interp_end;
 
     xstart = rp->XL;
     xend = rp->XR;
@@ -839,11 +893,30 @@ void SoftRenderer::RenderShadowMaskScanline(const GPU3D& gpu3d, RendererPolygon*
     if (y == polygon->YTop)           yedge = 0x4;
     else if (y == polygon->YBottom-1) yedge = 0x8;
     int edge;
-
+    
+    xend += 1;
+    Interpolator<0, oob> interpX(xstart, xend, wl, wr);
+    
+    if constexpr (oob)
+    {
+        // CHECKME: should the unclamped values be used for timings?
+        // negative values are clamped to 0
+        if (xstart < 0)
+        {
+            l_edgelen += xstart;
+            if (l_edgelen < 1) l_edgelen = 1;
+            xstart = 0;
+            if (xend < 1) xend = 1;
+        }
+        // too big values are clamped to 511
+        if (xend > 511)
+        {
+            r_edgelen += 256 - xend;
+            xend = 511;
+        }
+    }
+    
     s32 x = xstart;
-    Interpolator<0> interpX(xstart, xend+1, wl, wr);
-
-    if (x < 0) x = 0;
     s32 xlimit;
 
     // for shadow masks: set stencil bits where the depth test fails.
@@ -852,7 +925,7 @@ void SoftRenderer::RenderShadowMaskScanline(const GPU3D& gpu3d, RendererPolygon*
     // part 1: left edge
     edge = yedge | 0x1;
     xlimit = xstart+l_edgelen;
-    if (xlimit > xend+1) xlimit = xend+1;
+    if (xlimit > xend) xlimit = xend;
     if (xlimit > 256) xlimit = 256;
 
     if (!l_filledge) x = xlimit;
@@ -879,8 +952,8 @@ void SoftRenderer::RenderShadowMaskScanline(const GPU3D& gpu3d, RendererPolygon*
 
     // part 2: polygon inside
     edge = yedge;
-    xlimit = xend-r_edgelen+1;
-    if (xlimit > xend+1) xlimit = xend+1;
+    xlimit = xend-r_edgelen;
+    if (xlimit > xend) xlimit = xend;
     if (xlimit > 256) xlimit = 256;
     if (wireframe && !edge) x = std::max(x, xlimit);
     else for (; x < xlimit; x++)
@@ -905,7 +978,7 @@ void SoftRenderer::RenderShadowMaskScanline(const GPU3D& gpu3d, RendererPolygon*
 
     // part 3: right edge
     edge = yedge | 0x2;
-    xlimit = xend+1;
+    xlimit = xend;
     if (xlimit > 256) xlimit = 256;
 
     if (r_filledge)
@@ -929,10 +1002,11 @@ void SoftRenderer::RenderShadowMaskScanline(const GPU3D& gpu3d, RendererPolygon*
         }
     }
 
-    rp->XL = rp->SlopeL.Step();
-    rp->XR = rp->SlopeR.Step();
+    rp->XL = rp->SlopeL.Step<oob>();
+    rp->XR = rp->SlopeR.Step<oob>();
 }
 
+template <bool oob>
 void SoftRenderer::RenderPolygonScanline(const GPU& gpu, RendererPolygon* rp, s32 y)
 {
     Polygon* polygon = rp->PolyData;
@@ -955,14 +1029,14 @@ void SoftRenderer::RenderPolygonScanline(const GPU& gpu, RendererPolygon* rp, s3
 
     if (polygon->YTop != polygon->YBottom)
     {
-        if (y >= polygon->Vertices[rp->NextVL]->FinalPosition[1] && rp->CurVL != polygon->VBottom)
+        if ((y >= polygon->SlopePosition[rp->NextVL][1] || (oob && y == polygon->Vertices[rp->CurVL]->FinalPosition[1])) && rp->CurVL != polygon->VBottom)
         {
-            SetupPolygonLeftEdge(rp, y);
+            SetupPolygonLeftEdge<oob>(rp, y);
         }
 
-        if (y >= polygon->Vertices[rp->NextVR]->FinalPosition[1] && rp->CurVR != polygon->VBottom)
+        if ((y >= polygon->SlopePosition[rp->NextVR][1] || (oob && y == polygon->Vertices[rp->CurVR]->FinalPosition[1])) && rp->CurVR != polygon->VBottom)
         {
-            SetupPolygonRightEdge(rp, y);
+            SetupPolygonRightEdge<oob>(rp, y);
         }
     }
 
@@ -971,8 +1045,8 @@ void SoftRenderer::RenderPolygonScanline(const GPU& gpu, RendererPolygon* rp, s3
     bool l_filledge, r_filledge;
     s32 l_edgelen, r_edgelen;
     s32 l_edgecov, r_edgecov;
-    Interpolator<1>* interp_start;
-    Interpolator<1>* interp_end;
+    Interpolator<1, false>* interp_start;
+    Interpolator<1, false>* interp_end;
 
     xstart = rp->XL;
     xend = rp->XR;
@@ -1090,10 +1164,29 @@ void SoftRenderer::RenderPolygonScanline(const GPU& gpu, RendererPolygon* rp, s3
     else if (y == polygon->YBottom-1) yedge = 0x8;
     int edge;
 
-    s32 x = xstart;
-    Interpolator<0> interpX(xstart, xend+1, wl, wr);
+    xend+=1;
+    Interpolator<0, oob> interpX(xstart, xend, wl, wr);
+    
+    if constexpr (oob)
+    {
+        // CHECKME: should the unclamped values be used for timings?
+        // negative values are clamped to 0
+        if (xstart < 0) 
+        {
+            l_edgelen += xstart;
+            if (l_edgelen < 1) l_edgelen = 1;
+            xstart = 0;
+            if (xend < 1) xend = 1;
+        }
+        // too big values are clamped to 511
+        if (xend > 511)
+        {
+            r_edgelen += 256 - xend;
+            xend = 511;
+        }
+    }
 
-    if (x < 0) x = 0;
+    s32 x = xstart;
     s32 xlimit;
 
     s32 xcov = 0;
@@ -1101,7 +1194,7 @@ void SoftRenderer::RenderPolygonScanline(const GPU& gpu, RendererPolygon* rp, s3
     // part 1: left edge
     edge = yedge | 0x1;
     xlimit = xstart+l_edgelen;
-    if (xlimit > xend+1) xlimit = xend+1;
+    if (xlimit > xend) xlimit = xend;
     if (xlimit > 256) xlimit = 256;
     if (l_edgecov & (1<<31))
     {
@@ -1201,8 +1294,8 @@ void SoftRenderer::RenderPolygonScanline(const GPU& gpu, RendererPolygon* rp, s3
 
     // part 2: polygon inside
     edge = yedge;
-    xlimit = xend-r_edgelen+1;
-    if (xlimit > xend+1) xlimit = xend+1;
+    xlimit = xend-r_edgelen;
+    if (xlimit > xend) xlimit = xend;
     if (xlimit > 256) xlimit = 256;
 
     if (wireframe && !edge) x = std::max(x, xlimit);
@@ -1290,7 +1383,7 @@ void SoftRenderer::RenderPolygonScanline(const GPU& gpu, RendererPolygon* rp, s3
 
     // part 3: right edge
     edge = yedge | 0x2;
-    xlimit = xend+1;
+    xlimit = xend;
     if (xlimit > 256) xlimit = 256;
     if (r_edgecov & (1<<31))
     {
@@ -1387,8 +1480,8 @@ void SoftRenderer::RenderPolygonScanline(const GPU& gpu, RendererPolygon* rp, s3
         }
     }
 
-    rp->XL = rp->SlopeL.Step();
-    rp->XR = rp->SlopeR.Step();
+    rp->XL = rp->SlopeL.Step<oob>();
+    rp->XR = rp->SlopeR.Step<oob>();
 }
 
 void SoftRenderer::RenderScanline(const GPU& gpu, s32 y, int npolys)
@@ -1400,10 +1493,20 @@ void SoftRenderer::RenderScanline(const GPU& gpu, s32 y, int npolys)
 
         if (y >= polygon->YTop && (y < polygon->YBottom || (y == polygon->YTop && polygon->YBottom == polygon->YTop)))
         {
-            if (polygon->IsShadowMask)
-                RenderShadowMaskScanline(gpu.GPU3D, rp, y);
+            if (polygon->OOBRendering) [[unlikely]] // enable some extra handling for polygons that might render out of ordinary bounds
+            {
+                if (polygon->IsShadowMask)
+                    RenderShadowMaskScanline<true>(gpu.GPU3D, rp, y);
+                else
+                    RenderPolygonScanline<true>(gpu, rp, y);
+            }
             else
-                RenderPolygonScanline(gpu, rp, y);
+            {
+                if (polygon->IsShadowMask)
+                    RenderShadowMaskScanline<false>(gpu.GPU3D, rp, y);
+                else
+                    RenderPolygonScanline<false>(gpu, rp, y);
+            }
         }
     }
 }
@@ -1712,7 +1815,11 @@ void SoftRenderer::RenderPolygons(const GPU& gpu, bool threaded, Polygon** polyg
     for (int i = 0; i < npolys; i++)
     {
         if (polygons[i]->Degenerate) continue;
-        SetupPolygon(&PolygonList[j++], polygons[i]);
+
+        if (polygons[i]->OOBRendering) [[unlikely]] // enable some extra handling for polygons that might render out of ordinary bounds
+            SetupPolygon<true>(&PolygonList[j++], polygons[i]);
+        else
+            SetupPolygon<false>(&PolygonList[j++], polygons[i]);
     }
 
     RenderScanline(gpu, 0, j);
