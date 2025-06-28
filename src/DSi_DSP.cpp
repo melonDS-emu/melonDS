@@ -20,6 +20,7 @@
 
 #include "DSi.h"
 #include "DSi_DSP.h"
+#include "DSi_DSP_UCodes.h"
 #include "FIFO.h"
 #include "NDS.h"
 #include "Platform.h"
@@ -113,6 +114,7 @@ DSi_DSP::DSi_DSP(melonDS::DSi& dsi) : DSi(dsi)
 
     TeakraCore = new Teakra::Teakra();
     SCFG_RST = false;
+    CurrentUCodeID = UCodeID::UNKNOWN;
 
     // ????
     //if (!TeakraCore) return false;
@@ -188,6 +190,11 @@ bool DSi_DSP::IsRstReleased() const
 }
 void DSi_DSP::SetRstLine(bool release)
 {
+    if (!SCFG_RST && release)
+    {
+        CurrentUCodeID = IdentifyUCode(DSi);
+    }
+
     SCFG_RST = release;
     Reset();
     DSPTimestamp = DSi.ARM9Timestamp; // only start now!

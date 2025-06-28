@@ -20,6 +20,7 @@ add_library(core STATIC
     DSi_AES.cpp
     DSi_Camera.cpp
     DSi_DSP.cpp
+    DSi_DSP_UCodes.cpp
     DSi_I2C.cpp
     DSi_NAND.cpp
     DSi_NDMA.cpp
