@@ -2180,6 +2180,29 @@ void MainWindow::onChangeAudioSync(bool checked)
 
 void MainWindow::onTitleUpdate(QString title)
 {
+    if (!emuInstance) return;
+
+    int numinst = numEmuInstances();
+    int numwin = emuInstance->getNumWindows();
+    if ((numinst > 1) && (numwin > 1))
+    {
+        // add player/window prefix
+        QString prefix = QString("[p%1:w%2] ").arg(emuInstance->instanceID+1).arg(windowID+1);
+        title = prefix + title;
+    }
+    else if (numinst > 1)
+    {
+        // add player prefix
+        QString prefix = QString("[p%1] ").arg(emuInstance->instanceID+1);
+        title = prefix + title;
+    }
+    else if (numwin > 1)
+    {
+        // add window prefix
+        QString prefix = QString("[w%1] ").arg(windowID+1);
+        title = prefix + title;
+    }
+
     setWindowTitle(title);
 }
 
