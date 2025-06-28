@@ -204,7 +204,7 @@ void EmuInstance::createWindow(int id)
     if (windowList[id])
         return;
 
-    MainWindow* win = new MainWindow(id, this, topWindow);
+    MainWindow* win = new MainWindow(id, this, mainWindow ? mainWindow : topWindow);
     if (!topWindow) topWindow = win;
     if (!mainWindow) mainWindow = win;
     windowList[id] = win;
