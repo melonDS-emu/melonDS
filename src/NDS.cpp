@@ -630,7 +630,7 @@ bool NDS::DoSavestate(Savestate* file)
         }
     }
 
-    file->VarArray(MainRAM, MainRAMMaxSize);
+    file->VarArray(MainRAM, MainRAMMask+1);
     file->VarArray(SharedWRAM, SharedWRAMSize);
     file->VarArray(ARM7WRAM, ARM7WRAMSize);
 
