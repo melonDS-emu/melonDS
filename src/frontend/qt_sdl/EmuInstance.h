@@ -120,6 +120,7 @@ public:
     void deinitOpenGL(int win);
     void setVSyncGL(bool vsync);
     void makeCurrentGL();
+    void releaseGL();
     void drawScreenGL();
 
     // return: empty string = setup OK, non-empty = error message

@@ -124,6 +124,7 @@ public:
     void deinitOpenGL();
     void setGLSwapInterval(int intv);
     void makeCurrentGL();
+    void releaseGL();
     void drawScreenGL();
 
     bool preloadROMs(QStringList file, QStringList gbafile, bool boot);

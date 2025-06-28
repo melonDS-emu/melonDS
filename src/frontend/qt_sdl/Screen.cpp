@@ -1055,6 +1055,13 @@ void ScreenPanelGL::makeCurrentGL()
     glContext->MakeCurrent();
 }
 
+void ScreenPanelGL::releaseGL()
+{
+    if (!glContext) return;
+
+    glContext->DoneCurrent();
+}
+
 void ScreenPanelGL::osdRenderItem(OSDItem* item)
 {
     ScreenPanel::osdRenderItem(item);

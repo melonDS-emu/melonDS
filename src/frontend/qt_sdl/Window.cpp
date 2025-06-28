@@ -864,7 +864,10 @@ void MainWindow::createScreenPanel()
         ScreenPanelGL* panelGL = new ScreenPanelGL(this);
         panelGL->show();
 
-        panel = panelGL;
+        // make sure no GL context is in use by the emu thread
+        // otherwise we may fail to create a shared context
+        if (windowID != 0)
+            emuThread->borrowGL();
 
         // Check that creating the context hasn't failed
         if (panelGL->createContext() == false)
@@ -874,7 +877,15 @@ void MainWindow::createScreenPanel()
 
             globalCfg.SetBool("Screen.UseGL", false);
             globalCfg.SetInt("3D.Renderer", renderer3D_Software);
+
+            delete panelGL;
+            panelGL = nullptr;
         }
+
+        if (windowID != 0)
+            emuThread->returnGL();
+
+        panel = panelGL;
     }
 
     if (!hasOGL)
@@ -924,6 +935,7 @@ void MainWindow::setGLSwapInterval(int intv)
     if (!hasOGL) return;
 
     ScreenPanelGL* glpanel = static_cast<ScreenPanelGL*>(panel);
+    if (!glpanel) return;
     return glpanel->setSwapInterval(intv);
 }
 
@@ -932,7 +944,17 @@ void MainWindow::makeCurrentGL()
     if (!hasOGL) return;
 
     ScreenPanelGL* glpanel = static_cast<ScreenPanelGL*>(panel);
+    if (!glpanel) return;
     return glpanel->makeCurrentGL();
+}
+
+void MainWindow::releaseGL()
+{
+    if (!hasOGL) return;
+
+    ScreenPanelGL* glpanel = static_cast<ScreenPanelGL*>(panel);
+    if (!glpanel) return;
+    return glpanel->releaseGL();
 }
 
 void MainWindow::drawScreenGL()
@@ -940,6 +962,7 @@ void MainWindow::drawScreenGL()
     if (!hasOGL) return;
 
     ScreenPanelGL* glpanel = static_cast<ScreenPanelGL*>(panel);
+    if (!glpanel) return;
     return glpanel->drawScreenGL();
 }
 
@@ -2263,42 +2286,49 @@ void MainWindow::onUpdateVideoSettings(bool glchange)
     if (parentwin)
         return parentwin->onUpdateVideoSettings(glchange);
 
+    auto childwins = findChildren<MainWindow *>(nullptr, Qt::FindDirectChildrenOnly);
+
     bool hadOGL = hasOGL;
     if (glchange)
     {
         emuThread->emuPause();
-        if (hadOGL) emuThread->deinitContext(windowID);
+        if (hadOGL)
+        {
+            emuThread->deinitContext(windowID);
+            for (auto child: childwins)
+            {
+                auto thread = child->getEmuInstance()->getEmuThread();
+                thread->deinitContext(child->windowID);
+            }
+        }
 
         createScreenPanel();
+        for (auto child: childwins)
+        {
+            child->createScreenPanel();
+        }
     }
 
     emuThread->updateVideoSettings();
-
-    if (glchange)
-    {
-        if (hasOGL) emuThread->initContext(windowID);
-    }
-
-    // update any child windows we have
-    auto childwins = findChildren<MainWindow *>(nullptr, Qt::FindDirectChildrenOnly);
     for (auto child: childwins)
     {
         // child windows may belong to a different instance
         // in that case we need to signal their thread appropriately
         auto thread = child->getEmuInstance()->getEmuThread();
-
-        if (glchange)
-        {
-            if (hadOGL) thread->deinitContext(child->windowID);
-            child->createScreenPanel();
-        }
-
         if (child->getWindowID() == 0)
             thread->updateVideoSettings();
+    }
 
-        if (glchange)
+    if (glchange)
+    {
+        if (hasOGL) 
         {
-            if (hasOGL) thread->initContext(child->windowID);
+            emuThread->initContext(windowID);
+            for (auto child: childwins)
+            {
+                auto thread = child->getEmuInstance()->getEmuThread();
+                thread->initContext(child->windowID);
+            }
         }
     }
 

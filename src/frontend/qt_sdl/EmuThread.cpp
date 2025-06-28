@@ -485,6 +485,8 @@ void EmuThread::waitAllMessages()
 
 void EmuThread::handleMessages()
 {
+    bool glborrow = false;
+
     msgMutex.lock();
     while (!msgQueue.empty())
     {
@@ -574,6 +576,11 @@ void EmuThread::handleMessages()
             emuInstance->deinitOpenGL(msg.param.value<int>());
             if (msg.param.value<int>() == 0)
                 useOpenGL = false;
+            break;
+
+        case msg_BorrowGL:
+            emuInstance->releaseGL();
+            glborrow = true;
             break;
 
         case msg_BootROM:
@@ -667,6 +674,13 @@ void EmuThread::handleMessages()
         msgSemaphore.release();
     }
     msgMutex.unlock();
+
+    if (glborrow)
+    {
+        glBorrowMutex.lock();
+        glBorrowCond.wait(&glBorrowMutex);
+        glBorrowMutex.unlock();
+    }
 }
 
 void EmuThread::changeWindowTitle(char* title)
@@ -684,6 +698,19 @@ void EmuThread::deinitContext(int win)
 {
     sendMessage({.type = msg_DeInitGL, .param = win});
     waitMessage();
+}
+
+void EmuThread::borrowGL()
+{
+    sendMessage(msg_BorrowGL);
+    waitMessage();
+}
+
+void EmuThread::returnGL()
+{
+    glBorrowMutex.lock();
+    glBorrowCond.wakeAll();
+    glBorrowMutex.unlock();
 }
 
 void EmuThread::emuRun()

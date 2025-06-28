@@ -189,6 +189,7 @@ public:
     void initOpenGL();
     void deinitOpenGL();
     void makeCurrentGL();
+    void releaseGL();
     void drawScreenGL();
 
     GL::Context* getContext() { return glContext.get(); }

@@ -408,6 +408,15 @@ void EmuInstance::makeCurrentGL()
     mainWindow->makeCurrentGL();
 }
 
+void EmuInstance::releaseGL()
+{
+    for (int i = 0; i < kMaxWindows; i++)
+    {
+        if (windowList[i])
+            windowList[i]->releaseGL();
+    }
+}
+
 void EmuInstance::drawScreenGL()
 {
     for (int i = 0; i < kMaxWindows; i++)
