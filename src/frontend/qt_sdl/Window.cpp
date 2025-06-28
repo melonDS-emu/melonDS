@@ -809,6 +809,18 @@ MainWindow::MainWindow(int id, EmuInstance* inst, QWidget* parent) :
 
 MainWindow::~MainWindow()
 {
+    if (windowID == 0)
+        emuInstance->saveEnabledWindows();
+    else
+        saveEnabled(false);
+
+    QByteArray geom = saveGeometry();
+    QByteArray enc = geom.toBase64(QByteArray::Base64Encoding);
+    windowCfg.SetString("Geometry", enc.toStdString());
+    Config::Save();
+
+    emuInstance->deleteWindow(windowID, false);
+
     if (hasMenu)
     {
         delete[] actScreenAspectTop;
@@ -827,28 +839,6 @@ void MainWindow::saveEnabled(bool enabled)
     if (enabledSaved) return;
     windowCfg.SetBool("Enabled", enabled);
     enabledSaved = true;
-}
-
-void MainWindow::closeEvent(QCloseEvent* event)
-{
-    if (!emuInstance) return;
-
-    if (windowID == 0)
-        emuInstance->saveEnabledWindows();
-    else
-        saveEnabled(false);
-
-    QByteArray geom = saveGeometry();
-    QByteArray enc = geom.toBase64(QByteArray::Base64Encoding);
-    windowCfg.SetString("Geometry", enc.toStdString());
-    Config::Save();
-
-    emuInstance->deleteWindow(windowID, false);
-
-    // emuInstance may be deleted
-    // prevent use after free from us
-    emuInstance = nullptr;
-    QMainWindow::closeEvent(event);
 }
 
 void MainWindow::createScreenPanel()
