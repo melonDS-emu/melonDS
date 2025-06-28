@@ -2294,7 +2294,7 @@ void MainWindow::onUpdateVideoSettings(bool glchange)
     if (parentwin)
         return parentwin->onUpdateVideoSettings(glchange);
 
-    auto childwins = findChildren<MainWindow *>(nullptr, Qt::FindDirectChildrenOnly);
+    auto childwins = findChildren<MainWindow *>(nullptr);
 
     bool hadOGL = hasOGL;
     if (glchange)
