@@ -1020,6 +1020,8 @@ void ScreenPanelGL::deinitOpenGL()
     if (!glContext) return;
     if (!glInited) return;
 
+    glContext->MakeCurrent();
+
     glDeleteTextures(1, &screenTexture);
 
     glDeleteVertexArrays(1, &screenVertexArray);
