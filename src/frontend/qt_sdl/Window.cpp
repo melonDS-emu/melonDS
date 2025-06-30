@@ -85,6 +85,8 @@
 #include "Window.h"
 #include "AboutDialog.h"
 
+#include "LuaMain.h"
+
 using namespace melonDS;
 
 
@@ -427,6 +429,11 @@ MainWindow::MainWindow(int id, EmuInstance* inst, QWidget* parent) :
             actDateTime = menu->addAction("Date and time");
             connect(actDateTime, &QAction::triggered, this, &MainWindow::onOpenDateTime);
 
+            menu->addSeparator();
+            
+            actLuaScript = menu->addAction("Lua Script");
+            connect(actLuaScript,&QAction::triggered,this,&MainWindow::onOpenLuaScript);
+            
             menu->addSeparator();
 
             actEnableCheats = menu->addAction("Enable cheats");
@@ -1567,6 +1574,13 @@ void MainWindow::onEjectGBACart()
     updateCartInserted(true);
 }
 
+void MainWindow::onLuaSaveState(const QString& filename)
+{
+    emuThread->emuPause();
+    emuInstance->saveState(filename.toStdString());
+    emuThread->emuUnpause();
+}
+
 void MainWindow::onSaveState()
 {
     int slot = ((QAction*)sender())->data().toInt();
@@ -1600,6 +1614,13 @@ void MainWindow::onSaveState()
     {
         emuInstance->osdAddMessage(0xFFA0A0, "State save failed");
     }
+}
+
+void MainWindow::onLuaLoadState(const QString& filename)
+{
+    emuThread->emuPause();
+    emuInstance->loadState(filename.toStdString());
+    emuThread->emuUnpause();
 }
 
 void MainWindow::onLoadState()
@@ -1741,6 +1762,22 @@ void MainWindow::onOpenDateTime()
 void MainWindow::onOpenPowerManagement()
 {
     PowerManagementDialog* dlg = PowerManagementDialog::openDlg(this);
+}
+
+void MainWindow::onOpenLuaScript()
+{
+    if (luaDialog && luaDialog->flagClosed)
+    {
+        delete luaDialog;
+        luaDialog = nullptr;
+    }
+    if (luaDialog)
+        return;
+    luaDialog = new LuaConsoleDialog(this);
+    luaDialog->show();
+    connect(emuThread,&EmuThread::signalLuaUpdate,luaDialog,&LuaConsoleDialog::onLuaUpdate);
+    connect(luaDialog,&LuaConsoleDialog::signalLuaSaveState,this,&MainWindow::onLuaSaveState);
+    connect(luaDialog,&LuaConsoleDialog::signalLuaLoadState,this,&MainWindow::onLuaLoadState);
 }
 
 void MainWindow::onEnableCheats(bool checked)
