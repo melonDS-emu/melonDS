@@ -1022,7 +1022,6 @@ void EmuThread::run()
     // 通常モードの同時押しキャンセルは LUT によってすでに表現されている」
     // snapTapの時は左を押しているときに右を押しても右移動できる。上下も同様。
 
-    /*
     static const auto processMoveInput = [&]() __attribute__((hot, always_inline, flatten)) {
         // SnapTap状態構造体定義(キャッシュライン最適化)
         alignas(64) static struct {
@@ -1122,7 +1121,8 @@ void EmuThread::run()
         mask.setBit(INPUT_RIGHT, !(states & 8));
     };
 
-    */
+    /*
+    // v2
     static const auto processMoveInput = [&]() __attribute__((hot, always_inline, flatten)) {
         // SnapTap状態構造体定義（キャッシュ最適化）
         alignas(64) static struct {
@@ -1204,6 +1204,8 @@ void EmuThread::run()
         mask.setBit(INPUT_LEFT, !(moveBits & 0x4));
         mask.setBit(INPUT_RIGHT, !(moveBits & 0x8));
     };
+    */
+   
     // /processMoveInputFunction }
 
 
