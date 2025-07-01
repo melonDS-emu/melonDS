@@ -1229,7 +1229,7 @@ void EmuThread::run()
         } static aimData = { 0, 0, 0.01f, 1.3333333f, 0.013333333f };
 
         // ドリフト防止のための丸め処理マクロ（関数呼び出しのオーバーヘッドを削減） 推定サイクル数: 4-15サイクル
-// #define AIM_ADJUST(v) ((v) >= 0.5f && (v) < 1.0f ? 1 : ((v) <= -0.5f && (v) > -1.0f ? -1 : static_cast<int16_t>(v)))
+#define AIM_ADJUST(v) ((v) >= 0.5f && (v) < 1.0f ? 1 : ((v) <= -0.5f && (v) > -1.0f ? -1 : static_cast<int16_t>(v)))
 
 
         /*
@@ -1241,7 +1241,8 @@ void EmuThread::run()
     */
 
 
-        //超低サイクル版（ビット演算最適化）
+        //超低サイクル版（ビット演算最適化） 推定サイクル数: 5-7サイクル
+        /*
 #define AIM_ADJUST(v) \
     (static_cast<int16_t>( \
         (v) + \
@@ -1249,6 +1250,7 @@ void EmuThread::run()
           (*(uint32_t*)&(v) & 0x7FFFFFFF) < 0x3F800000) * \
          ((*(uint32_t*)&(v) >> 31) ? -1.0f - (v) : 1.0f - (v))) \
     ))
+    */
         /*
             // 調整関数（マクロ化前までの）
             static const auto adjust = [](float value) __attribute__((hot, always_inline)) -> int16_t {
