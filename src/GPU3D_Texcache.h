@@ -8,8 +8,7 @@
 #include <unordered_map>
 #include <vector>
 
-#define XXH_STATIC_LINKING_ONLY
-#include "xxhash/xxhash.h"
+#include <xxhash.h>
 
 namespace melonDS
 {
