@@ -1,5 +1,5 @@
 /*
-    Copyright 2016-2024 melonDS team, WaluigiWare64
+    Copyright 2016-2025 melonDS team, WaluigiWare64
 
     This file is part of melonDS.
 

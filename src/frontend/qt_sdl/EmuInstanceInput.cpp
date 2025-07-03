@@ -1,5 +1,5 @@
 /*
-    Copyright 2016-2024 melonDS team
+    Copyright 2016-2025 melonDS team
 
     This file is part of melonDS.
 
@@ -19,6 +19,9 @@
 #include <QKeyEvent>
 #include <SDL2/SDL.h>
 
+#include "Platform.h"
+#include "SDL_gamecontroller.h"
+#include "SDL_sensor.h"
 #include "main.h"
 #include "Config.h"
 
@@ -59,7 +62,11 @@ const char* EmuInstance::hotkeyNames[HK_MAX] =
     "HK_VolumeDown",
     "HK_SlowMo",
     "HK_FastForwardToggle",
-    "HK_SlowMoToggle"
+    "HK_SlowMoToggle",
+    "HK_GuitarGripGreen",
+    "HK_GuitarGripRed",
+    "HK_GuitarGripYellow",
+    "HK_GuitarGripBlue"
 };
 
 
@@ -81,6 +88,8 @@ void EmuInstance::inputInit()
     joystick = nullptr;
     controller = nullptr;
     hasRumble = false;
+    hasAccelerometer = false;
+    hasGyroscope = false;
     isRumbling = false;
     inputLoadConfig();
 }
@@ -128,6 +137,48 @@ void EmuInstance::inputRumbleStop()
     }
 }
 
+float EmuInstance::inputMotionQuery(melonDS::Platform::MotionQueryType type)
+{
+    float values[3];
+    if (type <= melonDS::Platform::MotionAccelerationZ)
+    {
+        if (controller && hasAccelerometer)
+            if (SDL_GameControllerGetSensorData(controller, SDL_SENSOR_ACCEL, values, 3) == 0)
+            {
+                // Map values from DS console orientation to SDL controller orientation.
+                switch (type)
+                {
+                case melonDS::Platform::MotionAccelerationX:
+                    return values[0];
+                case melonDS::Platform::MotionAccelerationY:
+                    return -values[2];
+                case melonDS::Platform::MotionAccelerationZ:
+                    return values[1];
+                }
+            }
+    }
+    else if (type <= melonDS::Platform::MotionRotationZ)
+    {
+        if (controller && hasGyroscope)
+            if (SDL_GameControllerGetSensorData(controller, SDL_SENSOR_GYRO, values, 3) == 0)
+            {
+                // Map values from DS console orientation to SDL controller orientation.
+                switch (type)
+                {
+                case melonDS::Platform::MotionRotationX:
+                    return values[0];
+                case melonDS::Platform::MotionRotationY:
+                    return -values[2];
+                case melonDS::Platform::MotionRotationZ:
+                    return values[1];
+                }
+            }
+    }
+    if (type == melonDS::Platform::MotionAccelerationZ)
+        return SDL_STANDARD_GRAVITY;
+    return 0.0f;
+}
+
 
 void EmuInstance::setJoystick(int id)
 {
@@ -147,6 +198,8 @@ void EmuInstance::openJoystick()
 	controller = nullptr;
         joystick = nullptr;
 	hasRumble = false;
+    hasAccelerometer = false;
+    hasGyroscope = false;
         return;
     }
 
@@ -163,9 +216,17 @@ void EmuInstance::openJoystick()
     if (controller)
     {
 	if (SDL_GameControllerHasRumble(controller))
-	{
+    {
 	    hasRumble = true;
-	}
+    }
+	if (SDL_GameControllerHasSensor(controller, SDL_SENSOR_ACCEL))
+    {
+	    hasAccelerometer = SDL_GameControllerSetSensorEnabled(controller, SDL_SENSOR_ACCEL, SDL_TRUE) == 0;
+    }
+	if (SDL_GameControllerHasSensor(controller, SDL_SENSOR_GYRO))
+    {
+	    hasGyroscope = SDL_GameControllerSetSensorEnabled(controller, SDL_SENSOR_GYRO, SDL_TRUE) == 0;
+    }
     }
 }
 
@@ -176,8 +237,9 @@ void EmuInstance::closeJoystick()
 	SDL_GameControllerClose(controller);
 	controller = nullptr;
 	hasRumble = false;
+    hasAccelerometer = false;
+    hasGyroscope = false;
     }
-
     if (joystick)
     {
         SDL_JoystickClose(joystick);

@@ -1,5 +1,5 @@
 /*
-    Copyright 2016-2024 melonDS team
+    Copyright 2016-2025 melonDS team
 
     This file is part of melonDS.
 
@@ -124,6 +124,7 @@ public:
     void deinitOpenGL();
     void setGLSwapInterval(int intv);
     void makeCurrentGL();
+    void releaseGL();
     void drawScreenGL();
 
     bool preloadROMs(QStringList file, QStringList gbafile, bool boot);

@@ -1,5 +1,5 @@
 /*
-    Copyright 2016-2024 melonDS team
+    Copyright 2016-2025 melonDS team
 
     This file is part of melonDS.
 
@@ -546,6 +546,26 @@ void NDS::Reset()
 void NDS::Start()
 {
     Running = true;
+
+    if (ConsoleType != 0)
+        return;
+
+    auto* ndscart = NDSCartSlot.GetCart();
+    if (!ndscart)
+        return;
+
+    if (auto* cart = GBACartSlot.GetCart(); cart && cart->Type() == GBACart::CartType::GameSolarSensor)
+    { // If we have a solar sensor cart inserted...
+        auto& solarcart = *static_cast<GBACart::CartGameSolarSensor*>(cart);
+        GBACart::GBAHeader& header = solarcart.GetHeader();
+        if (strncmp(header.Title, GBACart::BOKTAI_STUB_TITLE, sizeof(header.Title)) == 0) {
+            // If this is a stub Boktai cart (so we can use the sensor without a full ROM)...
+
+            // ...then copy the Nintendo logo data from the NDS ROM into the stub GBA ROM.
+            // Otherwise, the GBA cart won't be recognized.
+            memcpy(header.NintendoLogo, ndscart->GetHeader().NintendoLogo, sizeof(header.NintendoLogo));
+        }
+    }
 }
 
 static const char* StopReasonName(Platform::StopReason reason)

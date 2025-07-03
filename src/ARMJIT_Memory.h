@@ -1,5 +1,5 @@
 /*
-    Copyright 2016-2024 melonDS team
+    Copyright 2016-2025 melonDS team
 
     This file is part of melonDS.
 
@@ -29,7 +29,8 @@
 #  if defined(__SWITCH__)
 #    include <switch.h>
 #  elif defined(_WIN32)
-#include <windows.h>
+#    include <vector>
+#    include <windows.h>
 #  else
 #    include <sys/mman.h>
 #    include <sys/stat.h>

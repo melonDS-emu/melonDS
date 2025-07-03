@@ -1,5 +1,5 @@
 /*
-    Copyright 2016-2024 melonDS team
+    Copyright 2016-2025 melonDS team
 
     This file is part of melonDS.
 
@@ -215,6 +215,15 @@ enum
 {
     GBAAddon_RAMExpansion = 1,
     GBAAddon_RumblePak = 2,
+    // Each game in the GBA Boktai trilogy uses the same solar sensor,
+    // but Lunar Knights (the only NDS game to use the solar sensor)
+    // applies slightly different effects depending on the game.
+    GBAAddon_SolarSensorBoktai1 = 3,
+    GBAAddon_SolarSensorBoktai2 = 4,
+    GBAAddon_SolarSensorBoktai3 = 5,
+    GBAAddon_MotionPakHomebrew = 6,
+    GBAAddon_MotionPakRetail = 7,
+    GBAAddon_GuitarGrip = 8,
 };
 
 class SPU;

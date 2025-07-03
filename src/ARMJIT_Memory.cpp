@@ -1,5 +1,5 @@
 /*
-    Copyright 2016-2024 melonDS team
+    Copyright 2016-2025 melonDS team
 
     This file is part of melonDS.
 
@@ -753,7 +753,7 @@ bool ARMJIT_Memory::IsFastMemSupported()
 
         PageSize = RegularPageSize;
 #else
-        PageSize = __sysconf(_SC_PAGESIZE);
+        PageSize = sysconf(_SC_PAGESIZE);
         isSupported = PageSize == RegularPageSize || PageSize == LargePageSize;
 #endif
         PageShift = __builtin_ctz(PageSize);

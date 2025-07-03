@@ -1,5 +1,5 @@
 /*
-    Copyright 2016-2024 melonDS team
+    Copyright 2016-2025 melonDS team
 
     This file is part of melonDS.
 
@@ -128,6 +128,7 @@ void DSi_CamModule::TransferScanline(u32 line)
 
     u32 tmpbuf[512];
     int datalen = CurCamera->TransferScanline(tmpbuf, 512);
+    u32 numscan;
 
     // TODO: must be tweaked such that each block has enough time to transfer
     u32 delay = datalen*4 + 16;
@@ -142,12 +143,7 @@ void DSi_CamModule::TransferScanline(u32 line)
         int ystart = (CropStart >> 16) & 0x1FF;
         int yend = (CropEnd >> 16) & 0x1FF;
         if (line < ystart || line > yend)
-        {
-            if (!CurCamera->TransferDone())
-                DSi.ScheduleEvent(Event_DSi_CamTransfer, false, delay, 0, line+1);
-
-            return;
-        }
+            goto skip_line;
 
         int xstart = (CropStart >> 1) & 0x1FF;
         int xend = (CropEnd >> 1) & 0x1FF;
@@ -206,7 +202,7 @@ void DSi_CamModule::TransferScanline(u32 line)
         memcpy(dstbuf, &tmpbuf[copystart], copylen*sizeof(u32));
     }
 
-    u32 numscan = Cnt & 0x000F;
+    numscan = Cnt & 0x000F;
     if (BufferNumLines >= numscan)
     {
         BufferReadPos = 0; // checkme
@@ -221,8 +217,21 @@ void DSi_CamModule::TransferScanline(u32 line)
         BufferNumLines++;
     }
 
+skip_line:
     if (CurCamera->TransferDone())
+    {
+        // when the frame is finished, transfer any remaining data if needed
+        // (if the frame height isn't a multiple of the DMA interval)
+        if (BufferNumLines > 0)
+        {
+            BufferReadPos = 0;
+            BufferWritePos = 0;
+            BufferNumLines = 0;
+            DSi.CheckNDMAs(0, 0x0B);
+        }
+
         return;
+    }
 
     DSi.ScheduleEvent(Event_DSi_CamTransfer, false, delay, 0, line+1);
 }
