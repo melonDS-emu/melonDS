@@ -44,7 +44,7 @@ public:
     bool TransferDone() const;
 
     // lengths in words
-    int TransferScanline(u32* buffer, int maxlen);
+    int TransferScanline(u32* buffer, int maxlen, int& nlines);
 
     void Acquire() override;
     u8 Read(bool last) override;
@@ -77,6 +77,7 @@ private:
 
     u16 FrameWidth, FrameHeight;
     u16 FrameReadMode, FrameFormat;
+    int InternalY;
     int TransferY;
     u32 FrameBuffer[640*480/2]; // YUYV framebuffer, two pixels per word
 };
@@ -124,6 +125,7 @@ private:
     DSi_Camera* CurCamera;
 
     static const u32 kIRQInterval;
+    static const u32 kScanlineTime;
     static const u32 kTransferStart;
 };
 

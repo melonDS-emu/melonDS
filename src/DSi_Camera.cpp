@@ -34,8 +34,11 @@ using Platform::LogLevel;
 // namely, how long cameras take to process frames
 // camera IRQ is fired at roughly 15FPS with default config
 
-const u32 DSi_CamModule::kIRQInterval = 1120000; // ~30 FPS
-const u32 DSi_CamModule::kTransferStart = 60000;
+// camera IRQ marks camera VBlank
+// each scanline takes roughly 3173 cycles
+const u32 DSi_CamModule::kIRQInterval = 2234248; // ~15 FPS
+const u32 DSi_CamModule::kScanlineTime = 3173;
+const u32 DSi_CamModule::kTransferStart = DSi_CamModule::kIRQInterval - (DSi_CamModule::kScanlineTime * 480);
 
 
 DSi_CamModule::DSi_CamModule(melonDS::DSi& dsi) : DSi(dsi)
@@ -127,11 +130,11 @@ void DSi_CamModule::TransferScanline(u32 line)
     int maxlen = 512 - BufferWritePos;
 
     u32 tmpbuf[512];
-    int datalen = CurCamera->TransferScanline(tmpbuf, 512);
+    int lines_next;
+    int datalen = CurCamera->TransferScanline(tmpbuf, 512, lines_next);
     u32 numscan;
 
-    // TODO: must be tweaked such that each block has enough time to transfer
-    u32 delay = datalen*4 + 16;
+    u32 delay = lines_next * kScanlineTime;
 
     int copystart = 0;
     int copylen = datalen;
@@ -438,6 +441,7 @@ void DSi_Camera::Reset()
     // default state is preview mode (checkme)
     MCURegs[0x2104] = 3;
 
+    InternalY = 0;
     TransferY = 0;
     memset(FrameBuffer, 0, (640*480/2)*sizeof(u32));
 }
@@ -458,6 +462,7 @@ bool DSi_Camera::IsActivated() const
 
 void DSi_Camera::StartTransfer()
 {
+    InternalY = 0;
     TransferY = 0;
 
     u8 state = MCURegs[0x2104];
@@ -491,9 +496,11 @@ bool DSi_Camera::TransferDone() const
     return TransferY >= FrameHeight;
 }
 
-int DSi_Camera::TransferScanline(u32* buffer, int maxlen)
+int DSi_Camera::TransferScanline(u32* buffer, int maxlen, int& nlines)
 {
-    if (TransferY >= FrameHeight)
+    nlines = 0;
+
+    if ((TransferY >= FrameHeight) || (InternalY >= 480))
         return 0;
 
     if (FrameWidth > 640 || FrameHeight > 480 ||
@@ -509,7 +516,7 @@ int DSi_Camera::TransferScanline(u32* buffer, int maxlen)
     // TODO: non-YUV pixel formats and all
 
     int retlen = FrameWidth >> 1;
-    int sy = (TransferY * 480) / FrameHeight;
+    int sy = InternalY;
     if (FrameReadMode & (1<<1))
         sy = 479 - sy;
 
@@ -538,7 +545,15 @@ int DSi_Camera::TransferScanline(u32* buffer, int maxlen)
         }
     }
 
-    TransferY++;
+    // determine how many scanlines we're skipping until the next scanline
+    int oldy = TransferY;
+    do
+    {
+        InternalY++;
+        TransferY = (InternalY * FrameHeight) / 480;
+        nlines++;
+    }
+    while ((TransferY == oldy) && (InternalY < 480));
 
     return retlen;
 }
