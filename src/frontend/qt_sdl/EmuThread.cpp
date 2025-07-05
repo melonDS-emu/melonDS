@@ -814,7 +814,7 @@ void EmuThread::run()
         };
 
     // よく使う2フレーム進めるマクロを定義
-#define FRAME_ADVANCE_2 do { frameAdvanceOnce(); frameAdvanceOnce(); } while(0) // 補足：なぜ do { ... } while(0) を使うのか？ これは安全なマクロの基本形であり、if文などの中でブロックとして扱えるようにするためです
+#define FRAME_ADVANCE_2 do { frameAdvanceOnce(); frameAdvanceOnce(); } while(0) // 補足：なぜ do { ... } while(0) を使うのか？ これは安全なマクロの基本形であり、if文などの中でブロックとして扱えるようにするため
 
     */
 
@@ -874,8 +874,14 @@ void EmuThread::run()
 #define INPUT_X 10
 #define INPUT_Y 11
 
+/*
 #define FN_INPUT_PRESS(i) emuInstance->inputMask.setBit(i, false) // ここでは末尾にセミコロンは不要
 #define FN_INPUT_RELEASE(i) emuInstance->inputMask.setBit(i, true) // ここでは末尾にセミコロンは不要
+*/
+// 最適化されたマクロ定義 - setBit()を使わずに直接ビット操作
+#define FN_INPUT_PRESS(i) emuInstance->inputMask[i] = false   // 直接代入でプレス
+#define FN_INPUT_RELEASE(i) emuInstance->inputMask[i] = true  // 直接代入でリリース
+
 
     uint8_t playerPosition;
     const uint16_t playerAddressIncrement = 0xF30;
@@ -1055,10 +1061,18 @@ void EmuThread::run()
         };
 
         // 超高速入力取得 - 現代コンパイラが自動最適化
-        const uint32_t f = emuInstance->hotkeyDown(HK_MetroidMoveForward);
-        const uint32_t b = emuInstance->hotkeyDown(HK_MetroidMoveBack);
-        const uint32_t l = emuInstance->hotkeyDown(HK_MetroidMoveLeft);
-        const uint32_t r = emuInstance->hotkeyDown(HK_MetroidMoveRight);
+
+        //const uint32_t f = emuInstance->hotkeyDown(HK_MetroidMoveForward);
+        //const uint32_t b = emuInstance->hotkeyDown(HK_MetroidMoveBack);
+        //const uint32_t l = emuInstance->hotkeyDown(HK_MetroidMoveLeft);
+        //const uint32_t r = emuInstance->hotkeyDown(HK_MetroidMoveRight);
+
+        // hotkeyDown()を使わず直接QBitArrayにアクセス
+        const auto& hotkeyMask = emuInstance->hotkeyMask;
+        const uint32_t f = hotkeyMask[HK_MetroidMoveForward];
+        const uint32_t b = hotkeyMask[HK_MetroidMoveBack];
+        const uint32_t l = hotkeyMask[HK_MetroidMoveLeft];
+        const uint32_t r = hotkeyMask[HK_MetroidMoveRight];
 
         // 入力ビットマップ生成 - 並列実行最適化
         const uint32_t curr = f | (b << 1) | (l << 2) | (r << 3);
@@ -1109,20 +1123,37 @@ void EmuThread::run()
         }
 
         // 究極の入力適用 - コンパイラ自動最適化
-        const uint8_t states = finalState;
+        // const uint8_t states = finalState;
+
+        // 最適化：1回の否定演算で全ビットを反転
+        const uint8_t invStates = ~finalState;
 
         // QBitArray超高速更新 - ループ展開 + 最適化
         auto& mask = emuInstance->inputMask;
 
         // 並列実行可能な独立した操作
-        mask.setBit(INPUT_UP, !(states & 1));
-        mask.setBit(INPUT_DOWN, !(states & 2));
-        mask.setBit(INPUT_LEFT, !(states & 4));
-        mask.setBit(INPUT_RIGHT, !(states & 8));
+
+        //mask.setBit(INPUT_UP, !(states & 1));
+        //mask.setBit(INPUT_DOWN, !(states & 2));
+        //mask.setBit(INPUT_LEFT, !(states & 4));
+        //mask.setBit(INPUT_RIGHT, !(states & 8));
+
+        // 直接operator[]を使用して最適化（setBit()を回避）
+        //mask[INPUT_UP] = !(states & 1);
+        //mask[INPUT_DOWN] = !(states & 2);
+        //mask[INPUT_LEFT] = !(states & 4);
+        //mask[INPUT_RIGHT] = !(states & 8);
+
+        // ビット演算削減：!(states & mask) → (invStates & mask)
+        // 4回の否定演算が1回に削減される
+        mask[INPUT_UP] = invStates & 1;      // UP: inverted bit 0 -> INPUT_UP (6)
+        mask[INPUT_DOWN] = invStates & 2;    // DOWN: inverted bit 1 -> INPUT_DOWN (7)  
+        mask[INPUT_LEFT] = invStates & 4;    // LEFT: inverted bit 2 -> INPUT_LEFT (5)
+        mask[INPUT_RIGHT] = invStates & 8;   // RIGHT: inverted bit 3 -> INPUT_RIGHT (4)
     };
 
     /*
-    // v2
+    // v2 needless
     static const auto processMoveInput = [&]() __attribute__((hot, always_inline, flatten)) {
         // SnapTap状態構造体定義（キャッシュ最適化）
         alignas(64) static struct {
@@ -1252,13 +1283,26 @@ void EmuThread::run()
     ))
     */
         /*
-            // 調整関数（マクロ化前までの）
+            // 調整関数（マクロ化前までの） 10-20サイクル
             static const auto adjust = [](float value) __attribute__((hot, always_inline)) -> int16_t {
                 if (value >= 0.5f && value < 1.0f) return static_cast<int16_t>(1.0f);
                 if (value <= -0.5f && value > -1.0f) return static_cast<int16_t>(-1.0f);
                 return static_cast<int16_t>(value);  // 切り捨て(0方向への丸め)
             };
         */
+        // 6. ビット操作極限版 - 推定サイクル数: 2-3サイクル
+// 浮動小数点数のビット表現を直接操作
+/*
+#define AIM_ADJUST(v) ({ \
+    union { float f; uint32_t i; } u = {v}; \
+    uint32_t abs_bits = u.i & 0x7FFFFFFF; \
+    uint32_t sign = u.i >> 31; \
+    int16_t result = static_cast<int16_t>(v); \
+    result += ((abs_bits >= 0x3F000000 && abs_bits < 0x3F800000) * \
+               (sign ? -1 - result : 1 - result)); \
+    result; \
+})
+*/
 
 // ホットパス：フォーカスがありレイアウト変更もない場合
         if (__builtin_expect(!isLayoutChangePending && wasLastFrameFocused, 1)) {
