@@ -889,8 +889,8 @@ void EmuThread::run()
 #define FN_INPUT_RELEASE(i) emuInstance->inputMask.setBit(i, true) // ここでは末尾にセミコロンは不要
 */
 // 最適化されたマクロ定義 - setBit()を使わずに直接ビット操作
-#define FN_INPUT_PRESS(i) inputMask[i] = false   // 直接代入でプレス
-#define FN_INPUT_RELEASE(i) inputMask[i] = true  // 直接代入でリリース
+#define FN_INPUT_PRESS(i) emuInstance->inputMask[i] = false   // 直接代入でプレス
+#define FN_INPUT_RELEASE(i) emuInstance->inputMask[i] = true  // 直接代入でリリース
 
 
     uint8_t playerPosition;
@@ -1584,22 +1584,18 @@ void EmuThread::run()
                     // Move hunter
                     processMoveInput();
 
-                    const auto& hotkeyMask = emuInstance->hotkeyMask; // 読み取り専用 → const
-                    auto& inputMask = emuInstance->inputMask;  // 書き込みあり → non-const
-
                     // Shoot
-                    const bool shootPressed = hotkeyMask[HK_MetroidShootScan] || hotkeyMask[HK_MetroidScanShoot];
-                    inputMask[INPUT_L] = !shootPressed;
+                    const bool shootPressed = emuInstance->hotkeyMask[HK_MetroidShootScan] || emuInstance->hotkeyMask[HK_MetroidScanShoot];
+                    emuInstance->inputMask[INPUT_L] = !shootPressed;
 
                     // Zoom, map zoom out
-                    inputMask[INPUT_R] = !hotkeyMask[HK_MetroidZoom];
+                    emuInstance->inputMask[INPUT_R] = !emuInstance->hotkeyMask[HK_MetroidZoom];
 
                     // Jump
-                    inputMask[INPUT_B] = !hotkeyMask[HK_MetroidJump];
+                    emuInstance->inputMask[INPUT_B] = !emuInstance->hotkeyMask[HK_MetroidJump];
 
                     // Alt-form
-                    const auto& hotkeyPress = emuInstance->hotkeyPress;
-                    if (hotkeyPress[HK_MetroidMorphBall]) {
+                    if (emuInstance->hotkeyPress[HK_MetroidMorphBall]) {
                         emuInstance->nds->ReleaseScreen();
                         frameAdvanceTwice();
                         emuInstance->nds->TouchScreen(231, 167);
@@ -1642,7 +1638,7 @@ void EmuThread::run()
                             uint32_t states = 0;
                             for (size_t i = 0; i < 9; ++i) {
                                 // if (emuInstance->hotkeyPressed(HOTKEY_MAP[i].hotkey)) {
-                                if (hotkeyPress[HOTKEY_MAP[i].hotkey]) {
+                                if (emuInstance->hotkeyPress[HOTKEY_MAP[i].hotkey]) {
                                         states |= (1u << i);
                                 }
                             }
@@ -1735,8 +1731,8 @@ void EmuThread::run()
                         // Lambda: Process wheel and navigation keys
                         static const auto processWheelInput = [&]() -> bool {
                             const int wheelDelta = emuInstance->getMainWindow()->panel->getDelta();
-                            const bool nextKey = hotkeyPress[HK_MetroidWeaponNext];
-                            const bool prevKey = hotkeyPress[HK_MetroidWeaponPrevious];
+                            const bool nextKey = emuInstance->hotkeyPress[HK_MetroidWeaponNext];
+                            const bool prevKey = emuInstance->hotkeyPress[HK_MetroidWeaponPrevious];
 
                             if (!wheelDelta && !nextKey && !prevKey) return false;
 
@@ -1808,7 +1804,7 @@ void EmuThread::run()
 
                     // Morph ball boost
                     // INFO この関数を仕様していないときはマウスによるブーストは１回しかできない。　これはエイムのために常にタッチ状態でリリースをしないのが原因。どうしようもない。
-                    if (isSamus && hotkeyMask[HK_MetroidHoldMorphBallBoost])
+                    if (isSamus && emuInstance->hotkeyMask[HK_MetroidHoldMorphBallBoost])
                     {
                         isAltForm = emuInstance->nds->ARM9Read8(isAltFormAddr) == 0x02;
                         if (isAltForm) {
@@ -1825,7 +1821,7 @@ void EmuThread::run()
                             emuInstance->nds->ReleaseScreen();
 
                             const bool shouldBoost = !isBoosting && isBoostGaugeEnough;
-                            inputMask[INPUT_R] = shouldBoost;  // boost時はtrue(RELEASE), charge時はfalse(PRESS)
+                            emuInstance->inputMask[INPUT_R] = shouldBoost;  // boost時はtrue(RELEASE), charge時はfalse(PRESS)
 
                             if (isBoosting) {
                                 // touch again for aiming
@@ -1848,7 +1844,7 @@ void EmuThread::run()
                         isPaused = emuInstance->nds->ARM9Read8(isMapOrUserActionPausedAddr) == 0x1;
 
                         // Scan Visor
-                        if (hotkeyPress[HK_MetroidScanVisor]) {
+                        if (emuInstance->hotkeyPress[HK_MetroidScanVisor]) {
                             emuInstance->nds->ReleaseScreen();
                             frameAdvanceTwice();
 
@@ -1877,7 +1873,7 @@ void EmuThread::run()
                         }
 
                         // OK (in scans and messages)
-                        if (hotkeyPress[HK_MetroidUIOk]) {
+                        if (emuInstance->hotkeyPress[HK_MetroidUIOk]) {
                             emuInstance->nds->ReleaseScreen();
                             frameAdvanceTwice();
                             emuInstance->nds->TouchScreen(128, 142);
@@ -1885,7 +1881,7 @@ void EmuThread::run()
                         }
 
                         // Left arrow (in scans and messages)
-                        if (hotkeyPress[HK_MetroidUILeft]) {
+                        if (emuInstance->hotkeyPress[HK_MetroidUILeft]) {
                             emuInstance->nds->ReleaseScreen();
                             frameAdvanceTwice();
                             emuInstance->nds->TouchScreen(71, 141);
@@ -1893,7 +1889,7 @@ void EmuThread::run()
                         }
 
                         // Right arrow (in scans and messages)
-                        if (hotkeyPress[HK_MetroidUIRight]) {
+                        if (emuInstance->hotkeyPress[HK_MetroidUIRight]) {
                             emuInstance->nds->ReleaseScreen();
                             frameAdvanceTwice();
                             emuInstance->nds->TouchScreen(185, 141); // optimization ?
@@ -1901,7 +1897,7 @@ void EmuThread::run()
                         }
 
                         // Enter to Starship
-                        if (hotkeyPress[HK_MetroidUIYes]) {
+                        if (emuInstance->hotkeyPress[HK_MetroidUIYes]) {
                             emuInstance->nds->ReleaseScreen();
                             frameAdvanceTwice();
                             emuInstance->nds->TouchScreen(96, 142);
@@ -1909,7 +1905,7 @@ void EmuThread::run()
                         }
 
                         // No Enter to Starship
-                        if (hotkeyPress[HK_MetroidUINo]) {
+                        if (emuInstance->hotkeyPress[HK_MetroidUINo]) {
                             emuInstance->nds->ReleaseScreen();
                             frameAdvanceTwice();
                             emuInstance->nds->TouchScreen(160, 142);
@@ -1952,13 +1948,10 @@ void EmuThread::run()
                         updateRenderer();
                     }
 
-                    const auto& hotkeyPress = emuInstance->hotkeyPress;
-                    auto& inputMask = emuInstance->inputMask;  // 書き込みあり → non-const
-
                     // L For Hunter License
-                    inputMask[INPUT_L] = !hotkeyPress[HK_MetroidUILeft];
+                    emuInstance->inputMask[INPUT_L] = !emuInstance->hotkeyPress[HK_MetroidUILeft];
                     // R For Hunter License
-                    inputMask[INPUT_R] = !hotkeyPress[HK_MetroidUIRight];
+                    emuInstance->inputMask[INPUT_R] = !emuInstance->hotkeyPress[HK_MetroidUIRight];
 
                 }
 
@@ -1981,7 +1974,6 @@ void EmuThread::run()
                 }
 
                 // Start / View Match progress, points / Map(Adventure)
-                // TODO emuInstance->hotkeyMask,inputMask を hotkeyMask,inputMask単体に
                 emuInstance->inputMask[INPUT_START] = !emuInstance->hotkeyMask[HK_MetroidMenu];
 
 
