@@ -889,8 +889,8 @@ void EmuThread::run()
 #define FN_INPUT_RELEASE(i) emuInstance->inputMask.setBit(i, true) // ここでは末尾にセミコロンは不要
 */
 // 最適化されたマクロ定義 - setBit()を使わずに直接ビット操作
-#define FN_INPUT_PRESS(i) emuInstance->inputMask[i] = false   // 直接代入でプレス
-#define FN_INPUT_RELEASE(i) emuInstance->inputMask[i] = true  // 直接代入でリリース
+#define FN_INPUT_PRESS(i) inputMask[i] = false   // 直接代入でプレス
+#define FN_INPUT_RELEASE(i) inputMask[i] = true  // 直接代入でリリース
 
 
     uint8_t playerPosition;
@@ -1584,17 +1584,18 @@ void EmuThread::run()
                     // Move hunter
                     processMoveInput();
 
-                    const auto& hotkeyMask = emuInstance->hotkeyMask;
+                    const auto& hotkeyMask = emuInstance->hotkeyMask; // 読み取り専用 → const
+                    auto& inputMask = emuInstance->inputMask;  // 書き込みあり → non-const
 
                     // Shoot
                     const bool shootPressed = hotkeyMask[HK_MetroidShootScan] || hotkeyMask[HK_MetroidScanShoot];
-                    emuInstance->inputMask[INPUT_L] = !shootPressed;
+                    inputMask[INPUT_L] = !shootPressed;
 
                     // Zoom, map zoom out
-                    emuInstance->inputMask[INPUT_R] = !hotkeyMask[HK_MetroidZoom];
+                    inputMask[INPUT_R] = !hotkeyMask[HK_MetroidZoom];
 
                     // Jump
-                    emuInstance->inputMask[INPUT_B] = !hotkeyMask[HK_MetroidJump];
+                    inputMask[INPUT_B] = !hotkeyMask[HK_MetroidJump];
 
                     // Alt-form
                     const auto& hotkeyPress = emuInstance->hotkeyPress;
@@ -1824,7 +1825,7 @@ void EmuThread::run()
                             emuInstance->nds->ReleaseScreen();
 
                             const bool shouldBoost = !isBoosting && isBoostGaugeEnough;
-                            emuInstance->inputMask[INPUT_R] = shouldBoost;  // boost時はtrue(RELEASE), charge時はfalse(PRESS)
+                            inputMask[INPUT_R] = shouldBoost;  // boost時はtrue(RELEASE), charge時はfalse(PRESS)
 
                             if (isBoosting) {
                                 // touch again for aiming
@@ -1952,10 +1953,12 @@ void EmuThread::run()
                     }
 
                     const auto& hotkeyPress = emuInstance->hotkeyPress;
+                    auto& inputMask = emuInstance->inputMask;  // 書き込みあり → non-const
+
                     // L For Hunter License
-                    emuInstance->inputMask[INPUT_L] = !hotkeyPress[HK_MetroidUILeft];
+                    inputMask[INPUT_L] = !hotkeyPress[HK_MetroidUILeft];
                     // R For Hunter License
-                    emuInstance->inputMask[INPUT_R] = !hotkeyPress[HK_MetroidUIRight];
+                    inputMask[INPUT_R] = !hotkeyPress[HK_MetroidUIRight];
 
                 }
 
@@ -1978,7 +1981,7 @@ void EmuThread::run()
                 }
 
                 // Start / View Match progress, points / Map(Adventure)
-                // TODO emuInstance->hotkeyMask を hotkeyMask単体に
+                // TODO emuInstance->hotkeyMask,inputMask を hotkeyMask,inputMask単体に
                 emuInstance->inputMask[INPUT_START] = !emuInstance->hotkeyMask[HK_MetroidMenu];
 
 
