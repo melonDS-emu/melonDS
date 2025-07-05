@@ -1467,9 +1467,6 @@ void EmuThread::run()
 
         };
 
-    const auto& hotkeyMask = emuInstance->hotkeyMask;
-    const auto& hotkeyPress = emuInstance->hotkeyPress;
-
     while (emuStatus != emuStatus_Exit) {
 
         // MelonPrimeDS Functions START
@@ -1587,6 +1584,8 @@ void EmuThread::run()
                     // Move hunter
                     processMoveInput();
 
+                    const auto& hotkeyMask = emuInstance->hotkeyMask;
+
                     // Shoot
                     const bool shootPressed = hotkeyMask[HK_MetroidShootScan] || hotkeyMask[HK_MetroidScanShoot];
                     emuInstance->inputMask[INPUT_L] = !shootPressed;
@@ -1598,6 +1597,7 @@ void EmuThread::run()
                     emuInstance->inputMask[INPUT_B] = !hotkeyMask[HK_MetroidJump];
 
                     // Alt-form
+                    const auto& hotkeyPress = emuInstance->hotkeyPress;
                     if (hotkeyPress[HK_MetroidMorphBall]) {
                         emuInstance->nds->ReleaseScreen();
                         frameAdvanceTwice();
@@ -1951,6 +1951,7 @@ void EmuThread::run()
                         updateRenderer();
                     }
 
+                    const auto& hotkeyPress = emuInstance->hotkeyPress;
                     // L For Hunter License
                     emuInstance->inputMask[INPUT_L] = !hotkeyPress[HK_MetroidUILeft];
                     // R For Hunter License
@@ -1977,7 +1978,8 @@ void EmuThread::run()
                 }
 
                 // Start / View Match progress, points / Map(Adventure)
-                emuInstance->inputMask[INPUT_START] = !hotkeyMask[HK_MetroidMenu];
+                // TODO emuInstance->hotkeyMask を hotkeyMask単体に
+                emuInstance->inputMask[INPUT_START] = !emuInstance->hotkeyMask[HK_MetroidMenu];
 
 
             }// END of if(isFocused)
