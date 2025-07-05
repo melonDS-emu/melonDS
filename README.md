@@ -127,7 +127,6 @@ Downloadable builds were made using GitHub actions
 - Optimized morph ball boosting. Press and hold Shift-key to continue boosting at a higher speed.
    You can still boost with right-click as before, but holding Shift-key will activate faster boosting.
 -  Optimized the process by not loading the adventure function in multiplayer.
-- Detects slow mouse movements, allowing for more precise aiming.
 - Prevents jumping when switching weapons rapidly.
 - Automatically toggles the virtual stylus on or off depending on whether you are in-game.
 - Implemented a key for switching to the last used special weapon or Omega Cannon.
@@ -260,7 +259,6 @@ ninja
 - モーフボールブーストの最適化。Shiftキーを押し続けることで、より高速なブーストを継続できます
    従来通り右クリックでブーストすることもできますが、Shiftキーを押すとより速いブーストが作動します
 - マルチプレイヤーでアドベンチャー機能を読み込まないようにプロセスを最適化
-- ゆっくりとしたマウスの動きを検出し、より正確な照準が可能に
 - 武器の素早い切り替え時にジャンプするのを防止
 - ゲーム内かどうかに応じて、自動的に仮想スタイラスをオン/オフにします
 - 最後に使用した特殊武器またはオメガキャノンに切り替えるキーを実装
