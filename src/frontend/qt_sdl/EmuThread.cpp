@@ -828,7 +828,7 @@ void EmuThread::run()
 
     */
 
-    auto frameAdvanceTwice = [&]() __attribute__((hot, always_inline, flatten)) {
+    static const auto frameAdvanceTwice = [&]() __attribute__((hot, always_inline, flatten)) {
         frameAdvanceOnce();
         frameAdvanceOnce();
     };
