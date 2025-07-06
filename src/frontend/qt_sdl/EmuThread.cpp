@@ -495,7 +495,7 @@ void EmuThread::run()
                 Config::Save();
 
                 // Display message using format string instead of concatenation
-                emuInstance->osdAddMessage(0, "AimSensi Updated: %d", newSensitivity);
+                emuInstance->osdAddMessage(0, "AimSensi Updated: %d->%d", currentSensitivity, newSensitivity);
 				isSensitivityChangePending = true;  // フラグを立てる
             }
             };
@@ -869,7 +869,7 @@ void EmuThread::run()
         isCursorVisible = show;
         };
 
-// #define STYLUS_MODE 1 // this is for stylus user
+// #define STYLUS_MODE 1 // this is for stylus user. MelonEK
 
 #define INPUT_A 0
 #define INPUT_B 1
@@ -892,6 +892,23 @@ void EmuThread::run()
 #define FN_INPUT_PRESS(i) emuInstance->inputMask[i] = false   // 直接代入でプレス
 #define FN_INPUT_RELEASE(i) emuInstance->inputMask[i] = true  // 直接代入でリリース
 
+    /*
+#define PERFORM_TOUCH(x, y) do { \
+    emuInstance->nds->ReleaseScreen(); \
+    frameAdvanceTwice(); \
+    emuInstance->nds->TouchScreen(x, y); \
+    frameAdvanceTwice(); \
+} while(0)
+*/
+/*
+// 
+    static const auto PERFORM_TOUCH = [&](int x, int y) __attribute__((always_inline)) {
+        emuInstance->nds->ReleaseScreen();
+        frameAdvanceTwice();
+        emuInstance->nds->TouchScreen(x, y);
+        frameAdvanceTwice();
+    };
+    */
 
     uint8_t playerPosition;
     const uint16_t playerAddressIncrement = 0xF30;
