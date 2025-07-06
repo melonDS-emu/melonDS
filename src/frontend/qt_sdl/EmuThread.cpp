@@ -1399,7 +1399,8 @@ void EmuThread::run()
             // Check isMapOrUserActionPaused, for the issue "If you switch weapons while the map is open, the aiming mechanism may become stuck."
             if (isPaused) {
                 return;
-            } else if (emuInstance->nds->ARM9Read8(isInVisorOrMapAddr) == 0x1) {
+            }
+            else if (emuInstance->nds->ARM9Read8(isInVisorOrMapAddr) == 0x1) {
                 // isInVisor
 
                 // Prevent visual glitches during weapon switching in visor mode
@@ -1585,17 +1586,19 @@ void EmuThread::run()
                     processMoveInput();
 
                     // Shoot
-                    const bool shootPressed = emuInstance->hotkeyMask[HK_MetroidShootScan] || emuInstance->hotkeyMask[HK_MetroidScanShoot];
+                    const auto& hotkeyMask = emuInstance->hotkeyMask;
+                    const bool shootPressed = hotkeyMask[HK_MetroidShootScan] || hotkeyMask[HK_MetroidScanShoot];
                     emuInstance->inputMask[INPUT_L] = !shootPressed;
 
                     // Zoom, map zoom out
-                    emuInstance->inputMask[INPUT_R] = !emuInstance->hotkeyMask[HK_MetroidZoom];
+                    emuInstance->inputMask[INPUT_R] = !hotkeyMask[HK_MetroidZoom];
 
                     // Jump
-                    emuInstance->inputMask[INPUT_B] = !emuInstance->hotkeyMask[HK_MetroidJump];
+                    emuInstance->inputMask[INPUT_B] = !hotkeyMask[HK_MetroidJump];
 
                     // Alt-form
-                    if (emuInstance->hotkeyPress[HK_MetroidMorphBall]) {
+                    const auto& hotkeyPress = emuInstance->hotkeyPress;
+                    if (hotkeyPress[HK_MetroidMorphBall]) {
                         emuInstance->nds->ReleaseScreen();
                         frameAdvanceTwice();
                         emuInstance->nds->TouchScreen(231, 167);
@@ -1637,9 +1640,9 @@ void EmuThread::run()
                         static const auto gatherHotkeyStates = [&]() -> uint32_t {
                             uint32_t states = 0;
                             for (size_t i = 0; i < 9; ++i) {
-                                // if (emuInstance->hotkeyPressed(HOTKEY_MAP[i].hotkey)) {
-                                if (emuInstance->hotkeyPress[HOTKEY_MAP[i].hotkey]) {
-                                        states |= (1u << i);
+                                // if (hotkeyPressed(HOTKEY_MAP[i].hotkey)) {
+                                if (hotkeyPress[HOTKEY_MAP[i].hotkey]) {
+                                    states |= (1u << i);
                                 }
                             }
                             return states;
@@ -1731,8 +1734,8 @@ void EmuThread::run()
                         // Lambda: Process wheel and navigation keys
                         static const auto processWheelInput = [&]() -> bool {
                             const int wheelDelta = emuInstance->getMainWindow()->panel->getDelta();
-                            const bool nextKey = emuInstance->hotkeyPress[HK_MetroidWeaponNext];
-                            const bool prevKey = emuInstance->hotkeyPress[HK_MetroidWeaponPrevious];
+                            const bool nextKey = hotkeyPress[HK_MetroidWeaponNext];
+                            const bool prevKey = hotkeyPress[HK_MetroidWeaponPrevious];
 
                             if (!wheelDelta && !nextKey && !prevKey) return false;
 
@@ -1804,7 +1807,7 @@ void EmuThread::run()
 
                     // Morph ball boost
                     // INFO この関数を仕様していないときはマウスによるブーストは１回しかできない。　これはエイムのために常にタッチ状態でリリースをしないのが原因。どうしようもない。
-                    if (isSamus && emuInstance->hotkeyMask[HK_MetroidHoldMorphBallBoost])
+                    if (isSamus && hotkeyMask[HK_MetroidHoldMorphBallBoost])
                     {
                         isAltForm = emuInstance->nds->ARM9Read8(isAltFormAddr) == 0x02;
                         if (isAltForm) {
@@ -1844,7 +1847,7 @@ void EmuThread::run()
                         isPaused = emuInstance->nds->ARM9Read8(isMapOrUserActionPausedAddr) == 0x1;
 
                         // Scan Visor
-                        if (emuInstance->hotkeyPress[HK_MetroidScanVisor]) {
+                        if (hotkeyPress[HK_MetroidScanVisor]) {
                             emuInstance->nds->ReleaseScreen();
                             frameAdvanceTwice();
 
@@ -1873,7 +1876,7 @@ void EmuThread::run()
                         }
 
                         // OK (in scans and messages)
-                        if (emuInstance->hotkeyPress[HK_MetroidUIOk]) {
+                        if (hotkeyPress[HK_MetroidUIOk]) {
                             emuInstance->nds->ReleaseScreen();
                             frameAdvanceTwice();
                             emuInstance->nds->TouchScreen(128, 142);
@@ -1881,7 +1884,7 @@ void EmuThread::run()
                         }
 
                         // Left arrow (in scans and messages)
-                        if (emuInstance->hotkeyPress[HK_MetroidUILeft]) {
+                        if (hotkeyPress[HK_MetroidUILeft]) {
                             emuInstance->nds->ReleaseScreen();
                             frameAdvanceTwice();
                             emuInstance->nds->TouchScreen(71, 141);
@@ -1889,7 +1892,7 @@ void EmuThread::run()
                         }
 
                         // Right arrow (in scans and messages)
-                        if (emuInstance->hotkeyPress[HK_MetroidUIRight]) {
+                        if (hotkeyPress[HK_MetroidUIRight]) {
                             emuInstance->nds->ReleaseScreen();
                             frameAdvanceTwice();
                             emuInstance->nds->TouchScreen(185, 141); // optimization ?
@@ -1897,7 +1900,7 @@ void EmuThread::run()
                         }
 
                         // Enter to Starship
-                        if (emuInstance->hotkeyPress[HK_MetroidUIYes]) {
+                        if (hotkeyPress[HK_MetroidUIYes]) {
                             emuInstance->nds->ReleaseScreen();
                             frameAdvanceTwice();
                             emuInstance->nds->TouchScreen(96, 142);
@@ -1905,7 +1908,7 @@ void EmuThread::run()
                         }
 
                         // No Enter to Starship
-                        if (emuInstance->hotkeyPress[HK_MetroidUINo]) {
+                        if (hotkeyPress[HK_MetroidUINo]) {
                             emuInstance->nds->ReleaseScreen();
                             frameAdvanceTwice();
                             emuInstance->nds->TouchScreen(160, 142);
@@ -1948,10 +1951,11 @@ void EmuThread::run()
                         updateRenderer();
                     }
 
+                    const auto& hotkeyPress = emuInstance->hotkeyPress;
                     // L For Hunter License
-                    emuInstance->inputMask[INPUT_L] = !emuInstance->hotkeyPress[HK_MetroidUILeft];
+                    emuInstance->inputMask[INPUT_L] = !hotkeyPress[HK_MetroidUILeft];
                     // R For Hunter License
-                    emuInstance->inputMask[INPUT_R] = !emuInstance->hotkeyPress[HK_MetroidUIRight];
+                    emuInstance->inputMask[INPUT_R] = !hotkeyPress[HK_MetroidUIRight];
 
                 }
 
@@ -2074,7 +2078,7 @@ void EmuThread::handleMessages()
 
                 // MelonPrimeDS {
                 // applyVideoSettings Immediately when resumed
-                if(isInGame){
+                if (isInGame) {
                     // updateRenderer because of using softwareRenderer when not in Game.
                     videoRenderer = emuInstance->getGlobalConfig().GetInt("3D.Renderer");
                     updateRenderer();
