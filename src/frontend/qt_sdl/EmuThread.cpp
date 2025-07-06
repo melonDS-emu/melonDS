@@ -889,8 +889,8 @@ void EmuThread::run()
 #define FN_INPUT_RELEASE(i) emuInstance->inputMask.setBit(i, true) // ここでは末尾にセミコロンは不要
 */
 // 最適化されたマクロ定義 - setBit()を使わずに直接ビット操作
-#define FN_INPUT_PRESS(i) emuInstance->inputMask[i] = false   // 直接代入でプレス
-#define FN_INPUT_RELEASE(i) emuInstance->inputMask[i] = true  // 直接代入でリリース
+//#define FN_INPUT_PRESS(i) emuInstance->inputMask[i] = false   // 直接代入でプレス
+//#define FN_INPUT_RELEASE(i) emuInstance->inputMask[i] = true  // 直接代入でリリース
 
     /*
 #define PERFORM_TOUCH(x, y) do { \
