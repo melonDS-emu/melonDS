@@ -1586,7 +1586,7 @@ void EmuThread::run()
                     processMoveInput();
 
                     // Shoot
-                    const auto& hotkeyMask = emuInstance->hotkeyMask;
+                    static const auto& hotkeyMask = emuInstance->hotkeyMask;
                     const bool shootPressed = hotkeyMask[HK_MetroidShootScan] || hotkeyMask[HK_MetroidScanShoot];
                     emuInstance->inputMask[INPUT_L] = !shootPressed;
 
@@ -1597,7 +1597,7 @@ void EmuThread::run()
                     emuInstance->inputMask[INPUT_B] = !hotkeyMask[HK_MetroidJump];
 
                     // Alt-form
-                    const auto& hotkeyPress = emuInstance->hotkeyPress;
+                    static const auto& hotkeyPress = emuInstance->hotkeyPress;
                     if (hotkeyPress[HK_MetroidMorphBall]) {
                         emuInstance->nds->ReleaseScreen();
                         frameAdvanceTwice();
