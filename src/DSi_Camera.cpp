@@ -425,7 +425,7 @@ void DSi_CamModule::Write16(u32 addr, u16 val)
 }
 
 void DSi_CamModule::Write32(u32 addr, u32 val)
-{printf("cam write32 %08X %08X\n", addr, val);
+{
     switch (addr)
     {
     case 0x04004210:
