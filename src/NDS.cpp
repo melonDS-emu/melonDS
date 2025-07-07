@@ -1883,7 +1883,7 @@ void NDS::debug(u32 param)
     //for (int i = 0; i < 9; i++)
     //    printf("VRAM %c: %02X\n", 'A'+i, GPU->VRAMCNT[i]);
 
-    Platform::FileHandle* shit = Platform::OpenFile("debug/pokeplat.bin", FileMode::Write);
+    /*Platform::FileHandle* shit = Platform::OpenFile("debug/pokeplat.bin", FileMode::Write);
     Platform::FileWrite(ARM9.ITCM, 0x8000, 1, shit);
     for (u32 i = 0x02000000; i < 0x02400000; i+=4)
     {
@@ -1900,20 +1900,21 @@ void NDS::debug(u32 param)
         u32 val = NDS::ARM7Read32(i);
         Platform::FileWrite(&val, 4, 1, shit);
     }
-    Platform::CloseFile(shit);
+    Platform::CloseFile(shit);*/
 
     /*FILE*
-    shit = fopen("debug/directboot9.bin", "wb");
+    shit = fopen("debug/camera9.bin", "wb");
+    fwrite(ARM9.ITCM, 0x8000, 1, shit);
     for (u32 i = 0x02000000; i < 0x04000000; i+=4)
     {
-        u32 val = DSi::ARM9Read32(i);
+        u32 val = ARM9Read32(i);
         fwrite(&val, 4, 1, shit);
     }
     fclose(shit);
     shit = fopen("debug/camera7.bin", "wb");
     for (u32 i = 0x02000000; i < 0x04000000; i+=4)
     {
-        u32 val = DSi::ARM7Read32(i);
+        u32 val = ARM7Read32(i);
         fwrite(&val, 4, 1, shit);
     }
     fclose(shit);*/

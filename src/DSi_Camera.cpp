@@ -67,12 +67,15 @@ void DSi_CamModule::Reset()
     CropStart = 0;
     CropEnd = 0;
 
-    memset(DataBuffer, 0, 512*sizeof(u32));
-    BufferReadPos = 0;
-    BufferWritePos = 0;
+    Transferring = false;
+
+    memset(PixelBuffer, 0, sizeof(PixelBuffer));
+    CurPixelBuffer = 0;
     BufferNumLines = 0;
     CurCamera = nullptr;
 
+    // TODO: ideally this should be started when a camera is active
+    // instead of just being a constant thing
     DSi.ScheduleEvent(Event_DSi_CamIRQ, false, kIRQInterval, 0, 0);
 }
 
@@ -89,9 +92,30 @@ void DSi_CamModule::DoSavestate(Savestate* file)
     file->Var16(&ModuleCnt);
     file->Var16(&Cnt);
 
-    /*file->VarArray(FrameBuffer, sizeof(FrameBuffer));
-    file->Var32(&TransferPos);
-    file->Var32(&FrameLength);*/
+    file->Var32(&CropStart);
+    file->Var32(&CropEnd);
+
+    file->Bool32(&Transferring);
+
+    file->VarArray(&PixelBuffer[0].Data, 512);
+    file->Var32(&PixelBuffer[0].ReadPos);
+    file->Var32(&PixelBuffer[0].WritePos);
+    file->VarArray(&PixelBuffer[1].Data, 512);
+    file->Var32(&PixelBuffer[1].ReadPos);
+    file->Var32(&PixelBuffer[1].WritePos);
+    file->Var8(&CurPixelBuffer);
+
+    file->Var32(&BufferNumLines);
+
+    if (!file->Saving)
+    {
+        DSi_Camera* activecam = nullptr;
+
+        if      (Camera0->IsActivated()) activecam = Camera0;
+        else if (Camera1->IsActivated()) activecam = Camera1;
+
+        CurCamera = activecam;
+    }
 }
 
 
@@ -111,14 +135,8 @@ void DSi_CamModule::IRQ(u32 param)
         if (Cnt & (1<<11))
             DSi.SetIRQ(0, IRQ_DSi_Camera);
 
-        if (Cnt & (1<<15))
-        {
-            BufferReadPos = 0;
-            BufferWritePos = 0;
-            BufferNumLines = 0;
-            CurCamera = activecam;
-            DSi.ScheduleEvent(Event_DSi_CamTransfer, false, kTransferStart, 0, 0);
-        }
+        CurCamera = activecam;
+        DSi.ScheduleEvent(Event_DSi_CamTransfer, false, kTransferStart, 0, 0);
     }
 
     DSi.ScheduleEvent(Event_DSi_CamIRQ, true, kIRQInterval, 0, 0);
@@ -126,8 +144,21 @@ void DSi_CamModule::IRQ(u32 param)
 
 void DSi_CamModule::TransferScanline(u32 line)
 {
-    u32* dstbuf = &DataBuffer[BufferWritePos];
-    int maxlen = 512 - BufferWritePos;
+    if (line == 0)
+    {
+        if (!(Cnt & (1<<15)))
+            return;
+
+        BufferNumLines = 0;
+        Transferring = true;
+    }
+
+    if (Cnt & (1<<4))
+        return;
+
+    sPixelBuffer* buffer = &PixelBuffer[CurPixelBuffer];
+    u32* dstbuf = &buffer->Data[buffer->WritePos];
+    int maxlen = 512 - buffer->WritePos;
 
     u32 tmpbuf[512];
     int lines_next;
@@ -138,6 +169,7 @@ void DSi_CamModule::TransferScanline(u32 line)
 
     int copystart = 0;
     int copylen = datalen;
+    bool line_last = false;
 
     if (Cnt & (1<<14))
     {
@@ -146,7 +178,10 @@ void DSi_CamModule::TransferScanline(u32 line)
         int ystart = (CropStart >> 16) & 0x1FF;
         int yend = (CropEnd >> 16) & 0x1FF;
         if (line < ystart || line > yend)
+        {
+            if (line == yend+1) line_last = true;
             goto skip_line;
+        }
 
         int xstart = (CropStart >> 1) & 0x1FF;
         int xend = (CropEnd >> 1) & 0x1FF;
@@ -163,7 +198,6 @@ void DSi_CamModule::TransferScanline(u32 line)
     if (copylen > maxlen)
     {
         copylen = maxlen;
-        Cnt |= (1<<4);
     }
 
     if (Cnt & (1<<13))
@@ -205,38 +239,61 @@ void DSi_CamModule::TransferScanline(u32 line)
         memcpy(dstbuf, &tmpbuf[copystart], copylen*sizeof(u32));
     }
 
+    buffer->WritePos += copylen;
+    if (buffer->WritePos > 512) buffer->WritePos = 512;
+
     numscan = Cnt & 0x000F;
     if (BufferNumLines >= numscan)
     {
-        BufferReadPos = 0; // checkme
-        BufferWritePos = 0;
         BufferNumLines = 0;
-        DSi.CheckNDMAs(0, 0x0B);
+        SwapPixelBuffers();
     }
     else
     {
-        BufferWritePos += copylen;
-        if (BufferWritePos > 512) BufferWritePos = 512;
         BufferNumLines++;
     }
 
 skip_line:
-    if (CurCamera->TransferDone())
+    bool done = CurCamera->TransferDone();
+    if (done || line_last)
     {
         // when the frame is finished, transfer any remaining data if needed
         // (if the frame height isn't a multiple of the DMA interval)
         if (BufferNumLines > 0)
         {
-            BufferReadPos = 0;
-            BufferWritePos = 0;
             BufferNumLines = 0;
-            DSi.CheckNDMAs(0, 0x0B);
+            SwapPixelBuffers();
         }
+    }
 
+    if (done)
+    {
+        Transferring = false;
         return;
     }
 
     DSi.ScheduleEvent(Event_DSi_CamTransfer, false, delay, 0, line+1);
+}
+
+void DSi_CamModule::SwapPixelBuffers()
+{
+    // pixel buffers are swapped every time a buffer is filled (ie. when the DMA interval is reached)
+    // the swap fails if the other buffer isn't empty
+
+    sPixelBuffer* otherbuf = &PixelBuffer[CurPixelBuffer ^ 1];
+    if (otherbuf->ReadPos < otherbuf->WritePos)
+    {
+        // overrun
+        Cnt |= (1<<4);
+        Transferring = false;
+    }
+    else
+    {
+        PixelBuffer[CurPixelBuffer].ReadPos = 0;
+        otherbuf->WritePos = 0;
+        CurPixelBuffer ^= 1;
+        DSi.CheckNDMAs(0, 0x0B);
+    }
 }
 
 
@@ -253,7 +310,7 @@ u16 DSi_CamModule::Read16(u32 addr)
     switch (addr)
     {
     case 0x04004200: return ModuleCnt;
-    case 0x04004202: return Cnt;
+    case 0x04004202: return Cnt | (Transferring ? 0x8000 : 0);
     }
 
     Log(LogLevel::Debug, "unknown DSi cam read16 %08X\n", addr);
@@ -266,13 +323,12 @@ u32 DSi_CamModule::Read32(u32 addr)
     {
     case 0x04004204:
         {
-            u32 ret = DataBuffer[BufferReadPos];
+            sPixelBuffer* buffer = &PixelBuffer[CurPixelBuffer ^ 1];
+            u32 ret = buffer->Data[buffer->ReadPos];
             if (Cnt & (1<<15))
             {
-                if (BufferReadPos < 511)
-                    BufferReadPos++;
-                // CHECKME!!!!
-                // also presumably we should set bit4 in Cnt if there's no new data to be read
+                if (buffer->ReadPos < buffer->WritePos)
+                    buffer->ReadPos++;
             }
 
             return ret;
@@ -308,6 +364,7 @@ void DSi_CamModule::Write16(u32 addr, u16 val)
                 // CHECKME
 
                 Cnt = 0;
+                Transferring = false;
             }
 
             if ((ModuleCnt & (1<<5)) && !(oldcnt & (1<<5)))
@@ -319,12 +376,9 @@ void DSi_CamModule::Write16(u32 addr, u16 val)
 
     case 0x04004202:
         {
-            // TODO: during a transfer, clearing bit15 does not reflect immediately
-            // maybe it needs to finish the trasnfer or atleast the current block
-
             // checkme
             u16 oldmask;
-            if (Cnt & 0x8000)
+            if ((Cnt & 0x8000) || Transferring)
             {
                 val &= 0x8F20;
                 oldmask = 0x601F;
@@ -339,14 +393,8 @@ void DSi_CamModule::Write16(u32 addr, u16 val)
             if (val & (1<<5))
             {
                 Cnt &= ~(1<<4);
-                BufferReadPos = 0;
-                BufferWritePos = 0;
-            }
-
-            if ((val & (1<<15)) && !(Cnt & (1<<15)))
-            {
-                // start transfer
-                //DSi::CheckNDMAs(0, 0x0B);
+                memset(PixelBuffer, 0, sizeof(PixelBuffer));
+                CurPixelBuffer = 0;
             }
         }
         return;

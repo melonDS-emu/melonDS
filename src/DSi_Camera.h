@@ -118,15 +118,25 @@ private:
 
     u32 CropStart, CropEnd;
 
-    // pixel data buffer holds a maximum of 512 words, regardless of how long scanlines are
-    u32 DataBuffer[512];
-    u32 BufferReadPos, BufferWritePos;
+    bool Transferring;
+
+    // pixel data buffers hold a maximum of 512 words, regardless of how long scanlines are
+    typedef struct
+    {
+        u32 Data[512];
+        u32 ReadPos, WritePos;
+
+    } sPixelBuffer;
+    sPixelBuffer PixelBuffer[2];
+    u8 CurPixelBuffer;
     u32 BufferNumLines;
     DSi_Camera* CurCamera;
 
     static const u32 kIRQInterval;
     static const u32 kScanlineTime;
     static const u32 kTransferStart;
+
+    void SwapPixelBuffers();
 };
 
 }

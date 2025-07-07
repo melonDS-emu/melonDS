@@ -282,9 +282,9 @@ void DSi::DoSavestateExtra(Savestate* file)
         NDMAs[i].DoSavestate(file);
 
     AES.DoSavestate(file);
-    CamModule.DoSavestate(file);
     DSP.DoSavestate(file);
     I2C.DoSavestate(file);
+    CamModule.DoSavestate(file);
     SDMMC.DoSavestate(file);
     SDIO.DoSavestate(file);
 
