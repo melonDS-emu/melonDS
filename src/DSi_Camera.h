@@ -22,6 +22,7 @@
 #include "types.h"
 #include "Savestate.h"
 #include "DSi_I2C.h"
+#include "FIFO.h"
 
 namespace melonDS
 {
@@ -119,8 +120,7 @@ private:
     u32 CropStart, CropEnd;
 
     // pixel data buffer holds a maximum of 512 words, regardless of how long scanlines are
-    u32 DataBuffer[512];
-    u32 BufferReadPos, BufferWritePos;
+    FIFO<u32, 512> DataBuffer;
     u32 BufferNumLines;
     DSi_Camera* CurCamera;
 
