@@ -144,6 +144,12 @@ void DSi_CamModule::IRQ(u32 param)
 
 void DSi_CamModule::TransferScanline(u32 line)
 {
+    if (Cnt & (1<<4))
+    {
+        Transferring = false;
+        return;
+    }
+
     if (line == 0)
     {
         if (!(Cnt & (1<<15)))
@@ -152,9 +158,6 @@ void DSi_CamModule::TransferScanline(u32 line)
         BufferNumLines = 0;
         Transferring = true;
     }
-
-    if (Cnt & (1<<4))
-        return;
 
     sPixelBuffer* buffer = &PixelBuffer[CurPixelBuffer];
     u32* dstbuf = &buffer->Data[buffer->WritePos];
@@ -324,12 +327,13 @@ u32 DSi_CamModule::Read32(u32 addr)
     case 0x04004204:
         {
             sPixelBuffer* buffer = &PixelBuffer[CurPixelBuffer ^ 1];
-            u32 ret = buffer->Data[buffer->ReadPos];
-            if (Cnt & (1<<15))
-            {
-                if (buffer->ReadPos < buffer->WritePos)
-                    buffer->ReadPos++;
-            }
+            u32 ret;
+            if (buffer->ReadPos < buffer->WritePos)
+                ret = buffer->Data[buffer->ReadPos++];
+            else if (buffer->ReadPos > 0)
+                ret = buffer->Data[buffer->ReadPos - 1];
+            else
+                ret = buffer->Data[0];
 
             return ret;
         }
@@ -421,7 +425,7 @@ void DSi_CamModule::Write16(u32 addr, u16 val)
 }
 
 void DSi_CamModule::Write32(u32 addr, u32 val)
-{
+{printf("cam write32 %08X %08X\n", addr, val);
     switch (addr)
     {
     case 0x04004210:
