@@ -67,7 +67,9 @@ void DSi_CamModule::Reset()
     CropStart = 0;
     CropEnd = 0;
 
-    DataBuffer.Clear();
+    memset(DataBuffer, 0, 512*sizeof(u32));
+    BufferReadPos = 0;
+    BufferWritePos = 0;
     BufferNumLines = 0;
     CurCamera = nullptr;
 
@@ -86,8 +88,6 @@ void DSi_CamModule::DoSavestate(Savestate* file)
 
     file->Var16(&ModuleCnt);
     file->Var16(&Cnt);
-
-    // TODO: should other stuff be savestated? (pixel buffer, etc)
 
     /*file->VarArray(FrameBuffer, sizeof(FrameBuffer));
     file->Var32(&TransferPos);
@@ -113,6 +113,8 @@ void DSi_CamModule::IRQ(u32 param)
 
         if (Cnt & (1<<15))
         {
+            BufferReadPos = 0;
+            BufferWritePos = 0;
             BufferNumLines = 0;
             CurCamera = activecam;
             DSi.ScheduleEvent(Event_DSi_CamTransfer, false, kTransferStart, 0, 0);
@@ -124,10 +126,8 @@ void DSi_CamModule::IRQ(u32 param)
 
 void DSi_CamModule::TransferScanline(u32 line)
 {
-    if (Cnt & (1<<4))
-        return;
-
-    int maxlen = DataBuffer.FreeSpace();
+    u32* dstbuf = &DataBuffer[BufferWritePos];
+    int maxlen = 512 - BufferWritePos;
 
     u32 tmpbuf[512];
     int lines_next;
@@ -195,28 +195,28 @@ void DSi_CamModule::TransferScanline(u32 line)
             u32 col1 = (r1 >> 3) | ((g1 >> 3) << 5) | ((b1 >> 3) << 10) | 0x8000;
             u32 col2 = (r2 >> 3) | ((g2 >> 3) << 5) | ((b2 >> 3) << 10) | 0x8000;
 
-            DataBuffer.Write(col1 | (col2 << 16));
+            dstbuf[i] = col1 | (col2 << 16);
         }
     }
     else
     {
         // return raw data
 
-        for (u32 i = 0; i < copylen; i++)
-        {
-            u32 val = tmpbuf[copystart + i];
-            DataBuffer.Write(val);
-        }
+        memcpy(dstbuf, &tmpbuf[copystart], copylen*sizeof(u32));
     }
 
     numscan = Cnt & 0x000F;
     if (BufferNumLines >= numscan)
     {
+        BufferReadPos = 0; // checkme
+        BufferWritePos = 0;
         BufferNumLines = 0;
         DSi.CheckNDMAs(0, 0x0B);
     }
     else
     {
+        BufferWritePos += copylen;
+        if (BufferWritePos > 512) BufferWritePos = 512;
         BufferNumLines++;
     }
 
@@ -225,9 +225,10 @@ skip_line:
     {
         // when the frame is finished, transfer any remaining data if needed
         // (if the frame height isn't a multiple of the DMA interval)
-        // (TODO: should it be done earlier?)
         if (BufferNumLines > 0)
         {
+            BufferReadPos = 0;
+            BufferWritePos = 0;
             BufferNumLines = 0;
             DSi.CheckNDMAs(0, 0x0B);
         }
@@ -265,19 +266,14 @@ u32 DSi_CamModule::Read32(u32 addr)
     {
     case 0x04004204:
         {
-            u32 ret;
+            u32 ret = DataBuffer[BufferReadPos];
             if (Cnt & (1<<15))
             {
-                if (DataBuffer.IsEmpty())
-                {
-                    ret = 0;
-                    Cnt |= (1<<4);
-                }
-                else
-                    ret = DataBuffer.Read();
+                if (BufferReadPos < 511)
+                    BufferReadPos++;
+                // CHECKME!!!!
+                // also presumably we should set bit4 in Cnt if there's no new data to be read
             }
-            else
-                ret = DataBuffer.Peek();
 
             return ret;
         }
@@ -343,7 +339,8 @@ void DSi_CamModule::Write16(u32 addr, u16 val)
             if (val & (1<<5))
             {
                 Cnt &= ~(1<<4);
-                DataBuffer.Clear();
+                BufferReadPos = 0;
+                BufferWritePos = 0;
             }
 
             if ((val & (1<<15)) && !(Cnt & (1<<15)))

@@ -90,7 +90,6 @@ public:
     }
 
     u32 Level() const { return NumOccupied; }
-    u32 FreeSpace() const { return NumEntries - NumOccupied; }
     bool IsEmpty() const { return NumOccupied == 0; }
     bool IsFull() const { return NumOccupied >= NumEntries; }
 
