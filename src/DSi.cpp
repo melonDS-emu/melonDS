@@ -113,6 +113,8 @@ DSi::DSi(DSiArgs&& args, void* userdata) noexcept :
     NWRAM_A = JIT.Memory.GetNWRAM_A();
     NWRAM_B = JIT.Memory.GetNWRAM_B();
     NWRAM_C = JIT.Memory.GetNWRAM_C();
+
+    SetFullBIOSBoot(args.FullBIOSBoot);
 }
 
 DSi::~DSi() noexcept
