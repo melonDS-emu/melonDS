@@ -22,8 +22,7 @@
 #include <assert.h>
 #include <unordered_map>
 
-#define XXH_STATIC_LINKING_ONLY
-#include "xxhash/xxhash.h"
+#include <xxhash.h>
 
 #include "Platform.h"
 
