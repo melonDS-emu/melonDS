@@ -137,6 +137,7 @@ private:
     static const u32 kTransferStart;
 
     void SwapPixelBuffers();
+    bool IsTransferring();
 };
 
 }

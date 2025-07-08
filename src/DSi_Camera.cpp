@@ -299,6 +299,13 @@ void DSi_CamModule::SwapPixelBuffers()
     }
 }
 
+bool DSi_CamModule::IsTransferring()
+{
+    if (Cnt & (1<<15)) return true;
+    if (Transferring) return true;
+    return false;
+}
+
 
 u8 DSi_CamModule::Read8(u32 addr)
 {
@@ -313,7 +320,7 @@ u16 DSi_CamModule::Read16(u32 addr)
     switch (addr)
     {
     case 0x04004200: return ModuleCnt;
-    case 0x04004202: return Cnt | (Transferring ? 0x8000 : 0);
+    case 0x04004202: return Cnt | (Transferring ? (1<<15) : 0);
     }
 
     Log(LogLevel::Debug, "unknown DSi cam read16 %08X\n", addr);
@@ -382,7 +389,7 @@ void DSi_CamModule::Write16(u32 addr, u16 val)
         {
             // checkme
             u16 oldmask;
-            if ((Cnt & 0x8000) || Transferring)
+            if (IsTransferring())
             {
                 val &= 0x8F20;
                 oldmask = 0x601F;
@@ -404,19 +411,19 @@ void DSi_CamModule::Write16(u32 addr, u16 val)
         return;
 
     case 0x04004210:
-        if (Cnt & (1<<15)) return;
+        if (IsTransferring()) return;
         CropStart = (CropStart & 0x01FF0000) | (val & 0x03FE);
         return;
     case 0x04004212:
-        if (Cnt & (1<<15)) return;
+        if (IsTransferring()) return;
         CropStart = (CropStart & 0x03FE) | ((val & 0x01FF) << 16);
         return;
     case 0x04004214:
-        if (Cnt & (1<<15)) return;
+        if (IsTransferring()) return;
         CropEnd = (CropEnd & 0x01FF0000) | (val & 0x03FE);
         return;
     case 0x04004216:
-        if (Cnt & (1<<15)) return;
+        if (IsTransferring()) return;
         CropEnd = (CropEnd & 0x03FE) | ((val & 0x01FF) << 16);
         return;
     }
@@ -429,11 +436,11 @@ void DSi_CamModule::Write32(u32 addr, u32 val)
     switch (addr)
     {
     case 0x04004210:
-        if (Cnt & (1<<15)) return;
+        if (IsTransferring()) return;
         CropStart = val & 0x01FF03FE;
         return;
     case 0x04004214:
-        if (Cnt & (1<<15)) return;
+        if (IsTransferring()) return;
         CropEnd = val & 0x01FF03FE;
         return;
     }
