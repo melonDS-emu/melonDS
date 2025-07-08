@@ -241,7 +241,6 @@ public:
     int GetOutputSize() const;
     void Sync(bool wait);
     int ReadOutput(s16* data, int samples);
-    void TransferOutput();
 
     u8 Read8(u32 addr);
     u16 Read16(u32 addr);
@@ -251,14 +250,11 @@ public:
     void Write32(u32 addr, u32 val);
 
 private:
-    static const u32 OutputBufferSize = 2*2048;
+    static const u32 OutputBufferSize = 2*1024;  // TODO: configurable audio buffer sizes?
     melonDS::NDS& NDS;
-    s16 OutputBackbuffer[2 * OutputBufferSize] {};
-    u32 OutputBackbufferWritePosition = 0;
-
-    s16 OutputFrontBuffer[2 * OutputBufferSize] {};
-    u32 OutputFrontBufferWritePosition = 0;
-    u32 OutputFrontBufferReadPosition = 0;
+    s16 OutputBuffer[2 * OutputBufferSize] {};
+    u32 OutputBufferWritePos = 0;
+    u32 OutputBufferReadPos = 0;
 
     Platform::Mutex* AudioLock;
 
