@@ -267,7 +267,7 @@ void DSi_DSP::PDataDMAWrite(u16 wrval)
         }
         break;
     default: return;
-    }
+    }printf("DSP: PDATA write %08X -> %04X\n", addr, wrval);
 
     if (DSP_PCFG & (1<<1)) // auto-increment
         ++DSP_PADR; // overflows and stays within a 64k 'page' // TODO: is this +1 or +2?
@@ -306,7 +306,7 @@ u16 DSi_DSP::PDataDMARead()
         }
         break;
     default: return r;
-    }
+    }printf("DSP: PDATA read %08X -> %04X\n", addr, r);
 
     if (DSP_PCFG & (1<<1)) // auto-increment
         ++DSP_PADR; // overflows and stays within a 64k 'page' // TODO: is this +1 or +2?
@@ -352,7 +352,7 @@ u16 DSi_DSP::PDataDMAReadMMIO()
 
     if (!PDATAReadFifo.IsEmpty())
         ret = PDATAReadFifo.Read();
-
+printf("DSP: actually read PDATA FIFO (%04X)\n",ret);
     // aha, there's more to come
     if (PDataDMALen != 0)
     {
@@ -424,17 +424,17 @@ u16 DSi_DSP::Read16(u32 addr)
 
     case 0x24:
         {
-            u16 r = TeakraCore->RecvData(0);
+            u16 r = TeakraCore->RecvData(0);printf("DSP: read CMD0, %04X\n", r);
             return r;
         }
     case 0x2C:
         {
-            u16 r = TeakraCore->RecvData(1);
+            u16 r = TeakraCore->RecvData(1);printf("DSP: read CMD1, %04X\n", r);
             return r;
         }
     case 0x34:
         {
-            u16 r = TeakraCore->RecvData(2);
+            u16 r = TeakraCore->RecvData(2);printf("DSP: read CMD2, %04X\n", r);
             return r;
         }
     }
@@ -469,6 +469,7 @@ void DSi_DSP::Write8(u32 addr, u8 val)
     // no REPx writes
     }
 }
+bool fazil = false;
 void DSi_DSP::Write16(u32 addr, u16 val)
 {
     Log(LogLevel::Debug,"DSP WRITE16 %d %08X %08X  %08X\n", IsDSPCoreEnabled(), addr, val, DSi.GetPC(0));
@@ -485,6 +486,11 @@ void DSi_DSP::Write16(u32 addr, u16 val)
         DSP_PCFG = val;
         if (DSP_PCFG & (1<<0))
             TeakraCore->Reset();
+        /*else if (!fazil)
+        {
+            fazil = true;
+            DSi.debug(0);
+        }*/
         if (DSP_PCFG & (1<<4))
             PDataDMAStart();
         else
@@ -508,15 +514,15 @@ void DSi_DSP::Write16(u32 addr, u16 val)
     // SEM not writable
 
     case 0x20: // CMD0
-        DSP_CMD[0] = val;
+        DSP_CMD[0] = val;printf("DSP: CMD0 = %04X\n", val);
         TeakraCore->SendData(0, val);
         break;
     case 0x28: // CMD1
-        DSP_CMD[1] = val;
+        DSP_CMD[1] = val;printf("DSP: CMD1 = %04X\n", val);
         TeakraCore->SendData(1, val);
         break;
     case 0x30: // CMD2
-        DSP_CMD[2] = val;
+        DSP_CMD[2] = val;printf("DSP: CMD2 = %04X\n", val);
         TeakraCore->SendData(2, val);
         break;
 
