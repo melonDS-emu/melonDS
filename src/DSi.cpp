@@ -1,5 +1,5 @@
 /*
-    Copyright 2016-2024 melonDS team
+    Copyright 2016-2025 melonDS team
 
     This file is part of melonDS.
 
@@ -113,6 +113,8 @@ DSi::DSi(DSiArgs&& args, void* userdata) noexcept :
     NWRAM_A = JIT.Memory.GetNWRAM_A();
     NWRAM_B = JIT.Memory.GetNWRAM_B();
     NWRAM_C = JIT.Memory.GetNWRAM_C();
+
+    SetFullBIOSBoot(args.FullBIOSBoot);
 }
 
 DSi::~DSi() noexcept
@@ -175,6 +177,8 @@ void DSi::Reset()
     // LCD init flag
     GPU.DispStat[0] |= (1<<6);
     GPU.DispStat[1] |= (1<<6);
+
+    UpdateVRAMTimings();
 }
 
 void DSi::Stop(Platform::StopReason reason)
@@ -280,11 +284,13 @@ void DSi::DoSavestateExtra(Savestate* file)
         NDMAs[i].DoSavestate(file);
 
     AES.DoSavestate(file);
-    CamModule.DoSavestate(file);
     DSP.DoSavestate(file);
     I2C.DoSavestate(file);
+    CamModule.DoSavestate(file);
     SDMMC.DoSavestate(file);
     SDIO.DoSavestate(file);
+
+    UpdateVRAMTimings();
 }
 
 void DSi::SetCartInserted(bool inserted)
@@ -666,6 +672,8 @@ void DSi::SetupDirectBoot()
     ARM9.CP15Write(0x671, 0x02FFC01B);
     ARM9.CP15Write(0x910, 0x0E00000A);
     ARM9.CP15Write(0x911, 0x00000020);
+
+    UpdateVRAMTimings();
 }
 
 void DSi::SoftReset()
@@ -717,10 +725,11 @@ void DSi::SoftReset()
     SCFG_RST = 0;
     DSP.SetRstLine(false);
 
-
     // LCD init flag
     GPU.DispStat[0] |= (1<<6);
     GPU.DispStat[1] |= (1<<6);
+
+    UpdateVRAMTimings();
 }
 
 bool DSi::LoadNAND()
@@ -1249,6 +1258,20 @@ void DSi::MapNWRAMRange(u32 cpu, u32 num, u32 val)
         case 2: NWRAMMask[cpu][num] = 0x3; break;
         case 3: NWRAMMask[cpu][num] = 0x7; break;
         }
+    }
+}
+
+void DSi::UpdateVRAMTimings()
+{
+    if (SCFG_EXT[0] & (1<<13))
+    {
+        SetARM9RegionTimings(0x06000, 0x07000, Mem9_VRAM, 32, 1, 1);
+        SetARM7RegionTimings(0x06000, 0x07000, Mem7_VRAM, 32, 1, 1);
+    }
+    else
+    {
+        SetARM9RegionTimings(0x06000, 0x07000, Mem9_VRAM, 16, 1, 1);
+        SetARM7RegionTimings(0x06000, 0x07000, Mem7_VRAM, 16, 1, 1);
     }
 }
 
@@ -2565,6 +2588,8 @@ void DSi::ARM9IOWrite32(u32 addr, u32 val)
             //if (newram != oldram)
             //    NDS::ScheduleEvent(NDS::Event_DSi_RAMSizeChange, false, 512*512*512, ApplyNewRAMSize, newram);
             Log(LogLevel::Debug, "from %08X, ARM7 %08X, %08X\n", NDS::GetPC(0), NDS::GetPC(1), ARM7.R[1]);
+
+            UpdateVRAMTimings();
         }
         return;
 

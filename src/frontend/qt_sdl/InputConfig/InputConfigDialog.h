@@ -1,5 +1,5 @@
 /*
-    Copyright 2016-2024 melonDS team
+    Copyright 2016-2025 melonDS team
 
     This file is part of melonDS.
 
@@ -32,12 +32,20 @@ static constexpr std::initializer_list<int> hk_addons =
 {
     HK_SolarSensorIncrease,
     HK_SolarSensorDecrease,
+    HK_GuitarGripGreen,
+    HK_GuitarGripRed,
+    HK_GuitarGripYellow,
+    HK_GuitarGripBlue,
 };
 
 static constexpr std::initializer_list<const char*> hk_addons_labels =
 {
     "[我们的太阳] 阳光 + ",
     "[我们的太阳] 阳光 - ",
+    "[吉他握把] 绿",
+    "[吉他握把] 红",
+    "[吉他握把] 黄",
+    "[吉他握把] 蓝",
 };
 
 static_assert(hk_addons.size() == hk_addons_labels.size());

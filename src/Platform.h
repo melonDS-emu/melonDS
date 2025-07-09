@@ -1,5 +1,5 @@
 /*
-    Copyright 2016-2024 melonDS team
+    Copyright 2016-2025 melonDS team
 
     This file is part of melonDS.
 
@@ -322,6 +322,18 @@ void Camera_CaptureFrame(int num, u32* frame, int width, int height, bool yuv, v
 
 // interface for addon inputs
 
+enum KeyType
+{
+    KeyGuitarGripGreen,
+    KeyGuitarGripRed,
+    KeyGuitarGripYellow,
+    KeyGuitarGripBlue,
+};
+
+// Check if a given key is being pressed.
+// @param type The type of the key to check.
+bool Addon_KeyDown(KeyType type, void* userdata);
+
 // Called by the DS Rumble Pak emulation to start the necessary
 // rumble effects on the connected game controller, if available.
 // @param len The duration of the controller rumble effect in milliseconds.
@@ -330,6 +342,42 @@ void Addon_RumbleStart(u32 len, void* userdata);
 // Called by the DS Rumble Pak emulation to stop any necessary
 // rumble effects on the connected game controller, if available.
 void Addon_RumbleStop(void* userdata);
+
+enum MotionQueryType
+{
+    /**
+     * @brief X axis acceleration, measured in SI meters per second squared.
+     * On a DS, the X axis refers to the top screen X-axis (left ... right).
+     */
+    MotionAccelerationX,
+    /**
+     * @brief Y axis acceleration, measured in SI meters per second squared.
+     * On a DS, the Y axis refers to the top screen Y-axis (bottom ... top).
+     */
+    MotionAccelerationY,
+    /**
+     * @brief Z axis acceleration, measured in SI meters per second squared.
+     * On a DS, the Z axis refers to the axis perpendicular to the top screen (farther ... closer).
+     */
+    MotionAccelerationZ,
+    /**
+     * @brief X axis rotation, measured in radians per second.
+     */
+    MotionRotationX,
+    /**
+     * @brief Y axis rotation, measured in radians per second.
+     */
+    MotionRotationY,
+    /**
+     * @brief Z axis rotation, measured in radians per second.
+     */
+    MotionRotationZ,
+};
+
+// Called by the DS Motion Pak emulation to query the game controller's
+// aceelration and rotation, if available.
+// @param type The value being queried.
+float Addon_MotionQuery(MotionQueryType type, void* userdata);
 
 struct DynamicLibrary;
 

@@ -1,5 +1,5 @@
 /*
-    Copyright 2016-2024 melonDS team
+    Copyright 2016-2025 melonDS team
 
     This file is part of melonDS.
 
@@ -189,6 +189,7 @@ public:
     void initOpenGL();
     void deinitOpenGL();
     void makeCurrentGL();
+    void releaseGL();
     void drawScreenGL();
 
     GL::Context* getContext() { return glContext.get(); }

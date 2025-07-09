@@ -1,5 +1,5 @@
 /*
-    Copyright 2016-2024 melonDS team
+    Copyright 2016-2025 melonDS team
 
     This file is part of melonDS.
 
@@ -29,7 +29,7 @@ using namespace melonDS;
 
 int EmuInstance::audioGetNumSamplesOut(int outlen)
 {
-    float f_len_in = (outlen * 32823.6328125) / (float)audioFreq;
+    float f_len_in = (outlen * 32823.6328125 * (curFPS/60.0)) / (float)audioFreq;
     f_len_in += audioSampleFrac;
     int len_in = (int)floor(f_len_in);
     audioSampleFrac = f_len_in - len_in;
@@ -73,7 +73,8 @@ void EmuInstance::audioCallback(void* data, Uint8* stream, int len)
     // resample incoming audio to match the output sample rate
 
     int len_in = inst->audioGetNumSamplesOut(len);
-    s16 buf_in[1024*2];
+    if (len_in > inst->audioBufSize) len_in = inst->audioBufSize;
+    s16 buf_in[inst->audioBufSize*2];
     int num_in;
 
     SDL_LockMutex(inst->audioSyncLock);
@@ -415,16 +416,17 @@ void EmuInstance::audioInit()
     audioSyncCond = SDL_CreateCond();
     audioSyncLock = SDL_CreateMutex();
 
-    audioFreq = 48000; // TODO: make configurable?
+    audioFreq = 48000; // TODO: make both of these configurable?
+    audioBufSize = 1024;
     SDL_AudioSpec whatIwant, whatIget;
     memset(&whatIwant, 0, sizeof(SDL_AudioSpec));
     whatIwant.freq = audioFreq;
     whatIwant.format = AUDIO_S16LSB;
     whatIwant.channels = 2;
-    whatIwant.samples = 1024;
+    whatIwant.samples = audioBufSize;
     whatIwant.callback = audioCallback;
     whatIwant.userdata = this;
-    audioDevice = SDL_OpenAudioDevice(NULL, 0, &whatIwant, &whatIget, SDL_AUDIO_ALLOW_FREQUENCY_CHANGE);
+    audioDevice = SDL_OpenAudioDevice(NULL, 0, &whatIwant, &whatIget, SDL_AUDIO_ALLOW_FREQUENCY_CHANGE | SDL_AUDIO_ALLOW_SAMPLES_CHANGE);
     if (!audioDevice)
     {
         Platform::Log(Platform::LogLevel::Error, "音频初始化失败: %s\n", SDL_GetError());
@@ -432,7 +434,9 @@ void EmuInstance::audioInit()
     else
     {
         audioFreq = whatIget.freq;
+        audioBufSize = whatIget.samples;
         Platform::Log(Platform::LogLevel::Info, "音频输出频率: %d Hz\n", audioFreq);
+        Platform::Log(Platform::LogLevel::Info, "音频输出缓冲区大小: %d 个样本\n", audioBufSize);
         SDL_PauseAudioDevice(audioDevice, 1);
     }
 
@@ -478,7 +482,7 @@ void EmuInstance::audioSync()
     if (audioDevice)
     {
         SDL_LockMutex(audioSyncLock);
-        while (nds->SPU.GetOutputSize() > 1024)
+        while (nds->SPU.GetOutputSize() > audioBufSize)
         {
             int ret = SDL_CondWaitTimeout(audioSyncCond, audioSyncLock, 500);
             if (ret == SDL_MUTEX_TIMEDOUT) break;
@@ -491,10 +495,13 @@ void EmuInstance::audioUpdateSettings()
 {
     micClose();
 
-    int audiointerp = globalCfg.GetInt("Audio.Interpolation");
-    nds->SPU.SetInterpolation(static_cast<AudioInterpolation>(audiointerp));
-    setupMicInputData();
+    if (nds != nullptr)
+    {
+        int audiointerp = globalCfg.GetInt("Audio.Interpolation");
+        nds->SPU.SetInterpolation(static_cast<AudioInterpolation>(audiointerp));
+    }
 
+    setupMicInputData();
     micOpen();
 }
 

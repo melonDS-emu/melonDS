@@ -1,5 +1,5 @@
 /*
-    Copyright 2016-2024 melonDS team
+    Copyright 2016-2025 melonDS team
 
     This file is part of melonDS.
 
@@ -22,6 +22,7 @@
 #include <QThread>
 #include <QMutex>
 #include <QSemaphore>
+#include <QWaitCondition>
 #include <QQueue>
 #include <QVariant>
 
@@ -66,6 +67,7 @@ public:
 
         msg_InitGL,
         msg_DeInitGL,
+        msg_BorrowGL,
 
         msg_BootROM,
         msg_BootFirmware,
@@ -130,11 +132,16 @@ public:
 
     void initContext(int win);
     void deinitContext(int win);
+    void borrowGL();
+    void returnGL();
     void updateVideoSettings() { videoSettingsDirty = true; }
     void updateVideoRenderer() { videoSettingsDirty = true; lastVideoRenderer = -1; }
 
     int frontBuffer = 0;
     QMutex frontBufferLock;
+
+    QWaitCondition glBorrowCond;
+    QMutex glBorrowMutex;
 
 signals:
     void windowUpdate();

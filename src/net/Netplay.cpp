@@ -1,5 +1,5 @@
 /*
-    Copyright 2016-2024 melonDS team
+    Copyright 2016-2025 melonDS team
 
     This file is part of melonDS.
 
@@ -726,6 +726,8 @@ void ProcessHost()
                 }
             }
             break;
+        case ENET_EVENT_TYPE_NONE:
+            break;
         }
     }
 }
@@ -821,6 +823,8 @@ printf("birf\n");
                     break;
                 }
             }
+            break;
+        case ENET_EVENT_TYPE_NONE:
             break;
         }
     }

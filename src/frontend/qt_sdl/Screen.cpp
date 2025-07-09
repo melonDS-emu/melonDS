@@ -1,5 +1,5 @@
 /*
-    Copyright 2016-2024 melonDS team
+    Copyright 2016-2025 melonDS team
 
     This file is part of melonDS.
 
@@ -876,7 +876,7 @@ bool ScreenPanelGL::createContext()
     if (ourwin->getWindowID() != 0)
     {
         if (windowinfo.has_value())
-            if (glContext = parentwin->getOGLContext()->CreateSharedContext(*windowinfo))
+            if ((glContext = parentwin->getOGLContext()->CreateSharedContext(*windowinfo)))
                 glContext->DoneCurrent();
     }
     else
@@ -885,7 +885,7 @@ bool ScreenPanelGL::createContext()
                 GL::Context::Version{GL::Context::Profile::Core, 4, 3},
                 GL::Context::Version{GL::Context::Profile::Core, 3, 2}};
         if (windowinfo.has_value())
-            if (glContext = GL::Context::Create(*windowinfo, versionsToTry))
+            if ((glContext = GL::Context::Create(*windowinfo, versionsToTry)))
                 glContext->DoneCurrent();
     }
 
@@ -1020,6 +1020,8 @@ void ScreenPanelGL::deinitOpenGL()
     if (!glContext) return;
     if (!glInited) return;
 
+    glContext->MakeCurrent();
+
     glDeleteTextures(1, &screenTexture);
 
     glDeleteVertexArrays(1, &screenVertexArray);
@@ -1053,6 +1055,13 @@ void ScreenPanelGL::makeCurrentGL()
     if (!glContext) return;
 
     glContext->MakeCurrent();
+}
+
+void ScreenPanelGL::releaseGL()
+{
+    if (!glContext) return;
+
+    glContext->DoneCurrent();
 }
 
 void ScreenPanelGL::osdRenderItem(OSDItem* item)

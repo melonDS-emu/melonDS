@@ -95,7 +95,13 @@
             libtool
             ninja
             pkg-config
+            python3
           ];
+
+          # Undo the SDK setup done by nixpkgs so we can use AppleClang
+          shellHook = ''
+            unset DEVELOPER_DIR SDKROOT MACOSX_DEPLOYMENT_TARGET
+         '';
         };
       };
     }

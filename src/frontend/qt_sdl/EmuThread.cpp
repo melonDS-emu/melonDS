@@ -1,5 +1,5 @@
 /*
-    Copyright 2016-2024 melonDS team
+    Copyright 2016-2025 melonDS team
 
     This file is part of melonDS.
 
@@ -366,7 +366,7 @@ void EmuThread::run()
 
             if (slowmo) emuInstance->curFPS = emuInstance->slowmoFPS;
             else if (fastforward) emuInstance->curFPS = emuInstance->fastForwardFPS;
-            else if (!emuInstance->doLimitFPS) emuInstance->curFPS = 1000.0;
+            else if (!emuInstance->doLimitFPS && !emuInstance->doAudioSync) emuInstance->curFPS = 1000.0;
             else emuInstance->curFPS = emuInstance->targetFPS;
 
             if (emuInstance->audioDSiVolumeSync && emuInstance->nds->ConsoleType == 1)
@@ -389,6 +389,7 @@ void EmuThread::run()
 
             if (frametimeStep < 0.001) frametimeStep = 0.001;
 
+            if (emuInstance->doLimitFPS)
             {
                 double curtime = SDL_GetPerformanceCounter() * perfCountsSec;
 
@@ -426,11 +427,7 @@ void EmuThread::run()
                     winUpdateFreq = 1;
                     
                 double actualfps = (59.8261 * 263.0) / nlines;
-                int inst = emuInstance->instanceID;
-                if (inst == 0)
-                    sprintf(melontitle, "[%d/%.0f] melonDS " MELONDS_VERSION, fps, actualfps);
-                else
-                    sprintf(melontitle, "[%d/%.0f] melonDS (%d)", fps, fpstarget, inst+1);
+                snprintf(melontitle, sizeof(melontitle), "[%d/%.0f] melonDS " MELONDS_VERSION, fps, actualfps);
                 changeWindowTitle(melontitle);
             }
         }
@@ -443,11 +440,7 @@ void EmuThread::run()
 
             emit windowUpdate();
 
-            int inst = emuInstance->instanceID;
-            if (inst == 0)
-                sprintf(melontitle, "melonDS " MELONDS_VERSION);
-            else
-                sprintf(melontitle, "melonDS (%d)", inst+1);
+            snprintf(melontitle, sizeof(melontitle), "melonDS " MELONDS_VERSION);
             changeWindowTitle(melontitle);
 
             SDL_Delay(75);
@@ -484,6 +477,8 @@ void EmuThread::waitAllMessages()
 
 void EmuThread::handleMessages()
 {
+    bool glborrow = false;
+
     msgMutex.lock();
     while (!msgQueue.empty())
     {
@@ -573,6 +568,11 @@ void EmuThread::handleMessages()
             emuInstance->deinitOpenGL(msg.param.value<int>());
             if (msg.param.value<int>() == 0)
                 useOpenGL = false;
+            break;
+
+        case msg_BorrowGL:
+            emuInstance->releaseGL();
+            glborrow = true;
             break;
 
         case msg_BootROM:
@@ -666,6 +666,13 @@ void EmuThread::handleMessages()
         msgSemaphore.release();
     }
     msgMutex.unlock();
+
+    if (glborrow)
+    {
+        glBorrowMutex.lock();
+        glBorrowCond.wait(&glBorrowMutex);
+        glBorrowMutex.unlock();
+    }
 }
 
 void EmuThread::changeWindowTitle(char* title)
@@ -683,6 +690,19 @@ void EmuThread::deinitContext(int win)
 {
     sendMessage({.type = msg_DeInitGL, .param = win});
     waitMessage();
+}
+
+void EmuThread::borrowGL()
+{
+    sendMessage(msg_BorrowGL);
+    waitMessage();
+}
+
+void EmuThread::returnGL()
+{
+    glBorrowMutex.lock();
+    glBorrowCond.wakeAll();
+    glBorrowMutex.unlock();
 }
 
 void EmuThread::emuRun()

@@ -1,5 +1,5 @@
 /*
-    Copyright 2016-2024 melonDS team
+    Copyright 2016-2025 melonDS team
 
     This file is part of melonDS.
 
@@ -402,6 +402,8 @@ void LANDialog::doUpdatePlayerList()
                 break;
             case LAN::Player_Disconnected:
                 status = "连接丢失(Connection lost)";
+                break;
+            case LAN::Player_None:
                 break;
         }
         model->item(i, 2)->setText(status);

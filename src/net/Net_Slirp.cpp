@@ -1,5 +1,5 @@
 /*
-    Copyright 2016-2024 melonDS team
+    Copyright 2016-2025 melonDS team
 
     This file is part of melonDS.
 
@@ -54,7 +54,6 @@ const u8 kServerMAC[6] = {0x00, 0xAB, 0x33, 0x28, 0x99, 0x44};
 // https://stackoverflow.com/questions/5404277/porting-clock-gettime-to-windows
 
 struct timespec { long tv_sec; long tv_nsec; };
-#define CLOCK_MONOTONIC 1312
 
 int clock_gettime(int, struct timespec *spec)
 {

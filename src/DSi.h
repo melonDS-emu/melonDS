@@ -1,5 +1,5 @@
 /*
-    Copyright 2016-2024 melonDS team
+    Copyright 2016-2025 melonDS team
 
     This file is part of melonDS.
 
@@ -96,6 +96,8 @@ public:
     void MapNWRAM_B(u32 num, u8 val);
     void MapNWRAM_C(u32 num, u8 val);
     void MapNWRAMRange(u32 cpu, u32 num, u32 val);
+
+    void UpdateVRAMTimings();
 
     u8 ARM9Read8(u32 addr) override;
     u16 ARM9Read16(u32 addr) override;

@@ -1,5 +1,5 @@
 /*
-    Copyright 2016-2024 melonDS team
+    Copyright 2016-2025 melonDS team
 
     This file is part of melonDS.
 
@@ -132,7 +132,6 @@ void DSi_NDMA::WriteCnt(u32 val)
 
         // TODO: unsupported start modes:
         // * timers (00-03)
-        // * camera (ARM9 0B)
         // * microphone (ARM7 0C)
         // * NDS-wifi?? (ARM7 07, likely not working)
 
@@ -270,11 +269,18 @@ void DSi_NDMA::Run9()
 
     if ((StartMode & 0x1F) == 0x10) // CHECKME
     {
+        // no repeat
         Cnt &= ~(1<<31);
         if (Cnt & (1<<30)) DSi.SetIRQ(0, IRQ_DSi_NDMA0 + Num);
     }
-    else if (!(Cnt & (1<<29)))
+    else if (Cnt & (1<<29))
     {
+        // repeat infinitely
+        if (Cnt & (1<<30)) DSi.SetIRQ(0, IRQ_DSi_NDMA0 + Num);
+    }
+    else
+    {
+        // repeat until total count is reached
         if (TotalRemCount == 0)
         {
             Cnt &= ~(1<<31);
@@ -359,11 +365,18 @@ void DSi_NDMA::Run7()
 
     if ((StartMode & 0x1F) == 0x10) // CHECKME
     {
+        // no repeat
         Cnt &= ~(1<<31);
         if (Cnt & (1<<30)) DSi.SetIRQ(1, IRQ_DSi_NDMA0 + Num);
     }
-    else if (!(Cnt & (1<<29)))
+    else if (Cnt & (1<<29))
     {
+        // repeat infinitely
+        if (Cnt & (1<<30)) DSi.SetIRQ(1, IRQ_DSi_NDMA0 + Num);
+    }
+    else
+    {
+        // repeat until total count is reached
         if (TotalRemCount == 0)
         {
             Cnt &= ~(1<<31);

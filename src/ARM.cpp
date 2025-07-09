@@ -1,5 +1,5 @@
 /*
-    Copyright 2016-2024 melonDS team
+    Copyright 2016-2025 melonDS team
 
     This file is part of melonDS.
 
@@ -115,7 +115,7 @@ ARM::ARM(u32 num, bool jit, std::optional<GDBArgs> gdb, melonDS::NDS& nds) :
     Num(num), // well uh
     NDS(nds)
 {
-    SetGdbArgs(jit ? gdb : std::nullopt);
+    SetGdbArgs(jit ? std::nullopt : gdb);
 }
 
 ARM::~ARM()

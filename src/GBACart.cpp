@@ -1,5 +1,5 @@
 /*
-    Copyright 2016-2024 melonDS team
+    Copyright 2016-2025 melonDS team
 
     This file is part of melonDS.
 
@@ -242,8 +242,6 @@ u16 CartGame::ROMRead(u32 addr) const
             case 0xC8: return GPIO.control;
             }
         }
-        else
-            return 0;
     }
 
     // CHECKME: does ROM mirror?
@@ -539,6 +537,57 @@ CartGameSolarSensor::CartGameSolarSensor(std::unique_ptr<u8[]>&& rom, u32 len, s
 {
 }
 
+std::unique_ptr<CartGameSolarSensor> CreateFakeSolarSensorROM(const char* gamecode, const NDSCart::CartCommon& cart, void* userdata) noexcept
+{
+    return CreateFakeSolarSensorROM(gamecode, cart.GetHeader().NintendoLogo, userdata);
+}
+
+std::unique_ptr<CartGameSolarSensor> CreateFakeSolarSensorROM(const char* gamecode, const GBACart::CartGame& cart, void* userdata) noexcept
+{
+    return CreateFakeSolarSensorROM(gamecode, cart.GetHeader().NintendoLogo, userdata);
+}
+
+std::unique_ptr<CartGameSolarSensor> CreateFakeSolarSensorROM(const char* gamecode, const u8* logo, void* userdata) noexcept
+{
+    if (!gamecode)
+        return nullptr;
+
+    if (strnlen(gamecode, sizeof(GBAHeader::GameCode)) > sizeof(GBAHeader::GameCode))
+        return nullptr;
+
+    bool solarsensor = false;
+    for (const char* i : SOLAR_SENSOR_GAMECODES)
+    {
+        if (strcmp(gamecode, i) == 0) {
+            solarsensor = true;
+            break;
+        }
+    }
+
+    if (!solarsensor)
+        return nullptr;
+
+    // just 256 bytes; we don't need a whole ROM!
+    constexpr size_t FAKE_BOKTAI_ROM_LENGTH = 0x100;
+    std::unique_ptr<u8[]> rom = std::make_unique<u8[]>(FAKE_BOKTAI_ROM_LENGTH);
+
+    // create a fake ROM
+    GBAHeader& header = *reinterpret_cast<GBAHeader*>(rom.get());
+    memcpy(header.Title, BOKTAI_STUB_TITLE, strnlen(BOKTAI_STUB_TITLE, sizeof(header.Title)));
+    memcpy(header.GameCode, gamecode, strnlen(gamecode, sizeof(header.GameCode)));
+    header.FixedValue = 0x96;
+    if (logo)
+    {
+        memcpy(header.NintendoLogo, logo, sizeof(header.NintendoLogo));
+    }
+    else
+    {
+        memset(header.NintendoLogo, 0xFF, sizeof(header.NintendoLogo));
+    }
+
+    return std::make_unique<CartGameSolarSensor>(std::move(rom), FAKE_BOKTAI_ROM_LENGTH, nullptr, 0, userdata);
+}
+
 const int CartGameSolarSensor::kLuxLevels[11] = {0, 5, 11, 18, 27, 42, 62, 84, 109, 139, 183};
 
 void CartGameSolarSensor::Reset()
@@ -724,6 +773,27 @@ void CartRumblePak::ROMWrite(u32 addr, u16 val)
     }
 }
 
+CartGuitarGrip::CartGuitarGrip(void* userdata) : 
+    CartCommon(GuitarGrip),
+    UserData(userdata)
+{
+}
+
+CartGuitarGrip::~CartGuitarGrip() = default;
+
+u16 CartGuitarGrip::ROMRead(u32 addr) const
+{
+    return 0xF9FF;
+}
+
+u8 CartGuitarGrip::SRAMRead(u32 addr)
+{
+    return ~((Platform::Addon_KeyDown(Platform::KeyGuitarGripGreen, UserData) ? 0x40 : 0)
+        | (Platform::Addon_KeyDown(Platform::KeyGuitarGripRed, UserData) ? 0x20 : 0)
+        | (Platform::Addon_KeyDown(Platform::KeyGuitarGripYellow, UserData) ? 0x10 : 0)
+        | (Platform::Addon_KeyDown(Platform::KeyGuitarGripBlue, UserData) ? 0x08 : 0));
+}
+
 GBACartSlot::GBACartSlot(melonDS::NDS& nds, std::unique_ptr<CartCommon>&& cart) noexcept : NDS(nds), Cart(std::move(cart))
 {
 }
@@ -843,7 +913,27 @@ std::unique_ptr<CartCommon> LoadAddon(int type, void* userdata)
     case GBAAddon_RumblePak:
         cart = std::make_unique<CartRumblePak>(userdata);
         break;
-
+    case GBAAddon_SolarSensorBoktai1:
+        // US Boktai 1
+        cart = CreateFakeSolarSensorROM("U3IE", nullptr, userdata);
+        break;
+    case GBAAddon_SolarSensorBoktai2:
+        // US Boktai 2
+        cart = CreateFakeSolarSensorROM("U32E", nullptr, userdata);
+        break;
+    case GBAAddon_SolarSensorBoktai3:
+        // JP Boktai 3
+        cart = CreateFakeSolarSensorROM("U33J", nullptr, userdata);
+        break;
+    case GBAAddon_MotionPakHomebrew:
+        cart = std::make_unique<CartMotionPakHomebrew>(userdata);
+        break;
+    case GBAAddon_MotionPakRetail:
+        cart = std::make_unique<CartMotionPakRetail>(userdata);
+        break;
+    case GBAAddon_GuitarGrip:
+        cart = std::make_unique<CartGuitarGrip>(userdata);
+        break;
     default:
         Log(LogLevel::Warn, "GBACart: !! invalid addon type %d\n", type);
         return nullptr;

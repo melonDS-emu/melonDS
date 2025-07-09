@@ -1,5 +1,5 @@
 /*
-    Copyright 2016-2024 melonDS team
+    Copyright 2016-2025 melonDS team
 
     This file is part of melonDS.
 
@@ -204,7 +204,7 @@ void EmuInstance::createWindow(int id)
     if (windowList[id])
         return;
 
-    MainWindow* win = new MainWindow(id, this, topWindow);
+    MainWindow* win = new MainWindow(id, this, mainWindow ? mainWindow : topWindow);
     if (!topWindow) topWindow = win;
     if (!mainWindow) mainWindow = win;
     windowList[id] = win;
@@ -406,6 +406,15 @@ void EmuInstance::setVSyncGL(bool vsync)
 void EmuInstance::makeCurrentGL()
 {
     mainWindow->makeCurrentGL();
+}
+
+void EmuInstance::releaseGL()
+{
+    for (int i = 0; i < kMaxWindows; i++)
+    {
+        if (windowList[i])
+            windowList[i]->releaseGL();
+    }
 }
 
 void EmuInstance::drawScreenGL()
@@ -1013,28 +1022,35 @@ std::optional<Firmware> EmuInstance::loadFirmware(int type) noexcept
             return generateFirmware(type);
         }
     }
-    //const string& firmwarepath = type == 1 ? Config::DSiFirmwarePath : Config::FirmwarePath;
+
     string firmwarepath;
     if (type == 1)
         firmwarepath = globalCfg.GetString("DSi.FirmwarePath");
     else
         firmwarepath = globalCfg.GetString("DS.FirmwarePath");
 
-    Log(Debug, "SPI 固件(firmware): 读取文件 %s\n", firmwarepath.c_str());
+    string fwpath_inst = firmwarepath + instanceFileSuffix();
 
-    FileHandle* file = OpenLocalFile(firmwarepath, Read);
+    Log(Debug, "从文件 %s 加载固件\n", fwpath_inst.c_str());
+    FileHandle* file = OpenLocalFile(fwpath_inst, Read);
 
     if (!file)
     {
-        Log(Error, "SPI 固件(firmware): 无法读取固件(firmware)文件!\n");
-        return std::nullopt;
+        Log(Debug, "从文件 %s 加载固件\n", firmwarepath.c_str());
+        file = OpenLocalFile(firmwarepath, Read);
+        if (!file)
+        {
+            Log(Error, "无法读取固件(firmware)文件!\n");
+            return std::nullopt;
+        }
     }
+
     Firmware firmware(file);
     CloseFile(file);
 
     if (!firmware.Buffer())
     {
-        Log(Error, "SPI 固件(firmware): 无法读取固件(firmware)文件!\n");
+        Log(Error, "无法读取固件(firmware)文件!\n");
         return std::nullopt;
     }
 
@@ -1082,13 +1098,13 @@ std::optional<DSi_NAND::NANDImage> EmuInstance::loadNAND(const std::array<u8, DS
             auto firmcfg = localCfg.GetTable("Firmware");
 
             // we store relevant strings as UTF-8, so we need to convert them to UTF-16
-            auto converter = wstring_convert<std::codecvt_utf8_utf16<char16_t>, char16_t>{};
+            //auto converter = wstring_convert<std::codecvt_utf8_utf16<char16_t>, char16_t>{};
 
             // setting up username
-            std::u16string username = converter.from_bytes(firmcfg.GetString("Username"));
-            size_t usernameLength = std::min(username.length(), (size_t) 10);
+            auto username = firmcfg.GetQString("Username");
+            size_t usernameLength = std::min((int) username.length(), 10);
             memset(&settings.Nickname, 0, sizeof(settings.Nickname));
-            memcpy(&settings.Nickname, username.data(), usernameLength * sizeof(char16_t));
+            memcpy(&settings.Nickname, username.utf16(), usernameLength * sizeof(char16_t));
 
             // setting language
             settings.Language = static_cast<Firmware::Language>(firmcfg.GetInt("Language"));
@@ -1101,10 +1117,10 @@ std::optional<DSi_NAND::NANDImage> EmuInstance::loadNAND(const std::array<u8, DS
             settings.BirthdayDay = firmcfg.GetInt("BirthdayDay");
 
             // setup message
-            std::u16string message = converter.from_bytes(firmcfg.GetString("Message"));
-            size_t messageLength = std::min(message.length(), (size_t) 26);
+            auto message = firmcfg.GetQString("Message");
+            size_t messageLength = std::min((int) message.length(), 26);
             memset(&settings.Message, 0, sizeof(settings.Message));
-            memcpy(&settings.Message, message.data(), messageLength * sizeof(char16_t));
+            memcpy(&settings.Message, message.utf16(), messageLength * sizeof(char16_t));
 
             // TODO: make other items configurable?
         }
@@ -1292,7 +1308,7 @@ bool EmuInstance::updateConsole() noexcept
     };
     auto gdbargs = gdbopt.GetBool("Enabled") ? std::make_optional(_gdbargs) : std::nullopt;
 #else
-    optional<GDBArgs> gdbargs = std::nullopt;
+    std::optional<GDBArgs> gdbargs = std::nullopt;
 #endif
 
     NDSArgs ndsargs {
@@ -1670,14 +1686,12 @@ void EmuInstance::customizeFirmware(Firmware& firmware, bool overridesettings) n
         auto firmcfg = localCfg.GetTable("Firmware");
 
         // setting up username
-        std::string orig_username = firmcfg.GetString("Username");
-        if (!orig_username.empty())
+        auto username = firmcfg.GetQString("Username");
+        if (!username.isEmpty())
         { // If the frontend defines a username, take it. If not, leave the existing one.
-            std::u16string username = std::wstring_convert<std::codecvt_utf8_utf16<char16_t>, char16_t>{}.from_bytes(
-                    orig_username);
-            size_t usernameLength = std::min(username.length(), (size_t) 10);
+            size_t usernameLength = std::min((int) username.length(), 10);
             currentData.NameLength = usernameLength;
-            memcpy(currentData.Nickname, username.data(), usernameLength * sizeof(char16_t));
+            memcpy(currentData.Nickname, username.utf16(), usernameLength * sizeof(char16_t));
         }
 
         auto language = static_cast<Firmware::Language>(firmcfg.GetInt("Language"));
@@ -1707,12 +1721,10 @@ void EmuInstance::customizeFirmware(Firmware& firmware, bool overridesettings) n
         }
 
         // setup message
-        std::string orig_message = firmcfg.GetString("Message");
-        if (!orig_message.empty())
+        auto message = firmcfg.GetQString("Message");
+        if (!message.isEmpty())
         {
-            std::u16string message = std::wstring_convert<std::codecvt_utf8_utf16<char16_t>, char16_t>{}.from_bytes(
-                    orig_message);
-            size_t messageLength = std::min(message.length(), (size_t) 26);
+            size_t messageLength = std::min((int) message.length(), 26);
             currentData.MessageLength = messageLength;
             memcpy(currentData.Message, message.data(), messageLength * sizeof(char16_t));
         }
@@ -2146,6 +2158,18 @@ QString EmuInstance::gbaAddonName(int addon)
         return "震动卡";
     case GBAAddon_RAMExpansion:
         return "内存拓展卡";
+    case GBAAddon_SolarSensorBoktai1:
+        return "阳光感应卡 (我们的太阳 1)";
+    case GBAAddon_SolarSensorBoktai2:
+        return "阳光感应卡 (我们的太阳 2)";
+    case GBAAddon_SolarSensorBoktai3:
+        return "阳光感应卡 (我们的太阳 3)";
+    case GBAAddon_MotionPakHomebrew:
+        return "运动传感器 (自制软件)";
+    case GBAAddon_MotionPakRetail:
+        return "运动传感器 (官方零售)";
+    case GBAAddon_GuitarGrip:
+        return "吉他握把";
     }
 
     return "???";

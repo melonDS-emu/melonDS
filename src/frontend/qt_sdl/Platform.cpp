@@ -1,5 +1,5 @@
 /*
-    Copyright 2016-2024 melonDS team
+    Copyright 2016-2025 melonDS team
 
     This file is part of melonDS.
 
@@ -35,6 +35,7 @@
 
 #include "Platform.h"
 #include "Config.h"
+#include "EmuInstance.h"
 #include "main.h"
 #include "CameraManager.h"
 #include "Net.h"
@@ -549,6 +550,18 @@ void Camera_CaptureFrame(int num, u32* frame, int width, int height, bool yuv, v
     return camManager[num]->captureFrame(frame, width, height, yuv);
 }
 
+static const int hotkeyMap[] = {
+    HK_GuitarGripGreen,
+    HK_GuitarGripRed,
+    HK_GuitarGripYellow,
+    HK_GuitarGripBlue,
+};
+
+bool Addon_KeyDown(KeyType type, void* userdata)
+{
+    return ((EmuInstance*)userdata)->inputHotkeyDown(hotkeyMap[type]);
+}
+
 void Addon_RumbleStart(u32 len, void* userdata)
 {
     ((EmuInstance*)userdata)->inputRumbleStart(len);
@@ -557,6 +570,11 @@ void Addon_RumbleStart(u32 len, void* userdata)
 void Addon_RumbleStop(void* userdata)
 {
     ((EmuInstance*)userdata)->inputRumbleStop();
+}
+
+float Addon_MotionQuery(MotionQueryType type, void* userdata)
+{
+    return ((EmuInstance*)userdata)->inputMotionQuery(type);
 }
 
 DynamicLibrary* DynamicLibrary_Load(const char* lib)

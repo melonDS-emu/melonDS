@@ -9,6 +9,7 @@ set(CMAKE_POLICY_DEFAULT_CMP0069 NEW)
 
 set(CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/cmake" ${CMAKE_MODULE_PATH})
 set(CMAKE_USER_MAKE_RULES_OVERRIDE "${CMAKE_CURRENT_SOURCE_DIR}/cmake/DefaultBuildFlags.cmake")
+set(CMAKE_OSX_DEPLOYMENT_TARGET "10.15" CACHE STRING "Minimum OS X deployment version")
 
 option(USE_VCPKG "Use vcpkg for dependency packages" OFF)
 if (USE_VCPKG)
@@ -28,8 +29,6 @@ include(CheckIPOSupported)
 
 include(SetupCCache)
 include(Sanitizers)
-
-set(CMAKE_OSX_DEPLOYMENT_TARGET "10.15" CACHE STRING "Minimum OS X deployment version")
 
 set(CMAKE_C_STANDARD 11)
 set(CMAKE_C_STANDARD_REQUIRED ON)

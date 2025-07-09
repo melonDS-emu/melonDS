@@ -1,5 +1,5 @@
 /*
-    Copyright 2016-2024 melonDS team
+    Copyright 2016-2025 melonDS team
 
     This file is part of melonDS.
 
@@ -546,6 +546,26 @@ void NDS::Reset()
 void NDS::Start()
 {
     Running = true;
+
+    if (ConsoleType != 0)
+        return;
+
+    auto* ndscart = NDSCartSlot.GetCart();
+    if (!ndscart)
+        return;
+
+    if (auto* cart = GBACartSlot.GetCart(); cart && cart->Type() == GBACart::CartType::GameSolarSensor)
+    { // If we have a solar sensor cart inserted...
+        auto& solarcart = *static_cast<GBACart::CartGameSolarSensor*>(cart);
+        GBACart::GBAHeader& header = solarcart.GetHeader();
+        if (strncmp(header.Title, GBACart::BOKTAI_STUB_TITLE, sizeof(header.Title)) == 0) {
+            // If this is a stub Boktai cart (so we can use the sensor without a full ROM)...
+
+            // ...then copy the Nintendo logo data from the NDS ROM into the stub GBA ROM.
+            // Otherwise, the GBA cart won't be recognized.
+            memcpy(header.NintendoLogo, ndscart->GetHeader().NintendoLogo, sizeof(header.NintendoLogo));
+        }
+    }
 }
 
 static const char* StopReasonName(Platform::StopReason reason)
@@ -875,7 +895,7 @@ void NDS::RunSystemSleep(u64 timestamp)
                         param = evt.Param;
 
                     EventFunc func = evt.Funcs[evt.FuncID];
-                    func(this, param);
+                    func(evt.That, param);
                 }
             }
         }
@@ -1025,7 +1045,6 @@ u32 NDS::RunFrame()
             ARM7Timestamp-SysTimestamp,
             GPU.GPU3D.Timestamp-SysTimestamp);
 #endif
-        SPU.TransferOutput();
         break;
     }
 
@@ -1863,7 +1882,7 @@ void NDS::debug(u32 param)
     //for (int i = 0; i < 9; i++)
     //    printf("VRAM %c: %02X\n", 'A'+i, GPU->VRAMCNT[i]);
 
-    Platform::FileHandle* shit = Platform::OpenFile("debug/pokeplat.bin", FileMode::Write);
+    /*Platform::FileHandle* shit = Platform::OpenFile("debug/pokeplat.bin", FileMode::Write);
     Platform::FileWrite(ARM9.ITCM, 0x8000, 1, shit);
     for (u32 i = 0x02000000; i < 0x02400000; i+=4)
     {
@@ -1880,20 +1899,21 @@ void NDS::debug(u32 param)
         u32 val = NDS::ARM7Read32(i);
         Platform::FileWrite(&val, 4, 1, shit);
     }
-    Platform::CloseFile(shit);
+    Platform::CloseFile(shit);*/
 
     /*FILE*
-    shit = fopen("debug/directboot9.bin", "wb");
+    shit = fopen("debug/camera9.bin", "wb");
+    fwrite(ARM9.ITCM, 0x8000, 1, shit);
     for (u32 i = 0x02000000; i < 0x04000000; i+=4)
     {
-        u32 val = DSi::ARM9Read32(i);
+        u32 val = ARM9Read32(i);
         fwrite(&val, 4, 1, shit);
     }
     fclose(shit);
     shit = fopen("debug/camera7.bin", "wb");
     for (u32 i = 0x02000000; i < 0x04000000; i+=4)
     {
-        u32 val = DSi::ARM7Read32(i);
+        u32 val = ARM7Read32(i);
         fwrite(&val, 4, 1, shit);
     }
     fclose(shit);*/
