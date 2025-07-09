@@ -64,6 +64,7 @@ enum
     Event_SPITransfer,
     Event_Div,
     Event_Sqrt,
+    Event_DMA,
 
     // DSi
     Event_DSi_SDMMCTransfer,
@@ -196,6 +197,8 @@ enum
     Mem9_VRAM       = 0x00000100,
     Mem9_GBAROM     = 0x00020000,
     Mem9_GBARAM     = 0x00040000,
+    Mem9_DCache     = 0x40000000,
+    Mem9_Null       = 0x80000000,
 
     Mem7_BIOS       = 0x00000001,
     Mem7_MainRAM    = 0x00000002,
@@ -250,7 +253,8 @@ public: // TODO: Encapsulate the rest of these members
 
     int ConsoleType;
     int CurCPU;
-
+    
+    u32 SchedListMask;
     SchedEvent SchedList[Event_MAX] {};
     u8 ARM9MemTimings[0x40000][8];
     u32 ARM9Regions[0x40000];
@@ -262,8 +266,11 @@ public: // TODO: Encapsulate the rest of these members
     bool LagFrameFlag;
 
     // no need to worry about those overflowing, they can keep going for atleast 4350 years
-    u64 ARM9Timestamp, ARM9Target;
+    u64 ARM9Timestamp, DMA9Timestamp, ARM9Target;
     u64 ARM7Timestamp, ARM7Target;
+    u64 MainRAMTimestamp, MainRAMBurstStart;
+    u64 A9ContentionTS; bool ConTSLock;
+    u64 SysTimestamp;
     u32 ARM9ClockShift;
 
     u32 IME[2];
@@ -281,11 +288,18 @@ public: // TODO: Encapsulate the rest of these members
     alignas(u32) u8 ROMSeed0[2*8];
     alignas(u32) u8 ROMSeed1[2*8];
 
+    u32 DMAReadHold[2];
+    u8 DMAsQueued[8];
+    u8 DMAQueuePtr;
+    bool MainRAMBork; // if a main ram read burst starts in the last 6 bytes of a 32 byte block, and then crosses the 32 byte boundary, the burst forcibly restarts
+    bool MainRAMLastAccess; // 0 == ARM9 | 1 == ARM7
+    bool DMALastWasMainRAM;
+
 protected:
     // These BIOS arrays should be declared *before* the component objects (JIT, SPI, etc.)
     // so that they're initialized before the component objects' constructors run.
-    std::array<u8, ARM9BIOSSize> ARM9BIOS;
-    std::array<u8, ARM7BIOSSize> ARM7BIOS;
+    alignas(u32) std::array<u8, ARM9BIOSSize> ARM9BIOS;
+    alignas(u32) std::array<u8, ARM7BIOSSize> ARM7BIOS;
     bool ARM9BIOSNative;
     bool ARM7BIOSNative;
 public: // TODO: Encapsulate the rest of these members
@@ -320,6 +334,11 @@ public: // TODO: Encapsulate the rest of these members
     GBACart::GBACartSlot GBACartSlot;
     melonDS::GPU GPU;
     melonDS::AREngine AREngine;
+    DMA DMAs[8];
+
+#ifdef JIT_ENABLED
+    bool IsJITEnabled(){return EnableJIT;};
+#endif    
 
     const u32 ARM7WRAMSize = 0x10000;
     u8* ARM7WRAM;
@@ -399,6 +418,10 @@ public: // TODO: Encapsulate the rest of these members
 
     std::unique_ptr<GBACart::CartCommon> EjectGBACart() { return GBACartSlot.EjectCart(); }
 
+    void MainRAMHandleARM9();
+    void MainRAMHandleARM7();
+    bool MainRAMHandle();
+
     u32 RunFrame();
 
     bool IsRunning() const noexcept { return Running; }
@@ -418,6 +441,7 @@ public: // TODO: Encapsulate the rest of these members
     void UnregisterEventFuncs(u32 id);
     void ScheduleEvent(u32 id, bool periodic, s32 delay, u32 funcid, u32 param);
     void CancelEvent(u32 id);
+    void RunEventManual(u32 id);
 
     void debug(u32 p);
 
@@ -425,8 +449,8 @@ public: // TODO: Encapsulate the rest of these members
 
     void MapSharedWRAM(u8 val);
 
-    void UpdateIRQ(u32 cpu);
-    void SetIRQ(u32 cpu, u32 irq);
+    void UpdateIRQ(u32 cpu, s32 delay = 0);
+    void SetIRQ(u32 cpu, u32 irq, s32 delay = 0);
     void ClearIRQ(u32 cpu, u32 irq);
     void SetIRQ2(u32 irq);
     void ClearIRQ2(u32 irq);
@@ -456,7 +480,7 @@ public: // TODO: Encapsulate the rest of these members
     virtual void ARM9Write16(u32 addr, u16 val);
     virtual void ARM9Write32(u32 addr, u32 val);
 
-    virtual bool ARM9GetMemRegion(u32 addr, bool write, MemRegion* region);
+    virtual bool ARM9GetMemRegion(const u32 addr, const bool write, MemRegion* region);
 
     virtual u8 ARM7Read8(u32 addr);
     virtual u16 ARM7Read16(u32 addr);
@@ -497,8 +521,6 @@ public: // TODO: Encapsulate the rest of these members
 
 private:
     void InitTimings();
-    u32 SchedListMask;
-    u64 SysTimestamp;
     u8 WRAMCnt;
     u8 PostFlag9;
     u8 PostFlag7;
@@ -506,7 +528,6 @@ private:
     u16 WifiWaitCnt;
     u8 TimerCheckMask[2];
     u64 TimerTimestamp[2];
-    DMA DMAs[8];
     u32 DMA9Fill[4];
     u16 IPCSync9, IPCSync7;
     u16 IPCFIFOCnt9, IPCFIFOCnt7;
@@ -534,6 +555,7 @@ private:
     void HandleTimerOverflow(u32 tid);
     u16 TimerGetCounter(u32 timer);
     void TimerStart(u32 id, u16 cnt);
+    void QueueDMAs(u32 param);
     void StartDiv();
     void DivDone(u32 param);
     void SqrtDone(u32 param);

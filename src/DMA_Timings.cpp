@@ -48,7 +48,7 @@ extern const std::array<u8, 256> MRAMDummy = {0};
 extern const std::array<u8, 256> MRAMRead16Bursts[] =
 {
     // main RAM to regular 16bit or 32bit bus (similar)
-    {7, 3, 2, 2, 2, 2, 2, 2, 2, 2,
+    {6, 3, 2, 2, 2, 2, 2, 2, 2, 2,
      2, 2, 2, 2, 2, 2, 2, 2, 2, 2,
      2, 2, 2, 2, 2, 2, 2, 2, 2, 2,
      2, 2, 2, 2, 2, 2, 2, 2, 2, 2,
@@ -60,7 +60,7 @@ extern const std::array<u8, 256> MRAMRead16Bursts[] =
      2, 2, 2, 2, 2, 2, 2, 2, 2, 2,
      2, 2, 2, 2, 2, 2, 2, 2, 2, 2,
      2, 2, 2, 2, 2, 2, 2, 2, 2,
-     7, 3, 2, 2, 2, 2, 2, 2, 2, 2,
+     6, 3, 2, 2, 2, 2, 2, 2, 2, 2,
      2, 2, 2, 2, 2, 2, 2, 2, 2, 2,
      2, 2, 2, 2, 2, 2, 2, 2, 2, 2,
      2, 2, 2, 2, 2, 2, 2, 2, 2, 2,
@@ -72,7 +72,7 @@ extern const std::array<u8, 256> MRAMRead16Bursts[] =
      2, 2, 2, 2, 2, 2, 2, 2, 2, 2,
      2, 2, 2, 2, 2, 2, 2, 2, 2, 2,
      2, 2, 2, 2, 2, 2, 2, 2, 2,
-     7, 3,
+     6, 3,
      0},
     // main RAM to GBA/wifi, seq=4
     {8, 6, 5, 5, 5, 5, 5, 5, 5, 5,
@@ -181,7 +181,7 @@ extern const std::array<u8, 256> MRAMRead32Bursts[] =
 extern const std::array<u8, 256> MRAMWrite16Bursts[] =
 {
     // regular 16bit or 32bit bus to main RAM (similar)
-    {8, 2, 2, 2, 2, 2, 2, 2, 2, 2,
+    {5, 2, 2, 2, 2, 2, 2, 2, 2, 2,
      2, 2, 2, 2, 2, 2, 2, 2, 2, 2,
      2, 2, 2, 2, 2, 2, 2, 2, 2, 2,
      2, 2, 2, 2, 2, 2, 2, 2, 2, 2,
@@ -212,7 +212,7 @@ extern const std::array<u8, 256> MRAMWrite16Bursts[] =
 extern const std::array<u8, 256> MRAMWrite32Bursts[4] =
 {
     // regular 16bit bus to main RAM
-    {9, 4, 4, 4, 4, 4, 4, 4, 4, 4,
+    {6, 4, 4, 4, 4, 4, 4, 4, 4, 4,
      4, 4, 4, 4, 4, 4, 4, 4, 4, 4,
      4, 4, 4, 4, 4, 4, 4, 4, 4, 4,
      4, 4, 4, 4, 4, 4, 4, 4, 4, 4,
@@ -220,7 +220,7 @@ extern const std::array<u8, 256> MRAMWrite32Bursts[4] =
      4, 4, 4, 4, 4, 4, 4, 4, 4, 4,
      0},
     // regular 32bit bus to main RAM
-    {9, 3, 3, 3, 3, 3, 3, 3, 3, 3,
+    {6, 3, 3, 3, 3, 3, 3, 3, 3, 3,
      3, 3, 3, 3, 3, 3, 3, 3, 3, 3,
      3, 3, 3, 3, 3, 3, 3, 3, 3, 3,
      3, 3, 3, 3, 3, 3, 3, 3, 3, 3,
