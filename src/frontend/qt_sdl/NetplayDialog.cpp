@@ -160,7 +160,7 @@ void NetplayDialog::doUpdatePlayerList(Netplay::Player* players, int num)
 
     // TODO: remove IP column in final product
 
-    const QStringList header = {"#", "Player", "Status", "Ping", "IP"};
+    const QStringList header = {"#", "玩家", "状态", "Ping", "IP"};
     model->setHorizontalHeaderLabels(header);
 
     for (int i = 0; i < num; i++)

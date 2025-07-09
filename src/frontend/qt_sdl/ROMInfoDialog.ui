@@ -528,7 +528,7 @@
       <item row="1" column="1">
        <widget class="QPushButton" name="saveIconButton">
         <property name="text">
-         <string>保存图标 icon</string>
+         <string>保存图标</string>
         </property>
        </widget>
       </item>
@@ -763,7 +763,7 @@
          <bool>false</bool>
         </property>
         <property name="text">
-         <string>Save animated icon</string>
+         <string>保存动态图标</string>
         </property>
        </widget>
       </item>

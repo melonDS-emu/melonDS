@@ -116,7 +116,7 @@ LANStartClientDialog::LANStartClientDialog(QWidget* parent) : QDialog(parent), u
 
     QStandardItemModel* model = new QStandardItemModel();
     ui->tvAvailableGames->setModel(model);
-    const QStringList listheader = {"Name", "Players", "Status", "Host IP"};
+    const QStringList listheader = {"名称", "玩家", "状态", "主机端 IP"};
     model->setHorizontalHeaderLabels(listheader);
 
     connect(ui->tvAvailableGames->selectionModel(), SIGNAL(selectionChanged(const QItemSelection&, const QItemSelection&)),
@@ -305,7 +305,7 @@ LANDialog::LANDialog(QWidget* parent) : QDialog(parent), ui(new Ui::LANDialog)
 
     QStandardItemModel* model = new QStandardItemModel();
     ui->tvPlayerList->setModel(model);
-    const QStringList header = {"#", "Player", "Status", "Ping", "IP"};
+    const QStringList header = {"#", "玩家", "状态", "Ping", "IP"};
     model->setHorizontalHeaderLabels(header);
 
     timerID = startTimer(1000);

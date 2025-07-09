@@ -228,7 +228,7 @@
     </rect>
    </property>
    <property name="text">
-    <string>寻找:</string>
+    <string>搜索结果数:</string>
    </property>
   </widget>
  </widget>
