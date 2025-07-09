@@ -30,7 +30,7 @@ namespace melonDS
 using Platform::Log;
 using Platform::LogLevel;
 
-#define LINE_CYCLES  (355*6)
+#define LINE_CYCLES   (355*6)
 #define HBLANK_CYCLES (48+(256*6))
 #define FRAME_CYCLES  (LINE_CYCLES * 263)
 
@@ -879,6 +879,11 @@ void GPU::StartHBlank(u32 line) noexcept
 {
     DispStat[0] |= (1<<1);
     DispStat[1] |= (1<<1);
+    
+    // TODO: not quite the correct update time, but... close enough i guess?
+    int scanline = (VCount == 262 ? 0 : (line+1));
+    if (!(scanline & 1)) GPU3D.ScanlineSync(scanline);
+    if (GPU3D.UnderflowFlagVCount == scanline) GPU3D.DispCnt |= (1<<12);
 
     if (VCount < 192)
     {
@@ -1014,11 +1019,11 @@ void GPU::StartScanline(u32 line) noexcept
     {
         if (VCount == 192)
         {
-            // in reality rendering already finishes at line 144
+            // in reality rendering already finishes at line 144 (can take up to ~191 depending on load)
             // and games might already start to modify texture memory.
             // That doesn't matter for us because we cache the entire
             // texture memory anyway and only update it before the start
-            //of the next frame.
+            // of the next frame.
             // So we can give the rasteriser a bit more headroom
             GPU3D.VCount144(*this);
 
