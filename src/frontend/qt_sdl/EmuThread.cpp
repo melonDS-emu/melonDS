@@ -1658,8 +1658,19 @@ void EmuThread::run()
     */
 
 
-        //超低サイクル版（ビット演算最適化） 推定サイクル数: 5-7サイクル
+        // ビット演算最適化
         /*
+        * サイクル数: 約10-14サイクル
+
+        ポインタキャスト×3回: 0サイクル（だが最適化を阻害）
+        AND演算×2回: 2サイクル
+        比較×2回 + AND論理: 2-3サイクル
+        乗算（bool→float）: 1-2サイクル
+        条件演算: 1サイクル
+        float減算×1回: 3-4サイクル
+        float加算: 3-4サイクル
+        float→int16_t変換: 3-4サイクル
+
 #define AIM_ADJUST(v) \
     (static_cast<int16_t>( \
         (v) + \
@@ -1676,8 +1687,15 @@ void EmuThread::run()
                 return static_cast<int16_t>(value);  // 切り捨て(0方向への丸め)
             };
         */
-        // 6. ビット操作極限版 - 推定サイクル数: 2-3サイクル
+        // 6. ビット操作極限版 - 
 // 浮動小数点数のビット表現を直接操作
+        /*
+        推定サイクル数: 5-15サイクル
+
+        float→int変換: 3サイクル
+        ビット演算: 1サイクル
+        比較×2: 2サイクル
+        分岐予測ミス時: +10サイクル
 
 #define AIM_ADJUST(v) ({ \
     union { float f; uint32_t i; } u = {v}; \
@@ -1687,6 +1705,42 @@ void EmuThread::run()
     result += ((abs_bits >= 0x3F000000 && abs_bits < 0x3F800000) * \
                (sign ? -1 - result : 1 - result)); \
     result; \
+})
+        */
+        /*
+        分岐なし
+        サイクル数: 約8-10サイクル
+
+        union代入: 0サイクル（レジスタ操作）
+        AND + 比較: 1-2サイクル
+        乗算（0xFFFFFFFF）: 1-3サイクル（実装依存）
+        float→int16_t変換: 3-4サイクル
+        シフト+乗算+加算: 2-3サイクル
+        AND/OR演算: 2サイクル
+        #define AIM_ADJUST(v) ({ \
+    union { float f; uint32_t i; } u = {v}; \
+    uint32_t mask = ((u.i & 0x7F800000) == 0x3F000000) * 0xFFFFFFFF; \
+    int16_t base = (int16_t)(v); \
+    int16_t adj = (int16_t)(u.i >> 31) * -2 + 1; \
+    (base & ~mask) | (adj & mask); \
+})
+        */
+
+
+        /*
+        
+        3. 三項演算子版
+        サイクル数: 約4-6サイクル
+
+        union代入: 0サイクル
+        AND + 比較: 1-2サイクル
+        条件付き移動（cmov）: 1サイクル
+        float→int16_t変換またはシフト演算: 1-4サイクル
+        */
+#define AIM_ADJUST(v) ({ \
+    union { float f; uint32_t i; } u = {v}; \
+    ((u.i & 0x7F800000) == 0x3F000000) ? \
+        (1 - ((u.i >> 31) << 1)) : (int16_t)(v); \
 })
 
 // ホットパス：フォーカスがありレイアウト変更もない場合
