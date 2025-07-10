@@ -1268,7 +1268,7 @@ void EmuThread::run()
     // snapTapモードじゃないときは、左右キーを同時押しで左右移動をストップしないといけない。上下キーも同様。
     // 通常モードの同時押しキャンセルは LUT によってすでに表現されている」
     // snapTapの時は左を押しているときに右を押しても右移動できる。上下も同様。
-
+            /*
     static const auto processMoveInput = [&]() __attribute__((hot, always_inline, flatten)) {
         // SnapTap状態構造体定義(キャッシュライン最適化)
         alignas(64) static struct {
@@ -1393,7 +1393,8 @@ void EmuThread::run()
         mask[INPUT_RIGHT] = invStates & 8;   // RIGHT: inverted bit 3 -> INPUT_RIGHT (4)
     };
 
-    /*
+
+
     // v2 needless
     static const auto processMoveInput = [&]() __attribute__((hot, always_inline, flatten)) {
         // SnapTap状態構造体定義（キャッシュ最適化）
@@ -1476,8 +1477,92 @@ void EmuThread::run()
         mask.setBit(INPUT_LEFT, !(moveBits & 0x4));
         mask.setBit(INPUT_RIGHT, !(moveBits & 0x8));
     };
-    */
-   
+       */
+
+    // v3
+    static const auto processMoveInput = [&]() __attribute__((hot, always_inline, flatten)) {
+        // SnapTap状態構造体定義（キャッシュ最適化）
+        alignas(64) static struct {
+            uint32_t lastInputBitmap;    // 前回入力ビットマップ保持
+            uint32_t priorityInput;      // 優先入力ビットマップ保持
+        } snapTapState = { 0, 0 };
+
+        // 水平・垂直競合用マスク定義
+        static constexpr uint32_t HORIZ_MASK = 0xC;  // LEFT | RIGHT
+        static constexpr uint32_t VERT_MASK = 0x3;  // UP | DOWN
+
+        // 超コンパクトLUT（同時押しキャンセル含む） - L1キャッシュ効率最大化
+        alignas(16) static constexpr uint8_t LUT[16] = {
+            0,    // 0000: なし
+            1,    // 0001: ↑ 
+            2,    // 0010: ↓
+            0,    // 0011: ↑↓(キャンセル)
+            4,    // 0100: ←
+            5,    // 0101: ↑←
+            6,    // 0110: ↓←
+            4,    // 0111: ←(↑↓キャンセル)
+            8,    // 1000: →
+            9,    // 1001: ↑→
+            10,   // 1010: ↓→
+            8,    // 1011: →(↑↓キャンセル)
+            0,    // 1100: ←→(キャンセル)
+            1,    // 1101: ↑(←→キャンセル)
+            2,    // 1110: ↓(←→キャンセル)
+            0     // 1111: 全キャンセル
+        };
+
+        const auto& hotkeyMask = emuInstance->hotkeyMask;
+
+        // 現在の入力状態取得
+        const uint32_t curr =
+            hotkeyMask[HK_MetroidMoveForward] |
+            (hotkeyMask[HK_MetroidMoveBack] << 1) |
+            (hotkeyMask[HK_MetroidMoveLeft] << 2) |
+            (hotkeyMask[HK_MetroidMoveRight] << 3);
+
+        uint32_t finalInput;
+
+        // SnapTapモード判定（SnapTap使用が稀ならこの分岐が最速）
+        if (__builtin_expect(!isSnapTapMode, 1)) {
+            // SnapTapなし：即時解決（キャンセルもLUT内で処理済み）
+            finalInput = curr;
+        }
+        else {
+            // SnapTap有効時のみ処理（頻度が低いなら影響は最小）
+            const uint32_t newPressed = curr & ~snapTapState.lastInputBitmap;
+
+            const uint32_t hConflict = ((curr & HORIZ_MASK) == HORIZ_MASK);
+            const uint32_t vConflict = ((curr & VERT_MASK) == VERT_MASK);
+            const uint32_t conflictMask = (hConflict * HORIZ_MASK) | (vConflict * VERT_MASK);
+
+            // 新規入力が競合中なら優先入力を更新
+            if (__builtin_expect(newPressed & conflictMask, 0)) {
+                const uint32_t hNew = newPressed & HORIZ_MASK & -hConflict;
+                const uint32_t vNew = newPressed & VERT_MASK & -vConflict;
+                snapTapState.priorityInput =
+                    (snapTapState.priorityInput & ~conflictMask) | hNew | vNew;
+            }
+
+            // 押されていないキーはマスク
+            snapTapState.priorityInput &= curr;
+
+            // 競合中は優先入力、非競合はそのまま
+            finalInput = (curr & ~conflictMask) | (snapTapState.priorityInput & conflictMask);
+
+            // 状態保存
+            snapTapState.lastInputBitmap = curr;
+        }
+
+        // LUT参照で方向決定（最終出力）
+        const uint8_t moveBits = ~LUT[finalInput];
+
+        // QBitArray更新（false: 移動、true: 停止）
+        auto& mask = emuInstance->inputMask;
+        mask[INPUT_UP] = moveBits & 1;      // UP: inverted bit 0 -> INPUT_UP (6)
+        mask[INPUT_DOWN] = moveBits & 2;    // DOWN: inverted bit 1 -> INPUT_DOWN (7)  
+        mask[INPUT_LEFT] = moveBits & 4;    // LEFT: inverted bit 2 -> INPUT_LEFT (5)
+        mask[INPUT_RIGHT] = moveBits & 8;   // RIGHT: inverted bit 3 -> INPUT_RIGHT (4)
+    };
     // /processMoveInputFunction }
 
 
