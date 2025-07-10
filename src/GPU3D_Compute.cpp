@@ -384,7 +384,7 @@ void ComputeRenderer::SetRenderSettings(int scale, bool highResolutionCoordinate
     CoarseTileCountY = lastCTY;
     ClearCoarseBinMaskLocalSize = lastCCBMLS;
     */
-    
+    /*
     // v4 ルックアップテーブル版（4-5サイクル）
     static const struct {
         uint8_t TileScale;
@@ -413,7 +413,8 @@ void ComputeRenderer::SetRenderSettings(int scale, bool highResolutionCoordinate
     TileSize = TileConfig[ScaleFactor].TileSize;
     CoarseTileCountY = TileConfig[ScaleFactor].CoarseTileCountY;
     ClearCoarseBinMaskLocalSize = TileConfig[ScaleFactor].ClearCoarseBinMaskLocalSize;
-    
+    */
+
     /* v5 合計遅延: 5-6サイクル キャッシュヒット時2-3サイクル
     static uint64_t lastState = 0xFFFFFFFFFFFFFFFF;
 
@@ -461,6 +462,19 @@ void ComputeRenderer::SetRenderSettings(int scale, bool highResolutionCoordinate
     ClearCoarseBinMaskLocalSize = cfg[3];
     // ===== プリフェッチ + 投機的実行版（3.5-5.5サイクル（L1キャッシュヒット時））ここまで =====
     */
+
+    // マクロ版（2.5-3サイクル）
+    #define UPDATE_TILE_CONFIG(sf) do { \
+        static const uint32_t configs[3] = {0x01080440, 0x02100440, 0x04200630}; \
+        uint32_t packed = configs[((sf) > 4) + ((sf) > 8)]; \
+        TileScale = packed >> 24; \
+        TileSize = (packed >> 16) & 0xFF; \
+        CoarseTileCountY = (packed >> 8) & 0xFF; \
+        ClearCoarseBinMaskLocalSize = packed & 0xFF; \
+    } while(0)
+
+    // 使用
+    UPDATE_TILE_CONFIG(ScaleFactor);
 
     /* MelonPrimeDS } */
 
