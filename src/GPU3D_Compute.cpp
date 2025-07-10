@@ -463,6 +463,22 @@ void ComputeRenderer::SetRenderSettings(int scale, bool highResolutionCoordinate
     // ===== プリフェッチ + 投機的実行版（3.5-5.5サイクル（L1キャッシュヒット時））ここまで =====
     */
 
+    /* v1
+    * // Final calculation
+CoarseTileArea = CoarseTileCountX * CoarseTileCountY;
+CoarseTileW = CoarseTileCountX * TileSize;
+CoarseTileH = CoarseTileCountY * TileSize;
+
+TilesPerLine = ScreenWidth/TileSize;
+TileLines = ScreenHeight/TileSize;
+
+HiresCoordinates = highResolutionCoordinates;
+
+MaxWorkTiles = TilesPerLine*TileLines*16;
+*/
+
+
+    /*
     // マクロ版（2.5-3サイクル）
 
     #define UPDATE_TILE_CONFIG(sf) do { \
@@ -477,19 +493,43 @@ void ComputeRenderer::SetRenderSettings(int scale, bool highResolutionCoordinate
     // 使用
     UPDATE_TILE_CONFIG(ScaleFactor);
 
+    // シフト値の計算を高速化
+#define FINAL_TILE_CALCULATION_FAST() do { \
+    uint32_t shift = __builtin_ctz(TileSize); \
+    \
+    CoarseTileArea = CoarseTileCountX * CoarseTileCountY; \
+    CoarseTileW = CoarseTileCountX << shift; \
+    CoarseTileH = CoarseTileCountY << shift; \
+    TilesPerLine = ScreenWidth >> shift; \
+    TileLines = ScreenHeight >> shift; \
+    HiresCoordinates = highResolutionCoordinates; \
+    MaxWorkTiles = (TilesPerLine * TileLines) << 4; \
+} while(0)
+
+    FINAL_TILE_CALCULATION_FAST();
+    */
+
+#define MELONPRIMEDS_UPDATE_ALL(sf) do { \
+    static const uint32_t c[3] = {0x01080440, 0x02100440, 0x04200630}; \
+    uint32_t i = ((sf) > 4) + ((sf) > 8); \
+    uint32_t p = c[i]; \
+    TileScale = p >> 24; \
+    TileSize = (p >> 16) & 0xFF; \
+    CoarseTileCountY = (p >> 8) & 0xFF; \
+    ClearCoarseBinMaskLocalSize = p & 0xFF; \
+    uint32_t s = 3 + i; /* または __builtin_ctz(TileSize) */ \
+    CoarseTileArea = CoarseTileCountX * CoarseTileCountY; \
+    CoarseTileW = CoarseTileCountX << s; \
+    CoarseTileH = CoarseTileCountY << s; \
+    TilesPerLine = ScreenWidth >> s; \
+    TileLines = ScreenHeight >> s; \
+    HiresCoordinates = highResolutionCoordinates; \
+    MaxWorkTiles = (TilesPerLine * TileLines) << 4; \
+} while(0)
+
+MELONPRIMEDS_UPDATE_ALL(ScaleFactor);
 
 
-    // Final calculation
-    CoarseTileArea = CoarseTileCountX * CoarseTileCountY;
-    CoarseTileW = CoarseTileCountX * TileSize;
-    CoarseTileH = CoarseTileCountY * TileSize;
-
-    TilesPerLine = ScreenWidth/TileSize;
-    TileLines = ScreenHeight/TileSize;
-
-    HiresCoordinates = highResolutionCoordinates;
-
-    MaxWorkTiles = TilesPerLine*TileLines*16;
 
     /* MelonPrimeDS } */
 
