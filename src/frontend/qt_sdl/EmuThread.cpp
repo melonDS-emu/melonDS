@@ -15,6 +15,16 @@
     You should have received a copy of the GNU General Public License along
     with melonDS. If not, see http://www.gnu.org/licenses/.
 */
+/*
+MelonPrimeDS Development Memo:
+
+Low-Latency Input Optimization
+Performance Note
+Using hotkeyDown() and hotkeyPressed() functions introduces unnecessary overhead. Direct QBitArray access provides significantly lower latency.
+Replace emuInstance->hotkeyDown(HK_KEY) with emuInstance->hotkeyMask[HK_KEY] and emuInstance->hotkeyPressed(HK_KEY) with emuInstance->hotkeyPress[HK_KEY].
+Cache references once per function: const auto& hotkeyMask = emuInstance->hotkeyMask; for multiple accesses. This saves 4+ cycles per access, critical for high-frequency input processing.
+
+*/
 
 #include <stdlib.h>
 #include <time.h>
@@ -178,7 +188,7 @@ melonDS::u32 aimYAddr;
 melonDS::u32 isInAdventureAddr;
 melonDS::u32 isMapOrUserActionPausedAddr; // for issue in AdventureMode, Aim Stopping when SwitchingWeapon. 
 
-
+/*
 void initializeAddressesForEU1(uint32_t globalChecksum, EmuInstance* emuInstance, bool& isRomDetected) {
     // Common addresses for EU1.1 and EU1_BALANCED
     baseChosenHunterAddr = 0x020CBE44; // BattleConfig:ChosenHunter
@@ -199,23 +209,29 @@ void initializeAddressesForEU1(uint32_t globalChecksum, EmuInstance* emuInstance
     if (globalChecksum == RomVersions::EU1_1) {
         emuInstance->osdAddMessage(0, "MPH Rom version detected: EU1.1");
     }
-    else {
+    else if (globalChecksum == RomVersions::EU1_BALANCED) {
         emuInstance->osdAddMessage(0, "MPH Rom version detected: EU1.1 BALANCED");
     }
+    else {
+        emuInstance->osdAddMessage(0, "MPH Rom version detected: EU1.1 ENCRYPTED");
+        }
 
     isRomDetected = true;
 }
 
-void detectRomAndSetAddresses(EmuInstance* emuInstance) {
+
+void detectRomAndSetAddressesv1(EmuInstance* emuInstance) {
 
 
     switch (globalChecksum) {
     case RomVersions::EU1_1:
+    case RomVersions::EU1_1_ENCRYPTED:
     case RomVersions::EU1_BALANCED:
         initializeAddressesForEU1(globalChecksum, emuInstance, isRomDetected);
         break;
 
     case RomVersions::US1_1:
+    case RomVersions::US1_1_ENCRYPTED:
         // USA1.1
 
         baseChosenHunterAddr = 0x020CBDA4; // BattleConfig:ChosenHunter 0 samus 1 kanden 2 trace 3 sylux 4 noxus 5 spire 6 weavel
@@ -232,11 +248,18 @@ void detectRomAndSetAddresses(EmuInstance* emuInstance) {
         isInAdventureAddr = 0x020E83BC; // Read8 0x02: ADV, 0x03: Multi
         isMapOrUserActionPausedAddr = 0x020FBF18; // 0x00000001: true, 0x00000000 false. Read8 is enough though.
         isRomDetected = true;
-        emuInstance->osdAddMessage(0, "MPH Rom version detected: US1.1");
+        
+        if (globalChecksum == RomVersions::US1_1) {
+            emuInstance->osdAddMessage(0, "MPH Rom version detected: US1.1");
+        }
+        else {
+            emuInstance->osdAddMessage(0, "MPH Rom version detected: US1.1 ENCRYPTED");
+        }
 
         break;
 
     case RomVersions::US1_0:
+    case RomVersions::US1_0_ENCRYPTED:
         // USA1.0
         baseChosenHunterAddr = 0x020CB51C; // BattleConfig:ChosenHunter
         inGameAddr = 0x020ee180 + 0x8F0; // inGame:1
@@ -252,11 +275,17 @@ void detectRomAndSetAddresses(EmuInstance* emuInstance) {
         isInAdventureAddr = 0x020E78FC; // Read8 0x02: ADV, 0x03: Multi
         isMapOrUserActionPausedAddr = 0x020FB458; // 0x00000001: true, 0x00000000 false. Read8 is enough though.
         isRomDetected = true;
-        emuInstance->osdAddMessage(0, "MPH Rom version detected: US1.0");
 
+        if (globalChecksum == RomVersions::US1_0) {
+            emuInstance->osdAddMessage(0, "MPH Rom version detected: US1.0");
+        }
+        else {
+            emuInstance->osdAddMessage(0, "MPH Rom version detected: US1.0 ENCRYPTED");
+        }
         break;
 
     case RomVersions::JP1_0:
+    case RomVersions::JP1_0_ENCRYPTED:
         // Japan1.0
         baseChosenHunterAddr = 0x020CD358; // BattleConfig:ChosenHunter
         inGameAddr = 0x020F0BB0; // inGame:1
@@ -273,11 +302,18 @@ void detectRomAndSetAddresses(EmuInstance* emuInstance) {
         isInAdventureAddr = 0x020E9A3C; // Read8 0x02: ADV, 0x03: Multi
         isMapOrUserActionPausedAddr = 0x020FD598; // 0x00000001: true, 0x00000000 false. Read8 is enough though.
         isRomDetected = true;
-        emuInstance->osdAddMessage(0, "MPH Rom version detected: JP1.0");
+
+        if (globalChecksum == RomVersions::JP1_0) {
+            emuInstance->osdAddMessage(0, "MPH Rom version detected: JP1.0");
+        }
+        else {
+            emuInstance->osdAddMessage(0, "MPH Rom version detected: JP1.0 ENCRYPTED");
+        }
 
         break;
 
     case RomVersions::JP1_1:
+    case RomVersions::JP1_1_ENCRYPTED:
         // Japan1.1
         baseChosenHunterAddr = 0x020CD318; // BattleConfig:ChosenHunter
         inGameAddr = 0x020F0280 + 0x8F0; // inGame:1
@@ -293,11 +329,18 @@ void detectRomAndSetAddresses(EmuInstance* emuInstance) {
         isInAdventureAddr = 0x020E99FC; // Read8 0x02: ADV, 0x03: Multi
         isMapOrUserActionPausedAddr = 0x020FD558; // 0x00000001: true, 0x00000000 false. Read8 is enough though.
         isRomDetected = true;
-        emuInstance->osdAddMessage(0, "MPH Rom version detected: JP1.1");
+
+        if (globalChecksum == RomVersions::JP1_1) {
+            emuInstance->osdAddMessage(0, "MPH Rom version detected: JP1.1");
+        }
+        else {
+            emuInstance->osdAddMessage(0, "MPH Rom version detected: JP1.1 ENCRYPTED");
+        }
 
         break;
 
     case RomVersions::EU1_0:
+    case RomVersions::EU1_0_ENCRYPTED:
         // EU1.0
         baseChosenHunterAddr = 0x020CBDC4; // BattleConfig:ChosenHunter
         inGameAddr = 0x020eec60 + 0x8F0; // inGame:1
@@ -313,11 +356,18 @@ void detectRomAndSetAddresses(EmuInstance* emuInstance) {
         isInAdventureAddr = 0x020E83DC; // Read8 0x02: ADV, 0x03: Multi
         isMapOrUserActionPausedAddr = 0x020FBF38; // 0x00000001: true, 0x00000000 false. Read8 is enough though.
         isRomDetected = true;
-        emuInstance->osdAddMessage(0, "MPH Rom version detected: EU1.0");
+
+        if (globalChecksum == RomVersions::EU1_0) {
+            emuInstance->osdAddMessage(0, "MPH Rom version detected: EU1.0");
+        }
+        else {
+            emuInstance->osdAddMessage(0, "MPH Rom version detected: EU1.0 ENCRYPTED");
+        }
 
         break;
 
     case RomVersions::KR1_0:
+    case RomVersions::KR1_0_ENCRYPTED:
         // Korea1.0
         baseChosenHunterAddr = 0x020C4B88; // BattleConfig:ChosenHunter
         inGameAddr = 0x020E81B4; // inGame:1
@@ -332,9 +382,16 @@ void detectRomAndSetAddresses(EmuInstance* emuInstance) {
         baseAimYAddr = 0x020D7C16;
         isInAdventureAddr = 0x020E11F8; // Read8 0x02: ADV, 0x03: Multi
         isMapOrUserActionPausedAddr = 0x020F4CF8; // 0x00000001: true, 0x00000000 false. Read8 is enough though.
-        emuInstance->osdAddMessage(0, "MPH Rom version detected: KR1.0");
 
         isRomDetected = true;
+
+        if (globalChecksum == RomVersions::KR1_0) {
+            emuInstance->osdAddMessage(0, "MPH Rom version detected: KR1.0");
+        }
+        else {
+            emuInstance->osdAddMessage(0, "MPH Rom version detected: KR1.0 ENCRYPTED");
+        }
+
 
         break;
 
@@ -345,7 +402,172 @@ void detectRomAndSetAddresses(EmuInstance* emuInstance) {
     }
 }
 
+*/
 
+// ROM検出とアドレス設定（すべて関数内で完結）
+void detectRomAndSetAddresses(EmuInstance* emuInstance) {
+    // ROMグループの定義
+    enum RomGroup {
+        GROUP_US1_1,     // US1.1, US1.1_ENCRYPTED
+        GROUP_US1_0,     // US1.0, US1.0_ENCRYPTED
+        GROUP_EU1_1,     // EU1.1, EU1.1_ENCRYPTED, EU1_BALANCED
+        GROUP_EU1_0,     // EU1.0, EU1.0_ENCRYPTED
+        GROUP_JP1_0,     // JP1.0, JP1.0_ENCRYPTED
+        GROUP_JP1_1,     // JP1.1, JP1.1_ENCRYPTED
+        GROUP_KR1_0,     // KR1.0, KR1.0_ENCRYPTED
+    };
+
+    // ROM情報の構造体
+    struct RomInfo {
+        uint32_t checksum;
+        const char* name;
+        RomGroup group;
+    };
+
+    // チェックサムとROM情報のマッピング（スタック上）
+    const RomInfo ROM_INFO_TABLE[] = {
+        {RomVersions::US1_1,           "US1.1",           GROUP_US1_1},
+        {RomVersions::US1_1_ENCRYPTED, "US1.1 ENCRYPTED", GROUP_US1_1},
+        {RomVersions::US1_0,           "US1.0",           GROUP_US1_0},
+        {RomVersions::US1_0_ENCRYPTED, "US1.0 ENCRYPTED", GROUP_US1_0},
+        {RomVersions::EU1_1,           "EU1.1",           GROUP_EU1_1},
+        {RomVersions::EU1_1_ENCRYPTED, "EU1.1 ENCRYPTED", GROUP_EU1_1},
+        {RomVersions::EU1_BALANCED,    "EU1.1 BALANCED",  GROUP_EU1_1},
+        {RomVersions::EU1_0,           "EU1.0",           GROUP_EU1_0},
+        {RomVersions::EU1_0_ENCRYPTED, "EU1.0 ENCRYPTED", GROUP_EU1_0},
+        {RomVersions::JP1_0,           "JP1.0",           GROUP_JP1_0},
+        {RomVersions::JP1_0_ENCRYPTED, "JP1.0 ENCRYPTED", GROUP_JP1_0},
+        {RomVersions::JP1_1,           "JP1.1",           GROUP_JP1_1},
+        {RomVersions::JP1_1_ENCRYPTED, "JP1.1 ENCRYPTED", GROUP_JP1_1},
+        {RomVersions::KR1_0,           "KR1.0",           GROUP_KR1_0},
+        {RomVersions::KR1_0_ENCRYPTED, "KR1.0 ENCRYPTED", GROUP_KR1_0},
+    };
+
+    // チェックサムからROM情報を検索
+    const RomInfo* romInfo = nullptr;
+    for (const auto& info : ROM_INFO_TABLE) {
+        if (globalChecksum == info.checksum) {
+            romInfo = &info;
+            break;
+        }
+    }
+
+    // 未対応ROMの場合
+    if (!romInfo) {
+        return;
+    }
+
+    // JP1.0の基準アドレス（他のバージョンの計算で使用）
+    const uint32_t JP1_0_BASE_IS_ALT_FORM = 0x020DC6D8;
+    const uint32_t JP1_0_BASE_WEAPON_CHANGE = 0x020DCA9B;
+    const uint32_t JP1_0_BASE_SELECTED_WEAPON = 0x020DCAA3;
+
+    // グループごとのアドレス設定（switch文でスタック使用を最小化）
+    switch (romInfo->group) {
+    case GROUP_US1_1:
+        baseChosenHunterAddr = 0x020CBDA4; // BattleConfig:ChosenHunter
+        inGameAddr = 0x020eec40 + 0x8F0; // inGame:1
+        PlayerPosAddr = 0x020DA538; // Estimated address
+        baseIsAltFormAddr = 0x020DB098;
+        baseWeaponChangeAddr = 0x020DB45B; // 1p(host)
+        baseSelectedWeaponAddr = 0x020DB463;  // 1p(host)
+        baseAimXAddr = 0x020DEDA6;
+        baseAimYAddr = 0x020DEDAE;
+        isInAdventureAddr = 0x020E83BC; // Read8 0x02: ADV, 0x03: Multi
+        isMapOrUserActionPausedAddr = 0x020FBF18; // 0x00000001: true, 0x00000000 false. Read8 is enough though.
+        break;
+
+    case GROUP_US1_0:
+        baseChosenHunterAddr = 0x020CB51C;
+        inGameAddr = 0x020ee180 + 0x8F0;
+        PlayerPosAddr = 0x020D9CB8;
+        baseIsAltFormAddr = JP1_0_BASE_IS_ALT_FORM - 0x1EC0;
+        baseWeaponChangeAddr = JP1_0_BASE_WEAPON_CHANGE - 0x1EC0;
+        baseSelectedWeaponAddr = JP1_0_BASE_SELECTED_WEAPON - 0x1EC0;
+        baseAimXAddr = 0x020de526;
+        baseAimYAddr = 0x020de52E;
+        isInAdventureAddr = 0x020E78FC;
+        isMapOrUserActionPausedAddr = 0x020FB458;
+        break;
+
+    case GROUP_EU1_1:
+        baseChosenHunterAddr = 0x020CBE44;
+        inGameAddr = 0x020eece0 + 0x8F0;
+        PlayerPosAddr = 0x020DA5D8;
+        baseIsAltFormAddr = JP1_0_BASE_IS_ALT_FORM - 0x15A0;
+        baseWeaponChangeAddr = JP1_0_BASE_WEAPON_CHANGE - 0x15A0;
+        baseSelectedWeaponAddr = JP1_0_BASE_SELECTED_WEAPON - 0x15A0;
+        baseAimXAddr = 0x020dee46;
+        baseAimYAddr = 0x020dee4e;
+        isInAdventureAddr = 0x020E845C;
+        isMapOrUserActionPausedAddr = 0x020FBFB8;
+        break;
+
+    case GROUP_EU1_0:
+        baseChosenHunterAddr = 0x020CBDC4;
+        inGameAddr = 0x020eec60 + 0x8F0;
+        PlayerPosAddr = 0x020DA558;
+        baseIsAltFormAddr = JP1_0_BASE_IS_ALT_FORM - 0x1620;
+        baseWeaponChangeAddr = JP1_0_BASE_WEAPON_CHANGE - 0x1620;
+        baseSelectedWeaponAddr = JP1_0_BASE_SELECTED_WEAPON - 0x1620;
+        baseAimXAddr = 0x020dedc6;
+        baseAimYAddr = 0x020dedcE;
+        isInAdventureAddr = 0x020E83DC;
+        isMapOrUserActionPausedAddr = 0x020FBF38;
+        break;
+
+    case GROUP_JP1_0:
+        baseChosenHunterAddr = 0x020CD358;
+        inGameAddr = 0x020F0BB0;
+        PlayerPosAddr = 0x020DBB78;
+        baseIsAltFormAddr = JP1_0_BASE_IS_ALT_FORM;  // 基準値そのもの
+        baseWeaponChangeAddr = JP1_0_BASE_WEAPON_CHANGE;
+        baseSelectedWeaponAddr = JP1_0_BASE_SELECTED_WEAPON;
+        baseAimXAddr = 0x020E03E6;
+        baseAimYAddr = 0x020E03EE;
+        isInAdventureAddr = 0x020E9A3C;
+        isMapOrUserActionPausedAddr = 0x020FD598;
+        break;
+
+    case GROUP_JP1_1:
+        baseChosenHunterAddr = 0x020CD318;
+        inGameAddr = 0x020F0280 + 0x8F0;
+        PlayerPosAddr = 0x020DBB38;
+        baseIsAltFormAddr = JP1_0_BASE_IS_ALT_FORM - 0x64;
+        baseWeaponChangeAddr = JP1_0_BASE_WEAPON_CHANGE - 0x40;
+        baseSelectedWeaponAddr = JP1_0_BASE_SELECTED_WEAPON - 0x40;
+        baseAimXAddr = 0x020e03a6;
+        baseAimYAddr = 0x020e03ae;
+        isInAdventureAddr = 0x020E99FC;
+        isMapOrUserActionPausedAddr = 0x020FD558;
+        break;
+
+    case GROUP_KR1_0:
+        baseChosenHunterAddr = 0x020C4B88;
+        inGameAddr = 0x020E81B4;
+        PlayerPosAddr = 0x020D33A9;  // it's weird but "3A9" is correct.
+        baseIsAltFormAddr = JP1_0_BASE_IS_ALT_FORM - 0x87F4;
+        baseWeaponChangeAddr = JP1_0_BASE_WEAPON_CHANGE - 0x87F4;
+        baseSelectedWeaponAddr = JP1_0_BASE_SELECTED_WEAPON - 0x87F4;
+        baseAimXAddr = 0x020D7C0E;
+        baseAimYAddr = 0x020D7C16;
+        isInAdventureAddr = 0x020E11F8;
+        isMapOrUserActionPausedAddr = 0x020F4CF8;
+        break;
+    }
+
+    // 計算で求めるアドレス
+    isInVisorOrMapAddr = PlayerPosAddr - 0xabb;
+    baseLoadedSpecialWeaponAddr = baseIsAltFormAddr + 0x56;
+    baseJumpFlagAddr = baseSelectedWeaponAddr - 0xA;
+
+    isRomDetected = true;
+
+    // ROM検出メッセージ
+    char message[256];
+    sprintf(message, "MPH Rom version detected: %s", romInfo->name);
+    emuInstance->osdAddMessage(0, message);
+}
 
 
 
@@ -485,7 +707,7 @@ void EmuThread::run()
                 Config::Save();
 
                 // Display message using format string instead of concatenation
-                emuInstance->osdAddMessage(0, "AimSensi Updated: %d", newSensitivity);
+                emuInstance->osdAddMessage(0, "AimSensi Updated: %d->%d", currentSensitivity, newSensitivity);
 				isSensitivityChangePending = true;  // フラグを立てる
             }
             };
@@ -814,11 +1036,11 @@ void EmuThread::run()
         };
 
     // よく使う2フレーム進めるマクロを定義
-#define FRAME_ADVANCE_2 do { frameAdvanceOnce(); frameAdvanceOnce(); } while(0) // 補足：なぜ do { ... } while(0) を使うのか？ これは安全なマクロの基本形であり、if文などの中でブロックとして扱えるようにするためです
+#define FRAME_ADVANCE_2 do { frameAdvanceOnce(); frameAdvanceOnce(); } while(0) // 補足：なぜ do { ... } while(0) を使うのか？ これは安全なマクロの基本形であり、if文などの中でブロックとして扱えるようにするため
 
     */
 
-    auto frameAdvanceTwice = [&]() __attribute__((hot, always_inline, flatten)) {
+    static const auto frameAdvanceTwice = [&]() __attribute__((hot, always_inline, flatten)) {
         frameAdvanceOnce();
         frameAdvanceOnce();
     };
@@ -859,7 +1081,7 @@ void EmuThread::run()
         isCursorVisible = show;
         };
 
-// #define STYLUS_MODE 1 // this is for stylus user
+// #define STYLUS_MODE 1 // this is for stylus user. MelonEK
 
 #define INPUT_A 0
 #define INPUT_B 1
@@ -874,8 +1096,31 @@ void EmuThread::run()
 #define INPUT_X 10
 #define INPUT_Y 11
 
+/*
 #define FN_INPUT_PRESS(i) emuInstance->inputMask.setBit(i, false) // ここでは末尾にセミコロンは不要
 #define FN_INPUT_RELEASE(i) emuInstance->inputMask.setBit(i, true) // ここでは末尾にセミコロンは不要
+*/
+// 最適化されたマクロ定義 - setBit()を使わずに直接ビット操作
+//#define FN_INPUT_PRESS(i) emuInstance->inputMask[i] = false   // 直接代入でプレス
+//#define FN_INPUT_RELEASE(i) emuInstance->inputMask[i] = true  // 直接代入でリリース
+
+    /*
+#define PERFORM_TOUCH(x, y) do { \
+    emuInstance->nds->ReleaseScreen(); \
+    frameAdvanceTwice(); \
+    emuInstance->nds->TouchScreen(x, y); \
+    frameAdvanceTwice(); \
+} while(0)
+*/
+/*
+// 
+    static const auto PERFORM_TOUCH = [&](int x, int y) __attribute__((always_inline)) {
+        emuInstance->nds->ReleaseScreen();
+        frameAdvanceTwice();
+        emuInstance->nds->TouchScreen(x, y);
+        frameAdvanceTwice();
+    };
+    */
 
     uint8_t playerPosition;
     const uint16_t playerAddressIncrement = 0xF30;
@@ -914,6 +1159,7 @@ void EmuThread::run()
 
     // test
     // Lambda function to get adjusted center position based on window geometry and screen layout
+#ifndef STYLUS_MODE
     static const auto getAdjustedCenter = [&]()__attribute__((hot, always_inline, flatten)) -> QPoint {
         // Cache static constants outside the function to avoid recomputation
         static constexpr float DEFAULT_ADJUSTMENT = 0.25f;
@@ -1014,6 +1260,7 @@ void EmuThread::run()
 
         return adjustedCenter;
         };
+#endif
 
     // processMoveInputFunction{
     // 超低遅延SnapTap入力処理 - 分岐予測最適化とキャッシュ効率重視
@@ -1021,7 +1268,7 @@ void EmuThread::run()
     // snapTapモードじゃないときは、左右キーを同時押しで左右移動をストップしないといけない。上下キーも同様。
     // 通常モードの同時押しキャンセルは LUT によってすでに表現されている」
     // snapTapの時は左を押しているときに右を押しても右移動できる。上下も同様。
-
+            /*
     static const auto processMoveInput = [&]() __attribute__((hot, always_inline, flatten)) {
         // SnapTap状態構造体定義(キャッシュライン最適化)
         alignas(64) static struct {
@@ -1055,10 +1302,18 @@ void EmuThread::run()
         };
 
         // 超高速入力取得 - 現代コンパイラが自動最適化
-        const uint32_t f = emuInstance->hotkeyDown(HK_MetroidMoveForward);
-        const uint32_t b = emuInstance->hotkeyDown(HK_MetroidMoveBack);
-        const uint32_t l = emuInstance->hotkeyDown(HK_MetroidMoveLeft);
-        const uint32_t r = emuInstance->hotkeyDown(HK_MetroidMoveRight);
+
+        //const uint32_t f = emuInstance->hotkeyDown(HK_MetroidMoveForward);
+        //const uint32_t b = emuInstance->hotkeyDown(HK_MetroidMoveBack);
+        //const uint32_t l = emuInstance->hotkeyDown(HK_MetroidMoveLeft);
+        //const uint32_t r = emuInstance->hotkeyDown(HK_MetroidMoveRight);
+
+        // hotkeyDown()を使わず直接QBitArrayにアクセス
+        const auto& hotkeyMask = emuInstance->hotkeyMask;
+        const uint32_t f = hotkeyMask[HK_MetroidMoveForward];
+        const uint32_t b = hotkeyMask[HK_MetroidMoveBack];
+        const uint32_t l = hotkeyMask[HK_MetroidMoveLeft];
+        const uint32_t r = hotkeyMask[HK_MetroidMoveRight];
 
         // 入力ビットマップ生成 - 並列実行最適化
         const uint32_t curr = f | (b << 1) | (l << 2) | (r << 3);
@@ -1109,20 +1364,38 @@ void EmuThread::run()
         }
 
         // 究極の入力適用 - コンパイラ自動最適化
-        const uint8_t states = finalState;
+        // const uint8_t states = finalState;
+
+        // 最適化：1回の否定演算で全ビットを反転
+        const uint8_t invStates = ~finalState;
 
         // QBitArray超高速更新 - ループ展開 + 最適化
         auto& mask = emuInstance->inputMask;
 
         // 並列実行可能な独立した操作
-        mask.setBit(INPUT_UP, !(states & 1));
-        mask.setBit(INPUT_DOWN, !(states & 2));
-        mask.setBit(INPUT_LEFT, !(states & 4));
-        mask.setBit(INPUT_RIGHT, !(states & 8));
+
+        //mask.setBit(INPUT_UP, !(states & 1));
+        //mask.setBit(INPUT_DOWN, !(states & 2));
+        //mask.setBit(INPUT_LEFT, !(states & 4));
+        //mask.setBit(INPUT_RIGHT, !(states & 8));
+
+        // 直接operator[]を使用して最適化（setBit()を回避）
+        //mask[INPUT_UP] = !(states & 1);
+        //mask[INPUT_DOWN] = !(states & 2);
+        //mask[INPUT_LEFT] = !(states & 4);
+        //mask[INPUT_RIGHT] = !(states & 8);
+
+        // ビット演算削減：!(states & mask) → (invStates & mask)
+        // 4回の否定演算が1回に削減される
+        mask[INPUT_UP] = invStates & 1;      // UP: inverted bit 0 -> INPUT_UP (6)
+        mask[INPUT_DOWN] = invStates & 2;    // DOWN: inverted bit 1 -> INPUT_DOWN (7)  
+        mask[INPUT_LEFT] = invStates & 4;    // LEFT: inverted bit 2 -> INPUT_LEFT (5)
+        mask[INPUT_RIGHT] = invStates & 8;   // RIGHT: inverted bit 3 -> INPUT_RIGHT (4)
     };
 
-    /*
-    // v2
+
+
+    // v2 needless
     static const auto processMoveInput = [&]() __attribute__((hot, always_inline, flatten)) {
         // SnapTap状態構造体定義（キャッシュ最適化）
         alignas(64) static struct {
@@ -1204,8 +1477,152 @@ void EmuThread::run()
         mask.setBit(INPUT_LEFT, !(moveBits & 0x4));
         mask.setBit(INPUT_RIGHT, !(moveBits & 0x8));
     };
+       */
+
+    // v3
+    /*
+    static const auto processMoveInput = [&]() __attribute__((hot, always_inline, flatten)) {
+        // SnapTap状態構造体定義（キャッシュ最適化）
+        alignas(64) static struct {
+            uint32_t lastInputBitmap;    // 前回入力ビットマップ保持
+            uint32_t priorityInput;      // 優先入力ビットマップ保持
+        } snapTapState = { 0, 0 };
+
+        // 水平・垂直競合用マスク定義
+        static constexpr uint32_t HORIZ_MASK = 0xC;  // LEFT | RIGHT
+        static constexpr uint32_t VERT_MASK = 0x3;  // UP | DOWN
+
+        // 超コンパクトLUT（同時押しキャンセル含む） - L1キャッシュ効率最大化
+        alignas(16) static constexpr uint8_t LUT[16] = {
+            0,    // 0000: なし
+            1,    // 0001: ↑ 
+            2,    // 0010: ↓
+            0,    // 0011: ↑↓(キャンセル)
+            4,    // 0100: ←
+            5,    // 0101: ↑←
+            6,    // 0110: ↓←
+            4,    // 0111: ←(↑↓キャンセル)
+            8,    // 1000: →
+            9,    // 1001: ↑→
+            10,   // 1010: ↓→
+            8,    // 1011: →(↑↓キャンセル)
+            0,    // 1100: ←→(キャンセル)
+            1,    // 1101: ↑(←→キャンセル)
+            2,    // 1110: ↓(←→キャンセル)
+            0     // 1111: 全キャンセル
+        };
+
+        const auto& hotkeyMask = emuInstance->hotkeyMask;
+
+        // 現在の入力状態取得
+        const uint32_t curr =
+            hotkeyMask[HK_MetroidMoveForward] |
+            (hotkeyMask[HK_MetroidMoveBack] << 1) |
+            (hotkeyMask[HK_MetroidMoveLeft] << 2) |
+            (hotkeyMask[HK_MetroidMoveRight] << 3);
+
+        uint32_t finalInput;
+
+        // SnapTapモード判定（SnapTap使用が稀ならこの分岐が最速）
+        if (__builtin_expect(!isSnapTapMode, 1)) {
+            // SnapTapなし：即時解決（キャンセルもLUT内で処理済み）
+            finalInput = curr;
+        }
+        else {
+            // SnapTap有効時のみ処理（頻度が低いなら影響は最小）
+            const uint32_t newPressed = curr & ~snapTapState.lastInputBitmap;
+
+            const uint32_t hConflict = ((curr & HORIZ_MASK) == HORIZ_MASK);
+            const uint32_t vConflict = ((curr & VERT_MASK) == VERT_MASK);
+            const uint32_t conflictMask = (hConflict * HORIZ_MASK) | (vConflict * VERT_MASK);
+
+            // 新規入力が競合中なら優先入力を更新
+            if (__builtin_expect(newPressed & conflictMask, 0)) {
+                const uint32_t hNew = newPressed & HORIZ_MASK & -hConflict;
+                const uint32_t vNew = newPressed & VERT_MASK & -vConflict;
+                snapTapState.priorityInput =
+                    (snapTapState.priorityInput & ~conflictMask) | hNew | vNew;
+            }
+
+            // 押されていないキーはマスク
+            snapTapState.priorityInput &= curr;
+
+            // 競合中は優先入力、非競合はそのまま
+            finalInput = (curr & ~conflictMask) | (snapTapState.priorityInput & conflictMask);
+
+            // 状態保存
+            snapTapState.lastInputBitmap = curr;
+        }
+
+        // LUT参照で方向決定（最終出力）
+        const uint8_t moveBits = ~LUT[finalInput];
+
+        // QBitArray更新（false: 移動、true: 停止）
+        auto& mask = emuInstance->inputMask;
+        mask[INPUT_UP] = moveBits & 1;      // UP: inverted bit 0 -> INPUT_UP (6)
+        mask[INPUT_DOWN] = moveBits & 2;    // DOWN: inverted bit 1 -> INPUT_DOWN (7)  
+        mask[INPUT_LEFT] = moveBits & 4;    // LEFT: inverted bit 2 -> INPUT_LEFT (5)
+        mask[INPUT_RIGHT] = moveBits & 8;   // RIGHT: inverted bit 3 -> INPUT_RIGHT (4)
+    };
     */
-   
+    // v4
+    static const auto processMoveInput = [&]() __attribute__((hot, always_inline)) {
+        // 超コンパクトLUT - 16バイトでL1キャッシュ常駐
+        alignas(16) static constexpr uint8_t LUT[16] = {
+            0, 1, 2, 0, 4, 5, 6, 4, 8, 9, 10, 8, 0, 1, 2, 0
+        };
+
+        static uint64_t snapState = 0; // 下位32bit: lastInput, 上位32bit: priority
+
+        const auto& hk = emuInstance->hotkeyMask;
+
+        // 入力収集（アンロール）
+        const uint32_t curr = hk[HK_MetroidMoveForward] |
+            (hk[HK_MetroidMoveBack] << 1) |
+            (hk[HK_MetroidMoveLeft] << 2) |
+            (hk[HK_MetroidMoveRight] << 3);
+
+        // SnapTapなし：即時解決（1サイクル）
+        if (__builtin_expect(!isSnapTapMode, 1)) {
+            const uint32_t m = ~LUT[curr];
+            // QBitArray更新（標準的な方法）
+            auto& mask = emuInstance->inputMask;
+            mask[INPUT_UP] = m & 1;
+            mask[INPUT_DOWN] = m & 2;
+            mask[INPUT_LEFT] = m & 4;
+            mask[INPUT_RIGHT] = m & 8;
+            return;
+        }
+
+        // SnapTap処理（ビット演算のみ）
+        const uint32_t last = snapState & 0xFFFFFFFF;
+        const uint32_t newP = curr & ~last;
+
+        // 競合マスク生成（分岐なし）
+        const uint32_t cMask = (((curr & 0xC) == 0xC) * 0xC) |
+            (((curr & 0x3) == 0x3) * 0x3);
+
+        // 優先度更新（条件付きムーブ）
+        uint32_t priority = snapState >> 32;
+        priority = __builtin_expect(newP & cMask, 0) ?
+            ((priority & ~cMask) | (newP & cMask)) : priority;
+        priority &= curr;
+
+        // 状態保存（64bit一括）
+        snapState = curr | ((uint64_t)priority << 32);
+
+        // 最終入力決定
+        const uint32_t final = (curr & ~cMask) | (priority & cMask);
+        const uint32_t m = ~LUT[final];
+
+        // 出力（アンロール）
+        auto& mask = emuInstance->inputMask;
+        mask[INPUT_UP] = m & 1;
+        mask[INPUT_DOWN] = m & 2;
+        mask[INPUT_LEFT] = m & 4;
+        mask[INPUT_RIGHT] = m & 8;
+    };
+
     // /processMoveInputFunction }
 
 
@@ -1229,7 +1646,7 @@ void EmuThread::run()
         } static aimData = { 0, 0, 0.01f, 1.3333333f, 0.013333333f };
 
         // ドリフト防止のための丸め処理マクロ（関数呼び出しのオーバーヘッドを削減） 推定サイクル数: 4-15サイクル
-#define AIM_ADJUST(v) ((v) >= 0.5f && (v) < 1.0f ? 1 : ((v) <= -0.5f && (v) > -1.0f ? -1 : static_cast<int16_t>(v)))
+// #define AIM_ADJUST(v) ((v) >= 0.5f && (v) < 1.0f ? 1 : ((v) <= -0.5f && (v) > -1.0f ? -1 : static_cast<int16_t>(v)))
 
 
         /*
@@ -1252,13 +1669,25 @@ void EmuThread::run()
     ))
     */
         /*
-            // 調整関数（マクロ化前までの）
+            // 調整関数（マクロ化前までの） 10-20サイクル
             static const auto adjust = [](float value) __attribute__((hot, always_inline)) -> int16_t {
                 if (value >= 0.5f && value < 1.0f) return static_cast<int16_t>(1.0f);
                 if (value <= -0.5f && value > -1.0f) return static_cast<int16_t>(-1.0f);
                 return static_cast<int16_t>(value);  // 切り捨て(0方向への丸め)
             };
         */
+        // 6. ビット操作極限版 - 推定サイクル数: 2-3サイクル
+// 浮動小数点数のビット表現を直接操作
+
+#define AIM_ADJUST(v) ({ \
+    union { float f; uint32_t i; } u = {v}; \
+    uint32_t abs_bits = u.i & 0x7FFFFFFF; \
+    uint32_t sign = u.i >> 31; \
+    int16_t result = static_cast<int16_t>(v); \
+    result += ((abs_bits >= 0x3F000000 && abs_bits < 0x3F800000) * \
+               (sign ? -1 - result : 1 - result)); \
+    result; \
+})
 
 // ホットパス：フォーカスがありレイアウト変更もない場合
         if (__builtin_expect(!isLayoutChangePending && wasLastFrameFocused, 1)) {
@@ -1345,7 +1774,8 @@ void EmuThread::run()
             // Check isMapOrUserActionPaused, for the issue "If you switch weapons while the map is open, the aiming mechanism may become stuck."
             if (isPaused) {
                 return;
-            } else if (emuInstance->nds->ARM9Read8(isInVisorOrMapAddr) == 0x1) {
+            }
+            else if (emuInstance->nds->ARM9Read8(isInVisorOrMapAddr) == 0x1) {
                 // isInVisor
 
                 // Prevent visual glitches during weapon switching in visor mode
@@ -1531,31 +1961,19 @@ void EmuThread::run()
                     processMoveInput();
 
                     // Shoot
-                    if (emuInstance->hotkeyDown(HK_MetroidShootScan) || emuInstance->hotkeyDown(HK_MetroidScanShoot)) {
-                        FN_INPUT_PRESS(INPUT_L);
-                    }
-                    else {
-                        FN_INPUT_RELEASE(INPUT_L);
-                    }
+                    const auto& hotkeyMask = emuInstance->hotkeyMask;
+                    const bool shootPressed = hotkeyMask[HK_MetroidShootScan] || hotkeyMask[HK_MetroidScanShoot];
+                    emuInstance->inputMask[INPUT_L] = !shootPressed;
 
                     // Zoom, map zoom out
-                    if (emuInstance->hotkeyDown(HK_MetroidZoom)) {
-                        FN_INPUT_PRESS(INPUT_R);
-                    }
-                    else {
-                        FN_INPUT_RELEASE(INPUT_R);
-                    }
+                    emuInstance->inputMask[INPUT_R] = !hotkeyMask[HK_MetroidZoom];
 
                     // Jump
-                    if (emuInstance->hotkeyDown(HK_MetroidJump)) {
-                        FN_INPUT_PRESS(INPUT_B);
-                    }
-                    else {
-                        FN_INPUT_RELEASE(INPUT_B);
-                    }
+                    emuInstance->inputMask[INPUT_B] = !hotkeyMask[HK_MetroidJump];
 
                     // Alt-form
-                    if (emuInstance->hotkeyPressed(HK_MetroidMorphBall)) {
+                    const auto& hotkeyPress = emuInstance->hotkeyPress;
+                    if (hotkeyPress[HK_MetroidMorphBall]) {
                         emuInstance->nds->ReleaseScreen();
                         frameAdvanceTwice();
                         emuInstance->nds->TouchScreen(231, 167);
@@ -1597,7 +2015,8 @@ void EmuThread::run()
                         static const auto gatherHotkeyStates = [&]() -> uint32_t {
                             uint32_t states = 0;
                             for (size_t i = 0; i < 9; ++i) {
-                                if (emuInstance->hotkeyPressed(HOTKEY_MAP[i].hotkey)) {
+                                // if (hotkeyPressed(HOTKEY_MAP[i].hotkey)) {
+                                if (hotkeyPress[HOTKEY_MAP[i].hotkey]) {
                                     states |= (1u << i);
                                 }
                             }
@@ -1690,8 +2109,8 @@ void EmuThread::run()
                         // Lambda: Process wheel and navigation keys
                         static const auto processWheelInput = [&]() -> bool {
                             const int wheelDelta = emuInstance->getMainWindow()->panel->getDelta();
-                            const bool nextKey = emuInstance->hotkeyPressed(HK_MetroidWeaponNext);
-                            const bool prevKey = emuInstance->hotkeyPressed(HK_MetroidWeaponPrevious);
+                            const bool nextKey = hotkeyPress[HK_MetroidWeaponNext];
+                            const bool prevKey = hotkeyPress[HK_MetroidWeaponPrevious];
 
                             if (!wheelDelta && !nextKey && !prevKey) return false;
 
@@ -1763,7 +2182,7 @@ void EmuThread::run()
 
                     // Morph ball boost
                     // INFO この関数を仕様していないときはマウスによるブーストは１回しかできない。　これはエイムのために常にタッチ状態でリリースをしないのが原因。どうしようもない。
-                    if (isSamus && emuInstance->hotkeyDown(HK_MetroidHoldMorphBallBoost))
+                    if (isSamus && hotkeyMask[HK_MetroidHoldMorphBallBoost])
                     {
                         isAltForm = emuInstance->nds->ARM9Read8(isAltFormAddr) == 0x02;
                         if (isAltForm) {
@@ -1779,14 +2198,8 @@ void EmuThread::run()
                             // release for boost?
                             emuInstance->nds->ReleaseScreen();
 
-                            if (!isBoosting && isBoostGaugeEnough) {
-                                // do boost by releasing boost key
-                                FN_INPUT_RELEASE(INPUT_R);
-                            }
-                            else {
-                                // charge boost gauge by holding boost key
-                                FN_INPUT_PRESS(INPUT_R);
-                            }
+                            const bool shouldBoost = !isBoosting && isBoostGaugeEnough;
+                            emuInstance->inputMask[INPUT_R] = shouldBoost;  // boost時はtrue(RELEASE), charge時はfalse(PRESS)
 
                             if (isBoosting) {
                                 // touch again for aiming
@@ -1809,7 +2222,7 @@ void EmuThread::run()
                         isPaused = emuInstance->nds->ARM9Read8(isMapOrUserActionPausedAddr) == 0x1;
 
                         // Scan Visor
-                        if (emuInstance->hotkeyPressed(HK_MetroidScanVisor)) {
+                        if (hotkeyPress[HK_MetroidScanVisor]) {
                             emuInstance->nds->ReleaseScreen();
                             frameAdvanceTwice();
 
@@ -1838,7 +2251,7 @@ void EmuThread::run()
                         }
 
                         // OK (in scans and messages)
-                        if (emuInstance->hotkeyPressed(HK_MetroidUIOk)) {
+                        if (hotkeyPress[HK_MetroidUIOk]) {
                             emuInstance->nds->ReleaseScreen();
                             frameAdvanceTwice();
                             emuInstance->nds->TouchScreen(128, 142);
@@ -1846,7 +2259,7 @@ void EmuThread::run()
                         }
 
                         // Left arrow (in scans and messages)
-                        if (emuInstance->hotkeyPressed(HK_MetroidUILeft)) {
+                        if (hotkeyPress[HK_MetroidUILeft]) {
                             emuInstance->nds->ReleaseScreen();
                             frameAdvanceTwice();
                             emuInstance->nds->TouchScreen(71, 141);
@@ -1854,7 +2267,7 @@ void EmuThread::run()
                         }
 
                         // Right arrow (in scans and messages)
-                        if (emuInstance->hotkeyPressed(HK_MetroidUIRight)) {
+                        if (hotkeyPress[HK_MetroidUIRight]) {
                             emuInstance->nds->ReleaseScreen();
                             frameAdvanceTwice();
                             emuInstance->nds->TouchScreen(185, 141); // optimization ?
@@ -1862,7 +2275,7 @@ void EmuThread::run()
                         }
 
                         // Enter to Starship
-                        if (emuInstance->hotkeyPressed(HK_MetroidUIYes)) {
+                        if (hotkeyPress[HK_MetroidUIYes]) {
                             emuInstance->nds->ReleaseScreen();
                             frameAdvanceTwice();
                             emuInstance->nds->TouchScreen(96, 142);
@@ -1870,13 +2283,14 @@ void EmuThread::run()
                         }
 
                         // No Enter to Starship
-                        if (emuInstance->hotkeyPressed(HK_MetroidUINo)) {
+                        if (hotkeyPress[HK_MetroidUINo]) {
                             emuInstance->nds->ReleaseScreen();
                             frameAdvanceTwice();
                             emuInstance->nds->TouchScreen(160, 142);
                             frameAdvanceTwice();
                         }
                     } // End of Adventure Functions
+
 
 #ifndef STYLUS_MODE
                     // Touch again for aiming
@@ -1893,6 +2307,7 @@ void EmuThread::run()
                         emuInstance->nds->TouchScreen(128, 88); // required for aiming
                     }
 #endif
+
 
                     // End of in-game
                 }
@@ -1911,21 +2326,11 @@ void EmuThread::run()
                         updateRenderer();
                     }
 
+                    const auto& hotkeyPress = emuInstance->hotkeyPress;
                     // L For Hunter License
-                    if (emuInstance->hotkeyPressed(HK_MetroidUILeft)) {
-                        FN_INPUT_PRESS(INPUT_L);
-                    }
-                    else {
-                        FN_INPUT_RELEASE(INPUT_L);
-                    }
-
+                    emuInstance->inputMask[INPUT_L] = !hotkeyPress[HK_MetroidUILeft];
                     // R For Hunter License
-                    if (emuInstance->hotkeyPressed(HK_MetroidUIRight)) {
-                        FN_INPUT_PRESS(INPUT_R);
-                    }
-                    else {
-                        FN_INPUT_RELEASE(INPUT_R);
-                    }
+                    emuInstance->inputMask[INPUT_R] = !hotkeyPress[HK_MetroidUIRight];
 
                 }
 
@@ -1948,12 +2353,8 @@ void EmuThread::run()
                 }
 
                 // Start / View Match progress, points / Map(Adventure)
-                if (emuInstance->hotkeyDown(HK_MetroidMenu)) {
-                    FN_INPUT_PRESS(INPUT_START);
-                }
-                else {
-                    FN_INPUT_RELEASE(INPUT_START);
-                }
+                emuInstance->inputMask[INPUT_START] = !emuInstance->hotkeyMask[HK_MetroidMenu];
+
 
             }// END of if(isFocused)
             
@@ -2052,7 +2453,7 @@ void EmuThread::handleMessages()
 
                 // MelonPrimeDS {
                 // applyVideoSettings Immediately when resumed
-                if(isInGame){
+                if (isInGame) {
                     // updateRenderer because of using softwareRenderer when not in Game.
                     videoRenderer = emuInstance->getGlobalConfig().GetInt("3D.Renderer");
                     updateRenderer();

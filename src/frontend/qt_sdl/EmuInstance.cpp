@@ -1938,14 +1938,29 @@ bool EmuInstance::loadROM(QStringList filepath, bool reset, QString& errorstr)
     isRomDetected = false;
 
     // ROM Check
-    if (globalChecksum != RomVersions::US1_0 && globalChecksum != RomVersions::US1_1 &&
-        globalChecksum != RomVersions::EU1_0 && globalChecksum != RomVersions::EU1_1 &&
-        globalChecksum != RomVersions::JP1_0 && globalChecksum != RomVersions::JP1_1 &&
-        globalChecksum != RomVersions::KR1_0 && globalChecksum != RomVersions::EU1_BALANCED)
-    {
-        char message[256];
-        sprintf(message, "Unknown ROM (Checksum: 0x%08X). Please make sure to use the untrimmed and unmodified Metroid Prime Hunters ROM which is not encrypted.", globalChecksum);
-        osdAddMessage(0xFFA0A0, message);
+    switch (globalChecksum) {
+        case RomVersions::US1_0:
+        case RomVersions::US1_1:
+        case RomVersions::EU1_0:
+        case RomVersions::EU1_1:
+        case RomVersions::JP1_0:
+        case RomVersions::JP1_1:
+        case RomVersions::KR1_0:
+        case RomVersions::EU1_BALANCED:
+        case RomVersions::US1_0_ENCRYPTED:
+        case RomVersions::US1_1_ENCRYPTED:
+        case RomVersions::EU1_0_ENCRYPTED:
+        case RomVersions::EU1_1_ENCRYPTED:
+        case RomVersions::JP1_0_ENCRYPTED:
+        case RomVersions::JP1_1_ENCRYPTED:
+        case RomVersions::KR1_0_ENCRYPTED:
+            // Valid ROM
+            break;
+        default:
+            char message[256];
+            sprintf(message, "Unknown ROM (Checksum: 0x%08X). Please make sure to use the untrimmed and unmodified Metroid Prime Hunters ROM which is not encrypted.", globalChecksum);
+            osdAddMessage(0xFFA0A0, message);
+            break;
     }
     // } MelonPrimeDS
 

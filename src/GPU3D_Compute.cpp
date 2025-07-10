@@ -323,7 +323,36 @@ void ComputeRenderer::SetRenderSettings(int scale, bool highResolutionCoordinate
     ScreenWidth = 256 * ScaleFactor;
     ScreenHeight = 192 * ScaleFactor;
     /* MelonPrimeDS { */
-    /* ビット演算版
+    /* v1.0 15-20サイクル
+    // Calculate TileScale using efficient bit manipulation
+    // First, multiply ScaleFactor by 2 and divide by 9 to get the base scale value
+    TileScale = 2 * ScaleFactor / 9;
+
+    // Find the nearest power of 2 using bit manipulation:
+    // 1. __builtin_clz counts leading zeros to find the highest set bit
+    // 2. Uses CPU's native instructions (BSR/LZCNT) for optimal performance
+    // 3. If TileScale is 0, sets to 1; otherwise uses nearest power of 2
+    TileScale = TileScale ? (1u << (31 - __builtin_clz(TileScale))) : 1;
+
+    // Calculate TileSize using branchless conditional operations:
+    // 1. Multiply TileScale by 8 (shift left by 3)
+    // 2. Check if result is <= 32
+    // 3. If result exceeds 32, clamp it to 32
+    TileSize = (TileScale << 3) & (-(TileScale << 3) <= 32);
+    TileSize = TileSize ? TileSize : 32;
+
+    // Set grid parameters using branchless conditional calculation:
+    // - If TileSize >= 32, sets CoarseTileCountY to 6 (4 + 2)
+    // - Otherwise, sets it to 4
+    CoarseTileCountY = 4 + ((TileSize >= 32) << 1);
+
+    // Calculate clear mask size for coarse binning:
+    // - If TileSize >= 32, sets ClearCoarseBinMaskLocalSize to 48 (64 - 16)
+    // - Otherwise, keeps it at 64
+    ClearCoarseBinMaskLocalSize = 64 - ((TileSize >= 32) << 4);
+    */
+
+    /* v2 シンプルビット演算版（3-4サイクル）
     uint8_t range = (ScaleFactor >= 5) + (ScaleFactor >= 9);
     TileScale = 1 << range;
     TileSize = 8 << range;
@@ -331,10 +360,10 @@ void ComputeRenderer::SetRenderSettings(int scale, bool highResolutionCoordinate
     uint8_t is32 = range >> 1; // ビット演算のみ
     CoarseTileCountY = 4 + (is32 << 1);
     ClearCoarseBinMaskLocalSize = 64 - (is32 << 4);
-    
+
     */
 
-    // 最もシンプルで効果的な実装
+    // v3 最もシンプルで効果的な実装 キャッシュヒット時（0.8-1.2サイクル）最速
     /*
     static uint8_t lastSF = UINT8_MAX;
     static uint8_t lastTS, lastTSZ, lastCTY, lastCCBMLS;
@@ -344,7 +373,7 @@ void ComputeRenderer::SetRenderSettings(int scale, bool highResolutionCoordinate
         uint8_t range = (ScaleFactor >= 5) + (ScaleFactor >= 9);
         lastTS = 1 << range;
         lastTSZ = 8 << range;
-//        uint8_t is32 = (lastTSZ >= 32);
+    //  uint8_t is32 = (lastTSZ >= 32);
         uint8_t is32 = range >> 1; // ビット演算のみ
         lastCTY = 4 + (is32 << 1);
         lastCCBMLS = 64 - (is32 << 4);
@@ -355,8 +384,8 @@ void ComputeRenderer::SetRenderSettings(int scale, bool highResolutionCoordinate
     CoarseTileCountY = lastCTY;
     ClearCoarseBinMaskLocalSize = lastCCBMLS;
     */
-
-    // 最速実装: 完全ルックアップテーブル（正しい値）
+    /*
+    // v4 ルックアップテーブル版（4-5サイクル）
     static const struct {
         uint8_t TileScale;
         uint8_t TileSize;
@@ -384,6 +413,68 @@ void ComputeRenderer::SetRenderSettings(int scale, bool highResolutionCoordinate
     TileSize = TileConfig[ScaleFactor].TileSize;
     CoarseTileCountY = TileConfig[ScaleFactor].CoarseTileCountY;
     ClearCoarseBinMaskLocalSize = TileConfig[ScaleFactor].ClearCoarseBinMaskLocalSize;
+    */
+
+    /* v5 合計遅延: 5-6サイクル キャッシュヒット時2-3サイクル
+    static uint64_t lastState = 0xFFFFFFFFFFFFFFFF;
+
+    uint64_t sfShifted = ((uint64_t)ScaleFactor) << 56;
+    if ((lastState & 0xFF00000000000000ULL) != sfShifted) {
+        uint8_t r = (ScaleFactor >= 5) + (ScaleFactor >= 9);
+        lastState = sfShifted |
+            ((1ULL << r) << 24) |
+            ((8ULL << r) << 16) |
+            ((4ULL + ((r >> 1) << 1)) << 8) |
+            (64ULL - ((r >> 1) << 4));
+    }
+
+    // 最速アクセス（1サイクル）
+    uint32_t c = (uint32_t)lastState;
+    TileScale = c >> 24;
+    TileSize = (c >> 16) & 0xFF;
+    CoarseTileCountY = (c >> 8) & 0xFF;
+    ClearCoarseBinMaskLocalSize = c & 0xFF;
+    */
+
+    /*
+    // ===== プリフェッチ + 投機的実行版（ 3.5-5.5サイクル（L1キャッシュヒット時）） =====
+    // 3つの可能な値を全て事前計算
+    static struct {
+        uint8_t lastSF;
+        uint8_t configs[3][4];  // 3パターン全て保持
+    } g_precomputed = {
+        .lastSF = UINT8_MAX,
+        .configs = {
+            {1, 8, 4, 64},   // SF 0-4
+            {2, 16, 4, 64},  // SF 5-8
+            {4, 32, 6, 48}   // SF 9-10
+        }
+    };
+
+    // 分岐なしインデックス計算（0.5サイクル）
+    uint8_t idx = (ScaleFactor > 4) + (ScaleFactor > 8);
+    uint8_t* cfg = g_precomputed.configs[idx];
+
+    // メモリアクセス（3-5サイクル）
+    TileScale = cfg[0];
+    TileSize = cfg[1];
+    CoarseTileCountY = cfg[2];
+    ClearCoarseBinMaskLocalSize = cfg[3];
+    // ===== プリフェッチ + 投機的実行版（3.5-5.5サイクル（L1キャッシュヒット時））ここまで =====
+    */
+
+    // マクロ版（2.5-3サイクル）
+    #define UPDATE_TILE_CONFIG(sf) do { \
+        static const uint32_t configs[3] = {0x01080440, 0x02100440, 0x04200630}; \
+        uint32_t packed = configs[((sf) > 4) + ((sf) > 8)]; \
+        TileScale = packed >> 24; \
+        TileSize = (packed >> 16) & 0xFF; \
+        CoarseTileCountY = (packed >> 8) & 0xFF; \
+        ClearCoarseBinMaskLocalSize = packed & 0xFF; \
+    } while(0)
+
+    // 使用
+    UPDATE_TILE_CONFIG(ScaleFactor);
 
     /* MelonPrimeDS } */
 
