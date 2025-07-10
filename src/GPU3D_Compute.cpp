@@ -464,6 +464,7 @@ void ComputeRenderer::SetRenderSettings(int scale, bool highResolutionCoordinate
     */
 
     // マクロ版（2.5-3サイクル）
+
     #define UPDATE_TILE_CONFIG(sf) do { \
         static const uint32_t configs[3] = {0x01080440, 0x02100440, 0x04200630}; \
         uint32_t packed = configs[((sf) > 4) + ((sf) > 8)]; \
@@ -476,7 +477,7 @@ void ComputeRenderer::SetRenderSettings(int scale, bool highResolutionCoordinate
     // 使用
     UPDATE_TILE_CONFIG(ScaleFactor);
 
-    /* MelonPrimeDS } */
+
 
     // Final calculation
     CoarseTileArea = CoarseTileCountX * CoarseTileCountY;
@@ -489,6 +490,8 @@ void ComputeRenderer::SetRenderSettings(int scale, bool highResolutionCoordinate
     HiresCoordinates = highResolutionCoordinates;
 
     MaxWorkTiles = TilesPerLine*TileLines*16;
+
+    /* MelonPrimeDS } */
 
     for (int i = 0; i < tilememoryLayer_Num; i++)
     {
