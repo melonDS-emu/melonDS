@@ -1480,6 +1480,7 @@ void EmuThread::run()
        */
 
     // v3
+    /*
     static const auto processMoveInput = [&]() __attribute__((hot, always_inline, flatten)) {
         // SnapTap状態構造体定義（キャッシュ最適化）
         alignas(64) static struct {
@@ -1563,6 +1564,65 @@ void EmuThread::run()
         mask[INPUT_LEFT] = moveBits & 4;    // LEFT: inverted bit 2 -> INPUT_LEFT (5)
         mask[INPUT_RIGHT] = moveBits & 8;   // RIGHT: inverted bit 3 -> INPUT_RIGHT (4)
     };
+    */
+    // v4
+    static const auto processMoveInput = [&]() __attribute__((hot, always_inline)) {
+        // 超コンパクトLUT - 16バイトでL1キャッシュ常駐
+        alignas(16) static constexpr uint8_t LUT[16] = {
+            0, 1, 2, 0, 4, 5, 6, 4, 8, 9, 10, 8, 0, 1, 2, 0
+        };
+
+        static uint64_t snapState = 0; // 下位32bit: lastInput, 上位32bit: priority
+
+        const auto& hk = emuInstance->hotkeyMask;
+
+        // 入力収集（アンロール）
+        const uint32_t curr = hk[HK_MetroidMoveForward] |
+            (hk[HK_MetroidMoveBack] << 1) |
+            (hk[HK_MetroidMoveLeft] << 2) |
+            (hk[HK_MetroidMoveRight] << 3);
+
+        // SnapTapなし：即時解決（1サイクル）
+        if (__builtin_expect(!isSnapTapMode, 1)) {
+            const uint32_t m = ~LUT[curr];
+            // QBitArray更新（標準的な方法）
+            auto& mask = emuInstance->inputMask;
+            mask[INPUT_UP] = m & 1;
+            mask[INPUT_DOWN] = m & 2;
+            mask[INPUT_LEFT] = m & 4;
+            mask[INPUT_RIGHT] = m & 8;
+            return;
+        }
+
+        // SnapTap処理（ビット演算のみ）
+        const uint32_t last = snapState & 0xFFFFFFFF;
+        const uint32_t newP = curr & ~last;
+
+        // 競合マスク生成（分岐なし）
+        const uint32_t cMask = (((curr & 0xC) == 0xC) * 0xC) |
+            (((curr & 0x3) == 0x3) * 0x3);
+
+        // 優先度更新（条件付きムーブ）
+        uint32_t priority = snapState >> 32;
+        priority = __builtin_expect(newP & cMask, 0) ?
+            ((priority & ~cMask) | (newP & cMask)) : priority;
+        priority &= curr;
+
+        // 状態保存（64bit一括）
+        snapState = curr | ((uint64_t)priority << 32);
+
+        // 最終入力決定
+        const uint32_t final = (curr & ~cMask) | (priority & cMask);
+        const uint32_t m = ~LUT[final];
+
+        // 出力（アンロール）
+        auto& mask = emuInstance->inputMask;
+        mask[INPUT_UP] = m & 1;
+        mask[INPUT_DOWN] = m & 2;
+        mask[INPUT_LEFT] = m & 4;
+        mask[INPUT_RIGHT] = m & 8;
+    };
+
     // /processMoveInputFunction }
 
 
