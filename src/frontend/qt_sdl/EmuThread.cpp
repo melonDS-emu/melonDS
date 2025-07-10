@@ -1501,7 +1501,7 @@ void EmuThread::run()
         } static aimData = { 0, 0, 0.01f, 1.3333333f, 0.013333333f };
 
         // ドリフト防止のための丸め処理マクロ（関数呼び出しのオーバーヘッドを削減） 推定サイクル数: 4-15サイクル
-#define AIM_ADJUST(v) ((v) >= 0.5f && (v) < 1.0f ? 1 : ((v) <= -0.5f && (v) > -1.0f ? -1 : static_cast<int16_t>(v)))
+// #define AIM_ADJUST(v) ((v) >= 0.5f && (v) < 1.0f ? 1 : ((v) <= -0.5f && (v) > -1.0f ? -1 : static_cast<int16_t>(v)))
 
 
         /*
@@ -1533,7 +1533,7 @@ void EmuThread::run()
         */
         // 6. ビット操作極限版 - 推定サイクル数: 2-3サイクル
 // 浮動小数点数のビット表現を直接操作
-/*
+
 #define AIM_ADJUST(v) ({ \
     union { float f; uint32_t i; } u = {v}; \
     uint32_t abs_bits = u.i & 0x7FFFFFFF; \
@@ -1543,7 +1543,6 @@ void EmuThread::run()
                (sign ? -1 - result : 1 - result)); \
     result; \
 })
-*/
 
 // ホットパス：フォーカスがありレイアウト変更もない場合
         if (__builtin_expect(!isLayoutChangePending && wasLastFrameFocused, 1)) {
