@@ -384,7 +384,7 @@ void ComputeRenderer::SetRenderSettings(int scale, bool highResolutionCoordinate
     CoarseTileCountY = lastCTY;
     ClearCoarseBinMaskLocalSize = lastCCBMLS;
     */
-    /*
+    
     // v4 ルックアップテーブル版（4-5サイクル）
     static const struct {
         uint8_t TileScale;
@@ -413,7 +413,7 @@ void ComputeRenderer::SetRenderSettings(int scale, bool highResolutionCoordinate
     TileSize = TileConfig[ScaleFactor].TileSize;
     CoarseTileCountY = TileConfig[ScaleFactor].CoarseTileCountY;
     ClearCoarseBinMaskLocalSize = TileConfig[ScaleFactor].ClearCoarseBinMaskLocalSize;
-    */
+    
     /* v5 合計遅延: 5-6サイクル キャッシュヒット時2-3サイクル
     static uint64_t lastState = 0xFFFFFFFFFFFFFFFF;
 
@@ -435,7 +435,8 @@ void ComputeRenderer::SetRenderSettings(int scale, bool highResolutionCoordinate
     ClearCoarseBinMaskLocalSize = c & 0xFF;
     */
 
-    // ===== プリフェッチ + 投機的実行版（0-0.5サイクル） =====
+    /*
+    // ===== プリフェッチ + 投機的実行版（ 3.5-5.5サイクル（L1キャッシュヒット時）） =====
     // 3つの可能な値を全て事前計算
     static struct {
         uint8_t lastSF;
@@ -453,11 +454,13 @@ void ComputeRenderer::SetRenderSettings(int scale, bool highResolutionCoordinate
     uint8_t idx = (ScaleFactor > 4) + (ScaleFactor > 8);
     uint8_t* cfg = g_precomputed.configs[idx];
 
-    // プリフェッチ済みデータの直接アクセス（0-0.5サイクル）
+    // メモリアクセス（3-5サイクル）
     TileScale = cfg[0];
     TileSize = cfg[1];
     CoarseTileCountY = cfg[2];
     ClearCoarseBinMaskLocalSize = cfg[3];
+    // ===== プリフェッチ + 投機的実行版（3.5-5.5サイクル（L1キャッシュヒット時））ここまで =====
+    */
 
     /* MelonPrimeDS } */
 
