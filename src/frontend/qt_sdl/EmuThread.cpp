@@ -1696,7 +1696,7 @@ void EmuThread::run()
         ビット演算: 1サイクル
         比較×2: 2サイクル
         分岐予測ミス時: +10サイクル
-                */
+
 #define AIM_ADJUST(v) ({ \
     union { float f; uint32_t i; } u = {v}; \
     uint32_t abs_bits = u.i & 0x7FFFFFFF; \
@@ -1706,7 +1706,7 @@ void EmuThread::run()
                (sign ? -1 - result : 1 - result)); \
     result; \
 })
-
+                */
         /*
         分岐なし
         サイクル数: 約8-10サイクル
@@ -1717,6 +1717,7 @@ void EmuThread::run()
         float→int16_t変換: 3-4サイクル
         シフト+乗算+加算: 2-3サイクル
         AND/OR演算: 2サイクル
+                */
         #define AIM_ADJUST(v) ({ \
     union { float f; uint32_t i; } u = {v}; \
     uint32_t mask = ((u.i & 0x7F800000) == 0x3F000000) * 0xFFFFFFFF; \
@@ -1724,7 +1725,7 @@ void EmuThread::run()
     int16_t adj = (int16_t)(u.i >> 31) * -2 + 1; \
     (base & ~mask) | (adj & mask); \
 })
-        */
+
 
 
         /*
