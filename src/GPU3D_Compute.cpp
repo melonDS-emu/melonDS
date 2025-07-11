@@ -961,23 +961,23 @@ void ComputeRenderer::RenderFrame(GPU& gpu)
         glBindImageTexture(0, YSpanIndicesTexture, 0, GL_FALSE, 0, GL_READ_ONLY, GL_RGBA16UI);
         glUseProgram(ShaderInterpXSpans[wbuffer]);
         glDispatchCompute((numSetupIndices + 31) / 32, 1, 1);
-        glMemoryBarrier(GL_SHADER_STORAGE_BARRIER_BIT);
+        glMemoryBarrier(GL_SHADER_STORAGE_BARRIER_BIT | GL_COMMAND_BARRIER_BIT);
 
         // bin polygons
         glUseProgram(ShaderBinCombined);
         glDispatchCompute(((gpu.GPU3D.RenderNumPolygons + 31) / 32), ScreenWidth/CoarseTileW, ScreenHeight/CoarseTileH);
-        glMemoryBarrier(GL_SHADER_STORAGE_BARRIER_BIT);
+        glMemoryBarrier(GL_SHADER_STORAGE_BARRIER_BIT | GL_COMMAND_BARRIER_BIT);
 
         // calculate list offsets
         glUseProgram(ShaderCalculateWorkListOffset);
         glDispatchCompute((numVariants + 31) / 32, 1, 1);
-        glMemoryBarrier(GL_SHADER_STORAGE_BARRIER_BIT);
+        glMemoryBarrier(GL_SHADER_STORAGE_BARRIER_BIT | GL_COMMAND_BARRIER_BIT);
 
         // sort shader work
         glUseProgram(ShaderSortWork);
         glBindBuffer(GL_DISPATCH_INDIRECT_BUFFER, BinResultMemory);
         glDispatchComputeIndirect(offsetof(BinResultHeader, SortWorkWorkCount));
-        glMemoryBarrier(GL_SHADER_STORAGE_BARRIER_BIT);
+        glMemoryBarrier(GL_SHADER_STORAGE_BARRIER_BIT | GL_COMMAND_BARRIER_BIT);
 
         glActiveTexture(GL_TEXTURE0);
 
