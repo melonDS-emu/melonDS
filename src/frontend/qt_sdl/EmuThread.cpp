@@ -1707,24 +1707,6 @@ void EmuThread::run()
     result; \
 })
                 */
-        /*
-        分岐なし
-        サイクル数: 約8-10サイクル
-
-        union代入: 0サイクル（レジスタ操作）
-        AND + 比較: 1-2サイクル
-        乗算（0xFFFFFFFF）: 1-3サイクル（実装依存）
-        float→int16_t変換: 3-4サイクル
-        シフト+乗算+加算: 2-3サイクル
-        AND/OR演算: 2サイクル
-                */
-        #define AIM_ADJUST(v) ({ \
-    union { float f; uint32_t i; } u = {v}; \
-    uint32_t mask = ((u.i & 0x7F800000) == 0x3F000000) * 0xFFFFFFFF; \
-    int16_t base = (int16_t)(v); \
-    int16_t adj = (int16_t)(u.i >> 31) * -2 + 1; \
-    (base & ~mask) | (adj & mask); \
-})
 
 
 
@@ -1744,6 +1726,57 @@ void EmuThread::run()
         (1 - ((u.i >> 31) << 1)) : (int16_t)(v); \
 })
         */
+
+        /*
+分岐なし
+サイクル数: 約8-10サイクル
+
+union代入: 0サイクル（レジスタ操作）
+AND + 比較: 1-2サイクル
+乗算（0xFFFFFFFF）: 1-3サイクル（実装依存）
+float→int16_t変換: 3-4サイクル
+シフト+乗算+加算: 2-3サイクル
+AND/OR演算: 2サイクル
+
+#define AIM_ADJUST(v) ({ \
+union { float f; uint32_t i; } u = {v}; \
+uint32_t mask = ((u.i & 0x7F800000) == 0x3F000000) * 0xFFFFFFFF; \
+int16_t base = (int16_t)(v); \
+int16_t adj = (int16_t)(u.i >> 31) * -2 + 1; \
+(base & ~mask) | (adj & mask); \
+})
+                    */
+/*
+推定サイクル数: 5-6サイクル（最適化時）
+
+union代入: 0サイクル
+AND + XOR + NOT: 2-3サイクル
+シフト + AND + 減算: 2サイクル（並列実行可能）
+float→int16_t変換: 3-4サイクル（並列実行可能）
+cmov（コンパイラ生成）: 1サイクル
+
+#define AIM_ADJUST(v) ({ \
+    union { float f; uint32_t i; } u = {v}; \
+    uint32_t is_range = !((u.i & 0x7F800000) ^ 0x3F000000); \
+    int16_t sign_val = 1 - ((u.i >> 30) & 2); \
+    is_range ? sign_val : (int16_t)(v); \
+})
+*/
+
+/*
+推定サイクル数: 4-5サイクル
+
+並列実行を最大限活用
+最小限の演算
+コンパイラのcmov最適化を期待
+*/
+#define AIM_ADJUST(v) ({ \
+    union { float f; uint32_t i; } u = {v}; \
+    int16_t conv = (int16_t)(v); \
+    int16_t sign = 1 - ((u.i >> 30) & 2); \
+    ((u.i & 0x7F800000) == 0x3F000000) ? sign : conv; \
+})
+
 
 // ホットパス：フォーカスがありレイアウト変更もない場合
         if (__builtin_expect(!isLayoutChangePending && wasLastFrameFocused, 1)) {
