@@ -1687,32 +1687,11 @@ void EmuThread::run()
                 return static_cast<int16_t>(value);  // 切り捨て(0方向への丸め)
             };
         */
-        // 6. ビット操作極限版 - 
-// 浮動小数点数のビット表現を直接操作
-        /*
-        推定サイクル数: 5-15サイクル
-
-        float→int変換: 3サイクル
-        ビット演算: 1サイクル
-        比較×2: 2サイクル
-        分岐予測ミス時: +10サイクル
-
-#define AIM_ADJUST(v) ({ \
-    union { float f; uint32_t i; } u = {v}; \
-    uint32_t abs_bits = u.i & 0x7FFFFFFF; \
-    uint32_t sign = u.i >> 31; \
-    int16_t result = static_cast<int16_t>(v); \
-    result += ((abs_bits >= 0x3F000000 && abs_bits < 0x3F800000) * \
-               (sign ? -1 - result : 1 - result)); \
-    result; \
-})
-                */
-
 
 
         /*
         
-        3. 三項演算子版
+        3. 三項演算子版 good
         サイクル数: 約4-6サイクル
 
         union代入: 0サイクル
@@ -1745,8 +1724,12 @@ int16_t base = (int16_t)(v); \
 int16_t adj = (int16_t)(u.i >> 31) * -2 + 1; \
 (base & ~mask) | (adj & mask); \
 })
-                    */
-/*
+ 
+                   */
+
+                   
+                   /*
+*まだ試してない
 推定サイクル数: 5-6サイクル（最適化時）
 
 union代入: 0サイクル
@@ -1764,6 +1747,7 @@ cmov（コンパイラ生成）: 1サイクル
 */
 
 /*
+* god aim
 推定サイクル数: 4-5サイクル
 
 並列実行を最大限活用
