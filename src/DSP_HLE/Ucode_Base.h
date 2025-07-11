@@ -35,11 +35,19 @@ public:
     void Reset();
     void DoSavestate(Savestate* file);
 
+    typedef std::function<void()> fnReplyReadCb;
+
     //void SetRecvDataHandler(u8 index, std::function<void()> func);
     //void SetSemaphoreHandler(std::function<void()> func);
 
+    bool RecvDataIsReady(u8 index);
     bool SendDataIsEmpty(u8 index);
-    bool RecvDataIsEmpty(u8 index);
+    u16 RecvData(u8 index);
+    void SendData(u8 index, u16 val);
+
+    // TODO receive cmd
+    void SendReply(u8 index, u16 val);
+    void SetReplyReadCallback(u8 index, fnReplyReadCb callback);
 
     u16 DMAChan0GetDstHigh();
     u16 AHBMGetDmaChannel(u16 index);
@@ -62,10 +70,16 @@ public:
     void ClearSemaphore(u16 val);
     void MaskSemaphore(u16 val);
 
-    u16 RecvData(u8 index);
-    void SendData(u8 index, u16 val);
+    void Start();
 
     void Run(u32 cycles);
+
+protected:
+    u16 CmdReg[3];
+    bool CmdWritten[3];
+    u16 ReplyReg[3];
+    bool ReplyWritten[3];
+    fnReplyReadCb ReplyReadCb[3];
 };
 
 }
