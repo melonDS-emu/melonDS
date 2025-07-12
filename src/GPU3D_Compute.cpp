@@ -463,53 +463,54 @@ void ComputeRenderer::SetRenderSettings(int scale, bool highResolutionCoordinate
     // ===== プリフェッチ + 投機的実行版（3.5-5.5サイクル（L1キャッシュヒット時））ここまで =====
     */
 
-    /* v1
-    * // Final calculation
-CoarseTileArea = CoarseTileCountX * CoarseTileCountY; // int
-CoarseTileW = CoarseTileCountX * TileSize; // int
-CoarseTileH = CoarseTileCountY * TileSize; // int
 
-TilesPerLine = ScreenWidth/TileSize; // int
-TileLines = ScreenHeight/TileSize; // int
+#ifdef COMMENTOUTTTTTTTT
+    // v1
+    // 
+    // Calculate TileScale using efficient bit manipulation
+    // First, multiply ScaleFactor by 2 and divide by 9 to get the base scale value
+    TileScale = 2 * ScaleFactor / 9; // uint8_t
 
-HiresCoordinates = highResolutionCoordinates; // bool
+    // Find the nearest power of 2 using bit manipulation:
+    // 1. __builtin_clz counts leading zeros to find the highest set bit
+    // 2. Uses CPU's native instructions (BSR/LZCNT) for optimal performance
+    // 3. If TileScale is 0, sets to 1; otherwise uses nearest power of 2
+    TileScale = TileScale ? (1u << (31 - __builtin_clz(TileScale))) : 1; // uint8_t
 
-MaxWorkTiles = TilesPerLine*TileLines*16; // int
-*/
+    // Calculate TileSize using branchless conditional operations:
+    // 1. Multiply TileScale by 8 (shift left by 3)
+    // 2. Check if result is <= 32
+    // 3. If result exceeds 32, clamp it to 32 
+    TileSize = (TileScale << 3) & (-(TileScale << 3) <= 32);  // int
+    TileSize = TileSize ? TileSize : 32;  // int
+
+    // Set grid parameters using branchless conditional calculation:
+    // - If TileSize >= 32, sets CoarseTileCountY to 6 (4 + 2)
+    // - Otherwise, sets it to 4
+    CoarseTileCountY = 4 + ((TileSize >= 32) << 1);  // int
+
+    // Calculate clear mask size for coarse binning:
+    // - If TileSize >= 32, sets ClearCoarseBinMaskLocalSize to 48 (64 - 16)
+    // - Otherwise, keeps it at 64
+    ClearCoarseBinMaskLocalSize = 64 - ((TileSize >= 32) << 4); // int
+     
+    CoarseTileArea = CoarseTileCountX * CoarseTileCountY; // int
+    CoarseTileW = CoarseTileCountX * TileSize; // int
+    CoarseTileH = CoarseTileCountY * TileSize; // int
+
+    TilesPerLine = ScreenWidth/TileSize; // int
+    TileLines = ScreenHeight/TileSize; // int
+
+    HiresCoordinates = highResolutionCoordinates; // bool
+
+    MaxWorkTiles = TilesPerLine*TileLines*16; // int
+
+    // v1ここまで
 
 
-    /*
-    // マクロ版（2.5-3サイクル）
 
-    #define UPDATE_TILE_CONFIG(sf) do { \
-        static const uint32_t configs[3] = {0x01080440, 0x02100440, 0x04200630}; \
-        uint32_t packed = configs[((sf) > 4) + ((sf) > 8)]; \
-        TileScale = packed >> 24; \
-        TileSize = (packed >> 16) & 0xFF; \
-        CoarseTileCountY = (packed >> 8) & 0xFF; \
-        ClearCoarseBinMaskLocalSize = packed & 0xFF; \
-    } while(0)
 
-    // 使用
-    UPDATE_TILE_CONFIG(ScaleFactor);
 
-    // シフト値の計算を高速化
-#define FINAL_TILE_CALCULATION_FAST() do { \
-    uint32_t shift = __builtin_ctz(TileSize); \
-    \
-    CoarseTileArea = CoarseTileCountX * CoarseTileCountY; \
-    CoarseTileW = CoarseTileCountX << shift; \
-    CoarseTileH = CoarseTileCountY << shift; \
-    TilesPerLine = ScreenWidth >> shift; \
-    TileLines = ScreenHeight >> shift; \
-    HiresCoordinates = highResolutionCoordinates; \
-    MaxWorkTiles = (TilesPerLine * TileLines) << 4; \
-} while(0)
-
-    FINAL_TILE_CALCULATION_FAST();
-    */
-
-/*
 #define MELONPRIMEDS_UPDATE_ALL(sf) do { \
     static const uint32_t c[3] = {0x01080440, 0x02100440, 0x04200630}; \
     uint32_t i = ((sf) > 4) + ((sf) > 8); \
@@ -519,47 +520,15 @@ MaxWorkTiles = TilesPerLine*TileLines*16; // int
     CoarseTileCountY = (p >> 8) & 0xFF; \
     ClearCoarseBinMaskLocalSize = p & 0xFF; \
     uint32_t s = 3 + i; 
-    CoarseTileArea = CoarseTileCountX * CoarseTileCountY; \
-    CoarseTileW = CoarseTileCountX << s; \
-    CoarseTileH = CoarseTileCountY << s; \
-    TilesPerLine = ScreenWidth >> s; \
-    TileLines = ScreenHeight >> s; \
-    HiresCoordinates = highResolutionCoordinates; \
-    MaxWorkTiles = (TilesPerLine * TileLines) << 4; \
-} while(0)
+CoarseTileArea = CoarseTileCountX * CoarseTileCountY; \
+CoarseTileW = CoarseTileCountX << s; \
+CoarseTileH = CoarseTileCountY << s; \
+TilesPerLine = ScreenWidth >> s; \
+TileLines = ScreenHeight >> s; \
+HiresCoordinates = highResolutionCoordinates; \
+MaxWorkTiles = (TilesPerLine * TileLines) << 4; \
+} while (0)
 MELONPRIMEDS_UPDATE_ALL(ScaleFactor);
-
-*/
-
-#ifdef COMMENTOUTTTTTTTT
-
-// アセンブリ最適化を意識した版(推定: 2 - 3サイクル)
-#define MELONPRIMEDS_UPDATE_ALL_ASM_READY(sf) do { \
-    /* cmov命令2つで定数選択 */ \
-    uint32_t tmp1 = ((sf) > 4) ? 0x02100440 : 0x01080440; \
-    uint32_t p = ((sf) > 8) ? 0x04200630 : tmp1; \
-    uint32_t sel = ((sf) > 4) + ((sf) > 8); \
-    uint32_t s = 3 + sel; \
-    /* レジスタ効率を考慮した展開 */ \
-    uint32_t ts = p >> 24; \
-    uint32_t tsz = (p >> 16) & 0xFF; \
-    uint32_t ccy = (p >> 8) & 0xFF; \
-    uint32_t ccbm = p & 0xFF; \
-    /* 格納と計算をインターリーブ */ \
-    TileScale = ts; \
-    CoarseTileArea = CoarseTileCountX * ccy; \
-    TileSize = tsz; \
-    CoarseTileW = CoarseTileCountX << s; \
-    CoarseTileCountY = ccy; \
-    CoarseTileH = ccy << s; \
-    ClearCoarseBinMaskLocalSize = ccbm; \
-    TilesPerLine = ScreenWidth >> s; \
-    TileLines = ScreenHeight >> s; \
-    HiresCoordinates = highResolutionCoordinates; \
-    MaxWorkTiles = (TilesPerLine * TileLines) << 4; \
-} while(0)
-MELONPRIMEDS_UPDATE_ALL_ASM_READY(ScaleFactor);
-#endif
 
 /*
 // 最速版：ブランチレス計算版(推定: 2 - 3サイクル)
@@ -589,8 +558,79 @@ MELONPRIMEDS_UPDATE_ALL_ASM_READY(ScaleFactor);
     MaxWorkTiles = (TilesPerLine * TileLines) << 4; \
 } while(0)
 
-    MELONPRIMEDS_UPDATE_ALL_BRANCHLESS(ScaleFactor);
+MELONPRIMEDS_UPDATE_ALL_BRANCHLESS(ScaleFactor);
 
+
+// アセンブリ最適化を意識した版(推定: 2 - 3サイクル)
+#define MELONPRIMEDS_UPDATE_ALL_ASM_READY(sf) do { \
+    /* cmov命令2つで定数選択 */ \
+    uint32_t tmp1 = ((sf) > 4) ? 0x02100440 : 0x01080440; \
+    uint32_t p = ((sf) > 8) ? 0x04200630 : tmp1; \
+    uint32_t sel = ((sf) > 4) + ((sf) > 8); \
+    uint32_t s = 3 + sel; \
+    /* レジスタ効率を考慮した展開 */ \
+    uint32_t ts = p >> 24; \
+    uint32_t tsz = (p >> 16) & 0xFF; \
+    uint32_t ccy = (p >> 8) & 0xFF; \
+    uint32_t ccbm = p & 0xFF; \
+    /* 格納と計算をインターリーブ */ \
+    TileScale = ts; \
+    CoarseTileArea = CoarseTileCountX * ccy; \
+    TileSize = tsz; \
+    CoarseTileW = CoarseTileCountX << s; \
+    CoarseTileCountY = ccy; \
+    CoarseTileH = ccy << s; \
+    ClearCoarseBinMaskLocalSize = ccbm; \
+    TilesPerLine = ScreenWidth >> s; \
+    TileLines = ScreenHeight >> s; \
+    HiresCoordinates = highResolutionCoordinates; \
+    MaxWorkTiles = (TilesPerLine * TileLines) << 4; \
+} while(0)
+MELONPRIMEDS_UPDATE_ALL_ASM_READY(ScaleFactor);
+#endif
+
+
+
+// Tile初期化（uint64_tによる定数展開による最短命令化）
+// 推定：理論上 6~7サイクル。命令数：約22以下（AVX未使用時）
+#define MELONPRIMEDS_UPDATE_ALL_ASM_READY_FAST(sf) do { \
+    /* 定数パック：上位から順に [ts | tsz | ccy | ccbm] */ \
+    uint64_t const1 = 0x01080440ULL; /* sf <= 4 */ \
+    uint64_t const2 = 0x02100440ULL; /* sf <= 8 */ \
+    uint64_t const3 = 0x04200630ULL; /* sf > 8  */ \
+    \
+    /* 比較評価（setg相当、cmov誘導） */ \
+    uint32_t gt4 = ((sf) > 4); \
+    uint32_t gt8 = ((sf) > 8); \
+    \
+    /* 定数選択（分岐なし：cmovによる） */ \
+    uint64_t p = gt8 ? const3 : (gt4 ? const2 : const1); \
+    \
+    /* シフト量を選出（3 + sel） */ \
+    uint32_t sel = gt4 + gt8; \
+    uint32_t s = 3 + sel; \
+    \
+    /* デコード（ビット右シフトによる抽出） */ \
+    uint32_t ts   = (p >> 24) & 0xFF; \
+    uint32_t tsz  = (p >> 16) & 0xFF; \
+    uint32_t ccy  = (p >> 8)  & 0xFF; \
+    uint32_t ccbm =  p        & 0xFF; \
+    \
+    /* 値の格納および各種計算（依存分散・並列発行誘導） */ \
+    TileScale = ts; \
+    TileSize = tsz; \
+    CoarseTileCountY = ccy; \
+    ClearCoarseBinMaskLocalSize = ccbm; \
+    \
+    CoarseTileArea = CoarseTileCountX * ccy; \
+    CoarseTileW = CoarseTileCountX << s; \
+    CoarseTileH = ccy << s; \
+    TilesPerLine = ScreenWidth >> s; \
+    TileLines = ScreenHeight >> s; \
+    HiresCoordinates = highResolutionCoordinates; \
+    MaxWorkTiles = (TilesPerLine * TileLines) << 4; \
+} while (0)
+MELONPRIMEDS_UPDATE_ALL_ASM_READY_FAST(ScaleFactor);
 
     /* MelonPrimeDS } */
 
