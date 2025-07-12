@@ -1771,34 +1771,34 @@ cmov（コンパイラ生成）: 1サイクル
     最小限の演算
     コンパイラのcmov最適化を期待
     */
-#define AIM_ADJUST(v) ({ \
+    #define AIM_ADJUST(v) ({ \
+            union { float f; uint32_t i; } u = {v}; \
+            int16_t conv = (int16_t)(v); \
+            int16_t sign = 1 - ((u.i >> 30) & 2); \
+            ((u.i & 0x7F800000) == 0x3F000000) ? sign : conv; \
+        })
+        /*
+        * god aim 範囲チェック修正版
+        */
+    #define AIM_ADJUST(v) ({ \
         union { float f; uint32_t i; } u = {v}; \
         int16_t conv = (int16_t)(v); \
         int16_t sign = 1 - ((u.i >> 30) & 2); \
-        ((u.i & 0x7F800000) == 0x3F000000) ? sign : conv; \
+        uint32_t abs_bits = u.i & 0x7FFFFFFF; \
+        ((abs_bits - 0x3F000000) < 0x00800000) ? sign : conv; \
     })
-    /*
-    * god aim 範囲チェック修正版
-    */
-#define AIM_ADJUST(v) ({ \
-    union { float f; uint32_t i; } u = {v}; \
-    int16_t conv = (int16_t)(v); \
-    int16_t sign = 1 - ((u.i >> 30) & 2); \
-    uint32_t abs_bits = u.i & 0x7FFFFFFF; \
-    ((abs_bits - 0x3F000000) < 0x00800000) ? sign : conv; \
-})
 
 
-    // Version 3: 最小命令数版 エイムは良いが遅延感ある 推定サイクル数: 3-4サイクル（分岐予測成功時）、8-10サイクル（分岐予測失敗時）
-#define AIM_ADJUST(value) \
-    ({ \
-        float _v = (value); \
-        int16_t _truncated = (int16_t)_v; \
-        float _abs_val = __builtin_fabsf(_v); \
-        __builtin_expect((_abs_val >= 0.5f) & (_abs_val < 1.0f), 0) \
-            ? (_v < 0 ? -1 : 1) \
-            : _truncated; \
-    })
+        // Version 3: 最小命令数版 エイムは良いが遅延感ある 推定サイクル数: 3-4サイクル（分岐予測成功時）、8-10サイクル（分岐予測失敗時）
+    #define AIM_ADJUST(value) \
+        ({ \
+            float _v = (value); \
+            int16_t _truncated = (int16_t)_v; \
+            float _abs_val = __builtin_fabsf(_v); \
+            __builtin_expect((_abs_val >= 0.5f) & (_abs_val < 1.0f), 0) \
+                ? (_v < 0 ? -1 : 1) \
+                : _truncated; \
+        })
 #endif
 
 
