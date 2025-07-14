@@ -287,8 +287,10 @@ int getEventKeyVal(QKeyEvent* event)
 
 void EmuInstance::onKeyPress(QKeyEvent* event)
 {
+    heldKeys.push_back(event->key());
     int keyHK = getEventKeyVal(event);
     int keyKP = keyHK;
+    keyStrokes.push_back(keyHK);
     if (event->modifiers() != Qt::KeypadModifier)
         keyKP &= ~event->modifiers();
 
@@ -303,6 +305,7 @@ void EmuInstance::onKeyPress(QKeyEvent* event)
 
 void EmuInstance::onKeyRelease(QKeyEvent* event)
 {
+    heldKeys.erase(std::find(heldKeys.begin(),heldKeys.end(),event->key()));
     int keyHK = getEventKeyVal(event);
     int keyKP = keyHK;
     if (event->modifiers() != Qt::KeypadModifier)
@@ -418,6 +421,16 @@ void EmuInstance::inputProcess()
     hotkeyPress = hotkeyMask & ~lastHotkeyMask;
     hotkeyRelease = lastHotkeyMask & ~hotkeyMask;
     lastHotkeyMask = hotkeyMask;
+}
+
+//Used By Lua Scripts
+Sint16 EmuInstance::getJoyStickAxis(int axisNum){
+    if (joystick)
+    {
+        axisNum = axisNum & 0xF;
+        return SDL_JoystickGetAxis(joystick, axisNum);
+    }
+    return 0;
 }
 
 void EmuInstance::touchScreen(int x, int y)
