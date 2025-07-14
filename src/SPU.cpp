@@ -207,11 +207,10 @@ SPU::SPU(melonDS::NDS& nds, AudioBitDepth bitdepth, AudioInterpolation interpola
     ApplyBias = true;
     Degrade10Bit = false;
 
-    memset(OutputFrontBuffer, 0, 2*OutputBufferSize*2);
+    memset(OutputBuffer, 0, 2*OutputBufferSize*2);
 
-    OutputBackbufferWritePosition = 0;
-    OutputFrontBufferReadPosition = 0;
-    OutputFrontBufferWritePosition = 0;
+    OutputBufferReadPos = 0;
+    OutputBufferWritePos = 0;
 }
 
 SPU::~SPU()
@@ -242,11 +241,10 @@ void SPU::Reset()
 void SPU::Stop()
 {
     Platform::Mutex_Lock(AudioLock);
-    memset(OutputFrontBuffer, 0, 2*OutputBufferSize*2);
+    memset(OutputBuffer, 0, 2*OutputBufferSize*2);
 
-    OutputBackbufferWritePosition = 0;
-    OutputFrontBufferReadPosition = 0;
-    OutputFrontBufferWritePosition = 0;
+    OutputBufferReadPos = 0;
+    OutputBufferWritePos = 0;
     Platform::Mutex_Unlock(AudioLock);
 }
 
@@ -942,38 +940,21 @@ void SPU::Mix(u32 dummy)
         rightoutput &= 0xFFFFFFC0;
     }
 
-    // OutputBufferFrame can never get full because it's
-    // transfered to OutputBuffer at the end of the frame
-    // FIXME: apparently this does happen!!!
-    if (OutputBackbufferWritePosition * 2 < OutputBufferSize - 1)
+    Platform::Mutex_Lock(AudioLock);
+    OutputBuffer[OutputBufferWritePos++] = leftoutput >> 1;
+    OutputBuffer[OutputBufferWritePos++] = rightoutput >> 1;
+
+    OutputBufferWritePos &= ((2*OutputBufferSize)-1);
+
+    if (OutputBufferWritePos == OutputBufferReadPos)
     {
-        OutputBackbuffer[OutputBackbufferWritePosition    ] = leftoutput >> 1;
-        OutputBackbuffer[OutputBackbufferWritePosition + 1] = rightoutput >> 1;
-        OutputBackbufferWritePosition += 2;
+        // advance the read position too, to avoid losing the entire FIFO
+        OutputBufferReadPos += 2;
+        OutputBufferReadPos &= ((2*OutputBufferSize)-1);
     }
+    Platform::Mutex_Unlock(AudioLock);
 
     NDS.ScheduleEvent(Event_SPU, true, 1024, 0, 0);
-}
-
-void SPU::TransferOutput()
-{
-    Platform::Mutex_Lock(AudioLock);
-    for (u32 i = 0; i < OutputBackbufferWritePosition; i += 2)
-    {
-        OutputFrontBuffer[OutputFrontBufferWritePosition    ] = OutputBackbuffer[i   ];
-        OutputFrontBuffer[OutputFrontBufferWritePosition + 1] = OutputBackbuffer[i + 1];
-
-        OutputFrontBufferWritePosition += 2;
-        OutputFrontBufferWritePosition &= OutputBufferSize*2-1;
-        if (OutputFrontBufferWritePosition == OutputFrontBufferReadPosition)
-        {
-            // advance the read position too, to avoid losing the entire FIFO
-            OutputFrontBufferReadPosition += 2;
-            OutputFrontBufferReadPosition &= OutputBufferSize*2-1;
-        }
-    }
-    OutputBackbufferWritePosition = 0;
-    Platform::Mutex_Unlock(AudioLock);;
 }
 
 void SPU::TrimOutput()
@@ -981,28 +962,27 @@ void SPU::TrimOutput()
     Platform::Mutex_Lock(AudioLock);
     const int halflimit = (OutputBufferSize / 2);
 
-    int readpos = OutputFrontBufferWritePosition - (halflimit*2);
+    int readpos = OutputBufferWritePos - (halflimit*2);
     if (readpos < 0) readpos += (OutputBufferSize*2);
 
-    OutputFrontBufferReadPosition = readpos;
+    OutputBufferReadPos = readpos;
     Platform::Mutex_Unlock(AudioLock);
 }
 
 void SPU::DrainOutput()
 {
     Platform::Mutex_Lock(AudioLock);
-    OutputFrontBufferWritePosition = 0;
-    OutputFrontBufferReadPosition = 0;
+    OutputBufferReadPos = 0;
+    OutputBufferWritePos = 0;
     Platform::Mutex_Unlock(AudioLock);
 }
 
 void SPU::InitOutput()
 {
     Platform::Mutex_Lock(AudioLock);
-    memset(OutputBackbuffer, 0, 2*OutputBufferSize*2);
-    memset(OutputFrontBuffer, 0, 2*OutputBufferSize*2);
-    OutputFrontBufferReadPosition = 0;
-    OutputFrontBufferWritePosition = 0;
+    memset(OutputBuffer, 0, 2*OutputBufferSize*2);
+    OutputBufferReadPos = 0;
+    OutputBufferWritePos = 0;
     Platform::Mutex_Unlock(AudioLock);
 }
 
@@ -1011,10 +991,10 @@ int SPU::GetOutputSize() const
     Platform::Mutex_Lock(AudioLock);
 
     int ret;
-    if (OutputFrontBufferWritePosition >= OutputFrontBufferReadPosition)
-        ret = OutputFrontBufferWritePosition - OutputFrontBufferReadPosition;
+    if (OutputBufferWritePos >= OutputBufferReadPos)
+        ret = OutputBufferWritePos - OutputBufferReadPos;
     else
-        ret = (OutputBufferSize*2) - OutputFrontBufferReadPosition + OutputFrontBufferWritePosition;
+        ret = (OutputBufferSize*2) - OutputBufferReadPos + OutputBufferWritePos;
 
     ret >>= 1;
 
@@ -1043,10 +1023,10 @@ void SPU::Sync(bool wait)
     {
         Platform::Mutex_Lock(AudioLock);
 
-        int readpos = OutputFrontBufferWritePosition - (halflimit*2);
+        int readpos = OutputBufferWritePos - (halflimit*2);
         if (readpos < 0) readpos += (OutputBufferSize*2);
 
-        OutputFrontBufferReadPosition = readpos;
+        OutputBufferReadPos = readpos;
 
         Platform::Mutex_Unlock(AudioLock);
     }
@@ -1055,7 +1035,7 @@ void SPU::Sync(bool wait)
 int SPU::ReadOutput(s16* data, int samples)
 {
     Platform::Mutex_Lock(AudioLock);
-    if (OutputFrontBufferReadPosition == OutputFrontBufferWritePosition)
+    if (OutputBufferReadPos == OutputBufferWritePos)
     {
         Platform::Mutex_Unlock(AudioLock);
         return 0;
@@ -1063,13 +1043,11 @@ int SPU::ReadOutput(s16* data, int samples)
 
     for (int i = 0; i < samples; i++)
     {
-        *data++ = OutputFrontBuffer[OutputFrontBufferReadPosition];
-        *data++ = OutputFrontBuffer[OutputFrontBufferReadPosition + 1];
+        *data++ = OutputBuffer[OutputBufferReadPos++];
+        *data++ = OutputBuffer[OutputBufferReadPos++];
+        OutputBufferReadPos &= ((2*OutputBufferSize)-1);
 
-        OutputFrontBufferReadPosition += 2;
-        OutputFrontBufferReadPosition &= ((2*OutputBufferSize)-1);
-
-        if (OutputFrontBufferWritePosition == OutputFrontBufferReadPosition)
+        if (OutputBufferWritePos == OutputBufferReadPos)
         {
             Platform::Mutex_Unlock(AudioLock);
             return i+1;
