@@ -1,4 +1,4 @@
-/*
+ï»¿/*
     Copyright 2016-2024 melonDS team
 
     This file is part of melonDS.
@@ -323,7 +323,7 @@ void ComputeRenderer::SetRenderSettings(int scale, bool highResolutionCoordinate
     ScreenWidth = 256 * ScaleFactor;
     ScreenHeight = 192 * ScaleFactor;
     /* MelonPrimeDS { */
-    /* v1.0 15-20ƒTƒCƒNƒ‹
+    /* v1.0 15-20ã‚µã‚¤ã‚¯ãƒ«
     // Calculate TileScale using efficient bit manipulation
     // First, multiply ScaleFactor by 2 and divide by 9 to get the base scale value
     TileScale = 2 * ScaleFactor / 9;
@@ -352,18 +352,18 @@ void ComputeRenderer::SetRenderSettings(int scale, bool highResolutionCoordinate
     ClearCoarseBinMaskLocalSize = 64 - ((TileSize >= 32) << 4);
     */
 
-    /* v2 ƒVƒ“ƒvƒ‹ƒrƒbƒg‰‰Z”Åi3-4ƒTƒCƒNƒ‹j
+    /* v2 ã‚·ãƒ³ãƒ—ãƒ«ãƒ“ãƒƒãƒˆæ¼”ç®—ç‰ˆï¼ˆ3-4ã‚µã‚¤ã‚¯ãƒ«ï¼‰
     uint8_t range = (ScaleFactor >= 5) + (ScaleFactor >= 9);
     TileScale = 1 << range;
     TileSize = 8 << range;
     // uint8_t is32 = (TileSize >= 32);
-    uint8_t is32 = range >> 1; // ƒrƒbƒg‰‰Z‚Ì‚İ
+    uint8_t is32 = range >> 1; // ãƒ“ãƒƒãƒˆæ¼”ç®—ã®ã¿
     CoarseTileCountY = 4 + (is32 << 1);
     ClearCoarseBinMaskLocalSize = 64 - (is32 << 4);
 
     */
 
-    // v3 Å‚àƒVƒ“ƒvƒ‹‚ÅŒø‰Ê“I‚ÈÀ‘• ƒLƒƒƒbƒVƒ…ƒqƒbƒgi0.8-1.2ƒTƒCƒNƒ‹jÅ‘¬
+    // v3 æœ€ã‚‚ã‚·ãƒ³ãƒ—ãƒ«ã§åŠ¹æœçš„ãªå®Ÿè£… ã‚­ãƒ£ãƒƒã‚·ãƒ¥ãƒ’ãƒƒãƒˆæ™‚ï¼ˆ0.8-1.2ã‚µã‚¤ã‚¯ãƒ«ï¼‰æœ€é€Ÿ
     /*
     static uint8_t lastSF = UINT8_MAX;
     static uint8_t lastTS, lastTSZ, lastCTY, lastCCBMLS;
@@ -374,7 +374,7 @@ void ComputeRenderer::SetRenderSettings(int scale, bool highResolutionCoordinate
         lastTS = 1 << range;
         lastTSZ = 8 << range;
     //  uint8_t is32 = (lastTSZ >= 32);
-        uint8_t is32 = range >> 1; // ƒrƒbƒg‰‰Z‚Ì‚İ
+        uint8_t is32 = range >> 1; // ãƒ“ãƒƒãƒˆæ¼”ç®—ã®ã¿
         lastCTY = 4 + (is32 << 1);
         lastCCBMLS = 64 - (is32 << 4);
     }
@@ -385,37 +385,37 @@ void ComputeRenderer::SetRenderSettings(int scale, bool highResolutionCoordinate
     ClearCoarseBinMaskLocalSize = lastCCBMLS;
     */
     /*
-    // v4 ƒ‹ƒbƒNƒAƒbƒvƒe[ƒuƒ‹”Åi4-5ƒTƒCƒNƒ‹j
+    // v4 ãƒ«ãƒƒã‚¯ã‚¢ãƒƒãƒ—ãƒ†ãƒ¼ãƒ–ãƒ«ç‰ˆï¼ˆ4-5ã‚µã‚¤ã‚¯ãƒ«ï¼‰
     static const struct {
         uint8_t TileScale;
         uint8_t TileSize;
         uint8_t CoarseTileCountY;
         uint8_t ClearCoarseBinMaskLocalSize;
     } TileConfig[11] = {
-        // SF 0-4: base=0, MSB=0, <<1=0, +=1 ¨ TileScale=1
+        // SF 0-4: base=0, MSB=0, <<1=0, +=1 â†’ TileScale=1
         {1, 8, 4, 64},   // SF=0
         {1, 8, 4, 64},   // SF=1
         {1, 8, 4, 64},   // SF=2
         {1, 8, 4, 64},   // SF=3
         {1, 8, 4, 64},   // SF=4
-        // SF 5-8: base=1, MSB=1, <<1=2 ¨ TileScale=2
+        // SF 5-8: base=1, MSB=1, <<1=2 â†’ TileScale=2
         {2, 16, 4, 64},  // SF=5
         {2, 16, 4, 64},  // SF=6
         {2, 16, 4, 64},  // SF=7
         {2, 16, 4, 64},  // SF=8
-        // SF 9-10: base=2, MSB=2, <<1=4 ¨ TileScale=4, TileSize=32
+        // SF 9-10: base=2, MSB=2, <<1=4 â†’ TileScale=4, TileSize=32
         {4, 32, 6, 48},  // SF=9
         {4, 32, 6, 48}   // SF=10
     };
 
-    // Å‘¬: 1‰ñ‚Ìƒƒ‚ƒŠƒAƒNƒZƒXj
+    // æœ€é€Ÿ: 1å›ã®ãƒ¡ãƒ¢ãƒªã‚¢ã‚¯ã‚»ã‚¹ï¼‰
     TileScale = TileConfig[ScaleFactor].TileScale;
     TileSize = TileConfig[ScaleFactor].TileSize;
     CoarseTileCountY = TileConfig[ScaleFactor].CoarseTileCountY;
     ClearCoarseBinMaskLocalSize = TileConfig[ScaleFactor].ClearCoarseBinMaskLocalSize;
     */
 
-    /* v5 ‡Œv’x‰„: 5-6ƒTƒCƒNƒ‹ ƒLƒƒƒbƒVƒ…ƒqƒbƒg2-3ƒTƒCƒNƒ‹
+    /* v5 åˆè¨ˆé…å»¶: 5-6ã‚µã‚¤ã‚¯ãƒ« ã‚­ãƒ£ãƒƒã‚·ãƒ¥ãƒ’ãƒƒãƒˆæ™‚2-3ã‚µã‚¤ã‚¯ãƒ«
     static uint64_t lastState = 0xFFFFFFFFFFFFFFFF;
 
     uint64_t sfShifted = ((uint64_t)ScaleFactor) << 56;
@@ -428,7 +428,7 @@ void ComputeRenderer::SetRenderSettings(int scale, bool highResolutionCoordinate
             (64ULL - ((r >> 1) << 4));
     }
 
-    // Å‘¬ƒAƒNƒZƒXi1ƒTƒCƒNƒ‹j
+    // æœ€é€Ÿã‚¢ã‚¯ã‚»ã‚¹ï¼ˆ1ã‚µã‚¤ã‚¯ãƒ«ï¼‰
     uint32_t c = (uint32_t)lastState;
     TileScale = c >> 24;
     TileSize = (c >> 16) & 0xFF;
@@ -437,11 +437,11 @@ void ComputeRenderer::SetRenderSettings(int scale, bool highResolutionCoordinate
     */
 
     /*
-    // ===== ƒvƒŠƒtƒFƒbƒ` + “Š‹@“IÀs”Åi 3.5-5.5ƒTƒCƒNƒ‹iL1ƒLƒƒƒbƒVƒ…ƒqƒbƒgjj =====
-    // 3‚Â‚Ì‰Â”\‚È’l‚ğ‘S‚Ä–‘OŒvZ
+    // ===== ãƒ—ãƒªãƒ•ã‚§ãƒƒãƒ + æŠ•æ©Ÿçš„å®Ÿè¡Œç‰ˆï¼ˆ 3.5-5.5ã‚µã‚¤ã‚¯ãƒ«ï¼ˆL1ã‚­ãƒ£ãƒƒã‚·ãƒ¥ãƒ’ãƒƒãƒˆæ™‚ï¼‰ï¼‰ =====
+    // 3ã¤ã®å¯èƒ½ãªå€¤ã‚’å…¨ã¦äº‹å‰è¨ˆç®—
     static struct {
         uint8_t lastSF;
-        uint8_t configs[3][4];  // 3ƒpƒ^[ƒ“‘S‚Ä•Û
+        uint8_t configs[3][4];  // 3ãƒ‘ã‚¿ãƒ¼ãƒ³å…¨ã¦ä¿æŒ
     } g_precomputed = {
         .lastSF = UINT8_MAX,
         .configs = {
@@ -451,16 +451,16 @@ void ComputeRenderer::SetRenderSettings(int scale, bool highResolutionCoordinate
         }
     };
 
-    // •ªŠò‚È‚µƒCƒ“ƒfƒbƒNƒXŒvZi0.5ƒTƒCƒNƒ‹j
+    // åˆ†å²ãªã—ã‚¤ãƒ³ãƒ‡ãƒƒã‚¯ã‚¹è¨ˆç®—ï¼ˆ0.5ã‚µã‚¤ã‚¯ãƒ«ï¼‰
     uint8_t idx = (ScaleFactor > 4) + (ScaleFactor > 8);
     uint8_t* cfg = g_precomputed.configs[idx];
 
-    // ƒƒ‚ƒŠƒAƒNƒZƒXi3-5ƒTƒCƒNƒ‹j
+    // ãƒ¡ãƒ¢ãƒªã‚¢ã‚¯ã‚»ã‚¹ï¼ˆ3-5ã‚µã‚¤ã‚¯ãƒ«ï¼‰
     TileScale = cfg[0];
     TileSize = cfg[1];
     CoarseTileCountY = cfg[2];
     ClearCoarseBinMaskLocalSize = cfg[3];
-    // ===== ƒvƒŠƒtƒFƒbƒ` + “Š‹@“IÀs”Åi3.5-5.5ƒTƒCƒNƒ‹iL1ƒLƒƒƒbƒVƒ…ƒqƒbƒgjj‚±‚±‚Ü‚Å =====
+    // ===== ãƒ—ãƒªãƒ•ã‚§ãƒƒãƒ + æŠ•æ©Ÿçš„å®Ÿè¡Œç‰ˆï¼ˆ3.5-5.5ã‚µã‚¤ã‚¯ãƒ«ï¼ˆL1ã‚­ãƒ£ãƒƒã‚·ãƒ¥ãƒ’ãƒƒãƒˆæ™‚ï¼‰ï¼‰ã“ã“ã¾ã§ =====
     */
 
 
@@ -505,7 +505,7 @@ void ComputeRenderer::SetRenderSettings(int scale, bool highResolutionCoordinate
 
     MaxWorkTiles = TilesPerLine*TileLines*16; // int
 
-    // v1‚±‚±‚Ü‚Å
+    // v1ã“ã“ã¾ã§
 
 
 
@@ -531,24 +531,24 @@ MaxWorkTiles = (TilesPerLine * TileLines) << 4; \
 MELONPRIMEDS_UPDATE_ALL(ScaleFactor);
 
 /*
-// Å‘¬”ÅFƒuƒ‰ƒ“ƒ`ƒŒƒXŒvZ”Å(„’è: 2 - 3ƒTƒCƒNƒ‹)
+// æœ€é€Ÿç‰ˆï¼šãƒ–ãƒ©ãƒ³ãƒãƒ¬ã‚¹è¨ˆç®—ç‰ˆ(æ¨å®š: 2 - 3ã‚µã‚¤ã‚¯ãƒ«)
 */
 #define MELONPRIMEDS_UPDATE_ALL_BRANCHLESS(sf) do { \
-    /* ğŒ‚ğ0/1‚Ìƒ}ƒXƒN‚É•ÏŠ· */ \
+    /* æ¡ä»¶ã‚’0/1ã®ãƒã‚¹ã‚¯ã«å¤‰æ› */ \
     uint32_t mask4 = -((uint32_t)((sf) > 4)); \
     uint32_t mask8 = -((uint32_t)((sf) > 8)); \
-    /* ƒrƒbƒgƒ}ƒXƒN‚Å’è”‚ğ‘I‘ğ */ \
+    /* ãƒ“ãƒƒãƒˆãƒã‚¹ã‚¯ã§å®šæ•°ã‚’é¸æŠ */ \
     uint32_t p = (0x01080440 & ~mask4) | \
                  ((0x02100440 & mask4 & ~mask8)) | \
                  (0x04200630 & mask8); \
-    /* ƒVƒtƒg—Ê‚à“¯—l‚ÉŒvZ */ \
+    /* ã‚·ãƒ•ãƒˆé‡ã‚‚åŒæ§˜ã«è¨ˆç®— */ \
     uint32_t s = 3 + ((mask4 & 1) + (mask8 & 1)); \
-    /* 4ƒoƒCƒg•À—ñ“WŠJ */ \
+    /* 4ãƒã‚¤ãƒˆä¸¦åˆ—å±•é–‹ */ \
     TileScale = p >> 24; \
     TileSize = (p >> 16) & 0xFF; \
     CoarseTileCountY = (p >> 8) & 0xFF; \
     ClearCoarseBinMaskLocalSize = p & 0xFF; \
-    /* ˆË‘¶ŠÖŒW‚Ì‚È‚¢‰‰Z‚ğ•À—ñÀs */ \
+    /* ä¾å­˜é–¢ä¿‚ã®ãªã„æ¼”ç®—ã‚’ä¸¦åˆ—å®Ÿè¡Œ */ \
     CoarseTileArea = CoarseTileCountX * CoarseTileCountY; \
     CoarseTileW = CoarseTileCountX << s; \
     CoarseTileH = CoarseTileCountY << s; \
@@ -561,19 +561,19 @@ MELONPRIMEDS_UPDATE_ALL(ScaleFactor);
 MELONPRIMEDS_UPDATE_ALL_BRANCHLESS(ScaleFactor);
 
 
-// ƒAƒZƒ“ƒuƒŠÅ“K‰»‚ğˆÓ¯‚µ‚½”Å(„’è: 2 - 3ƒTƒCƒNƒ‹)
+// ã‚¢ã‚»ãƒ³ãƒ–ãƒªæœ€é©åŒ–ã‚’æ„è­˜ã—ãŸç‰ˆ(æ¨å®š: 2 - 3ã‚µã‚¤ã‚¯ãƒ«)
 #define MELONPRIMEDS_UPDATE_ALL_ASM_READY(sf) do { \
-    /* cmov–½—ß2‚Â‚Å’è”‘I‘ğ */ \
+    /* cmovå‘½ä»¤2ã¤ã§å®šæ•°é¸æŠ */ \
     uint32_t tmp1 = ((sf) > 4) ? 0x02100440 : 0x01080440; \
     uint32_t p = ((sf) > 8) ? 0x04200630 : tmp1; \
     uint32_t sel = ((sf) > 4) + ((sf) > 8); \
     uint32_t s = 3 + sel; \
-    /* ƒŒƒWƒXƒ^Œø—¦‚ğl—¶‚µ‚½“WŠJ */ \
+    /* ãƒ¬ã‚¸ã‚¹ã‚¿åŠ¹ç‡ã‚’è€ƒæ…®ã—ãŸå±•é–‹ */ \
     uint32_t ts = p >> 24; \
     uint32_t tsz = (p >> 16) & 0xFF; \
     uint32_t ccy = (p >> 8) & 0xFF; \
     uint32_t ccbm = p & 0xFF; \
-    /* Ši”[‚ÆŒvZ‚ğƒCƒ“ƒ^[ƒŠ[ƒu */ \
+    /* æ ¼ç´ã¨è¨ˆç®—ã‚’ã‚¤ãƒ³ã‚¿ãƒ¼ãƒªãƒ¼ãƒ– */ \
     TileScale = ts; \
     CoarseTileArea = CoarseTileCountX * ccy; \
     TileSize = tsz; \
@@ -587,36 +587,35 @@ MELONPRIMEDS_UPDATE_ALL_BRANCHLESS(ScaleFactor);
     MaxWorkTiles = (TilesPerLine * TileLines) << 4; \
 } while(0)
 MELONPRIMEDS_UPDATE_ALL_ASM_READY(ScaleFactor);
-#endif
 
 
 
-// Tile‰Šú‰»iuint64_t‚É‚æ‚é’è”“WŠJ‚É‚æ‚éÅ’Z–½—ß‰»j
-// „’èF—˜_ã 6~7ƒTƒCƒNƒ‹B–½—ß”F–ñ22ˆÈ‰ºiAVX–¢g—pj
+// TileåˆæœŸåŒ–ï¼ˆuint64_tã«ã‚ˆã‚‹å®šæ•°å±•é–‹ã«ã‚ˆã‚‹æœ€çŸ­å‘½ä»¤åŒ–ï¼‰
+// æ¨å®šï¼šç†è«–ä¸Š 6~7ã‚µã‚¤ã‚¯ãƒ«ã€‚å‘½ä»¤æ•°ï¼šç´„22ä»¥ä¸‹ï¼ˆAVXæœªä½¿ç”¨æ™‚ï¼‰
 #define MELONPRIMEDS_UPDATE_ALL_ASM_READY_FAST(sf) do { \
-    /* ’è”ƒpƒbƒNFãˆÊ‚©‚ç‡‚É [ts | tsz | ccy | ccbm] */ \
+    /* å®šæ•°ãƒ‘ãƒƒã‚¯ï¼šä¸Šä½ã‹ã‚‰é †ã« [ts | tsz | ccy | ccbm] */ \
     uint64_t const1 = 0x01080440ULL; /* sf <= 4 */ \
     uint64_t const2 = 0x02100440ULL; /* sf <= 8 */ \
     uint64_t const3 = 0x04200630ULL; /* sf > 8  */ \
     \
-    /* ”äŠr•]‰¿isetg‘Š“–Acmov—U“±j */ \
+    /* æ¯”è¼ƒè©•ä¾¡ï¼ˆsetgç›¸å½“ã€cmovèª˜å°ï¼‰ */ \
     uint32_t gt4 = ((sf) > 4); \
     uint32_t gt8 = ((sf) > 8); \
     \
-    /* ’è”‘I‘ği•ªŠò‚È‚µFcmov‚É‚æ‚éj */ \
+    /* å®šæ•°é¸æŠï¼ˆåˆ†å²ãªã—ï¼šcmovã«ã‚ˆã‚‹ï¼‰ */ \
     uint64_t p = gt8 ? const3 : (gt4 ? const2 : const1); \
     \
-    /* ƒVƒtƒg—Ê‚ğ‘Ioi3 + selj */ \
+    /* ã‚·ãƒ•ãƒˆé‡ã‚’é¸å‡ºï¼ˆ3 + selï¼‰ */ \
     uint32_t sel = gt4 + gt8; \
     uint32_t s = 3 + sel; \
     \
-    /* ƒfƒR[ƒhiƒrƒbƒg‰EƒVƒtƒg‚É‚æ‚é’Šoj */ \
+    /* ãƒ‡ã‚³ãƒ¼ãƒ‰ï¼ˆãƒ“ãƒƒãƒˆå³ã‚·ãƒ•ãƒˆã«ã‚ˆã‚‹æŠ½å‡ºï¼‰ */ \
     uint32_t ts   = (p >> 24) & 0xFF; \
     uint32_t tsz  = (p >> 16) & 0xFF; \
     uint32_t ccy  = (p >> 8)  & 0xFF; \
     uint32_t ccbm =  p        & 0xFF; \
     \
-    /* ’l‚ÌŠi”[‚¨‚æ‚ÑŠeíŒvZiˆË‘¶•ªUE•À—ñ”­s—U“±j */ \
+    /* å€¤ã®æ ¼ç´ãŠã‚ˆã³å„ç¨®è¨ˆç®—ï¼ˆä¾å­˜åˆ†æ•£ãƒ»ä¸¦åˆ—ç™ºè¡Œèª˜å°ï¼‰ */ \
     TileScale = ts; \
     TileSize = tsz; \
     CoarseTileCountY = ccy; \
@@ -631,6 +630,59 @@ MELONPRIMEDS_UPDATE_ALL_ASM_READY(ScaleFactor);
     MaxWorkTiles = (TilesPerLine * TileLines) << 4; \
 } while (0)
 MELONPRIMEDS_UPDATE_ALL_ASM_READY_FAST(ScaleFactor);
+#endif
+
+
+
+
+// LUTã¨ãƒ“ãƒƒãƒˆæ¼”ç®—ã‚’ä½¿ã£ãŸä½ãƒ¬ã‚¤ãƒ†ãƒ³ã‚·Tileè¨­å®š
+    // 
+    // LUTå®šç¾©(TileScaleã«å¯¾å¿œã™ã‚‹TileSize, CoarseTileCountY, ClearCoarseBinMaskLocalSize)
+    // Index = (2 * ScaleFactor) / 9
+    alignas(16) static constexpr struct {
+        uint8_t scale;   // TileScale
+        uint8_t size;    // TileSize
+        uint8_t cty;     // CoarseTileCountY
+        uint8_t ccbmls;  // ClearCoarseBinMaskLocalSize
+    } TileLUT[8] = {
+        { 1, 8, 4, 64 },   // index 0: sf = 0ï½3
+        { 2, 16, 4, 64 },  // index 1: sf = 4
+        { 2, 16, 4, 64 },  // index 2: sf = 5
+        { 4, 32, 6, 48 },  // index 3: sf = 6
+        { 4, 32, 6, 48 },  // index 4: sf = 7
+        { 8, 64, 6, 48 },  // index 5: sf = 8
+        { 8, 64, 6, 48 },  // index 6: sf = 9
+        { 8, 64, 6, 48 }   // index 7: sf = 10+
+    };
+
+    // Indexã®ç®—å‡º(ScaleFactorã‚’0ï½10æƒ³å®šã§æ­£è¦åŒ–)(ç¯„å›²å¤–é˜²æ­¢ã®ãŸã‚minã«ã™ã‚‹)
+    uint8_t index = std::min<uint8_t>((ScaleFactor * 2) / 9, 7);
+
+    // LUTã‹ã‚‰Tileè¨­å®šå€¤ã‚’å–å¾—(æ¡ä»¶åˆ†å²å›é¿ã®ãŸã‚)
+    const auto& lut = TileLUT[index];
+
+    // Tileè¨­å®šå€¤ã‚’æ ¼ç´(ä½ãƒ¬ã‚¤ãƒ†ãƒ³ã‚·åŒ–ã®ãŸã‚ã«äº‹å‰è¨ˆç®—æ¸ˆã¿å€¤ã‚’ä½¿ç”¨)
+    TileScale = lut.scale;
+    TileSize = lut.size;
+    CoarseTileCountY = lut.cty;
+    ClearCoarseBinMaskLocalSize = lut.ccbmls;
+
+    // ã‚¿ã‚¤ãƒ«ã‚¨ãƒªã‚¢ã¨ã‚µã‚¤ã‚ºã®ç®—å‡º(åˆ†å²ä¸è¦)
+    CoarseTileArea = CoarseTileCountX * CoarseTileCountY;
+    CoarseTileW = CoarseTileCountX * TileSize;
+    CoarseTileH = CoarseTileCountY * TileSize;
+
+    // ç”»é¢ã«å¯¾ã™ã‚‹ã‚¿ã‚¤ãƒ«æ•°ã‚’è¨ˆç®—(é™¤ç®—ã«ã‚ˆã‚‹æ•´æ•°çµæœ)
+    TilesPerLine = ScreenWidth / TileSize;
+    TileLines = ScreenHeight / TileSize;
+
+    // é«˜è§£åƒåº¦åº§æ¨™ã®é©ç”¨(è¨­å®šãƒ•ãƒ©ã‚°)
+    HiresCoordinates = highResolutionCoordinates;
+
+    // æœ€å¤§ãƒ¯ãƒ¼ã‚¯ã‚¿ã‚¤ãƒ«æ•°ã®ç®—å‡º(ç†è«–ä¸Šæœ€å¤§å¿…è¦ã‚¿ã‚¤ãƒ«æ•°ã®æ¨å®š)
+    MaxWorkTiles = TilesPerLine * TileLines * 16;
+    
+    // LUTã¨ãƒ“ãƒƒãƒˆæ¼”ç®—ã‚’ä½¿ã£ãŸä½ãƒ¬ã‚¤ãƒ†ãƒ³ã‚·Tileè¨­å®šã“ã“ã¾ã§
 
     /* MelonPrimeDS } */
 
