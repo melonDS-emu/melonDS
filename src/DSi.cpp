@@ -162,6 +162,7 @@ void DSi::Reset()
     SCFG_Clock9 = 0x0187; // CHECKME
     SCFG_Clock7 = 0x0187;
     SCFG_EXT[0] = 0x8307F100;
+    SetVRAMTimings(true);
     SCFG_EXT[1] = 0x93FFFB06;
     SCFG_MC = 0x0010 | (~((u32)(NDSCartSlot.GetCart() != nullptr))&1);//0x0011;
     SCFG_RST = 0;
@@ -237,6 +238,7 @@ void DSi::DoSavestateExtra(Savestate* file)
         Set_SCFG_Clock9(SCFG_Clock9);
         Set_SCFG_MC(SCFG_MC);
         DSP.SetRstLine(SCFG_RST & 0x0001);
+        SetVRAMTimings(SCFG_EXT[0] & (1<<13));
 
         MBK[0][8] = 0;
         MBK[1][8] = 0;
@@ -719,6 +721,7 @@ void DSi::SoftReset()
     SCFG_Clock9 = 0x0187; // CHECKME
     SCFG_Clock7 = 0x0187;
     SCFG_EXT[0] = 0x8307F100;
+    SetVRAMTimings(true);
     SCFG_EXT[1] = 0x93FFFB06;
     SCFG_MC = 0x0010;//0x0011;
     // TODO: is this actually reset?
@@ -1322,6 +1325,14 @@ void DSi::Set_SCFG_MC(u32 val)
     {
         NDSCartSlot.ResetCart();
     }
+}
+
+void DSi::SetVRAMTimings(bool extrabuswidth)
+{
+    if (extrabuswidth)
+        SetARM9RegionTimings(0x06000, 0x07000, Mem9_VRAM, 32, 1, 1); // dsi vram
+    else
+        SetARM9RegionTimings(0x06000, 0x07000, Mem9_VRAM, 16, 1, 1); // ds vram
 }
 
 
@@ -2562,11 +2573,18 @@ void DSi::ARM9IOWrite32(u32 addr, u32 val)
             u32 oldram = (SCFG_EXT[0] >> 14) & 0x3;
             u32 newram = (val >> 14) & 0x3;
 
+            u32 oldvram = (SCFG_EXT[0] & (1<<13));
+            u32 newvram = (val & (1<<13));
+
             SCFG_EXT[0] &= ~0x8007F19F;
             SCFG_EXT[0] |= (val & 0x8007F19F);
             SCFG_EXT[1] &= ~0x0000F080;
             SCFG_EXT[1] |= (val & 0x0000F080);
             Log(LogLevel::Debug, "SCFG_EXT = %08X / %08X (val9 %08X)\n", SCFG_EXT[0], SCFG_EXT[1], val);
+
+            if (oldvram != newvram)
+                SetVRAMTimings(newvram);
+
             /*switch ((SCFG_EXT[0] >> 14) & 0x3)
             {
             case 0:
