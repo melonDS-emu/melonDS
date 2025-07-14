@@ -399,15 +399,18 @@ u32 DMA::UnitTimings7_16(bool burststart)
             {
                 MRAMBurstCount = 0;
 
+                // 選択インデックスの初期値をセット（デフォルト：MRAMRead16Bursts[0]）
+                size_t burstIndex = 0;
+
+                // WifiかGBAROMなら条件評価（後で1 or 2に更新）
                 if (dst_rgn == Mem7_GBAROM || dst_rgn == Mem7_Wifi0 || dst_rgn == Mem7_Wifi1)
                 {
-                    if (dst_s == 4)
-                        MRAMBurstTable = DMATiming::MRAMRead16Bursts[1];
-                    else
-                        MRAMBurstTable = DMATiming::MRAMRead16Bursts[2];
+                    burstIndex = (dst_s == 4) ? 1 : 2;
                 }
-                else
-                    MRAMBurstTable = DMATiming::MRAMRead16Bursts[0];
+
+                // 選択されたバーストテーブルをコピー（memcpyで構造体代入を回避）
+                memcpy(MRAMBurstTable.data(), DMATiming::MRAMRead16Bursts[burstIndex].data(), MRAMBurstTable.size());
+
             }
 
             u32 ret = MRAMBurstTable[MRAMBurstCount++];
