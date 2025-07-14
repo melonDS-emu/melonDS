@@ -1906,7 +1906,9 @@ void EmuThread::run()
 
 
                     // Morph ball boost
-                    // INFO この関数を仕様していないときはマウスによるブーストは１回しかできない。　これはエイムのために常にタッチ状態でリリースをしないのが原因。どうしようもない。
+                    // INFO If this function is not used, mouse boosting can only be done once.
+                    // This is because it doesn't release from the touch state, which is necessary for aiming. 
+                    // There's no way around it.
                     if (isSamus && hotkeyMask[HK_MetroidHoldMorphBallBoost])
                     {
                         isAltForm = emuInstance->nds->ARM9Read8(isAltFormAddr) == 0x02;
