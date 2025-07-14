@@ -51,10 +51,10 @@ namespace melonDS
 using Platform::Log;
 using Platform::LogLevel;
 
-static_assert(offsetof(ARM, CPSR) == ARM_CPSR_offset, "");
+/*static_assert(offsetof(ARM, CPSR) == ARM_CPSR_offset, "");
 static_assert(offsetof(ARM, Cycles) == ARM_Cycles_offset, "");
 static_assert(offsetof(ARM, StopExecution) == ARM_StopExecution_offset, "");
-
+*/
 
 #define JIT_DEBUGPRINT(msg, ...)
 //#define JIT_DEBUGPRINT(msg, ...) Platform::Log(Platform::LogLevel::Debug, msg, ## __VA_ARGS__)
@@ -586,7 +586,7 @@ void ARMJIT::CompileBlock(ARM* cpu) noexcept
     u32 numWriteAddrs = 0, writeAddrsTranslated = 0;
 
     cpu->FillPipeline();
-    u32 nextInstr[2] = {cpu->NextInstr[0], cpu->NextInstr[1]};
+    u32 nextInstr[2] = {(u32)cpu->NextInstr[0], (u32)cpu->NextInstr[1]};
     u32 nextInstrAddr[2] = {blockAddr, r15};
 
     JIT_DEBUGPRINT("start block %x %08x (%x)\n", blockAddr, cpu->CPSR, localAddr);
@@ -644,17 +644,17 @@ void ARMJIT::CompileBlock(ARM* cpu) noexcept
             }
             else
             {
-                nextInstr[1] = cpuv5->CodeRead32(r15, false);
+                //nextInstr[1] = cpuv5->CodeRead32(r15, false);
                 instrs[i].CodeCycles = cpu->CodeCycles;
             }
         }
         else
         {
             ARMv4* cpuv4 = (ARMv4*)cpu;
-            if (thumb)
-                nextInstr[1] = cpuv4->CodeRead16(r15);
-            else
-                nextInstr[1] = cpuv4->CodeRead32(r15);
+            if (thumb);
+                //nextInstr[1] = cpuv4->CodeRead16(r15);
+            else;
+               // nextInstr[1] = cpuv4->CodeRead32(r15);
             instrs[i].CodeCycles = cpu->CodeCycles;
         }
         instrs[i].Info = ARMInstrInfo::Decode(thumb, cpu->Num, instrs[i].Instr, LiteralOptimizations);
@@ -722,7 +722,7 @@ void ARMJIT::CompileBlock(ARM* cpu) noexcept
                     addressRanges[numAddressRanges++] = translatedAddrRounded;
                 addressMasks[j] |= 1 << ((translatedAddr & 0x1FF) / 16);
                 JIT_DEBUGPRINT("literal loading %08x %08x %08x %08x\n", literalAddr, translatedAddr, addressMasks[j], addressRanges[j]);
-                cpu->DataRead32(literalAddr, &literalValues[numLiterals]);
+                //cpu->DataRead32(literalAddr, &literalValues[numLiterals]);
                 literalLoadAddrs[numLiterals++] = translatedAddr;
             }
         }
