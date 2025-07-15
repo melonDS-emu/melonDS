@@ -1391,19 +1391,9 @@ void EmuThread::run()
 
 #ifdef COMMENTOUTTTTTTTT
 
-        // 調整関数（マクロ化前までの） 10-20サイクル
-        static const auto AIM_ADJUST = [](float value) __attribute__((hot, always_inline)) -> int16_t {
-            if (value >= 0.5f && value < 1.0f) return static_cast<int16_t>(1.0f);
-            if (value <= -0.5f && value > -1.0f) return static_cast<int16_t>(-1.0f);
-            return static_cast<int16_t>(value);  // 切り捨て(0方向への丸め)
-        };
-        
 
-#define AIM_ADJUST(v) ((v) >= 0.5f && (v) < 1.0f ? 1 : ((v) <= -0.5f && (v) > -1.0f ? -1 : static_cast<int16_t>(v)))
 
-#endif
-
-        // 最小命令数に逆算された超軽量版 AIM_ADJUST マクロ
+// 最小命令数に逆算された超軽量版 AIM_ADJUST マクロ
 #define AIM_ADJUST(value) ({ \
     uint32_t __bits; \
     memcpy(&__bits, &(value), sizeof(__bits)); /* float → uint32_t */ \
@@ -1413,6 +1403,15 @@ void EmuThread::run()
     (__abs - 0x3F000000u < 0x00800000u) ? __alt : __fallback; \
 })
 
+        // 調整関数（マクロ化前までの） 10-20サイクル
+        static const auto AIM_ADJUST = [](float value) __attribute__((hot, always_inline)) -> int16_t {
+            if (value >= 0.5f && value < 1.0f) return static_cast<int16_t>(1.0f);
+            if (value <= -0.5f && value > -1.0f) return static_cast<int16_t>(-1.0f);
+            return static_cast<int16_t>(value);  // 切り捨て(0方向への丸め)
+        };
+#endif
+
+#define AIM_ADJUST(v) ((v) >= 0.5f && (v) < 1.0f ? 1 : ((v) <= -0.5f && (v) > -1.0f ? -1 : static_cast<int16_t>(v)))
 
 
 // ホットパス：フォーカスがありレイアウト変更もない場合

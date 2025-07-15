@@ -588,57 +588,6 @@ MELONPRIMEDS_UPDATE_ALL_BRANCHLESS(ScaleFactor);
 } while(0)
 MELONPRIMEDS_UPDATE_ALL_ASM_READY(ScaleFactor);
 
-// LUTとビット演算を使った低レイテンシTile設定
-    // 
-    // LUT定義(TileScaleに対応するTileSize, CoarseTileCountY, ClearCoarseBinMaskLocalSize)
-    // Index = (2 * ScaleFactor) / 9
-alignas(16) static constexpr struct {
-    uint8_t scale;   // TileScale
-    uint8_t size;    // TileSize
-    uint8_t cty;     // CoarseTileCountY
-    uint8_t ccbmls;  // ClearCoarseBinMaskLocalSize
-} TileLUT[8] = {
-    { 1, 8, 4, 64 },   // index 0: sf = 0～3
-    { 2, 16, 4, 64 },  // index 1: sf = 4
-    { 2, 16, 4, 64 },  // index 2: sf = 5
-    { 4, 32, 6, 48 },  // index 3: sf = 6
-    { 4, 32, 6, 48 },  // index 4: sf = 7
-    { 8, 64, 6, 48 },  // index 5: sf = 8
-    { 8, 64, 6, 48 },  // index 6: sf = 9
-    { 8, 64, 6, 48 }   // index 7: sf = 10+
-};
-
-// Indexの算出(ScaleFactorを0～10想定で正規化)(範囲外防止のためminにする)
-uint8_t index = std::min<uint8_t>((ScaleFactor * 2) / 9, 7);
-
-// LUTからTile設定値を取得(条件分岐回避のため)
-const auto& lut = TileLUT[index];
-
-// Tile設定値を格納(低レイテンシ化のために事前計算済み値を使用)
-TileScale = lut.scale;
-TileSize = lut.size;
-CoarseTileCountY = lut.cty;
-ClearCoarseBinMaskLocalSize = lut.ccbmls;
-
-// タイルエリアとサイズの算出(分岐不要)
-CoarseTileArea = CoarseTileCountX * CoarseTileCountY;
-CoarseTileW = CoarseTileCountX * TileSize;
-CoarseTileH = CoarseTileCountY * TileSize;
-
-// 画面に対するタイル数を計算(除算による整数結果)
-TilesPerLine = ScreenWidth / TileSize;
-TileLines = ScreenHeight / TileSize;
-
-// 高解像度座標の適用(設定フラグ)
-HiresCoordinates = highResolutionCoordinates;
-
-// 最大ワークタイル数の算出(理論上最大必要タイル数の推定)
-MaxWorkTiles = TilesPerLine * TileLines * 16;
-
-// LUTとビット演算を使った低レイテンシTile設定ここまで
-
-#endif
-
 
 
 // Tile初期化（uint64_tによる定数展開による最短命令化）
@@ -681,8 +630,59 @@ MaxWorkTiles = TilesPerLine * TileLines * 16;
     MaxWorkTiles = (TilesPerLine * TileLines) << 4; \
 } while (0)
 MELONPRIMEDS_UPDATE_ALL_ASM_READY_FAST(ScaleFactor);
+#endif
 
 
+
+
+// LUTとビット演算を使った低レイテンシTile設定
+    // 
+    // LUT定義(TileScaleに対応するTileSize, CoarseTileCountY, ClearCoarseBinMaskLocalSize)
+    // Index = (2 * ScaleFactor) / 9
+    alignas(16) static constexpr struct {
+        uint8_t scale;   // TileScale
+        uint8_t size;    // TileSize
+        uint8_t cty;     // CoarseTileCountY
+        uint8_t ccbmls;  // ClearCoarseBinMaskLocalSize
+    } TileLUT[8] = {
+        { 1, 8, 4, 64 },   // index 0: sf = 0～3
+        { 2, 16, 4, 64 },  // index 1: sf = 4
+        { 2, 16, 4, 64 },  // index 2: sf = 5
+        { 4, 32, 6, 48 },  // index 3: sf = 6
+        { 4, 32, 6, 48 },  // index 4: sf = 7
+        { 8, 64, 6, 48 },  // index 5: sf = 8
+        { 8, 64, 6, 48 },  // index 6: sf = 9
+        { 8, 64, 6, 48 }   // index 7: sf = 10+
+    };
+
+    // Indexの算出(ScaleFactorを0～10想定で正規化)(範囲外防止のためminにする)
+    uint8_t index = std::min<uint8_t>((ScaleFactor * 2) / 9, 7);
+
+    // LUTからTile設定値を取得(条件分岐回避のため)
+    const auto& lut = TileLUT[index];
+
+    // Tile設定値を格納(低レイテンシ化のために事前計算済み値を使用)
+    TileScale = lut.scale;
+    TileSize = lut.size;
+    CoarseTileCountY = lut.cty;
+    ClearCoarseBinMaskLocalSize = lut.ccbmls;
+
+    // タイルエリアとサイズの算出(分岐不要)
+    CoarseTileArea = CoarseTileCountX * CoarseTileCountY;
+    CoarseTileW = CoarseTileCountX * TileSize;
+    CoarseTileH = CoarseTileCountY * TileSize;
+
+    // 画面に対するタイル数を計算(除算による整数結果)
+    TilesPerLine = ScreenWidth / TileSize;
+    TileLines = ScreenHeight / TileSize;
+
+    // 高解像度座標の適用(設定フラグ)
+    HiresCoordinates = highResolutionCoordinates;
+
+    // 最大ワークタイル数の算出(理論上最大必要タイル数の推定)
+    MaxWorkTiles = TilesPerLine * TileLines * 16;
+    
+    // LUTとビット演算を使った低レイテンシTile設定ここまで
 
     /* MelonPrimeDS } */
 
