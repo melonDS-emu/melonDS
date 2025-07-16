@@ -27,10 +27,12 @@
 namespace melonDS
 {
 
+class DSi;
+
 class DSPHLE_UcodeBase
 {
 public:
-    DSPHLE_UcodeBase();
+    DSPHLE_UcodeBase(melonDS::DSi& dsi);
     ~DSPHLE_UcodeBase();
     void Reset();
     void DoSavestate(Savestate* file);
@@ -70,16 +72,35 @@ public:
     void ClearSemaphore(u16 val);
     void MaskSemaphore(u16 val);
 
+    void SetSemaphoreOut(u16 val);
+
     void Start();
 
     void Run(u32 cycles);
 
 protected:
+    melonDS::DSi& DSi;
+    u16* DataMemory;
+
     u16 CmdReg[3];
     bool CmdWritten[3];
     u16 ReplyReg[3];
     bool ReplyWritten[3];
     fnReplyReadCb ReplyReadCb[3];
+
+    u16 SemaphoreIn;        // ARM9 -> DSP
+    u16 SemaphoreOut;       // DSP -> ARM9
+    u16 SemaphoreMask;      // DSP -> ARM9
+
+    u16 UcodeCmd;
+
+    u16* LoadPipe(u8 index);
+    u32 GetPipeLength(u16* pipe);
+    u32 ReadPipe(u16* pipe, u16* data, u32 len);
+
+    void RunUcodeCmd();
+    void OnUcodeCmdFinish(u32 param);
+    void UcodeCmd_Scaling(u16* pipe);
 };
 
 }

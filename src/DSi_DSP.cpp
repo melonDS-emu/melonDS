@@ -56,7 +56,7 @@ u16 DSi_DSP::GetPSTS() const
     if ( HleCore->RecvDataIsReady(0)) r |= 1<<10;
     if ( HleCore->RecvDataIsReady(1)) r |= 1<<11;
     if ( HleCore->RecvDataIsReady(2)) r |= 1<<12;
-
+//printf("GetPSTS: %04X\n", r); 8100
     return r;
 }
 
@@ -119,7 +119,7 @@ DSi_DSP::DSi_DSP(melonDS::DSi& dsi) : DSi(dsi)
     DSi.RegisterEventFuncs(Event_DSi_DSP, this, {MakeEventThunk(DSi_DSP, DSPCatchUpU32)});
 
     //TeakraCore = new Teakra::Teakra();
-    HleCore = new DSPHLE_UcodeBase();
+    HleCore = new DSPHLE_UcodeBase(DSi);
     SCFG_RST = false;
 
     // ????
@@ -254,7 +254,7 @@ void DSi_DSP::PDataDMAWrite(u16 wrval)
         //addr |= (u32)TeakraCore->DMAChan0GetDstHigh() << 16;
         //TeakraCore->DataWriteA32(addr, wrval);
         addr |= (u32)HleCore->DMAChan0GetDstHigh() << 16;
-            HleCore->DataWriteA32(addr, wrval);
+        HleCore->DataWriteA32(addr, wrval);
         break;
     case 1<<12: // mmio
         //TeakraCore->MMIOWrite(addr & 0x7FF, wrval);
@@ -356,7 +356,7 @@ u16 DSi_DSP::PDataDMARead()
         }
         break;
     default: return r;
-    }printf("DSP: PDATA read %08X -> %04X\n", addr, r);
+    }printf("DSP: PDATA read %08X -> %04X (%04X)\n", addr, r, DSP_PCFG);
 
     if (DSP_PCFG & (1<<1)) // auto-increment
         ++DSP_PADR; // overflows and stays within a 64k 'page' // TODO: is this +1 or +2?

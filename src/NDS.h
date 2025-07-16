@@ -72,6 +72,7 @@ enum
     Event_DSi_CamIRQ,
     Event_DSi_CamTransfer,
     Event_DSi_DSP,
+    Event_DSi_DSPHLE, // TODO use same event for both flavors of DSP?
 
     Event_MAX
 };
