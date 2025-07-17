@@ -476,22 +476,24 @@ void ComputeRenderer::SetRenderSettings(int scale, bool highResolutionCoordinate
     HiresCoordinates = highResolutionCoordinates; // bool
     MaxWorkTiles = TilesPerLine * TileLines * 16; // int
 
-#endif
 
-    
+    // v2
 
     // uint8_t TileScale 
     TileScale = 2 * ScaleFactor / 9; //Starting at 4.5x we want to double TileSize every time scale doubles
-#define GET_MSBIT(val) \
-    ({ \
-        auto _v = (val); \
-        _v |= (_v >> 1); \
-        _v |= (_v >> 2); \
-        _v |= (_v >> 4); \
-        _v |= (_v >> 8); \
-        _v |= (_v >> 16); \
-        _v - (_v >> 1); \
-    })
+    // 64bit整数に対応したMSB抽出マクロ（ビット操作のみ・分岐なし）
+#define GET_MSBIT(val)                            \
+    ([&]() -> decltype(val) {                          \
+        auto _v = (val);                               \
+        _v |= (_v >> 1);                               /* 下位1bitマージ */ \
+        _v |= (_v >> 2);                               /* 下位2bitマージ */ \
+        _v |= (_v >> 4);                               /* 下位4bitマージ */ \
+        if constexpr (sizeof(_v) > 1) _v |= (_v >> 8);  /* 16bit以上用 */ \
+        if constexpr (sizeof(_v) > 2) _v |= (_v >> 16); /* 32bit以上用 */ \
+        if constexpr (sizeof(_v) > 4) _v |= (_v >> 32); /* 64bit以上用 */ \
+        return _v - (_v >> 1);                          /* 最上位bitだけ残す */ \
+    })()
+
     TileScale = GET_MSBIT(TileScale);
     TileScale <<= 1;
     TileScale += TileScale == 0;
@@ -502,6 +504,68 @@ void ComputeRenderer::SetRenderSettings(int scale, bool highResolutionCoordinate
     CoarseTileArea = CoarseTileCountX * CoarseTileCountY; // int
     CoarseTileW = CoarseTileCountX * TileSize; // int
     CoarseTileH = CoarseTileCountY * TileSize; // int
+
+    TilesPerLine = ScreenWidth / TileSize; // int
+    TileLines = ScreenHeight / TileSize; // int
+
+    HiresCoordinates = highResolutionCoordinates; // bool
+    MaxWorkTiles = TilesPerLine * TileLines * 16; // int
+
+
+#endif
+
+    // v3 lut version
+    // 
+    // Tile情報のLUT構造体
+    struct TileParams {
+        uint8_t tileScale;    // TileScale（2のべき乗）
+        uint8_t tileSize;     // TileSize（tileScale × 8、最大32まで）
+        uint8_t shift;        // log2(tileSize)
+        uint8_t cty;          // CoarseTileCountY
+        uint8_t ccbmls;       // ClearCoarseBinMaskLocalSize
+        uint8_t area;         // CoarseTileArea（8 × cty）
+        uint16_t coarseW;     // CoarseTileW（8 × tileSize）
+        uint16_t coarseH;     // CoarseTileH（cty × tileSize）
+    };
+    // LUT定義（1-indexed、[0]番目は未使用） LUTはchatGptにpython使わせて生成する
+    alignas(64) static constexpr TileParams TileLUT[101] = {
+        {}, // index 0 は未使用（ScaleFactor 1～16対応）
+
+        // { tileScale, tileSize, shift, cty, ccbmls, area, coarseW, coarseH }
+        { 1,  8, 3, 4, 64, 32,  64,  32 },  // ScaleFactor = 1
+        { 1,  8, 3, 4, 64, 32,  64,  32 },  // = 2
+        { 1,  8, 3, 4, 64, 32,  64,  32 },  // = 3
+        { 1,  8, 3, 4, 64, 32,  64,  32 },  // = 4
+        { 2, 16, 4, 4, 64, 32, 128,  64 },  // = 5
+        { 2, 16, 4, 4, 64, 32, 128,  64 },  // = 6
+        { 2, 16, 4, 4, 64, 32, 128,  64 },  // = 7
+        { 2, 16, 4, 4, 64, 32, 128,  64 },  // = 8
+        { 4, 32, 5, 6, 48, 48, 256, 192 },  // = 9
+        { 4, 32, 5, 6, 48, 48, 256, 192 },  // = 10
+        { 4, 32, 5, 6, 48, 48, 256, 192 },  // = 11
+        { 4, 32, 5, 6, 48, 48, 256, 192 },  // = 12
+        { 4, 32, 5, 6, 48, 48, 256, 192 },  // = 13
+        { 4, 32, 5, 6, 48, 48, 256, 192 },  // = 14
+        { 4, 32, 5, 6, 48, 48, 256, 192 },  // = 15
+        { 4, 32, 5, 6, 48, 48, 256, 192 },  // = 16
+        //{ 8, 32, 5, 6, 48, 48, 256, 192 },  // = 17
+        //{ 8, 32, 5, 6, 48, 48, 256, 192 },  // = 18
+        //{ 8, 32, 5, 6, 48, 48, 256, 192 },  // = 19
+        // ...
+        // ScaleFactor = 20 ～ 100 も同様に { 8, 32, 5, 6, 48, 48, 256, 192 } 固定で続く
+    };
+
+    // LUTからパラメータを取得
+    const auto& lut = TileLUT[ScaleFactor];
+
+    // 値の取り出し
+    TileScale = lut.tileScale;
+    TileSize = lut.tileSize;
+    CoarseTileCountY = lut.cty;
+    ClearCoarseBinMaskLocalSize = lut.ccbmls;
+    CoarseTileArea = lut.area;
+    CoarseTileW = lut.coarseW;
+    CoarseTileH = lut.coarseH;
 
     TilesPerLine = ScreenWidth / TileSize; // int
     TileLines = ScreenHeight / TileSize; // int

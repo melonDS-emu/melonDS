@@ -1317,7 +1317,7 @@ void EmuThread::run()
         static uint16_t snapState = 0;
 
         // 入力・出力マスク参照の取得（無駄な再アクセス回避）
-        QBitArray& hk = emuInstance->hotkeyMask;
+        const QBitArray& hk = emuInstance->hotkeyMask;
         QBitArray& mask = emuInstance->inputMask;
 
         // 現在の入力状態を4bitでエンコード（1bitずつ独立反映）
@@ -1402,10 +1402,7 @@ void EmuThread::run()
             return static_cast<int16_t>(value);  // 切り捨て(0方向への丸め)
         };
 
-#define AIM_ADJUST(v) ((v) >= 0.5f && (v) < 1.0f ? 1 : ((v) <= -0.5f && (v) > -1.0f ? -1 : static_cast<int16_t>(v)))
-
-#endif
-
+        // bitwise ver v2 bug fixed. なんか遅延ある。
 #define AIM_ADJUST(value) ({ \
     uint32_t __bits; \
     memcpy(&__bits, &(value), sizeof(__bits)); /* float → uint32_t */ \
@@ -1414,7 +1411,9 @@ void EmuThread::run()
     int16_t __alt = 1 - ((__bits >> 30) & 2); /* ±1生成 */ \
     (__abs >= 0x3F000000u && __abs < 0x3F800000u) ? __alt : __fallback; \
 })
+#endif
 
+#define AIM_ADJUST(v) ((v) >= 0.5f && (v) < 1.0f ? 1 : ((v) <= -0.5f && (v) > -1.0f ? -1 : static_cast<int16_t>(v)))
 
 
 
