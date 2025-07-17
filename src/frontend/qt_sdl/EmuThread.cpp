@@ -1280,7 +1280,7 @@ void EmuThread::run()
      * 通常モードの同時押しキャンセルは LUT によってすでに表現されている」
      * snapTapの時は左を押しているときに右を押しても右移動できる。上下も同様。
      */
-    static const auto processMoveInput = [&]() __attribute__((hot, always_inline, flatten)) {
+    static const auto processMoveInput = [&](const QBitArray& hk, QBitArray& mask) __attribute__((hot, always_inline, flatten)) {
         /*
         // curr(0〜15) → 各方向bit反転済マスク（↑↓←→）へのマッピング
         alignas(16) static constexpr uint8_t MaskLUT[16][4] = {
@@ -1317,8 +1317,8 @@ void EmuThread::run()
         static uint16_t snapState = 0;
 
         // 入力・出力マスク参照の取得（無駄な再アクセス回避）
-        const QBitArray& hk = emuInstance->hotkeyMask;
-        QBitArray& mask = emuInstance->inputMask;
+        // const QBitArray& hk = emuInstance->hotkeyMask;
+        // QBitArray& mask = emuInstance->inputMask;
 
         // 現在の入力状態を4bitでエンコード（1bitずつ独立反映）
         const uint32_t curr =
@@ -1686,18 +1686,19 @@ void EmuThread::run()
                     }
 
                     // Move hunter
-                    processMoveInput();
+                    const auto& hotkeyMask = emuInstance->hotkeyMask;
+                    QBitArray& inputMask = emuInstance->inputMask;
+                    processMoveInput(hotkeyMask, inputMask);
 
                     // Shoot
-                    const auto& hotkeyMask = emuInstance->hotkeyMask;
                     const bool shootPressed = hotkeyMask[HK_MetroidShootScan] || hotkeyMask[HK_MetroidScanShoot];
-                    emuInstance->inputMask[INPUT_L] = !shootPressed;
+                    inputMask[INPUT_L] = !shootPressed;
 
                     // Zoom, map zoom out
-                    emuInstance->inputMask[INPUT_R] = !hotkeyMask[HK_MetroidZoom];
+                    inputMask[INPUT_R] = !hotkeyMask[HK_MetroidZoom];
 
                     // Jump
-                    emuInstance->inputMask[INPUT_B] = !hotkeyMask[HK_MetroidJump];
+                    inputMask[INPUT_B] = !hotkeyMask[HK_MetroidJump];
 
                     // Alt-form
                     const auto& hotkeyPress = emuInstance->hotkeyPress;
@@ -1893,7 +1894,7 @@ void EmuThread::run()
                         frameAdvanceTwice();
 
                         // still allow movement
-                        processMoveInput();
+                        processMoveInput(hotkeyMask, inputMask);
                     }
                     else {
                         if (isWeaponCheckActive) {
@@ -1968,7 +1969,7 @@ void EmuThread::run()
                                 for (int i = 0; i < 30; i++) {
                                     // still allow movement whilst we're enabling scan visor
                                     processAimInput();
-                                    processMoveInput();
+                                    processMoveInput(hotkeyMask, inputMask); 
 
                                     emuInstance->nds->SetKeyMask(emuInstance->getInputMask());
 
