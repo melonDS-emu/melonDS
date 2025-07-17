@@ -1409,11 +1409,13 @@ void EmuThread::run()
 #define AIM_ADJUST(value) ({ \
     uint32_t __bits; \
     memcpy(&__bits, &(value), sizeof(__bits)); /* float → uint32_t */ \
-    uint32_t __abs = __bits & 0x7FFFFFFF; /* 符号除去（絶対値） */ \
+    uint32_t __abs = __bits & 0x7FFFFFFF; /* 絶対値を取得 */ \
     int16_t __fallback = (int16_t)(value); /* 通常の切り捨て */ \
-    int16_t __alt = 1 - ((__bits >> 30) & 2); /* ±1 生成 */ \
-    (__abs - 0x3F000000u < 0x00800000u) ? __alt : __fallback; \
+    int16_t __alt = 1 - ((__bits >> 30) & 2); /* ±1生成 */ \
+    (__abs >= 0x3F000000u && __abs < 0x3F800000u) ? __alt : __fallback; \
 })
+
+
 
 
 // ホットパス：フォーカスがありレイアウト変更もない場合
