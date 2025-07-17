@@ -1280,7 +1280,7 @@ void EmuThread::run()
      * 通常モードの同時押しキャンセルは LUT によってすでに表現されている」
      * snapTapの時は左を押しているときに右を押しても右移動できる。上下も同様。
      */
-    static const auto processMoveInput = [&]() __attribute__((hot, always_inline, flatten)) {
+    static const auto processMoveInput = [&](const QBitArray& hk, QBitArray& mask) __attribute__((hot, always_inline, flatten)) {
         /*
         // curr(0〜15) → 各方向bit反転済マスク（↑↓←→）へのマッピング
         alignas(16) static constexpr uint8_t MaskLUT[16][4] = {
@@ -1317,8 +1317,8 @@ void EmuThread::run()
         static uint16_t snapState = 0;
 
         // 入力・出力マスク参照の取得（無駄な再アクセス回避）
-        QBitArray& hk = emuInstance->hotkeyMask;
-        QBitArray& mask = emuInstance->inputMask;
+        // const QBitArray& hk = emuInstance->hotkeyMask;
+        // QBitArray& mask = emuInstance->inputMask;
 
         // 現在の入力状態を4bitでエンコード（1bitずつ独立反映）
         const uint32_t curr =
@@ -1391,27 +1391,29 @@ void EmuThread::run()
 
 #ifdef COMMENTOUTTTTTTTT
 
+
+
+// 最小命令数に逆算された超軽量版 AIM_ADJUST マクロ
+
         // 調整関数（マクロ化前までの） 10-20サイクル
         static const auto AIM_ADJUST = [](float value) __attribute__((hot, always_inline)) -> int16_t {
             if (value >= 0.5f && value < 1.0f) return static_cast<int16_t>(1.0f);
             if (value <= -0.5f && value > -1.0f) return static_cast<int16_t>(-1.0f);
             return static_cast<int16_t>(value);  // 切り捨て(0方向への丸め)
         };
-        
 
-#define AIM_ADJUST(v) ((v) >= 0.5f && (v) < 1.0f ? 1 : ((v) <= -0.5f && (v) > -1.0f ? -1 : static_cast<int16_t>(v)))
-
-#endif
-
-        // 最小命令数に逆算された超軽量版 AIM_ADJUST マクロ
+        // bitwise ver v2 bug fixed. なんか遅延ある。
 #define AIM_ADJUST(value) ({ \
     uint32_t __bits; \
     memcpy(&__bits, &(value), sizeof(__bits)); /* float → uint32_t */ \
-    uint32_t __abs = __bits & 0x7FFFFFFF; /* 符号除去（絶対値） */ \
+    uint32_t __abs = __bits & 0x7FFFFFFF; /* 絶対値を取得 */ \
     int16_t __fallback = (int16_t)(value); /* 通常の切り捨て */ \
-    int16_t __alt = 1 - ((__bits >> 30) & 2); /* ±1 生成 */ \
-    (__abs - 0x3F000000u < 0x00800000u) ? __alt : __fallback; \
+    int16_t __alt = 1 - ((__bits >> 30) & 2); /* ±1生成 */ \
+    (__abs >= 0x3F000000u && __abs < 0x3F800000u) ? __alt : __fallback; \
 })
+#endif
+
+#define AIM_ADJUST(v) ((v) >= 0.5f && (v) < 1.0f ? 1 : ((v) <= -0.5f && (v) > -1.0f ? -1 : static_cast<int16_t>(v)))
 
 
 
@@ -1569,6 +1571,10 @@ void EmuThread::run()
 
         };
 
+    static const QBitArray& hotkeyMask = emuInstance->hotkeyMask;
+    static QBitArray& inputMask = emuInstance->inputMask;
+    static const QBitArray& hotkeyPress = emuInstance->hotkeyPress;
+
     while (emuStatus != emuStatus_Exit) {
 
         // MelonPrimeDS Functions START
@@ -1684,21 +1690,19 @@ void EmuThread::run()
                     }
 
                     // Move hunter
-                    processMoveInput();
+                    processMoveInput(hotkeyMask, inputMask);
 
                     // Shoot
-                    const auto& hotkeyMask = emuInstance->hotkeyMask;
                     const bool shootPressed = hotkeyMask[HK_MetroidShootScan] || hotkeyMask[HK_MetroidScanShoot];
-                    emuInstance->inputMask[INPUT_L] = !shootPressed;
+                    inputMask[INPUT_L] = !shootPressed;
 
                     // Zoom, map zoom out
-                    emuInstance->inputMask[INPUT_R] = !hotkeyMask[HK_MetroidZoom];
+                    inputMask[INPUT_R] = !hotkeyMask[HK_MetroidZoom];
 
                     // Jump
-                    emuInstance->inputMask[INPUT_B] = !hotkeyMask[HK_MetroidJump];
+                    inputMask[INPUT_B] = !hotkeyMask[HK_MetroidJump];
 
                     // Alt-form
-                    const auto& hotkeyPress = emuInstance->hotkeyPress;
                     if (hotkeyPress[HK_MetroidMorphBall]) {
                         emuInstance->nds->ReleaseScreen();
                         frameAdvanceTwice();
@@ -1891,7 +1895,7 @@ void EmuThread::run()
                         frameAdvanceTwice();
 
                         // still allow movement
-                        processMoveInput();
+                        processMoveInput(hotkeyMask, inputMask);
                     }
                     else {
                         if (isWeaponCheckActive) {
@@ -1927,7 +1931,7 @@ void EmuThread::run()
                             emuInstance->nds->ReleaseScreen();
 
                             const bool shouldBoost = !isBoosting && isBoostGaugeEnough;
-                            emuInstance->inputMask[INPUT_R] = shouldBoost;  // boost時はtrue(RELEASE), charge時はfalse(PRESS)
+                            inputMask[INPUT_R] = shouldBoost;  // boost時はtrue(RELEASE), charge時はfalse(PRESS)
 
                             if (isBoosting) {
                                 // touch again for aiming
@@ -1966,7 +1970,7 @@ void EmuThread::run()
                                 for (int i = 0; i < 30; i++) {
                                     // still allow movement whilst we're enabling scan visor
                                     processAimInput();
-                                    processMoveInput();
+                                    processMoveInput(hotkeyMask, inputMask); 
 
                                     emuInstance->nds->SetKeyMask(emuInstance->getInputMask());
 
@@ -2054,11 +2058,10 @@ void EmuThread::run()
                         updateRenderer();
                     }
 
-                    const auto& hotkeyPress = emuInstance->hotkeyPress;
                     // L For Hunter License
-                    emuInstance->inputMask[INPUT_L] = !hotkeyPress[HK_MetroidUILeft];
+                    inputMask[INPUT_L] = !hotkeyPress[HK_MetroidUILeft];
                     // R For Hunter License
-                    emuInstance->inputMask[INPUT_R] = !hotkeyPress[HK_MetroidUIRight];
+                    inputMask[INPUT_R] = !hotkeyPress[HK_MetroidUIRight];
 
                 }
 

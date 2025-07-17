@@ -323,6 +323,7 @@ void ComputeRenderer::SetRenderSettings(int scale, bool highResolutionCoordinate
     ScreenWidth = 256 * ScaleFactor;
     ScreenHeight = 192 * ScaleFactor;
     /* MelonPrimeDS { */
+
     /* v1.0 15-20サイクル
     // Calculate TileScale using efficient bit manipulation
     // First, multiply ScaleFactor by 2 and divide by 9 to get the base scale value
@@ -384,36 +385,6 @@ void ComputeRenderer::SetRenderSettings(int scale, bool highResolutionCoordinate
     CoarseTileCountY = lastCTY;
     ClearCoarseBinMaskLocalSize = lastCCBMLS;
     */
-    /*
-    // v4 ルックアップテーブル版（4-5サイクル）
-    static const struct {
-        uint8_t TileScale;
-        uint8_t TileSize;
-        uint8_t CoarseTileCountY;
-        uint8_t ClearCoarseBinMaskLocalSize;
-    } TileConfig[11] = {
-        // SF 0-4: base=0, MSB=0, <<1=0, +=1 → TileScale=1
-        {1, 8, 4, 64},   // SF=0
-        {1, 8, 4, 64},   // SF=1
-        {1, 8, 4, 64},   // SF=2
-        {1, 8, 4, 64},   // SF=3
-        {1, 8, 4, 64},   // SF=4
-        // SF 5-8: base=1, MSB=1, <<1=2 → TileScale=2
-        {2, 16, 4, 64},  // SF=5
-        {2, 16, 4, 64},  // SF=6
-        {2, 16, 4, 64},  // SF=7
-        {2, 16, 4, 64},  // SF=8
-        // SF 9-10: base=2, MSB=2, <<1=4 → TileScale=4, TileSize=32
-        {4, 32, 6, 48},  // SF=9
-        {4, 32, 6, 48}   // SF=10
-    };
-
-    // 最速: 1回のメモリアクセス）
-    TileScale = TileConfig[ScaleFactor].TileScale;
-    TileSize = TileConfig[ScaleFactor].TileSize;
-    CoarseTileCountY = TileConfig[ScaleFactor].CoarseTileCountY;
-    ClearCoarseBinMaskLocalSize = TileConfig[ScaleFactor].ClearCoarseBinMaskLocalSize;
-    */
 
     /* v5 合計遅延: 5-6サイクル キャッシュヒット時2-3サイクル
     static uint64_t lastState = 0xFFFFFFFFFFFFFFFF;
@@ -436,253 +407,173 @@ void ComputeRenderer::SetRenderSettings(int scale, bool highResolutionCoordinate
     ClearCoarseBinMaskLocalSize = c & 0xFF;
     */
 
-    /*
-    // ===== プリフェッチ + 投機的実行版（ 3.5-5.5サイクル（L1キャッシュヒット時）） =====
-    // 3つの可能な値を全て事前計算
-    static struct {
-        uint8_t lastSF;
-        uint8_t configs[3][4];  // 3パターン全て保持
-    } g_precomputed = {
-        .lastSF = UINT8_MAX,
-        .configs = {
-            {1, 8, 4, 64},   // SF 0-4
-            {2, 16, 4, 64},  // SF 5-8
-            {4, 32, 6, 48}   // SF 9-10
-        }
-    };
-
-    // 分岐なしインデックス計算（0.5サイクル）
-    uint8_t idx = (ScaleFactor > 4) + (ScaleFactor > 8);
-    uint8_t* cfg = g_precomputed.configs[idx];
-
-    // メモリアクセス（3-5サイクル）
-    TileScale = cfg[0];
-    TileSize = cfg[1];
-    CoarseTileCountY = cfg[2];
-    ClearCoarseBinMaskLocalSize = cfg[3];
-    // ===== プリフェッチ + 投機的実行版（3.5-5.5サイクル（L1キャッシュヒット時））ここまで =====
-    */
 
 
 #ifdef COMMENTOUTTTTTTTT
+    // v0
+    // https://github.com/melonDS-emu/melonDS/pull/2065/files
+    
+    template <typename T>
+    T GetMSBit(T val)
+    {
+        val |= (val >> 1);
+        val |= (val >> 2);
+        val |= (val >> 4);
+
+        if constexpr (sizeof(val) > 1) val |= (val >> 8);
+        if constexpr (sizeof(val) > 2) val |= (val >> 16);
+        if constexpr (sizeof(val) > 4) val |= (val >> 32);
+
+        return val - (val >> 1);
+    }
+    //Starting at 4.5x we want to double TileSize every time scale doubles
+    TileScale = 2 * ScaleFactor / 9;
+    TileScale = GetMSBit(TileScale);
+    TileScale <<= 1;
+    TileScale += TileScale == 0;
+
+    TileSize = std::min(8 * TileScale, 32);
+    CoarseTileCountY = TileSize < 32 ? 4 : 6;
+    ClearCoarseBinMaskLocalSize = TileSize < 32 ? 64 : 48;
+    CoarseTileArea = CoarseTileCountX * CoarseTileCountY;
+    CoarseTileW = CoarseTileCountX * TileSize;
+    CoarseTileH = CoarseTileCountY * TileSize;
+
+    TilesPerLine = ScreenWidth / TileSize;
+    TileLines = ScreenHeight / TileSize;
+
+    HiresCoordinates = highResolutionCoordinates;
+    MaxWorkTiles = TilesPerLine * TileLines * 16;
+
     // v1
-    // 
-    // Calculate TileScale using efficient bit manipulation
-    // First, multiply ScaleFactor by 2 and divide by 9 to get the base scale value
-    TileScale = 2 * ScaleFactor / 9; // uint8_t
 
-    // Find the nearest power of 2 using bit manipulation:
-    // 1. __builtin_clz counts leading zeros to find the highest set bit
-    // 2. Uses CPU's native instructions (BSR/LZCNT) for optimal performance
-    // 3. If TileScale is 0, sets to 1; otherwise uses nearest power of 2
-    TileScale = TileScale ? (1u << (31 - __builtin_clz(TileScale))) : 1; // uint8_t
+    // uint8_t TileScale 
+    TileScale = 2 * ScaleFactor / 9; //Starting at 4.5x we want to double TileSize every time scale doubles
+#define GET_MSBIT(val) \
+    ({ \
+        auto _v = (val); \
+        _v |= (_v >> 1); \
+        _v |= (_v >> 2); \
+        _v |= (_v >> 4); \
+        _v |= (_v >> 8); \
+        _v |= (_v >> 16); \
+        _v - (_v >> 1); \
+    })
+    TileScale = GET_MSBIT(TileScale);
+    TileScale <<= 1;
+    TileScale += TileScale == 0;
 
-    // Calculate TileSize using branchless conditional operations:
-    // 1. Multiply TileScale by 8 (shift left by 3)
-    // 2. Check if result is <= 32
-    // 3. If result exceeds 32, clamp it to 32 
-    TileSize = (TileScale << 3) & (-(TileScale << 3) <= 32);  // int
-    TileSize = TileSize ? TileSize : 32;  // int
-
-    // Set grid parameters using branchless conditional calculation:
-    // - If TileSize >= 32, sets CoarseTileCountY to 6 (4 + 2)
-    // - Otherwise, sets it to 4
-    CoarseTileCountY = 4 + ((TileSize >= 32) << 1);  // int
-
-    // Calculate clear mask size for coarse binning:
-    // - If TileSize >= 32, sets ClearCoarseBinMaskLocalSize to 48 (64 - 16)
-    // - Otherwise, keeps it at 64
-    ClearCoarseBinMaskLocalSize = 64 - ((TileSize >= 32) << 4); // int
-     
+    TileSize = std::min(8 * TileScale, 32); // int
+    CoarseTileCountY = TileSize < 32 ? 4 : 6; // int
+    ClearCoarseBinMaskLocalSize = TileSize < 32 ? 64 : 48; // int
     CoarseTileArea = CoarseTileCountX * CoarseTileCountY; // int
     CoarseTileW = CoarseTileCountX * TileSize; // int
     CoarseTileH = CoarseTileCountY * TileSize; // int
 
-    TilesPerLine = ScreenWidth/TileSize; // int
-    TileLines = ScreenHeight/TileSize; // int
+    TilesPerLine = ScreenWidth / TileSize; // int
+    TileLines = ScreenHeight / TileSize; // int
 
     HiresCoordinates = highResolutionCoordinates; // bool
-
-    MaxWorkTiles = TilesPerLine*TileLines*16; // int
-
-    // v1ここまで
+    MaxWorkTiles = TilesPerLine * TileLines * 16; // int
 
 
+    // v2
 
+    // uint8_t TileScale 
+    TileScale = 2 * ScaleFactor / 9; //Starting at 4.5x we want to double TileSize every time scale doubles
+    // 64bit整数に対応したMSB抽出マクロ（ビット操作のみ・分岐なし）
+#define GET_MSBIT(val)                            \
+    ([&]() -> decltype(val) {                          \
+        auto _v = (val);                               \
+        _v |= (_v >> 1);                               /* 下位1bitマージ */ \
+        _v |= (_v >> 2);                               /* 下位2bitマージ */ \
+        _v |= (_v >> 4);                               /* 下位4bitマージ */ \
+        if constexpr (sizeof(_v) > 1) _v |= (_v >> 8);  /* 16bit以上用 */ \
+        if constexpr (sizeof(_v) > 2) _v |= (_v >> 16); /* 32bit以上用 */ \
+        if constexpr (sizeof(_v) > 4) _v |= (_v >> 32); /* 64bit以上用 */ \
+        return _v - (_v >> 1);                          /* 最上位bitだけ残す */ \
+    })()
 
+    TileScale = GET_MSBIT(TileScale);
+    TileScale <<= 1;
+    TileScale += TileScale == 0;
 
-#define MELONPRIMEDS_UPDATE_ALL(sf) do { \
-    static const uint32_t c[3] = {0x01080440, 0x02100440, 0x04200630}; \
-    uint32_t i = ((sf) > 4) + ((sf) > 8); \
-    uint32_t p = c[i]; \
-    TileScale = p >> 24; \
-    TileSize = (p >> 16) & 0xFF; \
-    CoarseTileCountY = (p >> 8) & 0xFF; \
-    ClearCoarseBinMaskLocalSize = p & 0xFF; \
-    uint32_t s = 3 + i; 
-CoarseTileArea = CoarseTileCountX * CoarseTileCountY; \
-CoarseTileW = CoarseTileCountX << s; \
-CoarseTileH = CoarseTileCountY << s; \
-TilesPerLine = ScreenWidth >> s; \
-TileLines = ScreenHeight >> s; \
-HiresCoordinates = highResolutionCoordinates; \
-MaxWorkTiles = (TilesPerLine * TileLines) << 4; \
-} while (0)
-MELONPRIMEDS_UPDATE_ALL(ScaleFactor);
+    TileSize = std::min(8 * TileScale, 32); // int
+    CoarseTileCountY = TileSize < 32 ? 4 : 6; // int
+    ClearCoarseBinMaskLocalSize = TileSize < 32 ? 64 : 48; // int
+    CoarseTileArea = CoarseTileCountX * CoarseTileCountY; // int
+    CoarseTileW = CoarseTileCountX * TileSize; // int
+    CoarseTileH = CoarseTileCountY * TileSize; // int
 
-/*
-// 最速版：ブランチレス計算版(推定: 2 - 3サイクル)
-*/
-#define MELONPRIMEDS_UPDATE_ALL_BRANCHLESS(sf) do { \
-    /* 条件を0/1のマスクに変換 */ \
-    uint32_t mask4 = -((uint32_t)((sf) > 4)); \
-    uint32_t mask8 = -((uint32_t)((sf) > 8)); \
-    /* ビットマスクで定数を選択 */ \
-    uint32_t p = (0x01080440 & ~mask4) | \
-                 ((0x02100440 & mask4 & ~mask8)) | \
-                 (0x04200630 & mask8); \
-    /* シフト量も同様に計算 */ \
-    uint32_t s = 3 + ((mask4 & 1) + (mask8 & 1)); \
-    /* 4バイト並列展開 */ \
-    TileScale = p >> 24; \
-    TileSize = (p >> 16) & 0xFF; \
-    CoarseTileCountY = (p >> 8) & 0xFF; \
-    ClearCoarseBinMaskLocalSize = p & 0xFF; \
-    /* 依存関係のない演算を並列実行 */ \
-    CoarseTileArea = CoarseTileCountX * CoarseTileCountY; \
-    CoarseTileW = CoarseTileCountX << s; \
-    CoarseTileH = CoarseTileCountY << s; \
-    TilesPerLine = ScreenWidth >> s; \
-    TileLines = ScreenHeight >> s; \
-    HiresCoordinates = highResolutionCoordinates; \
-    MaxWorkTiles = (TilesPerLine * TileLines) << 4; \
-} while(0)
+    TilesPerLine = ScreenWidth / TileSize; // int
+    TileLines = ScreenHeight / TileSize; // int
 
-MELONPRIMEDS_UPDATE_ALL_BRANCHLESS(ScaleFactor);
+    HiresCoordinates = highResolutionCoordinates; // bool
+    MaxWorkTiles = TilesPerLine * TileLines * 16; // int
 
-
-// アセンブリ最適化を意識した版(推定: 2 - 3サイクル)
-#define MELONPRIMEDS_UPDATE_ALL_ASM_READY(sf) do { \
-    /* cmov命令2つで定数選択 */ \
-    uint32_t tmp1 = ((sf) > 4) ? 0x02100440 : 0x01080440; \
-    uint32_t p = ((sf) > 8) ? 0x04200630 : tmp1; \
-    uint32_t sel = ((sf) > 4) + ((sf) > 8); \
-    uint32_t s = 3 + sel; \
-    /* レジスタ効率を考慮した展開 */ \
-    uint32_t ts = p >> 24; \
-    uint32_t tsz = (p >> 16) & 0xFF; \
-    uint32_t ccy = (p >> 8) & 0xFF; \
-    uint32_t ccbm = p & 0xFF; \
-    /* 格納と計算をインターリーブ */ \
-    TileScale = ts; \
-    CoarseTileArea = CoarseTileCountX * ccy; \
-    TileSize = tsz; \
-    CoarseTileW = CoarseTileCountX << s; \
-    CoarseTileCountY = ccy; \
-    CoarseTileH = ccy << s; \
-    ClearCoarseBinMaskLocalSize = ccbm; \
-    TilesPerLine = ScreenWidth >> s; \
-    TileLines = ScreenHeight >> s; \
-    HiresCoordinates = highResolutionCoordinates; \
-    MaxWorkTiles = (TilesPerLine * TileLines) << 4; \
-} while(0)
-MELONPRIMEDS_UPDATE_ALL_ASM_READY(ScaleFactor);
-
-// LUTとビット演算を使った低レイテンシTile設定
-    // 
-    // LUT定義(TileScaleに対応するTileSize, CoarseTileCountY, ClearCoarseBinMaskLocalSize)
-    // Index = (2 * ScaleFactor) / 9
-alignas(16) static constexpr struct {
-    uint8_t scale;   // TileScale
-    uint8_t size;    // TileSize
-    uint8_t cty;     // CoarseTileCountY
-    uint8_t ccbmls;  // ClearCoarseBinMaskLocalSize
-} TileLUT[8] = {
-    { 1, 8, 4, 64 },   // index 0: sf = 0～3
-    { 2, 16, 4, 64 },  // index 1: sf = 4
-    { 2, 16, 4, 64 },  // index 2: sf = 5
-    { 4, 32, 6, 48 },  // index 3: sf = 6
-    { 4, 32, 6, 48 },  // index 4: sf = 7
-    { 8, 64, 6, 48 },  // index 5: sf = 8
-    { 8, 64, 6, 48 },  // index 6: sf = 9
-    { 8, 64, 6, 48 }   // index 7: sf = 10+
-};
-
-// Indexの算出(ScaleFactorを0～10想定で正規化)(範囲外防止のためminにする)
-uint8_t index = std::min<uint8_t>((ScaleFactor * 2) / 9, 7);
-
-// LUTからTile設定値を取得(条件分岐回避のため)
-const auto& lut = TileLUT[index];
-
-// Tile設定値を格納(低レイテンシ化のために事前計算済み値を使用)
-TileScale = lut.scale;
-TileSize = lut.size;
-CoarseTileCountY = lut.cty;
-ClearCoarseBinMaskLocalSize = lut.ccbmls;
-
-// タイルエリアとサイズの算出(分岐不要)
-CoarseTileArea = CoarseTileCountX * CoarseTileCountY;
-CoarseTileW = CoarseTileCountX * TileSize;
-CoarseTileH = CoarseTileCountY * TileSize;
-
-// 画面に対するタイル数を計算(除算による整数結果)
-TilesPerLine = ScreenWidth / TileSize;
-TileLines = ScreenHeight / TileSize;
-
-// 高解像度座標の適用(設定フラグ)
-HiresCoordinates = highResolutionCoordinates;
-
-// 最大ワークタイル数の算出(理論上最大必要タイル数の推定)
-MaxWorkTiles = TilesPerLine * TileLines * 16;
-
-// LUTとビット演算を使った低レイテンシTile設定ここまで
 
 #endif
 
+    // v3 lut version
+    // 
+    /* .h に配置。
+    // Tile情報のLUT構造体
+    struct TileParams {
+        uint8_t tileScale;    // TileScale（2のべき乗）
+        uint8_t tileSize;     // TileSize（tileScale × 8、最大32まで）
+        uint8_t shift;        // log2(tileSize)
+        uint8_t cty;          // CoarseTileCountY
+        uint8_t ccbmls;       // ClearCoarseBinMaskLocalSize
+        uint8_t area;         // CoarseTileArea（8 × cty）
+        uint16_t coarseW;     // CoarseTileW（8 × tileSize）
+        uint16_t coarseH;     // CoarseTileH（cty × tileSize）
+    };
+    // LUT定義（1-indexed、[0]番目は未使用） LUTはchatGptにpython使わせて生成する
+    alignas(64) static constexpr TileParams TileLUT[101] = {
+        {}, // index 0 は未使用（ScaleFactor 1～16対応）
 
+        // { tileScale, tileSize, shift, cty, ccbmls, area, coarseW, coarseH }
+        { 1,  8, 3, 4, 64, 32,  64,  32 },  // ScaleFactor = 1
+        { 1,  8, 3, 4, 64, 32,  64,  32 },  // = 2
+        { 1,  8, 3, 4, 64, 32,  64,  32 },  // = 3
+        { 1,  8, 3, 4, 64, 32,  64,  32 },  // = 4
+        { 2, 16, 4, 4, 64, 32, 128,  64 },  // = 5
+        { 2, 16, 4, 4, 64, 32, 128,  64 },  // = 6
+        { 2, 16, 4, 4, 64, 32, 128,  64 },  // = 7
+        { 2, 16, 4, 4, 64, 32, 128,  64 },  // = 8
+        { 4, 32, 5, 6, 48, 48, 256, 192 },  // = 9
+        { 4, 32, 5, 6, 48, 48, 256, 192 },  // = 10
+        { 4, 32, 5, 6, 48, 48, 256, 192 },  // = 11
+        { 4, 32, 5, 6, 48, 48, 256, 192 },  // = 12
+        { 4, 32, 5, 6, 48, 48, 256, 192 },  // = 13
+        { 4, 32, 5, 6, 48, 48, 256, 192 },  // = 14
+        { 4, 32, 5, 6, 48, 48, 256, 192 },  // = 15
+        { 4, 32, 5, 6, 48, 48, 256, 192 },  // = 16
+        //{ 8, 32, 5, 6, 48, 48, 256, 192 },  // = 17
+        //{ 8, 32, 5, 6, 48, 48, 256, 192 },  // = 18
+        //{ 8, 32, 5, 6, 48, 48, 256, 192 },  // = 19
+        // ...
+        // ScaleFactor = 20 ～ 100 も同様に { 8, 32, 5, 6, 48, 48, 256, 192 } 固定で続く
+    };
+    */
 
-// Tile初期化（uint64_tによる定数展開による最短命令化）
-// 推定：理論上 6~7サイクル。命令数：約22以下（AVX未使用時）
-#define MELONPRIMEDS_UPDATE_ALL_ASM_READY_FAST(sf) do { \
-    /* 定数パック：上位から順に [ts | tsz | ccy | ccbm] */ \
-    uint64_t const1 = 0x01080440ULL; /* sf <= 4 */ \
-    uint64_t const2 = 0x02100440ULL; /* sf <= 8 */ \
-    uint64_t const3 = 0x04200630ULL; /* sf > 8  */ \
-    \
-    /* 比較評価（setg相当、cmov誘導） */ \
-    uint32_t gt4 = ((sf) > 4); \
-    uint32_t gt8 = ((sf) > 8); \
-    \
-    /* 定数選択（分岐なし：cmovによる） */ \
-    uint64_t p = gt8 ? const3 : (gt4 ? const2 : const1); \
-    \
-    /* シフト量を選出（3 + sel） */ \
-    uint32_t sel = gt4 + gt8; \
-    uint32_t s = 3 + sel; \
-    \
-    /* デコード（ビット右シフトによる抽出） */ \
-    uint32_t ts   = (p >> 24) & 0xFF; \
-    uint32_t tsz  = (p >> 16) & 0xFF; \
-    uint32_t ccy  = (p >> 8)  & 0xFF; \
-    uint32_t ccbm =  p        & 0xFF; \
-    \
-    /* 値の格納および各種計算（依存分散・並列発行誘導） */ \
-    TileScale = ts; \
-    TileSize = tsz; \
-    CoarseTileCountY = ccy; \
-    ClearCoarseBinMaskLocalSize = ccbm; \
-    \
-    CoarseTileArea = CoarseTileCountX * ccy; \
-    CoarseTileW = CoarseTileCountX << s; \
-    CoarseTileH = ccy << s; \
-    TilesPerLine = ScreenWidth >> s; \
-    TileLines = ScreenHeight >> s; \
-    HiresCoordinates = highResolutionCoordinates; \
-    MaxWorkTiles = (TilesPerLine * TileLines) << 4; \
-} while (0)
-MELONPRIMEDS_UPDATE_ALL_ASM_READY_FAST(ScaleFactor);
+    // LUTからパラメータを取得
+    const auto& lut = TileLUT[ScaleFactor];
 
+    // 値の取り出し
+    TileScale = lut.tileScale;
+    TileSize = lut.tileSize;
+    CoarseTileCountY = lut.cty;
+    ClearCoarseBinMaskLocalSize = lut.ccbmls;
+    CoarseTileArea = lut.area;
+    CoarseTileW = lut.coarseW;
+    CoarseTileH = lut.coarseH;
 
+    TilesPerLine = ScreenWidth / TileSize; // int
+    TileLines = ScreenHeight / TileSize; // int
+
+    HiresCoordinates = highResolutionCoordinates; // bool
+    MaxWorkTiles = TilesPerLine * TileLines * 16; // int
 
     /* MelonPrimeDS } */
 

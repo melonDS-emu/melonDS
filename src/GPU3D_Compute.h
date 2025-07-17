@@ -171,6 +171,46 @@ private:
     int CoarseTileH;
     int ClearCoarseBinMaskLocalSize;
 
+
+    // Tile情報のLUT構造体
+    struct TileParams {
+        uint8_t tileScale;    // TileScale（2のべき乗）
+        uint8_t tileSize;     // TileSize（tileScale × 8、最大32まで）
+        uint8_t shift;        // log2(tileSize)
+        uint8_t cty;          // CoarseTileCountY
+        uint8_t ccbmls;       // ClearCoarseBinMaskLocalSize
+        uint8_t area;         // CoarseTileArea（8 × cty）
+        uint16_t coarseW;     // CoarseTileW（8 × tileSize）
+        uint16_t coarseH;     // CoarseTileH（cty × tileSize）
+    };
+    // LUT定義（1-indexed、[0]番目は未使用） LUTはchatGptにpython使わせて生成する
+    alignas(64) static constexpr TileParams TileLUT[101] = {
+        {}, // index 0 は未使用（ScaleFactor 1～16対応）
+
+        // { tileScale, tileSize, shift, cty, ccbmls, area, coarseW, coarseH }
+        { 1,  8, 3, 4, 64, 32,  64,  32 },  // ScaleFactor = 1
+        { 1,  8, 3, 4, 64, 32,  64,  32 },  // = 2
+        { 1,  8, 3, 4, 64, 32,  64,  32 },  // = 3
+        { 1,  8, 3, 4, 64, 32,  64,  32 },  // = 4
+        { 2, 16, 4, 4, 64, 32, 128,  64 },  // = 5
+        { 2, 16, 4, 4, 64, 32, 128,  64 },  // = 6
+        { 2, 16, 4, 4, 64, 32, 128,  64 },  // = 7
+        { 2, 16, 4, 4, 64, 32, 128,  64 },  // = 8
+        { 4, 32, 5, 6, 48, 48, 256, 192 },  // = 9
+        { 4, 32, 5, 6, 48, 48, 256, 192 },  // = 10
+        { 4, 32, 5, 6, 48, 48, 256, 192 },  // = 11
+        { 4, 32, 5, 6, 48, 48, 256, 192 },  // = 12
+        { 4, 32, 5, 6, 48, 48, 256, 192 },  // = 13
+        { 4, 32, 5, 6, 48, 48, 256, 192 },  // = 14
+        { 4, 32, 5, 6, 48, 48, 256, 192 },  // = 15
+        { 4, 32, 5, 6, 48, 48, 256, 192 },  // = 16
+        //{ 8, 32, 5, 6, 48, 48, 256, 192 },  // = 17
+        //{ 8, 32, 5, 6, 48, 48, 256, 192 },  // = 18
+        //{ 8, 32, 5, 6, 48, 48, 256, 192 },  // = 19
+        // ...
+        // ScaleFactor = 20 ～ 100 も同様に { 8, 32, 5, 6, 48, 48, 256, 192 } 固定で続く
+    };
+
     static constexpr int BinStride = 2048/32;
     static constexpr int CoarseBinStride = BinStride/32;
 
