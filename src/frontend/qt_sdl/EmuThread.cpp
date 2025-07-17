@@ -1571,6 +1571,10 @@ void EmuThread::run()
 
         };
 
+    static const QBitArray& hotkeyMask = emuInstance->hotkeyMask;
+    static QBitArray& inputMask = emuInstance->inputMask;
+    static const QBitArray& hotkeyPress = emuInstance->hotkeyPress;
+
     while (emuStatus != emuStatus_Exit) {
 
         // MelonPrimeDS Functions START
@@ -1686,8 +1690,6 @@ void EmuThread::run()
                     }
 
                     // Move hunter
-                    const auto& hotkeyMask = emuInstance->hotkeyMask;
-                    QBitArray& inputMask = emuInstance->inputMask;
                     processMoveInput(hotkeyMask, inputMask);
 
                     // Shoot
@@ -1701,7 +1703,6 @@ void EmuThread::run()
                     inputMask[INPUT_B] = !hotkeyMask[HK_MetroidJump];
 
                     // Alt-form
-                    const auto& hotkeyPress = emuInstance->hotkeyPress;
                     if (hotkeyPress[HK_MetroidMorphBall]) {
                         emuInstance->nds->ReleaseScreen();
                         frameAdvanceTwice();
@@ -1930,7 +1931,7 @@ void EmuThread::run()
                             emuInstance->nds->ReleaseScreen();
 
                             const bool shouldBoost = !isBoosting && isBoostGaugeEnough;
-                            emuInstance->inputMask[INPUT_R] = shouldBoost;  // boost時はtrue(RELEASE), charge時はfalse(PRESS)
+                            inputMask[INPUT_R] = shouldBoost;  // boost時はtrue(RELEASE), charge時はfalse(PRESS)
 
                             if (isBoosting) {
                                 // touch again for aiming
@@ -2057,11 +2058,10 @@ void EmuThread::run()
                         updateRenderer();
                     }
 
-                    const auto& hotkeyPress = emuInstance->hotkeyPress;
                     // L For Hunter License
-                    emuInstance->inputMask[INPUT_L] = !hotkeyPress[HK_MetroidUILeft];
+                    inputMask[INPUT_L] = !hotkeyPress[HK_MetroidUILeft];
                     // R For Hunter License
-                    emuInstance->inputMask[INPUT_R] = !hotkeyPress[HK_MetroidUIRight];
+                    inputMask[INPUT_R] = !hotkeyPress[HK_MetroidUIRight];
 
                 }
 
