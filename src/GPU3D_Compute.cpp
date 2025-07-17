@@ -516,7 +516,7 @@ void ComputeRenderer::SetRenderSettings(int scale, bool highResolutionCoordinate
 
     // v3 lut version
     // 
-    /* .h に配置。
+    // /* .h に配置。
     // Tile情報のLUT構造体
     struct TileParams {
         uint8_t tileScale;    // TileScale（2のべき乗）
@@ -555,7 +555,7 @@ void ComputeRenderer::SetRenderSettings(int scale, bool highResolutionCoordinate
         // ...
         // ScaleFactor = 20 ～ 100 も同様に { 8, 32, 5, 6, 48, 48, 256, 192 } 固定で続く
     };
-    */
+    // */
 
     // LUTからパラメータを取得
     const auto& lut = TileLUT[ScaleFactor];
