@@ -88,6 +88,7 @@ public:
 
     int getInstanceID() { return instanceID; }
     int getConsoleType() { return consoleType; }
+    int getDebugBoardConfig() { return debugBoardConfig; }
     EmuThread* getEmuThread() { return emuThread; }
     melonDS::NDS* getNDS() { return nds; }
 
@@ -264,6 +265,7 @@ private:
     Config::Table localCfg;
 
     int consoleType;
+    int debugBoardConfig;
     melonDS::NDS* nds;
 
     int cartType;

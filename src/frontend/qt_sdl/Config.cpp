@@ -77,6 +77,7 @@ DefaultList<int> DefaultInts =
 RangeList IntRanges =
 {
     {"Emu.ConsoleType", {0, 1}},
+    {"Emu.DebugBoardConfig", {0, 1}},
     {"3D.Renderer", {0, renderer3D_Max-1}},
     {"Screen.VSyncInterval", {1, 20}},
     {"3D.GL.ScaleFactor", {1, 16}},
