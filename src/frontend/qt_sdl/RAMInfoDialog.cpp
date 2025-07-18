@@ -242,14 +242,15 @@ void RAMSearchThread::run()
     if (SearchMode == ramInfoSTh_SearchAll || RowDataVector->size() == 0)
     {
         // First search mode
-        for (u32 addr = 0x02000000; SearchRunning && addr < 0x02000000+MainRAMMaxSize; addr += SearchByteType)
+        // TODO: 3DS/devit 32MiB
+        for (u32 addr = 0x02000000; SearchRunning && addr < 0x02000000+MainRAMPrimaryMappingMaxSize; addr += SearchByteType)
         {
             const s32& value = GetMainRAMValue(*Dialog->emuInstance->getNDS(), addr, SearchByteType);
 
             RowDataVector->push_back({ addr, value, value });
 
             // A solution to prevent to call too many slot.
-            u32 newProgress = (int)((addr-0x02000000) / (MainRAMMaxSize-1.0f) * 100);
+            u32 newProgress = (int)((addr-0x02000000) / (MainRAMPrimaryMappingMaxSize-1.0f) * 100);
             if (progress < newProgress)
             {
                 progress = newProgress;

@@ -72,8 +72,10 @@ EmuSettingsDialog::EmuSettingsDialog(QWidget* parent) : QDialog(parent), ui(new 
     ui->txtDSiNANDPath->setText(cfg.GetQString("DSi.NANDPath"));
 
     ui->cbxConsoleType->addItem("DS");
+    ui->cbxConsoleType->addItem("DS devkit (experimental)");
     ui->cbxConsoleType->addItem("DSi (experimental)");
-    ui->cbxConsoleType->setCurrentIndex(cfg.GetInt("Emu.ConsoleType"));
+    ui->cbxConsoleType->addItem("3DS (experimental)");
+    ui->cbxConsoleType->setCurrentIndex((cfg.GetInt("Emu.ConsoleType")<<1)+cfg.GetInt("Emu.DebugBoardConfig"));
 
     ui->chkDirectBoot->setChecked(cfg.GetBool("Emu.DirectBoot"));
 
@@ -297,7 +299,8 @@ void EmuSettingsDialog::done(int r)
             instcfg.SetBool("Gdb.ARM9.BreakOnStartup", ui->cbGdbBOSA9->isChecked());
 #endif
 
-            cfg.SetInt("Emu.ConsoleType", ui->cbxConsoleType->currentIndex());
+            cfg.SetInt("Emu.ConsoleType", ui->cbxConsoleType->currentIndex()>>1);
+            cfg.SetInt("Emu.DebugBoardConfig", ui->cbxConsoleType->currentIndex()&1);
             cfg.SetBool("Emu.DirectBoot", ui->chkDirectBoot->isChecked());
 
             Config::Save();
