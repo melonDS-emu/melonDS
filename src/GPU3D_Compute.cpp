@@ -351,6 +351,17 @@ void ComputeRenderer::SetRenderSettings(int scale, bool highResolutionCoordinate
     // - If TileSize >= 32, sets ClearCoarseBinMaskLocalSize to 48 (64 - 16)
     // - Otherwise, keeps it at 64
     ClearCoarseBinMaskLocalSize = 64 - ((TileSize >= 32) << 4);
+
+    CoarseTileArea = CoarseTileCountX * CoarseTileCountY;
+    CoarseTileW = CoarseTileCountX * TileSize;
+    CoarseTileH = CoarseTileCountY * TileSize;
+
+    TilesPerLine = ScreenWidth / TileSize;
+    TileLines = ScreenHeight / TileSize;
+
+    HiresCoordinates = highResolutionCoordinates;
+    MaxWorkTiles = TilesPerLine * TileLines * 16;
+
     */
 
     /* v2 シンプルビット演算版（3-4サイクル）
@@ -362,6 +373,15 @@ void ComputeRenderer::SetRenderSettings(int scale, bool highResolutionCoordinate
     CoarseTileCountY = 4 + (is32 << 1);
     ClearCoarseBinMaskLocalSize = 64 - (is32 << 4);
 
+    CoarseTileArea = CoarseTileCountX * CoarseTileCountY;
+    CoarseTileW = CoarseTileCountX * TileSize;
+    CoarseTileH = CoarseTileCountY * TileSize;
+
+    TilesPerLine = ScreenWidth / TileSize;
+    TileLines = ScreenHeight / TileSize;
+
+    HiresCoordinates = highResolutionCoordinates;
+    MaxWorkTiles = TilesPerLine * TileLines * 16;
     */
 
     // v3 最もシンプルで効果的な実装 キャッシュヒット時（0.8-1.2サイクル）最速
@@ -384,6 +404,16 @@ void ComputeRenderer::SetRenderSettings(int scale, bool highResolutionCoordinate
     TileSize = lastTSZ;
     CoarseTileCountY = lastCTY;
     ClearCoarseBinMaskLocalSize = lastCCBMLS;
+
+    CoarseTileArea = CoarseTileCountX * CoarseTileCountY;
+    CoarseTileW = CoarseTileCountX * TileSize;
+    CoarseTileH = CoarseTileCountY * TileSize;
+
+    TilesPerLine = ScreenWidth / TileSize;
+    TileLines = ScreenHeight / TileSize;
+
+    HiresCoordinates = highResolutionCoordinates;
+    MaxWorkTiles = TilesPerLine * TileLines * 16;
     */
 
     /* v5 合計遅延: 5-6サイクル キャッシュヒット時2-3サイクル
@@ -405,6 +435,16 @@ void ComputeRenderer::SetRenderSettings(int scale, bool highResolutionCoordinate
     TileSize = (c >> 16) & 0xFF;
     CoarseTileCountY = (c >> 8) & 0xFF;
     ClearCoarseBinMaskLocalSize = c & 0xFF;
+
+    CoarseTileArea = CoarseTileCountX * CoarseTileCountY;
+    CoarseTileW = CoarseTileCountX * TileSize;
+    CoarseTileH = CoarseTileCountY * TileSize;
+
+    TilesPerLine = ScreenWidth / TileSize;
+    TileLines = ScreenHeight / TileSize;
+
+    HiresCoordinates = highResolutionCoordinates;
+    MaxWorkTiles = TilesPerLine * TileLines * 16;
     */
 
 
@@ -511,12 +551,12 @@ void ComputeRenderer::SetRenderSettings(int scale, bool highResolutionCoordinate
     HiresCoordinates = highResolutionCoordinates; // bool
     MaxWorkTiles = TilesPerLine * TileLines * 16; // int
 
-
 #endif
+
+
 
     // v3 lut version
     // 
-    // /* .h に配置。
     // Tile情報のLUT構造体
     struct TileParams {
         uint8_t tileScale;    // TileScale（2のべき乗）
@@ -574,6 +614,9 @@ void ComputeRenderer::SetRenderSettings(int scale, bool highResolutionCoordinate
 
     HiresCoordinates = highResolutionCoordinates; // bool
     MaxWorkTiles = TilesPerLine * TileLines * 16; // int
+
+    // v3 lut version ここまで
+
 
     /* MelonPrimeDS } */
 
