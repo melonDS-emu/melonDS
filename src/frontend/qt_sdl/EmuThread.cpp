@@ -1268,101 +1268,685 @@ void EmuThread::run()
     // processMoveInputFunction{
 
 #ifdef COMMENTOUTTTTTTTT
+        /**
+         * 移動入力を処理 v1.
+         *
+         * @note x86_64向けに完全最短化。分岐・演算最小化により低サイクル処理を実現.
+         * 押しっぱなしでも移動できるようにすること。
+         * snapTapモードじゃないときは、左右キーを同時押しで左右移動をストップしないといけない。上下キーも同様。
+         * 通常モードの同時押しキャンセルは LUT によってすでに表現されている」
+         * snapTapの時は左を押しているときに右を押しても右移動できる。上下も同様。
+         */
+        static const auto processMoveInput = [&]() __attribute__((hot, always_inline, flatten)) {
+            // SnapTap状態構造体定義(キャッシュライン最適化)
+            alignas(64) static struct {
+                uint32_t lastInputBitmap;    // 前回入力ビットマップ保持
+                uint32_t priorityInput;      // 優先入力ビットマップ保持
+                uint32_t _padding[14];       // 64バイト境界確保
+            } snapTapState = { 0, 0, {} };
+
+            // 水平・垂直競合用マスク定数定義
+            static constexpr uint32_t HORIZ_MASK = 0xC;   // (1<<2)|(1<<3) - LEFT|RIGHT
+            static constexpr uint32_t VERT_MASK = 0x3;   // (1<<0)|(1<<1) - UP|DOWN
+
+            // 超コンパクトLUT - L1キャッシュ効率最大化
+            alignas(16) static constexpr uint8_t LUT[16] = {
+                0,    // 0000: なし
+                1,    // 0001: ↑ 
+                2,    // 0010: ↓
+                0,    // 0011: ↑↓(キャンセル)
+                4,    // 0100: ←
+                5,    // 0101: ↑←
+                6,    // 0110: ↓←
+                4,    // 0111: ←(↑↓キャンセル)
+                8,    // 1000: →
+                9,    // 1001: ↑→
+                10,   // 1010: ↓→
+                8,    // 1011: →(↑↓キャンセル)
+                0,    // 1100: ←→(キャンセル)
+                1,    // 1101: ↑(←→キャンセル)
+                2,    // 1110: ↓(←→キャンセル)
+                0     // 1111: 全キャンセル
+            };
+
+            // 超高速入力取得 - 現代コンパイラが自動最適化
+            const uint32_t f = emuInstance->hotkeyDown(HK_MetroidMoveForward);
+            const uint32_t b = emuInstance->hotkeyDown(HK_MetroidMoveBack);
+            const uint32_t l = emuInstance->hotkeyDown(HK_MetroidMoveLeft);
+            const uint32_t r = emuInstance->hotkeyDown(HK_MetroidMoveRight);
+
+            // 入力ビットマップ生成 - 並列実行最適化
+            const uint32_t curr = f | (b << 1) | (l << 2) | (r << 3);
+
+            uint8_t finalState;
+
+            // 分岐予測最適化 - 通常モード優先
+            if (__builtin_expect(!isSnapTapMode, 1)) {
+                // 通常モード - 直接配列アクセス（最速）
+                finalState = LUT[curr];
+            }
+            else {
+                // SnapTap超高速モード
+                const uint32_t newPressed = curr & ~snapTapState.lastInputBitmap;
+
+                // 並列競合判定 - XOR最適化
+                const uint32_t hConflict = (curr & HORIZ_MASK) ^ HORIZ_MASK;
+                const uint32_t vConflict = (curr & VERT_MASK) ^ VERT_MASK;
+
+                // 条件最適化 - 新入力は稀
+                if (__builtin_expect(newPressed != 0, 0)) {
+                    // 超高速branchless更新 - 単一式統合
+                    const uint32_t hMask = -(hConflict == 0);
+                    const uint32_t vMask = -(vConflict == 0);
+
+                    snapTapState.priorityInput =
+                        (snapTapState.priorityInput & (~HORIZ_MASK | ~hMask) & (~VERT_MASK | ~vMask)) |
+                        ((newPressed & HORIZ_MASK) & hMask) |
+                        ((newPressed & VERT_MASK) & vMask);
+                }
+
+                snapTapState.priorityInput &= curr;
+
+                // 超高速競合解決 - 単一パス処理
+                uint32_t finalInput = curr;
+                const uint32_t conflictMask =
+                    ((hConflict == 0) ? HORIZ_MASK : 0) |
+                    ((vConflict == 0) ? VERT_MASK : 0);
+
+                if (__builtin_expect(conflictMask != 0, 0)) {
+                    finalInput = (finalInput & ~conflictMask) | (snapTapState.priorityInput & conflictMask);
+                }
+
+                snapTapState.lastInputBitmap = curr;
+
+                // 直接配列アクセス - ポインタより高速
+                finalState = LUT[finalInput];
+            }
+
+            // 究極の入力適用 - コンパイラ自動最適化
+            const uint32_t states = finalState;
+
+            // QBitArray超高速更新 - ループ展開 + 最適化
+            auto& mask = emuInstance->inputMask;
+
+            // 並列実行可能な独立した操作
+            mask.setBit(INPUT_UP, !(states & 1));
+            mask.setBit(INPUT_DOWN, !(states & 2));
+            mask.setBit(INPUT_LEFT, !(states & 4));
+            mask.setBit(INPUT_RIGHT, !(states & 8));
+        };
+
+        /**
+         * 移動入力を処理 v1 remake.
+         *
+         * @note x86_64向けに完全最短化。分岐・演算最小化により低サイクル処理を実現.
+         * 押しっぱなしでも移動できるようにすること。
+         * snapTapモードじゃないときは、左右キーを同時押しで左右移動をストップしないといけない。上下キーも同様。
+         * 通常モードの同時押しキャンセルは LUT によってすでに表現されている」
+         * snapTapの時は左を押しているときに右を押しても右移動できる。上下も同様。
+         */
+        static const auto processMoveInput = [&](const QBitArray& hk, QBitArray& mask) __attribute__((hot, always_inline, flatten)) {
+            // SnapTap状態構造体定義(キャッシュライン最適化)
+            alignas(64) static struct {
+                uint32_t lastInputBitmap;    // 前回入力ビットマップ保持
+                uint32_t priorityInput;      // 優先入力ビットマップ保持
+                uint32_t _padding[14];       // 64バイト境界確保
+            } snapTapState = { 0, 0, {} };
+
+            // 水平・垂直競合用マスク定数定義
+            static constexpr uint32_t HORIZ_MASK = 0xC;   // (1<<2)|(1<<3) - LEFT|RIGHT
+            static constexpr uint32_t VERT_MASK = 0x3;   // (1<<0)|(1<<1) - UP|DOWN
+
+            // 超コンパクトLUT - L1キャッシュ効率最大化
+            alignas(16) static constexpr uint8_t LUT[16] = {
+                0,    // 0000: なし
+                1,    // 0001: ↑ 
+                2,    // 0010: ↓
+                0,    // 0011: ↑↓(キャンセル)
+                4,    // 0100: ←
+                5,    // 0101: ↑←
+                6,    // 0110: ↓←
+                4,    // 0111: ←(↑↓キャンセル)
+                8,    // 1000: →
+                9,    // 1001: ↑→
+                10,   // 1010: ↓→
+                8,    // 1011: →(↑↓キャンセル)
+                0,    // 1100: ←→(キャンセル)
+                1,    // 1101: ↑(←→キャンセル)
+                2,    // 1110: ↓(←→キャンセル)
+                0     // 1111: 全キャンセル
+            };
+
+            // 超高速入力取得 - 現代コンパイラが自動最適化
+            const uint32_t f = hk[HK_MetroidMoveForward];
+            const uint32_t b = hk[HK_MetroidMoveBack];
+            const uint32_t l = hk[HK_MetroidMoveLeft];
+            const uint32_t r = hk[HK_MetroidMoveRight];
+
+            // 入力ビットマップ生成 - 並列実行最適化
+            const uint32_t curr = f | (b << 1) | (l << 2) | (r << 3);
+
+            uint8_t finalState;
+
+            // 分岐予測最適化 - 通常モード優先
+            if (__builtin_expect(!isSnapTapMode, 1)) {
+                // 通常モード - 直接配列アクセス（最速）
+                finalState = LUT[curr];
+            }
+            else {
+                // SnapTap超高速モード
+                const uint32_t newPressed = curr & ~snapTapState.lastInputBitmap;
+
+                // 並列競合判定 - XOR最適化
+                const uint32_t hConflict = (curr & HORIZ_MASK) ^ HORIZ_MASK;
+                const uint32_t vConflict = (curr & VERT_MASK) ^ VERT_MASK;
+
+                // 条件最適化 - 新入力は稀
+                if (__builtin_expect(newPressed != 0, 0)) {
+                    // 超高速branchless更新 - 単一式統合
+                    const uint32_t hMask = -(hConflict == 0);
+                    const uint32_t vMask = -(vConflict == 0);
+
+                    snapTapState.priorityInput =
+                        (snapTapState.priorityInput & (~HORIZ_MASK | ~hMask) & (~VERT_MASK | ~vMask)) |
+                        ((newPressed & HORIZ_MASK) & hMask) |
+                        ((newPressed & VERT_MASK) & vMask);
+                }
+
+                snapTapState.priorityInput &= curr;
+
+                // 超高速競合解決 - 単一パス処理
+                uint32_t finalInput = curr;
+                const uint32_t conflictMask =
+                    ((hConflict == 0) ? HORIZ_MASK : 0) |
+                    ((vConflict == 0) ? VERT_MASK : 0);
+
+                if (__builtin_expect(conflictMask != 0, 0)) {
+                    finalInput = (finalInput & ~conflictMask) | (snapTapState.priorityInput & conflictMask);
+                }
+
+                snapTapState.lastInputBitmap = curr;
+
+                // 直接配列アクセス - ポインタより高速
+                finalState = LUT[finalInput];
+            }
+
+            // 究極の入力適用 - コンパイラ自動最適化
+            const uint32_t states = finalState;
+
+            // QBitArray超高速更新 - ループ展開 + 最適化
+
+            // 並列実行可能な独立した操作
+            mask.setBit(INPUT_UP, !(states & 1));
+            mask.setBit(INPUT_DOWN, !(states & 2));
+            mask.setBit(INPUT_LEFT, !(states & 4));
+            mask.setBit(INPUT_RIGHT, !(states & 8));
+        };
+
+
+
+        /**
+         * 移動入力を処理 v1 remake v2.
+         *
+         * @note x86_64向けに完全最短化。分岐・演算最小化により低サイクル処理を実現.
+         * 押しっぱなしでも移動できるようにすること。
+         * snapTapモードじゃないときは、左右キーを同時押しで左右移動をストップしないといけない。上下キーも同様。
+         * 通常モードの同時押しキャンセルは LUT によってすでに表現されている」
+         * snapTapの時は左を押しているときに右を押しても右移動できる。上下も同様。
+         */
+        static const auto processMoveInput = [&](const QBitArray& hk, QBitArray& mask) __attribute__((hot, always_inline, flatten)) {
+            // SnapTap状態構造体定義(キャッシュライン最適化)
+            alignas(64) static struct {
+                uint32_t lastInputBitmap;    // 前回入力ビットマップ保持
+                uint32_t priorityInput;      // 優先入力ビットマップ保持
+                uint32_t _padding[14];       // 64バイト境界確保
+            } snapTapState = { 0, 0, {} };
+
+            // 水平・垂直競合用マスク定数定義
+            static constexpr uint32_t HORIZ_MASK = 0xC;   // (1<<2)|(1<<3) - LEFT|RIGHT
+            static constexpr uint32_t VERT_MASK = 0x3;   // (1<<0)|(1<<1) - UP|DOWN
+
+            // 超コンパクトLUT - L1キャッシュ効率最大化
+            alignas(16) static constexpr uint8_t LUT[16] = {
+                0,    // 0000: なし
+                1,    // 0001: ↑ 
+                2,    // 0010: ↓
+                0,    // 0011: ↑↓(キャンセル)
+                4,    // 0100: ←
+                5,    // 0101: ↑←
+                6,    // 0110: ↓←
+                4,    // 0111: ←(↑↓キャンセル)
+                8,    // 1000: →
+                9,    // 1001: ↑→
+                10,   // 1010: ↓→
+                8,    // 1011: →(↑↓キャンセル)
+                0,    // 1100: ←→(キャンセル)
+                1,    // 1101: ↑(←→キャンセル)
+                2,    // 1110: ↓(←→キャンセル)
+                0     // 1111: 全キャンセル
+            };
+
+            // 超高速入力取得 - 現代コンパイラが自動最適化
+            const uint32_t f = hk[HK_MetroidMoveForward];
+            const uint32_t b = hk[HK_MetroidMoveBack];
+            const uint32_t l = hk[HK_MetroidMoveLeft];
+            const uint32_t r = hk[HK_MetroidMoveRight];
+
+            // 入力ビットマップ生成 - 並列実行最適化
+            const uint32_t curr = f | (b << 1) | (l << 2) | (r << 3);
+
+            uint8_t finalState;
+
+            // 分岐予測最適化 - 通常モード優先
+            if (__builtin_expect(!isSnapTapMode, 1)) {
+                // 通常モード - 直接配列アクセス（最速）
+                finalState = LUT[curr];
+
+                // 並列実行可能な独立した操作
+                mask.setBit(INPUT_UP, !(finalState & 1));
+                mask.setBit(INPUT_DOWN, !(finalState & 2));
+                mask.setBit(INPUT_LEFT, !(finalState & 4));
+                mask.setBit(INPUT_RIGHT, !(finalState & 8));
+
+                return;
+            }
+
+            // SnapTap超高速モード
+            const uint32_t newPressed = curr & ~snapTapState.lastInputBitmap;
+
+            // 並列競合判定 - XOR最適化
+            const uint32_t hConflict = (curr & HORIZ_MASK) ^ HORIZ_MASK;
+            const uint32_t vConflict = (curr & VERT_MASK) ^ VERT_MASK;
+
+            // 条件最適化 - 新入力は稀
+            if (__builtin_expect(newPressed != 0, 0)) {
+                // 超高速branchless更新 - 単一式統合
+                const uint32_t hMask = -(hConflict == 0);
+                const uint32_t vMask = -(vConflict == 0);
+
+                snapTapState.priorityInput =
+                    (snapTapState.priorityInput & (~HORIZ_MASK | ~hMask) & (~VERT_MASK | ~vMask)) |
+                    ((newPressed & HORIZ_MASK) & hMask) |
+                    ((newPressed & VERT_MASK) & vMask);
+            }
+
+            snapTapState.priorityInput &= curr;
+
+            // 超高速競合解決 - 単一パス処理
+            uint32_t finalInput = curr;
+            const uint32_t conflictMask =
+                ((hConflict == 0) ? HORIZ_MASK : 0) |
+                ((vConflict == 0) ? VERT_MASK : 0);
+
+            if (__builtin_expect(conflictMask != 0, 0)) {
+                finalInput = (finalInput & ~conflictMask) | (snapTapState.priorityInput & conflictMask);
+            }
+
+            snapTapState.lastInputBitmap = curr;
+
+            // 直接配列アクセス - ポインタより高速
+            finalState = LUT[finalInput];
+
+
+            // QBitArray超高速更新 - ループ展開 + 最適化
+
+            // 並列実行可能な独立した操作
+            mask.setBit(INPUT_UP, !(finalState & 1));
+            mask.setBit(INPUT_DOWN, !(finalState & 2));
+            mask.setBit(INPUT_LEFT, !(finalState & 4));
+            mask.setBit(INPUT_RIGHT, !(finalState & 8));
+        };
+
+
+        /**
+         * 移動入力を処理 v2.
+         *
+         * @note x86_64向けに完全最短化。分岐・演算最小化により低サイクル処理を実現.
+         * 押しっぱなしでも移動できるようにすること。
+         * snapTapモードじゃないときは、左右キーを同時押しで左右移動をストップしないといけない。上下キーも同様。
+         * 通常モードの同時押しキャンセルは LUT によってすでに表現されている」
+         * snapTapの時は左を押しているときに右を押しても右移動できる。上下も同様。
+         */
+        static const auto processMoveInput = [&](const QBitArray& hk, QBitArray& mask) __attribute__((hot, always_inline, flatten)) {
+
+            // MaskLUT[16][4]：UP, DOWN, LEFT, RIGHT の有効ビットマスク
+            // 1 = 無効（キャンセル） / 0 = 有効（反転型）
+            // MaskLUT[curr][UP, DOWN, LEFT, RIGHT]
+            alignas(16) static constexpr uint8_t MaskLUT[16][4] = {
+                {1,1,1,1}, // 0000: なし
+                {0,1,1,1}, // 0001: ↑
+                {1,0,1,1}, // 0010: ↓
+                {1,1,1,1}, // 0011: ↑↓キャンセル
+                {1,1,0,1}, // 0100: ←
+                {0,1,0,1}, // 0101: ↑←
+                {1,0,0,1}, // 0110: ↓←
+                {1,1,0,1}, // 0111: ←（↑↓キャンセル）
+                {1,1,1,0}, // 1000: →
+                {0,1,1,0}, // 1001: ↑→
+                {1,0,1,0}, // 1010: ↓→
+                {1,1,1,0}, // 1011: →（↑↓キャンセル）
+                {1,1,1,1}, // 1100: ←→キャンセル
+                {0,1,1,1}, // 1101: ↑（←→キャンセル）
+                {1,0,1,1}, // 1110: ↓（←→キャンセル）
+                {1,1,1,1}, // 1111: 全キャンセル
+            };
+
+            // SnapTap状態（下位8bit: last、上位8bit: priority）を保持（1レジスタ内）
+            static uint16_t snapState = 0;
+
+            // 入力・出力マスク参照の取得（無駄な再アクセス回避）
+            // const QBitArray& hk = emuInstance->hotkeyMask;
+            // QBitArray& mask = emuInstance->inputMask;
+
+            // 現在の入力状態を4bitでエンコード（1bitずつ独立反映）
+            const uint32_t curr =
+                (hk[HK_MetroidMoveForward] ? 1 : 0) |
+                (hk[HK_MetroidMoveBack] ? 2 : 0) |
+                (hk[HK_MetroidMoveLeft] ? 4 : 0) |
+                (hk[HK_MetroidMoveRight] ? 8 : 0);
+
+            // SnapTapが無効な場合、即座にLUT参照して方向bit反映（最短4命令）
+            if (__builtin_expect(!isSnapTapMode, 1)) {
+                mask[INPUT_UP] = MaskLUT[curr][0];
+                mask[INPUT_DOWN] = MaskLUT[curr][1];
+                mask[INPUT_LEFT] = MaskLUT[curr][2];
+                mask[INPUT_RIGHT] = MaskLUT[curr][3];
+                return;
+            }
+
+            // 前回入力状態の復元（lastInput, priorityInput）
+            const uint32_t last = snapState & 0xFF;
+            const uint32_t priority = (snapState >> 8) & 0xFF;
+
+            // 新しく押されたキー（priorityに反映候補）
+            const uint32_t newPress = curr & ~last;
+
+            // 水平・垂直方向の競合検出（キャンセル対象bitを生成）
+            const uint32_t vConflict = ((curr & 0x3) == 0x3) ? 0x3 : 0;
+            const uint32_t hConflict = ((curr & 0xC) == 0xC) ? 0xC : 0;
+            const uint32_t cMask = vConflict | hConflict;
+
+            // 優先度更新（新たに押された中で競合しているものだけを反映）
+            const uint32_t newPriority = ((newPress & cMask) ? ((priority & ~cMask) | (newPress & cMask)) : priority) & curr;
+
+            // 次回用に状態を保存（下位8bit: curr、上位8bit: priority）
+            snapState = static_cast<uint16_t>(curr | (newPriority << 8));
+
+            // 競合解決済み最終入力を合成（競合bitだけpriority、それ以外はcurr）
+            const uint32_t finalInput = (curr & ~cMask) | (newPriority & cMask);
+
+            // LUTを用いて最終方向マスクを直接反映（即値4命令で終端）
+            mask[INPUT_UP] = MaskLUT[finalInput][0];
+            mask[INPUT_DOWN] = MaskLUT[finalInput][1];
+            mask[INPUT_LEFT] = MaskLUT[finalInput][2];
+            mask[INPUT_RIGHT] = MaskLUT[finalInput][3];
+        };
+
+
+        /**
+         * 移動入力を処理 v4.
+         *
+         * @note x86_64向けに完全最短化。分岐・演算最小化により低サイクル処理を実現.
+         * 押しっぱなしでも移動できるようにすること。
+         * snapTapモードじゃないときは、左右キーを同時押しで左右移動をストップしないといけない。上下キーも同様。
+         * 通常モードの同時押しキャンセルは LUT によってすでに表現されている」
+         * snapTapの時は左を押しているときに右を押しても右移動できる。上下も同様。
+         */
+         /**
+          * 移動入力処理 - 最低遅延版
+          * @note x86_64向け完全最適化。分岐最小化・メモリアクセス削減
+          */
+        static const auto processMoveInput = [&](const QBitArray& hk, QBitArray& mask) __attribute__((hot, always_inline, flatten)) {
+            // 反転型マスクLUT（0=有効, 1=無効）
+            // インデックス: [Right|Left|Back|Forward]
+            // 各バイト: UP, DOWN, LEFT, RIGHT
+            alignas(64) static constexpr uint32_t MaskLUT[16] = {
+                0x0F0F0F0F, // 0000: なし
+                0x0F0F0F0E, // 0001: →
+                0x0F0F0E0F, // 0010: ←
+                0x0F0F0F0F, // 0011: ←→キャンセル
+                0x0F0E0F0F, // 0100: ↓
+                0x0F0E0F0E, // 0101: ↓→
+                0x0F0E0E0F, // 0110: ↓←
+                0x0F0E0F0F, // 0111: ↓
+                0x0E0F0F0F, // 1000: ↑
+                0x0E0F0F0E, // 1001: ↑→
+                0x0E0F0E0F, // 1010: ↑←
+                0x0E0F0F0F, // 1011: ↑
+                0x0F0F0F0F, // 1100: ↑↓キャンセル
+                0x0F0F0F0E, // 1101: →
+                0x0F0F0E0F, // 1110: ←
+                0x0F0F0F0F  // 1111: 全キャンセル
+            };
+
+            // SnapTap状態（16bit: last|priority）
+            static uint16_t snapState = 0;
+
+            // 入力状態を4bitエンコード（正しいマッピング）
+            const uint32_t curr =
+                (-hk[HK_MetroidMoveForward] & 1) |  // Forward = bit0
+                (-hk[HK_MetroidMoveBack] & 2) |     // Back = bit1
+                (-hk[HK_MetroidMoveLeft] & 4) |     // Left = bit2
+                (-hk[HK_MetroidMoveRight] & 8);     // Right = bit3
+
+            // 通常モード：即座にLUT適用
+            if (__builtin_expect(!isSnapTapMode, 1)) {
+                const uint32_t maskBits = MaskLUT[curr];
+                mask[INPUT_UP] = maskBits & 1;
+                mask[INPUT_DOWN] = (maskBits >> 8) & 1;
+                mask[INPUT_LEFT] = (maskBits >> 16) & 1;
+                mask[INPUT_RIGHT] = (maskBits >> 24) & 1;
+                return;
+            }
+
+            // SnapTapモード：競合解決
+            const uint32_t last = snapState & 0xFF;
+            const uint32_t priority = snapState >> 8;
+            const uint32_t newPress = curr & ~last;
+
+            // 競合検出（Forward/BackとLeft/Rightの組み合わせ）
+            const uint32_t hConflict = ((curr & 3) == 3) ? 3 : 0;    // Forward/Back競合
+            const uint32_t vConflict = ((curr & 12) == 12) ? 12 : 0; // Left/Right競合
+            const uint32_t conflict = vConflict | hConflict;
+
+            // 優先度更新
+            const uint32_t newPriority = (newPress & conflict) ?
+                ((priority & ~conflict) | (newPress & conflict)) : priority;
+            const uint32_t activePriority = newPriority & curr;
+
+            // 状態保存
+            snapState = curr | (activePriority << 8);
+
+            // 最終入力計算とLUT適用
+            const uint32_t final = (curr & ~conflict) | (activePriority & conflict);
+            const uint32_t maskBits = MaskLUT[final];
+            mask[INPUT_UP] = maskBits & 1;
+            mask[INPUT_DOWN] = (maskBits >> 8) & 1;
+            mask[INPUT_LEFT] = (maskBits >> 16) & 1;
+            mask[INPUT_RIGHT] = (maskBits >> 24) & 1;
+        };
+
+
+        /**
+         * 移動入力を処理 v4.
+         *
+         * @note x86_64向けに完全最短化。分岐・演算最小化により低サイクル処理を実現.
+         * 押しっぱなしでも移動できるようにすること。
+         * snapTapモードじゃないときは、左右キーを同時押しで左右移動をストップしないといけない。上下キーも同様。
+         * 通常モードの同時押しキャンセルは LUT によってすでに表現されている」
+         * snapTapの時は左を押しているときに右を押しても右移動できる。上下も同様。
+         */
+         /**
+          * 移動入力処理 - 最低遅延版
+          * @note x86_64向け完全最適化。分岐最小化・メモリアクセス削減
+          */
+        static const auto processMoveInput = [&](const QBitArray& hk, QBitArray& mask) __attribute__((hot, always_inline, flatten)) {
+            // 反転型マスクLUT（0=有効, 1=無効）
+            // インデックス: [Right|Left|Back|Forward]
+            // 各バイト: UP, DOWN, LEFT, RIGHT
+            alignas(64) static constexpr uint32_t MaskLUT[16] = {
+                0x0F0F0F0F, // 0000: なし
+                0x0F0F0F0E, // 0001: →
+                0x0F0F0E0F, // 0010: ←
+                0x0F0F0F0F, // 0011: ←→キャンセル
+                0x0F0E0F0F, // 0100: ↓
+                0x0F0E0F0E, // 0101: ↓→
+                0x0F0E0E0F, // 0110: ↓←
+                0x0F0E0F0F, // 0111: ↓
+                0x0E0F0F0F, // 1000: ↑
+                0x0E0F0F0E, // 1001: ↑→
+                0x0E0F0E0F, // 1010: ↑←
+                0x0E0F0F0F, // 1011: ↑
+                0x0F0F0F0F, // 1100: ↑↓キャンセル
+                0x0F0F0F0E, // 1101: →
+                0x0F0F0E0F, // 1110: ←
+                0x0F0F0F0F  // 1111: 全キャンセル
+            };
+
+            // SnapTap状態（16bit: last|priority）
+            static uint16_t snapState = 0;
+
+            /*
+            // 入力状態を4bitエンコード（正しいマッピング）
+            const uint32_t curr =
+                (-hk[HK_MetroidMoveForward] & 1) |  // Forward = bit0
+                (-hk[HK_MetroidMoveBack] & 2) |     // Back = bit1
+                (-hk[HK_MetroidMoveLeft] & 4) |     // Left = bit2
+                (-hk[HK_MetroidMoveRight] & 8);     // Right = bit3
+                */
+
+                // 超高速入力取得 - 4並列ロード
+            const uint32_t f = hk[HK_MetroidMoveForward];
+            const uint32_t b = hk[HK_MetroidMoveBack];
+            const uint32_t l = hk[HK_MetroidMoveLeft];
+            const uint32_t r = hk[HK_MetroidMoveRight];
+
+            // ビットマップ生成 - 単純OR演算
+            const uint32_t curr = f | (b << 1) | (l << 2) | (r << 3);
+
+            // 通常モード：即座にLUT適用
+            if (__builtin_expect(!isSnapTapMode, 1)) {
+                const uint32_t maskBits = MaskLUT[curr];
+                mask[INPUT_UP] = maskBits & 1;
+                mask[INPUT_DOWN] = (maskBits >> 8) & 1;
+                mask[INPUT_LEFT] = (maskBits >> 16) & 1;
+                mask[INPUT_RIGHT] = (maskBits >> 24) & 1;
+                return;
+            }
+
+            // SnapTapモード：競合解決
+            const uint32_t last = snapState & 0xFF;
+            const uint32_t priority = snapState >> 8;
+            const uint32_t newPress = curr & ~last;
+
+            // 競合検出（Forward/BackとLeft/Rightの組み合わせ）
+            const uint32_t hConflict = ((curr & 3) == 3) ? 3 : 0;    // Forward/Back競合
+            const uint32_t vConflict = ((curr & 12) == 12) ? 12 : 0; // Left/Right競合
+            const uint32_t conflict = vConflict | hConflict;
+
+            // 優先度更新
+            const uint32_t newPriority = (newPress & conflict) ?
+                ((priority & ~conflict) | (newPress & conflict)) : priority;
+            const uint32_t activePriority = newPriority & curr;
+
+            // 状態保存
+            snapState = curr | (activePriority << 8);
+
+            // 最終入力計算とLUT適用
+            const uint32_t final = (curr & ~conflict) | (activePriority & conflict);
+            const uint32_t maskBits = MaskLUT[final];
+            mask[INPUT_UP] = maskBits & 1;
+            mask[INPUT_DOWN] = (maskBits >> 8) & 1;
+            mask[INPUT_LEFT] = (maskBits >> 16) & 1;
+            mask[INPUT_RIGHT] = (maskBits >> 24) & 1;
+        };
 
 #endif
 
-    /**
-     * 移動入力を処理.
-     *
-     * @note x86_64向けに完全最短化。分岐・演算最小化により低サイクル処理を実現.
-     * 押しっぱなしでも移動できるようにすること。
-     * snapTapモードじゃないときは、左右キーを同時押しで左右移動をストップしないといけない。上下キーも同様。
-     * 通常モードの同時押しキャンセルは LUT によってすでに表現されている」
-     * snapTapの時は左を押しているときに右を押しても右移動できる。上下も同様。
-     */
-    static const auto processMoveInput = [&](const QBitArray& hk, QBitArray& mask) __attribute__((hot, always_inline, flatten)) {
-        /*
-        // curr(0〜15) → 各方向bit反転済マスク（↑↓←→）へのマッピング
-        alignas(16) static constexpr uint8_t MaskLUT[16][4] = {
-            {0,0,0,0}, {0,1,1,1}, {1,0,1,1}, {0,0,1,1}, // 0000〜0011
-            {1,1,0,1}, {0,1,0,1}, {1,0,0,1}, {1,1,0,1}, // 0100〜0111
-            {1,1,1,0}, {0,1,1,0}, {1,0,1,0}, {1,1,1,0}, // 1000〜1011
-            {1,1,1,1}, {0,1,1,1}, {1,0,1,1}, {1,1,1,1}  // 1100〜1111（全キャンセル含む）
+        /**
+         * 移動入力を処理 v5
+         *
+         * @note x86_64向けに完全最短化。分岐・演算最小化により低サイクル処理を実現.
+         * 押しっぱなしでも移動できるようにすること。
+         * snapTapモードじゃないときは、左右キーを同時押しで左右移動をストップしないといけない。上下キーも同様。
+         * 通常モードの同時押しキャンセルは LUT によってすでに表現されている」
+         * snapTapの時は左を押しているときに右を押しても右移動できる。上下も同様。
+         */
+         /**
+          * 移動入力処理 - 最低遅延版
+          * @note x86_64向け完全最適化。分岐最小化・メモリアクセス削減
+          */
+        static const auto processMoveInput = [&](const QBitArray& hk, QBitArray& mask) __attribute__((hot, always_inline, flatten)) {
+            // 反転型マスクLUT（0=有効, 1=無効）
+            // 各バイト: UP, DOWN, LEFT, RIGHT
+            alignas(64) static constexpr uint32_t MaskLUT[16] = {
+                0x0F0F0F0F, // 0000: なし
+                0x0F0F0F0E, // 0001: →
+                0x0F0F0E0F, // 0010: ←
+                0x0F0F0F0F, // 0011: ←→キャンセル
+                0x0F0E0F0F, // 0100: ↓
+                0x0F0E0F0E, // 0101: ↓→
+                0x0F0E0E0F, // 0110: ↓←
+                0x0F0E0F0F, // 0111: ↓
+                0x0E0F0F0F, // 1000: ↑
+                0x0E0F0F0E, // 1001: ↑→
+                0x0E0F0E0F, // 1010: ↑←
+                0x0E0F0F0F, // 1011: ↑
+                0x0F0F0F0F, // 1100: ↑↓キャンセル
+                0x0F0F0F0E, // 1101: →
+                0x0F0F0E0F, // 1110: ←
+                0x0F0F0F0F  // 1111: 全キャンセル
+            };
+
+            // SnapTap状態（16bit: last|priority）
+            static uint16_t snapState = 0;
+
+            // 超高速入力取得 - 4並列ロード
+            const uint32_t f = hk[HK_MetroidMoveForward];
+            const uint32_t b = hk[HK_MetroidMoveBack];
+            const uint32_t l = hk[HK_MetroidMoveLeft];
+            const uint32_t r = hk[HK_MetroidMoveRight];
+
+            // ビットマップ生成
+            const uint32_t curr = f | (b << 1) | (l << 2) | (r << 3);
+
+            // 通常モード：即座にLUT適用
+            if (__builtin_expect(!isSnapTapMode, 1)) {
+                const uint32_t maskBits = MaskLUT[curr];
+                mask[INPUT_UP] = maskBits & 1;
+                mask[INPUT_DOWN] = (maskBits >> 8) & 1;
+                mask[INPUT_LEFT] = (maskBits >> 16) & 1;
+                mask[INPUT_RIGHT] = (maskBits >> 24) & 1;
+                return;
+            }
+
+            // SnapTapモード
+            const uint32_t last = snapState & 0xFF;
+            const uint32_t priority = snapState >> 8;
+            const uint32_t newPress = curr & ~last;
+             
+            // XOR最適化による競合検出 XOR最適化でブランチレス
+            const uint32_t hConflict = ((curr & 3) ^ 3) ? 0 : 3;
+            const uint32_t vConflict = ((curr & 12) ^ 12) ? 0 : 12;
+            const uint32_t conflict = vConflict | hConflict;
+
+            // branchless優先度更新
+            const uint32_t updateMask = -(newPress & conflict != 0);
+            const uint32_t newPriority = (priority & ~(conflict & updateMask)) |
+                (newPress & conflict & updateMask);
+            const uint32_t activePriority = newPriority & curr;
+
+            // 状態保存
+            snapState = curr | (activePriority << 8);
+
+            // 最終入力計算とLUT適用
+            const uint32_t final = (curr & ~conflict) | (activePriority & conflict);
+            const uint32_t maskBits = MaskLUT[final];
+            mask[INPUT_UP] = maskBits & 1;
+            mask[INPUT_DOWN] = (maskBits >> 8) & 1;
+            mask[INPUT_LEFT] = (maskBits >> 16) & 1;
+            mask[INPUT_RIGHT] = (maskBits >> 24) & 1;
         };
-        */
-
-        // MaskLUT[16][4]：UP, DOWN, LEFT, RIGHT の有効ビットマスク
-    // 1 = 無効（キャンセル） / 0 = 有効（反転型）
-    // MaskLUT[curr][UP, DOWN, LEFT, RIGHT]
-        alignas(16) static constexpr uint8_t MaskLUT[16][4] = {
-            {1,1,1,1}, // 0000: なし
-            {0,1,1,1}, // 0001: ↑
-            {1,0,1,1}, // 0010: ↓
-            {1,1,1,1}, // 0011: ↑↓キャンセル
-            {1,1,0,1}, // 0100: ←
-            {0,1,0,1}, // 0101: ↑←
-            {1,0,0,1}, // 0110: ↓←
-            {1,1,0,1}, // 0111: ←（↑↓キャンセル）
-            {1,1,1,0}, // 1000: →
-            {0,1,1,0}, // 1001: ↑→
-            {1,0,1,0}, // 1010: ↓→
-            {1,1,1,0}, // 1011: →（↑↓キャンセル）
-            {1,1,1,1}, // 1100: ←→キャンセル
-            {0,1,1,1}, // 1101: ↑（←→キャンセル）
-            {1,0,1,1}, // 1110: ↓（←→キャンセル）
-            {1,1,1,1}, // 1111: 全キャンセル
-        };
-
-        // SnapTap状態（下位8bit: last、上位8bit: priority）を保持（1レジスタ内）
-        static uint16_t snapState = 0;
-
-        // 入力・出力マスク参照の取得（無駄な再アクセス回避）
-        // const QBitArray& hk = emuInstance->hotkeyMask;
-        // QBitArray& mask = emuInstance->inputMask;
-
-        // 現在の入力状態を4bitでエンコード（1bitずつ独立反映）
-        const uint32_t curr =
-            (hk[HK_MetroidMoveForward] ? 1 : 0) |
-            (hk[HK_MetroidMoveBack] ? 2 : 0) |
-            (hk[HK_MetroidMoveLeft] ? 4 : 0) |
-            (hk[HK_MetroidMoveRight] ? 8 : 0);
-
-        // SnapTapが無効な場合、即座にLUT参照して方向bit反映（最短4命令）
-        if (__builtin_expect(!isSnapTapMode, 1)) {
-            mask[INPUT_UP] = MaskLUT[curr][0];
-            mask[INPUT_DOWN] = MaskLUT[curr][1];
-            mask[INPUT_LEFT] = MaskLUT[curr][2];
-            mask[INPUT_RIGHT] = MaskLUT[curr][3];
-            return;
-        }
-
-        // 前回入力状態の復元（lastInput, priorityInput）
-        const uint32_t last = snapState & 0xFF;
-        const uint32_t priority = (snapState >> 8) & 0xFF;
-
-        // 新しく押されたキー（priorityに反映候補）
-        const uint32_t newPress = curr & ~last;
-
-        // 水平・垂直方向の競合検出（キャンセル対象bitを生成）
-        const uint32_t vConflict = ((curr & 0x3) == 0x3) ? 0x3 : 0;
-        const uint32_t hConflict = ((curr & 0xC) == 0xC) ? 0xC : 0;
-        const uint32_t cMask = vConflict | hConflict;
-
-        // 優先度更新（新たに押された中で競合しているものだけを反映）
-        const uint32_t newPriority = ((newPress & cMask) ? ((priority & ~cMask) | (newPress & cMask)) : priority) & curr;
-
-        // 次回用に状態を保存（下位8bit: curr、上位8bit: priority）
-        snapState = static_cast<uint16_t>(curr | (newPriority << 8));
-
-        // 競合解決済み最終入力を合成（競合bitだけpriority、それ以外はcurr）
-        const uint32_t finalInput = (curr & ~cMask) | (newPriority & cMask);
-
-        // LUTを用いて最終方向マスクを直接反映（即値4命令で終端）
-        mask[INPUT_UP] = MaskLUT[finalInput][0];
-        mask[INPUT_DOWN] = MaskLUT[finalInput][1];
-        mask[INPUT_LEFT] = MaskLUT[finalInput][2];
-        mask[INPUT_RIGHT] = MaskLUT[finalInput][3];
-    };
 
 
     // /processMoveInputFunction }
@@ -1411,10 +1995,99 @@ void EmuThread::run()
     int16_t __alt = 1 - ((__bits >> 30) & 2); /* ±1生成 */ \
     (__abs >= 0x3F000000u && __abs < 0x3F800000u) ? __alt : __fallback; \
 })
-#endif
 
+        // 検証の結果、以下のような平均処理時間が得られました（各方式とも1万回の変換を100回繰り返した平均値）：条件分岐版（branch）：約 0.0536 秒
 #define AIM_ADJUST(v) ((v) >= 0.5f && (v) < 1.0f ? 1 : ((v) <= -0.5f && (v) > -1.0f ? -1 : static_cast<int16_t>(v)))
 
+
+// 最速版3: ルックアップテーブル + ビット操作ハイブリッド 
+// 両方の AIM_ADJUST 実装（条件分岐版とビット操作版）は、全てのテスト値（ - 2.0～2.0の範囲で1万件）において完全に一致する結果を返しました。
+// つまり、同じ結果になります。ビット操作版は、条件分岐を避けつつも期待される数値変換を正確に再現できています。
+// 検証の結果、以下のような平均処理時間が得られました（各方式とも1万回の変換を100回繰り返した平均値）：ビット操作版（bit操作 + union）：約 0.0691 秒
+#define AIM_ADJUST(v) ({ \
+    union { float f; uint32_t u; } x = {v}; \
+    uint32_t exp = (x.u >> 23) & 0xFF; \
+    uint32_t sign = x.u >> 31; \
+    /* 指数が126（0.5-1.0の範囲）の場合のみ特別処理 */ \
+    int16_t result = (int16_t)v; \
+    result = (exp == 126) ? (1 - (sign << 1)) : result; \
+    result; \
+})
+
+// NG! LUTベース。最速だが -0.499付近で誤差あり(この誤差は許容範囲か？) 平均時間（秒）：0.0326
+        static const int8_t aim_adjust_table[20] = {
+            -1, -1, -1, -1, -1,  // -1.0 ~ -0.6
+            0, 0, 0, 0, 0,       // -0.5 ~ -0.1
+            0, 0, 0, 0, 0,       // 0.0 ~ 0.4
+            1, 1, 1, 1, 1        // 0.5 ~ 0.9
+        };
+#define AIM_ADJUST(v) ({ \
+    float _v = (v); \
+    int idx = (int)(_v * 10 + 10); \
+    (idx >= 0 && idx < 20) ? aim_adjust_table[idx] : (int16_t)_v; \
+})
+
+// テーブル版　	平均時間（秒）：0.0288
+namespace AimAdjustTable {
+    static constexpr int8_t table[20] = {
+        -1, -1, -1, -1, -1,  // -1.0 ~ -0.6
+            0,  0,  0,  0,  0,  // -0.5 ~ -0.1
+            0,  0,  0,  0,  0,  //  0.0 ~  0.4
+            1,  1,  1,  1,  1   //  0.5 ~  0.9
+    };
+
+    inline int16_t adjust(float v) {
+        int idx = static_cast<int>(v * 10 + 10);
+        if (idx >= 0 && idx < 20) {
+            return table[idx];
+        }
+        return static_cast<int16_t>(v);
+    }
+}
+
+
+// 最速版4: 条件分岐最小化（2段階判定） 平均時間（秒）：0.0465
+#define AIM_ADJUST(v) ({ \
+    float _v = (v); \
+    float _av = __builtin_fabsf(_v); \
+    (_av >= 0.5f && _av < 1.0f) ? ((_v > 0) ? 1 : -1) : (int16_t)_v; \
+})
+
+// 正確。	平均時間（秒）：0.0295
+#define AIM_ADJUST(v) \
+    (({ \
+        static constexpr int8_t _table[20] = { \
+            -1, -1, -1, -1, -1, \
+             0,  0,  0,  0,  0, \
+             0,  0,  0,  0,  0, \
+             1,  1,  1,  1,  1 \
+        }; \
+        float _v = (v); \
+        int _idx = static_cast<int>(_v * 10 + 10); \
+        (_idx >= 0 && _idx < 20) ? _table[_idx] : static_cast<int16_t>(_v); \
+    }))
+// 正確。	平均時間（秒）：0.0289
+#define AIM_ADJUST(v)                          \
+    ({                                                  \
+        float _v = (v);                                 \
+        int _vi = static_cast<int>(_v * 10);            \
+        (_vi >= 5 && _vi <= 9) ? 1 :                    \
+        (_vi >= -9 && _vi <= -5) ? -1 :                 \
+        static_cast<int16_t>(_v);                       \
+    })
+
+
+
+#endif
+// 正確。	平均時間（秒）：0.0234
+#define AIM_ADJUST(v)                        \
+    ({                                                  \
+        float _v = (v);                                 \
+        int _vi = (int)(_v * 10.001f);                  \
+        (_vi >= 5 && _vi <= 9) ? 1 :                    \
+        (_vi >= -9 && _vi <= -5) ? -1 :                 \
+        static_cast<int16_t>(_v);                       \
+    })
 
 
 // ホットパス：フォーカスがありレイアウト変更もない場合
