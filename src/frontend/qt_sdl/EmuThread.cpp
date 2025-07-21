@@ -671,17 +671,17 @@ void EmuThread::run()
         // MelonPrimeDS ホットキー処理部分を修正
         if (emuInstance->hotkeyPressed(HK_FullscreenToggle)) {
             emit windowFullscreenToggle();
-            isLayoutChangePending = true;  // フラグを立てる
+            isLayoutChangePending = true;
         }
 
         if (emuInstance->hotkeyPressed(HK_SwapScreens)) {
             emit swapScreensToggle();
-            isLayoutChangePending = true;  // フラグを立てる
+            isLayoutChangePending = true;
         }
 
         if (emuInstance->hotkeyPressed(HK_SwapScreenEmphasis)) {
             emit screenEmphasisToggle();
-            isLayoutChangePending = true;  // フラグを立てる
+            isLayoutChangePending = true;
         }
         // Define minimum sensitivity as a constant to improve readability and optimization
         static constexpr int MIN_SENSITIVITY = 1;
@@ -1121,6 +1121,27 @@ void EmuThread::run()
         frameAdvanceTwice();
     };
     */
+
+/**
+* QBitArrayから12bitの入力状態をビットマスクとして取得するマクロ.
+*
+* @param input QBitArray（少なくとも12bit以上あること）.
+* @return uint32_t 入力ビット状態（bit 0〜11）をまとめたマスク.
+*/
+#define GET_INPUT_MASK(inputMask) (                                       \
+    (static_cast<uint32_t>((inputMask).testBit(0))  << 0)  |                 \
+    (static_cast<uint32_t>((inputMask).testBit(1))  << 1)  |                 \
+    (static_cast<uint32_t>((inputMask).testBit(2))  << 2)  |                 \
+    (static_cast<uint32_t>((inputMask).testBit(3))  << 3)  |                 \
+    (static_cast<uint32_t>((inputMask).testBit(4))  << 4)  |                 \
+    (static_cast<uint32_t>((inputMask).testBit(5))  << 5)  |                 \
+    (static_cast<uint32_t>((inputMask).testBit(6))  << 6)  |                 \
+    (static_cast<uint32_t>((inputMask).testBit(7))  << 7)  |                 \
+    (static_cast<uint32_t>((inputMask).testBit(8))  << 8)  |                 \
+    (static_cast<uint32_t>((inputMask).testBit(9))  << 9)  |                 \
+    (static_cast<uint32_t>((inputMask).testBit(10)) << 10) |                 \
+    (static_cast<uint32_t>((inputMask).testBit(11)) << 11)                   \
+)
 
     uint8_t playerPosition;
     const uint16_t playerAddressIncrement = 0xF30;
@@ -1986,6 +2007,10 @@ void EmuThread::run()
             return static_cast<int16_t>(value);  // 切り捨て(0方向への丸め)
         };
 
+        // v1.0 検証の結果、以下のような平均処理時間が得られました（各方式とも1万回の変換を100回繰り返した平均値）：条件分岐版（branch）：約 0.0536 秒
+#define AIM_ADJUST(v) ((v) >= 0.5f && (v) < 1.0f ? 1 : ((v) <= -0.5f && (v) > -1.0f ? -1 : static_cast<int16_t>(v)))
+
+
         // bitwise ver v2 bug fixed. なんか遅延ある。
 #define AIM_ADJUST(value) ({ \
     uint32_t __bits; \
@@ -1996,8 +2021,6 @@ void EmuThread::run()
     (__abs >= 0x3F000000u && __abs < 0x3F800000u) ? __alt : __fallback; \
 })
 
-        // 検証の結果、以下のような平均処理時間が得られました（各方式とも1万回の変換を100回繰り返した平均値）：条件分岐版（branch）：約 0.0536 秒
-#define AIM_ADJUST(v) ((v) >= 0.5f && (v) < 1.0f ? 1 : ((v) <= -0.5f && (v) > -1.0f ? -1 : static_cast<int16_t>(v)))
 
 
 // 最速版3: ルックアップテーブル + ビット操作ハイブリッド 
@@ -2076,9 +2099,14 @@ namespace AimAdjustTable {
         static_cast<int16_t>(_v);                       \
     })
 
+// v1.0 検証の結果、以下のような平均処理時間が得られました（各方式とも1万回の変換を100回繰り返した平均値）：条件分岐版（branch）：約 0.0536 秒
+#define AIM_ADJUST(v) ((v) >= 0.5f && (v) < 1.0f ? 1 : ((v) <= -0.5f && (v) > -1.0f ? -1 : static_cast<int16_t>(v)))
+
+
 
 
 #endif
+
 // 正確。	平均時間（秒）：0.0234
 #define AIM_ADJUST(v)                        \
     ({                                                  \
@@ -2645,8 +2673,9 @@ namespace AimAdjustTable {
                                     processAimInput();
                                     processMoveInput(hotkeyMask, inputMask); 
 
-                                    emuInstance->nds->SetKeyMask(emuInstance->getInputMask());
-
+                                    //emuInstance->nds->SetKeyMask(emuInstance->getInputMask());
+                                    emuInstance->nds->SetKeyMask(GET_INPUT_MASK(inputMask));
+                                    
                                     frameAdvanceOnce();
                                 }
                             }
@@ -2757,13 +2786,14 @@ namespace AimAdjustTable {
                 }
 
                 // Start / View Match progress, points / Map(Adventure)
-                emuInstance->inputMask[INPUT_START] = !emuInstance->hotkeyMask[HK_MetroidMenu];
+                inputMask[INPUT_START] = !hotkeyMask[HK_MetroidMenu];
 
 
             }// END of if(isFocused)
             
             // Apply input
-            emuInstance->nds->SetKeyMask(emuInstance->getInputMask());
+            // emuInstance->nds->SetKeyMask(emuInstance->getInputMask());
+            emuInstance->nds->SetKeyMask(GET_INPUT_MASK(inputMask));
 
             // record last frame was forcused or not
             wasLastFrameFocused = isFocused;
