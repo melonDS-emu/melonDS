@@ -17,7 +17,7 @@
 */
 
 #include "teakra/include/teakra/teakra.h"
-#include "DSP_HLE/Ucode_Base.h"
+#include "DSP_HLE/GraphicsUcode.h"
 
 #include "DSi.h"
 #include "DSi_DSP.h"
@@ -34,6 +34,9 @@ using Platform::LogLevel;
 const u32 DSi_DSP::DataMemoryOffset = 0x20000; // from Teakra memory_interface.h
 // NOTE: ^ IS IN DSP WORDS, NOT IN BYTES!
 
+// TODO add proper setting for this!
+bool __temp_dsphle = true;
+
 
 u16 DSi_DSP::GetPSTS() const
 {
@@ -44,18 +47,15 @@ u16 DSi_DSP::GetPSTS() const
     if ( PDATAReadFifo.IsFull ()) r |= 1<<5;
     if (!PDATAReadFifo.IsEmpty()) r |=(1<<6)|(1<<0);
 
-    /*if (!TeakraCore->SendDataIsEmpty(0)) r |= 1<<13;
-    if (!TeakraCore->SendDataIsEmpty(1)) r |= 1<<14;
-    if (!TeakraCore->SendDataIsEmpty(2)) r |= 1<<15;
-    if ( TeakraCore->RecvDataIsReady(0)) r |= 1<<10;
-    if ( TeakraCore->RecvDataIsReady(1)) r |= 1<<11;
-    if ( TeakraCore->RecvDataIsReady(2)) r |= 1<<12;*/
-    if (!HleCore->SendDataIsEmpty(0)) r |= 1<<13;
-    if (!HleCore->SendDataIsEmpty(1)) r |= 1<<14;
-    if (!HleCore->SendDataIsEmpty(2)) r |= 1<<15;
-    if ( HleCore->RecvDataIsReady(0)) r |= 1<<10;
-    if ( HleCore->RecvDataIsReady(1)) r |= 1<<11;
-    if ( HleCore->RecvDataIsReady(2)) r |= 1<<12;
+    if (DSPCore)
+    {
+        if (!DSPCore->SendDataIsEmpty(0)) r |= 1 << 13;
+        if (!DSPCore->SendDataIsEmpty(1)) r |= 1 << 14;
+        if (!DSPCore->SendDataIsEmpty(2)) r |= 1 << 15;
+        if  (DSPCore->RecvDataIsReady(0)) r |= 1 << 10;
+        if  (DSPCore->RecvDataIsReady(1)) r |= 1 << 11;
+        if  (DSPCore->RecvDataIsReady(2)) r |= 1 << 12;
+    }
 //printf("GetPSTS: %04X\n", r); 8100
     return r;
 }
@@ -114,29 +114,64 @@ void DSi_DSP::AudioCb(std::array<s16, 2> frame)
     // TODO
 }
 
-DSi_DSP::DSi_DSP(melonDS::DSi& dsi) : DSi(dsi)
+
+void DSi_DSP::StartDSPHLE()
 {
-    DSi.RegisterEventFuncs(Event_DSi_DSP, this, {MakeEventThunk(DSi_DSP, DSPCatchUpU32)});
+    // TODO
+    // check CRC32 of code
+    // fallback to Teakra if not found
+    printf("create HLE core\n");
 
-    //TeakraCore = new Teakra::Teakra();
-    HleCore = new DSPHLE_UcodeBase(DSi);
-    SCFG_RST = false;
+    u32 crc = 0;
 
-    // ????
-    //if (!TeakraCore) return false;
+    // Hash NWRAM B, which contains the DSP program
+    // The hash should be in the DSP's memory view
+    for (u32 addr = 0; addr < 0x40000; addr += 0x8000)
+    {
+        const u8* ptr = DSi.NWRAMMap_B[2][(addr >> 15) & 0x7];
+        crc = CRC32(ptr, 0x8000, crc);
+    }
+
+    printf("CRC = %08X\n", crc);
+
+    switch (crc)
+    {
+    case 0x63CAEC33: // Graphics SDK ucode v3
+        DSPCore = new DSP_HLE::GraphicsUcode(DSi, 3);
+        break;
+
+    default:
+        StartDSPLLE();
+        break;
+    }
+
+    if (DSPCore)
+        DSPCore->Reset();
+}
+
+void DSi_DSP::StopDSP()
+{
+    if (DSPCore) delete DSPCore;
+    DSPCore = nullptr;
+}
+
+void DSi_DSP::StartDSPLLE()
+{
+    auto teakra = new Teakra::Teakra();
+    DSPCore = teakra;
 
     using namespace std::placeholders;
 
-    /*TeakraCore->SetRecvDataHandler(0, std::bind(&DSi_DSP::IrqRep0, this));
-    TeakraCore->SetRecvDataHandler(1, std::bind(&DSi_DSP::IrqRep1, this));
-    TeakraCore->SetRecvDataHandler(2, std::bind(&DSi_DSP::IrqRep2, this));
+    teakra->SetRecvDataHandler(0, std::bind(&DSi_DSP::IrqRep0, this));
+    teakra->SetRecvDataHandler(1, std::bind(&DSi_DSP::IrqRep1, this));
+    teakra->SetRecvDataHandler(2, std::bind(&DSi_DSP::IrqRep2, this));
 
-    TeakraCore->SetSemaphoreHandler(std::bind(&DSi_DSP::IrqSem, this));
+    teakra->SetSemaphoreHandler(std::bind(&DSi_DSP::IrqSem, this));
 
     Teakra::SharedMemoryCallback smcb;
     smcb.read16 = std::bind(&DSi_DSP::DSPRead16, this, _1);
     smcb.write16 = std::bind(&DSi_DSP::DSPWrite16, this, _1, _2);
-    TeakraCore->SetSharedMemoryCallback(smcb);
+    teakra->SetSharedMemoryCallback(smcb);
 
     // these happen instantaneously and without too much regard for bus aribtration
     // rules, so, this might have to be changed later on
@@ -147,9 +182,23 @@ DSi_DSP::DSi_DSP(melonDS::DSi& dsi) : DSi(dsi)
     cb.write16 = [this](auto addr, auto val) { DSi.ARM9Write16(addr, val); };
     cb.read32 = [this](auto addr) { return DSi.ARM9Read32(addr); };
     cb.write32 = [this](auto addr, auto val) { DSi.ARM9Write32(addr, val); };
-    TeakraCore->SetAHBMCallback(cb);
+    teakra->SetAHBMCallback(cb);
 
-    TeakraCore->SetAudioCallback(std::bind(&DSi_DSP::AudioCb, this, _1));*/
+    teakra->SetAudioCallback(std::bind(&DSi_DSP::AudioCb, this, _1));
+}
+
+
+DSi_DSP::DSi_DSP(melonDS::DSi& dsi) : DSi(dsi)
+{
+    DSi.RegisterEventFuncs(Event_DSi_DSP, this, {MakeEventThunk(DSi_DSP, DSPCatchUpU32)});
+
+    DSPCore = nullptr;
+    SCFG_RST = false;
+
+    if (!__temp_dsphle)
+    {
+        StartDSPLLE();
+    }
 
     //PDATAReadFifo = new FIFO<u16>(16);
     //PDATAWriteFifo = new FIFO<u16>(16);
@@ -158,13 +207,10 @@ DSi_DSP::DSi_DSP(melonDS::DSi& dsi) : DSi(dsi)
 DSi_DSP::~DSi_DSP()
 {
     //if (PDATAWriteFifo) delete PDATAWriteFifo;
-    //if (TeakraCore) delete TeakraCore;
-    if (HleCore) delete HleCore;
+    StopDSP();
 
     //PDATAReadFifo = NULL;
     //PDATAWriteFifo = NULL;
-    //TeakraCore = NULL;
-    HleCore = nullptr;
 
     DSi.UnregisterEventFuncs(Event_DSi_DSP);
 }
@@ -186,7 +232,7 @@ void DSi_DSP::Reset()
     PDATAReadFifo.Clear();
     //PDATAWriteFifo->Clear();
     //TeakraCore->Reset();
-    HleCore->Reset();
+    if (DSPCore) DSPCore->Reset();
 
     DSi.CancelEvent(Event_DSi_DSP);
 
@@ -248,58 +294,46 @@ void DSi_DSP::PDataDMAWrite(u16 wrval)
 {
     u32 addr = DSP_PADR;
 
-    switch (DSP_PCFG & (7<<12)) // memory region select
+    if (DSPCore)
     {
-    case 0<<12: // data
-        //addr |= (u32)TeakraCore->DMAChan0GetDstHigh() << 16;
-        //TeakraCore->DataWriteA32(addr, wrval);
-        addr |= (u32)HleCore->DMAChan0GetDstHigh() << 16;
-        HleCore->DataWriteA32(addr, wrval);
-        break;
-    case 1<<12: // mmio
-        //TeakraCore->MMIOWrite(addr & 0x7FF, wrval);
-        HleCore->MMIOWrite(addr & 0x7FF, wrval);
-        break;
-    case 5<<12: // program
-        //addr |= (u32)TeakraCore->DMAChan0GetDstHigh() << 16;
-        //TeakraCore->ProgramWrite(addr, wrval);
-        addr |= (u32)HleCore->DMAChan0GetDstHigh() << 16;
-        HleCore->ProgramWrite(addr, wrval);
-        break;
-    case 7<<12:
-#if 0
-        addr |= (u32)TeakraCore->DMAChan0GetDstHigh() << 16;
-        // only do stuff when AHBM is configured correctly
-        if (TeakraCore->AHBMGetDmaChannel(0) == 0 && TeakraCore->AHBMGetDirection(0) == 1/*W*/)
+        switch (DSP_PCFG & (7<<12)) // memory region select
         {
-            switch (TeakraCore->AHBMGetUnitSize(0))
+        case 0<<12: // data
+            //addr |= (u32)TeakraCore->DMAChan0GetDstHigh() << 16;
+            //TeakraCore->DataWriteA32(addr, wrval);
+            addr |= (u32)DSPCore->DMAChan0GetDstHigh() << 16;
+            DSPCore->DataWriteA32(addr, wrval);
+            break;
+        case 1<<12: // mmio
+            //TeakraCore->MMIOWrite(addr & 0x7FF, wrval);
+            DSPCore->MMIOWrite(addr & 0x7FF, wrval);
+            break;
+        case 5<<12: // program
+            //addr |= (u32)TeakraCore->DMAChan0GetDstHigh() << 16;
+            //TeakraCore->ProgramWrite(addr, wrval);
+            addr |= (u32)DSPCore->DMAChan0GetDstHigh() << 16;
+            DSPCore->ProgramWrite(addr, wrval);
+            break;
+        case 7<<12:
+            addr |= (u32)DSPCore->DMAChan0GetDstHigh() << 16;
+            // only do stuff when AHBM is configured correctly
+            if (DSPCore->AHBMGetDmaChannel(0) == 0 && DSPCore->AHBMGetDirection(0) == 1/*W*/)
             {
-            case 0: /* 8bit */        DSi.ARM9Write8 (addr, (u8)wrval); break;
-            case 1: /* 16 b */ TeakraCore->AHBMWrite16(addr,     wrval); break;
-            // does it work like this, or should it first buffer two u16's
-            // until it has enough data to write to the actual destination?
-            // -> this seems to be correct behavior!
-            case 2: /* 32 b */ TeakraCore->AHBMWrite32(addr,     wrval); break;
+                switch (DSPCore->AHBMGetUnitSize(0))
+                {
+                case 0: /* 8bit */      DSi.ARM9Write8 (addr, (u8)wrval); break;
+                case 1: /* 16 b */ DSPCore->AHBMWrite16(addr,     wrval); break;
+                    // does it work like this, or should it first buffer two u16's
+                    // until it has enough data to write to the actual destination?
+                    // -> this seems to be correct behavior!
+                case 2: /* 32 b */ DSPCore->AHBMWrite32(addr,     wrval); break;
+                }
             }
+            break;
+        default: return;
         }
-#endif
-        addr |= (u32)HleCore->DMAChan0GetDstHigh() << 16;
-        // only do stuff when AHBM is configured correctly
-        if (HleCore->AHBMGetDmaChannel(0) == 0 && HleCore->AHBMGetDirection(0) == 1/*W*/)
-        {
-            switch (HleCore->AHBMGetUnitSize(0))
-            {
-            case 0: /* 8bit */        DSi.ARM9Write8 (addr, (u8)wrval); break;
-            case 1: /* 16 b */ HleCore->AHBMWrite16(addr,     wrval); break;
-                // does it work like this, or should it first buffer two u16's
-                // until it has enough data to write to the actual destination?
-                // -> this seems to be correct behavior!
-            case 2: /* 32 b */ HleCore->AHBMWrite32(addr,     wrval); break;
-            }
-        }
-        break;
-    default: return;
-    }printf("DSP: PDATA write %08X -> %04X\n", addr, wrval);
+    }
+    printf("DSP: PDATA write %08X -> %04X\n", addr, wrval);
 
     if (DSP_PCFG & (1<<1)) // auto-increment
         ++DSP_PADR; // overflows and stays within a 64k 'page' // TODO: is this +1 or +2?
@@ -311,52 +345,44 @@ u16 DSi_DSP::PDataDMARead()
 {
     u16 r = 0;
     u32 addr = DSP_PADR;
-    switch (DSP_PCFG & (7<<12)) // memory region select
+
+    if (DSPCore)
     {
-    case 0<<12: // data
-        //addr |= (u32)TeakraCore->DMAChan0GetDstHigh() << 16;
-        //r = TeakraCore->DataReadA32(addr);
-        addr |= (u32)HleCore->DMAChan0GetDstHigh() << 16;
-        r = HleCore->DataReadA32(addr);
-        break;
-    case 1<<12: // mmio
-        //r = TeakraCore->MMIORead(addr & 0x7FF);
-        r = HleCore->MMIORead(addr & 0x7FF);
-        break;
-    case 5<<12: // program
-        //addr |= (u32)TeakraCore->DMAChan0GetDstHigh() << 16;
-        //r = TeakraCore->ProgramRead(addr);
-        addr |= (u32)HleCore->DMAChan0GetDstHigh() << 16;
-        r = HleCore->ProgramRead(addr);
-        break;
-    case 7<<12:
-#if 0
-        addr |= (u32)TeakraCore->DMAChan0GetDstHigh() << 16;
-        // only do stuff when AHBM is configured correctly
-        if (TeakraCore->AHBMGetDmaChannel(0) == 0 && TeakraCore->AHBMGetDirection(0) == 0/*R*/)
+        switch (DSP_PCFG & (7<<12)) // memory region select
         {
-            switch (TeakraCore->AHBMGetUnitSize(0))
+        case 0<<12: // data
+            //addr |= (u32)TeakraCore->DMAChan0GetDstHigh() << 16;
+            //r = TeakraCore->DataReadA32(addr);
+            addr |= (u32)DSPCore->DMAChan0GetDstHigh() << 16;
+            r = DSPCore->DataReadA32(addr);
+            break;
+        case 1<<12: // mmio
+            //r = TeakraCore->MMIORead(addr & 0x7FF);
+            r = DSPCore->MMIORead(addr & 0x7FF);
+            break;
+        case 5<<12: // program
+            //addr |= (u32)TeakraCore->DMAChan0GetDstHigh() << 16;
+            //r = TeakraCore->ProgramRead(addr);
+            addr |= (u32)DSPCore->DMAChan0GetDstHigh() << 16;
+            r = DSPCore->ProgramRead(addr);
+            break;
+        case 7<<12:
+            addr |= (u32)DSPCore->DMAChan0GetDstHigh() << 16;
+            // only do stuff when AHBM is configured correctly
+            if (DSPCore->AHBMGetDmaChannel(0) == 0 && DSPCore->AHBMGetDirection(0) == 0/*R*/)
             {
-            case 0: /* 8bit */ r =             DSi.ARM9Read8 (addr); break;
-            case 1: /* 16 b */ r =      TeakraCore->AHBMRead16(addr); break;
-            case 2: /* 32 b */ r = (u16)TeakraCore->AHBMRead32(addr); break;
+                switch (DSPCore->AHBMGetUnitSize(0))
+                {
+                case 0: /* 8bit */ r =           DSi.ARM9Read8 (addr); break;
+                case 1: /* 16 b */ r =      DSPCore->AHBMRead16(addr); break;
+                case 2: /* 32 b */ r = (u16)DSPCore->AHBMRead32(addr); break;
+                }
             }
+            break;
+        default: return r;
         }
-#endif
-        addr |= (u32)HleCore->DMAChan0GetDstHigh() << 16;
-        // only do stuff when AHBM is configured correctly
-        if (HleCore->AHBMGetDmaChannel(0) == 0 && HleCore->AHBMGetDirection(0) == 0/*R*/)
-        {
-            switch (HleCore->AHBMGetUnitSize(0))
-            {
-            case 0: /* 8bit */ r =             DSi.ARM9Read8 (addr); break;
-            case 1: /* 16 b */ r =      HleCore->AHBMRead16(addr); break;
-            case 2: /* 32 b */ r = (u16)HleCore->AHBMRead32(addr); break;
-            }
-        }
-        break;
-    default: return r;
-    }printf("DSP: PDATA read %08X -> %04X (%04X)\n", addr, r, DSP_PCFG);
+    }
+    printf("DSP: PDATA read %08X -> %04X (%04X)\n", addr, r, DSP_PCFG);
 
     if (DSP_PCFG & (1<<1)) // auto-increment
         ++DSP_PADR; // overflows and stays within a 64k 'page' // TODO: is this +1 or +2?
@@ -444,8 +470,12 @@ u8 DSi_DSP::Read8(u32 addr)
     // no DSP_PCLEAR read
     //case 0x1C: return TeakraCore->GetSemaphore() & 0xFF; // SEM
     //case 0x1D: return TeakraCore->GetSemaphore() >> 8;
-    case 0x1C: return HleCore->GetSemaphore() & 0xFF; // SEM
-    case 0x1D: return HleCore->GetSemaphore() >> 8;
+    case 0x1C:
+        if (!DSPCore) return 0;
+        return DSPCore->GetSemaphore() & 0xFF; // SEM
+    case 0x1D:
+        if (!DSPCore) return 0;
+        return DSPCore->GetSemaphore() >> 8;
     }
 
     return 0;
@@ -468,8 +498,9 @@ u16 DSi_DSP::Read16(u32 addr)
     case 0x10: return DSP_PSEM;
     case 0x14: return DSP_PMASK;
     // no DSP_PCLEAR read
-    //case 0x1C: return TeakraCore->GetSemaphore(); // SEM
-    case 0x1C: return HleCore->GetSemaphore(); // SEM
+    case 0x1C:
+        if (!DSPCore) return 0;
+        return DSPCore->GetSemaphore(); // SEM
 
     case 0x20: return DSP_CMD[0];
     case 0x28: return DSP_CMD[1];
@@ -477,20 +508,20 @@ u16 DSi_DSP::Read16(u32 addr)
 
     case 0x24:
         {
-            //u16 r = TeakraCore->RecvData(0);printf("DSP: read CMD0, %04X\n", r);
-            u16 r = HleCore->RecvData(0);printf("DSP: read CMD0, %04X\n", r);
+            if (!DSPCore) return 0;
+            u16 r = DSPCore->RecvData(0);printf("DSP: read CMD0, %04X\n", r);
             return r;
         }
     case 0x2C:
         {
-            //u16 r = TeakraCore->RecvData(1);printf("DSP: read CMD1, %04X\n", r);
-            u16 r = HleCore->RecvData(1);printf("DSP: read CMD1, %04X\n", r);
+            if (!DSPCore) return 0;
+            u16 r = DSPCore->RecvData(1);printf("DSP: read CMD1, %04X\n", r);
             return r;
         }
     case 0x34:
         {
-            //u16 r = TeakraCore->RecvData(2);printf("DSP: read CMD2, %04X\n", r);
-            u16 r = HleCore->RecvData(2);printf("DSP: read CMD2, %04X\n", r);
+            if (!DSPCore) return 0;
+            u16 r = DSPCore->RecvData(2);printf("DSP: read CMD2, %04X\n", r);
             return r;
         }
     }
@@ -540,16 +571,18 @@ void DSi_DSP::Write16(u32 addr, u16 val)
 
     case 0x08:
         if ((DSP_PCFG & (1<<0)) && (!(val & (1<<0))))
-            HleCore->Start();
-        DSP_PCFG = val;
-        if (DSP_PCFG & (1<<0))
-            //TeakraCore->Reset();
-            HleCore->Reset();
-        /*else if (!fazil)
         {
-            fazil = true;
-            DSi.debug(0);
-        }*/
+            if (__temp_dsphle)
+                StartDSPHLE();
+        }
+        else if ((!(DSP_PCFG & (1<<0))) && (val & (1<<0)))
+        {
+            if (__temp_dsphle)
+                StopDSP();
+            else if (DSPCore)
+                DSPCore->Reset();
+        }
+        DSP_PCFG = val;
         if (DSP_PCFG & (1<<4))
             PDataDMAStart();
         else
@@ -558,38 +591,40 @@ void DSi_DSP::Write16(u32 addr, u16 val)
     // no PSTS writes
     case 0x10:
         DSP_PSEM = val;
-        //TeakraCore->SetSemaphore(val);
-        HleCore->SetSemaphore(val);
+        if (DSPCore)
+            DSPCore->SetSemaphore(val);
         break;
     case 0x14:
         DSP_PMASK = val;
-        //TeakraCore->MaskSemaphore(val);
-        HleCore->MaskSemaphore(val);
+        if (DSPCore)
+            DSPCore->MaskSemaphore(val);
         break;
     case 0x18: // PCLEAR
-        //TeakraCore->ClearSemaphore(val);
-        HleCore->ClearSemaphore(val);
-        //if (TeakraCore->GetSemaphore() == 0)
-        if (HleCore->GetSemaphore() == 0)
+        if (DSPCore)
+        {
+            DSPCore->ClearSemaphore(val);
+            if (DSPCore->GetSemaphore() == 0)
+                DSP_PSTS &= ~(1<<9);
+        }
+        else
             DSP_PSTS &= ~(1<<9);
-
         break;
     // SEM not writable
 
     case 0x20: // CMD0
         DSP_CMD[0] = val;printf("DSP: CMD0 = %04X\n", val);
-        //TeakraCore->SendData(0, val);
-        HleCore->SendData(0, val);
+        if (DSPCore)
+            DSPCore->SendData(0, val);
         break;
     case 0x28: // CMD1
         DSP_CMD[1] = val;printf("DSP: CMD1 = %04X\n", val);
-        //TeakraCore->SendData(1, val);
-        HleCore->SendData(1, val);
+        if (DSPCore)
+            DSPCore->SendData(1, val);
         break;
     case 0x30: // CMD2
         DSP_CMD[2] = val;printf("DSP: CMD2 = %04X\n", val);
-        //TeakraCore->SendData(2, val);
-        HleCore->SendData(2, val);
+        if (DSPCore)
+            DSPCore->SendData(2, val);
         break;
 
     // no REPx writes
@@ -627,8 +662,8 @@ void DSi_DSP::Run(u32 cycles)
         return;
     }
 
-    //TeakraCore->Run(cycles);
-    HleCore->Run(cycles);
+    if (DSPCore)
+        DSPCore->Run(cycles);
 
     DSPTimestamp += cycles;
 

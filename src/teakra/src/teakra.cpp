@@ -70,6 +70,10 @@ void Teakra::Reset() {
     impl->Reset();
 }
 
+void Teakra::DoSavestate(melonDS::Savestate* file) {
+    // TODO
+}
+
 void Teakra::Run(unsigned cycle) {
     impl->processor.Run(cycle);
 }

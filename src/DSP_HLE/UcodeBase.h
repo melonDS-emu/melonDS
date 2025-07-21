@@ -16,67 +16,57 @@
     with melonDS. If not, see http://www.gnu.org/licenses/.
 */
 
-#ifndef UCODE_BASE_H
-#define UCODE_BASE_H
+#ifndef UCODEBASE_H
+#define UCODEBASE_H
 
 #include <functional>
 
-#include "../types.h"
+#include "../DSi_DSP.h"
 #include "../Savestate.h"
 
 namespace melonDS
 {
+namespace DSP_HLE
+{
 
-class DSi;
-
-class DSPHLE_UcodeBase
+class UcodeBase: public DSPInterface
 {
 public:
-    DSPHLE_UcodeBase(melonDS::DSi& dsi);
-    ~DSPHLE_UcodeBase();
-    void Reset();
-    void DoSavestate(Savestate* file);
+    UcodeBase(melonDS::DSi& dsi);
+    virtual ~UcodeBase();
+    virtual void Reset();
+    virtual void DoSavestate(Savestate* file);
 
     typedef std::function<void()> fnReplyReadCb;
 
-    //void SetRecvDataHandler(u8 index, std::function<void()> func);
-    //void SetSemaphoreHandler(std::function<void()> func);
-
-    bool RecvDataIsReady(u8 index);
-    bool SendDataIsEmpty(u8 index);
+    bool RecvDataIsReady(u8 index) const;
+    bool SendDataIsEmpty(u8 index) const;
     u16 RecvData(u8 index);
-    void SendData(u8 index, u16 val);
+    virtual void SendData(u8 index, u16 val);
 
-    // TODO receive cmd
-    void SendReply(u8 index, u16 val);
-    void SetReplyReadCallback(u8 index, fnReplyReadCb callback);
-
+    u16 DMAChan0GetSrcHigh();
     u16 DMAChan0GetDstHigh();
-    u16 AHBMGetDmaChannel(u16 index);
-    u16 AHBMGetDirection(u16 index);
-    u16 AHBMGetUnitSize(u16 index);
+    u16 AHBMGetDmaChannel(u16 index) const;
+    u16 AHBMGetDirection(u16 index) const;
+    u16 AHBMGetUnitSize(u16 index) const;
 
-    u16 DataReadA32(u32 addr);
+    u16 DataReadA32(u32 addr) const;
     void DataWriteA32(u32 addr, u16 val);
     u16 MMIORead(u16 addr);
     void MMIOWrite(u16 addr, u16 val);
-    u16 ProgramRead(u32 addr);
+    u16 ProgramRead(u32 addr) const;
     void ProgramWrite(u32 addr, u16 val);
     u16 AHBMRead16(u32 addr);
-    u32 AHBMRead32(u32 addr);
+    u16 AHBMRead32(u32 addr);
     void AHBMWrite16(u32 addr, u16 val);
     void AHBMWrite32(u32 addr, u32 val);
 
-    u16 GetSemaphore();
+    u16 GetSemaphore() const;
     void SetSemaphore(u16 val);
     void ClearSemaphore(u16 val);
     void MaskSemaphore(u16 val);
 
-    void SetSemaphoreOut(u16 val);
-
     void Start();
-
-    void Run(u32 cycles);
 
 protected:
     melonDS::DSi& DSi;
@@ -94,15 +84,20 @@ protected:
 
     u16 UcodeCmd;
 
+    void SendReply(u8 index, u16 val);
+    void SetReplyReadCallback(u8 index, fnReplyReadCb callback);
+
+    void SetSemaphoreOut(u16 val);
+
     u16* LoadPipe(u8 index);
     u32 GetPipeLength(u16* pipe);
     u32 ReadPipe(u16* pipe, u16* data, u32 len);
 
     void RunUcodeCmd();
     void OnUcodeCmdFinish(u32 param);
-    void UcodeCmd_Scaling(u16* pipe);
 };
 
 }
+}
 
-#endif // UCODE_BASE_H
+#endif // UCODEBASE_H

@@ -5,6 +5,8 @@
 #include <functional>
 #include <memory>
 
+#include "../../../DSi_DSP.h"
+
 namespace Teakra {
 
 struct SharedMemoryCallback {
@@ -23,12 +25,13 @@ struct AHBMCallback {
     std::function<void(std::uint32_t address, std::uint32_t value)> write32;
 };
 
-class Teakra {
+class Teakra : public melonDS::DSPInterface {
 public:
     Teakra();
     ~Teakra();
 
     void Reset();
+    void DoSavestate(melonDS::Savestate* file);
 
     // APBP Data
     bool SendDataIsEmpty(std::uint8_t index) const;
