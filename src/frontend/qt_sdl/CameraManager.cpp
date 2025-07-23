@@ -26,6 +26,10 @@ using namespace melonDS;
 const char* kCamConfigPath[] = {"DSi.Camera0", "DSi.Camera1"};
 
 #if QT_VERSION >= 0x060000
+#if QT_CONFIG(permissions)
+#include <QCoreApplication>
+#include <QPermission>
+#endif
 
 CameraFrameDumper::CameraFrameDumper(QObject* parent) : QVideoSink(parent)
 {
@@ -245,14 +249,6 @@ void CameraManager::init()
                 delete camDevice;
                 camDevice = nullptr;
             }
-            else
-            {
-                camDumper = new CameraFrameDumper(this);
-
-                camSession = new QMediaCaptureSession(this);
-                camSession->setCamera(camDevice);
-                camSession->setVideoOutput(camDumper);
-            }
         }
 #else
         camDevice = new QCamera(camDeviceName.toUtf8());
@@ -328,12 +324,13 @@ void CameraManager::deInit()
 
 void CameraManager::start()
 {
-    if (startNum == 1) return;
-    startNum = 1;
-
     if (inputType == 2)
     {
         emit camStartSignal();
+    }
+    else
+    {
+        startNum = 1;
     }
 }
 
@@ -356,7 +353,32 @@ bool CameraManager::isStarted()
 void CameraManager::camStart()
 {
     if (camDevice)
+    {
+#if QT_VERSION_MAJOR >= 6
+#if QT_CONFIG(permissions)
+        QCameraPermission cameraPermission;
+        bool granted = false;
+        switch (qApp->checkPermission(cameraPermission)) {
+        case Qt::PermissionStatus::Undetermined:
+            qApp->requestPermission(cameraPermission, this, &CameraManager::camStart);;
+            return;
+        case Qt::PermissionStatus::Denied:
+            return;
+        case Qt::PermissionStatus::Granted:
+            break;
+        }
+#endif
+
+        camDumper = new CameraFrameDumper(this);
+
+        camSession = new QMediaCaptureSession(this);
+        camSession->setCamera(camDevice);
+        camSession->setVideoOutput(camDumper);
+#endif
+
         camDevice->start();
+    }
+    startNum = 1;
 }
 
 void CameraManager::camStop()
