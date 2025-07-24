@@ -26,7 +26,7 @@ using namespace melonDS;
 const char* kCamConfigPath[] = {"DSi.Camera0", "DSi.Camera1"};
 
 #if QT_VERSION >= 0x060000
-#if QT_CONFIG(permissions)
+#if QT_VERSION_CHECK(6, 5, 0) && QT_CONFIG(permissions)
 #include <QCoreApplication>
 #include <QPermission>
 #endif
@@ -355,7 +355,7 @@ void CameraManager::camStart()
     if (camDevice)
     {
 #if QT_VERSION_MAJOR >= 6
-#if QT_CONFIG(permissions)
+#if QT_VERSION_CHECK(6, 5, 0) && QT_CONFIG(permissions)
         QCameraPermission cameraPermission;
         bool granted = false;
         switch (qApp->checkPermission(cameraPermission)) {
