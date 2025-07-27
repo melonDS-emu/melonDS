@@ -687,7 +687,9 @@ void ComputeRenderer::SetRenderSettings(int scale, bool highResolutionCoordinate
     TileSize = (TileScale << 3); // TileSizeはint
     TileSize = (TileSize > 32) ? 32 : TileSize;
 
+    // TileSizeが32未満かどうかを1回だけ評価（再利用）
     bool isSmall = TileSize < 32;
+
     CoarseTileCountY = isSmall ? 4 : 6; // int
     ClearCoarseBinMaskLocalSize = isSmall ? 64 : 48; // int
 
