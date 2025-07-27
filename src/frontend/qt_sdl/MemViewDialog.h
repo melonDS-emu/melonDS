@@ -61,8 +61,16 @@ public:
     explicit CustomGraphicsScene(qreal x, qreal y, qreal width, qreal height, QObject *parent = nullptr) : QGraphicsScene(x, y, width, height, parent) {}
     ~CustomGraphicsScene() {}
 
+    void SetScrollBar(QScrollBar* pScrollBar) {
+        this->scrollBar = pScrollBar;
+    }
+
+private:
+    QScrollBar* scrollBar;
+
 protected:
     virtual void mousePressEvent(QGraphicsSceneMouseEvent *event);
+    virtual void wheelEvent(QGraphicsSceneWheelEvent *event);
 };
 
 class MemViewDialog : public QDialog
@@ -117,8 +125,6 @@ public:
         return nullptr;
     }
 
-    static const uint32_t arm9AddrStart = 0x02000000;
-    static const uint32_t arm9AddrEnd = 0x03000000 - 0x100;
 
 private slots:
     void done(int r);
@@ -128,6 +134,9 @@ private slots:
     void onAddressTextChanged(const QString &text);
 
 private:
+    uint32_t arm9AddrStart;
+    uint32_t arm9AddrEnd;
+
     QGraphicsView* gfxView;
     CustomGraphicsScene* gfxScene;
     MemViewThread* updateThread;

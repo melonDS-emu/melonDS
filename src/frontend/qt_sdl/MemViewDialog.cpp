@@ -20,7 +20,6 @@
 #include <QPainter>
 #include <QGraphicsTextItem>
 #include <QTextCursor>
-#include <QRegularExpression>
 
 #include "main.h"
 
@@ -57,8 +56,30 @@ void CustomGraphicsScene::mousePressEvent(QGraphicsSceneMouseEvent* event) {
     // }
 }
 
+void CustomGraphicsScene::wheelEvent(QGraphicsSceneWheelEvent *event) {
+    this->QGraphicsScene::wheelEvent(event);
+
+    if (this->scrollBar != nullptr) {
+        QWheelEvent *pEvent = new QWheelEvent(
+            event->pos(),
+            event->screenPos(),
+            QPoint(0, 0),
+            QPoint(0, event->delta()),
+            event->buttons(),
+            event->modifiers(),
+            event->phase(),
+            event->isInverted()
+        );
+
+        QApplication::sendEvent(this->scrollBar, pEvent);
+    }
+}
+
 MemViewDialog::MemViewDialog(QWidget* parent) : QDialog(parent)
 {
+    this->arm9AddrStart = 0x02000000;
+    this->arm9AddrEnd = 0x03000000 - 0x100;
+
     // set the dialog's basic properties
     this->setObjectName("MemViewDialog");
     this->setFixedSize(730, 300);
@@ -107,6 +128,7 @@ MemViewDialog::MemViewDialog(QWidget* parent) : QDialog(parent)
 
     this->gfxScene->clear();
     this->gfxScene->setSceneRect(0, 0, 550, 280);
+    this->gfxScene->SetScrollBar(this->scrollBar);
 
     this->scrollBar->setGeometry(710, 10, 16, 280);
     this->scrollBar->setMinimum(this->arm9AddrStart);
