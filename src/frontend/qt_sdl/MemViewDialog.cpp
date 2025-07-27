@@ -90,7 +90,10 @@ void CustomGraphicsScene::onFocusItemChanged(QGraphicsItem *newFocus, QGraphicsI
             QString text;
             text.setNum(addr + index, 16);
             dialog->GetAddrLabel()->setText(text.toUpper().rightJustified(8, '0').prepend("0x"));
-            dialog->GetValueAddrLineEdit()->setText(text.toUpper().rightJustified(8, '0').prepend("0x"));
+
+            if (dialog->GetFocusCheckbox()->isChecked()) {
+                dialog->GetValueAddrLineEdit()->setText(text.toUpper().rightJustified(8, '0').prepend("0x"));
+            }
         }
     }
 }
@@ -116,10 +119,10 @@ MemViewDialog::MemViewDialog(QWidget* parent) : QDialog(parent)
     this->addrDescLabel = new QLabel(this);
     this->addrLabel = new QLabel(this);
     this->updateRateLabel = new QLabel(this);
-    this->setValFocus = new QCheckBox(this);
     this->searchLineEdit = new QLineEdit(this);
     this->updateRate = new QSpinBox(this);
     this->setValGroup = new QGroupBox(this); 
+    this->setValFocus = new QCheckBox(this->setValGroup);
     this->setValBits = new QComboBox(this->setValGroup);
     this->setValBtn = new QPushButton(this->setValGroup);
     this->setValNumber = new QLineEdit(this->setValGroup);
@@ -136,8 +139,8 @@ MemViewDialog::MemViewDialog(QWidget* parent) : QDialog(parent)
     this->searchLineEdit->setPlaceholderText("Search...");
     this->searchLineEdit->setGeometry(8, 40, 144, 32);
 
-    this->setValFocus->setText("Big Endian");
-    this->setValFocus->setGeometry(5, 233, 131, 22);
+    this->setValFocus->setText("Address on focus");
+    this->setValFocus->setGeometry(4, 106, 131, 22);
 
     this->updateRateLabel->setText("Update:");
     this->updateRateLabel->setGeometry(7, 264, 58, 18);
@@ -162,7 +165,7 @@ MemViewDialog::MemViewDialog(QWidget* parent) : QDialog(parent)
     this->scrollBar->setPageStep(16);
     this->scrollBar->setOrientation(Qt::Orientation::Vertical);
 
-    this->setValGroup->setGeometry(8, 80, 143, 111);
+    this->setValGroup->setGeometry(8, 80, 143, 131);
 
     this->setValBits->addItem("8 bits");
     this->setValBits->addItem("16 bits");

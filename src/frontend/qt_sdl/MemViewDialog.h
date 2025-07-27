@@ -161,6 +161,10 @@ public:
         return this->setValAddr;
     }
 
+    QCheckBox* GetFocusCheckbox() {
+        return this->setValFocus;
+    }
+
 private slots:
     void done(int r);
     void updateText(int addrIndex, int index);
