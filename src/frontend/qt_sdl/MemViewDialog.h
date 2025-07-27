@@ -27,6 +27,9 @@
 #include <QThread>
 #include <QScrollBar>
 #include <QLabel>
+#include <QLineEdit>
+#include <QCheckBox>
+#include <QSpinBox>
 
 #include "types.h"
 #include "NDS.h"
@@ -69,6 +72,7 @@ class MemViewDialog : public QDialog
 public:
     explicit MemViewDialog(QWidget* parent);
     ~MemViewDialog();
+    melonDS::NDS* GetNDS();
 
     static MemViewDialog* currentDlg;
     static MemViewDialog* openDlg(QWidget* parent)
@@ -88,7 +92,6 @@ public:
         currentDlg = nullptr;
     }
 
-    melonDS::NDS* GetNDS() { return this->nds; }
 
     QGraphicsItem* GetItem(int addrIndex, int index) { 
         if (addrIndex < 16 && index < 16) { 
@@ -106,25 +109,32 @@ public:
         return nullptr;
     }
 
-    static const uint32_t arm9Addr = 0x02000000;
-    static const uint32_t arm9AddrEnd = 0x03000000 - 16;
+    static const uint32_t arm9AddrStart = 0x02000000;
+    static const uint32_t arm9AddrEnd = 0x03000000 - 0x100;
 
 private slots:
     void done(int r);
     void updateText(int addrIndex, int index);
     void updateAddress(int index);
+    void onAddressTextChanged(const QString &text);
 
 private:
     EmuInstance* emuInstance;
-    melonDS::NDS* nds;
 
     QGraphicsView* gfxView;
     CustomGraphicsScene* gfxScene;
     MemViewThread* updateThread;
     QScrollBar* scrollBar;
+    QLabel* addrLabel;
+    QLabel* addrValueLabel;
+    QLabel* updateRateLabel;
+    QCheckBox* isBigEndian;
+    QLineEdit* addrLineEdit;
+    QSpinBox* updateRate;
+
+    // yes I could just use `items()` but good ol' arraya are easier to work with
     QGraphicsItem* items[16][16];
     QGraphicsItem* addresses[16];
-    QLabel* label;
 
     friend class MemViewThread;
 };
@@ -135,10 +145,14 @@ class MemViewThread : public QThread {
     Q_OBJECT
 
 public:
-    explicit MemViewThread() {}
+    explicit MemViewThread(MemViewDialog* parent) : dialog(parent), running(false) {}
     ~MemViewThread() override;
 
     void Start();
+    void Stop();
+
+    MemViewDialog* dialog;
+    bool running;
 
 private:
     virtual void run() override;

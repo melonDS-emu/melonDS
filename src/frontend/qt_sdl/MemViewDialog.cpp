@@ -20,6 +20,7 @@
 #include <QPainter>
 #include <QGraphicsTextItem>
 #include <QTextCursor>
+#include <QRegularExpression>
 
 #include "main.h"
 
@@ -58,32 +59,65 @@ void CustomGraphicsScene::mousePressEvent(QGraphicsSceneMouseEvent* event) {
 
 MemViewDialog::MemViewDialog(QWidget* parent) : QDialog(parent)
 {
+    // set the dialog's basic properties
     this->setObjectName("MemViewDialog");
-    this->setFixedSize(550, 410);
+    this->setFixedSize(710, 300);
     this->setEnabled(true);
     this->setModal(false);
     this->setWindowTitle("Memory Viewer - melonDS");
     setAttribute(Qt::WA_DeleteOnClose);
 
+    // fetch the emulator's instance and the NDS data from the main window
     this->emuInstance = ((MainWindow*)parent)->getEmuInstance();
-    this->nds = this->emuInstance->getNDS();
+
+    // create the widgets, maybe not necessary to keep a reference to everything but whatever
     this->gfxScene = new CustomGraphicsScene(this);
     this->gfxView = new QGraphicsView(this);
     this->scrollBar = new QScrollBar(this);
-    this->updateThread = new MemViewThread();
-    this->label = new QLabel(this);
-    this->label->setGeometry(10, 10, 1000, 30);
+    this->updateThread = new MemViewThread(this);
+    this->addrLabel = new QLabel(this);
+    this->addrValueLabel = new QLabel(this);
+    this->updateRateLabel = new QLabel(this);
+    this->isBigEndian = new QCheckBox(this);
+    this->addrLineEdit = new QLineEdit(this);
+    this->updateRate = new QSpinBox(this);
+
+    this->addrLabel->setText("Address:");
+    this->addrLabel->setGeometry(10, 20, 58, 18);
+
+    this->addrValueLabel->setText("0x00000000");
+    this->addrValueLabel->setGeometry(74, 20, 81, 18);
+    this->addrValueLabel->setTextInteractionFlags(Qt::TextInteractionFlag::TextSelectableByMouse);
+
+    this->addrLineEdit->setMaxLength(10);
+    this->addrLineEdit->setPlaceholderText("Search...");
+    this->addrLineEdit->setGeometry(8, 40, 144, 32);
+
+    this->isBigEndian->setText("Big Endian");
+    this->isBigEndian->setGeometry(5, 233, 131, 22);
+
+    this->updateRateLabel->setText("Update:");
+    this->updateRateLabel->setGeometry(7, 264, 58, 18);
+
+    this->updateRate->setGeometry(61, 257, 91, 32);
+    this->updateRate->setMinimum(50);
+    this->updateRate->setMaximum(10000);
+    this->updateRate->setValue(50);
+    this->updateRate->setSuffix(" ms");
 
     this->gfxView->setScene(this->gfxScene);
-    this->gfxView->setGeometry(10, 120, 520, 275);
+    this->gfxView->setGeometry(160, 10, 530, 280);
+
     this->gfxScene->clear();
-    this->gfxScene->setSceneRect(0, 0, 520, 275);
-    this->scrollBar->setGeometry(530, 120, 16, 275);
-    this->scrollBar->setMinimum(this->arm9Addr);
+    this->gfxScene->setSceneRect(0, 0, 530, 280);
+
+    this->scrollBar->setGeometry(690, 10, 16, 280);
+    this->scrollBar->setMinimum(this->arm9AddrStart);
     this->scrollBar->setMaximum(this->arm9AddrEnd);
     this->scrollBar->setSingleStep(16);
     this->scrollBar->setPageStep(16);
 
+    // initialize the scene
     QString text;
     QColor color;
     QFont font("Monospace", 10, -1, false);
@@ -111,7 +145,7 @@ MemViewDialog::MemViewDialog(QWidget* parent) : QDialog(parent)
 
     // create addresses texts
     for (int i = 0; i < 16; i++) {
-        text.setNum(i * 16 + this->arm9Addr, 16);
+        text.setNum(i * 16 + this->arm9AddrStart, 16);
 
         QGraphicsTextItem* textItem = new QGraphicsTextItem(text.toUpper().rightJustified(8, '0').prepend("0x"));
         textItem->setFont(font);
@@ -145,6 +179,7 @@ MemViewDialog::MemViewDialog(QWidget* parent) : QDialog(parent)
     this->updateThread->Start();
     connect(this->updateThread, &MemViewThread::updateTextSignal, this, &MemViewDialog::updateText);
     connect(this->updateThread, &MemViewThread::updateAddressSignal, this, &MemViewDialog::updateAddress);
+    connect(this->addrLineEdit, &QLineEdit::textChanged, this, &MemViewDialog::onAddressTextChanged);
 
     qRegisterMetaType<QVector<int>>("QVector<int>");
     qRegisterMetaType<u32>("u32");
@@ -155,14 +190,21 @@ MemViewDialog::MemViewDialog(QWidget* parent) : QDialog(parent)
 
 MemViewDialog::~MemViewDialog()
 {
-    this->gfxScene->deleteLater();
-    this->gfxView->deleteLater();
-    this->scrollBar->deleteLater();
-    this->updateThread->deleteLater();
-    delete this->gfxScene;
-    delete this->gfxView;
-    delete this->scrollBar;
-    delete this->updateThread;
+    disconnect(this->updateThread, nullptr, this, nullptr);
+
+    if (this->updateThread) {
+        this->updateThread->Stop();
+        delete this->updateThread;
+        this->updateThread = nullptr;
+    }
+}
+
+melonDS::NDS* MemViewDialog::GetNDS()  { 
+    if (this->emuInstance) {
+        return this->emuInstance->getNDS();
+    }
+
+    return nullptr;
 }
 
 void MemViewDialog::done(int r)
@@ -176,20 +218,18 @@ void MemViewDialog::done(int r)
 void MemViewDialog::updateText(int addrIndex, int index) {
     QGraphicsTextItem* item = (QGraphicsTextItem*)this->GetItem(addrIndex, index);
     QString text;
-    QString text2;
-
-    text.setNum((ALIGN16(this->scrollBar->value())), 16);
-    text2.setNum(index, 16);
-    this->label->setText(text.toUpper().rightJustified(8, '0').prepend("0x").append(" - ").append(text2.toUpper()).append(" - "));
 
     if (item != nullptr) {
+        melonDS::NDS* nds = this->GetNDS();
+
         uint32_t address = ALIGN16(this->scrollBar->value()) + addrIndex * 16;
         u8 value;
-        
+
+        //! @bug: accessing MainRAM when doing cascading window close causes a segfault
         if (address < 0x027E0000) {
-            value = this->GetNDS()->MainRAM[(address + index) & this->GetNDS()->MainRAMMask];
+            value = nds->MainRAM[(address + index) & nds->MainRAMMask];
         } else {
-            value = this->GetNDS()->ARM9.DTCM[(address + index) & 0xFFFF];
+            value = nds->ARM9.DTCM[(address + index) & 0xFFFF];
         }
 
         text.setNum(value, 16);
@@ -209,26 +249,81 @@ void MemViewDialog::updateAddress(int index) {
     }
 }
 
+void MemViewDialog::onAddressTextChanged(const QString &text) {
+    QString rawAddr = text;
+    uint32_t addr = 0;
+
+    // remove the 0x prefix
+    if (text.startsWith("0x")) {
+        rawAddr = rawAddr.remove(0, 2);
+    }
+
+    // make sure the address is the right length
+    if (rawAddr.length() < 8) {
+        return;
+    }
+
+    addr = rawAddr.toUInt(0, 16);
+
+    // make sure the address is in the main memory (counting dtcm)
+    if (addr < this->arm9AddrStart || addr > this->arm9AddrEnd + 0x100) {
+        return;
+    }
+
+    // scroll bars are dumb and the `value()` method doesn't always return what you want as the step
+    // so we have to align the value...
+    uint32_t alignedAddr = ALIGN16(addr);
+
+    // compensate if the alignment makes the address higher than the user input
+    if (alignedAddr > addr) {
+        alignedAddr -= 0x10;
+    }
+
+    // to go to the desired address we just have to set the value of the scroll bar
+    // since the thread will handle updating the view based on that
+    this->scrollBar->setValue(alignedAddr);
+
+    QString val;
+    val.setNum(addr, 16);
+    this->addrValueLabel->setText(val.toUpper().rightJustified(8, '0').prepend("0x"));
+}
+
 // --- MemViewThread ---
 
 MemViewThread::~MemViewThread() {
-    this->quit();
-    this->wait();
+    this->Stop();
+    this->dialog = nullptr;
 }
 
 void MemViewThread::Start() {
     this->start();
-    Log(LogLevel::Debug, "MEMVIEW THREAD STARTED!!!!!");
+    this->running = true;
 }
 
+void MemViewThread::Stop() {
+    this->running = false;
+    this->quit();
+    this->wait();
+}
+
+
 void MemViewThread::run() {
-    while (true) {
-        QThread::msleep(50);
+#define CHECK_REFS {                                    \
+    if (!this->dialog || !this->dialog->updateRate) {   \
+        return;                                         \
+    }                                                   \
+}
+
+    while (this->running) {
+        CHECK_REFS
+        QThread::msleep(this->dialog->updateRate->value());
 
         for (int i = 0; i < 16; i++) {
+            CHECK_REFS
             emit updateAddressSignal(i);
 
             for (int j = 0; j < 16; j++) {
+                CHECK_REFS
                 emit updateTextSignal(i, j);
             }
         }
