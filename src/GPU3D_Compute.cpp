@@ -616,10 +616,6 @@ void ComputeRenderer::SetRenderSettings(int scale, bool highResolutionCoordinate
     MaxWorkTiles = TilesPerLine * TileLines * 16; // int
 
 
-
-#endif
-
-
     // v3
 
     // TileScaleを補正付きで算出するラムダ式 元の処理結果と完全一致
@@ -645,6 +641,47 @@ void ComputeRenderer::SetRenderSettings(int scale, bool highResolutionCoordinate
 
     // uint8_t TileScale 
     TileScale = getTileScale(ScaleFactor);
+
+    // TileSize計算 元の処理と完全一致
+    TileSize = (TileScale << 3); // TileSizeはint
+    TileSize = (TileSize > 32) ? 32 : TileSize;
+
+    bool isSmall = TileSize < 32;
+    CoarseTileCountY = isSmall ? 4 : 6; // int
+    ClearCoarseBinMaskLocalSize = isSmall ? 64 : 48; // int
+
+
+    CoarseTileArea = CoarseTileCountX * CoarseTileCountY; // int
+    CoarseTileW = CoarseTileCountX * TileSize; // int
+    CoarseTileH = CoarseTileCountY * TileSize; // int
+
+    TilesPerLine = ScreenWidth / TileSize; // int
+    TileLines = ScreenHeight / TileSize; // int
+
+    HiresCoordinates = highResolutionCoordinates; // bool
+    MaxWorkTiles = TilesPerLine * TileLines * 16; // int
+
+
+
+#endif
+
+
+    // v4
+
+// TileScale補正付き算出マクロ（元の処理と完全一致保証）
+#define GET_TILE_SCALE(sf)                                         \
+    ({                                                             \
+        uint8_t _sf = (sf);                                        \
+        uint8_t _base = (2 * _sf) / 9;                             \
+        _base |= (_base == 0); /* ゼロ補正（MSB抽出のUB防止） */  \
+        uint8_t _msb = 1u << (31 - __builtin_clz(_base));          \
+        uint8_t _ts = _msb << 1; /* TileScale = MSB × 2 */         \
+        if (_sf <= 4) _ts = 1; /* 完全一致補正 */                  \
+        _ts;                                                       \
+    })
+
+    // uint8_t TileScale 
+    TileScale = GET_TILE_SCALE(ScaleFactor);
 
 	// TileSize計算 元の処理と完全一致
     TileSize = (TileScale << 3); // TileSizeはint
