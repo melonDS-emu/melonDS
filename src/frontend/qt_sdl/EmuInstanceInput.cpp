@@ -497,10 +497,47 @@ float EmuInstance::hotkeyAnalogueValue(int id) {
 
 // MelonPrimeDS
 melonDS::u32 EmuInstance::getInputMask() {
+/*
     melonDS::u32 mask = 0;
     for (int i = 0; i < 12; i++) {
         if (inputMask.at(i)) mask |= (1 << i);
     }
 
     return mask;
+    */
+
+#ifdef COMMENTOUTTTTTTTT
+    // 結果マスク初期化(全ビットOFFの状態で開始)
+    melonDS::u32 mask = 0;
+
+    // 各ビットに対して状態を確認して合成(ループ無しで最小分岐)
+    mask |= static_cast<melonDS::u32>(inputMask.testBit(0)) << 0;  // Bit 0
+    mask |= static_cast<melonDS::u32>(inputMask.testBit(1)) << 1;  // Bit 1
+    mask |= static_cast<melonDS::u32>(inputMask.testBit(2)) << 2;  // Bit 2
+    mask |= static_cast<melonDS::u32>(inputMask.testBit(3)) << 3;  // Bit 3
+    mask |= static_cast<melonDS::u32>(inputMask.testBit(4)) << 4;  // Bit 4
+    mask |= static_cast<melonDS::u32>(inputMask.testBit(5)) << 5;  // Bit 5
+    mask |= static_cast<melonDS::u32>(inputMask.testBit(6)) << 6;  // Bit 6
+    mask |= static_cast<melonDS::u32>(inputMask.testBit(7)) << 7;  // Bit 7
+    mask |= static_cast<melonDS::u32>(inputMask.testBit(8)) << 8;  // Bit 8
+    mask |= static_cast<melonDS::u32>(inputMask.testBit(9)) << 9;  // Bit 9
+    mask |= static_cast<melonDS::u32>(inputMask.testBit(10)) << 10; // Bit 10
+    mask |= static_cast<melonDS::u32>(inputMask.testBit(11)) << 11; // Bit 11
+
+    // 完成したマスクを返却
+    return mask;
+#endif
+    return
+        (static_cast<melonDS::u32>(inputMask.testBit(0)) << 0) |
+        (static_cast<melonDS::u32>(inputMask.testBit(1)) << 1) |
+        (static_cast<melonDS::u32>(inputMask.testBit(2)) << 2) |
+        (static_cast<melonDS::u32>(inputMask.testBit(3)) << 3) |
+        (static_cast<melonDS::u32>(inputMask.testBit(4)) << 4) |
+        (static_cast<melonDS::u32>(inputMask.testBit(5)) << 5) |
+        (static_cast<melonDS::u32>(inputMask.testBit(6)) << 6) |
+        (static_cast<melonDS::u32>(inputMask.testBit(7)) << 7) |
+        (static_cast<melonDS::u32>(inputMask.testBit(8)) << 8) |
+        (static_cast<melonDS::u32>(inputMask.testBit(9)) << 9) |
+        (static_cast<melonDS::u32>(inputMask.testBit(10)) << 10) |
+        (static_cast<melonDS::u32>(inputMask.testBit(11)) << 11);
 }
