@@ -119,8 +119,6 @@ private slots:
     void onAddressTextChanged(const QString &text);
 
 private:
-    EmuInstance* emuInstance;
-
     QGraphicsView* gfxView;
     CustomGraphicsScene* gfxScene;
     MemViewThread* updateThread;

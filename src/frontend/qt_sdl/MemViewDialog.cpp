@@ -67,9 +67,6 @@ MemViewDialog::MemViewDialog(QWidget* parent) : QDialog(parent)
     this->setWindowTitle("Memory Viewer - melonDS");
     setAttribute(Qt::WA_DeleteOnClose);
 
-    // fetch the emulator's instance and the NDS data from the main window
-    this->emuInstance = ((MainWindow*)parent)->getEmuInstance();
-
     // create the widgets, maybe not necessary to keep a reference to everything but whatever
     this->gfxScene = new CustomGraphicsScene(this);
     this->gfxView = new QGraphicsView(this);
@@ -190,18 +187,22 @@ MemViewDialog::MemViewDialog(QWidget* parent) : QDialog(parent)
 
 MemViewDialog::~MemViewDialog()
 {
-    disconnect(this->updateThread, nullptr, this, nullptr);
-
     if (this->updateThread) {
+        disconnect(this->updateThread, nullptr, this, nullptr);
         this->updateThread->Stop();
         delete this->updateThread;
         this->updateThread = nullptr;
     }
 }
 
-melonDS::NDS* MemViewDialog::GetNDS()  { 
-    if (this->emuInstance) {
-        return this->emuInstance->getNDS();
+melonDS::NDS* MemViewDialog::GetNDS() {
+    // fetch the emulator's instance and the NDS data from the main window
+    // we're doing it each time we need to access the NDS data to prevent a segfault later
+    // when accessing MainRAM and DTCM
+    EmuInstance* emuInstance = ((MainWindow*)this->parent())->getEmuInstance();
+
+    if (emuInstance) {
+        return emuInstance->getNDS();
     }
 
     return nullptr;
@@ -224,11 +225,14 @@ void MemViewDialog::updateText(int addrIndex, int index) {
         uint32_t address = ALIGN16(this->scrollBar->value()) + addrIndex * 16;
         u8 value;
 
-        //! @bug: accessing MainRAM when doing cascading window close causes a segfault
         if (address < 0x027E0000) {
-            value = nds->MainRAM[(address + index) & nds->MainRAMMask];
+            if (nds->MainRAM) {
+                value = nds->MainRAM[(address + index) & nds->MainRAMMask];
+            }
         } else {
-            value = nds->ARM9.DTCM[(address + index) & 0xFFFF];
+            if (nds->ARM9.DTCM) {
+                value = nds->ARM9.DTCM[(address + index) & 0xFFFF];
+            }
         }
 
         text.setNum(value, 16);
@@ -305,24 +309,18 @@ void MemViewThread::Stop() {
     this->wait();
 }
 
-
 void MemViewThread::run() {
-#define CHECK_REFS {                                    \
-    if (!this->dialog || !this->dialog->updateRate) {   \
-        return;                                         \
-    }                                                   \
-}
-
     while (this->running) {
-        CHECK_REFS
+        if (!this->dialog || !this->dialog->updateRate) {
+            return;
+        }
+
         QThread::msleep(this->dialog->updateRate->value());
 
         for (int i = 0; i < 16; i++) {
-            CHECK_REFS
             emit updateAddressSignal(i);
 
             for (int j = 0; j < 16; j++) {
-                CHECK_REFS
                 emit updateTextSignal(i, j);
             }
         }
