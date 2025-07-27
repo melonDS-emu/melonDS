@@ -75,6 +75,26 @@ void CustomGraphicsScene::wheelEvent(QGraphicsSceneWheelEvent *event) {
     }
 }
 
+void CustomGraphicsScene::onFocusItemChanged(QGraphicsItem *newFocus, QGraphicsItem *oldFocus, Qt::FocusReason reason) {
+    MemViewDialog* dialog = (MemViewDialog*)this->parent();
+
+    if (dialog != nullptr && newFocus != nullptr) {
+        int index = dialog->GetItemIndex(newFocus);
+        uint32_t addr = dialog->GetAddressFromItem((CustomTextItem*)newFocus);
+
+        if (addr >= dialog->arm9AddrEnd + 0x100) {
+            addr = dialog->arm9AddrEnd;
+        }
+
+        if (index >= 0) {
+            QString text;
+            text.setNum(addr + index, 16);
+            dialog->GetAddrLabel()->setText(text.toUpper().rightJustified(8, '0').prepend("0x"));
+            dialog->GetValueAddrLineEdit()->setText(text.toUpper().rightJustified(8, '0').prepend("0x"));
+        }
+    }
+}
+
 MemViewDialog::MemViewDialog(QWidget* parent) : QDialog(parent)
 {
     this->arm9AddrStart = 0x02000000;
@@ -103,6 +123,7 @@ MemViewDialog::MemViewDialog(QWidget* parent) : QDialog(parent)
     this->valueTypeSelect = new QComboBox(this->valueGroup);
     this->valueSetBtn = new QPushButton(this->valueGroup);
     this->valueLineEdit = new QLineEdit(this->valueGroup);
+    this->valueAddrLineEdit = new QLineEdit(this->valueGroup);
 
     this->addrLabel->setText("Address:");
     this->addrLabel->setGeometry(10, 20, 58, 18);
@@ -141,19 +162,22 @@ MemViewDialog::MemViewDialog(QWidget* parent) : QDialog(parent)
     this->scrollBar->setPageStep(16);
     this->scrollBar->setOrientation(Qt::Orientation::Vertical);
 
-    this->valueGroup->setGeometry(8, 80, 143, 95);
-    this->valueGroup->setTitle("Set Value");
+    this->valueGroup->setGeometry(8, 80, 143, 111);
 
     this->valueTypeSelect->addItem("8 bits");
     this->valueTypeSelect->addItem("16 bits");
     this->valueTypeSelect->addItem("32 bits");
     this->valueTypeSelect->setCurrentIndex(0);
-    this->valueTypeSelect->setGeometry(6, 59, 68, 30);
+    this->valueTypeSelect->setGeometry(6, 75, 68, 30);
 
     this->valueSetBtn->setText("Set");
-    this->valueSetBtn->setGeometry(this->valueTypeSelect->width() + 5, 59, 65, 30);
+    this->valueSetBtn->setGeometry(this->valueTypeSelect->width() + 5, 75, 65, 30);
 
-    this->valueLineEdit->setGeometry(7, 25, 129, 30);
+    this->valueLineEdit->setGeometry(7, 7, 129, 30);
+    this->valueLineEdit->setPlaceholderText("Set value...");
+
+    this->valueAddrLineEdit->setGeometry(7, 40, 129, 30);
+    this->valueAddrLineEdit->setPlaceholderText("At address...");
 
     // initialize the scene
     QString text;
@@ -239,6 +263,7 @@ MemViewDialog::MemViewDialog(QWidget* parent) : QDialog(parent)
     connect(this->updateThread, &MemViewThread::updateDecodedSignal, this, &MemViewDialog::updateDecoded);
     connect(this->addrLineEdit, &QLineEdit::textChanged, this, &MemViewDialog::onAddressTextChanged);
     connect(this->valueSetBtn, &QPushButton::pressed, this, &MemViewDialog::onValueBtnSetPressed);
+    connect(this->gfxScene, &QGraphicsScene::focusItemChanged, this->gfxScene, &CustomGraphicsScene::onFocusItemChanged);
 
     qRegisterMetaType<QVector<int>>("QVector<int>");
     qRegisterMetaType<u32>("u32");
@@ -268,6 +293,26 @@ melonDS::NDS* MemViewDialog::GetNDS() {
     }
 
     return nullptr;
+}
+
+int MemViewDialog::GetAddressFromItem(CustomTextItem* item)  {
+    if (item != nullptr) {
+        for (int i = 0; i < 16; i++) {
+            for (int j = 0; j < 16; j++) {
+                if (this->items[i][j] == item) {
+                    QGraphicsTextItem* item = this->addresses[i];
+
+                    if (item != nullptr) {
+                        return item->toPlainText().remove(0, 2).toUInt(0, 16);
+                    }
+
+                    return -1;
+                }
+            }
+        }
+    }
+
+    return -1;
 }
 
 void MemViewDialog::done(int r)
@@ -379,9 +424,8 @@ void MemViewDialog::onAddressTextChanged(const QString &text) {
 }
 
 void MemViewDialog::onValueBtnSetPressed() {
-    QGraphicsItem* item = this->gfxScene->focusItem();
+    QString text = this->valueAddrLineEdit->text();
 
-    QString text = this->addrLineEdit->text();
     if (text.startsWith("0x")) {
         text.remove(0, 2);
     }

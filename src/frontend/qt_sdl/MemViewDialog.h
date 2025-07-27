@@ -76,6 +76,9 @@ public:
         this->scrollBar = pScrollBar;
     }
 
+public slots:
+    void onFocusItemChanged(QGraphicsItem *newFocus, QGraphicsItem *oldFocus, Qt::FocusReason reason);
+
 private:
     QScrollBar* scrollBar;
 
@@ -91,6 +94,7 @@ public:
     explicit MemViewDialog(QWidget* parent);
     ~MemViewDialog();
     melonDS::NDS* GetNDS();
+    int GetAddressFromItem(CustomTextItem* item);
 
     static MemViewDialog* currentDlg;
     static MemViewDialog* openDlg(QWidget* parent)
@@ -127,6 +131,20 @@ public:
         return nullptr;
     }
 
+    int GetItemIndex(QGraphicsItem* item) {
+        if (item != nullptr) {
+            for (int i = 0; i < 16; i++) {
+                for (int j = 0; j < 16; j++) {
+                    if (this->items[i][j] == item) {
+                        return j;
+                    }
+                }
+            }
+        }
+
+        return -1;
+    }
+
     QGraphicsItem* GetAsciiItem(int index) { 
         if (index < 16) { 
             return this->asciiStrings[index];
@@ -135,6 +153,13 @@ public:
         return nullptr;
     }
 
+    QLabel* GetAddrLabel() {
+        return this->addrValueLabel;
+    }
+
+    QLineEdit* GetValueAddrLineEdit() {
+        return this->valueAddrLineEdit;
+    }
 
 private slots:
     void done(int r);
@@ -144,10 +169,11 @@ private slots:
     void onAddressTextChanged(const QString &text);
     void onValueBtnSetPressed();
 
-private:
+public:
     uint32_t arm9AddrStart;
     uint32_t arm9AddrEnd;
 
+private:
     QGraphicsView* gfxView;
     CustomGraphicsScene* gfxScene;
     MemViewThread* updateThread;
@@ -163,11 +189,12 @@ private:
     QComboBox* valueTypeSelect;
     QPushButton* valueSetBtn;
     QLineEdit* valueLineEdit;
+    QLineEdit* valueAddrLineEdit;
 
     // yes I could just use `items()` but good ol' array are easier to work with
-    QGraphicsItem* items[16][16];
-    QGraphicsItem* addresses[16];
-    QGraphicsItem* asciiStrings[16];
+    CustomTextItem* items[16][16];
+    QGraphicsTextItem* addresses[16];
+    QGraphicsTextItem* asciiStrings[16];
     QString decodedStrings[16];
 
     friend class MemViewThread;
