@@ -109,6 +109,14 @@ public:
         return nullptr;
     }
 
+    QGraphicsItem* GetAsciiItem(int index) { 
+        if (index < 16) { 
+            return this->asciiStrings[index];
+        }
+
+        return nullptr;
+    }
+
     static const uint32_t arm9AddrStart = 0x02000000;
     static const uint32_t arm9AddrEnd = 0x03000000 - 0x100;
 
@@ -116,6 +124,7 @@ private slots:
     void done(int r);
     void updateText(int addrIndex, int index);
     void updateAddress(int index);
+    void updateDecoded(int index);
     void onAddressTextChanged(const QString &text);
 
 private:
@@ -133,6 +142,8 @@ private:
     // yes I could just use `items()` but good ol' arraya are easier to work with
     QGraphicsItem* items[16][16];
     QGraphicsItem* addresses[16];
+    QGraphicsItem* asciiStrings[16];
+    QString decodedStrings[16];
 
     friend class MemViewThread;
 };
@@ -158,6 +169,7 @@ private:
 signals:
     void updateTextSignal(int addrIndex, int index);
     void updateAddressSignal(int index);
+    void updateDecodedSignal(int index);
 };
 
 #endif // MEMVIEWDIALOG_H

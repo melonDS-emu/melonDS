@@ -61,7 +61,7 @@ MemViewDialog::MemViewDialog(QWidget* parent) : QDialog(parent)
 {
     // set the dialog's basic properties
     this->setObjectName("MemViewDialog");
-    this->setFixedSize(710, 300);
+    this->setFixedSize(730, 300);
     this->setEnabled(true);
     this->setModal(false);
     this->setWindowTitle("Memory Viewer - melonDS");
@@ -97,18 +97,18 @@ MemViewDialog::MemViewDialog(QWidget* parent) : QDialog(parent)
     this->updateRateLabel->setGeometry(7, 264, 58, 18);
 
     this->updateRate->setGeometry(61, 257, 91, 32);
-    this->updateRate->setMinimum(50);
+    this->updateRate->setMinimum(5); // below 5 ms it's causing slowdowns
     this->updateRate->setMaximum(10000);
-    this->updateRate->setValue(50);
+    this->updateRate->setValue(20);
     this->updateRate->setSuffix(" ms");
 
     this->gfxView->setScene(this->gfxScene);
-    this->gfxView->setGeometry(160, 10, 530, 280);
+    this->gfxView->setGeometry(160, 10, 550, 280);
 
     this->gfxScene->clear();
-    this->gfxScene->setSceneRect(0, 0, 530, 280);
+    this->gfxScene->setSceneRect(0, 0, 550, 280);
 
-    this->scrollBar->setGeometry(690, 10, 16, 280);
+    this->scrollBar->setGeometry(710, 10, 16, 280);
     this->scrollBar->setMinimum(this->arm9AddrStart);
     this->scrollBar->setMaximum(this->arm9AddrEnd);
     this->scrollBar->setSingleStep(16);
@@ -123,6 +123,7 @@ MemViewDialog::MemViewDialog(QWidget* parent) : QDialog(parent)
     for (int i = 0; i < 16; i++) {
         text.setNum(i, 16);
         QGraphicsTextItem* textItem = new QGraphicsTextItem(text.toUpper().rightJustified(2, '0'));
+        textItem->setParent(this->gfxScene);
         textItem->setFont(font);
         qreal x = i * textItem->font().pointSize() * 2; // column number * font size * text length
         qreal y = 0; // always zero
@@ -145,6 +146,7 @@ MemViewDialog::MemViewDialog(QWidget* parent) : QDialog(parent)
         text.setNum(i * 16 + this->arm9AddrStart, 16);
 
         QGraphicsTextItem* textItem = new QGraphicsTextItem(text.toUpper().rightJustified(8, '0').prepend("0x"));
+        textItem->setParent(this->gfxScene);
         textItem->setFont(font);
         textItem->setPos(0, i * textItem->font().pointSize() * 1.5f + textItem->font().pointSize() + 15);
         this->gfxScene->addItem(textItem);
@@ -152,10 +154,10 @@ MemViewDialog::MemViewDialog(QWidget* parent) : QDialog(parent)
     }
 
     // init memory view
-    int index = 0;
     for (int i = 0; i < 16; i++) {
         for (int j = 0; j < 16; j++) {
             CustomTextItem* textItem = new CustomTextItem("00");
+            textItem->setParent(this->gfxScene);
             textItem->setFont(font);
             qreal x = j * textItem->font().pointSize() * 2; // column number * font size * text length
             qreal y = 0; // always zero
@@ -169,13 +171,32 @@ MemViewDialog::MemViewDialog(QWidget* parent) : QDialog(parent)
         }
     }
 
+    // init ascii view header
+    QGraphicsTextItem* textItem = new QGraphicsTextItem("0123456789ABCDEF");
+    textItem->setParent(this->gfxScene);
+    textItem->setFont(font);
+    textItem->setPos(416, 0);
+    this->gfxScene->addItem(textItem);
+
+    // init ascii view
+    for (int i = 0; i < 16; i++) {
+        QGraphicsTextItem* textItem = new QGraphicsTextItem("................");
+        textItem->setParent(this->gfxScene);
+        textItem->setFont(font);
+        textItem->setPos(416, i * textItem->font().pointSize() * 1.5f + textItem->font().pointSize() + 15);
+        this->gfxScene->addItem(textItem);
+        this->asciiStrings[i] = textItem;
+    }
+
     // add separators
     QGraphicsLineItem* line1 = this->gfxScene->addLine(0, 25, this->gfxScene->width(), 25, QPen(color));
     QGraphicsLineItem* line2 = this->gfxScene->addLine(87, 0, 87, this->gfxScene->height(), QPen(color));
+    // QGraphicsLineItem* line3 = this->gfxScene->addLine(415, 0, 415, this->gfxScene->height(), QPen(color));
 
     this->updateThread->Start();
     connect(this->updateThread, &MemViewThread::updateTextSignal, this, &MemViewDialog::updateText);
     connect(this->updateThread, &MemViewThread::updateAddressSignal, this, &MemViewDialog::updateAddress);
+    connect(this->updateThread, &MemViewThread::updateDecodedSignal, this, &MemViewDialog::updateDecoded);
     connect(this->addrLineEdit, &QLineEdit::textChanged, this, &MemViewDialog::onAddressTextChanged);
 
     qRegisterMetaType<QVector<int>>("QVector<int>");
@@ -223,20 +244,33 @@ void MemViewDialog::updateText(int addrIndex, int index) {
 
     if (item != nullptr && nds != nullptr) {
         uint32_t address = ALIGN16(this->scrollBar->value()) + addrIndex * 16;
-        u8 value;
+        uint8_t byte;
 
         if (address < 0x027E0000) {
             if (nds->MainRAM) {
-                value = nds->MainRAM[(address + index) & nds->MainRAMMask];
+                byte = nds->MainRAM[(address + index) & nds->MainRAMMask];
             }
         } else {
             if (nds->ARM9.DTCM) {
-                value = nds->ARM9.DTCM[(address + index) & 0xFFFF];
+                byte = nds->ARM9.DTCM[(address + index) & 0xFFFF];
             }
         }
 
-        text.setNum(value, 16);
+        text.setNum(byte, 16);
         item->setPlainText(text.toUpper().rightJustified(2, '0'));
+
+        if (index == 0) {
+            this->decodedStrings[addrIndex].clear();
+        }
+
+        if (this->decodedStrings[addrIndex].length() < 16) {
+            // decode printable characters otherwise just use a dot
+            if (byte >= 0x20 && byte <= 0x7E) {
+                this->decodedStrings[addrIndex].append(QChar(byte));
+            } else {
+                this->decodedStrings[addrIndex].append(QChar('.'));
+            }
+        }
     }
 }
 
@@ -249,6 +283,15 @@ void MemViewDialog::updateAddress(int index) {
 
         text.setNum(address, 16);
         item->setPlainText(text.toUpper().rightJustified(8, '0').prepend("0x"));
+    }
+}
+
+void MemViewDialog::updateDecoded(int index) {
+    QGraphicsTextItem* item = (QGraphicsTextItem*)this->GetAsciiItem(index);
+    QString text;
+
+    if (item != nullptr) {
+        item->setPlainText(this->decodedStrings[index]);
     }
 }
 
@@ -315,7 +358,12 @@ void MemViewThread::run() {
             return;
         }
 
-        QThread::msleep(this->dialog->updateRate->value());
+        int time = this->dialog->updateRate->value();
+
+        // make sure it's never below 5 ms, this can happen if you have an empty field
+        time = time < 5 ? 5 : time;
+
+        QThread::msleep(time);
 
         for (int i = 0; i < 16; i++) {
             emit updateAddressSignal(i);
@@ -323,6 +371,8 @@ void MemViewThread::run() {
             for (int j = 0; j < 16; j++) {
                 emit updateTextSignal(i, j);
             }
+
+            emit updateDecodedSignal(i);
         }
     }
 }
