@@ -1128,7 +1128,7 @@ void EmuThread::run()
 * @param input QBitArray（少なくとも12bit以上あること）.
 * @return uint32_t 入力ビット状態（bit 0〜11）をまとめたマスク.
 */
-#define GET_INPUT_MASK(inputMask) (                                       \
+#define GET_INPUT_MASK(inputMask) (                                          \
     (static_cast<uint32_t>((inputMask).testBit(0))  << 0)  |                 \
     (static_cast<uint32_t>((inputMask).testBit(1))  << 1)  |                 \
     (static_cast<uint32_t>((inputMask).testBit(2))  << 2)  |                 \

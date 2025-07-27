@@ -579,7 +579,6 @@ void ComputeRenderer::SetRenderSettings(int scale, bool highResolutionCoordinate
 
     // v3 lut version ここまで
 
-#endif
 
 
     // v2
@@ -606,6 +605,56 @@ void ComputeRenderer::SetRenderSettings(int scale, bool highResolutionCoordinate
     TileSize = std::min(8 * TileScale, 32); // int
     CoarseTileCountY = TileSize < 32 ? 4 : 6; // int
     ClearCoarseBinMaskLocalSize = TileSize < 32 ? 64 : 48; // int
+    CoarseTileArea = CoarseTileCountX * CoarseTileCountY; // int
+    CoarseTileW = CoarseTileCountX * TileSize; // int
+    CoarseTileH = CoarseTileCountY * TileSize; // int
+
+    TilesPerLine = ScreenWidth / TileSize; // int
+    TileLines = ScreenHeight / TileSize; // int
+
+    HiresCoordinates = highResolutionCoordinates; // bool
+    MaxWorkTiles = TilesPerLine * TileLines * 16; // int
+
+
+
+#endif
+
+
+    // v3
+
+    // TileScaleを補正付きで算出するラムダ式 元の処理結果と完全一致
+    const auto getTileScale = [](uint8_t ScaleFactor) __attribute__((always_inline, hot, flatten)) -> uint8_t {
+        // baseスケールを算出（除算＋0補正）
+        uint8_t base = (2 * ScaleFactor) / 9;
+
+        // base == 0 の場合は1に補正（MSB抽出のUB防止）
+        base |= (base == 0);
+
+        // 最上位ビット（MSB）を抽出（ビルトイン命令使用）
+        uint8_t msb = 1u << (31 - __builtin_clz(base));
+
+        // TileScale = MSB × 2
+        uint8_t TileScale = msb << 1;
+
+        // ScaleFactorが1～4のときは特別にTileScaleを1に補正（完全一致用）
+        if (ScaleFactor <= 4)
+            TileScale = 1;
+
+        return TileScale;
+    };
+
+    // uint8_t TileScale 
+    TileScale = getTileScale(ScaleFactor);
+
+	// TileSize計算 元の処理と完全一致
+    TileSize = (TileScale << 3); // TileSizeはint
+    TileSize = (TileSize > 32) ? 32 : TileSize;
+
+    bool isSmall = TileSize < 32;
+    CoarseTileCountY = isSmall ? 4 : 6; // int
+    ClearCoarseBinMaskLocalSize = isSmall ? 64 : 48; // int
+
+
     CoarseTileArea = CoarseTileCountX * CoarseTileCountY; // int
     CoarseTileW = CoarseTileCountX * TileSize; // int
     CoarseTileH = CoarseTileCountY * TileSize; // int
