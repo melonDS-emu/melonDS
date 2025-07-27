@@ -218,10 +218,9 @@ void MemViewDialog::done(int r)
 void MemViewDialog::updateText(int addrIndex, int index) {
     QGraphicsTextItem* item = (QGraphicsTextItem*)this->GetItem(addrIndex, index);
     QString text;
+    melonDS::NDS* nds = this->GetNDS();
 
-    if (item != nullptr) {
-        melonDS::NDS* nds = this->GetNDS();
-
+    if (item != nullptr && nds != nullptr) {
         uint32_t address = ALIGN16(this->scrollBar->value()) + addrIndex * 16;
         u8 value;
 
