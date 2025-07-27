@@ -30,6 +30,9 @@
 #include <QLineEdit>
 #include <QCheckBox>
 #include <QSpinBox>
+#include <QGroupBox>
+#include <QComboBox>
+#include <QPushButton>
 
 #include "types.h"
 #include "NDS.h"
@@ -46,6 +49,14 @@ class CustomTextItem : public QGraphicsTextItem {
 public:
     explicit CustomTextItem(const QString &text, QGraphicsItem *parent = nullptr);
     ~CustomTextItem() {}
+    QRectF boundingRect() const override;
+
+    void SetSize(QRectF newSize) {
+        this->size = newSize;
+    }
+
+private:
+    QRectF size;
 
 protected:
     void mousePressEvent(QGraphicsSceneMouseEvent *event) override;
@@ -69,7 +80,6 @@ private:
     QScrollBar* scrollBar;
 
 protected:
-    virtual void mousePressEvent(QGraphicsSceneMouseEvent *event);
     virtual void wheelEvent(QGraphicsSceneWheelEvent *event);
 };
 
@@ -132,6 +142,7 @@ private slots:
     void updateAddress(int index);
     void updateDecoded(int index);
     void onAddressTextChanged(const QString &text);
+    void onValueBtnSetPressed();
 
 private:
     uint32_t arm9AddrStart;
@@ -148,7 +159,12 @@ private:
     QLineEdit* addrLineEdit;
     QSpinBox* updateRate;
 
-    // yes I could just use `items()` but good ol' arraya are easier to work with
+    QGroupBox* valueGroup; 
+    QComboBox* valueTypeSelect;
+    QPushButton* valueSetBtn;
+    QLineEdit* valueLineEdit;
+
+    // yes I could just use `items()` but good ol' array are easier to work with
     QGraphicsItem* items[16][16];
     QGraphicsItem* addresses[16];
     QGraphicsItem* asciiStrings[16];

@@ -20,6 +20,8 @@
 #include <QPainter>
 #include <QGraphicsTextItem>
 #include <QTextCursor>
+#include <QStyleOptionGraphicsItem>
+#include <QStyle>
 
 #include "main.h"
 
@@ -32,29 +34,21 @@ using Platform::LogLevel;
 MemViewDialog* MemViewDialog::currentDlg = nullptr;
 
 CustomTextItem::CustomTextItem(const QString &text, QGraphicsItem *parent) : QGraphicsTextItem(text, parent) {
-    this->setTextInteractionFlags(Qt::TextInteractionFlag::TextSelectableByMouse | Qt::TextInteractionFlag::TextSelectableByKeyboard);
-    this->setFlag(QGraphicsItem::ItemIsFocusable, false);
+    this->setTextInteractionFlags(Qt::TextInteractionFlag::TextSelectableByMouse);
+    this->setFlag(QGraphicsItem::ItemIsSelectable, false);
+    this->SetSize(QRectF(2, 6, 20, 15));
+}
+
+QRectF CustomTextItem::boundingRect() const {
+    return this->size;
 }
 
 void CustomTextItem::mousePressEvent(QGraphicsSceneMouseEvent *event) {
-    if (event->button() == Qt::LeftButton) {
-        // select everything
-        QTextCursor cursor = this->textCursor();
-        cursor.select(QTextCursor::Document);
-        this->setTextCursor(cursor);
-    }
+    this->QGraphicsTextItem::mousePressEvent(event);
 }
 
+// empty on purpose to disable the move behaviour
 void CustomTextItem::mouseMoveEvent(QGraphicsSceneMouseEvent *event) {}
-
-void CustomGraphicsScene::mousePressEvent(QGraphicsSceneMouseEvent* event) {
-    // if (event->button() == Qt::LeftButton) {
-    //     // deselect items if selected
-    //     foreach(QGraphicsItem* item, this->items()) {
-    //         item->setSelected(false);
-    //     }
-    // }
-}
 
 void CustomGraphicsScene::wheelEvent(QGraphicsSceneWheelEvent *event) {
     this->QGraphicsScene::wheelEvent(event);
@@ -70,6 +64,12 @@ void CustomGraphicsScene::wheelEvent(QGraphicsSceneWheelEvent *event) {
             event->phase(),
             event->isInverted()
         );
+
+        QGraphicsItem* item = this->focusItem();
+
+        if (item) {
+            item->clearFocus();
+        }
 
         QApplication::sendEvent(this->scrollBar, pEvent);
     }
@@ -99,13 +99,17 @@ MemViewDialog::MemViewDialog(QWidget* parent) : QDialog(parent)
     this->isBigEndian = new QCheckBox(this);
     this->addrLineEdit = new QLineEdit(this);
     this->updateRate = new QSpinBox(this);
+    this->valueGroup = new QGroupBox(this); 
+    this->valueTypeSelect = new QComboBox(this->valueGroup);
+    this->valueSetBtn = new QPushButton(this->valueGroup);
+    this->valueLineEdit = new QLineEdit(this->valueGroup);
 
     this->addrLabel->setText("Address:");
     this->addrLabel->setGeometry(10, 20, 58, 18);
 
     this->addrValueLabel->setText("0x00000000");
     this->addrValueLabel->setGeometry(74, 20, 81, 18);
-    this->addrValueLabel->setTextInteractionFlags(Qt::TextInteractionFlag::TextSelectableByMouse);
+    this->addrValueLabel->setTextInteractionFlags(Qt::TextInteractionFlag::TextEditorInteraction);
 
     this->addrLineEdit->setMaxLength(10);
     this->addrLineEdit->setPlaceholderText("Search...");
@@ -135,6 +139,21 @@ MemViewDialog::MemViewDialog(QWidget* parent) : QDialog(parent)
     this->scrollBar->setMaximum(this->arm9AddrEnd);
     this->scrollBar->setSingleStep(16);
     this->scrollBar->setPageStep(16);
+    this->scrollBar->setOrientation(Qt::Orientation::Vertical);
+
+    this->valueGroup->setGeometry(8, 80, 143, 95);
+    this->valueGroup->setTitle("Set Value");
+
+    this->valueTypeSelect->addItem("8 bits");
+    this->valueTypeSelect->addItem("16 bits");
+    this->valueTypeSelect->addItem("32 bits");
+    this->valueTypeSelect->setCurrentIndex(0);
+    this->valueTypeSelect->setGeometry(6, 59, 68, 30);
+
+    this->valueSetBtn->setText("Set");
+    this->valueSetBtn->setGeometry(this->valueTypeSelect->width() + 5, 59, 65, 30);
+
+    this->valueLineEdit->setGeometry(7, 25, 129, 30);
 
     // initialize the scene
     QString text;
@@ -187,7 +206,6 @@ MemViewDialog::MemViewDialog(QWidget* parent) : QDialog(parent)
             // account for addresses column length
             x += textItem->font().pointSize() * 8;
             textItem->setPos(x + 10, i * textItem->font().pointSize() * 1.5f + textItem->font().pointSize() + 15);
-            textItem->setTextInteractionFlags(Qt::TextInteractionFlag::TextEditorInteraction);
             this->gfxScene->addItem(textItem);
             this->items[i][j] = textItem;
         }
@@ -220,6 +238,7 @@ MemViewDialog::MemViewDialog(QWidget* parent) : QDialog(parent)
     connect(this->updateThread, &MemViewThread::updateAddressSignal, this, &MemViewDialog::updateAddress);
     connect(this->updateThread, &MemViewThread::updateDecodedSignal, this, &MemViewDialog::updateDecoded);
     connect(this->addrLineEdit, &QLineEdit::textChanged, this, &MemViewDialog::onAddressTextChanged);
+    connect(this->valueSetBtn, &QPushButton::pressed, this, &MemViewDialog::onValueBtnSetPressed);
 
     qRegisterMetaType<QVector<int>>("QVector<int>");
     qRegisterMetaType<u32>("u32");
@@ -260,7 +279,7 @@ void MemViewDialog::done(int r)
 #define ALIGN16(n) ((n + 0xF) & ~0xF)
 
 void MemViewDialog::updateText(int addrIndex, int index) {
-    QGraphicsTextItem* item = (QGraphicsTextItem*)this->GetItem(addrIndex, index);
+    CustomTextItem* item = (CustomTextItem*)this->GetItem(addrIndex, index);
     QString text;
     melonDS::NDS* nds = this->GetNDS();
 
@@ -278,8 +297,11 @@ void MemViewDialog::updateText(int addrIndex, int index) {
             }
         }
 
-        text.setNum(byte, 16);
-        item->setPlainText(text.toUpper().rightJustified(2, '0'));
+        // only update the text when the item isn't focused so we can edit it
+        if (!item->hasFocus()) {
+            text.setNum(byte, 16);
+            item->setPlainText(text.toUpper().rightJustified(2, '0'));
+        }
 
         if (index == 0) {
             this->decodedStrings[addrIndex].clear();
@@ -354,6 +376,51 @@ void MemViewDialog::onAddressTextChanged(const QString &text) {
     QString val;
     val.setNum(addr, 16);
     this->addrValueLabel->setText(val.toUpper().rightJustified(8, '0').prepend("0x"));
+}
+
+void MemViewDialog::onValueBtnSetPressed() {
+    QGraphicsItem* item = this->gfxScene->focusItem();
+
+    QString text = this->addrLineEdit->text();
+    if (text.startsWith("0x")) {
+        text.remove(0, 2);
+    }
+    uint32_t address = text.toUInt(0, 16);
+
+    text = this->valueLineEdit->text();
+    if (text.startsWith("0x")) {
+        text.remove(0, 2);
+    }
+
+    melonDS::NDS* nds = this->GetNDS();
+    void* pRAM = nullptr;
+    if (nds != nullptr) {
+        if (address < 0x027E0000) {
+            if (nds->MainRAM) {
+                pRAM = (void*)&nds->MainRAM[address & nds->MainRAMMask];
+            }
+        } else {
+            if (nds->ARM9.DTCM) {
+                pRAM = (void*)&nds->ARM9.DTCM[address & 0xFFFF];
+            }
+        }
+    }
+
+    if (pRAM != nullptr) {
+        switch (this->valueTypeSelect->currentIndex()) {
+            case 0: // 8 bits
+                *((uint8_t*)pRAM) = text.toUInt(0, 16);
+                break;
+            case 1: // 16 bits
+                *((uint16_t*)pRAM) = text.toUInt(0, 16);
+                break;
+            case 2: // 32 bits
+                *((uint32_t*)pRAM) = text.toUInt(0, 16);
+                break;
+            default:
+                return;
+        }
+    }
 }
 
 // --- MemViewThread ---
