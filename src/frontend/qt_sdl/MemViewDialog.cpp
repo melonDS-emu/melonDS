@@ -392,9 +392,7 @@ void MemViewDialog::onAddressTextChanged(const QString &text) {
     uint32_t addr = 0;
 
     // remove the 0x prefix
-    if (text.startsWith("0x")) {
-        rawAddr = rawAddr.remove(0, 2);
-    }
+    this->StripStringHex(&rawAddr);
 
     // make sure the address is the right length
     if (rawAddr.length() < 8) {
@@ -429,15 +427,11 @@ void MemViewDialog::onAddressTextChanged(const QString &text) {
 void MemViewDialog::onValueBtnSetPressed() {
     QString text = this->setValAddr->text();
 
-    if (text.startsWith("0x")) {
-        text.remove(0, 2);
-    }
+    this->StripStringHex(&text);
     uint32_t address = text.toUInt(0, 16);
 
     text = this->setValNumber->text();
-    if (text.startsWith("0x")) {
-        text.remove(0, 2);
-    }
+    this->StripStringHex(&text);
 
     melonDS::NDS* nds = this->GetNDS();
     void* pRAM = nullptr;

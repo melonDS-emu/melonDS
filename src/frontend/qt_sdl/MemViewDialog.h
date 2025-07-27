@@ -165,6 +165,12 @@ public:
         return this->setValFocus;
     }
 
+    void StripStringHex(QString* str) {
+        if (str->startsWith("0x")) {
+            str->remove(0, 2);
+        }
+    }
+
 private slots:
     void done(int r);
     void updateText(int addrIndex, int index);
