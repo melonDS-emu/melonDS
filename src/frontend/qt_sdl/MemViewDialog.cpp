@@ -71,14 +71,18 @@ MemViewDialog::MemViewDialog(QWidget* parent) : QDialog(parent)
     this->gfxView = new QGraphicsView(this);
     this->scrollBar = new QScrollBar(this);
     this->updateThread = new MemViewThread();
+    this->label = new QLabel(this);
+    this->label->setGeometry(10, 10, 1000, 30);
 
     this->gfxView->setScene(this->gfxScene);
     this->gfxView->setGeometry(10, 120, 520, 275);
     this->gfxScene->clear();
     this->gfxScene->setSceneRect(0, 0, 520, 275);
     this->scrollBar->setGeometry(530, 120, 16, 275);
-    this->scrollBar->setMinimum(0);
-    this->scrollBar->setMaximum((this->arm9AddrEnd - this->arm9Addr) / 16);
+    this->scrollBar->setMinimum(this->arm9Addr);
+    this->scrollBar->setMaximum(this->arm9AddrEnd);
+    this->scrollBar->setSingleStep(16);
+    this->scrollBar->setPageStep(16);
 
     QString text;
     QColor color;
@@ -130,7 +134,7 @@ MemViewDialog::MemViewDialog(QWidget* parent) : QDialog(parent)
             textItem->setPos(x + 10, i * textItem->font().pointSize() * 1.5f + textItem->font().pointSize() + 15);
             textItem->setTextInteractionFlags(Qt::TextInteractionFlag::TextEditorInteraction);
             this->gfxScene->addItem(textItem);
-            this->items[index++] = textItem;
+            this->items[i][j] = textItem;
         }
     }
 
@@ -167,12 +171,26 @@ void MemViewDialog::done(int r)
     closeDlg();
 }
 
-void MemViewDialog::updateText(int index) {
-    QGraphicsTextItem* item = (QGraphicsTextItem*)this->GetItem(index);
+#define ALIGN16(n) ((n + 0xF) & ~0xF)
+
+void MemViewDialog::updateText(int addrIndex, int index) {
+    QGraphicsTextItem* item = (QGraphicsTextItem*)this->GetItem(addrIndex, index);
     QString text;
+    QString text2;
+
+    text.setNum((ALIGN16(this->scrollBar->value())), 16);
+    text2.setNum(index, 16);
+    this->label->setText(text.toUpper().rightJustified(8, '0').prepend("0x").append(" - ").append(text2.toUpper()).append(" - "));
 
     if (item != nullptr) {
-        u8 value = this->GetNDS()->ARM9Read8(this->arm9Addr + (this->scrollBar->value() * 16) + index);
+        uint32_t address = ALIGN16(this->scrollBar->value()) + addrIndex * 16;
+        u8 value;
+        
+        if (address < 0x027E0000) {
+            value = this->GetNDS()->MainRAM[(address + index) & this->GetNDS()->MainRAMMask];
+        } else {
+            value = this->GetNDS()->ARM9.DTCM[(address + index) & 0xFFFF];
+        }
 
         text.setNum(value, 16);
         item->setPlainText(text.toUpper().rightJustified(2, '0'));
@@ -184,7 +202,7 @@ void MemViewDialog::updateAddress(int index) {
     QString text;
 
     if (item != nullptr) {
-        uint32_t address = this->arm9Addr + (this->scrollBar->value() + index) * 16;
+        uint32_t address = ALIGN16(this->scrollBar->value()) + index * 16;
 
         text.setNum(address, 16);
         item->setPlainText(text.toUpper().rightJustified(8, '0').prepend("0x"));
@@ -207,12 +225,12 @@ void MemViewThread::run() {
     while (true) {
         QThread::msleep(50);
 
-        for (int i = 0; i < 256; i++) {
-            emit updateTextSignal(i);
-        }
-
         for (int i = 0; i < 16; i++) {
             emit updateAddressSignal(i);
+
+            for (int j = 0; j < 16; j++) {
+                emit updateTextSignal(i, j);
+            }
         }
     }
 }

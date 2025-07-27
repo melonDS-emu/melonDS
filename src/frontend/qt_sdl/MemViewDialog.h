@@ -26,6 +26,7 @@
 #include <QGraphicsSceneMouseEvent>
 #include <QThread>
 #include <QScrollBar>
+#include <QLabel>
 
 #include "types.h"
 #include "NDS.h"
@@ -89,9 +90,9 @@ public:
 
     melonDS::NDS* GetNDS() { return this->nds; }
 
-    QGraphicsItem* GetItem(int index) { 
-        if (index < 256) { 
-            return this->items[index];
+    QGraphicsItem* GetItem(int addrIndex, int index) { 
+        if (addrIndex < 16 && index < 16) { 
+            return this->items[addrIndex][index];
         }
 
         return nullptr;
@@ -106,11 +107,11 @@ public:
     }
 
     static const uint32_t arm9Addr = 0x02000000;
-    static const uint32_t arm9AddrEnd = 0x03000000 - 1;
+    static const uint32_t arm9AddrEnd = 0x03000000 - 16;
 
 private slots:
     void done(int r);
-    void updateText(int index);
+    void updateText(int addrIndex, int index);
     void updateAddress(int index);
 
 private:
@@ -121,8 +122,9 @@ private:
     CustomGraphicsScene* gfxScene;
     MemViewThread* updateThread;
     QScrollBar* scrollBar;
-    QGraphicsItem* items[256];
+    QGraphicsItem* items[16][16];
     QGraphicsItem* addresses[16];
+    QLabel* label;
 
     friend class MemViewThread;
 };
@@ -142,7 +144,7 @@ private:
     virtual void run() override;
 
 signals:
-    void updateTextSignal(int index);
+    void updateTextSignal(int addrIndex, int index);
     void updateAddressSignal(int index);
 };
 
