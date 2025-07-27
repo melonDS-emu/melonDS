@@ -117,7 +117,7 @@ public:
 
     QGraphicsItem* GetItem(int addrIndex, int index) { 
         if (addrIndex < 16 && index < 16) { 
-            return this->items[addrIndex][index];
+            return this->ramTextItems[addrIndex][index];
         }
 
         return nullptr;
@@ -125,7 +125,7 @@ public:
 
     QGraphicsItem* GetAddressItem(int index) { 
         if (index < 16) { 
-            return this->addresses[index];
+            return this->leftAddrItems[index];
         }
 
         return nullptr;
@@ -135,7 +135,7 @@ public:
         if (item != nullptr) {
             for (int i = 0; i < 16; i++) {
                 for (int j = 0; j < 16; j++) {
-                    if (this->items[i][j] == item) {
+                    if (this->ramTextItems[i][j] == item) {
                         return j;
                     }
                 }
@@ -154,11 +154,11 @@ public:
     }
 
     QLabel* GetAddrLabel() {
-        return this->addrValueLabel;
+        return this->addrLabel;
     }
 
     QLineEdit* GetValueAddrLineEdit() {
-        return this->valueAddrLineEdit;
+        return this->setValAddr;
     }
 
 private slots:
@@ -178,22 +178,23 @@ private:
     CustomGraphicsScene* gfxScene;
     MemViewThread* updateThread;
     QScrollBar* scrollBar;
+    QLabel* addrDescLabel;
     QLabel* addrLabel;
-    QLabel* addrValueLabel;
     QLabel* updateRateLabel;
-    QCheckBox* isBigEndian;
-    QLineEdit* addrLineEdit;
+    QLineEdit* searchLineEdit;
     QSpinBox* updateRate;
 
-    QGroupBox* valueGroup; 
-    QComboBox* valueTypeSelect;
-    QPushButton* valueSetBtn;
-    QLineEdit* valueLineEdit;
-    QLineEdit* valueAddrLineEdit;
+    // value setter group
+    QGroupBox* setValGroup;
+    QComboBox* setValBits;
+    QPushButton* setValBtn;
+    QLineEdit* setValNumber;
+    QLineEdit* setValAddr;
+    QCheckBox* setValFocus;
 
     // yes I could just use `items()` but good ol' array are easier to work with
-    CustomTextItem* items[16][16];
-    QGraphicsTextItem* addresses[16];
+    CustomTextItem* ramTextItems[16][16];
+    QGraphicsTextItem* leftAddrItems[16];
     QGraphicsTextItem* asciiStrings[16];
     QString decodedStrings[16];
 

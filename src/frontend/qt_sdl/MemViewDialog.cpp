@@ -113,31 +113,31 @@ MemViewDialog::MemViewDialog(QWidget* parent) : QDialog(parent)
     this->gfxView = new QGraphicsView(this);
     this->scrollBar = new QScrollBar(this);
     this->updateThread = new MemViewThread(this);
+    this->addrDescLabel = new QLabel(this);
     this->addrLabel = new QLabel(this);
-    this->addrValueLabel = new QLabel(this);
     this->updateRateLabel = new QLabel(this);
-    this->isBigEndian = new QCheckBox(this);
-    this->addrLineEdit = new QLineEdit(this);
+    this->setValFocus = new QCheckBox(this);
+    this->searchLineEdit = new QLineEdit(this);
     this->updateRate = new QSpinBox(this);
-    this->valueGroup = new QGroupBox(this); 
-    this->valueTypeSelect = new QComboBox(this->valueGroup);
-    this->valueSetBtn = new QPushButton(this->valueGroup);
-    this->valueLineEdit = new QLineEdit(this->valueGroup);
-    this->valueAddrLineEdit = new QLineEdit(this->valueGroup);
+    this->setValGroup = new QGroupBox(this); 
+    this->setValBits = new QComboBox(this->setValGroup);
+    this->setValBtn = new QPushButton(this->setValGroup);
+    this->setValNumber = new QLineEdit(this->setValGroup);
+    this->setValAddr = new QLineEdit(this->setValGroup);
 
-    this->addrLabel->setText("Address:");
-    this->addrLabel->setGeometry(10, 20, 58, 18);
+    this->addrDescLabel->setText("Address:");
+    this->addrDescLabel->setGeometry(10, 20, 58, 18);
 
-    this->addrValueLabel->setText("0x00000000");
-    this->addrValueLabel->setGeometry(74, 20, 81, 18);
-    this->addrValueLabel->setTextInteractionFlags(Qt::TextInteractionFlag::TextEditorInteraction);
+    this->addrLabel->setText("0x00000000");
+    this->addrLabel->setGeometry(74, 20, 81, 18);
+    this->addrLabel->setTextInteractionFlags(Qt::TextInteractionFlag::TextEditorInteraction);
 
-    this->addrLineEdit->setMaxLength(10);
-    this->addrLineEdit->setPlaceholderText("Search...");
-    this->addrLineEdit->setGeometry(8, 40, 144, 32);
+    this->searchLineEdit->setMaxLength(10);
+    this->searchLineEdit->setPlaceholderText("Search...");
+    this->searchLineEdit->setGeometry(8, 40, 144, 32);
 
-    this->isBigEndian->setText("Big Endian");
-    this->isBigEndian->setGeometry(5, 233, 131, 22);
+    this->setValFocus->setText("Big Endian");
+    this->setValFocus->setGeometry(5, 233, 131, 22);
 
     this->updateRateLabel->setText("Update:");
     this->updateRateLabel->setGeometry(7, 264, 58, 18);
@@ -162,22 +162,22 @@ MemViewDialog::MemViewDialog(QWidget* parent) : QDialog(parent)
     this->scrollBar->setPageStep(16);
     this->scrollBar->setOrientation(Qt::Orientation::Vertical);
 
-    this->valueGroup->setGeometry(8, 80, 143, 111);
+    this->setValGroup->setGeometry(8, 80, 143, 111);
 
-    this->valueTypeSelect->addItem("8 bits");
-    this->valueTypeSelect->addItem("16 bits");
-    this->valueTypeSelect->addItem("32 bits");
-    this->valueTypeSelect->setCurrentIndex(0);
-    this->valueTypeSelect->setGeometry(6, 75, 68, 30);
+    this->setValBits->addItem("8 bits");
+    this->setValBits->addItem("16 bits");
+    this->setValBits->addItem("32 bits");
+    this->setValBits->setCurrentIndex(0);
+    this->setValBits->setGeometry(6, 75, 68, 30);
 
-    this->valueSetBtn->setText("Set");
-    this->valueSetBtn->setGeometry(this->valueTypeSelect->width() + 5, 75, 65, 30);
+    this->setValBtn->setText("Set");
+    this->setValBtn->setGeometry(this->setValBits->width() + 5, 75, 65, 30);
 
-    this->valueLineEdit->setGeometry(7, 7, 129, 30);
-    this->valueLineEdit->setPlaceholderText("Set value...");
+    this->setValNumber->setGeometry(7, 7, 129, 30);
+    this->setValNumber->setPlaceholderText("Set value...");
 
-    this->valueAddrLineEdit->setGeometry(7, 40, 129, 30);
-    this->valueAddrLineEdit->setPlaceholderText("At address...");
+    this->setValAddr->setGeometry(7, 40, 129, 30);
+    this->setValAddr->setPlaceholderText("At address...");
 
     // initialize the scene
     QString text;
@@ -215,7 +215,7 @@ MemViewDialog::MemViewDialog(QWidget* parent) : QDialog(parent)
         textItem->setFont(font);
         textItem->setPos(0, i * textItem->font().pointSize() * 1.5f + textItem->font().pointSize() + 15);
         this->gfxScene->addItem(textItem);
-        this->addresses[i] = textItem;
+        this->leftAddrItems[i] = textItem;
     }
 
     // init memory view
@@ -231,7 +231,7 @@ MemViewDialog::MemViewDialog(QWidget* parent) : QDialog(parent)
             x += textItem->font().pointSize() * 8;
             textItem->setPos(x + 10, i * textItem->font().pointSize() * 1.5f + textItem->font().pointSize() + 15);
             this->gfxScene->addItem(textItem);
-            this->items[i][j] = textItem;
+            this->ramTextItems[i][j] = textItem;
         }
     }
 
@@ -261,8 +261,8 @@ MemViewDialog::MemViewDialog(QWidget* parent) : QDialog(parent)
     connect(this->updateThread, &MemViewThread::updateTextSignal, this, &MemViewDialog::updateText);
     connect(this->updateThread, &MemViewThread::updateAddressSignal, this, &MemViewDialog::updateAddress);
     connect(this->updateThread, &MemViewThread::updateDecodedSignal, this, &MemViewDialog::updateDecoded);
-    connect(this->addrLineEdit, &QLineEdit::textChanged, this, &MemViewDialog::onAddressTextChanged);
-    connect(this->valueSetBtn, &QPushButton::pressed, this, &MemViewDialog::onValueBtnSetPressed);
+    connect(this->searchLineEdit, &QLineEdit::textChanged, this, &MemViewDialog::onAddressTextChanged);
+    connect(this->setValBtn, &QPushButton::pressed, this, &MemViewDialog::onValueBtnSetPressed);
     connect(this->gfxScene, &QGraphicsScene::focusItemChanged, this->gfxScene, &CustomGraphicsScene::onFocusItemChanged);
 
     qRegisterMetaType<QVector<int>>("QVector<int>");
@@ -299,8 +299,8 @@ int MemViewDialog::GetAddressFromItem(CustomTextItem* item)  {
     if (item != nullptr) {
         for (int i = 0; i < 16; i++) {
             for (int j = 0; j < 16; j++) {
-                if (this->items[i][j] == item) {
-                    QGraphicsTextItem* item = this->addresses[i];
+                if (this->ramTextItems[i][j] == item) {
+                    QGraphicsTextItem* item = this->leftAddrItems[i];
 
                     if (item != nullptr) {
                         return item->toPlainText().remove(0, 2).toUInt(0, 16);
@@ -420,18 +420,18 @@ void MemViewDialog::onAddressTextChanged(const QString &text) {
 
     QString val;
     val.setNum(addr, 16);
-    this->addrValueLabel->setText(val.toUpper().rightJustified(8, '0').prepend("0x"));
+    this->addrLabel->setText(val.toUpper().rightJustified(8, '0').prepend("0x"));
 }
 
 void MemViewDialog::onValueBtnSetPressed() {
-    QString text = this->valueAddrLineEdit->text();
+    QString text = this->setValAddr->text();
 
     if (text.startsWith("0x")) {
         text.remove(0, 2);
     }
     uint32_t address = text.toUInt(0, 16);
 
-    text = this->valueLineEdit->text();
+    text = this->setValNumber->text();
     if (text.startsWith("0x")) {
         text.remove(0, 2);
     }
@@ -451,7 +451,7 @@ void MemViewDialog::onValueBtnSetPressed() {
     }
 
     if (pRAM != nullptr) {
-        switch (this->valueTypeSelect->currentIndex()) {
+        switch (this->setValBits->currentIndex()) {
             case 0: // 8 bits
                 *((uint8_t*)pRAM) = text.toUInt(0, 16);
                 break;
