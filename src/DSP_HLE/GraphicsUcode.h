@@ -37,11 +37,6 @@ public:
     void Reset() override;
     void DoSavestate(Savestate* file) override;
 
-    typedef std::function<void()> fnReplyReadCb;
-
-    //void SetRecvDataHandler(u8 index, std::function<void()> func);
-    //void SetSemaphoreHandler(std::function<void()> func);
-
     void SendData(u8 index, u16 val) override;
 
 protected:
@@ -49,9 +44,6 @@ protected:
     u16 CmdIndex;
     u16 CmdParams[14];
 
-    /*void RunUcodeCmd();
-    void OnUcodeCmdFinish(u32 param);
-    void UcodeCmd_Scaling(u16* pipe);*/
     void TryStartCmd();
     void FinishCmd(u32 param);
 

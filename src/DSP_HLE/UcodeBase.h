@@ -70,7 +70,6 @@ public:
 
 protected:
     melonDS::DSi& DSi;
-    u16* DataMemory;
 
     u16 CmdReg[3];
     bool CmdWritten[3];
@@ -81,8 +80,6 @@ protected:
     u16 SemaphoreIn;        // ARM9 -> DSP
     u16 SemaphoreOut;       // DSP -> ARM9
     u16 SemaphoreMask;      // DSP -> ARM9
-
-    //u16 UcodeCmd;
 
     void SendReply(u8 index, u16 val);
     void SetReplyReadCallback(u8 index, fnReplyReadCb callback);
@@ -95,9 +92,6 @@ protected:
 
     void ReadARM9Mem(u16* mem, u32 addr, u32 len);
     void WriteARM9Mem(const u16* mem, u32 addr, u32 len);
-
-    //void RunUcodeCmd();
-    //void OnUcodeCmdFinish(u32 param);
 };
 
 }

@@ -42,8 +42,6 @@ UcodeBase::~UcodeBase()
 
 void UcodeBase::Reset()
 {
-    DataMemory = nullptr;
-
     memset(CmdReg, 0, sizeof(CmdReg));
     memset(CmdWritten, 0, sizeof(CmdWritten));
     memset(ReplyReg, 0, sizeof(ReplyReg));

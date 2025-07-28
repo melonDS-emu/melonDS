@@ -41,7 +41,7 @@ GraphicsUcode::GraphicsUcode(melonDS::DSi& dsi, int version) : UcodeBase(dsi)
 
 GraphicsUcode::~GraphicsUcode()
 {
-    //
+    DSi.UnregisterEventFuncs(Event_DSi_DSPHLE);
 }
 
 void GraphicsUcode::Reset()
@@ -189,7 +189,7 @@ void GraphicsUcode::FinishCmd(u32 param)
         break;
 
     case 2:
-        //CmdYuvToRgb();
+        CmdYuvToRgb();
         break;
     }
 
@@ -573,6 +573,52 @@ void GraphicsUcode::CmdScalingOneThird()
         dst_addr += (dst_width << 1);
 
         sy += 3;
+    }
+}
+
+
+void GraphicsUcode::CmdYuvToRgb()
+{
+    u32 len = (CmdParams[1] << 16) | CmdParams[0];
+    u32 src_addr = (CmdParams[3] << 16) | CmdParams[2];
+    u32 dst_addr = (CmdParams[5] << 16) | CmdParams[4];
+
+    for (u32 i = 0; i < len; i += 4)
+    {
+        u32 val = DSi.ARM9Read32(src_addr);
+        src_addr += 4;
+
+        s32 y1 = val & 0xFF;
+        s32 u = (val >> 8) & 0xFF;
+        s32 y2 = (val >> 16) & 0xFF;
+        s32 v = (val >> 24) & 0xFF;
+
+        u -= 128;
+        v -= 128;
+
+        // the ucode uses a bitshift based conversion
+        // the formulas below are an equivalent
+
+        s32 r = (v * 359) >> 8;
+        s32 g = -((u * 352) + (v * 731)) >> 10;
+        s32 b = (u * 1815) >> 10;
+
+        s32 r1 = y1 + r;
+        s32 g1 = y1 + g;
+        s32 b1 = y1 + b;
+
+        s32 r2 = y2 + r;
+        s32 g2 = y2 + g;
+        s32 b2 = y2 + b;
+
+        r1 = std::clamp(r1, 0, 255); g1 = std::clamp(g1, 0, 255); b1 = std::clamp(b1, 0, 255);
+        r2 = std::clamp(r2, 0, 255); g2 = std::clamp(g2, 0, 255); b2 = std::clamp(b2, 0, 255);
+
+        u32 col1 = (r1 >> 3) | ((g1 >> 3) << 5) | ((b1 >> 3) << 10) | 0x8000;
+        u32 col2 = (r2 >> 3) | ((g2 >> 3) << 5) | ((b2 >> 3) << 10) | 0x8000;
+
+        DSi.ARM9Write32(dst_addr, col1 | (col2 << 16));
+        dst_addr += 4;
     }
 }
 
