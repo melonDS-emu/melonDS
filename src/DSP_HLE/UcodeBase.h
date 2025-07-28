@@ -82,7 +82,7 @@ protected:
     u16 SemaphoreOut;       // DSP -> ARM9
     u16 SemaphoreMask;      // DSP -> ARM9
 
-    u16 UcodeCmd;
+    //u16 UcodeCmd;
 
     void SendReply(u8 index, u16 val);
     void SetReplyReadCallback(u8 index, fnReplyReadCb callback);
@@ -93,8 +93,11 @@ protected:
     u32 GetPipeLength(u16* pipe);
     u32 ReadPipe(u16* pipe, u16* data, u32 len);
 
-    void RunUcodeCmd();
-    void OnUcodeCmdFinish(u32 param);
+    void ReadARM9Mem(u16* mem, u32 addr, u32 len);
+    void WriteARM9Mem(const u16* mem, u32 addr, u32 len);
+
+    //void RunUcodeCmd();
+    //void OnUcodeCmdFinish(u32 param);
 };
 
 }

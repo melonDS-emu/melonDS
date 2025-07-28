@@ -45,9 +45,23 @@ public:
     void SendData(u8 index, u16 val) override;
 
 protected:
-    void RunUcodeCmd();
+    u8 CmdState;
+    u16 CmdIndex;
+    u16 CmdParams[14];
+
+    /*void RunUcodeCmd();
     void OnUcodeCmdFinish(u32 param);
-    void UcodeCmd_Scaling(u16* pipe);
+    void UcodeCmd_Scaling(u16* pipe);*/
+    void TryStartCmd();
+    void FinishCmd(u32 param);
+
+    void CmdScalingNearest();
+    void CmdScalingBilinear();
+    s32 CalcBicubicWeight(s32 x);
+    void CmdScalingBicubic();
+    void CmdScalingOneThird();
+
+    void CmdYuvToRgb();
 };
 
 }

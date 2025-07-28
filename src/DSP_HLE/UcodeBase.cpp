@@ -32,7 +32,7 @@ namespace DSP_HLE
 
 UcodeBase::UcodeBase(melonDS::DSi& dsi) : DSi(dsi)
 {
-    DSi.RegisterEventFuncs(Event_DSi_DSPHLE, this, {MakeEventThunk(UcodeBase, OnUcodeCmdFinish)});
+    //DSi.RegisterEventFuncs(Event_DSi_DSPHLE, this, {MakeEventThunk(UcodeBase, OnUcodeCmdFinish)});
 }
 
 UcodeBase::~UcodeBase()
@@ -56,7 +56,7 @@ void UcodeBase::Reset()
     SemaphoreOut = 0;
     SemaphoreMask = 0;
 
-    UcodeCmd = 0;
+    //UcodeCmd = 0;
 }
 
 void UcodeBase::DoSavestate(Savestate *file)
@@ -335,8 +335,8 @@ u32 UcodeBase::GetPipeLength(u16* pipe)
 
 u32 UcodeBase::ReadPipe(u16* pipe, u16* data, u32 len)
 {
-    u16* mem = (u16*)DSi.NWRAMMap_C[2][0];
-    u16* pipebuf = &mem[pipe[0]];
+    u16* mem = (u16*)DSi.NWRAMMap_C[2][pipe[0] >> 14];
+    u16* pipebuf = &mem[pipe[0] & 0x3FFF];
     u16 pipelen = pipe[1] >> 1;
     u16 rdptr = pipe[2] >> 1;
     u16 wrptr = pipe[3] >> 1;
@@ -357,7 +357,58 @@ printf("-> rd=%d\n", rdptr);
     return rdlen;
 }
 
-void UcodeBase::RunUcodeCmd()
+
+// TODO: those could be accelerated eventually?
+// by providing a way to read/write blocks of memory in NDS
+// rather than having to decode the address for every word
+
+void UcodeBase::ReadARM9Mem(u16* mem, u32 addr, u32 len)
+{
+    if (addr & 2)
+    {
+        *mem = DSi.ARM9Read16(addr);
+        mem++;
+        addr += 2;
+        len -= 2;
+    }
+    while (len >= 4)
+    {
+        *(u32*)mem = DSi.ARM9Read32(addr);
+        mem += 2;
+        addr += 4;
+        len -= 4;
+    }
+    if (len)
+    {
+        *mem = DSi.ARM9Read16(addr);
+        len -= 2;
+    }
+}
+
+void UcodeBase::WriteARM9Mem(const u16* mem, u32 addr, u32 len)
+{
+    if (addr & 2)
+    {
+        DSi.ARM9Write16(addr, *mem);
+        mem++;
+        addr += 2;
+        len -= 2;
+    }
+    while (len >= 4)
+    {
+        DSi.ARM9Write32(addr, *(u32*)mem);
+        mem += 2;
+        addr += 4;
+        len -= 4;
+    }
+    if (len)
+    {
+        DSi.ARM9Write16(addr, *mem);
+        len -= 2;
+    }
+}
+
+/*void UcodeBase::RunUcodeCmd()
 {
     u16* pipe = LoadPipe(7);
     u32 len = GetPipeLength(pipe);
@@ -372,7 +423,7 @@ void UcodeBase::OnUcodeCmdFinish(u32 param)
     printf("finish cmd %d, param=%d, %d/%d\n", UcodeCmd, param, CmdWritten[2], ReplyWritten[2]);
     UcodeCmd = 0;
     SendReply(1, (u16)param);
-}
+}*/
 
 
 }

@@ -146,7 +146,10 @@ void DSi_DSP::StartDSPHLE()
     }
 
     if (DSPCore)
+    {
         DSPCore->Reset();
+        DSPCore->Start();
+    }
 }
 
 void DSi_DSP::StopDSP()
@@ -196,9 +199,7 @@ DSi_DSP::DSi_DSP(melonDS::DSi& dsi) : DSi(dsi)
     SCFG_RST = false;
 
     if (!__temp_dsphle)
-    {
         StartDSPLLE();
-    }
 
     //PDATAReadFifo = new FIFO<u16>(16);
     //PDATAWriteFifo = new FIFO<u16>(16);
@@ -232,7 +233,10 @@ void DSi_DSP::Reset()
     PDATAReadFifo.Clear();
     //PDATAWriteFifo->Clear();
     //TeakraCore->Reset();
-    if (DSPCore) DSPCore->Reset();
+    if (__temp_dsphle)
+        StopDSP();
+    else if (DSPCore)
+        DSPCore->Reset();
 
     DSi.CancelEvent(Event_DSi_DSP);
 
@@ -557,6 +561,7 @@ void DSi_DSP::Write8(u32 addr, u8 val)
     }
 }
 bool fazil = false;
+int state = 0; u32 aacaddr=0; u32 aaclen = 0;
 void DSi_DSP::Write16(u32 addr, u16 val)
 {
     Log(LogLevel::Debug,"DSP WRITE16 %d %08X %08X  %08X\n", IsDSPCoreEnabled(), addr, val, DSi.GetPC(0));
@@ -620,6 +625,34 @@ void DSi_DSP::Write16(u32 addr, u16 val)
         DSP_CMD[1] = val;printf("DSP: CMD1 = %04X\n", val);
         if (DSPCore)
             DSPCore->SendData(1, val);
+            {
+                if (state==0 && val==1)
+                {
+                    state = 1;
+                }
+                else if (state > 0)
+                {
+                    if (state==1) aaclen = val;
+                    if (state==5) aacaddr = val << 16;
+                    if (state==6) aacaddr |= val;
+                    if (state==10)
+                    {
+                        printf("AAC FRAME: addr=%08X len=%08X\n", aacaddr, aaclen);
+
+                        for (int i = 0; i < aaclen; i+=16)
+                        {
+                            printf("%08X:  ", i);
+                            int l = 16;
+                            if ((i+l) > aaclen) l = aaclen-i;
+                            for (int j = 0; j < l; j++)
+                                printf("%02X ", DSi.ARM9Read8(aacaddr+i+j));
+                            printf("\n");
+                        }
+                    }
+                    state++;
+                    if (state>10) state = 0;
+                }
+            }
         break;
     case 0x30: // CMD2
         DSP_CMD[2] = val;printf("DSP: CMD2 = %04X\n", val);
