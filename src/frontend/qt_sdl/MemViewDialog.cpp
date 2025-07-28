@@ -26,8 +26,6 @@
 #include "main.h"
 
 using namespace melonDS;
-using Platform::Log;
-using Platform::LogLevel;
 
 // --- MemViewDialog ---
 
@@ -131,7 +129,7 @@ MemViewDialog::MemViewDialog(QWidget* parent) : QDialog(parent)
     this->addrDescLabel->setText("Address:");
     this->addrDescLabel->setGeometry(10, 20, 58, 18);
 
-    this->addrLabel->setText("0x00000000");
+    this->addrLabel->setText("0x02000000");
     this->addrLabel->setGeometry(74, 20, 81, 18);
     this->addrLabel->setTextInteractionFlags(Qt::TextInteractionFlag::TextEditorInteraction);
 
@@ -177,10 +175,10 @@ MemViewDialog::MemViewDialog(QWidget* parent) : QDialog(parent)
     this->setValBtn->setGeometry(this->setValBits->width() + 5, 75, 65, 30);
 
     this->setValNumber->setGeometry(7, 7, 129, 30);
-    this->setValNumber->setPlaceholderText("Set value...");
+    this->setValNumber->setPlaceholderText("Value");
 
     this->setValAddr->setGeometry(7, 40, 129, 30);
-    this->setValAddr->setPlaceholderText("At address...");
+    this->setValAddr->setPlaceholderText("Address");
 
     // initialize the scene
     QString text;
@@ -426,6 +424,11 @@ void MemViewDialog::onAddressTextChanged(const QString &text) {
 
 void MemViewDialog::onValueBtnSetPressed() {
     QString text = this->setValAddr->text();
+
+    // don't do anything if the address/value isn't set
+    if (text.isEmpty() || this->setValNumber->text().isEmpty()) {
+        return;
+    }
 
     this->StripStringHex(&text);
     uint32_t address = text.toUInt(0, 16);
