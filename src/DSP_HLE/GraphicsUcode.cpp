@@ -36,7 +36,7 @@ GraphicsUcode::GraphicsUcode(melonDS::DSi& dsi, int version) : UcodeBase(dsi)
 {
     DSi.RegisterEventFuncs(Event_DSi_DSPHLE, this, {MakeEventThunk(GraphicsUcode, FinishCmd)});
 
-    Log(LogLevel::Info, "DSP_HLE: initializing Graphics SDK ucode version %d\n", version);
+    Log(LogLevel::Info, "DSP_HLE: initializing Graphics SDK ucode version %02X\n", version);
 }
 
 GraphicsUcode::~GraphicsUcode()

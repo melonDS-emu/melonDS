@@ -136,8 +136,32 @@ void DSi_DSP::StartDSPHLE()
 
     switch (crc)
     {
+    case 0xCD2A8B1B: // Graphics SDK ucode v0
+        DSPCore = new DSP_HLE::GraphicsUcode(DSi, 0x00);
+        break;
+
+    case 0x7323B75B: // Graphics SDK ucode v1
+        DSPCore = new DSP_HLE::GraphicsUcode(DSi, 0x10);
+        break;
+
+    case 0xBD4B63B6: // Graphics SDK ucode v1 patch
+        DSPCore = new DSP_HLE::GraphicsUcode(DSi, 0x11);
+        break;
+
+    case 0x448BB6A2: // Graphics SDK ucode v2
+        DSPCore = new DSP_HLE::GraphicsUcode(DSi, 0x20);
+        break;
+
     case 0x63CAEC33: // Graphics SDK ucode v3
-        DSPCore = new DSP_HLE::GraphicsUcode(DSi, 3);
+        DSPCore = new DSP_HLE::GraphicsUcode(DSi, 0x30);
+        break;
+
+    case 0x1451EB84: // Graphics SDK ucode v4
+        DSPCore = new DSP_HLE::GraphicsUcode(DSi, 0x40);
+        break;
+
+    case 0x2C974FC8: // Graphics SDK ucode v5
+        DSPCore = new DSP_HLE::GraphicsUcode(DSi, 0x50);
         break;
 
     default:
