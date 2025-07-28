@@ -1116,7 +1116,7 @@ void DSi::MapNWRAM_B(u32 num, u8 val)
     // TODO REMOVE ME
     if ((val&3)==2 || (val&3)==3)
     {
-        debug(0);
+        //debug(0);
     }
 
     JIT.Memory.RemapNWRAM(1);
