@@ -474,8 +474,8 @@ void MemViewDialog::updateText(int addrIndex, int index) {
     if (item != nullptr && pRAM != nullptr) {
         uint8_t byte = *pRAM;
 
-        // only update the text when the item isn't focused so we can edit it
-        if (!item->hasFocus()) {
+        // only update the text when the item isn't in edition so we can edit it
+        if (!item->IsEditing()) {
             text.setNum(byte, 16);
             item->setPlainText(text.toUpper().rightJustified(2, '0'));
         }
@@ -602,6 +602,7 @@ void MemViewDialog::onApplyEditToRAM(uint8_t value, QGraphicsItem *focus) {
 
 void MemViewDialog::onSwitchFocus(FocusDirection eDirection) {
     int packed = this->GetItemIndex(this->gfxScene->focusItem());
+    int scrollValue = this->scrollBar->value();
 
     if (packed == -1) {
         return;
@@ -610,39 +611,56 @@ void MemViewDialog::onSwitchFocus(FocusDirection eDirection) {
     int index = packed & 0xFF;
     int addrIndex = (packed >> 8) & 0xFF;
 
+    /* 
+        Different things will happen depending on the position and the direction:
+            - direction up: decrease the address index if above 0, otherwise decrease the scroll bar's value by 16,
+            - direction down: increase the address index if under 15, otherwise increase the scroll bar's value by 16,
+            - direction left: decrease item index if above 0, otherwise set it to 15 and do the same actions as going up,
+            - direction right: increase item index if under 15, otherwise set it to 0 and do the same actions as going down,
+        and of course return immediately if the direction value is not valid, but that should never happen
+    */
+
     switch (eDirection) {
-        case FocusDirection_Up:
-            addrIndex--;
-            break;
-        case FocusDirection_Down:
-            addrIndex++;
-            break;
         case FocusDirection_Left:
-            index--;
+            if (index == 0) {
+                index = 15;
+                // fallthrough
+            } else {
+                index--;
+                break;
+            }
+        case FocusDirection_Up:
+            if (addrIndex == 0) {
+                scrollValue -= 0x10;
+            } else {
+                addrIndex--;
+            }
             break;
         case FocusDirection_Right:
-            index++;
+            if (index == 15) {
+                index = 0;
+                // fallthrough
+            } else {
+                index++;
+                break;
+            }
+        case FocusDirection_Down:
+            if (addrIndex == 15) {
+                scrollValue += 0x10;
+            } else {
+                addrIndex++;
+            }
             break;
         default:
             return;
     }
 
-    if (eDirection == FocusDirection_Left || eDirection == FocusDirection_Right) {
-        if (index >= 16) {
-            addrIndex++;
-            index = 0;
-        }
-
-        if (index < 0) {
-            addrIndex--;
-            index = 15;
-        }
-    }
-
     QGraphicsItem* item = this->GetItem(addrIndex, index);
     if (item != nullptr) {
-        if (addrIndex >= 0 && addrIndex <= 15 && index >= 0 && index <= 15) {
-            this->gfxScene->setFocusItem(item);
+        this->gfxScene->setFocusItem(item);
+
+        if (scrollValue >= this->arm9AddrStart && scrollValue <= this->arm9AddrEnd) {
+            this->scrollBar->setValue(scrollValue);
         }
     }
 }

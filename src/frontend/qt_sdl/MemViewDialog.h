@@ -84,6 +84,8 @@ public:
         this->setTextCursor(cursor);
     }
 
+    bool IsEditing() { return this->isEditing; }
+
 signals:
     void applyEditToRAM(uint8_t value, QGraphicsItem *focus);
     void switchFocus(FocusDirection eDirection);
