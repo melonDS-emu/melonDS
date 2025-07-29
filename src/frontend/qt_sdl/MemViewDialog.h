@@ -50,17 +50,24 @@ public:
     explicit CustomTextItem(const QString &text, QGraphicsItem *parent = nullptr);
     ~CustomTextItem() {}
     QRectF boundingRect() const override;
+    bool isKeyValid(int key);
 
     void SetSize(QRectF newSize) {
         this->size = newSize;
     }
 
+signals:
+    void applyEditToRAM(uint8_t value, QGraphicsItem *focus);
+
 private:
     QRectF size;
+    bool isEditing;
 
 protected:
     void mousePressEvent(QGraphicsSceneMouseEvent *event) override;
     void mouseMoveEvent(QGraphicsSceneMouseEvent *event) override;
+    void keyPressEvent(QKeyEvent *event) override;
+    void focusOutEvent(QFocusEvent *event) override;
 };
 
 class CustomGraphicsScene : public QGraphicsScene {
@@ -95,6 +102,8 @@ public:
     ~MemViewDialog();
     melonDS::NDS* GetNDS();
     int GetAddressFromItem(CustomTextItem* item);
+    void* GetRAM(uint32_t address);
+    uint32_t GetFocusAddress(QGraphicsItem *focus);
 
     static MemViewDialog* currentDlg;
     static MemViewDialog* openDlg(QWidget* parent)
@@ -113,7 +122,6 @@ public:
     {
         currentDlg = nullptr;
     }
-
 
     QGraphicsItem* GetItem(int addrIndex, int index) { 
         if (addrIndex < 16 && index < 16) { 
@@ -178,6 +186,7 @@ private slots:
     void updateDecoded(int index);
     void onAddressTextChanged(const QString &text);
     void onValueBtnSetPressed();
+    void onApplyEditToRAM(uint8_t value, QGraphicsItem *focus);
 
 public:
     uint32_t arm9AddrStart;

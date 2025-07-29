@@ -32,13 +32,39 @@ using namespace melonDS;
 MemViewDialog* MemViewDialog::currentDlg = nullptr;
 
 CustomTextItem::CustomTextItem(const QString &text, QGraphicsItem *parent) : QGraphicsTextItem(text, parent) {
-    this->setTextInteractionFlags(Qt::TextInteractionFlag::TextSelectableByMouse);
+    this->setTextInteractionFlags(Qt::TextInteractionFlag::TextEditorInteraction);
     this->setFlag(QGraphicsItem::ItemIsSelectable, false);
     this->SetSize(QRectF(2, 6, 20, 15));
+    this->isEditing = false;
 }
 
 QRectF CustomTextItem::boundingRect() const {
     return this->size;
+}
+
+bool CustomTextItem::isKeyValid(int key) {
+    // hex chars
+    if ((key >= Qt::Key_0 && key <= Qt::Key_9) || (key >= Qt::Key_A && key <= Qt::Key_F)) {
+        return true;
+    }
+
+    // navigation arrows
+    if (key >= Qt::Key_Left && key <= Qt::Key_Down) {
+        return true;
+    }
+
+    // other important keys
+    switch (key) {
+        case Qt::Key_Enter:
+        case Qt::Key_Return:
+        case Qt::Key_Delete:
+        case Qt::Key_Backspace:
+            return true;
+        default:
+            break;
+    }
+
+    return false;
 }
 
 void CustomTextItem::mousePressEvent(QGraphicsSceneMouseEvent *event) {
@@ -47,6 +73,43 @@ void CustomTextItem::mousePressEvent(QGraphicsSceneMouseEvent *event) {
 
 // empty on purpose to disable the move behaviour
 void CustomTextItem::mouseMoveEvent(QGraphicsSceneMouseEvent *event) {}
+
+void CustomTextItem::keyPressEvent(QKeyEvent *event) {
+    QString text = this->toPlainText();
+    int key = event->key();
+
+    // make sure that:
+    // - 1. the item is focused (probably always true though but wanna be safe)
+    // - 2. the key is valid, so either an hex digit or other keys like enter or delete
+    // - 3. the current text length don't exceed 2
+    if (!this->hasFocus() || !this->isKeyValid(key) || text.length() > 2) {
+        this->isEditing = false;
+        event->ignore();
+        return;
+    }
+
+    // turn enter keys to a validator, not clearing isEditing since focusOutEvent will do it
+    if (key == Qt::Key_Enter || key == Qt::Key_Return) {
+        this->clearFocus();
+        event->accept();
+        return;
+    }
+
+    // if the validation checks pass and it's not the enter key, process it
+    this->QGraphicsTextItem::keyPressEvent(event);
+    this->isEditing = true;
+}
+
+void CustomTextItem::focusOutEvent(QFocusEvent *event) {
+    // apply the value when the focus is cleared, if necessary
+    if (this->isEditing) {
+        QString text = this->toPlainText();
+        emit applyEditToRAM(text.toUInt(0, 16), this);
+        this->isEditing = false;
+    }
+
+    this->QGraphicsTextItem::focusOutEvent(event);
+}
 
 void CustomGraphicsScene::wheelEvent(QGraphicsSceneWheelEvent *event) {
     this->QGraphicsScene::wheelEvent(event);
@@ -77,16 +140,11 @@ void CustomGraphicsScene::onFocusItemChanged(QGraphicsItem *newFocus, QGraphicsI
     MemViewDialog* dialog = (MemViewDialog*)this->parent();
 
     if (dialog != nullptr && newFocus != nullptr) {
-        int index = dialog->GetItemIndex(newFocus);
-        uint32_t addr = dialog->GetAddressFromItem((CustomTextItem*)newFocus);
+        uint32_t addr = dialog->GetFocusAddress(newFocus);
 
-        if (addr >= dialog->arm9AddrEnd + 0x100) {
-            addr = dialog->arm9AddrEnd;
-        }
-
-        if (index >= 0) {
+        if (addr != -1) {
             QString text;
-            text.setNum(addr + index, 16);
+            text.setNum(addr, 16);
             dialog->GetAddrLabel()->setText(text.toUpper().rightJustified(8, '0').prepend("0x"));
 
             if (dialog->GetFocusCheckbox()->isChecked()) {
@@ -223,6 +281,7 @@ MemViewDialog::MemViewDialog(QWidget* parent) : QDialog(parent)
     for (int i = 0; i < 16; i++) {
         for (int j = 0; j < 16; j++) {
             CustomTextItem* textItem = new CustomTextItem("00");
+            connect(textItem, &CustomTextItem::applyEditToRAM, this, &MemViewDialog::onApplyEditToRAM);
             textItem->setParent(this->gfxScene);
             textItem->setFont(font);
             qreal x = j * textItem->font().pointSize() * 2; // column number * font size * text length
@@ -316,6 +375,42 @@ int MemViewDialog::GetAddressFromItem(CustomTextItem* item)  {
     return -1;
 }
 
+void* MemViewDialog::GetRAM(uint32_t address) {
+    melonDS::NDS* nds = this->GetNDS();
+
+    //! TODO: use Armv5::ReadMem instead
+    if (nds != nullptr) {
+        if (address < 0x027E0000) {
+            if (nds->MainRAM) {
+                return &nds->MainRAM[address & nds->MainRAMMask];
+            }
+        } else {
+            if (nds->ARM9.DTCM) {
+                return &nds->ARM9.DTCM[address & 0xFFFF];
+            }
+        }
+    }
+
+    return nullptr;
+}
+
+uint32_t MemViewDialog::GetFocusAddress(QGraphicsItem *focus) {
+    if (focus != nullptr) {
+        uint32_t addr = this->GetAddressFromItem((CustomTextItem*)focus);
+        int index = this->GetItemIndex(focus);
+
+        if (addr >= this->arm9AddrEnd + 0x100) {
+            addr = this->arm9AddrEnd;
+        }
+
+        if (index >= 0) {
+            return addr + index;
+        }
+    }
+
+    return -1;
+}
+
 void MemViewDialog::done(int r)
 {
     QDialog::done(r);
@@ -327,21 +422,16 @@ void MemViewDialog::done(int r)
 void MemViewDialog::updateText(int addrIndex, int index) {
     CustomTextItem* item = (CustomTextItem*)this->GetItem(addrIndex, index);
     QString text;
-    melonDS::NDS* nds = this->GetNDS();
 
-    if (item != nullptr && nds != nullptr) {
-        uint32_t address = ALIGN16(this->scrollBar->value()) + addrIndex * 16;
-        uint8_t byte;
+    if (this->scrollBar == nullptr) {
+        return;
+    }
 
-        if (address < 0x027E0000) {
-            if (nds->MainRAM) {
-                byte = nds->MainRAM[(address + index) & nds->MainRAMMask];
-            }
-        } else {
-            if (nds->ARM9.DTCM) {
-                byte = nds->ARM9.DTCM[(address + index) & 0xFFFF];
-            }
-        }
+    uint32_t address = ALIGN16(this->scrollBar->value()) + addrIndex * 16;
+    uint8_t* pRAM = (uint8_t*)this->GetRAM(address + index);
+
+    if (item != nullptr && pRAM != nullptr) {
+        uint8_t byte = *pRAM;
 
         // only update the text when the item isn't focused so we can edit it
         if (!item->hasFocus()) {
@@ -436,19 +526,7 @@ void MemViewDialog::onValueBtnSetPressed() {
     text = this->setValNumber->text();
     this->StripStringHex(&text);
 
-    melonDS::NDS* nds = this->GetNDS();
-    void* pRAM = nullptr;
-    if (nds != nullptr) {
-        if (address < 0x027E0000) {
-            if (nds->MainRAM) {
-                pRAM = (void*)&nds->MainRAM[address & nds->MainRAMMask];
-            }
-        } else {
-            if (nds->ARM9.DTCM) {
-                pRAM = (void*)&nds->ARM9.DTCM[address & 0xFFFF];
-            }
-        }
-    }
+    void* pRAM = this->GetRAM(address);
 
     if (pRAM != nullptr) {
         switch (this->setValBits->currentIndex()) {
@@ -465,6 +543,20 @@ void MemViewDialog::onValueBtnSetPressed() {
                 return;
         }
     }
+}
+
+void MemViewDialog::onApplyEditToRAM(uint8_t value, QGraphicsItem *focus) {
+    uint32_t addr = this->GetFocusAddress(focus);
+    if (addr == -1) {
+        return;
+    }
+
+    uint8_t* pRAM = (uint8_t*)this->GetRAM(addr);
+    if (pRAM == nullptr) {
+        return;
+    }
+
+    *pRAM = value;
 }
 
 // --- MemViewThread ---
