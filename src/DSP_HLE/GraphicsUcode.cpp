@@ -182,8 +182,7 @@ void GraphicsUcode::FinishCmd(u32 param)
         {
         case 2: CmdScalingBilinear(); break;
         case 3: CmdScalingBicubic(); break;
-        case 10:
-            CmdScalingOneThird(); break;
+        case 10: CmdScalingOneThird(); break;
         default: CmdScalingNearest(); break;
         }
         break;
@@ -451,8 +450,6 @@ void GraphicsUcode::CmdScalingBicubic()
             wy[1] = CalcBicubicWeight(fy);
             wy[2] = CalcBicubicWeight(0x400 - fy);
             wy[3] = CalcBicubicWeight(0x800 - fy);
-            //for (int i = 0; i < 4; i++)
-             //   printf("weight x%d = %08X  y%d = %08X\n", i, wx[i], i, wy[i]);
 
             s64 tr = 0, tg = 0, tb = 0;
 

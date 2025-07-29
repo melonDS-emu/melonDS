@@ -16,8 +16,8 @@
     with melonDS. If not, see http://www.gnu.org/licenses/.
 */
 
-#ifndef GRAPHICSUCODE_H
-#define GRAPHICSUCODE_H
+#ifndef AACUCODE_H
+#define AACUCODE_H
 
 #include <functional>
 
@@ -27,11 +27,11 @@
 namespace melonDS::DSP_HLE
 {
 
-class GraphicsUcode : public UcodeBase
+class AACUcode : public UcodeBase
 {
 public:
-    GraphicsUcode(melonDS::DSi& dsi, int version);
-    ~GraphicsUcode();
+    AACUcode(melonDS::DSi& dsi, int version);
+    ~AACUcode();
     void Reset() override;
     void DoSavestate(Savestate* file) override;
 
@@ -40,20 +40,13 @@ public:
 protected:
     u8 CmdState;
     u16 CmdIndex;
-    u16 CmdParams[14];
+    u8 CmdParamCount;
+    u16 CmdParams[10];
 
-    void TryStartCmd();
+    void RecvCmdWord();
     void FinishCmd(u32 param);
-
-    void CmdScalingNearest();
-    void CmdScalingBilinear();
-    s32 CalcBicubicWeight(s32 x);
-    void CmdScalingBicubic();
-    void CmdScalingOneThird();
-
-    void CmdYuvToRgb();
 };
 
 }
 
-#endif // GRAPHICSUCODE_H
+#endif // AACUCODE_H

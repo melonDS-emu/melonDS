@@ -17,6 +17,7 @@
 */
 
 #include "teakra/include/teakra/teakra.h"
+#include "DSP_HLE/AACUcode.h"
 #include "DSP_HLE/GraphicsUcode.h"
 
 #include "DSi.h"
@@ -136,6 +137,10 @@ void DSi_DSP::StartDSPHLE()
 
     switch (crc)
     {
+    case 0x7867C94B: // DSi sound app AAC ucode
+        DSPCore = new DSP_HLE::AACUcode(DSi, -1);
+        break;
+
     case 0xCD2A8B1B: // Graphics SDK ucode v0
         DSPCore = new DSP_HLE::GraphicsUcode(DSi, 0x00);
         break;

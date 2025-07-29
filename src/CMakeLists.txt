@@ -59,6 +59,7 @@ add_library(core STATIC
     WifiAP.cpp
 
     DSP_HLE/UcodeBase.cpp
+    DSP_HLE/AACUcode.cpp
     DSP_HLE/GraphicsUcode.cpp
 
     fatfs/ff.c
