@@ -1786,9 +1786,6 @@ void MainWindow::onRAMInfo()
     RAMInfoDialog* dlg = RAMInfoDialog::openDlg(this);
 }
 
-using Platform::Log;
-using Platform::LogLevel;
-
 void MainWindow::onMemView() {
     MemViewDialog* dlg = MemViewDialog::openDlg(this);
 }
