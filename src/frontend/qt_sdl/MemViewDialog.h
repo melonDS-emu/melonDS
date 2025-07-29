@@ -41,6 +41,13 @@ class NDS;
 class EmuInstance;
 class MemViewThread;
 
+typedef enum FocusDirection {
+    FocusDirection_Up,
+    FocusDirection_Down,
+    FocusDirection_Left,
+    FocusDirection_Right,
+} FocusDirection;
+
 // --- main window ---
 
 class CustomTextItem : public QGraphicsTextItem {
@@ -56,8 +63,30 @@ public:
         this->size = newSize;
     }
 
+    void SetEditionFlags() {
+        this->isEditing = true;
+        this->setTextInteractionFlags(Qt::TextInteractionFlag::TextEditorInteraction);
+    }
+
+    void SetSelectionFlags() {
+        this->setTextInteractionFlags(Qt::TextInteractionFlag::TextSelectableByMouse);
+    }
+
+    void SetTextSelection(bool selected) {
+        QTextCursor cursor = this->textCursor();
+
+        if (selected) {
+            cursor.select(QTextCursor::Document);
+        } else {
+            cursor.clearSelection();
+        }
+
+        this->setTextCursor(cursor);
+    }
+
 signals:
     void applyEditToRAM(uint8_t value, QGraphicsItem *focus);
+    void switchFocus(FocusDirection eDirection);
 
 private:
     QRectF size;
@@ -65,6 +94,7 @@ private:
 
 protected:
     void mousePressEvent(QGraphicsSceneMouseEvent *event) override;
+    void mouseDoubleClickEvent(QGraphicsSceneMouseEvent *event) override;
     void mouseMoveEvent(QGraphicsSceneMouseEvent *event) override;
     void keyPressEvent(QKeyEvent *event) override;
     void focusOutEvent(QFocusEvent *event) override;
@@ -144,7 +174,7 @@ public:
             for (int i = 0; i < 16; i++) {
                 for (int j = 0; j < 16; j++) {
                     if (this->ramTextItems[i][j] == item) {
-                        return j;
+                        return (i << 8) | j;
                     }
                 }
             }
@@ -187,6 +217,7 @@ private slots:
     void onAddressTextChanged(const QString &text);
     void onValueBtnSetPressed();
     void onApplyEditToRAM(uint8_t value, QGraphicsItem *focus);
+    void onSwitchFocus(FocusDirection eDirection);
 
 public:
     uint32_t arm9AddrStart;

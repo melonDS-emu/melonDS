@@ -32,7 +32,7 @@ using namespace melonDS;
 MemViewDialog* MemViewDialog::currentDlg = nullptr;
 
 CustomTextItem::CustomTextItem(const QString &text, QGraphicsItem *parent) : QGraphicsTextItem(text, parent) {
-    this->setTextInteractionFlags(Qt::TextInteractionFlag::TextEditorInteraction);
+    this->SetSelectionFlags();
     this->setFlag(QGraphicsItem::ItemIsSelectable, false);
     this->SetSize(QRectF(2, 6, 20, 15));
     this->isEditing = false;
@@ -68,7 +68,14 @@ bool CustomTextItem::isKeyValid(int key) {
 }
 
 void CustomTextItem::mousePressEvent(QGraphicsSceneMouseEvent *event) {
-    this->QGraphicsTextItem::mousePressEvent(event);
+    this->SetSelectionFlags();
+    this->QGraphicsTextItem::mousePressEvent(event); 
+    this->SetTextSelection(true);
+}
+
+void CustomTextItem::mouseDoubleClickEvent(QGraphicsSceneMouseEvent *event) {
+    this->SetEditionFlags();
+    this->QGraphicsTextItem::mouseDoubleClickEvent(event);
 }
 
 // empty on purpose to disable the move behaviour
@@ -78,36 +85,69 @@ void CustomTextItem::keyPressEvent(QKeyEvent *event) {
     QString text = this->toPlainText();
     int key = event->key();
 
-    // make sure that:
-    // - 1. the item is focused (probably always true though but wanna be safe)
-    // - 2. the key is valid, so either an hex digit or other keys like enter or delete
-    // - 3. the current text length don't exceed 2
-    if (!this->hasFocus() || !this->isKeyValid(key) || text.length() > 2) {
-        this->isEditing = false;
-        event->ignore();
-        return;
-    }
-
-    // turn enter keys to a validator, not clearing isEditing since focusOutEvent will do it
-    if (key == Qt::Key_Enter || key == Qt::Key_Return) {
+    // not accepting or ignoring the event to prevent closing the window
+    if (key == Qt::Key_Escape) {
         this->clearFocus();
-        event->accept();
         return;
     }
 
-    // if the validation checks pass and it's not the enter key, process it
-    this->QGraphicsTextItem::keyPressEvent(event);
-    this->isEditing = true;
+    if (this->isEditing) {
+        // make sure that:
+        // - 1. the item is focused (probably always true though but wanna be safe)
+        // - 2. the key is valid, so either an hex digit or other keys like enter or delete
+        // - 3. the current text length don't exceed 2
+        if (!this->hasFocus() || !this->isKeyValid(key) || text.length() > 2) {
+            this->isEditing = false;
+            event->ignore();
+            return;
+        }
+
+        // turn enter keys to a validator, not clearing isEditing since focusOutEvent will do it
+        if (key == Qt::Key_Enter || key == Qt::Key_Return) {
+            this->clearFocus();
+            event->accept();
+            return;
+        }
+
+        // if the validation checks pass and it's not the enter key, process it
+        this->QGraphicsTextItem::keyPressEvent(event);
+    } else {
+        switch (key) {
+            case Qt::Key_Enter:
+            case Qt::Key_Return:
+                this->SetEditionFlags();
+                break;
+            case Qt::Key_Left:
+                emit switchFocus(FocusDirection_Left);
+                break;
+            case Qt::Key_Up:
+                emit switchFocus(FocusDirection_Up);
+                break;
+            case Qt::Key_Right:
+                emit switchFocus(FocusDirection_Right);
+                break;
+            case Qt::Key_Down:
+                emit switchFocus(FocusDirection_Down);
+                break;
+            default:
+                event->ignore();
+                return;
+        }
+
+        event->accept();
+    }
 }
 
 void CustomTextItem::focusOutEvent(QFocusEvent *event) {
+    QString text = this->toPlainText();
+
     // apply the value when the focus is cleared, if necessary
-    if (this->isEditing) {
-        QString text = this->toPlainText();
+    if (this->isEditing && !text.isEmpty()) {
         emit applyEditToRAM(text.toUInt(0, 16), this);
         this->isEditing = false;
     }
 
+    this->SetTextSelection(false);
     this->QGraphicsTextItem::focusOutEvent(event);
 }
 
@@ -282,6 +322,7 @@ MemViewDialog::MemViewDialog(QWidget* parent) : QDialog(parent)
         for (int j = 0; j < 16; j++) {
             CustomTextItem* textItem = new CustomTextItem("00");
             connect(textItem, &CustomTextItem::applyEditToRAM, this, &MemViewDialog::onApplyEditToRAM);
+            connect(textItem, &CustomTextItem::switchFocus, this, &MemViewDialog::onSwitchFocus);
             textItem->setParent(this->gfxScene);
             textItem->setFont(font);
             qreal x = j * textItem->font().pointSize() * 2; // column number * font size * text length
@@ -397,7 +438,7 @@ void* MemViewDialog::GetRAM(uint32_t address) {
 uint32_t MemViewDialog::GetFocusAddress(QGraphicsItem *focus) {
     if (focus != nullptr) {
         uint32_t addr = this->GetAddressFromItem((CustomTextItem*)focus);
-        int index = this->GetItemIndex(focus);
+        int index = this->GetItemIndex(focus) & 0xFF;
 
         if (addr >= this->arm9AddrEnd + 0x100) {
             addr = this->arm9AddrEnd;
@@ -557,6 +598,53 @@ void MemViewDialog::onApplyEditToRAM(uint8_t value, QGraphicsItem *focus) {
     }
 
     *pRAM = value;
+}
+
+void MemViewDialog::onSwitchFocus(FocusDirection eDirection) {
+    int packed = this->GetItemIndex(this->gfxScene->focusItem());
+
+    if (packed == -1) {
+        return;
+    }
+
+    int index = packed & 0xFF;
+    int addrIndex = (packed >> 8) & 0xFF;
+
+    switch (eDirection) {
+        case FocusDirection_Up:
+            addrIndex--;
+            break;
+        case FocusDirection_Down:
+            addrIndex++;
+            break;
+        case FocusDirection_Left:
+            index--;
+            break;
+        case FocusDirection_Right:
+            index++;
+            break;
+        default:
+            return;
+    }
+
+    if (eDirection == FocusDirection_Left || eDirection == FocusDirection_Right) {
+        if (index >= 16) {
+            addrIndex++;
+            index = 0;
+        }
+
+        if (index < 0) {
+            addrIndex--;
+            index = 15;
+        }
+    }
+
+    QGraphicsItem* item = this->GetItem(addrIndex, index);
+    if (item != nullptr) {
+        if (addrIndex >= 0 && addrIndex <= 15 && index >= 0 && index <= 15) {
+            this->gfxScene->setFocusItem(item);
+        }
+    }
 }
 
 // --- MemViewThread ---
