@@ -42,10 +42,10 @@ class EmuInstance;
 class MemViewThread;
 
 typedef enum FocusDirection {
-    FocusDirection_Up,
-    FocusDirection_Down,
-    FocusDirection_Left,
-    FocusDirection_Right,
+    focusDirection_Up,
+    focusDirection_Down,
+    focusDirection_Left,
+    focusDirection_Right,
 } FocusDirection;
 
 // --- main window ---
@@ -57,19 +57,19 @@ public:
     explicit CustomTextItem(const QString &text, QGraphicsItem *parent = nullptr);
     ~CustomTextItem() {}
     QRectF boundingRect() const override;
-    bool isKeyValid(int key);
+    bool IsKeyValid(int key);
 
     void SetSize(QRectF newSize) {
-        this->size = newSize;
+        this->Size = newSize;
     }
 
     void SetEditionFlags() {
-        this->isEditing = true;
+        this->IsEditing = true;
         this->setTextInteractionFlags(Qt::TextInteractionFlag::TextEditorInteraction);
     }
 
     void SetSelectionFlags() {
-        this->isEditing = false;
+        this->IsEditing = false;
         this->setTextInteractionFlags(Qt::TextInteractionFlag::TextSelectableByMouse);
     }
 
@@ -85,15 +85,13 @@ public:
         this->setTextCursor(cursor);
     }
 
-    bool IsEditing() { return this->isEditing; }
-
 signals:
     void applyEditToRAM(uint8_t value, QGraphicsItem *focus);
     void switchFocus(FocusDirection eDirection);
 
 private:
-    QRectF size;
-    bool isEditing;
+    QRectF Size;
+    bool IsEditing;
 
 protected:
     void mousePressEvent(QGraphicsSceneMouseEvent *event) override;
@@ -113,14 +111,14 @@ public:
     ~CustomGraphicsScene() {}
 
     void SetScrollBar(QScrollBar* pScrollBar) {
-        this->scrollBar = pScrollBar;
+        this->ScrollBar = pScrollBar;
     }
 
 public slots:
     void onFocusItemChanged(QGraphicsItem *newFocus, QGraphicsItem *oldFocus, Qt::FocusReason reason);
 
 private:
-    QScrollBar* scrollBar;
+    QScrollBar* ScrollBar;
 
 protected:
     virtual void wheelEvent(QGraphicsSceneWheelEvent *event);
@@ -158,7 +156,7 @@ public:
 
     QGraphicsItem* GetItem(int addrIndex, int index) { 
         if (addrIndex < 16 && index < 16) { 
-            return this->ramTextItems[addrIndex][index];
+            return this->RAMTextItems[addrIndex][index];
         }
 
         return nullptr;
@@ -166,7 +164,7 @@ public:
 
     QGraphicsItem* GetAddressItem(int index) { 
         if (index < 16) { 
-            return this->leftAddrItems[index];
+            return this->LeftAddrItems[index];
         }
 
         return nullptr;
@@ -176,7 +174,7 @@ public:
         if (item != nullptr) {
             for (int i = 0; i < 16; i++) {
                 for (int j = 0; j < 16; j++) {
-                    if (this->ramTextItems[i][j] == item) {
+                    if (this->RAMTextItems[i][j] == item) {
                         return (i << 8) | j;
                     }
                 }
@@ -188,22 +186,22 @@ public:
 
     QGraphicsItem* GetAsciiItem(int index) { 
         if (index < 16) { 
-            return this->asciiStrings[index];
+            return this->AsciiStrings[index];
         }
 
         return nullptr;
     }
 
     QLabel* GetAddrLabel() {
-        return this->addrLabel;
+        return this->AddrLabel;
     }
 
     QLineEdit* GetValueAddrLineEdit() {
-        return this->setValAddr;
+        return this->SetValAddr;
     }
 
     QCheckBox* GetFocusCheckbox() {
-        return this->setValFocus;
+        return this->SetValFocus;
     }
 
     void StripStringHex(QString* str) {
@@ -214,44 +212,44 @@ public:
 
 private slots:
     void done(int r);
-    void updateText(int addrIndex, int index);
-    void updateAddress(int index);
-    void updateDecoded(int index);
+    void UpdateText(int addrIndex, int index);
+    void UpdateAddress(int index);
+    void UpdateDecoded(int index);
     void onAddressTextChanged(const QString &text);
     void onValueBtnSetPressed();
     void onApplyEditToRAM(uint8_t value, QGraphicsItem *focus);
     void onSwitchFocus(FocusDirection eDirection);
 
 public:
-    uint32_t arm9AddrStart;
-    uint32_t arm9AddrEnd;
+    uint32_t ARM9AddrStart;
+    uint32_t ARM9AddrEnd;
 
 private:
-    bool forceTextUpdate;
+    bool ForceTextUpdate;
 
-    QGraphicsView* gfxView;
-    CustomGraphicsScene* gfxScene;
-    MemViewThread* updateThread;
-    QScrollBar* scrollBar;
-    QLabel* addrDescLabel;
-    QLabel* addrLabel;
-    QLabel* updateRateLabel;
-    QLineEdit* searchLineEdit;
-    QSpinBox* updateRate;
+    QGraphicsView* GfxView;
+    CustomGraphicsScene* GfxScene;
+    MemViewThread* UpdateThread;
+    QScrollBar* ScrollBar;
+    QLabel* AddrDescLabel;
+    QLabel* AddrLabel;
+    QLabel* UpdateRateLabel;
+    QLineEdit* SearchLineEdit;
+    QSpinBox* UpdateRate;
 
     // value setter group
-    QGroupBox* setValGroup;
-    QComboBox* setValBits;
-    QPushButton* setValBtn;
-    QLineEdit* setValNumber;
-    QLineEdit* setValAddr;
-    QCheckBox* setValFocus;
+    QGroupBox* SetValGroup;
+    QComboBox* SetValBits;
+    QPushButton* SetValBtn;
+    QLineEdit* SetValNumber;
+    QLineEdit* SetValAddr;
+    QCheckBox* SetValFocus;
 
     // yes I could just use `items()` but good ol' array are easier to work with
-    CustomTextItem* ramTextItems[16][16];
-    QGraphicsTextItem* leftAddrItems[16];
-    QGraphicsTextItem* asciiStrings[16];
-    QString decodedStrings[16];
+    CustomTextItem* RAMTextItems[16][16];
+    QGraphicsTextItem* LeftAddrItems[16];
+    QGraphicsTextItem* AsciiStrings[16];
+    QString DecodedStrings[16];
 
     friend class MemViewThread;
 };
@@ -262,14 +260,14 @@ class MemViewThread : public QThread {
     Q_OBJECT
 
 public:
-    explicit MemViewThread(MemViewDialog* parent) : dialog(parent), running(false) {}
+    explicit MemViewThread(MemViewDialog* parent) : Dialog(parent), Running(false) {}
     ~MemViewThread() override;
 
     void Start();
     void Stop();
 
-    MemViewDialog* dialog;
-    bool running;
+    MemViewDialog* Dialog;
+    bool Running;
 
 private:
     virtual void run() override;
