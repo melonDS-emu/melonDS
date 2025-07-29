@@ -35,7 +35,6 @@ CustomTextItem::CustomTextItem(const QString &text, QGraphicsItem *parent) : QGr
     this->SetSelectionFlags();
     this->setFlag(QGraphicsItem::ItemIsSelectable, false);
     this->SetSize(QRectF(2, 6, 20, 15));
-    this->isEditing = false;
 }
 
 QRectF CustomTextItem::boundingRect() const {
@@ -69,7 +68,7 @@ bool CustomTextItem::isKeyValid(int key) {
 
 void CustomTextItem::mousePressEvent(QGraphicsSceneMouseEvent *event) {
     this->SetSelectionFlags();
-    this->QGraphicsTextItem::mousePressEvent(event); 
+    this->QGraphicsTextItem::mousePressEvent(event);
     this->SetTextSelection(true);
 }
 
@@ -102,9 +101,13 @@ void CustomTextItem::keyPressEvent(QKeyEvent *event) {
             return;
         }
 
-        // turn enter keys to a validator, not clearing isEditing since focusOutEvent will do it
+        // turn enter keys to a validator
         if (key == Qt::Key_Enter || key == Qt::Key_Return) {
-            this->clearFocus();
+            if (this->isEditing && !text.isEmpty()) {
+                emit applyEditToRAM(text.toUInt(0, 16), this);
+                this->SetSelectionFlags();
+                this->SetTextSelection(true);
+            }
             event->accept();
             return;
         }
@@ -474,8 +477,8 @@ void MemViewDialog::updateText(int addrIndex, int index) {
     if (item != nullptr && pRAM != nullptr) {
         uint8_t byte = *pRAM;
 
-        // only update the text when the item isn't in edition so we can edit it
-        if (!item->IsEditing()) {
+        // only update the text when the item isn't focused so we can edit it
+        if (!item->hasFocus() || this->forceTextUpdate) {
             text.setNum(byte, 16);
             item->setPlainText(text.toUpper().rightJustified(2, '0'));
         }
@@ -601,7 +604,13 @@ void MemViewDialog::onApplyEditToRAM(uint8_t value, QGraphicsItem *focus) {
 }
 
 void MemViewDialog::onSwitchFocus(FocusDirection eDirection) {
-    int packed = this->GetItemIndex(this->gfxScene->focusItem());
+    CustomTextItem* focusItem = (CustomTextItem*)this->gfxScene->focusItem();
+
+    if (focusItem == nullptr) {
+        return;
+    }
+
+    int packed = this->GetItemIndex(focusItem);
     int scrollValue = this->scrollBar->value();
 
     if (packed == -1) {
@@ -655,12 +664,19 @@ void MemViewDialog::onSwitchFocus(FocusDirection eDirection) {
             return;
     }
 
-    QGraphicsItem* item = this->GetItem(addrIndex, index);
+    CustomTextItem* item = (CustomTextItem*)this->GetItem(addrIndex, index);
     if (item != nullptr) {
         this->gfxScene->setFocusItem(item);
 
         if (scrollValue >= this->arm9AddrStart && scrollValue <= this->arm9AddrEnd) {
             this->scrollBar->setValue(scrollValue);
+
+            // updateText requires to check for hasFocus to prevent deselecting the text
+            // so we need to force an update to make sure what we focus has the right value
+            this->forceTextUpdate = true;
+            this->updateText(addrIndex, index);
+            this->forceTextUpdate = false;
+            item->SetTextSelection(true);
         }
     }
 }

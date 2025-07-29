@@ -69,6 +69,7 @@ public:
     }
 
     void SetSelectionFlags() {
+        this->isEditing = false;
         this->setTextInteractionFlags(Qt::TextInteractionFlag::TextSelectableByMouse);
     }
 
@@ -226,6 +227,8 @@ public:
     uint32_t arm9AddrEnd;
 
 private:
+    bool forceTextUpdate;
+
     QGraphicsView* gfxView;
     CustomGraphicsScene* gfxScene;
     MemViewThread* updateThread;
