@@ -181,6 +181,13 @@ void CustomGraphicsScene::wheelEvent(QGraphicsSceneWheelEvent *event)
 
     if (this->ScrollBar != nullptr)
     {
+        QGraphicsItem* item = this->focusItem();
+
+        if (item)
+        {
+            item->clearFocus();
+        }
+
         QWheelEvent *pEvent = new QWheelEvent(
             event->pos(),
             event->screenPos(),
@@ -191,13 +198,6 @@ void CustomGraphicsScene::wheelEvent(QGraphicsSceneWheelEvent *event)
             event->phase(),
             event->isInverted()
         );
-
-        QGraphicsItem* item = this->focusItem();
-
-        if (item)
-        {
-            item->clearFocus();
-        }
 
         QApplication::sendEvent(this->ScrollBar, pEvent);
     }

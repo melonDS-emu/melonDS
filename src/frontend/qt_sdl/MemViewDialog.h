@@ -41,7 +41,8 @@ class NDS;
 class EmuInstance;
 class MemViewThread;
 
-typedef enum FocusDirection {
+typedef enum FocusDirection
+{
     focusDirection_Up,
     focusDirection_Down,
     focusDirection_Left,
@@ -50,35 +51,43 @@ typedef enum FocusDirection {
 
 // --- main window ---
 
-class CustomTextItem : public QGraphicsTextItem {
+class CustomTextItem : public QGraphicsTextItem
+{
     Q_OBJECT
 
 public:
     explicit CustomTextItem(const QString &text, QGraphicsItem *parent = nullptr);
-    ~CustomTextItem() {}
+    ~CustomTextItem()
+    {}
     QRectF boundingRect() const override;
     bool IsKeyValid(int key);
 
-    void SetSize(QRectF newSize) {
+    void SetSize(QRectF newSize)
+    {
         this->Size = newSize;
     }
 
-    void SetEditionFlags() {
+    void SetEditionFlags()
+    {
         this->IsEditing = true;
         this->setTextInteractionFlags(Qt::TextInteractionFlag::TextEditorInteraction);
     }
 
-    void SetSelectionFlags() {
+    void SetSelectionFlags()
+    {
         this->IsEditing = false;
         this->setTextInteractionFlags(Qt::TextInteractionFlag::TextSelectableByMouse);
     }
 
-    void SetTextSelection(bool selected) {
+    void SetTextSelection(bool selected)
+    {
         QTextCursor cursor = this->textCursor();
 
-        if (selected) {
+        if (selected)
+        {
             cursor.select(QTextCursor::Document);
-        } else {
+        } else
+        {
             cursor.clearSelection();
         }
 
@@ -101,16 +110,18 @@ protected:
     void focusOutEvent(QFocusEvent *event) override;
 };
 
-class CustomGraphicsScene : public QGraphicsScene {
+class CustomGraphicsScene : public QGraphicsScene
+{
     Q_OBJECT
 
 public:
-    explicit CustomGraphicsScene(QObject *parent = nullptr) : QGraphicsScene(parent) {}
-    explicit CustomGraphicsScene(const QRectF &sceneRect, QObject *parent = nullptr) : QGraphicsScene(sceneRect, parent) {}
-    explicit CustomGraphicsScene(qreal x, qreal y, qreal width, qreal height, QObject *parent = nullptr) : QGraphicsScene(x, y, width, height, parent) {}
-    ~CustomGraphicsScene() {}
+    explicit CustomGraphicsScene(QObject *parent = nullptr) : QGraphicsScene(parent)
+    {}
+    ~CustomGraphicsScene()
+    {}
 
-    void SetScrollBar(QScrollBar* pScrollBar) {
+    void SetScrollBar(QScrollBar* pScrollBar)
+    {
         this->ScrollBar = pScrollBar;
     }
 
@@ -138,9 +149,11 @@ public:
 
     static MemViewDialog* currentDlg;
     static MemViewDialog* openDlg(QWidget* parent)
-    {
+   
+   {
         if (currentDlg)
-        {
+       
+       {
             currentDlg->activateWindow();
             return currentDlg;
         }
@@ -150,31 +163,41 @@ public:
         return currentDlg;
     }
     static void closeDlg()
-    {
+   
+   {
         currentDlg = nullptr;
     }
 
-    QGraphicsItem* GetItem(int addrIndex, int index) { 
-        if (addrIndex < 16 && index < 16) { 
+    QGraphicsItem* GetItem(int addrIndex, int index)
+    { 
+        if (addrIndex < 16 && index < 16)
+        { 
             return this->RAMTextItems[addrIndex][index];
         }
 
         return nullptr;
     }
 
-    QGraphicsItem* GetAddressItem(int index) { 
-        if (index < 16) { 
+    QGraphicsItem* GetAddressItem(int index)
+    { 
+        if (index < 16)
+        { 
             return this->LeftAddrItems[index];
         }
 
         return nullptr;
     }
 
-    int GetItemIndex(QGraphicsItem* item) {
-        if (item != nullptr) {
-            for (int i = 0; i < 16; i++) {
-                for (int j = 0; j < 16; j++) {
-                    if (this->RAMTextItems[i][j] == item) {
+    int GetItemIndex(QGraphicsItem* item)
+    {
+        if (item != nullptr)
+        {
+            for (int i = 0; i < 16; i++)
+            {
+                for (int j = 0; j < 16; j++)
+                {
+                    if (this->RAMTextItems[i][j] == item)
+                    {
                         return (i << 8) | j;
                     }
                 }
@@ -184,28 +207,35 @@ public:
         return -1;
     }
 
-    QGraphicsItem* GetAsciiItem(int index) { 
-        if (index < 16) { 
+    QGraphicsItem* GetAsciiItem(int index)
+    { 
+        if (index < 16)
+        { 
             return this->AsciiStrings[index];
         }
 
         return nullptr;
     }
 
-    QLabel* GetAddrLabel() {
+    QLabel* GetAddrLabel()
+    {
         return this->AddrLabel;
     }
 
-    QLineEdit* GetValueAddrLineEdit() {
+    QLineEdit* GetValueAddrLineEdit()
+    {
         return this->SetValAddr;
     }
 
-    QCheckBox* GetFocusCheckbox() {
+    QCheckBox* GetFocusCheckbox()
+    {
         return this->SetValFocus;
     }
 
-    void StripStringHex(QString* str) {
-        if (str->startsWith("0x")) {
+    void StripStringHex(QString* str)
+    {
+        if (str->startsWith("0x"))
+        {
             str->remove(0, 2);
         }
     }
@@ -256,11 +286,13 @@ private:
 
 // --- update thread ---
 
-class MemViewThread : public QThread {
+class MemViewThread : public QThread
+{
     Q_OBJECT
 
 public:
-    explicit MemViewThread(MemViewDialog* parent) : Dialog(parent), Running(false) {}
+    explicit MemViewThread(MemViewDialog* parent) : Dialog(parent), Running(false)
+    {}
     ~MemViewThread() override;
 
     void Start();
