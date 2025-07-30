@@ -43,7 +43,12 @@ protected:
     u8 CmdParamCount;
     u16 CmdParams[10];
 
+    u8 FrameBuf[1707];
+    s16 LeftOutput[1024];
+    s16 RightOutput[1024];
+
     void RecvCmdWord();
+    void CmdDecodeFrame();
     void FinishCmd(u32 param);
 };
 

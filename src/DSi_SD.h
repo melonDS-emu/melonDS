@@ -200,7 +200,7 @@ private:
     u32 OCR;
     u32 RCA;
     u8 SCR[8];
-    u8 SSR[64];
+    u8 SD_SSR[64];
 
     u32 BlockSize;
     u64 RWAddress;
