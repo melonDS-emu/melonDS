@@ -837,7 +837,7 @@ void DSi_MMCStorage::Reset()
     memset(SCR, 0, 8);
     *(u32*)&SCR[0] = 0x012A0000;
 
-    memset(SD_SSR, 0, 64);
+    memset(SSR, 0, 64);
 
     BlockSize = 0;
     RWAddress = 0;
@@ -855,7 +855,7 @@ void DSi_MMCStorage::DoSavestate(Savestate* file)
     file->Var32(&OCR);
     file->Var32(&RCA);
     file->VarArray(SCR, 8);
-    file->VarArray(SD_SSR, 64);
+    file->VarArray(SSR, 64);
 
     file->Var32(&BlockSize);
     file->Var64(&RWAddress);
@@ -1014,7 +1014,7 @@ void DSi_MMCStorage::SendACMD(u8 cmd, u32 param)
 
     case 13: // get SSR
         Host->SendResponse(CSR, true);
-        Host->DataRX(SD_SSR, 64);
+        Host->DataRX(SSR, 64);
         return;
 
     case 41: // set operating conditions

@@ -23,6 +23,7 @@
 
 #include "UcodeBase.h"
 #include "../Savestate.h"
+#include "../Platform.h"
 
 namespace melonDS::DSP_HLE
 {
@@ -43,9 +44,11 @@ protected:
     u8 CmdParamCount;
     u16 CmdParams[10];
 
-    u8 FrameBuf[1707];
-    s16 LeftOutput[1024];
-    s16 RightOutput[1024];
+    Platform::AACDecoder* Decoder;
+    u8 InputBuf[1700];
+    s16 OutputBuf[1024*2];
+    int LastFrequency;
+    int LastChannels;
 
     void RecvCmdWord();
     void CmdDecodeFrame();

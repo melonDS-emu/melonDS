@@ -34,6 +34,7 @@ set(SOURCES_QT_SDL
     OSD_shaders.h
     font.h
     Platform.cpp
+    Platform_AAC.cpp
     QPathInput.h
     SaveManager.cpp
     CameraManager.cpp

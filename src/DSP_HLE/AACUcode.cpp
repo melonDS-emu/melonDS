@@ -16,9 +16,6 @@
     with melonDS. If not, see http://www.gnu.org/licenses/.
 */
 
-// TODO move faad stuff to Platform
-#include <neaacdec.h>
-
 #include "../DSi.h"
 #include "AACUcode.h"
 #include "../Platform.h"
@@ -32,25 +29,13 @@ using Platform::LogLevel;
 namespace DSP_HLE
 {
 
-NeAACDecHandle AACDec;
-
-
 AACUcode::AACUcode(melonDS::DSi& dsi, int version) : UcodeBase(dsi)
 {
     DSi.RegisterEventFuncs(Event_DSi_DSPHLE, this, {MakeEventThunk(AACUcode, FinishCmd)});
 
-    AACDec = NeAACDecOpen();
-
-    NeAACDecConfiguration* cfg = NeAACDecGetCurrentConfiguration(AACDec);
-    cfg->defObjectType = LC;
-    cfg->defSampleRate = 48000;
-    cfg->outputFormat = FAAD_FMT_16BIT;
-    NeAACDecSetConfiguration(AACDec, cfg);
-
-    /*unsigned long freq = 48000;
-    unsigned char chan = 2;
-    int res = NeAACDecInit(AACDec, nullptr, 234, &freq, &chan);
-    printf("init = %d\n", res);*/
+    Decoder = Platform::AAC_Init();
+    if (!Decoder)
+        Log(LogLevel::Error, "DSP_HLE: failed to initialize AAC decoder\n");
 
     if (version == -1)
         Log(LogLevel::Info, "DSP_HLE: initializing AAC decoder ucode (DSi sound app)\n");
@@ -60,7 +45,8 @@ AACUcode::AACUcode(melonDS::DSi& dsi, int version) : UcodeBase(dsi)
 
 AACUcode::~AACUcode()
 {
-    NeAACDecClose(AACDec);
+    if (Decoder)
+        Platform::AAC_DeInit(Decoder);
 
     DSi.UnregisterEventFuncs(Event_DSi_DSPHLE);
 }
@@ -74,9 +60,11 @@ void AACUcode::Reset()
     CmdParamCount = 0;
     memset(CmdParams, 0, sizeof(CmdParams));
 
-    memset(FrameBuf, 0, sizeof(FrameBuf));
-    memset(LeftOutput, 0, sizeof(LeftOutput));
-    memset(RightOutput, 0, sizeof(RightOutput));
+    memset(InputBuf, 0, sizeof(InputBuf));
+    memset(OutputBuf, 0, sizeof(OutputBuf));
+
+    LastFrequency = -1;
+    LastChannels = -1;
 }
 
 void AACUcode::DoSavestate(Savestate *file)
@@ -135,7 +123,7 @@ void AACUcode::RecvCmdWord()
 
     CmdWritten[1] = false;
 }
-int pett = 0;
+
 void AACUcode::CmdDecodeFrame()
 {
     u16 framelen = CmdParams[0];
@@ -164,23 +152,6 @@ void AACUcode::CmdDecodeFrame()
     if ((chan != 1) && (rightaddr == 0))
         fail = true;
 
-    // check input frequency
-    // this isn't entirely accurate
-    // in the ucode, any frequency not within the list below causes an init failure
-    // but the return value from the init function is ignored
-    u32 freqlist[9] = {48000, 44100, 32000, 24000, 22050, 16000, 12000, 11025, 8000};
-    u8 freqnum = 0xF;
-    for (int i = 0; i < 9; i++)
-    {
-        if (freq == freqlist[i])
-        {
-            freqnum = 3 + i;
-            break;
-        }
-    }
-    if (freqnum == 0xF)
-        fail = true;
-
     if (fail)
     {
         // end the command with return code 1 (invalid parameters)
@@ -188,77 +159,65 @@ void AACUcode::CmdDecodeFrame()
         return;
     }
 
-    printf("AAC: good, freq=%d\n", freqnum);
-
-    // make an ADTS header
-    /*
-     * u32 adts[2];
-        int freq = 4;
-        int ch = 2;
-        int framelen = fs & 0x1FFF;
-        int resv = 0x7FF;
-        databotte[0] = 0xFF;
-        databotte[1] = 0xF1;
-        databotte[2] = 0x40 | (freq << 2) | (ch >> 2); // freq
-        databotte[3] = (ch << 6) | (fs >> 11);
-        databotte[4] = (framelen >> 3);
-        databotte[5] = (framelen << 5) | (resv >> 6);
-        databotte[6] = (resv << 2);*/
-    u32 totallen = framelen + 7;
-    u32 rsv = 0x7FF;
-    FrameBuf[0] = 0xFF;
-    FrameBuf[1] = 0xF1;
-    FrameBuf[2] = 0x40 | (freqnum << 2) | (chan >> 2);
-    FrameBuf[3] = (chan << 6) | (totallen >> 11);
-    FrameBuf[4] = (totallen >> 3);
-    FrameBuf[5] = (totallen << 5) | (rsv >> 6);
-    FrameBuf[6] = (rsv << 2);
-
-#define databotte FrameBuf
-    printf("%02X:%02X:%02X:%02X:%02X:%02X:%02X\n",
-           databotte[0],databotte[1],databotte[2],databotte[3],
-           databotte[4],databotte[5],databotte[6]);
-
-    // read frame data
-    //ReadARM9Mem((u16*)&FrameBuf[7], frameaddr, framelen);
+    // TODO more efficient read mechanism?
+    // ReadARM9Mem() doesn't work well for this
     for (int i = 0; i < framelen; i++)
     {
-        FrameBuf[7+i] = DSi.ARM9Read8(frameaddr + i);
+        InputBuf[i] = DSi.ARM9Read8(frameaddr + i);
     }
 
-    // init
-    // TODO only do if config changed!
-    if (pett < 2)
+    // NOTE
+    // the DSi sound app will first send an all-zero frame, then send the actual first AAC frame
+    // this seems to just be a bug in the sound app
+    // the AAC ucode will fail to decode the zero frame, but without consequences
+    // however, third-party AAC decoders do not like zero frames
+    // so we need to detect this and bail out early
+
+    if ((InputBuf[0] == 0) && (InputBuf[1] == 0) && (InputBuf[2] == 0) && (InputBuf[3] == 0))
     {
-        if (pett == 1)
-        {
-            unsigned long _freq = 0;
-            unsigned char _chan = 0;
-            int res = NeAACDecInit(AACDec, FrameBuf, totallen, &_freq, &_chan);
-            printf("init = %d, %ld, %d\n", res, _freq, _chan);
-        }
-        pett++;
+        Log(LogLevel::Warn, "DSP_HLE: skipping zero AAC frame, addr=%08X len=%d\n", frameaddr, framelen);
+
+        DSi.ScheduleEvent(Event_DSi_DSPHLE, false, 512, 0, 2);
+        return;
     }
 
-    // decode
-    NeAACDecFrameInfo finfo;
-    /*void* samplebuf[2] = {LeftOutput, RightOutput};
-    NeAACDecDecode2(AACDec, &finfo, FrameBuf, totallen, samplebuf, 1024*4);
-    printf("decode res = %d %d %d\n", finfo.error, finfo.bytesconsumed, finfo.samples);
+    // initialize the decoder if needed
 
-    WriteARM9Mem((u16*)LeftOutput, leftaddr, 1024*2);
-    WriteARM9Mem((u16*)RightOutput, rightaddr, 1024*2); // checkme*/
-    s16* dataout = (s16*)NeAACDecDecode(AACDec, &finfo, FrameBuf, totallen);
-    printf("decode res = %p %d %d/%d %d\n", dataout, finfo.error, (int)finfo.bytesconsumed, totallen, (int)finfo.samples);
-    if (dataout)
+    if ((freq != LastFrequency) || (chan != LastChannels))
     {
-        for (int i = 0; i < 1024; i++)
+        if (!Platform::AAC_Configure(Decoder, freq, chan))
         {
-            DSi.ARM9Write16(leftaddr, *dataout++);
-            DSi.ARM9Write16(rightaddr, *dataout++);
-            leftaddr += 2;
-            rightaddr += 2;
+            Log(LogLevel::Warn, "DSP_HLE: AAC decoder configuration failed, freq=%d chan=%d\n", freq, chan);
+
+            LastFrequency = -1;
+            LastChannels = -1;
+            DSi.ScheduleEvent(Event_DSi_DSPHLE, false, 512, 0, 2);
+            return;
         }
+
+        LastFrequency = freq;
+        LastChannels = chan;
+    }
+
+    // decode the frame
+
+    if (!Platform::AAC_DecodeFrame(Decoder, InputBuf, framelen, OutputBuf, 1024*2*sizeof(s16)))
+    {
+        Log(LogLevel::Warn, "DSP_HLE: AAC decoding failed, frame addr=%08X len=%d\n", frameaddr, framelen);
+
+        LastFrequency = -1;
+        LastChannels = -1;
+        DSi.ScheduleEvent(Event_DSi_DSPHLE, false, 512, 0, 2);
+        return;
+    }
+
+    s16* dataout = OutputBuf;
+    for (int i = 0; i < 1024; i++)
+    {
+        DSi.ARM9Write16(leftaddr, *dataout++);
+        DSi.ARM9Write16(rightaddr, *dataout++);
+        leftaddr += 2;
+        rightaddr += 2;
     }
 
     DSi.ScheduleEvent(Event_DSi_DSPHLE, false, 115000, 0, 0);
