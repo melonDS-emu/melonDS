@@ -238,6 +238,8 @@ MemViewDialog::MemViewDialog(QWidget* parent) : QDialog(parent)
     this->setWindowTitle("Memory Viewer - melonDS");
     setAttribute(Qt::WA_DeleteOnClose);
 
+    QColor placeholderColor = QColor(127, 135, 140);
+
     // create the widgets, maybe not necessary to keep a reference to everything but whatever
     this->GfxScene = new CustomGraphicsScene(this);
     this->GfxView = new QGraphicsView(this);
@@ -265,6 +267,9 @@ MemViewDialog::MemViewDialog(QWidget* parent) : QDialog(parent)
     this->SearchLineEdit->setMaxLength(10);
     this->SearchLineEdit->setPlaceholderText("Search...");
     this->SearchLineEdit->setGeometry(8, 40, 144, 32);
+    QPalette paletteSearch = this->SearchLineEdit->palette();
+    paletteSearch.setColor(QPalette::ColorRole::PlaceholderText, placeholderColor);
+    this->SetValAddr->setPalette(paletteSearch);
 
     this->SetValFocus->setText("Address on focus");
     this->SetValFocus->setGeometry(4, 106, 131, 22);
@@ -305,9 +310,15 @@ MemViewDialog::MemViewDialog(QWidget* parent) : QDialog(parent)
 
     this->SetValNumber->setGeometry(7, 7, 129, 30);
     this->SetValNumber->setPlaceholderText("Value");
+    QPalette paletteNum = this->SetValNumber->palette();
+    paletteNum.setColor(QPalette::ColorRole::PlaceholderText, placeholderColor);
+    this->SetValNumber->setPalette(paletteNum);
 
     this->SetValAddr->setGeometry(7, 40, 129, 30);
     this->SetValAddr->setPlaceholderText("Address");
+    QPalette paletteAddr = this->SetValAddr->palette();
+    paletteAddr.setColor(QPalette::ColorRole::PlaceholderText, placeholderColor);
+    this->SetValAddr->setPalette(paletteAddr);
 
     // initialize the scene
     QString text;
