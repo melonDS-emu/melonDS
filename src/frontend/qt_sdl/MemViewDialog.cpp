@@ -466,22 +466,19 @@ void* MemViewDialog::GetRAM(uint32_t address)
 {
     melonDS::NDS* nds = this->GetNDS();
 
-    //! TODO: use Armv5::ReadMem instead
-    if (nds != nullptr)
+    if (nds != nullptr && nds->ARM9.DTCM != nullptr && nds->MainRAM != nullptr)
     {
-        if (address < 0x027E0000)
+        if (address < nds->ARM9.ITCMSize)
         {
-            if (nds->MainRAM)
-            {
-                return &nds->MainRAM[address & nds->MainRAMMask];
-            }
+            return &nds->ARM9.ITCM[address & (ITCMPhysicalSize - 1)];
+        }
+        else if ((address & nds->ARM9.DTCMMask) == nds->ARM9.DTCMBase)
+        {
+            return &nds->ARM9.DTCM[address & (DTCMPhysicalSize - 1)];
         }
         else
         {
-            if (nds->ARM9.DTCM)
-            {
-                return &nds->ARM9.DTCM[address & 0xFFFF];
-            }
+            return &nds->MainRAM[address & nds->MainRAMMask];
         }
     }
 
@@ -673,12 +670,10 @@ void MemViewDialog::onApplyEditToRAM(uint8_t value, QGraphicsItem *focus)
     }
 
     uint8_t* pRAM = (uint8_t*)this->GetRAM(addr);
-    if (pRAM == nullptr)
+    if (pRAM != nullptr)
     {
-        return;
+        *pRAM = value;
     }
-
-    *pRAM = value;
 }
 
 void MemViewDialog::onSwitchFocus(FocusDirection eDirection)
