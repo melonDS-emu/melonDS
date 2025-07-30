@@ -181,13 +181,6 @@ void CustomGraphicsScene::wheelEvent(QGraphicsSceneWheelEvent *event)
 
     if (this->ScrollBar != nullptr)
     {
-        QGraphicsItem* item = this->focusItem();
-
-        if (item)
-        {
-            item->clearFocus();
-        }
-
         QWheelEvent *pEvent = new QWheelEvent(
             event->pos(),
             event->screenPos(),
@@ -205,21 +198,21 @@ void CustomGraphicsScene::wheelEvent(QGraphicsSceneWheelEvent *event)
 
 void CustomGraphicsScene::onFocusItemChanged(QGraphicsItem *newFocus, QGraphicsItem *oldFocus, Qt::FocusReason reason)
 {
-    MemViewDialog* Dialog = (MemViewDialog*)this->parent();
+    MemViewDialog* dialog = (MemViewDialog*)this->parent();
 
-    if (Dialog != nullptr && newFocus != nullptr)
+    if (dialog != nullptr && newFocus != nullptr)
     {
-        uint32_t addr = Dialog->GetFocusAddress(newFocus);
+        uint32_t addr = dialog->GetFocusAddress(newFocus);
 
         if (addr != -1)
         {
             QString text;
             text.setNum(addr, 16);
-            Dialog->GetAddrLabel()->setText(text.toUpper().rightJustified(8, '0').prepend("0x"));
+            dialog->GetAddrLabel()->setText(text.toUpper().rightJustified(8, '0').prepend("0x"));
 
-            if (Dialog->GetFocusCheckbox()->isChecked())
+            if (dialog->GetFocusCheckbox()->isChecked())
             {
-                Dialog->GetValueAddrLineEdit()->setText(text.toUpper().rightJustified(8, '0').prepend("0x"));
+                dialog->GetValueAddrLineEdit()->setText(text.toUpper().rightJustified(8, '0').prepend("0x"));
             }
         }
     }
@@ -238,7 +231,7 @@ MemViewDialog::MemViewDialog(QWidget* parent) : QDialog(parent)
     this->setWindowTitle("Memory Viewer - melonDS");
     setAttribute(Qt::WA_DeleteOnClose);
 
-    QColor placeholderColor = QColor(127, 135, 140);
+    QColor placeholderColor = QColor(160, 160, 160);
 
     // create the widgets, maybe not necessary to keep a reference to everything but whatever
     this->GfxScene = new CustomGraphicsScene(this);
@@ -269,7 +262,7 @@ MemViewDialog::MemViewDialog(QWidget* parent) : QDialog(parent)
     this->SearchLineEdit->setGeometry(8, 40, 144, 32);
     QPalette paletteSearch = this->SearchLineEdit->palette();
     paletteSearch.setColor(QPalette::ColorRole::PlaceholderText, placeholderColor);
-    this->SetValAddr->setPalette(paletteSearch);
+    this->SearchLineEdit->setPalette(paletteSearch);
 
     this->SetValFocus->setText("Address on focus");
     this->SetValFocus->setGeometry(4, 106, 131, 22);
@@ -413,6 +406,7 @@ MemViewDialog::MemViewDialog(QWidget* parent) : QDialog(parent)
     connect(this->SearchLineEdit, &QLineEdit::textChanged, this, &MemViewDialog::onAddressTextChanged);
     connect(this->SetValBtn, &QPushButton::pressed, this, &MemViewDialog::onValueBtnSetPressed);
     connect(this->GfxScene, &QGraphicsScene::focusItemChanged, this->GfxScene, &CustomGraphicsScene::onFocusItemChanged);
+    connect(this->ScrollBar, &QScrollBar::valueChanged, this, &MemViewDialog::onScrollBarValueChanged);
 
     qRegisterMetaType<QVector<int>>("QVector<int>");
     qRegisterMetaType<u32>("u32");
@@ -566,6 +560,10 @@ void MemViewDialog::UpdateText(int addrIndex, int index)
                 this->DecodedStrings[addrIndex].append(QChar('.'));
             }
         }
+    }
+
+    if (this->ForceTextUpdate) {
+        this->ForceTextUpdate = false;
     }
 }
 
@@ -777,9 +775,20 @@ void MemViewDialog::onSwitchFocus(FocusDirection eDirection)
             // so we need to force an update to make sure what we focus has the right value
             this->ForceTextUpdate = true;
             this->UpdateText(addrIndex, index);
-            this->ForceTextUpdate = false;
             item->SetTextSelection(true);
         }
+    }
+}
+
+void MemViewDialog::onScrollBarValueChanged(int value) {
+    CustomTextItem* item = (CustomTextItem*)this->GfxScene->focusItem();
+    int packed = this->GetItemIndex(item);
+
+    if (item != nullptr && packed != -1)
+    {
+        this->ForceTextUpdate = true;
+        this->UpdateText(packed >> 8, packed & 0xFF);
+        item->SetTextSelection(true);
     }
 }
 

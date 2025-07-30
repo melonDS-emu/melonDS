@@ -169,7 +169,7 @@ public:
     }
 
     QGraphicsItem* GetItem(int addrIndex, int index)
-    { 
+    {
         if (addrIndex < 16 && index < 16)
         { 
             return this->RAMTextItems[addrIndex][index];
@@ -249,14 +249,14 @@ private slots:
     void onValueBtnSetPressed();
     void onApplyEditToRAM(uint8_t value, QGraphicsItem *focus);
     void onSwitchFocus(FocusDirection eDirection);
+    void onScrollBarValueChanged(int value);
 
 public:
     uint32_t ARM9AddrStart;
     uint32_t ARM9AddrEnd;
-
-private:
     bool ForceTextUpdate;
 
+private:
     QGraphicsView* GfxView;
     CustomGraphicsScene* GfxScene;
     MemViewThread* UpdateThread;
