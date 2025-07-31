@@ -44,7 +44,10 @@ protected:
     void TryStartCmd();
     void FinishCmd(u32 param);
 
-    //
+    void CmdEncodeALaw();
+    void CmdEncodeULaw();
+    void CmdDecodeALaw();
+    void CmdDecodeULaw();
 };
 
 }

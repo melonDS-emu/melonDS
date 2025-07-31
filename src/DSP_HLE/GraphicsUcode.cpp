@@ -41,6 +41,7 @@ GraphicsUcode::GraphicsUcode(melonDS::DSi& dsi, int version) : UcodeBase(dsi)
 
 GraphicsUcode::~GraphicsUcode()
 {
+    DSi.CancelEvent(Event_DSi_DSPHLE);
     DSi.UnregisterEventFuncs(Event_DSi_DSPHLE);
 }
 

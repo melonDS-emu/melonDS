@@ -48,6 +48,7 @@ AACUcode::~AACUcode()
     if (Decoder)
         Platform::AAC_DeInit(Decoder);
 
+    DSi.CancelEvent(Event_DSi_DSPHLE);
     DSi.UnregisterEventFuncs(Event_DSi_DSPHLE);
 }
 
