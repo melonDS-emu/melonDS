@@ -49,7 +49,7 @@ void AAC_DeInit(AACDecoder* dec)
 
 bool AAC_Configure(AACDecoder* dec, int frequency, int channels)
 {
-    if (dec->inited)
+    if (dec->handle)
     {
         NeAACDecClose(dec->handle);
         dec->handle = nullptr;
