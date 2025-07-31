@@ -315,9 +315,9 @@ u16* UcodeBase::LoadPipe(u8 index)
 u32 UcodeBase::GetPipeLength(u16* pipe)
 {
     u32 ret;
-    u16 rdptr = pipe[2];
-    u16 wrptr = pipe[3];
-    if (rdptr > wrptr)
+    u16 rdptr = pipe[2] & 0x7FFF;
+    u16 wrptr = pipe[3] & 0x7FFF;
+    if ((pipe[2] ^ pipe[3]) & 0x8000)
     {
         u16 len = pipe[1];
         ret = wrptr + len - rdptr;
@@ -336,23 +336,61 @@ u32 UcodeBase::ReadPipe(u16* pipe, u16* data, u32 len)
     u16* mem = (u16*)DSi.NWRAMMap_C[2][pipe[0] >> 14];
     u16* pipebuf = &mem[pipe[0] & 0x3FFF];
     u16 pipelen = pipe[1] >> 1;
-    u16 rdptr = pipe[2] >> 1;
-    u16 wrptr = pipe[3] >> 1;
-    printf("readpipe(%d): len=%d rd=%d wr=%d\n", len, pipelen, rdptr, wrptr);
+    u16 rdptr = (pipe[2] & 0x7FFF) >> 1;
+    u16 rdphase = pipe[2] & 0x8000;
+    u16 wrptr = (pipe[3] & 0x7FFF) >> 1;
+
     u32 rdlen = 0;
     for (int i = 0; i < len; i++)
     {
         data[i] = pipebuf[rdptr++];
         rdlen++;
-        if (rdptr >= pipelen) rdptr = 0;
+        if (rdptr >= pipelen)
+        {
+            rdptr = 0;
+            rdphase ^= 0x8000;
+        }
         if (rdptr == wrptr) break;
     }
-printf("-> rd=%d\n", rdptr);
-    pipe[2] = rdptr << 1;
+
+    pipe[2] = (rdptr << 1) | rdphase;
     SendReply(2, pipe[4]);
     SetSemaphoreOut(0x8000);
 
     return rdlen;
+}
+
+u32 UcodeBase::WritePipe(u16* pipe, const u16* data, u32 len)
+{
+    u16* mem = (u16*)DSi.NWRAMMap_C[2][pipe[0] >> 14];
+    u16* pipebuf = &mem[pipe[0] & 0x3FFF];
+    u16 pipelen = pipe[1] >> 1;
+    u16 rdptr = (pipe[2] & 0x7FFF) >> 1;
+    u16 wrptr = (pipe[3] & 0x7FFF) >> 1;
+    u16 wrphase = pipe[3] & 0x8000;
+
+    u32 wrlen = 0;
+    for (int i = 0; i < len; i++)
+    {
+        pipebuf[wrptr++] = data[i];
+        wrlen++;
+        if (wrptr >= pipelen)
+        {
+            wrptr = 0;
+            wrphase ^= 0x8000;
+        }
+        if (wrptr == rdptr)
+        {
+            Log(LogLevel::Error, "DSP_HLE: PIPE %d IS FULL!!\n", pipe[4]);
+            break;
+        }
+    }
+
+    pipe[3] = (wrptr << 1) | wrphase;
+    SendReply(2, pipe[4]);
+    SetSemaphoreOut(0x8000);
+
+    return wrlen;
 }
 
 

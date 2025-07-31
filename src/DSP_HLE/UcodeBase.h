@@ -89,6 +89,7 @@ protected:
     u16* LoadPipe(u8 index);
     u32 GetPipeLength(u16* pipe);
     u32 ReadPipe(u16* pipe, u16* data, u32 len);
+    u32 WritePipe(u16* pipe, const u16* data, u32 len);
 
     void ReadARM9Mem(u16* mem, u32 addr, u32 len);
     void WriteARM9Mem(const u16* mem, u32 addr, u32 len);

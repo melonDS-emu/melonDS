@@ -60,6 +60,7 @@ add_library(core STATIC
 
     DSP_HLE/UcodeBase.cpp
     DSP_HLE/AACUcode.cpp
+    DSP_HLE/G711Ucode.cpp
     DSP_HLE/GraphicsUcode.cpp
 
     fatfs/ff.c

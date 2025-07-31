@@ -18,6 +18,7 @@
 
 #include "teakra/include/teakra/teakra.h"
 #include "DSP_HLE/AACUcode.h"
+#include "DSP_HLE/G711Ucode.h"
 #include "DSP_HLE/GraphicsUcode.h"
 
 #include "DSi.h"
@@ -140,6 +141,48 @@ void DSi_DSP::StartDSPHLE()
     case 0x7867C94B: // DSi sound app AAC ucode
         DSPCore = new DSP_HLE::AACUcode(DSi, -1);
         break;
+
+    case 0x0CAFEF48: // AAC SDK ucode v0
+        DSPCore = new DSP_HLE::AACUcode(DSi, 0x00);
+        break;
+
+    case 0xEF5174AA: // AAC SDK ucode v0 patch
+        DSPCore = new DSP_HLE::AACUcode(DSi, 0x01);
+        break;
+
+    case 0x1D320185: // AAC SDK ucode v2
+        DSPCore = new DSP_HLE::AACUcode(DSi, 0x20);
+        break;
+
+    case 0xAE11D2FB: // AAC SDK ucode v4
+        DSPCore = new DSP_HLE::AACUcode(DSi, 0x40);
+        break;
+
+
+    case 0xFAA1B612: // G711 SDK ucode v0
+        DSPCore = new DSP_HLE::G711Ucode(DSi, 0x00);
+        break;
+
+    case 0x7EEE19FE: // G711 SDK ucode v1
+        DSPCore = new DSP_HLE::G711Ucode(DSi, 0x10);
+        break;
+
+    case 0x6056C6FF: // G711 SDK ucode v2
+        DSPCore = new DSP_HLE::G711Ucode(DSi, 0x20);
+        break;
+
+    case 0x2C281DAE: // G711 SDK ucode v3
+        DSPCore = new DSP_HLE::G711Ucode(DSi, 0x30);
+        break;
+
+    case 0x2A1D7F94: // G711 SDK ucode v4
+        DSPCore = new DSP_HLE::G711Ucode(DSi, 0x40);
+        break;
+
+    case 0x4EBEB519: // G711 SDK ucode v5
+        DSPCore = new DSP_HLE::G711Ucode(DSi, 0x50);
+        break;
+
 
     case 0xCD2A8B1B: // Graphics SDK ucode v0
         DSPCore = new DSP_HLE::GraphicsUcode(DSi, 0x00);
