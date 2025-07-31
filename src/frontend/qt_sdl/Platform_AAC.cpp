@@ -24,30 +24,47 @@
 namespace melonDS::Platform
 {
 
+struct AACDecoder
+{
+    bool inited;
+    NeAACDecHandle handle;
+};
+
 AACDecoder* AAC_Init()
 {
-    NeAACDecHandle handle = NeAACDecOpen();
-    if (!handle)
-        return nullptr;
+    AACDecoder* dec = new AACDecoder();
+    dec->inited = false;
+    dec->handle = nullptr;
 
-    NeAACDecConfiguration* cfg = NeAACDecGetCurrentConfiguration(handle);
-    cfg->defObjectType = LC;
-    cfg->outputFormat = FAAD_FMT_16BIT;
-    if (!NeAACDecSetConfiguration(handle, cfg))
-        return nullptr;
-
-    return (AACDecoder*)handle;
+    return dec;
 }
 
 void AAC_DeInit(AACDecoder* dec)
 {
-    NeAACDecHandle handle = (NeAACDecHandle)dec;
-    NeAACDecClose(handle);
+    if (dec->handle)
+        NeAACDecClose(dec->handle);
+
+    delete dec;
 }
 
 bool AAC_Configure(AACDecoder* dec, int frequency, int channels)
 {
-    NeAACDecHandle handle = (NeAACDecHandle)dec;
+    if (dec->inited)
+    {
+        NeAACDecClose(dec->handle);
+        dec->handle = nullptr;
+        dec->inited = false;
+    }
+
+    dec->handle = NeAACDecOpen();
+    if (!dec->handle)
+        return false;
+
+    NeAACDecConfiguration* cfg = NeAACDecGetCurrentConfiguration(dec->handle);
+    cfg->defObjectType = LC;
+    cfg->outputFormat = FAAD_FMT_16BIT;
+    if (!NeAACDecSetConfiguration(dec->handle, cfg))
+        return false;
 
     int freqlist[9] = {48000, 44100, 32000, 24000, 22050, 16000, 12000, 11025, 8000};
     u8 freqnum = 3; // default to 48000
@@ -74,18 +91,21 @@ bool AAC_Configure(AACDecoder* dec, int frequency, int channels)
 
     unsigned long freq_out;
     u8 chan_out;
-    if (NeAACDecInit2(handle, asc, asclen, &freq_out, &chan_out) != 0)
+    if (NeAACDecInit2(dec->handle, asc, asclen, &freq_out, &chan_out) != 0)
         return false;
 
+    dec->inited = true;
     return true;
 }
 
 bool AAC_DecodeFrame(AACDecoder* dec, const void* input, int inputlen, void* output, int outputlen)
 {
-    NeAACDecHandle handle = (NeAACDecHandle)dec;
+    if (!dec->inited)
+        return false;
+
     NeAACDecFrameInfo finfo;
 
-    NeAACDecDecode2(handle, &finfo, (u8*)input, inputlen, &output, outputlen);
+    NeAACDecDecode2(dec->handle, &finfo, (u8*)input, inputlen, &output, outputlen);
 
     if (finfo.error)
         return false;
