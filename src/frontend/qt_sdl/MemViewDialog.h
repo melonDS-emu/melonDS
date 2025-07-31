@@ -101,23 +101,33 @@ public:
         this->setTextCursor(cursor);
     }
 
-    bool IsTextSelected() {
+    bool IsTextSelected()
+    {
         QTextCursor cursor = this->textCursor();
         return cursor.hasSelection();
     }
 
-    void SetCursorPosition(int value) {
+    void SetCursorPosition(int value)
+    {
         QTextCursor cursor = this->textCursor();
         cursor.setPosition(value);
         this->setTextCursor(cursor);
     }
 
-    int GetCursorPosition() {
+    int GetCursorPosition()
+    {
         QTextCursor cursor = this->textCursor();
         return cursor.position();
     }
 
-    bool IsKeyHex(int key) {
+    int GetCursorAnchor()
+    {
+        QTextCursor cursor = this->textCursor();
+        return cursor.anchor();
+    }
+
+    bool IsKeyHex(int key)
+    {
         return (key >= Qt::Key_0 && key <= Qt::Key_9) || (key >= Qt::Key_A && key <= Qt::Key_F);
     }
 

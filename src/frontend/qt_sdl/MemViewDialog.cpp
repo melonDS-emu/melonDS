@@ -104,10 +104,10 @@ void CustomTextItem::keyPressEvent(QKeyEvent *event)
 
     if (this->IsEditing)
     {
+        // cursor state before processing the key
         QTextCursor cursor = this->textCursor();
         int cursorPos = cursor.position();
         int anchorPos = cursor.anchor();
-        bool hasSelection = cursor.hasSelection();
         qsizetype textLength = text.length();
 
         // make sure that:
@@ -138,9 +138,26 @@ void CustomTextItem::keyPressEvent(QKeyEvent *event)
         this->QGraphicsTextItem::keyPressEvent(event);
 
         // skip to the next byte and enter edition mode (handled by the signal)
-        if (this->IsKeyHex(key) && this->toPlainText().length() == 2 && !hasSelection)
+        if (this->IsKeyHex(key) && this->toPlainText().length() == 2 && !this->IsTextSelected())
         {
             emit switchFocus(focusDirection_Right, focusAction_SetEditionModeNoPos);
+        }
+
+        // go to the previous or next byte and enter edition mode with the left and right arrows
+        if (cursorPos == this->GetCursorPosition() && anchorPos == this->GetCursorAnchor()) {
+            switch (key)
+            {
+                case Qt::Key_Left:
+                    emit switchFocus(focusDirection_Left, focusAction_SetEditionMode);
+                    break;
+                case Qt::Key_Right:
+                    emit switchFocus(focusDirection_Right, focusAction_SetEditionMode);
+                    break;
+                default:
+                    break;
+            }
+
+            event->accept();
         }
     }
     else
