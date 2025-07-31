@@ -46,7 +46,7 @@ QRectF CustomTextItem::boundingRect() const
 bool CustomTextItem::IsKeyValid(int key)
 {
     // hex chars
-    if ((key >= Qt::Key_0 && key <= Qt::Key_9) || (key >= Qt::Key_A && key <= Qt::Key_F))
+    if (this->IsKeyHex(key))
     {
         return true;
     }
@@ -104,11 +104,17 @@ void CustomTextItem::keyPressEvent(QKeyEvent *event)
 
     if (this->IsEditing)
     {
+        QTextCursor cursor = this->textCursor();
+        int cursorPos = cursor.position();
+        int anchorPos = cursor.anchor();
+        bool hasSelection = cursor.hasSelection();
+        qsizetype textLength = text.length();
+
         // make sure that:
         // - 1. the item is focused (probably always true though but wanna be safe)
         // - 2. the key is valid, so either an hex digit or other keys like enter or delete
-        // - 3. the current text length don't exceed 2
-        if (!this->hasFocus() || !this->IsKeyValid(key) || text.length() > 2)
+        // - 3. if the key is a hex digit (0-9 A-F), make sure we won't exceed a length of 2
+        if (!this->hasFocus() || !this->IsKeyValid(key) || (this->IsKeyHex(key) && (cursorPos + 1) < 2 && (textLength + 1) > 2))
         {
             this->IsEditing = false;
             event->ignore();
@@ -130,6 +136,12 @@ void CustomTextItem::keyPressEvent(QKeyEvent *event)
 
         // if the validation checks pass and it's not the enter key, process it
         this->QGraphicsTextItem::keyPressEvent(event);
+
+        // skip to the next byte and enter edition mode (handled by the signal)
+        if (this->IsKeyHex(key) && this->toPlainText().length() == 2 && !hasSelection)
+        {
+            emit switchFocus(focusDirection_Right, focusAction_SetEditionModeNoPos);
+        }
     }
     else
     {
@@ -140,16 +152,16 @@ void CustomTextItem::keyPressEvent(QKeyEvent *event)
                 this->SetEditionFlags();
                 break;
             case Qt::Key_Left:
-                emit switchFocus(focusDirection_Left);
+                emit switchFocus(focusDirection_Left, focusAction_SetSelectionMode);
                 break;
             case Qt::Key_Up:
-                emit switchFocus(focusDirection_Up);
+                emit switchFocus(focusDirection_Up, focusAction_SetSelectionMode);
                 break;
             case Qt::Key_Right:
-                emit switchFocus(focusDirection_Right);
+                emit switchFocus(focusDirection_Right, focusAction_SetSelectionMode);
                 break;
             case Qt::Key_Down:
-                emit switchFocus(focusDirection_Down);
+                emit switchFocus(focusDirection_Down, focusAction_SetSelectionMode);
                 break;
             default:
                 event->ignore();
@@ -685,7 +697,7 @@ void MemViewDialog::onApplyEditToRAM(uint8_t value, QGraphicsItem *focus)
     }
 }
 
-void MemViewDialog::onSwitchFocus(FocusDirection eDirection)
+void MemViewDialog::onSwitchFocus(FocusDirection eDirection, FocusAction eAction)
 {
     CustomTextItem* focusItem = (CustomTextItem*)this->GfxScene->focusItem();
 
@@ -775,7 +787,25 @@ void MemViewDialog::onSwitchFocus(FocusDirection eDirection)
             // so we need to force an update to make sure what we focus has the right value
             this->ForceTextUpdate = true;
             this->UpdateText(addrIndex, index);
-            item->SetTextSelection(true);
+
+            switch (eAction) {
+                case focusAction_SetSelectionMode:
+                    item->SetSelectionFlags();
+                    item->SetTextSelection(true);
+                    break;
+                case focusAction_SetEditionModeNoPos:
+                    item->SetTextSelection(true);
+                    // fallthrough
+                case focusAction_SetEditionMode:
+                    item->SetEditionFlags();
+
+                    if (eAction == focusAction_SetEditionMode) {
+                        item->SetCursorPosition(eDirection == focusDirection_Left ? 0 : 2);
+                    }
+                    break;
+                default:
+                    break;
+            }
         }
     }
 }

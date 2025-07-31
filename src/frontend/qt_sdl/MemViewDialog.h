@@ -49,6 +49,13 @@ typedef enum FocusDirection
     focusDirection_Right,
 } FocusDirection;
 
+typedef enum FocusAction
+{
+    focusAction_SetSelectionMode,
+    focusAction_SetEditionMode,
+    focusAction_SetEditionModeNoPos,
+} FocusAction;
+
 // --- main window ---
 
 class CustomTextItem : public QGraphicsTextItem
@@ -94,9 +101,29 @@ public:
         this->setTextCursor(cursor);
     }
 
+    bool IsTextSelected() {
+        QTextCursor cursor = this->textCursor();
+        return cursor.hasSelection();
+    }
+
+    void SetCursorPosition(int value) {
+        QTextCursor cursor = this->textCursor();
+        cursor.setPosition(value);
+        this->setTextCursor(cursor);
+    }
+
+    int GetCursorPosition() {
+        QTextCursor cursor = this->textCursor();
+        return cursor.position();
+    }
+
+    bool IsKeyHex(int key) {
+        return (key >= Qt::Key_0 && key <= Qt::Key_9) || (key >= Qt::Key_A && key <= Qt::Key_F);
+    }
+
 signals:
     void applyEditToRAM(uint8_t value, QGraphicsItem *focus);
-    void switchFocus(FocusDirection eDirection);
+    void switchFocus(FocusDirection eDirection, FocusAction eAction);
 
 private:
     QRectF Size;
@@ -248,7 +275,7 @@ private slots:
     void onAddressTextChanged(const QString &text);
     void onValueBtnSetPressed();
     void onApplyEditToRAM(uint8_t value, QGraphicsItem *focus);
-    void onSwitchFocus(FocusDirection eDirection);
+    void onSwitchFocus(FocusDirection eDirection, FocusAction eAction);
     void onScrollBarValueChanged(int value);
 
 public:
