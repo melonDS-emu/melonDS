@@ -232,7 +232,7 @@ void AACUcode::CmdDecodeFrame()
         }
     }
 
-    DSi.ScheduleEvent(Event_DSi_DSPHLE, false, 115000, 0, 0);
+    DSi.ScheduleEvent(Event_DSi_DSPHLE, false, (chan==1) ? 60000 : 115000, 0, 0);
 }
 
 void AACUcode::FinishCmd(u32 param)
