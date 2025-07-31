@@ -217,6 +217,7 @@ void AACUcode::CmdDecodeFrame()
         for (int i = 0; i < 1024; i++)
         {
             DSi.ARM9Write16(leftaddr, *dataout++);
+            dataout++;
             leftaddr += 2;
         }
     }
