@@ -883,6 +883,14 @@ void MemViewDialog::onSwitchFocus(FocusDirection eDirection, FocusAction eAction
         {
             this->ScrollBar->setValue(scrollValue);
 
+            // the focus item doesn't change when scrolling up or down with the arrows
+            if (eDirection == focusDirection_Up || eDirection == focusDirection_Down) {
+                uint32_t address = ALIGN16(scrollValue) + addrIndex * 16 + index;
+                QString newAddr;
+                newAddr.setNum(address, 16);
+                this->AddrLabel->setText(newAddr.toUpper().rightJustified(8, '0').prepend("0x"));
+            }
+
             // UpdateText requires to check for hasFocus to prevent deselecting the text
             // so we need to force an update to make sure what we focus has the right value
             this->ForceTextUpdate = true;
