@@ -212,12 +212,23 @@ void AACUcode::CmdDecodeFrame()
     }
 
     s16* dataout = OutputBuf;
-    for (int i = 0; i < 1024; i++)
+    if (chan == 1)
     {
-        DSi.ARM9Write16(leftaddr, *dataout++);
-        DSi.ARM9Write16(rightaddr, *dataout++);
-        leftaddr += 2;
-        rightaddr += 2;
+        for (int i = 0; i < 1024; i++)
+        {
+            DSi.ARM9Write16(leftaddr, *dataout++);
+            leftaddr += 2;
+        }
+    }
+    else
+    {
+        for (int i = 0; i < 1024; i++)
+        {
+            DSi.ARM9Write16(leftaddr, *dataout++);
+            DSi.ARM9Write16(rightaddr, *dataout++);
+            leftaddr += 2;
+            rightaddr += 2;
+        }
     }
 
     DSi.ScheduleEvent(Event_DSi_DSPHLE, false, 115000, 0, 0);
