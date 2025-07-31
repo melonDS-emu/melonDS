@@ -56,6 +56,18 @@ typedef enum FocusAction
     focusAction_SetEditionModeNoPos,
 } FocusAction;
 
+// this need to match the order of the item from `MemRegionBox`.
+enum MemRegionType {
+    memRegionType_Default,
+    memRegionType_ITCM,
+    memRegionType_Main,
+    memRegionType_DTCM,
+    memRegionType_SWRAM,
+    memRegionType_Palettes,
+    memRegionType_OAM,
+    memRegionType_BIOS,
+};
+
 // --- main window ---
 
 class CustomTextItem : public QGraphicsTextItem
@@ -183,6 +195,7 @@ public:
     int GetAddressFromItem(CustomTextItem* item);
     void* GetRAM(uint32_t address);
     uint32_t GetFocusAddress(QGraphicsItem *focus);
+    void SwitchMemRegion(uint32_t address);
 
     static MemViewDialog* currentDlg;
     static MemViewDialog* openDlg(QWidget* parent)
@@ -277,6 +290,14 @@ public:
         }
     }
 
+    void UpdateViewRegion(uint32_t newStart, uint32_t newEnd) {
+        this->ARM9AddrStart = newStart;
+        this->ARM9AddrEnd = newEnd;
+        this->ScrollBar->setMinimum(newStart);
+        this->ScrollBar->setMaximum(newEnd - 0x100);
+        this->ScrollBar->setValue(newStart);
+    }
+
 private slots:
     void done(int r);
     void UpdateText(int addrIndex, int index);
@@ -287,6 +308,7 @@ private slots:
     void onApplyEditToRAM(uint8_t value, QGraphicsItem *focus);
     void onSwitchFocus(FocusDirection eDirection, FocusAction eAction);
     void onScrollBarValueChanged(int value);
+    void onMemRegionIndexChanged(int index);
 
 public:
     uint32_t ARM9AddrStart;
@@ -303,6 +325,7 @@ private:
     QLabel* UpdateRateLabel;
     QLineEdit* SearchLineEdit;
     QSpinBox* UpdateRate;
+    QComboBox* MemRegionBox;
 
     // value setter group
     QGroupBox* SetValGroup;
@@ -312,7 +335,7 @@ private:
     QLineEdit* SetValAddr;
     QCheckBox* SetValFocus;
 
-    // yes I could just use `items()` but good ol' array are easier to work with
+    // yes I could just use `items()` but good ol' arrays are easier to work with
     CustomTextItem* RAMTextItems[16][16];
     QGraphicsTextItem* LeftAddrItems[16];
     QGraphicsTextItem* AsciiStrings[16];

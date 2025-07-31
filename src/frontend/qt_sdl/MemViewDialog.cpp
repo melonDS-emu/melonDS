@@ -156,8 +156,6 @@ void CustomTextItem::keyPressEvent(QKeyEvent *event)
                 default:
                     break;
             }
-
-            event->accept();
         }
     }
     else
@@ -184,9 +182,9 @@ void CustomTextItem::keyPressEvent(QKeyEvent *event)
                 event->ignore();
                 return;
         }
-
-        event->accept();
     }
+
+    event->accept();
 }
 
 void CustomTextItem::focusOutEvent(QFocusEvent *event)
@@ -249,9 +247,6 @@ void CustomGraphicsScene::onFocusItemChanged(QGraphicsItem *newFocus, QGraphicsI
 
 MemViewDialog::MemViewDialog(QWidget* parent) : QDialog(parent)
 {
-    this->ARM9AddrStart = 0x02000000;
-    this->ARM9AddrEnd = 0x03000000 - 0x100;
-
     // set the Dialog's basic properties
     this->setObjectName("MemViewDialog");
     this->setFixedSize(730, 300);
@@ -272,6 +267,7 @@ MemViewDialog::MemViewDialog(QWidget* parent) : QDialog(parent)
     this->UpdateRateLabel = new QLabel(this);
     this->SearchLineEdit = new QLineEdit(this);
     this->UpdateRate = new QSpinBox(this);
+    this->MemRegionBox = new QComboBox(this); 
     this->SetValGroup = new QGroupBox(this); 
     this->SetValFocus = new QCheckBox(this->SetValGroup);
     this->SetValBits = new QComboBox(this->SetValGroup);
@@ -307,14 +303,15 @@ MemViewDialog::MemViewDialog(QWidget* parent) : QDialog(parent)
 
     this->GfxView->setScene(this->GfxScene);
     this->GfxView->setGeometry(160, 10, 550, 280);
+    this->GfxView->setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
+    this->GfxView->setVerticalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
 
     this->GfxScene->clear();
-    this->GfxScene->setSceneRect(0, 0, 550, 280);
+    QRect rect = this->GfxView->contentsRect();
+    this->GfxScene->setSceneRect(0, 0, rect.width(), rect.height());
     this->GfxScene->SetScrollBar(this->ScrollBar);
 
     this->ScrollBar->setGeometry(710, 10, 16, 280);
-    this->ScrollBar->setMinimum(this->ARM9AddrStart);
-    this->ScrollBar->setMaximum(this->ARM9AddrEnd);
     this->ScrollBar->setSingleStep(16);
     this->ScrollBar->setPageStep(16);
     this->ScrollBar->setOrientation(Qt::Orientation::Vertical);
@@ -341,6 +338,16 @@ MemViewDialog::MemViewDialog(QWidget* parent) : QDialog(parent)
     QPalette paletteAddr = this->SetValAddr->palette();
     paletteAddr.setColor(QPalette::ColorRole::PlaceholderText, placeholderColor);
     this->SetValAddr->setPalette(paletteAddr);
+
+    this->MemRegionBox->setGeometry(7, 218, 144, 32);
+    this->MemRegionBox->addItem("Default");
+    this->MemRegionBox->addItem("ITCM");
+    this->MemRegionBox->addItem("Main");
+    this->MemRegionBox->addItem("DTCM");
+    this->MemRegionBox->addItem("Shared WRAM");
+    this->MemRegionBox->addItem("Palettes");
+    this->MemRegionBox->addItem("OAM");
+    this->MemRegionBox->addItem("ARM9-BIOS");
 
     // initialize the scene
     QString text;
@@ -428,6 +435,15 @@ MemViewDialog::MemViewDialog(QWidget* parent) : QDialog(parent)
     QGraphicsLineItem* line2 = this->GfxScene->addLine(87, 0, 87, this->GfxScene->height(), QPen(color));
     // QGraphicsLineItem* line3 = this->GfxScene->addLine(415, 0, 415, this->GfxScene->height(), QPen(color));
 
+    melonDS::NDS* nds = this->GetNDS();
+    if (nds != nullptr) {
+        // should never happen for users but wait until the DTCM address is set just in case
+        while (nds->ARM9.DTCMBase == 0xFFFFFFFF) {}
+
+        this->MemRegionBox->setCurrentIndex(memRegionType_Default);
+        this->UpdateViewRegion(0x02000000, 0x03000000);
+    }
+
     this->UpdateThread->Start();
     connect(this->UpdateThread, &MemViewThread::updateTextSignal, this, &MemViewDialog::UpdateText);
     connect(this->UpdateThread, &MemViewThread::updateAddressSignal, this, &MemViewDialog::UpdateAddress);
@@ -436,6 +452,7 @@ MemViewDialog::MemViewDialog(QWidget* parent) : QDialog(parent)
     connect(this->SetValBtn, &QPushButton::pressed, this, &MemViewDialog::onValueBtnSetPressed);
     connect(this->GfxScene, &QGraphicsScene::focusItemChanged, this->GfxScene, &CustomGraphicsScene::onFocusItemChanged);
     connect(this->ScrollBar, &QScrollBar::valueChanged, this, &MemViewDialog::onScrollBarValueChanged);
+    connect(this->MemRegionBox, &QComboBox::currentIndexChanged, this, &MemViewDialog::onMemRegionIndexChanged);
 
     qRegisterMetaType<QVector<int>>("QVector<int>");
     qRegisterMetaType<u32>("u32");
@@ -500,19 +517,42 @@ void* MemViewDialog::GetRAM(uint32_t address)
 {
     melonDS::NDS* nds = this->GetNDS();
 
-    if (nds != nullptr && nds->ARM9.DTCM != nullptr && nds->MainRAM != nullptr)
+    if (nds != nullptr)
     {
         if (address < nds->ARM9.ITCMSize)
         {
             return &nds->ARM9.ITCM[address & (ITCMPhysicalSize - 1)];
         }
-        else if ((address & nds->ARM9.DTCMMask) == nds->ARM9.DTCMBase)
+        else if (nds->ARM9.DTCM != nullptr && (address & nds->ARM9.DTCMMask) == nds->ARM9.DTCMBase)
         {
             return &nds->ARM9.DTCM[address & (DTCMPhysicalSize - 1)];
         }
-        else
+        else if ((address & 0xFFFFF000) == 0xFFFF0000)
         {
-            return &nds->MainRAM[address & nds->MainRAMMask];
+            return (void*)&nds->GetARM9BIOS()[address & 0xFFF];
+        }
+
+        // based on NDS::ARM9Read8
+        switch (address & 0xFF000000)
+        {
+            case 0x02000000:
+                if (nds->MainRAM != nullptr)
+                {
+                    return &nds->MainRAM[address & nds->MainRAMMask];
+                }
+                break;
+            case 0x03000000:
+                if (nds->SWRAM_ARM9.Mem != nullptr)
+                {
+                    return &nds->SWRAM_ARM9.Mem[address & nds->SWRAM_ARM9.Mask];
+                }
+                break;
+            case 0x05000000:
+                return &nds->GPU.Palette[address & 0x7FF];
+            case 0x07000000:
+                return &nds->GPU.OAM[address & 0x7FF];
+            default:
+                break;
         }
     }
 
@@ -540,6 +580,48 @@ uint32_t MemViewDialog::GetFocusAddress(QGraphicsItem *focus)
     return -1;
 }
 
+void MemViewDialog::SwitchMemRegion(uint32_t address) {
+    melonDS::NDS* nds = this->GetNDS();
+    int index = memRegionType_Default;
+
+    if (nds != nullptr)
+    {
+        if (address < nds->ARM9.ITCMSize)
+        {
+            index = memRegionType_ITCM;
+        }
+        else if ((address & nds->ARM9.DTCMMask) == nds->ARM9.DTCMBase)
+        {
+            index = memRegionType_DTCM;
+        }
+        else if ((address & 0xFFFFF000) == 0xFFFF0000)
+        {
+            index = memRegionType_BIOS;
+        }
+        else
+        {
+            switch (address & 0xFF000000)
+            {
+                case 0x02000000:
+                    index = memRegionType_Main;
+                    break;
+                case 0x03000000:
+                    index = memRegionType_SWRAM;
+                    break;
+                case 0x05000000:
+                    index = memRegionType_Palettes;
+                case 0x07000000:
+                    index = memRegionType_OAM;
+                default:
+                    break;
+            }
+        }
+    }
+
+    this->MemRegionBox->setCurrentIndex(index);
+    this->onMemRegionIndexChanged(index);
+}
+
 void MemViewDialog::done(int r)
 {
     QDialog::done(r);
@@ -561,9 +643,10 @@ void MemViewDialog::UpdateText(int addrIndex, int index)
     uint32_t address = ALIGN16(this->ScrollBar->value()) + addrIndex * 16;
     uint8_t* pRAM = (uint8_t*)this->GetRAM(address + index);
 
-    if (item != nullptr && pRAM != nullptr)
+    if (item != nullptr)
     {
-        uint8_t byte = *pRAM;
+        // if pRAM is null (can happen for Shared WRAM if unused), fill with 0x69 to make it obvious
+        uint8_t byte = pRAM != nullptr ? *pRAM : 0x69;
 
         // only update the text when the item isn't focused so we can edit it
         if (!item->hasFocus() || this->ForceTextUpdate)
@@ -637,10 +720,10 @@ void MemViewDialog::onAddressTextChanged(const QString &text)
 
     addr = rawAddr.toUInt(0, 16);
 
-    // make sure the address is in the main memory (counting dtcm)
+    // change memory region if necessary
     if (addr < this->ARM9AddrStart || addr > this->ARM9AddrEnd + 0x100)
     {
-        return;
+        this->SwitchMemRegion(addr);
     }
 
     // scroll bars are dumb and the `value()` method doesn't always return what you want as the step
@@ -836,6 +919,54 @@ void MemViewDialog::onScrollBarValueChanged(int value) {
         this->ForceTextUpdate = true;
         this->UpdateText(packed >> 8, packed & 0xFF);
         item->SetTextSelection(true);
+    }
+}
+
+void MemViewDialog::onMemRegionIndexChanged(int index) {
+    melonDS::NDS* nds = this->GetNDS();
+
+    if (nds != nullptr) {
+        uint32_t newStart;
+        uint32_t newEnd;
+
+        switch (index) {
+            case memRegionType_Default:
+                newStart = 0x02000000;
+                newEnd = 0x03000000;
+                break;
+            case memRegionType_ITCM:
+                newStart = 0x01FF8000;
+                newEnd = 0x02000000;
+                break;
+            case memRegionType_Main:
+                newStart = 0x02000000;
+                newEnd = nds->ARM9.DTCMBase;
+                break;
+            case memRegionType_DTCM:
+                newStart = nds->ARM9.DTCMBase;
+                newEnd = nds->ARM9.DTCMBase + DTCMPhysicalSize;
+                break;
+            case memRegionType_SWRAM:
+                newStart = 0x03000000;
+                newEnd = newStart + SharedWRAMSize;
+                break;
+            case memRegionType_Palettes:
+                newStart = 0x05000000;
+                newEnd = 0x06000000;
+                break;
+            case memRegionType_OAM:
+                newStart = 0x07000000;
+                newEnd = 0x08000000;
+                break;
+            case memRegionType_BIOS:
+                newStart = 0xFFFF0000;
+                newEnd = newStart + ARM9BIOSSize;
+                break;
+            default:
+                return;
+        }
+
+        this->UpdateViewRegion(newStart, newEnd);
     }
 }
 
