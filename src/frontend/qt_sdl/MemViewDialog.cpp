@@ -114,7 +114,7 @@ void CustomTextItem::keyPressEvent(QKeyEvent *event)
         // - 1. the item is focused (probably always true though but wanna be safe)
         // - 2. the key is valid, so either an hex digit or other keys like enter or delete
         // - 3. if the key is a hex digit (0-9 A-F), make sure we won't exceed a length of 2
-        if (!this->hasFocus() || !this->IsKeyValid(key) || (this->IsKeyHex(key) && (cursorPos + 1) > 2 && (textLength + 1) > 2))
+        if (!this->hasFocus() || !this->IsKeyValid(key) || (this->IsKeyHex(key) && !this->IsTextSelected() && (cursorPos + 1) > 2 && (textLength + 1) > 2))
         {
             event->ignore();
             return;
