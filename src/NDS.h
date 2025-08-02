@@ -72,6 +72,7 @@ enum
     Event_DSi_CamIRQ,
     Event_DSi_CamTransfer,
     Event_DSi_DSP,
+    Event_DSi_I2S,
     Event_DSi_DSPHLE, // TODO use same event for both flavors of DSP?
 
     Event_MAX
@@ -413,7 +414,7 @@ public: // TODO: Encapsulate the rest of these members
     void SetLidClosed(bool closed);
 
     virtual void CamInputFrame(int cam, const u32* data, int width, int height, bool rgb) {}
-    void MicInputFrame(s16* data, int samples);
+    virtual void MicInputFrame(s16* data, int samples);
 
     void RegisterEventFuncs(u32 id, void* that, const std::initializer_list<EventFunc>& funcs);
     void UnregisterEventFuncs(u32 id);

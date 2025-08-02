@@ -311,8 +311,6 @@ void DSi_DSP::Reset()
         DSPCore->Reset();
 
     DSi.CancelEvent(Event_DSi_DSP);
-
-    SNDExCnt = 0;
 }
 
 bool DSi_DSP::IsRstReleased() const
@@ -711,23 +709,6 @@ void DSi_DSP::Write32(u32 addr, u32 val)
 {
     addr &= 0x3C;
     Write16(addr, val & 0xFFFF);
-}
-
-void DSi_DSP::WriteSNDExCnt(u16 val, u16 mask)
-{
-    val = (val & mask) | (SNDExCnt & ~mask);
-
-    // it can be written even in NDS mode
-
-    // mic frequency can only be changed if it was disabled
-    // before the write
-    if (SNDExCnt & 0x8000)
-    {
-        val &= ~0x2000;
-        val |= SNDExCnt & 0x2000;
-    }
-
-    SNDExCnt = val & 0xE00F;
 }
 
 void DSi_DSP::Run(u32 cycles)
