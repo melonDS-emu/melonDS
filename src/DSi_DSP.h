@@ -21,6 +21,7 @@
 
 #include "types.h"
 #include "Savestate.h"
+#include "FIFO.h"
 
 // TODO: for actual sound output
 // * audio callbacks
@@ -29,7 +30,60 @@ namespace Teakra { class Teakra; }
 
 namespace melonDS
 {
+
 class DSi;
+class DSPHLE_UcodeBase;
+
+class DSPInterface
+{
+public:
+    virtual ~DSPInterface() {};
+
+    virtual void Reset() = 0;
+    virtual void DoSavestate(Savestate* file) = 0;
+
+    // APBP Data
+    virtual bool SendDataIsEmpty(std::uint8_t index) const = 0;
+    virtual void SendData(std::uint8_t index, std::uint16_t value) = 0;
+    virtual bool RecvDataIsReady(std::uint8_t index) const = 0;
+    virtual std::uint16_t RecvData(std::uint8_t index) = 0;
+    //virtual std::uint16_t PeekRecvData(std::uint8_t index) = 0;
+
+    // APBP Semaphore
+    virtual void SetSemaphore(std::uint16_t value) = 0;
+    virtual void ClearSemaphore(std::uint16_t value) = 0;
+    virtual void MaskSemaphore(std::uint16_t value) = 0;
+    virtual std::uint16_t GetSemaphore() const = 0;
+
+    // for implementing DSP_PDATA/PADR DMA transfers
+    virtual std::uint16_t ProgramRead(std::uint32_t address) const = 0;
+    virtual void ProgramWrite(std::uint32_t address, std::uint16_t value) = 0;
+    //virtual std::uint16_t DataRead(std::uint16_t address, bool bypass_mmio = false) = 0;
+    //virtual void DataWrite(std::uint16_t address, std::uint16_t value, bool bypass_mmio = false) = 0;
+    virtual std::uint16_t DataReadA32(std::uint32_t address) const = 0;
+    virtual void DataWriteA32(std::uint32_t address, std::uint16_t value) = 0;
+    virtual std::uint16_t MMIORead(std::uint16_t address) = 0;
+    virtual void MMIOWrite(std::uint16_t address, std::uint16_t value) = 0;
+
+    // DSP_PADR is only 16-bit, so this is where the DMA interface gets the
+    // upper 16-bits from
+    virtual std::uint16_t DMAChan0GetSrcHigh() = 0;
+    virtual std::uint16_t DMAChan0GetDstHigh() = 0;
+
+    virtual std::uint16_t AHBMGetUnitSize(std::uint16_t i) const = 0;
+    virtual std::uint16_t AHBMGetDirection(std::uint16_t i) const = 0;
+    virtual std::uint16_t AHBMGetDmaChannel(std::uint16_t i) const = 0;
+    // we need these as AHBM does some weird stuff on unaligned accesses internally
+    virtual std::uint16_t AHBMRead16(std::uint32_t addr) = 0;
+    virtual void AHBMWrite16(std::uint32_t addr, std::uint16_t value) = 0;
+    virtual std::uint16_t AHBMRead32(std::uint32_t addr) = 0;
+    virtual void AHBMWrite32(std::uint32_t addr, std::uint32_t value) = 0;
+
+    // core
+    virtual void Start() {};
+    virtual void Run(unsigned cycle) {};
+};
+
 class DSi_DSP
 {
 public:
@@ -37,6 +91,10 @@ public:
     ~DSi_DSP();
     void Reset();
     void DoSavestate(Savestate* file);
+
+    void StartDSPLLE();
+    void StartDSPHLE();
+    void StopDSP();
 
     void DSPCatchUpU32(u32 _);
 
@@ -68,7 +126,7 @@ public:
 private:
     melonDS::DSi& DSi;
 
-    Teakra::Teakra* TeakraCore;
+    DSPInterface* DSPCore;
 
     bool SCFG_RST;
 
