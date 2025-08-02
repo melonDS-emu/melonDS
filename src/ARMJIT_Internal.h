@@ -1,5 +1,5 @@
 /*
-    Copyright 2016-2024 melonDS team, RSDuck
+    Copyright 2016-2025 melonDS team, RSDuck
 
     This file is part of melonDS.
 
@@ -85,9 +85,9 @@ typedef void (*InterpreterFunc)(ARM* cpu);
 extern InterpreterFunc InterpretARM[];
 extern InterpreterFunc InterpretTHUMB[];
 
-inline bool PageContainsCode(const AddressRange* range)
+inline bool PageContainsCode(const AddressRange* range, u32 pageSize)
 {
-    for (int i = 0; i < 8; i++)
+    for (int i = 0; i < pageSize / 512; i++)
     {
         if (range[i].Blocks.Length > 0)
             return true;

@@ -1,5 +1,5 @@
 /*
-    Copyright 2016-2024 melonDS team
+    Copyright 2016-2025 melonDS team
 
     This file is part of melonDS.
 
@@ -74,13 +74,11 @@ const s32 kIterationCycleMargin = 8;
 //
 // timings for GBA slot and wifi are set up at runtime
 
-NDS* NDS::Current = nullptr;
+thread_local NDS* NDS::Current = nullptr;
 
 NDS::NDS() noexcept :
     NDS(
         NDSArgs {
-            nullptr,
-            nullptr,
             std::make_unique<ARM9BIOSImage>(bios_arm9_bin),
             std::make_unique<ARM7BIOSImage>(bios_arm7_bin),
             Firmware(0),
@@ -102,8 +100,8 @@ NDS::NDS(NDSArgs&& args, int type, void* userdata) noexcept :
     SPI(*this, std::move(args.Firmware)),
     RTC(*this),
     Wifi(*this),
-    NDSCartSlot(*this, std::move(args.NDSROM)),
-    GBACartSlot(*this, type == 1 ? nullptr : std::move(args.GBAROM)),
+    NDSCartSlot(*this, nullptr),
+    GBACartSlot(*this, nullptr),
     AREngine(*this),
     ARM9(*this, args.GDB, args.JIT.has_value()),
     ARM7(*this, args.GDB, args.JIT.has_value()),
@@ -124,8 +122,8 @@ NDS::NDS(NDSArgs&& args, int type, void* userdata) noexcept :
         DMA(1, 3, *this),
     }
 {
-    RegisterEventFunc(Event_Div, 0, MemberEventFunc(NDS, DivDone));
-    RegisterEventFunc(Event_Sqrt, 0, MemberEventFunc(NDS, SqrtDone));
+    RegisterEventFuncs(Event_Div, this, {MakeEventThunk(NDS, DivDone)});
+    RegisterEventFuncs(Event_Sqrt, this, {MakeEventThunk(NDS, SqrtDone)});
 
     MainRAM = JIT.Memory.GetMainRAM();
     SharedWRAM = JIT.Memory.GetSharedWRAM();
@@ -134,8 +132,8 @@ NDS::NDS(NDSArgs&& args, int type, void* userdata) noexcept :
 
 NDS::~NDS() noexcept
 {
-    UnregisterEventFunc(Event_Div, 0);
-    UnregisterEventFunc(Event_Sqrt, 0);
+    UnregisterEventFuncs(Event_Div);
+    UnregisterEventFuncs(Event_Sqrt);
     // The destructor for each component is automatically called by the compiler
 }
 
@@ -226,6 +224,15 @@ void NDS::SetJITArgs(std::optional<JITArgs> args) noexcept
     }
 
     EnableJIT = args.has_value();
+}
+#endif
+
+#ifdef GDBSTUB_ENABLED
+void NDS::SetGdbArgs(std::optional<GDBArgs> args) noexcept
+{
+    ARM9.SetGdbArgs(args);
+    ARM7.SetGdbArgs(args);
+    EnableGDBStub = args.has_value();
 }
 #endif
 
@@ -539,6 +546,26 @@ void NDS::Reset()
 void NDS::Start()
 {
     Running = true;
+
+    if (ConsoleType != 0)
+        return;
+
+    auto* ndscart = NDSCartSlot.GetCart();
+    if (!ndscart)
+        return;
+
+    if (auto* cart = GBACartSlot.GetCart(); cart && cart->Type() == GBACart::CartType::GameSolarSensor)
+    { // If we have a solar sensor cart inserted...
+        auto& solarcart = *static_cast<GBACart::CartGameSolarSensor*>(cart);
+        GBACart::GBAHeader& header = solarcart.GetHeader();
+        if (strncmp(header.Title, GBACart::BOKTAI_STUB_TITLE, sizeof(header.Title)) == 0) {
+            // If this is a stub Boktai cart (so we can use the sensor without a full ROM)...
+
+            // ...then copy the Nintendo logo data from the NDS ROM into the stub GBA ROM.
+            // Otherwise, the GBA cart won't be recognized.
+            memcpy(header.NintendoLogo, ndscart->GetHeader().NintendoLogo, sizeof(header.NintendoLogo));
+        }
+    }
 }
 
 static const char* StopReasonName(Platform::StopReason reason)
@@ -752,11 +779,6 @@ void NDS::SetGBASave(const u8* savedata, u32 savelen)
 
 }
 
-void NDS::LoadGBAAddon(int type)
-{
-    GBACartSlot.LoadAddon(UserData, type);
-}
-
 void NDS::LoadBIOS()
 {
     Reset();
@@ -816,7 +838,7 @@ void NDS::RunSystem(u64 timestamp)
                 SchedListMask &= ~(1<<i);
 
                 EventFunc func = evt.Funcs[evt.FuncID];
-                func(evt.Param);
+                func(evt.That, evt.Param);
             }
         }
 
@@ -873,7 +895,7 @@ void NDS::RunSystemSleep(u64 timestamp)
                         param = evt.Param;
 
                     EventFunc func = evt.Funcs[evt.FuncID];
-                    func(param);
+                    func(evt.That, param);
                 }
             }
         }
@@ -892,6 +914,8 @@ void NDS::RunSystemSleep(u64 timestamp)
 template <CPUExecuteMode cpuMode>
 u32 NDS::RunFrame()
 {
+    Current = this;
+
     FrameStartTimestamp = SysTimestamp;
 
     GPU.TotalScanlines = 0;
@@ -1021,7 +1045,6 @@ u32 NDS::RunFrame()
             ARM7Timestamp-SysTimestamp,
             GPU.GPU3D.Timestamp-SysTimestamp);
 #endif
-        SPU.TransferOutput();
         break;
     }
 
@@ -1069,18 +1092,26 @@ void NDS::Reschedule(u64 target)
     }
 }
 
-void NDS::RegisterEventFunc(u32 id, u32 funcid, EventFunc func)
+void NDS::RegisterEventFuncs(u32 id, void* that, const std::initializer_list<EventFunc>& funcs)
 {
     SchedEvent& evt = SchedList[id];
 
-    evt.Funcs[funcid] = func;
+    evt.That = that;
+    assert(funcs.size() <= MaxEventFunctions);
+    int i = 0;
+    for (EventFunc func : funcs)
+    {
+        evt.Funcs[i++] = func;        
+    }
 }
 
-void NDS::UnregisterEventFunc(u32 id, u32 funcid)
+void NDS::UnregisterEventFuncs(u32 id)
 {
     SchedEvent& evt = SchedList[id];
 
-    evt.Funcs.erase(funcid);
+    evt.That = nullptr;
+    for (int i = 0; i < MaxEventFunctions; i++)
+        evt.Funcs[i] = nullptr;
 }
 
 void NDS::ScheduleEvent(u32 id, bool periodic, s32 delay, u32 funcid, u32 param)
@@ -1088,7 +1119,7 @@ void NDS::ScheduleEvent(u32 id, bool periodic, s32 delay, u32 funcid, u32 param)
     if (SchedListMask & (1<<id))
     {
         Log(LogLevel::Debug, "!! EVENT %d ALREADY SCHEDULED\n", id);
-        return;
+        return; 
     }
 
     SchedEvent& evt = SchedList[id];
@@ -1851,7 +1882,7 @@ void NDS::debug(u32 param)
     //for (int i = 0; i < 9; i++)
     //    printf("VRAM %c: %02X\n", 'A'+i, GPU->VRAMCNT[i]);
 
-    Platform::FileHandle* shit = Platform::OpenFile("debug/pokeplat.bin", FileMode::Write);
+    /*Platform::FileHandle* shit = Platform::OpenFile("debug/pokeplat.bin", FileMode::Write);
     Platform::FileWrite(ARM9.ITCM, 0x8000, 1, shit);
     for (u32 i = 0x02000000; i < 0x02400000; i+=4)
     {
@@ -1868,20 +1899,21 @@ void NDS::debug(u32 param)
         u32 val = NDS::ARM7Read32(i);
         Platform::FileWrite(&val, 4, 1, shit);
     }
-    Platform::CloseFile(shit);
+    Platform::CloseFile(shit);*/
 
     /*FILE*
-    shit = fopen("debug/directboot9.bin", "wb");
+    shit = fopen("debug/camera9.bin", "wb");
+    fwrite(ARM9.ITCM, 0x8000, 1, shit);
     for (u32 i = 0x02000000; i < 0x04000000; i+=4)
     {
-        u32 val = DSi::ARM9Read32(i);
+        u32 val = ARM9Read32(i);
         fwrite(&val, 4, 1, shit);
     }
     fclose(shit);
     shit = fopen("debug/camera7.bin", "wb");
     for (u32 i = 0x02000000; i < 0x04000000; i+=4)
     {
-        u32 val = DSi::ARM7Read32(i);
+        u32 val = ARM7Read32(i);
         fwrite(&val, 4, 1, shit);
     }
     fclose(shit);*/
@@ -2734,6 +2766,9 @@ u8 NDS::ARM9IORead8(u32 addr)
     case 0x04000132: return KeyCnt[0] & 0xFF;
     case 0x04000133: return KeyCnt[0] >> 8;
 
+    case 0x04000180: return IPCSync9 & 0xFF;
+    case 0x04000181: return IPCSync9 >> 8;
+
     case 0x040001A0:
         if (!(ExMemCnt[0] & (1<<11)))
             return NDSCartSlot.GetSPICnt() & 0xFF;
@@ -3171,6 +3206,17 @@ void NDS::ARM9IOWrite8(u32 addr, u8 val)
         return;
     case 0x04000133:
         KeyCnt[0] = (KeyCnt[0] & 0x00FF) | (val << 8);
+        return;
+
+    case 0x04000181:
+        IPCSync7 &= 0xFFF0;
+        IPCSync7 |= (val & 0x0F);
+        IPCSync9 &= 0xB0FF;
+        IPCSync9 |= ((val & 0x4F) << 8);
+        if ((val & 0x20) && (IPCSync7 & 0x4000))
+        {
+            SetIRQ(1, IRQ_IPCSync);
+        }
         return;
 
     case 0x04000188:
@@ -3664,6 +3710,9 @@ u8 NDS::ARM7IORead8(u32 addr)
 
     case 0x04000138: return RTC.Read() & 0xFF;
 
+    case 0x04000180: return IPCSync7 & 0xFF;
+    case 0x04000181: return IPCSync7 >> 8;
+
     case 0x040001A0:
         if (ExMemCnt[0] & (1<<11))
             return NDSCartSlot.GetSPICnt() & 0xFF;
@@ -3971,6 +4020,17 @@ void NDS::ARM7IOWrite8(u32 addr, u8 val)
         return;
 
     case 0x04000138: RTC.Write(val, true); return;
+
+    case 0x04000181:
+        IPCSync9 &= 0xFFF0;
+        IPCSync9 |= (val & 0x0F);
+        IPCSync7 &= 0xB0FF;
+        IPCSync7 |= ((val & 0x4F) << 8);
+        if ((val & 0x20) && (IPCSync9 & 0x4000))
+        {
+            SetIRQ(0, IRQ_IPCSync);
+        }
+        return;
 
     case 0x04000188:
         NDS::ARM7IOWrite32(addr, val | (val << 8) | (val << 16) | (val << 24));

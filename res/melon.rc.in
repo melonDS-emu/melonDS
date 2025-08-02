@@ -6,8 +6,8 @@
 
 //include version information in .exe, modify these values to match your needs
 1 VERSIONINFO
-FILEVERSION ${melonDS_VERSION_MAJOR},${melonDS_VERSION_MINOR},${melonDS_VERSION_PATCH},0
-PRODUCTVERSION ${melonDS_VERSION_MAJOR},${melonDS_VERSION_MINOR},${melonDS_VERSION_PATCH},0
+FILEVERSION ${MELON_RC_VERSION}
+PRODUCTVERSION ${MELON_RC_VERSION}
 FILETYPE VFT_APP
 {
   BLOCK "StringFileInfo"
@@ -18,7 +18,7 @@ FILETYPE VFT_APP
 			VALUE "FileVersion", "${melonDS_VERSION}"
 			VALUE "FileDescription", "melonDS emulator"
 			VALUE "InternalName", "SDnolem"
-			VALUE "LegalCopyright", "2016-2023 melonDS team"
+			VALUE "LegalCopyright", "2016-2025 melonDS team"
 			VALUE "LegalTrademarks", ""
 			VALUE "OriginalFilename", "melonDS.exe"
 			VALUE "ProductName", "melonDS"

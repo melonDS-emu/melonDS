@@ -1,5 +1,5 @@
 /*
-    Copyright 2016-2024 melonDS team
+    Copyright 2016-2025 melonDS team
 
     This file is part of melonDS.
 
@@ -33,7 +33,29 @@ enum CartType
     GameSolarSensor = 0x102,
     RAMExpansion = 0x201,
     RumblePak = 0x202,
+    MotionPakHomebrew = 0x203,
+    MotionPakRetail = 0x204,
+    GuitarGrip = 0x205,
 };
+
+// See https://problemkaputt.de/gbatek.htm#gbacartridgeheader for details
+struct GBAHeader
+{
+    u32 EntryPoint;
+    u8 NintendoLogo[156]; // must be valid
+    char Title[12];
+    char GameCode[4];
+    char MakerCode[2];
+    u8 FixedValue; // must be 0x96
+    u8 MainUnitCode;
+    u8 DeviceType;
+    u8 Reserved0[7];
+    u8 SoftwareVersion;
+    u8 ComplementCheck;
+    u8 Reserved1[2];
+};
+
+static_assert(sizeof(GBAHeader) == 192, "GBAHeader should be 192 bytes");
 
 // CartCommon -- base code shared by all cart types
 class CartCommon
@@ -91,6 +113,8 @@ public:
 
     [[nodiscard]] const u8* GetROM() const override { return ROM.get(); }
     [[nodiscard]] u32 GetROMLength() const override { return ROMLength; }
+    [[nodiscard]] const GBAHeader& GetHeader() const noexcept { return *reinterpret_cast<const GBAHeader*>(ROM.get()); }
+    [[nodiscard]] GBAHeader& GetHeader() noexcept { return *reinterpret_cast<GBAHeader*>(ROM.get()); }
 
     u8* GetSaveMemory() const override;
     u32 GetSaveMemoryLength() const override;
@@ -211,11 +235,68 @@ private:
     u16 RumbleState = 0;
 };
 
+// CartGuitarGrip -- DS Guitar Grip (used in various NDS games)
+class CartGuitarGrip : public CartCommon
+{
+public:
+    CartGuitarGrip(void* userdata);
+    ~CartGuitarGrip() override;
+
+    u16 ROMRead(u32 addr) const override;
+    u8 SRAMRead(u32 addr) override;
+
+private:
+    void* UserData;
+};
+
+// CartMotionPakHomebrew -- DS Motion Pak (Homebrew)
+class CartMotionPakHomebrew : public CartCommon
+{
+public:
+    CartMotionPakHomebrew(void* userdata);
+    ~CartMotionPakHomebrew() override;
+
+    void Reset() override;
+
+    void DoSavestate(Savestate* file) override;
+
+    u16 ROMRead(u32 addr) const override;
+    u8 SRAMRead(u32 addr) override;
+
+private:
+    void* UserData;
+    u16 ShiftVal = 0;
+};
+
+// CartMotionPakRetail -- DS Motion Pack (Retail)
+class CartMotionPakRetail : public CartCommon
+{
+public:
+    CartMotionPakRetail(void* userdata);
+    ~CartMotionPakRetail() override;
+
+    void Reset() override;
+
+    void DoSavestate(Savestate* file) override;
+
+    u16 ROMRead(u32 addr) const override;
+    u8 SRAMRead(u32 addr) override;
+
+private:
+    void* UserData;
+    u8 Value;
+    u8 Step = 16;
+};
+
 // possible inputs for GBA carts that might accept user input
 enum
 {
     Input_SolarSensorDown = 0,
     Input_SolarSensorUp,
+    Input_GuitarGripGreen,
+    Input_GuitarGripRed,
+    Input_GuitarGripYellow,
+    Input_GuitarGripBlue,
 };
 
 class GBACartSlot
@@ -240,8 +321,6 @@ public:
     void SetCart(std::unique_ptr<CartCommon>&& cart) noexcept;
     [[nodiscard]] CartCommon* GetCart() noexcept { return Cart.get(); }
     [[nodiscard]] const CartCommon* GetCart() const noexcept { return Cart.get(); }
-
-    void LoadAddon(void* userdata, int type) noexcept;
 
     /// @return The cart that was in the cart slot if any,
     /// or \c nullptr if the cart slot was empty.
@@ -309,6 +388,25 @@ std::unique_ptr<CartCommon> ParseROM(const u8* romdata, u32 romlen, const u8* sr
 /// or \c nullptr if there was an error.
 std::unique_ptr<CartCommon> ParseROM(std::unique_ptr<u8[]>&& romdata, u32 romlen, std::unique_ptr<u8[]>&& sramdata, u32 sramlen, void* userdata = nullptr);
 
+std::unique_ptr<CartCommon> LoadAddon(int type, void* userdata);
+
+/// Creates a solar sensor-enabled GBA cart without needing a real Boktai ROM.
+/// This enables the solar sensor to be used in supported games.
+/// Will not contain any SRAM.
+/// @param gamecode
+/// @param logo The Nintendo logo data embedded in the headers for GBA ROMs and NDS ROMs.
+/// Required for the cart to be recognized as a valid GBA cart.
+/// Overloads that accept cart objects directly exist as well.
+/// If not provided, then it will have to be patched with equivalent data
+/// from a real ROM (NDS or GBA) before booting the emulator.
+/// @param userdata Optional user data to associate with the cart.
+/// @return A CartGameSolarSensor if the ROM was created successfully,
+/// or nullptr if any argument is wrong (e.g. an incorrect game code).
+std::unique_ptr<CartGameSolarSensor> CreateFakeSolarSensorROM(const char* gamecode, const u8* logo, void* userdata = nullptr) noexcept;
+std::unique_ptr<CartGameSolarSensor> CreateFakeSolarSensorROM(const char* gamecode, const NDSCart::CartCommon& cart, void* userdata = nullptr) noexcept;
+std::unique_ptr<CartGameSolarSensor> CreateFakeSolarSensorROM(const char* gamecode, const GBACart::CartGame& cart, void* userdata = nullptr) noexcept;
+
+constexpr const char* BOKTAI_STUB_TITLE = "BOKTAI STUB";
 }
 
 #endif // GBACART_H

@@ -1,5 +1,5 @@
 /*
-    Copyright 2016-2024 melonDS team
+    Copyright 2016-2025 melonDS team
 
     This file is part of melonDS.
 
@@ -29,7 +29,6 @@
 #include <fstream>
 
 #include <QDateTime>
-#include <QMessageBox>
 
 #include <zstd.h>
 #ifdef ARCHIVE_SUPPORT_ENABLED
@@ -77,12 +76,16 @@ EmuInstance::EmuInstance(int inst) : deleting(false),
     baseROMDir = "";
     baseROMName = "";
     baseAssetName = "";
+    nextCart = nullptr;
+    changeCart = false;
 
     gbaSave = nullptr;
     gbaCartType = -1;
     baseGBAROMDir = "";
     baseGBAROMName = "";
     baseGBAAssetName = "";
+    nextGBACart = nullptr;
+    changeGBACart = false;
 
     cheatFile = nullptr;
     cheatsOn = localCfg.GetBool("EnableCheats");
@@ -118,7 +121,7 @@ EmuInstance::EmuInstance(int inst) : deleting(false),
     mpAudioMode = globalCfg.GetInt("MP.AudioMode");
 
     nds = nullptr;
-    //updateConsole(nullptr, nullptr);
+    //updateConsole();
 
     audioInit();
     inputInit();
@@ -136,12 +139,10 @@ EmuInstance::EmuInstance(int inst) : deleting(false),
     createWindow();
 
     emuThread->start();
-    emuThread->emuPause();
 
     // if any extra windows were saved as enabled, open them
     for (int i = 1; i < kMaxWindows; i++)
     {
-        //Config::Table tbl = localCfg.GetTable("Window"+std::to_string(i), "Window0");
         std::string key = "Window" + std::to_string(i) + ".Enabled";
         bool enable = localCfg.GetBool(key);
         if (enable)
@@ -154,8 +155,6 @@ EmuInstance::~EmuInstance()
     deleting = true;
     deleteAllWindows();
 
-    MPInterface::Get().End(instanceID);
-
     emuThread->emuExit();
     emuThread->wait();
     delete emuThread;
@@ -165,7 +164,6 @@ EmuInstance::~EmuInstance()
     audioDeInit();
     inputDeInit();
 
-    NDS::Current = nullptr;
     if (nds)
     {
         saveRTCData();
@@ -206,7 +204,7 @@ void EmuInstance::createWindow(int id)
     if (windowList[id])
         return;
 
-    MainWindow* win = new MainWindow(id, this, topWindow);
+    MainWindow* win = new MainWindow(id, this, mainWindow ? mainWindow : topWindow);
     if (!topWindow) topWindow = win;
     if (!mainWindow) mainWindow = win;
     windowList[id] = win;
@@ -245,6 +243,8 @@ void EmuInstance::deleteWindow(int id, bool close)
 
     if (close)
         win->close();
+
+    if (deleting) return;
 
     if (numWindows == 0)
     {
@@ -406,6 +406,15 @@ void EmuInstance::setVSyncGL(bool vsync)
 void EmuInstance::makeCurrentGL()
 {
     mainWindow->makeCurrentGL();
+}
+
+void EmuInstance::releaseGL()
+{
+    for (int i = 0; i < kMaxWindows; i++)
+    {
+        if (windowList[i])
+            windowList[i]->releaseGL();
+    }
 }
 
 void EmuInstance::drawScreenGL()
@@ -687,7 +696,7 @@ std::string EmuInstance::getSavestateName(int slot)
 {
     std::string ext = ".ml";
     ext += (char)('0'+slot);
-    return getAssetPath(false, globalCfg.GetString("SavestatePath"), ext);
+    return getAssetPath(false, localCfg.GetString("SavestatePath"), ext);
 }
 
 bool EmuInstance::savestateExists(int slot)
@@ -753,7 +762,7 @@ bool EmuInstance::loadState(const std::string& filename)
         previousSaveFile = ndsSave->GetPath();
 
         std::string savefile = filename.substr(lastSep(filename)+1);
-        savefile = getAssetPath(false, globalCfg.GetString("SaveFilePath"), ".sav", savefile);
+        savefile = getAssetPath(false, localCfg.GetString("SaveFilePath"), ".sav", savefile);
         savefile += instanceFileSuffix();
         ndsSave->SetPath(savefile, true);
     }
@@ -804,7 +813,7 @@ bool EmuInstance::saveState(const std::string& filename)
     if (globalCfg.GetBool("Savestate.RelocSRAM") && ndsSave)
     {
         std::string savefile = filename.substr(lastSep(filename)+1);
-        savefile = getAssetPath(false, globalCfg.GetString("SaveFilePath"), ".sav", savefile);
+        savefile = getAssetPath(false, localCfg.GetString("SaveFilePath"), ".sav", savefile);
         savefile += instanceFileSuffix();
         ndsSave->SetPath(savefile, false);
     }
@@ -840,7 +849,7 @@ void EmuInstance::loadCheats()
 {
     unloadCheats();
 
-    std::string filename = getAssetPath(false, globalCfg.GetString("CheatFilePath"), ".mch");
+    std::string filename = getAssetPath(false, localCfg.GetString("CheatFilePath"), ".mch");
 
     // TODO: check for error (malformed cheat file, ...)
     cheatFile = std::make_unique<ARCodeFile>(filename);
@@ -859,7 +868,7 @@ std::unique_ptr<ARM9BIOSImage> EmuInstance::loadARM9BIOS() noexcept
 {
     if (!globalCfg.GetBool("Emu.ExternalBIOSEnable"))
     {
-        return globalCfg.GetInt("Emu.ConsoleType") == 0 ? std::make_unique<ARM9BIOSImage>(bios_arm9_bin) : nullptr;
+        return std::make_unique<ARM9BIOSImage>(bios_arm9_bin);
     }
 
     string path = globalCfg.GetString("DS.BIOS9Path");
@@ -882,7 +891,7 @@ std::unique_ptr<ARM7BIOSImage> EmuInstance::loadARM7BIOS() noexcept
 {
     if (!globalCfg.GetBool("Emu.ExternalBIOSEnable"))
     {
-        return globalCfg.GetInt("Emu.ConsoleType") == 0 ? std::make_unique<ARM7BIOSImage>(bios_arm7_bin) : nullptr;
+        return std::make_unique<ARM7BIOSImage>(bios_arm7_bin);
     }
 
     string path = globalCfg.GetString("DS.BIOS7Path");
@@ -1006,34 +1015,42 @@ std::optional<Firmware> EmuInstance::loadFirmware(int type) noexcept
     { // If we're using built-in firmware...
         if (type == 1)
         {
-            Log(Error, "DSi firmware: cannot use built-in firmware in DSi mode!\n");
-            return std::nullopt;
+            // TODO: support generating a firmware for DSi mode
         }
-
-        return generateFirmware(type);
+        else
+        {
+            return generateFirmware(type);
+        }
     }
-    //const string& firmwarepath = type == 1 ? Config::DSiFirmwarePath : Config::FirmwarePath;
+
     string firmwarepath;
     if (type == 1)
         firmwarepath = globalCfg.GetString("DSi.FirmwarePath");
     else
         firmwarepath = globalCfg.GetString("DS.FirmwarePath");
 
-    Log(Debug, "SPI firmware: loading from file %s\n", firmwarepath.c_str());
+    string fwpath_inst = firmwarepath + instanceFileSuffix();
 
-    FileHandle* file = OpenLocalFile(firmwarepath, Read);
+    Log(Debug, "Loading firmware from file %s\n", fwpath_inst.c_str());
+    FileHandle* file = OpenLocalFile(fwpath_inst, Read);
 
     if (!file)
     {
-        Log(Error, "SPI firmware: couldn't open firmware file!\n");
-        return std::nullopt;
+        Log(Debug, "Loading firmware from file %s\n", firmwarepath.c_str());
+        file = OpenLocalFile(firmwarepath, Read);
+        if (!file)
+        {
+            Log(Error, "Couldn't open firmware file!\n");
+            return std::nullopt;
+        }
     }
+
     Firmware firmware(file);
     CloseFile(file);
 
     if (!firmware.Buffer())
     {
-        Log(Error, "SPI firmware: couldn't read firmware file!\n");
+        Log(Error, "Couldn't read firmware file!\n");
         return std::nullopt;
     }
 
@@ -1081,13 +1098,13 @@ std::optional<DSi_NAND::NANDImage> EmuInstance::loadNAND(const std::array<u8, DS
             auto firmcfg = localCfg.GetTable("Firmware");
 
             // we store relevant strings as UTF-8, so we need to convert them to UTF-16
-            auto converter = wstring_convert<std::codecvt_utf8_utf16<char16_t>, char16_t>{};
+            //auto converter = wstring_convert<std::codecvt_utf8_utf16<char16_t>, char16_t>{};
 
             // setting up username
-            std::u16string username = converter.from_bytes(firmcfg.GetString("Username"));
-            size_t usernameLength = std::min(username.length(), (size_t) 10);
+            auto username = firmcfg.GetQString("Username");
+            size_t usernameLength = std::min((int) username.length(), 10);
             memset(&settings.Nickname, 0, sizeof(settings.Nickname));
-            memcpy(&settings.Nickname, username.data(), usernameLength * sizeof(char16_t));
+            memcpy(&settings.Nickname, username.utf16(), usernameLength * sizeof(char16_t));
 
             // setting language
             settings.Language = static_cast<Firmware::Language>(firmcfg.GetInt("Language"));
@@ -1100,10 +1117,10 @@ std::optional<DSi_NAND::NANDImage> EmuInstance::loadNAND(const std::array<u8, DS
             settings.BirthdayDay = firmcfg.GetInt("BirthdayDay");
 
             // setup message
-            std::u16string message = converter.from_bytes(firmcfg.GetString("Message"));
-            size_t messageLength = std::min(message.length(), (size_t) 26);
+            auto message = firmcfg.GetQString("Message");
+            size_t messageLength = std::min((int) message.length(), 26);
             memset(&settings.Message, 0, sizeof(settings.Message));
-            memcpy(&settings.Message, message.data(), messageLength * sizeof(char16_t));
+            memcpy(&settings.Message, message.utf16(), messageLength * sizeof(char16_t));
 
             // TODO: make other items configurable?
         }
@@ -1219,23 +1236,22 @@ void EmuInstance::setDateTime()
                          time.time().hour(), time.time().minute(), time.time().second());
 }
 
-bool EmuInstance::updateConsole(UpdateConsoleNDSArgs&& _ndsargs, UpdateConsoleGBAArgs&& _gbaargs) noexcept
+bool EmuInstance::updateConsole() noexcept
 {
     // update the console type
     consoleType = globalCfg.GetInt("Emu.ConsoleType");
 
     // Let's get the cart we want to use;
-    // if we wnat to keep the cart, we'll eject it from the existing console first.
+    // if we want to keep the cart, we'll eject it from the existing console first.
     std::unique_ptr<NDSCart::CartCommon> nextndscart;
-    if (std::holds_alternative<Keep>(_ndsargs))
+    if (!changeCart)
     { // If we want to keep the existing cart (if any)...
         nextndscart = nds ? nds->EjectCart() : nullptr;
-        _ndsargs = {};
     }
-    else if (const auto ptr = std::get_if<std::unique_ptr<NDSCart::CartCommon>>(&_ndsargs))
+    else
     {
-        nextndscart = std::move(*ptr);
-        _ndsargs = {};
+        nextndscart = std::move(nextCart);
+        changeCart = false;
     }
 
     if (auto* cartsd = dynamic_cast<NDSCart::CartSD*>(nextndscart.get()))
@@ -1246,14 +1262,14 @@ bool EmuInstance::updateConsole(UpdateConsoleNDSArgs&& _ndsargs, UpdateConsoleGB
     }
 
     std::unique_ptr<GBACart::CartCommon> nextgbacart;
-    if (std::holds_alternative<Keep>(_gbaargs))
+    if (!changeGBACart)
     {
         nextgbacart = nds ? nds->EjectGBACart() : nullptr;
     }
-    else if (const auto ptr = std::get_if<std::unique_ptr<GBACart::CartCommon>>(&_gbaargs))
+    else
     {
-        nextgbacart = std::move(*ptr);
-        _gbaargs = {};
+        nextgbacart = std::move(nextGBACart);
+        changeGBACart = false;
     }
 
 
@@ -1292,12 +1308,10 @@ bool EmuInstance::updateConsole(UpdateConsoleNDSArgs&& _ndsargs, UpdateConsoleGB
     };
     auto gdbargs = gdbopt.GetBool("Enabled") ? std::make_optional(_gdbargs) : std::nullopt;
 #else
-    optional<GDBArgs> gdbargs = std::nullopt;
+    std::optional<GDBArgs> gdbargs = std::nullopt;
 #endif
 
     NDSArgs ndsargs {
-            std::move(nextndscart),
-            std::move(nextgbacart),
             std::move(arm9bios),
             std::move(arm7bios),
             std::move(*firmware),
@@ -1311,8 +1325,6 @@ bool EmuInstance::updateConsole(UpdateConsoleNDSArgs&& _ndsargs, UpdateConsoleGB
     std::optional<DSiArgs> dsiargs = std::nullopt;
     if (consoleType == 1)
     {
-        ndsargs.GBAROM = nullptr;
-
         auto arm7ibios = loadDSiARM7BIOS();
         if (!arm7ibios)
             return false;
@@ -1340,9 +1352,9 @@ bool EmuInstance::updateConsole(UpdateConsoleNDSArgs&& _ndsargs, UpdateConsoleGB
         args = &(*dsiargs);
     }
 
+    renderLock.lock();
     if ((!nds) || (consoleType != nds->ConsoleType))
     {
-        NDS::Current = nullptr;
         if (nds)
         {
             saveRTCData();
@@ -1354,7 +1366,6 @@ bool EmuInstance::updateConsole(UpdateConsoleNDSArgs&& _ndsargs, UpdateConsoleGB
         else
             nds = new NDS(std::move(ndsargs), this);
 
-        NDS::Current = nds;
         nds->Reset();
         loadRTCData();
         //emuThread->updateVideoRenderer(); // not actually needed?
@@ -1364,10 +1375,8 @@ bool EmuInstance::updateConsole(UpdateConsoleNDSArgs&& _ndsargs, UpdateConsoleGB
         nds->SetARM7BIOS(*args->ARM7BIOS);
         nds->SetARM9BIOS(*args->ARM9BIOS);
         nds->SetFirmware(std::move(args->Firmware));
-        nds->SetNDSCart(std::move(args->NDSROM));
-        nds->SetGBACart(std::move(args->GBAROM));
         nds->SetJITArgs(args->JIT);
-        // TODO GDB stub shit
+        nds->SetGdbArgs(args->GDB);
         nds->SPU.SetInterpolation(args->Interpolation);
         nds->SPU.SetDegrade10Bit(args->BitDepth);
 
@@ -1383,17 +1392,26 @@ bool EmuInstance::updateConsole(UpdateConsoleNDSArgs&& _ndsargs, UpdateConsoleGB
             dsi->SetSDCard(std::move(_dsiargs.DSiSDCard));
             // We're moving the optional, not the card
             // (inserting std::nullopt here is okay, it means no card)
-
-            dsi->EjectGBACart();
         }
     }
+
+    // loads the carts later -- to be sure that everything else is initialized
+    nds->SetNDSCart(std::move(nextndscart));
+    if (consoleType == 1)
+        nds->EjectGBACart();
+    else
+        nds->SetGBACart(std::move(nextgbacart));
+
+    renderLock.unlock();
+
+    loadCheats();
 
     return true;
 }
 
 void EmuInstance::reset()
 {
-    updateConsole(Keep {}, Keep {});
+    updateConsole();
 
     if (consoleType == 1) ejectGBACart();
 
@@ -1404,7 +1422,7 @@ void EmuInstance::reset()
     if ((cartType != -1) && ndsSave)
     {
         std::string oldsave = ndsSave->GetPath();
-        std::string newsave = getAssetPath(false, globalCfg.GetString("SaveFilePath"), ".sav");
+        std::string newsave = getAssetPath(false, localCfg.GetString("SaveFilePath"), ".sav");
         newsave += instanceFileSuffix();
         if (oldsave != newsave)
             ndsSave->SetPath(newsave, false);
@@ -1413,7 +1431,7 @@ void EmuInstance::reset()
     if ((gbaCartType != -1) && gbaSave)
     {
         std::string oldsave = gbaSave->GetPath();
-        std::string newsave = getAssetPath(true, globalCfg.GetString("SaveFilePath"), ".sav");
+        std::string newsave = getAssetPath(true, localCfg.GetString("SaveFilePath"), ".sav");
         newsave += instanceFileSuffix();
         if (oldsave != newsave)
             gbaSave->SetPath(newsave, false);
@@ -1454,16 +1472,22 @@ void EmuInstance::reset()
 }
 
 
-bool EmuInstance::bootToMenu()
+bool EmuInstance::bootToMenu(QString& errorstr)
 {
     // Keep whatever cart is in the console, if any.
-    if (!updateConsole(Keep {}, Keep {}))
+    if (!updateConsole())
+    {
         // Try to update the console, but keep the existing cart. If that fails...
+        errorstr = "Failed to boot the firmware.";
         return false;
+    }
 
     // BIOS and firmware files are loaded, patched, and installed in UpdateConsole
     if (nds->NeedsDirectBoot())
+    {
+        errorstr = "This firmware is not bootable.";
         return false;
+    }
 
     initFirmwareSaveManager();
     nds->Reset();
@@ -1662,14 +1686,12 @@ void EmuInstance::customizeFirmware(Firmware& firmware, bool overridesettings) n
         auto firmcfg = localCfg.GetTable("Firmware");
 
         // setting up username
-        std::string orig_username = firmcfg.GetString("Username");
-        if (!orig_username.empty())
+        auto username = firmcfg.GetQString("Username");
+        if (!username.isEmpty())
         { // If the frontend defines a username, take it. If not, leave the existing one.
-            std::u16string username = std::wstring_convert<std::codecvt_utf8_utf16<char16_t>, char16_t>{}.from_bytes(
-                    orig_username);
-            size_t usernameLength = std::min(username.length(), (size_t) 10);
+            size_t usernameLength = std::min((int) username.length(), 10);
             currentData.NameLength = usernameLength;
-            memcpy(currentData.Nickname, username.data(), usernameLength * sizeof(char16_t));
+            memcpy(currentData.Nickname, username.utf16(), usernameLength * sizeof(char16_t));
         }
 
         auto language = static_cast<Firmware::Language>(firmcfg.GetInt("Language"));
@@ -1699,12 +1721,10 @@ void EmuInstance::customizeFirmware(Firmware& firmware, bool overridesettings) n
         }
 
         // setup message
-        std::string orig_message = firmcfg.GetString("Message");
-        if (!orig_message.empty())
+        auto message = firmcfg.GetQString("Message");
+        if (!message.isEmpty())
         {
-            std::u16string message = std::wstring_convert<std::codecvt_utf8_utf16<char16_t>, char16_t>{}.from_bytes(
-                    orig_message);
-            size_t messageLength = std::min(message.length(), (size_t) 26);
+            size_t messageLength = std::min((int) message.length(), 26);
             currentData.MessageLength = messageLength;
             memcpy(currentData.Message, message.data(), messageLength * sizeof(char16_t));
         }
@@ -1840,7 +1860,7 @@ QString EmuInstance::getSavErrorString(std::string& filepath, bool gba)
     return QString::fromStdString(err1);
 }
 
-bool EmuInstance::loadROM(QStringList filepath, bool reset)
+bool EmuInstance::loadROM(QStringList filepath, bool reset, QString& errorstr)
 {
     unique_ptr<u8[]> filedata = nullptr;
     u32 filelen;
@@ -1849,7 +1869,7 @@ bool EmuInstance::loadROM(QStringList filepath, bool reset)
 
     if (!loadROMData(filepath, filedata, filelen, basepath, romname))
     {
-        QMessageBox::critical(mainWindow, "melonDS", "Failed to load the DS ROM.");
+        errorstr = "Failed to load the DS ROM.";
         return false;
     }
 
@@ -1862,7 +1882,7 @@ bool EmuInstance::loadROM(QStringList filepath, bool reset)
     u32 savelen = 0;
     std::unique_ptr<u8[]> savedata = nullptr;
 
-    std::string savname = getAssetPath(false, globalCfg.GetString("SaveFilePath"), ".sav");
+    std::string savname = getAssetPath(false, localCfg.GetString("SaveFilePath"), ".sav");
     std::string origsav = savname;
     savname += instanceFileSuffix();
 
@@ -1871,7 +1891,7 @@ bool EmuInstance::loadROM(QStringList filepath, bool reset)
     {
         if (!Platform::CheckFileWritable(origsav))
         {
-            QMessageBox::critical(mainWindow, "melonDS", getSavErrorString(origsav, false));
+            errorstr = getSavErrorString(origsav, false);
             return false;
         }
 
@@ -1879,7 +1899,7 @@ bool EmuInstance::loadROM(QStringList filepath, bool reset)
     }
     else if (!Platform::CheckFileWritable(savname))
     {
-        QMessageBox::critical(mainWindow, "melonDS", getSavErrorString(savname, false));
+        errorstr = getSavErrorString(savname, false);
         return false;
     }
 
@@ -1906,15 +1926,18 @@ bool EmuInstance::loadROM(QStringList filepath, bool reset)
     if (!cart)
     {
         // If we couldn't parse the ROM...
-        QMessageBox::critical(mainWindow, "melonDS", "Failed to load the DS ROM.");
+        errorstr = "Failed to load the DS ROM.";
         return false;
     }
 
     if (reset)
     {
-        if (!updateConsole(std::move(cart), Keep {}))
+        nextCart = std::move(cart);
+        changeCart = true;
+
+        if (!updateConsole())
         {
-            QMessageBox::critical(mainWindow, "melonDS", "Failed to load the DS ROM.");
+            errorstr = "Failed to load the DS ROM.";
             return false;
         }
 
@@ -1931,13 +1954,20 @@ bool EmuInstance::loadROM(QStringList filepath, bool reset)
     }
     else
     {
-        assert(nds != nullptr);
-        nds->SetNDSCart(std::move(cart));
+        if (emuIsActive())
+        {
+            nds->SetNDSCart(std::move(cart));
+            loadCheats();
+        }
+        else
+        {
+            nextCart = std::move(cart);
+            changeCart = true;
+        }
     }
 
     cartType = 0;
     ndsSave = std::make_unique<SaveManager>(savname);
-    loadCheats();
 
     return true; // success
 }
@@ -1946,9 +1976,16 @@ void EmuInstance::ejectCart()
 {
     ndsSave = nullptr;
 
-    unloadCheats();
-
-    nds->EjectCart();
+    if (emuIsActive())
+    {
+        nds->EjectCart();
+        unloadCheats();
+    }
+    else
+    {
+        nextCart = nullptr;
+        changeCart = true;
+    }
 
     cartType = -1;
     baseROMDir = "";
@@ -1976,11 +2013,11 @@ QString EmuInstance::cartLabel()
 }
 
 
-bool EmuInstance::loadGBAROM(QStringList filepath)
+bool EmuInstance::loadGBAROM(QStringList filepath, QString& errorstr)
 {
     if (consoleType == 1)
     {
-        QMessageBox::critical(mainWindow, "melonDS", "The DSi doesn't have a GBA slot.");
+        errorstr = "The DSi doesn't have a GBA slot.";
         return false;
     }
 
@@ -1991,7 +2028,7 @@ bool EmuInstance::loadGBAROM(QStringList filepath)
 
     if (!loadROMData(filepath, filedata, filelen, basepath, romname))
     {
-        QMessageBox::critical(mainWindow, "melonDS", "Failed to load the GBA ROM.");
+        errorstr = "Failed to load the GBA ROM.";
         return false;
     }
 
@@ -2004,7 +2041,7 @@ bool EmuInstance::loadGBAROM(QStringList filepath)
     u32 savelen = 0;
     std::unique_ptr<u8[]> savedata = nullptr;
 
-    std::string savname = getAssetPath(true, globalCfg.GetString("SaveFilePath"), ".sav");
+    std::string savname = getAssetPath(true, localCfg.GetString("SaveFilePath"), ".sav");
     std::string origsav = savname;
     savname += instanceFileSuffix();
 
@@ -2013,7 +2050,7 @@ bool EmuInstance::loadGBAROM(QStringList filepath)
     {
         if (!Platform::CheckFileWritable(origsav))
         {
-            QMessageBox::critical(mainWindow, "melonDS", getSavErrorString(origsav, true));
+            errorstr = getSavErrorString(origsav, true);
             return false;
         }
 
@@ -2021,7 +2058,7 @@ bool EmuInstance::loadGBAROM(QStringList filepath)
     }
     else if (!Platform::CheckFileWritable(savname))
     {
-        QMessageBox::critical(mainWindow, "melonDS", getSavErrorString(savname, true));
+        errorstr = getSavErrorString(savname, true);
         return false;
     }
 
@@ -2041,24 +2078,47 @@ bool EmuInstance::loadGBAROM(QStringList filepath)
     auto cart = GBACart::ParseROM(std::move(filedata), filelen, std::move(savedata), savelen, this);
     if (!cart)
     {
-        QMessageBox::critical(mainWindow, "melonDS", "Failed to load the GBA ROM.");
+        errorstr = "Failed to load the GBA ROM.";
         return false;
     }
 
-    nds->SetGBACart(std::move(cart));
     gbaCartType = 0;
-    gbaSave = std::make_unique<SaveManager>(savname);
+    if (emuIsActive())
+    {
+        nds->SetGBACart(std::move(cart));
+        gbaSave = std::make_unique<SaveManager>(savname);
+    }
+    else
+    {
+        nextGBACart = std::move(cart);
+        changeGBACart = true;
+    }
+
     return true;
 }
 
-void EmuInstance::loadGBAAddon(int type)
+void EmuInstance::loadGBAAddon(int type, QString& errorstr)
 {
     if (consoleType == 1) return;
 
+    auto cart = GBACart::LoadAddon(type, this);
+    if (!cart)
+    {
+        errorstr = "Failed to load the GBA addon.";
+        return;
+    }
+
+    if (emuIsActive())
+    {
+        nds->SetGBACart(std::move(cart));
+    }
+    else
+    {
+        nextGBACart = std::move(cart);
+        changeGBACart = true;
+    }
+
     gbaSave = nullptr;
-
-    nds->LoadGBAAddon(type);
-
     gbaCartType = type;
     baseGBAROMDir = "";
     baseGBAROMName = "";
@@ -2069,7 +2129,15 @@ void EmuInstance::ejectGBACart()
 {
     gbaSave = nullptr;
 
-    nds->EjectGBACart();
+    if (emuIsActive())
+    {
+        nds->EjectGBACart();
+    }
+    else
+    {
+        nextGBACart = nullptr;
+        changeGBACart = true;
+    }
 
     gbaCartType = -1;
     baseGBAROMDir = "";
@@ -2090,6 +2158,18 @@ QString EmuInstance::gbaAddonName(int addon)
         return "Rumble Pak";
     case GBAAddon_RAMExpansion:
         return "Memory expansion";
+    case GBAAddon_SolarSensorBoktai1:
+        return "Solar Sensor (Boktai 1)";
+    case GBAAddon_SolarSensorBoktai2:
+        return "Solar Sensor (Boktai 2)";
+    case GBAAddon_SolarSensorBoktai3:
+        return "Solar Sensor (Boktai 3)";
+    case GBAAddon_MotionPakHomebrew:
+        return "Motion Pak (Homebrew)";
+    case GBAAddon_MotionPakRetail:
+        return "Motion Pack (Retail)";
+    case GBAAddon_GuitarGrip:
+        return "Guitar Grip";
     }
 
     return "???";

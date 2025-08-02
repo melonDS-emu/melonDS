@@ -1,5 +1,5 @@
 /*
-    Copyright 2016-2024 melonDS team
+    Copyright 2016-2025 melonDS team
 
     This file is part of melonDS.
 
@@ -35,9 +35,9 @@ InterfaceSettingsDialog::InterfaceSettingsDialog(QWidget* parent) : QDialog(pare
 
     auto& cfg = emuInstance->getGlobalConfig();
 
-    ui->cbMouseHide->setChecked(cfg.GetBool("MouseHide"));
+    ui->cbMouseHide->setChecked(cfg.GetBool("Mouse.Hide"));
     ui->spinMouseHideSeconds->setEnabled(ui->cbMouseHide->isChecked());
-    ui->spinMouseHideSeconds->setValue(cfg.GetInt("MouseHideSeconds"));
+    ui->spinMouseHideSeconds->setValue(cfg.GetInt("Mouse.HideSeconds"));
     ui->cbPauseLostFocus->setChecked(cfg.GetBool("PauseLostFocus"));
     ui->spinTargetFPS->setValue(cfg.GetDouble("TargetFPS"));
     ui->spinFFW->setValue(cfg.GetDouble("FastForwardFPS"));
@@ -115,8 +115,8 @@ void InterfaceSettingsDialog::done(int r)
     {
         auto& cfg = emuInstance->getGlobalConfig();
 
-        cfg.SetBool("MouseHide", ui->cbMouseHide->isChecked());
-        cfg.SetInt("MouseHideSeconds", ui->spinMouseHideSeconds->value());
+        cfg.SetBool("Mouse.Hide", ui->cbMouseHide->isChecked());
+        cfg.SetInt("Mouse.HideSeconds", ui->spinMouseHideSeconds->value());
         cfg.SetBool("PauseLostFocus", ui->cbPauseLostFocus->isChecked());
 
         double val = ui->spinTargetFPS->value();

@@ -1,5 +1,5 @@
 /*
-    Copyright 2016-2024 melonDS team
+    Copyright 2016-2025 melonDS team
 
     This file is part of melonDS.
 
@@ -34,7 +34,7 @@ void WriteDateTime(int num, u8 val);
 
 RTC::RTC(melonDS::NDS& nds) : NDS(nds)
 {
-    NDS.RegisterEventFunc(Event_RTC, 0, MemberEventFunc(RTC, ClockTimer));
+    NDS.RegisterEventFuncs(Event_RTC, this, {MakeEventThunk(RTC, ClockTimer)});
 
     ResetState();
 
@@ -45,7 +45,7 @@ RTC::RTC(melonDS::NDS& nds) : NDS(nds)
 
 RTC::~RTC()
 {
-    NDS.UnregisterEventFunc(Event_RTC, 0);
+    NDS.UnregisterEventFuncs(Event_RTC);
 }
 
 void RTC::Reset()

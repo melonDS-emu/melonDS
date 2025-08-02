@@ -115,10 +115,10 @@ public:
 		int kind;
 	};
 
-	GdbStub(StubCallbacks* cb, int port);
+	GdbStub(StubCallbacks* cb);
 	~GdbStub();
 
-	bool Init();
+	bool Init(int port);
 	void Close();
 
 	StubState Poll(bool wait = false);

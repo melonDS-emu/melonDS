@@ -1,5 +1,5 @@
 /*
-    Copyright 2016-2024 melonDS team
+    Copyright 2016-2025 melonDS team
 
     This file is part of melonDS.
 
@@ -22,6 +22,7 @@
 #include <QThread>
 #include <QMutex>
 #include <QSemaphore>
+#include <QWaitCondition>
 #include <QQueue>
 #include <QVariant>
 
@@ -33,9 +34,6 @@
 #include "NDSCart.h"
 #include "GBACart.h"
 
-using Keep = std::monostate;
-using UpdateConsoleNDSArgs = std::variant<Keep, std::unique_ptr<melonDS::NDSCart::CartCommon>>;
-using UpdateConsoleGBAArgs = std::variant<Keep, std::unique_ptr<melonDS::GBACart::CartCommon>>;
 namespace melonDS
 {
 class NDS;
@@ -69,6 +67,7 @@ public:
 
         msg_InitGL,
         msg_DeInitGL,
+        msg_BorrowGL,
 
         msg_BootROM,
         msg_BootFirmware,
@@ -114,11 +113,11 @@ public:
     void emuFrameStep();
     void emuReset();
 
-    int bootROM(const QStringList& filename);
-    int bootFirmware();
-    int insertCart(const QStringList& filename, bool gba);
+    int bootROM(const QStringList& filename, QString& errorstr);
+    int bootFirmware(QString& errorstr);
+    int insertCart(const QStringList& filename, bool gba, QString& errorstr);
     void ejectCart(bool gba);
-    int insertGBAAddon(int type);
+    int insertGBAAddon(int type, QString& errorstr);
 
     int saveState(const QString& filename);
     int loadState(const QString& filename);
@@ -133,11 +132,16 @@ public:
 
     void initContext(int win);
     void deinitContext(int win);
+    void borrowGL();
+    void returnGL();
     void updateVideoSettings() { videoSettingsDirty = true; }
     void updateVideoRenderer() { videoSettingsDirty = true; lastVideoRenderer = -1; }
 
-    int FrontBuffer = 0;
-    QMutex FrontBufferLock;
+    int frontBuffer = 0;
+    QMutex frontBufferLock;
+
+    QWaitCondition glBorrowCond;
+    QMutex glBorrowMutex;
 
 signals:
     void windowUpdate();
@@ -182,6 +186,7 @@ private:
     int emuPauseStack;
 
     int msgResult = 0;
+    QString msgError;
 
     QMutex msgMutex;
     QSemaphore msgSemaphore;

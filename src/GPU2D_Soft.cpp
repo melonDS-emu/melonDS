@@ -1,5 +1,5 @@
 /*
-    Copyright 2016-2024 melonDS team
+    Copyright 2016-2025 melonDS team
 
     This file is part of melonDS.
 
@@ -914,6 +914,9 @@ void SoftRenderer::DrawBG_3D()
 template<bool mosaic, SoftRenderer::DrawPixel drawPixel>
 void SoftRenderer::DrawBG_Text(u32 line, u32 bgnum)
 {
+    // workaround for backgrounds missing on aarch64 with lto build
+    asm volatile ("" : : : "memory");
+
     u16 bgcnt = CurUnit->BGCnt[bgnum];
 
     u32 tilesetaddr, tilemapaddr;

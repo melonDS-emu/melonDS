@@ -1,5 +1,5 @@
 /*
-    Copyright 2016-2024 melonDS team
+    Copyright 2016-2025 melonDS team
 
     This file is part of melonDS.
 
@@ -25,7 +25,7 @@
 #include <unordered_map>
 #include <tuple>
 
-#include "toml/toml/value.hpp"
+#include "toml/toml11/types.hpp"
 
 namespace Config
 {

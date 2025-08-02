@@ -1,5 +1,5 @@
 /*
-    Copyright 2016-2024 melonDS team
+    Copyright 2016-2025 melonDS team
 
     This file is part of melonDS.
 
@@ -299,6 +299,8 @@ int main(int argc, char** argv)
     // http://stackoverflow.com/questions/14543333/joystick-wont-work-using-sdl
     SDL_SetHint(SDL_HINT_JOYSTICK_ALLOW_BACKGROUND_EVENTS, "1");
 
+    SDL_SetHint(SDL_HINT_APP_NAME, "melonDS");
+
     if (SDL_Init(SDL_INIT_HAPTIC) < 0)
     {
         printf("SDL couldn't init rumble\n");
@@ -306,6 +308,10 @@ int main(int argc, char** argv)
     if (SDL_Init(SDL_INIT_JOYSTICK) < 0)
     {
         printf("SDL couldn't init joystick\n");
+    }
+    if (SDL_Init(SDL_INIT_SENSOR) < 0)
+    {
+        printf("SDL couldn't init motion sensors\n");
     }
     if (SDL_Init(SDL_INIT_AUDIO) < 0)
     {

@@ -1,5 +1,5 @@
 /*
-    Copyright 2016-2024 melonDS team
+    Copyright 2016-2025 melonDS team
 
     This file is part of melonDS.
 
@@ -54,7 +54,7 @@ public:
     }
 
 private slots:
-    void done(int r);
+    void done(int r) override;
 
     //
 

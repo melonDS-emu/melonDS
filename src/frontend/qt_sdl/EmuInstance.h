@@ -1,5 +1,5 @@
 /*
-    Copyright 2016-2024 melonDS team
+    Copyright 2016-2025 melonDS team
 
     This file is part of melonDS.
 
@@ -21,6 +21,7 @@
 
 #include <SDL2/SDL.h>
 
+#include "Platform.h"
 #include "main.h"
 #include "NDS.h"
 #include "EmuThread.h"
@@ -50,6 +51,10 @@ enum
     HK_SlowMo,
     HK_FastForwardToggle,
     HK_SlowMoToggle,
+    HK_GuitarGripGreen,
+    HK_GuitarGripRed,
+    HK_GuitarGripYellow,
+    HK_GuitarGripBlue,
     HK_MAX
 };
 
@@ -115,12 +120,13 @@ public:
     void deinitOpenGL(int win);
     void setVSyncGL(bool vsync);
     void makeCurrentGL();
+    void releaseGL();
     void drawScreenGL();
 
     // return: empty string = setup OK, non-empty = error message
     QString verifySetup();
 
-    bool updateConsole(UpdateConsoleNDSArgs&& ndsargs, UpdateConsoleGBAArgs&& gbaargs) noexcept;
+    bool updateConsole() noexcept;
 
     void enableCheats(bool enable);
     melonDS::ARCodeFile* getCheatFile();
@@ -143,9 +149,17 @@ public:
     void inputRumbleStart(melonDS::u32 len_ms);
     void inputRumbleStop();
 
+    bool inputHotkeyDown(int id) { return hotkeyDown(id); }
+    float inputMotionQuery(melonDS::Platform::MotionQueryType type);
+
     void setJoystick(int id);
     int getJoystickID() { return joystickID; }
     SDL_Joystick* getJoystick() { return joystick; }
+
+    void touchScreen(int x, int y);
+    void releaseScreen();
+
+    QMutex renderLock;
 
 private:
     static int lastSep(const std::string& path);
@@ -177,20 +191,22 @@ private:
     std::optional<melonDS::FATStorage> loadSDCard(const std::string& key) noexcept;
     void setBatteryLevels();
     void reset();
-    bool bootToMenu();
+    bool bootToMenu(QString& errorstr);
     melonDS::u32 decompressROM(const melonDS::u8* inContent, const melonDS::u32 inSize, std::unique_ptr<melonDS::u8[]>& outContent);
     void clearBackupState();
     std::pair<std::unique_ptr<melonDS::Firmware>, std::string> generateDefaultFirmware();
     bool parseMacAddress(void* data);
     void customizeFirmware(melonDS::Firmware& firmware, bool overridesettings) noexcept;
+
     bool loadROMData(const QStringList& filepath, std::unique_ptr<melonDS::u8[]>& filedata, melonDS::u32& filelen, std::string& basepath, std::string& romname) noexcept;
     QString getSavErrorString(std::string& filepath, bool gba);
-    bool loadROM(QStringList filepath, bool reset);
+    bool loadROM(QStringList filepath, bool reset, QString& errorstr);
     void ejectCart();
     bool cartInserted();
     QString cartLabel();
-    bool loadGBAROM(QStringList filepath);
-    void loadGBAAddon(int type);
+
+    bool loadGBAROM(QStringList filepath, QString& errorstr);
+    void loadGBAAddon(int type, QString& errorstr);
     void ejectGBACart();
     bool gbaCartInserted();
     QString gbaAddonName(int addon);
@@ -254,11 +270,15 @@ private:
     std::string baseROMDir;
     std::string baseROMName;
     std::string baseAssetName;
+    bool changeCart;
+    std::unique_ptr<melonDS::NDSCart::CartCommon> nextCart;
 
     int gbaCartType;
     std::string baseGBAROMDir;
     std::string baseGBAROMName;
     std::string baseGBAAssetName;
+    bool changeGBACart;
+    std::unique_ptr<melonDS::GBACart::CartCommon> nextGBACart;
 
     // HACK
 public:
@@ -285,6 +305,7 @@ private:
 
     SDL_AudioDeviceID audioDevice;
     int audioFreq;
+    int audioBufSize;
     float audioSampleFrac;
     bool audioMuted;
     SDL_cond* audioSyncCond;
@@ -293,8 +314,9 @@ private:
     int mpAudioMode;
 
     SDL_AudioDeviceID micDevice;
-    melonDS::s16 micExtBuffer[2048];
+    melonDS::s16 micExtBuffer[4096];
     melonDS::u32 micExtBufferWritePos;
+    melonDS::u32 micExtBufferCount;
 
     melonDS::u32 micWavLength;
     melonDS::s16* micWavBuffer;
@@ -302,6 +324,8 @@ private:
     melonDS::s16* micBuffer;
     melonDS::u32 micBufferLength;
     melonDS::u32 micBufferReadPos;
+
+    SDL_mutex* micLock;
 
     //int audioInterp;
     int audioVolume;
@@ -318,6 +342,8 @@ private:
     int joystickID;
     SDL_Joystick* joystick;
     SDL_GameController* controller;
+    bool hasAccelerometer = false;
+    bool hasGyroscope = false;
     bool hasRumble = false;
     bool isRumbling = false;
 
@@ -327,6 +353,9 @@ private:
     melonDS::u32 hotkeyPress, hotkeyRelease;
 
     melonDS::u32 inputMask;
+
+    bool isTouching;
+    melonDS::u16 touchX, touchY;
 
     friend class EmuThread;
     friend class MainWindow;

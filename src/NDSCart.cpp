@@ -1,5 +1,5 @@
 /*
-    Copyright 2016-2024 melonDS team
+    Copyright 2016-2025 melonDS team
 
     This file is part of melonDS.
 
@@ -109,36 +109,52 @@ void NDSCartSlot::Key1_ApplyKeycode(u32* keycode, u32 mod) noexcept
     }
 }
 
-void NDSCartSlot::Key1_LoadKeyBuf(bool dsi, const u8 *bios, u32 biosLength) noexcept
+void NDSCartSlot::Key1_LoadKeyBuf(bool dsimode) noexcept
 {
-    if (NDS.IsLoadedARM7BIOSKnownNative())
+    if (NDS.ConsoleType == 1)
     {
-        u32 expected_bios_length = dsi ? 0x10000 : 0x4000;
-        if (biosLength != expected_bios_length)
+        // DSi mode: grab the right key depending on the requested cart mode
+
+        auto& dsi = static_cast<DSi&>(NDS);
+        if (dsimode)
         {
-            Platform::Log(LogLevel::Error, "NDSCart: Expected an ARM7 BIOS of %u bytes, got %u bytes\n", expected_bios_length, biosLength);
-        }
-        else if (bios == nullptr)
-        {
-            Platform::Log(LogLevel::Error, "NDSCart: Expected an ARM7 BIOS of %u bytes, got nullptr\n", expected_bios_length);
+            // load from ARM7 BIOS at 0xC6D0
+
+            const u8* bios = dsi.ARM7iBIOS.data();
+            memcpy(Key1_KeyBuf.data(), bios + 0xC6D0, sizeof(Key1_KeyBuf));
+            Platform::Log(LogLevel::Debug, "NDSCart: Initialized Key1_KeyBuf from ARM7i BIOS\n");
         }
         else
         {
-            memcpy(Key1_KeyBuf.data(), bios + (dsi ? 0xC6D0 : 0x0030), sizeof(Key1_KeyBuf));
-            Platform::Log(LogLevel::Debug, "NDSCart: Initialized Key1_KeyBuf from memory\n");
+            // load from ARM9 BIOS at 0x99A0
+
+            const u8* bios = dsi.ARM9iBIOS.data();
+            memcpy(Key1_KeyBuf.data(), bios + 0x99A0, sizeof(Key1_KeyBuf));
+            Platform::Log(LogLevel::Debug, "NDSCart: Initialized Key1_KeyBuf from ARM9i BIOS\n");
         }
     }
     else
     {
-        // well
-        memset(Key1_KeyBuf.data(), 0, sizeof(Key1_KeyBuf));
-        Platform::Log(LogLevel::Debug, "NDSCart: Initialized Key1_KeyBuf to zero\n");
+        // DS mode: load from ARM7 BIOS at 0x0030
+
+        if (NDS.IsLoadedARM7BIOSKnownNative())
+        {
+            const u8* bios = NDS.GetARM7BIOS().data();
+            memcpy(Key1_KeyBuf.data(), bios + 0x0030, sizeof(Key1_KeyBuf));
+            Platform::Log(LogLevel::Debug, "NDSCart: Initialized Key1_KeyBuf from ARM7 BIOS\n");
+        }
+        else
+        {
+            // well
+            memset(Key1_KeyBuf.data(), 0, sizeof(Key1_KeyBuf));
+            Platform::Log(LogLevel::Debug, "NDSCart: Initialized Key1_KeyBuf to zero\n");
+        }
     }
 }
 
-void NDSCartSlot::Key1_InitKeycode(bool dsi, u32 idcode, u32 level, u32 mod, const u8 *bios, u32 biosLength) noexcept
+void NDSCartSlot::Key1_InitKeycode(bool dsi, u32 idcode, u32 level, u32 mod) noexcept
 {
-    Key1_LoadKeyBuf(dsi, bios, biosLength);
+    Key1_LoadKeyBuf(dsi);
 
     u32 keycode[3] = {idcode, idcode>>1, idcode<<1};
     if (level >= 1) Key1_ApplyKeycode(keycode, mod);
@@ -262,16 +278,15 @@ int CartCommon::ROMCommandStart(NDS& nds, NDSCartSlot& cartslot, const u8* cmd, 
 
         case 0x3C:
             CmdEncMode = 1;
-            cartslot.Key1_InitKeycode(false, *(u32*)&ROM[0xC], 2, 2, nds.GetARM7BIOS().data(), ARM7BIOSSize);
+            cartslot.Key1_InitKeycode(false, *(u32*)&ROM[0xC], 2, 2);
             DSiMode = false;
             return 0;
 
         case 0x3D:
             if (IsDSi)
             {
-                auto& dsi = static_cast<DSi&>(nds);
                 CmdEncMode = 1;
-                cartslot.Key1_InitKeycode(true, *(u32*)&ROM[0xC], 1, 2, &dsi.ARM7iBIOS[0], sizeof(DSi::ARM7iBIOS));
+                cartslot.Key1_InitKeycode(true, *(u32*)&ROM[0xC], 1, 2);
                 DSiMode = true;
             }
             return 0;
@@ -1426,9 +1441,12 @@ void CartHomebrew::ROMCommandFinish(const u8* cmd, u8* data, u32 len)
 
 NDSCartSlot::NDSCartSlot(melonDS::NDS& nds, std::unique_ptr<CartCommon>&& rom) noexcept : NDS(nds)
 {
-    NDS.RegisterEventFunc(Event_ROMTransfer, ROMTransfer_PrepareData, MemberEventFunc(NDSCartSlot, ROMPrepareData));
-    NDS.RegisterEventFunc(Event_ROMTransfer, ROMTransfer_End, MemberEventFunc(NDSCartSlot, ROMEndTransfer));
-    NDS.RegisterEventFunc(Event_ROMSPITransfer, 0, MemberEventFunc(NDSCartSlot, SPITransferDone));
+    NDS.RegisterEventFuncs(Event_ROMTransfer, this,
+    {
+        MakeEventThunk(NDSCartSlot, ROMPrepareData),
+        MakeEventThunk(NDSCartSlot, ROMEndTransfer)
+    });
+    NDS.RegisterEventFuncs(Event_ROMSPITransfer, this, {MakeEventThunk(NDSCartSlot, SPITransferDone)});
     // All fields are default-constructed because they're listed as such in the class declaration
 
     if (rom)
@@ -1437,9 +1455,8 @@ NDSCartSlot::NDSCartSlot(melonDS::NDS& nds, std::unique_ptr<CartCommon>&& rom) n
 
 NDSCartSlot::~NDSCartSlot() noexcept
 {
-    NDS.UnregisterEventFunc(Event_ROMTransfer, ROMTransfer_PrepareData);
-    NDS.UnregisterEventFunc(Event_ROMTransfer, ROMTransfer_End);
-    NDS.UnregisterEventFunc(Event_ROMSPITransfer, 0);
+    NDS.UnregisterEventFuncs(Event_ROMTransfer);
+    NDS.UnregisterEventFuncs(Event_ROMSPITransfer);
 
     // Cart is cleaned up automatically because it's a unique_ptr
 }
@@ -1552,10 +1569,10 @@ void NDSCartSlot::DecryptSecureArea(u8* out) noexcept
 
     memcpy(out, &cartrom[arm9base], 0x800);
 
-    Key1_InitKeycode(false, gamecode, 2, 2, NDS.GetARM7BIOS().data(), ARM7BIOSSize);
+    Key1_InitKeycode(false, gamecode, 2, 2);
     Key1_Decrypt((u32*)&out[0]);
 
-    Key1_InitKeycode(false, gamecode, 3, 2, NDS.GetARM7BIOS().data(), ARM7BIOSSize);
+    Key1_InitKeycode(false, gamecode, 3, 2);
     for (u32 i = 0; i < 0x800; i += 8)
         Key1_Decrypt((u32*)&out[i]);
 
@@ -1714,11 +1731,11 @@ void NDSCartSlot::SetCart(std::unique_ptr<CartCommon>&& cart) noexcept
 
             strncpy((char*)&cartrom[header.ARM9ROMOffset], "encryObj", 8);
 
-            Key1_InitKeycode(false, romparams.GameCode, 3, 2, NDS.GetARM7BIOS().data(), ARM7BIOSSize);
+            Key1_InitKeycode(false, romparams.GameCode, 3, 2);
             for (u32 i = 0; i < 0x800; i += 8)
                 Key1_Encrypt((u32*)&cartrom[header.ARM9ROMOffset + i]);
 
-            Key1_InitKeycode(false, romparams.GameCode, 2, 2, NDS.GetARM7BIOS().data(), ARM7BIOSSize);
+            Key1_InitKeycode(false, romparams.GameCode, 2, 2);
             Key1_Encrypt((u32*)&cartrom[header.ARM9ROMOffset]);
 
             Log(LogLevel::Debug, "Re-encrypted cart secure area\n");

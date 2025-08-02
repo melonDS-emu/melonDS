@@ -1,5 +1,5 @@
 /*
-    Copyright 2016-2024 melonDS team
+    Copyright 2016-2025 melonDS team
 
     This file is part of melonDS.
 
@@ -64,10 +64,9 @@ enum
 
 DSi_SDHost::DSi_SDHost(melonDS::DSi& dsi, DSi_NAND::NANDImage&& nand, std::optional<FATStorage>&& sdcard) noexcept : DSi(dsi), Num(0)
 {
-    DSi.RegisterEventFunc( Event_DSi_SDMMCTransfer,
-                           Transfer_TX, MemberEventFunc(DSi_SDHost, FinishTX));
-    DSi.RegisterEventFunc( Event_DSi_SDMMCTransfer,
-                           Transfer_RX, MemberEventFunc(DSi_SDHost, FinishRX));
+    DSi.RegisterEventFuncs(Event_DSi_SDMMCTransfer, this,
+                           {MakeEventThunk(DSi_SDHost, FinishTX),
+                           MakeEventThunk(DSi_SDHost, FinishRX)});
 
     Ports[0] = sdcard ? std::make_unique<DSi_MMCStorage>(DSi, this, std::move(*sdcard)) : nullptr;
     sdcard = std::nullopt; // to ensure that sdcard isn't left with a moved-from object
@@ -77,10 +76,9 @@ DSi_SDHost::DSi_SDHost(melonDS::DSi& dsi, DSi_NAND::NANDImage&& nand, std::optio
 // Creates an SDIO host
 DSi_SDHost::DSi_SDHost(melonDS::DSi& dsi) noexcept : DSi(dsi), Num(1)
 {
-    DSi.RegisterEventFunc(Event_DSi_SDIOTransfer ,
-                           Transfer_TX, MemberEventFunc(DSi_SDHost, FinishTX));
-    DSi.RegisterEventFunc(Event_DSi_SDIOTransfer,
-                           Transfer_RX, MemberEventFunc(DSi_SDHost, FinishRX));
+    DSi.RegisterEventFuncs(Event_DSi_SDIOTransfer, this,
+                           {MakeEventThunk(DSi_SDHost, FinishTX),
+                           MakeEventThunk(DSi_SDHost, FinishRX)});
 
     Ports[0] = std::make_unique<DSi_NWifi>(DSi, this);
     Ports[1] = nullptr;
@@ -88,10 +86,7 @@ DSi_SDHost::DSi_SDHost(melonDS::DSi& dsi) noexcept : DSi(dsi), Num(1)
 
 DSi_SDHost::~DSi_SDHost()
 {
-    DSi.UnregisterEventFunc(Num ? Event_DSi_SDIOTransfer : Event_DSi_SDMMCTransfer,
-                           Transfer_TX);
-    DSi.UnregisterEventFunc(Num ? Event_DSi_SDIOTransfer : Event_DSi_SDMMCTransfer,
-                           Transfer_RX);
+    DSi.UnregisterEventFuncs(Num ? Event_DSi_SDIOTransfer : Event_DSi_SDMMCTransfer);
 
     // unique_ptr's destructor will clean up the ports
 }

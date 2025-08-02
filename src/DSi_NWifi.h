@@ -1,5 +1,5 @@
 /*
-    Copyright 2016-2024 melonDS team
+    Copyright 2016-2025 melonDS team
 
     This file is part of melonDS.
 
@@ -147,6 +147,8 @@ private:
     u32 ConnectionStatus;
 
     u8 LANBuffer[2048];
+
+    bool SendBSSInfo;
 };
 
 }

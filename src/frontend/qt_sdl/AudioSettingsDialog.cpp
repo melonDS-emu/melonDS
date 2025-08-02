@@ -1,5 +1,5 @@
 /*
-    Copyright 2016-2024 melonDS team
+    Copyright 2016-2025 melonDS team
 
     This file is part of melonDS.
 
@@ -41,7 +41,7 @@ AudioSettingsDialog::AudioSettingsDialog(QWidget* parent) : QDialog(parent), ui(
     emuInstance = ((MainWindow*)parent)->getEmuInstance();
     auto& cfg = emuInstance->getGlobalConfig();
     auto& instcfg = emuInstance->getLocalConfig();
-    bool emuActive = emuInstance->getEmuThread()->emuIsActive();
+    bool emuActive = emuInstance->emuIsActive();
 
     oldInterp = cfg.GetInt("Audio.Interpolation");
     oldBitDepth = cfg.GetInt("Audio.BitDepth");

@@ -1,5 +1,5 @@
 /*
-    Copyright 2016-2024 melonDS team
+    Copyright 2016-2025 melonDS team
 
     This file is part of melonDS.
 
@@ -187,7 +187,7 @@ void NetplayDialog::doUpdatePlayerList(Netplay::Player* players, int num)
 
         char ip[32];
         u32 addr = player->Address;
-        sprintf(ip, "%d.%d.%d.%d", addr&0xFF, (addr>>8)&0xFF, (addr>>16)&0xFF, addr>>24);
+        snprintf(ip, sizeof(ip), "%d.%d.%d.%d", addr&0xFF, (addr>>8)&0xFF, (addr>>16)&0xFF, addr>>24);
         model->setItem(i, 4, new QStandardItem(ip));
     }
 }

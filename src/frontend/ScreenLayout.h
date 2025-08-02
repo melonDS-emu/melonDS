@@ -1,5 +1,5 @@
 /*
-    Copyright 2016-2024 melonDS team
+    Copyright 2016-2025 melonDS team
 
     This file is part of melonDS.
 
@@ -22,8 +22,8 @@
 enum ScreenLayoutType
 {
     screenLayout_Natural, // top screen above bottom screen always
-    screenLayout_Horizontal,
     screenLayout_Vertical,
+    screenLayout_Horizontal,
     screenLayout_Hybrid,
     screenLayout_MAX,
 };

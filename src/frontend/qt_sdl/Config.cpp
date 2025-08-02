@@ -1,5 +1,5 @@
 /*
-    Copyright 2016-2024 melonDS team
+    Copyright 2016-2025 melonDS team
 
     This file is part of melonDS.
 
@@ -169,6 +169,10 @@ LegacyEntry LegacyFile[] =
     {"HKKey_PowerButton",         0, "Keyboard.HK_PowerButton", true},
     {"HKKey_VolumeUp",            0, "Keyboard.HK_VolumeUp", true},
     {"HKKey_VolumeDown",          0, "Keyboard.HK_VolumeDown", true},
+    {"HKKey_GuitarGripGreen",     0, "Keyboard.HK_GuitarGripGreen", true},
+    {"HKKey_GuitarGripRed",       0, "Keyboard.HK_GuitarGripRed", true},
+    {"HKKey_GuitarGripYellow",    0, "Keyboard.HK_GuitarGripYellow", true},
+    {"HKKey_GuitarGripBlue",      0, "Keyboard.HK_GuitarGripBlue", true},
 
     {"HKJoy_Lid",                 0, "Joystick.HK_Lid", true},
     {"HKJoy_Mic",                 0, "Joystick.HK_Mic", true},
@@ -185,6 +189,10 @@ LegacyEntry LegacyFile[] =
     {"HKJoy_PowerButton",         0, "Joystick.HK_PowerButton", true},
     {"HKJoy_VolumeUp",            0, "Joystick.HK_VolumeUp", true},
     {"HKJoy_VolumeDown",          0, "Joystick.HK_VolumeDown", true},
+    {"HKJoy_GuitarGripGreen",     0, "Joystick.HK_GuitarGripGreen", true},
+    {"HKJoy_GuitarGripRed",       0, "Joystick.HK_GuitarGripRed", true},
+    {"HKJoy_GuitarGripYellow",    0, "Joystick.HK_GuitarGripYellow", true},
+    {"HKJoy_GuitarGripBlue",      0, "Joystick.HK_GuitarGripBlue", true},
 
     {"JoystickID", 0, "JoystickID", true},
 
@@ -632,7 +640,8 @@ void Table::SetString(const std::string& path, const std::string& val)
 void Table::SetDouble(const std::string& path, double val)
 {
     toml::value& tval = ResolvePath(path);
-    tval = val;
+    toml::floating_format_info info = {.prec=10};
+    tval = toml::value(val, info);
 }
 
 toml::value& Table::ResolvePath(const std::string& path)
@@ -816,7 +825,7 @@ Table GetLocalTable(int instance)
 
     std::string key = "Instance" + std::to_string(instance);
     toml::value& tbl = RootTable[key];
-    if (tbl.is_uninitialized())
+    if (tbl.is_empty())
         RootTable[key] = RootTable["Instance0"];
 
     return Table(tbl, key);

@@ -109,7 +109,7 @@ void DSi_DSP::AudioCb(std::array<s16, 2> frame)
 
 DSi_DSP::DSi_DSP(melonDS::DSi& dsi) : DSi(dsi)
 {
-    DSi.RegisterEventFunc(Event_DSi_DSP, 0, MemberEventFunc(DSi_DSP, DSPCatchUpU32));
+    DSi.RegisterEventFuncs(Event_DSi_DSP, this, {MakeEventThunk(DSi_DSP, DSPCatchUpU32)});
 
     TeakraCore = new Teakra::Teakra();
     SCFG_RST = false;
@@ -156,7 +156,7 @@ DSi_DSP::~DSi_DSP()
     //PDATAWriteFifo = NULL;
     TeakraCore = NULL;
 
-    DSi.UnregisterEventFunc(Event_DSi_DSP, 0);
+    DSi.UnregisterEventFuncs(Event_DSi_DSP);
 }
 
 void DSi_DSP::Reset()
@@ -321,7 +321,7 @@ void DSi_DSP::PDataDMAFetch()
 }
 void DSi_DSP::PDataDMAStart()
 {
-    switch ((DSP_PSTS & (3<<2)) >> 2)
+    switch ((DSP_PCFG & (3<<2)) >> 2)
     {
     case 0: PDataDMALen = 1; break;
     case 1: PDataDMALen = 8; break;
@@ -346,7 +346,7 @@ void DSi_DSP::PDataDMACancel()
 }
 u16 DSi_DSP::PDataDMAReadMMIO()
 {
-    u16 ret;
+    u16 ret = 0; // TODO: is this actually 0, or just open bus?
 
     if (!PDATAReadFifo.IsEmpty())
         ret = PDATAReadFifo.Read();
@@ -360,15 +360,9 @@ u16 DSi_DSP::PDataDMAReadMMIO()
 
         for (int i = 0; i < left; ++i)
             PDataDMAFetch();
-
-        ret = PDATAReadFifo.Read();
-    }
-    else
-    {
-        // ah, crap
-        ret = 0; // TODO: is this actually 0, or just open bus?
     }
 
+    // TODO only trigger IRQ if enabled!!
     if (!PDATAReadFifo.IsEmpty() || PDATAReadFifo.IsFull())
         DSi.SetIRQ(0, IRQ_DSi_DSP);
 

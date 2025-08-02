@@ -1,5 +1,5 @@
 /*
-    Copyright 2016-2024 melonDS team
+    Copyright 2016-2025 melonDS team
 
     This file is part of melonDS.
 
@@ -109,7 +109,7 @@ void EmuThread::run()
     Config::Table& globalCfg = emuInstance->getGlobalConfig();
     u32 mainScreenPos[3];
 
-    //emuInstance->updateConsole(nullptr, nullptr);
+    //emuInstance->updateConsole();
     // No carts are inserted when melonDS first boots
 
     mainScreenPos[0] = 0;
@@ -231,6 +231,7 @@ void EmuThread::run()
             // update render settings if needed
             if (videoSettingsDirty)
             {
+                emuInstance->renderLock.lock();
                 if (useOpenGL)
                 {
                     emuInstance->setVSyncGL(true);
@@ -246,10 +247,16 @@ void EmuThread::run()
                 updateRenderer();
 
                 videoSettingsDirty = false;
+                emuInstance->renderLock.unlock();
             }
 
             // process input and hotkeys
             emuInstance->nds->SetKeyMask(emuInstance->inputMask);
+
+            if (emuInstance->isTouching)
+                emuInstance->nds->TouchScreen(emuInstance->touchX, emuInstance->touchY);
+            else
+                emuInstance->nds->ReleaseScreen();
 
             if (emuInstance->hotkeyPressed(HK_Lid))
             {
@@ -314,13 +321,13 @@ void EmuThread::run()
 
             if (!useOpenGL)
             {
-                FrontBufferLock.lock();
-                FrontBuffer = emuInstance->nds->GPU.FrontBuffer;
-                FrontBufferLock.unlock();
+                frontBufferLock.lock();
+                frontBuffer = emuInstance->nds->GPU.FrontBuffer;
+                frontBufferLock.unlock();
             }
             else
             {
-                FrontBuffer = emuInstance->nds->GPU.FrontBuffer;
+                frontBuffer = emuInstance->nds->GPU.FrontBuffer;
                 emuInstance->drawScreenGL();
             }
 
@@ -359,7 +366,7 @@ void EmuThread::run()
 
             if (slowmo) emuInstance->curFPS = emuInstance->slowmoFPS;
             else if (fastforward) emuInstance->curFPS = emuInstance->fastForwardFPS;
-            else if (!emuInstance->doLimitFPS) emuInstance->curFPS = 1000.0;
+            else if (!emuInstance->doLimitFPS && !emuInstance->doAudioSync) emuInstance->curFPS = 1000.0;
             else emuInstance->curFPS = emuInstance->targetFPS;
 
             if (emuInstance->audioDSiVolumeSync && emuInstance->nds->ConsoleType == 1)
@@ -382,6 +389,7 @@ void EmuThread::run()
 
             if (frametimeStep < 0.001) frametimeStep = 0.001;
 
+            if (emuInstance->doLimitFPS)
             {
                 double curtime = SDL_GetPerformanceCounter() * perfCountsSec;
 
@@ -419,11 +427,7 @@ void EmuThread::run()
                     winUpdateFreq = 1;
                     
                 double actualfps = (59.8261 * 263.0) / nlines;
-                int inst = emuInstance->instanceID;
-                if (inst == 0)
-                    sprintf(melontitle, "[%d/%.0f] melonDS " MELONDS_VERSION, fps, actualfps);
-                else
-                    sprintf(melontitle, "[%d/%.0f] melonDS (%d)", fps, fpstarget, inst+1);
+                snprintf(melontitle, sizeof(melontitle), "[%d/%.0f] melonDS " MELONDS_VERSION, fps, actualfps);
                 changeWindowTitle(melontitle);
             }
         }
@@ -436,11 +440,7 @@ void EmuThread::run()
 
             emit windowUpdate();
 
-            int inst = emuInstance->instanceID;
-            if (inst == 0)
-                sprintf(melontitle, "melonDS " MELONDS_VERSION);
-            else
-                sprintf(melontitle, "melonDS (%d)", inst+1);
+            snprintf(melontitle, sizeof(melontitle), "melonDS " MELONDS_VERSION);
             changeWindowTitle(melontitle);
 
             SDL_Delay(75);
@@ -471,11 +471,14 @@ void EmuThread::waitMessage(int num)
 void EmuThread::waitAllMessages()
 {
     if (QThread::currentThread() == this) return;
-    msgSemaphore.acquire(msgSemaphore.available());
+    while (!msgQueue.empty())
+        msgSemaphore.acquire();
 }
 
 void EmuThread::handleMessages()
 {
+    bool glborrow = false;
+
     msgMutex.lock();
     while (!msgQueue.empty())
     {
@@ -487,6 +490,7 @@ void EmuThread::handleMessages()
             emuPauseStack = emuPauseStackRunning;
 
             emuInstance->audioDisable();
+            MPInterface::Get().End(emuInstance->instanceID);
             break;
 
         case msg_EmuRun:
@@ -566,9 +570,14 @@ void EmuThread::handleMessages()
                 useOpenGL = false;
             break;
 
+        case msg_BorrowGL:
+            emuInstance->releaseGL();
+            glborrow = true;
+            break;
+
         case msg_BootROM:
             msgResult = 0;
-            if (!emuInstance->loadROM(msg.param.value<QStringList>(), true))
+            if (!emuInstance->loadROM(msg.param.value<QStringList>(), true, msgError))
                 break;
 
             assert(emuInstance->nds != nullptr);
@@ -578,7 +587,7 @@ void EmuThread::handleMessages()
 
         case msg_BootFirmware:
             msgResult = 0;
-            if (!emuInstance->bootToMenu())
+            if (!emuInstance->bootToMenu(msgError))
                 break;
 
             assert(emuInstance->nds != nullptr);
@@ -588,7 +597,7 @@ void EmuThread::handleMessages()
 
         case msg_InsertCart:
             msgResult = 0;
-            if (!emuInstance->loadROM(msg.param.value<QStringList>(), false))
+            if (!emuInstance->loadROM(msg.param.value<QStringList>(), false, msgError))
                 break;
 
             msgResult = 1;
@@ -600,7 +609,7 @@ void EmuThread::handleMessages()
 
         case msg_InsertGBACart:
             msgResult = 0;
-            if (!emuInstance->loadGBAROM(msg.param.value<QStringList>()))
+            if (!emuInstance->loadGBAROM(msg.param.value<QStringList>(), msgError))
                 break;
 
             msgResult = 1;
@@ -608,7 +617,7 @@ void EmuThread::handleMessages()
 
         case msg_InsertGBAAddon:
             msgResult = 0;
-            emuInstance->loadGBAAddon(msg.param.value<int>());
+            emuInstance->loadGBAAddon(msg.param.value<int>(), msgError);
             msgResult = 1;
             break;
 
@@ -657,6 +666,13 @@ void EmuThread::handleMessages()
         msgSemaphore.release();
     }
     msgMutex.unlock();
+
+    if (glborrow)
+    {
+        glBorrowMutex.lock();
+        glBorrowCond.wait(&glBorrowMutex);
+        glBorrowMutex.unlock();
+    }
 }
 
 void EmuThread::changeWindowTitle(char* title)
@@ -674,6 +690,19 @@ void EmuThread::deinitContext(int win)
 {
     sendMessage({.type = msg_DeInitGL, .param = win});
     waitMessage();
+}
+
+void EmuThread::borrowGL()
+{
+    sendMessage(msg_BorrowGL);
+    waitMessage();
+}
+
+void EmuThread::returnGL()
+{
+    glBorrowMutex.lock();
+    glBorrowCond.wakeAll();
+    glBorrowMutex.unlock();
 }
 
 void EmuThread::emuRun()
@@ -744,36 +773,45 @@ bool EmuThread::emuIsActive()
     return emuActive;
 }
 
-int EmuThread::bootROM(const QStringList& filename)
+int EmuThread::bootROM(const QStringList& filename, QString& errorstr)
 {
     sendMessage({.type = msg_BootROM, .param = filename});
     waitMessage();
     if (!msgResult)
+    {
+        errorstr = msgError;
         return msgResult;
+    }
 
     sendMessage(msg_EmuRun);
     waitMessage();
+    errorstr = "";
     return msgResult;
 }
 
-int EmuThread::bootFirmware()
+int EmuThread::bootFirmware(QString& errorstr)
 {
     sendMessage(msg_BootFirmware);
     waitMessage();
     if (!msgResult)
+    {
+        errorstr = msgError;
         return msgResult;
+    }
 
     sendMessage(msg_EmuRun);
     waitMessage();
+    errorstr = "";
     return msgResult;
 }
 
-int EmuThread::insertCart(const QStringList& filename, bool gba)
+int EmuThread::insertCart(const QStringList& filename, bool gba, QString& errorstr)
 {
     MessageType msgtype = gba ? msg_InsertGBACart : msg_InsertCart;
 
     sendMessage({.type = msgtype, .param = filename});
     waitMessage();
+    errorstr = msgResult ? "" : msgError;
     return msgResult;
 }
 
@@ -783,10 +821,11 @@ void EmuThread::ejectCart(bool gba)
     waitMessage();
 }
 
-int EmuThread::insertGBAAddon(int type)
+int EmuThread::insertGBAAddon(int type, QString& errorstr)
 {
     sendMessage({.type = msg_InsertGBAAddon, .param = type});
     waitMessage();
+    errorstr = msgResult ? "" : msgError;
     return msgResult;
 }
 

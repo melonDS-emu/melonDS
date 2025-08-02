@@ -1,5 +1,5 @@
 /*
-    Copyright 2016-2024 melonDS team
+    Copyright 2016-2025 melonDS team
 
     This file is part of melonDS.
 
@@ -58,6 +58,8 @@ void CameraFrameDumper::present(const QVideoFrame& _frame)
 
     case QVideoFrameFormat::Format_NV12:
         cam->feedFrame_NV12((u8*)frame.bits(0), (u8*)frame.bits(1), frame.width(), frame.height());
+        break;
+    default:
         break;
     }
 
@@ -230,7 +232,7 @@ void CameraManager::init()
                     item.pixelFormat() != QVideoFrameFormat::Format_XRGB8888)
                     continue;
 
-                if (item.resolution().width() != 640 && item.resolution().height() != 480)
+                if (item.resolution().width() != 640 || item.resolution().height() != 480)
                     continue;
 
                 camDevice->setCameraFormat(item);
@@ -280,7 +282,7 @@ void CameraManager::init()
                     item.pixelFormat() != QVideoFrame::Format_RGB32)
                     continue;
 
-                if (item.resolution().width() != 640 && item.resolution().height() != 480)
+                if (item.resolution().width() != 640 || item.resolution().height() != 480)
                     continue;
 
                 camDevice->setViewfinderSettings(item);

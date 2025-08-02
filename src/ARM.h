@@ -1,5 +1,5 @@
 /*
-    Copyright 2016-2024 melonDS team
+    Copyright 2016-2025 melonDS team
 
     This file is part of melonDS.
 
@@ -67,6 +67,8 @@ class ARM
 public:
     ARM(u32 num, bool jit, std::optional<GDBArgs> gdb, NDS& nds);
     virtual ~ARM(); // destroy shit
+
+    void SetGdbArgs(std::optional<GDBArgs> gdb);
 
     virtual void Reset();
 
@@ -323,6 +325,7 @@ public:
     u32 CP15Control;
 
     u32 RNGSeed;
+    u32 TraceProcessID;
 
     u32 DTCMSetting, ITCMSetting;
 

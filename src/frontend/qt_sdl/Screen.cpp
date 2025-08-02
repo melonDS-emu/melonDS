@@ -1,5 +1,5 @@
 /*
-    Copyright 2016-2024 melonDS team
+    Copyright 2016-2025 melonDS team
 
     This file is part of melonDS.
 
@@ -258,8 +258,7 @@ void ScreenPanel::mousePressEvent(QMouseEvent* event)
     if (layout.GetTouchCoords(x, y, false))
     {
         touching = true;
-        assert(emuInstance->getNDS() != nullptr);
-        emuInstance->getNDS()->TouchScreen(x, y);
+        emuInstance->touchScreen(x, y);
     }
 }
 
@@ -272,8 +271,7 @@ void ScreenPanel::mouseReleaseEvent(QMouseEvent* event)
     if (touching)
     {
         touching = false;
-        assert(emuInstance->getNDS() != nullptr);
-        emuInstance->getNDS()->ReleaseScreen();
+        emuInstance->releaseScreen();
     }
 }
 
@@ -292,8 +290,7 @@ void ScreenPanel::mouseMoveEvent(QMouseEvent* event)
 
     if (layout.GetTouchCoords(x, y, true))
     {
-        assert(emuInstance->getNDS() != nullptr);
-        emuInstance->getNDS()->TouchScreen(x, y);
+        emuInstance->touchScreen(x, y);
     }
 }
 
@@ -318,16 +315,14 @@ void ScreenPanel::tabletEvent(QTabletEvent* event)
             if (layout.GetTouchCoords(x, y, event->type()==QEvent::TabletMove))
             {
                 touching = true;
-                assert(emuInstance->getNDS() != nullptr);
-                emuInstance->getNDS()->TouchScreen(x, y);
+                emuInstance->touchScreen(x, y);
             }
         }
         break;
     case QEvent::TabletRelease:
         if (touching)
         {
-            assert(emuInstance->getNDS() != nullptr);
-            emuInstance->getNDS()->ReleaseScreen();
+            emuInstance->releaseScreen();
             touching = false;
         }
         break;
@@ -365,16 +360,14 @@ void ScreenPanel::touchEvent(QTouchEvent* event)
             if (layout.GetTouchCoords(x, y, event->type()==QEvent::TouchUpdate))
             {
                 touching = true;
-                assert(emuInstance->getNDS() != nullptr);
-                emuInstance->getNDS()->TouchScreen(x, y);
+                emuInstance->touchScreen(x, y);
             }
         }
         break;
     case QEvent::TouchEnd:
         if (touching)
         {
-            assert(emuInstance->getNDS() != nullptr);
-            emuInstance->getNDS()->ReleaseScreen();
+            emuInstance->releaseScreen();
             touching = false;
         }
         break;
@@ -392,6 +385,10 @@ bool ScreenPanel::event(QEvent* event)
         touchEvent((QTouchEvent*)event);
         return true;
     }
+    else if (event->type() == QEvent::FocusIn)
+        mainWindow->onFocusIn();
+    else if (event->type() == QEvent::FocusOut)
+        mainWindow->onFocusOut();
 
     return QWidget::event(event);
 }
@@ -786,20 +783,21 @@ void ScreenPanelNative::paintEvent(QPaintEvent* event)
 
     if (emuThread->emuIsActive())
     {
+        emuInstance->renderLock.lock();
         auto nds = emuInstance->getNDS();
 
         assert(nds != nullptr);
-        emuThread->FrontBufferLock.lock();
-        int frontbuf = emuThread->FrontBuffer;
+        emuThread->frontBufferLock.lock();
+        int frontbuf = emuThread->frontBuffer;
         if (!nds->GPU.Framebuffer[frontbuf][0] || !nds->GPU.Framebuffer[frontbuf][1])
         {
-            emuThread->FrontBufferLock.unlock();
+            emuThread->frontBufferLock.unlock();
             return;
         }
 
         memcpy(screen[0].scanLine(0), nds->GPU.Framebuffer[frontbuf][0].get(), 256 * 192 * 4);
         memcpy(screen[1].scanLine(0), nds->GPU.Framebuffer[frontbuf][1].get(), 256 * 192 * 4);
-        emuThread->FrontBufferLock.unlock();
+        emuThread->frontBufferLock.unlock();
 
         QRect screenrc(0, 0, 256, 192);
 
@@ -808,6 +806,7 @@ void ScreenPanelNative::paintEvent(QPaintEvent* event)
             painter.setTransform(screenTrans[i]);
             painter.drawImage(screenrc, screen[screenKind[i]]);
         }
+        emuInstance->renderLock.unlock();
     }
 
     osdUpdate();
@@ -877,7 +876,7 @@ bool ScreenPanelGL::createContext()
     if (ourwin->getWindowID() != 0)
     {
         if (windowinfo.has_value())
-            if (glContext = parentwin->getOGLContext()->CreateSharedContext(*windowinfo))
+            if ((glContext = parentwin->getOGLContext()->CreateSharedContext(*windowinfo)))
                 glContext->DoneCurrent();
     }
     else
@@ -886,7 +885,7 @@ bool ScreenPanelGL::createContext()
                 GL::Context::Version{GL::Context::Profile::Core, 4, 3},
                 GL::Context::Version{GL::Context::Profile::Core, 3, 2}};
         if (windowinfo.has_value())
-            if (glContext = GL::Context::Create(*windowinfo, versionsToTry))
+            if ((glContext = GL::Context::Create(*windowinfo, versionsToTry)))
                 glContext->DoneCurrent();
     }
 
@@ -1021,6 +1020,8 @@ void ScreenPanelGL::deinitOpenGL()
     if (!glContext) return;
     if (!glInited) return;
 
+    glContext->MakeCurrent();
+
     glDeleteTextures(1, &screenTexture);
 
     glDeleteVertexArrays(1, &screenVertexArray);
@@ -1054,6 +1055,13 @@ void ScreenPanelGL::makeCurrentGL()
     if (!glContext) return;
 
     glContext->MakeCurrent();
+}
+
+void ScreenPanelGL::releaseGL()
+{
+    if (!glContext) return;
+
+    glContext->DoneCurrent();
 }
 
 void ScreenPanelGL::osdRenderItem(OSDItem* item)
@@ -1113,7 +1121,7 @@ void ScreenPanelGL::drawScreenGL()
         glUseProgram(screenShaderProgram);
         glUniform2f(screenShaderScreenSizeULoc, w / factor, h / factor);
 
-        int frontbuf = emuThread->FrontBuffer;
+        int frontbuf = emuThread->frontBuffer;
         glActiveTexture(GL_TEXTURE0);
 
 #ifdef OGLRENDERER_ENABLED

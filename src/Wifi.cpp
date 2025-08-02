@@ -1,5 +1,5 @@
 /*
-    Copyright 2016-2024 melonDS team
+    Copyright 2016-2025 melonDS team
 
     This file is part of melonDS.
 
@@ -91,7 +91,7 @@ bool MACIsBroadcast(const u8* a)
 
 Wifi::Wifi(melonDS::NDS& nds) : NDS(nds)
 {
-    NDS.RegisterEventFunc(Event_Wifi, 0, MemberEventFunc(Wifi, USTimer));
+    NDS.RegisterEventFuncs(Event_Wifi, this, {MakeEventThunk(Wifi, USTimer)});
 
     WifiAP = new class WifiAP(this, NDS.UserData);
 }
@@ -100,7 +100,7 @@ Wifi::~Wifi()
 {
     delete WifiAP; WifiAP = nullptr;
 
-    NDS.UnregisterEventFunc(Event_Wifi, 0);
+    NDS.UnregisterEventFuncs(Event_Wifi);
 }
 
 void Wifi::Reset()

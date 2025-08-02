@@ -1,5 +1,5 @@
 /*
-    Copyright 2016-2024 melonDS team
+    Copyright 2016-2025 melonDS team
 
     This file is part of melonDS.
 
@@ -77,11 +77,15 @@ enum
     Event_MAX
 };
 
-typedef std::function<void(u32)> EventFunc;
-#define MemberEventFunc(cls,func) std::bind(&cls::func,this,std::placeholders::_1)
+static constexpr u32 MaxEventFunctions = 3;
+
+typedef void (*EventFunc)(void* that, u32 param);
+#define MakeEventThunk(class, func) [](void* that, u32 param) { static_cast<class*>(that)->func(param); }
+
 struct SchedEvent
 {
-    std::map<u32, EventFunc> Funcs;
+    std::array<EventFunc, MaxEventFunctions> Funcs;
+    void* That;
     u64 Timestamp;
     u32 FuncID;
     u32 Param;
@@ -212,6 +216,15 @@ enum
 {
     GBAAddon_RAMExpansion = 1,
     GBAAddon_RumblePak = 2,
+    // Each game in the GBA Boktai trilogy uses the same solar sensor,
+    // but Lunar Knights (the only NDS game to use the solar sensor)
+    // applies slightly different effects depending on the game.
+    GBAAddon_SolarSensorBoktai1 = 3,
+    GBAAddon_SolarSensorBoktai2 = 4,
+    GBAAddon_SolarSensorBoktai3 = 5,
+    GBAAddon_MotionPakHomebrew = 6,
+    GBAAddon_MotionPakRetail = 7,
+    GBAAddon_GuitarGrip = 8,
 };
 
 class SPU;
@@ -385,7 +398,6 @@ public: // TODO: Encapsulate the rest of these members
     u32 GetGBASaveLength() const { return GBACartSlot.GetSaveMemoryLength(); }
     void SetGBASave(const u8* savedata, u32 savelen);
 
-    void LoadGBAAddon(int type);
     std::unique_ptr<GBACart::CartCommon> EjectGBACart() { return GBACartSlot.EjectCart(); }
 
     u32 RunFrame();
@@ -403,8 +415,8 @@ public: // TODO: Encapsulate the rest of these members
     virtual void CamInputFrame(int cam, const u32* data, int width, int height, bool rgb) {}
     virtual void MicInputFrame(s16* data, int samples);
 
-    void RegisterEventFunc(u32 id, u32 funcid, EventFunc func);
-    void UnregisterEventFunc(u32 id, u32 funcid);
+    void RegisterEventFuncs(u32 id, void* that, const std::initializer_list<EventFunc>& funcs);
+    void UnregisterEventFuncs(u32 id);
     void ScheduleEvent(u32 id, bool periodic, s32 delay, u32 funcid, u32 param);
     void CancelEvent(u32 id);
 
@@ -478,6 +490,12 @@ public: // TODO: Encapsulate the rest of these members
     void SetJITArgs(std::optional<JITArgs> args) noexcept {}
 #endif
 
+#ifdef GDBSTUB_ENABLED
+    void SetGdbArgs(std::optional<GDBArgs> args) noexcept;
+#else
+    void SetGdbArgs(std::optional<GDBArgs> args) noexcept {}
+#endif
+
 private:
     void InitTimings();
     u32 SchedListMask;
@@ -537,8 +555,8 @@ public:
     NDS& operator=(const NDS&) = delete;
     NDS(NDS&&) = delete;
     NDS& operator=(NDS&&) = delete;
-    // The frontend should set and unset this manually after creating and destroying the NDS object.
-    [[deprecated("Temporary workaround until JIT code generation is revised to accommodate multiple NDS objects.")]] static NDS* Current;
+
+    static thread_local NDS* Current;
 protected:
     explicit NDS(NDSArgs&& args, int type, void* userdata) noexcept;
     virtual void DoSavestateExtra(Savestate* file) {}
