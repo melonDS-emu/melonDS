@@ -29,7 +29,7 @@ using Platform::LogLevel;
 
 DSi_I2S::DSi_I2S(melonDS::DSi& dsi) : DSi(dsi)
 {
-    DSi.RegisterEventFunc(Event_DSi_I2S, 0, MemberEventFunc(DSi_I2S, Clock));
+    DSi.RegisterEventFuncs(Event_DSi_I2S, this, MakeEventThunk(DSi_I2S, Clock)});
 
     MicCnt = 0;
     SndExCnt = 0;
@@ -40,7 +40,7 @@ DSi_I2S::DSi_I2S(melonDS::DSi& dsi) : DSi(dsi)
 
 DSi_I2S::~DSi_I2S()
 {
-    DSi.UnregisterEventFunc(Event_DSi_I2S, 0);
+    DSi.UnregisterEventFuncs(Event_DSi_I2S);
 }
 
 void DSi_I2S::Reset()
