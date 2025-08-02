@@ -108,6 +108,13 @@ void CustomTextItem::keyPressEvent(QKeyEvent *event)
         QTextCursor cursor = this->textCursor();
         int cursorPos = cursor.position();
         int anchorPos = cursor.anchor();
+
+        if (this->IsKeyHex(key) && cursorPos != 2) {
+            text.remove(cursorPos, 2 - cursorPos);
+            this->setPlainText(text);
+            this->setTextCursor(cursor);
+        }
+
         qsizetype textLength = text.length();
 
         // make sure that:
