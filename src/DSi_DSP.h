@@ -30,6 +30,7 @@ namespace Teakra { class Teakra; }
 namespace melonDS
 {
 class DSi;
+enum class UCodeID;
 class DSi_DSP
 {
 public:
@@ -74,6 +75,7 @@ private:
     u16 SNDExCnt;
 
     Teakra::Teakra* TeakraCore;
+    UCodeID CurrentUCodeID;
 
     bool SCFG_RST;
 
