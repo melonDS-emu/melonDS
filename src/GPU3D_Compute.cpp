@@ -734,36 +734,8 @@ void ComputeRenderer::SetRenderSettings(int scale, bool highResolutionCoordinate
 
 
 
-    // v6
 
-    uint32_t base = (2 * ScaleFactor) / 9;
-    base |= (base == 0);
-    uint32_t msb2 = (1u << (31 - __builtin_clz(base))) << 1;
-    TileScale = (msb2 & -(ScaleFactor > 4)) | (1 & -(ScaleFactor <= 4));
-
-    // TileSize計算 元の処理と完全一致
-    TileSize = (TileScale << 3); // TileSizeはint
-    TileSize = (TileSize > 32) ? 32 : TileSize;
-
-    bool isSmall = TileSize < 32;
-    CoarseTileCountY = isSmall ? 4 : 6; // int
-    ClearCoarseBinMaskLocalSize = isSmall ? 64 : 48; // int
-
-
-    CoarseTileArea = CoarseTileCountX * CoarseTileCountY; // int
-    CoarseTileW = CoarseTileCountX * TileSize; // int
-    CoarseTileH = CoarseTileCountY * TileSize; // int
-
-    TilesPerLine = ScreenWidth / TileSize; // int
-    TileLines = ScreenHeight / TileSize; // int
-
-    HiresCoordinates = highResolutionCoordinates; // bool
-    MaxWorkTiles = TilesPerLine * TileLines * 16; // int
-
-#endif
-
-
-    // v7
+    // v7 各種値をマスク演算で高速に計算（分岐なし） 体感v6のが低遅延なので廃止。
 
     // TileScale計算（分岐なし・v4と完全一致）
     uint32_t base = (2 * ScaleFactor) / 9;
@@ -795,6 +767,34 @@ void ComputeRenderer::SetRenderSettings(int scale, bool highResolutionCoordinate
     // タイル単位ワーク領域計算
     MaxWorkTiles = TileLines * TilesPerLine * 16;
 
+
+#endif
+
+    // v6 かなり低遅延
+
+    uint32_t base = (2 * ScaleFactor) / 9;
+    base |= (base == 0);
+    uint32_t msb2 = (1u << (31 - __builtin_clz(base))) << 1;
+    TileScale = (msb2 & -(ScaleFactor > 4)) | (1 & -(ScaleFactor <= 4));
+
+    // TileSize計算 元の処理と完全一致
+    TileSize = (TileScale << 3); // TileSizeはint
+    TileSize = (TileSize > 32) ? 32 : TileSize;
+
+    bool isSmall = TileSize < 32;
+    CoarseTileCountY = isSmall ? 4 : 6; // int
+    ClearCoarseBinMaskLocalSize = isSmall ? 64 : 48; // int
+
+
+    CoarseTileArea = CoarseTileCountX * CoarseTileCountY; // int
+    CoarseTileW = CoarseTileCountX * TileSize; // int
+    CoarseTileH = CoarseTileCountY * TileSize; // int
+
+    TilesPerLine = ScreenWidth / TileSize; // int
+    TileLines = ScreenHeight / TileSize; // int
+
+    HiresCoordinates = highResolutionCoordinates; // bool
+    MaxWorkTiles = TilesPerLine * TileLines * 16; // int
 
 
     /* MelonPrimeDS } */
