@@ -941,8 +941,8 @@ void SPU::Mix(u32 dummy)
     }
 
     Platform::Mutex_Lock(AudioLock);
-    OutputBuffer[OutputBufferWritePos++] = leftoutput >> 1;
-    OutputBuffer[OutputBufferWritePos++] = rightoutput >> 1;
+    OutputBuffer[OutputBufferWritePos++] = leftoutput;
+    OutputBuffer[OutputBufferWritePos++] = rightoutput;
 
     OutputBufferWritePos &= ((2*OutputBufferSize)-1);
 
