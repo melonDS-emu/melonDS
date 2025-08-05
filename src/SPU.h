@@ -27,6 +27,12 @@ namespace melonDS
 class NDS;
 class SPU;
 
+enum class AudioSampleRate
+{
+    _32KHz = 0,
+    _47KHz
+};
+
 enum class AudioBitDepth
 {
     Auto,
@@ -255,6 +261,13 @@ private:
     s16 OutputBuffer[2 * OutputBufferSize] {};
     u32 OutputBufferWritePos = 0;
     u32 OutputBufferReadPos = 0;
+
+    // sample pos/inc are 4-bit fractional
+    // 32KHz sample rate is 11/16 of 47KHz
+    // so they don't need to be very precise
+    u8 OutputSamplePos;
+    u8 OutputSampleInc;
+    s16 OutputLastSamples[2];
 
     Platform::Mutex* AudioLock;
 

@@ -211,6 +211,11 @@ SPU::SPU(melonDS::NDS& nds, AudioBitDepth bitdepth, AudioInterpolation interpola
 
     OutputBufferReadPos = 0;
     OutputBufferWritePos = 0;
+
+    // TODO make configurable
+    OutputSampleInc = 11;
+    OutputSamplePos = 0;
+    memset(OutputLastSamples, 0, sizeof(OutputLastSamples));
 }
 
 SPU::~SPU()
@@ -941,17 +946,30 @@ void SPU::Mix(u32 dummy)
     }
 
     Platform::Mutex_Lock(AudioLock);
-    OutputBuffer[OutputBufferWritePos++] = leftoutput;
-    OutputBuffer[OutputBufferWritePos++] = rightoutput;
-
-    OutputBufferWritePos &= ((2*OutputBufferSize)-1);
-
-    if (OutputBufferWritePos == OutputBufferReadPos)
+    while (OutputSamplePos < 16)
     {
-        // advance the read position too, to avoid losing the entire FIFO
-        OutputBufferReadPos += 2;
-        OutputBufferReadPos &= ((2*OutputBufferSize)-1);
+        u8 fb = OutputSamplePos & 0xF;
+        u8 fa = 0x10 - fb;
+        s16 leftfinal = ((OutputLastSamples[0] * fa) + (leftoutput * fb)) >> 4;
+        s16 rightfinal = ((OutputLastSamples[1] * fa) + (rightoutput * fb)) >> 4;
+
+        OutputBuffer[OutputBufferWritePos++] = leftfinal;
+        OutputBuffer[OutputBufferWritePos++] = rightfinal;
+
+        OutputBufferWritePos &= ((2*OutputBufferSize)-1);
+
+        if (OutputBufferWritePos == OutputBufferReadPos)
+        {
+            // advance the read position too, to avoid losing the entire FIFO
+            OutputBufferReadPos += 2;
+            OutputBufferReadPos &= ((2*OutputBufferSize)-1);
+        }
+
+        OutputLastSamples[0] = leftoutput;
+        OutputLastSamples[1] = rightoutput;
+        OutputSamplePos += OutputSampleInc;
     }
+    OutputSamplePos -= 16;
     Platform::Mutex_Unlock(AudioLock);
 
     NDS.ScheduleEvent(Event_SPU, true, 1024, 0, 0);
