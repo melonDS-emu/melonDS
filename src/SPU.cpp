@@ -213,10 +213,7 @@ SPU::SPU(melonDS::NDS& nds, AudioBitDepth bitdepth, AudioInterpolation interpola
     OutputBufferReadPos = 0;
     OutputBufferWritePos = 0;
 
-    // TODO make configurable
-    OutputSampleInc = 11;
-    OutputSamplePos = 0;
-    memset(OutputLastSamples, 0, sizeof(OutputLastSamples));
+    SetSampleRate(AudioSampleRate::_32KHz);
 }
 
 SPU::~SPU()
@@ -273,6 +270,24 @@ void SPU::DoSavestate(Savestate* file)
 void SPU::SetPowerCnt(u32 val)
 {
     // TODO
+}
+
+
+void SPU::SetSampleRate(AudioSampleRate rate)
+{
+    if (rate == AudioSampleRate::_47KHz)
+    {
+        MixInterval = 704;
+        OutputSampleInc = 16;
+    }
+    else
+    {
+        MixInterval = 1024;
+        OutputSampleInc = 11;
+    }
+
+    OutputSamplePos = 0;
+    memset(OutputLastSamples, 0, sizeof(OutputLastSamples));
 }
 
 
@@ -596,7 +611,7 @@ void SPUChannel::NextSample_Noise()
 }
 
 template<u32 type>
-s32 SPUChannel::Run()
+s32 SPUChannel::Run(u32 cycles)
 {
     if (!(Cnt & (1<<31))) return 0;
 
@@ -608,7 +623,9 @@ s32 SPUChannel::Run()
         KeyOn = false;
     }
 
-    Timer += 512; // 1 sample = 512 cycles at 16MHz
+    // 1 sample = 512 cycles at 16MHz
+    // (or 352 cycles at 47KHz)
+    Timer += cycles;
 
     while (Timer >> 16)
     {
@@ -632,6 +649,8 @@ s32 SPUChannel::Run()
         case 3: NextSample_PSG(); break;
         case 4: NextSample_Noise(); break;
         }
+
+        if (!(Cnt & (1<<31))) break;
     }
 
     s32 val = (s32)CurSample;
@@ -760,9 +779,9 @@ void SPUCaptureUnit::FIFO_WriteData(T val)
         FIFO_FlushData();
 }
 
-void SPUCaptureUnit::Run(s32 sample)
+void SPUCaptureUnit::Run(u32 cycles, s32 sample)
 {
-    Timer += 512;
+    Timer += cycles;
 
     if (Cnt & 0x08)
     {
@@ -813,17 +832,17 @@ void SPUCaptureUnit::Run(s32 sample)
 }
 
 
-void SPU::Mix(u32 dummy)
+void SPU::Mix(u32 spucycles)
 {
     s32 left = 0, right = 0;
     s32 leftoutput = 0, rightoutput = 0;
 
-    if ((Cnt & (1<<15)) && (!dummy))
+    if (Cnt & (1<<15))
     {
-        s32 ch0 = Channels[0].DoRun();
-        s32 ch1 = Channels[1].DoRun();
-        s32 ch2 = Channels[2].DoRun();
-        s32 ch3 = Channels[3].DoRun();
+        s32 ch0 = Channels[0].DoRun(spucycles);
+        s32 ch1 = Channels[1].DoRun(spucycles);
+        s32 ch2 = Channels[2].DoRun(spucycles);
+        s32 ch3 = Channels[3].DoRun(spucycles);
 
         // TODO: addition from capture registers
         Channels[0].PanOutput(ch0, left, right);
@@ -836,7 +855,7 @@ void SPU::Mix(u32 dummy)
         {
             SPUChannel* chan = &Channels[i];
 
-            s32 channel = chan->DoRun();
+            s32 channel = chan->DoRun(spucycles);
             chan->PanOutput(channel, left, right);
         }
 
@@ -851,7 +870,7 @@ void SPU::Mix(u32 dummy)
             if      (val < -0x8000) val = -0x8000;
             else if (val > 0x7FFF)  val = 0x7FFF;
 
-            Capture[0].Run(val);
+            Capture[0].Run(spucycles, val);
         }
 
         if (Capture[1].Cnt & (1<<7))
@@ -862,7 +881,7 @@ void SPU::Mix(u32 dummy)
             if      (val < -0x8000) val = -0x8000;
             else if (val > 0x7FFF)  val = 0x7FFF;
 
-            Capture[1].Run(val);
+            Capture[1].Run(spucycles, val);
         }
 
         // final output
@@ -979,7 +998,7 @@ void SPU::Mix(u32 dummy)
     OutputSamplePos &= 0xF;
     Platform::Mutex_Unlock(AudioLock);
 
-    NDS.ScheduleEvent(Event_SPU, true, 1024, 0, 0);
+    NDS.ScheduleEvent(Event_SPU, true, MixInterval, 0, MixInterval >> 1);
 }
 
 void SPU::TrimOutput()

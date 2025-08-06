@@ -136,7 +136,10 @@ void DSi_I2S::WriteSndExCnt(u16 val, u16 mask)
 
     if ((SndExCnt ^ val) & (1 << 13))
     {
-        Log(LogLevel::Debug, "Changed I2S frequency to %dHz\n", (SndExCnt & (1 << 13)) ? 47605 : 32728);
+        Log(LogLevel::Debug, "Changed I2S frequency to %dHz\n", (val & (1 << 13)) ? 47605 : 32728);
+
+        AudioSampleRate rate = (val & (1<<13)) ? AudioSampleRate::_47KHz : AudioSampleRate::_32KHz;
+        DSi.SPU.SetSampleRate(rate);
     }
 
     SndExCnt = val & 0xE00F;

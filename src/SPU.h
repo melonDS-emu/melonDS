@@ -131,24 +131,24 @@ public:
     void NextSample_PSG();
     void NextSample_Noise();
 
-    template<u32 type> s32 Run();
+    template<u32 type> s32 Run(u32 cycles);
 
-    s32 DoRun()
+    s32 DoRun(u32 cycles)
     {
         switch ((Cnt >> 29) & 0x3)
         {
-        case 0: return Run<0>(); break;
-        case 1: return Run<1>(); break;
-        case 2: return Run<2>(); break;
+        case 0: return Run<0>(cycles); break;
+        case 1: return Run<1>(cycles); break;
+        case 2: return Run<2>(cycles); break;
         case 3:
             if (Num >= 14)
             {
-                return Run<4>();
+                return Run<4>(cycles);
                 break;
             }
             else if (Num >= 8)
             {
-                return Run<3>();
+                return Run<3>(cycles);
                 break;
             }
             [[fallthrough]];
@@ -213,7 +213,7 @@ public:
         FIFOLevel = 0;
     }
 
-    void Run(s32 sample);
+    void Run(u32 cycles, s32 sample);
 
 private:
     melonDS::NDS& NDS;
@@ -231,6 +231,8 @@ public:
 
     void SetPowerCnt(u32 val);
 
+    void SetSampleRate(AudioSampleRate rate);
+
     // 0=none 1=linear 2=cosine 3=cubic
     void SetInterpolation(AudioInterpolation type);
 
@@ -239,7 +241,7 @@ public:
     void SetDegrade10Bit(AudioBitDepth depth);
     void SetApplyBias(bool enable);
 
-    void Mix(u32 dummy);
+    void Mix(u32 spucycles);
 
     void TrimOutput();
     void DrainOutput();
@@ -268,6 +270,8 @@ private:
     u8 OutputSamplePos;
     u8 OutputSampleInc;
     s16 OutputLastSamples[2];
+
+    u32 MixInterval;
 
     Platform::Mutex* AudioLock;
 
