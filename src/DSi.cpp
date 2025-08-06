@@ -117,6 +117,7 @@ DSi::DSi(DSiArgs&& args, void* userdata) noexcept :
     NWRAM_C = JIT.Memory.GetNWRAM_C();
 
     SetFullBIOSBoot(args.FullBIOSBoot);
+    SetDSPHLE(args.DSPHLE);
 }
 
 DSi::~DSi() noexcept
@@ -196,7 +197,6 @@ void DSi::SetNDSCart(std::unique_ptr<NDSCart::CartCommon>&& cart)
     SetCartInserted(NDSCartSlot.GetCart() != nullptr);
 }
 
-
 std::unique_ptr<NDSCart::CartCommon> DSi::EjectCart()
 {
     auto oldcart = NDS::EjectCart();
@@ -204,6 +204,11 @@ std::unique_ptr<NDSCart::CartCommon> DSi::EjectCart()
     SetCartInserted(false);
 
     return oldcart;
+}
+
+void DSi::SetDSPHLE(bool hle)
+{
+    DSP.SetDSPHLE(hle);
 }
 
 void DSi::CamInputFrame(int cam, const u32* data, int width, int height, bool rgb)

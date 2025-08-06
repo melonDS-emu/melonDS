@@ -36,8 +36,6 @@ using Platform::LogLevel;
 const u32 DSi_DSP::DataMemoryOffset = 0x20000; // from Teakra memory_interface.h
 // NOTE: ^ IS IN DSP WORDS, NOT IN BYTES!
 
-// TODO add proper setting for this!
-bool __temp_dsphle = true;
 
 u16 DSi_DSP::GetPSTS() const
 {
@@ -282,8 +280,8 @@ DSi_DSP::DSi_DSP(melonDS::DSi& dsi) : DSi(dsi)
     DSPCore = nullptr;
     SCFG_RST = false;
 
-    if (!__temp_dsphle)
-        StartDSPLLE();
+    //if (!DSPHLE)
+    //    StartDSPLLE();
 
     //PDATAReadFifo = new FIFO<u16>(16);
     //PDATAWriteFifo = new FIFO<u16>(16);
@@ -317,12 +315,20 @@ void DSi_DSP::Reset()
     PDATAReadFifo.Clear();
     //PDATAWriteFifo->Clear();
     //TeakraCore->Reset();
-    if (__temp_dsphle)
+    if (DSPHLE)
         StopDSP();
     else if (DSPCore)
         DSPCore->Reset();
 
     DSi.CancelEvent(Event_DSi_DSP);
+}
+
+void DSi_DSP::SetDSPHLE(bool hle)
+{
+    StopDSP();
+    DSPHLE = hle;
+    if (!DSPHLE)
+        StartDSPLLE();
 }
 
 bool DSi_DSP::IsRstReleased() const
@@ -658,12 +664,12 @@ void DSi_DSP::Write16(u32 addr, u16 val)
     case 0x08:
         if ((DSP_PCFG & (1<<0)) && (!(val & (1<<0))))
         {
-            if (__temp_dsphle)
+            if (DSPHLE)
                 StartDSPHLE();
         }
         else if ((!(DSP_PCFG & (1<<0))) && (val & (1<<0)))
         {
-            if (__temp_dsphle)
+            if (DSPHLE)
                 StopDSP();
             else if (DSPCore)
                 DSPCore->Reset();

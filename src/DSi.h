@@ -181,6 +181,8 @@ public:
 
     bool GetFullBIOSBoot() const noexcept { return FullBIOSBoot; }
     void SetFullBIOSBoot(bool full) noexcept { FullBIOSBoot = full; }
+
+    void SetDSPHLE(bool hle);
 private:
     bool FullBIOSBoot;
     void Set_SCFG_Clock9(u16 val);

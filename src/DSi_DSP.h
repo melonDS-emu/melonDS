@@ -94,6 +94,8 @@ public:
     void Reset();
     void DoSavestate(Savestate* file);
 
+    void SetDSPHLE(bool hle);
+
     void StartDSPLLE();
     void StartDSPHLE();
     void StopDSP();
@@ -130,6 +132,7 @@ public:
 private:
     melonDS::DSi& DSi;
 
+    bool DSPHLE;
     DSPInterface* DSPCore;
 
     bool SCFG_RST;

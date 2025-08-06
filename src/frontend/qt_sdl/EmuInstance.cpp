@@ -1346,6 +1346,7 @@ bool EmuInstance::updateConsole() noexcept
                 std::move(*nand),
                 std::move(sdcard),
                 globalCfg.GetBool("DSi.FullBIOSBoot"),
+                globalCfg.GetBool("DSi.DSP.HLE")
         };
 
         dsiargs = std::move(_dsiargs);
@@ -1386,6 +1387,7 @@ bool EmuInstance::updateConsole() noexcept
             DSiArgs& _dsiargs = *dsiargs;
 
             dsi->SetFullBIOSBoot(_dsiargs.FullBIOSBoot);
+            dsi->SetDSPHLE(_dsiargs.DSPHLE);
             dsi->ARM7iBIOS = *_dsiargs.ARM7iBIOS;
             dsi->ARM9iBIOS = *_dsiargs.ARM9iBIOS;
             dsi->SetNAND(std::move(_dsiargs.NANDImage));
