@@ -39,7 +39,6 @@ const u32 DSi_DSP::DataMemoryOffset = 0x20000; // from Teakra memory_interface.h
 // TODO add proper setting for this!
 bool __temp_dsphle = true;
 
-
 u16 DSi_DSP::GetPSTS() const
 {
     u16 r = DSP_PSTS & (1<<9); // this is the only sticky bit
@@ -738,8 +737,7 @@ void DSi_DSP::Run(u32 cycles)
     DSPTimestamp += cycles;
 
     DSi.CancelEvent(Event_DSi_DSP);
-    DSi.ScheduleEvent(Event_DSi_DSP, false,
-            16384/*from citra (TeakraSlice)*/, 0, 0);
+    DSi.ScheduleEvent(Event_DSi_DSP, false, 4096, 0, 0);
 }
 
 void DSi_DSP::DoSavestate(Savestate* file)

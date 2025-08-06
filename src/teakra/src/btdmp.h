@@ -17,7 +17,6 @@ public:
     void Reset();
 
     void SetTransmitClockConfig(u16 value) {
-        printf("BTDMP clk = %04X\n", value);
         transmit_clock_config = value;
     }
 
