@@ -17,6 +17,7 @@ public:
     void Reset();
 
     void SetTransmitClockConfig(u16 value) {
+        printf("BTDMP clk = %04X\n", value);
         transmit_clock_config = value;
     }
 
@@ -76,6 +77,8 @@ public:
     void Tick() override;
     u64 GetMaxSkip() const override;
     void Skip(u64 ticks) override;
+
+    void SampleClock(std::int16_t output[2], std::int16_t input);
 
     void SetAudioCallback(std::function<void(std::array<std::int16_t, 2>)> callback) {
         audio_callback = std::move(callback);

@@ -80,7 +80,7 @@ public:
 
     void SetAudioCallback(std::function<void(std::array<std::int16_t, 2>)> callback);
 
-    void SampleClock(std::int16_t output[2], std::int16_t input) {} // TODO
+    void SampleClock(std::int16_t output[2], std::int16_t input);
 
 private:
     struct Impl;

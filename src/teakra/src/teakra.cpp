@@ -78,6 +78,10 @@ void Teakra::Run(unsigned cycle) {
     impl->processor.Run(cycle);
 }
 
+void Teakra::SampleClock(std::int16_t output[2], std::int16_t input) {
+    impl->btdmp[0].SampleClock(output, input);
+}
+
 bool Teakra::SendDataIsEmpty(std::uint8_t index) const {
     return !impl->apbp_from_cpu.IsDataReady(index);
 }
