@@ -22,6 +22,7 @@
 #include "Platform.h"
 #include "NDS.h"
 #include "DSi.h"
+#include "DSi_I2S.h"
 #include "SPU.h"
 
 namespace melonDS
@@ -933,16 +934,22 @@ void SPU::Mix(u32 dummy)
         rightoutput += (Bias << 6) - 0x8000;
     }
 
-    if      (leftoutput < -0x8000) leftoutput = -0x8000;
-    else if (leftoutput > 0x7FFF)  leftoutput = 0x7FFF;
-    if      (rightoutput < -0x8000) rightoutput = -0x8000;
-    else if (rightoutput > 0x7FFF)  rightoutput = 0x7FFF;
+    s16 output[2];
+    output[0] = (s16)std::clamp(leftoutput, -0x8000, 0x7FFF);
+    output[1] = (s16)std::clamp(rightoutput, -0x8000, 0x7FFF);
+
+    if (NDS.ConsoleType == 1)
+    {
+        // for the DSi, we run the I2S interface here, so it can mix in DSP audio
+        // this isn't the cleanest, but it's the easiest, since the audio output apparatus is here
+        ((DSi&)NDS).I2S.SampleClock(output);
+    }
 
     // The original DS and DS lite degrade the output from 16 to 10 bit before output
     if (Degrade10Bit)
     {
-        leftoutput &= 0xFFFFFFC0;
-        rightoutput &= 0xFFFFFFC0;
+        output[0] &= 0xFFC0;
+        output[1] &= 0xFFC0;
     }
 
     Platform::Mutex_Lock(AudioLock);
@@ -950,8 +957,8 @@ void SPU::Mix(u32 dummy)
     {
         u8 fb = OutputSamplePos & 0xF;
         u8 fa = 0x10 - fb;
-        s16 leftfinal = ((OutputLastSamples[0] * fa) + (leftoutput * fb)) >> 4;
-        s16 rightfinal = ((OutputLastSamples[1] * fa) + (rightoutput * fb)) >> 4;
+        s16 leftfinal = ((OutputLastSamples[0] * fa) + (output[0] * fb)) >> 4;
+        s16 rightfinal = ((OutputLastSamples[1] * fa) + (output[1] * fb)) >> 4;
 
         OutputBuffer[OutputBufferWritePos++] = leftfinal;
         OutputBuffer[OutputBufferWritePos++] = rightfinal;
@@ -965,11 +972,11 @@ void SPU::Mix(u32 dummy)
             OutputBufferReadPos &= ((2*OutputBufferSize)-1);
         }
 
-        OutputLastSamples[0] = leftoutput;
-        OutputLastSamples[1] = rightoutput;
+        OutputLastSamples[0] = output[0];
+        OutputLastSamples[1] = output[1];
         OutputSamplePos += OutputSampleInc;
     }
-    OutputSamplePos -= 16;
+    OutputSamplePos &= 0xF;
     Platform::Mutex_Unlock(AudioLock);
 
     NDS.ScheduleEvent(Event_SPU, true, 1024, 0, 0);

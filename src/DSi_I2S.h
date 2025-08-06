@@ -36,6 +36,8 @@ public:
 
     void MicInputFrame(const s16* data, int samples);
 
+    void SampleClock(s16 output[2]);
+
     u16 ReadMicCnt();
     void WriteMicCnt(u16 val, u16 mask);
 

@@ -68,6 +68,8 @@ public:
 
     void Start();
 
+    void SampleClock(s16 output[2], s16 input);
+
 protected:
     melonDS::DSi& DSi;
 
@@ -81,6 +83,13 @@ protected:
     u16 SemaphoreOut;       // DSP -> ARM9
     u16 SemaphoreMask;      // DSP -> ARM9
 
+    u32 AudioCmd;
+
+    bool AudioPlaying;
+    u32 AudioOutAddr;
+    u32 AudioOutLength;
+    FIFO<s16, 16> AudioOutFIFO;
+
     void SendReply(u8 index, u16 val);
     void SetReplyReadCallback(u8 index, fnReplyReadCb callback);
 
@@ -93,6 +102,9 @@ protected:
 
     void ReadARM9Mem(u16* mem, u32 addr, u32 len);
     void WriteARM9Mem(const u16* mem, u32 addr, u32 len);
+
+    void TryStartAudioCmd();
+    void AudioOutAdvance();
 };
 
 }

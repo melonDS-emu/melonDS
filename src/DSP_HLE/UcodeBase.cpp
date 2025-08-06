@@ -54,7 +54,12 @@ void UcodeBase::Reset()
     SemaphoreOut = 0;
     SemaphoreMask = 0;
 
-    //UcodeCmd = 0;
+    AudioCmd = 0;
+
+    AudioPlaying = false;
+    AudioOutAddr = 0;
+    AudioOutLength = 0;
+    AudioOutFIFO.Clear();
 }
 
 void UcodeBase::DoSavestate(Savestate *file)
@@ -103,7 +108,13 @@ void UcodeBase::SendData(u8 index, u16 val)
     CmdWritten[index] = true;
     printf("DSP: send cmd%d %04X\n", index, val);
 
-    // extra shit shall be implemented in subclasses
+    if (index == 2)
+    {
+        if (val == 5)
+            TryStartAudioCmd();
+
+        CmdWritten[2] = false;
+    }
 }
 
 
@@ -444,22 +455,84 @@ void UcodeBase::WriteARM9Mem(const u16* mem, u32 addr, u32 len)
     }
 }
 
-/*void UcodeBase::RunUcodeCmd()
-{
-    u16* pipe = LoadPipe(7);
-    u32 len = GetPipeLength(pipe);
-printf("try to run ucode cmd: cmd=%d, len=%d\n", UcodeCmd, len);
-    //
 
-    //UcodeCmd = 0;
+void UcodeBase::TryStartAudioCmd()
+{
+    // TODO are some commands unavailable in certain situations?
+    // ie. can't sample mic while audio is playing
+
+    u16* pipe = LoadPipe(5);
+    u32 pipelen = GetPipeLength(pipe);
+    if (pipelen < 8) return;
+
+    u16 cmdparams[8];
+    ReadPipe(pipe, cmdparams, 8);
+    AudioCmd = (cmdparams[0] << 16) | cmdparams[1];
+    u32 addr = (cmdparams[2] << 16) | cmdparams[3];
+    u32 len = (cmdparams[4] << 16) | cmdparams[5];
+
+    printf("audio cmd: %08X %08X %08X\n", AudioCmd, addr, len);
+
+    u32 cmdtype = (AudioCmd >> 12) & 0xF;
+    u32 cmdaction = (AudioCmd >> 8) & 0xF;
+    if ((cmdtype == 1) && (cmdaction == 1))
+    {
+        // audio output
+
+        AudioOutAddr = addr;
+        AudioOutLength = len;
+        AudioPlaying = true;
+
+        if (AudioOutFIFO.IsEmpty())
+            AudioOutAdvance();
+    }
 }
 
-void UcodeBase::OnUcodeCmdFinish(u32 param)
+void UcodeBase::AudioOutAdvance()
 {
-    printf("finish cmd %d, param=%d, %d/%d\n", UcodeCmd, param, CmdWritten[2], ReplyWritten[2]);
-    UcodeCmd = 0;
-    SendReply(1, (u16)param);
-}*/
+    while (!AudioOutFIFO.IsFull())
+    {
+        s16 sample = (s16)DSi.ARM9Read16(AudioOutAddr);
+
+        // TODO volume halve bit
+        // (not supported by early AAC ucode)
+
+        // sounds are always mono, so each sample is duplicated to make it stereo
+        AudioOutFIFO.Write(sample);
+        AudioOutFIFO.Write(sample);
+
+        AudioOutAddr += 2;
+        AudioOutLength--;
+        if (!AudioOutLength)
+        {
+            AudioPlaying = false;
+
+            // send completion message
+            u16* pipe = LoadPipe(4);
+            u16 resp[4] = {0x0000, 0x1200, (u16)(AudioOutLength >> 16), (u16)(AudioOutLength & 0xFFFF)};
+            WritePipe(pipe, resp, 4);
+
+            break;
+        }
+    }
+}
+
+
+void UcodeBase::SampleClock(s16 output[2], s16 input)
+{
+    if (AudioOutFIFO.IsEmpty() && AudioPlaying)
+        AudioOutAdvance();
+
+    if (AudioOutFIFO.IsEmpty())
+    {
+        output[0] = 0;
+        output[1] = 0;
+        return;
+    }
+
+    output[0] = AudioOutFIFO.Read();
+    output[1] = AudioOutFIFO.Read();
+}
 
 
 }

@@ -116,6 +116,19 @@ void DSi_DSP::AudioCb(std::array<s16, 2> frame)
     // TODO
 }
 
+void DSi_DSP::SampleClock(s16 output[2], s16 input)
+{
+    if (DSPCore)
+    {
+        DSPCore->SampleClock(output, input);
+    }
+    else
+    {
+        output[0] = 0;
+        output[1] = 0;
+    }
+}
+
 
 void DSi_DSP::StartDSPHLE()
 {

@@ -82,6 +82,8 @@ public:
     // core
     virtual void Start() {};
     virtual void Run(unsigned cycle) {};
+
+    virtual void SampleClock(s16 output[2], s16 input) = 0;
 };
 
 class DSi_DSP
@@ -122,6 +124,8 @@ public:
     u16 DSPRead16(u32 addr);
     void DSPWrite16(u32 addr, u16 val);
     void AudioCb(std::array<s16, 2> frame);
+
+    void SampleClock(s16 output[2], s16 input);
 
 private:
     melonDS::DSi& DSi;
