@@ -34,6 +34,8 @@ namespace DSP_HLE
 
 G711Ucode::G711Ucode(melonDS::DSi& dsi, int version) : UcodeBase(dsi)
 {
+    UcodeClass = Class_G711;
+    UcodeVersion = version;
     DSi.RegisterEventFuncs(Event_DSi_DSPHLE, this, {MakeEventThunk(G711Ucode, FinishCmd)});
 
     Log(LogLevel::Info, "DSP_HLE: initializing G711 SDK ucode version %02X\n", version);

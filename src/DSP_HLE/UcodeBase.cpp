@@ -32,16 +32,16 @@ namespace DSP_HLE
 
 UcodeBase::UcodeBase(melonDS::DSi& dsi) : DSi(dsi)
 {
-    //DSi.RegisterEventFuncs(Event_DSi_DSPHLE, this, {MakeEventThunk(UcodeBase, OnUcodeCmdFinish)});
 }
 
 UcodeBase::~UcodeBase()
 {
-    //
 }
 
 void UcodeBase::Reset()
 {
+    Exit = false;
+
     memset(CmdReg, 0, sizeof(CmdReg));
     memset(CmdWritten, 0, sizeof(CmdWritten));
     memset(ReplyReg, 0, sizeof(ReplyReg));
@@ -57,6 +57,7 @@ void UcodeBase::Reset()
     AudioCmd = 0;
 
     AudioPlaying = false;
+    AudioOutHalve = false;
     AudioOutAddr = 0;
     AudioOutLength = 0;
     AudioOutFIFO.Clear();
@@ -108,10 +109,21 @@ void UcodeBase::SendData(u8 index, u16 val)
     CmdWritten[index] = true;
     printf("DSP: send cmd%d %04X\n", index, val);
 
+    if (Exit) return;
+
     if (index == 2)
     {
-        if (val == 5)
+        if (val == 0x8000)
+        {
+            // stop DSP
+            SendReply(2, 0x8000);
+            Exit = true;
+        }
+        else if (val == 5)
+        {
+            // received data on audio pipe, try to run an audio command
             TryStartAudioCmd();
+        }
 
         CmdWritten[2] = false;
     }
@@ -479,6 +491,7 @@ void UcodeBase::TryStartAudioCmd()
     {
         // audio output
 
+        AudioOutHalve = !!(AudioCmd & (1<<1));
         AudioOutAddr = addr;
         AudioOutLength = len;
         AudioPlaying = true;
@@ -494,8 +507,12 @@ void UcodeBase::AudioOutAdvance()
     {
         s16 sample = (s16)DSi.ARM9Read16(AudioOutAddr);
 
-        // TODO volume halve bit
-        // (not supported by early AAC ucode)
+        // halve bit isn't supported by early AAC ucode
+        if (AudioOutHalve && (UcodeVersion != -1))
+        {
+            sample += (sample >> 15);
+            sample >>= 1;
+        }
 
         // sounds are always mono, so each sample is duplicated to make it stereo
         AudioOutFIFO.Write(sample);

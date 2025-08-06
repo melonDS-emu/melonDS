@@ -34,6 +34,8 @@ namespace DSP_HLE
 
 GraphicsUcode::GraphicsUcode(melonDS::DSi& dsi, int version) : UcodeBase(dsi)
 {
+    UcodeClass = Class_Graphics;
+    UcodeVersion = version;
     DSi.RegisterEventFuncs(Event_DSi_DSPHLE, this, {MakeEventThunk(GraphicsUcode, FinishCmd)});
 
     Log(LogLevel::Info, "DSP_HLE: initializing Graphics SDK ucode version %02X\n", version);

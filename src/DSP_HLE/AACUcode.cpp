@@ -31,6 +31,8 @@ namespace DSP_HLE
 
 AACUcode::AACUcode(melonDS::DSi& dsi, int version) : UcodeBase(dsi)
 {
+    UcodeClass = Class_AAC;
+    UcodeVersion = version;
     DSi.RegisterEventFuncs(Event_DSi_DSPHLE, this, {MakeEventThunk(AACUcode, FinishCmd)});
 
     Decoder = Platform::AAC_Init();

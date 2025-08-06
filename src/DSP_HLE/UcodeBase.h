@@ -72,6 +72,10 @@ public:
 
 protected:
     melonDS::DSi& DSi;
+    enum {Class_AAC, Class_Graphics, Class_G711} UcodeClass;
+    int UcodeVersion;
+
+    bool Exit;
 
     u16 CmdReg[3];
     bool CmdWritten[3];
@@ -86,6 +90,7 @@ protected:
     u32 AudioCmd;
 
     bool AudioPlaying;
+    bool AudioOutHalve;
     u32 AudioOutAddr;
     u32 AudioOutLength;
     FIFO<s16, 16> AudioOutFIFO;
