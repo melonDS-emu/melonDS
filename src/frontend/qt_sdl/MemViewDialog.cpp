@@ -877,6 +877,13 @@ void MemViewDialog::GoToAddress(const QString &text)
     QString val;
     val.setNum(addr, 16);
     this->AddrLabel->setPlainText(val.toUpper().rightJustified(8, '0').prepend("0x"));
+
+    CustomTextItem* item = (CustomTextItem*)this->GetItem(0, addr - alignedAddr);
+    if (item != nullptr)
+    {
+        this->GfxScene->clearFocus();
+        this->GfxScene->setFocusItem(item);
+    }
 }
 
 void MemViewDialog::onValueBtnSetPressed()
