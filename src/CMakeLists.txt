@@ -40,6 +40,7 @@ add_library(core STATIC
     GPU3D_Texcache.cpp
     GPU3D_Texcache.h
     melonDLDI.h
+    Mic.cpp
     NDS.cpp
     NDSCart.cpp
     NDSCartR4.cpp

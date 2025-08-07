@@ -96,6 +96,7 @@ NDS::NDS(NDSArgs&& args, int type, void* userdata) noexcept :
     ARM9BIOSNative(CRC32(ARM9BIOS.data(), ARM9BIOS.size()) == ARM9BIOSCRC32),
     JIT(*this, args.JIT),
     SPU(*this, args.BitDepth, args.Interpolation),
+    Mic(*this),
     GPU(*this, std::move(args.Renderer3D)),
     SPI(*this, std::move(args.Firmware)),
     RTC(*this),
@@ -538,6 +539,7 @@ void NDS::Reset()
     NDSCartSlot.Reset();
     GBACartSlot.Reset();
     SPU.Reset();
+    Mic.Reset();
     SPI.Reset();
     RTC.Reset();
     Wifi.Reset();
@@ -733,6 +735,7 @@ bool NDS::DoSavestate(Savestate* file)
         GBACartSlot.DoSavestate(file);
     GPU.DoSavestate(file);
     SPU.DoSavestate(file);
+    Mic.DoSavestate(file);
     SPI.DoSavestate(file);
     RTC.DoSavestate(file);
     Wifi.DoSavestate(file);
