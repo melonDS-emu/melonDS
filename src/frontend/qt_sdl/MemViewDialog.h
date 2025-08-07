@@ -184,6 +184,17 @@ protected:
     virtual void wheelEvent(QGraphicsSceneWheelEvent *event);
 };
 
+class CustomLineEdit : public QLineEdit
+{
+    Q_OBJECT
+
+public:
+    CustomLineEdit(QWidget *parent = nullptr) : QLineEdit(parent) {}
+
+protected:
+    void keyPressEvent(QKeyEvent *event) override;
+};
+
 class MemViewDialog : public QDialog
 {
     Q_OBJECT
@@ -196,6 +207,7 @@ public:
     void* GetRAM(uint32_t address);
     uint32_t GetFocusAddress(QGraphicsItem *focus);
     void SwitchMemRegion(uint32_t address);
+    void onAddressTextChanged(const QString &text);
 
     static MemViewDialog* currentDlg;
     static MemViewDialog* openDlg(QWidget* parent)
@@ -267,7 +279,7 @@ public:
         return nullptr;
     }
 
-    QLabel* GetAddrLabel()
+    QGraphicsTextItem* GetAddrLabel()
     {
         return this->AddrLabel;
     }
@@ -303,12 +315,12 @@ private slots:
     void UpdateText(int addrIndex, int index);
     void UpdateAddress(int index);
     void UpdateDecoded(int index);
-    void onAddressTextChanged(const QString &text);
     void onValueBtnSetPressed();
     void onApplyEditToRAM(uint8_t value, QGraphicsItem *focus);
     void onSwitchFocus(FocusDirection eDirection, FocusAction eAction);
     void onScrollBarValueChanged(int value);
     void onMemRegionIndexChanged(int index);
+    void onGoBtnPressed();
 
 public:
     uint32_t ARM9AddrStart;
@@ -320,10 +332,10 @@ private:
     CustomGraphicsScene* GfxScene;
     MemViewThread* UpdateThread;
     QScrollBar* ScrollBar;
-    QLabel* AddrDescLabel;
-    QLabel* AddrLabel;
+    QPushButton* GoBtn;
+    QGraphicsTextItem* AddrLabel;
     QLabel* UpdateRateLabel;
-    QLineEdit* SearchLineEdit;
+    CustomLineEdit* SearchLineEdit;
     QSpinBox* UpdateRate;
     QComboBox* MemRegionBox;
 
@@ -334,6 +346,7 @@ private:
     QLineEdit* SetValNumber;
     QLineEdit* SetValAddr;
     QCheckBox* SetValFocus;
+    QCheckBox* SetValIsHex;
 
     // yes I could just use `items()` but good ol' arrays are easier to work with
     CustomTextItem* RAMTextItems[16][16];
