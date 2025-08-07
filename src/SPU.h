@@ -280,6 +280,7 @@ private:
     u16 Bias = 0;
     bool ApplyBias = true;
     bool Degrade10Bit = false;
+    bool Mute;
 
     std::array<SPUChannel, 16> Channels;
     std::array<SPUCaptureUnit, 2> Capture;

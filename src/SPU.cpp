@@ -231,6 +231,7 @@ void SPU::Reset()
     Cnt = 0;
     MasterVolume = 0;
     Bias = 0;
+    Mute = false;
 
     for (int i = 0; i < 16; i++)
         Channels[i].Reset();
@@ -269,7 +270,7 @@ void SPU::DoSavestate(Savestate* file)
 
 void SPU::SetPowerCnt(u32 val)
 {
-    // TODO
+    Mute = !(val & (1<<0));
 }
 
 
@@ -954,8 +955,17 @@ void SPU::Mix(u32 spucycles)
     }
 
     s16 output[2];
-    output[0] = (s16)std::clamp(leftoutput, -0x8000, 0x7FFF);
-    output[1] = (s16)std::clamp(rightoutput, -0x8000, 0x7FFF);
+    if (Mute)
+    {
+        // on the DSi, POWCNT2 bit 0 only disables NITRO mixer output
+        output[0] = 0;
+        output[1] = 0;
+    }
+    else
+    {
+        output[0] = (s16)std::clamp(leftoutput, -0x8000, 0x7FFF);
+        output[1] = (s16)std::clamp(rightoutput, -0x8000, 0x7FFF);
+    }
 
     if (NDS.ConsoleType == 1)
     {
