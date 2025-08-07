@@ -29,7 +29,6 @@
 #include <QThread>
 #include <QSemaphore>
 #include <QMutex>
-#include <QSharedMemory>
 #include <QTemporaryFile>
 #include <SDL_loadso.h>
 
@@ -532,6 +531,23 @@ int Net_RecvPacket(u8* data, void* userdata)
 {
     int inst = ((EmuInstance*)userdata)->getInstanceID();
     return net.RecvPacket(data, inst);
+}
+
+
+void Mic_Start(void* userdata)
+{
+    // TODO
+}
+
+void Mic_Stop(void* userdata)
+{
+    // TODO
+}
+
+int Mic_ReadInput(s16* data, int maxlength, void* userdata)
+{
+    // also TODO
+    return 0;
 }
 
 

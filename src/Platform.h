@@ -321,6 +321,30 @@ void Camera_Stop(int num, void* userdata);
 void Camera_CaptureFrame(int num, u32* frame, int width, int height, bool yuv, void* userdata);
 
 
+// microphone interface
+
+/**
+ * Starts microphone recording.
+ * The platform may use this to request access to a physical microphone.
+ * @param userdata instance user data
+ */
+void Mic_Start(void* userdata);
+
+/**
+ * Stops microphone recording.
+ * @param userdata instance user data
+ */
+void Mic_Stop(void* userdata);
+
+/**
+ * Requests input data from the microphone.
+ * @param data pointer to the destination buffer, signed 16-bit mono at 47.6 KHz
+ * @param maxlength maximum length in samples that the destination buffer can receive
+ * @return length in samples that was able to be read
+ */
+int Mic_ReadInput(s16* data, int maxlength, void* userdata);
+
+
 // interface for AAC decoding (ie. DSi DSP HLE)
 
 struct AACDecoder;
