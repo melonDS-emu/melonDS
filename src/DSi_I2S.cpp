@@ -147,20 +147,37 @@ void DSi_I2S::WriteSndExCnt(u16 val, u16 mask)
 
 void DSi_I2S::SampleClock(s16 output[2])
 {
-    // HAX
+    if (!(SndExCnt & (1<<15)))
+    {
+        // I2S interface disabled
+        // no audio gets fed to the output or to the mic
+        output[0] = 0;
+        output[1] = 0;
+        return;
+    }
+
     s16 output_nitro[2] = {output[0], output[1]};
     s16 output_dsp[2];
 
     DSi.DSP.SampleClock(output_dsp, 0);
 
-    // NITRO/DSP ratio
-    // any value greater than 8 acts the same as 8
-    u8 fn = SndExCnt & 0xF;
-    if (fn > 8) fn = 8;
-    u8 fd = 8 - fn;
+    if (SndExCnt & (1<<14))
+    {
+        // mute
+        output[0] = 0;
+        output[1] = 0;
+    }
+    else
+    {
+        // NITRO/DSP ratio
+        // any value greater than 8 acts the same as 8
+        u8 fn = SndExCnt & 0xF;
+        if (fn > 8) fn = 8;
+        u8 fd = 8 - fn;
 
-    output[0] = ((output_nitro[0] * fn) + (output_dsp[0] * fd)) >> 3;
-    output[1] = ((output_nitro[1] * fn) + (output_dsp[1] * fd)) >> 3;
+        output[0] = ((output_nitro[0] * fn) + (output_dsp[0] * fd)) >> 3;
+        output[1] = ((output_nitro[1] * fn) + (output_dsp[1] * fd)) >> 3;
+    }
 }
 
 void DSi_I2S::Clock(u32 freq)
