@@ -41,6 +41,12 @@ class NDS;
 class EmuInstance;
 class MemViewThread;
 
+typedef enum HighlightState {
+    hightlightState_Init,
+    hightlightState_Draw,
+    hightlightState_Stop,
+} HighlightState;
+
 typedef enum FocusDirection
 {
     focusDirection_Up,
@@ -76,10 +82,11 @@ class CustomTextItem : public QGraphicsTextItem
 
 public:
     explicit CustomTextItem(const QString &text, QGraphicsItem *parent = nullptr);
-    ~CustomTextItem()
-    {}
+    ~CustomTextItem() {}
     QRectF boundingRect() const override;
     bool IsKeyValid(int key);
+    void setPlainText(const QString &text, bool highlight);
+    void paint(QPainter *painter, const QStyleOptionGraphicsItem *option, QWidget *widget) override;
 
     void SetSize(QRectF newSize)
     {
@@ -150,6 +157,14 @@ signals:
 private:
     QRectF Size;
     bool IsEditing;
+    QString PrevValue;
+    int Alpha;
+    HighlightState eHighlightState;
+
+    bool HasValueChanged()
+    {
+        return this->PrevValue != this->toPlainText();
+    }
 
 protected:
     void mousePressEvent(QGraphicsSceneMouseEvent *event) override;
@@ -207,7 +222,7 @@ public:
     void* GetRAM(uint32_t address);
     uint32_t GetFocusAddress(QGraphicsItem *focus);
     void SwitchMemRegion(uint32_t address);
-    void onAddressTextChanged(const QString &text);
+    void GoToAddress(const QString &text);
 
     static MemViewDialog* currentDlg;
     static MemViewDialog* openDlg(QWidget* parent)
@@ -310,22 +325,27 @@ public:
         this->ScrollBar->setValue(newStart);
     }
 
-private slots:
-    void done(int r);
+private:
     void UpdateText(int addrIndex, int index);
     void UpdateAddress(int index);
     void UpdateDecoded(int index);
+    void UpdateScene();
+
+private slots:
+    void done(int r);
     void onValueBtnSetPressed();
     void onApplyEditToRAM(uint8_t value, QGraphicsItem *focus);
     void onSwitchFocus(FocusDirection eDirection, FocusAction eAction);
     void onScrollBarValueChanged(int value);
     void onMemRegionIndexChanged(int index);
     void onGoBtnPressed();
+    void onUpdateSceneSignal();
 
 public:
     uint32_t ARM9AddrStart;
     uint32_t ARM9AddrEnd;
     bool ForceTextUpdate;
+    bool Highlight;
 
 private:
     QGraphicsView* GfxView;
@@ -364,23 +384,32 @@ class MemViewThread : public QThread
     Q_OBJECT
 
 public:
-    explicit MemViewThread(MemViewDialog* parent) : Dialog(parent), Running(false)
+    explicit MemViewThread(MemViewDialog* parent) : Dialog(parent), Running(false), IsPaused(false)
     {}
     ~MemViewThread() override;
 
     void Start();
     void Stop();
+    
+    void Pause()
+    {
+        this->IsPaused = true;
+    }
+
+    void Unpause()
+    {
+        this->IsPaused = false;
+    }
 
     MemViewDialog* Dialog;
     bool Running;
+    bool IsPaused;
 
 private:
     virtual void run() override;
 
 signals:
-    void updateTextSignal(int addrIndex, int index);
-    void updateAddressSignal(int index);
-    void updateDecodedSignal(int index);
+    void updateSceneSignal();
 };
 
 #endif // MEMVIEWDIALOG_H

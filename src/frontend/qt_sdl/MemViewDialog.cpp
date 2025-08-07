@@ -36,6 +36,7 @@ CustomTextItem::CustomTextItem(const QString &text, QGraphicsItem *parent) : QGr
     this->SetSelectionFlags();
     this->setFlag(QGraphicsItem::ItemIsSelectable, false);
     this->SetSize(QRectF(2, 6, 20, 15));
+    this->eHighlightState = hightlightState_Stop;
 }
 
 QRectF CustomTextItem::boundingRect() const
@@ -70,6 +71,50 @@ bool CustomTextItem::IsKeyValid(int key)
     }
 
     return false;
+}
+
+void CustomTextItem::setPlainText(const QString &text, bool highlight)
+{
+    if (highlight)
+    {
+        this->PrevValue = this->toPlainText();
+    } else {
+        this->PrevValue = text;
+    }
+
+    this->QGraphicsTextItem::setPlainText(text);
+
+    if (this->HasValueChanged())
+    {
+        this->eHighlightState = hightlightState_Init;
+    }
+}
+
+void CustomTextItem::paint(QPainter *painter, const QStyleOptionGraphicsItem *option, QWidget *widget)
+{
+    switch (this->eHighlightState)
+    {
+        case hightlightState_Init:
+            this->Alpha = 200;
+            this->eHighlightState = hightlightState_Draw;
+            // fallthrough
+        case hightlightState_Draw:
+            if (this->Alpha > 0)
+            {
+                painter->setPen(Qt::NoPen);
+                painter->setBrush(QBrush(QColor(255, 0, 0, this->Alpha)));
+                painter->drawRect(this->boundingRect());
+                this->Alpha -= 5;
+                break;
+            }
+
+            this->eHighlightState = hightlightState_Stop;
+            break;
+        default:
+            break;
+    }
+
+    this->QGraphicsTextItem::paint(painter, option, widget);
 }
 
 void CustomTextItem::mousePressEvent(QGraphicsSceneMouseEvent *event)
@@ -111,7 +156,8 @@ void CustomTextItem::keyPressEvent(QKeyEvent *event)
 
         if (this->IsKeyHex(key) && cursorPos != 2) {
             text.remove(cursorPos, 2 - cursorPos);
-            this->setPlainText(text);
+            this->setPlainText(text, false);
+            this->eHighlightState = hightlightState_Init;
             this->setTextCursor(cursor);
         }
 
@@ -258,7 +304,7 @@ void CustomLineEdit::keyPressEvent(QKeyEvent *event)
 
     if (event->key() == Qt::Key_Enter)
     {
-        dialog->onAddressTextChanged(this->text());
+        dialog->GoToAddress(this->text());
     }
 }
 
@@ -271,6 +317,8 @@ MemViewDialog::MemViewDialog(QWidget* parent) : QDialog(parent)
     this->setModal(false);
     this->setWindowTitle("Memory Viewer - melonDS");
     setAttribute(Qt::WA_DeleteOnClose);
+
+    this->Highlight = false;
 
     QColor placeholderColor = QColor(160, 160, 160);
 
@@ -298,7 +346,7 @@ MemViewDialog::MemViewDialog(QWidget* parent) : QDialog(parent)
 
     this->SearchLineEdit->setMaxLength(10);
     this->SearchLineEdit->setPlaceholderText("Search...");
-    this->SearchLineEdit->setGeometry(8, 20, 90, 32);
+    this->SearchLineEdit->setGeometry(8, 20, 91, 32);
     QPalette paletteSearch = this->SearchLineEdit->palette();
     paletteSearch.setColor(QPalette::ColorRole::PlaceholderText, placeholderColor);
     this->SearchLineEdit->setPalette(paletteSearch);
@@ -513,9 +561,7 @@ MemViewDialog::MemViewDialog(QWidget* parent) : QDialog(parent)
         this->UpdateViewRegion(0x02000000, 0x03000000);
     }
 
-    connect(this->UpdateThread, &MemViewThread::updateTextSignal, this, &MemViewDialog::UpdateText);
-    connect(this->UpdateThread, &MemViewThread::updateAddressSignal, this, &MemViewDialog::UpdateAddress);
-    connect(this->UpdateThread, &MemViewThread::updateDecodedSignal, this, &MemViewDialog::UpdateDecoded);
+    connect(this->UpdateThread, &MemViewThread::updateSceneSignal, this, &MemViewDialog::onUpdateSceneSignal);
     connect(this->GoBtn, &QPushButton::pressed, this, &MemViewDialog::onGoBtnPressed);
     connect(this->SetValBtn, &QPushButton::pressed, this, &MemViewDialog::onValueBtnSetPressed);
     connect(this->GfxScene, &QGraphicsScene::focusItemChanged, this->GfxScene, &CustomGraphicsScene::onFocusItemChanged);
@@ -691,6 +737,25 @@ void MemViewDialog::SwitchMemRegion(uint32_t address) {
     this->onMemRegionIndexChanged(index);
 }
 
+void MemViewDialog::UpdateScene()
+{
+    this->UpdateThread->Pause();
+
+    for (int i = 0; i < 16; i++)
+    {
+        this->UpdateAddress(i);
+
+        for (int j = 0; j < 16; j++)
+        {
+            this->UpdateText(i, j);
+        }
+
+        this->UpdateDecoded(i);
+    }
+
+    this->UpdateThread->Unpause();
+}
+
 void MemViewDialog::done(int r)
 {
     QDialog::done(r);
@@ -721,7 +786,7 @@ void MemViewDialog::UpdateText(int addrIndex, int index)
         if (!item->hasFocus() || this->ForceTextUpdate)
         {
             text.setNum(byte, 16);
-            item->setPlainText(text.toUpper().rightJustified(2, '0'));
+            item->setPlainText(text.toUpper().rightJustified(2, '0'), this->Highlight);
         }
 
         if (index == 0)
@@ -773,7 +838,7 @@ void MemViewDialog::UpdateDecoded(int index)
     }
 }
 
-void MemViewDialog::onAddressTextChanged(const QString &text)
+void MemViewDialog::GoToAddress(const QString &text)
 {
     QString rawAddr = text;
     uint32_t addr = 0;
@@ -962,11 +1027,6 @@ void MemViewDialog::onSwitchFocus(FocusDirection eDirection, FocusAction eAction
                 this->AddrLabel->setPlainText(newAddr.toUpper().rightJustified(8, '0').prepend("0x"));
             }
 
-            // UpdateText requires to check for hasFocus to prevent deselecting the text
-            // so we need to force an update to make sure what we focus has the right value
-            this->ForceTextUpdate = true;
-            this->UpdateText(addrIndex, index);
-
             switch (eAction) {
                 case focusAction_SetSelectionMode:
                     item->SetSelectionFlags();
@@ -987,6 +1047,8 @@ void MemViewDialog::onSwitchFocus(FocusDirection eDirection, FocusAction eAction
             }
         }
     }
+
+    this->UpdateScene();
 }
 
 void MemViewDialog::onScrollBarValueChanged(int value) {
@@ -999,6 +1061,8 @@ void MemViewDialog::onScrollBarValueChanged(int value) {
         this->UpdateText(packed >> 8, packed & 0xFF);
         item->SetTextSelection(true);
     }
+
+    this->UpdateScene();
 }
 
 void MemViewDialog::onMemRegionIndexChanged(int index) {
@@ -1049,8 +1113,16 @@ void MemViewDialog::onMemRegionIndexChanged(int index) {
     }
 }
 
-void MemViewDialog::onGoBtnPressed() {
-    this->onAddressTextChanged(this->SearchLineEdit->text());
+void MemViewDialog::onGoBtnPressed()
+{
+    this->GoToAddress(this->SearchLineEdit->text());
+}
+
+void MemViewDialog::onUpdateSceneSignal()
+{
+    this->Highlight = true;
+    this->UpdateScene();
+    this->Highlight = false;
 }
 
 // --- MemViewThread ---
@@ -1078,9 +1150,14 @@ void MemViewThread::run()
 {
     while (this->Running)
     {
-        if (!this->Dialog || !this->Dialog->UpdateRate)
+        if (this->Dialog == nullptr || this->Dialog->UpdateRate == nullptr)
         {
             return;
+        }
+
+        if (this->IsPaused)
+        {
+            continue;
         }
 
         int time = this->Dialog->UpdateRate->value();
@@ -1090,16 +1167,6 @@ void MemViewThread::run()
 
         QThread::msleep(time);
 
-        for (int i = 0; i < 16; i++)
-        {
-            emit updateAddressSignal(i);
-
-            for (int j = 0; j < 16; j++)
-            {
-                emit updateTextSignal(i, j);
-            }
-
-            emit updateDecodedSignal(i);
-        }
+        emit updateSceneSignal();
     }
 }
