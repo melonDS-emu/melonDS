@@ -37,22 +37,132 @@ using Platform::LogLevel;
 
 Mic::Mic(melonDS::NDS& nds) : NDS(nds)
 {
-    //
 }
 
 Mic::~Mic()
 {
-    //
 }
 
 void Mic::Reset()
 {
-    //
+    StopAll();
+
+    memset(InputBuffer, 0, sizeof(InputBuffer));
+    InputBufferWritePos = 0;
+    InputBufferReadPos = 0;
+    InputBufferLevel = 0;
+
+    CycleCount = 0;
+    CurSample = 0;
 }
 
 void Mic::DoSavestate(melonDS::Savestate *file)
 {
     //
+}
+
+
+void Mic::Start(MicSource source)
+{
+    if (OpenMask & (1<<source))
+        return;
+
+    if (!OpenMask)
+    {
+        memset(InputBuffer, 0, sizeof(InputBuffer));
+        InputBufferWritePos = 0;
+        InputBufferReadPos = 0;
+        InputBufferLevel = 0;
+
+        Platform::Mic_Start(NDS.UserData);
+    }
+    OpenMask |= (1<<source);
+
+    // TODO set up something to auto stop NDS mic
+}
+
+void Mic::Stop(MicSource source)
+{
+    if (!(OpenMask & (1<<source)))
+        return;
+
+    OpenMask &= ~(1<<source);
+    if (!OpenMask)
+        Platform::Mic_Stop(NDS.UserData);
+}
+
+void Mic::StopAll()
+{
+    if (!OpenMask)
+        return;
+
+    OpenMask = 0;
+    Platform::Mic_Stop(NDS.UserData);
+}
+
+
+void Mic::FeedBuffer()
+{
+    // try to fill half the mic buffer, but only take as much as the platform can provide
+
+    int writelen = InputBufferSize >> 1;
+    while (writelen > 0)
+    {
+        int thislen = writelen;
+        if ((InputBufferWritePos + thislen) > InputBufferSize)
+            thislen = InputBufferSize - InputBufferWritePos;
+
+        int actuallen = Platform::Mic_ReadInput(&InputBuffer[InputBufferWritePos], thislen, NDS.UserData);
+        if (!actuallen)
+            break;
+
+        InputBufferLevel += actuallen;
+        InputBufferWritePos += actuallen;
+        if (InputBufferWritePos >= InputBufferSize)
+            InputBufferWritePos -= InputBufferSize;
+
+        if (actuallen < thislen)
+            break;
+        writelen -= actuallen;
+    }
+}
+
+
+void Mic::Advance(u32 cycles)
+{
+    // the mic feed is 47.6 KHz, ie. one sample every 704 cycles
+    // this matches the highest sample rate on DSi
+    // TODO eventually: interpolation?
+
+    if (!OpenMask)
+    {
+        CycleCount = 0;
+        return;
+    }
+
+    CycleCount += cycles;
+    while (CycleCount >= 704)
+    {
+        CycleCount -= 704;
+
+        if (InputBufferLevel < (InputBufferSize >> 1))
+            FeedBuffer();
+
+        if (InputBufferLevel == 0)
+            continue;
+
+        InputBufferLevel--;
+        CurSample = InputBuffer[InputBufferReadPos];
+        InputBufferReadPos++;
+        if (InputBufferReadPos >= InputBufferSize)
+            InputBufferReadPos = 0;
+    }
+}
+
+s16 Mic::ReadSample()
+{
+    if (!OpenMask) return 0;
+    return CurSample;
 }
 
 

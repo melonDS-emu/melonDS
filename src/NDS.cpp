@@ -610,6 +610,7 @@ void NDS::Stop(Platform::StopReason reason)
     Platform::SignalStop(reason, UserData);
     GPU.Stop();
     SPU.Stop();
+    Mic.StopAll();
 }
 
 bool NDS::DoSavestate(Savestate* file)

@@ -26,6 +26,13 @@ namespace melonDS
 {
 class NDS;
 
+enum MicSource
+{
+    Mic_NDS = 0,        // NDS mic (TSC AUX channel)
+    Mic_DSi,            // DSi mic (0x04004600)
+    Mic_DSi_DSP         // DSi mic (DSP BTDMP)
+};
+
 class Mic
 {
 public:
@@ -34,13 +41,27 @@ public:
     void Reset();
     void DoSavestate(Savestate* file);
 
+    void Start(MicSource source);
+    void Stop(MicSource source);
+    void StopAll();
+
+    void Advance(u32 cycles);
+    s16 ReadSample();
+
 private:
     melonDS::NDS& NDS;
 
     static const u32 InputBufferSize = 2*1024;
-    s16 InputBuffer[2 * InputBufferSize] {};
+    s16 InputBuffer[InputBufferSize] {};
     u32 InputBufferWritePos = 0;
     u32 InputBufferReadPos = 0;
+    u32 InputBufferLevel = 0;
+
+    u8 OpenMask;
+    u32 CycleCount;
+    s16 CurSample;
+
+    void FeedBuffer();
 };
 
 }
