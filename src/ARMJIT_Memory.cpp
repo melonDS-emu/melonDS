@@ -83,6 +83,8 @@
         #define CONTEXT_PC uc_mcontext.mc_rip
     #elif defined(__NetBSD__)
         #define CONTEXT_PC uc_mcontext.__gregs[_REG_RIP]
+    #elif defined(__OpenBSD__)
+        #define CONTEXT_PC sc_rip
     #endif
 #elif defined(__aarch64__)
     #if defined(_WIN32)
@@ -95,6 +97,8 @@
         #define CONTEXT_PC uc_mcontext.mc_gpregs.gp_elr
     #elif defined(__NetBSD__)
         #define CONTEXT_PC uc_mcontext.__gregs[_REG_PC]
+    #elif defined(__OpenBSD__)
+        #define CONTEXT_PC sc_exr
     #endif
 #endif
 
