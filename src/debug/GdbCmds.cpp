@@ -893,7 +893,10 @@ ExecResult GdbStub::Handle_v_Cont(GdbStub* stub, const u8* cmd, ssize_t len)
 		return ExecResult::Ok;
 	}
 
-	switch (cmd[0])
+	// Continue code should always be separated by a ';' (but maybe they aren't sometimes? not sure)
+	char actionCode = (cmd[0] == ';' && len >= 2) ? cmd[1] : cmd[0];
+
+	switch (actionCode)
 	{
 	case 'c':
 		stub->RespStr("OK");
@@ -905,7 +908,7 @@ ExecResult GdbStub::Handle_v_Cont(GdbStub* stub, const u8* cmd, ssize_t len)
 		stub->RespStr("OK");
 		return ExecResult::MustBreak;
 	default:
-		printf("invalid continue %c %s\n", cmd[0], cmd);
+		printf("invalid continue %c %s\n", actionCode, cmd);
 		stub->RespStr("E01");
 		return ExecResult::Ok;
 	}
