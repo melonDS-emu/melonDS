@@ -389,7 +389,7 @@ u32 DSi_SDHost::DataTX(u8* data, u32 len)
         {
             if (DataFIFO32.IsEmpty())
             {
-                SetIRQ(25);
+                SetIRQ(25); // SD_STATUS_TX_REQ
                 DSi.CheckNDMAs(1, Num ? 0x29 : 0x28);
             }
             return 0;
@@ -722,6 +722,7 @@ void DSi_SDHost::Write(u32 addr, u16 val)
     // dunno
     case 0x106: return;
     case 0x10A: return;
+    case 0x10C: WriteFIFO32(val); return;
     }
 
     Log(LogLevel::Warn, "unknown %s write %08X %04X\n", SD_DESC, addr, val);
@@ -987,8 +988,7 @@ void DSi_MMCStorage::SendCMD(u8 cmd, u32 param)
             RWAddress <<= 9;
             BlockSize = 512;
         }
-        if (cmd == 25)
-            RWCommand = 25;
+        RWCommand = cmd;
         Host->SendResponse(CSR, true);
         RWAddress += WriteBlock(RWAddress);
         SetState(0x04);
@@ -1054,6 +1054,7 @@ void DSi_MMCStorage::ContinueTransfer()
         len = ReadBlock(RWAddress);
         break;
 
+    case 24:
     case 25:
         len = WriteBlock(RWAddress);
         break;
