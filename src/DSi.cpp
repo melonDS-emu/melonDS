@@ -89,7 +89,7 @@ const u32 NDMAModes[] =
 }*/
 
 DSi::DSi(DSiArgs&& args, void* userdata) noexcept :
-    NDS(std::move(args), 1, userdata),
+    NDS(std::move(args), 1, 0, userdata),
     NDMAs {
         DSi_NDMA(0, 0, *this),
         DSi_NDMA(0, 1, *this),
@@ -1280,14 +1280,17 @@ void DSi::ApplyNewRAMSize(u32 size)
     switch (size)
     {
     case 0:
-    case 1:
+    case 1: // TODO(shinyquagsire23): Is 1 actually 8MiB (NDS devkit)?
         MainRAMMask = 0x3FFFFF;
         Log(LogLevel::Debug, "RAM: 4MB\n");
         break;
-    case 2:
-    case 3: // TODO: debug console w/ 32MB?
+    case 2: // Retail 16MiB
         MainRAMMask = 0xFFFFFF;
         Log(LogLevel::Debug, "RAM: 16MB\n");
+        break;
+    case 3: // Debug/3DS 32MiB
+        MainRAMMask = 0x1FFFFFF;
+        Log(LogLevel::Debug, "RAM: 32MB\n");
         break;
     }
 }
@@ -1369,6 +1372,12 @@ u8 DSi::ARM9Read8(u32 addr)
 
     case 0x0C000000:
         return *(u8*)&MainRAM[addr & MainRAMMask];
+    case 0x0D000000:
+        // open-bus behavior
+        if (MainRAMPresent<=0x1000000 && MainRAMMask>=0x1FFFFFF) {
+            break;
+        }
+        return *(u8*)&MainRAM[addr & MainRAMMask];
     }
 
     return NDS::ARM9Read8(addr);
@@ -1419,6 +1428,12 @@ u16 DSi::ARM9Read16(u32 addr)
         return (ExMemCnt[0] & (1<<7)) ? 0 : 0xFFFF;
 
     case 0x0C000000:
+        return *(u16*)&MainRAM[addr & MainRAMMask];
+    case 0x0D000000:
+        // open-bus behavior
+        if (MainRAMPresent<=0x1000000 && MainRAMMask>=0x1FFFFFF) {
+            break;
+        }
         return *(u16*)&MainRAM[addr & MainRAMMask];
     }
 
@@ -1475,6 +1490,12 @@ u32 DSi::ARM9Read32(u32 addr)
         return (ExMemCnt[0] & (1<<7)) ? 0 : 0xFFFFFFFF;
 
     case 0x0C000000:
+        return *(u32*)&MainRAM[addr & MainRAMMask];
+    case 0x0D000000:
+        // open-bus behavior
+        if (MainRAMPresent<=0x1000000 && MainRAMMask>=0x1FFFFFF) {
+            break;
+        }
         return *(u32*)&MainRAM[addr & MainRAMMask];
     }
 
@@ -1571,6 +1592,14 @@ void DSi::ARM9Write8(u32 addr, u8 val)
         JIT.CheckAndInvalidate<0, ARMJIT_Memory::memregion_MainRAM>(addr);
         *(u8*)&MainRAM[addr & MainRAMMask] = val;
         return;
+    case 0x0D000000:
+        // open-bus behavior
+        if (MainRAMPresent<=0x1000000 && MainRAMMask>=0x1FFFFFF) {
+            break;
+        }
+        JIT.CheckAndInvalidate<0, ARMJIT_Memory::memregion_MainRAM>(addr);
+        *(u8*)&MainRAM[addr & MainRAMMask] = val;
+        return;
     }
 
     return NDS::ARM9Write8(addr, val);
@@ -1653,6 +1682,14 @@ void DSi::ARM9Write16(u32 addr, u16 val)
         return;
 
     case 0x0C000000:
+        JIT.CheckAndInvalidate<0, ARMJIT_Memory::memregion_MainRAM>(addr);
+        *(u16*)&MainRAM[addr & MainRAMMask] = val;
+        return;
+    case 0x0D000000:
+        // open-bus behavior
+        if (MainRAMPresent<=0x1000000 && MainRAMMask>=0x1FFFFFF) {
+            break;
+        }
         JIT.CheckAndInvalidate<0, ARMJIT_Memory::memregion_MainRAM>(addr);
         *(u16*)&MainRAM[addr & MainRAMMask] = val;
         return;
@@ -1741,6 +1778,15 @@ void DSi::ARM9Write32(u32 addr, u32 val)
         JIT.CheckAndInvalidate<0, ARMJIT_Memory::memregion_MainRAM>(addr);
         *(u32*)&MainRAM[addr & MainRAMMask] = val;
         return;
+
+    case 0x0D000000:
+        // open-bus behavior
+        if (MainRAMPresent<=0x1000000 && MainRAMMask>=0x1FFFFFF) {
+            break;
+        }
+        JIT.CheckAndInvalidate<0, ARMJIT_Memory::memregion_MainRAM>(addr);
+        *(u32*)&MainRAM[addr & MainRAMMask] = val;
+        return;
     }
 
     return NDS::ARM9Write32(addr, val);
@@ -1753,6 +1799,16 @@ bool DSi::ARM9GetMemRegion(u32 addr, bool write, MemRegion* region)
     {
     case 0x02000000:
     case 0x0C000000:
+        region->Mem = MainRAM;
+        region->Mask = MainRAMMask;
+        return true;
+
+    case 0x0D000000:
+        // open-bus behavior
+        if (MainRAMPresent<=0x1000000 && MainRAMMask>=0x1FFFFFF) {
+            region->Mem = NULL;
+            return false;
+        }
         region->Mem = MainRAM;
         region->Mask = MainRAMMask;
         return true;
@@ -1837,6 +1893,13 @@ u8 DSi::ARM7Read8(u32 addr)
     case 0x0C000000:
     case 0x0C800000:
         return *(u8*)&MainRAM[addr & MainRAMMask];
+    case 0x0D000000:
+    case 0x0D800000:
+        // open-bus behavior
+        if (MainRAMPresent<=0x1000000 && MainRAMMask>=0x1FFFFFF) {
+            break;
+        }
+        return *(u8*)&MainRAM[addr & MainRAMMask];
     }
 
     return NDS::ARM7Read8(addr);
@@ -1896,7 +1959,14 @@ u16 DSi::ARM7Read16(u32 addr)
 
     case 0x0C000000:
     case 0x0C800000:
-        return *(u16*)&MainRAM[addr & MainRAMMask];
+        return *(u16*)&MainRAM[addr & NDS::MainRAMMask];
+    case 0x0D000000:
+    case 0x0D800000:
+        // open-bus behavior
+        if (NDS::MainRAMPresent<=0x1000000 && NDS::MainRAMMask>=0x1FFFFFF) {
+            break;
+        }
+        return *(u16*)&MainRAM[addr & NDS::MainRAMMask];
     }
 
     return NDS::ARM7Read16(addr);
@@ -1955,6 +2025,13 @@ u32 DSi::ARM7Read32(u32 addr)
 
     case 0x0C000000:
     case 0x0C800000:
+        return *(u32*)&NDS::MainRAM[addr & NDS::MainRAMMask];
+    case 0x0D000000:
+    case 0x0D800000:
+        // open-bus behavior
+        if (NDS::MainRAMPresent<=0x1000000 && NDS::MainRAMMask>=0x1FFFFFF) {
+            break;
+        }
         return *(u32*)&NDS::MainRAM[addr & NDS::MainRAMMask];
     }
 
@@ -2041,6 +2118,15 @@ void DSi::ARM7Write8(u32 addr, u8 val)
 
     case 0x0C000000:
     case 0x0C800000:
+        JIT.CheckAndInvalidate<1, ARMJIT_Memory::memregion_MainRAM>(addr);
+        *(u8*)&NDS::MainRAM[addr & NDS::MainRAMMask] = val;
+        return;
+    case 0x0D000000:
+    case 0x0D800000:
+        // open-bus behavior
+        if (NDS::MainRAMPresent<=0x1000000 && NDS::MainRAMMask>=0x1FFFFFF) {
+            break;
+        }
         JIT.CheckAndInvalidate<1, ARMJIT_Memory::memregion_MainRAM>(addr);
         *(u8*)&NDS::MainRAM[addr & NDS::MainRAMMask] = val;
         return;
@@ -2134,6 +2220,15 @@ void DSi::ARM7Write16(u32 addr, u16 val)
         JIT.CheckAndInvalidate<1, ARMJIT_Memory::memregion_MainRAM>(addr);
         *(u16*)&NDS::MainRAM[addr & NDS::MainRAMMask] = val;
         return;
+    case 0x0D000000:
+    case 0x0D800000:
+        // open-bus behavior
+        if (NDS::MainRAMPresent<=0x1000000 && NDS::MainRAMMask>=0x1FFFFFF) {
+            break;
+        }
+        JIT.CheckAndInvalidate<1, ARMJIT_Memory::memregion_MainRAM>(addr);
+        *(u16*)&NDS::MainRAM[addr & NDS::MainRAMMask] = val;
+        return;
     }
 
     return NDS::ARM7Write16(addr, val);
@@ -2224,6 +2319,15 @@ void DSi::ARM7Write32(u32 addr, u32 val)
         JIT.CheckAndInvalidate<1, ARMJIT_Memory::memregion_MainRAM>(addr);
         *(u32*)&NDS::MainRAM[addr & NDS::MainRAMMask] = val;
         return;
+    case 0x0D000000:
+    case 0x0D800000:
+        // open-bus behavior
+        if (NDS::MainRAMPresent<=0x1000000 && NDS::MainRAMMask>=0x1FFFFFF) {
+            break;
+        }
+        JIT.CheckAndInvalidate<1, ARMJIT_Memory::memregion_MainRAM>(addr);
+        *(u32*)&NDS::MainRAM[addr & NDS::MainRAMMask] = val;
+        return;
     }
 
     return NDS::ARM7Write32(addr, val);
@@ -2238,6 +2342,15 @@ bool DSi::ARM7GetMemRegion(u32 addr, bool write, MemRegion* region)
     case 0x02800000:
     case 0x0C000000:
     case 0x0C800000:
+        region->Mem = NDS::MainRAM;
+        region->Mask = NDS::MainRAMMask;
+        return true;
+    case 0x0D000000:
+    case 0x0D800000:
+        // open-bus behavior
+        if (NDS::MainRAMPresent<=0x1000000 && NDS::MainRAMMask>=0x1FFFFFF) {
+            break;
+        }
         region->Mem = NDS::MainRAM;
         region->Mask = NDS::MainRAMMask;
         return true;

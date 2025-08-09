@@ -1038,6 +1038,12 @@ bool ARMJIT_Memory::GetMirrorLocation(int region, u32 num, u32 addr, u32& memory
         }
         return false;
     case memregion_MainRAM:
+        // 0x02xxxxxx region is limited to 16MiB
+        if (addr < 0x0C000000) {
+            mirrorStart = addr & ~(NDS.MainRAMMask & 0xFFFFFF);
+            mirrorSize = (NDS.MainRAMMask & 0xFFFFFF) + 1;
+            return true;
+        }
         mirrorStart = addr & ~NDS.MainRAMMask;
         mirrorSize = NDS.MainRAMMask + 1;
         return true;
@@ -1283,6 +1289,8 @@ int ARMJIT_Memory::ClassifyAddress9(u32 addr) const noexcept
             return memregion_VRAM;
         case 0x0C000000:
             return (NDS.ConsoleType==1) ? memregion_MainRAM : memregion_Other;
+        case 0x0D000000:
+            return (NDS.ConsoleType==1 && NDS.MainRAMMask>=0x1FFFFFF) ? memregion_MainRAM : memregion_Other;
         default:
             return memregion_Other;
         }
@@ -1341,6 +1349,9 @@ int ARMJIT_Memory::ClassifyAddress7(u32 addr) const noexcept
         case 0x0C000000:
         case 0x0C800000:
             return (NDS.ConsoleType==1) ? memregion_MainRAM : memregion_Other;
+        case 0x0D000000:
+        case 0x0D800000:
+            return (NDS.ConsoleType==1 && NDS.MainRAMMask>=0x1FFFFFF) ? memregion_MainRAM : memregion_Other;
         default:
             return memregion_Other;
         }

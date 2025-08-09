@@ -70,6 +70,7 @@ EmuInstance::EmuInstance(int inst) : deleting(false),
     localCfg(Config::GetLocalTable(inst))
 {
     consoleType = globalCfg.GetInt("Emu.ConsoleType");
+    debugBoardConfig = globalCfg.GetInt("Emu.DebugBoardConfig");
 
     ndsSave = nullptr;
     cartType = -1;
@@ -1240,6 +1241,7 @@ bool EmuInstance::updateConsole() noexcept
 {
     // update the console type
     consoleType = globalCfg.GetInt("Emu.ConsoleType");
+    debugBoardConfig = globalCfg.GetInt("Emu.DebugBoardConfig");
 
     // Let's get the cart we want to use;
     // if we want to keep the cart, we'll eject it from the existing console first.
@@ -1353,7 +1355,7 @@ bool EmuInstance::updateConsole() noexcept
     }
 
     renderLock.lock();
-    if ((!nds) || (consoleType != nds->ConsoleType))
+    if ((!nds) || (consoleType != nds->ConsoleType) || (debugBoardConfig != nds->DebugBoardConfig))
     {
         if (nds)
         {
@@ -1366,6 +1368,7 @@ bool EmuInstance::updateConsole() noexcept
         else
             nds = new NDS(std::move(ndsargs), this);
 
+        nds->DebugBoardConfig = debugBoardConfig;
         nds->Reset();
         loadRTCData();
         //emuThread->updateVideoRenderer(); // not actually needed?
