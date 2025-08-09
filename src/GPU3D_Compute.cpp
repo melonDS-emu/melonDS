@@ -19,6 +19,9 @@
 #include "GPU3D_Compute.h"
 
 #include <assert.h>
+#include <algorithm>
+
+#include "Utils.h"
 
 #include "OpenGLSupport.h"
 
@@ -50,6 +53,14 @@ bool ComputeRenderer::CompileShader(GLuint& shader, const std::string& source, c
     shaderSource += std::to_string(ScreenHeight);
     shaderSource += "\n#define MaxWorkTiles ";
     shaderSource += std::to_string(MaxWorkTiles);
+    shaderSource += "\n#define TileSize ";
+    shaderSource += std::to_string(TileSize);
+    shaderSource += "\nconst int CoarseTileCountY = ";
+    shaderSource += std::to_string(CoarseTileCountY) + ";";
+    shaderSource += "\n#define CoarseTileArea ";
+    shaderSource += std::to_string(CoarseTileArea);
+    shaderSource += "\n#define ClearCoarseBinMaskLocalSize ";
+    shaderSource += std::to_string(ClearCoarseBinMaskLocalSize);
 
     shaderSource += ComputeRendererShaders::Common;
     shaderSource += source;
@@ -297,6 +308,8 @@ void ComputeRenderer::Reset(GPU& gpu)
 
 void ComputeRenderer::SetRenderSettings(int scale, bool highResolutionCoordinates)
 {
+    u8 TileScale;
+
     CurGLCompositor.SetScaleFactor(scale);
 
     if (ScaleFactor != -1)
@@ -309,6 +322,22 @@ void ComputeRenderer::SetRenderSettings(int scale, bool highResolutionCoordinate
     ScaleFactor = scale;
     ScreenWidth = 256 * ScaleFactor;
     ScreenHeight = 192 * ScaleFactor;
+
+    //Starting at 4.5x we want to double TileSize every time scale doubles
+    TileScale = 2 * ScaleFactor / 9;
+    TileScale = GetMSBit(TileScale);
+    TileScale <<= 1;
+    TileScale += TileScale == 0;
+
+    std::printf("Scale: %d\n", ScaleFactor);
+    std::printf("TileScale: %d\n", TileScale);
+    
+    TileSize = std::min(8 * TileScale, 32);
+    CoarseTileCountY = TileSize < 32 ? 4 : 6;
+    ClearCoarseBinMaskLocalSize = TileSize < 32 ? 64 : 48;
+    CoarseTileArea = CoarseTileCountX * CoarseTileCountY;
+    CoarseTileW = CoarseTileCountX * TileSize;
+    CoarseTileH = CoarseTileCountY * TileSize;
 
     TilesPerLine = ScreenWidth/TileSize;
     TileLines = ScreenHeight/TileSize;
@@ -918,7 +947,7 @@ void ComputeRenderer::RenderFrame(GPU& gpu)
     glBindBufferBase(GL_UNIFORM_BUFFER, 0, MetaUniformMemory);
 
     glUseProgram(ShaderClearCoarseBinMask);
-    glDispatchCompute(TilesPerLine*TileLines/32, 1, 1);
+    glDispatchCompute(TilesPerLine*TileLines/ClearCoarseBinMaskLocalSize, 1, 1);
 
     bool wbuffer = false;
     if (numYSpans > 0)
@@ -932,23 +961,23 @@ void ComputeRenderer::RenderFrame(GPU& gpu)
         glBindImageTexture(0, YSpanIndicesTexture, 0, GL_FALSE, 0, GL_READ_ONLY, GL_RGBA16UI);
         glUseProgram(ShaderInterpXSpans[wbuffer]);
         glDispatchCompute((numSetupIndices + 31) / 32, 1, 1);
-        glMemoryBarrier(GL_SHADER_STORAGE_BUFFER);
+        glMemoryBarrier(GL_SHADER_STORAGE_BARRIER_BIT | GL_COMMAND_BARRIER_BIT);
 
         // bin polygons
         glUseProgram(ShaderBinCombined);
         glDispatchCompute(((gpu.GPU3D.RenderNumPolygons + 31) / 32), ScreenWidth/CoarseTileW, ScreenHeight/CoarseTileH);
-        glMemoryBarrier(GL_SHADER_STORAGE_BUFFER);
+        glMemoryBarrier(GL_SHADER_STORAGE_BARRIER_BIT | GL_COMMAND_BARRIER_BIT);
 
         // calculate list offsets
         glUseProgram(ShaderCalculateWorkListOffset);
         glDispatchCompute((numVariants + 31) / 32, 1, 1);
-        glMemoryBarrier(GL_SHADER_STORAGE_BUFFER);
+        glMemoryBarrier(GL_SHADER_STORAGE_BARRIER_BIT | GL_COMMAND_BARRIER_BIT);
 
         // sort shader work
         glUseProgram(ShaderSortWork);
         glBindBuffer(GL_DISPATCH_INDIRECT_BUFFER, BinResultMemory);
         glDispatchComputeIndirect(offsetof(BinResultHeader, SortWorkWorkCount));
-        glMemoryBarrier(GL_SHADER_STORAGE_BUFFER);
+        glMemoryBarrier(GL_SHADER_STORAGE_BARRIER_BIT | GL_COMMAND_BARRIER_BIT);
 
         glActiveTexture(GL_TEXTURE0);
 
