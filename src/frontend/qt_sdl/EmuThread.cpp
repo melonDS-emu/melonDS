@@ -15,16 +15,6 @@
     You should have received a copy of the GNU General Public License along
     with melonDS. If not, see http://www.gnu.org/licenses/.
 */
-/*
-MelonPrimeDS Development Memo:
-
-Low-Latency Input Optimization
-Performance Note
-Using hotkeyDown() and hotkeyPressed() functions introduces unnecessary overhead. Direct QBitArray access provides significantly lower latency.
-Replace emuInstance->hotkeyDown(HK_KEY) with emuInstance->hotkeyMask[HK_KEY] and emuInstance->hotkeyPressed(HK_KEY) with emuInstance->hotkeyPress[HK_KEY].
-Cache references once per function: const auto& hotkeyMask = emuInstance->hotkeyMask; for multiple accesses. This saves 4+ cycles per access, critical for high-frequency input processing.
-
-*/
 
 #include <stdlib.h>
 #include <time.h>
@@ -1882,7 +1872,6 @@ void EmuThread::run()
             mask[INPUT_RIGHT] = (maskBits >> 24) & 1;
         };
 
-#endif
 
         /**
          * 移動入力を処理 v5
@@ -1945,7 +1934,7 @@ void EmuThread::run()
             const uint32_t last = snapState & 0xFF;
             const uint32_t priority = snapState >> 8;
             const uint32_t newPress = curr & ~last;
-             
+
             // XOR最適化による競合検出 XOR最適化でブランチレス
             const uint32_t hConflict = ((curr & 3) ^ 3) ? 0 : 3;
             const uint32_t vConflict = ((curr & 12) ^ 12) ? 0 : 12;
@@ -1970,8 +1959,145 @@ void EmuThread::run()
         };
 
 
-    // /processMoveInputFunction }
+#endif
 
+        /**
+ * 移動入力処理 v6 最低遅延版.
+ *
+ *
+ * @note x86_64向けに分岐最小化とアクセス回数削減を徹底.
+ *       読み取りはtestBitで確定値取得. 書き込みはsetBit/clearBitで確定反映.
+ *       snapTapの優先ロジックはビット演算で維持し、水平/垂直の競合は同値判定で分岐レスに処理.
+ *       通常モードの同時押しキャンセルは既存LUT表現を厳守.
+ *       snapTapでは新規押下が競合時に優先側を上書き保持.
+ * .
+ */
+        static const auto processMoveInput = [&](const QBitArray& hk, QBitArray& mask) __attribute__((hot, always_inline, flatten)) {
+            // 反転型マスクLUT定義(0=有効,1=無効 として各出力ビットのLSBを使用するための値で構成)
+            // (後続のLUTロード時のキャッシュ効率確保と即時抽出のため)
+            alignas(64) static constexpr uint32_t MaskLUT[16] = {
+                // 入力ビット配列: [bit0=UP, bit1=DOWN, bit2=LEFT, bit3=RIGHT]
+                // 各バイト順序: [UP(byte0), DOWN(byte1), LEFT(byte2), RIGHT(byte3)]
+                // 各バイトのLSB(1bit)のみ評価する構成
+                // 0000
+                0x0F0F0F0F,
+                // 0001
+                0x0F0F0F0E,
+                // 0010
+                0x0F0F0E0F,
+                // 0011 ←→キャンセル
+                0x0F0F0F0F,
+                // 0100
+                0x0F0E0F0F,
+                // 0101
+                0x0F0E0F0E,
+                // 0110
+                0x0F0E0E0F,
+                // 0111
+                0x0F0E0F0F,
+                // 1000
+                0x0E0F0F0F,
+                // 1001
+                0x0E0F0F0E,
+                // 1010
+                0x0E0F0E0F,
+                // 1011
+                0x0E0F0F0F,
+                // 1100 ↑↓キャンセル
+                0x0F0F0F0F,
+                // 1101
+                0x0F0F0F0E,
+                // 1110
+                0x0F0F0E0F,
+                // 1111 全キャンセル
+                0x0F0F0F0F
+            };
+
+            // SnapTap状態格納(下位8bit=直近入力, 上位8bit=優先保持)
+            // (フレーム間で切り替え優先度を維持するため)
+            static uint16_t snapState = 0;
+
+            // 入力読み取り(演算前に確定値取得のため)
+            const uint32_t f = hk.testBit(HK_MetroidMoveForward);
+            // 入力読み取り(演算前に確定値取得のため)
+            const uint32_t b = hk.testBit(HK_MetroidMoveBack);
+            // 入力読み取り(演算前に確定値取得のため)
+            const uint32_t l = hk.testBit(HK_MetroidMoveLeft);
+            // 入力読み取り(演算前に確定値取得のため)
+            const uint32_t r = hk.testBit(HK_MetroidMoveRight);
+
+            // 4方向の現在ビット生成(後段LUT索引用ビット圧縮のため)
+            const uint32_t curr = (f) | (b << 1) | (l << 2) | (r << 3);
+
+            // 通常モード判定(分岐予測命中率向上のため)
+            if (__builtin_expect(!isSnapTapMode, 1)) {
+                // LUTロード(即時マスク決定のため)
+                const uint32_t mb = MaskLUT[curr];
+
+                // 出力UP確定(LSB評価で分岐レス化のため)
+                (mb & 0x00000001) ? mask.setBit(INPUT_UP) : mask.clearBit(INPUT_UP);
+                // 出力DOWN確定(LSB評価で分岐レス化のため)
+                ((mb >> 8) & 0x01) ? mask.setBit(INPUT_DOWN) : mask.clearBit(INPUT_DOWN);
+                // 出力LEFT確定(LSB評価で分岐レス化のため)
+                ((mb >> 16) & 0x01) ? mask.setBit(INPUT_LEFT) : mask.clearBit(INPUT_LEFT);
+                // 出力RIGHT確定(LSB評価で分岐レス化のため)
+                ((mb >> 24) & 0x01) ? mask.setBit(INPUT_RIGHT) : mask.clearBit(INPUT_RIGHT);
+
+                // 早期return(無駄な計算回避のため)
+                return;
+            }
+
+            // 直近状態抽出(優先制御に使用するため)
+            const uint32_t last = snapState & 0xFFu;
+            // 優先保持抽出(競合時の優先を保持するため)
+            const uint32_t priority = snapState >> 8;
+
+            // 新規押下検出(前フレームとの差分抽出のため)
+            const uint32_t newPress = curr & ~last;
+
+            // 水平競合検出(== 3 を分岐レスで表現するため)
+            const uint32_t h3 = (curr & 0x3u);
+            // 水平競合マスク生成(完全一致時のみ3を返すため)
+            const uint32_t hConflict = (h3 ^ 0x3u) ? 0u : 0x3u;
+
+            // 垂直競合検出(== 12 を分岐レスで表現するため)
+            const uint32_t v12 = (curr & 0xCu);
+            // 垂直競合マスク生成(完全一致時のみ12を返すため)
+            const uint32_t vConflict = (v12 ^ 0xCu) ? 0u : 0xCu;
+
+            // 総合競合マスク作成(水平垂直の論理和で一括処理のため)
+            const uint32_t conflict = vConflict | hConflict;
+
+            // 競合発生時の更新フラグ生成(新規押下が競合線上に存在する場合のみ1化するため)
+            const uint32_t updateMask = -((newPress & conflict) != 0u);
+
+            // 新優先の計算(PR=既存優先を該当軸でクリアし、新規押下を該当軸のみで立てるため)
+            const uint32_t newPriority =
+                (priority & ~(conflict & updateMask)) | (newPress & conflict & updateMask);
+
+            // 現在入力に限定した優先(押下継続時のみ優先を有効化するため)
+            const uint32_t activePriority = newPriority & curr;
+
+            // 状態更新(次フレームの差分検出と優先保持のため)
+            snapState = static_cast<uint16_t>((curr & 0xFFu) | ((activePriority & 0xFFu) << 8));
+
+            // 競合軸の最終入力決定(非競合はそのまま、競合は優先側のみ残すため)
+            const uint32_t final = (curr & ~conflict) | (activePriority & conflict);
+
+            // LUTロード(確定入力をマスク出力に変換するため)
+            const uint32_t mb = MaskLUT[final];
+
+            // 出力UP確定(LSB評価で分岐レス化のため)
+            (mb & 0x00000001) ? mask.setBit(INPUT_UP) : mask.clearBit(INPUT_UP);
+            // 出力DOWN確定(LSB評価で分岐レス化のため)
+            ((mb >> 8) & 0x01) ? mask.setBit(INPUT_DOWN) : mask.clearBit(INPUT_DOWN);
+            // 出力LEFT確定(LSB評価で分岐レス化のため)
+            ((mb >> 16) & 0x01) ? mask.setBit(INPUT_LEFT) : mask.clearBit(INPUT_LEFT);
+            // 出力RIGHT確定(LSB評価で分岐レス化のため)
+            ((mb >> 24) & 0x01) ? mask.setBit(INPUT_RIGHT) : mask.clearBit(INPUT_RIGHT);
+        };
+
+    // /processMoveInputFunction }
 
     /**
      * エイム入力処理(QCursor使用・構造保持・低遅延・ドリフト防止版).
@@ -1981,7 +2107,7 @@ void EmuThread::run()
      * 2. adjust処理のマクロ化によるインライン性能向上.
      * 3. 自然な処理順序とホットパス/コールドパスの構造維持.
      */
-    static const auto processAimInput = [&]() __attribute__((hot, always_inline, flatten)) {
+    static const auto processAimInputOldVer = [&]() __attribute__((hot, always_inline, flatten)) {
 #ifndef STYLUS_MODE
         // エイム処理用の構造体(キャッシュライン境界に配置)
         struct alignas(64) {
@@ -2189,6 +2315,138 @@ namespace AimAdjustTable {
     };
 
 
+/**
+ * エイム入力処理(QCursor使用・構造保持・低遅延・ドリフト防止版).
+ *
+ *
+ * @note ホットパスの分岐最小化とQPointコピー削減を実施. 感度再計算はフラグ監視で一回化.
+ *       AIM_ADJUSTは単回評価の安全なマクロに固定し、±1域のスナップを軽量に実装.
+ * .
+ */
+    static const auto processAimInput = [&]() __attribute__((hot, always_inline, flatten)) {
+#ifndef STYLUS_MODE
+        // エイム処理用の構造体定義(キャッシュ局所性向上のため)
+        struct alignas(64) {
+            // 中心座標X格納(差分計算の原点維持のため)
+            int centerX;
+            // 中心座標Y格納(差分計算の原点維持のため)
+            int centerY;
+            // 感度係数X格納(スケーリング高速化のため)
+            float sensitivityFactor;
+            // 画面アスペクト比格納(Y感度補正のため)
+            float dsAspectRatio;
+            // Y向け結合感度格納(乗算回数削減のため)
+            float combinedSensitivityY;
+        } static aimData = { 0, 0, 0.01f, 1.3333333f, 0.013333333f };
+
+        // ドリフト防止の丸めマクロ定義(単回評価と誤差域スナップのため)
+#define AIM_ADJUST(v)                                        \
+        ({                                                       \
+            /* 入力値退避(多重評価防止のため) */                 \
+            float _v = (v);                                      \
+            /* 10倍スケールの整数化(閾値比較を定数域に落とすため) */ \
+            int _vi = static_cast<int>(_v * 10.001f);            \
+            /* +域スナップ判定(0.5～0.9域の±1固定のため) */      \
+            (_vi >= 5 && _vi <= 9) ? 1 :                         \
+            /* -域スナップ判定(-0.9～-0.5域の±1固定のため) */    \
+            (_vi >= -9 && _vi <= -5) ? -1 :                      \
+            /* 通常は切り捨て(ドリフト抑制のため) */             \
+            static_cast<int16_t>(_v);                            \
+        })
+
+    // ホットパス分岐(フォーカス維持かつレイアウト不変の高速処理のため)
+        if (__builtin_expect(!isLayoutChangePending && wasLastFrameFocused, 1)) {
+            // 現在マウス座標取得(差分演算の入力取得のため)
+            const QPoint currentPos = QCursor::pos();
+            // X座標抽出(QPointからの早期取り出しのため)
+            const int posX = currentPos.x();
+            // Y座標抽出(QPointからの早期取り出しのため)
+            const int posY = currentPos.y();
+
+            // X差分算出(スケーリング前の原値確保のため)
+            const int deltaX = posX - aimData.centerX;
+            // Y差分算出(スケーリング前の原値確保のため)
+            const int deltaY = posY - aimData.centerY;
+
+            // 無移動早期終了(不要処理抑止のため)
+            if ((deltaX | deltaY) == 0) return;
+
+            // 感度更新判定(再計算の一回化のため)
+            if (__builtin_expect(isSensitivityChangePending, 0)) {
+                // 感度値取得(設定反映のため)
+                const int sens = localCfg.GetInt("Metroid.Sensitivity.Aim");
+                // X感度更新(スケーリング係数更新のため)
+                aimData.sensitivityFactor = sens * 0.01f;
+                // Y結合感度更新(乗算回数削減のため)
+                aimData.combinedSensitivityY = aimData.sensitivityFactor * aimData.dsAspectRatio;
+                // フラグ降ろし(重複再計算抑止のため)
+                isSensitivityChangePending = false;
+            }
+
+            // Xスケーリング計算(感度適用のため)
+            const float scaledX = deltaX * aimData.sensitivityFactor;
+            // Yスケーリング計算(感度適用のため)
+            const float scaledY = deltaY * aimData.combinedSensitivityY;
+
+            // X出力補正計算(ドリフト防止と±1スナップのため)
+            const int16_t outputX = AIM_ADJUST(scaledX);
+            // Y出力補正計算(ドリフト防止と±1スナップのため)
+            const int16_t outputY = AIM_ADJUST(scaledY);
+
+            // Xレジスタ書き込み(NDS側エイム更新のため)
+            emuInstance->nds->ARM9Write16(aimXAddr, outputX);
+            // Yレジスタ書き込み(NDS側エイム更新のため)
+            emuInstance->nds->ARM9Write16(aimYAddr, outputY);
+
+            // エイム有効化フラグ設定(後段処理条件化のため)
+            enableAim = true;
+
+            // カーソル中央戻し(次回差分をゼロ基準に保つため)
+            QCursor::setPos(aimData.centerX, aimData.centerY);
+            // 処理終了(不要分岐回避のため)
+            return;
+        }
+
+        // 中心座標再計算(レイアウト変更および初期化対応のため)
+        const QPoint center = getAdjustedCenter();
+        // 中心X更新(次回差分の原点設定のため)
+        aimData.centerX = center.x();
+        // 中心Y更新(次回差分の原点設定のため)
+        aimData.centerY = center.y();
+
+        // カーソル初期配置(視覚的一貫性と差分ゼロ化のため)
+        QCursor::setPos(center);
+        // レイアウト変更フラグ降ろし(ホットパス復帰のため)
+        isLayoutChangePending = false;
+
+        // 感度初期化分岐(設定変更の即時反映のため)
+        if (isSensitivityChangePending) {
+            // 感度値取得(設定反映のため)
+            const int sens = localCfg.GetInt("Metroid.Sensitivity.Aim");
+            // X感度更新(スケーリング係数設定のため)
+            aimData.sensitivityFactor = sens * 0.01f;
+            // Y結合感度更新(乗算回数削減のため)
+            aimData.combinedSensitivityY = aimData.sensitivityFactor * aimData.dsAspectRatio;
+            // フラグ降ろし(重複再計算抑止のため)
+            isSensitivityChangePending = false;
+        }
+
+#else
+        // スタイラス押下分岐(タッチ入力直通処理のため)
+        if (__builtin_expect(emuInstance->isTouching, 1)) {
+            // タッチ送出(座標反映のため)
+            emuInstance->nds->TouchScreen(emuInstance->touchX, emuInstance->touchY);
+        }
+        // 非押下分岐(タッチ解放反映のため)
+        else {
+            // 画面解放(入力状態リセットのため)
+            emuInstance->nds->ReleaseScreen();
+        }
+#endif
+    };
+
+
+
     // Define a lambda function to switch weapons
     static const auto SwitchWeapon = [&](int weaponIndex) __attribute__((hot, always_inline)) {
 
@@ -2275,6 +2533,9 @@ namespace AimAdjustTable {
     static const QBitArray& hotkeyMask = emuInstance->hotkeyMask;
     static QBitArray& inputMask = emuInstance->inputMask;
     static const QBitArray& hotkeyPress = emuInstance->hotkeyPress;
+
+#define TOUCH_IF(PRESS, X, Y) if (hotkeyPress.testBit(PRESS)) { emuInstance->nds->ReleaseScreen(); frameAdvanceTwice(); emuInstance->nds->TouchScreen(X, Y); frameAdvanceTwice(); }
+
 
     while (emuStatus != emuStatus_Exit) {
 
@@ -2394,22 +2655,16 @@ namespace AimAdjustTable {
                     processMoveInput(hotkeyMask, inputMask);
 
                     // Shoot
-                    const bool shootPressed = hotkeyMask[HK_MetroidShootScan] || hotkeyMask[HK_MetroidScanShoot];
-                    inputMask[INPUT_L] = !shootPressed;
+                    inputMask.setBit(INPUT_L, !(hotkeyMask.testBit(HK_MetroidShootScan) | hotkeyMask.testBit(HK_MetroidScanShoot)));
 
                     // Zoom, map zoom out
-                    inputMask[INPUT_R] = !hotkeyMask[HK_MetroidZoom];
+                    inputMask.setBit(INPUT_R, !hotkeyMask.testBit(HK_MetroidZoom));
 
                     // Jump
-                    inputMask[INPUT_B] = !hotkeyMask[HK_MetroidJump];
+                    inputMask.setBit(INPUT_B, !hotkeyMask.testBit(HK_MetroidJump));
 
                     // Alt-form
-                    if (hotkeyPress[HK_MetroidMorphBall]) {
-                        emuInstance->nds->ReleaseScreen();
-                        frameAdvanceTwice();
-                        emuInstance->nds->TouchScreen(231, 167);
-                        frameAdvanceTwice();
-                    }
+                    TOUCH_IF(HK_MetroidMorphBall, 231, 167) 
 
                     // Compile-time constants
                     static constexpr uint8_t WEAPON_ORDER[] = { 0, 2, 7, 6, 5, 4, 3, 1, 8 };
@@ -2447,9 +2702,10 @@ namespace AimAdjustTable {
                             uint32_t states = 0;
                             for (size_t i = 0; i < 9; ++i) {
                                 // if (hotkeyPressed(HOTKEY_MAP[i].hotkey)) {
-                                if (hotkeyPress[HOTKEY_MAP[i].hotkey]) {
-                                    states |= (1u << i);
-                                }
+                                //if (hotkeyPress.testBit(HOTKEY_MAP[i].hotkey)) {
+                                //    states |= (1u << i);
+                                //}
+                                states |= static_cast<uint32_t>(hotkeyPress.testBit(HOTKEY_MAP[i].hotkey)) << i;
                             }
                             return states;
                             };
@@ -2540,8 +2796,8 @@ namespace AimAdjustTable {
                         // Lambda: Process wheel and navigation keys
                         static const auto processWheelInput = [&]() -> bool {
                             const int wheelDelta = emuInstance->getMainWindow()->panel->getDelta();
-                            const bool nextKey = hotkeyPress[HK_MetroidWeaponNext];
-                            const bool prevKey = hotkeyPress[HK_MetroidWeaponPrevious];
+                            const bool nextKey = hotkeyPress.testBit(HK_MetroidWeaponNext);
+                            const bool prevKey = hotkeyPress.testBit(HK_MetroidWeaponPrevious);
 
                             if (!wheelDelta && !nextKey && !prevKey) return false;
 
@@ -2615,7 +2871,7 @@ namespace AimAdjustTable {
                     // INFO If this function is not used, mouse boosting can only be done once.
                     // This is because it doesn't release from the touch state, which is necessary for aiming. 
                     // There's no way around it.
-                    if (isSamus && hotkeyMask[HK_MetroidHoldMorphBallBoost])
+                    if (isSamus && hotkeyMask.testBit(HK_MetroidHoldMorphBallBoost))
                     {
                         isAltForm = emuInstance->nds->ARM9Read8(isAltFormAddr) == 0x02;
                         if (isAltForm) {
@@ -2631,8 +2887,8 @@ namespace AimAdjustTable {
                             // release for boost?
                             emuInstance->nds->ReleaseScreen();
 
-                            const bool shouldBoost = !isBoosting && isBoostGaugeEnough;
-                            inputMask[INPUT_R] = shouldBoost;  // boost時はtrue(RELEASE), charge時はfalse(PRESS)
+                            // ブースト入力確定(ブースト時true, チャージ時falseのため)
+                            inputMask.setBit(INPUT_R, (!isBoosting && isBoostGaugeEnough));
 
                             if (isBoosting) {
                                 // touch again for aiming
@@ -2655,7 +2911,7 @@ namespace AimAdjustTable {
                         isPaused = emuInstance->nds->ARM9Read8(isMapOrUserActionPausedAddr) == 0x1;
 
                         // Scan Visor
-                        if (hotkeyPress[HK_MetroidScanVisor]) {
+                        if (hotkeyPress.testBit(HK_MetroidScanVisor)) {
                             emuInstance->nds->ReleaseScreen();
                             frameAdvanceTwice();
 
@@ -2684,45 +2940,12 @@ namespace AimAdjustTable {
                             frameAdvanceTwice();
                         }
 
-                        // OK (in scans and messages)
-                        if (hotkeyPress[HK_MetroidUIOk]) {
-                            emuInstance->nds->ReleaseScreen();
-                            frameAdvanceTwice();
-                            emuInstance->nds->TouchScreen(128, 142);
-                            frameAdvanceTwice();
-                        }
+                        TOUCH_IF(HK_MetroidUIOk, 128, 142) // OK (in scans and messages)
+                        TOUCH_IF(HK_MetroidUILeft, 71, 141) // Left arrow (in scans and messages)
+                        TOUCH_IF(HK_MetroidUIRight, 185, 141) // Right arrow (in scans and messages)
+                        TOUCH_IF(HK_MetroidUIYes, 96, 142)  // Enter to Starship
+                        TOUCH_IF(HK_MetroidUINo, 160, 142) // No Enter to Starship
 
-                        // Left arrow (in scans and messages)
-                        if (hotkeyPress[HK_MetroidUILeft]) {
-                            emuInstance->nds->ReleaseScreen();
-                            frameAdvanceTwice();
-                            emuInstance->nds->TouchScreen(71, 141);
-                            frameAdvanceTwice();
-                        }
-
-                        // Right arrow (in scans and messages)
-                        if (hotkeyPress[HK_MetroidUIRight]) {
-                            emuInstance->nds->ReleaseScreen();
-                            frameAdvanceTwice();
-                            emuInstance->nds->TouchScreen(185, 141); // optimization ?
-                            frameAdvanceTwice();
-                        }
-
-                        // Enter to Starship
-                        if (hotkeyPress[HK_MetroidUIYes]) {
-                            emuInstance->nds->ReleaseScreen();
-                            frameAdvanceTwice();
-                            emuInstance->nds->TouchScreen(96, 142);
-                            frameAdvanceTwice();
-                        }
-
-                        // No Enter to Starship
-                        if (hotkeyPress[HK_MetroidUINo]) {
-                            emuInstance->nds->ReleaseScreen();
-                            frameAdvanceTwice();
-                            emuInstance->nds->TouchScreen(160, 142);
-                            frameAdvanceTwice();
-                        }
                     } // End of Adventure Functions
 
 
@@ -2761,9 +2984,9 @@ namespace AimAdjustTable {
                     }
 
                     // L For Hunter License
-                    inputMask[INPUT_L] = !hotkeyPress[HK_MetroidUILeft];
+                    inputMask.setBit(INPUT_L, !hotkeyPress.testBit(HK_MetroidUILeft));
                     // R For Hunter License
-                    inputMask[INPUT_R] = !hotkeyPress[HK_MetroidUIRight];
+                    inputMask.setBit(INPUT_R, !hotkeyPress.testBit(HK_MetroidUIRight));
 
                 }
 
@@ -2786,7 +3009,7 @@ namespace AimAdjustTable {
                 }
 
                 // Start / View Match progress, points / Map(Adventure)
-                inputMask[INPUT_START] = !hotkeyMask[HK_MetroidMenu];
+                inputMask.setBit(INPUT_START, !hotkeyMask.testBit(HK_MetroidMenu));
 
 
             }// END of if(isFocused)
