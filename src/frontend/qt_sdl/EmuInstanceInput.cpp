@@ -526,6 +526,37 @@ melonDS::u32 EmuInstance::getInputMask() {
 
     // 完成したマスクを返却
     return mask;
+
+    /**
+     * 入力ビットマスク取得 高速版.
+     *
+     *
+     * @note QBitArrayの参照を引数で受け取り、先頭0～11bitを高速に集約する.
+     *       サイズ不足時のみ安全フォールバックでtestBitを使用.
+     * .
+     * @param m QBitArray参照.
+     * @return melonDS::u32 下位12bitに入力状態を格納したマスク.
+     */
+    inline melonDS::u32 getInputMask12(const QBitArray & m) {
+        // 高速パス(先頭0～11bit連続前提)
+        if (__builtin_expect(m.size() >= 12, 1)) {
+            const unsigned char* p = reinterpret_cast<const unsigned char*>(m.bits());
+            melonDS::u32 w = static_cast<melonDS::u32>(p[0]) |
+                (static_cast<melonDS::u32>(p[1]) << 8);
+            return w & 0x0FFFu;
+        }
+        // フォールバック(サイズ不足時)
+        melonDS::u32 mask = 0;
+        const int n = m.size();
+        for (int i = 0; i < n; ++i)
+            mask |= static_cast<melonDS::u32>(m.testBit(i)) << i;
+        return mask;
+    }
+
+
+
+
+
 #endif
     return
         (static_cast<melonDS::u32>(inputMask.testBit(0)) << 0) |
