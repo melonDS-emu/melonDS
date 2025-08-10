@@ -217,15 +217,17 @@ std::unique_ptr<ComputeRenderer> ComputeRenderer::New()
     glBufferData(GL_UNIFORM_BUFFER, sizeof(MetaUniform), nullptr, GL_DYNAMIC_DRAW);
 
     glGenSamplers(9, result->Samplers);
+
+    static const GLenum translateWrapMode[3] = { GL_CLAMP_TO_EDGE, GL_REPEAT, GL_MIRRORED_REPEAT };
     for (u32 j = 0; j < 3; j++)
     {
         for (u32 i = 0; i < 3; i++)
         {
-            const GLenum translateWrapMode[3] = {GL_CLAMP_TO_EDGE, GL_REPEAT, GL_MIRRORED_REPEAT};
-            glSamplerParameteri(result->Samplers[i+j*3], GL_TEXTURE_WRAP_S, translateWrapMode[i]);
-            glSamplerParameteri(result->Samplers[i+j*3], GL_TEXTURE_WRAP_T, translateWrapMode[j]);
-            glSamplerParameteri(result->Samplers[i+j*3], GL_TEXTURE_MIN_FILTER, GL_NEAREST);
-            glSamplerParameterf(result->Samplers[i+j*3], GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+            const u32 idx = i + j * 3;
+            glSamplerParameteri(result->Samplers[idx], GL_TEXTURE_WRAP_S, translateWrapMode[i]);
+            glSamplerParameteri(result->Samplers[idx], GL_TEXTURE_WRAP_T, translateWrapMode[j]);
+            glSamplerParameteri(result->Samplers[idx], GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+            glSamplerParameteri(result->Samplers[idx], GL_TEXTURE_MAG_FILTER, GL_NEAREST);
         }
     }
 
@@ -762,40 +764,6 @@ void ComputeRenderer::SetRenderSettings(int scale, bool highResolutionCoordinate
 
 
 
-    // v8
-    // range算出(閾値比較を加算化して分岐回避のため)
-    const uint8_t range = static_cast<uint8_t>((ScaleFactor >= 5) + (ScaleFactor >= 9));
-    // TileScale決定(2のべき乗をシフト一発で生成するため)
-    TileScale = 1u << range;
-    // TileSize決定(8×TileScaleを左シフト一発で生成するため)
-    TileSize = 8u << range;
-    // isSmall判定(32未満かどうかをビットで保持するため)
-    const uint8_t isSmall = static_cast<uint8_t>(range < 2);
-    // CoarseTileCountY決定(4 or 6をビット算術で導出するため)
-    CoarseTileCountY = 4 + (static_cast<int>(range >> 1) << 1);
-    // ClearCoarseBinMaskLocalSize決定(64 or 48をビット算術で導出するため)
-    ClearCoarseBinMaskLocalSize = 64 - (static_cast<int>(range >> 1) << 4);
-
-    // タイル総数算出(後続処理の共通基礎量確定のため)
-    CoarseTileArea = CoarseTileCountX * CoarseTileCountY;
-    // 幅方向ピクセル算出(描画計算の前処理簡略化のため)
-    CoarseTileW = CoarseTileCountX * TileSize;
-    // 高さ方向ピクセル算出(描画計算の前処理簡略化のため)
-    CoarseTileH = CoarseTileCountY * TileSize;
-
-    // 横方向タイル数算出(除算回数を必要最小限に抑えるため)
-    TilesPerLine = ScreenWidth / TileSize;
-    // 縦方向タイル数算出(除算回数を必要最小限に抑えるため)
-    TileLines = ScreenHeight / TileSize;
-
-    // 高解像度座標フラグ反映(外部設定をそのまま反映するため)
-    HiresCoordinates = highResolutionCoordinates;
-    // 最大ワークタイル数算出(固定係数16を乗算一発で反映するため)
-    MaxWorkTiles = TilesPerLine * TileLines * 16;
-
-
-#endif
-
 
     // v7 各種値をマスク演算で高速に計算（分岐なし）
 
@@ -830,6 +798,191 @@ void ComputeRenderer::SetRenderSettings(int scale, bool highResolutionCoordinate
     MaxWorkTiles = TileLines * TilesPerLine * 16;
 
 
+    // v8
+    // range算出(閾値比較を加算化して分岐回避のため)
+    const uint8_t range = static_cast<uint8_t>((ScaleFactor >= 5) + (ScaleFactor >= 9));
+    // TileScale決定(2のべき乗をシフト一発で生成するため)
+    TileScale = 1u << range;
+    // TileSize決定(8×TileScaleを左シフト一発で生成するため)
+    TileSize = 8u << range;
+    // isSmall判定(32未満かどうかをビットで保持するため)
+    const uint8_t isSmall = static_cast<uint8_t>(range < 2);
+    // CoarseTileCountY決定(4 or 6をビット算術で導出するため)
+    CoarseTileCountY = 4 + (static_cast<int>(range >> 1) << 1);
+    // ClearCoarseBinMaskLocalSize決定(64 or 48をビット算術で導出するため)
+    ClearCoarseBinMaskLocalSize = 64 - (static_cast<int>(range >> 1) << 4);
+
+    // タイル総数算出(後続処理の共通基礎量確定のため)
+    CoarseTileArea = CoarseTileCountX * CoarseTileCountY;
+    // 幅方向ピクセル算出(描画計算の前処理簡略化のため)
+    CoarseTileW = CoarseTileCountX * TileSize;
+    // 高さ方向ピクセル算出(描画計算の前処理簡略化のため)
+    CoarseTileH = CoarseTileCountY * TileSize;
+
+    // 横方向タイル数算出(除算回数を必要最小限に抑えるため)
+    TilesPerLine = ScreenWidth / TileSize;
+    // 縦方向タイル数算出(除算回数を必要最小限に抑えるため)
+    TileLines = ScreenHeight / TileSize;
+
+    // 高解像度座標フラグ反映(外部設定をそのまま反映するため)
+    HiresCoordinates = highResolutionCoordinates;
+    // 最大ワークタイル数算出(固定係数16を乗算一発で反映するため)
+    MaxWorkTiles = TilesPerLine * TileLines * 16;
+
+
+    // v9
+    // タイル関連パラメータ用ローカル構造体定義(依存の明確化と一括受け渡しのため)
+    struct TileParams { uint8_t scale; uint8_t size; int cty; int ccbmls; };
+
+    // タイル関連パラメータ算出ラムダ定義(関数内定義許容とインライン展開誘導のため)
+    const auto ComputeTileParams =
+        // キャプチャ無し指定(外部状態非依存で副作用排除のため)
+        [](uint8_t sf) __attribute__((always_inline, hot, flatten)) -> TileParams
+    {
+        // range算出処理(閾値比較の算術化による分岐削減のため)
+        const uint8_t range =
+            // 5以上判定加算(タイル段階の下位ビット生成のため)
+            static_cast<uint8_t>((sf >= 5)
+                // 9以上判定加算(タイル段階の上位ビット生成のため)
+                + (sf >= 9));
+
+        // TileScale算出処理(2のべき乗生成の左シフト一発化のため)
+        const uint8_t tileScale = static_cast<uint8_t>(1u << range);
+
+        // TileSize算出処理(8×TileScaleの左シフト一発化のため)
+        const uint8_t tileSize = static_cast<uint8_t>(8u << range);
+
+        // isSmall判定保持処理(32未満条件のブール保持と後続算術簡略化のため)
+        const uint8_t isSmall = static_cast<uint8_t>(range < 2);
+
+        // CoarseTileCountY算出処理(4または6をビット算術で導出するため)
+        const int cty = 4 + ((static_cast<int>(range >> 1)) << 1);
+
+        // ClearCoarseBinMaskLocalSize算出処理(64または48をビット算術で導出するため)
+        const int ccbmls = 64 - ((static_cast<int>(range >> 1)) << 4);
+
+        // 結果構造体返却処理(集約初期化によるレジスタ渡し最適化のため)
+        return TileParams{ tileScale, tileSize, cty, ccbmls };
+    };
+
+    // タイル計算結果取得処理(ラムダ即時呼び出しで依存最小化のため)
+    const TileParams tp = ComputeTileParams(static_cast<uint8_t>(ScaleFactor));
+
+    // TileScale反映処理(後続のタイル寸法と分割数の基礎となるため)
+    TileScale = tp.scale;
+
+    // TileSize反映処理(タイルあたりピクセル数とワーク量決定のため)
+    TileSize = tp.size;
+
+    // CoarseTileCountY反映処理(縦方向タイル分割数決定のため)
+    CoarseTileCountY = tp.cty;
+
+    // ClearCoarseBinMaskLocalSize反映処理(ローカルワークグループ分割効率最適化のため)
+    ClearCoarseBinMaskLocalSize = tp.ccbmls;
+
+    // CoarseTileArea算出処理(タイル総数の共通基礎量確定のため)
+    CoarseTileArea = CoarseTileCountX * CoarseTileCountY;
+
+    // CoarseTileW算出処理(幅方向ピクセル寸法確定のため)
+    CoarseTileW = CoarseTileCountX * TileSize;
+
+    // CoarseTileH算出処理(高さ方向ピクセル寸法確定のため)
+    CoarseTileH = CoarseTileCountY * TileSize;
+
+    // TilesPerLine算出処理(水平タイル数の除算一回化のため)
+    TilesPerLine = ScreenWidth / TileSize;
+
+    // TileLines算出処理(垂直タイル数の除算一回化のため)
+    TileLines = ScreenHeight / TileSize;
+
+    // HiresCoordinates反映処理(高解像度座標設定の透過適用のため)
+    HiresCoordinates = highResolutionCoordinates;
+
+    // MaxWorkTiles算出処理(固定係数16の乗算一発適用のため)
+    MaxWorkTiles = TilesPerLine * TileLines * 16;
+
+
+
+#endif
+
+
+
+
+    // v10
+    // タイル関連パラメータ用ローカル構造体定義(依存の明確化と一括受け渡しのため)
+    struct TileParams { uint8_t scale; uint8_t size; int cty; int ccbmls; };
+
+    // タイル関連パラメータ算出ラムダ定義(関数内定義許容とインライン展開誘導のため)
+    const auto ComputeTileParams =
+        // キャプチャ無し指定(外部状態非依存で副作用排除のため)
+        [](uint8_t sf) __attribute__((always_inline, hot, flatten)) -> TileParams
+    {
+        // range算出処理(閾値比較の算術化による分岐削減のため)
+        const uint8_t range =
+            // 5以上判定加算(タイル段階の下位ビット生成のため)
+            static_cast<uint8_t>((sf >= 5)
+                // 9以上判定加算(タイル段階の上位ビット生成のため)
+                + (sf >= 9));
+
+        // TileScale算出処理(2のべき乗生成の左シフト一発化のため)
+        const uint8_t tileScale = static_cast<uint8_t>(1u << range);
+
+        // TileSize算出処理(8×TileScaleの左シフト一発化のため)
+        const uint8_t tileSize = static_cast<uint8_t>(8u << range);
+
+        // isSmall判定保持処理(32未満条件のブール保持と後続算術簡略化のため)
+        const uint8_t isSmall = static_cast<uint8_t>(range < 2);
+
+        // CoarseTileCountY算出処理(4または6をビット算術で導出するため)
+        const int cty = 4 + ((static_cast<int>(range >> 1)) << 1);
+
+        // ClearCoarseBinMaskLocalSize算出処理(64または48をビット算術で導出するため)
+        const int ccbmls = 64 - ((static_cast<int>(range >> 1)) << 4);
+
+        // 結果構造体返却処理(集約初期化によるレジスタ渡し最適化のため)
+        return TileParams{ tileScale, tileSize, cty, ccbmls };
+    };
+
+    // タイル計算結果取得処理(ラムダ即時呼び出しで依存最小化のため)
+    const TileParams tp = ComputeTileParams(static_cast<uint8_t>(ScaleFactor));
+
+    // TileScale反映処理(後続のタイル寸法と分割数の基礎となるため)
+    TileScale = tp.scale;
+
+    // TileSize反映処理(タイルあたりピクセル数とワーク量決定のため)
+    TileSize = tp.size;
+
+    // CoarseTileCountY反映処理(縦方向タイル分割数決定のため)
+    CoarseTileCountY = tp.cty;
+
+    // ClearCoarseBinMaskLocalSize反映処理(ローカルワークグループ分割効率最適化のため)
+    ClearCoarseBinMaskLocalSize = tp.ccbmls;
+
+    // CoarseTileArea算出処理(タイル総数の共通基礎量確定のため)
+    CoarseTileArea = CoarseTileCountX * CoarseTileCountY;
+
+    // CoarseTileW算出処理(幅方向ピクセル寸法確定のため)
+    CoarseTileW = CoarseTileCountX * TileSize;
+
+    // CoarseTileH算出処理(高さ方向ピクセル寸法確定のため)
+    CoarseTileH = CoarseTileCountY * TileSize;
+
+    // タイルサイズのシフト量算出処理(除算のビットシフト化のため)
+    const uint8_t tileShift = static_cast<uint8_t>(3u + ((ScaleFactor >= 5) + (ScaleFactor >= 9)));
+
+    // 横方向タイル数算出処理(除算の右シフト化によるサイクル削減のため)
+    TilesPerLine = static_cast<int>(static_cast<unsigned>(ScreenWidth) >> tileShift);
+
+    // 縦方向タイル数算出処理(除算の右シフト化によるサイクル削減のため)
+    TileLines = static_cast<int>(static_cast<unsigned>(ScreenHeight) >> tileShift);
+
+    // HiresCoordinates反映処理(高解像度座標設定の透過適用のため)
+    HiresCoordinates = highResolutionCoordinates;
+
+    // MaxWorkTiles算出処理(固定係数16の乗算一発適用のため)
+    MaxWorkTiles = TilesPerLine * TileLines * 16;
+
+
     /* MelonPrimeDS } */
 
     for (int i = 0; i < tilememoryLayer_Num; i++)
@@ -857,7 +1010,7 @@ void ComputeRenderer::SetRenderSettings(int scale, bool highResolutionCoordinate
     glBindTexture(GL_TEXTURE_2D, Framebuffer);
     glTexStorage2D(GL_TEXTURE_2D, 1, GL_RGBA8, ScreenWidth, ScreenHeight);
 
-    // eh those are pretty bad guesses
+    // TODO eh those are pretty bad guesses
     // though real hw shouldn't be eable to render all 2048 polygons on every line either
     int maxYSpanIndices = 64*2048 * ScaleFactor;
     YSpanIndices.resize(maxYSpanIndices);
