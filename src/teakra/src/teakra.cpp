@@ -152,6 +152,10 @@ void Teakra::SetAudioCallback(std::function<void(std::array<s16, 2>)> callback) 
     impl->btdmp[0].SetAudioCallback(std::move(callback));
 }
 
+void Teakra::SetMicEnableCallback(std::function<void(bool)> cb) {
+    impl->btdmp[0].SetMicEnableCallback(std::move(cb));
+}
+
 std::uint16_t Teakra::ProgramRead(std::uint32_t address) const {
     return impl->memory_interface.ProgramRead(address);
 }

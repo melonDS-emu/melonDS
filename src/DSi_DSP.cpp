@@ -270,6 +270,14 @@ void DSi_DSP::StartDSPLLE()
     teakra->SetAHBMCallback(cb);
 
     teakra->SetAudioCallback(std::bind(&DSi_DSP::AudioCb, this, _1));
+
+    teakra->SetMicEnableCallback([this](bool enable)
+    {
+        if (enable)
+            DSi.Mic.Start(Mic_DSi_DSP);
+        else
+            DSi.Mic.Stop(Mic_DSi_DSP);
+    });
 }
 
 

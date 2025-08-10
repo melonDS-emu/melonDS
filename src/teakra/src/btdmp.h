@@ -85,8 +85,9 @@ public:
     }
 
     void SetReceiveEnable(u16 value) {
-        // TODO enable mic on platform
         receive_enable = value;
+        if (mic_enable_callback)
+            mic_enable_callback(!!receive_enable);
     }
 
     u16 GetReceiveEnable() const {
@@ -94,7 +95,10 @@ public:
     }
 
     u16 GetReceiveEmpty() const {
-        return receive_empty;
+        // this bit seems to be backwards for the receive FIFO
+        // after disabling input, the ucode will wait for it to be cleared
+        // TODO verify this on hardware
+        return !receive_empty;
     }
 
     u16 GetReceiveFull() const {
@@ -138,6 +142,10 @@ public:
         interrupt_handler = std::move(handler);
     }
 
+    void SetMicEnableCallback(std::function<void(bool)> cb) {
+        mic_enable_callback = std::move(cb);
+    }
+
 private:
     // TODO: figure out the relation between clock_config and period.
     u16 transmit_clock_config = 0;
@@ -158,6 +166,8 @@ private:
 
     std::function<void(std::array<std::int16_t, 2>)> audio_callback;
     std::function<void()> interrupt_handler;
+
+    std::function<void(bool)> mic_enable_callback;
 
     class BtdmpTimingCallbacks;
 };
