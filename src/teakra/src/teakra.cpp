@@ -44,7 +44,7 @@ struct Teakra::Impl {
         apbp_from_cpu.SetSemaphoreHandler([this]() { icu.TriggerSingle(0xE); });
 
         btdmp[0].SetInterruptHandler([this]() { icu.TriggerSingle(0xB); });
-        btdmp[1].SetInterruptHandler([this]() { icu.TriggerSingle(0xB); });
+        btdmp[1].SetInterruptHandler([this]() { icu.TriggerSingle(0xC); });
 
         dma.SetInterruptHandler([this]() { icu.TriggerSingle(0xF); });
     }
