@@ -236,12 +236,14 @@ void EmuInstance::micOpen()
     if (numMics == 0)
         return;
 
+    micFreq = 48000;
+    micBufSize = 1024;
     SDL_AudioSpec whatIwant, whatIget;
     memset(&whatIwant, 0, sizeof(SDL_AudioSpec));
-    whatIwant.freq = 48000;
+    whatIwant.freq = micFreq;
     whatIwant.format = AUDIO_S16LSB;
     whatIwant.channels = 1;
-    whatIwant.samples = 1024;
+    whatIwant.samples = micBufSize;
     whatIwant.callback = micCallback;
     whatIwant.userdata = this;
     const char* mic = NULL;
@@ -249,15 +251,21 @@ void EmuInstance::micOpen()
     {
         mic = micDeviceName.c_str();
     }
-    micDevice = SDL_OpenAudioDevice(mic, 1, &whatIwant, &whatIget, 0);
+    micDevice = SDL_OpenAudioDevice(mic, 1, &whatIwant, &whatIget, SDL_AUDIO_ALLOW_FREQUENCY_CHANGE | SDL_AUDIO_ALLOW_SAMPLES_CHANGE);
     if (!micDevice)
     {
         Platform::Log(Platform::LogLevel::Error, "Mic init failed: %s\n", SDL_GetError());
     }
     else
     {
+        micFreq = whatIget.freq;
+        micBufSize = whatIget.samples;
+        Platform::Log(Platform::LogLevel::Info, "Mic output frequency: %d Hz\n", micFreq);
+        Platform::Log(Platform::LogLevel::Info, "Mic output buffer size: %d samples\n", micBufSize);
         SDL_PauseAudioDevice(micDevice, 0);
     }
+
+    micSampleFrac = 0;
 }
 
 void EmuInstance::micClose()
@@ -472,6 +480,9 @@ void EmuInstance::micProcess()
 int EmuInstance::micReadInput(s16* data, int maxlength)
 {
     int type = micInputType;
+    if ((type == micInputType_External) && (micExtBufferCount == 0))
+        return 0;
+
     bool cmd = hotkeyDown(HK_Mic);
 
     if ((!micBuffer) ||
@@ -487,7 +498,8 @@ int EmuInstance::micReadInput(s16* data, int maxlength)
         return maxlength;
     }
 
-    // TODO adjustments for external mic
+    if (type == micInputType_External)
+        SDL_LockMutex(micLock);
 
     int readlength = 0;
     while (readlength < maxlength)
@@ -495,6 +507,17 @@ int EmuInstance::micReadInput(s16* data, int maxlength)
         int thislen = maxlength - readlength;
         if ((micBufferReadPos + thislen) > micBufferLength)
             thislen = micBufferLength - micBufferReadPos;
+
+        if (type == micInputType_External)
+        {
+            if (thislen > micExtBufferCount)
+                thislen = micExtBufferCount;
+
+            micExtBufferCount -= thislen;
+        }
+
+        if (!thislen)
+            break;
 
         memcpy(data, &micBuffer[micBufferReadPos], thislen * sizeof(s16));
         data += thislen;
@@ -505,7 +528,61 @@ int EmuInstance::micReadInput(s16* data, int maxlength)
         readlength += thislen;
     }
 
+    if (type == micInputType_External)
+        SDL_UnlockMutex(micLock);
+
     return readlength;
+}
+
+int EmuInstance::micGetNumSamplesIn(int inlen)
+{
+    float f_len_out = (inlen * 47743.4659091 * (curFPS/60.0)) / (float)micFreq;
+    f_len_out += micSampleFrac;
+    int len_out = (int)floor(f_len_out);
+    micSampleFrac = f_len_out - len_out;
+
+    return len_out;
+}
+
+void EmuInstance::micResample(s16* inbuf, int inlen)
+{
+    int maxlen = sizeof(micExtBuffer) / sizeof(s16);
+    int outlen = micGetNumSamplesIn(inlen);
+
+    // alter output length slightly to keep the buffer happy
+    if (micExtBufferCount < (maxlen >> 2))
+        outlen += 6;
+    else if (micExtBufferCount > (3 * (maxlen >> 2)))
+        outlen -= 6;
+
+    float res_incr = inlen / (float)outlen;
+    float res_timer = -0.5;
+    int res_pos = 0;
+
+    for (int i = 0; i < outlen; i++)
+    {
+        if (micExtBufferCount >= maxlen)
+            break;
+
+        s16 s1 = inbuf[res_pos];
+        s16 s2 = inbuf[res_pos + 1];
+
+        float s = (float)s1 + ((s2 - s1) * res_timer);
+
+        micExtBuffer[micExtBufferWritePos] = (s16)round(s);
+        micExtBufferWritePos++;
+        if (micExtBufferWritePos >= maxlen)
+            micExtBufferWritePos = 0;
+
+        micExtBufferCount++;
+
+        res_timer += res_incr;
+        while (res_timer >= 1.0)
+        {
+            res_timer -= 1.0;
+            res_pos++;
+        }
+    }
 }
 
 void EmuInstance::micCallback(void* data, Uint8* stream, int len)
@@ -515,25 +592,7 @@ void EmuInstance::micCallback(void* data, Uint8* stream, int len)
     len /= sizeof(s16);
 
     SDL_LockMutex(inst->micLock);
-    int maxlen = sizeof(micExtBuffer) / sizeof(s16);
-
-    if ((inst->micExtBufferCount + len) > maxlen)
-        len = maxlen - inst->micExtBufferCount;
-
-    if ((inst->micExtBufferWritePos + len) > maxlen)
-    {
-        u32 len1 = maxlen - inst->micExtBufferWritePos;
-        memcpy(&inst->micExtBuffer[inst->micExtBufferWritePos], &input[0], len1*sizeof(s16));
-        memcpy(&inst->micExtBuffer[0], &input[len1], (len - len1)*sizeof(s16));
-        inst->micExtBufferWritePos = len - len1;
-    }
-    else
-    {
-        memcpy(&inst->micExtBuffer[inst->micExtBufferWritePos], input, len*sizeof(s16));
-        inst->micExtBufferWritePos += len;
-    }
-
-    inst->micExtBufferCount += len;
+    inst->micResample(input, len);
     SDL_UnlockMutex(inst->micLock);
 }
 

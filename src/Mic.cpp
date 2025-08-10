@@ -105,9 +105,9 @@ void Mic::StopAll()
 
 void Mic::FeedBuffer()
 {
-    // try to fill half the mic buffer, but only take as much as the platform can provide
+    // try to fill 3/4 of the mic buffer, but only take as much as the platform can provide
 
-    int writelen = InputBufferSize >> 1;
+    int writelen = 3 * (InputBufferSize >> 2);
     while (writelen > 0)
     {
         int thislen = writelen;
@@ -149,10 +149,9 @@ void Mic::Advance(u32 cycles)
     {
         CycleCount -= 704;
 
-        if (InputBufferLevel < (InputBufferSize >> 1))
+        if (InputBufferLevel < (InputBufferSize >> 2))
             FeedBuffer();
 
-        if (InputBufferLevel == 0) printf("UNDERRUN\n");
         if (InputBufferLevel == 0)
             continue;
 

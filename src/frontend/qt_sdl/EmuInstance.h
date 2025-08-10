@@ -233,8 +233,10 @@ private:
 
     int audioGetNumSamplesOut(int outlen);
     void audioResample(melonDS::s16* inbuf, int inlen, melonDS::s16* outbuf, int outlen, int volume);
-
     static void audioCallback(void* data, Uint8* stream, int len);
+
+    int micGetNumSamplesIn(int inlen);
+    void micResample(melonDS::s16* inbuf, int inlen);
     static void micCallback(void* data, Uint8* stream, int len);
 
     void onKeyPress(QKeyEvent* event);
@@ -321,6 +323,10 @@ private:
     bool micStarted;
 
     SDL_AudioDeviceID micDevice;
+    int micFreq;
+    int micBufSize;
+    float micSampleFrac;
+
     melonDS::s16 micExtBuffer[4096];
     melonDS::u32 micExtBufferWritePos;
     melonDS::u32 micExtBufferCount;
