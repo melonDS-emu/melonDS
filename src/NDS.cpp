@@ -3279,6 +3279,9 @@ void NDS::ARM9IOWrite8(u32 addr, u8 val)
         if (PostFlag9 & 0x01) val |= 0x01;
         PostFlag9 = val & 0x03;
         return;
+
+    // NO$GBA debug register "Char Out"
+        case 0x04FFFA1C: Log(LogLevel::Debug, "%c", char(val)); return;
     }
 
     if (addr >= 0x04000000 && addr < 0x04000060)
