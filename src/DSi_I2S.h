@@ -34,8 +34,6 @@ public:
     void Reset();
     void DoSavestate(Savestate* file);
 
-    void MicInputFrame(const s16* data, int samples);
-
     void SampleClock(s16 output[2]);
 
     u16 ReadMicCnt();
@@ -55,15 +53,6 @@ private:
     FIFO<u32, 16> MicFifo;
     s16 MicTempSample;
     u8 MicTempCount;
-
-    s16 MicBuffer[1024];
-    int MicBufferLen;
-
-    enum
-    {
-        I2S_Freq_32728Hz,
-        I2S_Freq_47605Hz
-    };
 
     void WriteMicData(s16 sample);
 };

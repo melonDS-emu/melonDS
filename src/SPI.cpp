@@ -369,8 +369,6 @@ void TSC::Reset()
     Data = 0;
 
     ConvResult = 0;
-
-    MicBufferLen = 0;
 }
 
 void TSC::DoSavestate(Savestate* file)
@@ -403,19 +401,6 @@ void TSC::SetTouchCoords(u16 x, u16 y)
     TouchX <<= 4;
     TouchY <<= 4;
     NDS.KeyInput &= ~(1 << (16+6));
-}
-
-void TSC::MicInputFrame(const s16* data, int samples)
-{
-    if (!data)
-    {
-        MicBufferLen = 0;
-        return;
-    }
-
-    if (samples > 1024) samples = 1024;
-    memcpy(MicBuffer, data, samples*sizeof(s16));
-    MicBufferLen = samples;
 }
 
 void TSC::Write(u8 val)

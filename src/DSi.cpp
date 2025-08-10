@@ -211,22 +211,6 @@ void DSi::SetDSPHLE(bool hle)
     DSP.SetDSPHLE(hle);
 }
 
-void DSi::CamInputFrame(int cam, const u32* data, int width, int height, bool rgb)
-{
-    switch (cam)
-    {
-    case 0: return I2C.GetOuterCamera()->InputFrame(data, width, height, rgb);
-    case 1: return I2C.GetInnerCamera()->InputFrame(data, width, height, rgb);
-    }
-}
-
-void DSi::MicInputFrame(s16* data, int samples)
-{
-    SPI.GetTSC()->MicInputFrame(data, samples);
-    I2S.MicInputFrame(data, samples);
-    // TODO: Need to send the mic samples to the DSP!
-}
-
 void DSi::DoSavestateExtra(Savestate* file)
 {
     file->Section("DSIG");

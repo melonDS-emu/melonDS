@@ -415,9 +415,6 @@ public: // TODO: Encapsulate the rest of these members
     bool IsLidClosed() const;
     void SetLidClosed(bool closed);
 
-    virtual void CamInputFrame(int cam, const u32* data, int width, int height, bool rgb) {}
-    virtual void MicInputFrame(s16* data, int samples);
-
     void RegisterEventFuncs(u32 id, void* that, const std::initializer_list<EventFunc>& funcs);
     void UnregisterEventFuncs(u32 id);
     void ScheduleEvent(u32 id, bool periodic, s32 delay, u32 funcid, u32 param);

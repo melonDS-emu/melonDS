@@ -121,7 +121,6 @@ public:
     virtual void DoSavestate(Savestate* file) override;
 
     virtual void SetTouchCoords(u16 x, u16 y);
-    virtual void MicInputFrame(const s16* data, int samples);
 
     virtual void Write(u8 val) override;
 
@@ -131,9 +130,6 @@ protected:
     u16 ConvResult;
 
     u16 TouchX, TouchY;
-
-    s16 MicBuffer[1024];
-    int MicBufferLen;
 };
 
 

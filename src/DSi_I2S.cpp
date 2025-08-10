@@ -34,8 +34,6 @@ DSi_I2S::DSi_I2S(melonDS::DSi& dsi) : DSi(dsi)
     MicCnt = 0;
     SndExCnt = 0;
     MicClockDivider = 0;
-
-    MicBufferLen = 0;
 }
 
 DSi_I2S::~DSi_I2S()
@@ -51,8 +49,6 @@ void DSi_I2S::Reset()
     MicTempCount = 0;
 
     MicFifo.Clear();
-
-    MicBufferLen = 0;
 }
 
 void DSi_I2S::DoSavestate(Savestate* file)
@@ -64,19 +60,6 @@ void DSi_I2S::DoSavestate(Savestate* file)
     file->Var8(&MicClockDivider);
 
     MicFifo.DoSavestate(file);
-}
-
-void DSi_I2S::MicInputFrame(const s16* data, int samples)
-{
-    if (!data)
-    {
-        MicBufferLen = 0;
-        return;
-    }
-
-    if (samples > 1024) samples = 1024;
-    memcpy(MicBuffer, data, samples * sizeof(s16));
-    MicBufferLen = samples;
 }
 
 u16 DSi_I2S::ReadMicCnt()

@@ -159,8 +159,6 @@ public:
     void SetSDCard(FATStorage&& sdcard) noexcept { SDMMC.SetSDCard(std::move(sdcard)); }
     void SetSDCard(std::optional<FATStorage>&& sdcard) noexcept { SDMMC.SetSDCard(std::move(sdcard)); }
 
-    void CamInputFrame(int cam, const u32* data, int width, int height, bool rgb) override;
-    void MicInputFrame(s16* data, int samples) override;
     bool DMAsInMode(u32 cpu, u32 mode) const override;
     bool DMAsRunning(u32 cpu) const override;
     void StopDMAs(u32 cpu, u32 mode) override;

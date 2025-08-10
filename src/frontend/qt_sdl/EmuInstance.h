@@ -228,7 +228,6 @@ private:
     void micOpen();
     void micClose();
     void micLoadWav(const std::string& name);
-    void micProcess();
     void setupMicInputData();
 
     int audioGetNumSamplesOut(int outlen);

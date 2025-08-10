@@ -1225,11 +1225,6 @@ void NDS::SetLidClosed(bool closed)
     }
 }
 
-void NDS::MicInputFrame(s16* data, int samples)
-{
-    return SPI.GetTSC()->MicInputFrame(data, samples);
-}
-
 /*int ImportSRAM(u8* data, u32 length)
 {
     return NDSCart::ImportSRAM(data, length);
