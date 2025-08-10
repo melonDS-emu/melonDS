@@ -54,6 +54,7 @@ void Mic::Reset()
 
     CycleCount = 0;
     CurSample = 0;
+    NDSStopCount = 0;
 }
 
 void Mic::DoSavestate(melonDS::Savestate *file)
@@ -64,6 +65,9 @@ void Mic::DoSavestate(melonDS::Savestate *file)
 
 void Mic::Start(MicSource source)
 {
+    if (source == Mic_NDS)
+        NDSStopCount = 0;
+
     if (OpenMask & (1<<source))
         return;
 
@@ -77,8 +81,6 @@ void Mic::Start(MicSource source)
         Platform::Mic_Start(NDS.UserData);
     }
     OpenMask |= (1<<source);
-
-    // TODO set up something to auto stop NDS mic
 }
 
 void Mic::Stop(MicSource source)
@@ -116,13 +118,12 @@ void Mic::FeedBuffer()
         if (!actuallen)
             break;
 
+        if (actuallen > thislen)
+            actuallen = thislen;
         InputBufferLevel += actuallen;
         InputBufferWritePos += actuallen;
         if (InputBufferWritePos >= InputBufferSize)
             InputBufferWritePos -= InputBufferSize;
-
-        if (InputBufferLevel > InputBufferSize)
-            printf("AAAAAAAAAAAAAAAAAAA %d %d\n", InputBufferLevel, InputBufferSize);
 
         if (actuallen < thislen)
             break;
@@ -160,6 +161,15 @@ void Mic::Advance(u32 cycles)
         InputBufferReadPos++;
         if (InputBufferReadPos >= InputBufferSize)
             InputBufferReadPos = 0;
+    }
+
+    // NDS mic input has no explicit start/stop control
+    // so this counter will turn it off if the TSC AUX input doesn't get sampled for one video frame
+    NDSStopCount += cycles;
+    if (NDSStopCount >= 560190)
+    {
+        Stop(Mic_NDS);
+        NDSStopCount = 0;
     }
 }
 

@@ -25,6 +25,7 @@
 #include "DSi.h"
 #include "SPI.h"
 #include "DSi_SPI_TSC.h"
+#include "Mic.h"
 #include "Platform.h"
 
 namespace melonDS
@@ -438,25 +439,15 @@ void TSC::Write(u8 val)
 
         case 0x60:
             {
-                if (MicBufferLen == 0)
-                    ConvResult = 0x800;
-                else
-                {
-                    // 560190 cycles per frame
-                    u32 cyclepos = (u32)NDS.GetSysClockCycles(2);
-                    u32 samplepos = (cyclepos * MicBufferLen) / 560190;
-                    if (samplepos >= MicBufferLen) samplepos = MicBufferLen-1;
-                    s16 sample = MicBuffer[samplepos];
+                // if mic input was already started, this will keep it alive
+                // after a certain time of no mic sampling, it will be stopped
+                NDS.Mic.Start(Mic_NDS);
 
-                    // make it louder
-                    //if (sample > 0x3FFF) sample = 0x7FFF;
-                    //else if (sample < -0x4000) sample = -0x8000;
-                    //else sample <<= 1;
+                s16 sample = NDS.Mic.ReadSample();
 
-                    // make it unsigned 12-bit
-                    sample ^= 0x8000;
-                    ConvResult = sample >> 4;
-                }
+                // make it unsigned 12-bit
+                sample ^= 0x8000;
+                ConvResult = sample >> 4;
             }
             break;
 

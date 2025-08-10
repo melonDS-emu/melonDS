@@ -60,6 +60,7 @@ private:
     u8 OpenMask;
     u32 CycleCount;
     s16 CurSample;
+    u32 NDSStopCount;
 
     void FeedBuffer();
 };
