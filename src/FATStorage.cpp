@@ -192,14 +192,16 @@ u64 FATStorage::GetSectorCount() const
 ff_disk_read_cb FATStorage::FF_ReadStorage() const noexcept
 {
     return [this](BYTE* buf, LBA_t sector, UINT num) {
-        return ReadSectorsInternal(File, FileSize, sector, num, buf);
+        u32 res = ReadSectorsInternal(File, FileSize, sector, num, buf);
+        return res / 0x200;
     };
 }
 
 ff_disk_write_cb FATStorage::FF_WriteStorage() const noexcept
 {
     return [this](const BYTE* buf, LBA_t sector, UINT num) {
-        return WriteSectorsInternal(File, FileSize, sector, num, buf);
+        u32 res = WriteSectorsInternal(File, FileSize, sector, num, buf);
+        return res / 0x200;
     };
 }
 
