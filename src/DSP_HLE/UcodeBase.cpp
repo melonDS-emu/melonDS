@@ -54,13 +54,14 @@ void UcodeBase::Reset()
     SemaphoreOut = 0;
     SemaphoreMask = 0;
 
-    AudioCmd = 0;
-
     AudioPlaying = false;
     AudioOutHalve = false;
     AudioOutAddr = 0;
     AudioOutLength = 0;
     AudioOutFIFO.Clear();
+
+    MicSampling = false;
+    MicInFIFO.Clear();
 }
 
 void UcodeBase::DoSavestate(Savestate *file)
@@ -151,7 +152,10 @@ void UcodeBase::SendReply(u8 index, u16 val)
 
 void UcodeBase::SetReplyReadCallback(u8 index, fnReplyReadCb callback)
 {
-    ReplyReadCb[index] = callback;
+    if (!ReplyWritten[index])
+        callback();
+    else
+        ReplyReadCb[index] = callback;
 }
 
 
@@ -470,34 +474,69 @@ void UcodeBase::WriteARM9Mem(const u16* mem, u32 addr, u32 len)
 
 void UcodeBase::TryStartAudioCmd()
 {
-    // TODO are some commands unavailable in certain situations?
-    // ie. can't sample mic while audio is playing
-
     u16* pipe = LoadPipe(5);
     u32 pipelen = GetPipeLength(pipe);
     if (pipelen < 8) return;
 
     u16 cmdparams[8];
     ReadPipe(pipe, cmdparams, 8);
-    AudioCmd = (cmdparams[0] << 16) | cmdparams[1];
+    u32 cmd = (cmdparams[0] << 16) | cmdparams[1];
     u32 addr = (cmdparams[2] << 16) | cmdparams[3];
     u32 len = (cmdparams[4] << 16) | cmdparams[5];
 
-    printf("audio cmd: %08X %08X %08X\n", AudioCmd, addr, len);
+    printf("audio cmd: %08X %08X %08X\n", cmd, addr, len);
 
-    u32 cmdtype = (AudioCmd >> 12) & 0xF;
-    u32 cmdaction = (AudioCmd >> 8) & 0xF;
+    u32 cmdtype = (cmd >> 12) & 0xF;
+    u32 cmdaction = (cmd >> 8) & 0xF;
     if ((cmdtype == 1) && (cmdaction == 1))
     {
-        // audio output
+        // play sound
 
-        AudioOutHalve = !!(AudioCmd & (1<<1));
+        AudioOutHalve = !!(cmd & (1<<1));
         AudioOutAddr = addr;
         AudioOutLength = len;
         AudioPlaying = true;
 
         if (AudioOutFIFO.IsEmpty())
             AudioOutAdvance();
+    }
+    else if (cmdtype == 2)
+    {
+        const u16 micaddr = 0x2000;
+
+        if (cmdaction == 1)
+        {
+            // start mic sampling
+
+            MicSampling = true;
+            MicInFIFO.Clear();
+
+            // initialize mic buffer
+            u16* mem = (u16*)DSi.NWRAMMap_C[2][0];
+            u16* micbuf = &mem[micaddr];
+            *micbuf++ = 0x2003;             // pointer to mic buffer
+            *micbuf++ = 0x1000;             // buffer length
+            *micbuf++ = 0;                  // write pointer
+            for (int i = 0; i < 0x1000; i++)
+                *micbuf++ = 0;
+
+            DSi.Mic.Start(Mic_DSi_DSP);
+        }
+        else if (cmdaction == 2)
+        {
+            // stop mic sampling
+
+            DSi.Mic.Stop(Mic_DSi_DSP);
+            MicSampling = false;
+        }
+
+        // send response to tell the ARM9 where the mic buffer is
+        SetReplyReadCallback(2, [=]()
+        {
+            u16* rpipe = LoadPipe(4);
+            u16 resp[4] = {(u16)(cmd >> 16), (u16)(cmd & 0xFFFF), 0, micaddr};
+            WritePipe(rpipe, resp, 4);
+        });
     }
 }
 
@@ -525,18 +564,53 @@ void UcodeBase::AudioOutAdvance()
             AudioPlaying = false;
 
             // send completion message
-            u16* pipe = LoadPipe(4);
-            u16 resp[4] = {0x0000, 0x1200, (u16)(AudioOutLength >> 16), (u16)(AudioOutLength & 0xFFFF)};
-            WritePipe(pipe, resp, 4);
+            SetReplyReadCallback(2, [=]()
+            {
+                u16* pipe = LoadPipe(4);
+                u16 resp[4] = {0x0000, 0x1200, (u16)(AudioOutLength >> 16), (u16)(AudioOutLength & 0xFFFF)};
+                WritePipe(pipe, resp, 4);
+            });
 
             break;
         }
     }
 }
 
+void UcodeBase::MicInAdvance()
+{
+    // TODO nicer way to obtain a pointer (and not hardcoding the address)
+    const u16 micaddr = 0x2000;
+    u16* mem = (u16*)DSi.NWRAMMap_C[2][0];
+    u16* micbuf = &mem[micaddr];
+    u16 buflen = micbuf[1];
+    u16 wrpos = micbuf[2];
+    u16* micdata = &micbuf[3];
+
+    while (!MicInFIFO.IsEmpty())
+    {
+        // mic input is written to a circular buffer in DSP RAM
+
+        s16 val = MicInFIFO.Read();
+        micdata[wrpos & 0x3FFF] = val;
+
+        wrpos++;
+        if (wrpos >= buflen)
+            wrpos = 0;
+    }
+
+    micbuf[2] = wrpos;
+}
+
 
 void UcodeBase::SampleClock(s16 output[2], s16 input)
 {
+    if (MicSampling && (!MicInFIFO.IsFull()))
+    {
+        MicInFIFO.Write(input);
+        if (MicInFIFO.IsFull())
+            MicInAdvance();
+    }
+
     if (AudioOutFIFO.IsEmpty() && AudioPlaying)
         AudioOutAdvance();
 
@@ -544,11 +618,12 @@ void UcodeBase::SampleClock(s16 output[2], s16 input)
     {
         output[0] = 0;
         output[1] = 0;
-        return;
     }
-
-    output[0] = AudioOutFIFO.Read();
-    output[1] = AudioOutFIFO.Read();
+    else
+    {
+        output[0] = AudioOutFIFO.Read();
+        output[1] = AudioOutFIFO.Read();
+    }
 }
 
 

@@ -87,13 +87,14 @@ protected:
     u16 SemaphoreOut;       // DSP -> ARM9
     u16 SemaphoreMask;      // DSP -> ARM9
 
-    u32 AudioCmd;
-
     bool AudioPlaying;
     bool AudioOutHalve;
     u32 AudioOutAddr;
     u32 AudioOutLength;
     FIFO<s16, 16> AudioOutFIFO;
+
+    bool MicSampling;
+    FIFO<s16, 8> MicInFIFO;
 
     void SendReply(u8 index, u16 val);
     void SetReplyReadCallback(u8 index, fnReplyReadCb callback);
@@ -110,6 +111,7 @@ protected:
 
     void TryStartAudioCmd();
     void AudioOutAdvance();
+    void MicInAdvance();
 };
 
 }
