@@ -121,6 +121,9 @@ void Mic::FeedBuffer()
         if (InputBufferWritePos >= InputBufferSize)
             InputBufferWritePos -= InputBufferSize;
 
+        if (InputBufferLevel > InputBufferSize)
+            printf("AAAAAAAAAAAAAAAAAAA %d %d\n", InputBufferLevel, InputBufferSize);
+
         if (actuallen < thislen)
             break;
         writelen -= actuallen;
@@ -148,6 +151,7 @@ void Mic::Advance(u32 cycles)
         if (InputBufferLevel < (InputBufferSize >> 1))
             FeedBuffer();
 
+        if (InputBufferLevel == 0) printf("UNDERRUN\n");
         if (InputBufferLevel == 0)
             continue;
 

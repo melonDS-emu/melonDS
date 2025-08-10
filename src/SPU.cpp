@@ -21,6 +21,7 @@
 #include <cmath>
 #include "Platform.h"
 #include "NDS.h"
+#include "Mic.h"
 #include "DSi.h"
 #include "DSi_I2S.h"
 #include "SPU.h"
@@ -966,6 +967,8 @@ void SPU::Mix(u32 spucycles)
         output[0] = (s16)std::clamp(leftoutput, -0x8000, 0x7FFF);
         output[1] = (s16)std::clamp(rightoutput, -0x8000, 0x7FFF);
     }
+
+    NDS.Mic.Advance(spucycles << 1);
 
     if (NDS.ConsoleType == 1)
     {

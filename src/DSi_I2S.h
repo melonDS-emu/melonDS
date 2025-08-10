@@ -52,7 +52,9 @@ private:
     u16 MicCnt;
     u16 SndExCnt;
     u8 MicClockDivider;
-    FIFO<s16, 32> MicFifo;
+    FIFO<u32, 16> MicFifo;
+    s16 MicTempSample;
+    u8 MicTempCount;
 
     s16 MicBuffer[1024];
     int MicBufferLen;
@@ -63,7 +65,7 @@ private:
         I2S_Freq_47605Hz
     };
 
-    void Clock(u32 freq);
+    void WriteMicData(s16 sample);
 };
 
 }

@@ -159,6 +159,11 @@ public:
     void touchScreen(int x, int y);
     void releaseScreen();
 
+    // mic start/stop control from core
+    void micStart();
+    void micStop();
+    int micReadInput(melonDS::s16* data, int maxlength);
+
     QMutex renderLock;
 
 private:
@@ -312,6 +317,8 @@ private:
     SDL_mutex* audioSyncLock;
 
     int mpAudioMode;
+
+    bool micStarted;
 
     SDL_AudioDeviceID micDevice;
     melonDS::s16 micExtBuffer[4096];

@@ -20,6 +20,7 @@
 #include "DSi.h"
 #include "DSi_DSP.h"
 #include "DSi_I2S.h"
+#include "Mic.h"
 #include "Platform.h"
 
 namespace melonDS
@@ -30,8 +31,6 @@ using Platform::LogLevel;
 
 DSi_I2S::DSi_I2S(melonDS::DSi& dsi) : DSi(dsi)
 {
-    DSi.RegisterEventFuncs(Event_DSi_I2S, this, {MakeEventThunk(DSi_I2S, Clock)});
-
     MicCnt = 0;
     SndExCnt = 0;
     MicClockDivider = 0;
@@ -41,7 +40,6 @@ DSi_I2S::DSi_I2S(melonDS::DSi& dsi) : DSi(dsi)
 
 DSi_I2S::~DSi_I2S()
 {
-    DSi.UnregisterEventFuncs(Event_DSi_I2S);
 }
 
 void DSi_I2S::Reset()
@@ -49,12 +47,12 @@ void DSi_I2S::Reset()
     MicCnt = 0;
     SndExCnt = 0;
     MicClockDivider = 0;
+    MicTempSample = 0;
+    MicTempCount = 0;
 
     MicFifo.Clear();
 
     MicBufferLen = 0;
-
-    DSi.ScheduleEvent(Event_DSi_I2S, false, 1024, 0, I2S_Freq_32728Hz);
 }
 
 void DSi_I2S::DoSavestate(Savestate* file)
@@ -84,21 +82,44 @@ void DSi_I2S::MicInputFrame(const s16* data, int samples)
 u16 DSi_I2S::ReadMicCnt()
 {
     u16 ret = MicCnt;
-    if (MicFifo.Level() ==  0) ret |= 1 << 8;
-    if (MicFifo.Level() >= 16) ret |= 1 << 9;
-    if (MicFifo.Level() >= 32) ret |= 1 << 10;
+    u32 fifolevel = MicFifo.Level();
+    if (fifolevel == 0)  ret |= (1 << 8);
+    if (fifolevel >= 8)  ret |= (1 << 9);
+    if (fifolevel == 16) ret |= (1 << 10);
     return ret;
 }
 
 void DSi_I2S::WriteMicCnt(u16 val, u16 mask)
 {
+    if (MicCnt & (1<<15))
+    {
+        // data format, sampling rate and FIFO clear can only be written to
+        // when bit 15 is cleared
+        mask &= ~0x100F;
+    }
+
     val = (val & mask) | (MicCnt & ~mask);
 
-    // FIFO clear can only happen if the mic was disabled before the write
-    if (!(MicCnt & (1 << 15)) && (val & (1 << 12)))
+    if (val & (1 << 12))
     {
         MicCnt &= ~(1 << 11);
         MicFifo.Clear();
+        MicTempSample = 0;
+        MicTempCount = 0;
+    }
+
+    if ((val ^ MicCnt) & (1<<15))
+    {
+        // if needed, start or stop the mic
+        if (val & (1<<15))
+        {
+            MicClockDivider = 0;
+            MicTempCount = 0;
+
+            DSi.Mic.Start(Mic_DSi);
+        }
+        else
+            DSi.Mic.Stop(Mic_DSi);
     }
 
     MicCnt = (val & 0xE00F) | (MicCnt & (1 << 11));
@@ -106,11 +127,9 @@ void DSi_I2S::WriteMicCnt(u16 val, u16 mask)
 
 u32 DSi_I2S::ReadMicData()
 {
-    // CHECKME: This is a complete guess on how mic data reads work
-    // gbatek states the FIFO is 16 words large, with 1 word having 2 samples
-    u32 ret = MicFifo.IsEmpty() ? 0 : (u16)MicFifo.Read();
-    ret |= (MicFifo.IsEmpty() ? 0 : (u16)MicFifo.Read()) << 16;
-    return ret;
+    // reads from this register, of all sizes, always pull a word from the FIFO
+    // if the FIFO is empty, the last word is repeated
+    return MicFifo.Read();
 }
 
 u16 DSi_I2S::ReadSndExCnt()
@@ -158,8 +177,11 @@ void DSi_I2S::SampleClock(s16 output[2])
 
     s16 output_nitro[2] = {output[0], output[1]};
     s16 output_dsp[2];
+    s16 mic_input = DSi.Mic.ReadSample();
 
-    DSi.DSP.SampleClock(output_dsp, 0);
+    DSi.DSP.SampleClock(output_dsp, mic_input);
+
+    WriteMicData(mic_input);
 
     if (SndExCnt & (1<<14))
     {
@@ -180,78 +202,99 @@ void DSi_I2S::SampleClock(s16 output[2])
     }
 }
 
-void DSi_I2S::Clock(u32 freq)
+void DSi_I2S::WriteMicData(s16 sample)
 {
-    if (SndExCnt & (1 << 15))
+    if (!(MicCnt & (1<<15)))    // mic disabled
+        return;
+
+    if (MicCnt & (1<<11))       // FIFO overrun
+        return;
+
+    // NOTE on mic data format (bit 0-1) and sampling rate (bit 2-3)
+    // -
+    // Due to the way the I2S interface works, each mic sample is duplicated.
+    // Format 0 simply feeds both samples into the FIFO.
+    // Formats 1 and 2 reject one of the two samples, in order to produce mono data.
+    // Format 3 rejects both samples.
+    // This suggests that the "data format" is actually a bitfield specifying which samples,
+    // "left" or "right", to reject. However, since both are the same, it isn't clear which
+    // one is "left" or "right".
+    // Figuring this out would require hardware modification in order to feed custom I2S data.
+    // -
+    // Sampling rate uses a simple counter.
+    // For example, with sampling rate value 2 (F/3), at each sample the counter goes:
+    // 0 1 2 0 1 2 0 1 2 ...
+    // When the data format is 0 or 1, samples are accepted when the counter is 0.
+    // However, when the data format is 2, samples are only accepted when the counter is 2
+    // (the maximum value for the current sampling rate setting).
+    // This can be verified by starting the mic interface and measuring the time until the
+    // FIFO becomes non-empty.
+
+    u8 micMode = MicCnt & 0x3;
+    u8 micRate = (MicCnt >> 2) & 0x3;
+
+    if (micMode == 3)
+        return;
+
+    u8 chk = (micMode == 2) ? micRate : 0;
+    if (MicClockDivider == chk)
     {
-        // CHECKME (from gbatek)
-        // "The Sampling Rate becomes zero (no data arriving) when SNDEXCNT.Bit15=0, or when MIC_CNT.bit0-1=3, or when MIC_CNT.bit15=0, or when Overrun has occurred."
-        // This likely means on any of these conditions the mic completely ignores any I2S clocks
-        // Although perhaps it might still acknowledge the clocks in some capacity (maybe affecting below clock division)
-        if ((MicCnt & (1 << 15)) && !(MicCnt & (1 << 11)) && (MicCnt & 3) != 3)
+        u32 val;
+
+        if (micMode == 0)
         {
-            // CHECKME (from gbatek)
-            // "2-3   Sampling Rate  (0..3=F/1, F/2, F/3, F/4)"
-            // This likely works with an internal counter compared with the sampling rate
-            // This counter is then likely reset on mic sample
-            // But this is completely untested
+            // feed two samples at once
 
-            MicClockDivider++;
-            u8 micRate = (MicCnt >> 2) & 3;
-            if (MicClockDivider > micRate)
+            val = (u16)sample;
+            val |= (val << 16);
+        }
+        else
+        {
+            // feed one sample at once
+            // we can only fill the FIFO if we already received another sample
+
+            if (!MicTempCount)
             {
-                MicClockDivider = 0;
-
-                s16 sample = 0;
-                if (MicBufferLen > 0)
-                {
-                    // 560190 cycles per frame
-                    u32 cyclepos = (u32)DSi.GetSysClockCycles(2);
-                    u32 samplepos = (cyclepos * MicBufferLen) / 560190;
-                    if (samplepos >= MicBufferLen) samplepos = MicBufferLen - 1;
-                    sample = MicBuffer[samplepos];
-                }
-
-                u32 oldLevel = MicFifo.Level();
-                if ((MicCnt & 3) == 0)
-                {
-                    // stereo (this just duplicates the sample, as the mic itself is mono)
-                    if (MicFifo.IsFull()) MicCnt |= 1 << 11;
-                    MicFifo.Write(sample);
-                    if (MicFifo.IsFull()) MicCnt |= 1 << 11;
-                    MicFifo.Write(sample);
-                }
-                else
-                {
-                    // mono
-                    if (MicFifo.IsFull()) MicCnt |= 1 << 11;
-                    MicFifo.Write(sample);
-                }
-
-                // if bit 13 is set, an IRQ is generated when the mic FIFO is half full
-                if (MicCnt & (1 << 13))
-                {
-                    if (oldLevel < 16 && MicFifo.Level() >= 16) DSi.SetIRQ2(IRQ2_DSi_MicExt);
-                }
-                // if bit 13 is not set and bit 14 is set, an IRQ is generated when the mic FIFO is full
-                else if (MicCnt & (1 << 14))
-                {
-                    if (oldLevel < 32 && MicFifo.Level() >= 32) DSi.SetIRQ2(IRQ2_DSi_MicExt);
-                }
+                MicTempSample = sample;
+                MicTempCount = 1;
+                return;
             }
+
+            val = (u16)MicTempSample;
+            val |= (((u16)sample) << 16);
         }
 
-        // TODO: SPU and DSP sampling should happen here
-        // use passed freq to know how much to advance SPU by?
+        if (MicFifo.IsFull())
+            MicCnt |= (1<<11);
+        else
+            MicFifo.Write(val);
+
+        MicTempCount = 0;
     }
 
-    if (SndExCnt & (1 << 13))
-    {
-        DSi.ScheduleEvent(Event_DSi_I2S, false, 704, 0, I2S_Freq_47605Hz);
-    }
+    if (MicClockDivider >= micRate)
+        MicClockDivider = 0;
     else
+        MicClockDivider++;
+
+    // MIC_CNT IRQ bits aren't mutually exclusive
+    // also, the bit 14 IRQ signals an overrun, not a FIFO full condition
+
+    if (MicCnt & (1<<11))
     {
-        DSi.ScheduleEvent(Event_DSi_I2S, false, 1024, 0, I2S_Freq_32728Hz);
+        // overrun, raise IRQ if needed
+
+        if (MicCnt & (1<<14))
+            DSi.SetIRQ2(IRQ2_DSi_MicExt);
+    }
+    else if (MicFifo.Level() == 8)
+    {
+        // FIFO became half-full, check for DMA and raise IRQ if needed
+
+        if (MicCnt & (1<<13))
+            DSi.SetIRQ2(IRQ2_DSi_MicExt);
+
+        DSi.CheckNDMAs(1, 0x2C);
     }
 }
 

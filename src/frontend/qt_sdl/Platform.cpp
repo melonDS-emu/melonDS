@@ -536,18 +536,17 @@ int Net_RecvPacket(u8* data, void* userdata)
 
 void Mic_Start(void* userdata)
 {
-    // TODO
+    return ((EmuInstance*)userdata)->micStart();
 }
 
 void Mic_Stop(void* userdata)
 {
-    // TODO
+    return ((EmuInstance*)userdata)->micStop();
 }
 
 int Mic_ReadInput(s16* data, int maxlength, void* userdata)
 {
-    // also TODO
-    return 0;
+    return ((EmuInstance*)userdata)->micReadInput(data, maxlength);
 }
 
 

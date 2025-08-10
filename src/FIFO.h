@@ -63,9 +63,10 @@ public:
 
     T Read()
     {
-        T ret = Entries[ReadPos];
         if (IsEmpty())
-            return ret;
+            return Entries[((ReadPos==0) ? NumEntries : ReadPos) - 1];
+
+        T ret = Entries[ReadPos];
 
         ReadPos++;
         if (ReadPos >= NumEntries)
