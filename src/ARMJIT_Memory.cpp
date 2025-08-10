@@ -98,7 +98,7 @@
     #elif defined(__NetBSD__)
         #define CONTEXT_PC uc_mcontext.__gregs[_REG_PC]
     #elif defined(__OpenBSD__)
-        #define CONTEXT_PC sc_exr
+        #define CONTEXT_PC sc_elr
     #endif
 #endif
 
