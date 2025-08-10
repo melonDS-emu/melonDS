@@ -510,16 +510,6 @@ void UcodeBase::TryStartAudioCmd()
 
             MicSampling = true;
             MicInFIFO.Clear();
-
-            // initialize mic buffer
-            u16* mem = (u16*)DSi.NWRAMMap_C[2][0];
-            u16* micbuf = &mem[micaddr];
-            *micbuf++ = 0x2003;             // pointer to mic buffer
-            *micbuf++ = 0x1000;             // buffer length
-            *micbuf++ = 0;                  // write pointer
-            for (int i = 0; i < 0x1000; i++)
-                *micbuf++ = 0;
-
             DSi.Mic.Start(Mic_DSi_DSP);
         }
         else if (cmdaction == 2)
@@ -528,6 +518,18 @@ void UcodeBase::TryStartAudioCmd()
 
             DSi.Mic.Stop(Mic_DSi_DSP);
             MicSampling = false;
+        }
+
+        if ((cmdaction == 1) || (cmdaction == 2))
+        {
+            // initialize mic buffer
+            u16* mem = (u16*)DSi.NWRAMMap_C[2][0];
+            u16* micbuf = &mem[micaddr];
+            *micbuf++ = 0x2003;             // pointer to mic buffer
+            *micbuf++ = 0x1000;             // buffer length
+            *micbuf++ = 0;                  // write pointer
+            for (int i = 0; i < 0x1000; i++)
+                *micbuf++ = 0;
         }
 
         // send response to tell the ARM9 where the mic buffer is
