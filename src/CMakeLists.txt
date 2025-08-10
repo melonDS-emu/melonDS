@@ -108,6 +108,10 @@ if (ENABLE_JIT)
         target_link_libraries(core PRIVATE onecore)
     endif()
 
+    if (CMAKE_SYSTEM_NAME STREQUAL "OpenBSD")
+        target_link_options(core PUBLIC -Wl,-z,wxallowed)
+    endif()
+
     if (ARCHITECTURE STREQUAL x86_64)
         target_sources(core PRIVATE
             dolphin/x64ABI.cpp
