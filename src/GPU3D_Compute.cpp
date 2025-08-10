@@ -761,7 +761,41 @@ void ComputeRenderer::SetRenderSettings(int scale, bool highResolutionCoordinate
     MaxWorkTiles = TilesPerLine * TileLines * 16; // int
 
 
+
+    // v8
+    // range算出(閾値比較を加算化して分岐回避のため)
+    const uint8_t range = static_cast<uint8_t>((ScaleFactor >= 5) + (ScaleFactor >= 9));
+    // TileScale決定(2のべき乗をシフト一発で生成するため)
+    TileScale = 1u << range;
+    // TileSize決定(8×TileScaleを左シフト一発で生成するため)
+    TileSize = 8u << range;
+    // isSmall判定(32未満かどうかをビットで保持するため)
+    const uint8_t isSmall = static_cast<uint8_t>(range < 2);
+    // CoarseTileCountY決定(4 or 6をビット算術で導出するため)
+    CoarseTileCountY = 4 + (static_cast<int>(range >> 1) << 1);
+    // ClearCoarseBinMaskLocalSize決定(64 or 48をビット算術で導出するため)
+    ClearCoarseBinMaskLocalSize = 64 - (static_cast<int>(range >> 1) << 4);
+
+    // タイル総数算出(後続処理の共通基礎量確定のため)
+    CoarseTileArea = CoarseTileCountX * CoarseTileCountY;
+    // 幅方向ピクセル算出(描画計算の前処理簡略化のため)
+    CoarseTileW = CoarseTileCountX * TileSize;
+    // 高さ方向ピクセル算出(描画計算の前処理簡略化のため)
+    CoarseTileH = CoarseTileCountY * TileSize;
+
+    // 横方向タイル数算出(除算回数を必要最小限に抑えるため)
+    TilesPerLine = ScreenWidth / TileSize;
+    // 縦方向タイル数算出(除算回数を必要最小限に抑えるため)
+    TileLines = ScreenHeight / TileSize;
+
+    // 高解像度座標フラグ反映(外部設定をそのまま反映するため)
+    HiresCoordinates = highResolutionCoordinates;
+    // 最大ワークタイル数算出(固定係数16を乗算一発で反映するため)
+    MaxWorkTiles = TilesPerLine * TileLines * 16;
+
+
 #endif
+
 
     // v7 各種値をマスク演算で高速に計算（分岐なし）
 
@@ -794,7 +828,6 @@ void ComputeRenderer::SetRenderSettings(int scale, bool highResolutionCoordinate
 
     // タイル単位ワーク領域計算
     MaxWorkTiles = TileLines * TilesPerLine * 16;
-
 
 
     /* MelonPrimeDS } */

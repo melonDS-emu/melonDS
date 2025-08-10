@@ -158,8 +158,8 @@ uint32_t calculatePlayerAddress(uint32_t baseAddress, uint8_t playerPosition, in
 
 bool isAltForm;
 bool isInGame = false; // MelonPrimeDS
-bool isLayoutChangePending = true;  // MelonPrimeDSレイアウト変更フラグ 初回実行させるためtrueにしている。
-bool isSensitivityChangePending = true;  // MelonPrimeDS 感度変更フラグ 初回実行させるためtrueにしている。
+bool isLayoutChangePending = true;       // MelonPrimeDS layout change flag - set true to trigger on first run
+bool isSensitivityChangePending = true;  // MelonPrimeDS sensitivity change flag - set true to trigger on first run
 bool isSnapTapMode = false;
 
 melonDS::u32 baseIsAltFormAddr;
@@ -394,9 +394,9 @@ void detectRomAndSetAddressesv1(EmuInstance* emuInstance) {
 
 */
 
-// ROM検出とアドレス設定（すべて関数内で完結）
+// ROM detection and address setup (self-contained within this function)
 void detectRomAndSetAddresses(EmuInstance* emuInstance) {
-    // ROMグループの定義
+    // Define ROM groups
     enum RomGroup {
         GROUP_US1_1,     // US1.1, US1.1_ENCRYPTED
         GROUP_US1_0,     // US1.0, US1.0_ENCRYPTED
@@ -407,14 +407,14 @@ void detectRomAndSetAddresses(EmuInstance* emuInstance) {
         GROUP_KR1_0,     // KR1.0, KR1.0_ENCRYPTED
     };
 
-    // ROM情報の構造体
+    // ROM information structure
     struct RomInfo {
         uint32_t checksum;
         const char* name;
         RomGroup group;
     };
 
-    // チェックサムとROM情報のマッピング（スタック上）
+    // Mapping of checksums to ROM info (stack-allocated)
     const RomInfo ROM_INFO_TABLE[] = {
         {RomVersions::US1_1,           "US1.1",           GROUP_US1_1},
         {RomVersions::US1_1_ENCRYPTED, "US1.1 ENCRYPTED", GROUP_US1_1},
@@ -433,7 +433,7 @@ void detectRomAndSetAddresses(EmuInstance* emuInstance) {
         {RomVersions::KR1_0_ENCRYPTED, "KR1.0 ENCRYPTED", GROUP_KR1_0},
     };
 
-    // チェックサムからROM情報を検索
+    // Search ROM info from checksum
     const RomInfo* romInfo = nullptr;
     for (const auto& info : ROM_INFO_TABLE) {
         if (globalChecksum == info.checksum) {
@@ -442,17 +442,17 @@ void detectRomAndSetAddresses(EmuInstance* emuInstance) {
         }
     }
 
-    // 未対応ROMの場合
+    // If ROM is unsupported
     if (!romInfo) {
         return;
     }
 
-    // JP1.0の基準アドレス（他のバージョンの計算で使用）
+    // JP1.0 base addresses (used for calculations in other versions)
     const uint32_t JP1_0_BASE_IS_ALT_FORM = 0x020DC6D8;
     const uint32_t JP1_0_BASE_WEAPON_CHANGE = 0x020DCA9B;
     const uint32_t JP1_0_BASE_SELECTED_WEAPON = 0x020DCAA3;
 
-    // グループごとのアドレス設定（switch文でスタック使用を最小化）
+    // Set addresses for each group (use switch to minimize stack usage)
     switch (romInfo->group) {
     case GROUP_US1_1:
         baseChosenHunterAddr = 0x020CBDA4; // BattleConfig:ChosenHunter
@@ -510,7 +510,7 @@ void detectRomAndSetAddresses(EmuInstance* emuInstance) {
         baseChosenHunterAddr = 0x020CD358;
         inGameAddr = 0x020F0BB0;
         PlayerPosAddr = 0x020DBB78;
-        baseIsAltFormAddr = JP1_0_BASE_IS_ALT_FORM;  // 基準値そのもの
+        baseIsAltFormAddr = JP1_0_BASE_IS_ALT_FORM;  // Base values themselves
         baseWeaponChangeAddr = JP1_0_BASE_WEAPON_CHANGE;
         baseSelectedWeaponAddr = JP1_0_BASE_SELECTED_WEAPON;
         baseAimXAddr = 0x020E03E6;
@@ -546,14 +546,14 @@ void detectRomAndSetAddresses(EmuInstance* emuInstance) {
         break;
     }
 
-    // 計算で求めるアドレス
-    isInVisorOrMapAddr = PlayerPosAddr - 0xabb;
+    // Addresses calculated from base values
+    isInVisorOrMapAddr = PlayerPosAddr - 0xABB;
     baseLoadedSpecialWeaponAddr = baseIsAltFormAddr + 0x56;
     baseJumpFlagAddr = baseSelectedWeaponAddr - 0xA;
 
     isRomDetected = true;
 
-    // ROM検出メッセージ
+    // ROM detection message
     char message[256];
     sprintf(message, "MPH Rom version detected: %s", romInfo->name);
     emuInstance->osdAddMessage(0, message);
@@ -1025,8 +1025,14 @@ void EmuThread::run()
         }
         };
 
-    // よく使う2フレーム進めるマクロを定義
-#define FRAME_ADVANCE_2 do { frameAdvanceOnce(); frameAdvanceOnce(); } while(0) // 補足：なぜ do { ... } while(0) を使うのか？ これは安全なマクロの基本形であり、if文などの中でブロックとして扱えるようにするため
+// Define a frequently used macro to advance 2 frames
+#define FRAME_ADVANCE_2 \
+    do { \
+        frameAdvanceOnce(); \
+        frameAdvanceOnce(); \
+    } while (0) \
+    // Note: Why use do { ... } while (0)?
+    // This is the standard safe macro form, allowing it to be treated as a single block in statements such as if-conditions.
 
     */
 
@@ -1087,12 +1093,12 @@ void EmuThread::run()
 #define INPUT_Y 11
 
 /*
-#define FN_INPUT_PRESS(i) emuInstance->inputMask.setBit(i, false) // ここでは末尾にセミコロンは不要
-#define FN_INPUT_RELEASE(i) emuInstance->inputMask.setBit(i, true) // ここでは末尾にセミコロンは不要
-*/
-// 最適化されたマクロ定義 - setBit()を使わずに直接ビット操作
-//#define FN_INPUT_PRESS(i) emuInstance->inputMask[i] = false   // 直接代入でプレス
-//#define FN_INPUT_RELEASE(i) emuInstance->inputMask[i] = true  // 直接代入でリリース
+#define FN_INPUT_PRESS(i)   emuInstance->inputMask.setBit(i, false) // No semicolon at the end here
+#define FN_INPUT_RELEASE(i) emuInstance->inputMask.setBit(i, true)  // No semicolon at the end here
+
+// Optimized macro definitions - perform direct bit operations instead of using setBit()
+// #define FN_INPUT_PRESS(i)   emuInstance->inputMask[i] = false   // Direct assignment for press
+// #define FN_INPUT_RELEASE(i) emuInstance->inputMask[i] = true    // Direct assignment for release
 
     /*
 #define PERFORM_TOUCH(x, y) do { \
@@ -1112,13 +1118,13 @@ void EmuThread::run()
     };
     */
 
-/**
-* QBitArrayから12bitの入力状態をビットマスクとして取得するマクロ.
-* 元々はEmuInstanceIput.cppに定義していた.
-*
-* @param input QBitArray（少なくとも12bit以上あること）.
-* @return uint32_t 入力ビット状態（bit 0〜11）をまとめたマスク.
-*/
+    /**
+     * Macro to obtain a 12-bit input state from a QBitArray as a bitmask.
+     * Originally defined in EmuInstanceInput.cpp.
+     *
+     * @param input QBitArray (must have at least 12 bits).
+     * @return uint32_t Bitmask containing input state (bits 0–11).
+     */
 #define GET_INPUT_MASK(inputMask) (                                          \
     (static_cast<uint32_t>((inputMask).testBit(0))  << 0)  |                 \
     (static_cast<uint32_t>((inputMask).testBit(1))  << 1)  |                 \
@@ -2100,6 +2106,25 @@ void EmuThread::run()
 
     // /processMoveInputFunction }
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
     /**
      * エイム入力処理(QCursor使用・構造保持・低遅延・ドリフト防止版).
      *
@@ -2230,9 +2255,9 @@ namespace AimAdjustTable {
 #define AIM_ADJUST(v) ((v) >= 0.5f && (v) < 1.0f ? 1 : ((v) <= -0.5f && (v) > -1.0f ? -1 : static_cast<int16_t>(v)))
 
 
-
-
 #endif
+
+
 
 // 正確。	平均時間（秒）：0.0234
 #define AIM_ADJUST(v)                        \
@@ -2245,21 +2270,21 @@ namespace AimAdjustTable {
     })
 
 
-// ホットパス：フォーカスがありレイアウト変更もない場合
+// Hot path: when there is focus and no layout change
         if (__builtin_expect(!isLayoutChangePending && wasLastFrameFocused, 1)) {
-            // 現在のマウス座標を取得
+            // Get current mouse coordinates
             const QPoint currentPos = QCursor::pos();
             const int posX = currentPos.x();
             const int posY = currentPos.y();
 
-            // マウス移動量を計算
+            // Calculate mouse movement delta
             const int deltaX = posX - aimData.centerX;
             const int deltaY = posY - aimData.centerY;
 
-            // 移動量がゼロなら何もせず終了
+            // If there’s no movement, do nothing and exit
             if ((deltaX | deltaY) == 0) return;
 
-            // 感度が変更された場合の再設定処理
+            // Reconfigure if sensitivity has changed
             if (__builtin_expect(isSensitivityChangePending, 0)) {
                 const int sens = localCfg.GetInt("Metroid.Sensitivity.Aim");
                 aimData.sensitivityFactor = sens * 0.01f;
@@ -2267,7 +2292,7 @@ namespace AimAdjustTable {
                 isSensitivityChangePending = false;
             }
 
-            // 移動量に感度を掛けたスケーリング
+            // Apply sensitivity scaling to movement delta
             const float scaledX = deltaX * aimData.sensitivityFactor;
             const float scaledY = deltaY * aimData.combinedSensitivityY;
 
@@ -2316,119 +2341,119 @@ namespace AimAdjustTable {
     };
 
 
-/**
- * エイム入力処理(QCursor使用・構造保持・低遅延・ドリフト防止版).
- *
- *
- * @note ホットパスの分岐最小化とQPointコピー削減を実施. 感度再計算はフラグ監視で一回化.
- *       AIM_ADJUSTは単回評価の安全なマクロに固定し、±1域のスナップを軽量に実装.
- * .
- */
+    /**
+     * Aim input processing (QCursor-based, structure-preserving, low-latency, drift-prevention version).
+     *
+     * @note Minimizes hot-path branching and reduces QPoint copying.
+     *       Sensitivity recalculation is performed only once via flag monitoring.
+     *       AIM_ADJUST is fixed as a safe single-evaluation macro with lightweight ±1 range snapping.
+     */
     static const auto processAimInput = [&]() __attribute__((hot, always_inline, flatten)) {
 #ifndef STYLUS_MODE
-        // エイム処理用の構造体定義(キャッシュ局所性向上のため)
+        // Structure definition for aim processing (to improve cache locality)
         struct alignas(64) {
-            // 中心座標X格納(差分計算の原点維持のため)
+            // Store center X coordinate (maintain origin for delta calculation)
             int centerX;
-            // 中心座標Y格納(差分計算の原点維持のため)
+            // Store center Y coordinate (maintain origin for delta calculation)
             int centerY;
-            // 感度係数X格納(スケーリング高速化のため)
+            // Store X-axis sensitivity factor (speed up scaling)
             float sensitivityFactor;
-            // 画面アスペクト比格納(Y感度補正のため)
+            // Store screen aspect ratio (for Y-axis sensitivity adjustment)
             float dsAspectRatio;
-            // Y向け結合感度格納(乗算回数削減のため)
+            // Store combined Y-axis sensitivity (reduce multiplication operations)
             float combinedSensitivityY;
         } static aimData = { 0, 0, 0.01f, 1.3333333f, 0.013333333f };
 
-        // ドリフト防止の丸めマクロ定義(単回評価と誤差域スナップのため)
+        // Define macro to prevent drift by rounding (single evaluation and snap within tolerance range)
 #define AIM_ADJUST(v)                                        \
         ({                                                       \
-            /* 入力値退避(多重評価防止のため) */                 \
+            /* Store input value (to prevent multiple evaluations) */ \
             float _v = (v);                                      \
-            /* 10倍スケールの整数化(閾値比較を定数域に落とすため) */ \
+            /* Convert to int scaled by 10 (make threshold comparison constant-domain) */ \
             int _vi = static_cast<int>(_v * 10.001f);            \
-            /* +域スナップ判定(0.5～0.9域の±1固定のため) */      \
+            /* Snap positive range (fix ±1 for values in 0.5–0.9 range) */ \
             (_vi >= 5 && _vi <= 9) ? 1 :                         \
-            /* -域スナップ判定(-0.9～-0.5域の±1固定のため) */    \
+            /* Snap negative range (fix ±1 for values in -0.9–-0.5 range) */ \
             (_vi >= -9 && _vi <= -5) ? -1 :                      \
-            /* 通常は切り捨て(ドリフト抑制のため) */             \
+            /* Otherwise truncate (to suppress drift) */         \
             static_cast<int16_t>(_v);                            \
         })
 
-    // ホットパス分岐(フォーカス維持かつレイアウト不変の高速処理のため)
+// Hot path branch (fast processing when focus is maintained and layout is unchanged)
+
         if (__builtin_expect(!isLayoutChangePending && wasLastFrameFocused, 1)) {
-            // 現在マウス座標取得(差分演算の入力取得のため)
+            // Get current mouse coordinates (for delta calculation input)
             const QPoint currentPos = QCursor::pos();
-            // X座標抽出(QPointからの早期取り出しのため)
+            // Extract X coordinate (early retrieval from QPoint)
             const int posX = currentPos.x();
-            // Y座標抽出(QPointからの早期取り出しのため)
+            // Extract Y coordinate (early retrieval from QPoint)
             const int posY = currentPos.y();
 
-            // X差分算出(スケーリング前の原値確保のため)
+            // Calculate X delta (preserve raw value before scaling)
             const int deltaX = posX - aimData.centerX;
-            // Y差分算出(スケーリング前の原値確保のため)
+            // Calculate Y delta (preserve raw value before scaling)
             const int deltaY = posY - aimData.centerY;
 
-            // 無移動早期終了(不要処理抑止のため)
+            // Early exit if no movement (prevent unnecessary processing)
             if ((deltaX | deltaY) == 0) return;
 
-            // 感度更新判定(再計算の一回化のため)
+            // Check if sensitivity needs update (ensure single recalculation)
             if (__builtin_expect(isSensitivityChangePending, 0)) {
-                // 感度値取得(設定反映のため)
+                // Retrieve sensitivity value (apply updated settings)
                 const int sens = localCfg.GetInt("Metroid.Sensitivity.Aim");
-                // X感度更新(スケーリング係数更新のため)
+                // Update X sensitivity (refresh scaling factor)
                 aimData.sensitivityFactor = sens * 0.01f;
-                // Y結合感度更新(乗算回数削減のため)
+                // Update combined Y sensitivity (reduce multiplications)
                 aimData.combinedSensitivityY = aimData.sensitivityFactor * aimData.dsAspectRatio;
-                // フラグ降ろし(重複再計算抑止のため)
+                // Clear flag (prevent duplicate recalculation)
                 isSensitivityChangePending = false;
             }
 
-            // Xスケーリング計算(感度適用のため)
+            // Calculate X scaling (apply sensitivity)
             const float scaledX = deltaX * aimData.sensitivityFactor;
-            // Yスケーリング計算(感度適用のため)
+            // Calculate Y scaling (apply sensitivity)
             const float scaledY = deltaY * aimData.combinedSensitivityY;
 
-            // X出力補正計算(ドリフト防止と±1スナップのため)
+            // Calculate X output adjustment (prevent drift and snap to ±1)
             const int16_t outputX = AIM_ADJUST(scaledX);
-            // Y出力補正計算(ドリフト防止と±1スナップのため)
+            // Calculate Y output adjustment (prevent drift and snap to ±1)
             const int16_t outputY = AIM_ADJUST(scaledY);
 
-            // Xレジスタ書き込み(NDS側エイム更新のため)
+            // Write X register (update aim on NDS side)
             emuInstance->nds->ARM9Write16(aimXAddr, outputX);
-            // Yレジスタ書き込み(NDS側エイム更新のため)
+            // Write Y register (update aim on NDS side)
             emuInstance->nds->ARM9Write16(aimYAddr, outputY);
 
-            // エイム有効化フラグ設定(後段処理条件化のため)
+            // Set aim enable flag (for conditional processing downstream)
             enableAim = true;
 
-            // カーソル中央戻し(次回差分をゼロ基準に保つため)
+            // Return cursor to center (keep next delta calculation zero-based)
             QCursor::setPos(aimData.centerX, aimData.centerY);
-            // 処理終了(不要分岐回避のため)
+            // End processing (avoid unnecessary branching)
             return;
         }
 
-        // 中心座標再計算(レイアウト変更および初期化対応のため)
+        // Recalculate center coordinates (for layout changes and initialization)
         const QPoint center = getAdjustedCenter();
-        // 中心X更新(次回差分の原点設定のため)
+        // Update center X (set origin for next delta calculation)
         aimData.centerX = center.x();
-        // 中心Y更新(次回差分の原点設定のため)
+        // Update center Y (set origin for next delta calculation)
         aimData.centerY = center.y();
 
-        // カーソル初期配置(視覚的一貫性と差分ゼロ化のため)
+        // Set initial cursor position (for visual consistency and zeroing delta)
         QCursor::setPos(center);
-        // レイアウト変更フラグ降ろし(ホットパス復帰のため)
+        // Clear layout change flag (to return to hot path)
         isLayoutChangePending = false;
 
-        // 感度初期化分岐(設定変更の即時反映のため)
+        // Sensitivity initialization branch (to immediately apply config changes)
         if (isSensitivityChangePending) {
-            // 感度値取得(設定反映のため)
+            // Retrieve sensitivity value (to apply settings)
             const int sens = localCfg.GetInt("Metroid.Sensitivity.Aim");
-            // X感度更新(スケーリング係数設定のため)
+            // Update X sensitivity (set scaling factor)
             aimData.sensitivityFactor = sens * 0.01f;
-            // Y結合感度更新(乗算回数削減のため)
+            // Update combined Y sensitivity (reduce multiplication operations)
             aimData.combinedSensitivityY = aimData.sensitivityFactor * aimData.dsAspectRatio;
-            // フラグ降ろし(重複再計算抑止のため)
+            // Clear flag (prevent redundant recalculation)
             isSensitivityChangePending = false;
         }
 
@@ -2888,7 +2913,7 @@ namespace AimAdjustTable {
                             // release for boost?
                             emuInstance->nds->ReleaseScreen();
 
-                            // ブースト入力確定(ブースト時true, チャージ時falseのため)
+                            // Boost input determination (true during boost, false during charge)
                             inputMask.setBit(INPUT_R, (!isBoosting && isBoostGaugeEnough));
 
                             if (isBoosting) {
