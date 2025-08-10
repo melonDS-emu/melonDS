@@ -1114,6 +1114,7 @@ void EmuThread::run()
 
 /**
 * QBitArrayから12bitの入力状態をビットマスクとして取得するマクロ.
+* 元々はEmuInstanceIput.cppに定義していた.
 *
 * @param input QBitArray（少なくとも12bit以上あること）.
 * @return uint32_t 入力ビット状態（bit 0〜11）をまとめたマスク.
