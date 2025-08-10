@@ -358,13 +358,16 @@ void EmuInstance::setupMicInputData()
     switch (micInputType)
     {
         case micInputType_Silence:
-        case micInputType_Noise:
             micBuffer = nullptr;
             micBufferLength = 0;
             break;
         case micInputType_External:
             micBuffer = micExtBuffer;
-            micBufferLength = sizeof(micExtBuffer)/sizeof(s16);
+            micBufferLength = sizeof(micExtBuffer) / sizeof(s16);
+            break;
+        case micInputType_Noise:
+            micBuffer = (s16*)&mic_blow[0];
+            micBufferLength = sizeof(mic_blow) / sizeof(s16);
             break;
         case micInputType_Wav:
             micLoadWav(micWavPath);
