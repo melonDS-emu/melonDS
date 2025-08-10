@@ -2811,8 +2811,8 @@ u16 DSi::ARM7IORead16(u32 addr)
 
     case 0x4004600: if (!(SCFG_EXT[1] & (1 << 20))) return 0; return I2S.ReadMicCnt();
     case 0x4004602: return 0;
-    case 0x4004604: if (!(SCFG_EXT[1] & (1 << 20))) return 0; return I2S.ReadMicData() >> 16;
-    case 0x4004606: if (!(SCFG_EXT[1] & (1 << 20))) return 0; return I2S.ReadMicData() & 0xFFFF;
+    case 0x4004604: if (!(SCFG_EXT[1] & (1 << 20))) return 0; return I2S.ReadMicData() & 0xFFFF;
+    case 0x4004606: if (!(SCFG_EXT[1] & (1 << 20))) return 0; return I2S.ReadMicData() >> 16;
     case 0x4004700: if (!(SCFG_EXT[1] & (1 << 21))) return 0; return I2S.ReadSndExCnt();
 
     case 0x04004C00: return GPIO_Data | ((u16)GPIO_Dir << 8);
