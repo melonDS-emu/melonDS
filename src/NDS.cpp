@@ -1153,6 +1153,11 @@ void NDS::TouchScreen(u16 x, u16 y)
     SPI.GetTSC()->SetTouchCoords(x, y);
 }
 
+void NDS::MoveTouch(u16 x, u16 y)
+{
+    SPI.GetTSC()->MoveTouchCoords(x, y);
+}
+
 void NDS::ReleaseScreen()
 {
     SPI.GetTSC()->SetTouchCoords(0x000, 0xFFF);

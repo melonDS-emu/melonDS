@@ -352,6 +352,12 @@ void PowerMan::Write(u8 val)
 }
 
 
+s16 TSC::CreateTouchOffset(s16 delta) const
+{
+    // 560190 cycles per frame
+    s64 cyclepos = (s64)NDS.GetSysClockCycles(2);
+    return (cyclepos * delta) / 560190;
+}
 
 TSC::TSC(melonDS::NDS& nds) : SPIDevice(nds)
 {
@@ -392,6 +398,8 @@ void TSC::SetTouchCoords(u16 x, u16 y)
     TouchX = x;
     TouchY = y;
 
+    DeltaX = DeltaY = 0;
+
     if (y == 0xFFF)
     {
         // released
@@ -402,6 +410,17 @@ void TSC::SetTouchCoords(u16 x, u16 y)
     TouchX <<= 4;
     TouchY <<= 4;
     NDS.KeyInput &= ~(1 << (16+6));
+}
+
+void TSC::MoveTouchCoords(u16 x, u16 y)
+{
+    if (NDS.KeyInput & (1 << (16+6)))
+    {
+        return SetTouchCoords(x, y);
+    }
+
+    DeltaX = (x << 4) - TouchX;
+    DeltaY = (y << 4) - TouchY;
 }
 
 void TSC::MicInputFrame(const s16* data, int samples)
@@ -433,8 +452,8 @@ void TSC::Write(u8 val)
 
         switch (ControlByte & 0x70)
         {
-        case 0x10: ConvResult = TouchY; break;
-        case 0x50: ConvResult = TouchX; break;
+        case 0x10: ConvResult = TouchY + CreateTouchOffset(DeltaY); break;
+        case 0x50: ConvResult = TouchX + CreateTouchOffset(DeltaX); break;
 
         case 0x60:
             {
