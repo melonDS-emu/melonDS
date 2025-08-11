@@ -43,6 +43,24 @@ const char* EmuInstance::buttonNames[12] =
     "Y"
 };
 
+SDL_GameControllerButton sdlButtons[12] =
+{
+    // SDL uses A/B for south/east, X/Y for west/north, opposite of the DS
+    // so we swap the buttons so they map to where they are on the DS positionally
+    SDL_CONTROLLER_BUTTON_B,
+    SDL_CONTROLLER_BUTTON_A,
+    SDL_CONTROLLER_BUTTON_BACK,
+    SDL_CONTROLLER_BUTTON_START,
+    SDL_CONTROLLER_BUTTON_DPAD_RIGHT,
+    SDL_CONTROLLER_BUTTON_DPAD_LEFT,
+    SDL_CONTROLLER_BUTTON_DPAD_UP,
+    SDL_CONTROLLER_BUTTON_DPAD_DOWN,
+    SDL_CONTROLLER_BUTTON_RIGHTSHOULDER,
+    SDL_CONTROLLER_BUTTON_LEFTSHOULDER,
+    SDL_CONTROLLER_BUTTON_Y,
+    SDL_CONTROLLER_BUTTON_X
+};
+
 const char* EmuInstance::hotkeyNames[HK_MAX] =
 {
     "HK_Lid",
@@ -115,6 +133,8 @@ void EmuInstance::inputLoadConfig()
         hkKeyMapping[i] = keycfg.GetInt(hotkeyNames[i]);
         hkJoyMapping[i] = joycfg.GetInt(hotkeyNames[i]);
     }
+
+    autoJoystickMapping = joycfg.GetBool("AutoMap");
 
     setJoystick(localCfg.GetInt("JoystickID"));
 }
@@ -397,7 +417,14 @@ void EmuInstance::inputProcess()
     }
 
     joyInputMask = 0xFFF;
-    if (joystick)
+
+    if (autoJoystickMapping && controller != nullptr)
+    {
+        for (int i = 0; i < 12; i++)
+            if (SDL_GameControllerGetButton(controller, sdlButtons[i]))
+                joyInputMask &= ~(1 << i);
+    }
+    else if (joystick)
     {
         for (int i = 0; i < 12; i++)
             if (joystickButtonDown(joyMapping[i]))

@@ -155,6 +155,7 @@ public:
     void setJoystick(int id);
     int getJoystickID() { return joystickID; }
     SDL_Joystick* getJoystick() { return joystick; }
+    bool autoJoystickMapping;
 
     void touchScreen(int x, int y);
     void releaseScreen();

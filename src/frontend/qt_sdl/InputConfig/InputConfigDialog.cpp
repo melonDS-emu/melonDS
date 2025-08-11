@@ -94,6 +94,8 @@ InputConfigDialog::InputConfigDialog(QWidget* parent) : QDialog(parent), ui(new 
         ui->cbxJoystick->setEnabled(false);
     }
 
+    ui->cbAutoMap->setChecked(joycfg.GetBool("AutoMap"));
+
     setupKeypadPage();
 
     int inst = emuInstance->getInstanceID();
@@ -124,7 +126,7 @@ void InputConfigDialog::setupKeypadPage()
         delete pushButtonKey;
         delete pushButtonJoy;
 
-        if (ui->cbxJoystick->isEnabled())
+        if (ui->cbxJoystick->isEnabled() && !ui->cbAutoMap->isChecked())
         {
             ui->stackMapping->setCurrentIndex(1);
         }
@@ -214,6 +216,7 @@ void InputConfigDialog::on_InputConfigDialog_accepted()
     }
 
     instcfg.SetInt("JoystickID", joystickID);
+    joycfg.SetBool("AutoMap", ui->cbAutoMap->isChecked());
     Config::Save();
 
     emuInstance->inputLoadConfig();
@@ -246,6 +249,25 @@ void InputConfigDialog::on_cbxJoystick_currentIndexChanged(int id)
 
     joystickID = id;
     emuInstance->setJoystick(id);
+    setJoyMappingEnabled(ui->cbAutoMap->isChecked());
+}
+
+void InputConfigDialog::on_cbAutoMap_checkStateChanged(Qt::CheckState state)
+{
+    setJoyMappingEnabled(state);
+}
+
+void InputConfigDialog::setJoyMappingEnabled(bool enable)
+{
+    if (enable && SDL_IsGameController(emuInstance->getJoystickID()))
+    {
+        ui->stackMapping->setCurrentIndex(0);
+        ui->btnJoyMapSwitch->setEnabled(false);
+    }
+    else
+    {
+        ui->btnJoyMapSwitch->setEnabled(true);
+    }
 }
 
 SDL_Joystick* InputConfigDialog::getJoystick()
