@@ -220,7 +220,14 @@ void DSi_I2S::WriteMicData(s16 sample)
         return;
 
     u8 chk = (micMode == 2) ? micRate : 0;
-    if (MicClockDivider == chk)
+    bool capture = (MicClockDivider == chk);
+
+    if (MicClockDivider >= micRate)
+        MicClockDivider = 0;
+    else
+        MicClockDivider++;
+
+    if (capture)
     {
         u32 val;
 
@@ -255,11 +262,6 @@ void DSi_I2S::WriteMicData(s16 sample)
         MicTempCount = 0;
     }
 
-    if (MicClockDivider >= micRate)
-        MicClockDivider = 0;
-    else
-        MicClockDivider++;
-
     // MIC_CNT IRQ bits aren't mutually exclusive
     // also, the bit 14 IRQ signals an overrun, not a FIFO full condition
 
@@ -269,6 +271,8 @@ void DSi_I2S::WriteMicData(s16 sample)
 
         if (MicCnt & (1<<14))
             DSi.SetIRQ2(IRQ2_DSi_MicExt);
+
+        DSi.Mic.Stop(Mic_DSi);
     }
     else if (MicFifo.Level() == 8)
     {

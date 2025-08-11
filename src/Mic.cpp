@@ -54,7 +54,9 @@ void Mic::Reset()
 
     CycleCount = 0;
     CurSample = 0;
-    NDSStopCount = 0;
+    StopMask = 0;
+    for (int i = 0; i < 3; i++)
+        StopCount[i] = 0;
 }
 
 void Mic::DoSavestate(melonDS::Savestate *file)
@@ -66,7 +68,10 @@ void Mic::DoSavestate(melonDS::Savestate *file)
 void Mic::Start(MicSource source)
 {
     if (source == Mic_NDS)
-        NDSStopCount = 0;
+        StopMask |= (1<<source);
+    else
+        StopMask &= ~(1<<source);
+    StopCount[source] = 0;
 
     if (OpenMask & (1<<source))
         return;
@@ -88,7 +93,18 @@ void Mic::Stop(MicSource source)
     if (!(OpenMask & (1<<source)))
         return;
 
+    StopMask |= (1<<source);
+    StopCount[source] = 0;
+}
+
+void Mic::DoStop(MicSource source)
+{
+    if (!(OpenMask & StopMask & (1<<source)))
+        return;
+
     OpenMask &= ~(1<<source);
+    StopMask &= ~(1<<source);
+    StopCount[source] = 0;
     if (!OpenMask)
         Platform::Mic_Stop(NDS.UserData);
 }
@@ -99,6 +115,10 @@ void Mic::StopAll()
         return;
 
     OpenMask = 0;
+    StopMask = 0;
+    for (int i = 0; i < 3; i++)
+        StopCount[i] = 0;
+
     Platform::Mic_Stop(NDS.UserData);
 }
 
@@ -164,11 +184,13 @@ void Mic::Advance(u32 cycles)
 
     // NDS mic input has no explicit start/stop control
     // so this counter will turn it off if the TSC AUX input doesn't get sampled for one video frame
-    NDSStopCount += cycles;
-    if (NDSStopCount >= 560190)
+    // other sources also get similar counters, in case we are dealing with stupid code that keeps
+    // turning the mic on and off (hi DSi-mode libnds)
+    for (int i = 0; i < 3; i++)
     {
-        Stop(Mic_NDS);
-        NDSStopCount = 0;
+        StopCount[i] += cycles;
+        if (StopCount[i] >= 560190)
+            DoStop((MicSource)i);
     }
 }
 

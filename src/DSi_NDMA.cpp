@@ -132,7 +132,6 @@ void DSi_NDMA::WriteCnt(u32 val)
 
         // TODO: unsupported start modes:
         // * timers (00-03)
-        // * microphone (ARM7 0C)
         // * NDS-wifi?? (ARM7 07, likely not working)
 
         if (StartMode <= 0x03 || StartMode == 0x05 || (StartMode >= 0x0C && StartMode <= 0x0F) ||

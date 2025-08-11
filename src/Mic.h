@@ -60,8 +60,10 @@ private:
     u8 OpenMask;
     u32 CycleCount;
     s16 CurSample;
-    u32 NDSStopCount;
+    u8 StopMask;
+    u32 StopCount[3];
 
+    void DoStop(MicSource source);
     void FeedBuffer();
 };
 
