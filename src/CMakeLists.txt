@@ -64,8 +64,9 @@ add_library(core STATIC
     fatfs/ffconf.h
 
     sha1/sha1.c
-    tiny-AES-c/aes.c
-    xxhash/xxhash.c)
+    tiny-AES-c/aes.c)
+
+target_link_libraries(core PRIVATE xxHash::xxhash)
 
 if (ENABLE_GDBSTUB)
     message(NOTICE "Enabling GDB stub")

@@ -100,6 +100,8 @@ endif()
 
 option(BUILD_QT_SDL "Build Qt/SDL frontend" ON)
 
+find_package(xxHash MODULE REQUIRED)
+
 add_subdirectory(src)
 
 if (BUILD_QT_SDL)
