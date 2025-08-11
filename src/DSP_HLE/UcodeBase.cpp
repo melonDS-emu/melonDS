@@ -82,12 +82,11 @@ bool UcodeBase::SendDataIsEmpty(u8 index) const
 
 u16 UcodeBase::RecvData(u8 index)
 {
-    if (!ReplyWritten[index]) printf("DSP: receive reply%d but empty\n", index);
     if (!ReplyWritten[index]) return 0; // CHECKME
 
     u16 ret = ReplyReg[index];
     ReplyWritten[index] = false;
-printf("DSP: receive reply%d %04X\n", index, ret);
+
     if (ReplyReadCb[index])
     {
         ReplyReadCb[index]();
@@ -108,7 +107,6 @@ void UcodeBase::SendData(u8 index, u16 val)
 
     CmdReg[index] = val;
     CmdWritten[index] = true;
-    printf("DSP: send cmd%d %04X\n", index, val);
 
     if (Exit) return;
 
@@ -191,8 +189,6 @@ u16 UcodeBase::AHBMGetUnitSize(u16 index) const
 
 u16 UcodeBase::DataReadA32(u32 addr) const
 {
-    printf("ucode: DataReadA32 %08X\n", addr);
-
     addr <<= 1;
     /*if (!(addr & 0x40000))
     {
@@ -208,8 +204,6 @@ u16 UcodeBase::DataReadA32(u32 addr) const
 
 void UcodeBase::DataWriteA32(u32 addr, u16 val)
 {
-    printf("ucode: DataWriteA32 %08X %04X\n", addr, val);
-
     addr <<= 1;
     /*if (!(addr & 0x40000))
     {
@@ -297,10 +291,6 @@ void UcodeBase::SetSemaphoreOut(u16 val)
 
 void UcodeBase::Start()
 {
-    printf("DSP HLE: start\n");
-    // TODO later: detect which ucode it is and create the right class!
-    // (and fall back to Teakra if not a known ucode)
-
     const u16 pipeaddr = 0x0800;
     u16* mem = (u16*)DSi.NWRAMMap_C[2][0];
 
@@ -320,13 +310,9 @@ void UcodeBase::Start()
     SendReply(2, 1);
     SetReplyReadCallback(2, [=]()
     {
-        printf("reply 2 was read\n");
-
         SendReply(2, pipeaddr);
         SetSemaphoreOut(0x8000);
     });
-
-    // TODO more shit
 }
 
 
@@ -483,8 +469,6 @@ void UcodeBase::TryStartAudioCmd()
     u32 cmd = (cmdparams[0] << 16) | cmdparams[1];
     u32 addr = (cmdparams[2] << 16) | cmdparams[3];
     u32 len = (cmdparams[4] << 16) | cmdparams[5];
-
-    printf("audio cmd: %08X %08X %08X\n", cmd, addr, len);
 
     u32 cmdtype = (cmd >> 12) & 0xF;
     u32 cmdaction = (cmd >> 8) & 0xF;

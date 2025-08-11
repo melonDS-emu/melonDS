@@ -55,7 +55,7 @@ u16 DSi_DSP::GetPSTS() const
         if  (DSPCore->RecvDataIsReady(1)) r |= 1 << 11;
         if  (DSPCore->RecvDataIsReady(2)) r |= 1 << 12;
     }
-//printf("GetPSTS: %04X\n", r); 8100
+
     return r;
 }
 
@@ -129,11 +129,6 @@ void DSi_DSP::SampleClock(s16 output[2], s16 input)
 
 void DSi_DSP::StartDSPHLE()
 {
-    // TODO
-    // check CRC32 of code
-    // fallback to Teakra if not found
-    printf("create HLE core\n");
-
     u32 crc = 0;
 
     // Hash NWRAM B, which contains the DSP program
@@ -144,7 +139,7 @@ void DSi_DSP::StartDSPHLE()
         crc = CRC32(ptr, 0x8000, crc);
     }
 
-    printf("CRC = %08X\n", crc);
+    Log(LogLevel::Info, "DSP_HLE: CRC = %08X\n", crc);
 
     switch (crc)
     {
@@ -223,6 +218,7 @@ void DSi_DSP::StartDSPHLE()
         break;
 
     default:
+        Log(LogLevel::Info, "DSP_HLE: unknown ucode, falling back to Teakra\n");
         StartDSPLLE();
         break;
     }
@@ -288,9 +284,6 @@ DSi_DSP::DSi_DSP(melonDS::DSi& dsi) : DSi(dsi)
     DSPCore = nullptr;
     SCFG_RST = false;
 
-    //if (!DSPHLE)
-    //    StartDSPLLE();
-
     //PDATAReadFifo = new FIFO<u16>(16);
     //PDATAWriteFifo = new FIFO<u16>(16);
 }
@@ -322,7 +315,6 @@ void DSi_DSP::Reset()
 
     PDATAReadFifo.Clear();
     //PDATAWriteFifo->Clear();
-    //TeakraCore->Reset();
     if (DSPHLE)
         StopDSP();
     else if (DSPCore)
@@ -362,7 +354,6 @@ inline bool DSi_DSP::IsDSPIOEnabled() const
 
 bool DSi_DSP::DSPCatchUp()
 {
-    //asm volatile("int3");
     if (!IsDSPCoreEnabled())
     {
         // nothing to do, but advance the current time so that we don't do an
@@ -399,18 +390,13 @@ void DSi_DSP::PDataDMAWrite(u16 wrval)
         switch (DSP_PCFG & (7<<12)) // memory region select
         {
         case 0<<12: // data
-            //addr |= (u32)TeakraCore->DMAChan0GetDstHigh() << 16;
-            //TeakraCore->DataWriteA32(addr, wrval);
             addr |= (u32)DSPCore->DMAChan0GetDstHigh() << 16;
             DSPCore->DataWriteA32(addr, wrval);
             break;
         case 1<<12: // mmio
-            //TeakraCore->MMIOWrite(addr & 0x7FF, wrval);
             DSPCore->MMIOWrite(addr & 0x7FF, wrval);
             break;
         case 5<<12: // program
-            //addr |= (u32)TeakraCore->DMAChan0GetDstHigh() << 16;
-            //TeakraCore->ProgramWrite(addr, wrval);
             addr |= (u32)DSPCore->DMAChan0GetDstHigh() << 16;
             DSPCore->ProgramWrite(addr, wrval);
             break;
@@ -433,7 +419,6 @@ void DSi_DSP::PDataDMAWrite(u16 wrval)
         default: return;
         }
     }
-    printf("DSP: PDATA write %08X -> %04X\n", addr, wrval);
 
     if (DSP_PCFG & (1<<1)) // auto-increment
         ++DSP_PADR; // overflows and stays within a 64k 'page' // TODO: is this +1 or +2?
@@ -451,18 +436,13 @@ u16 DSi_DSP::PDataDMARead()
         switch (DSP_PCFG & (7<<12)) // memory region select
         {
         case 0<<12: // data
-            //addr |= (u32)TeakraCore->DMAChan0GetDstHigh() << 16;
-            //r = TeakraCore->DataReadA32(addr);
             addr |= (u32)DSPCore->DMAChan0GetDstHigh() << 16;
             r = DSPCore->DataReadA32(addr);
             break;
         case 1<<12: // mmio
-            //r = TeakraCore->MMIORead(addr & 0x7FF);
             r = DSPCore->MMIORead(addr & 0x7FF);
             break;
         case 5<<12: // program
-            //addr |= (u32)TeakraCore->DMAChan0GetDstHigh() << 16;
-            //r = TeakraCore->ProgramRead(addr);
             addr |= (u32)DSPCore->DMAChan0GetDstHigh() << 16;
             r = DSPCore->ProgramRead(addr);
             break;
@@ -482,7 +462,6 @@ u16 DSi_DSP::PDataDMARead()
         default: return r;
         }
     }
-    printf("DSP: PDATA read %08X -> %04X (%04X)\n", addr, r, DSP_PCFG);
 
     if (DSP_PCFG & (1<<1)) // auto-increment
         ++DSP_PADR; // overflows and stays within a 64k 'page' // TODO: is this +1 or +2?
@@ -528,7 +507,7 @@ u16 DSi_DSP::PDataDMAReadMMIO()
 
     if (!PDATAReadFifo.IsEmpty())
         ret = PDATAReadFifo.Read();
-printf("DSP: actually read PDATA FIFO (%04X)\n",ret);
+
     // aha, there's more to come
     if (PDataDMALen != 0)
     {
@@ -549,7 +528,6 @@ printf("DSP: actually read PDATA FIFO (%04X)\n",ret);
 
 u8 DSi_DSP::Read8(u32 addr)
 {
-    //if (!IsDSPIOEnabled()) return 0;
     DSPCatchUp();
 
     addr &= 0x3F; // mirroring wheee
@@ -568,8 +546,6 @@ u8 DSi_DSP::Read8(u32 addr)
     case 0x14: return DSP_PMASK & 0xFF;
     case 0x15: return DSP_PMASK >> 8;
     // no DSP_PCLEAR read
-    //case 0x1C: return TeakraCore->GetSemaphore() & 0xFF; // SEM
-    //case 0x1D: return TeakraCore->GetSemaphore() >> 8;
     case 0x1C:
         if (!DSPCore) return 0;
         return DSPCore->GetSemaphore() & 0xFF; // SEM
@@ -582,8 +558,6 @@ u8 DSi_DSP::Read8(u32 addr)
 }
 u16 DSi_DSP::Read16(u32 addr)
 {
-    //printf("DSP READ16 %d %08X   %08X\n", IsDSPCoreEnabled(), addr, NDS::GetPC(0));
-    //if (!IsDSPIOEnabled()) return 0;
     DSPCatchUp();
 
     addr &= 0x3E; // mirroring wheee
@@ -609,19 +583,19 @@ u16 DSi_DSP::Read16(u32 addr)
     case 0x24:
         {
             if (!DSPCore) return 0;
-            u16 r = DSPCore->RecvData(0);printf("DSP: read CMD0, %04X\n", r);
+            u16 r = DSPCore->RecvData(0);
             return r;
         }
     case 0x2C:
         {
             if (!DSPCore) return 0;
-            u16 r = DSPCore->RecvData(1);printf("DSP: read CMD1, %04X\n", r);
+            u16 r = DSPCore->RecvData(1);
             return r;
         }
     case 0x34:
         {
             if (!DSPCore) return 0;
-            u16 r = DSPCore->RecvData(2);printf("DSP: read CMD2, %04X\n", r);
+            u16 r = DSPCore->RecvData(2);
             return r;
         }
     }
@@ -637,7 +611,6 @@ u32 DSi_DSP::Read32(u32 addr)
 
 void DSi_DSP::Write8(u32 addr, u8 val)
 {
-    //if (!IsDSPIOEnabled()) return;
     DSPCatchUp();
 
     addr &= 0x3F;
@@ -659,8 +632,6 @@ void DSi_DSP::Write8(u32 addr, u8 val)
 
 void DSi_DSP::Write16(u32 addr, u16 val)
 {
-    Log(LogLevel::Debug,"DSP WRITE16 %d %08X %08X  %08X\n", IsDSPCoreEnabled(), addr, val, DSi.GetPC(0));
-    //if (!IsDSPIOEnabled()) return;
     DSPCatchUp();
 
     addr &= 0x3E;
