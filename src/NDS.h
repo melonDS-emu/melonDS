@@ -249,6 +249,7 @@ public: // TODO: Encapsulate the rest of these members
     void* UserData;
 
     int ConsoleType;
+    int DebugBoardConfig;
     int CurCPU;
 
     SchedEvent SchedList[Event_MAX] {};
@@ -293,8 +294,7 @@ public: // TODO: Encapsulate the rest of these members
 
     u8* MainRAM;
     u32 MainRAMMask;
-
-    const u32 MainRAMMaxSize = 0x1000000;
+    u32 MainRAMPresent;
 
     const u32 SharedWRAMSize = 0x8000;
     u8* SharedWRAM;
@@ -547,7 +547,7 @@ private:
     u32 RunFrame();
 
 public:
-    NDS(NDSArgs&& args, void* userdata = nullptr) noexcept : NDS(std::move(args), 0, userdata) {}
+    NDS(NDSArgs&& args, void* userdata = nullptr) noexcept : NDS(std::move(args), 0, 0, userdata) {}
     NDS() noexcept;
     virtual ~NDS() noexcept;
     NDS(const NDS&) = delete;
@@ -557,7 +557,7 @@ public:
 
     static thread_local NDS* Current;
 protected:
-    explicit NDS(NDSArgs&& args, int type, void* userdata) noexcept;
+    explicit NDS(NDSArgs&& args, int type, int debugbc, void* userdata) noexcept;
     virtual void DoSavestateExtra(Savestate* file) {}
 };
 

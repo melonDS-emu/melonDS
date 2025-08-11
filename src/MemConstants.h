@@ -23,7 +23,8 @@
 
 namespace melonDS
 {
-constexpr u32 MainRAMMaxSize = 0x1000000;
+constexpr u32 MainRAMPrimaryMappingMaxSize = 0x1000000;
+constexpr u32 MainRAMMaxSize = 0x2000000;
 constexpr u32 SharedWRAMSize = 0x8000;
 constexpr u32 ARM7WRAMSize = 0x10000;
 constexpr u32 NWRAMSize = 0x40000;

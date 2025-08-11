@@ -87,8 +87,9 @@ NDS::NDS() noexcept :
 {
 }
 
-NDS::NDS(NDSArgs&& args, int type, void* userdata) noexcept :
+NDS::NDS(NDSArgs&& args, int type, int debugbc, void* userdata) noexcept :
     ConsoleType(type),
+    DebugBoardConfig(debugbc),
     UserData(userdata),
     ARM7BIOS(*args.ARM7BIOS),
     ARM9BIOS(*args.ARM9BIOS),
@@ -446,12 +447,14 @@ void NDS::Reset()
         // BIOS files are now loaded by the frontend
 
         ARM9ClockShift = 2;
-        MainRAMMask = 0xFFFFFF;
+        MainRAMMask = DebugBoardConfig ? 0x1FFFFFF : 0x1FFFFFF; // Intentional default
+        MainRAMPresent = DebugBoardConfig ? 0x2000000 : 0x1000000; // 32MiB and 16MiB
     }
     else
     {
         ARM9ClockShift = 1;
-        MainRAMMask = 0x3FFFFF;
+        MainRAMMask = DebugBoardConfig ? 0x7FFFFF : 0x3FFFFF;
+        MainRAMPresent = DebugBoardConfig ? 0x800000 : 0x400000; // 8MiB and 4MiB
     }
     // has to be called before InitTimings
     // otherwise some PU settings are completely
