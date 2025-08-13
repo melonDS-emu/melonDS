@@ -58,6 +58,16 @@ void DSi_I2S::DoSavestate(Savestate* file)
     file->Var16(&MicCnt);
     file->Var16(&SndExCnt);
     file->Var8(&MicClockDivider);
+    file->Var16((u16*)&MicTempSample);
+    file->Var8(&MicTempCount);
+
+    if (!file->Saving)
+    {
+        if (MicCnt & (1<<15))
+            DSi.Mic.Start(Mic_DSi);
+        else
+            DSi.Mic.Stop(Mic_DSi);
+    }
 
     MicFifo.DoSavestate(file);
 }

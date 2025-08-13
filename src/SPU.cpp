@@ -261,6 +261,14 @@ void SPU::DoSavestate(Savestate* file)
     file->Var8(&MasterVolume);
     file->Var16(&Bias);
 
+    file->Var8(&OutputSamplePos);
+    file->Var8(&OutputSampleInc);
+    file->VarArray(OutputLastSamples, sizeof(OutputLastSamples));
+
+    file->Var32(&MixInterval);
+
+    file->Bool32(&Mute);
+
     for (SPUChannel& channel : Channels)
         channel.DoSavestate(file);
 
