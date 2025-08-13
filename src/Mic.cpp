@@ -61,7 +61,28 @@ void Mic::Reset()
 
 void Mic::DoSavestate(melonDS::Savestate *file)
 {
-    //
+    file->Section("MIC.");
+
+    file->Var8(&OpenMask);
+    file->Var32(&CycleCount);
+    file->Var16((u16*)&CurSample);
+    file->Var8(&StopMask);
+    file->VarArray(StopCount, sizeof(StopCount));
+
+    if (!file->Saving)
+    {
+        if (OpenMask)
+        {
+            memset(InputBuffer, 0, sizeof(InputBuffer));
+            InputBufferWritePos = 0;
+            InputBufferReadPos = 0;
+            InputBufferLevel = 0;
+
+            Platform::Mic_Start(NDS.UserData);
+        }
+        else
+            Platform::Mic_Stop(NDS.UserData);
+    }
 }
 
 
