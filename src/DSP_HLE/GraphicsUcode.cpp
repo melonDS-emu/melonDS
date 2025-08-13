@@ -58,7 +58,9 @@ void GraphicsUcode::Reset()
 
 void GraphicsUcode::DoSavestate(Savestate *file)
 {
-    //
+    UcodeBase::DoSavestate(file);
+
+    // TODO
 }
 
 

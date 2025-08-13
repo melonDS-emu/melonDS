@@ -9,6 +9,8 @@
 
 namespace Teakra {
 
+const std::uint32_t ID = 0x7EAC0000;
+
 struct SharedMemoryCallback {
     std::function<std::uint16_t(std::uint32_t address)> read16;
     std::function<void(std::uint32_t address, std::uint16_t value)> write16;
@@ -32,6 +34,8 @@ public:
 
     void Reset();
     void DoSavestate(melonDS::Savestate* file);
+
+    std::uint32_t GetID() { return ID; }
 
     // APBP Data
     bool SendDataIsEmpty(std::uint8_t index) const;

@@ -37,6 +37,9 @@ public:
     virtual void Reset();
     virtual void DoSavestate(Savestate* file);
 
+    u32 GetID() { return (UcodeClass << 16) | (UcodeVersion & 0xFFFF); }
+
+    enum {Class_AAC, Class_Graphics, Class_G711};
     typedef std::function<void()> fnReplyReadCb;
 
     bool RecvDataIsReady(u8 index) const;
@@ -72,7 +75,7 @@ public:
 
 protected:
     melonDS::DSi& DSi;
-    enum {Class_AAC, Class_Graphics, Class_G711} UcodeClass;
+    int UcodeClass;
     int UcodeVersion;
 
     bool Exit;

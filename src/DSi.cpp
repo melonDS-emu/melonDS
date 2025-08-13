@@ -225,6 +225,10 @@ void DSi::DoSavestateExtra(Savestate* file)
 {
     file->Section("DSIG");
 
+    file->VarArray(NWRAM_A, NWRAMSize);
+    file->VarArray(NWRAM_B, NWRAMSize);
+    file->VarArray(NWRAM_C, NWRAMSize);
+
     file->Var16(&SCFG_BIOS);
     file->Var16(&SCFG_Clock9);
     file->Var16(&SCFG_Clock7);

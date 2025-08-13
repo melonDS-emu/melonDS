@@ -72,7 +72,9 @@ void AACUcode::Reset()
 
 void AACUcode::DoSavestate(Savestate *file)
 {
-    //
+    UcodeBase::DoSavestate(file);
+
+    // TODO
 }
 
 

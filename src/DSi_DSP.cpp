@@ -106,7 +106,50 @@ void DSi_DSP::DoSavestate(Savestate* file)
     file->Var16(&DSP_REP[2]);
     file->Var8((u8*)&SCFG_RST);
 
-    // TODO: save the Teakra state!!!
+    if (DSPHLE)
+    {
+        // for DSP HLE, handle the specific core as needed
+
+        if (file->Saving)
+        {
+            u32 id = DSPCore ? DSPCore->GetID() : 0xFFFFFFFF;
+            file->Var32(&id);
+        }
+        else
+        {
+            u32 id;
+            file->Var32(&id);
+
+            StopDSP();
+
+            if (id == Teakra::ID)
+            {
+                StartDSPLLE();
+            }
+            else
+            {
+                u32 uclass = id >> 16;
+                int uver = (int)(s16)(id & 0xFFFF);
+                switch (uclass)
+                {
+                case DSP_HLE::UcodeBase::Class_AAC:
+                    DSPCore = new DSP_HLE::AACUcode(DSi, uver);
+                    break;
+
+                case DSP_HLE::UcodeBase::Class_G711:
+                    DSPCore = new DSP_HLE::G711Ucode(DSi, uver);
+                    break;
+
+                case DSP_HLE::UcodeBase::Class_Graphics:
+                    DSPCore = new DSP_HLE::GraphicsUcode(DSi, uver);
+                    break;
+                }
+            }
+        }
+    }
+
+    if (DSPCore)
+        DSPCore->DoSavestate(file);
 }
 
 void DSi_DSP::SetDSPHLE(bool hle)

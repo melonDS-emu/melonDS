@@ -57,7 +57,9 @@ void G711Ucode::Reset()
 
 void G711Ucode::DoSavestate(Savestate *file)
 {
-    //
+    UcodeBase::DoSavestate(file);
+
+    // TODO
 }
 
 

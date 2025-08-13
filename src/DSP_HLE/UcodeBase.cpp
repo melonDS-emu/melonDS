@@ -66,7 +66,28 @@ void UcodeBase::Reset()
 
 void UcodeBase::DoSavestate(Savestate *file)
 {
-    // TODO
+    file->Section("DHBS");
+
+    file->Bool32(&Exit);
+
+    file->VarArray(CmdReg, sizeof(CmdReg));
+    file->VarArray(CmdWritten, sizeof(CmdWritten));
+    file->VarArray(ReplyReg, sizeof(ReplyReg));
+    file->VarArray(ReplyWritten, sizeof(ReplyWritten));
+    // TODO THE REPLY READ CALLBACK!!
+
+    file->Var16(&SemaphoreIn);
+    file->Var16(&SemaphoreOut);
+    file->Var16(&SemaphoreMask);
+
+    file->Bool32(&AudioPlaying);
+    file->Bool32(&AudioOutHalve);
+    file->Var32(&AudioOutAddr);
+    file->Var32(&AudioOutLength);
+    AudioOutFIFO.DoSavestate(file);
+
+    file->Bool32(&MicSampling);
+    MicInFIFO.DoSavestate(file);
 }
 
 

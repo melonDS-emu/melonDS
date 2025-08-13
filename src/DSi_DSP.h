@@ -42,6 +42,8 @@ public:
     virtual void Reset() = 0;
     virtual void DoSavestate(Savestate* file) = 0;
 
+    virtual u32 GetID() = 0;
+
     // APBP Data
     virtual bool SendDataIsEmpty(std::uint8_t index) const = 0;
     virtual void SendData(std::uint8_t index, std::uint16_t value) = 0;
