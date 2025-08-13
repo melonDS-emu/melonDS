@@ -66,7 +66,7 @@ void UcodeBase::Reset()
 
 void UcodeBase::DoSavestate(Savestate *file)
 {
-    file->Section("DHBS");
+    file->Section("DSPH");
 
     file->Bool32(&Exit);
 

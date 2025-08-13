@@ -60,7 +60,9 @@ void GraphicsUcode::DoSavestate(Savestate *file)
 {
     UcodeBase::DoSavestate(file);
 
-    // TODO
+    file->Var8(&CmdState);
+    file->Var16(&CmdIndex);
+    file->VarArray(CmdParams, sizeof(CmdParams));
 }
 
 

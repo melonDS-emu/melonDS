@@ -59,7 +59,8 @@ void G711Ucode::DoSavestate(Savestate *file)
 {
     UcodeBase::DoSavestate(file);
 
-    // TODO
+    file->Var8(&CmdState);
+    file->VarArray(CmdParams, sizeof(CmdParams));
 }
 
 

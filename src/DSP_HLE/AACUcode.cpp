@@ -74,7 +74,16 @@ void AACUcode::DoSavestate(Savestate *file)
 {
     UcodeBase::DoSavestate(file);
 
-    // TODO
+    file->Var8(&CmdState);
+    file->Var16(&CmdIndex);
+    file->Var8(&CmdParamCount);
+    file->VarArray(CmdParams, sizeof(CmdParams));
+
+    if (!file->Saving)
+    {
+        LastFrequency = -1;
+        LastChannels = -1;
+    }
 }
 
 
@@ -138,8 +147,8 @@ void AACUcode::CmdDecodeFrame()
     u32 leftaddr = (CmdParams[6] << 16) | CmdParams[7];
     u32 rightaddr = (CmdParams[8] << 16) | CmdParams[9];
 
-    printf("AAC: len=%d freq=%d chan=%d in=%08X out=%08X/%08X\n",
-           framelen, freq, chan, frameaddr, leftaddr, rightaddr);
+    //printf("AAC: len=%d freq=%d chan=%d in=%08X out=%08X/%08X\n",
+    //       framelen, freq, chan, frameaddr, leftaddr, rightaddr);
 
     // verify the parameters
     bool fail = false;
