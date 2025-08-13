@@ -11,10 +11,11 @@ namespace Teakra {
 
 class Btdmp : public CoreTiming::Callbacks {
 public:
-    Btdmp(CoreTiming& core_timing);
+    Btdmp(CoreTiming& core_timing, int num);
     ~Btdmp();
 
     void Reset();
+    void DoSavestate(melonDS::Savestate* file);
 
     void SetTransmitClockConfig(u16 value) {
         transmit_clock_config = value;
@@ -147,6 +148,8 @@ public:
     }
 
 private:
+    int num;
+
     // TODO: figure out the relation between clock_config and period.
     u16 transmit_clock_config = 0;
     u16 transmit_period = 4096;

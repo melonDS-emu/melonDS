@@ -20,11 +20,11 @@ struct Teakra::Impl {
     SharedMemory shared_memory;
     MemoryInterfaceUnit miu;
     ICU icu;
-    Apbp apbp_from_cpu, apbp_from_dsp;
-    std::array<Timer, 2> timer{{{core_timing}, {core_timing}}};
+    Apbp apbp_from_cpu{0}, apbp_from_dsp{1};
+    std::array<Timer, 2> timer{{{core_timing, 0}, {core_timing, 1}}};
     Ahbm ahbm;
     Dma dma{shared_memory, ahbm};
-    std::array<Btdmp, 2> btdmp{{{core_timing}, {core_timing}}};
+    std::array<Btdmp, 2> btdmp{{{core_timing, 0}, {core_timing, 1}}};
     MMIORegion mmio{miu, icu, apbp_from_cpu, apbp_from_dsp, timer, dma, ahbm, btdmp};
     MemoryInterface memory_interface{shared_memory, miu};
     Processor processor{core_timing, memory_interface};
@@ -50,6 +50,7 @@ struct Teakra::Impl {
     }
 
     void Reset() {
+        icu.Reset();
         miu.Reset();
         apbp_from_cpu.Reset();
         apbp_from_dsp.Reset();
@@ -61,6 +62,20 @@ struct Teakra::Impl {
         btdmp[1].Reset();
         processor.Reset();
     }
+
+    void DoSavestate(melonDS::Savestate* file) {
+        icu.DoSavestate(file);
+        miu.DoSavestate(file);
+        apbp_from_cpu.DoSavestate(file);
+        apbp_from_dsp.DoSavestate(file);
+        timer[0].DoSavestate(file);
+        timer[1].DoSavestate(file);
+        ahbm.DoSavestate(file);
+        dma.DoSavestate(file);
+        btdmp[0].DoSavestate(file);
+        btdmp[1].DoSavestate(file);
+        processor.DoSavestate(file);
+    }
 };
 
 Teakra::Teakra() : impl(new Impl) {}
@@ -71,7 +86,7 @@ void Teakra::Reset() {
 }
 
 void Teakra::DoSavestate(melonDS::Savestate* file) {
-    // TODO
+    impl->DoSavestate(file);
 }
 
 void Teakra::Run(unsigned cycle) {

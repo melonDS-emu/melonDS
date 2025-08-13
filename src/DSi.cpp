@@ -249,7 +249,6 @@ void DSi::DoSavestateExtra(Savestate* file)
     {
         Set_SCFG_Clock9(SCFG_Clock9);
         Set_SCFG_MC(SCFG_MC);
-        DSP.SetRstLine(SCFG_RST & 0x0001);
 
         MBK[0][8] = 0;
         MBK[1][8] = 0;
