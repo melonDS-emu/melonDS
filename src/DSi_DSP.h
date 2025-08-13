@@ -126,7 +126,6 @@ public:
     void IrqSem();
     u16 DSPRead16(u32 addr);
     void DSPWrite16(u32 addr, u16 val);
-    void AudioCb(std::array<s16, 2> frame);
 
     void SampleClock(s16 output[2], s16 input);
 
