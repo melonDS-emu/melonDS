@@ -94,6 +94,7 @@ public:
     void Reset();
     void DoSavestate(Savestate* file);
 
+    bool GetDSPHLE() { return DSPHLE; }
     void SetDSPHLE(bool hle);
 
     void StartDSPLLE();

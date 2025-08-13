@@ -211,6 +211,16 @@ void DSi::SetDSPHLE(bool hle)
     DSP.SetDSPHLE(hle);
 }
 
+u32 DSi::GetSavestateConfig()
+{
+    u32 ret = NDS::GetSavestateConfig();
+
+    if (DSP.GetDSPHLE())
+        ret |= SC_DSi_DSPHLE;
+
+    return ret;
+}
+
 void DSi::DoSavestateExtra(Savestate* file)
 {
     file->Section("DSIG");

@@ -613,22 +613,32 @@ void NDS::Stop(Platform::StopReason reason)
     Mic.StopAll();
 }
 
+u32 NDS::GetSavestateConfig()
+{
+    u32 ret = 0;
+
+    if (ConsoleType == 1)
+        ret |= SC_Console_DSi;
+
+    return ret;
+}
+
 bool NDS::DoSavestate(Savestate* file)
 {
     file->Section("NDSG");
 
+    u32 config = GetSavestateConfig();
     if (file->Saving)
     {
-        u32 console = ConsoleType;
-        file->Var32(&console);
+        file->Var32(&config);
     }
     else
     {
-        u32 console;
-        file->Var32(&console);
-        if (console != ConsoleType)
+        u32 config_chk;
+        file->Var32(&config_chk);
+        if (config_chk != config)
         {
-            Log(LogLevel::Error, "savestate: Expected console type %d, got console type %d. cannot load.\n", ConsoleType, console);
+            Log(LogLevel::Error, "savestate: Expected config word %08X, got %08X. cannot load.\n", config, config_chk);
             return false;
         }
     }

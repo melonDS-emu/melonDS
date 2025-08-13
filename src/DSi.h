@@ -45,6 +45,7 @@ namespace DSi_NAND
 class DSi final : public NDS
 {
 protected:
+    u32 GetSavestateConfig() override;
     void DoSavestateExtra(Savestate* file) override;
 public:
     u16 SCFG_BIOS;
