@@ -69,6 +69,14 @@ void T_UNK(ARM* cpu)
     cpu->JumpTo(cpu->ExceptionBase + 0x04);
 }
 
+void A_BKPT(ARM* cpu)
+{
+    if (cpu->Num == 1) A_UNK(cpu); // checkme
+    
+    Log(LogLevel::Warn, "BKPT: "); // combine with the prefetch abort warning message
+    ((ARMv5*)cpu)->PrefetchAbort();
+}
+
 
 
 void A_MSR_IMM(ARM* cpu)
@@ -90,7 +98,8 @@ void A_MSR_IMM(ARM* cpu)
             case 0x1A:
             case 0x1B: psr = &cpu->R_UND[2]; break;
             default:
-                cpu->AddCycles_C();
+                if (cpu->Num != 1) cpu->AddCycles_C(); // arm 7
+                else cpu->AddCycles_CI(2); // arm 9
                 return;
         }
     }
@@ -101,12 +110,9 @@ void A_MSR_IMM(ARM* cpu)
 
     u32 mask = 0;
     if (cpu->CurInstr & (1<<16)) mask |= 0x000000FF;
-    if (cpu->CurInstr & (1<<17)) mask |= 0x0000FF00;
-    if (cpu->CurInstr & (1<<18)) mask |= 0x00FF0000;
-    if (cpu->CurInstr & (1<<19)) mask |= 0xFF000000;
-
-    if (!(cpu->CurInstr & (1<<22)))
-        mask &= 0xFFFFFFDF;
+    //if (cpu->CurInstr & (1<<17)) mask |= 0x0000FF00; // unused by arm 7 & 9
+    //if (cpu->CurInstr & (1<<18)) mask |= 0x00FF0000; // unused by arm 7 & 9
+    if (cpu->CurInstr & (1<<19)) mask |= ((cpu->Num==1) ? 0xF0000000 : 0xF8000000);
 
     if ((cpu->CPSR & 0x1F) == 0x10) mask &= 0xFFFFFF00;
 
@@ -121,7 +127,26 @@ void A_MSR_IMM(ARM* cpu)
     if (!(cpu->CurInstr & (1<<22)))
         cpu->UpdateMode(oldpsr, cpu->CPSR);
 
-    cpu->AddCycles_C();
+    if (cpu->CPSR & 0x20) [[unlikely]]
+    {
+        if (cpu->Num == 0) cpu->R[15] += 2; // pc should actually increment by 4 one more time after switching to thumb mode without a pipeline flush, this gets the same effect.
+        else
+        {
+            Platform::Log(Platform::LogLevel::Warn, "UNIMPLEMENTED: MSR REG T bit change on ARM7\n");
+            cpu->CPSR &= ~0x20; // keep it from crashing the emulator at least
+        }
+    }
+    
+    if (cpu->Num != 1)
+    {
+        if (cpu->CurInstr & (1<<22))
+        {
+            cpu->AddCycles_CI(2); // spsr
+        }
+        else if (cpu->CurInstr & (0x7<<16)) cpu->AddCycles_CI(2); // cpsr_sxc
+        else cpu->AddCycles_C();
+    }
+    else cpu->AddCycles_C();
 }
 
 void A_MSR_REG(ARM* cpu)
@@ -143,7 +168,8 @@ void A_MSR_REG(ARM* cpu)
             case 0x1A:
             case 0x1B: psr = &cpu->R_UND[2]; break;
             default:
-                cpu->AddCycles_C();
+                if (cpu->Num != 1) cpu->AddCycles_C(); // arm 7
+                else cpu->AddCycles_CI(2); // arm 9
                 return;
         }
     }
@@ -154,12 +180,9 @@ void A_MSR_REG(ARM* cpu)
 
     u32 mask = 0;
     if (cpu->CurInstr & (1<<16)) mask |= 0x000000FF;
-    if (cpu->CurInstr & (1<<17)) mask |= 0x0000FF00;
-    if (cpu->CurInstr & (1<<18)) mask |= 0x00FF0000;
-    if (cpu->CurInstr & (1<<19)) mask |= 0xFF000000;
-
-    if (!(cpu->CurInstr & (1<<22)))
-        mask &= 0xFFFFFFDF;
+    //if (cpu->CurInstr & (1<<17)) mask |= 0x0000FF00; // unused by arm 7 & 9
+    //if (cpu->CurInstr & (1<<18)) mask |= 0x00FF0000; // unused by arm 7 & 9
+    if (cpu->CurInstr & (1<<19)) mask |= ((cpu->Num==1) ? 0xF0000000 : 0xF8000000);
 
     if ((cpu->CPSR & 0x1F) == 0x10) mask &= 0xFFFFFF00;
 
@@ -174,7 +197,26 @@ void A_MSR_REG(ARM* cpu)
     if (!(cpu->CurInstr & (1<<22)))
         cpu->UpdateMode(oldpsr, cpu->CPSR);
 
-    cpu->AddCycles_C();
+    if (cpu->CPSR & 0x20) [[unlikely]]
+    {
+        if (cpu->Num == 0) cpu->R[15] += 2; // pc should actually increment by 4 one more time after switching to thumb mode without a pipeline flush, this gets the same effect.
+        else
+        {
+            Platform::Log(Platform::LogLevel::Warn, "UNIMPLEMENTED: MSR REG T bit change on ARM7\n");
+            cpu->CPSR &= ~0x20; // keep it from crashing the emulator at least
+        }
+    }
+    
+    if (cpu->Num != 1)
+    {
+        if (cpu->CurInstr & (1<<22))
+        {
+            cpu->AddCycles_CI(2); // spsr
+        }
+        else if (cpu->CurInstr & (0x7<<16)) cpu->AddCycles_CI(2); // cpsr_sxc
+        else cpu->AddCycles_C();
+    }
+    else cpu->AddCycles_C();
 }
 
 void A_MRS(ARM* cpu)
@@ -201,8 +243,15 @@ void A_MRS(ARM* cpu)
     else
         psr = cpu->CPSR;
 
-    cpu->R[(cpu->CurInstr>>12) & 0xF] = psr;
-    cpu->AddCycles_C();
+    if (((cpu->CurInstr>>12) & 0xF) == 15)
+    {
+        if (cpu->Num == 1) // doesn't seem to jump on the arm9? checkme
+            cpu->JumpTo(psr & ~0x1); // checkme: this shouldn't be able to switch to thumb?
+    }
+    else cpu->R[(cpu->CurInstr>>12) & 0xF] = psr;
+
+    if (cpu->Num != 1) cpu->AddCycles_CI(1); // arm9
+    else cpu->AddCycles_C(); // arm7
 }
 
 
@@ -216,10 +265,12 @@ void A_MCR(ARM* cpu)
     u32 cn = (cpu->CurInstr >> 16) & 0xF;
     u32 cm = cpu->CurInstr & 0xF;
     u32 cpinfo = (cpu->CurInstr >> 5) & 0x7;
+    u32 val = cpu->R[(cpu->CurInstr>>12)&0xF];
+    if (((cpu->CurInstr>>12) & 0xF) == 15) val += 4;
 
     if (cpu->Num==0 && cp==15)
     {
-        ((ARMv5*)cpu)->CP15Write((cn<<8)|(cm<<4)|cpinfo, cpu->R[(cpu->CurInstr>>12)&0xF]);
+        ((ARMv5*)cpu)->CP15Write((cn<<8)|(cm<<4)|cpinfo, val);
     }
     else if (cpu->Num==1 && cp==14)
     {
@@ -244,10 +295,17 @@ void A_MRC(ARM* cpu)
     u32 cn = (cpu->CurInstr >> 16) & 0xF;
     u32 cm = cpu->CurInstr & 0xF;
     u32 cpinfo = (cpu->CurInstr >> 5) & 0x7;
+    u32 rd = (cpu->CurInstr>>12) & 0xF;
 
     if (cpu->Num==0 && cp==15)
     {
-        cpu->R[(cpu->CurInstr>>12)&0xF] = ((ARMv5*)cpu)->CP15Read((cn<<8)|(cm<<4)|cpinfo);
+        if (rd != 15) cpu->R[rd] = ((ARMv5*)cpu)->CP15Read((cn<<8)|(cm<<4)|cpinfo);
+        else
+        {
+            // r15 updates the top 4 bits of the cpsr, done to "allow for conditional branching based on coprocessor status"
+            u32 flags = ((ARMv5*)cpu)->CP15Read((cn<<8)|(cm<<4)|cpinfo) & 0xF0000000;
+            cpu->CPSR = (cpu->CPSR & ~0xF0000000) | flags;
+        }
     }
     else if (cpu->Num==1 && cp==14)
     {
@@ -259,12 +317,13 @@ void A_MRC(ARM* cpu)
         return A_UNK(cpu); // TODO: check what kind of exception it really is
     }
 
-    cpu->AddCycles_CI(2 + 1); // TODO: checkme
+    if (cpu->Num != 1) cpu->AddCycles_CI(1); // checkme
+    else cpu->AddCycles_CI(2 + 1); // TODO: checkme
 }
 
 
 
-void A_SVC(ARM* cpu)
+void A_SVC(ARM* cpu) // A_SWI
 {
     u32 oldcpsr = cpu->CPSR;
     cpu->CPSR &= ~0xBF;
@@ -276,7 +335,7 @@ void A_SVC(ARM* cpu)
     cpu->JumpTo(cpu->ExceptionBase + 0x08);
 }
 
-void T_SVC(ARM* cpu)
+void T_SVC(ARM* cpu) // T_SWI
 {
     u32 oldcpsr = cpu->CPSR;
     cpu->CPSR &= ~0xBF;

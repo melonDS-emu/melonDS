@@ -96,6 +96,7 @@ public:
     void MapNWRAM_B(u32 num, u8 val);
     void MapNWRAM_C(u32 num, u8 val);
     void MapNWRAMRange(u32 cpu, u32 num, u32 val);
+    void SetVRAMTimings(bool extrabuswidth);
 
     void UpdateVRAMTimings();
 
