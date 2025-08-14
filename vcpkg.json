@@ -17,7 +17,8 @@
 		{
 			"name": "libslirp",
 			"platform": "linux"
-		}
+		},
+		"faad2"
 	],
 	"features": {
 		"qt6": {
