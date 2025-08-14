@@ -67,15 +67,8 @@ void EmuInstance::audioInit()
 
     micStarted = false;
     micDevice = 0;
-
-    memset(micExtBuffer, 0, sizeof(micExtBuffer));
-    micExtBufferWritePos = 0;
-    micExtBufferCount = 0;
     micWavBuffer = nullptr;
-
     micBuffer = nullptr;
-    micBufferLength = 0;
-    micBufferReadPos = 0;
 
     micLock = SDL_CreateMutex();
 
@@ -166,11 +159,11 @@ void EmuInstance::audioResample(s16* inbuf, int inlen, s16* outbuf, int outlen, 
         s16 r1 = inbuf[res_pos * 2 + 1];
         s16 r2 = inbuf[res_pos * 2 + 3];
 
-        float l = (float) l1 + ((l2 - l1) * res_timer);
-        float r = (float) r1 + ((r2 - r1) * res_timer);
+        float l = (float)l1 + ((l2 - l1) * res_timer);
+        float r = (float)r1 + ((r2 - r1) * res_timer);
 
-        outbuf[i*2  ] = (s16) (((s32) round(l) * volume) >> 8);
-        outbuf[i*2+1] = (s16) (((s32) round(r) * volume) >> 8);
+        outbuf[i*2  ] = (s16)(((s32)round(l) * volume) >> 8);
+        outbuf[i*2+1] = (s16)(((s32)round(r) * volume) >> 8);
 
         res_timer += res_incr;
         while (res_timer >= 1.0)
@@ -224,6 +217,11 @@ void EmuInstance::audioCallback(void* data, Uint8* stream, int len)
 
 void EmuInstance::micOpen()
 {
+    memset(micExtBuffer, 0, sizeof(micExtBuffer));
+    micExtBufferWritePos = 0;
+    micExtBufferCount = 0;
+    micBufferReadPos = 0;
+
     if (micDevice) return;
 
     if (micInputType != micInputType_External)
