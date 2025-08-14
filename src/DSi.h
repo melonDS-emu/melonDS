@@ -96,6 +96,7 @@ public:
     void MapNWRAM_B(u32 num, u8 val);
     void MapNWRAM_C(u32 num, u8 val);
     void MapNWRAMRange(u32 cpu, u32 num, u32 val);
+    void SetVRAMTimings(bool extrabuswidth);
 
     void UpdateVRAMTimings();
 
@@ -106,7 +107,7 @@ public:
     void ARM9Write16(u32 addr, u16 val) override;
     void ARM9Write32(u32 addr, u32 val) override;
 
-    bool ARM9GetMemRegion(u32 addr, bool write, MemRegion* region) override;
+    bool ARM9GetMemRegion(const u32 addr, const bool write, MemRegion* region) override;
 
     u8 ARM7Read8(u32 addr) override;
     u16 ARM7Read16(u32 addr) override;

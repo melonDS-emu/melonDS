@@ -131,6 +131,9 @@ void DSi::Reset()
     //ARM9.CP15Write(0x911, 0x00000020);
     //ARM9.CP15Write(0x100, ARM9.CP15Read(0x100) | 0x00050000);
     NDS::Reset();
+    
+    ExMemCnt[0] = 0xEC8C; // checkme: bit 10 should be explicitly set?
+    ExMemCnt[1] = 0xEC8C;
 
     // The SOUNDBIAS register does nothing on DSi
     SPU.SetApplyBias(false);
@@ -162,6 +165,7 @@ void DSi::Reset()
     SCFG_Clock9 = 0x0187; // CHECKME
     SCFG_Clock7 = 0x0187;
     SCFG_EXT[0] = 0x8307F100;
+    SetVRAMTimings(true);
     SCFG_EXT[1] = 0x93FFFB06;
     SCFG_MC = 0x0010 | (~((u32)(NDSCartSlot.GetCart() != nullptr))&1);//0x0011;
     SCFG_RST = 0;
@@ -237,6 +241,7 @@ void DSi::DoSavestateExtra(Savestate* file)
         Set_SCFG_Clock9(SCFG_Clock9);
         Set_SCFG_MC(SCFG_MC);
         DSP.SetRstLine(SCFG_RST & 0x0001);
+        SetVRAMTimings(SCFG_EXT[0] & (1<<13));
 
         MBK[0][8] = 0;
         MBK[1][8] = 0;
@@ -719,6 +724,7 @@ void DSi::SoftReset()
     SCFG_Clock9 = 0x0187; // CHECKME
     SCFG_Clock7 = 0x0187;
     SCFG_EXT[0] = 0x8307F100;
+    SetVRAMTimings(true);
     SCFG_EXT[1] = 0x93FFFB06;
     SCFG_MC = 0x0010;//0x0011;
     // TODO: is this actually reset?
@@ -1296,7 +1302,22 @@ void DSi::ApplyNewRAMSize(u32 size)
 void DSi::Set_SCFG_Clock9(u16 val)
 {
     ARM9Timestamp >>= ARM9ClockShift;
+    DMA9Timestamp >>= ARM9ClockShift;
     ARM9Target    >>= ARM9ClockShift;
+    for (int i = 0; i < 7; i++)
+    {
+        ARM9.ICacheStreamTimes[i] >>= ARM9ClockShift;
+        ARM9.DCacheStreamTimes[i] >>= ARM9ClockShift;
+    }
+    ARM9.TimestampMemory >>= ARM9ClockShift;
+    ARM9.ITCMTimestamp   >>= ARM9ClockShift;
+    ARM9.IRQTimestamp >>= ARM9ClockShift;
+    ARM9.WBTimestamp >>= ARM9ClockShift;
+    ARM9.WBDelay     >>= ARM9ClockShift;
+    ARM9.WBReleaseTS >>= ARM9ClockShift;
+    ARM9.WBInitialTS >>= ARM9ClockShift;
+    ARM9.ILCurrTime  >>= ARM9ClockShift;
+    ARM9.ILPrevTime  >>= ARM9ClockShift;
 
     Log(LogLevel::Debug, "CLOCK9=%04X\n", val);
     SCFG_Clock9 = val & 0x0187;
@@ -1305,8 +1326,24 @@ void DSi::Set_SCFG_Clock9(u16 val)
     else                      ARM9ClockShift = 1;
 
     ARM9Timestamp <<= ARM9ClockShift;
+    DMA9Timestamp <<= ARM9ClockShift;
     ARM9Target    <<= ARM9ClockShift;
-    ARM9.UpdateRegionTimings(0x00000, 0x100000);
+    for (int i = 0; i < 7; i++)
+    {
+        ARM9.ICacheStreamTimes[i] <<= ARM9ClockShift;
+        ARM9.DCacheStreamTimes[i] <<= ARM9ClockShift;
+    }
+    ARM9.TimestampMemory <<= ARM9ClockShift;
+    ARM9.ITCMTimestamp   <<= ARM9ClockShift;
+    ARM9.IRQTimestamp <<= ARM9ClockShift;
+    ARM9.WBTimestamp <<= ARM9ClockShift;
+    ARM9.WBDelay     <<= ARM9ClockShift;
+    ARM9.WBReleaseTS <<= ARM9ClockShift;
+    ARM9.WBInitialTS <<= ARM9ClockShift;
+    ARM9.ILCurrTime  <<= ARM9ClockShift;
+    ARM9.ILPrevTime  <<= ARM9ClockShift;
+
+    ARM9.UpdateRegionTimings(0x00000, 0x40000);
 }
 
 void DSi::Set_SCFG_MC(u32 val)
@@ -1321,6 +1358,20 @@ void DSi::Set_SCFG_MC(u32 val)
     if ((oldslotstatus == 0x0) && ((SCFG_MC & 0xC) == 0x4))
     {
         NDSCartSlot.ResetCart();
+    }
+}
+
+void DSi::SetVRAMTimings(bool extrabuswidth)
+{
+    if (extrabuswidth) // 32 bit bus; arm9 can do 8 bit writes
+    {
+        SetARM9RegionTimings(0x06000, 0x07000, Mem9_VRAM, 32, 1, 1);
+        SetARM7RegionTimings(0x06000, 0x07000, Mem7_VRAM, 32, 1, 1);
+    }
+    else // 16 bit bus; arm9 cannot do 8 bit writes
+    {
+        SetARM9RegionTimings(0x06000, 0x07000, Mem9_VRAM, 16, 1, 1);
+        SetARM7RegionTimings(0x06000, 0x07000, Mem7_VRAM, 16, 1, 1);
     }
 }
 
@@ -1746,7 +1797,7 @@ void DSi::ARM9Write32(u32 addr, u32 val)
     return NDS::ARM9Write32(addr, val);
 }
 
-bool DSi::ARM9GetMemRegion(u32 addr, bool write, MemRegion* region)
+bool DSi::ARM9GetMemRegion(const u32 addr, const bool write, MemRegion* region)
 {
     assert(ConsoleType == 1);
     switch (addr & 0xFF000000)
@@ -2562,12 +2613,19 @@ void DSi::ARM9IOWrite32(u32 addr, u32 val)
             u32 oldram = (SCFG_EXT[0] >> 14) & 0x3;
             u32 newram = (val >> 14) & 0x3;
 
+            u32 oldvram = (SCFG_EXT[0] & (1<<13));
+            u32 newvram = (val & (1<<13));
+
             SCFG_EXT[0] &= ~0x8007F19F;
             SCFG_EXT[0] |= (val & 0x8007F19F);
             SCFG_EXT[1] &= ~0x0000F080;
             SCFG_EXT[1] |= (val & 0x0000F080);
             Log(LogLevel::Debug, "SCFG_EXT = %08X / %08X (val9 %08X)\n", SCFG_EXT[0], SCFG_EXT[1], val);
-            /*switch ((SCFG_EXT[0] >> 14) & 0x3)
+
+            if (oldvram != newvram)
+                SetVRAMTimings(newvram);
+
+            switch ((SCFG_EXT[0] >> 14) & 0x3)
             {
             case 0:
             case 1:
@@ -2580,7 +2638,7 @@ void DSi::ARM9IOWrite32(u32 addr, u32 val)
                 NDS::MainRAMMask = 0xFFFFFF;
                 printf("RAM: 16MB\n");
                 break;
-            }*/
+            }
             // HAX!!
             // a change to the RAM size setting is supposed to apply immediately (it does so on hardware)
             // however, doing so will cause DS-mode app startup to break, because the change happens while the ARM7
@@ -3094,6 +3152,7 @@ void DSi::ARM7IOWrite32(u32 addr, u32 val)
         SCFG_EXT[0] |= (val & 0x03000000);
         SCFG_EXT[1] &= ~0x93FF0F07;
         SCFG_EXT[1] |= (val & 0x93FF0F07);
+        if (!(val & (1<<24))) { ExMemCnt[0] &= ~(1<<10); ExMemCnt[1] &= ~(1<<10); } // bit 10 of exmemcnt is cleared when disabling second card slot access
         Log(LogLevel::Debug, "SCFG_EXT = %08X / %08X (val7 %08X)\n", SCFG_EXT[0], SCFG_EXT[1], val);
         return;
     case 0x04004010:

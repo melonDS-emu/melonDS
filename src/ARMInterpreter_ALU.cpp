@@ -19,6 +19,7 @@
 #include <stdio.h>
 #include "ARM.h"
 #include "NDS.h"
+#include "ARMInterpreter_MultiplySuperLLE.h"
 
 namespace melonDS::ARMInterpreter
 {
@@ -83,25 +84,25 @@ inline bool OverflowSbc(u32 a, u32 b, u32 carry)
 #define LSL_IMM_S(x, s) \
     if (s > 0) \
     { \
-        cpu->SetC(x & (1<<(32-s))); \
+        if (!cpu->CheckInterlock) cpu->SetC(x & (1<<(32-s))); \
         x <<= s; \
     }
 
 #define LSR_IMM_S(x, s) \
     if (s == 0) { \
-        cpu->SetC(x & (1<<31)); \
+        if (!cpu->CheckInterlock) cpu->SetC(x & (1<<31)); \
         x = 0; \
     } else { \
-        cpu->SetC(x & (1<<(s-1))); \
+        if (!cpu->CheckInterlock) cpu->SetC(x & (1<<(s-1))); \
         x >>= s; \
     }
 
 #define ASR_IMM_S(x, s) \
     if (s == 0) { \
-        cpu->SetC(x & (1<<31)); \
+        if (!cpu->CheckInterlock) cpu->SetC(x & (1<<31)); \
         x = ((s32)x) >> 31; \
     } else { \
-        cpu->SetC(x & (1<<(s-1))); \
+        if (!cpu->CheckInterlock) cpu->SetC(x & (1<<(s-1))); \
         x = ((s32)x) >> s; \
     }
 
@@ -110,11 +111,11 @@ inline bool OverflowSbc(u32 a, u32 b, u32 carry)
     { \
         u32 newc = (x & 1); \
         x = (x >> 1) | ((cpu->CPSR & 0x20000000) << 2); \
-        cpu->SetC(newc); \
+        if (!cpu->CheckInterlock) cpu->SetC(newc); \
     } \
     else \
     { \
-        cpu->SetC(x & (1<<(s-1))); \
+        if (!cpu->CheckInterlock) cpu->SetC(x & (1<<(s-1))); \
         x = ROR(x, s); \
     }
 
@@ -134,40 +135,49 @@ inline bool OverflowSbc(u32 a, u32 b, u32 carry)
     x = ROR(x, (s&0x1F));
 
 #define LSL_REG_S(x, s) \
-    if (s > 31)     { cpu->SetC((s>32) ? 0 : (x & (1<<0))); x = 0; } \
-    else if (s > 0) { cpu->SetC(x & (1<<(32-s)));           x <<= s; }
+    if (s > 31)     { if (!cpu->CheckInterlock) cpu->SetC((s>32) ? 0 : (x & (1<<0))); x = 0; } \
+    else if (s > 0) { if (!cpu->CheckInterlock) cpu->SetC(x & (1<<(32-s)));           x <<= s; }
 
 #define LSR_REG_S(x, s) \
-    if (s > 31)     { cpu->SetC((s>32) ? 0 : (x & (1<<31))); x = 0; } \
-    else if (s > 0) { cpu->SetC(x & (1<<(s-1)));             x >>= s; }
+    if (s > 31)     { if (!cpu->CheckInterlock) cpu->SetC((s>32) ? 0 : (x & (1<<31))); x = 0; } \
+    else if (s > 0) { if (!cpu->CheckInterlock) cpu->SetC(x & (1<<(s-1)));             x >>= s; }
 
 #define ASR_REG_S(x, s) \
-    if (s > 31)     { cpu->SetC(x & (1<<31));    x = ((s32)x) >> 31; } \
-    else if (s > 0) { cpu->SetC(x & (1<<(s-1))); x = ((s32)x) >> s; }
+    if (s > 31)     { if (!cpu->CheckInterlock) cpu->SetC(x & (1<<31));    x = ((s32)x) >> 31; } \
+    else if (s > 0) { if (!cpu->CheckInterlock) cpu->SetC(x & (1<<(s-1))); x = ((s32)x) >> s; }
 
 #define ROR_REG_S(x, s) \
-    if (s > 0) cpu->SetC(x & (1<<(s-1))); \
+    if (s > 0) if (!cpu->CheckInterlock) cpu->SetC(x & (1<<(s-1))); \
     x = ROR(x, (s&0x1F));
 
 
 
 #define A_CALC_OP2_IMM \
-    u32 b = ROR(cpu->CurInstr&0xFF, (cpu->CurInstr>>7)&0x1E);
+    u32 b = ROR(cpu->CurInstr&0xFF, (cpu->CurInstr>>7)&0x1E); \
+    u16 ilmask = 0; \
+    u8 iltime[16];
 
 #define A_CALC_OP2_IMM_S \
     u32 b = ROR(cpu->CurInstr&0xFF, (cpu->CurInstr>>7)&0x1E); \
     if ((cpu->CurInstr>>7)&0x1E) \
-        cpu->SetC(b & 0x80000000);
+        if (!cpu->CheckInterlock) cpu->SetC(b & 0x80000000); \
+    u16 ilmask = 0; \
+    u8 iltime[16];
 
 #define A_CALC_OP2_REG_SHIFT_IMM(shiftop) \
     u32 b = cpu->R[cpu->CurInstr&0xF]; \
     u32 s = (cpu->CurInstr>>7)&0x1F; \
-    shiftop(b, s);
+    shiftop(b, s); \
+    u16 ilmask = 1 << (cpu->CurInstr&0xF); \
+    u8 iltime[16]; iltime[cpu->CurInstr&0xF] = 0;
 
 #define A_CALC_OP2_REG_SHIFT_REG(shiftop) \
     u32 b = cpu->R[cpu->CurInstr&0xF]; \
     if ((cpu->CurInstr&0xF)==15) b += 4; \
-    shiftop(b, (cpu->R[(cpu->CurInstr>>8)&0xF] & 0xFF));
+    shiftop(b, (cpu->R[(cpu->CurInstr>>8)&0xF] & 0xFF)); \
+    u16 ilmask = (1 << (cpu->CurInstr&0xF)) | (1 << ((cpu->CurInstr>>8)&0xF)); \
+    u8 iltime[16]; iltime[(cpu->CurInstr>>8)&0xF] = 0; \
+    iltime[cpu->CurInstr&0xF] = 1; // REMINDER: THIS IS WRONG, THIS CAN OVERWRITE LOWER VALUES.
 
 
 #define A_IMPLEMENT_ALU_OP(x,s) \
@@ -314,7 +324,9 @@ void A_##x##_REG_ROR_REG(ARM* cpu) \
 
 #define A_AND(c) \
     u32 a = cpu->R[(cpu->CurInstr>>16) & 0xF]; \
+    iltime[(cpu->CurInstr>>16)&0xF] = c; \
     u32 res = a & b; \
+    if (cpu->CheckInterlock) return ((ARMv5*)cpu)->HandleInterlocksExecute<true>(ilmask | (1 <<((cpu->CurInstr>>16) & 0xF)), iltime); \
     if (c) cpu->AddCycles_CI(c); else cpu->AddCycles_C(); \
     if (((cpu->CurInstr>>12) & 0xF) == 15) \
     { \
@@ -327,7 +339,9 @@ void A_##x##_REG_ROR_REG(ARM* cpu) \
 
 #define A_AND_S(c) \
     u32 a = cpu->R[(cpu->CurInstr>>16) & 0xF]; \
+    iltime[(cpu->CurInstr>>16)&0xF] = c; \
     u32 res = a & b; \
+    if (cpu->CheckInterlock) return ((ARMv5*)cpu)->HandleInterlocksExecute<true>(ilmask | (1 <<((cpu->CurInstr>>16) & 0xF)), iltime); \
     cpu->SetNZ(res & 0x80000000, \
                !res); \
     if (c) cpu->AddCycles_CI(c); else cpu->AddCycles_C(); \
@@ -345,7 +359,9 @@ A_IMPLEMENT_ALU_OP(AND,_S)
 
 #define A_EOR(c) \
     u32 a = cpu->R[(cpu->CurInstr>>16) & 0xF]; \
+    iltime[(cpu->CurInstr>>16)&0xF] = c; \
     u32 res = a ^ b; \
+    if (cpu->CheckInterlock) return ((ARMv5*)cpu)->HandleInterlocksExecute<true>(ilmask | (1 <<((cpu->CurInstr>>16) & 0xF)), iltime); \
     if (c) cpu->AddCycles_CI(c); else cpu->AddCycles_C(); \
     if (((cpu->CurInstr>>12) & 0xF) == 15) \
     { \
@@ -358,7 +374,9 @@ A_IMPLEMENT_ALU_OP(AND,_S)
 
 #define A_EOR_S(c) \
     u32 a = cpu->R[(cpu->CurInstr>>16) & 0xF]; \
+    iltime[(cpu->CurInstr>>16)&0xF] = c; \
     u32 res = a ^ b; \
+    if (cpu->CheckInterlock) return ((ARMv5*)cpu)->HandleInterlocksExecute<true>(ilmask | (1 <<((cpu->CurInstr>>16) & 0xF)), iltime); \
     cpu->SetNZ(res & 0x80000000, \
                !res); \
     if (c) cpu->AddCycles_CI(c); else cpu->AddCycles_C(); \
@@ -376,7 +394,9 @@ A_IMPLEMENT_ALU_OP(EOR,_S)
 
 #define A_SUB(c) \
     u32 a = cpu->R[(cpu->CurInstr>>16) & 0xF]; \
+    iltime[(cpu->CurInstr>>16)&0xF] = c; \
     u32 res = a - b; \
+    if (cpu->CheckInterlock) return ((ARMv5*)cpu)->HandleInterlocksExecute<true>(ilmask | (1 <<((cpu->CurInstr>>16) & 0xF)), iltime); \
     if (c) cpu->AddCycles_CI(c); else cpu->AddCycles_C(); \
     if (((cpu->CurInstr>>12) & 0xF) == 15) \
     { \
@@ -389,7 +409,9 @@ A_IMPLEMENT_ALU_OP(EOR,_S)
 
 #define A_SUB_S(c) \
     u32 a = cpu->R[(cpu->CurInstr>>16) & 0xF]; \
+    iltime[(cpu->CurInstr>>16)&0xF] = c; \
     u32 res = a - b; \
+    if (cpu->CheckInterlock) return ((ARMv5*)cpu)->HandleInterlocksExecute<true>(ilmask | (1 <<((cpu->CurInstr>>16) & 0xF)), iltime); \
     cpu->SetNZCV(res & 0x80000000, \
                  !res, \
                  CarrySub(a, b), \
@@ -409,7 +431,9 @@ A_IMPLEMENT_ALU_OP(SUB,)
 
 #define A_RSB(c) \
     u32 a = cpu->R[(cpu->CurInstr>>16) & 0xF]; \
+    iltime[(cpu->CurInstr>>16)&0xF] = c; \
     u32 res = b - a; \
+    if (cpu->CheckInterlock) return ((ARMv5*)cpu)->HandleInterlocksExecute<true>(ilmask | (1 <<((cpu->CurInstr>>16) & 0xF)), iltime); \
     if (c) cpu->AddCycles_CI(c); else cpu->AddCycles_C(); \
     if (((cpu->CurInstr>>12) & 0xF) == 15) \
     { \
@@ -422,7 +446,9 @@ A_IMPLEMENT_ALU_OP(SUB,)
 
 #define A_RSB_S(c) \
     u32 a = cpu->R[(cpu->CurInstr>>16) & 0xF]; \
+    iltime[(cpu->CurInstr>>16)&0xF] = c; \
     u32 res = b - a; \
+    if (cpu->CheckInterlock) return ((ARMv5*)cpu)->HandleInterlocksExecute<true>(ilmask | (1 <<((cpu->CurInstr>>16) & 0xF)), iltime); \
     cpu->SetNZCV(res & 0x80000000, \
                  !res, \
                  CarrySub(b, a), \
@@ -442,7 +468,9 @@ A_IMPLEMENT_ALU_OP(RSB,)
 
 #define A_ADD(c) \
     u32 a = cpu->R[(cpu->CurInstr>>16) & 0xF]; \
+    iltime[(cpu->CurInstr>>16)&0xF] = c; \
     u32 res = a + b; \
+    if (cpu->CheckInterlock) return ((ARMv5*)cpu)->HandleInterlocksExecute<true>(ilmask | (1 <<((cpu->CurInstr>>16) & 0xF)), iltime); \
     if (c) cpu->AddCycles_CI(c); else cpu->AddCycles_C(); \
     if (((cpu->CurInstr>>12) & 0xF) == 15) \
     { \
@@ -456,6 +484,7 @@ A_IMPLEMENT_ALU_OP(RSB,)
 #define A_ADD_S(c) \
     u32 a = cpu->R[(cpu->CurInstr>>16) & 0xF]; \
     u32 res = a + b; \
+    if (cpu->CheckInterlock) return ((ARMv5*)cpu)->HandleInterlocksExecute<true>(ilmask | (1 <<((cpu->CurInstr>>16) & 0xF)), iltime); \
     cpu->SetNZCV(res & 0x80000000, \
                  !res, \
                  CarryAdd(a, b), \
@@ -474,6 +503,8 @@ A_IMPLEMENT_ALU_OP(ADD,)
 
 
 #define A_ADC(c) \
+    iltime[(cpu->CurInstr>>16)&0xF] = c; \
+    if (cpu->CheckInterlock) return ((ARMv5*)cpu)->HandleInterlocksExecute<true>(ilmask | (1 <<((cpu->CurInstr>>16) & 0xF)), iltime); \
     u32 a = cpu->R[(cpu->CurInstr>>16) & 0xF]; \
     u32 res = a + b + (cpu->CPSR&0x20000000 ? 1:0); \
     if (c) cpu->AddCycles_CI(c); else cpu->AddCycles_C(); \
@@ -487,6 +518,8 @@ A_IMPLEMENT_ALU_OP(ADD,)
     }
 
 #define A_ADC_S(c) \
+    iltime[(cpu->CurInstr>>16)&0xF] = c; \
+    if (cpu->CheckInterlock) return ((ARMv5*)cpu)->HandleInterlocksExecute<true>(ilmask | (1 <<((cpu->CurInstr>>16) & 0xF)), iltime); \
     u32 a = cpu->R[(cpu->CurInstr>>16) & 0xF]; \
     u32 res_tmp = a + b; \
     u32 carry = (cpu->CPSR&0x20000000 ? 1:0); \
@@ -509,6 +542,8 @@ A_IMPLEMENT_ALU_OP(ADC,)
 
 
 #define A_SBC(c) \
+    iltime[(cpu->CurInstr>>16)&0xF] = c; \
+    if (cpu->CheckInterlock) return ((ARMv5*)cpu)->HandleInterlocksExecute<true>(ilmask | (1 <<((cpu->CurInstr>>16) & 0xF)), iltime); \
     u32 a = cpu->R[(cpu->CurInstr>>16) & 0xF]; \
     u32 res = a - b - (cpu->CPSR&0x20000000 ? 0:1); \
     if (c) cpu->AddCycles_CI(c); else cpu->AddCycles_C(); \
@@ -522,6 +557,8 @@ A_IMPLEMENT_ALU_OP(ADC,)
     }
 
 #define A_SBC_S(c) \
+    iltime[(cpu->CurInstr>>16)&0xF] = c; \
+    if (cpu->CheckInterlock) return ((ARMv5*)cpu)->HandleInterlocksExecute<true>(ilmask | (1 <<((cpu->CurInstr>>16) & 0xF)), iltime); \
     u32 a = cpu->R[(cpu->CurInstr>>16) & 0xF]; \
     u32 res_tmp = a - b; \
     u32 carry = (cpu->CPSR&0x20000000 ? 0:1); \
@@ -544,6 +581,8 @@ A_IMPLEMENT_ALU_OP(SBC,)
 
 
 #define A_RSC(c) \
+    iltime[(cpu->CurInstr>>16)&0xF] = c; \
+    if (cpu->CheckInterlock) return ((ARMv5*)cpu)->HandleInterlocksExecute<true>(ilmask | (1 <<((cpu->CurInstr>>16) & 0xF)), iltime); \
     u32 a = cpu->R[(cpu->CurInstr>>16) & 0xF]; \
     u32 res = b - a - (cpu->CPSR&0x20000000 ? 0:1); \
     if (c) cpu->AddCycles_CI(c); else cpu->AddCycles_C(); \
@@ -557,6 +596,8 @@ A_IMPLEMENT_ALU_OP(SBC,)
     }
 
 #define A_RSC_S(c) \
+    iltime[(cpu->CurInstr>>16)&0xF] = c; \
+    if (cpu->CheckInterlock) return ((ARMv5*)cpu)->HandleInterlocksExecute<true>(ilmask | (1 <<((cpu->CurInstr>>16) & 0xF)), iltime); \
     u32 a = cpu->R[(cpu->CurInstr>>16) & 0xF]; \
     u32 res_tmp = b - a; \
     u32 carry = (cpu->CPSR&0x20000000 ? 0:1); \
@@ -580,51 +621,141 @@ A_IMPLEMENT_ALU_OP(RSC,)
 
 #define A_TST(c) \
     u32 a = cpu->R[(cpu->CurInstr>>16) & 0xF]; \
+    iltime[(cpu->CurInstr>>16)&0xF] = c; \
     u32 res = a & b; \
-    cpu->SetNZ(res & 0x80000000, \
-               !res); \
-    if (c) cpu->AddCycles_CI(c); else cpu->AddCycles_C();
+    if (cpu->CheckInterlock) return ((ARMv5*)cpu)->HandleInterlocksExecute<true>(ilmask | (1 <<((cpu->CurInstr>>16) & 0xF)), iltime); \
+    if (c) cpu->AddCycles_CI(c); else cpu->AddCycles_C(); \
+    if (((cpu->CurInstr>>12) & 0xF) == 15) [[unlikely]] /* this seems to trigger alu rd==15 behavior for arm7 and legacy instruction behavior for arm9 */ \
+    { \
+        if (cpu->Num == 1) \
+        { \
+            cpu->SetNZ(res & 0x80000000, \
+                       !res); \
+            u32 oldpsr = cpu->CPSR; \
+            cpu->RestoreCPSR(); /* ARM7TDMI restores cpsr and does ___not___ flush the pipeline. */ \
+            if (cpu->CPSR & 0x20) \
+            { \
+                Platform::Log(Platform::LogLevel::Warn, "UNIMPLEMENTED: TST T bit change on ARM7\n"); \
+                cpu->CPSR &= ~0x20; /* keep it from crashing the emulator at least */ \
+            } \
+        } \
+        else cpu->JumpTo(res & ~1, true); /* TSTP dna, doesn't update flags */ \
+    } \
+    else \
+    { \
+        cpu->SetNZ(res & 0x80000000, \
+                   !res); \
+    }
 
 A_IMPLEMENT_ALU_TEST(TST,_S)
 
 
 #define A_TEQ(c) \
     u32 a = cpu->R[(cpu->CurInstr>>16) & 0xF]; \
+    iltime[(cpu->CurInstr>>16)&0xF] = c; \
     u32 res = a ^ b; \
-    cpu->SetNZ(res & 0x80000000, \
-               !res); \
-    if (c) cpu->AddCycles_CI(c); else cpu->AddCycles_C();
+    if (cpu->CheckInterlock) return ((ARMv5*)cpu)->HandleInterlocksExecute<true>(ilmask | (1 <<((cpu->CurInstr>>16) & 0xF)), iltime); \
+    if (c) cpu->AddCycles_CI(c); else cpu->AddCycles_C(); \
+    if (((cpu->CurInstr>>12) & 0xF) == 15) [[unlikely]] /* this seems to trigger alu rd==15 behavior for arm7 and legacy instruction behavior for arm9 */ \
+    { \
+        if (cpu->Num == 1) \
+        { \
+            cpu->SetNZ(res & 0x80000000, \
+                       !res); \
+            u32 oldpsr = cpu->CPSR; \
+            cpu->RestoreCPSR(); /* ARM7TDMI restores cpsr and does ___not___ flush the pipeline. */ \
+            if (cpu->CPSR & 0x20) \
+            { \
+                Platform::Log(Platform::LogLevel::Warn, "UNIMPLEMENTED: TEQ T bit change on ARM7\n"); \
+                cpu->CPSR &= ~0x20; /* keep it from crashing the emulator at least */ \
+            } \
+        } \
+        else cpu->JumpTo(res & ~1, true); /* TEQP dna, doesn't update flags */ \
+    } \
+    else \
+    { \
+        cpu->SetNZ(res & 0x80000000, \
+                   !res); \
+    }
 
 A_IMPLEMENT_ALU_TEST(TEQ,_S)
 
 
 #define A_CMP(c) \
     u32 a = cpu->R[(cpu->CurInstr>>16) & 0xF]; \
+    iltime[(cpu->CurInstr>>16)&0xF] = c; \
     u32 res = a - b; \
-    cpu->SetNZCV(res & 0x80000000, \
-                 !res, \
-                 CarrySub(a, b), \
-                 OverflowSub(a, b)); \
-    if (c) cpu->AddCycles_CI(c); else cpu->AddCycles_C();
+    if (cpu->CheckInterlock) return ((ARMv5*)cpu)->HandleInterlocksExecute<true>(ilmask | (1 <<((cpu->CurInstr>>16) & 0xF)), iltime); \
+    if (c) cpu->AddCycles_CI(c); else cpu->AddCycles_C(); \
+    if (((cpu->CurInstr>>12) & 0xF) == 15) [[unlikely]] /* this seems to trigger alu rd==15 behavior for arm7 and legacy instruction behavior for arm9 */ \
+    { \
+        if (cpu->Num == 1) \
+        { \
+            cpu->SetNZCV(res & 0x80000000, \
+                         !res, \
+                         CarrySub(a, b), \
+                         OverflowSub(a, b)); \
+            u32 oldpsr = cpu->CPSR; \
+            cpu->RestoreCPSR(); /* ARM7TDMI restores cpsr and does ___not___ flush the pipeline. */ \
+            if (cpu->CPSR & 0x20) \
+            { \
+                Platform::Log(Platform::LogLevel::Warn, "UNIMPLEMENTED: CMP T bit change on ARM7\n"); \
+                cpu->CPSR &= ~0x20; /* keep it from crashing the emulator at least */ \
+            } \
+        } \
+        else cpu->JumpTo(res & ~1, true); /* CMPP dna, doesn't update flags */ \
+    } \
+    else \
+    { \
+        cpu->SetNZCV(res & 0x80000000, \
+                     !res, \
+                     CarrySub(a, b), \
+                     OverflowSub(a, b)); \
+    }
 
 A_IMPLEMENT_ALU_TEST(CMP,)
 
 
 #define A_CMN(c) \
     u32 a = cpu->R[(cpu->CurInstr>>16) & 0xF]; \
+    iltime[(cpu->CurInstr>>16)&0xF] = c; \
     u32 res = a + b; \
-    cpu->SetNZCV(res & 0x80000000, \
-                 !res, \
-                 CarryAdd(a, b), \
-                 OverflowAdd(a, b)); \
-    if (c) cpu->AddCycles_CI(c); else cpu->AddCycles_C();
+    if (cpu->CheckInterlock) return ((ARMv5*)cpu)->HandleInterlocksExecute<true>(ilmask | (1 <<((cpu->CurInstr>>16) & 0xF)), iltime); \
+    if (c) cpu->AddCycles_CI(c); else cpu->AddCycles_C(); \
+    if (((cpu->CurInstr>>12) & 0xF) == 15) [[unlikely]] /* this seems to trigger alu rd==15 behavior for arm7 and legacy instruction behavior for arm9 */ \
+    { \
+        if (cpu->Num == 1) \
+        { \
+            cpu->SetNZCV(res & 0x80000000, \
+                         !res, \
+                         CarryAdd(a, b), \
+                         OverflowAdd(a, b)); \
+            u32 oldpsr = cpu->CPSR; \
+            cpu->RestoreCPSR(); /* ARM7TDMI restores cpsr and does ___not___ flush the pipeline. */ \
+            if (cpu->CPSR & 0x20) \
+            { \
+                Platform::Log(Platform::LogLevel::Warn, "UNIMPLEMENTED: CMN T bit change on ARM7\n"); \
+                cpu->CPSR &= ~0x20; /* keep it from crashing the emulator at least */ \
+            } \
+        } \
+        else cpu->JumpTo(res & ~1, true); /* CMNP dna, doesn't update flags */ \
+    } \
+    else \
+    { \
+        cpu->SetNZCV(res & 0x80000000, \
+                     !res, \
+                     CarryAdd(a, b), \
+                     OverflowAdd(a, b)); \
+    }
 
 A_IMPLEMENT_ALU_TEST(CMN,)
 
 
 #define A_ORR(c) \
     u32 a = cpu->R[(cpu->CurInstr>>16) & 0xF]; \
+    iltime[(cpu->CurInstr>>16)&0xF] = c; \
     u32 res = a | b; \
+    if (cpu->CheckInterlock) return ((ARMv5*)cpu)->HandleInterlocksExecute<true>(ilmask | (1 <<((cpu->CurInstr>>16) & 0xF)), iltime); \
     if (c) cpu->AddCycles_CI(c); else cpu->AddCycles_C(); \
     if (((cpu->CurInstr>>12) & 0xF) == 15) \
     { \
@@ -637,7 +768,9 @@ A_IMPLEMENT_ALU_TEST(CMN,)
 
 #define A_ORR_S(c) \
     u32 a = cpu->R[(cpu->CurInstr>>16) & 0xF]; \
+    iltime[(cpu->CurInstr>>16)&0xF] = c; \
     u32 res = a | b; \
+    if (cpu->CheckInterlock) return ((ARMv5*)cpu)->HandleInterlocksExecute<true>(ilmask | (1 <<((cpu->CurInstr>>16) & 0xF)), iltime); \
     cpu->SetNZ(res & 0x80000000, \
                !res); \
     if (c) cpu->AddCycles_CI(c); else cpu->AddCycles_C(); \
@@ -654,6 +787,7 @@ A_IMPLEMENT_ALU_OP(ORR,_S)
 
 
 #define A_MOV(c) \
+    if (cpu->CheckInterlock) return ((ARMv5*)cpu)->HandleInterlocksExecute<true>(ilmask, iltime); \
     if (c) cpu->AddCycles_CI(c); else cpu->AddCycles_C(); \
     if (((cpu->CurInstr>>12) & 0xF) == 15) \
     { \
@@ -665,6 +799,7 @@ A_IMPLEMENT_ALU_OP(ORR,_S)
     }
 
 #define A_MOV_S(c) \
+    if (cpu->CheckInterlock) return ((ARMv5*)cpu)->HandleInterlocksExecute<true>(ilmask, iltime); \
     cpu->SetNZ(b & 0x80000000, \
                !b); \
     if (c) cpu->AddCycles_CI(c); else cpu->AddCycles_C(); \
@@ -700,7 +835,9 @@ void A_MOV_REG_LSL_IMM_DBG(ARM* cpu)
 
 #define A_BIC(c) \
     u32 a = cpu->R[(cpu->CurInstr>>16) & 0xF]; \
+    iltime[(cpu->CurInstr>>16)&0xF] = c; \
     u32 res = a & ~b; \
+    if (cpu->CheckInterlock) return ((ARMv5*)cpu)->HandleInterlocksExecute<true>(ilmask | (1 <<((cpu->CurInstr>>16) & 0xF)), iltime); \
     if (c) cpu->AddCycles_CI(c); else cpu->AddCycles_C(); \
     if (((cpu->CurInstr>>12) & 0xF) == 15) \
     { \
@@ -713,7 +850,9 @@ void A_MOV_REG_LSL_IMM_DBG(ARM* cpu)
 
 #define A_BIC_S(c) \
     u32 a = cpu->R[(cpu->CurInstr>>16) & 0xF]; \
+    iltime[(cpu->CurInstr>>16)&0xF] = c; \
     u32 res = a & ~b; \
+    if (cpu->CheckInterlock) return ((ARMv5*)cpu)->HandleInterlocksExecute<true>(ilmask | (1 <<((cpu->CurInstr>>16) & 0xF)), iltime); \
     cpu->SetNZ(res & 0x80000000, \
                !res); \
     if (c) cpu->AddCycles_CI(c); else cpu->AddCycles_C(); \
@@ -731,6 +870,7 @@ A_IMPLEMENT_ALU_OP(BIC,_S)
 
 #define A_MVN(c) \
     b = ~b; \
+    if (cpu->CheckInterlock) return ((ARMv5*)cpu)->HandleInterlocksExecute<true>(ilmask, iltime); \
     if (c) cpu->AddCycles_CI(c); else cpu->AddCycles_C(); \
     if (((cpu->CurInstr>>12) & 0xF) == 15) \
     { \
@@ -743,6 +883,7 @@ A_IMPLEMENT_ALU_OP(BIC,_S)
 
 #define A_MVN_S(c) \
     b = ~b; \
+    if (cpu->CheckInterlock) return ((ARMv5*)cpu)->HandleInterlocksExecute<true>(ilmask, iltime); \
     cpu->SetNZ(b & 0x80000000, \
                !b); \
     if (c) cpu->AddCycles_CI(c); else cpu->AddCycles_C(); \
@@ -764,28 +905,41 @@ void A_MUL(ARM* cpu)
     u32 rm = cpu->R[cpu->CurInstr & 0xF];
     u32 rs = cpu->R[(cpu->CurInstr >> 8) & 0xF];
 
-    u32 res = rm * rs;
-
-    cpu->R[(cpu->CurInstr >> 16) & 0xF] = res;
-    if (cpu->CurInstr & (1<<20))
-    {
-        cpu->SetNZ(res & 0x80000000,
-                   !res);
-        if (cpu->Num==1) cpu->SetC(0);
-    }
-
-    u32 cycles;
     if (cpu->Num == 0)
-        cycles = (cpu->CurInstr & (1<<20)) ? 3 : 1;
+    {
+        if (cpu->CheckInterlock) return ((ARMv5*)cpu)->HandleInterlocksExecute<true>((1 << (cpu->CurInstr & 0xF)) | 
+                                                                                     (1 << ((cpu->CurInstr >> 8) & 0xF)));
+        if (cpu->CurInstr & (1<<20)) cpu->AddCycles_CI(3); // S
+        else
+        {
+            cpu->AddCycles_CI(2); // 1 X
+
+            ((ARMv5*)cpu)->AddCycles_MW(2); // 2 M
+            ((ARMv5*)cpu)->SetupInterlock((cpu->CurInstr >> 16) & 0xF);
+        }
+    }
     else
     {
+        u32 cycles;
         if      ((rs & 0xFFFFFF00) == 0x00000000 || (rs & 0xFFFFFF00) == 0xFFFFFF00) cycles = 1;
         else if ((rs & 0xFFFF0000) == 0x00000000 || (rs & 0xFFFF0000) == 0xFFFF0000) cycles = 2;
         else if ((rs & 0xFF000000) == 0x00000000 || (rs & 0xFF000000) == 0xFF000000) cycles = 3;
         else cycles = 4;
+        if (cpu->CurInstr & (1<<20)) cpu->SetC(MULSCarry(rm, rs, 0, cycles==4));
+        cpu->AddCycles_CI(cycles);
     }
 
-    cpu->AddCycles_CI(cycles);
+    u32 res = rm * rs;
+
+    // all multiply instructions fail writes to r15 on arm7/9
+    if (((cpu->CurInstr >> 16) & 0xF) != 15)
+        cpu->R[(cpu->CurInstr >> 16) & 0xF] = res;
+
+    if (cpu->CurInstr & (1<<20))
+    {
+        cpu->SetNZ(res & 0x80000000,
+                   !res);
+    }
 }
 
 void A_MLA(ARM* cpu)
@@ -794,28 +948,43 @@ void A_MLA(ARM* cpu)
     u32 rs = cpu->R[(cpu->CurInstr >> 8) & 0xF];
     u32 rn = cpu->R[(cpu->CurInstr >> 12) & 0xF];
 
-    u32 res = (rm * rs) + rn;
-
-    cpu->R[(cpu->CurInstr >> 16) & 0xF] = res;
-    if (cpu->CurInstr & (1<<20))
-    {
-        cpu->SetNZ(res & 0x80000000,
-                   !res);
-        if (cpu->Num==1) cpu->SetC(0);
-    }
-
-    u32 cycles;
     if (cpu->Num == 0)
-        cycles = (cpu->CurInstr & (1<<20)) ? 3 : 1;
+    {
+        u8 iltime[16] = {};
+        iltime[(cpu->CurInstr>>12)&0xF] = 1;
+        if (cpu->CheckInterlock) return ((ARMv5*)cpu)->HandleInterlocksExecute<true>((1 << (cpu->CurInstr & 0xF)) | 
+                                                                                     (1 << ((cpu->CurInstr >> 8) & 0xF)) | 
+                                                                                     (1 << ((cpu->CurInstr >> 12) & 0xF)), iltime);
+        if (cpu->CurInstr & (1<<20)) cpu->AddCycles_CI(3);
+        else
+        {
+            cpu->AddCycles_CI(2); // 1 X
+
+            ((ARMv5*)cpu)->AddCycles_MW(2); // 2 M
+            ((ARMv5*)cpu)->SetupInterlock((cpu->CurInstr >> 16) & 0xF);
+        }
+    }
     else
     {
+        u32 cycles;
         if      ((rs & 0xFFFFFF00) == 0x00000000 || (rs & 0xFFFFFF00) == 0xFFFFFF00) cycles = 2;
         else if ((rs & 0xFFFF0000) == 0x00000000 || (rs & 0xFFFF0000) == 0xFFFF0000) cycles = 3;
         else if ((rs & 0xFF000000) == 0x00000000 || (rs & 0xFF000000) == 0xFF000000) cycles = 4;
         else cycles = 5;
+        if (cpu->CurInstr & (1<<20)) cpu->SetC(MULSCarry(rm, rs, rn, cycles==5));
+        cpu->AddCycles_CI(cycles);
     }
 
-    cpu->AddCycles_CI(cycles);
+    u32 res = (rm * rs) + rn;
+    
+    if (((cpu->CurInstr >> 16) & 0xF) != 15)
+        cpu->R[(cpu->CurInstr >> 16) & 0xF] = res;
+
+    if (cpu->CurInstr & (1<<20))
+    {
+        cpu->SetNZ(res & 0x80000000,
+                   !res);
+    }
 }
 
 void A_UMULL(ARM* cpu)
@@ -823,62 +992,92 @@ void A_UMULL(ARM* cpu)
     u32 rm = cpu->R[cpu->CurInstr & 0xF];
     u32 rs = cpu->R[(cpu->CurInstr >> 8) & 0xF];
 
-    u64 res = (u64)rm * (u64)rs;
-
-    cpu->R[(cpu->CurInstr >> 12) & 0xF] = (u32)res;
-    cpu->R[(cpu->CurInstr >> 16) & 0xF] = (u32)(res >> 32ULL);
-    if (cpu->CurInstr & (1<<20))
-    {
-        cpu->SetNZ((u32)(res >> 63ULL),
-                   !res);
-        if (cpu->Num==1) cpu->SetC(0);
-    }
-
-    u32 cycles;
     if (cpu->Num == 0)
-        cycles = (cpu->CurInstr & (1<<20)) ? 3 : 1;
+    {
+        if (cpu->CheckInterlock) return ((ARMv5*)cpu)->HandleInterlocksExecute<true>((1 << (cpu->CurInstr & 0xF)) | 
+                                                                                     (1 << ((cpu->CurInstr >> 8) & 0xF)));
+        if (cpu->CurInstr & (1<<20)) cpu->AddCycles_CI(4);
+        else
+        {
+            cpu->AddCycles_CI(2);
+            
+            ((ARMv5*)cpu)->AddCycles_MW(1); // normally 1 length memory stages should be implicit, but we need one here explicitly for interlocks to work
+            ((ARMv5*)cpu)->SetupInterlock((cpu->CurInstr >> 16) & 0xF); // only one rd interlocks
+        }
+    }
     else
     {
+        u32 cycles;
         if      ((rs & 0xFFFFFF00) == 0x00000000) cycles = 2;
         else if ((rs & 0xFFFF0000) == 0x00000000) cycles = 3;
         else if ((rs & 0xFF000000) == 0x00000000) cycles = 4;
         else cycles = 5;
+        if (cpu->CurInstr & (1<<20)) cpu->SetC(UMULLSCarry(0, rm, rs, cycles==5));
+        cpu->AddCycles_CI(cycles);
     }
 
-    cpu->AddCycles_CI(cycles);
+    u64 res = (u64)rm * (u64)rs;
+
+    if (((cpu->CurInstr >> 12) & 0xF) != 15)
+        cpu->R[(cpu->CurInstr >> 12) & 0xF] = (u32)res;
+    if (((cpu->CurInstr >> 16) & 0xF) != 15)
+        cpu->R[(cpu->CurInstr >> 16) & 0xF] = (u32)(res >> 32ULL);
+
+    if (cpu->CurInstr & (1<<20))
+    {
+        cpu->SetNZ((u32)(res >> 63ULL),
+                   !res);
+    }
 }
 
 void A_UMLAL(ARM* cpu)
 {
     u32 rm = cpu->R[cpu->CurInstr & 0xF];
     u32 rs = cpu->R[(cpu->CurInstr >> 8) & 0xF];
-
-    u64 res = (u64)rm * (u64)rs;
-
     u64 rd = (u64)cpu->R[(cpu->CurInstr >> 12) & 0xF] | ((u64)cpu->R[(cpu->CurInstr >> 16) & 0xF] << 32ULL);
-    res += rd;
 
-    cpu->R[(cpu->CurInstr >> 12) & 0xF] = (u32)res;
-    cpu->R[(cpu->CurInstr >> 16) & 0xF] = (u32)(res >> 32ULL);
-    if (cpu->CurInstr & (1<<20))
-    {
-        cpu->SetNZ((u32)(res >> 63ULL),
-                   !res);
-        if (cpu->Num==1) cpu->SetC(0);
-    }
-
-    u32 cycles;
     if (cpu->Num == 0)
-        cycles = (cpu->CurInstr & (1<<20)) ? 3 : 1;
+    {
+        u8 iltime[16] = {};
+        iltime[(cpu->CurInstr>>12)&0xF] = 1;
+        if (cpu->CheckInterlock) return ((ARMv5*)cpu)->HandleInterlocksExecute<true>((1 << (cpu->CurInstr & 0xF)) | 
+                                                                                     (1 << ((cpu->CurInstr >> 8) & 0xF)) |
+                                                                                     (1 << ((cpu->CurInstr >> 12) & 0xF))/* |
+                                                                                     (1 << ((cpu->CurInstr >> 16) & 0xF))*/, iltime);
+        if (cpu->CurInstr & (1<<20)) cpu->AddCycles_CI(4);
+        else
+        {
+            cpu->AddCycles_CI(2);
+            
+            ((ARMv5*)cpu)->AddCycles_MW(1); // normally 1 length memory stages should be implicit, but we need one here explicitly for interlocks to work
+            ((ARMv5*)cpu)->SetupInterlock((cpu->CurInstr >> 16) & 0xF); // only one rd interlocks
+        }
+    }
     else
     {
+        u32 cycles;
         if      ((rs & 0xFFFFFF00) == 0x00000000) cycles = 2;
         else if ((rs & 0xFFFF0000) == 0x00000000) cycles = 3;
         else if ((rs & 0xFF000000) == 0x00000000) cycles = 4;
         else cycles = 5;
+        if (cpu->CurInstr & (1<<20)) cpu->SetC(UMULLSCarry(rd, rm, rs, cycles==5));
+        cpu->AddCycles_CI(cycles);
     }
 
-    cpu->AddCycles_CI(cycles);
+    u64 res = (u64)rm * (u64)rs;
+
+    res += rd;
+    
+    if (((cpu->CurInstr >> 12) & 0xF) != 15)
+        cpu->R[(cpu->CurInstr >> 12) & 0xF] = (u32)res;
+    if (((cpu->CurInstr >> 16) & 0xF) != 15)
+        cpu->R[(cpu->CurInstr >> 16) & 0xF] = (u32)(res >> 32ULL);
+
+    if (cpu->CurInstr & (1<<20))
+    {
+        cpu->SetNZ((u32)(res >> 63ULL),
+                   !res);
+    }
 }
 
 void A_SMULL(ARM* cpu)
@@ -886,62 +1085,92 @@ void A_SMULL(ARM* cpu)
     u32 rm = cpu->R[cpu->CurInstr & 0xF];
     u32 rs = cpu->R[(cpu->CurInstr >> 8) & 0xF];
 
-    s64 res = (s64)(s32)rm * (s64)(s32)rs;
-
-    cpu->R[(cpu->CurInstr >> 12) & 0xF] = (u32)res;
-    cpu->R[(cpu->CurInstr >> 16) & 0xF] = (u32)(res >> 32ULL);
-    if (cpu->CurInstr & (1<<20))
-    {
-        cpu->SetNZ((u32)(res >> 63ULL),
-                   !res);
-        if (cpu->Num==1) cpu->SetC(0);
-    }
-
-    u32 cycles;
     if (cpu->Num == 0)
-        cycles = (cpu->CurInstr & (1<<20)) ? 3 : 1;
+    {
+        if (cpu->CheckInterlock) return ((ARMv5*)cpu)->HandleInterlocksExecute<true>((1 << (cpu->CurInstr & 0xF)) | 
+                                                                                     (1 << ((cpu->CurInstr >> 8) & 0xF)));
+        if (cpu->CurInstr & (1<<20)) cpu->AddCycles_CI(4);
+        else
+        {
+            cpu->AddCycles_CI(2);
+            
+            ((ARMv5*)cpu)->AddCycles_MW(1); // normally 1 length memory stages should be implicit, but we need one here explicitly for interlocks to work
+            ((ARMv5*)cpu)->SetupInterlock((cpu->CurInstr >> 16) & 0xF); // only one rd interlocks
+        }
+    }
     else
     {
+        u32 cycles;
         if      ((rs & 0xFFFFFF00) == 0x00000000 || (rs & 0xFFFFFF00) == 0xFFFFFF00) cycles = 2;
         else if ((rs & 0xFFFF0000) == 0x00000000 || (rs & 0xFFFF0000) == 0xFFFF0000) cycles = 3;
         else if ((rs & 0xFF000000) == 0x00000000 || (rs & 0xFF000000) == 0xFF000000) cycles = 4;
         else cycles = 5;
+        if (cpu->CurInstr & (1<<20)) cpu->SetC(SMULLSCarry(0, rm, rs, cycles==5));
+        cpu->AddCycles_CI(cycles);
     }
 
-    cpu->AddCycles_CI(cycles);
+    s64 res = (s64)(s32)rm * (s64)(s32)rs;
+    
+    if (((cpu->CurInstr >> 12) & 0xF) != 15)
+        cpu->R[(cpu->CurInstr >> 12) & 0xF] = (u32)res;
+    if (((cpu->CurInstr >> 16) & 0xF) != 15)
+        cpu->R[(cpu->CurInstr >> 16) & 0xF] = (u32)(res >> 32ULL);
+
+    if (cpu->CurInstr & (1<<20))
+    {
+        cpu->SetNZ((u32)(res >> 63ULL),
+                   !res);
+    }
 }
 
 void A_SMLAL(ARM* cpu)
 {
     u32 rm = cpu->R[cpu->CurInstr & 0xF];
     u32 rs = cpu->R[(cpu->CurInstr >> 8) & 0xF];
-
-    s64 res = (s64)(s32)rm * (s64)(s32)rs;
-
     s64 rd = (s64)((u64)cpu->R[(cpu->CurInstr >> 12) & 0xF] | ((u64)cpu->R[(cpu->CurInstr >> 16) & 0xF] << 32ULL));
-    res += rd;
 
-    cpu->R[(cpu->CurInstr >> 12) & 0xF] = (u32)res;
-    cpu->R[(cpu->CurInstr >> 16) & 0xF] = (u32)(res >> 32ULL);
-    if (cpu->CurInstr & (1<<20))
-    {
-        cpu->SetNZ((u32)(res >> 63ULL),
-                   !res);
-        if (cpu->Num==1) cpu->SetC(0);
-    }
-
-    u32 cycles;
     if (cpu->Num == 0)
-        cycles = (cpu->CurInstr & (1<<20)) ? 3 : 1;
+    {
+        u8 iltime[16] {};
+        iltime[(cpu->CurInstr>>12)&0xF] = 1;
+        if (cpu->CheckInterlock) return ((ARMv5*)cpu)->HandleInterlocksExecute<true>((1 << (cpu->CurInstr & 0xF)) | 
+                                                                                     (1 << ((cpu->CurInstr >> 8) & 0xF)) |
+                                                                                     (1 << ((cpu->CurInstr >> 12) & 0xF)) /*|
+                                                                                     (1 << ((cpu->CurInstr >> 16) & 0xF))*/, iltime);
+        if (cpu->CurInstr & (1<<20)) cpu->AddCycles_CI(4);
+        else
+        {
+            cpu->AddCycles_CI(2);
+            
+            ((ARMv5*)cpu)->AddCycles_MW(1); // normally 1 length memory stages should be implicit, but we need one here explicitly for interlocks to work
+            ((ARMv5*)cpu)->SetupInterlock((cpu->CurInstr >> 16) & 0xF); // only one rd interlocks
+        }
+    }
     else
     {
+        u32 cycles;
         if      ((rs & 0xFFFFFF00) == 0x00000000 || (rs & 0xFFFFFF00) == 0xFFFFFF00) cycles = 2;
         else if ((rs & 0xFFFF0000) == 0x00000000 || (rs & 0xFFFF0000) == 0xFFFF0000) cycles = 3;
         else if ((rs & 0xFF000000) == 0x00000000 || (rs & 0xFF000000) == 0xFF000000) cycles = 4;
         else cycles = 5;
+        if (cpu->CurInstr & (1<<20)) cpu->SetC(SMULLSCarry(rd, rm, rs, cycles==5));
+        cpu->AddCycles_CI(cycles);
     }
 
-    cpu->AddCycles_CI(cycles);
+    s64 res = (s64)(s32)rm * (s64)(s32)rs;
+
+    res += rd;
+    
+    if (((cpu->CurInstr >> 12) & 0xF) != 15)
+        cpu->R[(cpu->CurInstr >> 12) & 0xF] = (u32)res;
+    if (((cpu->CurInstr >> 16) & 0xF) != 15)
+        cpu->R[(cpu->CurInstr >> 16) & 0xF] = (u32)(res >> 32ULL);
+
+    if (cpu->CurInstr & (1<<20))
+    {
+        cpu->SetNZ((u32)(res >> 63ULL),
+                   !res);
+    }
 }
 
 void A_SMLAxy(ARM* cpu)
@@ -952,6 +1181,12 @@ void A_SMLAxy(ARM* cpu)
     u32 rs = cpu->R[(cpu->CurInstr >> 8) & 0xF];
     u32 rn = cpu->R[(cpu->CurInstr >> 12) & 0xF];
 
+    u8 iltime[16] {};
+    iltime[(cpu->CurInstr>>12)&0xF] = 1;
+    if (cpu->CheckInterlock) return ((ARMv5*)cpu)->HandleInterlocksExecute<true>((1 << (cpu->CurInstr & 0xF)) | 
+                                                                                 (1 << ((cpu->CurInstr >> 8) & 0xF)) |
+                                                                                 (1 << ((cpu->CurInstr >> 12) & 0xF)), iltime);
+
     if (cpu->CurInstr & (1<<5)) rm >>= 16;
     else                        rm &= 0xFFFF;
     if (cpu->CurInstr & (1<<6)) rs >>= 16;
@@ -959,12 +1194,17 @@ void A_SMLAxy(ARM* cpu)
 
     u32 res_mul = ((s16)rm * (s16)rs);
     u32 res = res_mul + rn;
+    
+    if (((cpu->CurInstr >> 16) & 0xF) != 15)
+        cpu->R[(cpu->CurInstr >> 16) & 0xF] = res;
 
-    cpu->R[(cpu->CurInstr >> 16) & 0xF] = res;
     if (OverflowAdd(res_mul, rn))
         cpu->CPSR |= 0x08000000;
 
-    cpu->AddCycles_C(); // TODO: interlock??
+    cpu->AddCycles_C();
+    
+    ((ARMv5*)cpu)->AddCycles_MW(1); // normally 1 length memory stages should be implicit, but we need one here explicitly for interlocks to work
+    ((ARMv5*)cpu)->SetupInterlock((cpu->CurInstr >> 16) & 0xF);
 }
 
 void A_SMLAWy(ARM* cpu)
@@ -975,17 +1215,28 @@ void A_SMLAWy(ARM* cpu)
     u32 rs = cpu->R[(cpu->CurInstr >> 8) & 0xF];
     u32 rn = cpu->R[(cpu->CurInstr >> 12) & 0xF];
 
+    u8 iltime[16] = {};
+    iltime[(cpu->CurInstr>>12)&0xF] = 1;
+    if (cpu->CheckInterlock) return ((ARMv5*)cpu)->HandleInterlocksExecute<true>((1 << (cpu->CurInstr & 0xF)) | 
+                                                                                 (1 << ((cpu->CurInstr >> 8) & 0xF)) |
+                                                                                 (1 << ((cpu->CurInstr >> 12) & 0xF)), iltime);
+
     if (cpu->CurInstr & (1<<6)) rs >>= 16;
     else                        rs &= 0xFFFF;
 
     u32 res_mul = ((s64)(s32)rm * (s16)rs) >> 16;
     u32 res = res_mul + rn;
+    
+    if (((cpu->CurInstr >> 16) & 0xF) != 15)
+        cpu->R[(cpu->CurInstr >> 16) & 0xF] = res;
 
-    cpu->R[(cpu->CurInstr >> 16) & 0xF] = res;
     if (OverflowAdd(res_mul, rn))
         cpu->CPSR |= 0x08000000;
 
-    cpu->AddCycles_C(); // TODO: interlock??
+    cpu->AddCycles_C();
+    
+    ((ARMv5*)cpu)->AddCycles_MW(1); // normally 1 length memory stages should be implicit, but we need one here explicitly for interlocks to work
+    ((ARMv5*)cpu)->SetupInterlock((cpu->CurInstr >> 16) & 0xF);
 }
 
 void A_SMULxy(ARM* cpu)
@@ -995,15 +1246,23 @@ void A_SMULxy(ARM* cpu)
     u32 rm = cpu->R[cpu->CurInstr & 0xF];
     u32 rs = cpu->R[(cpu->CurInstr >> 8) & 0xF];
 
+    if (cpu->CheckInterlock) return ((ARMv5*)cpu)->HandleInterlocksExecute<true>((1 << (cpu->CurInstr & 0xF)) | 
+                                                                                 (1 << ((cpu->CurInstr >> 8) & 0xF)));
+
     if (cpu->CurInstr & (1<<5)) rm >>= 16;
     else                        rm &= 0xFFFF;
     if (cpu->CurInstr & (1<<6)) rs >>= 16;
     else                        rs &= 0xFFFF;
 
     u32 res = ((s16)rm * (s16)rs);
+    
+    if (((cpu->CurInstr >> 16) & 0xF) != 15)
+        cpu->R[(cpu->CurInstr >> 16) & 0xF] = res;
 
-    cpu->R[(cpu->CurInstr >> 16) & 0xF] = res;
-    cpu->AddCycles_C(); // TODO: interlock??
+    cpu->AddCycles_C();
+    
+    ((ARMv5*)cpu)->AddCycles_MW(1); // normally 1 length memory stages should be implicit, but we need one here explicitly for interlocks to work
+    ((ARMv5*)cpu)->SetupInterlock((cpu->CurInstr >> 16) & 0xF);
 }
 
 void A_SMULWy(ARM* cpu)
@@ -1013,13 +1272,21 @@ void A_SMULWy(ARM* cpu)
     u32 rm = cpu->R[cpu->CurInstr & 0xF];
     u32 rs = cpu->R[(cpu->CurInstr >> 8) & 0xF];
 
+    if (cpu->CheckInterlock) return ((ARMv5*)cpu)->HandleInterlocksExecute<true>((1 << (cpu->CurInstr & 0xF)) | 
+                                                                                 (1 << ((cpu->CurInstr >> 8) & 0xF)));
+
     if (cpu->CurInstr & (1<<6)) rs >>= 16;
     else                        rs &= 0xFFFF;
 
     u32 res = ((s64)(s32)rm * (s16)rs) >> 16;
+    
+    if (((cpu->CurInstr >> 16) & 0xF) != 15)
+        cpu->R[(cpu->CurInstr >> 16) & 0xF] = res;
 
-    cpu->R[(cpu->CurInstr >> 16) & 0xF] = res;
-    cpu->AddCycles_C(); // TODO: interlock??
+    cpu->AddCycles_C();
+
+    ((ARMv5*)cpu)->AddCycles_MW(1); // normally 1 length memory stages should be implicit, but we need one here explicitly for interlocks to work
+    ((ARMv5*)cpu)->SetupInterlock((cpu->CurInstr >> 16) & 0xF);
 }
 
 void A_SMLALxy(ARM* cpu)
@@ -1028,6 +1295,13 @@ void A_SMLALxy(ARM* cpu)
 
     u32 rm = cpu->R[cpu->CurInstr & 0xF];
     u32 rs = cpu->R[(cpu->CurInstr >> 8) & 0xF];
+
+    u8 iltime[16] {};
+    iltime[(cpu->CurInstr>>12)&0xF] = 1;
+    if (cpu->CheckInterlock) return ((ARMv5*)cpu)->HandleInterlocksExecute<true>((1 << (cpu->CurInstr & 0xF)) | 
+                                                                                 (1 << ((cpu->CurInstr >> 8) & 0xF)) |
+                                                                                 (1 << ((cpu->CurInstr >> 12) & 0xF))/* |
+                                                                                 (1 << ((cpu->CurInstr >> 16) & 0xF))*/, iltime);
 
     if (cpu->CurInstr & (1<<5)) rm >>= 16;
     else                        rm &= 0xFFFF;
@@ -1039,10 +1313,16 @@ void A_SMLALxy(ARM* cpu)
     s64 rd = (s64)((u64)cpu->R[(cpu->CurInstr >> 12) & 0xF] | ((u64)cpu->R[(cpu->CurInstr >> 16) & 0xF] << 32ULL));
     res += rd;
 
-    cpu->R[(cpu->CurInstr >> 12) & 0xF] = (u32)res;
-    cpu->R[(cpu->CurInstr >> 16) & 0xF] = (u32)(res >> 32ULL);
+    if (((cpu->CurInstr >> 12) & 0xF) != 15)
+        cpu->R[(cpu->CurInstr >> 12) & 0xF] = (u32)res;
 
-    cpu->AddCycles_CI(1); // TODO: interlock??
+    if (((cpu->CurInstr >> 16) & 0xF) != 15)
+        cpu->R[(cpu->CurInstr >> 16) & 0xF] = (u32)(res >> 32ULL);
+
+    cpu->AddCycles_CI(2); // 1 X
+
+    ((ARMv5*)cpu)->AddCycles_MW(2); // 2 M
+    ((ARMv5*)cpu)->SetupInterlock((cpu->CurInstr >> 16) & 0xF);
 }
 
 
@@ -1052,6 +1332,8 @@ void A_CLZ(ARM* cpu)
     if (cpu->Num != 0) return A_UNK(cpu);
 
     u32 val = cpu->R[cpu->CurInstr & 0xF];
+
+    if (cpu->CheckInterlock) return ((ARMv5*)cpu)->HandleInterlocksExecute<false>(cpu->CurInstr & 0xF);
 
     u32 res = 0;
     while ((val & 0xFF000000) == 0)
@@ -1067,8 +1349,10 @@ void A_CLZ(ARM* cpu)
         val |= 0x1;
     }
 
-    cpu->R[(cpu->CurInstr >> 12) & 0xF] = res;
     cpu->AddCycles_C();
+
+    if (((cpu->CurInstr >> 12) & 0xF) == 15) cpu->JumpTo(res & ~1);
+    else cpu->R[(cpu->CurInstr >> 12) & 0xF] = res;
 }
 
 void A_QADD(ARM* cpu)
@@ -1078,6 +1362,8 @@ void A_QADD(ARM* cpu)
     u32 rm = cpu->R[cpu->CurInstr & 0xF];
     u32 rn = cpu->R[(cpu->CurInstr >> 16) & 0xF];
 
+    if (cpu->CheckInterlock) return ((ARMv5*)cpu)->HandleInterlocksExecute<true>((1 << (cpu->CurInstr & 0xF)) | (1 << ((cpu->CurInstr >> 16) & 0xF)));
+
     u32 res = rm + rn;
     if (OverflowAdd(rm, rn))
     {
@@ -1085,8 +1371,14 @@ void A_QADD(ARM* cpu)
         cpu->CPSR |= 0x08000000;
     }
 
-    cpu->R[(cpu->CurInstr >> 12) & 0xF] = res;
-    cpu->AddCycles_C(); // TODO: interlock??
+    // all saturated math instructions fail writes to r15
+    if (((cpu->CurInstr >> 12) & 0xF) != 15)
+        cpu->R[(cpu->CurInstr >> 12) & 0xF] = res;
+
+    cpu->AddCycles_C();
+
+    ((ARMv5*)cpu)->AddCycles_MW(1); // normally 1 length memory stages should be implicit, but we need one here explicitly for interlocks to work
+    ((ARMv5*)cpu)->SetupInterlock((cpu->CurInstr >> 12) & 0xF);
 }
 
 void A_QSUB(ARM* cpu)
@@ -1095,6 +1387,8 @@ void A_QSUB(ARM* cpu)
 
     u32 rm = cpu->R[cpu->CurInstr & 0xF];
     u32 rn = cpu->R[(cpu->CurInstr >> 16) & 0xF];
+    
+    if (cpu->CheckInterlock) return ((ARMv5*)cpu)->HandleInterlocksExecute<true>((1 << (cpu->CurInstr & 0xF)) | (1 << ((cpu->CurInstr >> 16) & 0xF)));
 
     u32 res = rm - rn;
     if (OverflowSub(rm, rn))
@@ -1102,9 +1396,14 @@ void A_QSUB(ARM* cpu)
         res = (res & 0x80000000) ? 0x7FFFFFFF : 0x80000000;
         cpu->CPSR |= 0x08000000;
     }
+    
+    if (((cpu->CurInstr >> 12) & 0xF) != 15)
+        cpu->R[(cpu->CurInstr >> 12) & 0xF] = res;
 
-    cpu->R[(cpu->CurInstr >> 12) & 0xF] = res;
-    cpu->AddCycles_C(); // TODO: interlock??
+    cpu->AddCycles_C();
+
+    ((ARMv5*)cpu)->AddCycles_MW(1); // normally 1 length memory stages should be implicit, but we need one here explicitly for interlocks to work
+    ((ARMv5*)cpu)->SetupInterlock((cpu->CurInstr >> 12) & 0xF);
 }
 
 void A_QDADD(ARM* cpu)
@@ -1113,6 +1412,8 @@ void A_QDADD(ARM* cpu)
 
     u32 rm = cpu->R[cpu->CurInstr & 0xF];
     u32 rn = cpu->R[(cpu->CurInstr >> 16) & 0xF];
+    
+    if (cpu->CheckInterlock) return ((ARMv5*)cpu)->HandleInterlocksExecute<true>((1 << (cpu->CurInstr & 0xF)) | (1 << ((cpu->CurInstr >> 16) & 0xF)));
 
     if (OverflowAdd(rn, rn))
     {
@@ -1128,9 +1429,14 @@ void A_QDADD(ARM* cpu)
         res = (res & 0x80000000) ? 0x7FFFFFFF : 0x80000000;
         cpu->CPSR |= 0x08000000;
     }
+    
+    if (((cpu->CurInstr >> 12) & 0xF) != 15)
+        cpu->R[(cpu->CurInstr >> 12) & 0xF] = res;
 
-    cpu->R[(cpu->CurInstr >> 12) & 0xF] = res;
-    cpu->AddCycles_C(); // TODO: interlock??
+    cpu->AddCycles_C();
+
+    ((ARMv5*)cpu)->AddCycles_MW(1); // normally 1 length memory stages should be implicit, but we need one here explicitly for interlocks to work
+    ((ARMv5*)cpu)->SetupInterlock((cpu->CurInstr >> 12) & 0xF);
 }
 
 void A_QDSUB(ARM* cpu)
@@ -1139,6 +1445,8 @@ void A_QDSUB(ARM* cpu)
 
     u32 rm = cpu->R[cpu->CurInstr & 0xF];
     u32 rn = cpu->R[(cpu->CurInstr >> 16) & 0xF];
+    
+    if (cpu->CheckInterlock) return ((ARMv5*)cpu)->HandleInterlocksExecute<true>((1 << (cpu->CurInstr & 0xF)) | (1 << ((cpu->CurInstr >> 16) & 0xF)));
 
     if (OverflowAdd(rn, rn))
     {
@@ -1154,9 +1462,14 @@ void A_QDSUB(ARM* cpu)
         res = (res & 0x80000000) ? 0x7FFFFFFF : 0x80000000;
         cpu->CPSR |= 0x08000000;
     }
+    
+    if (((cpu->CurInstr >> 12) & 0xF) != 15)
+        cpu->R[(cpu->CurInstr >> 12) & 0xF] = res;
 
-    cpu->R[(cpu->CurInstr >> 12) & 0xF] = res;
-    cpu->AddCycles_C(); // TODO: interlock??
+    cpu->AddCycles_C();
+
+    ((ARMv5*)cpu)->AddCycles_MW(1); // normally 1 length memory stages should be implicit, but we need one here explicitly for interlocks to work
+    ((ARMv5*)cpu)->SetupInterlock((cpu->CurInstr >> 12) & 0xF);
 }
 
 
@@ -1169,6 +1482,7 @@ void T_LSL_IMM(ARM* cpu)
 {
     u32 op = cpu->R[(cpu->CurInstr >> 3) & 0x7];
     u32 s = (cpu->CurInstr >> 6) & 0x1F;
+    if (cpu->CheckInterlock) return ((ARMv5*)cpu)->HandleInterlocksExecute<false>((cpu->CurInstr >> 3) & 0x7);
     LSL_IMM_S(op, s);
     cpu->R[cpu->CurInstr & 0x7] = op;
     cpu->SetNZ(op & 0x80000000,
@@ -1180,6 +1494,7 @@ void T_LSR_IMM(ARM* cpu)
 {
     u32 op = cpu->R[(cpu->CurInstr >> 3) & 0x7];
     u32 s = (cpu->CurInstr >> 6) & 0x1F;
+    if (cpu->CheckInterlock) return ((ARMv5*)cpu)->HandleInterlocksExecute<false>((cpu->CurInstr >> 3) & 0x7);
     LSR_IMM_S(op, s);
     cpu->R[cpu->CurInstr & 0x7] = op;
     cpu->SetNZ(op & 0x80000000,
@@ -1191,6 +1506,7 @@ void T_ASR_IMM(ARM* cpu)
 {
     u32 op = cpu->R[(cpu->CurInstr >> 3) & 0x7];
     u32 s = (cpu->CurInstr >> 6) & 0x1F;
+    if (cpu->CheckInterlock) return ((ARMv5*)cpu)->HandleInterlocksExecute<false>((cpu->CurInstr >> 3) & 0x7);
     ASR_IMM_S(op, s);
     cpu->R[cpu->CurInstr & 0x7] = op;
     cpu->SetNZ(op & 0x80000000,
@@ -1202,6 +1518,7 @@ void T_ADD_REG_(ARM* cpu)
 {
     u32 a = cpu->R[(cpu->CurInstr >> 3) & 0x7];
     u32 b = cpu->R[(cpu->CurInstr >> 6) & 0x7];
+    if (cpu->CheckInterlock) return ((ARMv5*)cpu)->HandleInterlocksExecute<true>((1 << ((cpu->CurInstr >> 3) & 0x7)) | (1 << ((cpu->CurInstr >> 6) & 0x7)));
     u32 res = a + b;
     cpu->R[cpu->CurInstr & 0x7] = res;
     cpu->SetNZCV(res & 0x80000000,
@@ -1215,6 +1532,7 @@ void T_SUB_REG_(ARM* cpu)
 {
     u32 a = cpu->R[(cpu->CurInstr >> 3) & 0x7];
     u32 b = cpu->R[(cpu->CurInstr >> 6) & 0x7];
+    if (cpu->CheckInterlock) return ((ARMv5*)cpu)->HandleInterlocksExecute<true>((1 << ((cpu->CurInstr >> 3) & 0x7)) | (1 << ((cpu->CurInstr >> 6) & 0x7)));
     u32 res = a - b;
     cpu->R[cpu->CurInstr & 0x7] = res;
     cpu->SetNZCV(res & 0x80000000,
@@ -1228,6 +1546,7 @@ void T_ADD_IMM_(ARM* cpu)
 {
     u32 a = cpu->R[(cpu->CurInstr >> 3) & 0x7];
     u32 b = (cpu->CurInstr >> 6) & 0x7;
+    if (cpu->CheckInterlock) return ((ARMv5*)cpu)->HandleInterlocksExecute<false>((cpu->CurInstr >> 3) & 0x7);
     u32 res = a + b;
     cpu->R[cpu->CurInstr & 0x7] = res;
     cpu->SetNZCV(res & 0x80000000,
@@ -1241,6 +1560,7 @@ void T_SUB_IMM_(ARM* cpu)
 {
     u32 a = cpu->R[(cpu->CurInstr >> 3) & 0x7];
     u32 b = (cpu->CurInstr >> 6) & 0x7;
+    if (cpu->CheckInterlock) return ((ARMv5*)cpu)->HandleInterlocksExecute<false>((cpu->CurInstr >> 3) & 0x7);
     u32 res = a - b;
     cpu->R[cpu->CurInstr & 0x7] = res;
     cpu->SetNZCV(res & 0x80000000,
@@ -1253,6 +1573,7 @@ void T_SUB_IMM_(ARM* cpu)
 void T_MOV_IMM(ARM* cpu)
 {
     u32 b = cpu->CurInstr & 0xFF;
+    if (cpu->CheckInterlock) return ((ARMv5*)cpu)->HandleInterlocksExecute<false>((cpu->CurInstr >> 8) & 0x7);
     cpu->R[(cpu->CurInstr >> 8) & 0x7] = b;
     cpu->SetNZ(0,
                !b);
@@ -1263,6 +1584,7 @@ void T_CMP_IMM(ARM* cpu)
 {
     u32 a = cpu->R[(cpu->CurInstr >> 8) & 0x7];
     u32 b = cpu->CurInstr & 0xFF;
+    if (cpu->CheckInterlock) return ((ARMv5*)cpu)->HandleInterlocksExecute<false>((cpu->CurInstr >> 8) & 0x7);
     u32 res = a - b;
     cpu->SetNZCV(res & 0x80000000,
                  !res,
@@ -1275,6 +1597,7 @@ void T_ADD_IMM(ARM* cpu)
 {
     u32 a = cpu->R[(cpu->CurInstr >> 8) & 0x7];
     u32 b = cpu->CurInstr & 0xFF;
+    if (cpu->CheckInterlock) return ((ARMv5*)cpu)->HandleInterlocksExecute<false>((cpu->CurInstr >> 8) & 0x7);
     u32 res = a + b;
     cpu->R[(cpu->CurInstr >> 8) & 0x7] = res;
     cpu->SetNZCV(res & 0x80000000,
@@ -1288,6 +1611,7 @@ void T_SUB_IMM(ARM* cpu)
 {
     u32 a = cpu->R[(cpu->CurInstr >> 8) & 0x7];
     u32 b = cpu->CurInstr & 0xFF;
+    if (cpu->CheckInterlock) return ((ARMv5*)cpu)->HandleInterlocksExecute<false>((cpu->CurInstr >> 8) & 0x7);
     u32 res = a - b;
     cpu->R[(cpu->CurInstr >> 8) & 0x7] = res;
     cpu->SetNZCV(res & 0x80000000,
@@ -1302,6 +1626,7 @@ void T_AND_REG(ARM* cpu)
 {
     u32 a = cpu->R[cpu->CurInstr & 0x7];
     u32 b = cpu->R[(cpu->CurInstr >> 3) & 0x7];
+    if (cpu->CheckInterlock) return ((ARMv5*)cpu)->HandleInterlocksExecute<true>((1 << (cpu->CurInstr & 0x7)) | (1 << ((cpu->CurInstr >> 3) & 0x7)));
     u32 res = a & b;
     cpu->R[cpu->CurInstr & 0x7] = res;
     cpu->SetNZ(res & 0x80000000,
@@ -1313,6 +1638,7 @@ void T_EOR_REG(ARM* cpu)
 {
     u32 a = cpu->R[cpu->CurInstr & 0x7];
     u32 b = cpu->R[(cpu->CurInstr >> 3) & 0x7];
+    if (cpu->CheckInterlock) return ((ARMv5*)cpu)->HandleInterlocksExecute<true>((1 << (cpu->CurInstr & 0x7)) | (1 << ((cpu->CurInstr >> 3) & 0x7)));
     u32 res = a ^ b;
     cpu->R[cpu->CurInstr & 0x7] = res;
     cpu->SetNZ(res & 0x80000000,
@@ -1324,6 +1650,7 @@ void T_LSL_REG(ARM* cpu)
 {
     u32 a = cpu->R[cpu->CurInstr & 0x7];
     u32 b = cpu->R[(cpu->CurInstr >> 3) & 0x7] & 0xFF;
+    if (cpu->CheckInterlock) return ((ARMv5*)cpu)->HandleInterlocksExecute<true>((1 << (cpu->CurInstr & 0x7)) | (1 << ((cpu->CurInstr >> 3) & 0x7)));
     LSL_REG_S(a, b);
     cpu->R[cpu->CurInstr & 0x7] = a;
     cpu->SetNZ(a & 0x80000000,
@@ -1335,6 +1662,7 @@ void T_LSR_REG(ARM* cpu)
 {
     u32 a = cpu->R[cpu->CurInstr & 0x7];
     u32 b = cpu->R[(cpu->CurInstr >> 3) & 0x7] & 0xFF;
+    if (cpu->CheckInterlock) return ((ARMv5*)cpu)->HandleInterlocksExecute<true>((1 << (cpu->CurInstr & 0x7)) | (1 << ((cpu->CurInstr >> 3) & 0x7)));
     LSR_REG_S(a, b);
     cpu->R[cpu->CurInstr & 0x7] = a;
     cpu->SetNZ(a & 0x80000000,
@@ -1346,6 +1674,7 @@ void T_ASR_REG(ARM* cpu)
 {
     u32 a = cpu->R[cpu->CurInstr & 0x7];
     u32 b = cpu->R[(cpu->CurInstr >> 3) & 0x7] & 0xFF;
+    if (cpu->CheckInterlock) return ((ARMv5*)cpu)->HandleInterlocksExecute<true>((1 << (cpu->CurInstr & 0x7)) | (1 << ((cpu->CurInstr >> 3) & 0x7)));
     ASR_REG_S(a, b);
     cpu->R[cpu->CurInstr & 0x7] = a;
     cpu->SetNZ(a & 0x80000000,
@@ -1357,6 +1686,7 @@ void T_ADC_REG(ARM* cpu)
 {
     u32 a = cpu->R[cpu->CurInstr & 0x7];
     u32 b = cpu->R[(cpu->CurInstr >> 3) & 0x7];
+    if (cpu->CheckInterlock) return ((ARMv5*)cpu)->HandleInterlocksExecute<true>((1 << (cpu->CurInstr & 0x7)) | (1 << ((cpu->CurInstr >> 3) & 0x7)));
     u32 res_tmp = a + b;
     u32 carry = (cpu->CPSR&0x20000000 ? 1:0);
     u32 res = res_tmp + carry;
@@ -1372,6 +1702,7 @@ void T_SBC_REG(ARM* cpu)
 {
     u32 a = cpu->R[cpu->CurInstr & 0x7];
     u32 b = cpu->R[(cpu->CurInstr >> 3) & 0x7];
+    if (cpu->CheckInterlock) return ((ARMv5*)cpu)->HandleInterlocksExecute<true>((1 << (cpu->CurInstr & 0x7)) | (1 << ((cpu->CurInstr >> 3) & 0x7)));
     u32 res_tmp = a - b;
     u32 carry = (cpu->CPSR&0x20000000 ? 0:1);
     u32 res = res_tmp - carry;
@@ -1387,6 +1718,7 @@ void T_ROR_REG(ARM* cpu)
 {
     u32 a = cpu->R[cpu->CurInstr & 0x7];
     u32 b = cpu->R[(cpu->CurInstr >> 3) & 0x7] & 0xFF;
+    if (cpu->CheckInterlock) return ((ARMv5*)cpu)->HandleInterlocksExecute<true>((1 << (cpu->CurInstr & 0x7)) | (1 << ((cpu->CurInstr >> 3) & 0x7)));
     ROR_REG_S(a, b);
     cpu->R[cpu->CurInstr & 0x7] = a;
     cpu->SetNZ(a & 0x80000000,
@@ -1398,6 +1730,7 @@ void T_TST_REG(ARM* cpu)
 {
     u32 a = cpu->R[cpu->CurInstr & 0x7];
     u32 b = cpu->R[(cpu->CurInstr >> 3) & 0x7];
+    if (cpu->CheckInterlock) return ((ARMv5*)cpu)->HandleInterlocksExecute<true>((1 << (cpu->CurInstr & 0x7)) | (1 << ((cpu->CurInstr >> 3) & 0x7)));
     u32 res = a & b;
     cpu->SetNZ(res & 0x80000000,
                !res);
@@ -1407,6 +1740,7 @@ void T_TST_REG(ARM* cpu)
 void T_NEG_REG(ARM* cpu)
 {
     u32 b = cpu->R[(cpu->CurInstr >> 3) & 0x7];
+    if (cpu->CheckInterlock) return ((ARMv5*)cpu)->HandleInterlocksExecute<false>((cpu->CurInstr >> 3) & 0x7);
     u32 res = -b;
     cpu->R[cpu->CurInstr & 0x7] = res;
     cpu->SetNZCV(res & 0x80000000,
@@ -1420,6 +1754,7 @@ void T_CMP_REG(ARM* cpu)
 {
     u32 a = cpu->R[cpu->CurInstr & 0x7];
     u32 b = cpu->R[(cpu->CurInstr >> 3) & 0x7];
+    if (cpu->CheckInterlock) return ((ARMv5*)cpu)->HandleInterlocksExecute<true>((1 << (cpu->CurInstr & 0x7)) | (1 << ((cpu->CurInstr >> 3) & 0x7)));
     u32 res = a - b;
     cpu->SetNZCV(res & 0x80000000,
                  !res,
@@ -1432,6 +1767,7 @@ void T_CMN_REG(ARM* cpu)
 {
     u32 a = cpu->R[cpu->CurInstr & 0x7];
     u32 b = cpu->R[(cpu->CurInstr >> 3) & 0x7];
+    if (cpu->CheckInterlock) return ((ARMv5*)cpu)->HandleInterlocksExecute<true>((1 << (cpu->CurInstr & 0x7)) | (1 << ((cpu->CurInstr >> 3) & 0x7)));
     u32 res = a + b;
     cpu->SetNZCV(res & 0x80000000,
                  !res,
@@ -1444,6 +1780,7 @@ void T_ORR_REG(ARM* cpu)
 {
     u32 a = cpu->R[cpu->CurInstr & 0x7];
     u32 b = cpu->R[(cpu->CurInstr >> 3) & 0x7];
+    if (cpu->CheckInterlock) return ((ARMv5*)cpu)->HandleInterlocksExecute<true>((1 << (cpu->CurInstr & 0x7)) | (1 << ((cpu->CurInstr >> 3) & 0x7)));
     u32 res = a | b;
     cpu->R[cpu->CurInstr & 0x7] = res;
     cpu->SetNZ(res & 0x80000000,
@@ -1455,31 +1792,33 @@ void T_MUL_REG(ARM* cpu)
 {
     u32 a = cpu->R[cpu->CurInstr & 0x7];
     u32 b = cpu->R[(cpu->CurInstr >> 3) & 0x7];
+
+    s32 cycles;
+    if (cpu->Num == 0)
+    {
+        cycles = 3;
+        if (cpu->CheckInterlock) return ((ARMv5*)cpu)->HandleInterlocksExecute<true>((1 << (cpu->CurInstr & 0x7)) | (1 << ((cpu->CurInstr >> 3) & 0x7)));
+    }
+    else
+    {
+        if      ((a & 0xFFFFFF00) == 0x00000000 || (a & 0xFFFFFF00) == 0xFFFFFF00) cycles = 1;
+        else if ((a & 0xFFFF0000) == 0x00000000 || (a & 0xFFFF0000) == 0xFFFF0000) cycles = 2;
+        else if ((a & 0xFF000000) == 0x00000000 || (a & 0xFF000000) == 0xFF000000) cycles = 3;
+        else cycles = 4;
+        cpu->SetC(MULSCarry(b, a, 0, cycles==4)); // carry flag destroyed, they say. whatever that means...
+    }
+    cpu->AddCycles_CI(cycles); // implemented as S variant, doesn't interlock
     u32 res = a * b;
     cpu->R[cpu->CurInstr & 0x7] = res;
     cpu->SetNZ(res & 0x80000000,
                !res);
-
-    s32 cycles = 0;
-    if (cpu->Num == 0)
-    {
-        cycles += 3;
-    }
-    else
-    {
-        cpu->SetC(0); // carry flag destroyed, they say. whatever that means...
-        if      (a & 0xFF000000) cycles += 4;
-        else if (a & 0x00FF0000) cycles += 3;
-        else if (a & 0x0000FF00) cycles += 2;
-        else                     cycles += 1;
-    }
-    cpu->AddCycles_CI(cycles);
 }
 
 void T_BIC_REG(ARM* cpu)
 {
     u32 a = cpu->R[cpu->CurInstr & 0x7];
     u32 b = cpu->R[(cpu->CurInstr >> 3) & 0x7];
+    if (cpu->CheckInterlock) return ((ARMv5*)cpu)->HandleInterlocksExecute<true>((1 << (cpu->CurInstr & 0x7)) | (1 << ((cpu->CurInstr >> 3) & 0x7)));
     u32 res = a & ~b;
     cpu->R[cpu->CurInstr & 0x7] = res;
     cpu->SetNZ(res & 0x80000000,
@@ -1490,6 +1829,7 @@ void T_BIC_REG(ARM* cpu)
 void T_MVN_REG(ARM* cpu)
 {
     u32 b = cpu->R[(cpu->CurInstr >> 3) & 0x7];
+    if (cpu->CheckInterlock) return ((ARMv5*)cpu)->HandleInterlocksExecute<false>((cpu->CurInstr >> 3) & 0x7);
     u32 res = ~b;
     cpu->R[cpu->CurInstr & 0x7] = res;
     cpu->SetNZ(res & 0x80000000,
@@ -1506,11 +1846,13 @@ void T_ADD_HIREG(ARM* cpu)
     u32 rd = (cpu->CurInstr & 0x7) | ((cpu->CurInstr >> 4) & 0x8);
     u32 rs = (cpu->CurInstr >> 3) & 0xF;
 
+    if (cpu->CheckInterlock) return ((ARMv5*)cpu)->HandleInterlocksExecute<true>((1 << rd) | (1 << rs));
+
     u32 a = cpu->R[rd];
     u32 b = cpu->R[rs];
 
     cpu->AddCycles_C();
-
+    
     if (rd == 15)
     {
         cpu->JumpTo((a + b) | 1);
@@ -1526,6 +1868,8 @@ void T_CMP_HIREG(ARM* cpu)
     u32 rd = (cpu->CurInstr & 0x7) | ((cpu->CurInstr >> 4) & 0x8);
     u32 rs = (cpu->CurInstr >> 3) & 0xF;
 
+    if (cpu->CheckInterlock) return ((ARMv5*)cpu)->HandleInterlocksExecute<true>((1 << rd) | (1 << rs));
+
     u32 a = cpu->R[rd];
     u32 b = cpu->R[rs];
     u32 res = a - b;
@@ -1534,14 +1878,27 @@ void T_CMP_HIREG(ARM* cpu)
                  !res,
                  CarrySub(a, b),
                  OverflowSub(a, b));
+                 
     cpu->AddCycles_C();
+
+    if ((cpu->Num == 1) && (rd == 15))
+    {
+        u32 oldpsr = cpu->CPSR;
+        cpu->RestoreCPSR(); // ARM7TDMI restores cpsr and does ___not___ flush the pipeline.
+        if (!(cpu->CPSR & 0x20))
+        {
+            Platform::Log(Platform::LogLevel::Warn, "UNIMPLEMENTED: MSR REG T bit change on ARM7\n");
+            cpu->CPSR |= 0x20; // keep it from crashing the emulator at least
+        }
+    }
 }
 
 void T_MOV_HIREG(ARM* cpu)
 {
     u32 rd = (cpu->CurInstr & 0x7) | ((cpu->CurInstr >> 4) & 0x8);
     u32 rs = (cpu->CurInstr >> 3) & 0xF;
-
+    
+    if (cpu->CheckInterlock) return ((ARMv5*)cpu)->HandleInterlocksExecute<true>((1 << rd) | (1 << rs));
     cpu->AddCycles_C();
 
     if (rd == 15)
@@ -1569,22 +1926,27 @@ void T_MOV_HIREG(ARM* cpu)
 
 void T_ADD_PCREL(ARM* cpu)
 {
+    if (cpu->CheckInterlock) return ((ARMv5*)cpu)->HandleInterlocksExecute<false>(15);
     u32 val = cpu->R[15] & ~2;
     val += ((cpu->CurInstr & 0xFF) << 2);
     cpu->R[(cpu->CurInstr >> 8) & 0x7] = val;
+    
     cpu->AddCycles_C();
 }
 
 void T_ADD_SPREL(ARM* cpu)
 {
+    if (cpu->CheckInterlock) return ((ARMv5*)cpu)->HandleInterlocksExecute<false>(13);
     u32 val = cpu->R[13];
     val += ((cpu->CurInstr & 0xFF) << 2);
     cpu->R[(cpu->CurInstr >> 8) & 0x7] = val;
+    
     cpu->AddCycles_C();
 }
 
 void T_ADD_SP(ARM* cpu)
 {
+    if (cpu->CheckInterlock) return ((ARMv5*)cpu)->HandleInterlocksExecute<false>(13);
     u32 val = cpu->R[13];
     if (cpu->CurInstr & (1<<7))
         val -= ((cpu->CurInstr & 0x7F) << 2);

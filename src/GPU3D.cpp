@@ -2378,13 +2378,13 @@ void GPU3D::Run() noexcept
     if (!GeometryEnabled || FlushRequest ||
         (CmdPIPE.IsEmpty() && !(GXStat & (1<<27))))
     {
-        Timestamp = NDS.ARM9Timestamp >> NDS.ARM9ClockShift;
+        Timestamp = std::max(NDS.ARM9Timestamp, NDS.DMA9Timestamp) >> NDS.ARM9ClockShift;
         return;
     }
 
-    s32 cycles = (NDS.ARM9Timestamp >> NDS.ARM9ClockShift) - Timestamp;
+    s32 cycles = (std::max(NDS.ARM9Timestamp, NDS.DMA9Timestamp) >> NDS.ARM9ClockShift) - Timestamp;
     CycleCount -= cycles;
-    Timestamp = NDS.ARM9Timestamp >> NDS.ARM9ClockShift;
+    Timestamp = std::max(NDS.ARM9Timestamp, NDS.DMA9Timestamp) >> NDS.ARM9ClockShift;
 
     if (CycleCount <= 0)
     {
@@ -2417,7 +2417,7 @@ void GPU3D::CheckFIFOIRQ() noexcept
     case 2: irq = CmdFIFO.IsEmpty(); break;
     }
 
-    if (irq) NDS.SetIRQ(0, IRQ_GXFIFO);
+    if (irq) NDS.SetIRQ(0, IRQ_GXFIFO, CycleCount);
     else     NDS.ClearIRQ(0, IRQ_GXFIFO);
 }
 
