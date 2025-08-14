@@ -16,6 +16,7 @@ if (VCPKG_ROOT STREQUAL "${_DEFAULT_VCPKG_ROOT}")
 endif()
 
 set(VCPKG_OVERLAY_TRIPLETS "${CMAKE_SOURCE_DIR}/cmake/overlay-triplets")
+set(VCPKG_OVERLAY_PORTS "${CMAKE_SOURCE_DIR}/cmake/overlay-ports/faad2")
 
 option(USE_RECOMMENDED_TRIPLETS "Use the recommended triplets that are used for official builds" ON)
 
