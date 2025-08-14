@@ -30,6 +30,11 @@ namespace DSP_HLE
 {
 
 
+const u32 UcodeBase::kPipeMonitorAddr = 0x0800;
+const u32 UcodeBase::kPipeBufferAddr  = 0x1000;
+const u32 UcodeBase::kMicBufferAddr   = 0x2000;
+
+
 UcodeBase::UcodeBase(melonDS::DSi& dsi) : DSi(dsi)
 {
 }
@@ -46,9 +51,12 @@ void UcodeBase::Reset()
     memset(CmdWritten, 0, sizeof(CmdWritten));
     memset(ReplyReg, 0, sizeof(ReplyReg));
     memset(ReplyWritten, 0, sizeof(ReplyWritten));
-    ReplyReadCb[0] = nullptr;
-    ReplyReadCb[1] = nullptr;
-    ReplyReadCb[2] = nullptr;
+    ReplyReadCb[0] = 0;
+    ReplyReadCb[1] = 0;
+    ReplyReadCb[2] = 0;
+    ReplyReadCbParam[0] = 0;
+    ReplyReadCbParam[1] = 0;
+    ReplyReadCbParam[2] = 0;
 
     SemaphoreIn = 0;
     SemaphoreOut = 0;
@@ -74,7 +82,8 @@ void UcodeBase::DoSavestate(Savestate *file)
     file->VarArray(CmdWritten, sizeof(CmdWritten));
     file->VarArray(ReplyReg, sizeof(ReplyReg));
     file->VarArray(ReplyWritten, sizeof(ReplyWritten));
-    // TODO THE REPLY READ CALLBACK!!
+    file->VarArray(ReplyReadCb, sizeof(ReplyReadCb));
+    file->VarArray(ReplyReadCbParam, sizeof(ReplyReadCbParam));
 
     file->Var16(&SemaphoreIn);
     file->Var16(&SemaphoreOut);
@@ -110,8 +119,8 @@ u16 UcodeBase::RecvData(u8 index)
 
     if (ReplyReadCb[index])
     {
-        ReplyReadCb[index]();
-        ReplyReadCb[index] = nullptr;
+        OnReplyRead(index);
+        ReplyReadCb[index] = 0;
     }
 
     return ret;
@@ -169,12 +178,55 @@ void UcodeBase::SendReply(u8 index, u16 val)
     }
 }
 
-void UcodeBase::SetReplyReadCallback(u8 index, fnReplyReadCb callback)
+void UcodeBase::SetReplyReadCallback(u8 index, u8 callback, u32 param)
 {
+    ReplyReadCb[index] = callback;
+    ReplyReadCbParam[index] = param;
+
     if (!ReplyWritten[index])
-        callback();
-    else
-        ReplyReadCb[index] = callback;
+    {
+        OnReplyRead(index);
+        ReplyReadCb[index] = 0;
+    }
+}
+
+void UcodeBase::OnReplyRead(u8 index)
+{
+    if (index == 2)
+    {
+        switch (ReplyReadCb[2])
+        {
+        case 1:
+            {
+                // finish init
+                // after sync replies were read, send pipe monitor addr
+                SendReply(2, kPipeMonitorAddr);
+                SetSemaphoreOut(0x8000);
+            }
+            break;
+
+        case 2:
+            {
+                // response to "play sound" command
+                u16* pipe = LoadPipe(4);
+                u32 outlen = ReplyReadCbParam[2];
+                u16 resp[4] = {0x0000, 0x1200, (u16)(outlen >> 16), (u16)(outlen & 0xFFFF)};
+                WritePipe(pipe, resp, 4);
+            }
+            break;
+
+        case 3:
+            {
+                // response to mic commands
+                u16* rpipe = LoadPipe(4);
+                u32 cmd = ReplyReadCbParam[2];
+                u16 resp[4] = {(u16)(cmd >> 16), (u16)(cmd & 0xFFFF),
+                               (u16)(kMicBufferAddr >> 16), (u16)(kMicBufferAddr & 0xFFFF)};
+                WritePipe(rpipe, resp, 4);
+            }
+            break;
+        }
+    }
 }
 
 
@@ -192,95 +244,75 @@ u16 UcodeBase::DMAChan0GetDstHigh()
 
 u16 UcodeBase::AHBMGetDmaChannel(u16 index) const
 {
-    //
     return 0;
 }
 
 u16 UcodeBase::AHBMGetDirection(u16 index) const
 {
-    //
     return 0;
 }
 
 u16 UcodeBase::AHBMGetUnitSize(u16 index) const
 {
-    //
     return 0;
 }
+
 
 u16 UcodeBase::DataReadA32(u32 addr) const
 {
     addr <<= 1;
-    /*if (!(addr & 0x40000))
-    {
-        u8* ptr = DSi.NWRAMMap_B[2][(addr >> 15) & 0x7];
-        return ptr ? *(u16*)&ptr[addr & 0x7FFF] : 0;
-    }
-    else*/
-    {
-        u8* ptr = DSi.NWRAMMap_C[2][(addr >> 15) & 0x7];
-        return ptr ? *(u16*)&ptr[addr & 0x7FFF] : 0;
-    }
+    u8* ptr = DSi.NWRAMMap_C[2][(addr >> 15) & 0x7];
+    return ptr ? *(u16*)&ptr[addr & 0x7FFF] : 0;
 }
 
 void UcodeBase::DataWriteA32(u32 addr, u16 val)
 {
     addr <<= 1;
-    /*if (!(addr & 0x40000))
-    {
-        u8* ptr = DSi.NWRAMMap_B[2][(addr >> 15) & 0x7];
-        if (ptr) *(u16*)&ptr[addr & 0x7FFF] = val;
-    }
-    else*/
-    {
-        u8* ptr = DSi.NWRAMMap_C[2][(addr >> 15) & 0x7];
-        if (ptr) *(u16*)&ptr[addr & 0x7FFF] = val;
-    }
+    u8* ptr = DSi.NWRAMMap_C[2][(addr >> 15) & 0x7];
+    if (ptr) *(u16*)&ptr[addr & 0x7FFF] = val;
 }
 
 u16 UcodeBase::MMIORead(u16 addr)
 {
-    //
     return 0;
 }
 
 void UcodeBase::MMIOWrite(u16 addr, u16 val)
 {
-    //
 }
 
 u16 UcodeBase::ProgramRead(u32 addr) const
 {
-    //
-    return 0;
+    addr <<= 1;
+    u8* ptr = DSi.NWRAMMap_B[2][(addr >> 15) & 0x7];
+    return ptr ? *(u16*)&ptr[addr & 0x7FFF] : 0;
 }
 
 void UcodeBase::ProgramWrite(u32 addr, u16 val)
 {
-    //
+    addr <<= 1;
+    u8* ptr = DSi.NWRAMMap_B[2][(addr >> 15) & 0x7];
+    if (ptr) *(u16*)&ptr[addr & 0x7FFF] = val;
 }
 
 u16 UcodeBase::AHBMRead16(u32 addr)
 {
-    //
     return 0;
 }
 
 u16 UcodeBase::AHBMRead32(u32 addr)
 {
-    //
     return 0;
 }
 
 void UcodeBase::AHBMWrite16(u32 addr, u16 val)
 {
-    //
 }
 
 void UcodeBase::AHBMWrite32(u32 addr, u32 val)
 {
-    //
 }
+
 
 u16 UcodeBase::GetSemaphore() const
 {
@@ -310,40 +342,37 @@ void UcodeBase::SetSemaphoreOut(u16 val)
 }
 
 
+u16* UcodeBase::GetDataMemPointer(u32 addr)
+{
+    // pointer only valid within 32K page
+    u16* mem = (u16*)DSi.NWRAMMap_C[2][(addr >> 14) & 0x7];
+    return &mem[addr & 0x3FFF];
+}
+
+
 void UcodeBase::Start()
 {
-    const u16 pipeaddr = 0x0800;
-    u16* mem = (u16*)DSi.NWRAMMap_C[2][0];
-
     // initialize pipe structure
-    u16* pipe = &mem[pipeaddr];
+    u16* pipe = GetDataMemPointer(kPipeMonitorAddr);
     for (int i = 0; i < 16; i++)
     {
-        *pipe++ = 0x1000 + (0x100 * i);  // buffer address
-        *pipe++ = 0x200;                 // length in bytes
-        *pipe++ = 0;                     // read pointer
-        *pipe++ = 0;                     // write pointer
-        *pipe++ = i;                     // pipe index
+        *pipe++ = kPipeBufferAddr + (0x100 * i);    // buffer address
+        *pipe++ = 0x200;                            // length in bytes
+        *pipe++ = 0;                                // read pointer
+        *pipe++ = 0;                                // write pointer
+        *pipe++ = i;                                // pipe index
     }
 
     SendReply(0, 1);
     SendReply(1, 1);
     SendReply(2, 1);
-    SetReplyReadCallback(2, [=]()
-    {
-        SendReply(2, pipeaddr);
-        SetSemaphoreOut(0x8000);
-    });
+    SetReplyReadCallback(2, 1, 0);
 }
 
 
 u16* UcodeBase::LoadPipe(u8 index)
 {
-    const u16 pipeaddr = 0x0800;
-    u16* mem = (u16*)DSi.NWRAMMap_C[2][0];
-
-    u16* pipe = &mem[pipeaddr + (index * 5)];
-    return pipe;
+    return GetDataMemPointer(kPipeMonitorAddr + (index * 5));
 }
 
 u32 UcodeBase::GetPipeLength(u16* pipe)
@@ -367,8 +396,7 @@ u32 UcodeBase::GetPipeLength(u16* pipe)
 
 u32 UcodeBase::ReadPipe(u16* pipe, u16* data, u32 len)
 {
-    u16* mem = (u16*)DSi.NWRAMMap_C[2][pipe[0] >> 14];
-    u16* pipebuf = &mem[pipe[0] & 0x3FFF];
+    u16* pipebuf = GetDataMemPointer(pipe[0]);
     u16 pipelen = pipe[1] >> 1;
     u16 rdptr = (pipe[2] & 0x7FFF) >> 1;
     u16 rdphase = pipe[2] & 0x8000;
@@ -396,8 +424,7 @@ u32 UcodeBase::ReadPipe(u16* pipe, u16* data, u32 len)
 
 u32 UcodeBase::WritePipe(u16* pipe, const u16* data, u32 len)
 {
-    u16* mem = (u16*)DSi.NWRAMMap_C[2][pipe[0] >> 14];
-    u16* pipebuf = &mem[pipe[0] & 0x3FFF];
+    u16* pipebuf = GetDataMemPointer(pipe[0]);
     u16 pipelen = pipe[1] >> 1;
     u16 rdptr = (pipe[2] & 0x7FFF) >> 1;
     u16 wrptr = (pipe[3] & 0x7FFF) >> 1;
@@ -507,8 +534,6 @@ void UcodeBase::TryStartAudioCmd()
     }
     else if (cmdtype == 2)
     {
-        const u16 micaddr = 0x2000;
-
         if (cmdaction == 1)
         {
             // start mic sampling
@@ -528,9 +553,8 @@ void UcodeBase::TryStartAudioCmd()
         if ((cmdaction == 1) || (cmdaction == 2))
         {
             // initialize mic buffer
-            u16* mem = (u16*)DSi.NWRAMMap_C[2][0];
-            u16* micbuf = &mem[micaddr];
-            *micbuf++ = 0x2003;             // pointer to mic buffer
+            u16* micbuf = GetDataMemPointer(kMicBufferAddr);
+            *micbuf++ = kMicBufferAddr + 3; // pointer to mic buffer
             *micbuf++ = 0x1000;             // buffer length
             *micbuf++ = 0;                  // write pointer
             for (int i = 0; i < 0x1000; i++)
@@ -538,12 +562,7 @@ void UcodeBase::TryStartAudioCmd()
         }
 
         // send response to tell the ARM9 where the mic buffer is
-        SetReplyReadCallback(2, [=]()
-        {
-            u16* rpipe = LoadPipe(4);
-            u16 resp[4] = {(u16)(cmd >> 16), (u16)(cmd & 0xFFFF), 0, micaddr};
-            WritePipe(rpipe, resp, 4);
-        });
+        SetReplyReadCallback(2, 3, cmd);
     }
 }
 
@@ -571,12 +590,7 @@ void UcodeBase::AudioOutAdvance()
             AudioPlaying = false;
 
             // send completion message
-            SetReplyReadCallback(2, [=]()
-            {
-                u16* pipe = LoadPipe(4);
-                u16 resp[4] = {0x0000, 0x1200, (u16)(AudioOutLength >> 16), (u16)(AudioOutLength & 0xFFFF)};
-                WritePipe(pipe, resp, 4);
-            });
+            SetReplyReadCallback(2, 2, AudioOutLength);
 
             break;
         }
@@ -585,10 +599,7 @@ void UcodeBase::AudioOutAdvance()
 
 void UcodeBase::MicInAdvance()
 {
-    // TODO nicer way to obtain a pointer (and not hardcoding the address)
-    const u16 micaddr = 0x2000;
-    u16* mem = (u16*)DSi.NWRAMMap_C[2][0];
-    u16* micbuf = &mem[micaddr];
+    u16* micbuf = GetDataMemPointer(kMicBufferAddr);
     u16 buflen = micbuf[1];
     u16 wrpos = micbuf[2];
     u16* micdata = &micbuf[3];

@@ -40,7 +40,6 @@ public:
     u32 GetID() { return (UcodeClass << 16) | (UcodeVersion & 0xFFFF); }
 
     enum {Class_AAC, Class_Graphics, Class_G711};
-    typedef std::function<void()> fnReplyReadCb;
 
     bool RecvDataIsReady(u8 index) const;
     bool SendDataIsEmpty(u8 index) const;
@@ -78,13 +77,18 @@ protected:
     int UcodeClass;
     int UcodeVersion;
 
+    static const u32 kPipeMonitorAddr;
+    static const u32 kPipeBufferAddr;
+    static const u32 kMicBufferAddr;
+
     bool Exit;
 
     u16 CmdReg[3];
     bool CmdWritten[3];
     u16 ReplyReg[3];
     bool ReplyWritten[3];
-    fnReplyReadCb ReplyReadCb[3];
+    u8 ReplyReadCb[3];
+    u32 ReplyReadCbParam[3];
 
     u16 SemaphoreIn;        // ARM9 -> DSP
     u16 SemaphoreOut;       // DSP -> ARM9
@@ -99,8 +103,11 @@ protected:
     bool MicSampling;
     FIFO<s16, 8> MicInFIFO;
 
+    u16* GetDataMemPointer(u32 addr);
+
     void SendReply(u8 index, u16 val);
-    void SetReplyReadCallback(u8 index, fnReplyReadCb callback);
+    void SetReplyReadCallback(u8 index, u8 callback, u32 param);
+    void OnReplyRead(u8 index);
 
     void SetSemaphoreOut(u16 val);
 
