@@ -252,6 +252,7 @@ ComputeRenderer::~ComputeRenderer()
     glDeleteBuffers(1, &YSpanIndicesTextureMemory);
     glDeleteTextures(1, &YSpanIndicesTexture);
     glDeleteTextures(1, &Framebuffer);
+    glDeleteTextures(1, &LowResFramebuffer);
     glDeleteBuffers(1, &MetaUniformMemory);
 
     glDeleteSamplers(9, Samplers);
@@ -1237,7 +1238,7 @@ struct Variant
     u16 Width, Height;
     u8 BlendMode;
 
-    bool operator==(const Variant& other)
+    bool operator==(const Variant& other) const
     {
         return Texture == other.Texture && Sampler == other.Sampler && BlendMode == other.BlendMode;
     }
@@ -1689,7 +1690,16 @@ void ComputeRenderer::RenderFrame(GPU& gpu)
 
     // compose final image
     glUseProgram(ShaderDepthBlend[wbuffer]);
-    glDispatchCompute(ScreenWidth/TileSize, ScreenHeight/TileSize, 1);
+
+    // TileSizeは8/16/32のみなので除算をビットシフト化（軽微な削減）
+    // tileShift = 3,4,5 に対応
+    // glDispatchCompute(ScreenWidth/TileSize, ScreenHeight/TileSize, 1);
+    const int tileShift =
+        (TileSize == 8)  ? 3 :
+        (TileSize == 16) ? 4 : 5;
+    glDispatchCompute(static_cast<GLuint>(static_cast<unsigned>(ScreenWidth)  >> tileShift),
+                      static_cast<GLuint>(static_cast<unsigned>(ScreenHeight) >> tileShift),
+                      1);
     glMemoryBarrier(GL_SHADER_STORAGE_BARRIER_BIT);
 
     glBindImageTexture(0, Framebuffer, 0, GL_FALSE, 0, GL_WRITE_ONLY, GL_RGBA8);
@@ -1703,7 +1713,12 @@ void ComputeRenderer::RenderFrame(GPU& gpu)
         finalPassShader |= 0x1;
     
     glUseProgram(ShaderFinalPass[finalPassShader]);
-    glDispatchCompute(ScreenWidth/32, ScreenHeight, 1);
+    
+    // ここは常に32固定なので右シフトで除算を代替
+    // glDispatchCompute(ScreenWidth/32, ScreenHeight, 1);
+    glDispatchCompute(static_cast<GLuint>(static_cast<unsigned>(ScreenWidth) >> 5),
+                      static_cast<GLuint>(ScreenHeight),
+                      1);
     glMemoryBarrier(GL_SHADER_IMAGE_ACCESS_BARRIER_BIT);
 
     glBindSampler(0, 0);
