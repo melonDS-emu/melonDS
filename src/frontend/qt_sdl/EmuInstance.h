@@ -155,6 +155,7 @@ public:
     void setJoystick(int id);
     int getJoystickID() { return joystickID; }
     SDL_Joystick* getJoystick() { return joystick; }
+    std::shared_ptr<SDL_mutex> getJoyMutex() { return joyMutex; }
 
     void touchScreen(int x, int y);
     void releaseScreen();
@@ -358,6 +359,9 @@ private:
     bool hasGyroscope = false;
     bool hasRumble = false;
     bool isRumbling = false;
+
+    static std::shared_ptr<SDL_mutex> joyMutexGlobal;
+    std::shared_ptr<SDL_mutex> joyMutex;
 
     melonDS::u32 keyInputMask, joyInputMask;
     melonDS::u32 keyHotkeyMask, joyHotkeyMask;

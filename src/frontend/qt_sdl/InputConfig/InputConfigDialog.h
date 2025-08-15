@@ -105,6 +105,7 @@ public:
     ~InputConfigDialog();
 
     SDL_Joystick* getJoystick();
+    std::shared_ptr<SDL_mutex> getJoyMutex();
 
     static InputConfigDialog* currentDlg;
     static InputConfigDialog* openDlg(QWidget* parent)
