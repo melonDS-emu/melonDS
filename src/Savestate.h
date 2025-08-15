@@ -24,8 +24,15 @@
 #include <stdio.h>
 #include "types.h"
 
-#define SAVESTATE_MAJOR 12
-#define SAVESTATE_MINOR 1
+#define SAVESTATE_MAJOR 13
+#define SAVESTATE_MINOR 0
+
+// bitmask for the savestate config word
+enum
+{
+    SC_Console_DSi      = (1<<0),
+    SC_DSi_DSPHLE       = (1<<16),
+};
 
 namespace melonDS
 {

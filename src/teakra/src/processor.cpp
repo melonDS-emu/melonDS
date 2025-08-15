@@ -1,6 +1,7 @@
 #include "interpreter.h"
 #include "processor.h"
 #include "register.h"
+#include "../../Savestate.h"
 
 namespace Teakra {
 
@@ -18,6 +19,13 @@ Processor::~Processor() = default;
 
 void Processor::Reset() {
     impl->regs = RegisterState();
+    impl->interpreter.Reset();
+}
+
+void Processor::DoSavestate(melonDS::Savestate *file) {
+    file->Section("TKpr");
+    impl->regs.DoSavestate(file);
+    impl->interpreter.DoSavestate(file);
 }
 
 void Processor::Run(unsigned cycles) {

@@ -121,14 +121,6 @@ void DSi_TSC::SetTouchCoords(u16 x, u16 y)
     }
 }
 
-void DSi_TSC::MicInputFrame(const s16* data, int samples)
-{
-    if (TSCMode == 0x00) return TSC::MicInputFrame(data, samples);
-
-    // otherwise we don't handle mic input
-    // TODO: handle it where it needs to be
-}
-
 void DSi_TSC::Write(u8 val)
 {
     if (TSCMode == 0x00) return TSC::Write(val);

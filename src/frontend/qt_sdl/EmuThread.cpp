@@ -265,9 +265,6 @@ void EmuThread::run()
                 emuInstance->osdAddMessage(0, lid ? "Lid closed" : "Lid opened");
             }
 
-            // microphone input
-            emuInstance->micProcess();
-
             // auto screen layout
             {
                 mainScreenPos[2] = mainScreenPos[1];

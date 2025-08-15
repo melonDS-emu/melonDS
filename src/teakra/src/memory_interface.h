@@ -23,6 +23,8 @@ public:
         *this = MemoryInterfaceUnit();
     }
 
+    void DoSavestate(melonDS::Savestate* file);
+
     bool InMMIO(u16 addr) const {
         return addr >= mmio_base && addr < mmio_base + MMIOSize;
     }

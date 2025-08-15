@@ -21,6 +21,7 @@ add_library(core STATIC
     DSi_Camera.cpp
     DSi_DSP.cpp
     DSi_I2C.cpp
+    DSi_I2S.cpp
     DSi_NAND.cpp
     DSi_NDMA.cpp
     DSi_NWifi.cpp
@@ -39,6 +40,7 @@ add_library(core STATIC
     GPU3D_Texcache.cpp
     GPU3D_Texcache.h
     melonDLDI.h
+    Mic.cpp
     NDS.cpp
     NDSCart.cpp
     NDSCartR4.cpp
@@ -57,6 +59,11 @@ add_library(core STATIC
     Utils.h
     Wifi.cpp
     WifiAP.cpp
+
+    DSP_HLE/UcodeBase.cpp
+    DSP_HLE/AACUcode.cpp
+    DSP_HLE/G711Ucode.cpp
+    DSP_HLE/GraphicsUcode.cpp
 
     fatfs/ff.c
     fatfs/ffsystem.c

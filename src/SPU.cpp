@@ -21,7 +21,9 @@
 #include <cmath>
 #include "Platform.h"
 #include "NDS.h"
+#include "Mic.h"
 #include "DSi.h"
+#include "DSi_I2S.h"
 #include "SPU.h"
 
 namespace melonDS
@@ -211,6 +213,8 @@ SPU::SPU(melonDS::NDS& nds, AudioBitDepth bitdepth, AudioInterpolation interpola
 
     OutputBufferReadPos = 0;
     OutputBufferWritePos = 0;
+
+    SetSampleRate(AudioSampleRate::_32KHz);
 }
 
 SPU::~SPU()
@@ -228,6 +232,7 @@ void SPU::Reset()
     Cnt = 0;
     MasterVolume = 0;
     Bias = 0;
+    Mute = false;
 
     for (int i = 0; i < 16; i++)
         Channels[i].Reset();
@@ -256,6 +261,14 @@ void SPU::DoSavestate(Savestate* file)
     file->Var8(&MasterVolume);
     file->Var16(&Bias);
 
+    file->Var8(&OutputSamplePos);
+    file->Var8(&OutputSampleInc);
+    file->VarArray(OutputLastSamples, sizeof(OutputLastSamples));
+
+    file->Var32(&MixInterval);
+
+    file->Bool32(&Mute);
+
     for (SPUChannel& channel : Channels)
         channel.DoSavestate(file);
 
@@ -266,7 +279,25 @@ void SPU::DoSavestate(Savestate* file)
 
 void SPU::SetPowerCnt(u32 val)
 {
-    // TODO
+    Mute = !(val & (1<<0));
+}
+
+
+void SPU::SetSampleRate(AudioSampleRate rate)
+{
+    if (rate == AudioSampleRate::_47KHz)
+    {
+        MixInterval = 704;
+        OutputSampleInc = 16;
+    }
+    else
+    {
+        MixInterval = 1024;
+        OutputSampleInc = 11;
+    }
+
+    OutputSamplePos = 0;
+    memset(OutputLastSamples, 0, sizeof(OutputLastSamples));
 }
 
 
@@ -590,7 +621,7 @@ void SPUChannel::NextSample_Noise()
 }
 
 template<u32 type>
-s32 SPUChannel::Run()
+s32 SPUChannel::Run(u32 cycles)
 {
     if (!(Cnt & (1<<31))) return 0;
 
@@ -602,7 +633,9 @@ s32 SPUChannel::Run()
         KeyOn = false;
     }
 
-    Timer += 512; // 1 sample = 512 cycles at 16MHz
+    // 1 sample = 512 cycles at 16MHz
+    // (or 352 cycles at 47KHz)
+    Timer += cycles;
 
     while (Timer >> 16)
     {
@@ -626,6 +659,8 @@ s32 SPUChannel::Run()
         case 3: NextSample_PSG(); break;
         case 4: NextSample_Noise(); break;
         }
+
+        if (!(Cnt & (1<<31))) break;
     }
 
     s32 val = (s32)CurSample;
@@ -754,9 +789,9 @@ void SPUCaptureUnit::FIFO_WriteData(T val)
         FIFO_FlushData();
 }
 
-void SPUCaptureUnit::Run(s32 sample)
+void SPUCaptureUnit::Run(u32 cycles, s32 sample)
 {
-    Timer += 512;
+    Timer += cycles;
 
     if (Cnt & 0x08)
     {
@@ -807,17 +842,17 @@ void SPUCaptureUnit::Run(s32 sample)
 }
 
 
-void SPU::Mix(u32 dummy)
+void SPU::Mix(u32 spucycles)
 {
     s32 left = 0, right = 0;
     s32 leftoutput = 0, rightoutput = 0;
 
-    if ((Cnt & (1<<15)) && (!dummy))
+    if (Cnt & (1<<15))
     {
-        s32 ch0 = Channels[0].DoRun();
-        s32 ch1 = Channels[1].DoRun();
-        s32 ch2 = Channels[2].DoRun();
-        s32 ch3 = Channels[3].DoRun();
+        s32 ch0 = Channels[0].DoRun(spucycles);
+        s32 ch1 = Channels[1].DoRun(spucycles);
+        s32 ch2 = Channels[2].DoRun(spucycles);
+        s32 ch3 = Channels[3].DoRun(spucycles);
 
         // TODO: addition from capture registers
         Channels[0].PanOutput(ch0, left, right);
@@ -830,7 +865,7 @@ void SPU::Mix(u32 dummy)
         {
             SPUChannel* chan = &Channels[i];
 
-            s32 channel = chan->DoRun();
+            s32 channel = chan->DoRun(spucycles);
             chan->PanOutput(channel, left, right);
         }
 
@@ -845,7 +880,7 @@ void SPU::Mix(u32 dummy)
             if      (val < -0x8000) val = -0x8000;
             else if (val > 0x7FFF)  val = 0x7FFF;
 
-            Capture[0].Run(val);
+            Capture[0].Run(spucycles, val);
         }
 
         if (Capture[1].Cnt & (1<<7))
@@ -856,7 +891,7 @@ void SPU::Mix(u32 dummy)
             if      (val < -0x8000) val = -0x8000;
             else if (val > 0x7FFF)  val = 0x7FFF;
 
-            Capture[1].Run(val);
+            Capture[1].Run(spucycles, val);
         }
 
         // final output
@@ -928,33 +963,63 @@ void SPU::Mix(u32 dummy)
         rightoutput += (Bias << 6) - 0x8000;
     }
 
-    if      (leftoutput < -0x8000) leftoutput = -0x8000;
-    else if (leftoutput > 0x7FFF)  leftoutput = 0x7FFF;
-    if      (rightoutput < -0x8000) rightoutput = -0x8000;
-    else if (rightoutput > 0x7FFF)  rightoutput = 0x7FFF;
+    s16 output[2];
+    if (Mute)
+    {
+        // on the DSi, POWCNT2 bit 0 only disables NITRO mixer output
+        output[0] = 0;
+        output[1] = 0;
+    }
+    else
+    {
+        output[0] = (s16)std::clamp(leftoutput, -0x8000, 0x7FFF);
+        output[1] = (s16)std::clamp(rightoutput, -0x8000, 0x7FFF);
+    }
+
+    NDS.Mic.Advance(spucycles << 1);
+
+    if (NDS.ConsoleType == 1)
+    {
+        // for the DSi, we run the I2S interface here, so it can mix in DSP audio
+        // this isn't the cleanest, but it's the easiest, since the audio output apparatus is here
+        ((DSi&)NDS).I2S.SampleClock(output);
+    }
 
     // The original DS and DS lite degrade the output from 16 to 10 bit before output
     if (Degrade10Bit)
     {
-        leftoutput &= 0xFFFFFFC0;
-        rightoutput &= 0xFFFFFFC0;
+        output[0] &= 0xFFC0;
+        output[1] &= 0xFFC0;
     }
 
     Platform::Mutex_Lock(AudioLock);
-    OutputBuffer[OutputBufferWritePos++] = leftoutput >> 1;
-    OutputBuffer[OutputBufferWritePos++] = rightoutput >> 1;
-
-    OutputBufferWritePos &= ((2*OutputBufferSize)-1);
-
-    if (OutputBufferWritePos == OutputBufferReadPos)
+    while (OutputSamplePos < 16)
     {
-        // advance the read position too, to avoid losing the entire FIFO
-        OutputBufferReadPos += 2;
-        OutputBufferReadPos &= ((2*OutputBufferSize)-1);
+        u8 fb = OutputSamplePos & 0xF;
+        u8 fa = 0x10 - fb;
+        s16 leftfinal = ((OutputLastSamples[0] * fa) + (output[0] * fb)) >> 4;
+        s16 rightfinal = ((OutputLastSamples[1] * fa) + (output[1] * fb)) >> 4;
+
+        OutputBuffer[OutputBufferWritePos++] = leftfinal;
+        OutputBuffer[OutputBufferWritePos++] = rightfinal;
+
+        OutputBufferWritePos &= ((2*OutputBufferSize)-1);
+
+        if (OutputBufferWritePos == OutputBufferReadPos)
+        {
+            // advance the read position too, to avoid losing the entire FIFO
+            OutputBufferReadPos += 2;
+            OutputBufferReadPos &= ((2*OutputBufferSize)-1);
+        }
+
+        OutputLastSamples[0] = output[0];
+        OutputLastSamples[1] = output[1];
+        OutputSamplePos += OutputSampleInc;
     }
+    OutputSamplePos &= 0xF;
     Platform::Mutex_Unlock(AudioLock);
 
-    NDS.ScheduleEvent(Event_SPU, true, 1024, 0, 0);
+    NDS.ScheduleEvent(Event_SPU, true, MixInterval, 0, MixInterval >> 1);
 }
 
 void SPU::TrimOutput()

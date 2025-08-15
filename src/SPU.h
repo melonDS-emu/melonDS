@@ -27,6 +27,12 @@ namespace melonDS
 class NDS;
 class SPU;
 
+enum class AudioSampleRate
+{
+    _32KHz = 0,
+    _47KHz
+};
+
 enum class AudioBitDepth
 {
     Auto,
@@ -125,24 +131,24 @@ public:
     void NextSample_PSG();
     void NextSample_Noise();
 
-    template<u32 type> s32 Run();
+    template<u32 type> s32 Run(u32 cycles);
 
-    s32 DoRun()
+    s32 DoRun(u32 cycles)
     {
         switch ((Cnt >> 29) & 0x3)
         {
-        case 0: return Run<0>(); break;
-        case 1: return Run<1>(); break;
-        case 2: return Run<2>(); break;
+        case 0: return Run<0>(cycles); break;
+        case 1: return Run<1>(cycles); break;
+        case 2: return Run<2>(cycles); break;
         case 3:
             if (Num >= 14)
             {
-                return Run<4>();
+                return Run<4>(cycles);
                 break;
             }
             else if (Num >= 8)
             {
-                return Run<3>();
+                return Run<3>(cycles);
                 break;
             }
             [[fallthrough]];
@@ -207,7 +213,7 @@ public:
         FIFOLevel = 0;
     }
 
-    void Run(s32 sample);
+    void Run(u32 cycles, s32 sample);
 
 private:
     melonDS::NDS& NDS;
@@ -225,6 +231,8 @@ public:
 
     void SetPowerCnt(u32 val);
 
+    void SetSampleRate(AudioSampleRate rate);
+
     // 0=none 1=linear 2=cosine 3=cubic
     void SetInterpolation(AudioInterpolation type);
 
@@ -233,7 +241,7 @@ public:
     void SetDegrade10Bit(AudioBitDepth depth);
     void SetApplyBias(bool enable);
 
-    void Mix(u32 dummy);
+    void Mix(u32 spucycles);
 
     void TrimOutput();
     void DrainOutput();
@@ -256,6 +264,15 @@ private:
     u32 OutputBufferWritePos = 0;
     u32 OutputBufferReadPos = 0;
 
+    // sample pos/inc are 4-bit fractional
+    // 32KHz sample rate is 11/16 of 47KHz
+    // so they don't need to be very precise
+    u8 OutputSamplePos;
+    u8 OutputSampleInc;
+    s16 OutputLastSamples[2];
+
+    u32 MixInterval;
+
     Platform::Mutex* AudioLock;
 
     u16 Cnt = 0;
@@ -263,6 +280,7 @@ private:
     u16 Bias = 0;
     bool ApplyBias = true;
     bool Degrade10Bit = false;
+    bool Mute;
 
     std::array<SPUChannel, 16> Channels;
     std::array<SPUCaptureUnit, 2> Capture;
