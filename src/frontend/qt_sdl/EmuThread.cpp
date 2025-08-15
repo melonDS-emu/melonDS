@@ -185,7 +185,7 @@ __attribute__((always_inline, flatten)) inline void detectRomAndSetAddresses(Emu
     enum RomGroup {
         GROUP_US1_1,     // US1.1, US1.1_ENCRYPTED
         GROUP_US1_0,     // US1.0, US1.0_ENCRYPTED
-        GROUP_EU1_1,     // EU1.1, EU1.1_ENCRYPTED, EU1_BALANCED
+        GROUP_EU1_1,     // EU1.1, EU1.1_ENCRYPTED, EU1_1_BALANCED
         GROUP_EU1_0,     // EU1.0, EU1.0_ENCRYPTED
         GROUP_JP1_0,     // JP1.0, JP1.0_ENCRYPTED
         GROUP_JP1_1,     // JP1.1, JP1.1_ENCRYPTED
@@ -207,7 +207,7 @@ __attribute__((always_inline, flatten)) inline void detectRomAndSetAddresses(Emu
         {RomVersions::US1_0_ENCRYPTED, "US1.0 ENCRYPTED", GROUP_US1_0},
         {RomVersions::EU1_1,           "EU1.1",           GROUP_EU1_1},
         {RomVersions::EU1_1_ENCRYPTED, "EU1.1 ENCRYPTED", GROUP_EU1_1},
-        {RomVersions::EU1_BALANCED,    "EU1.1 BALANCED",  GROUP_EU1_1},
+        {RomVersions::EU1_1_BALANCED,  "EU1.1 BALANCED",  GROUP_EU1_1},
         {RomVersions::EU1_0,           "EU1.0",           GROUP_EU1_0},
         {RomVersions::EU1_0_ENCRYPTED, "EU1.0 ENCRYPTED", GROUP_EU1_0},
         {RomVersions::JP1_0,           "JP1.0",           GROUP_JP1_0},
