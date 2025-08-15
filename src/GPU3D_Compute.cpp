@@ -903,12 +903,6 @@ void ComputeRenderer::SetRenderSettings(int scale, bool highResolutionCoordinate
     MaxWorkTiles = TilesPerLine * TileLines * 16;
 
 
-
-#endif
-
-
-
-
     // v10
     // タイル関連パラメータ用ローカル構造体定義(依存の明確化と一括受け渡しのため)
     struct TileParams { uint8_t scale; uint8_t size; int cty; int ccbmls; };
@@ -984,26 +978,91 @@ void ComputeRenderer::SetRenderSettings(int scale, bool highResolutionCoordinate
     MaxWorkTiles = TilesPerLine * TileLines * 16;
 
 
+#endif
+
+
+
+
+    // v11
+    // range算出処理(2段階しきい値比較の算術化による分岐最小化のため)
+    const uint8_t range = static_cast<uint8_t>((ScaleFactor >= 5) + (ScaleFactor >= 9));
+
+    // TileScale反映処理(2のべき乗生成の左シフト一発化のため)
+    TileScale = static_cast<uint8_t>(1u << range);
+
+    // TileSize反映処理(8×TileScaleの左シフト一発化のため)
+    TileSize = static_cast<uint8_t>(8u << range);
+
+    // CoarseTileCountY反映処理(4または6をrange上位ビットから導出のため)
+    CoarseTileCountY = 4 + ((static_cast<int>(range >> 1)) << 1);
+
+    // ClearCoarseBinMaskLocalSize反映処理(64または48をrange上位ビットから導出のため)
+    ClearCoarseBinMaskLocalSize = 64 - ((static_cast<int>(range >> 1)) << 4);
+
+    // CoarseTileArea算出処理(タイル総数の基礎量確定のため)
+    CoarseTileArea = CoarseTileCountX * CoarseTileCountY;
+
+    // CoarseTileW算出処理(幅方向ピクセル寸法確定のため)
+    CoarseTileW = CoarseTileCountX * TileSize;
+
+    // CoarseTileH算出処理(高さ方向ピクセル寸法確定のため)
+    CoarseTileH = CoarseTileCountY * TileSize;
+
+    // タイルサイズのシフト量算出処理(range再利用による依存短縮のため)
+    /* const uint8_t tileShift = static_cast<uint8_t>(3u + ((ScaleFactor >= 5) + (ScaleFactor >= 9))); */
+    const uint8_t tileShift = static_cast<uint8_t>(3u + range);
+
+    // 横方向タイル数算出処理(除算の右シフト化によるサイクル削減のため)
+    TilesPerLine = static_cast<int>(static_cast<unsigned>(ScreenWidth) >> tileShift);
+
+    // 縦方向タイル数算出処理(除算の右シフト化によるサイクル削減のため)
+    TileLines = static_cast<int>(static_cast<unsigned>(ScreenHeight) >> tileShift);
+
+    // HiresCoordinates反映処理(高解像度座標設定の透過適用のため)
+    HiresCoordinates = highResolutionCoordinates;
+
+    // MaxWorkTiles算出処理(固定係数16倍のビットシフト化による軽量化のため)
+    /* MaxWorkTiles = TilesPerLine * TileLines * 16; */
+    MaxWorkTiles = (TilesPerLine * TileLines) << 4;
+
+
     /* MelonPrimeDS } */
 
     for (int i = 0; i < tilememoryLayer_Num; i++)
     {
         glBindBuffer(GL_SHADER_STORAGE_BUFFER, TileMemory[i]);
-        glBufferData(GL_SHADER_STORAGE_BUFFER, 4*TileSize*TileSize*MaxWorkTiles, nullptr, GL_DYNAMIC_DRAW);
+        /* glBufferData(GL_SHADER_STORAGE_BUFFER, 4*TileSize*TileSize*MaxWorkTiles, nullptr, GL_DYNAMIC_DRAW); */
+        // バッファ確保サイズを4B×要素にシフトで算出(乗算表現からの置換による可読性向上とオーバーフロー抑制のため)
+        glBufferData(GL_SHADER_STORAGE_BUFFER,
+            static_cast<GLsizeiptr>((static_cast<uint64_t>(TileSize) * TileSize * MaxWorkTiles) << 2),
+            nullptr, GL_DYNAMIC_DRAW);
     }
 
     glBindBuffer(GL_SHADER_STORAGE_BUFFER, FinalTileMemory);
-    glBufferData(GL_SHADER_STORAGE_BUFFER, 4*3*2*ScreenWidth*ScreenHeight, nullptr, GL_DYNAMIC_DRAW);
+    /* glBufferData(GL_SHADER_STORAGE_BUFFER, 4*3*2*ScreenWidth*ScreenHeight, nullptr, GL_DYNAMIC_DRAW); */
+    // バッファ確保サイズを3面×8Bで算出(24倍を3×(1<<3)に分解して表現の明確化のため)
+    glBufferData(GL_SHADER_STORAGE_BUFFER,
+        static_cast<GLsizeiptr>((static_cast<uint64_t>(ScreenWidth)* ScreenHeight * 3) << 3),
+        nullptr, GL_DYNAMIC_DRAW);
 
-    int binResultSize = sizeof(BinResultHeader)
+    /* int binResultSize = sizeof(BinResultHeader)
         + TilesPerLine*TileLines*CoarseBinStride*4 // BinnedMaskCoarse
         + TilesPerLine*TileLines*BinStride*4 // BinnedMask
-        + TilesPerLine*TileLines*BinStride*4; // WorkOffsets
+        + TilesPerLine*TileLines*BinStride*4; // WorkOffsets */
+        // ビン結果サイズの4倍項目をシフトへ置換(演算一貫性の確保と可読性向上のため)
+    int binResultSize = sizeof(BinResultHeader)
+        + ((TilesPerLine * TileLines * CoarseBinStride) << 2) // BinnedMaskCoarse
+        + ((TilesPerLine * TileLines * BinStride) << 2) // BinnedMask
+        + ((TilesPerLine * TileLines * BinStride) << 2); // WorkOffsets
     glBindBuffer(GL_SHADER_STORAGE_BUFFER, BinResultMemory);
     glBufferData(GL_SHADER_STORAGE_BUFFER, binResultSize, nullptr, GL_DYNAMIC_DRAW);
 
     glBindBuffer(GL_SHADER_STORAGE_BUFFER, WorkDescMemory);
-    glBufferData(GL_SHADER_STORAGE_BUFFER, MaxWorkTiles*2*4*2, nullptr, GL_DYNAMIC_DRAW);
+    /* glBufferData(GL_SHADER_STORAGE_BUFFER, MaxWorkTiles*2*4*2, nullptr, GL_DYNAMIC_DRAW); */
+    // バッファ確保サイズを16B単位で算出(2×4×2Bの積を1<<4に集約して表現の簡潔化のため)
+    glBufferData(GL_SHADER_STORAGE_BUFFER,
+        static_cast<GLsizeiptr>(static_cast<uint64_t>(MaxWorkTiles) << 4),
+        nullptr, GL_DYNAMIC_DRAW);
 
     if (Framebuffer != 0)
         glDeleteTextures(1, &Framebuffer);
