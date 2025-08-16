@@ -210,7 +210,7 @@ void GPU::Stop() noexcept
     memset(Framebuffer[1][0].get(), 0, fbsize*4);
     memset(Framebuffer[1][1].get(), 0, fbsize*4);
 
-    GPU3D.Stop(*this);
+    GPU3D.Stop();
 }
 
 void GPU::DoSavestate(Savestate* file) noexcept
@@ -272,12 +272,14 @@ void GPU::DoSavestate(Savestate* file) noexcept
             VRAMPtr_BOBJ[i] = GetUniqueBankPtr(VRAMMap_BOBJ[i], i << 14);
     }
 
+    // This should happen before re-rendering the 3D buffer.
+    if (!file->Saving)
+        ResetVRAMCache();
+
     GPU2D_A.DoSavestate(file);
     GPU2D_B.DoSavestate(file);
     GPU3D.DoSavestate(file);
 
-    if (!file->Saving)
-        ResetVRAMCache();
 }
 
 void GPU::AssignFramebuffers() noexcept
@@ -901,7 +903,7 @@ void GPU::StartHBlank(u32 line) noexcept
     }
     else if (VCount == 215)
     {
-        GPU3D.VCount215(*this);
+        GPU3D.VCount215();
     }
     else if (VCount == 262)
     {
@@ -927,7 +929,7 @@ void GPU::FinishFrame(u32 lines) noexcept
 
     if (GPU3D.AbortFrame)
     {
-        GPU3D.RestartFrame(*this);
+        GPU3D.RestartFrame();
         GPU3D.AbortFrame = false;
     }
 }
@@ -1020,7 +1022,7 @@ void GPU::StartScanline(u32 line) noexcept
             // texture memory anyway and only update it before the start
             //of the next frame.
             // So we can give the rasteriser a bit more headroom
-            GPU3D.VCount144(*this);
+            GPU3D.VCount144();
 
             // VBlank
             DispStat[0] |= (1<<0);
@@ -1040,7 +1042,7 @@ void GPU::StartScanline(u32 line) noexcept
 
             // Need a better way to identify the openGL renderer in particular
             if (GPU3D.IsRendererAccelerated())
-                GPU3D.Blit(*this);
+                GPU3D.Blit();
         }
     }
 
