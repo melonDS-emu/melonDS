@@ -64,7 +64,7 @@ private:
     // interpolation, avoiding precision loss from the aforementioned approximation.
     // Which is desirable when using the GPU to draw 2D graphics.
 
-    template<int dir>
+    template<int dir, bool oob>
     class Interpolator
     {
     public:
@@ -78,7 +78,11 @@ private:
         {
             this->x0 = x0;
             this->x1 = x1;
-            this->xdiff = x1 - x0;
+
+            if (oob)
+                this->xdiff = std::min(x1, 511) - std::max(x0, 0);
+            else
+                this->xdiff = x1 - x0;
 
             // calculate reciprocal for Z interpolation
             // TODO eventually: use a faster reciprocal function?
@@ -120,6 +124,7 @@ private:
         constexpr void SetX(s32 x)
         {
             x -= x0;
+            //if (x > xdiff) x = xdiff; // may or may not be correct
             this->x = x;
             if (xdiff != 0 && !linear)
             {
@@ -132,10 +137,12 @@ private:
                 else          yfactor = num / den;
             }
         }
-
+        
         constexpr s32 Interpolate(s32 y0, s32 y1) const
         {
-            if (xdiff == 0 || y0 == y1) return y0;
+            if (xdiff == 0 || y0 == y1 || x == 0) return y0;
+
+            if (oob && (x0 <= 0 && x1 > 511)) return y1;
 
             if (!linear)
             {
@@ -154,10 +161,12 @@ private:
                     return y1 + (s64)(y0-y1) * (xdiff - x) / xdiff;
             }
         }
-
+        
         constexpr s32 InterpolateZ(s32 z0, s32 z1, bool wbuffer) const
         {
-            if (xdiff == 0 || z0 == z1) return z0;
+            if (xdiff == 0 || z0 == z1 || x == 0) return z0;
+
+            if (oob && (x0 <= 0 && x1 > 511)) return z1;
 
             if (wbuffer)
             {
@@ -243,6 +252,7 @@ private:
             return x0;
         }
 
+        template<bool oob>
         constexpr s32 Setup(s32 x0, s32 x1, s32 y0, s32 y1, s32 w0, s32 w1, s32 y)
         {
             this->x0 = x0;
@@ -275,7 +285,7 @@ private:
             // instead, 1/y is calculated and then multiplied by x
             // TODO: this is still not perfect (see for example x=169 y=33)
             if (ylen == 0)
-                Increment = 0;
+                Increment = xlen << 18;
             else if (ylen == xlen && xlen != 1)
                 Increment = 0x40000;
             else
@@ -305,8 +315,7 @@ private:
             }
 
             dx += (y - y0) * Increment;
-
-            s32 x = XVal();
+            if (oob) dx &= 0xFFFFFFF;
 
             int interpoffset = (Increment >= 0x40000) && (side ^ Negative);
             Interp.Setup(y0-interpoffset, y1-interpoffset, w0, w1);
@@ -315,28 +324,27 @@ private:
             // used for calculating AA coverage
             if (XMajor) xcov_incr = (ylen << 10) / xlen;
 
-            return x;
+            return XVal();
         }
 
+        template<bool oob>
         constexpr s32 Step()
         {
-            dx += Increment;
+            dx += Increment; // seems to be a 28 bit integer
+            if (oob) dx &= 0xFFFFFFF;
             y++;
 
-            s32 x = XVal();
             Interp.SetX(y);
-            return x;
+            return XVal();
         }
 
         constexpr s32 XVal() const
         {
-            s32 ret = 0;
+            s32 ret;
             if (Negative) ret = x0 - (dx >> 18);
             else          ret = x0 + (dx >> 18);
 
-            if (ret < xmin) ret = xmin;
-            else if (ret > xmax) ret = xmax;
-            return ret;
+            return ret;// << 21 >> 21; checkme: is this commented bit actually correct?
         }
 
         template<bool swapped>
@@ -409,7 +417,7 @@ private:
         s32 Increment;
         bool Negative;
         bool XMajor;
-        Interpolator<1> Interp;
+        Interpolator<1, false> Interp;
 
     private:
         s32 x0, xmin, xmax;
@@ -439,11 +447,11 @@ private:
     void TextureLookup(const GPU& gpu, u32 texparam, u32 texpal, s16 s, s16 t, u16* color, u8* alpha) const;
     u32 RenderPixel(const GPU& gpu, const Polygon* polygon, u8 vr, u8 vg, u8 vb, s16 s, s16 t) const;
     void PlotTranslucentPixel(const GPU3D& gpu3d, u32 pixeladdr, u32 color, u32 z, u32 polyattr, u32 shadow);
-    void SetupPolygonLeftEdge(RendererPolygon* rp, s32 y) const;
-    void SetupPolygonRightEdge(RendererPolygon* rp, s32 y) const;
-    void SetupPolygon(RendererPolygon* rp, Polygon* polygon) const;
-    void RenderShadowMaskScanline(const GPU3D& gpu3d, RendererPolygon* rp, s32 y);
-    void RenderPolygonScanline(const GPU& gpu, RendererPolygon* rp, s32 y);
+    template<bool oob> void SetupPolygonLeftEdge(RendererPolygon* rp, s32 y) const;
+    template<bool oob> void SetupPolygonRightEdge(RendererPolygon* rp, s32 y) const;
+    template<bool oob> void SetupPolygon(RendererPolygon* rp, Polygon* polygon) const;
+    template<bool oob> void RenderShadowMaskScanline(const GPU3D& gpu3d, RendererPolygon* rp, s32 y);
+    template<bool oob> void RenderPolygonScanline(const GPU& gpu, RendererPolygon* rp, s32 y);
     void RenderScanline(const GPU& gpu, s32 y, int npolys);
     u32 CalculateFogDensity(const GPU3D& gpu3d, u32 pixeladdr) const;
     void ScanlineFinalPass(const GPU3D& gpu3d, s32 y);
