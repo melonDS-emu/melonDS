@@ -273,7 +273,6 @@ private:
             // slope increment has a 18-bit fractional part
             // note: for some reason, x/y isn't calculated directly,
             // instead, 1/y is calculated and then multiplied by x
-            // TODO: this is still not perfect (see for example x=169 y=33)
             if (ylen == 0)
                 Increment = 0;
             else if (ylen == xlen && xlen != 1)
@@ -287,11 +286,11 @@ private:
 
             XMajor = (Increment > 0x40000);
 
-            if constexpr (side)
+            if (side)
             {
                 // right
 
-                if (XMajor)              dx = Negative ? (0x20000 + 0x40000) : (Increment - 0x20000);
+                if (XMajor)              dx = Negative ? (0x20000 + 0x40000) : -0x20000;
                 else if (Increment != 0) dx = Negative ? 0x40000 : 0;
                 else                     dx = 0;
             }
@@ -299,12 +298,15 @@ private:
             {
                 // left
 
-                if (XMajor)              dx = Negative ? ((Increment - 0x20000) + 0x40000) : 0x20000;
+                if (XMajor)              dx = 0x20000;
                 else if (Increment != 0) dx = Negative ? 0x40000 : 0;
                 else                     dx = 0;
             }
 
             dx += (y - y0) * Increment;
+
+            // used for calculating AA coverage
+            if (XMajor) xcov_incr = (ylen << 10) / xlen;
 
             s32 x = XVal();
 
@@ -312,15 +314,13 @@ private:
             Interp.Setup(y0-interpoffset, y1-interpoffset, w0, w1);
             Interp.SetX(y);
 
-            // used for calculating AA coverage
-            if (XMajor) xcov_incr = (ylen << 10) / xlen;
-
             return x;
         }
 
         constexpr s32 Step()
-        {
+        {   
             dx += Increment;
+
             y++;
 
             s32 x = XVal();
@@ -334,76 +334,53 @@ private:
             if (Negative) ret = x0 - (dx >> 18);
             else          ret = x0 + (dx >> 18);
 
-            if (ret < xmin) ret = xmin;
-            else if (ret > xmax) ret = xmax;
             return ret;
         }
 
-        template<bool swapped>
         constexpr void EdgeParams_XMajor(s32* length, s32* coverage) const
         {
-            // only do length calc for right side when swapped as it's
-            // only needed for aa calcs, as actual line spans are broken
-            if constexpr (!swapped || side)
-            {
-                if (side ^ Negative)
-                    *length = (dx >> 18) - ((dx-Increment) >> 18);
-                else
-                    *length = ((dx+Increment) >> 18) - (dx >> 18);
-            }
+            // credit to StrikerX3 for their efforts researching the strange rounding behavior of the "length" calculation
+            *length = (dx & (0x1FF << 9)) + Increment >> 18;
 
             // for X-major edges, we return the coverage
             // for the first pixel, and the increment for
             // further pixels on the same scanline
-            s32 startx = dx >> 18;
+            // TODO: check how coverage interacts with line gaps, I think it's correct though?
+            s32 startx = dx;
+            if (side ^ Negative) startx += Increment;
+            startx >>= 18;
+            //s32 startcov = (startx * ylen) /9 xlen;
+
             if (Negative) startx = xlen - startx;
             if (side)     startx = startx - *length + 1;
 
             s32 startcov = (((startx << 10) + 0x1FF) * ylen) / xlen;
             *coverage = (1<<31) | ((startcov & 0x3FF) << 12) | (xcov_incr & 0x3FF);
-
-            if constexpr (swapped) *length = 1;
         }
 
-        template<bool swapped>
         constexpr void EdgeParams_YMajor(s32* length, s32* coverage) const
         {
             *length = 1;
 
-            if (Increment == 0)
-            {
-                // for some reason vertical edges' aa values
-                // are inverted too when the edges are swapped
-                if constexpr (swapped)
-                    *coverage = 0;
-                else
-                    *coverage = 31;
-            }
+            if (Increment == 0) *coverage = 31;
             else
             {
                 s32 cov = ((dx >> 9) + (Increment >> 10)) >> 4;
                 if ((cov >> 5) != (dx >> 18)) cov = 31;
                 cov &= 0x1F;
-                if constexpr (swapped)
-                {
-                    if (side ^ Negative) cov = 0x1F - cov;
-                }
-                else
-                {
-                    if (!(side ^ Negative)) cov = 0x1F - cov;
-                }
+
+                if (!(side ^ Negative)) cov = 0x1F - cov;
 
                 *coverage = cov;
             }
         }
 
-        template<bool swapped>
         constexpr void EdgeParams(s32* length, s32* coverage) const
         {
             if (XMajor)
-                return EdgeParams_XMajor<swapped>(length, coverage);
+                return EdgeParams_XMajor(length, coverage);
             else
-                return EdgeParams_YMajor<swapped>(length, coverage);
+                return EdgeParams_YMajor(length, coverage);
         }
 
         s32 Increment;
