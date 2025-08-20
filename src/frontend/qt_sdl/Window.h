@@ -168,6 +168,8 @@ private slots:
     void onInsertGBAAddon();
     void onEjectGBACart();
     void onSaveState();
+    void onAutoSaveState();
+    void autoSave();
     void onLoadState();
     void onUndoStateLoad();
     void onImportSavefile();
@@ -293,8 +295,8 @@ public:
     QList<QAction*> actInsertGBAAddon;
     QAction* actEjectGBACart;
     QAction* actImportSavefile;
-    QAction* actSaveState[9];
-    QAction* actLoadState[9];
+    QAction* actSaveState[10];
+    QAction* actLoadState[10];
     QAction* actUndoStateLoad;
     QAction* actOpenConfig;
     QAction* actQuit;
@@ -331,6 +333,7 @@ public:
     QAction* actPathSettings;
     QAction* actInterfaceSettings;
     QAction* actSavestateSRAMReloc;
+    QAction* actSavestateAutoSave;
     QAction* actScreenSize[4];
     QActionGroup* grpScreenRotation;
     QAction* actScreenRotation[screenRot_MAX];
@@ -353,6 +356,7 @@ public:
     QAction* actAudioSync;
 
     QAction* actAbout;
+    QTimer* autoSaveTimer;
 };
 
 #endif // WINDOW_H
