@@ -26,6 +26,8 @@
 #include "DSi_I2S.h"
 #include "SPU.h"
 
+#include "blip-buf/blip_buf.h"
+
 namespace melonDS
 {
 using Platform::Log;
@@ -177,7 +179,7 @@ const std::array<s16, 0x200> InterpSNESGauss = {
     0x513, 0x514, 0x514, 0x515, 0x516, 0x516, 0x517, 0x517, 0x517, 0x518, 0x518, 0x518, 0x518, 0x518, 0x519, 0x519
 };
 
-SPU::SPU(melonDS::NDS& nds, AudioBitDepth bitdepth, AudioInterpolation interpolation) :
+SPU::SPU(melonDS::NDS& nds, AudioBitDepth bitdepth, AudioInterpolation interpolation, double outputSampleRate) :
     NDS(nds),
     Channels {
         SPUChannel(0, nds, interpolation),
@@ -202,14 +204,16 @@ SPU::SPU(melonDS::NDS& nds, AudioBitDepth bitdepth, AudioInterpolation interpola
         SPUCaptureUnit(1, nds),
     },
     AudioLock(Platform::Mutex_Create()),
-    Degrade10Bit(bitdepth == AudioBitDepth::_10Bit || (nds.ConsoleType == 1 && bitdepth == AudioBitDepth::Auto))
+    Degrade10Bit(bitdepth == AudioBitDepth::_10Bit || (nds.ConsoleType == 1 && bitdepth == AudioBitDepth::Auto)),
+    OutputSampleRate(outputSampleRate)
 {
     NDS.RegisterEventFuncs(Event_SPU, this, {MakeEventThunk(SPU, Mix)});
 
     ApplyBias = true;
     Degrade10Bit = false;
 
-    memset(OutputBuffer, 0, 2*OutputBufferSize*2);
+    BlipLeft = blip_new(8192);
+    BlipRight = blip_new(8192);
 
     OutputBufferReadPos = 0;
     OutputBufferWritePos = 0;
@@ -221,6 +225,8 @@ SPU::~SPU()
 {
     Platform::Mutex_Free(AudioLock);
     AudioLock = nullptr;
+    blip_delete(BlipLeft);
+    blip_delete(BlipRight);
 
     NDS.UnregisterEventFuncs(Event_SPU);
 }
@@ -247,6 +253,10 @@ void SPU::Stop()
 {
     Platform::Mutex_Lock(AudioLock);
     memset(OutputBuffer, 0, 2*OutputBufferSize*2);
+
+    blip_clear(BlipLeft);
+    blip_clear(BlipRight);
+    BlipTimer = 0;
 
     OutputBufferReadPos = 0;
     OutputBufferWritePos = 0;
@@ -993,15 +1003,34 @@ void SPU::Mix(u32 spucycles)
     }
 
     Platform::Mutex_Lock(AudioLock);
-    while (OutputSamplePos < 16)
-    {
-        u8 fb = OutputSamplePos & 0xF;
-        u8 fa = 0x10 - fb;
-        s16 leftfinal = ((OutputLastSamples[0] * fa) + (output[0] * fb)) >> 4;
-        s16 rightfinal = ((OutputLastSamples[1] * fa) + (output[1] * fb)) >> 4;
+    if (output[0] != OutputLastSamples[0])
+        blip_add_delta(BlipLeft, BlipTimer, (int) output[0] - OutputLastSamples[0]);
+    if (output[1] != OutputLastSamples[1])
+        blip_add_delta(BlipRight, BlipTimer, (int) output[1] - OutputLastSamples[1]);
+    BlipTimer += MixInterval >> 1;
 
-        OutputBuffer[OutputBufferWritePos++] = leftfinal;
-        OutputBuffer[OutputBufferWritePos++] = rightfinal;
+    OutputLastSamples[0] = output[0];
+    OutputLastSamples[1] = output[1];
+    Platform::Mutex_Unlock(AudioLock);
+
+    NDS.ScheduleEvent(Event_SPU, true, MixInterval, 0, MixInterval >> 1);
+}
+
+void SPU::EndFrame()
+{
+    blip_end_frame(BlipLeft, BlipTimer);
+    blip_end_frame(BlipRight, BlipTimer);
+    BlipTimer = 0;
+
+    int avail = blip_samples_avail(BlipLeft);
+    s16 temp[avail * 2];
+    blip_read_samples(BlipLeft, temp, avail, true);
+    blip_read_samples(BlipRight, temp + 1, avail, true);
+
+    for (int i = 0; i < avail * 2; i += 2)
+    {
+        OutputBuffer[OutputBufferWritePos++] = temp[i];
+        OutputBuffer[OutputBufferWritePos++] = temp[i+1];
 
         OutputBufferWritePos &= ((2*OutputBufferSize)-1);
 
@@ -1011,15 +1040,7 @@ void SPU::Mix(u32 spucycles)
             OutputBufferReadPos += 2;
             OutputBufferReadPos &= ((2*OutputBufferSize)-1);
         }
-
-        OutputLastSamples[0] = output[0];
-        OutputLastSamples[1] = output[1];
-        OutputSamplePos += OutputSampleInc;
     }
-    OutputSamplePos &= 0xF;
-    Platform::Mutex_Unlock(AudioLock);
-
-    NDS.ScheduleEvent(Event_SPU, true, MixInterval, 0, MixInterval >> 1);
 }
 
 void SPU::TrimOutput()
@@ -1045,6 +1066,26 @@ void SPU::DrainOutput()
 void SPU::InitOutput()
 {
     Platform::Mutex_Lock(AudioLock);
+
+    double internalSampleRate = 16805700.f;
+
+    blip_set_rates(BlipLeft, internalSampleRate, OutputSampleRate);
+    blip_set_rates(BlipRight, internalSampleRate, OutputSampleRate);
+
+    u32 needSamples = (u32) ceil(internalSampleRate / 60 / internalSampleRate * OutputSampleRate);
+    u32 newBufferSize = 512;
+    while (newBufferSize < needSamples)
+        newBufferSize <<= 1;
+    newBufferSize <<= 1;
+
+    if (newBufferSize != OutputBufferSize)
+    {
+        if (OutputBuffer != nullptr)
+            free(OutputBuffer);
+        OutputBuffer = (s16*) malloc(2 * newBufferSize * 2);
+        OutputBufferSize = newBufferSize;
+    }
+
     memset(OutputBuffer, 0, 2*OutputBufferSize*2);
     OutputBufferReadPos = 0;
     OutputBufferWritePos = 0;
@@ -1121,6 +1162,11 @@ int SPU::ReadOutput(s16* data, int samples)
 
     Platform::Mutex_Unlock(AudioLock);
     return samples;
+}
+
+void SPU::SetOutputSampleRate(double rate)
+{
+    OutputSampleRate = rate;
 }
 
 

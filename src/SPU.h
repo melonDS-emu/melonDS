@@ -22,8 +22,11 @@
 #include "Savestate.h"
 #include "Platform.h"
 
+struct blip_t;
+
 namespace melonDS
 {
+
 class NDS;
 class SPU;
 
@@ -222,7 +225,7 @@ private:
 class SPU
 {
 public:
-    explicit SPU(melonDS::NDS& nds, AudioBitDepth bitdepth, AudioInterpolation interpolation);
+    explicit SPU(melonDS::NDS& nds, AudioBitDepth bitdepth, AudioInterpolation interpolation, double outputSampleRate);
     ~SPU();
     void Reset();
     void DoSavestate(Savestate* file);
@@ -242,6 +245,7 @@ public:
     void SetApplyBias(bool enable);
 
     void Mix(u32 spucycles);
+    void EndFrame();
 
     void TrimOutput();
     void DrainOutput();
@@ -249,6 +253,7 @@ public:
     int GetOutputSize() const;
     void Sync(bool wait);
     int ReadOutput(s16* data, int samples);
+    void SetOutputSampleRate(double rate);
 
     u8 Read8(u32 addr);
     u16 Read16(u32 addr);
@@ -258,9 +263,15 @@ public:
     void Write32(u32 addr, u32 val);
 
 private:
-    static const u32 OutputBufferSize = 2*1024;  // TODO: configurable audio buffer sizes?
+    u32 OutputBufferSize = 0;
+    double OutputSampleRate;
     melonDS::NDS& NDS;
-    s16 OutputBuffer[2 * OutputBufferSize] {};
+
+    blip_t* BlipLeft;
+    blip_t* BlipRight;
+    int BlipTimer = 0;
+
+    s16* OutputBuffer;
     u32 OutputBufferWritePos = 0;
     u32 OutputBufferReadPos = 0;
 
