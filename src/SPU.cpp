@@ -271,8 +271,6 @@ void SPU::DoSavestate(Savestate* file)
     file->Var8(&MasterVolume);
     file->Var16(&Bias);
 
-    file->Var8(&OutputSamplePos);
-    file->Var8(&OutputSampleInc);
     file->VarArray(OutputLastSamples, sizeof(OutputLastSamples));
 
     file->Var32(&MixInterval);
@@ -298,15 +296,12 @@ void SPU::SetSampleRate(AudioSampleRate rate)
     if (rate == AudioSampleRate::_47KHz)
     {
         MixInterval = 704;
-        OutputSampleInc = 16;
     }
     else
     {
         MixInterval = 1024;
-        OutputSampleInc = 11;
     }
 
-    OutputSamplePos = 0;
     memset(OutputLastSamples, 0, sizeof(OutputLastSamples));
 }
 
@@ -1007,7 +1002,7 @@ void SPU::Mix(u32 spucycles)
         blip_add_delta(BlipLeft, BlipTimer, (int) output[0] - OutputLastSamples[0]);
     if (output[1] != OutputLastSamples[1])
         blip_add_delta(BlipRight, BlipTimer, (int) output[1] - OutputLastSamples[1]);
-    BlipTimer += MixInterval >> 1;
+    BlipTimer += spucycles;
 
     OutputLastSamples[0] = output[0];
     OutputLastSamples[1] = output[1];

@@ -274,12 +274,6 @@ private:
     s16* OutputBuffer;
     u32 OutputBufferWritePos = 0;
     u32 OutputBufferReadPos = 0;
-
-    // sample pos/inc are 4-bit fractional
-    // 32KHz sample rate is 11/16 of 47KHz
-    // so they don't need to be very precise
-    u8 OutputSamplePos;
-    u8 OutputSampleInc;
     s16 OutputLastSamples[2];
 
     u32 MixInterval;
