@@ -31,6 +31,13 @@
 
 const int kMaxWindows = 4;
 
+enum EmuInstanceType
+{
+    emuInst_Normal = 0,         // regular instance
+    emuInst_RemoteHost,         // sends video/audio feed to a remote client instance
+    emuInst_RemoteClient,       // receives video/audio feed, sends back input
+};
+
 enum
 {
     HK_Lid = 0,
