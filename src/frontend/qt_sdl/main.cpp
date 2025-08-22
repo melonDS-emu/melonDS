@@ -279,6 +279,9 @@ int main(int argc, char** argv)
 
     qputenv("QT_SCALE_FACTOR", "1");
 
+    // D3D12バックエンド指定(Qt QuickのRHIをDirect3D12に固定するため)
+    qputenv("QSG_RHI_BACKEND", "d3d12"); // MelonPrimeDS
+
 #if QT_VERSION_MAJOR == 6 && defined(__WIN32__)
     // Allow using the system dark theme palette on Windows
     qputenv("QT_QPA_PLATFORM", "windows:darkmode=2");
@@ -292,6 +295,7 @@ int main(int argc, char** argv)
         printf("did you just call me a derp???\n");
 
     MelonApplication melon(argc, argv);
+
     pathInit();
 
     CLI::CommandLineOptions* options = CLI::ManageArgs(melon);

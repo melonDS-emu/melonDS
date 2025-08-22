@@ -365,83 +365,66 @@ void EmuThread::run()
         MPInterface::Get().Process();
         emuInstance->inputProcess();
 
-        // 押下ビット集合参照取得(関数呼び出し削減のため)
-        const QBitArray& press = emuInstance->hotkeyPress;
+        if (emuInstance->hotkeyPressed(HK_FrameLimitToggle)) emit windowLimitFPSChange();
 
-        // フレーム制限トグル検出(関数呼び出し削減のため)
-        if (press.testBit(HK_FrameLimitToggle))
-            // FPS制限変更シグナル送出(即時反映のため)
-            emit windowLimitFPSChange();
+        if (emuInstance->hotkeyPressed(HK_Pause)) emuTogglePause();
+        if (emuInstance->hotkeyPressed(HK_Reset)) emuReset();
+        if (emuInstance->hotkeyPressed(HK_FrameStep)) emuFrameStep();
 
-        // 一時変数定義(分岐数削減のため)
-        const bool pPause = press.testBit(HK_Pause);
-        // ポーズ切替実行(即時反映のため)
-        if (pPause) emuTogglePause();
+        // MelonPrimeDS ホットキー処理部分を修正
+        if (emuInstance->hotkeyPressed(HK_FullscreenToggle)) {
+            emit windowFullscreenToggle();
+            isLayoutChangePending = true;
+        }
 
-        // 一時変数定義(分岐数削減のため)
-        const bool pReset = press.testBit(HK_Reset);
-        // リセット実行(即時反映のため)
-        if (pReset) emuReset();
+        if (emuInstance->hotkeyPressed(HK_SwapScreens)) {
+            emit swapScreensToggle();
+            isLayoutChangePending = true;
+        }
 
-        // 一時変数定義(分岐数削減のため)
-        const bool pStep = press.testBit(HK_FrameStep);
-        // フレームステップ実行(デバッグ制御のため)
-        if (pStep) emuFrameStep();
-
-        // レイアウト関連押下取得(関数呼び出し削減のため)
-        const bool pFull = press.testBit(HK_FullscreenToggle);
-        // レイアウト関連押下取得(関数呼び出し削減のため)
-        const bool pSwap = press.testBit(HK_SwapScreens);
-        // レイアウト関連押下取得(関数呼び出し削減のため)
-        const bool pEmph = press.testBit(HK_SwapScreenEmphasis);
-
-        // フルスクリーントグル実行(状態反映のため)
-        if (pFull) { emit windowFullscreenToggle(); }
-        // 画面入替トグル実行(状態反映のため)
-        if (pSwap) { emit swapScreensToggle(); }
-        // 強調トグル実行(状態反映のため)
-        if (pEmph) { emit screenEmphasisToggle(); }
-
-        // レイアウト変更ペンディング集約(分岐縮減のため)
-        isLayoutChangePending |= (pFull | pSwap | pEmph);
-
-
-        // 最小感度定数定義(ロジック単純化のため)
+        if (emuInstance->hotkeyPressed(HK_SwapScreenEmphasis)) {
+            emit screenEmphasisToggle();
+            isLayoutChangePending = true;
+        }
+        // Define minimum sensitivity as a constant to improve readability and optimization
         static constexpr int MIN_SENSITIVITY = 1;
 
-        // 感度更新ラムダ定義(低サイクル更新のため)
-        const auto updateAimSensitivity = [&](const int delta)
-            {
-                // 現在感度取得(設定参照のため)
-                int cur = localCfg.GetInt("Metroid.Sensitivity.Aim");
-                // 新感度算出(分岐削減のため)
-                int nxt = cur + delta;
-                // 下限制御(不正値防止のため)
-                if (nxt < MIN_SENSITIVITY) {
-                    // OSD通知実行(ユーザ可視化のため)
-                    emuInstance->osdAddMessage(0, "AimSensi cannot be decreased below %d", MIN_SENSITIVITY);
-                    // 早期帰還実行(無駄処理削減のため)
-                    return;
-                }
-                // 変更有無判定(無駄処理削減のため)
-                if (nxt != cur) {
-                    // 設定反映実行(永続対象更新のため)
-                    localCfg.SetInt("Metroid.Sensitivity.Aim", nxt);
-                    // 設定保存即時実行(デバウンス排除のため)
-                    Config::Save();
-                    // OSD通知実行(ユーザ可視化のため)
-                    emuInstance->osdAddMessage(0, "AimSensi Updated: %d->%d", cur, nxt);
-                    // 変更伝播フラグ設定(後段反映のため)
-                    isSensitivityChangePending = true;
-                }
+        // Lambda function to update aim sensitivity with low latency
+        static const auto updateAimSensitivity = [&](const int change) {
+            // Get current sensitivity from config
+            int currentSensitivity = localCfg.GetInt("Metroid.Sensitivity.Aim");
+
+            // Calculate new sensitivity value
+            int newSensitivity = currentSensitivity + change;
+
+            // Check for minimum value threshold with early return for optimization
+            if (newSensitivity < MIN_SENSITIVITY) {
+                emuInstance->osdAddMessage(0, "AimSensi cannot be decreased below %d", MIN_SENSITIVITY);
+                return;
+            }
+
+            // Only process if the value has actually changed
+            if (newSensitivity != currentSensitivity) {
+                // Update the configuration with new value
+                localCfg.SetInt("Metroid.Sensitivity.Aim", newSensitivity);
+                Config::Save();
+
+                // Display message using format string instead of concatenation
+                emuInstance->osdAddMessage(0, "AimSensi Updated: %d->%d", currentSensitivity, newSensitivity);
+				isSensitivityChangePending = true;  // フラグを立てる
+            }
             };
 
-        // 感度変更量算出(分岐排除のため)
-        const int sensitivityChange = static_cast<int>(press.testBit(HK_MetroidIngameSensiUp))
-            - static_cast<int>(press.testBit(HK_MetroidIngameSensiDown));
+        // Optimize hotkey handling with a single expression
+        {
+            const int sensitivityChange =
+                emuInstance->hotkeyReleased(HK_MetroidIngameSensiUp) ? 1 :
+                emuInstance->hotkeyReleased(HK_MetroidIngameSensiDown) ? -1 : 0;
 
-        // 感度更新実行(必要時限定実行のため)
-        if (sensitivityChange) updateAimSensitivity(sensitivityChange);
+            if (sensitivityChange != 0) {
+                updateAimSensitivity(sensitivityChange);
+            }
+        }
 
         if (emuStatus == emuStatus_Running || emuStatus == emuStatus_FrameStep)
         {
@@ -628,43 +611,27 @@ void EmuThread::run()
                 winUpdateCount = 0;
             }
             
-            // FFトグル押下取得実行(関数呼び出し削減のため)
-            const bool pFF = press.testBit(HK_FastForwardToggle);
-            // SMトグル押下取得実行(関数呼び出し削減のため)
-            const bool pSM = press.testBit(HK_SlowMoToggle);
+            if (emuInstance->hotkeyPressed(HK_FastForwardToggle)) emuInstance->fastForwardToggled = !emuInstance->fastForwardToggled;
+            if (emuInstance->hotkeyPressed(HK_SlowMoToggle)) emuInstance->slowmoToggled = !emuInstance->slowmoToggled;
 
-            // 遷移前状態合成実行(VSync切替最小化のため)
-            const bool before = (fastforward | slowmo);
+            bool enablefastforward = emuInstance->hotkeyDown(HK_FastForward) | emuInstance->fastForwardToggled;
+            bool enableslowmo = emuInstance->hotkeyDown(HK_SlowMo) | emuInstance->slowmoToggled;
 
-            // FFトグルXOR反映実行(分岐縮減のため)
-            emuInstance->fastForwardToggled ^= pFF;
-            // SMトグルXOR反映実行(分岐縮減のため)
-            emuInstance->slowmoToggled ^= pSM;
-
-            // 押下保持状態取得実行(呼び出し回数削減のため)
-            const bool holdFF = emuInstance->hotkeyDown(HK_FastForward);
-            // 押下保持状態取得実行(呼び出し回数削減のため)
-            const bool holdSM = emuInstance->hotkeyDown(HK_SlowMo);
-
-            // FF実効状態算出実行(押下保持合成のため)
-            const bool newFF = holdFF | emuInstance->fastForwardToggled;
-            // SM実効状態算出実行(押下保持合成のため)
-            const bool newSM = holdSM | emuInstance->slowmoToggled;
-
-            // 遷移後状態合成実行(切替判定のため)
-            const bool after = (newFF | newSM);
-
-            // VSync切替遷移判定実行(不要呼出削減のため)
-            if (useOpenGL && (before != after))
+            if (useOpenGL)
             {
-                // VSync設定適用実行(描画同期最適化のため)
-                emuInstance->setVSyncGL(!after);
+                // when using OpenGL: when toggling fast-forward or slowmo, change the vsync interval
+                if ((enablefastforward || enableslowmo) && !(fastforward || slowmo))
+                {
+                    emuInstance->setVSyncGL(false);
+                }
+                else if (!(enablefastforward || enableslowmo) && (fastforward || slowmo))
+                {
+                    emuInstance->setVSyncGL(true);
+                }
             }
 
-            // 実効フラグ更新実行(後段処理のため)
-            fastforward = newFF;
-            // 実効フラグ更新実行(後段処理のため)
-            slowmo = newSM;
+            fastforward = enablefastforward;
+            slowmo = enableslowmo;
 
             if (slowmo) emuInstance->curFPS = emuInstance->slowmoFPS;
             else if (fastforward) emuInstance->curFPS = emuInstance->fastForwardFPS;
