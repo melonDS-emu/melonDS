@@ -26,6 +26,8 @@
 #include <string>
 #include <algorithm>
 
+#include <QDateTime>
+
 #include <SDL2/SDL.h>
 
 #include "main.h"
@@ -597,14 +599,16 @@ void EmuThread::handleMessages()
                 }
                 frontBufferLock.unlock();
 
-                time_t curr_time;
-                time(&curr_time);
-                tm* curr_tm = std::localtime(&curr_time);
-                char filename[64];
-                std::strftime(filename, 64, "melonDS-%Y-%m-%d-%H%M%S", curr_tm);
+                auto curr_time = QDateTime::currentDateTime();
+                auto prefix = curr_time.toString("'melonDS'-yyyy-MM-dd-hhmmss");
 
-                std::string screenshotFile = 
-                emuInstance->getAssetPath(false, emuInstance->localCfg.GetString("ScreenshotPath"), ".png", filename);
+                std::string screenshotFile;
+                uint8_t index = 0;
+                do {
+                    std::string filename = (prefix + (index != 0 ? QString::asprintf(" (%0u)", index) : "")).toStdString();
+                    screenshotFile = emuInstance->getAssetPath(false, emuInstance->localCfg.GetString("ScreenshotPath"), ".png", filename);
+                    index++;
+                } while(Platform::FileExists(screenshotFile));
 
                 if (capture.save(screenshotFile.c_str(), "png")) {
                     emuInstance->osdAddMessage(0, "Screenshot taken: %s", screenshotFile.c_str());
