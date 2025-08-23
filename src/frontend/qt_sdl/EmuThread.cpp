@@ -135,10 +135,11 @@ void EmuThread::detachWindow(MainWindow* window)
 static bool hasInitialized = false;
 float mouseX;
 float mouseY;
-#include "melonPrime/def.h"
+#include "melonPrime/Def.h"
+#include "melonPrime/RomAddrTable.h"
 
 // CalculatePlayerAddress Function
-uint32_t calculatePlayerAddress(uint32_t baseAddress, uint8_t playerPosition, int32_t increment) {
+__attribute__((always_inline, flatten)) inline uint32_t calculatePlayerAddress(uint32_t baseAddress, uint8_t playerPosition, int32_t increment) {
     // If player position is 0, return the base address without modification
     if (playerPosition == 0) {
         return baseAddress;
@@ -178,229 +179,13 @@ melonDS::u32 aimYAddr;
 melonDS::u32 isInAdventureAddr;
 melonDS::u32 isMapOrUserActionPausedAddr; // for issue in AdventureMode, Aim Stopping when SwitchingWeapon. 
 
-/*
-void initializeAddressesForEU1(uint32_t globalChecksum, EmuInstance* emuInstance, bool& isRomDetected) {
-    // Common addresses for EU1.1 and EU1_BALANCED
-    baseChosenHunterAddr = 0x020CBE44; // BattleConfig:ChosenHunter
-    inGameAddr = 0x020eece0 + 0x8F0; // inGame:1
-    PlayerPosAddr = 0x020DA5D8;
-    isInVisorOrMapAddr = PlayerPosAddr - 0xabb; // Estimated address
-    baseIsAltFormAddr = 0x020DC6D8 - 0x15A0; // 1p(host)
-    baseLoadedSpecialWeaponAddr = baseIsAltFormAddr + 0x56; // 1p(host). For special weapons only. Missile and powerBeam are not special weapon.
-    baseWeaponChangeAddr = 0x020DCA9B - 0x15A0; // 1p(host)
-    baseSelectedWeaponAddr = 0x020DCAA3 - 0x15A0; // 1p(host)
-    baseJumpFlagAddr = baseSelectedWeaponAddr - 0xA;
-    baseAimXAddr = 0x020dee46;
-    baseAimYAddr = 0x020dee4e;
-    isInAdventureAddr = 0x020E845C; // Read8 0x02: ADV, 0x03: Multi
-    isMapOrUserActionPausedAddr = 0x020FBFB8; // 0x00000001: true, 0x00000000 false. Read8 is enough though.
-
-    // Version-specific message
-    if (globalChecksum == RomVersions::EU1_1) {
-        emuInstance->osdAddMessage(0, "MPH Rom version detected: EU1.1");
-    }
-    else if (globalChecksum == RomVersions::EU1_BALANCED) {
-        emuInstance->osdAddMessage(0, "MPH Rom version detected: EU1.1 BALANCED");
-    }
-    else {
-        emuInstance->osdAddMessage(0, "MPH Rom version detected: EU1.1 ENCRYPTED");
-        }
-
-    isRomDetected = true;
-}
-
-
-void detectRomAndSetAddressesv1(EmuInstance* emuInstance) {
-
-
-    switch (globalChecksum) {
-    case RomVersions::EU1_1:
-    case RomVersions::EU1_1_ENCRYPTED:
-    case RomVersions::EU1_BALANCED:
-        initializeAddressesForEU1(globalChecksum, emuInstance, isRomDetected);
-        break;
-
-    case RomVersions::US1_1:
-    case RomVersions::US1_1_ENCRYPTED:
-        // USA1.1
-
-        baseChosenHunterAddr = 0x020CBDA4; // BattleConfig:ChosenHunter 0 samus 1 kanden 2 trace 3 sylux 4 noxus 5 spire 6 weavel
-        inGameAddr = 0x020eec40 + 0x8F0; // inGame:1
-        isInVisorOrMapAddr = 0x020D9A7D; // Estimated address
-        PlayerPosAddr = 0x020DA538;
-        baseIsAltFormAddr = 0x020DB098; // 1p(host)
-        baseLoadedSpecialWeaponAddr = baseIsAltFormAddr + 0x56; // 1p(host). For special weapons only. Missile and powerBeam are not special weapon.
-        baseWeaponChangeAddr = 0x020DB45B; // 1p(host)
-        baseSelectedWeaponAddr = 0x020DB463; // 1p(host)
-        baseJumpFlagAddr = baseSelectedWeaponAddr - 0xA;
-        baseAimXAddr = 0x020DEDA6;
-        baseAimYAddr = 0x020DEDAE;
-        isInAdventureAddr = 0x020E83BC; // Read8 0x02: ADV, 0x03: Multi
-        isMapOrUserActionPausedAddr = 0x020FBF18; // 0x00000001: true, 0x00000000 false. Read8 is enough though.
-        isRomDetected = true;
-        
-        if (globalChecksum == RomVersions::US1_1) {
-            emuInstance->osdAddMessage(0, "MPH Rom version detected: US1.1");
-        }
-        else {
-            emuInstance->osdAddMessage(0, "MPH Rom version detected: US1.1 ENCRYPTED");
-        }
-
-        break;
-
-    case RomVersions::US1_0:
-    case RomVersions::US1_0_ENCRYPTED:
-        // USA1.0
-        baseChosenHunterAddr = 0x020CB51C; // BattleConfig:ChosenHunter
-        inGameAddr = 0x020ee180 + 0x8F0; // inGame:1
-        PlayerPosAddr = 0x020D9CB8;
-        isInVisorOrMapAddr = PlayerPosAddr - 0xabb; // Estimated address
-        baseIsAltFormAddr = 0x020DC6D8 - 0x1EC0; // 1p(host)
-        baseLoadedSpecialWeaponAddr = baseIsAltFormAddr + 0x56; // 1p(host). For special weapons only. Missile and powerBeam are not special weapon.
-        baseWeaponChangeAddr = 0x020DCA9B - 0x1EC0; // 1p(host)
-        baseSelectedWeaponAddr = 0x020DCAA3 - 0x1EC0; // 1p(host)
-        baseJumpFlagAddr = baseSelectedWeaponAddr - 0xA;
-        baseAimXAddr = 0x020de526;
-        baseAimYAddr = 0x020de52E;
-        isInAdventureAddr = 0x020E78FC; // Read8 0x02: ADV, 0x03: Multi
-        isMapOrUserActionPausedAddr = 0x020FB458; // 0x00000001: true, 0x00000000 false. Read8 is enough though.
-        isRomDetected = true;
-
-        if (globalChecksum == RomVersions::US1_0) {
-            emuInstance->osdAddMessage(0, "MPH Rom version detected: US1.0");
-        }
-        else {
-            emuInstance->osdAddMessage(0, "MPH Rom version detected: US1.0 ENCRYPTED");
-        }
-        break;
-
-    case RomVersions::JP1_0:
-    case RomVersions::JP1_0_ENCRYPTED:
-        // Japan1.0
-        baseChosenHunterAddr = 0x020CD358; // BattleConfig:ChosenHunter
-        inGameAddr = 0x020F0BB0; // inGame:1
-        PlayerPosAddr = 0x020DBB78;
-        isInVisorOrMapAddr = PlayerPosAddr - 0xabb; // Estimated address
-        baseIsAltFormAddr = 0x020DC6D8; // 1p(host)
-        baseLoadedSpecialWeaponAddr = baseIsAltFormAddr + 0x56; // 1p(host). For special weapons only. Missile and powerBeam are not special weapon.
-        baseWeaponChangeAddr = 0x020DCA9B; // 1p(host)
-        baseSelectedWeaponAddr = 0x020DCAA3; // 1p(host)
-        baseJumpFlagAddr = baseSelectedWeaponAddr - 0xA;
-        baseAimXAddr = 0x020E03E6;
-        baseAimYAddr = 0x020E03EE;
-        // 220E090E 0000000C Fast Scan Visor
-        isInAdventureAddr = 0x020E9A3C; // Read8 0x02: ADV, 0x03: Multi
-        isMapOrUserActionPausedAddr = 0x020FD598; // 0x00000001: true, 0x00000000 false. Read8 is enough though.
-        isRomDetected = true;
-
-        if (globalChecksum == RomVersions::JP1_0) {
-            emuInstance->osdAddMessage(0, "MPH Rom version detected: JP1.0");
-        }
-        else {
-            emuInstance->osdAddMessage(0, "MPH Rom version detected: JP1.0 ENCRYPTED");
-        }
-
-        break;
-
-    case RomVersions::JP1_1:
-    case RomVersions::JP1_1_ENCRYPTED:
-        // Japan1.1
-        baseChosenHunterAddr = 0x020CD318; // BattleConfig:ChosenHunter
-        inGameAddr = 0x020F0280 + 0x8F0; // inGame:1
-        PlayerPosAddr = 0x020DBB38;
-        isInVisorOrMapAddr = PlayerPosAddr - 0xabb; // Estimated address
-        baseIsAltFormAddr = 0x020DC6D8 - 0x64; // 1p(host)
-        baseLoadedSpecialWeaponAddr = baseIsAltFormAddr + 0x56; // 1p(host). For special weapons only. Missile and powerBeam are not special weapon.
-        baseWeaponChangeAddr = 0x020DCA9B - 0x40; // 1p(host)
-        baseSelectedWeaponAddr = 0x020DCAA3 - 0x40; // 1p(host)
-        baseJumpFlagAddr = baseSelectedWeaponAddr - 0xA;
-        baseAimXAddr = 0x020e03a6;
-        baseAimYAddr = 0x020e03ae;
-        isInAdventureAddr = 0x020E99FC; // Read8 0x02: ADV, 0x03: Multi
-        isMapOrUserActionPausedAddr = 0x020FD558; // 0x00000001: true, 0x00000000 false. Read8 is enough though.
-        isRomDetected = true;
-
-        if (globalChecksum == RomVersions::JP1_1) {
-            emuInstance->osdAddMessage(0, "MPH Rom version detected: JP1.1");
-        }
-        else {
-            emuInstance->osdAddMessage(0, "MPH Rom version detected: JP1.1 ENCRYPTED");
-        }
-
-        break;
-
-    case RomVersions::EU1_0:
-    case RomVersions::EU1_0_ENCRYPTED:
-        // EU1.0
-        baseChosenHunterAddr = 0x020CBDC4; // BattleConfig:ChosenHunter
-        inGameAddr = 0x020eec60 + 0x8F0; // inGame:1
-        PlayerPosAddr = 0x020DA558;
-        isInVisorOrMapAddr = PlayerPosAddr - 0xabb; // Estimated address
-        baseIsAltFormAddr = 0x020DC6D8 - 0x1620; // 1p(host)
-        baseLoadedSpecialWeaponAddr = baseIsAltFormAddr + 0x56; // 1p(host). For special weapons only. Missile and powerBeam are not special weapon.
-        baseWeaponChangeAddr = 0x020DCA9B - 0x1620; // 1p(host)
-        baseSelectedWeaponAddr = 0x020DCAA3 - 0x1620; // 1p(host)
-        baseJumpFlagAddr = baseSelectedWeaponAddr - 0xA;
-        baseAimXAddr = 0x020dedc6;
-        baseAimYAddr = 0x020dedcE;
-        isInAdventureAddr = 0x020E83DC; // Read8 0x02: ADV, 0x03: Multi
-        isMapOrUserActionPausedAddr = 0x020FBF38; // 0x00000001: true, 0x00000000 false. Read8 is enough though.
-        isRomDetected = true;
-
-        if (globalChecksum == RomVersions::EU1_0) {
-            emuInstance->osdAddMessage(0, "MPH Rom version detected: EU1.0");
-        }
-        else {
-            emuInstance->osdAddMessage(0, "MPH Rom version detected: EU1.0 ENCRYPTED");
-        }
-
-        break;
-
-    case RomVersions::KR1_0:
-    case RomVersions::KR1_0_ENCRYPTED:
-        // Korea1.0
-        baseChosenHunterAddr = 0x020C4B88; // BattleConfig:ChosenHunter
-        inGameAddr = 0x020E81B4; // inGame:1
-        isInVisorOrMapAddr = PlayerPosAddr - 0xabb; // Estimated address
-        PlayerPosAddr = 0x020D33A9; // it's weird but "3A9" is correct.
-        baseIsAltFormAddr = 0x020DC6D8 - 0x87F4; // 1p(host)
-        baseLoadedSpecialWeaponAddr = baseIsAltFormAddr + 0x56; // 1p(host). For special weapons only. Missile and powerBeam are not special weapon.
-        baseWeaponChangeAddr = 0x020DCA9B - 0x87F4; // 1p(host)
-        baseSelectedWeaponAddr = 0x020DCAA3 - 0x87F4; // 1p(host)
-        baseJumpFlagAddr = baseSelectedWeaponAddr - 0xA;
-        baseAimXAddr = 0x020D7C0E;
-        baseAimYAddr = 0x020D7C16;
-        isInAdventureAddr = 0x020E11F8; // Read8 0x02: ADV, 0x03: Multi
-        isMapOrUserActionPausedAddr = 0x020F4CF8; // 0x00000001: true, 0x00000000 false. Read8 is enough though.
-
-        isRomDetected = true;
-
-        if (globalChecksum == RomVersions::KR1_0) {
-            emuInstance->osdAddMessage(0, "MPH Rom version detected: KR1.0");
-        }
-        else {
-            emuInstance->osdAddMessage(0, "MPH Rom version detected: KR1.0 ENCRYPTED");
-        }
-
-
-        break;
-
-    default:
-        // Handle unsupported checksums.
-        // Add default behavior or error handling.
-        break;
-    }
-}
-
-*/
-
 // ROM detection and address setup (self-contained within this function)
-void detectRomAndSetAddresses(EmuInstance* emuInstance) {
+__attribute__((always_inline, flatten)) inline void detectRomAndSetAddresses(EmuInstance* emuInstance) {
     // Define ROM groups
     enum RomGroup {
         GROUP_US1_1,     // US1.1, US1.1_ENCRYPTED
         GROUP_US1_0,     // US1.0, US1.0_ENCRYPTED
-        GROUP_EU1_1,     // EU1.1, EU1.1_ENCRYPTED, EU1_BALANCED
+        GROUP_EU1_1,     // EU1.1, EU1.1_ENCRYPTED, EU1_1_BALANCED
         GROUP_EU1_0,     // EU1.0, EU1.0_ENCRYPTED
         GROUP_JP1_0,     // JP1.0, JP1.0_ENCRYPTED
         GROUP_JP1_1,     // JP1.1, JP1.1_ENCRYPTED
@@ -422,7 +207,7 @@ void detectRomAndSetAddresses(EmuInstance* emuInstance) {
         {RomVersions::US1_0_ENCRYPTED, "US1.0 ENCRYPTED", GROUP_US1_0},
         {RomVersions::EU1_1,           "EU1.1",           GROUP_EU1_1},
         {RomVersions::EU1_1_ENCRYPTED, "EU1.1 ENCRYPTED", GROUP_EU1_1},
-        {RomVersions::EU1_BALANCED,    "EU1.1 BALANCED",  GROUP_EU1_1},
+        {RomVersions::EU1_1_BALANCED,  "EU1.1 BALANCED",  GROUP_EU1_1},
         {RomVersions::EU1_0,           "EU1.0",           GROUP_EU1_0},
         {RomVersions::EU1_0_ENCRYPTED, "EU1.0 ENCRYPTED", GROUP_EU1_0},
         {RomVersions::JP1_0,           "JP1.0",           GROUP_JP1_0},
@@ -447,104 +232,32 @@ void detectRomAndSetAddresses(EmuInstance* emuInstance) {
         return;
     }
 
-    // JP1.0 base addresses (used for calculations in other versions)
-    const uint32_t JP1_0_BASE_IS_ALT_FORM = 0x020DC6D8;
-    const uint32_t JP1_0_BASE_WEAPON_CHANGE = 0x020DCA9B;
-    const uint32_t JP1_0_BASE_SELECTED_WEAPON = 0x020DCAA3;
-
-    // Set addresses for each group (use switch to minimize stack usage)
-    switch (romInfo->group) {
-    case GROUP_US1_1:
-        baseChosenHunterAddr = 0x020CBDA4; // BattleConfig:ChosenHunter
-        inGameAddr = 0x020eec40 + 0x8F0; // inGame:1
-        PlayerPosAddr = 0x020DA538; // Estimated address
-        baseIsAltFormAddr = 0x020DB098;
-        baseWeaponChangeAddr = 0x020DB45B; // 1p(host)
-        baseSelectedWeaponAddr = 0x020DB463;  // 1p(host)
-        baseAimXAddr = 0x020DEDA6;
-        baseAimYAddr = 0x020DEDAE;
-        isInAdventureAddr = 0x020E83BC; // Read8 0x02: ADV, 0x03: Multi
-        isMapOrUserActionPausedAddr = 0x020FBF18; // 0x00000001: true, 0x00000000 false. Read8 is enough though.
-        break;
-
-    case GROUP_US1_0:
-        baseChosenHunterAddr = 0x020CB51C;
-        inGameAddr = 0x020ee180 + 0x8F0;
-        PlayerPosAddr = 0x020D9CB8;
-        baseIsAltFormAddr = JP1_0_BASE_IS_ALT_FORM - 0x1EC0;
-        baseWeaponChangeAddr = JP1_0_BASE_WEAPON_CHANGE - 0x1EC0;
-        baseSelectedWeaponAddr = JP1_0_BASE_SELECTED_WEAPON - 0x1EC0;
-        baseAimXAddr = 0x020de526;
-        baseAimYAddr = 0x020de52E;
-        isInAdventureAddr = 0x020E78FC;
-        isMapOrUserActionPausedAddr = 0x020FB458;
-        break;
-
-    case GROUP_EU1_1:
-        baseChosenHunterAddr = 0x020CBE44;
-        inGameAddr = 0x020eece0 + 0x8F0;
-        PlayerPosAddr = 0x020DA5D8;
-        baseIsAltFormAddr = JP1_0_BASE_IS_ALT_FORM - 0x15A0;
-        baseWeaponChangeAddr = JP1_0_BASE_WEAPON_CHANGE - 0x15A0;
-        baseSelectedWeaponAddr = JP1_0_BASE_SELECTED_WEAPON - 0x15A0;
-        baseAimXAddr = 0x020dee46;
-        baseAimYAddr = 0x020dee4e;
-        isInAdventureAddr = 0x020E845C;
-        isMapOrUserActionPausedAddr = 0x020FBFB8;
-        break;
-
-    case GROUP_EU1_0:
-        baseChosenHunterAddr = 0x020CBDC4;
-        inGameAddr = 0x020eec60 + 0x8F0;
-        PlayerPosAddr = 0x020DA558;
-        baseIsAltFormAddr = JP1_0_BASE_IS_ALT_FORM - 0x1620;
-        baseWeaponChangeAddr = JP1_0_BASE_WEAPON_CHANGE - 0x1620;
-        baseSelectedWeaponAddr = JP1_0_BASE_SELECTED_WEAPON - 0x1620;
-        baseAimXAddr = 0x020dedc6;
-        baseAimYAddr = 0x020dedcE;
-        isInAdventureAddr = 0x020E83DC;
-        isMapOrUserActionPausedAddr = 0x020FBF38;
-        break;
-
-    case GROUP_JP1_0:
-        baseChosenHunterAddr = 0x020CD358;
-        inGameAddr = 0x020F0BB0;
-        PlayerPosAddr = 0x020DBB78;
-        baseIsAltFormAddr = JP1_0_BASE_IS_ALT_FORM;  // Base values themselves
-        baseWeaponChangeAddr = JP1_0_BASE_WEAPON_CHANGE;
-        baseSelectedWeaponAddr = JP1_0_BASE_SELECTED_WEAPON;
-        baseAimXAddr = 0x020E03E6;
-        baseAimYAddr = 0x020E03EE;
-        isInAdventureAddr = 0x020E9A3C;
-        isMapOrUserActionPausedAddr = 0x020FD598;
-        break;
-
-    case GROUP_JP1_1:
-        baseChosenHunterAddr = 0x020CD318;
-        inGameAddr = 0x020F0280 + 0x8F0;
-        PlayerPosAddr = 0x020DBB38;
-        baseIsAltFormAddr = JP1_0_BASE_IS_ALT_FORM - 0x64;
-        baseWeaponChangeAddr = JP1_0_BASE_WEAPON_CHANGE - 0x40;
-        baseSelectedWeaponAddr = JP1_0_BASE_SELECTED_WEAPON - 0x40;
-        baseAimXAddr = 0x020e03a6;
-        baseAimYAddr = 0x020e03ae;
-        isInAdventureAddr = 0x020E99FC;
-        isMapOrUserActionPausedAddr = 0x020FD558;
-        break;
-
-    case GROUP_KR1_0:
-        baseChosenHunterAddr = 0x020C4B88;
-        inGameAddr = 0x020E81B4;
-        PlayerPosAddr = 0x020D33A9;  // it's weird but "3A9" is correct.
-        baseIsAltFormAddr = JP1_0_BASE_IS_ALT_FORM - 0x87F4;
-        baseWeaponChangeAddr = JP1_0_BASE_WEAPON_CHANGE - 0x87F4;
-        baseSelectedWeaponAddr = JP1_0_BASE_SELECTED_WEAPON - 0x87F4;
-        baseAimXAddr = 0x020D7C0E;
-        baseAimYAddr = 0x020D7C16;
-        isInAdventureAddr = 0x020E11F8;
-        isMapOrUserActionPausedAddr = 0x020F4CF8;
-        break;
-    }
+    // 既存変数への一括設定実施(分岐削減のため)
+    // グローバル列挙体の完全修飾指定とキャスト実施(同名列挙体のシャドーイング回避のため)
+    detectRomAndSetAddresses_fast(
+        // 列挙体の完全修飾(::RomGroup)とint変換後のstatic_cast実施(型不一致解消のため)
+        static_cast<::RomGroup>(static_cast<int>(romInfo->group)),
+        // ChosenHunterアドレス引数受け渡し実施(既存変数の直接利用のため)
+        baseChosenHunterAddr,
+        // inGameアドレス引数受け渡し実施(既存変数の直接利用のため)
+        inGameAddr,
+        // プレイヤ位置アドレス引数受け渡し実施(既存変数の直接利用のため)
+        PlayerPosAddr,
+        // AltFormアドレス引数受け渡し実施(既存変数の直接利用のため)
+        baseIsAltFormAddr,
+        // 武器変更アドレス引数受け渡し実施(既存変数の直接利用のため)
+        baseWeaponChangeAddr,
+        // 選択武器アドレス引数受け渡し実施(既存変数の直接利用のため)
+        baseSelectedWeaponAddr,
+        // AimXアドレス引数受け渡し実施(既存変数の直接利用のため)
+        baseAimXAddr,
+        // AimYアドレス引数受け渡し実施(既存変数の直接利用のため)
+        baseAimYAddr,
+        // ADV/Multi判定アドレス引数受け渡し実施(既存変数の直接利用のため)
+        isInAdventureAddr,
+        // ポーズ判定アドレス引数受け渡し実施(既存変数の直接利用のため)
+        isMapOrUserActionPausedAddr
+    );
 
     // Addresses calculated from base values
     isInVisorOrMapAddr = PlayerPosAddr - 0xABB;

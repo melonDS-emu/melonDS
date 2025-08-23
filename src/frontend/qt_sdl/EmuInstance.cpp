@@ -1946,7 +1946,7 @@ bool EmuInstance::loadROM(QStringList filepath, bool reset, QString& errorstr)
         case RomVersions::JP1_0:
         case RomVersions::JP1_1:
         case RomVersions::KR1_0:
-        case RomVersions::EU1_BALANCED:
+        case RomVersions::EU1_1_BALANCED:
         case RomVersions::US1_0_ENCRYPTED:
         case RomVersions::US1_1_ENCRYPTED:
         case RomVersions::EU1_0_ENCRYPTED:
