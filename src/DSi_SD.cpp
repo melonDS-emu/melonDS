@@ -839,7 +839,7 @@ void DSi_MMCStorage::Reset()
 
     memset(SSR, 0, 64);
 
-    BlockSize = 0;
+    BlockSize = 512;
     RWAddress = 0;
     RWCommand = 0;
 }
