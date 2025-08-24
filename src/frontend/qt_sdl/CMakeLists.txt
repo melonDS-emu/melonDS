@@ -10,8 +10,6 @@ set(SOURCES_QT_SDL
     EmuInstance.cpp
     EmuInstanceAudio.cpp
     EmuInstanceInput.cpp
-    melonPrime/Def.h
-    melonPrime/RomAddrTable.h
     EmuThread.cpp
     CheatsDialog.cpp
     Config.cpp

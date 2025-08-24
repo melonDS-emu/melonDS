@@ -1,5 +1,5 @@
-#ifndef DEF_H
-#define DEF_H
+#ifndef MELON_PRIME_DEF_H
+#define MELON_PRIME_DEF_H
 
 
 // Declare global variable with extern (to make it accessible from other files)
@@ -28,4 +28,4 @@ namespace RomVersions {
     constexpr uint32_t US1_1_ENCRYPTED = 0x01476E8F;
     constexpr uint32_t US1_0_ENCRYPTED = 0xE048CD92;
 }
-#endif // DEF_H
+#endif // MELON_PRIME_DEF_H

@@ -1,6 +1,6 @@
 ﻿// インクルードガード定義(多重定義防止のため)
-#ifndef ROM_ADDR_TABLE_H
-#define ROM_ADDR_TABLE_H
+#ifndef MELON_PRIME_ROM_ADDR_TABLE_H
+#define MELON_PRIME_ROM_ADDR_TABLE_H
 
 // 固定幅整数型の導入(アドレス値の型統一のため)
 #include <cstdint>
@@ -328,4 +328,4 @@ static __attribute__((always_inline, flatten)) inline void detectRomAndSetAddres
     isMapOrUserActionPausedAddr_ = a.isMapOrUserActionPausedAddr;
 }
 
-#endif // ROM_ADDR_TABLE_H
+#endif // MELON_PRIME_ROM_ADDR_TABLE_H

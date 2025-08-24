@@ -50,10 +50,10 @@
 
 /* melonPrimeDS { */
 // #include <QMessageBox>
-#include "melonPrime/def.h"
+#include "MelonPrimeDef.h"
 
 // Global variable definitions with initialization
-// Source: melonPrime/def.h
+// Source: MelonPrimeDef.h
 uint32_t globalChecksum = 0;
 bool isRomDetected = false;
 
