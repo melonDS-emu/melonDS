@@ -10,6 +10,8 @@ set(SOURCES_QT_SDL
     EmuInstance.cpp
     EmuInstanceAudio.cpp
     EmuInstanceInput.cpp
+    melonPrime/Def.h
+    melonPrime/RomAddrTable.h
     EmuThread.cpp
     CheatsDialog.cpp
     Config.cpp
@@ -20,8 +22,6 @@ set(SOURCES_QT_SDL
     InputConfig/InputConfigDialog.cpp
     InputConfig/MapButton.h
     InputConfig/resources/ds.qrc
-    melonPrime/Def.h
-    melonPrime/RomAddrTable.h
     VideoSettingsDialog.cpp
     CameraSettingsDialog.cpp
     AudioSettingsDialog.cpp
