@@ -1062,7 +1062,7 @@ void SPU::InitOutput()
 {
     Platform::Mutex_Lock(AudioLock);
 
-    double internalSampleRate = 16805700.f;
+    double internalSampleRate = 16756991.f;
 
     blip_set_rates(BlipLeft, internalSampleRate, OutputSampleRate);
     blip_set_rates(BlipRight, internalSampleRate, OutputSampleRate);

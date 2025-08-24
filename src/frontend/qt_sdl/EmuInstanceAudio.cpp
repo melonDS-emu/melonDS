@@ -138,7 +138,7 @@ void EmuInstance::audioSync()
 
 int EmuInstance::audioGetNumSamplesOut(int outlen)
 {
-    float f_len_in = outlen * (curFPS/60.f);
+    float f_len_in = outlen * (curFPS/59.8261f);
     f_len_in += audioSampleFrac;
     int len_in = (int)floor(f_len_in);
     audioSampleFrac = f_len_in - len_in;
