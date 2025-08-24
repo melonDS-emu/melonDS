@@ -998,11 +998,14 @@ void SPU::Mix(u32 spucycles)
     }
 
     Platform::Mutex_Lock(AudioLock);
+    BlipTimer += spucycles;
+    if (BlipTimer >= 8191 * 512)
+        BlipTimer = 8191 * 512;
+
     if (output[0] != OutputLastSamples[0])
         blip_add_delta(BlipLeft, BlipTimer, (int) output[0] - OutputLastSamples[0]);
     if (output[1] != OutputLastSamples[1])
         blip_add_delta(BlipRight, BlipTimer, (int) output[1] - OutputLastSamples[1]);
-    BlipTimer += spucycles;
 
     OutputLastSamples[0] = output[0];
     OutputLastSamples[1] = output[1];
