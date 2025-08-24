@@ -135,8 +135,8 @@ void EmuThread::detachWindow(MainWindow* window)
 static bool hasInitialized = false;
 float mouseX;
 float mouseY;
-#include "melonPrime/Def.h"
-#include "melonPrime/RomAddrTable.h"
+#include "MelonPrimeDef.h"
+#include "MelonPrimeRomAddrTable.h"
 
 // CalculatePlayerAddress Function
 __attribute__((always_inline, flatten)) inline uint32_t calculatePlayerAddress(uint32_t baseAddress, uint8_t playerPosition, int32_t increment) {
