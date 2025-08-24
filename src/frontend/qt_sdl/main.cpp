@@ -279,10 +279,8 @@ int main(int argc, char** argv)
 
     qputenv("QT_SCALE_FACTOR", "1");
 
-#ifdef Q_OS_WIN
     // D3D12バックエンド指定(Qt QuickのRHIをDirect3D12に固定するため)
     qputenv("QSG_RHI_BACKEND", "d3d12"); // MelonPrimeDS
-#endif
 
 #if QT_VERSION_MAJOR == 6 && defined(__WIN32__)
     // Allow using the system dark theme palette on Windows
