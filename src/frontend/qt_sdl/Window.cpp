@@ -222,7 +222,11 @@ QSocketNotifier *signalSn;
 static void signalHandler(int)
 {
     char a = 1;
-    write(signalFd[0], &a, sizeof(a));
+    // write(signalFd[0], &a, sizeof(a));
+    // 戻り値を受けて明示的に無視（EINTR等でもブロックしない簡潔版）
+    ssize_t n = write(signalFd[0], &a, sizeof(a));
+    (void)n;
+
 }
 #endif
 
