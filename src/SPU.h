@@ -254,6 +254,7 @@ public:
     void Sync(bool wait);
     int ReadOutput(s16* data, int samples);
     void SetOutputSampleRate(double rate);
+    void SetOutputSkew(double skew);
 
     u8 Read8(u32 addr);
     u16 Read16(u32 addr);
@@ -265,6 +266,7 @@ public:
 private:
     u32 OutputBufferSize = 0;
     double OutputSampleRate;
+    double OutputSkew = 1.0;
     melonDS::NDS& NDS;
 
     blip_t* BlipLeft;

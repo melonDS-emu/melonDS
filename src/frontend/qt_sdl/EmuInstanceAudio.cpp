@@ -26,6 +26,7 @@
 
 using namespace melonDS;
 
+#define INTERNAL_FRAME_RATE 59.8260982880808f
 
 // --- AUDIO OUTPUT -----------------------------------------------------------
 
@@ -138,7 +139,7 @@ void EmuInstance::audioSync()
 
 int EmuInstance::audioGetNumSamplesOut(int outlen)
 {
-    float f_len_in = outlen * (curFPS/59.8261f);
+    float f_len_in = outlen * (curFPS/targetFPS);
     f_len_in += audioSampleFrac;
     int len_in = (int)floor(f_len_in);
     audioSampleFrac = f_len_in - len_in;
@@ -150,6 +151,9 @@ void EmuInstance::audioCallback(void* data, Uint8* stream, int len)
 {
     EmuInstance* inst = (EmuInstance*)data;
     len /= (sizeof(s16) * 2);
+
+    double skew = std::clamp(inst->targetFPS / INTERNAL_FRAME_RATE, 0.995, 1.005);
+    inst->nds->SPU.SetOutputSkew(skew);
 
     int len_in = inst->audioGetNumSamplesOut(len);
     if (len_in > inst->audioBufSize) len_in = inst->audioBufSize;

@@ -28,6 +28,8 @@
 
 #include "blip-buf/blip_buf.h"
 
+#define INTERNAL_SAMPLE_RATE 16756991.f
+
 namespace melonDS
 {
 using Platform::Log;
@@ -1065,12 +1067,10 @@ void SPU::InitOutput()
 {
     Platform::Mutex_Lock(AudioLock);
 
-    double internalSampleRate = 16756991.f;
+    blip_set_rates(BlipLeft, INTERNAL_SAMPLE_RATE * OutputSkew, OutputSampleRate);
+    blip_set_rates(BlipRight, INTERNAL_SAMPLE_RATE * OutputSkew, OutputSampleRate);
 
-    blip_set_rates(BlipLeft, internalSampleRate, OutputSampleRate);
-    blip_set_rates(BlipRight, internalSampleRate, OutputSampleRate);
-
-    u32 needSamples = (u32) ceil(internalSampleRate / 60 / internalSampleRate * OutputSampleRate);
+    u32 needSamples = (u32) ceil(INTERNAL_SAMPLE_RATE / 60 / INTERNAL_SAMPLE_RATE * OutputSampleRate);
     u32 newBufferSize = 512;
     while (newBufferSize < needSamples)
         newBufferSize <<= 1;
@@ -1165,6 +1165,14 @@ int SPU::ReadOutput(s16* data, int samples)
 void SPU::SetOutputSampleRate(double rate)
 {
     OutputSampleRate = rate;
+    InitOutput();
+}
+
+void SPU::SetOutputSkew(double skew)
+{
+    blip_set_rates(BlipLeft, INTERNAL_SAMPLE_RATE * skew, OutputSampleRate);
+    blip_set_rates(BlipRight, INTERNAL_SAMPLE_RATE * skew, OutputSampleRate);
+    OutputSkew = skew;
 }
 
 
