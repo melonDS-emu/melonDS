@@ -281,6 +281,10 @@ int main(int argc, char** argv)
 
     // D3D12バックエンド指定(Qt QuickのRHIをDirect3D12に固定するため)
     qputenv("QSG_RHI_BACKEND", "d3d12"); // MelonPrimeDS
+	// Vsync無効化(Qt QuickのRHIで垂直同期を無効化するため)
+    // qputenv("QSG_NO_VSYNC", "1"); // MelonPrimeDS
+	// 高DPIスケーリング無効化 低遅延になった。
+    qputenv("QT_ENABLE_HIGHDPI_SCALING", "0");
 
 #if QT_VERSION_MAJOR == 6 && defined(__WIN32__)
     // Allow using the system dark theme palette on Windows
