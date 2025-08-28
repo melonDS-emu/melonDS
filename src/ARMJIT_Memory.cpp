@@ -826,7 +826,11 @@ bool ARMJIT_Memory::FaultHandler(FaultDescription& faultDesc, melonDS::NDS& nds)
             rewriteToSlowPath = !nds.JIT.Memory.MapAtAddress(faultDesc.EmulatedFaultAddr);
 
         if (rewriteToSlowPath)
+        {
+            nds.JIT.JitEnableWrite();
             faultDesc.FaultPC = nds.JIT.JITCompiler.RewriteMemAccess(faultDesc.FaultPC);
+            nds.JIT.JitEnableExecute();
+        }
 
         return true;
     }
