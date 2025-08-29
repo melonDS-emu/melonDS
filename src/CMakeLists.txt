@@ -109,7 +109,7 @@ if (ENABLE_JIT)
     endif()
 
     if (CMAKE_SYSTEM_NAME STREQUAL "OpenBSD")
-        target_link_options(core PUBLIC -Wl,-z,wxallowed)
+        target_link_options(core PUBLIC -Wl,-z,wxneeded)
     endif()
 
     if (ARCHITECTURE STREQUAL x86_64)
