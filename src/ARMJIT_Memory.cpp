@@ -743,7 +743,7 @@ u32 ARMJIT_Memory::PageShift = 0;
 
 bool ARMJIT_Memory::IsFastMemSupported()
 {
-#ifdef __APPLE__
+#ifdef __APPLE__ || __OpenBSD__
     return false;
 #else
     static bool initialised = false;
