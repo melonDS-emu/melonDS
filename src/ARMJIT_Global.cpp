@@ -25,7 +25,7 @@ std::mutex globalMutex;
 #define APPLE_AARCH64
 #endif
 
-#if !defined(APPLE_AARCH64) && !defined(__NetBSD__) &&!defined(__OpenBSD__)
+#if !defined(APPLE_AARCH64) && !defined(__NetBSD__) && !defined(__OpenBSD__)
 static constexpr size_t NumCodeMemSlices = 4;
 static constexpr size_t CodeMemoryAlignedSize = NumCodeMemSlices * CodeMemorySliceSize;
 
