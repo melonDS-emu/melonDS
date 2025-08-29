@@ -320,6 +320,70 @@ void Camera_Start(int num, void* userdata);
 void Camera_Stop(int num, void* userdata);
 void Camera_CaptureFrame(int num, u32* frame, int width, int height, bool yuv, void* userdata);
 
+
+// microphone interface
+
+/**
+ * Starts microphone recording.
+ * The platform may use this to request access to a physical microphone.
+ * @param userdata instance user data
+ */
+void Mic_Start(void* userdata);
+
+/**
+ * Stops microphone recording.
+ * @param userdata instance user data
+ */
+void Mic_Stop(void* userdata);
+
+/**
+ * Requests input data from the microphone.
+ * @param data pointer to the destination buffer, signed 16-bit mono at 47.6 KHz
+ * @param maxlength maximum length in samples that the destination buffer can receive
+ * @return length in samples that was able to be read
+ */
+int Mic_ReadInput(s16* data, int maxlength, void* userdata);
+
+
+// interface for AAC decoding (ie. DSi DSP HLE)
+
+struct AACDecoder;
+
+/**
+ * Initializes an AAC decoder context.
+ * @return a pointer to an AAC decoder context, or NULL if initialization fails
+ */
+AACDecoder* AAC_Init();
+
+/**
+ * Deinitializes an AAC decoder context.
+ * @param dec the context to be freed
+ */
+void AAC_DeInit(AACDecoder* dec);
+
+/**
+ * Configures the AAC decoder with new parameters (sampling frequency, channels).
+ * @param dec the context to be configured
+ * @param frequency the sampling frequency
+ * @param channels the channel setup value (1=mono, 2=stereo)
+ * @return true if configuration was successful, false if not
+ */
+bool AAC_Configure(AACDecoder* dec, int frequency, int channels);
+
+/**
+ * Decodes an AAC frame.
+ * Takes a raw AAC frame, without any ADIF or ADTS headers.
+ * Output is signed PCM6, interleaved. Output length is 1024 samples.
+ * @param dec the decoder context to use
+ * @param input the AAC frame to decode
+ * @param inputlen the length of the AAC frame in bytes
+ * @param output the buffer to write decoded output into
+ * @param outputlen the length of the output buffer in bytes
+ * @return true if decoding was successful, false if not
+ */
+bool AAC_DecodeFrame(AACDecoder* dec, const void* input, int inputlen, void* output, int outputlen);
+
+
 // interface for addon inputs
 
 enum KeyType

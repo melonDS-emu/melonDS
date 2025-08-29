@@ -9,13 +9,11 @@ if (VCPKG_ROOT STREQUAL "${_DEFAULT_VCPKG_ROOT}")
     endif()
     FetchContent_Declare(vcpkg
         GIT_REPOSITORY "https://github.com/Microsoft/vcpkg.git"
-        GIT_TAG 2ad004460f5db4d3b66f62f5799ff66c265c4b5d
+        GIT_TAG HEAD
         EXCLUDE_FROM_ALL
         SOURCE_DIR "${CMAKE_SOURCE_DIR}/vcpkg")
     FetchContent_MakeAvailable(vcpkg)
 endif()
-
-set(VCPKG_OVERLAY_TRIPLETS "${CMAKE_SOURCE_DIR}/cmake/overlay-triplets")
 
 option(USE_RECOMMENDED_TRIPLETS "Use the recommended triplets that are used for official builds" ON)
 

@@ -228,6 +228,8 @@ Compiler::Compiler(melonDS::NDS& nds) : XEmitter(), NDS(nds)
     ARMJIT_Global::Init();
 
     CodeMemBase = static_cast<u8*>(ARMJIT_Global::AllocateCodeMem());
+    nds.JIT.JitEnableWrite();
+
     CodeMemSize = ARMJIT_Global::CodeMemorySliceSize;
 
     ResetStart = CodeMemBase;

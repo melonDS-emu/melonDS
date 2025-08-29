@@ -13,6 +13,7 @@
 #include "memory_interface.h"
 #include "operand.h"
 #include "register.h"
+#include "../../Savestate.h"
 
 namespace Teakra {
 
@@ -26,6 +27,38 @@ class Interpreter {
 public:
     Interpreter(CoreTiming& core_timing, RegisterState& regs, MemoryInterface& mem)
         : core_timing(core_timing), regs(regs), mem(mem) {}
+
+    void Reset() {
+        interrupt_pending[0] = false;
+        interrupt_pending[1] = false;
+        interrupt_pending[2] = false;
+        vinterrupt_pending = false;
+        vinterrupt_context_switch = false;
+        vinterrupt_address = 0;
+
+        idle = false;
+    }
+
+    void DoSavestate(melonDS::Savestate* file) {
+        bool tmpb; u32 tmp32;
+        if (file->Saving) {
+            tmpb = interrupt_pending[0]; file->Bool32(&tmpb);
+            tmpb = interrupt_pending[1]; file->Bool32(&tmpb);
+            tmpb = interrupt_pending[2]; file->Bool32(&tmpb);
+            tmpb = vinterrupt_pending; file->Bool32(&tmpb);
+            tmpb = vinterrupt_context_switch; file->Bool32(&tmpb);
+            tmp32 = vinterrupt_address; file->Var32(&tmp32);
+        } else {
+            file->Bool32(&tmpb); interrupt_pending[0] = tmpb;
+            file->Bool32(&tmpb); interrupt_pending[1] = tmpb;
+            file->Bool32(&tmpb); interrupt_pending[2] = tmpb;
+            file->Bool32(&tmpb); vinterrupt_pending = tmpb;
+            file->Bool32(&tmpb); vinterrupt_context_switch = tmpb;
+            file->Var32(&tmp32); vinterrupt_address = tmp32;
+        }
+
+        file->Bool32(&idle);
+    }
 
     void PushPC() {
         u16 l = (u16)(regs.pc & 0xFFFF);

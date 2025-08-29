@@ -1,8 +1,24 @@
 #include "memory_interface.h"
 #include "mmio.h"
 #include "shared_memory.h"
+#include "../../Savestate.h"
 
 namespace Teakra {
+
+void MemoryInterfaceUnit::DoSavestate(melonDS::Savestate *file) {
+    file->Section("TKmi");
+
+    file->Var16(&x_page);
+    file->Var16(&y_page);
+    file->Var16(&z_page);
+    file->Var16(&x_size[0]);
+    file->Var16(&x_size[1]);
+    file->Var16(&y_size[0]);
+    file->Var16(&y_size[1]);
+    file->Var16(&page_mode);
+    file->Var16(&mmio_base);
+}
+
 MemoryInterface::MemoryInterface(SharedMemory& shared_memory,
                                  MemoryInterfaceUnit& memory_interface_unit)
     : shared_memory(shared_memory), memory_interface_unit(memory_interface_unit) {}

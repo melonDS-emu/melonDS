@@ -10,7 +10,6 @@ on:
       - master
 
 env:
-  VCPKG_COMMIT: 2ad004460f5db4d3b66f62f5799ff66c265c4b5d
   MELONDS_GIT_BRANCH: ${{ github.ref }}
   MELONDS_GIT_HASH: ${{ github.sha }}
   MELONDS_BUILD_PROVIDER: GitHub Actions
@@ -24,6 +23,10 @@ jobs:
 
     name: ${{ matrix.arch }}
     runs-on: macos-14
+
+    env:
+      VCPKG_BINARY_SOURCES: clear;files,${{ github.workspace }}/vcpkg_cache,readwrite
+
     steps:
       - name: Check out sources
         uses: actions/checkout@v3
@@ -32,10 +35,16 @@ jobs:
           brew install autoconf automake autoconf-archive libtool python-setuptools
       - name: Set up CMake
         uses: lukka/get-cmake@latest
+      - name: Restore vcpkg cache
+        uses: actions/cache/restore@v4
+        with:
+          path: ${{ github.workspace }}/vcpkg_cache
+          key: vcpkg-${{ matrix.arch }}-osx-${{ hashFiles('vcpkg.json') }}
+          restore-keys: vcpkg-${{ matrix.arch }}-osx-
       - name: Set up vcpkg
         uses: lukka/run-vcpkg@v11
         with:
-          vcpkgGitCommitId: ${{ env.VCPKG_COMMIT }}
+          vcpkgJsonGlob: vcpkg.json
       - name: Build
         uses: lukka/run-cmake@v10
         with:
@@ -53,6 +62,11 @@ jobs:
           name: macOS-${{ matrix.arch }}
           path: macOS-${{ matrix.arch }}.zip
           retention-days: 1
+      - name: Save vcpkg cache
+        uses: actions/cache/save@v4
+        with:
+          path: ${{ github.workspace }}/vcpkg_cache
+          key: vcpkg-${{ matrix.arch }}-osx-${{ hashFiles('vcpkg.json') }}
 
   universal-binary:
     name: Universal binary
