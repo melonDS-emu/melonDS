@@ -221,7 +221,7 @@ void NDS::SetJITArgs(std::optional<JITArgs> args) noexcept
     }
     else if (args.has_value() != EnableJIT)
     { // Else if we want to turn the JIT off, and it wasn't already off...
-        JIT.ResetBlockCache();
+        JIT.Reset();
     }
 
     EnableJIT = args.has_value();
