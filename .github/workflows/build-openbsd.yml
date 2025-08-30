@@ -11,17 +11,22 @@ on:
 
 jobs:
   build:
-    runs-on: ubuntu-latest
     strategy:
       matrix:
-        arch: [x86_64, aarch64]
+        include:
+          - arch: x86_64
+            runner: ubuntu-latest
+          - arch: aarch64
+            runner: ubuntu-22.04-arm
+
+    runs-on: ${{ matrix.runner }}
+    name: ${{ matrix.arch }}
 
     env:
       MELONDS_GIT_BRANCH: ${{ github.ref }}
       MELONDS_GIT_HASH: ${{ github.sha }}
       MELONDS_BUILD_PROVIDER: GitHub Actions
 
-    name: ${{ matrix.arch }}
     steps:
     - uses: actions/checkout@v4
       name: Check out sources
