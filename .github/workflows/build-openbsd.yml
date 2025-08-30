@@ -1,0 +1,45 @@
+name: OpenBSD
+
+on:
+  push:
+    branches:
+      - master
+      - ci/*
+  pull_request:
+    branches:
+      - master
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        arch: [x86_64, aarch64]
+
+    name: ${{ matrix.arch }}
+    steps:
+    - uses: actions/checkout@v4
+      name: Check out sources
+
+    - name: Build inside OpenBSD VM
+      uses: vmactions/openbsd-vm@v1
+      with:
+        usesh: true
+        arch: ${{ matrix.arch }}
+        prepare: |
+          pkg_add cmake ninja kf6-extra-cmake-modules \
+            qt6-qtmultimedia faad libslirp enet libarchive sdl2 ninja
+        run: |
+          mkdir build
+          cd build
+          cmake .. -G Ninja \
+            -DQt6_DIR=/usr/local/lib/qt6/cmake/Qt6 \
+            -DMELONDS_VERSION_SUFFIX=""
+          ninja
+          DESTDIR=AppDir ninja install
+
+    - name: Upload binary
+      uses: actions/upload-artifact@v4
+      with:
+        name: melonDS-openbsd-${{ matrix.arch }}
+        path: build/AppDir/usr/local/bin/melonDS
