@@ -16,8 +16,9 @@ jobs:
         include:
           - arch: x86_64
             runner: ubuntu-latest
-          - arch: aarch64
-            runner: ubuntu-22.04-arm
+# Disabled until vmactions supports running on a linux arm64 runner
+#          - arch: aarch64
+#            runner: ubuntu-22.04-arm
 
     runs-on: ${{ matrix.runner }}
     name: ${{ matrix.arch }}
