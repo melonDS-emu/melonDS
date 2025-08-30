@@ -16,6 +16,11 @@ jobs:
       matrix:
         arch: [x86_64, aarch64]
 
+    env:
+      MELONDS_GIT_BRANCH: ${{ github.ref }}
+      MELONDS_GIT_HASH: ${{ github.sha }}
+      MELONDS_BUILD_PROVIDER: GitHub Actions
+
     name: ${{ matrix.arch }}
     steps:
     - uses: actions/checkout@v4
@@ -24,6 +29,7 @@ jobs:
     - name: Build inside OpenBSD VM
       uses: vmactions/openbsd-vm@v1
       with:
+        envs: 'MELONDS_GIT_BRANCH MELONDS_GIT_HASH MELONDS_BUILD_PROVIDER'
         usesh: true
         arch: ${{ matrix.arch }}
         prepare: |
@@ -34,6 +40,7 @@ jobs:
           cd build
           cmake .. -G Ninja \
             -DQt6_DIR=/usr/local/lib/qt6/cmake/Qt6 \
+            -DMELONDS_EMBED_BUILD_INFO=ON \
             -DMELONDS_VERSION_SUFFIX=""
           ninja
           DESTDIR=AppDir ninja install
