@@ -121,6 +121,7 @@ InputConfigDialog::InputConfigDialog(QWidget* parent) : QDialog(parent), ui(new 
     // Sensitivities
     ui->metroidAimSensitvitySpinBox->setValue(instcfg.GetInt("Metroid.Sensitivity.Aim"));
     ui->cbMetroidEnableSnapTap->setChecked(instcfg.GetBool("Metroid.Operation.SnapTap"));
+    ui->cbMetroidUnlockAll->setChecked(instcfg.GetBool("Metroid.Data.Unlock"));
 
     // } MelonPrimeDS
 
@@ -300,8 +301,11 @@ void InputConfigDialog::on_InputConfigDialog_accepted()
 
     // Sensitivities
     instcfg.SetInt("Metroid.Sensitivity.Aim", ui->metroidAimSensitvitySpinBox->value());
+
+    // SnapTap
     instcfg.SetBool("Metroid.Operation.SnapTap", ui->cbMetroidEnableSnapTap->checkState() == Qt::Checked);
-    
+    instcfg.SetBool("Metroid.Data.Unlock", ui->cbMetroidUnlockAll->checkState() == Qt::Checked);
+
     // } MelonPrimeDS
 
     instcfg.SetInt("JoystickID", joystickID);
@@ -408,6 +412,22 @@ void InputConfigDialog::on_cbMetroidEnableSnapTap_stateChanged(int state)
 {
     auto& cfg = emuInstance->getGlobalConfig();
     cfg.SetBool("Metroid.Operation.SnapTap", state != 0);
+    /*
+    bool vsync = (state != 0);
+    ui->sbVSyncInterval->setEnabled(vsync);
+
+    auto& cfg = emuInstance->getGlobalConfig();
+    cfg.SetBool("Screen.VSync", vsync);
+
+    emit updateVideoSettings(false);
+    */
+}
+
+
+void InputConfigDialog::on_cbMetroidUnlockAll_stateChanged(int state)
+{
+    auto& cfg = emuInstance->getGlobalConfig();
+    cfg.SetBool("Metroid.Data.Unlock", state != 0);
     /*
     bool vsync = (state != 0);
     ui->sbVSyncInterval->setEnabled(vsync);

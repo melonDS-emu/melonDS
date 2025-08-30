@@ -162,6 +162,7 @@ bool isInGame = false; // MelonPrimeDS
 bool isLayoutChangePending = true;       // MelonPrimeDS layout change flag - set true to trigger on first run
 bool isSensitivityChangePending = true;  // MelonPrimeDS sensitivity change flag - set true to trigger on first run
 bool isSnapTapMode = false;
+bool isUnlockHuntersMaps = false;
 
 melonDS::u32 baseIsAltFormAddr;
 melonDS::u32 baseLoadedSpecialWeaponAddr;
@@ -178,10 +179,17 @@ melonDS::u32 aimXAddr;
 melonDS::u32 aimYAddr;
 melonDS::u32 isInAdventureAddr;
 melonDS::u32 isMapOrUserActionPausedAddr; // for issue in AdventureMode, Aim Stopping when SwitchingWeapon. 
+melonDS::u32 unlockMapsHuntersAddr;
+melonDS::u32 unlockMapsHuntersAddr2;
+melonDS::u32 unlockMapsHuntersAddr3;
+melonDS::u32 unlockMapsHuntersAddr4;
+melonDS::u32 unlockMapsHuntersAddr5;
+static bool isUnlockMapsHuntersApplied = false;
 
 // ROM detection and address setup (self-contained within this function)
 __attribute__((always_inline, flatten)) inline void detectRomAndSetAddresses(EmuInstance* emuInstance) {
     // Define ROM groups
+    /*
     enum RomGroup {
         GROUP_US1_1,     // US1.1, US1.1_ENCRYPTED
         GROUP_US1_0,     // US1.0, US1.0_ENCRYPTED
@@ -191,6 +199,7 @@ __attribute__((always_inline, flatten)) inline void detectRomAndSetAddresses(Emu
         GROUP_JP1_1,     // JP1.1, JP1.1_ENCRYPTED
         GROUP_KR1_0,     // KR1.0, KR1.0_ENCRYPTED
     };
+    */
 
     // ROM information structure
     struct RomInfo {
@@ -232,11 +241,17 @@ __attribute__((always_inline, flatten)) inline void detectRomAndSetAddresses(Emu
         return;
     }
 
+    // ---- ここで呼ぶ！ ----
+    // グループを一度だけローカル変数に保存
+    RomGroup detectedGroup = romInfo->group;
+
+    // SetRomGroupFlags(detectedGroup);   // ★ ROMグループのフラグ設定 ★
+
     // 既存変数への一括設定実施(分岐削減のため)
     // グローバル列挙体の完全修飾指定とキャスト実施(同名列挙体のシャドーイング回避のため)
     detectRomAndSetAddresses_fast(
         // 列挙体の完全修飾(::RomGroup)とint変換後のstatic_cast実施(型不一致解消のため)
-        static_cast<::RomGroup>(static_cast<int>(romInfo->group)),
+        detectedGroup,
         // ChosenHunterアドレス引数受け渡し実施(既存変数の直接利用のため)
         baseChosenHunterAddr,
         // inGameアドレス引数受け渡し実施(既存変数の直接利用のため)
@@ -256,13 +271,18 @@ __attribute__((always_inline, flatten)) inline void detectRomAndSetAddresses(Emu
         // ADV/Multi判定アドレス引数受け渡し実施(既存変数の直接利用のため)
         isInAdventureAddr,
         // ポーズ判定アドレス引数受け渡し実施(既存変数の直接利用のため)
-        isMapOrUserActionPausedAddr
+        isMapOrUserActionPausedAddr,
+        unlockMapsHuntersAddr
     );
 
     // Addresses calculated from base values
     isInVisorOrMapAddr = PlayerPosAddr - 0xABB;
     baseLoadedSpecialWeaponAddr = baseIsAltFormAddr + 0x56;
     baseJumpFlagAddr = baseSelectedWeaponAddr - 0xA;
+    unlockMapsHuntersAddr2 = unlockMapsHuntersAddr + 0x3;
+    unlockMapsHuntersAddr3 = unlockMapsHuntersAddr + 0x7;
+    unlockMapsHuntersAddr4 = unlockMapsHuntersAddr + 0xB;
+    unlockMapsHuntersAddr5 = unlockMapsHuntersAddr + 0xF;
 
     isRomDetected = true;
 
@@ -270,6 +290,11 @@ __attribute__((always_inline, flatten)) inline void detectRomAndSetAddresses(Emu
     char message[256];
     sprintf(message, "MPH Rom version detected: %s", romInfo->name);
     emuInstance->osdAddMessage(0, message);
+
+    // 判定後の処理
+
+    // フラグリセット
+    isUnlockMapsHuntersApplied = false;
 }
 
 
@@ -2294,7 +2319,7 @@ namespace AimAdjustTable {
         }
         // No "else" here, cuz flag will be changed after detecting.
 
-        if (isRomDetected) {
+        if (__builtin_expect(isRomDetected, 1)) {
             isInGame = emuInstance->nds->ARM9Read16(inGameAddr) == 0x0001;
 
             // Determine whether it is cursor mode in one place
@@ -2376,7 +2401,7 @@ namespace AimAdjustTable {
                 // Handle the case when the window is focused
                 // Update mouse relative position and recenter cursor for aim control
 
-                if (isInGame) {
+                if (__builtin_expect(isInGame, 1)) {
                     // inGame
 
                     /*
@@ -2643,7 +2668,7 @@ namespace AimAdjustTable {
                         }
                     }
 
-                    if (isInAdventure) {
+                    if (__builtin_expect(isInAdventure, 0)) {
                         // Adventure Mode Functions
 
                         // To determine the state of pause or user operation stop (to detect the state of map or action pause)
@@ -2726,6 +2751,29 @@ namespace AimAdjustTable {
                     inputMask.setBit(INPUT_L, !hotkeyPress.testBit(HK_MetroidUILeft));
                     // R For Hunter License
                     inputMask.setBit(INPUT_R, !hotkeyPress.testBit(HK_MetroidUIRight));
+
+                    if (__builtin_expect(isRomDetected, 1)) {
+
+                        if (__builtin_expect(!isUnlockMapsHuntersApplied, 1)) {
+                            if (emuInstance->getLocalConfig().GetBool("Metroid.Data.Unlock")) {
+                                // 1回だけ適用
+                                emuInstance->nds->ARM9Write8(unlockMapsHuntersAddr, 0x27);
+                                emuInstance->nds->ARM9Write32(unlockMapsHuntersAddr2, 0x07FFFFFF);
+                                emuInstance->nds->ARM9Write8(unlockMapsHuntersAddr3, 0x7F);
+                                emuInstance->nds->ARM9Write32(unlockMapsHuntersAddr4, 0xFFFFFFFF);
+                                emuInstance->nds->ARM9Write8(unlockMapsHuntersAddr5, 0xFF);
+
+                                // フラグ更新（以降チェック不要にする）
+                                isUnlockMapsHuntersApplied = true;
+                                /*
+                                auto& localCfg = emuInstance->getLocalConfig();
+                                localCfg.SetBool("Metroid.Data.Unlock", false);
+                                Config::Save();
+                                */
+                                // emuInstance->osdAddMessage(0, "Unlock All Hunters/Maps applied.");
+                            }
+                        }
+                    }
 
                 }
 
@@ -2853,8 +2901,12 @@ void EmuThread::handleMessages()
                     // updateRenderer because of using softwareRenderer when not in Game.
                     videoRenderer = emuInstance->getGlobalConfig().GetInt("3D.Renderer");
                     updateRenderer();
-                    isSnapTapMode = emuInstance->getLocalConfig().GetBool("Metroid.Operation.SnapTap");
                 }
+
+                // reset Settings when unPaused
+                isSnapTapMode = emuInstance->getLocalConfig().GetBool("Metroid.Operation.SnapTap");
+                isUnlockMapsHuntersApplied = false;
+
                 // MelonPrimeDS }
             }
             break;
