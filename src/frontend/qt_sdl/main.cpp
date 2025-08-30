@@ -285,6 +285,9 @@ int main(int argc, char** argv)
     // qputenv("QSG_NO_VSYNC", "1"); // MelonPrimeDS
 	// 高DPIスケーリング無効化 低遅延になった。
     qputenv("QT_ENABLE_HIGHDPI_SCALING", "0");
+	// アンチエイリアス無効化
+    qputenv("QT_NO_ANTIALIASING", "1");
+    
 
 #if QT_VERSION_MAJOR == 6 && defined(__WIN32__)
     // Allow using the system dark theme palette on Windows
