@@ -39,8 +39,8 @@ jobs:
         usesh: true
         arch: ${{ matrix.arch }}
         prepare: |
-          pkg_add cmake ninja kf6-extra-cmake-modules \
-            qt6-qtmultimedia faad libslirp enet libarchive sdl2 ninja
+          pkg_add cmake enet faad kf6-extra-cmake-modules \
+            libarchive libslirp ninja qt6-qtmultimedia sdl2
         run: |
           mkdir build
           cd build
