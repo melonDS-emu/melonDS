@@ -95,7 +95,7 @@ NDS::NDS(NDSArgs&& args, int type, void* userdata) noexcept :
     ARM7BIOSNative(CRC32(ARM7BIOS.data(), ARM7BIOS.size()) == ARM7BIOSCRC32),
     ARM9BIOSNative(CRC32(ARM9BIOS.data(), ARM9BIOS.size()) == ARM9BIOSCRC32),
     JIT(*this, args.JIT),
-    SPU(*this, args.BitDepth, args.Interpolation),
+    SPU(*this, args.BitDepth, args.Interpolation, args.OutputSampleRate),
     Mic(*this),
     GPU(*this, std::move(args.Renderer3D)),
     SPI(*this, std::move(args.Firmware)),
@@ -1061,6 +1061,9 @@ u32 NDS::RunFrame()
 #endif
         break;
     }
+
+    // Signal to the SPU that it should read out the buffered audio from blip-buf to a buffer for the frontend to consume
+    SPU.EndFrame();
 
     // In the context of TASes, frame count is traditionally the primary measure of emulated time,
     // so it needs to be tracked even if NDS is powered off.
