@@ -56,6 +56,11 @@
 
 #include "EmuInstance.h"
 
+// melonPrimeDS
+#include <cstdint>
+#include <cmath>
+
+
 using namespace melonDS;
 
 
@@ -138,6 +143,57 @@ float mouseY;
 #include "MelonPrimeDef.h"
 #include "MelonPrimeRomAddrTable.h"
 
+/**
+ * 感度値変換関数.
+ *
+ *
+ * @param sensiVal 感度テーブルの値(uint32_t, 例: 0x00000999).
+ * @return 計算された感度(double).
+ */
+double sensiValToSensiNum(std::uint32_t sensiVal)
+{
+    // 基準値定義(sensi=1.0に対応させるため)
+    constexpr std::uint32_t BASE_VAL = 0x0999;
+    // 増分定義(1.0感度あたりの増分を409に固定するため)
+    constexpr std::uint32_t STEP_VAL = 0x0199;
+
+    // 差分計算(BASEとの差分を得るため)
+    const std::int64_t diff = static_cast<std::int64_t>(sensiVal) - static_cast<std::int64_t>(BASE_VAL);
+    // 感度算出(diffをSTEPで正規化し+1.0のオフセットを加えるため)
+    return static_cast<double>(diff) / static_cast<double>(STEP_VAL) + 1.0;
+}
+
+/**
+ * 感度数値→テーブル値変換関数.
+ *
+ *
+ * @param sensiNum 感度数値(double, 例: 1.0).
+ * @return 感度テーブル値(uint16_tに収まる範囲). 範囲外は0x0000～0xFFFFにクリップ.
+ */
+std::uint16_t sensiNumToSensiVal(double sensiNum)
+{
+    // 基準値定義(sensi=1.0に対応させるため)
+    constexpr std::uint32_t BASE_VAL = 0x0999;
+    // 増分定義(1.0感度あたり+0x199=409を加算するため)
+    constexpr std::uint32_t STEP_VAL = 0x0199;
+
+    // ステップ数計算(sensiNum=1.0基準からの差をとるため)
+    double steps = sensiNum - 1.0;
+
+    // 値算出(BASEにステップ数×増分を足すため)
+    double val = static_cast<double>(BASE_VAL) + steps * static_cast<double>(STEP_VAL);
+
+    // 丸めてuint32に変換(安全な整数計算のため)
+    std::uint32_t result = static_cast<std::uint32_t>(std::llround(val));
+
+    // 下限クリップ(uint16範囲外を防ぐため)
+    if (result > 0xFFFF) {
+        result = 0xFFFF;
+    }
+
+    // 返却(最終的にuint16_tで返すため)
+    return static_cast<std::uint16_t>(result);
+}
 // CalculatePlayerAddress Function
 __attribute__((always_inline, flatten)) inline uint32_t calculatePlayerAddress(uint32_t baseAddress, uint8_t playerPosition, int32_t increment) {
     // If player position is 0, return the base address without modification
@@ -162,6 +218,9 @@ bool isInGame = false; // MelonPrimeDS
 bool isLayoutChangePending = true;       // MelonPrimeDS layout change flag - set true to trigger on first run
 bool isSensitivityChangePending = true;  // MelonPrimeDS sensitivity change flag - set true to trigger on first run
 bool isSnapTapMode = false;
+bool isUnlockHuntersMaps = false;
+// 前回のMPH本体感度値キャッシュ用
+double lastMphSensitivity = std::numeric_limits<double>::quiet_NaN();
 
 melonDS::u32 baseIsAltFormAddr;
 melonDS::u32 baseLoadedSpecialWeaponAddr;
@@ -178,10 +237,18 @@ melonDS::u32 aimXAddr;
 melonDS::u32 aimYAddr;
 melonDS::u32 isInAdventureAddr;
 melonDS::u32 isMapOrUserActionPausedAddr; // for issue in AdventureMode, Aim Stopping when SwitchingWeapon. 
+melonDS::u32 unlockMapsHuntersAddr;
+melonDS::u32 unlockMapsHuntersAddr2;
+melonDS::u32 unlockMapsHuntersAddr3;
+melonDS::u32 unlockMapsHuntersAddr4;
+melonDS::u32 unlockMapsHuntersAddr5;
+melonDS::u32 sensitivityAddr;
+static bool isUnlockMapsHuntersApplied = false;
 
 // ROM detection and address setup (self-contained within this function)
 __attribute__((always_inline, flatten)) inline void detectRomAndSetAddresses(EmuInstance* emuInstance) {
     // Define ROM groups
+    /*
     enum RomGroup {
         GROUP_US1_1,     // US1.1, US1.1_ENCRYPTED
         GROUP_US1_0,     // US1.0, US1.0_ENCRYPTED
@@ -191,6 +258,7 @@ __attribute__((always_inline, flatten)) inline void detectRomAndSetAddresses(Emu
         GROUP_JP1_1,     // JP1.1, JP1.1_ENCRYPTED
         GROUP_KR1_0,     // KR1.0, KR1.0_ENCRYPTED
     };
+    */
 
     // ROM information structure
     struct RomInfo {
@@ -232,11 +300,17 @@ __attribute__((always_inline, flatten)) inline void detectRomAndSetAddresses(Emu
         return;
     }
 
+    // ---- ここで呼ぶ！ ----
+    // グループを一度だけローカル変数に保存
+    RomGroup detectedGroup = romInfo->group;
+
+    // SetRomGroupFlags(detectedGroup);   // ★ ROMグループのフラグ設定 ★
+
     // 既存変数への一括設定実施(分岐削減のため)
     // グローバル列挙体の完全修飾指定とキャスト実施(同名列挙体のシャドーイング回避のため)
     detectRomAndSetAddresses_fast(
         // 列挙体の完全修飾(::RomGroup)とint変換後のstatic_cast実施(型不一致解消のため)
-        static_cast<::RomGroup>(static_cast<int>(romInfo->group)),
+        detectedGroup,
         // ChosenHunterアドレス引数受け渡し実施(既存変数の直接利用のため)
         baseChosenHunterAddr,
         // inGameアドレス引数受け渡し実施(既存変数の直接利用のため)
@@ -256,13 +330,19 @@ __attribute__((always_inline, flatten)) inline void detectRomAndSetAddresses(Emu
         // ADV/Multi判定アドレス引数受け渡し実施(既存変数の直接利用のため)
         isInAdventureAddr,
         // ポーズ判定アドレス引数受け渡し実施(既存変数の直接利用のため)
-        isMapOrUserActionPausedAddr
+        isMapOrUserActionPausedAddr,
+        unlockMapsHuntersAddr,
+        sensitivityAddr
     );
 
     // Addresses calculated from base values
     isInVisorOrMapAddr = PlayerPosAddr - 0xABB;
     baseLoadedSpecialWeaponAddr = baseIsAltFormAddr + 0x56;
     baseJumpFlagAddr = baseSelectedWeaponAddr - 0xA;
+    unlockMapsHuntersAddr2 = unlockMapsHuntersAddr + 0x3;
+    unlockMapsHuntersAddr3 = unlockMapsHuntersAddr + 0x7;
+    unlockMapsHuntersAddr4 = unlockMapsHuntersAddr + 0xB;
+    unlockMapsHuntersAddr5 = unlockMapsHuntersAddr + 0xF;
 
     isRomDetected = true;
 
@@ -270,6 +350,11 @@ __attribute__((always_inline, flatten)) inline void detectRomAndSetAddresses(Emu
     char message[256];
     sprintf(message, "MPH Rom version detected: %s", romInfo->name);
     emuInstance->osdAddMessage(0, message);
+
+    // 判定後の処理
+
+    // フラグリセット
+    isUnlockMapsHuntersApplied = false;
 }
 
 
@@ -2294,7 +2379,7 @@ namespace AimAdjustTable {
         }
         // No "else" here, cuz flag will be changed after detecting.
 
-        if (isRomDetected) {
+        if (__builtin_expect(isRomDetected, 1)) {
             isInGame = emuInstance->nds->ARM9Read16(inGameAddr) == 0x0001;
 
             // Determine whether it is cursor mode in one place
@@ -2376,7 +2461,7 @@ namespace AimAdjustTable {
                 // Handle the case when the window is focused
                 // Update mouse relative position and recenter cursor for aim control
 
-                if (isInGame) {
+                if (__builtin_expect(isInGame, 1)) {
                     // inGame
 
                     /*
@@ -2643,7 +2728,7 @@ namespace AimAdjustTable {
                         }
                     }
 
-                    if (isInAdventure) {
+                    if (__builtin_expect(isInAdventure, 0)) {
                         // Adventure Mode Functions
 
                         // To determine the state of pause or user operation stop (to detect the state of map or action pause)
@@ -2726,6 +2811,47 @@ namespace AimAdjustTable {
                     inputMask.setBit(INPUT_L, !hotkeyPress.testBit(HK_MetroidUILeft));
                     // R For Hunter License
                     inputMask.setBit(INPUT_R, !hotkeyPress.testBit(HK_MetroidUIRight));
+
+                    if (__builtin_expect(isRomDetected, 1)) {
+
+                        // MPH感度設定ここから
+
+                        // 設定から感度数値を取得
+                        double mphSensitivity = localCfg.GetDouble("Metroid.Sensitivity.Mph");
+
+                        // 値が変化したときだけ処理
+                        if (mphSensitivity != lastMphSensitivity) {
+                            // 感度数値をテーブル値に変換(実際にROMに書き込む値に直すため)
+                            std::uint32_t sensiVal = sensiNumToSensiVal(mphSensitivity);
+
+                            // NDSメモリに16bit値を書き込む(ゲームに適用するため)
+                            emuInstance->nds->ARM9Write16(sensitivityAddr, sensiVal);
+
+                            // キャッシュを更新
+                            lastMphSensitivity = mphSensitivity;
+                        }
+                        // MPH感度設定ここまで
+
+                        if (__builtin_expect(!isUnlockMapsHuntersApplied, 1)) {
+                            if (emuInstance->getLocalConfig().GetBool("Metroid.Data.Unlock")) {
+                                // 1回だけ適用
+                                emuInstance->nds->ARM9Write8(unlockMapsHuntersAddr, 0x27);
+                                emuInstance->nds->ARM9Write32(unlockMapsHuntersAddr2, 0x07FFFFFF);
+                                emuInstance->nds->ARM9Write8(unlockMapsHuntersAddr3, 0x7F);
+                                emuInstance->nds->ARM9Write32(unlockMapsHuntersAddr4, 0xFFFFFFFF);
+                                emuInstance->nds->ARM9Write8(unlockMapsHuntersAddr5, 0xFF);
+
+                                // フラグ更新（以降チェック不要にする）
+                                isUnlockMapsHuntersApplied = true;
+                                /*
+                                auto& localCfg = emuInstance->getLocalConfig();
+                                localCfg.SetBool("Metroid.Data.Unlock", false);
+                                Config::Save();
+                                */
+                                // emuInstance->osdAddMessage(0, "Unlock All Hunters/Maps applied.");
+                            }
+                        }
+                    }
 
                 }
 
@@ -2853,8 +2979,24 @@ void EmuThread::handleMessages()
                     // updateRenderer because of using softwareRenderer when not in Game.
                     videoRenderer = emuInstance->getGlobalConfig().GetInt("3D.Renderer");
                     updateRenderer();
-                    isSnapTapMode = emuInstance->getLocalConfig().GetBool("Metroid.Operation.SnapTap");
                 }
+
+                // 感度値取得処理
+                uint32_t sensiVal = emuInstance->getNDS()->ARM9Read16(sensitivityAddr);
+                double sensiNum = sensiValToSensiNum(sensiVal);
+
+                // 感度値表示(ROM情報とは別に独立して表示するため)
+                char message[256];
+                sprintf(message, "INFO sensitivity of the game itself: 0x%04X(%.5f)", sensiVal, sensiNum);
+                emuInstance->osdAddMessage(0, message);
+
+                // reset Settings when unPaused
+                isSnapTapMode = emuInstance->getLocalConfig().GetBool("Metroid.Operation.SnapTap");
+                isUnlockMapsHuntersApplied = false;
+                isSensitivityChangePending = true;
+                // ★ここを追加
+                lastMphSensitivity = std::numeric_limits<double>::quiet_NaN();
+
                 // MelonPrimeDS }
             }
             break;

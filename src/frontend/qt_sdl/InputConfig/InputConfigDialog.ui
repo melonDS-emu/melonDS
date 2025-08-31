@@ -2307,8 +2307,47 @@
 		    </attribute>
 		    <!-- Form layout to organize setting items in a grid -->
 		    <layout class="QFormLayout" name="metroidFormLayout">
-			    <!-- Aim sensitivity configuration -->
-			    <item row="0" column="0">
+
+
+				<!-- MPH sensitivity configuration -->
+				<item row="0" column="0">
+					<!-- Label for aim sensitivity -->
+					<widget class="QLabel" name="metroidMphSensitvityLabel">
+						<property name="text">
+							<string>
+								&lt;html&gt;&lt;body&gt;
+								Mph sensitivity&lt;br/&gt;
+								(Set this value to 1 or lower if possible for precise aiming. We recommend a range of -3 to 0.&lt;br/&gt;
+								However, setting it too low will increase the HUD shake when aiming.&lt;br/&gt;
+								&lt;b&gt;This setting is not reflected during matches&lt;/b&gt;)
+								&lt;/body&gt;&lt;/html&gt;
+							</string>
+						</property>
+					</widget>
+				</item>
+				<item row="0" column="1">
+					<!-- Double spin box for aim sensitivity value (range: -5.0 ~ 155.0) -->
+					<widget class="QDoubleSpinBox" name="metroidMphSensitvitySpinBox">
+						<property name="minimum">
+							<double>-5.008</double>
+						</property>
+						<property name="maximum">
+							<double>155.225</double>
+						</property>
+						<property name="singleStep">
+							<double>0.1</double>
+						</property>
+						<property name="decimals">
+							<number>3</number>
+						</property>
+						<property name="value">
+							<double>0.0</double>
+						</property>
+					</widget>
+				</item>
+
+				<!-- Aim sensitivity configuration -->
+			    <item row="1" column="0">
 				    <!-- Label for aim sensitivity -->
 				    <widget class="QLabel" name="metroidAimSensitvityLabel">
 					    <property name="text">
@@ -2316,7 +2355,7 @@
 					    </property>
 				    </widget>
 			    </item>
-			    <item row="0" column="1">
+			    <item row="1" column="1">
 				    <!-- Spin box for aim sensitivity value (range: 0-99999) -->
 				    <widget class="QSpinBox" name="metroidAimSensitvitySpinBox">
 					    <property name="minimum">
@@ -2332,7 +2371,7 @@
 			    </item>
 
 			    <!-- Reset button for sensitivity settings -->
-			    <item row="1" column="0">
+			    <item row="2" column="0">
 				    <widget class="QPushButton" name="metroidResetSensitivityValues">
 					    <property name="text">
 						    <string>Reset sensitivity values</string>
@@ -2341,7 +2380,7 @@
 			    </item>
 
 			    <!-- Add vertical spacing -->
-			    <item row="2" column="0">
+			    <item row="3" column="0">
 				    <widget class="QLabel" name="emptyLabel">
 					    <property name="text">
 						    <string> </string>
@@ -2350,16 +2389,24 @@
 			    </item>
 
 				<!-- SnapTap -->
-				<item row="3" column="0">
+				<item row="4" column="0">
 					<widget class="QCheckBox" name="cbMetroidEnableSnapTap">
 						<property name="text">
-							<string>Enable SnapTap (Faster directional switching for smooth strafing)</string>
+							<string>Enable SnapTap (Faster directional switching for smooth strafing — may slightly increase input delay)</string>
 						</property>
 					</widget>
 				</item>
 				
-			    <!-- Low quality -->
-			    <item row="4" column="0">
+				<item row="5" column="0">
+					<widget class="QCheckBox" name="cbMetroidUnlockAll">
+						<property name="text">
+							<string>Unlock All Hunters/Maps (Change a setting in the in-game options of MPH and save to update the save data. This will be auto-unchecked once applied.)</string>
+						</property>
+					</widget>
+				</item>
+
+				<!-- Low quality -->
+			    <item row="6" column="0">
 				    <widget class="QPushButton" name="metroidSetVideoQualityToLow">
 					    <property name="text">
 						    <string>Video quality: Low (High Performance)</string>
@@ -2368,7 +2415,7 @@
 			    </item>
 
 			    <!-- High quality -->
-			    <item row="5" column="0">
+			    <item row="7" column="0">
 				    <widget class="QPushButton" name="metroidSetVideoQualityToHigh">
 					    <property name="text">
 						    <string>Video quality: High (Lower Performance)</string>
@@ -2377,7 +2424,7 @@
 			    </item>
 
 				<!-- High2 quality -->
-				<item row="6" column="0">
+				<item row="8" column="0">
 					<widget class="QPushButton" name="metroidSetVideoQualityToHigh2">
 						<property name="text">
 							<string>Video quality: High2 (Recommended. Best Performance, Minor Visual Glitches) </string>

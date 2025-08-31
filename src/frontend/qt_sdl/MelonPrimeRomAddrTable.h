@@ -37,6 +37,8 @@ struct RomAddrs
     uint32_t isInAdventureAddr;
     // マップ/ユーザ操作ポーズ判定アドレス格納(既存コードの変数名整合のため)
     uint32_t isMapOrUserActionPausedAddr;
+    uint32_t unlockMapsHuntersAddr;
+    uint32_t sensitivityAddr;
 };
 
 ///**
@@ -63,6 +65,48 @@ enum RomGroup : int {
     // 合計数ダミー定義(配列サイズ整合のため)
     GROUP_COUNT
 };
+
+//====================
+// グローバルフラグ群
+//====================
+
+/*
+// C++17 inline変数でヘッダに定義しても多重定義にならない
+inline bool isGroupJP10 = false;
+inline bool isGroupJP11 = false;
+inline bool isGroupUS10 = false;
+inline bool isGroupUS11 = false;
+inline bool isGroupEU10 = false;
+inline bool isGroupEU11 = false;
+inline bool isGroupKR10 = false;
+
+//====================
+// フラグ操作関数
+//====================
+
+// 全フラグをfalseにリセット
+inline void ClearRomGroupFlags() {
+    isGroupJP10 = isGroupJP11 = false;
+    isGroupUS10 = isGroupUS11 = false;
+    isGroupEU10 = isGroupEU11 = false;
+    isGroupKR10 = false;
+}
+
+// 指定されたグループに応じてフラグをtrueに設定
+inline void SetRomGroupFlags(RomGroup g) {
+    ClearRomGroupFlags();
+    switch (g) {
+    case GROUP_JP1_0: isGroupJP10 = true; break;
+    case GROUP_JP1_1: isGroupJP11 = true; break;
+    case GROUP_US1_0: isGroupUS10 = true; break;
+    case GROUP_US1_1: isGroupUS11 = true; break;
+    case GROUP_EU1_0: isGroupEU10 = true; break;
+    case GROUP_EU1_1: isGroupEU11 = true; break;
+    case GROUP_KR1_0: isGroupKR10 = true; break;
+    default: break;
+    }
+}
+*/
 
 // JP1.0基準アドレス定義(他バージョン差分算出のため)
 static constexpr uint32_t JP1_0_BASE_IS_ALT_FORM      = 0x020DC6D8;
@@ -114,7 +158,11 @@ static constexpr std::array<RomAddrs, GROUP_COUNT> kRomAddrTable = {{
         // isInAdventureAddr設定 Read8 0x02: ADV, 0x03: Multi
         0x020E83BC,
         // isMapOrUserActionPausedAddr設定 0x00000001: true, 0x00000000 false. Read8 is enough though.
-        0x020FBF18
+        0x020FBF18,
+		// unlockMapsHuntersAddr設定
+        0x020E8319,
+        // sensitivityAddr設定
+        0x020E832C
     },
     // GROUP_US1_0行定義
     {
@@ -137,7 +185,11 @@ static constexpr std::array<RomAddrs, GROUP_COUNT> kRomAddrTable = {{
         // isInAdventureAddr設定
         0x020E78FC,
         // isMapOrUserActionPausedAddr設定
-        0x020FB458
+        0x020FB458,
+        // unlockMapsHuntersAddr設定
+        0x020E7859,
+        // sensitivityAddr設定
+        0x020E786C
     },
     // GROUP_EU1_1行定義
     {
@@ -160,7 +212,11 @@ static constexpr std::array<RomAddrs, GROUP_COUNT> kRomAddrTable = {{
         // isInAdventureAddr設定
         0x020E845C,
         // isMapOrUserActionPausedAddr設定
-        0x020FBFB8
+        0x020FBFB8,
+        // unlockMapsHuntersAddr設定
+        0x020E83B9,
+        // sensitivityAddr設定
+        0x020E83CC
     },
     // GROUP_EU1_0行定義
     {
@@ -183,7 +239,11 @@ static constexpr std::array<RomAddrs, GROUP_COUNT> kRomAddrTable = {{
         // isInAdventureAddr設定
         0x020E83DC,
         // isMapOrUserActionPausedAddr設定
-        0x020FBF38
+        0x020FBF38,
+        // unlockMapsHuntersAddr設定
+        0x020E8339,
+        // sensitivityAddr設定
+        0x020E834C
     },
     // GROUP_JP1_0行定義(JP1.0素値の明示反映のため)
     {
@@ -206,7 +266,11 @@ static constexpr std::array<RomAddrs, GROUP_COUNT> kRomAddrTable = {{
         // isInAdventureAddr設定
         0x020E9A3C,
         // isMapOrUserActionPausedAddr設定
-        0x020FD598
+        0x020FD598,
+        // unlockMapsHuntersAddr設定
+        0x020E9999,
+        // sensitivityAddr設定
+        0x020E99AC
     },
     // GROUP_JP1_1行定義
     {
@@ -229,7 +293,11 @@ static constexpr std::array<RomAddrs, GROUP_COUNT> kRomAddrTable = {{
         // isInAdventureAddr設定
         0x020E99FC,
         // isMapOrUserActionPausedAddr設定
-        0x020FD558
+        0x020FD558,
+        // unlockMapsHuntersAddr設定
+        0x020E9959,
+        // sensitivityAddr設定
+        0x020E996C
     },
     // GROUP_KR1_0行定義
     {
@@ -252,7 +320,11 @@ static constexpr std::array<RomAddrs, GROUP_COUNT> kRomAddrTable = {{
         // isInAdventureAddr設定
         0x020E11F8,
         // isMapOrUserActionPausedAddr設定
-        0x020F4CF8
+        0x020F4CF8,
+        // unlockMapsHuntersAddr設定
+        0x020E1155,
+        // sensitivityAddr設定
+        0x020E1168
     }
 }};
 
@@ -301,7 +373,9 @@ static __attribute__((always_inline, flatten)) inline void detectRomAndSetAddres
     uint32_t& baseAimXAddr_,
     uint32_t& baseAimYAddr_,
     uint32_t& isInAdventureAddr_,
-    uint32_t& isMapOrUserActionPausedAddr_
+    uint32_t& isMapOrUserActionPausedAddr_,
+    uint32_t& unlockMapsHuntersAddr,
+    uint32_t& sensitivityAddr
 ) noexcept
 {
     // テーブル取得実施(分岐削減のため)
@@ -326,6 +400,8 @@ static __attribute__((always_inline, flatten)) inline void detectRomAndSetAddres
     isInAdventureAddr_           = a.isInAdventureAddr;
     // ポーズ判定アドレス代入実施(既存変数名整合のため)
     isMapOrUserActionPausedAddr_ = a.isMapOrUserActionPausedAddr;
+    unlockMapsHuntersAddr = a.unlockMapsHuntersAddr;
+    sensitivityAddr = a.sensitivityAddr;
 }
 
 #endif // MELON_PRIME_ROM_ADDR_TABLE_H
