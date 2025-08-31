@@ -222,27 +222,28 @@ bool isUnlockHuntersMaps = false;
 // 前回のMPH本体感度値キャッシュ用
 double lastMphSensitivity = std::numeric_limits<double>::quiet_NaN();
 
-melonDS::u32 baseIsAltFormAddr;
-melonDS::u32 baseLoadedSpecialWeaponAddr;
-melonDS::u32 baseWeaponChangeAddr;
-melonDS::u32 baseSelectedWeaponAddr;
-melonDS::u32 baseChosenHunterAddr;
-melonDS::u32 baseJumpFlagAddr;
-melonDS::u32 inGameAddr;
-melonDS::u32 PlayerPosAddr;
-melonDS::u32 isInVisorOrMapAddr;
-melonDS::u32 baseAimXAddr;
-melonDS::u32 baseAimYAddr;
-melonDS::u32 aimXAddr;
-melonDS::u32 aimYAddr;
-melonDS::u32 isInAdventureAddr;
-melonDS::u32 isMapOrUserActionPausedAddr; // for issue in AdventureMode, Aim Stopping when SwitchingWeapon. 
-melonDS::u32 unlockMapsHuntersAddr;
-melonDS::u32 unlockMapsHuntersAddr2;
-melonDS::u32 unlockMapsHuntersAddr3;
-melonDS::u32 unlockMapsHuntersAddr4;
-melonDS::u32 unlockMapsHuntersAddr5;
-melonDS::u32 sensitivityAddr;
+melonDS::u32 addrBaseIsAltForm;
+melonDS::u32 addrBaseLoadedSpecialWeapon;
+melonDS::u32 addrBaseWeaponChange;
+melonDS::u32 addrBaseSelectedWeapon;
+melonDS::u32 addrBaseChosenHunter;
+melonDS::u32 addrBaseJumpFlag;
+melonDS::u32 addrInGame;
+melonDS::u32 addrPlayerPos;
+melonDS::u32 addrIsInVisorOrMap;
+melonDS::u32 addrBaseAimX;
+melonDS::u32 addrBaseAimY;
+melonDS::u32 addrAimX;
+melonDS::u32 addrAimY;
+melonDS::u32 addrIsInAdventure;
+melonDS::u32 addrIsMapOrUserActionPaused; // for issue in AdventureMode, Aim Stopping when SwitchingWeapon. 
+melonDS::u32 addrOperationAndSound; // ToSet headphone. 8bit write
+melonDS::u32 addrUnlockMapsHunters; // Sound Test Open, SFX Volum Addr
+melonDS::u32 addrUnlockMapsHunters2; // All maps open addr
+melonDS::u32 addrUnlockMapsHunters3; // All hunters open addr
+melonDS::u32 addrUnlockMapsHunters4; // All gallery open addr
+melonDS::u32 addrUnlockMapsHunters5; // All gallery open addr 2
+melonDS::u32 addrSensitivity;
 static bool isUnlockMapsHuntersApplied = false;
 
 // ROM detection and address setup (self-contained within this function)
@@ -312,37 +313,38 @@ __attribute__((always_inline, flatten)) inline void detectRomAndSetAddresses(Emu
         // 列挙体の完全修飾(::RomGroup)とint変換後のstatic_cast実施(型不一致解消のため)
         detectedGroup,
         // ChosenHunterアドレス引数受け渡し実施(既存変数の直接利用のため)
-        baseChosenHunterAddr,
+        addrBaseChosenHunter,
         // inGameアドレス引数受け渡し実施(既存変数の直接利用のため)
-        inGameAddr,
+        addrInGame,
         // プレイヤ位置アドレス引数受け渡し実施(既存変数の直接利用のため)
-        PlayerPosAddr,
+        addrPlayerPos,
         // AltFormアドレス引数受け渡し実施(既存変数の直接利用のため)
-        baseIsAltFormAddr,
+        addrBaseIsAltForm,
         // 武器変更アドレス引数受け渡し実施(既存変数の直接利用のため)
-        baseWeaponChangeAddr,
+        addrBaseWeaponChange,
         // 選択武器アドレス引数受け渡し実施(既存変数の直接利用のため)
-        baseSelectedWeaponAddr,
+        addrBaseSelectedWeapon,
         // AimXアドレス引数受け渡し実施(既存変数の直接利用のため)
-        baseAimXAddr,
+        addrBaseAimX,
         // AimYアドレス引数受け渡し実施(既存変数の直接利用のため)
-        baseAimYAddr,
+        addrBaseAimY,
         // ADV/Multi判定アドレス引数受け渡し実施(既存変数の直接利用のため)
-        isInAdventureAddr,
+        addrIsInAdventure,
         // ポーズ判定アドレス引数受け渡し実施(既存変数の直接利用のため)
-        isMapOrUserActionPausedAddr,
-        unlockMapsHuntersAddr,
-        sensitivityAddr
+        addrIsMapOrUserActionPaused,
+        addrUnlockMapsHunters,
+        addrSensitivity
     );
 
     // Addresses calculated from base values
-    isInVisorOrMapAddr = PlayerPosAddr - 0xABB;
-    baseLoadedSpecialWeaponAddr = baseIsAltFormAddr + 0x56;
-    baseJumpFlagAddr = baseSelectedWeaponAddr - 0xA;
-    unlockMapsHuntersAddr2 = unlockMapsHuntersAddr + 0x3;
-    unlockMapsHuntersAddr3 = unlockMapsHuntersAddr + 0x7;
-    unlockMapsHuntersAddr4 = unlockMapsHuntersAddr + 0xB;
-    unlockMapsHuntersAddr5 = unlockMapsHuntersAddr + 0xF;
+    addrIsInVisorOrMap = addrPlayerPos - 0xABB;
+    addrBaseLoadedSpecialWeapon = addrBaseIsAltForm + 0x56;
+    addrBaseJumpFlag = addrBaseSelectedWeapon - 0xA;
+    addrOperationAndSound = addrUnlockMapsHunters - 0x1;
+    addrUnlockMapsHunters2 = addrUnlockMapsHunters + 0x3;
+    addrUnlockMapsHunters3 = addrUnlockMapsHunters + 0x7;
+    addrUnlockMapsHunters4 = addrUnlockMapsHunters + 0xB;
+    addrUnlockMapsHunters5 = addrUnlockMapsHunters + 0xF;
 
     isRomDetected = true;
 
@@ -939,22 +941,22 @@ void EmuThread::run()
 )
 
     uint8_t playerPosition;
-    const uint16_t playerAddressIncrement = 0xF30;
-    const uint8_t aimAddrIncrement = 0x48;
-    uint32_t isAltFormAddr;
-    uint32_t loadedSpecialWeaponAddr;
-    uint32_t chosenHunterAddr;
-    uint32_t weaponChangeAddr;
-    uint32_t selectedWeaponAddr;
-    uint32_t jumpFlagAddr;
+    const uint16_t incrementOfPlayerAddress = 0xF30;
+    const uint8_t incrementOfAimAddr = 0x48;
+    uint32_t addrIsAltForm;
+    uint32_t addrLoadedSpecialWeapon;
+    uint32_t addrChosenHunter;
+    uint32_t addrWeaponChange;
+    uint32_t addrSelectedWeapon;
+    uint32_t addrJumpFlag;
 
-    uint32_t havingWeaponsAddr;
-    uint32_t currentWeaponAddr;
+    uint32_t addrHavingWeapons;
+    uint32_t addrCurrentWeapon;
 
-    uint32_t boostGaugeAddr;
-    uint32_t isBoostingAddr;
+    uint32_t addrBoostGauge;
+    uint32_t addrIsBoosting;
 
-    uint32_t weaponAmmoAddr;
+    uint32_t addrWeaponAmmo;
 
     // uint32_t isPrimeHunterAddr;
 
@@ -2099,8 +2101,8 @@ namespace AimAdjustTable {
             const int16_t outputY = AIM_ADJUST(scaledY);
 
             // メモリ書き込み(NDSエミュレータへ送信)
-            emuInstance->nds->ARM9Write16(aimXAddr, outputX);
-            emuInstance->nds->ARM9Write16(aimYAddr, outputY);
+            emuInstance->nds->ARM9Write16(addrAimX, outputX);
+            emuInstance->nds->ARM9Write16(addrAimY, outputY);
 
             // AIM動作フラグを有効化
             enableAim = true;
@@ -2218,9 +2220,9 @@ namespace AimAdjustTable {
             const int16_t outputY = AIM_ADJUST(scaledY);
 
             // Write X register (update aim on NDS side)
-            emuInstance->nds->ARM9Write16(aimXAddr, outputX);
+            emuInstance->nds->ARM9Write16(addrAimX, outputX);
             // Write Y register (update aim on NDS side)
-            emuInstance->nds->ARM9Write16(aimYAddr, outputY);
+            emuInstance->nds->ARM9Write16(addrAimY, outputY);
 
             // Set aim enable flag (for conditional processing downstream)
             enableAim = true;
@@ -2275,7 +2277,7 @@ namespace AimAdjustTable {
     static const auto SwitchWeapon = [&](int weaponIndex) __attribute__((hot, always_inline)) {
 
         // Check for Already equipped
-        if (emuInstance->nds->ARM9Read8(selectedWeaponAddr) == weaponIndex) {
+        if (emuInstance->nds->ARM9Read8(addrSelectedWeapon) == weaponIndex) {
             // emuInstance->osdAddMessage(0, "Weapon switch unnecessary: Already equipped");
             return; // Early return if the weapon is already equipped
         }
@@ -2286,7 +2288,7 @@ namespace AimAdjustTable {
             if (isPaused) {
                 return;
             }
-            else if (emuInstance->nds->ARM9Read8(isInVisorOrMapAddr) == 0x1) {
+            else if (emuInstance->nds->ARM9Read8(addrIsInVisorOrMap) == 0x1) {
                 // isInVisor
 
                 // Prevent visual glitches during weapon switching in visor mode
@@ -2295,34 +2297,34 @@ namespace AimAdjustTable {
         }
 
         // Read the current jump flag value
-        uint8_t currentJumpFlags = emuInstance->nds->ARM9Read8(jumpFlagAddr);
+        uint8_t currentJumpFlags = emuInstance->nds->ARM9Read8(addrJumpFlag);
 
         // Check if the upper 4 bits are odd (1 or 3)
         // this is for fixing issue: Shooting and transforming become impossible, when changing weapons at high speed while transitioning from transformed to normal form.
         bool isTransforming = currentJumpFlags & 0x10;
 
         uint8_t jumpFlag = currentJumpFlags & 0x0F;  // Get the lower 4 bits
-        //emuInstance->osdAddMessage(0, ("JumpFlag:" + std::string(1, "0123456789ABCDEF"[emuInstance->nds->ARM9Read8(jumpFlagAddr) & 0x0F])).c_str());
+        //emuInstance->osdAddMessage(0, ("JumpFlag:" + std::string(1, "0123456789ABCDEF"[emuInstance->nds->ARM9Read8(addrJumpFlag) & 0x0F])).c_str());
 
         bool isRestoreNeeded = false;
 
         // Check if in alternate form (transformed state)
-        isAltForm = emuInstance->nds->ARM9Read8(isAltFormAddr) == 0x02;
+        isAltForm = emuInstance->nds->ARM9Read8(addrIsAltForm) == 0x02;
 
         // If not jumping (jumpFlag == 0) and in normal form, temporarily set to jumped state (jumpFlag == 1)
         if (!isTransforming && jumpFlag == 0 && !isAltForm) {
             // Leave the upper 4 bits of currentJumpFlags as they are and set the lower 4 bits to 0x01
-            emuInstance->nds->ARM9Write8(jumpFlagAddr, (currentJumpFlags & 0xF0) | 0x01);
+            emuInstance->nds->ARM9Write8(addrJumpFlag, (currentJumpFlags & 0xF0) | 0x01);
             isRestoreNeeded = true;
-            //emuInstance->osdAddMessage(0, ("JumpFlag:" + std::string(1, "0123456789ABCDEF"[emuInstance->nds->ARM9Read8(jumpFlagAddr) & 0x0F])).c_str());
+            //emuInstance->osdAddMessage(0, ("JumpFlag:" + std::string(1, "0123456789ABCDEF"[emuInstance->nds->ARM9Read8(addrJumpFlag) & 0x0F])).c_str());
             //emuInstance->osdAddMessage(0, "Done setting jumpFlag.");
         }
 
-        // Leave the upper 4 bits of WeaponChangeAddr as they are, and set only the lower 4 bits to 1011 (B in hexadecimal)
-        emuInstance->nds->ARM9Write8(weaponChangeAddr, (emuInstance->nds->ARM9Read8(weaponChangeAddr) & 0xF0) | 0x0B); // Only change the lower 4 bits to B
+        // Leave the upper 4 bits of addrWeaponChange as they are, and set only the lower 4 bits to 1011 (B in hexadecimal)
+        emuInstance->nds->ARM9Write8(addrWeaponChange, (emuInstance->nds->ARM9Read8(addrWeaponChange) & 0xF0) | 0x0B); // Only change the lower 4 bits to B
 
         // Change the weapon
-        emuInstance->nds->ARM9Write8(selectedWeaponAddr, weaponIndex);  // Write the address of the corresponding weapon
+        emuInstance->nds->ARM9Write8(addrSelectedWeapon, weaponIndex);  // Write the address of the corresponding weapon
 
         // Release the screen (for weapon change)
         emuInstance->nds->ReleaseScreen();
@@ -2344,10 +2346,10 @@ namespace AimAdjustTable {
 
         // Restore the jump flag to its original value (if necessary)
         if (isRestoreNeeded) {
-            currentJumpFlags = emuInstance->nds->ARM9Read8(jumpFlagAddr);
+            currentJumpFlags = emuInstance->nds->ARM9Read8(addrJumpFlag);
             // Create and set a new value by combining the upper 4 bits of currentJumpFlags and the lower 4 bits of jumpFlag
-            emuInstance->nds->ARM9Write8(jumpFlagAddr, (currentJumpFlags & 0xF0) | jumpFlag);
-            //emuInstance->osdAddMessage(0, ("JumpFlag:" + std::string(1, "0123456789ABCDEF"[emuInstance->nds->ARM9Read8(jumpFlagAddr) & 0x0F])).c_str());
+            emuInstance->nds->ARM9Write8(addrJumpFlag, (currentJumpFlags & 0xF0) | jumpFlag);
+            //emuInstance->osdAddMessage(0, ("JumpFlag:" + std::string(1, "0123456789ABCDEF"[emuInstance->nds->ARM9Read8(addrJumpFlag) & 0x0F])).c_str());
             //emuInstance->osdAddMessage(0, "Restored jumpFlag.");
 
         }
@@ -2380,7 +2382,7 @@ namespace AimAdjustTable {
         // No "else" here, cuz flag will be changed after detecting.
 
         if (__builtin_expect(isRomDetected, 1)) {
-            isInGame = emuInstance->nds->ARM9Read16(inGameAddr) == 0x0001;
+            isInGame = emuInstance->nds->ARM9Read16(addrInGame) == 0x0001;
 
             // Determine whether it is cursor mode in one place
             bool shouldBeCursorMode = !isInGame || (isInAdventure && isPaused);
@@ -2405,24 +2407,24 @@ namespace AimAdjustTable {
                 */
 
                 // Read the player position
-                playerPosition = emuInstance->nds->ARM9Read8(PlayerPosAddr);
+                playerPosition = emuInstance->nds->ARM9Read8(addrPlayerPos);
 
                 // get addresses
-                isAltFormAddr = calculatePlayerAddress(baseIsAltFormAddr, playerPosition, playerAddressIncrement);
-                loadedSpecialWeaponAddr = calculatePlayerAddress(baseLoadedSpecialWeaponAddr, playerPosition, playerAddressIncrement);
-                chosenHunterAddr = calculatePlayerAddress(baseChosenHunterAddr, playerPosition, 0x01);
-                weaponChangeAddr = calculatePlayerAddress(baseWeaponChangeAddr, playerPosition, playerAddressIncrement);
+                addrIsAltForm = calculatePlayerAddress(addrBaseIsAltForm, playerPosition, incrementOfPlayerAddress);
+                addrLoadedSpecialWeapon = calculatePlayerAddress(addrBaseLoadedSpecialWeapon, playerPosition, incrementOfPlayerAddress);
+                addrChosenHunter = calculatePlayerAddress(addrBaseChosenHunter, playerPosition, 0x01);
+                addrWeaponChange = calculatePlayerAddress(addrBaseWeaponChange, playerPosition, incrementOfPlayerAddress);
 
-                selectedWeaponAddr = calculatePlayerAddress(baseSelectedWeaponAddr, playerPosition, playerAddressIncrement); // 020DCAA3 in JP1.0
-                currentWeaponAddr = selectedWeaponAddr - 0x1; // 020DCAA2 in JP1.0
-                havingWeaponsAddr = selectedWeaponAddr + 0x3; // 020DCAA6 in JP1.0
+                addrSelectedWeapon = calculatePlayerAddress(addrBaseSelectedWeapon, playerPosition, incrementOfPlayerAddress); // 020DCAA3 in JP1.0
+                addrCurrentWeapon = addrSelectedWeapon - 0x1; // 020DCAA2 in JP1.0
+                addrHavingWeapons = addrSelectedWeapon + 0x3; // 020DCAA6 in JP1.0
 
-                weaponAmmoAddr = selectedWeaponAddr - 0x383; // 020D720 in JP1.0 current weapon ammo. DC722 is for MissleAmmo. can read both with read32.
-                jumpFlagAddr = calculatePlayerAddress(baseJumpFlagAddr, playerPosition, playerAddressIncrement);
+                addrWeaponAmmo = addrSelectedWeapon - 0x383; // 020D720 in JP1.0 current weapon ammo. DC722 is for MissleAmmo. can read both with read32.
+                addrJumpFlag = calculatePlayerAddress(addrBaseJumpFlag, playerPosition, incrementOfPlayerAddress);
 
-                // getChosenHunterAddr
-                chosenHunterAddr = calculatePlayerAddress(baseChosenHunterAddr, playerPosition, 0x01);
-                uint8_t hunterID = emuInstance->nds->ARM9Read8(chosenHunterAddr); // Perform memory read only once
+                // getaddrChosenHunter
+                addrChosenHunter = calculatePlayerAddress(addrBaseChosenHunter, playerPosition, 0x01);
+                uint8_t hunterID = emuInstance->nds->ARM9Read8(addrChosenHunter); // Perform memory read only once
                 isSamus = hunterID == 0x00;
                 isWeavel = hunterID == 0x06;
 
@@ -2437,17 +2439,17 @@ namespace AimAdjustTable {
                 06 - Weavel
                 */
 
-                boostGaugeAddr = isAltFormAddr + 0x44;
-                isBoostingAddr = isAltFormAddr + 0x46;
+                addrBoostGauge = addrIsAltForm + 0x44;
+                addrIsBoosting = addrIsAltForm + 0x46;
 
                 // aim addresses
-                aimXAddr = calculatePlayerAddress(baseAimXAddr, playerPosition, aimAddrIncrement);
-                aimYAddr = calculatePlayerAddress(baseAimYAddr, playerPosition, aimAddrIncrement);
+                addrAimX = calculatePlayerAddress(addrBaseAimX, playerPosition, incrementOfAimAddr);
+                addrAimY = calculatePlayerAddress(addrBaseAimY, playerPosition, incrementOfAimAddr);
 
 
-                isInAdventure = emuInstance->nds->ARM9Read8(isInAdventureAddr) == 0x02;
+                isInAdventure = emuInstance->nds->ARM9Read8(addrIsInAdventure) == 0x02;
 
-                // isPrimeHunterAddr = isInAdventureAddr + 0xAD; // isPrimeHunter Addr NotPrimeHunter:0xFF, PrimeHunter:0x00 220E9AE9 in JP1.0
+                // isPrimeHunterAddr = addrIsInAdventure + 0xAD; // isPrimeHunter Addr NotPrimeHunter:0xFF, PrimeHunter:0x00 220E9AE9 in JP1.0
 
                 // emuInstance->osdAddMessage(0, "Completed address calculation.");
             }
@@ -2541,7 +2543,7 @@ namespace AimAdjustTable {
                             const int firstSet = __builtin_ctz(hotkeyStates);
 
                             if (unlikely(firstSet == 8)) {
-                                const uint8_t special = emuInstance->nds->ARM9Read8(loadedSpecialWeaponAddr);
+                                const uint8_t special = emuInstance->nds->ARM9Read8(addrLoadedSpecialWeapon);
                                 if (special != 0xFF) {
                                     SwitchWeapon(special);
                                     return true;
@@ -2557,8 +2559,8 @@ namespace AimAdjustTable {
                         // Lambda: Calculate available weapons
                         static const auto getAvailableWeapons = [&]() -> uint16_t {
                             // Batch read weapon data
-                            const uint16_t having = emuInstance->nds->ARM9Read16(havingWeaponsAddr);
-                            const uint32_t ammoData = emuInstance->nds->ARM9Read32(weaponAmmoAddr);
+                            const uint16_t having = emuInstance->nds->ARM9Read16(addrHavingWeapons);
+                            const uint32_t ammoData = emuInstance->nds->ARM9Read32(addrWeaponAmmo);
                             const uint16_t missileAmmo = ammoData >> 16;
                             const uint16_t weaponAmmo = ammoData & 0xFFFF;
 
@@ -2626,7 +2628,7 @@ namespace AimAdjustTable {
                             if (!wheelDelta && !nextKey && !prevKey) return false;
 
                             const bool forward = (wheelDelta < 0) || nextKey;
-                            const uint8_t current = emuInstance->nds->ARM9Read8(currentWeaponAddr);
+                            const uint8_t current = emuInstance->nds->ARM9Read8(addrCurrentWeapon);
                             const uint16_t available = getAvailableWeapons();
 
                             int nextWeapon = findNextWeapon(current, forward, available);
@@ -2697,10 +2699,10 @@ namespace AimAdjustTable {
                     // There's no way around it.
                     if (isSamus && hotkeyMask.testBit(HK_MetroidHoldMorphBallBoost))
                     {
-                        isAltForm = emuInstance->nds->ARM9Read8(isAltFormAddr) == 0x02;
+                        isAltForm = emuInstance->nds->ARM9Read8(addrIsAltForm) == 0x02;
                         if (isAltForm) {
-                            uint8_t boostGaugeValue = emuInstance->nds->ARM9Read8(boostGaugeAddr);
-                            bool isBoosting = emuInstance->nds->ARM9Read8(isBoostingAddr) != 0x00;
+                            uint8_t boostGaugeValue = emuInstance->nds->ARM9Read8(addrBoostGauge);
+                            bool isBoosting = emuInstance->nds->ARM9Read8(addrIsBoosting) != 0x00;
 
                             // boostable when gauge value is 0x05-0x0F(max)
                             bool isBoostGaugeEnough = boostGaugeValue > 0x0A;
@@ -2732,7 +2734,7 @@ namespace AimAdjustTable {
                         // Adventure Mode Functions
 
                         // To determine the state of pause or user operation stop (to detect the state of map or action pause)
-                        isPaused = emuInstance->nds->ARM9Read8(isMapOrUserActionPausedAddr) == 0x1;
+                        isPaused = emuInstance->nds->ARM9Read8(addrIsMapOrUserActionPaused) == 0x1;
 
                         // Scan Visor
                         if (hotkeyPress.testBit(HK_MetroidScanVisor)) {
@@ -2743,7 +2745,7 @@ namespace AimAdjustTable {
 
                             emuInstance->nds->TouchScreen(128, 173);
 
-                            if (emuInstance->nds->ARM9Read8(isInVisorOrMapAddr) == 0x1) {
+                            if (emuInstance->nds->ARM9Read8(addrIsInVisorOrMap) == 0x1) {
                                 // isInVisor
                                 frameAdvanceTwice();
                             }
@@ -2825,7 +2827,7 @@ namespace AimAdjustTable {
                             std::uint32_t sensiVal = sensiNumToSensiVal(mphSensitivity);
 
                             // NDSメモリに16bit値を書き込む(ゲームに適用するため)
-                            emuInstance->nds->ARM9Write16(sensitivityAddr, sensiVal);
+                            emuInstance->nds->ARM9Write16(addrSensitivity, sensiVal);
 
                             // キャッシュを更新
                             lastMphSensitivity = mphSensitivity;
@@ -2835,11 +2837,11 @@ namespace AimAdjustTable {
                         if (__builtin_expect(!isUnlockMapsHuntersApplied, 1)) {
                             if (emuInstance->getLocalConfig().GetBool("Metroid.Data.Unlock")) {
                                 // 1回だけ適用
-                                emuInstance->nds->ARM9Write8(unlockMapsHuntersAddr, 0x27);
-                                emuInstance->nds->ARM9Write32(unlockMapsHuntersAddr2, 0x07FFFFFF);
-                                emuInstance->nds->ARM9Write8(unlockMapsHuntersAddr3, 0x7F);
-                                emuInstance->nds->ARM9Write32(unlockMapsHuntersAddr4, 0xFFFFFFFF);
-                                emuInstance->nds->ARM9Write8(unlockMapsHuntersAddr5, 0xFF);
+                                emuInstance->nds->ARM9Write8(addrUnlockMapsHunters, 0x27);
+                                emuInstance->nds->ARM9Write32(addrUnlockMapsHunters2, 0x07FFFFFF);
+                                emuInstance->nds->ARM9Write8(addrUnlockMapsHunters3, 0x7F);
+                                emuInstance->nds->ARM9Write32(addrUnlockMapsHunters4, 0xFFFFFFFF);
+                                emuInstance->nds->ARM9Write8(addrUnlockMapsHunters5, 0xFF);
 
                                 // フラグ更新（以降チェック不要にする）
                                 isUnlockMapsHuntersApplied = true;
@@ -2982,7 +2984,7 @@ void EmuThread::handleMessages()
                 }
 
                 // 感度値取得処理
-                uint32_t sensiVal = emuInstance->getNDS()->ARM9Read16(sensitivityAddr);
+                uint32_t sensiVal = emuInstance->getNDS()->ARM9Read16(addrSensitivity);
                 double sensiNum = sensiValToSensiNum(sensiVal);
 
                 // 感度値表示(ROM情報とは別に独立して表示するため)
