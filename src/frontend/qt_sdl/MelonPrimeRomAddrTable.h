@@ -18,27 +18,27 @@
 struct RomAddrs
 {
     // ChosenHunterアドレス格納(既存コードの変数名整合のため)
-    uint32_t baseChosenHunterAddr;
+    uint32_t addrBaseChosenHunter;
     // inGameアドレス格納(既存コードの変数名整合のため)
-    uint32_t inGameAddr;
+    uint32_t addrInGame;
     // プレイヤ位置アドレス格納(既存コードの変数名整合のため)
-    uint32_t PlayerPosAddr;
+    uint32_t addrPlayerPos;
     // AltFormアドレス格納(既存コードの変数名整合のため)
-    uint32_t baseIsAltFormAddr;
+    uint32_t addrBaseIsAltForm;
     // 武器変更アドレス格納(既存コードの変数名整合のため)
-    uint32_t baseWeaponChangeAddr;
+    uint32_t addrBaseWeaponChange;
     // 選択武器アドレス格納(既存コードの変数名整合のため)
-    uint32_t baseSelectedWeaponAddr;
+    uint32_t addrBaseSelectedWeapon;
     // 照準Xアドレス格納(既存コードの変数名整合のため)
-    uint32_t baseAimXAddr;
+    uint32_t addrBaseAimX;
     // 照準Yアドレス格納(既存コードの変数名整合のため)
-    uint32_t baseAimYAddr;
+    uint32_t addrBaseAimY;
     // ADV/Multi判定アドレス格納(既存コードの変数名整合のため)
-    uint32_t isInAdventureAddr;
+    uint32_t addrIsInAdventure;
     // マップ/ユーザ操作ポーズ判定アドレス格納(既存コードの変数名整合のため)
-    uint32_t isMapOrUserActionPausedAddr;
-    uint32_t unlockMapsHuntersAddr;
-    uint32_t sensitivityAddr;
+    uint32_t addrIsMapOrUserActionPaused;
+    uint32_t addrUnlockMapsHunters;
+    uint32_t addrSensitivity;
 };
 
 ///**
@@ -139,191 +139,191 @@ static constexpr uint32_t OFF_KR10_FROM_JP10          = 0x87F4;
 static constexpr std::array<RomAddrs, GROUP_COUNT> kRomAddrTable = {{
     // GROUP_US1_1行定義(元switch絶対値の忠実反映のため)
     {
-        // baseChosenHunterAddr設定
+        // addrBaseChosenHunter設定
         0x020CBDA4,
-        // inGameAddr設定  inGame:1
+        // addrInGame設定  inGame:1
         0x020EEC40u + 0x8F0u,
-        // PlayerPosAddr設定
+        // addrPlayerPos設定
         0x020DA538,
-        // baseIsAltFormAddr設定
+        // addrBaseIsAltForm設定
         ABS_US11_IS_ALT_FORM,
-        // baseWeaponChangeAddr設定
+        // addrBaseWeaponChange設定
         ABS_US11_WEAPON_CHANGE,
-        // baseSelectedWeaponAddr設定
+        // addrBaseSelectedWeapon設定
         ABS_US11_SELECTED_WEAPON,
-        // baseAimXAddr設定
+        // addrBaseAimX設定
         0x020DEDA6,
-        // baseAimYAddr設定
+        // addrBaseAimY設定
         0x020DEDAEu,
-        // isInAdventureAddr設定 Read8 0x02: ADV, 0x03: Multi
+        // addrIsInAdventure設定 Read8 0x02: ADV, 0x03: Multi
         0x020E83BC,
-        // isMapOrUserActionPausedAddr設定 0x00000001: true, 0x00000000 false. Read8 is enough though.
+        // addrIsMapOrUserActionPaused設定 0x00000001: true, 0x00000000 false. Read8 is enough though.
         0x020FBF18,
-		// unlockMapsHuntersAddr設定
+		// addrUnlockMapsHunters設定
         0x020E8319,
-        // sensitivityAddr設定
+        // addrSensitivity設定
         0x020E832C
     },
     // GROUP_US1_0行定義
     {
-        // baseChosenHunterAddr設定
+        // addrBaseChosenHunter設定
         0x020CB51C,
-        // inGameAddr設定
+        // addrInGame設定
         0x020EE180u + 0x8F0u,
-        // PlayerPosAddr設定
+        // addrPlayerPos設定
         0x020D9CB8,
-        // baseIsAltFormAddr設定
+        // addrBaseIsAltForm設定
         JP1_0_BASE_IS_ALT_FORM     - OFF_US10_FROM_JP10,
-        // baseWeaponChangeAddr設定
+        // addrBaseWeaponChange設定
         JP1_0_BASE_WEAPON_CHANGE   - OFF_US10_FROM_JP10,
-        // baseSelectedWeaponAddr設定
+        // addrBaseSelectedWeapon設定
         JP1_0_BASE_SELECTED_WEAPON - OFF_US10_FROM_JP10,
-        // baseAimXAddr設定
+        // addrBaseAimX設定
         0x020DE526,
-        // baseAimYAddr設定
+        // addrBaseAimY設定
         0x020DE52Eu,
-        // isInAdventureAddr設定
+        // addrIsInAdventure設定
         0x020E78FC,
-        // isMapOrUserActionPausedAddr設定
+        // addrIsMapOrUserActionPaused設定
         0x020FB458,
-        // unlockMapsHuntersAddr設定
+        // addrUnlockMapsHunters設定
         0x020E7859,
-        // sensitivityAddr設定
+        // addrSensitivity設定
         0x020E786C
     },
     // GROUP_EU1_1行定義
     {
-        // baseChosenHunterAddr設定
+        // addrBaseChosenHunter設定
         0x020CBE44,
-        // inGameAddr設定(元式0x020EECE0+0x8F0の展開値反映のため)
+        // addrInGame設定(元式0x020EECE0+0x8F0の展開値反映のため)
         0x020EECE0u + 0x8F0u,
-        // PlayerPosAddr設定
+        // addrPlayerPos設定
         0x020DA5D8,
-        // baseIsAltFormAddr設定
+        // addrBaseIsAltForm設定
         JP1_0_BASE_IS_ALT_FORM     - OFF_EU11_FROM_JP10,
-        // baseWeaponChangeAddr設定
+        // addrBaseWeaponChange設定
         JP1_0_BASE_WEAPON_CHANGE   - OFF_EU11_FROM_JP10,
-        // baseSelectedWeaponAddr設定
+        // addrBaseSelectedWeapon設定
         JP1_0_BASE_SELECTED_WEAPON - OFF_EU11_FROM_JP10,
-        // baseAimXAddr設定
+        // addrBaseAimX設定
         0x020DEE46,
-        // baseAimYAddr設定
+        // addrBaseAimY設定
         0x020DEE4Eu,
-        // isInAdventureAddr設定
+        // addrIsInAdventure設定
         0x020E845C,
-        // isMapOrUserActionPausedAddr設定
+        // addrIsMapOrUserActionPaused設定
         0x020FBFB8,
-        // unlockMapsHuntersAddr設定
+        // addrUnlockMapsHunters設定
         0x020E83B9,
-        // sensitivityAddr設定
+        // addrSensitivity設定
         0x020E83CC
     },
     // GROUP_EU1_0行定義
     {
-        // baseChosenHunterAddr設定
+        // addrBaseChosenHunter設定
         0x020CBDC4,
-        // inGameAddr設定(元式0x020EEC60+0x8F0の展開値反映のため)
+        // addrInGame設定(元式0x020EEC60+0x8F0の展開値反映のため)
         0x020EEC60u + 0x8F0u,
-        // PlayerPosAddr設定
+        // addrPlayerPos設定
         0x020DA558,
-        // baseIsAltFormAddr設定
+        // addrBaseIsAltForm設定
         JP1_0_BASE_IS_ALT_FORM     - OFF_EU10_FROM_JP10,
-        // baseWeaponChangeAddr設定
+        // addrBaseWeaponChange設定
         JP1_0_BASE_WEAPON_CHANGE   - OFF_EU10_FROM_JP10,
-        // baseSelectedWeaponAddr設定
+        // addrBaseSelectedWeapon設定
         JP1_0_BASE_SELECTED_WEAPON - OFF_EU10_FROM_JP10,
-        // baseAimXAddr設定
+        // addrBaseAimX設定
         0x020DEDC6,
-        // baseAimYAddr設定
+        // addrBaseAimY設定
         0x020DEDCEu,
-        // isInAdventureAddr設定
+        // addrIsInAdventure設定
         0x020E83DC,
-        // isMapOrUserActionPausedAddr設定
+        // addrIsMapOrUserActionPaused設定
         0x020FBF38,
-        // unlockMapsHuntersAddr設定
+        // addrUnlockMapsHunters設定
         0x020E8339,
-        // sensitivityAddr設定
+        // addrSensitivity設定
         0x020E834C
     },
     // GROUP_JP1_0行定義(JP1.0素値の明示反映のため)
     {
-        // baseChosenHunterAddr設定
+        // addrBaseChosenHunter設定
         0x020CD358,
-        // inGameAddr設定
+        // addrInGame設定
         0x020F0BB0,
-        // PlayerPosAddr設定
+        // addrPlayerPos設定
         0x020DBB78,
-        // baseIsAltFormAddr設定
+        // addrBaseIsAltForm設定
         JP1_0_BASE_IS_ALT_FORM,
-        // baseWeaponChangeAddr設定
+        // addrBaseWeaponChange設定
         JP1_0_BASE_WEAPON_CHANGE,
-        // baseSelectedWeaponAddr設定
+        // addrBaseSelectedWeapon設定
         JP1_0_BASE_SELECTED_WEAPON,
-        // baseAimXAddr設定
+        // addrBaseAimX設定
         0x020E03E6,
-        // baseAimYAddr設定
+        // addrBaseAimY設定
         0x020E03EE,
-        // isInAdventureAddr設定
+        // addrIsInAdventure設定
         0x020E9A3C,
-        // isMapOrUserActionPausedAddr設定
+        // addrIsMapOrUserActionPaused設定
         0x020FD598,
-        // unlockMapsHuntersAddr設定
+        // addrUnlockMapsHunters設定
         0x020E9999,
-        // sensitivityAddr設定
+        // addrSensitivity設定
         0x020E99AC
     },
     // GROUP_JP1_1行定義
     {
-        // baseChosenHunterAddr設定
+        // addrBaseChosenHunter設定
         0x020CD318,
-        // inGameAddr設定(元式0x020F0280+0x8F0の展開値反映のため)
+        // addrInGame設定(元式0x020F0280+0x8F0の展開値反映のため)
         0x020F0280u + 0x8F0u,
-        // PlayerPosAddr設定
+        // addrPlayerPos設定
         0x020DBB38,
-        // baseIsAltFormAddr設定
+        // addrBaseIsAltForm設定
         JP1_0_BASE_IS_ALT_FORM     - OFF_JP11_ALT_FROM_JP10,
-        // baseWeaponChangeAddr設定
+        // addrBaseWeaponChange設定
         JP1_0_BASE_WEAPON_CHANGE   - OFF_JP11_WEAPON_FROM_JP10,
-        // baseSelectedWeaponAddr設定
+        // addrBaseSelectedWeapon設定
         JP1_0_BASE_SELECTED_WEAPON - OFF_JP11_WEAPON_FROM_JP10,
-        // baseAimXAddr設定
+        // addrBaseAimX設定
         0x020E03A6,
-        // baseAimYAddr設定
+        // addrBaseAimY設定
         0x020E03AEu,
-        // isInAdventureAddr設定
+        // addrIsInAdventure設定
         0x020E99FC,
-        // isMapOrUserActionPausedAddr設定
+        // addrIsMapOrUserActionPaused設定
         0x020FD558,
-        // unlockMapsHuntersAddr設定
+        // addrUnlockMapsHunters設定
         0x020E9959,
-        // sensitivityAddr設定
+        // addrSensitivity設定
         0x020E996C
     },
     // GROUP_KR1_0行定義
     {
-        // baseChosenHunterAddr設定
+        // addrBaseChosenHunter設定
         0x020C4B88,
-        // inGameAddr設定
+        // addrInGame設定
         0x020E81B4,
-        // PlayerPosAddr設定
+        // addrPlayerPos設定
         0x020D33A9, // it's weird but "3A9" is correct.
-        // baseIsAltFormAddr設定
+        // addrBaseIsAltForm設定
         JP1_0_BASE_IS_ALT_FORM     - OFF_KR10_FROM_JP10,
-        // baseWeaponChangeAddr設定
+        // addrBaseWeaponChange設定
         JP1_0_BASE_WEAPON_CHANGE   - OFF_KR10_FROM_JP10,
-        // baseSelectedWeaponAddr設定
+        // addrBaseSelectedWeapon設定
         JP1_0_BASE_SELECTED_WEAPON - OFF_KR10_FROM_JP10,
-        // baseAimXAddr設定
+        // addrBaseAimX設定
         0x020D7C0E,
-        // baseAimYAddr設定
+        // addrBaseAimY設定
         0x020D7C16u,
-        // isInAdventureAddr設定
+        // addrIsInAdventure設定
         0x020E11F8,
-        // isMapOrUserActionPausedAddr設定
+        // addrIsMapOrUserActionPaused設定
         0x020F4CF8,
-        // unlockMapsHuntersAddr設定
+        // addrUnlockMapsHunters設定
         0x020E1155,
-        // sensitivityAddr設定
+        // addrSensitivity設定
         0x020E1168
     }
 }};
@@ -351,57 +351,57 @@ static __attribute__((always_inline, flatten)) inline RomAddrs getRomAddrs(RomGr
 /// 
 /// 
 /// @param group ROMグループ識別子.
-/// @param baseChosenHunterAddr_ 出力: ChosenHunterアドレス.
-/// @param inGameAddr_ 出力: inGameアドレス.
-/// @param PlayerPosAddr_ 出力: プレイヤ位置アドレス.
-/// @param baseIsAltFormAddr_ 出力: AltFormアドレス.
-/// @param baseWeaponChangeAddr_ 出力: 武器変更アドレス.
-/// @param baseSelectedWeaponAddr_ 出力: 選択武器アドレス.
-/// @param baseAimXAddr_ 出力: AimXアドレス.
-/// @param baseAimYAddr_ 出力: AimYアドレス.
-/// @param isInAdventureAddr_ 出力: ADV/Multi判定アドレス.
-/// @param isMapOrUserActionPausedAddr_ 出力: ポーズ判定アドレス.
+/// @param addrBaseChosenHunter_ 出力: ChosenHunterアドレス.
+/// @param addrInGame_ 出力: inGameアドレス.
+/// @param addrPlayerPos_ 出力: プレイヤ位置アドレス.
+/// @param addrBaseIsAltForm_ 出力: AltFormアドレス.
+/// @param addrBaseWeaponChange_ 出力: 武器変更アドレス.
+/// @param addrBaseSelectedWeapon_ 出力: 選択武器アドレス.
+/// @param addrBaseAimX_ 出力: AimXアドレス.
+/// @param addrBaseAimY_ 出力: AimYアドレス.
+/// @param addrIsInAdventure_ 出力: ADV/Multi判定アドレス.
+/// @param addrIsMapOrUserActionPaused_ 出力: ポーズ判定アドレス.
 ///
 static __attribute__((always_inline, flatten)) inline void detectRomAndSetAddresses_fast(
     RomGroup group,
-    uint32_t& baseChosenHunterAddr_,
-    uint32_t& inGameAddr_,
-    uint32_t& PlayerPosAddr_,
-    uint32_t& baseIsAltFormAddr_,
-    uint32_t& baseWeaponChangeAddr_,
-    uint32_t& baseSelectedWeaponAddr_,
-    uint32_t& baseAimXAddr_,
-    uint32_t& baseAimYAddr_,
-    uint32_t& isInAdventureAddr_,
-    uint32_t& isMapOrUserActionPausedAddr_,
-    uint32_t& unlockMapsHuntersAddr,
-    uint32_t& sensitivityAddr
+    uint32_t& addrBaseChosenHunter_,
+    uint32_t& addrInGame_,
+    uint32_t& addrPlayerPos_,
+    uint32_t& addrBaseIsAltForm_,
+    uint32_t& addrBaseWeaponChange_,
+    uint32_t& addrBaseSelectedWeapon_,
+    uint32_t& addrBaseAimX_,
+    uint32_t& addrBaseAimY_,
+    uint32_t& addrIsInAdventure_,
+    uint32_t& addrIsMapOrUserActionPaused_,
+    uint32_t& addrUnlockMapsHunters,
+    uint32_t& addrSensitivity
 ) noexcept
 {
     // テーブル取得実施(分岐削減のため)
     const RomAddrs a = getRomAddrs(group);
     // ChosenHunterアドレス代入実施(既存変数名整合のため)
-    baseChosenHunterAddr_        = a.baseChosenHunterAddr;
+    addrBaseChosenHunter_        = a.addrBaseChosenHunter;
     // inGameアドレス代入実施(既存変数名整合のため)
-    inGameAddr_                  = a.inGameAddr;
+    addrInGame_                  = a.addrInGame;
     // プレイヤ位置アドレス代入実施(既存変数名整合のため)
-    PlayerPosAddr_               = a.PlayerPosAddr;
+    addrPlayerPos_               = a.addrPlayerPos;
     // AltFormアドレス代入実施(既存変数名整合のため)
-    baseIsAltFormAddr_           = a.baseIsAltFormAddr;
+    addrBaseIsAltForm_           = a.addrBaseIsAltForm;
     // 武器変更アドレス代入実施(既存変数名整合のため)
-    baseWeaponChangeAddr_        = a.baseWeaponChangeAddr;
+    addrBaseWeaponChange_        = a.addrBaseWeaponChange;
     // 選択武器アドレス代入実施(既存変数名整合のため)
-    baseSelectedWeaponAddr_      = a.baseSelectedWeaponAddr;
+    addrBaseSelectedWeapon_      = a.addrBaseSelectedWeapon;
     // AimXアドレス代入実施(既存変数名整合のため)
-    baseAimXAddr_                = a.baseAimXAddr;
+    addrBaseAimX_                = a.addrBaseAimX;
     // AimYアドレス代入実施(既存変数名整合のため)
-    baseAimYAddr_                = a.baseAimYAddr;
+    addrBaseAimY_                = a.addrBaseAimY;
     // ADV/Multi判定アドレス代入実施(既存変数名整合のため)
-    isInAdventureAddr_           = a.isInAdventureAddr;
+    addrIsInAdventure_           = a.addrIsInAdventure;
     // ポーズ判定アドレス代入実施(既存変数名整合のため)
-    isMapOrUserActionPausedAddr_ = a.isMapOrUserActionPausedAddr;
-    unlockMapsHuntersAddr = a.unlockMapsHuntersAddr;
-    sensitivityAddr = a.sensitivityAddr;
+    addrIsMapOrUserActionPaused_ = a.addrIsMapOrUserActionPaused;
+    addrUnlockMapsHunters = a.addrUnlockMapsHunters;
+    addrSensitivity = a.addrSensitivity;
 }
 
 #endif // MELON_PRIME_ROM_ADDR_TABLE_H

@@ -75,7 +75,7 @@ DefaultList<int> DefaultInts =
     {"LAN.HostNumPlayers", 16},
 
     /* MelonPrimeDS { */
-    {"Instance*.Metroid.Sensitivity.Aim", 30},
+    {"Instance*.Metroid.Sensitivity.Aim", 45},
     {"Instance*.Metroid.Sensitivity.Mph", -2},
 
     {"Instance*.Keyboard.HK_MetroidMoveForward",       Qt::Key_W},
