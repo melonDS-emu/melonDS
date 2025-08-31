@@ -15,7 +15,7 @@ env:
   VCPKG_MAX_CONCURRENCY: 8
   CMAKE_BUILD_PARALLEL_LEVEL: 8
 
-  # ▼ MinGW の triplet を明示固定（DLL避けたい場合は static を推奨）
+  # ▼ MinGW固定（動的にしたい場合は x64-mingw-dynamic に変更）
   VCPKG_DEFAULT_TRIPLET: x64-mingw-static
   VCPKG_TARGET_TRIPLET: x64-mingw-static
   VCPKG_FEATURE_FLAGS: manifests,binarycaching
@@ -56,7 +56,7 @@ jobs:
             make:p
             jq:p
 
-      # overlay ディレクトリが vcpkg-configuration に記載されている前提で、存在を保証
+      # ▼ overlay ディレクトリを（空でも）必ず作成
       - name: Ensure vcpkg overlay directories exist
         run: |
           mkdir -p ./cmake/overlay-ports
@@ -64,7 +64,7 @@ jobs:
           [ -f ./cmake/overlay-ports/.keep ] || echo keep > ./cmake/overlay-ports/.keep
           [ -f ./cmake/overlay-triplets/.keep ] || echo keep > ./cmake/overlay-triplets/.keep
 
-      # vcpkg.json から builtin-baseline を取得（再現性向上）
+      # ▼ vcpkg.json から builtin-baseline を取得（再現性のため）
       - name: Read vcpkg builtin-baseline
         id: baseline
         run: |
@@ -75,14 +75,42 @@ jobs:
             fi
           fi
 
-      # vcpkg を baseline に合わせてセットアップ（manifest モード）
+      # ▼ vcpkg セットアップ（manifest）
       - name: Set up vcpkg
         uses: lukka/run-vcpkg@v11
         with:
           vcpkgJsonGlob: '**/vcpkg.json'
           vcpkgGitCommitId: ${{ steps.baseline.outputs.baseline }}
 
-      # ツールチェーンの健全性チェック（早期に失敗検知）
+      # ▼ ここが重要：旧トリプレット汚染の徹底除去（初回のみでも可）
+      - name: Purge contaminated caches (triplet/port/buildtrees)
+        run: |
+          rm -rf ./build || true
+          rm -rf ./vcpkg/buildtrees || true
+          rm -rf ./vcpkg/packages || true
+          rm -rf ./vcpkg_installed || true
+          rm -rf ./vcpkg_binary_cache || true
+
+      # ▼ vcpkg バイナリキャッシュ（キーに -mingw- を入れて x64-windows 汚染を回避）
+      - name: Cache vcpkg binary cache
+        uses: actions/cache@v3
+        with:
+          path: ${{ github.workspace }}/vcpkg_binary_cache
+          key: ${{ runner.os }}-mingw-vcpkg-bin-${{ hashFiles('vcpkg.json', 'CMakeLists.txt', 'cmake/**', 'cmake/overlay-triplets/*.cmake') }}
+          restore-keys: |
+            ${{ runner.os }}-mingw-vcpkg-bin-
+
+      # ▼ CMake ビルドディレクトリのキャッシュ（任意）
+      - name: Cache CMake build directory
+        uses: actions/cache@v3
+        with:
+          path: ${{ github.workspace }}/build
+          key: ${{ runner.os }}-mingw-cmake-build-${{ hashFiles('CMakeLists.txt', 'src/**', 'include/**', 'cmake/**') }}
+          restore-keys: |
+            ${{ runner.os }}-mingw-cmake-build-${{ hashFiles('CMakeLists.txt') }}
+            ${{ runner.os }}-mingw-cmake-build-
+
+      # ▼ 早期健全性チェック
       - name: Toolchain sanity check
         run: |
           which cmake
@@ -93,27 +121,8 @@ jobs:
           ninja --version
           x86_64-w64-mingw32-gcc --version | head -n1
 
-      # vcpkg バイナリキャッシュ（キーに -mingw- を含め、過去 x64-windows 汚染を回避）
-      - name: Cache vcpkg binary cache
-        uses: actions/cache@v3
-        with:
-          path: ${{ github.workspace }}/vcpkg_binary_cache
-          key: ${{ runner.os }}-mingw-vcpkg-bin-${{ hashFiles('vcpkg.json', 'CMakeLists.txt', 'cmake/**', 'cmake/overlay-triplets/*.cmake') }}
-          restore-keys: |
-            ${{ runner.os }}-mingw-vcpkg-bin-
-
-      # CMake ビルドディレクトリのキャッシュ（任意）
-      - name: Cache CMake build directory
-        uses: actions/cache@v3
-        with:
-          path: ${{ github.workspace }}/build
-          key: ${{ runner.os }}-mingw-cmake-build-${{ hashFiles('CMakeLists.txt', 'src/**', 'include/**', 'cmake/**') }}
-          restore-keys: |
-            ${{ runner.os }}-mingw-cmake-build-${{ hashFiles('CMakeLists.txt') }}
-            ${{ runner.os }}-mingw-cmake-build-
-
-      # ここが肝：Ninja + MinGW + vcpkg toolchain を明示
-      - name: Configure (Ninja + MinGW + vcpkg toolchain)
+      # ▼ ここが肝：Ninja＋MinGW＋vcpkgツールチェーン＋トリプレットを「CMake引数で」明示上書き
+      - name: Configure (Ninja + MinGW + vcpkg toolchain + triplet override)
         env:
           NINJA_STATUS: "[%f/%t %o/s %es] "
           VCPKG_BINARY_SOURCES: "clear;files,${{ github.workspace }}/vcpkg_binary_cache,readwrite"
@@ -125,7 +134,15 @@ jobs:
             -DCMAKE_C_COMPILER=${CC} \
             -DCMAKE_CXX_COMPILER=${CXX} \
             -DCMAKE_TOOLCHAIN_FILE="${VCPKG_ROOT}/scripts/buildsystems/vcpkg.cmake" \
+            -DVCPKG_DEFAULT_TRIPLET=${VCPKG_DEFAULT_TRIPLET} \
+            -DVCPKG_TARGET_TRIPLET=${VCPKG_TARGET_TRIPLET} \
             -DMELONDS_EMBED_BUILD_INFO=ON
+
+      # ▼ 選択トリプレットの可視化（デバッグ用）
+      - name: Show selected VCPKG_* from CMake cache
+        run: |
+          grep -E 'VCPKG_.*TRIPLET' build/release-mingw-x86_64/CMakeCache.txt || true
+          cat build/release-mingw-x86_64/vcpkg-manifest-install.log | sed -n '1,120p' || true
 
       - name: Build
         env:
