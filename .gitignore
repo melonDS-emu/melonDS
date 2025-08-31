@@ -21,3 +21,4 @@ compile_commands.json
 .vscode
 CMakeFiles
 CMakeCache.txt
+vcpkg.json.bak

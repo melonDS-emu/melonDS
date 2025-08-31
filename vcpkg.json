@@ -27,10 +27,6 @@
 		{
 			"name": "libslirp",
 			"platform": "linux"
-		},
-		{
-			"name": "faad2",
-			"default-features": false
 		}
 	],
 	"features": {
@@ -40,7 +36,7 @@
 				{
 					"name": "qtbase",
 					"default-features": false,
-					"features": [ "gui", "png", "thread", "widgets", "opengl", "zstd", "harfbuzz" ]
+					"features": [ "gui", "png", "thread", "widgets", "opengl", "zstd" ]
 				},
 				{
 					"name": "qtbase",
