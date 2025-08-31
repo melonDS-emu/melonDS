@@ -1,5 +1,15 @@
 {
-	"default-features": ["qt6"],
+	"vcpkg-configuration": {
+		"default-registry": {
+			"kind": "git",
+			"repository": "https://github.com/Microsoft/vcpkg",
+			"baseline": "dd3097e305afa53f7b4312371f62058d2e665320",
+			"reference": "dd3097e305afa53f7b4312371f62058d2e665320"
+		},
+		"overlay-ports": [ "./cmake/overlay-ports" ],
+		"overlay-triplets": [ "./cmake/overlay-triplets" ]
+	},
+	"default-features": [ "qt6" ],
 	"dependencies": [
 		"sdl2",
 		{
@@ -17,7 +27,8 @@
 		{
 			"name": "libslirp",
 			"platform": "linux"
-		}
+		},
+		"faad2"
 	],
 	"features": {
 		"qt6": {
@@ -26,13 +37,13 @@
 				{
 					"name": "qtbase",
 					"default-features": false,
-					"features": ["gui", "png", "thread", "widgets", "opengl", "zstd", "harfbuzz"]
+					"features": [ "gui", "png", "thread", "widgets", "opengl", "zstd", "harfbuzz" ]
 				},
 				{
 					"name": "qtbase",
 					"platform": "linux",
 					"default-features": false,
-					"features": ["dbus", "xcb", "xkb", "xcb-xlib", "freetype", "fontconfig"]
+					"features": [ "dbus", "xcb", "xkb", "xcb-xlib", "freetype", "fontconfig" ]
 				},
 				{
 					"name": "qtbase",
@@ -46,7 +57,7 @@
 				{
 					"name": "qtmultimedia",
 					"platform": "linux",
-					"features": ["gstreamer"],
+					"features": [ "gstreamer" ],
 					"default-features": false
 				},
 				"qtsvg"
