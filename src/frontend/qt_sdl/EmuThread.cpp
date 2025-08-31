@@ -163,7 +163,6 @@ double sensiValToSensiNum(std::uint32_t sensiVal)
     return static_cast<double>(diff) / static_cast<double>(STEP_VAL) + 1.0;
 }
 
-
 /**
  * 感度数値→テーブル値変換関数.
  *
@@ -220,6 +219,8 @@ bool isLayoutChangePending = true;       // MelonPrimeDS layout change flag - se
 bool isSensitivityChangePending = true;  // MelonPrimeDS sensitivity change flag - set true to trigger on first run
 bool isSnapTapMode = false;
 bool isUnlockHuntersMaps = false;
+// 前回のMPH本体感度値キャッシュ用
+double lastMphSensitivity = std::numeric_limits<double>::quiet_NaN();
 
 melonDS::u32 baseIsAltFormAddr;
 melonDS::u32 baseLoadedSpecialWeaponAddr;
@@ -2815,15 +2816,20 @@ namespace AimAdjustTable {
 
                         // MPH感度設定ここから
 
-                        // 設定から感度数値を取得(ユーザー入力を読むため)
+                        // 設定から感度数値を取得
                         double mphSensitivity = localCfg.GetDouble("Metroid.Sensitivity.Mph");
 
-                        // 感度数値をテーブル値に変換(実際にROMに書き込む値に直すため)
-                        std::uint32_t sensiVal = sensiNumToSensiVal(mphSensitivity);
+                        // 値が変化したときだけ処理
+                        if (mphSensitivity != lastMphSensitivity) {
+                            // 感度数値をテーブル値に変換(実際にROMに書き込む値に直すため)
+                            std::uint32_t sensiVal = sensiNumToSensiVal(mphSensitivity);
 
-                        // NDSメモリに16bit値を書き込む(ゲームに適用するため)
-                        emuInstance->nds->ARM9Write16(sensitivityAddr, sensiVal);
+                            // NDSメモリに16bit値を書き込む(ゲームに適用するため)
+                            emuInstance->nds->ARM9Write16(sensitivityAddr, sensiVal);
 
+                            // キャッシュを更新
+                            lastMphSensitivity = mphSensitivity;
+                        }
                         // MPH感度設定ここまで
 
                         if (__builtin_expect(!isUnlockMapsHuntersApplied, 1)) {
@@ -2987,6 +2993,9 @@ void EmuThread::handleMessages()
                 // reset Settings when unPaused
                 isSnapTapMode = emuInstance->getLocalConfig().GetBool("Metroid.Operation.SnapTap");
                 isUnlockMapsHuntersApplied = false;
+                isSensitivityChangePending = true;
+                // ★ここを追加
+                lastMphSensitivity = std::numeric_limits<double>::quiet_NaN();
 
                 // MelonPrimeDS }
             }

@@ -2314,7 +2314,7 @@
 					<!-- Label for aim sensitivity -->
 					<widget class="QLabel" name="metroidMphSensitvityLabel">
 						<property name="text">
-							<string>Mph sensitivity:</string>
+							<string>Mph sensitivity(Set this value to 1 or lower if possible. We recommend a range of -3 to 0. However, setting it too low will increase the HUD shake when aiming):</string>
 						</property>
 					</widget>
 				</item>
@@ -2367,7 +2367,7 @@
 			    <item row="2" column="0">
 				    <widget class="QPushButton" name="metroidResetSensitivityValues">
 					    <property name="text">
-						    <string>Reset Aim sensitivity value</string>
+						    <string>Reset sensitivity values</string>
 					    </property>
 				    </widget>
 			    </item>

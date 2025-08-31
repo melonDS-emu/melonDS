@@ -356,6 +356,7 @@ SDL_Joystick* InputConfigDialog::getJoystick()
 /* MelonPrimeDS { */
 void InputConfigDialog::on_metroidResetSensitivityValues_clicked()
 {
+    ui->metroidMphSensitvitySpinBox->setValue(-2);
     ui->metroidAimSensitvitySpinBox->setValue(30);
 }
 
