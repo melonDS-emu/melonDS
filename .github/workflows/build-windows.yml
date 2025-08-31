@@ -14,10 +14,11 @@ env:
   MELONDS_VERSION_SUFFIX: " RC"
   VCPKG_MAX_CONCURRENCY: 8
   CMAKE_BUILD_PARALLEL_LEVEL: 8
-  # vcpkg を MinGW で使う前提のデフォルトトリプレット（必要に応じて static/dynamic を変更）
+
+  # ▼ MinGW の triplet を明示固定（DLL避けたい場合は static を推奨）
   VCPKG_DEFAULT_TRIPLET: x64-mingw-static
+  VCPKG_TARGET_TRIPLET: x64-mingw-static
   VCPKG_FEATURE_FLAGS: manifests,binarycaching
-  # msys2 内でシステムのバイナリを使わせる
   VCPKG_FORCE_SYSTEM_BINARIES: 1
 
 jobs:
@@ -55,16 +56,15 @@ jobs:
             make:p
             jq:p
 
-      # ▼ 失敗原因(1) 対応: overlay ディレクトリの存在を保証
+      # overlay ディレクトリが vcpkg-configuration に記載されている前提で、存在を保証
       - name: Ensure vcpkg overlay directories exist
         run: |
           mkdir -p ./cmake/overlay-ports
           mkdir -p ./cmake/overlay-triplets
-          # 空でも OK。必要ならプレースホルダを作成
           [ -f ./cmake/overlay-ports/.keep ] || echo keep > ./cmake/overlay-ports/.keep
           [ -f ./cmake/overlay-triplets/.keep ] || echo keep > ./cmake/overlay-triplets/.keep
 
-      # ▼ vcpkg の builtin-baseline を vcpkg.json から取得（コミットIDを自動同期）
+      # vcpkg.json から builtin-baseline を取得（再現性向上）
       - name: Read vcpkg builtin-baseline
         id: baseline
         run: |
@@ -75,16 +75,14 @@ jobs:
             fi
           fi
 
-      # ▼ vcpkg のセットアップ（run-vcpkg は v11 で OK。baseline が取れたらそれを使用）
+      # vcpkg を baseline に合わせてセットアップ（manifest モード）
       - name: Set up vcpkg
         uses: lukka/run-vcpkg@v11
         with:
-          # vcpkg.json を見に行かせる（manifests 前提）
           vcpkgJsonGlob: '**/vcpkg.json'
-          # 可能なら repo commit を baseline に合わせる
           vcpkgGitCommitId: ${{ steps.baseline.outputs.baseline }}
 
-      # ▼ 参考: Ninja/コンパイラが PATH に入っているか早期チェック
+      # ツールチェーンの健全性チェック（早期に失敗検知）
       - name: Toolchain sanity check
         run: |
           which cmake
@@ -95,27 +93,27 @@ jobs:
           ninja --version
           x86_64-w64-mingw32-gcc --version | head -n1
 
-      # ▼ vcpkg バイナリキャッシュ（任意・有効ならビルド短縮）
+      # vcpkg バイナリキャッシュ（キーに -mingw- を含め、過去 x64-windows 汚染を回避）
       - name: Cache vcpkg binary cache
         uses: actions/cache@v3
         with:
           path: ${{ github.workspace }}/vcpkg_binary_cache
-          key: ${{ runner.os }}-vcpkg-bin-${{ hashFiles('vcpkg.json', 'CMakeLists.txt', 'cmake/**', 'cmake/overlay-triplets/*.cmake') }}
+          key: ${{ runner.os }}-mingw-vcpkg-bin-${{ hashFiles('vcpkg.json', 'CMakeLists.txt', 'cmake/**', 'cmake/overlay-triplets/*.cmake') }}
           restore-keys: |
-            ${{ runner.os }}-vcpkg-bin-
+            ${{ runner.os }}-mingw-vcpkg-bin-
 
-      # ▼ CMake ビルドディレクトリのキャッシュ（任意）
+      # CMake ビルドディレクトリのキャッシュ（任意）
       - name: Cache CMake build directory
         uses: actions/cache@v3
         with:
           path: ${{ github.workspace }}/build
-          key: ${{ runner.os }}-cmake-build-${{ hashFiles('CMakeLists.txt', 'src/**', 'include/**', 'cmake/**') }}
+          key: ${{ runner.os }}-mingw-cmake-build-${{ hashFiles('CMakeLists.txt', 'src/**', 'include/**', 'cmake/**') }}
           restore-keys: |
-            ${{ runner.os }}-cmake-build-${{ hashFiles('CMakeLists.txt') }}
-            ${{ runner.os }}-cmake-build-
+            ${{ runner.os }}-mingw-cmake-build-${{ hashFiles('CMakeLists.txt') }}
+            ${{ runner.os }}-mingw-cmake-build-
 
-      # ▼ 失敗原因(2)(3) 対応: Ninja 明示指定、MinGW コンパイラ明示、vcpkg ツールチェーン明示
-      - name: Configure (Ninja + MinGW-w64 + vcpkg toolchain)
+      # ここが肝：Ninja + MinGW + vcpkg toolchain を明示
+      - name: Configure (Ninja + MinGW + vcpkg toolchain)
         env:
           NINJA_STATUS: "[%f/%t %o/s %es] "
           VCPKG_BINARY_SOURCES: "clear;files,${{ github.workspace }}/vcpkg_binary_cache,readwrite"
