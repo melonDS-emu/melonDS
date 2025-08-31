@@ -1,6 +1,6 @@
 name: Windows
+
 on:
-  workflow_dispatch:
   push:
     branches:
       - master
@@ -8,89 +8,50 @@ on:
   pull_request:
     branches:
       - master
+
 env:
-  VCPKG_COMMIT: 2ad004460f5db4d3b66f62f5799ff66c265c4b5d
   MELONDS_GIT_BRANCH: ${{ github.ref }}
   MELONDS_GIT_HASH: ${{ github.sha }}
   MELONDS_BUILD_PROVIDER: GitHub Actions
-  MELONDS_VERSION_SUFFIX: " RC"
-  VCPKG_MAX_CONCURRENCY: 8
-  CMAKE_BUILD_PARALLEL_LEVEL: 8
+#  MELONDS_VERSION_SUFFIX: " RC"
+
 jobs:
   build:
-    runs-on: windows-latest
+    runs-on: windows-2025
     defaults:
       run:
         shell: msys2 {0}
+    env:
+      VCPKG_BINARY_SOURCES: clear;files,${{ github.workspace }}/vcpkg_cache,readwrite
     steps:
     - name: Check out sources
       uses: actions/checkout@v3
-      
-    - name: Cache MSYS2 packages
-      uses: actions/cache@v3
-      with:
-        path: |
-          C:/msys64/var/cache/pacman/pkg
-          C:/msys64/etc/pacman.d/gnupg
-          D:/a/_temp/msys64/var/cache/pacman/pkg
-          D:/a/melonPrimeDS/melonPrimeDS/vcpkg/downloads/tools/msys2
-        key: ${{ runner.os }}-msys2-pacman-${{ hashFiles('**/*.cmake') }}
-        restore-keys: |
-          ${{ runner.os }}-msys2-pacman-
-        
     - name: Set up MSYS2
       uses: msys2/setup-msys2@v2
       with:
         msystem: ucrt64
-        update: false
-        path-type: inherit
+        update: true
         pacboy: gcc:p cmake:p ninja:p make:p
-        
-    # vcpkgキャッシュの改良部分
-    - name: Cache vcpkg
-      uses: actions/cache@v3
+    - name: Restore vcpkg cache
+      uses: actions/cache/restore@v4
       with:
-        path: |
-          ${{ github.workspace }}/vcpkg
-          ${{ github.workspace }}/vcpkg_installed
-          ${{ github.workspace }}/vcpkg/buildtrees
-          ${{ github.workspace }}/vcpkg/downloads
-          ${{ github.workspace }}/vcpkg/packages
-        # キーの計算に使用するファイルを増やして、より正確なキャッシュ検出を実現
-        key: ${{ runner.os }}-vcpkg-${{ env.VCPKG_COMMIT }}-${{ hashFiles('CMakeLists.txt', 'cmake/**', 'cmake/overlay-triplets/*.cmake') }}
-        restore-keys: |
-          ${{ runner.os }}-vcpkg-${{ env.VCPKG_COMMIT }}-${{ hashFiles('CMakeLists.txt') }}
-          ${{ runner.os }}-vcpkg-${{ env.VCPKG_COMMIT }}-
-        
+        path: ${{ github.workspace }}/vcpkg_cache
+        key: vcpkg-x86_64-mingw-${{ hashFiles('vcpkg.json') }}
+        restore-keys: vcpkg-x86_64-mingw-
     - name: Set up vcpkg
       uses: lukka/run-vcpkg@v11
       with:
-        vcpkgGitCommitId: ${{ env.VCPKG_COMMIT }}
-        
-    - name: Cache CMake build directory
-      uses: actions/cache@v3
-      with:
-        path: ${{ github.workspace }}/build
-        key: ${{ runner.os }}-cmake-build-${{ hashFiles('CMakeLists.txt', 'src/**', 'include/**', 'cmake/**') }}
-        restore-keys: |
-          ${{ runner.os }}-cmake-build-${{ hashFiles('CMakeLists.txt') }}
-          ${{ runner.os }}-cmake-build-
-          
+        vcpkgJsonGlob: vcpkg.json
     - name: Configure
-      run: cmake --preset=release-mingw-x86_64 -DMELONDS_EMBED_BUILD_INFO=ON -DCMAKE_BUILD_PARALLEL_LEVEL=${{ env.CMAKE_BUILD_PARALLEL_LEVEL }}
-      env:
-        NINJA_STATUS: "[%f/%t %o/s %es] "
-        # vcpkgのバイナリキャッシュを有効化
-        VCPKG_BINARY_SOURCES: "clear;files,${{ github.workspace }}/vcpkg_binary_cache,readwrite"
-        
+      run: cmake --preset=release-mingw-x86_64 -DMELONDS_EMBED_BUILD_INFO=ON
     - name: Build
-      run: cmake --build --preset=release-mingw-x86_64 --parallel ${{ env.CMAKE_BUILD_PARALLEL_LEVEL }}
-      env:
-        NINJA_STATUS: "[%f/%t %o/s %es] "
-        # vcpkgのバイナリキャッシュを有効化
-        VCPKG_BINARY_SOURCES: "clear;files,${{ github.workspace }}/vcpkg_binary_cache,readwrite"
-        
+      run: cmake --build --preset=release-mingw-x86_64
     - uses: actions/upload-artifact@v4
       with:
         name: melonDS-windows-x86_64
         path: .\build\release-mingw-x86_64\melonDS.exe
+    - name: Save vcpkg cache
+      uses: actions/cache/save@v4
+      with:
+        path: ${{ github.workspace }}/vcpkg_cache
+        key: vcpkg-x86_64-mingw-${{ hashFiles('vcpkg.json') }}
