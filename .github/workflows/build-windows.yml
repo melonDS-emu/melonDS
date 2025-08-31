@@ -1,13 +1,12 @@
 name: Windows
+
 on:
   workflow_dispatch:
   push:
-    branches:
-      - master
-      - ci/*
+    branches: [ master, ci/* ]
   pull_request:
-    branches:
-      - master
+    branches: [ master ]
+
 env:
   MELONDS_GIT_BRANCH: ${{ github.ref }}
   MELONDS_GIT_HASH: ${{ github.sha }}
@@ -15,81 +14,130 @@ env:
   MELONDS_VERSION_SUFFIX: " RC"
   VCPKG_MAX_CONCURRENCY: 8
   CMAKE_BUILD_PARALLEL_LEVEL: 8
+  # vcpkg を MinGW で使う前提のデフォルトトリプレット（必要に応じて static/dynamic を変更）
+  VCPKG_DEFAULT_TRIPLET: x64-mingw-static
+  VCPKG_FEATURE_FLAGS: manifests,binarycaching
+  # msys2 内でシステムのバイナリを使わせる
+  VCPKG_FORCE_SYSTEM_BINARIES: 1
+
 jobs:
   build:
     runs-on: windows-2025
     defaults:
       run:
         shell: msys2 {0}
+
     steps:
-    - name: Check out sources
-      uses: actions/checkout@v3
-      
-    - name: Cache MSYS2 packages
-      uses: actions/cache@v3
-      with:
-        path: |
-          C:/msys64/var/cache/pacman/pkg
-          C:/msys64/etc/pacman.d/gnupg
-          D:/a/_temp/msys64/var/cache/pacman/pkg
-          D:/a/melonPrimeDS/melonPrimeDS/vcpkg/downloads/tools/msys2
-        key: ${{ runner.os }}-msys2-pacman-${{ hashFiles('**/*.cmake') }}
-        restore-keys: |
-          ${{ runner.os }}-msys2-pacman-
-        
-    - name: Set up MSYS2
-      uses: msys2/setup-msys2@v2
-      with:
-        msystem: ucrt64
-        update: false
-        path-type: inherit
-        pacboy: gcc:p cmake:p ninja:p make:p
-        
-    # vcpkgキャッシュの改良部分
-    - name: Cache vcpkg
-      uses: actions/cache@v3
-      with:
-        path: |
-          ${{ github.workspace }}/vcpkg
-          ${{ github.workspace }}/vcpkg_installed
-          ${{ github.workspace }}/vcpkg/buildtrees
-          ${{ github.workspace }}/vcpkg/downloads
-          ${{ github.workspace }}/vcpkg/packages
-        # キーの計算に使用するファイルを増やして、より正確なキャッシュ検出を実現
-        key: ${{ runner.os }}-vcpkg-${{ env.VCPKG_COMMIT }}-${{ hashFiles('CMakeLists.txt', 'cmake/**', 'cmake/overlay-triplets/*.cmake') }}
-        restore-keys: |
-          ${{ runner.os }}-vcpkg-${{ env.VCPKG_COMMIT }}-${{ hashFiles('CMakeLists.txt') }}
-          ${{ runner.os }}-vcpkg-${{ env.VCPKG_COMMIT }}-
-        
-    - name: Set up vcpkg
-      uses: lukka/run-vcpkg@v11
-      with:
-        vcpkgGitCommitId: ${{ env.VCPKG_COMMIT }}
-        
-    - name: Cache CMake build directory
-      uses: actions/cache@v3
-      with:
-        path: ${{ github.workspace }}/build
-        key: ${{ runner.os }}-cmake-build-${{ hashFiles('CMakeLists.txt', 'src/**', 'include/**', 'cmake/**') }}
-        restore-keys: |
-          ${{ runner.os }}-cmake-build-${{ hashFiles('CMakeLists.txt') }}
-          ${{ runner.os }}-cmake-build-
-          
-    - name: Configure
-      run: cmake --preset=release-mingw-x86_64 -DMELONDS_EMBED_BUILD_INFO=ON -DCMAKE_BUILD_PARALLEL_LEVEL=${{ env.CMAKE_BUILD_PARALLEL_LEVEL }}
-      env:
-        NINJA_STATUS: "[%f/%t %o/s %es] "
-        # vcpkgのバイナリキャッシュを有効化
-        VCPKG_BINARY_SOURCES: "clear;files,${{ github.workspace }}/vcpkg_binary_cache,readwrite"
-        
-    - name: Build
-      run: cmake --build --preset=release-mingw-x86_64 --parallel ${{ env.CMAKE_BUILD_PARALLEL_LEVEL }}
-      env:
-        NINJA_STATUS: "[%f/%t %o/s %es] "
-        # vcpkgのバイナリキャッシュを有効化
-        VCPKG_BINARY_SOURCES: "clear;files,${{ github.workspace }}/vcpkg_binary_cache,readwrite"
-        
-    - uses: actions/upload-artifact@v4
-      with:
-        name: melonDS-windows-x86_64
-        path: .\build\release-mingw-x86_64\melonDS.exe
+      - name: Check out sources
+        uses: actions/checkout@v4
+
+      - name: Cache MSYS2 packages
+        uses: actions/cache@v3
+        with:
+          path: |
+            C:/msys64/var/cache/pacman/pkg
+            C:/msys64/etc/pacman.d/gnupg
+            D:/a/_temp/msys64/var/cache/pacman/pkg
+          key: ${{ runner.os }}-msys2-pacman-${{ hashFiles('**/*.cmake') }}
+          restore-keys: |
+            ${{ runner.os }}-msys2-pacman-
+
+      - name: Set up MSYS2 (ucrt64)
+        uses: msys2/setup-msys2@v2
+        with:
+          msystem: ucrt64
+          update: false
+          path-type: inherit
+          pacboy: >-
+            gcc:p
+            cmake:p
+            ninja:p
+            make:p
+            jq:p
+
+      # ▼ 失敗原因(1) 対応: overlay ディレクトリの存在を保証
+      - name: Ensure vcpkg overlay directories exist
+        run: |
+          mkdir -p ./cmake/overlay-ports
+          mkdir -p ./cmake/overlay-triplets
+          # 空でも OK。必要ならプレースホルダを作成
+          [ -f ./cmake/overlay-ports/.keep ] || echo keep > ./cmake/overlay-ports/.keep
+          [ -f ./cmake/overlay-triplets/.keep ] || echo keep > ./cmake/overlay-triplets/.keep
+
+      # ▼ vcpkg の builtin-baseline を vcpkg.json から取得（コミットIDを自動同期）
+      - name: Read vcpkg builtin-baseline
+        id: baseline
+        run: |
+          if [ -f vcpkg.json ]; then
+            BL=$(jq -r '.["builtin-baseline"] // empty' vcpkg.json)
+            if [ -n "$BL" ]; then
+              echo "baseline=$BL" >> $GITHUB_OUTPUT
+            fi
+          fi
+
+      # ▼ vcpkg のセットアップ（run-vcpkg は v11 で OK。baseline が取れたらそれを使用）
+      - name: Set up vcpkg
+        uses: lukka/run-vcpkg@v11
+        with:
+          # vcpkg.json を見に行かせる（manifests 前提）
+          vcpkgJsonGlob: '**/vcpkg.json'
+          # 可能なら repo commit を baseline に合わせる
+          vcpkgGitCommitId: ${{ steps.baseline.outputs.baseline }}
+
+      # ▼ 参考: Ninja/コンパイラが PATH に入っているか早期チェック
+      - name: Toolchain sanity check
+        run: |
+          which cmake
+          which ninja
+          which x86_64-w64-mingw32-gcc
+          which x86_64-w64-mingw32-g++
+          cmake --version
+          ninja --version
+          x86_64-w64-mingw32-gcc --version | head -n1
+
+      # ▼ vcpkg バイナリキャッシュ（任意・有効ならビルド短縮）
+      - name: Cache vcpkg binary cache
+        uses: actions/cache@v3
+        with:
+          path: ${{ github.workspace }}/vcpkg_binary_cache
+          key: ${{ runner.os }}-vcpkg-bin-${{ hashFiles('vcpkg.json', 'CMakeLists.txt', 'cmake/**', 'cmake/overlay-triplets/*.cmake') }}
+          restore-keys: |
+            ${{ runner.os }}-vcpkg-bin-
+
+      # ▼ CMake ビルドディレクトリのキャッシュ（任意）
+      - name: Cache CMake build directory
+        uses: actions/cache@v3
+        with:
+          path: ${{ github.workspace }}/build
+          key: ${{ runner.os }}-cmake-build-${{ hashFiles('CMakeLists.txt', 'src/**', 'include/**', 'cmake/**') }}
+          restore-keys: |
+            ${{ runner.os }}-cmake-build-${{ hashFiles('CMakeLists.txt') }}
+            ${{ runner.os }}-cmake-build-
+
+      # ▼ 失敗原因(2)(3) 対応: Ninja 明示指定、MinGW コンパイラ明示、vcpkg ツールチェーン明示
+      - name: Configure (Ninja + MinGW-w64 + vcpkg toolchain)
+        env:
+          NINJA_STATUS: "[%f/%t %o/s %es] "
+          VCPKG_BINARY_SOURCES: "clear;files,${{ github.workspace }}/vcpkg_binary_cache,readwrite"
+          CC: x86_64-w64-mingw32-gcc
+          CXX: x86_64-w64-mingw32-g++
+        run: |
+          cmake -S . -B build/release-mingw-x86_64 -G Ninja \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DCMAKE_C_COMPILER=${CC} \
+            -DCMAKE_CXX_COMPILER=${CXX} \
+            -DCMAKE_TOOLCHAIN_FILE="${VCPKG_ROOT}/scripts/buildsystems/vcpkg.cmake" \
+            -DMELONDS_EMBED_BUILD_INFO=ON
+
+      - name: Build
+        env:
+          NINJA_STATUS: "[%f/%t %o/s %es] "
+          VCPKG_BINARY_SOURCES: "clear;files,${{ github.workspace }}/vcpkg_binary_cache,readwrite"
+        run: |
+          cmake --build build/release-mingw-x86_64 --parallel ${{ env.CMAKE_BUILD_PARALLEL_LEVEL }}
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: melonDS-windows-x86_64
+          path: build/release-mingw-x86_64/melonDS.exe
