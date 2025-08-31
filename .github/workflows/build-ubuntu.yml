@@ -37,7 +37,7 @@ jobs:
       run: |
         sudo apt update
         sudo apt install --allow-downgrades cmake ninja-build extra-cmake-modules libpcap0.8-dev libsdl2-dev libenet-dev \
-          qt6-{base,base-private,multimedia}-dev libqt6svg6-dev libarchive-dev libzstd-dev libfuse2
+          qt6-{base,base-private,multimedia}-dev libqt6svg6-dev libarchive-dev libzstd-dev libfuse2 libfaad-dev
     - name: Configure
       run: cmake -B build -G Ninja -DCMAKE_INSTALL_PREFIX=/usr -DMELONDS_EMBED_BUILD_INFO=ON
     - name: Build
