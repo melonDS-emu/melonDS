@@ -194,6 +194,166 @@ std::uint16_t sensiNumToSensiVal(double sensiNum)
     // 返却(最終的にuint16_tで返すため)
     return static_cast<std::uint16_t>(result);
 }
+
+
+
+/**
+ * ヘッドフォン設定一度適用関数.
+ *
+ * @param NDS* nds NDS本体参照.
+ * @return bool 書き込み実施有無.
+ */
+
+ // グローバル適用フラグ定義(多重適用を避けるため)
+static bool isHeadphoneApplied = false;
+
+// ヘッドフォン設定一度適用関数本体定義(起動時一回だけ反映するため)
+bool ApplyHeadphoneOnce(NDS* nds, Config::Table& localCfg, uint32_t kCfgAddr, bool& isHeadphoneApplied)
+{
+    // 事前条件確認(参照の妥当性を保証するため)
+    if (!nds) {
+        // 早期リターン(ヌル参照による異常動作を避けるため)
+        return false;
+    }
+
+    // 多重適用回避(二重書き込みによる無駄を避けるため)
+    if (__builtin_expect(isHeadphoneApplied, 0)) {
+        // 既適用確定(以降の処理を省略するため)
+        return false;
+    }
+
+    if (!localCfg.GetBool("Metroid.Apply.Headphone")) {
+        return false;
+    }
+
+    // 現在値読出し(他ビットを保持して差分適用するため)
+    std::uint8_t oldVal = nds->ARM9Read8(kCfgAddr);
+
+    // ヘッドフォン用マスク定義(bit4:bit3を一旦クリアするため)
+    constexpr std::uint8_t kAudioMask = static_cast<std::uint8_t>(~0x18);
+
+    // ヘッドフォン値定義(bit4:bit3を11bに設定するため)
+    constexpr std::uint8_t kHeadphone = 0x18;
+
+    // 新値算出(音声モード領域のみをヘッドフォンに置換するため)
+    std::uint8_t newVal = static_cast<std::uint8_t>((oldVal & kAudioMask) | kHeadphone);
+
+    // 差分検出(無駄なバス書き込みを避けるため)
+    if (newVal != oldVal) {
+        // 8bit書き込み実行(近接フィールド破壊を避けるため)
+        nds->ARM9Write8(kCfgAddr, newVal);
+        // 適用済みフラグ更新(多重適用を避けるため)
+        isHeadphoneApplied = true;
+        // 書き込み実施結果返却(呼び出し側でログ制御を行うため)
+        return true;
+    }
+
+    // 変更不要結果処理(既にヘッドフォンの場合を明示するため)
+    isHeadphoneApplied = true;
+
+    // 書き込み無し結果返却(状態変化が無かったことを伝えるため)
+    return false;
+}
+
+/**
+ * MPH感度設定反映関数.
+ *
+ * @param NDS* nds NDS本体参照.
+ * @param Config::Table& localCfg ローカル設定参照.
+ * @param double& lastMphSensitivity キャッシュされた前回感度値.
+ * @param std::uint32_t addrSensitivity 感度設定アドレス.
+ * @return bool 書き込み実施有無.
+ */
+bool ApplyMphSensitivity(NDS* nds, Config::Table& localCfg, double& lastMphSensitivity, std::uint32_t addrSensitivity)
+{
+    // 現在の感度数値を設定から取得(ユーザー入力を読むため)
+    double mphSensitivity = localCfg.GetDouble("Metroid.Sensitivity.Mph");
+
+    // 値が前回と同一か判定(不要な書き込みを避けるため)
+    if (__builtin_expect(mphSensitivity == lastMphSensitivity, 1)) {
+        // 書き込み不要結果返却(キャッシュ一致のため)
+        return false;
+    }
+
+    // 感度数値をROMに適用可能な形式へ変換(ゲーム内部値に一致させるため)
+    std::uint32_t sensiVal = sensiNumToSensiVal(mphSensitivity);
+
+    // NDSメモリに16bit値を書き込み(ゲーム設定を即時反映するため)
+    nds->ARM9Write16(addrSensitivity, static_cast<std::uint16_t>(sensiVal));
+
+    // キャッシュ更新(次回以降の無駄な書き込みを避けるため)
+    lastMphSensitivity = mphSensitivity;
+
+    // 書き込み実施結果返却(呼び出し元でログや処理制御を可能にするため)
+    return true;
+}
+
+/**
+ * MPHハンター/マップ解除一度適用関数.
+ *
+ * @param NDS* nds NDS本体参照.
+ * @param Config::Table& localCfg ローカル設定参照.
+ * @param bool& isUnlockApplied 一度適用済みフラグ.
+ * @param std::uint32_t addrUnlock1 書き込みアドレス1.
+ * @param std::uint32_t addrUnlock2 書き込みアドレス2.
+ * @param std::uint32_t addrUnlock3 書き込みアドレス3.
+ * @param std::uint32_t addrUnlock4 書き込みアドレス4.
+ * @param std::uint32_t addrUnlock5 書き込みアドレス5.
+ * @return bool 書き込み実施有無.
+ */
+bool ApplyUnlockHuntersMaps(
+    NDS* nds,
+    Config::Table& localCfg,
+    bool& isUnlockApplied,
+    std::uint32_t addrUnlock1,
+    std::uint32_t addrUnlock2,
+    std::uint32_t addrUnlock3,
+    std::uint32_t addrUnlock4,
+    std::uint32_t addrUnlock5)
+{
+
+    // 既適用チェック(多重実行防止のため)
+    if (__builtin_expect(isUnlockApplied, 0)) {
+        return false;
+    }
+
+    // 設定フラグ確認(ユーザー指定OFFなら処理不要のため)
+    if (!localCfg.GetBool("Metroid.Data.Unlock")) {
+        return false;
+    }
+
+    // 解除データを書き込み(ゲーム内部のロック解除のため)
+
+
+    // 全サウンドテストアンロック
+
+    // 現在値読出し(既存フラグ保持のため)
+    std::uint8_t cur = nds->ARM9Read8(addrUnlock1);
+
+    // 必要ビットを立てた値を算出(既存値を壊さないため)
+    std::uint8_t newVal = static_cast<std::uint8_t>(cur | 0x03);
+
+    // 書き込み実行(解除レジスタの該当ビットを立てるため)
+    nds->ARM9Write8(addrUnlock1, newVal);
+			
+    // 全マップアンロック
+    nds->ARM9Write32(addrUnlock2, 0x07FFFFFF);
+			
+    // 全ハンターアンロック
+    nds->ARM9Write8(addrUnlock3, 0x7F);
+
+    // 全ギャラリーアンロック
+    nds->ARM9Write32(addrUnlock4, 0xFFFFFFFF);
+    nds->ARM9Write8(addrUnlock5, 0xFF);
+
+    // 適用済みフラグ更新(再実行を避けるため)
+    isUnlockApplied = true;
+
+    // 書き込み実施結果返却(呼び出し元で処理分岐を可能にするため)
+    return true;
+}
+
+
 // CalculatePlayerAddress Function
 __attribute__((always_inline, flatten)) inline uint32_t calculatePlayerAddress(uint32_t baseAddress, uint8_t playerPosition, int32_t increment) {
     // If player position is 0, return the base address without modification
@@ -2816,43 +2976,23 @@ namespace AimAdjustTable {
 
                     if (__builtin_expect(isRomDetected, 1)) {
 
-                        // MPH感度設定ここから
+                        // ヘッドフォン設定
+                        ApplyHeadphoneOnce(emuInstance->nds, emuInstance->getLocalConfig(), addrOperationAndSound, isHeadphoneApplied);
 
-                        // 設定から感度数値を取得
-                        double mphSensitivity = localCfg.GetDouble("Metroid.Sensitivity.Mph");
-
-                        // 値が変化したときだけ処理
-                        if (mphSensitivity != lastMphSensitivity) {
-                            // 感度数値をテーブル値に変換(実際にROMに書き込む値に直すため)
-                            std::uint32_t sensiVal = sensiNumToSensiVal(mphSensitivity);
-
-                            // NDSメモリに16bit値を書き込む(ゲームに適用するため)
-                            emuInstance->nds->ARM9Write16(addrSensitivity, sensiVal);
-
-                            // キャッシュを更新
-                            lastMphSensitivity = mphSensitivity;
-                        }
-                        // MPH感度設定ここまで
-
-                        if (__builtin_expect(!isUnlockMapsHuntersApplied, 1)) {
-                            if (emuInstance->getLocalConfig().GetBool("Metroid.Data.Unlock")) {
-                                // 1回だけ適用
-                                emuInstance->nds->ARM9Write8(addrUnlockMapsHunters, 0x27);
-                                emuInstance->nds->ARM9Write32(addrUnlockMapsHunters2, 0x07FFFFFF);
-                                emuInstance->nds->ARM9Write8(addrUnlockMapsHunters3, 0x7F);
-                                emuInstance->nds->ARM9Write32(addrUnlockMapsHunters4, 0xFFFFFFFF);
-                                emuInstance->nds->ARM9Write8(addrUnlockMapsHunters5, 0xFF);
-
-                                // フラグ更新（以降チェック不要にする）
-                                isUnlockMapsHuntersApplied = true;
-                                /*
-                                auto& localCfg = emuInstance->getLocalConfig();
-                                localCfg.SetBool("Metroid.Data.Unlock", false);
-                                Config::Save();
-                                */
-                                // emuInstance->osdAddMessage(0, "Unlock All Hunters/Maps applied.");
-                            }
-                        }
+                        // MPH感度設定適用処理呼び出し
+                        ApplyMphSensitivity(emuInstance->nds, emuInstance->getLocalConfig(), lastMphSensitivity, addrSensitivity);
+                        
+                        // ハンター/マップ全開処理
+                        ApplyUnlockHuntersMaps(
+                            emuInstance->nds,
+                            emuInstance->getLocalConfig(),
+                            isUnlockMapsHuntersApplied,
+                            addrUnlockMapsHunters,
+                            addrUnlockMapsHunters2,
+                            addrUnlockMapsHunters3,
+                            addrUnlockMapsHunters4,
+                            addrUnlockMapsHunters5
+                        );
                     }
 
                 }
@@ -2993,11 +3133,11 @@ void EmuThread::handleMessages()
                 emuInstance->osdAddMessage(0, message);
 
                 // reset Settings when unPaused
-                isSnapTapMode = emuInstance->getLocalConfig().GetBool("Metroid.Operation.SnapTap");
-                isUnlockMapsHuntersApplied = false;
-                isSensitivityChangePending = true;
-                // ★ここを追加
-                lastMphSensitivity = std::numeric_limits<double>::quiet_NaN();
+                isSnapTapMode = emuInstance->getLocalConfig().GetBool("Metroid.Operation.SnapTap"); // SnapTapリセット用
+                isUnlockMapsHuntersApplied = false; // Unlockリセット用
+                isSensitivityChangePending = true; // Aim感度リセット用
+                lastMphSensitivity = std::numeric_limits<double>::quiet_NaN(); // Mph感度リセット用
+                isHeadphoneApplied = false; // ヘッドフォンリセット用
 
                 // MelonPrimeDS }
             }

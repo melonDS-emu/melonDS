@@ -123,6 +123,7 @@ InputConfigDialog::InputConfigDialog(QWidget* parent) : QDialog(parent), ui(new 
     ui->metroidMphSensitvitySpinBox->setValue(instcfg.GetDouble("Metroid.Sensitivity.Mph"));
     ui->cbMetroidEnableSnapTap->setChecked(instcfg.GetBool("Metroid.Operation.SnapTap"));
     ui->cbMetroidUnlockAll->setChecked(instcfg.GetBool("Metroid.Data.Unlock"));
+    ui->cbMetroidApplyHeadphone->setChecked(instcfg.GetBool("Metroid.Apply.Headphone"));
 
     // } MelonPrimeDS
 
@@ -307,6 +308,7 @@ void InputConfigDialog::on_InputConfigDialog_accepted()
     // SnapTap
     instcfg.SetBool("Metroid.Operation.SnapTap", ui->cbMetroidEnableSnapTap->checkState() == Qt::Checked);
     instcfg.SetBool("Metroid.Data.Unlock", ui->cbMetroidUnlockAll->checkState() == Qt::Checked);
+    instcfg.SetBool("Metroid.Apply.Headphone", ui->cbMetroidApplyHeadphone->checkState() == Qt::Checked);
 
     // } MelonPrimeDS
 
@@ -357,7 +359,7 @@ SDL_Joystick* InputConfigDialog::getJoystick()
 void InputConfigDialog::on_metroidResetSensitivityValues_clicked()
 {
     ui->metroidMphSensitvitySpinBox->setValue(-2);
-    ui->metroidAimSensitvitySpinBox->setValue(30);
+    ui->metroidAimSensitvitySpinBox->setValue(45);
 }
 
 void InputConfigDialog::on_metroidSetVideoQualityToLow_clicked()
@@ -415,15 +417,6 @@ void InputConfigDialog::on_cbMetroidEnableSnapTap_stateChanged(int state)
 {
     auto& cfg = emuInstance->getGlobalConfig();
     cfg.SetBool("Metroid.Operation.SnapTap", state != 0);
-    /*
-    bool vsync = (state != 0);
-    ui->sbVSyncInterval->setEnabled(vsync);
-
-    auto& cfg = emuInstance->getGlobalConfig();
-    cfg.SetBool("Screen.VSync", vsync);
-
-    emit updateVideoSettings(false);
-    */
 }
 
 
@@ -431,14 +424,12 @@ void InputConfigDialog::on_cbMetroidUnlockAll_stateChanged(int state)
 {
     auto& cfg = emuInstance->getGlobalConfig();
     cfg.SetBool("Metroid.Data.Unlock", state != 0);
-    /*
-    bool vsync = (state != 0);
-    ui->sbVSyncInterval->setEnabled(vsync);
+}
 
+
+void InputConfigDialog::on_cbMetroidApplyHeadphone_stateChanged(int state)
+{
     auto& cfg = emuInstance->getGlobalConfig();
-    cfg.SetBool("Screen.VSync", vsync);
-
-    emit updateVideoSettings(false);
-    */
+    cfg.SetBool("Metroid.Apply.Headphone", state != 0);
 }
 /* } MelonPrimeDS */

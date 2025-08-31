@@ -2400,13 +2400,21 @@
 				<item row="5" column="0">
 					<widget class="QCheckBox" name="cbMetroidUnlockAll">
 						<property name="text">
-							<string>Unlock All Hunters/Maps (Change a setting in the in-game options of MPH and save to update the save data. This will be auto-unchecked once applied.)</string>
+							<string>Unlock All Hunters/Maps/SoundTest/Gallery (Change a setting in MPH and save to update the save data. Uncheck this option after saving)</string>
+						</property>
+					</widget>
+				</item>
+
+				<item row="6" column="0">
+					<widget class="QCheckBox" name="cbMetroidApplyHeadphone">
+						<property name="text">
+							<string>Set MPH audio settings to headphones.(recommended) (Change a setting in MPH and save to update the save data. Uncheck this option after saving)</string>
 						</property>
 					</widget>
 				</item>
 
 				<!-- Low quality -->
-			    <item row="6" column="0">
+			    <item row="7" column="0">
 				    <widget class="QPushButton" name="metroidSetVideoQualityToLow">
 					    <property name="text">
 						    <string>Video quality: Low (High Performance)</string>
@@ -2415,7 +2423,7 @@
 			    </item>
 
 			    <!-- High quality -->
-			    <item row="7" column="0">
+			    <item row="8" column="0">
 				    <widget class="QPushButton" name="metroidSetVideoQualityToHigh">
 					    <property name="text">
 						    <string>Video quality: High (Lower Performance)</string>
@@ -2424,7 +2432,7 @@
 			    </item>
 
 				<!-- High2 quality -->
-				<item row="8" column="0">
+				<item row="9" column="0">
 					<widget class="QPushButton" name="metroidSetVideoQualityToHigh2">
 						<property name="text">
 							<string>Video quality: High2 (Recommended. Best Performance, Minor Visual Glitches) </string>
