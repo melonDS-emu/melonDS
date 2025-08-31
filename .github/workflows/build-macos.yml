@@ -1,6 +1,6 @@
 name: macOS
-
 on:
+  workflow_dispatch:
   push:
     branches:
       - master
@@ -8,65 +8,101 @@ on:
   pull_request:
     branches:
       - master
-
 env:
+  VCPKG_COMMIT: 2ad004460f5db4d3b66f62f5799ff66c265c4b5d
   MELONDS_GIT_BRANCH: ${{ github.ref }}
   MELONDS_GIT_HASH: ${{ github.sha }}
   MELONDS_BUILD_PROVIDER: GitHub Actions
-#  MELONDS_VERSION_SUFFIX: " RC"
-
+  MELONDS_VERSION_SUFFIX: " RC"
+  VCPKG_MAX_CONCURRENCY: 8
+  CMAKE_BUILD_PARALLEL_LEVEL: 8
 jobs:
   build-macos:
     strategy:
       matrix:
         arch: [x86_64, arm64]
-
-    name: ${{ matrix.arch }}
+    name: build-${{ matrix.arch }}
     runs-on: macos-14
-
     env:
-      VCPKG_BINARY_SOURCES: clear;files,${{ github.workspace }}/vcpkg_cache,readwrite
-
+        VCPKG_BINARY_SOURCES: clear;files,${{ github.workspace }}/vcpkg_cache,readwrite
     steps:
-      - name: Check out sources
-        uses: actions/checkout@v3
-      - name: Install dependencies for package building
-        run: |
-          brew install autoconf automake autoconf-archive libtool python-setuptools
-      - name: Set up CMake
-        uses: lukka/get-cmake@latest
-      - name: Restore vcpkg cache
-        uses: actions/cache/restore@v4
-        with:
-          path: ${{ github.workspace }}/vcpkg_cache
-          key: vcpkg-${{ matrix.arch }}-osx-${{ hashFiles('vcpkg.json') }}
-          restore-keys: vcpkg-${{ matrix.arch }}-osx-
-      - name: Set up vcpkg
-        uses: lukka/run-vcpkg@v11
-        with:
-          vcpkgJsonGlob: vcpkg.json
-      - name: Build
-        uses: lukka/run-cmake@v10
-        with:
-          configurePreset: release-mac-${{ matrix.arch }}
-          buildPreset: release-mac-${{ matrix.arch }}
-          configurePresetAdditionalArgs: "['-DMELONDS_EMBED_BUILD_INFO=ON']"
-      - name: Compress app bundle
-        shell: bash
-        run: |
-          cd build/release-mac-${{ matrix.arch }}
-          zip -r -y ../../macOS-${{ matrix.arch }}.zip melonDS.app
-      - name: Upload artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: macOS-${{ matrix.arch }}
-          path: macOS-${{ matrix.arch }}.zip
-          retention-days: 1
-      - name: Save vcpkg cache
-        uses: actions/cache/save@v4
-        with:
-          path: ${{ github.workspace }}/vcpkg_cache
-          key: vcpkg-${{ matrix.arch }}-osx-${{ hashFiles('vcpkg.json') }}
+    - name: Check out sources
+      uses: actions/checkout@v3
+      with:
+        fetch-depth: 1
+
+    - name: Cache Homebrew packages
+      uses: actions/cache@v3
+      with:
+        path: |
+          ~/Library/Caches/Homebrew
+          /usr/local/Homebrew
+        key: ${{ runner.os }}-brew-${{ hashFiles('.github/workflows/macos.yml') }}
+        restore-keys: |
+          ${{ runner.os }}-brew-
+
+    - name: Install dependencies for package building
+      run: |
+        brew install autoconf automake autoconf-archive libtool python-setuptools
+
+    - name: Set up CMake
+      uses: lukka/get-cmake@latest
+
+    - name: Restore vcpkg cache
+      uses: actions/cache/restore@v4
+      with:
+        path: ${{ github.workspace }}/vcpkg_cache
+        key: vcpkg-${{ matrix.arch }}-osx-${{ hashFiles('vcpkg.json') }}
+        restore-keys: vcpkg-${{ matrix.arch }}-osx-
+    - name: Cache vcpkg
+      uses: actions/cache@v3
+      with:
+        path: |
+          ${{ github.workspace }}/vcpkg
+          ${{ github.workspace }}/vcpkg_installed
+        key: ${{ runner.os }}-${{ matrix.arch }}-vcpkg-${{ env.VCPKG_COMMIT }}-${{ hashFiles('CMakeLists.txt') }}
+        restore-keys: |
+          ${{ runner.os }}-${{ matrix.arch }}-vcpkg-${{ env.VCPKG_COMMIT }}-
+
+    - name: Set up vcpkg
+      uses: lukka/run-vcpkg@v11
+      with:
+        vcpkgJsonGlob: vcpkg.json
+
+    - name: Cache CMake build directory
+      uses: actions/cache@v3
+      with:
+        path: ${{ github.workspace }}/build
+        key: ${{ runner.os }}-${{ matrix.arch }}-cmake-build-${{ hashFiles('CMakeLists.txt', 'src/**', 'include/**') }}
+        restore-keys: |
+          ${{ runner.os }}-${{ matrix.arch }}-cmake-build-
+
+    - name: Build
+      uses: lukka/run-cmake@v10
+      with:
+        configurePreset: release-mac-${{ matrix.arch }}
+        buildPreset: release-mac-${{ matrix.arch }}
+        configurePresetAdditionalArgs: "['-DMELONDS_EMBED_BUILD_INFO=ON', '-DCMAKE_BUILD_PARALLEL_LEVEL=${{ env.CMAKE_BUILD_PARALLEL_LEVEL }}']"
+      env:
+        VCPKG_MAX_CONCURRENCY: ${{ env.VCPKG_MAX_CONCURRENCY }}
+
+    - name: Compress app bundle
+      shell: bash
+      run: |
+        cd build/release-mac-${{ matrix.arch }}
+        zip -r -y ../../macOS-${{ matrix.arch }}.zip melonDS.app
+
+    - name: Upload artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: macOS-${{ matrix.arch }}
+        path: macOS-${{ matrix.arch }}.zip
+        retention-days: 1
+    - name: Save vcpkg cache
+      uses: actions/cache/save@v4
+      with:
+        path: ${{ github.workspace }}/vcpkg_cache
+        key: vcpkg-${{ matrix.arch }}-osx-${{ hashFiles('vcpkg.json') }}
 
   universal-binary:
     name: Universal binary
@@ -74,35 +110,31 @@ jobs:
     runs-on: macos-13
     continue-on-error: true
     steps:
-      - name: Download x86_64
-        uses: actions/download-artifact@v4
-        with:
-          name: macOS-x86_64
-          path: x86_64
-      - name: Download arm64
-        uses: actions/download-artifact@v4
-        with:
-          name: macOS-arm64
-          path: arm64
-      - name: Combine app bundles
-        shell: bash
-        run: |
-          unzip x86_64/*.zip -d x86_64
-          unzip arm64/*.zip -d arm64
-          lipo {x86_64,arm64}/melonDS.app/Contents/MacOS/melonDS -create -output melonDS
-          cp -a arm64/melonDS.app melonDS.app
-          cp melonDS melonDS.app/Contents/MacOS/melonDS
-          codesign -s - --deep melonDS.app
-          zip -r -y macOS-universal.zip melonDS.app
-      - name: Upload artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: macOS-universal
-          path: macOS-universal.zip
-#     - name: Clean up architecture-specific artifacts
-#       uses: geekyeggo/delete-artifact@v4
-#       with:
-#         failOnError: false
-#         name: |
-#           macOS-x86_64
-#           macOS-arm64
+    - name: Download x86_64
+      uses: actions/download-artifact@v4
+      with:
+        name: macOS-x86_64
+        path: x86_64
+
+    - name: Download arm64
+      uses: actions/download-artifact@v4
+      with:
+        name: macOS-arm64
+        path: arm64
+
+    - name: Combine app bundles
+      shell: bash
+      run: |
+        unzip x86_64/*.zip -d x86_64
+        unzip arm64/*.zip -d arm64
+        lipo {x86_64,arm64}/melonDS.app/Contents/MacOS/melonDS -create -output melonDS
+        cp -a arm64/melonDS.app melonDS.app
+        cp melonDS melonDS.app/Contents/MacOS/melonDS
+        codesign -s - --deep melonDS.app
+        zip -r -y macOS-universal.zip melonDS.app
+
+    - name: Upload artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: macOS-universal
+        path: macOS-universal.zip
