@@ -217,6 +217,12 @@ if (WIN32)
 
     target_link_libraries(melonDS PRIVATE ws2_32 iphlpapi)
     set_target_properties(melonDS PROPERTIES LINK_FLAGS_DEBUG "-mconsole")
+
+    # Work around faad2 unconditionally linking libm even on Windows
+    if (MSVC AND USE_VCPKG)
+        add_library(m STATIC)
+        target_link_libraries(melonDS PUBLIC m)
+    endif()
 endif()
 
 if (APPLE)
