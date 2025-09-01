@@ -15,9 +15,14 @@ env:
   VCPKG_MAX_CONCURRENCY: 8
   CMAKE_BUILD_PARALLEL_LEVEL: 8
 
-  # ▼ MinGW固定（動的にしたい場合は x64-mingw-dynamic に変更）
+  # すでに入れているはずの MinGW 固定
   VCPKG_DEFAULT_TRIPLET: x64-mingw-static
-  VCPKG_TARGET_TRIPLET: x64-mingw-static
+  VCPKG_TARGET_TRIPLET:  x64-mingw-static
+
+  # ★ これを追加（ホスト側も MinGW に固定）
+  VCPKG_DEFAULT_HOST_TRIPLET: x64-mingw-static
+  VCPKG_HOST_TRIPLET:        x64-mingw-static
+
   VCPKG_FEATURE_FLAGS: manifests,binarycaching
   VCPKG_FORCE_SYSTEM_BINARIES: 1
 
@@ -83,13 +88,14 @@ jobs:
           vcpkgGitCommitId: ${{ steps.baseline.outputs.baseline }}
 
       # ▼ ここが重要：旧トリプレット汚染の徹底除去（初回のみでも可）
-      - name: Purge contaminated caches (triplet/port/buildtrees)
+      - name: Purge contaminated caches
         run: |
           rm -rf ./build || true
           rm -rf ./vcpkg/buildtrees || true
           rm -rf ./vcpkg/packages || true
           rm -rf ./vcpkg_installed || true
           rm -rf ./vcpkg_binary_cache || true
+
 
       # ▼ vcpkg バイナリキャッシュ（キーに -mingw- を入れて x64-windows 汚染を回避）
       - name: Cache vcpkg binary cache
@@ -122,11 +128,11 @@ jobs:
           x86_64-w64-mingw32-gcc --version | head -n1
 
       # ▼ ここが肝：Ninja＋MinGW＋vcpkgツールチェーン＋トリプレットを「CMake引数で」明示上書き
-      - name: Configure (Ninja + MinGW + vcpkg toolchain + triplet override)
+      - name: Configure (Ninja + MinGW + vcpkg toolchain + triplets)
         env:
           NINJA_STATUS: "[%f/%t %o/s %es] "
           VCPKG_BINARY_SOURCES: "clear;files,${{ github.workspace }}/vcpkg_binary_cache,readwrite"
-          CC: x86_64-w64-mingw32-gcc
+          CC:  x86_64-w64-mingw32-gcc
           CXX: x86_64-w64-mingw32-g++
         run: |
           cmake -S . -B build/release-mingw-x86_64 -G Ninja \
@@ -136,7 +142,10 @@ jobs:
             -DCMAKE_TOOLCHAIN_FILE="${VCPKG_ROOT}/scripts/buildsystems/vcpkg.cmake" \
             -DVCPKG_DEFAULT_TRIPLET=${VCPKG_DEFAULT_TRIPLET} \
             -DVCPKG_TARGET_TRIPLET=${VCPKG_TARGET_TRIPLET} \
+            -DVCPKG_DEFAULT_HOST_TRIPLET=${VCPKG_DEFAULT_HOST_TRIPLET} \
+            -DVCPKG_HOST_TRIPLET=${VCPKG_HOST_TRIPLET} \
             -DMELONDS_EMBED_BUILD_INFO=ON
+
 
       # ▼ 選択トリプレットの可視化（デバッグ用）
       - name: Show selected VCPKG_* from CMake cache
@@ -144,6 +153,13 @@ jobs:
           grep -E 'VCPKG_.*TRIPLET' build/release-mingw-x86_64/CMakeCache.txt || true
           cat build/release-mingw-x86_64/vcpkg-manifest-install.log | sed -n '1,120p' || true
 
+      - name: Show selected triplets & manifest log
+        run: |
+          echo "=== Triplets in CMakeCache ==="
+          grep -E 'VCPKG_.*TRIPLET' build/release-mingw-x86_64/CMakeCache.txt || true
+          echo "=== vcpkg manifest install log (head) ==="
+          sed -n '1,160p' build/release-mingw-x86_64/vcpkg-manifest-install.log || true
+      
       - name: Build
         env:
           NINJA_STATUS: "[%f/%t %o/s %es] "
