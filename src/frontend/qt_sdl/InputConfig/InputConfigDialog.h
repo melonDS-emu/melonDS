@@ -229,6 +229,7 @@ private slots:
     void on_cbMetroidEnableSnapTap_stateChanged(int state);
     void on_cbMetroidUnlockAll_stateChanged(int state);
     void on_cbMetroidApplyHeadphone_stateChanged(int state);
+    void on_cbMetroidUseFirmwareName_stateChanged(int state);
     /* } MelonPrimeDS*/
 
 private:
