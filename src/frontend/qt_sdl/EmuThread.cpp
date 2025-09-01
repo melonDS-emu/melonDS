@@ -204,55 +204,58 @@ std::uint16_t sensiNumToSensiVal(double sensiNum)
  * @return bool 書き込み実施有無.
  */
 
- // グローバル適用フラグ定義(多重適用を避けるため)
-static bool isHeadphoneApplied = false;
 
-// ヘッドフォン設定一度適用関数本体定義(起動時一回だけ反映するため)
-bool ApplyHeadphoneOnce(NDS* nds, Config::Table& localCfg, uint32_t kCfgAddr, bool& isHeadphoneApplied)
+
+ /**
+  * ヘッドフォン設定一度適用関数本体定義.
+  *
+  *
+  * @param NDS* nds NDS本体参照.
+  * @param Config::Table& localCfg ローカル設定参照.
+  * @param uint32_t kCfgAddr 音声設定アドレス.
+  * @return bool 書き込み実施有無.
+  */
+  // ヘッドフォン設定一度適用関数本体開始(起動時一回だけ反映するため)
+bool ApplyHeadphoneOnce(NDS* nds, Config::Table& localCfg, uint32_t kCfgAddr)
 {
-    // 事前条件確認(参照の妥当性を保証するため)
+    // 事前条件確認(ヌル参照による異常動作を避けるため)
     if (!nds) {
-        // 早期リターン(ヌル参照による異常動作を避けるため)
+        // 無効参照検出時リターン(以降の処理を止めるため)
         return false;
     }
 
-    // 多重適用回避(二重書き込みによる無駄を避けるため)
-    if (__builtin_expect(isHeadphoneApplied, 0)) {
-        // 既適用確定(以降の処理を省略するため)
-        return false;
-    }
-
+    // 設定有効判定(ユーザーがヘッドフォン適用を指定しなければ即リターンするため)
     if (!localCfg.GetBool("Metroid.Apply.Headphone")) {
+        // 設定無効時リターン
         return false;
     }
 
-    // 現在値読出し(他ビットを保持して差分適用するため)
+    // 現在値読出し(差分適用と既成ビット確認のため)
     std::uint8_t oldVal = nds->ARM9Read8(kCfgAddr);
 
-    // ヘッドフォン用マスク定義(bit4:bit3を一旦クリアするため)
-    constexpr std::uint8_t kAudioMask = static_cast<std::uint8_t>(~0x18);
+    // ターゲットビット定義(bit4:bit3領域を対象にするため)
+    constexpr std::uint8_t kAudioFieldMask = 0x18;
 
-    // ヘッドフォン値定義(bit4:bit3を11bに設定するため)
-    constexpr std::uint8_t kHeadphone = 0x18;
-
-    // 新値算出(音声モード領域のみをヘッドフォンに置換するため)
-    std::uint8_t newVal = static_cast<std::uint8_t>((oldVal & kAudioMask) | kHeadphone);
-
-    // 差分検出(無駄なバス書き込みを避けるため)
-    if (newVal != oldVal) {
-        // 8bit書き込み実行(近接フィールド破壊を避けるため)
-        nds->ARM9Write8(kCfgAddr, newVal);
-        // 適用済みフラグ更新(多重適用を避けるため)
-        isHeadphoneApplied = true;
-        // 書き込み実施結果返却(呼び出し側でログ制御を行うため)
-        return true;
+    // 既設定判定(すでにbit4:bit3が11bであれば即リターンするため)
+    if ((oldVal & kAudioFieldMask) == kAudioFieldMask) {
+        // 既適用リターン
+        return false;
     }
 
-    // 変更不要結果処理(既にヘッドフォンの場合を明示するため)
-    isHeadphoneApplied = true;
+    // 新値算出(対象ビットのみ1に立てて他ビットを保持するため)
+    std::uint8_t newVal = static_cast<std::uint8_t>(oldVal | kAudioFieldMask);
 
-    // 書き込み無し結果返却(状態変化が無かったことを伝えるため)
-    return false;
+    // 差分無し確認(理論上newVal == oldValにはならないが安全のため)
+    if (newVal == oldVal) {
+        // 書き込み不要リターン
+        return false;
+    }
+
+    // 8bit書き込み実行(必要最小限の更新で近接フィールド破壊を避けるため)
+    nds->ARM9Write8(kCfgAddr, newVal);
+
+    // 書き込み実施リターン
+    return true;
 }
 
 /**
@@ -381,6 +384,7 @@ bool isSnapTapMode = false;
 bool isUnlockHuntersMaps = false;
 // 前回のMPH本体感度値キャッシュ用
 double lastMphSensitivity = std::numeric_limits<double>::quiet_NaN();
+
 
 melonDS::u32 addrBaseIsAltForm;
 melonDS::u32 addrBaseLoadedSpecialWeapon;
@@ -2977,7 +2981,7 @@ namespace AimAdjustTable {
                     if (__builtin_expect(isRomDetected, 1)) {
 
                         // ヘッドフォン設定
-                        ApplyHeadphoneOnce(emuInstance->nds, emuInstance->getLocalConfig(), addrOperationAndSound, isHeadphoneApplied);
+                        ApplyHeadphoneOnce(emuInstance->nds, emuInstance->getLocalConfig(), addrOperationAndSound);
 
                         // MPH感度設定適用処理呼び出し
                         ApplyMphSensitivity(emuInstance->nds, emuInstance->getLocalConfig(), lastMphSensitivity, addrSensitivity);
@@ -3137,7 +3141,6 @@ void EmuThread::handleMessages()
                 isUnlockMapsHuntersApplied = false; // Unlockリセット用
                 isSensitivityChangePending = true; // Aim感度リセット用
                 lastMphSensitivity = std::numeric_limits<double>::quiet_NaN(); // Mph感度リセット用
-                isHeadphoneApplied = false; // ヘッドフォンリセット用
 
                 // MelonPrimeDS }
             }
