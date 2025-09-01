@@ -21,6 +21,8 @@ project(melonDS
     HOMEPAGE_URL "https://melonds.kuribo64.net"
     LANGUAGES C CXX)
 
+set(CMAKE_FIND_PACKAGE_PREFER_CONFIG ON CACHE BOOL "Prefer *Config.cmake over Find*.cmake" FORCE)
+
 include(CheckSymbolExists)
 include(CheckLibraryExists)
 include(CMakeDependentOption)
@@ -48,8 +50,6 @@ function(detect_architecture symbol arch)
         check_symbol_exists("${symbol}" "" ARCHITECTURE_${arch})
         unset(CMAKE_REQUIRED_QUIET)
 
-        # The output variable needs to be unique across invocations otherwise
-        # CMake's crazy scope rules will keep it defined
         if (ARCHITECTURE_${arch})
             set(ARCHITECTURE "${arch}" PARENT_SCOPE)
             set(ARCHITECTURE_${arch} 1 PARENT_SCOPE)
