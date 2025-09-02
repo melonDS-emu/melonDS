@@ -25,6 +25,8 @@ env:
 
   VCPKG_FEATURE_FLAGS: manifests,binarycaching
   VCPKG_FORCE_SYSTEM_BINARIES: 1
+  # vcpkg はデフォルトで debug と release の両方を作ります。 VCPKG_BUILD_TYPE=release を設定すると debug 側を作らなくなります。これだけで体感半分以下になります。
+  VCPKG_BUILD_TYPE: release
 
 jobs:
   build:
@@ -146,6 +148,7 @@ jobs:
             -DVCPKG_TARGET_TRIPLET=${VCPKG_TARGET_TRIPLET} \
             -DVCPKG_DEFAULT_HOST_TRIPLET=${VCPKG_DEFAULT_HOST_TRIPLET} \
             -DVCPKG_HOST_TRIPLET=${VCPKG_HOST_TRIPLET} \
+            -DUSE_VCPKG=ON \
             -DMELONDS_EMBED_BUILD_INFO=ON
 
       - name: Show VCPKG_ROOT (sanity)
