@@ -3,30 +3,19 @@ name: Windows
 on:
   workflow_dispatch:
   push:
-    branches: [ master, ci/* ]
+    branches:
+      - master
+      - ci/*
   pull_request:
-    branches: [ master ]
+    branches:
+      - master
 
 env:
   MELONDS_GIT_BRANCH: ${{ github.ref }}
   MELONDS_GIT_HASH: ${{ github.sha }}
   MELONDS_BUILD_PROVIDER: GitHub Actions
-  MELONDS_VERSION_SUFFIX: " RC"
-  VCPKG_MAX_CONCURRENCY: 8
-  CMAKE_BUILD_PARALLEL_LEVEL: 8
-
-  # すでに入れているはずの MinGW 固定
-  VCPKG_DEFAULT_TRIPLET: x64-mingw-static
-  VCPKG_TARGET_TRIPLET:  x64-mingw-static
-
-  # ★ これを追加（ホスト側も MinGW に固定）
-  VCPKG_DEFAULT_HOST_TRIPLET: x64-mingw-static
-  VCPKG_HOST_TRIPLET:        x64-mingw-static
-
-  VCPKG_FEATURE_FLAGS: manifests,binarycaching
-  VCPKG_FORCE_SYSTEM_BINARIES: 1
-  # vcpkg はデフォルトで debug と release の両方を作ります。 VCPKG_BUILD_TYPE=release を設定すると debug 側を作らなくなります。これだけで体感半分以下になります。
-  VCPKG_BUILD_TYPE: release
+  # vcpkg バイナリキャッシュ（リポ直下のフォルダを使う）
+  VCPKG_BINARY_SOURCES: clear;files,${{ github.workspace }}/vcpkg_cache,readwrite
 
 jobs:
   build:
@@ -37,33 +26,18 @@ jobs:
 
     steps:
       - name: Check out sources
-        uses: actions/checkout@v4
-
-      - name: Cache MSYS2 packages
-        uses: actions/cache@v3
-        with:
-          path: |
-            C:/msys64/var/cache/pacman/pkg
-            C:/msys64/etc/pacman.d/gnupg
-            D:/a/_temp/msys64/var/cache/pacman/pkg
-          key: ${{ runner.os }}-msys2-pacman-${{ hashFiles('**/*.cmake') }}
-          restore-keys: |
-            ${{ runner.os }}-msys2-pacman-
+        uses: actions/checkout@v3
 
       - name: Set up MSYS2 (ucrt64)
         uses: msys2/setup-msys2@v2
         with:
           msystem: ucrt64
-          update: false
+          update: true
+          # これが無いと Ninja / g++ が PATH に乗らず検出失敗することがある
           path-type: inherit
-          pacboy: >-
-            gcc:p
-            cmake:p
-            ninja:p
-            make:p
-            jq:p
+          pacboy: gcc:p cmake:p ninja:p make:p jq:p
 
-      # ▼ overlay ディレクトリを（空でも）必ず作成
+      # vcpkg.json が overlay を要求しているため、空でも必ず作る
       - name: Ensure vcpkg overlay directories exist
         run: |
           mkdir -p ./cmake/overlay-ports
@@ -71,114 +45,44 @@ jobs:
           [ -f ./cmake/overlay-ports/.keep ] || echo keep > ./cmake/overlay-ports/.keep
           [ -f ./cmake/overlay-triplets/.keep ] || echo keep > ./cmake/overlay-triplets/.keep
 
-      # ▼ vcpkg.json から builtin-baseline を取得（再現性のため）
-      - name: Read vcpkg builtin-baseline
-        id: baseline
-        run: |
-          if [ -f vcpkg.json ]; then
-            BL=$(jq -r '.["builtin-baseline"] // empty' vcpkg.json)
-            if [ -n "$BL" ]; then
-              echo "baseline=$BL" >> $GITHUB_OUTPUT
-            fi
-          fi
+      - name: Restore vcpkg binary cache
+        uses: actions/cache/restore@v4
+        with:
+          path: ${{ github.workspace }}/vcpkg_cache
+          key: vcpkg-x86_64-mingw-${{ hashFiles('vcpkg.json') }}
+          restore-keys: |
+            vcpkg-x86_64-mingw-
 
-      # ▼ vcpkg セットアップ（manifest）
-      - name: Set up vcpkg
+      - name: Set up vcpkg (manifest)
         uses: lukka/run-vcpkg@v11
         with:
-          vcpkgJsonGlob: '**/vcpkg.json'
-          vcpkgGitCommitId: ${{ steps.baseline.outputs.baseline }}
+          vcpkgJsonGlob: vcpkg.json
 
-      # ▼ ここが重要：旧トリプレット汚染の徹底除去（初回のみでも可）
-      - name: Purge contaminated caches
+      # （任意）最初の数行だけでもログを出すと原因追跡が楽
+      - name: Show vcpkg manifest log (head)
         run: |
-          rm -rf ./build || true
-          rm -rf ./vcpkg/buildtrees || true
-          rm -rf ./vcpkg/packages || true
-          rm -rf ./vcpkg_installed || true
-          rm -rf ./vcpkg_binary_cache || true
+          if [ -f build/release-mingw-x86_64/vcpkg-manifest-install.log ]; then
+            sed -n '1,160p' build/release-mingw-x86_64/vcpkg-manifest-install.log || true
+          fi
 
-
-      # ▼ vcpkg バイナリキャッシュ（キーに -mingw- を入れて x64-windows 汚染を回避）
-      - name: Cache vcpkg binary cache
-        uses: actions/cache@v3
-        with:
-          path: ${{ github.workspace }}/vcpkg_binary_cache
-          key: ${{ runner.os }}-mingw-vcpkg-bin-${{ hashFiles('vcpkg.json', 'CMakeLists.txt', 'cmake/**', 'cmake/overlay-triplets/*.cmake') }}
-          restore-keys: |
-            ${{ runner.os }}-mingw-vcpkg-bin-
-
-      # ▼ CMake ビルドディレクトリのキャッシュ（任意）
-      - name: Cache CMake build directory
-        uses: actions/cache@v3
-        with:
-          path: ${{ github.workspace }}/build
-          key: ${{ runner.os }}-mingw-cmake-build-${{ hashFiles('CMakeLists.txt', 'src/**', 'include/**', 'cmake/**') }}
-          restore-keys: |
-            ${{ runner.os }}-mingw-cmake-build-${{ hashFiles('CMakeLists.txt') }}
-            ${{ runner.os }}-mingw-cmake-build-
-
-      # ▼ 早期健全性チェック
-      - name: Toolchain sanity check
+      - name: Configure (preset)
         run: |
-          which cmake
-          which ninja
-          which x86_64-w64-mingw32-gcc
-          which x86_64-w64-mingw32-g++
-          cmake --version
-          ninja --version
-          x86_64-w64-mingw32-gcc --version | head -n1
-
-      # ▼ ここが肝：Ninja＋MinGW＋vcpkgツールチェーン＋トリプレットを「CMake引数で」明示上書き
-
-      - name: Configure (Ninja + MinGW + vcpkg toolchain + triplets)
-        env:
-          NINJA_STATUS: "[%f/%t %o/s %es] "
-          VCPKG_BINARY_SOURCES: "clear;files,${{ github.workspace }}/vcpkg_binary_cache,readwrite"
-          CC:  x86_64-w64-mingw32-gcc
-          CXX: x86_64-w64-mingw32-g++
-        run: |
-          cmake -S . -B build/release-mingw-x86_64 -G Ninja \
-            -DCMAKE_BUILD_TYPE=Release \
-            -DCMAKE_C_COMPILER=${CC} \
-            -DCMAKE_CXX_COMPILER=${CXX} \
-            -DCMAKE_TOOLCHAIN_FILE="${VCPKG_ROOT}/scripts/buildsystems/vcpkg.cmake" \
-            -DCMAKE_FIND_PACKAGE_PREFER_CONFIG=ON \
-            -DVCPKG_DEFAULT_TRIPLET=${VCPKG_DEFAULT_TRIPLET} \
-            -DVCPKG_TARGET_TRIPLET=${VCPKG_TARGET_TRIPLET} \
-            -DVCPKG_DEFAULT_HOST_TRIPLET=${VCPKG_DEFAULT_HOST_TRIPLET} \
-            -DVCPKG_HOST_TRIPLET=${VCPKG_HOST_TRIPLET} \
+          cmake --preset=release-mingw-x86_64 \
             -DUSE_VCPKG=ON \
             -DMELONDS_EMBED_BUILD_INFO=ON
 
-      - name: Show VCPKG_ROOT (sanity)
-        run: |
-          echo "VCPKG_ROOT=$VCPKG_ROOT"
-
-
-
-      # ▼ 選択トリプレットの可視化（デバッグ用）
-      - name: Show selected VCPKG_* from CMake cache
-        run: |
-          grep -E 'VCPKG_.*TRIPLET' build/release-mingw-x86_64/CMakeCache.txt || true
-          cat build/release-mingw-x86_64/vcpkg-manifest-install.log | sed -n '1,120p' || true
-
-      - name: Show selected triplets & manifest log
-        run: |
-          echo "=== Triplets in CMakeCache ==="
-          grep -E 'VCPKG_.*TRIPLET' build/release-mingw-x86_64/CMakeCache.txt || true
-          echo "=== vcpkg manifest install log (head) ==="
-          sed -n '1,160p' build/release-mingw-x86_64/vcpkg-manifest-install.log || true
-      
       - name: Build
-        env:
-          NINJA_STATUS: "[%f/%t %o/s %es] "
-          VCPKG_BINARY_SOURCES: "clear;files,${{ github.workspace }}/vcpkg_binary_cache,readwrite"
-        run: |
-          cmake --build build/release-mingw-x86_64 --parallel ${{ env.CMAKE_BUILD_PARALLEL_LEVEL }}
+        run: cmake --build --preset=release-mingw-x86_64 --parallel
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
           name: melonDS-windows-x86_64
           path: build/release-mingw-x86_64/melonDS.exe
+
+      - name: Save vcpkg binary cache
+        uses: actions/cache/save@v4
+        if: always()
+        with:
+          path: ${{ github.workspace }}/vcpkg_cache
+          key: vcpkg-x86_64-mingw-${{ hashFiles('vcpkg.json') }}
