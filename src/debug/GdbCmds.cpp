@@ -886,14 +886,14 @@ ExecResult GdbStub::Handle_v_MustReplyEmpty(GdbStub* stub, const u8* cmd, ssize_
 
 ExecResult GdbStub::Handle_v_Cont(GdbStub* stub, const u8* cmd, ssize_t len)
 {
-	if (len < 1)
+	if (len < 2)
 	{
 		printf("insufficient length");
 		stub->RespStr("E01");
 		return ExecResult::Ok;
 	}
 
-	switch (cmd[0])
+	switch (cmd[1])
 	{
 	case 'c':
 		stub->RespStr("OK");
@@ -905,7 +905,7 @@ ExecResult GdbStub::Handle_v_Cont(GdbStub* stub, const u8* cmd, ssize_t len)
 		stub->RespStr("OK");
 		return ExecResult::MustBreak;
 	default:
-		printf("invalid continue %c %s\n", cmd[0], cmd);
+		printf("invalid continue %c %s\n", cmd[1], cmd);
 		stub->RespStr("E01");
 		return ExecResult::Ok;
 	}
