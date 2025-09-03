@@ -2422,8 +2422,16 @@
 					</widget>
 				</item>
 
+				<item row="10" column="0">
+					<widget class="QCheckBox" name="cbMetroidUseFirmwareName">
+						<property name="text">
+							<string>Use firmware name(Reset in-game name)</string>
+						</property>
+					</widget>
+				</item>
+
 				<!-- Low quality -->
-			    <item row="10" column="0">
+			    <item row="11" column="0">
 				    <widget class="QPushButton" name="metroidSetVideoQualityToLow">
 					    <property name="text">
 						    <string>Video quality: Low (High Performance)</string>
@@ -2432,7 +2440,7 @@
 			    </item>
 
 			    <!-- High quality -->
-			    <item row="11" column="0">
+			    <item row="12" column="0">
 				    <widget class="QPushButton" name="metroidSetVideoQualityToHigh">
 					    <property name="text">
 						    <string>Video quality: High (Lower Performance)</string>
@@ -2441,7 +2449,7 @@
 			    </item>
 
 				<!-- High2 quality -->
-				<item row="12" column="0">
+				<item row="13" column="0">
 					<widget class="QPushButton" name="metroidSetVideoQualityToHigh2">
 						<property name="text">
 							<string>Video quality: High2 (Recommended. Best Performance, Minor Visual Glitches) </string>

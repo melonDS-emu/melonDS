@@ -8,6 +8,7 @@ on:
   pull_request:
     branches:
       - master
+
 env:
   MELONDS_GIT_BRANCH: ${{ github.ref }}
   MELONDS_GIT_HASH: ${{ github.sha }}
@@ -15,6 +16,7 @@ env:
   MELONDS_VERSION_SUFFIX: " RC"
   VCPKG_MAX_CONCURRENCY: 8
   CMAKE_BUILD_PARALLEL_LEVEL: 8
+
 jobs:
   build-macos:
     strategy:
@@ -23,45 +25,66 @@ jobs:
     name: build-${{ matrix.arch }}
     runs-on: macos-14
     env:
-        VCPKG_BINARY_SOURCES: clear;files,${{ github.workspace }}/vcpkg_cache,readwrite
+      VCPKG_BINARY_SOURCES: clear;files,${{ github.workspace }}/vcpkg_cache,readwrite
+      # C/C++ と Generator を明示（確実化）
+      CC: clang
+      CXX: clang++
+      CMAKE_GENERATOR: Ninja
+      HOMEBREW_NO_AUTO_UPDATE: 1
+      HOMEBREW_NO_INSTALL_CLEANUP: 1
+
     steps:
     - name: Check out sources
-      uses: actions/checkout@v3
+      uses: actions/checkout@v4
       with:
         fetch-depth: 1
 
+    # overlay-ports を必ず用意（vcpkg.json で参照されるため、空で良いので存在必須）
+    - name: Prepare vcpkg overlay-ports
+      run: |
+        mkdir -p cmake/overlay-ports
+        touch cmake/overlay-ports/.keep
+
+    # Homebrew キャッシュ（/usr/local と /opt/homebrew の両方をカバー）
     - name: Cache Homebrew packages
       uses: actions/cache@v3
       with:
         path: |
           ~/Library/Caches/Homebrew
           /usr/local/Homebrew
+          /opt/homebrew
+          /opt/homebrew/Cellar
+          /opt/homebrew/Caskroom
         key: ${{ runner.os }}-brew-${{ hashFiles('.github/workflows/macos.yml') }}
         restore-keys: |
           ${{ runner.os }}-brew-
 
+    # Ninja 等の必須ビルドツールを導入
     - name: Install dependencies for package building
       run: |
-        brew install autoconf automake autoconf-archive libtool python-setuptools
+        brew install autoconf automake autoconf-archive libtool ninja pkg-config
 
     - name: Set up CMake
       uses: lukka/get-cmake@latest
 
-    - name: Restore vcpkg cache
+    # vcpkg バイナリキャッシュ（ビルド成果物）
+    - name: Restore vcpkg binary cache
       uses: actions/cache/restore@v4
       with:
         path: ${{ github.workspace }}/vcpkg_cache
         key: vcpkg-${{ matrix.arch }}-osx-${{ hashFiles('vcpkg.json') }}
         restore-keys: vcpkg-${{ matrix.arch }}-osx-
-    - name: Cache vcpkg
+
+    # vcpkg/installed ディレクトリ自体のキャッシュ
+    - name: Cache vcpkg working dirs
       uses: actions/cache@v3
       with:
         path: |
           ${{ github.workspace }}/vcpkg
           ${{ github.workspace }}/vcpkg_installed
-        key: ${{ runner.os }}-${{ matrix.arch }}-vcpkg-${{ env.VCPKG_COMMIT }}-${{ hashFiles('CMakeLists.txt') }}
+        key: ${{ runner.os }}-${{ matrix.arch }}-vcpkg-${{ hashFiles('CMakeLists.txt', 'vcpkg.json', 'vcpkg-configuration.json', 'cmake/overlay-ports/**') }}
         restore-keys: |
-          ${{ runner.os }}-${{ matrix.arch }}-vcpkg-${{ env.VCPKG_COMMIT }}-
+          ${{ runner.os }}-${{ matrix.arch }}-vcpkg-
 
     - name: Set up vcpkg
       uses: lukka/run-vcpkg@v11
@@ -72,7 +95,7 @@ jobs:
       uses: actions/cache@v3
       with:
         path: ${{ github.workspace }}/build
-        key: ${{ runner.os }}-${{ matrix.arch }}-cmake-build-${{ hashFiles('CMakeLists.txt', 'src/**', 'include/**') }}
+        key: ${{ runner.os }}-${{ matrix.arch }}-cmake-build-${{ hashFiles('CMakeLists.txt', 'src/**', 'include/**', 'CMakePresets.json') }}
         restore-keys: |
           ${{ runner.os }}-${{ matrix.arch }}-cmake-build-
 
@@ -81,9 +104,14 @@ jobs:
       with:
         configurePreset: release-mac-${{ matrix.arch }}
         buildPreset: release-mac-${{ matrix.arch }}
-        configurePresetAdditionalArgs: "['-DMELONDS_EMBED_BUILD_INFO=ON', '-DCMAKE_BUILD_PARALLEL_LEVEL=${{ env.CMAKE_BUILD_PARALLEL_LEVEL }}']"
+        # 追加引数は JSON 文字列（配列）で渡す仕様に合わせる
+        configurePresetAdditionalArgs: '["-DMELONDS_EMBED_BUILD_INFO=ON","-DCMAKE_BUILD_PARALLEL_LEVEL=${{ env.CMAKE_BUILD_PARALLEL_LEVEL }}"]'
       env:
         VCPKG_MAX_CONCURRENCY: ${{ env.VCPKG_MAX_CONCURRENCY }}
+        # 念のため run-cmake ステップにも明示
+        CC: clang
+        CXX: clang++
+        CMAKE_GENERATOR: Ninja
 
     - name: Compress app bundle
       shell: bash
@@ -97,7 +125,8 @@ jobs:
         name: macOS-${{ matrix.arch }}
         path: macOS-${{ matrix.arch }}.zip
         retention-days: 1
-    - name: Save vcpkg cache
+
+    - name: Save vcpkg binary cache
       uses: actions/cache/save@v4
       with:
         path: ${{ github.workspace }}/vcpkg_cache
@@ -106,7 +135,7 @@ jobs:
   universal-binary:
     name: Universal binary
     needs: [build-macos]
-    runs-on: macos-13
+    runs-on: macos-14
     continue-on-error: true
     steps:
     - name: Download x86_64
