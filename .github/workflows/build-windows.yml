@@ -14,7 +14,8 @@ env:
   MELONDS_GIT_BRANCH: ${{ github.ref }}
   MELONDS_GIT_HASH: ${{ github.sha }}
   MELONDS_BUILD_PROVIDER: GitHub Actions
-#  MELONDS_VERSION_SUFFIX: " RC"
+  # vcpkg バイナリキャッシュ（リポ直下のフォルダを使う）
+  VCPKG_BINARY_SOURCES: clear;files,${{ github.workspace }}/vcpkg_cache,readwrite
 
 jobs:
   build:
@@ -22,37 +23,66 @@ jobs:
     defaults:
       run:
         shell: msys2 {0}
-    env:
-      VCPKG_BINARY_SOURCES: clear;files,${{ github.workspace }}/vcpkg_cache,readwrite
+
     steps:
-    - name: Check out sources
-      uses: actions/checkout@v3
-    - name: Set up MSYS2
-      uses: msys2/setup-msys2@v2
-      with:
-        msystem: ucrt64
-        update: true
-        pacboy: gcc:p cmake:p ninja:p make:p
-    - name: Restore vcpkg cache
-      uses: actions/cache/restore@v4
-      with:
-        path: ${{ github.workspace }}/vcpkg_cache
-        key: vcpkg-x86_64-mingw-${{ hashFiles('vcpkg.json') }}
-        restore-keys: vcpkg-x86_64-mingw-
-    - name: Set up vcpkg
-      uses: lukka/run-vcpkg@v11
-      with:
-        vcpkgJsonGlob: vcpkg.json
-    - name: Configure
-      run: cmake --preset=release-mingw-x86_64 -DMELONDS_EMBED_BUILD_INFO=ON
-    - name: Build
-      run: cmake --build --preset=release-mingw-x86_64
-    - uses: actions/upload-artifact@v4
-      with:
-        name: melonDS-windows-x86_64
-        path: .\build\release-mingw-x86_64\melonDS.exe
-    - name: Save vcpkg cache
-      uses: actions/cache/save@v4
-      with:
-        path: ${{ github.workspace }}/vcpkg_cache
-        key: vcpkg-x86_64-mingw-${{ hashFiles('vcpkg.json') }}
+      - name: Check out sources
+        uses: actions/checkout@v3
+
+      - name: Set up MSYS2 (ucrt64)
+        uses: msys2/setup-msys2@v2
+        with:
+          msystem: ucrt64
+          update: true
+          # これが無いと Ninja / g++ が PATH に乗らず検出失敗することがある
+          path-type: inherit
+          pacboy: gcc:p cmake:p ninja:p make:p jq:p
+
+      # vcpkg.json が overlay を要求しているため、空でも必ず作る
+      - name: Ensure vcpkg overlay directories exist
+        run: |
+          mkdir -p ./cmake/overlay-ports
+          mkdir -p ./cmake/overlay-triplets
+          [ -f ./cmake/overlay-ports/.keep ] || echo keep > ./cmake/overlay-ports/.keep
+          [ -f ./cmake/overlay-triplets/.keep ] || echo keep > ./cmake/overlay-triplets/.keep
+
+      - name: Restore vcpkg binary cache
+        uses: actions/cache/restore@v4
+        with:
+          path: ${{ github.workspace }}/vcpkg_cache
+          key: vcpkg-x86_64-mingw-${{ hashFiles('vcpkg.json') }}
+          restore-keys: |
+            vcpkg-x86_64-mingw-
+
+      - name: Set up vcpkg (manifest)
+        uses: lukka/run-vcpkg@v11
+        with:
+          vcpkgJsonGlob: vcpkg.json
+
+      # （任意）最初の数行だけでもログを出すと原因追跡が楽
+      - name: Show vcpkg manifest log (head)
+        run: |
+          if [ -f build/release-mingw-x86_64/vcpkg-manifest-install.log ]; then
+            sed -n '1,160p' build/release-mingw-x86_64/vcpkg-manifest-install.log || true
+          fi
+
+      - name: Configure (preset)
+        run: |
+          cmake --preset=release-mingw-x86_64 \
+            -DUSE_VCPKG=ON \
+            -DMELONDS_EMBED_BUILD_INFO=ON
+
+      - name: Build
+        run: cmake --build --preset=release-mingw-x86_64 --parallel
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: melonDS-windows-x86_64
+          path: build/release-mingw-x86_64/melonDS.exe
+
+      - name: Save vcpkg binary cache
+        uses: actions/cache/save@v4
+        if: always()
+        with:
+          path: ${{ github.workspace }}/vcpkg_cache
+          key: vcpkg-x86_64-mingw-${{ hashFiles('vcpkg.json') }}
