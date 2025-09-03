@@ -9,6 +9,7 @@ set(CMAKE_POLICY_DEFAULT_CMP0069 NEW)
 
 set(CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/cmake" ${CMAKE_MODULE_PATH})
 set(CMAKE_USER_MAKE_RULES_OVERRIDE "${CMAKE_CURRENT_SOURCE_DIR}/cmake/DefaultBuildFlags.cmake")
+set(CMAKE_OSX_DEPLOYMENT_TARGET "10.15" CACHE STRING "Minimum OS X deployment version")
 
 option(USE_VCPKG "Use vcpkg for dependency packages" OFF)
 if (USE_VCPKG)
@@ -21,8 +22,6 @@ project(melonDS
     HOMEPAGE_URL "https://melonds.kuribo64.net"
     LANGUAGES C CXX)
 
-set(CMAKE_FIND_PACKAGE_PREFER_CONFIG ON CACHE BOOL "Prefer *Config.cmake over Find*.cmake" FORCE)
-
 include(CheckSymbolExists)
 include(CheckLibraryExists)
 include(CMakeDependentOption)
@@ -30,8 +29,6 @@ include(CheckIPOSupported)
 
 include(SetupCCache)
 include(Sanitizers)
-
-set(CMAKE_OSX_DEPLOYMENT_TARGET "10.15" CACHE STRING "Minimum OS X deployment version")
 
 set(CMAKE_C_STANDARD 11)
 set(CMAKE_C_STANDARD_REQUIRED ON)
@@ -50,6 +47,8 @@ function(detect_architecture symbol arch)
         check_symbol_exists("${symbol}" "" ARCHITECTURE_${arch})
         unset(CMAKE_REQUIRED_QUIET)
 
+        # The output variable needs to be unique across invocations otherwise
+        # CMake's crazy scope rules will keep it defined
         if (ARCHITECTURE_${arch})
             set(ARCHITECTURE "${arch}" PARENT_SCOPE)
             set(ARCHITECTURE_${arch} 1 PARENT_SCOPE)
