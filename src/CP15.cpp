@@ -824,6 +824,7 @@ void ARMv5::DataRead8(u32 addr, u32* val)
     }
 
     DataRegion = addr;
+    GdbCheckD(addr, Gdb::WatchptKind::Read);
 
     if (addr < ITCMSize)
     {
@@ -853,6 +854,7 @@ void ARMv5::DataRead16(u32 addr, u32* val)
     DataRegion = addr;
 
     addr &= ~1;
+    GdbCheckD(addr, Gdb::WatchptKind::Read);
 
     if (addr < ITCMSize)
     {
@@ -882,6 +884,7 @@ void ARMv5::DataRead32(u32 addr, u32* val)
     DataRegion = addr;
 
     addr &= ~3;
+    GdbCheckD(addr, Gdb::WatchptKind::Read);
 
     if (addr < ITCMSize)
     {
@@ -903,6 +906,7 @@ void ARMv5::DataRead32(u32 addr, u32* val)
 void ARMv5::DataRead32S(u32 addr, u32* val)
 {
     addr &= ~3;
+    GdbCheckD(addr, Gdb::WatchptKind::Read);
 
     if (addr < ITCMSize)
     {
@@ -930,6 +934,7 @@ void ARMv5::DataWrite8(u32 addr, u8 val)
     }
 
     DataRegion = addr;
+    GdbCheckD(addr, Gdb::WatchptKind::Write);
 
     if (addr < ITCMSize)
     {
@@ -960,6 +965,7 @@ void ARMv5::DataWrite16(u32 addr, u16 val)
     DataRegion = addr;
 
     addr &= ~1;
+    GdbCheckD(addr, Gdb::WatchptKind::Write);
 
     if (addr < ITCMSize)
     {
@@ -990,6 +996,7 @@ void ARMv5::DataWrite32(u32 addr, u32 val)
     DataRegion = addr;
 
     addr &= ~3;
+    GdbCheckD(addr, Gdb::WatchptKind::Write);
 
     if (addr < ITCMSize)
     {
@@ -1012,6 +1019,7 @@ void ARMv5::DataWrite32(u32 addr, u32 val)
 void ARMv5::DataWrite32S(u32 addr, u32 val)
 {
     addr &= ~3;
+    GdbCheckD(addr, Gdb::WatchptKind::Write);
 
     if (addr < ITCMSize)
     {
