@@ -2154,227 +2154,6 @@ void EmuThread::run()
 
 
 
-
-
-
-
-
-    /**
-     * エイム入力処理(QCursor使用・構造保持・低遅延・ドリフト防止版).
-     *
-     * 最適化のポイント:
-     * 1. キャッシュライン整列構造体によるデータアクセス高速化.
-     * 2. adjust処理のマクロ化によるインライン性能向上.
-     * 3. 自然な処理順序とホットパス/コールドパスの構造維持.
-     */
-    static const auto processAimInputOldVer = [&]() __attribute__((hot, always_inline, flatten)) {
-#ifndef STYLUS_MODE
-        // エイム処理用の構造体(キャッシュライン境界に配置)
-        struct alignas(64) {
-            int centerX;
-            int centerY;
-            float sensitivityFactor;
-            float dsAspectRatio;
-            float combinedSensitivityY;  // 感度とアスペクト比の積
-        } static aimData = { 0, 0, 0.01f, 1.3333333f, 0.013333333f };
-
-        // ドリフト防止のための丸め処理マクロ（関数呼び出しのオーバーヘッドを削減） 推定サイクル数: 4-15サイクル
-
-#ifdef COMMENTOUTTTTTTTT
-
-
-
-// 最小命令数に逆算された超軽量版 AIM_ADJUST マクロ
-
-        // 調整関数（マクロ化前までの） 10-20サイクル
-        static const auto AIM_ADJUST = [](float value) __attribute__((hot, always_inline)) -> int16_t {
-            if (value >= 0.5f && value < 1.0f) return static_cast<int16_t>(1.0f);
-            if (value <= -0.5f && value > -1.0f) return static_cast<int16_t>(-1.0f);
-            return static_cast<int16_t>(value);  // 切り捨て(0方向への丸め)
-        };
-
-        // v1.0 検証の結果、以下のような平均処理時間が得られました（各方式とも1万回の変換を100回繰り返した平均値）：条件分岐版（branch）：約 0.0536 秒
-#define AIM_ADJUST(v) ((v) >= 0.5f && (v) < 1.0f ? 1 : ((v) <= -0.5f && (v) > -1.0f ? -1 : static_cast<int16_t>(v)))
-
-
-        // bitwise ver v2 bug fixed. なんか遅延ある。
-#define AIM_ADJUST(value) ({ \
-    uint32_t __bits; \
-    memcpy(&__bits, &(value), sizeof(__bits)); /* float → uint32_t */ \
-    uint32_t __abs = __bits & 0x7FFFFFFF; /* 絶対値を取得 */ \
-    int16_t __fallback = (int16_t)(value); /* 通常の切り捨て */ \
-    int16_t __alt = 1 - ((__bits >> 30) & 2); /* ±1生成 */ \
-    (__abs >= 0x3F000000u && __abs < 0x3F800000u) ? __alt : __fallback; \
-})
-
-
-
-// 最速版3: ルックアップテーブル + ビット操作ハイブリッド 
-// 両方の AIM_ADJUST 実装（条件分岐版とビット操作版）は、全てのテスト値（ - 2.0～2.0の範囲で1万件）において完全に一致する結果を返しました。
-// つまり、同じ結果になります。ビット操作版は、条件分岐を避けつつも期待される数値変換を正確に再現できています。
-// 検証の結果、以下のような平均処理時間が得られました（各方式とも1万回の変換を100回繰り返した平均値）：ビット操作版（bit操作 + union）：約 0.0691 秒
-#define AIM_ADJUST(v) ({ \
-    union { float f; uint32_t u; } x = {v}; \
-    uint32_t exp = (x.u >> 23) & 0xFF; \
-    uint32_t sign = x.u >> 31; \
-    /* 指数が126（0.5-1.0の範囲）の場合のみ特別処理 */ \
-    int16_t result = (int16_t)v; \
-    result = (exp == 126) ? (1 - (sign << 1)) : result; \
-    result; \
-})
-
-// NG! LUTベース。最速だが -0.499付近で誤差あり(この誤差は許容範囲か？) 平均時間（秒）：0.0326
-        static const int8_t aim_adjust_table[20] = {
-            -1, -1, -1, -1, -1,  // -1.0 ~ -0.6
-            0, 0, 0, 0, 0,       // -0.5 ~ -0.1
-            0, 0, 0, 0, 0,       // 0.0 ~ 0.4
-            1, 1, 1, 1, 1        // 0.5 ~ 0.9
-        };
-#define AIM_ADJUST(v) ({ \
-    float _v = (v); \
-    int idx = (int)(_v * 10 + 10); \
-    (idx >= 0 && idx < 20) ? aim_adjust_table[idx] : (int16_t)_v; \
-})
-
-// テーブル版　	平均時間（秒）：0.0288
-namespace AimAdjustTable {
-    static constexpr int8_t table[20] = {
-        -1, -1, -1, -1, -1,  // -1.0 ~ -0.6
-            0,  0,  0,  0,  0,  // -0.5 ~ -0.1
-            0,  0,  0,  0,  0,  //  0.0 ~  0.4
-            1,  1,  1,  1,  1   //  0.5 ~  0.9
-    };
-
-    inline int16_t adjust(float v) {
-        int idx = static_cast<int>(v * 10 + 10);
-        if (idx >= 0 && idx < 20) {
-            return table[idx];
-        }
-        return static_cast<int16_t>(v);
-    }
-}
-
-
-// 最速版4: 条件分岐最小化（2段階判定） 平均時間（秒）：0.0465
-#define AIM_ADJUST(v) ({ \
-    float _v = (v); \
-    float _av = __builtin_fabsf(_v); \
-    (_av >= 0.5f && _av < 1.0f) ? ((_v > 0) ? 1 : -1) : (int16_t)_v; \
-})
-
-// 正確。	平均時間（秒）：0.0295
-#define AIM_ADJUST(v) \
-    (({ \
-        static constexpr int8_t _table[20] = { \
-            -1, -1, -1, -1, -1, \
-             0,  0,  0,  0,  0, \
-             0,  0,  0,  0,  0, \
-             1,  1,  1,  1,  1 \
-        }; \
-        float _v = (v); \
-        int _idx = static_cast<int>(_v * 10 + 10); \
-        (_idx >= 0 && _idx < 20) ? _table[_idx] : static_cast<int16_t>(_v); \
-    }))
-// 正確。	平均時間（秒）：0.0289
-#define AIM_ADJUST(v)                          \
-    ({                                                  \
-        float _v = (v);                                 \
-        int _vi = static_cast<int>(_v * 10);            \
-        (_vi >= 5 && _vi <= 9) ? 1 :                    \
-        (_vi >= -9 && _vi <= -5) ? -1 :                 \
-        static_cast<int16_t>(_v);                       \
-    })
-
-// v1.0 検証の結果、以下のような平均処理時間が得られました（各方式とも1万回の変換を100回繰り返した平均値）：条件分岐版（branch）：約 0.0536 秒
-#define AIM_ADJUST(v) ((v) >= 0.5f && (v) < 1.0f ? 1 : ((v) <= -0.5f && (v) > -1.0f ? -1 : static_cast<int16_t>(v)))
-
-
-#endif
-
-
-
-// 正確。	平均時間（秒）：0.0234
-#define AIM_ADJUST(v)                        \
-    ({                                                  \
-        float _v = (v);                                 \
-        int _vi = (int)(_v * 10.001f);                  \
-        (_vi >= 5 && _vi <= 9) ? 1 :                    \
-        (_vi >= -9 && _vi <= -5) ? -1 :                 \
-        static_cast<int16_t>(_v);                       \
-    })
-
-
-// Hot path: when there is focus and no layout change
-        if (__builtin_expect(!isLayoutChangePending && wasLastFrameFocused, 1)) {
-            // Get current mouse coordinates
-            const QPoint currentPos = QCursor::pos();
-            const int posX = currentPos.x();
-            const int posY = currentPos.y();
-
-            // Calculate mouse movement delta
-            const int deltaX = posX - aimData.centerX;
-            const int deltaY = posY - aimData.centerY;
-
-            // If there’s no movement, do nothing and exit
-            if ((deltaX | deltaY) == 0) return;
-
-            // Reconfigure if sensitivity has changed
-            if (__builtin_expect(isSensitivityChangePending, 0)) {
-                const int sens = localCfg.GetInt("Metroid.Sensitivity.Aim");
-                aimData.sensitivityFactor = sens * 0.01f;
-                aimData.combinedSensitivityY = aimData.sensitivityFactor * aimData.dsAspectRatio;
-                isSensitivityChangePending = false;
-            }
-
-            // Apply sensitivity scaling to movement delta
-            const float scaledX = deltaX * aimData.sensitivityFactor;
-            const float scaledY = deltaY * aimData.combinedSensitivityY;
-
-            // スケーリング後の座標を調整(ドリフト防止のため)
-            const int16_t outputX = AIM_ADJUST(scaledX);
-            const int16_t outputY = AIM_ADJUST(scaledY);
-
-            // メモリ書き込み(NDSエミュレータへ送信)
-            emuInstance->nds->ARM9Write16(addrAimX, outputX);
-            emuInstance->nds->ARM9Write16(addrAimY, outputY);
-
-            // AIM動作フラグを有効化
-            enableAim = true;
-
-            // カーソルを中央に戻す(後処理として実行)
-            QCursor::setPos(aimData.centerX, aimData.centerY);
-            return;
-        }
-
-        // コールドパス：レイアウト変更または初期化時
-        const QPoint center = getAdjustedCenter();
-        aimData.centerX = center.x();
-        aimData.centerY = center.y();
-
-        // カーソル初期位置を設定
-        QCursor::setPos(center);
-        isLayoutChangePending = false;
-
-        // 感度も初期化(必要に応じて)
-        if (isSensitivityChangePending) {
-            const int sens = localCfg.GetInt("Metroid.Sensitivity.Aim");
-            aimData.sensitivityFactor = sens * 0.01f;
-            aimData.combinedSensitivityY = aimData.sensitivityFactor * aimData.dsAspectRatio;
-            isSensitivityChangePending = false;
-        }
-
-#else
-        // スタイラス入力モード(タッチ処理)
-        if (__builtin_expect(emuInstance->isTouching, 1)) {
-            emuInstance->nds->TouchScreen(emuInstance->touchX, emuInstance->touchY);
-        }
-        else {
-            emuInstance->nds->ReleaseScreen();
-        }
-#endif
-    };
-
-
     /**
      * Aim input processing (QCursor-based, structure-preserving, low-latency, drift-prevention version).
      *
@@ -2392,11 +2171,27 @@ namespace AimAdjustTable {
             int centerY;
             // Store X-axis sensitivity factor (speed up scaling)
             float sensitivityFactor;
-            // Store screen aspect ratio (for Y-axis sensitivity adjustment)
-            float dsAspectRatio;
             // Store combined Y-axis sensitivity (reduce multiplication operations)
             float combinedSensitivityY;
-        } static aimData = { 0, 0, 0.01f, 1.3333333f, 0.013333333f };
+        } static aimData = { 0, 0, 0.01f, 0.013333333f };
+
+        // 感度更新ラムダ定義(重複コード排除と単一責務化のため)
+        auto updateSensitivity = [&]() __attribute__((always_inline)) {
+            // 変更待ち判定(不要計算回避のため)
+            if (__builtin_expect(isSensitivityChangePending, 0)) {
+                // Retrieve sensitivity value (to apply settings)
+                const int sens = localCfg.GetInt("Metroid.Sensitivity.Aim");
+				const float aimYAxisScale = static_cast<float>(
+                    localCfg.GetDouble("Metroid.Sensitivity.AimYAxisScale")
+                    );
+                // Update X sensitivity (set scaling factor)
+                aimData.sensitivityFactor = sens * 0.01f;
+                // Update combined Y sensitivity (reduce multiplication operations)
+                aimData.combinedSensitivityY = aimData.sensitivityFactor * aimYAxisScale;
+                // Clear flag (prevent redundant recalculation)
+                isSensitivityChangePending = false;
+            }
+        };
 
         // Define macro to prevent drift by rounding (single evaluation and snap within tolerance range)
 #define AIM_ADJUST(v)                                        \
@@ -2412,6 +2207,22 @@ namespace AimAdjustTable {
             /* Otherwise truncate (to suppress drift) */         \
             static_cast<int16_t>(_v);                            \
         })
+
+// 元AIM_ADJUSTと完全一致（0.5≤v<1→+1, -1<v≤-0.5→-1, それ以外は0方向丸め）
+// ※ v は単一評価。ブランチレス寄りのビットマスク合成。
+// ※ GNU拡張 ({ ... }) を使うため、GCC/Clang系で使用してください。
+#define AIM_ADJUST(v)                                                         \
+({                                                                                  \
+    float _v  = (v);                                                                \
+    int   _o  = static_cast<int>(_v);    /* 0方向丸め */                            \
+    /* 区間判定（短絡なし & を使用）*/                                                \
+    const int _pos = static_cast<int>((_v >= 0.5f) & (_v <  1.0f));   /* +1帯 */    \
+    const int _neg = static_cast<int>((_v <= -0.5f) & (_v > -1.0f));  /* -1帯 */    \
+    /* out = _pos ? +1 : out; out = _neg ? -1 : out; をビット演算で合成 */            \
+    int _t = _o ^ ((_o ^  1)  & -_pos);                                             \
+        _t = _t ^ ((_t ^ -1)  & -_neg);                                             \
+    static_cast<int16_t>(_t);                                                       \
+})
 
 // Hot path branch (fast processing when focus is maintained and layout is unchanged)
 
@@ -2429,19 +2240,10 @@ namespace AimAdjustTable {
             const int deltaY = posY - aimData.centerY;
 
             // Early exit if no movement (prevent unnecessary processing)
-            if ((deltaX | deltaY) == 0) return;
+            if (!(deltaX | deltaY)) return;
 
-            // Check if sensitivity needs update (ensure single recalculation)
-            if (__builtin_expect(isSensitivityChangePending, 0)) {
-                // Retrieve sensitivity value (apply updated settings)
-                const int sens = localCfg.GetInt("Metroid.Sensitivity.Aim");
-                // Update X sensitivity (refresh scaling factor)
-                aimData.sensitivityFactor = sens * 0.01f;
-                // Update combined Y sensitivity (reduce multiplications)
-                aimData.combinedSensitivityY = aimData.sensitivityFactor * aimData.dsAspectRatio;
-                // Clear flag (prevent duplicate recalculation)
-                isSensitivityChangePending = false;
-            }
+            // 感度更新呼び出し(フラグ監視により一度だけ再計算するため)
+            updateSensitivity();
 
             // Calculate X scaling (apply sensitivity)
             const float scaledX = deltaX * aimData.sensitivityFactor;
@@ -2453,10 +2255,13 @@ namespace AimAdjustTable {
             // Calculate Y output adjustment (prevent drift and snap to ±1)
             const int16_t outputY = AIM_ADJUST(scaledY);
 
+            // 局所化でレジスタ圧縮（コンパイラの最適化を助ける）
+            auto* const emuNds = emuInstance->nds;
+
             // Write X register (update aim on NDS side)
-            emuInstance->nds->ARM9Write16(addrAimX, outputX);
+            emuNds->ARM9Write16(addrAimX, outputX);
             // Write Y register (update aim on NDS side)
-            emuInstance->nds->ARM9Write16(addrAimY, outputY);
+            emuNds->ARM9Write16(addrAimY, outputY);
 
             // Set aim enable flag (for conditional processing downstream)
             enableAim = true;
@@ -2479,17 +2284,8 @@ namespace AimAdjustTable {
         // Clear layout change flag (to return to hot path)
         isLayoutChangePending = false;
 
-        // Sensitivity initialization branch (to immediately apply config changes)
-        if (isSensitivityChangePending) {
-            // Retrieve sensitivity value (to apply settings)
-            const int sens = localCfg.GetInt("Metroid.Sensitivity.Aim");
-            // Update X sensitivity (set scaling factor)
-            aimData.sensitivityFactor = sens * 0.01f;
-            // Update combined Y sensitivity (reduce multiplication operations)
-            aimData.combinedSensitivityY = aimData.sensitivityFactor * aimData.dsAspectRatio;
-            // Clear flag (prevent redundant recalculation)
-            isSensitivityChangePending = false;
-        }
+        // 感度更新呼び出し(設定変更を即時反映するため)
+        updateSensitivity();
 
 #else
         // スタイラス押下分岐(タッチ入力直通処理のため)

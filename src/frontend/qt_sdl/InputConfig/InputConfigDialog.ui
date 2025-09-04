@@ -2370,8 +2370,37 @@
 				    </widget>
 			    </item>
 
-				<!-- Add vertical spacing -->
+				<!-- Aim sensitivity configuration -->
 				<item row="4" column="0">
+					<!-- Label for aim sensitivity -->
+					<widget class="QLabel" name="metroidAimYAxisScaleLabel">
+						<property name="text">
+							<string>Aim Y-Axis Scale (default: 1.5 / recent: 1.333333):</string>
+						</property>
+					</widget>
+				</item>
+				<item row="5" column="0">
+					<widget class="QDoubleSpinBox" name="metroidAimYAxisScaleSpinBox">
+						<property name="minimum">
+							<double>0.000001</double>
+						</property>
+						<property name="maximum">
+							<double>2</double>
+						</property>
+						<property name="singleStep">
+							<double>0.1</double>
+						</property>
+						<property name="decimals">
+							<number>6</number>
+						</property>
+						<property name="value">
+							<double>1.500000</double>
+						</property>
+					</widget>
+				</item>
+
+				<!-- Add vertical spacing -->
+				<item row="6" column="0">
 					<widget class="QLabel" name="emptyLabel">
 						<property name="text">
 							<string> </string>
@@ -2380,7 +2409,7 @@
 				</item>
 
 			    <!-- Reset button for sensitivity settings -->
-			    <item row="5" column="0">
+			    <item row="7" column="0">
 				    <widget class="QPushButton" name="metroidResetSensitivityValues">
 					    <property name="text">
 						    <string>Reset sensitivity values</string>
@@ -2389,7 +2418,7 @@
 			    </item>
 
 			    <!-- Add vertical spacing -->
-			    <item row="6" column="0">
+			    <item row="8" column="0">
 				    <widget class="QLabel" name="emptyLabel2">
 					    <property name="text">
 						    <string> </string>
@@ -2398,7 +2427,7 @@
 			    </item>
 
 				<!-- SnapTap -->
-				<item row="7" column="0">
+				<item row="9" column="0">
 					<widget class="QCheckBox" name="cbMetroidEnableSnapTap">
 						<property name="text">
 							<string>Enable SnapTap (Faster directional switching for smooth strafing — may slightly increase input delay)</string>
@@ -2406,7 +2435,7 @@
 					</widget>
 				</item>
 				
-				<item row="8" column="0">
+				<item row="10" column="0">
 					<widget class="QCheckBox" name="cbMetroidUnlockAll">
 						<property name="text">
 							<string>Unlock All Hunters/Maps/SoundTest/Gallery (Change a setting in MPH and save to update the save data. Uncheck this option after saving)</string>
@@ -2414,7 +2443,7 @@
 					</widget>
 				</item>
 
-				<item row="9" column="0">
+				<item row="11" column="0">
 					<widget class="QCheckBox" name="cbMetroidApplyHeadphone">
 						<property name="text">
 							<string>Set MPH audio settings to headphones.(recommended) (Change a setting in MPH and save to update the save data. Uncheck this option after saving)</string>
@@ -2422,7 +2451,7 @@
 					</widget>
 				</item>
 
-				<item row="10" column="0">
+				<item row="12" column="0">
 					<widget class="QCheckBox" name="cbMetroidUseFirmwareName">
 						<property name="text">
 							<string>Use firmware name(Reset in-game name)</string>
@@ -2431,7 +2460,7 @@
 				</item>
 
 				<!-- Low quality -->
-			    <item row="11" column="0">
+			    <item row="13" column="0">
 				    <widget class="QPushButton" name="metroidSetVideoQualityToLow">
 					    <property name="text">
 						    <string>Video quality: Low (High Performance)</string>
@@ -2440,7 +2469,7 @@
 			    </item>
 
 			    <!-- High quality -->
-			    <item row="12" column="0">
+			    <item row="14" column="0">
 				    <widget class="QPushButton" name="metroidSetVideoQualityToHigh">
 					    <property name="text">
 						    <string>Video quality: High (Lower Performance)</string>
@@ -2449,7 +2478,7 @@
 			    </item>
 
 				<!-- High2 quality -->
-				<item row="13" column="0">
+				<item row="15" column="0">
 					<widget class="QPushButton" name="metroidSetVideoQualityToHigh2">
 						<property name="text">
 							<string>Video quality: High2 (Recommended. Best Performance, Minor Visual Glitches) </string>
