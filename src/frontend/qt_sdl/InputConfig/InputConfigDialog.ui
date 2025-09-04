@@ -2375,7 +2375,7 @@
 					<!-- Label for aim sensitivity -->
 					<widget class="QLabel" name="metroidAimYAxisScaleLabel">
 						<property name="text">
-							<string>Aim Y-Axis Scale (initial: 1.5 / recent: 1.333333):</string>
+							<string>Aim Y-Axis Scale (default: 1.5 / recent: 1.333333):</string>
 						</property>
 					</widget>
 				</item>
@@ -2394,7 +2394,7 @@
 							<number>6</number>
 						</property>
 						<property name="value">
-							<double>1.333333</double>
+							<double>1.500000</double>
 						</property>
 					</widget>
 				</item>
