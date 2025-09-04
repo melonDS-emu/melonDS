@@ -474,6 +474,7 @@ melonDS::u32 addrUnlockMapsHunters4; // All gallery open addr
 melonDS::u32 addrUnlockMapsHunters5; // All gallery open addr 2
 melonDS::u32 addrSensitivity;
 melonDS::u32 addrDsNameFlagAndMicVolume;
+// melonDS::u32 addrLanguage;
 static bool isUnlockMapsHuntersApplied = false;
 
 // ROM detection and address setup (self-contained within this function)
@@ -576,6 +577,7 @@ __attribute__((always_inline, flatten)) inline void detectRomAndSetAddresses(Emu
     addrUnlockMapsHunters4 = addrUnlockMapsHunters + 0xB;
     addrUnlockMapsHunters5 = addrUnlockMapsHunters + 0xF;
     addrDsNameFlagAndMicVolume = addrUnlockMapsHunters5 + 0x1;
+    // addrLanguage = addrUnlockMapsHunters - 0xB1;
 
     isRomDetected = true;
 
