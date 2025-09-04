@@ -814,8 +814,8 @@ u32 ARMv5::CodeRead32(u32 addr, bool branch)
     return BusRead32(addr);
 }
 
-
-void ARMv5::DataRead8(u32 addr, u32* val)
+template<CPUExecuteMode mode>
+void ARMv5Impl<mode>::DataRead8(u32 addr, u32* val)
 {
     if (!(PU_Map[addr>>12] & 0x01))
     {
@@ -824,7 +824,8 @@ void ARMv5::DataRead8(u32 addr, u32* val)
     }
 
     DataRegion = addr;
-    GdbCheckD(addr, Gdb::WatchptKind::Read);
+    if constexpr (mode == CPUExecuteMode::InterpreterGDB)
+        GdbCheckD(addr, Gdb::WatchptKind::Read);
 
     if (addr < ITCMSize)
     {
@@ -843,7 +844,8 @@ void ARMv5::DataRead8(u32 addr, u32* val)
     DataCycles = MemTimings[addr >> 12][1];
 }
 
-void ARMv5::DataRead16(u32 addr, u32* val)
+template<CPUExecuteMode mode>
+void ARMv5Impl<mode>::DataRead16(u32 addr, u32* val)
 {
     if (!(PU_Map[addr>>12] & 0x01))
     {
@@ -854,7 +856,8 @@ void ARMv5::DataRead16(u32 addr, u32* val)
     DataRegion = addr;
 
     addr &= ~1;
-    GdbCheckD(addr, Gdb::WatchptKind::Read);
+    if constexpr (mode == CPUExecuteMode::InterpreterGDB)
+        GdbCheckD(addr, Gdb::WatchptKind::Read);
 
     if (addr < ITCMSize)
     {
@@ -873,7 +876,8 @@ void ARMv5::DataRead16(u32 addr, u32* val)
     DataCycles = MemTimings[addr >> 12][1];
 }
 
-void ARMv5::DataRead32(u32 addr, u32* val)
+template<CPUExecuteMode mode>
+void ARMv5Impl<mode>::DataRead32(u32 addr, u32* val)
 {
     if (!(PU_Map[addr>>12] & 0x01))
     {
@@ -884,7 +888,8 @@ void ARMv5::DataRead32(u32 addr, u32* val)
     DataRegion = addr;
 
     addr &= ~3;
-    GdbCheckD(addr, Gdb::WatchptKind::Read);
+    if constexpr (mode == CPUExecuteMode::InterpreterGDB)
+        GdbCheckD(addr, Gdb::WatchptKind::Read);
 
     if (addr < ITCMSize)
     {
@@ -903,10 +908,12 @@ void ARMv5::DataRead32(u32 addr, u32* val)
     DataCycles = MemTimings[addr >> 12][2];
 }
 
-void ARMv5::DataRead32S(u32 addr, u32* val)
+template<CPUExecuteMode mode>
+void ARMv5Impl<mode>::DataRead32S(u32 addr, u32* val)
 {
     addr &= ~3;
-    GdbCheckD(addr, Gdb::WatchptKind::Read);
+    if constexpr (mode == CPUExecuteMode::InterpreterGDB)
+        GdbCheckD(addr, Gdb::WatchptKind::Read);
 
     if (addr < ITCMSize)
     {
@@ -925,7 +932,8 @@ void ARMv5::DataRead32S(u32 addr, u32* val)
     DataCycles += MemTimings[addr >> 12][3];
 }
 
-void ARMv5::DataWrite8(u32 addr, u8 val)
+template<CPUExecuteMode mode>
+void ARMv5Impl<mode>::DataWrite8(u32 addr, u8 val)
 {
     if (!(PU_Map[addr>>12] & 0x02))
     {
@@ -934,7 +942,8 @@ void ARMv5::DataWrite8(u32 addr, u8 val)
     }
 
     DataRegion = addr;
-    GdbCheckD(addr, Gdb::WatchptKind::Write);
+    if constexpr (mode == CPUExecuteMode::InterpreterGDB)
+        GdbCheckD(addr, Gdb::WatchptKind::Write);
 
     if (addr < ITCMSize)
     {
@@ -954,7 +963,8 @@ void ARMv5::DataWrite8(u32 addr, u8 val)
     DataCycles = MemTimings[addr >> 12][1];
 }
 
-void ARMv5::DataWrite16(u32 addr, u16 val)
+template<CPUExecuteMode mode>
+void ARMv5Impl<mode>::DataWrite16(u32 addr, u16 val)
 {
     if (!(PU_Map[addr>>12] & 0x02))
     {
@@ -965,7 +975,8 @@ void ARMv5::DataWrite16(u32 addr, u16 val)
     DataRegion = addr;
 
     addr &= ~1;
-    GdbCheckD(addr, Gdb::WatchptKind::Write);
+    if constexpr (mode == CPUExecuteMode::InterpreterGDB)
+        GdbCheckD(addr, Gdb::WatchptKind::Write);
 
     if (addr < ITCMSize)
     {
@@ -985,7 +996,8 @@ void ARMv5::DataWrite16(u32 addr, u16 val)
     DataCycles = MemTimings[addr >> 12][1];
 }
 
-void ARMv5::DataWrite32(u32 addr, u32 val)
+template<CPUExecuteMode mode>
+void ARMv5Impl<mode>::DataWrite32(u32 addr, u32 val)
 {
     if (!(PU_Map[addr>>12] & 0x02))
     {
@@ -996,7 +1008,8 @@ void ARMv5::DataWrite32(u32 addr, u32 val)
     DataRegion = addr;
 
     addr &= ~3;
-    GdbCheckD(addr, Gdb::WatchptKind::Write);
+    if constexpr (mode == CPUExecuteMode::InterpreterGDB)
+        GdbCheckD(addr, Gdb::WatchptKind::Write);
 
     if (addr < ITCMSize)
     {
@@ -1016,10 +1029,12 @@ void ARMv5::DataWrite32(u32 addr, u32 val)
     DataCycles = MemTimings[addr >> 12][2];
 }
 
-void ARMv5::DataWrite32S(u32 addr, u32 val)
+template<CPUExecuteMode mode>
+void ARMv5Impl<mode>::DataWrite32S(u32 addr, u32 val)
 {
     addr &= ~3;
-    GdbCheckD(addr, Gdb::WatchptKind::Write);
+    if constexpr (mode == CPUExecuteMode::InterpreterGDB)
+        GdbCheckD(addr, Gdb::WatchptKind::Write);
 
     if (addr < ITCMSize)
     {
@@ -1052,5 +1067,21 @@ void ARMv5::GetCodeMemRegion(u32 addr, MemRegion* region)
 
     NDS.ARM9GetMemRegion(addr, false, &CodeMem);
 }
+
+#define INSTANTIATE_CP15(mode) \
+    template void ARMv5Impl<mode>::DataRead8(u32 addr, u32* val); \
+    template void ARMv5Impl<mode>::DataRead16(u32 addr, u32* val); \
+    template void ARMv5Impl<mode>::DataRead32(u32 addr, u32* val); \
+    template void ARMv5Impl<mode>::DataRead32S(u32 addr, u32* val); \
+    template void ARMv5Impl<mode>::DataWrite8(u32 addr, u8 val); \
+    template void ARMv5Impl<mode>::DataWrite16(u32 addr, u16 val); \
+    template void ARMv5Impl<mode>::DataWrite32(u32 addr, u32 val); \
+    template void ARMv5Impl<mode>::DataWrite32S(u32 addr, u32 val); \
+
+INSTANTIATE_CP15(CPUExecuteMode::Interpreter)
+INSTANTIATE_CP15(CPUExecuteMode::InterpreterGDB)
+#ifdef JIT_ENABLED
+INSTANTIATE_CP15(CPUExecuteMode::JIT)
+#endif
 
 }

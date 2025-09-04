@@ -234,7 +234,7 @@ class ARMv5 : public ARM
 {
 public:
     ARMv5(melonDS::NDS& nds, std::optional<GDBArgs> gdb, bool jit);
-    ~ARMv5();
+    virtual ~ARMv5();
 
     void Reset() override;
 
@@ -248,21 +248,20 @@ public:
 
     void PrefetchAbort();
     void DataAbort();
-
-    template <CPUExecuteMode mode>
-    void Execute();
+    
+    virtual void Execute() = 0;
 
     // all code accesses are forced nonseq 32bit
     u32 CodeRead32(u32 addr, bool branch);
 
-    void DataRead8(u32 addr, u32* val) override;
-    void DataRead16(u32 addr, u32* val) override;
-    void DataRead32(u32 addr, u32* val) override;
-    void DataRead32S(u32 addr, u32* val) override;
-    void DataWrite8(u32 addr, u8 val) override;
-    void DataWrite16(u32 addr, u16 val) override;
-    void DataWrite32(u32 addr, u32 val) override;
-    void DataWrite32S(u32 addr, u32 val) override;
+    virtual void DataRead8(u32 addr, u32* val) override = 0;
+    virtual void DataRead16(u32 addr, u32* val) override = 0;
+    virtual void DataRead32(u32 addr, u32* val) override = 0;
+    virtual void DataRead32S(u32 addr, u32* val) override = 0;
+    virtual void DataWrite8(u32 addr, u8 val) override = 0;
+    virtual void DataWrite16(u32 addr, u16 val) override = 0;
+    virtual void DataWrite32(u32 addr, u32 val) override = 0;
+    virtual void DataWrite32S(u32 addr, u32 val) override = 0;
 
     void AddCycles_C() override
     {
@@ -381,6 +380,25 @@ protected:
     void BusWrite32(u32 addr, u32 val) override;
 };
 
+template<CPUExecuteMode mode>
+class ARMv5Impl : public ARMv5
+{
+public:
+    ARMv5Impl(melonDS::NDS& nds, std::optional<GDBArgs> gdb);
+    ~ARMv5Impl();
+
+    void Execute() override;
+
+    void DataRead8(u32 addr, u32* val) override;
+    void DataRead16(u32 addr, u32* val) override;
+    void DataRead32(u32 addr, u32* val) override;
+    void DataRead32S(u32 addr, u32* val) override;
+    void DataWrite8(u32 addr, u8 val) override;
+    void DataWrite16(u32 addr, u16 val) override;
+    void DataWrite32(u32 addr, u32 val) override;
+    void DataWrite32S(u32 addr, u32 val) override;
+};
+
 class ARMv4 : public ARM
 {
 public:
@@ -390,8 +408,7 @@ public:
 
     void JumpTo(u32 addr, bool restorecpsr = false) override;
 
-    template <CPUExecuteMode mode>
-    void Execute();
+    virtual void Execute() = 0;
 
     u16 CodeRead16(u32 addr)
     {
@@ -403,14 +420,14 @@ public:
         return BusRead32(addr);
     }
 
-    void DataRead8(u32 addr, u32* val) override;
-    void DataRead16(u32 addr, u32* val) override;
-    void DataRead32(u32 addr, u32* val) override;
-    void DataRead32S(u32 addr, u32* val) override;
-    void DataWrite8(u32 addr, u8 val) override;
-    void DataWrite16(u32 addr, u16 val) override;
-    void DataWrite32(u32 addr, u32 val) override;
-    void DataWrite32S(u32 addr, u32 val) override;
+    virtual void DataRead8(u32 addr, u32* val) override = 0;
+    virtual void DataRead16(u32 addr, u32* val) override = 0;
+    virtual void DataRead32(u32 addr, u32* val) override = 0;
+    virtual void DataRead32S(u32 addr, u32* val) override = 0;
+    virtual void DataWrite8(u32 addr, u8 val) override = 0;
+    virtual void DataWrite16(u32 addr, u16 val) override = 0;
+    virtual void DataWrite32(u32 addr, u32 val) override = 0;
+    virtual void DataWrite32S(u32 addr, u32 val) override = 0;
     void AddCycles_C() override;
     void AddCycles_CI(s32 num) override;
     void AddCycles_CDI() override;
@@ -423,6 +440,25 @@ protected:
     void BusWrite16(u32 addr, u16 val) override;
     void BusWrite32(u32 addr, u32 val) override;
 };
+
+template<CPUExecuteMode mode>
+class ARMv4Impl : public ARMv4
+{
+public:
+    ARMv4Impl(melonDS::NDS& nds, std::optional<GDBArgs> gdb);
+
+    void Execute() override;
+
+    void DataRead8(u32 addr, u32* val) override;
+    void DataRead16(u32 addr, u32* val) override;
+    void DataRead32(u32 addr, u32* val) override;
+    void DataRead32S(u32 addr, u32* val) override;
+    void DataWrite8(u32 addr, u8 val) override;
+    void DataWrite16(u32 addr, u16 val) override;
+    void DataWrite32(u32 addr, u32 val) override;
+    void DataWrite32S(u32 addr, u32 val) override;
+};
+
 
 namespace ARMInterpreter
 {

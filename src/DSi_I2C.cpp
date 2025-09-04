@@ -183,7 +183,7 @@ void DSi_BPTWL::DoHardwareReset(bool direct)
 
     // TODO: soft-reset might need to be scheduled later!
     // TODO: this has been moved for the JIT to work, nothing is confirmed here
-    DSi.ARM7.Halt(4);
+    DSi.ARM7->Halt(4);
 }
 
 void DSi_BPTWL::DoShutdown()
