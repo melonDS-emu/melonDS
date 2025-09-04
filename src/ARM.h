@@ -246,8 +246,8 @@ public:
 
     void JumpTo(u32 addr, bool restorecpsr = false) override;
 
-    void PrefetchAbort();
-    void DataAbort();
+    virtual void PrefetchAbort() = 0;
+    virtual void DataAbort() = 0;
     
     virtual void Execute() = 0;
 
@@ -388,6 +388,9 @@ public:
     ~ARMv5Impl();
 
     void Execute() override;
+
+    void PrefetchAbort() override;
+    void DataAbort() override;
 
     void DataRead8(u32 addr, u32* val) override;
     void DataRead16(u32 addr, u32* val) override;
