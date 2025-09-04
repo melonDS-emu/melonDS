@@ -2209,7 +2209,7 @@ void EmuThread::run()
             /* Otherwise truncate (to suppress drift) */         \
             static_cast<int16_t>(_v);                            \
         })
-
+#ifdef COMMENTOUT
 // 元AIM_ADJUSTと完全一致（0.5≤v<1→+1, -1<v≤-0.5→-1, それ以外は0方向丸め）
 // ※ v は単一評価。ブランチレス寄りのビットマスク合成。
 // ※ GNU拡張 ({ ... }) を使うため、GCC/Clang系で使用してください。
@@ -2225,6 +2225,7 @@ void EmuThread::run()
         _t = _t ^ ((_t ^ -1)  & -_neg);                                             \
     static_cast<int16_t>(_t);                                                       \
 })
+#endif
 
 // Hot path branch (fast processing when focus is maintained and layout is unchanged)
 
