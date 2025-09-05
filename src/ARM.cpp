@@ -140,7 +140,7 @@ ARMv5::ARMv5(melonDS::NDS& nds, std::optional<GDBArgs> gdb, bool jit) : ARM(0, j
     PU_Map = PU_PrivMap;
 }
 
-template<CPUExecuteMode mode>
+template <CPUExecuteMode mode>
 ARMv5Impl<mode>::ARMv5Impl(melonDS::NDS& nds, std::optional<GDBArgs> gdb) : ARMv5(nds, gdb, mode == CPUExecuteMode::JIT)
 {
     //
@@ -151,7 +151,7 @@ ARMv4::ARMv4(melonDS::NDS& nds, std::optional<GDBArgs> gdb, bool jit) : ARM(1, j
     //
 }
 
-template<CPUExecuteMode mode>
+template <CPUExecuteMode mode>
 ARMv4Impl<mode>::ARMv4Impl(melonDS::NDS& nds, std::optional<GDBArgs> gdb) : ARMv4(nds, gdb, mode == CPUExecuteMode::JIT)
 {
     //
@@ -162,7 +162,7 @@ ARMv5::~ARMv5()
     // DTCM is owned by Memory, not going to delete it
 }
 
-template<CPUExecuteMode mode>
+template <CPUExecuteMode mode>
 ARMv5Impl<mode>::~ARMv5Impl()
 {
     //
@@ -575,7 +575,7 @@ void ARM::TriggerIRQ()
     }
 }
 
-template<CPUExecuteMode mode>
+template <CPUExecuteMode mode>
 void ARMv5Impl<mode>::PrefetchAbort()
 {
     Log(LogLevel::Warn, "ARM9: prefetch abort (%08X)\n", R[15]);
@@ -601,7 +601,7 @@ void ARMv5Impl<mode>::PrefetchAbort()
     JumpTo(ExceptionBase + 0x0C);
 }
 
-template<CPUExecuteMode mode>
+template <CPUExecuteMode mode>
 void ARMv5Impl<mode>::DataAbort()
 {
     Log(LogLevel::Warn, "ARM9: data abort (%08X)\n", R[15]);
@@ -623,7 +623,7 @@ void ARM::CheckGdbIncoming()
     GdbCheckA();
 }
 
-template<CPUExecuteMode mode>
+template <CPUExecuteMode mode>
 void ARMv5Impl<mode>::Execute()
 {
     if constexpr (mode == CPUExecuteMode::InterpreterGDB)
@@ -1142,7 +1142,7 @@ u32 ARMv5::ReadMem(u32 addr, int size)
 }
 #endif
 
-template<CPUExecuteMode mode>
+template <CPUExecuteMode mode>
 void ARMv4Impl<mode>::DataRead8(u32 addr, u32* val)
 {
     *val = BusRead8(addr);
@@ -1150,7 +1150,7 @@ void ARMv4Impl<mode>::DataRead8(u32 addr, u32* val)
     DataCycles = NDS.ARM7MemTimings[addr >> 15][0];
 }
 
-template<CPUExecuteMode mode>
+template <CPUExecuteMode mode>
 void ARMv4Impl<mode>::DataRead16(u32 addr, u32* val)
 {
     addr &= ~1;
@@ -1160,7 +1160,7 @@ void ARMv4Impl<mode>::DataRead16(u32 addr, u32* val)
     DataCycles = NDS.ARM7MemTimings[addr >> 15][0];
 }
 
-template<CPUExecuteMode mode>
+template <CPUExecuteMode mode>
 void ARMv4Impl<mode>::DataRead32(u32 addr, u32* val)
 {
     addr &= ~3;
@@ -1170,7 +1170,7 @@ void ARMv4Impl<mode>::DataRead32(u32 addr, u32* val)
     DataCycles = NDS.ARM7MemTimings[addr >> 15][2];
 }
 
-template<CPUExecuteMode mode>
+template <CPUExecuteMode mode>
 void ARMv4Impl<mode>::DataRead32S(u32 addr, u32* val)
 {
     addr &= ~3;
@@ -1179,7 +1179,7 @@ void ARMv4Impl<mode>::DataRead32S(u32 addr, u32* val)
     DataCycles += NDS.ARM7MemTimings[addr >> 15][3];
 }
 
-template<CPUExecuteMode mode>
+template <CPUExecuteMode mode>
 void ARMv4Impl<mode>::DataWrite8(u32 addr, u8 val)
 {
     BusWrite8(addr, val);
@@ -1187,7 +1187,7 @@ void ARMv4Impl<mode>::DataWrite8(u32 addr, u8 val)
     DataCycles = NDS.ARM7MemTimings[addr >> 15][0];
 }
 
-template<CPUExecuteMode mode>
+template <CPUExecuteMode mode>
 void ARMv4Impl<mode>::DataWrite16(u32 addr, u16 val)
 {
     addr &= ~1;
@@ -1197,7 +1197,7 @@ void ARMv4Impl<mode>::DataWrite16(u32 addr, u16 val)
     DataCycles = NDS.ARM7MemTimings[addr >> 15][0];
 }
 
-template<CPUExecuteMode mode>
+template <CPUExecuteMode mode>
 void ARMv4Impl<mode>::DataWrite32(u32 addr, u32 val)
 {
     addr &= ~3;
@@ -1207,7 +1207,7 @@ void ARMv4Impl<mode>::DataWrite32(u32 addr, u32 val)
     DataCycles = NDS.ARM7MemTimings[addr >> 15][2];
 }
 
-template<CPUExecuteMode mode>
+template <CPUExecuteMode mode>
 void ARMv4Impl<mode>::DataWrite32S(u32 addr, u32 val)
 {
     addr &= ~3;

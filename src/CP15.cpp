@@ -814,7 +814,7 @@ u32 ARMv5::CodeRead32(u32 addr, bool branch)
     return BusRead32(addr);
 }
 
-template<CPUExecuteMode mode>
+template <CPUExecuteMode mode>
 void ARMv5Impl<mode>::DataRead8(u32 addr, u32* val)
 {
     if (!(PU_Map[addr>>12] & 0x01))
@@ -844,7 +844,7 @@ void ARMv5Impl<mode>::DataRead8(u32 addr, u32* val)
     DataCycles = MemTimings[addr >> 12][1];
 }
 
-template<CPUExecuteMode mode>
+template <CPUExecuteMode mode>
 void ARMv5Impl<mode>::DataRead16(u32 addr, u32* val)
 {
     if (!(PU_Map[addr>>12] & 0x01))
@@ -876,7 +876,7 @@ void ARMv5Impl<mode>::DataRead16(u32 addr, u32* val)
     DataCycles = MemTimings[addr >> 12][1];
 }
 
-template<CPUExecuteMode mode>
+template <CPUExecuteMode mode>
 void ARMv5Impl<mode>::DataRead32(u32 addr, u32* val)
 {
     if (!(PU_Map[addr>>12] & 0x01))
@@ -908,7 +908,7 @@ void ARMv5Impl<mode>::DataRead32(u32 addr, u32* val)
     DataCycles = MemTimings[addr >> 12][2];
 }
 
-template<CPUExecuteMode mode>
+template <CPUExecuteMode mode>
 void ARMv5Impl<mode>::DataRead32S(u32 addr, u32* val)
 {
     addr &= ~3;
@@ -932,7 +932,7 @@ void ARMv5Impl<mode>::DataRead32S(u32 addr, u32* val)
     DataCycles += MemTimings[addr >> 12][3];
 }
 
-template<CPUExecuteMode mode>
+template <CPUExecuteMode mode>
 void ARMv5Impl<mode>::DataWrite8(u32 addr, u8 val)
 {
     if (!(PU_Map[addr>>12] & 0x02))
@@ -963,7 +963,7 @@ void ARMv5Impl<mode>::DataWrite8(u32 addr, u8 val)
     DataCycles = MemTimings[addr >> 12][1];
 }
 
-template<CPUExecuteMode mode>
+template <CPUExecuteMode mode>
 void ARMv5Impl<mode>::DataWrite16(u32 addr, u16 val)
 {
     if (!(PU_Map[addr>>12] & 0x02))
@@ -996,7 +996,7 @@ void ARMv5Impl<mode>::DataWrite16(u32 addr, u16 val)
     DataCycles = MemTimings[addr >> 12][1];
 }
 
-template<CPUExecuteMode mode>
+template <CPUExecuteMode mode>
 void ARMv5Impl<mode>::DataWrite32(u32 addr, u32 val)
 {
     if (!(PU_Map[addr>>12] & 0x02))
@@ -1029,7 +1029,7 @@ void ARMv5Impl<mode>::DataWrite32(u32 addr, u32 val)
     DataCycles = MemTimings[addr >> 12][2];
 }
 
-template<CPUExecuteMode mode>
+template <CPUExecuteMode mode>
 void ARMv5Impl<mode>::DataWrite32S(u32 addr, u32 val)
 {
     addr &= ~3;
