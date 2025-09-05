@@ -1145,99 +1145,93 @@ u32 ARMv5::ReadMem(u32 addr, int size)
 template <CPUExecuteMode mode>
 void ARMv4Impl<mode>::DataRead8(u32 addr, u32* val)
 {
+    if constexpr (mode == CPUExecuteMode::InterpreterGDB)
+        GdbCheckD(addr, Gdb::WatchptKind::Read);
+        
     *val = BusRead8(addr);
     DataRegion = addr;
     DataCycles = NDS.ARM7MemTimings[addr >> 15][0];
-
-    if constexpr (mode == CPUExecuteMode::InterpreterGDB)
-        GdbCheckD(addr, Gdb::WatchptKind::Read);
 }
 
 template <CPUExecuteMode mode>
 void ARMv4Impl<mode>::DataRead16(u32 addr, u32* val)
 {
     addr &= ~1;
+    if constexpr (mode == CPUExecuteMode::InterpreterGDB)
+        GdbCheckD(addr, Gdb::WatchptKind::Read);
 
     *val = BusRead16(addr);
     DataRegion = addr;
     DataCycles = NDS.ARM7MemTimings[addr >> 15][0];
-
-    if constexpr (mode == CPUExecuteMode::InterpreterGDB)
-        GdbCheckD(addr, Gdb::WatchptKind::Read);
 }
 
 template <CPUExecuteMode mode>
 void ARMv4Impl<mode>::DataRead32(u32 addr, u32* val)
 {
     addr &= ~3;
+    if constexpr (mode == CPUExecuteMode::InterpreterGDB)
+        GdbCheckD(addr, Gdb::WatchptKind::Read);
 
     *val = BusRead32(addr);
     DataRegion = addr;
     DataCycles = NDS.ARM7MemTimings[addr >> 15][2];
-
-    if constexpr (mode == CPUExecuteMode::InterpreterGDB)
-        GdbCheckD(addr, Gdb::WatchptKind::Read);
 }
 
 template <CPUExecuteMode mode>
 void ARMv4Impl<mode>::DataRead32S(u32 addr, u32* val)
 {
     addr &= ~3;
+    if constexpr (mode == CPUExecuteMode::InterpreterGDB)
+        GdbCheckD(addr, Gdb::WatchptKind::Read);
 
     *val = BusRead32(addr);
     DataCycles += NDS.ARM7MemTimings[addr >> 15][3];
-
-    if constexpr (mode == CPUExecuteMode::InterpreterGDB)
-        GdbCheckD(addr, Gdb::WatchptKind::Read);
 }
 
 template <CPUExecuteMode mode>
 void ARMv4Impl<mode>::DataWrite8(u32 addr, u8 val)
 {
+    if constexpr (mode == CPUExecuteMode::InterpreterGDB)
+        GdbCheckD(addr, Gdb::WatchptKind::Write);
+
     BusWrite8(addr, val);
     DataRegion = addr;
     DataCycles = NDS.ARM7MemTimings[addr >> 15][0];
-
-    if constexpr (mode == CPUExecuteMode::InterpreterGDB)
-        GdbCheckD(addr, Gdb::WatchptKind::Write);
 }
 
 template <CPUExecuteMode mode>
 void ARMv4Impl<mode>::DataWrite16(u32 addr, u16 val)
 {
     addr &= ~1;
+    if constexpr (mode == CPUExecuteMode::InterpreterGDB)
+        GdbCheckD(addr, Gdb::WatchptKind::Write);
 
     BusWrite16(addr, val);
     DataRegion = addr;
     DataCycles = NDS.ARM7MemTimings[addr >> 15][0];
-
-    if constexpr (mode == CPUExecuteMode::InterpreterGDB)
-        GdbCheckD(addr, Gdb::WatchptKind::Write);
 }
 
 template <CPUExecuteMode mode>
 void ARMv4Impl<mode>::DataWrite32(u32 addr, u32 val)
 {
     addr &= ~3;
+    if constexpr (mode == CPUExecuteMode::InterpreterGDB)
+        GdbCheckD(addr, Gdb::WatchptKind::Write);
 
     BusWrite32(addr, val);
     DataRegion = addr;
     DataCycles = NDS.ARM7MemTimings[addr >> 15][2];
-
-    if constexpr (mode == CPUExecuteMode::InterpreterGDB)
-        GdbCheckD(addr, Gdb::WatchptKind::Write);
 }
 
 template <CPUExecuteMode mode>
 void ARMv4Impl<mode>::DataWrite32S(u32 addr, u32 val)
 {
     addr &= ~3;
+    if constexpr (mode == CPUExecuteMode::InterpreterGDB)
+        GdbCheckD(addr, Gdb::WatchptKind::Write);
 
     BusWrite32(addr, val);
     DataCycles += NDS.ARM7MemTimings[addr >> 15][3];
-
-    if constexpr (mode == CPUExecuteMode::InterpreterGDB)
-        GdbCheckD(addr, Gdb::WatchptKind::Write);
 }
 
 
