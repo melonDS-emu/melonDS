@@ -2178,7 +2178,7 @@ void EmuThread::run()
         } static aimData = { 0, 0, 0.01f, 0.013333333f };
 
         // 感度更新ラムダ定義(重複コード排除と単一責務化のため)
-        auto updateSensitivity = [&]() __attribute__((always_inline)) {
+        static const auto updateSensitivity = [&]() __attribute__((always_inline)) {
             // 変更待ち判定(不要計算回避のため)
             if (__builtin_expect(isSensitivityChangePending, 0)) {
                 // Retrieve sensitivity value (to apply settings)
@@ -2258,13 +2258,10 @@ void EmuThread::run()
             // Calculate Y output adjustment (prevent drift and snap to ±1)
             const int16_t outputY = AIM_ADJUST(scaledY);
 
-            // 局所化でレジスタ圧縮（コンパイラの最適化を助ける）
-            auto* const emuNds = emuInstance->nds;
-
             // Write X register (update aim on NDS side)
-            emuNds->ARM9Write16(addrAimX, outputX);
+            emuInstance->nds->ARM9Write16(addrAimX, outputX);
             // Write Y register (update aim on NDS side)
-            emuNds->ARM9Write16(addrAimY, outputY);
+            emuInstance->nds->ARM9Write16(addrAimY, outputY);
 
             // Set aim enable flag (for conditional processing downstream)
             enableAim = true;
