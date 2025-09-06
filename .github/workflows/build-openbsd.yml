@@ -41,7 +41,7 @@ jobs:
         arch: ${{ matrix.arch }}
         sync: nfs
 
-    - name: Prepare (install packages)
+    - name: Install dependencies
       shell: openbsd {0}
       run: |
         pkg_add -v cmake enet faad kf6-extra-cmake-modules \
