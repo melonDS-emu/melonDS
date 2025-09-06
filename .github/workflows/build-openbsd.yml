@@ -39,20 +39,15 @@ jobs:
         usesh: true
         arch: ${{ matrix.arch }}
         prepare: |
-          pkg_add cmake enet faad kf6-extra-cmake-modules \
+          pkg_add -v cmake enet faad kf6-extra-cmake-modules \
             libarchive libslirp ninja qt6-qtmultimedia sdl2
         run: |
-          mkdir build
-          cd build
-          cmake .. -G Ninja \
-            -DQt6_DIR=/usr/local/lib/qt6/cmake/Qt6 \
-            -DMELONDS_EMBED_BUILD_INFO=ON \
-            -DMELONDS_VERSION_SUFFIX=""
-          ninja
-          DESTDIR=AppDir ninja install
+          cmake .. -B build -G Ninja \
+            -DMELONDS_EMBED_BUILD_INFO=ON
+          cmake --build build
 
     - name: Upload binary
       uses: actions/upload-artifact@v4
       with:
         name: melonDS-openbsd-${{ matrix.arch }}
-        path: build/AppDir/usr/local/bin/melonDS
+        path: build/melonDS
