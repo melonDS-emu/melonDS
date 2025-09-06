@@ -40,7 +40,7 @@ jobs:
         arch: ${{ matrix.arch }}
         prepare: |
           pkg_add -v cmake enet faad kf6-extra-cmake-modules \
-            libarchive libslirp ninja qt6-qtmultimedia sdl2
+            libarchive libslirp ninja qt6-qtbase qt6-qtmultimedia sdl2
         run: |
           cmake .. -B build -G Ninja \
             -DMELONDS_EMBED_BUILD_INFO=ON
