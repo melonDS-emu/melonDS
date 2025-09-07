@@ -1,0 +1,67 @@
+name: OpenBSD
+
+on:
+  push:
+    branches:
+      - master
+      - ci/*
+  pull_request:
+    branches:
+      - master
+
+env:
+  MELONDS_GIT_BRANCH: ${{ github.ref }}
+  MELONDS_GIT_HASH: ${{ github.sha }}
+  MELONDS_BUILD_PROVIDER: GitHub Actions
+
+jobs:
+  build:
+    strategy:
+      matrix:
+        include:
+          - arch: x86_64
+            runner: ubuntu-latest
+# Disabled until vmactions supports running on a linux arm64 runner
+#          - arch: aarch64
+#            runner: ubuntu-22.04-arm
+
+    runs-on: ${{ matrix.runner }}
+    name: ${{ matrix.arch }}
+
+    steps:
+    - uses: actions/checkout@v4
+      name: Check out sources
+
+    - name: Start OpenBSD VM
+      id: vm
+      uses: vmactions/openbsd-vm@v1
+      with:
+        envs: 'MELONDS_GIT_BRANCH MELONDS_GIT_HASH MELONDS_BUILD_PROVIDER'
+        usesh: true
+        arch: ${{ matrix.arch }}
+        sync: nfs
+
+    - name: Install dependencies
+      shell: openbsd {0}
+      run: |
+        pkg_add -v cmake enet faad kf6-extra-cmake-modules \
+          libarchive libslirp ninja qt6-qtbase qt6-qtmultimedia sdl2
+
+    - name: Configure
+      shell: openbsd {0}
+      run: |
+        cd $GITHUB_WORKSPACE
+        cmake -B build -G Ninja \
+          -DMELONDS_EMBED_BUILD_INFO=ON
+
+    - name: Build
+      shell: openbsd {0}
+      run: |
+        cd $GITHUB_WORKSPACE
+        cmake --build build
+
+    - name: Upload binary
+      uses: actions/upload-artifact@v4
+      with:
+        name: melonDS-openbsd-${{ matrix.arch }}
+        path: build/melonDS
