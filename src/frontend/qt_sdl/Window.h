@@ -172,10 +172,10 @@ private slots:
     void onUndoStateLoad();
     void onImportSavefile();
     void onQuit();
-	void onReloadMostRecentROM();
 
     void onPause(bool checked);
     void onReset();
+    void onReloadMostRecentROM();
     void onStop();
     void onFrameStep();
     void onOpenPowerManagement();

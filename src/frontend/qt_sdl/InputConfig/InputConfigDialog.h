@@ -68,7 +68,7 @@ static constexpr std::initializer_list<int> hk_general =
     HK_PowerButton,
     HK_VolumeUp,
     HK_VolumeDown,
-	HK_Reload
+    HK_ReloadMostRecentROM
 };
 
 static constexpr std::initializer_list<const char*> hk_general_labels =
@@ -89,7 +89,7 @@ static constexpr std::initializer_list<const char*> hk_general_labels =
     "DSi Power button",
     "DSi Volume up",
     "DSi Volume down",
-	"Reload current ROM"
+    "Reload most recent ROM"
 };
 
 static_assert(hk_general.size() == hk_general_labels.size());

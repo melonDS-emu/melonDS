@@ -160,12 +160,11 @@ void EmuThread::run()
 
         emuInstance->inputProcess();
 
-        if (emuInstance->hotkeyPressed(HK_Reload)) emit reloadMostRecentROM();
-
         if (emuInstance->hotkeyPressed(HK_FrameLimitToggle)) emit windowLimitFPSChange();
 
         if (emuInstance->hotkeyPressed(HK_Pause)) emuTogglePause();
         if (emuInstance->hotkeyPressed(HK_Reset)) emuReset();
+        if (emuInstance->hotkeyPressed(HK_ReloadMostRecentROM)) emit reloadMostRecentROM();
         if (emuInstance->hotkeyPressed(HK_FrameStep)) emuFrameStep();
 
         if (emuInstance->hotkeyPressed(HK_FullscreenToggle)) emit windowFullscreenToggle();

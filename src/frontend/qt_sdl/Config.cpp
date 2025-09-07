@@ -174,7 +174,7 @@ LegacyEntry LegacyFile[] =
     {"HKKey_GuitarGripRed",       0, "Keyboard.HK_GuitarGripRed", true},
     {"HKKey_GuitarGripYellow",    0, "Keyboard.HK_GuitarGripYellow", true},
     {"HKKey_GuitarGripBlue",      0, "Keyboard.HK_GuitarGripBlue", true},
-    {"HKKey_Reload",              0, "Keyboard.HK_Reload", true},
+    {"HKKey_ReloadMostRecentROM", 0, "Keyboard.HK_ReloadMostRecentROM", true},
 
     {"HKJoy_Lid",                 0, "Joystick.HK_Lid", true},
     {"HKJoy_Mic",                 0, "Joystick.HK_Mic", true},
@@ -195,7 +195,7 @@ LegacyEntry LegacyFile[] =
     {"HKJoy_GuitarGripRed",       0, "Joystick.HK_GuitarGripRed", true},
     {"HKJoy_GuitarGripYellow",    0, "Joystick.HK_GuitarGripYellow", true},
     {"HKJoy_GuitarGripBlue",      0, "Joystick.HK_GuitarGripBlue", true},
-    {"HKJoy_Reload",              0, "Joystick.HK_Reload", true},
+    {"HKJoy_ReloadMostRecentROM", 0, "Joystick.HK_ReloadMostRecentROM", true},
 
     {"JoystickID", 0, "JoystickID", true},
 

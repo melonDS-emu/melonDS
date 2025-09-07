@@ -55,7 +55,7 @@ enum
     HK_GuitarGripRed,
     HK_GuitarGripYellow,
     HK_GuitarGripBlue,
-    HK_Reload,
+    HK_ReloadMostRecentROM,
     HK_MAX
 };
 

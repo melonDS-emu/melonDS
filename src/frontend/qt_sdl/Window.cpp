@@ -1497,7 +1497,6 @@ void MainWindow::onClickRecentFile()
 
 void MainWindow::onReloadMostRecentROM()
 {
-	Log(LogLevel::Debug, "Reloading most recent ROM");
     QString filename = globalCfg.GetArray("RecentROM").GetQString(0);
 
     if (!verifySetup())
