@@ -172,6 +172,7 @@ private slots:
     void onUndoStateLoad();
     void onImportSavefile();
     void onQuit();
+	void onReloadMostRecentROM();
 
     void onPause(bool checked);
     void onReset();

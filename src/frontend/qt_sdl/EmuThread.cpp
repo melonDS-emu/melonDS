@@ -78,6 +78,7 @@ void EmuThread::attachWindow(MainWindow* window)
     connect(this, SIGNAL(autoScreenSizingChange(int)), window->panel, SLOT(onAutoScreenSizingChanged(int)));
     connect(this, SIGNAL(windowFullscreenToggle()), window, SLOT(onFullscreenToggled()));
     connect(this, SIGNAL(screenEmphasisToggle()), window, SLOT(onScreenEmphasisToggled()));
+    connect(this, SIGNAL(reloadMostRecentROM()), window, SLOT(onReloadMostRecentROM()));
 
     if (window->winHasMenu())
     {
@@ -96,6 +97,7 @@ void EmuThread::detachWindow(MainWindow* window)
     disconnect(this, SIGNAL(autoScreenSizingChange(int)), window->panel, SLOT(onAutoScreenSizingChanged(int)));
     disconnect(this, SIGNAL(windowFullscreenToggle()), window, SLOT(onFullscreenToggled()));
     disconnect(this, SIGNAL(screenEmphasisToggle()), window, SLOT(onScreenEmphasisToggled()));
+    disconnect(this, SIGNAL(reloadMostRecentROM()), window, SLOT(onReloadMostRecentROM()));
 
     if (window->winHasMenu())
     {
@@ -157,6 +159,8 @@ void EmuThread::run()
             MPInterface::Get().Process();
 
         emuInstance->inputProcess();
+
+        if (emuInstance->hotkeyPressed(HK_Reload)) emit reloadMostRecentROM();
 
         if (emuInstance->hotkeyPressed(HK_FrameLimitToggle)) emit windowLimitFPSChange();
 
