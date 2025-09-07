@@ -9,6 +9,11 @@ on:
     branches:
       - master
 
+env:
+  MELONDS_GIT_BRANCH: ${{ github.ref }}
+  MELONDS_GIT_HASH: ${{ github.sha }}
+  MELONDS_BUILD_PROVIDER: GitHub Actions
+
 jobs:
   build:
     strategy:
@@ -22,11 +27,6 @@ jobs:
 
     runs-on: ${{ matrix.runner }}
     name: ${{ matrix.arch }}
-
-    env:
-      MELONDS_GIT_BRANCH: ${{ github.ref }}
-      MELONDS_GIT_HASH: ${{ github.sha }}
-      MELONDS_BUILD_PROVIDER: GitHub Actions
 
     steps:
     - uses: actions/checkout@v4
