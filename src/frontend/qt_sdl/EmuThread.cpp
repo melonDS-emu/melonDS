@@ -2199,7 +2199,7 @@ void EmuThread::run()
 #define AIM_ADJUST(v)                                        \
     ({                                                       \
         float _v = (v);                                      \
-        int _vi = static_cast<int>(_v * 10.001);             \
+        int _vi = static_cast<int>(_v * 10.001f);            \
         (_vi >= 5 && _vi <= 9)   ?  1 :                      \
         (_vi >= -9 && _vi <= -5) ? -1 :                      \
         static_cast<int16_t>(_v);                            \
