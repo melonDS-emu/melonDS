@@ -2172,9 +2172,9 @@ void EmuThread::run()
             // Store center Y coordinate (maintain origin for delta calculation)
             int centerY;
             // Store X-axis sensitivity factor (speed up scaling)
-            double sensitivityFactor;
+            float sensitivityFactor;
             // Store combined Y-axis sensitivity (reduce multiplication operations)
-            double combinedSensitivityY;
+            float combinedSensitivityY;
         } static aimData = { 0, 0, 0.01f, 0.013333333f };
 
         // 感度更新ラムダ定義(重複コード排除と単一責務化のため)
@@ -2183,7 +2183,9 @@ void EmuThread::run()
             if (__builtin_expect(isSensitivityChangePending, 0)) {
                 // Retrieve sensitivity value (to apply settings)
                 const int sens = localCfg.GetInt("Metroid.Sensitivity.Aim");
-				const double aimYAxisScale =  localCfg.GetDouble("Metroid.Sensitivity.AimYAxisScale") ;
+                const float aimYAxisScale = static_cast<float>(
+                    localCfg.GetDouble("Metroid.Sensitivity.AimYAxisScale")
+                    );
                 // Update X sensitivity (set scaling factor)
                 aimData.sensitivityFactor = sens * 0.01f;
                 // Update combined Y sensitivity (reduce multiplication operations)
@@ -2196,7 +2198,7 @@ void EmuThread::run()
         // Define macro to prevent drift by rounding (single evaluation and snap within tolerance range)
 #define AIM_ADJUST(v)                                        \
     ({                                                       \
-        double _v = (v);                                     \
+        float _v = (v);                                      \
         int _vi = static_cast<int>(_v * 10.001);             \
         (_vi >= 5 && _vi <= 9)   ?  1 :                      \
         (_vi >= -9 && _vi <= -5) ? -1 :                      \
@@ -2226,9 +2228,9 @@ void EmuThread::run()
             updateSensitivity();
 
             // Calculate X scaling (apply sensitivity)
-            const double scaledX = deltaX * aimData.sensitivityFactor;
+            const float scaledX = deltaX * aimData.sensitivityFactor;
             // Calculate Y scaling (apply sensitivity)
-            const double scaledY = deltaY * aimData.combinedSensitivityY;
+            const float scaledY = deltaY * aimData.combinedSensitivityY;
 
             // Calculate X output adjustment (prevent drift and snap to ±1)
             const int16_t outputX = AIM_ADJUST(scaledX);
