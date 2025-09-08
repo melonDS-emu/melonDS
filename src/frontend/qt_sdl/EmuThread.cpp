@@ -2197,13 +2197,18 @@ void EmuThread::run()
 
         // Define macro to prevent drift by rounding (single evaluation and snap within tolerance range)
 #define AIM_ADJUST(v)                                        \
-    ({                                                       \
-        float _v = (v);                                      \
-        int _vi = static_cast<int>(_v * 10.001);             \
-        (_vi >= 5 && _vi <= 9)   ?  1 :                      \
-        (_vi >= -9 && _vi <= -5) ? -1 :                      \
-        static_cast<int16_t>(_v);                            \
-    })
+        ({                                                       \
+            /* Store input value (to prevent multiple evaluations) */ \
+            float _v = (v);                                      \
+            /* Convert to int scaled by 10 (make threshold comparison constant-domain) */ \
+            int _vi = static_cast<int>(_v * 10.001f);            \
+            /* Snap positive range (fix ±1 for values in 0.5–0.9 range) */ \
+            (_vi >= 5 && _vi <= 9) ? 1 :                         \
+            /* Snap negative range (fix ±1 for values in -0.9–-0.5 range) */ \
+            (_vi >= -9 && _vi <= -5) ? -1 :                      \
+            /* Otherwise truncate (to suppress drift) */         \
+            static_cast<int16_t>(_v);                            \
+        })
 
 // Hot path branch (fast processing when focus is maintained and layout is unchanged)
 
