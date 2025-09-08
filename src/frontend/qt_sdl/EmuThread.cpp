@@ -2175,7 +2175,7 @@ void EmuThread::run()
             double sensitivityFactor;
             // Store combined Y-axis sensitivity (reduce multiplication operations)
             double combinedSensitivityY;
-        } static aimData = { 0, 0, 0.01, 0.013333333 };
+        } static aimData = { 0, 0, 0.01f, 0.013333333f };
 
         // 感度更新ラムダ定義(重複コード排除と単一責務化のため)
         static const auto updateSensitivity = [&]() __attribute__((always_inline)) {
@@ -2185,7 +2185,7 @@ void EmuThread::run()
                 const int sens = localCfg.GetInt("Metroid.Sensitivity.Aim");
 				const double aimYAxisScale =  localCfg.GetDouble("Metroid.Sensitivity.AimYAxisScale") ;
                 // Update X sensitivity (set scaling factor)
-                aimData.sensitivityFactor = sens * 0.01;
+                aimData.sensitivityFactor = sens * 0.01f;
                 // Update combined Y sensitivity (reduce multiplication operations)
                 aimData.combinedSensitivityY = aimData.sensitivityFactor * aimYAxisScale;
                 // Clear flag (prevent redundant recalculation)
