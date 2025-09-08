@@ -888,8 +888,7 @@ void EmuThread::updateRenderer()
     {
         case renderer3D_Software:
             static_cast<SoftRenderer&>(emuInstance->nds->GPU.GetRenderer3D()).SetThreaded(
-                    cfg.GetBool("3D.Soft.Threaded"),
-                    emuInstance->nds->GPU);
+                    cfg.GetBool("3D.Soft.Threaded"));
             break;
         case renderer3D_OpenGL:
             static_cast<GLRenderer&>(emuInstance->nds->GPU.GetRenderer3D()).SetRenderSettings(
