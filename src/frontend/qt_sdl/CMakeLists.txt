@@ -213,15 +213,18 @@ if (WIN32)
         string(TOLOWER "${ARCHITECTURE}" WIN32_ARCHITECTURE)
     endif()
 
-    configure_file("${CMAKE_SOURCE_DIR}/res/xp.manifest.in" "${CMAKE_BINARY_DIR}/res/xp.manifest")
 
     target_link_libraries(melonDS PRIVATE ws2_32 iphlpapi)
-    set_target_properties(melonDS PROPERTIES LINK_FLAGS_DEBUG "-mconsole")
+    set_target_properties(melonDS PROPERTIES WIN32_EXECUTABLE $<IF:$<CONFIG:Debug>,OFF,ON>)
 
-    # Work around faad2 unconditionally linking libm even on Windows
-    if (MSVC AND USE_VCPKG)
-        add_library(m STATIC)
-        target_link_libraries(melonDS PUBLIC m)
+    if (MINGW)
+        configure_file("${CMAKE_SOURCE_DIR}/res/xp.manifest.in" "${CMAKE_BINARY_DIR}/res/xp.manifest")
+    else()
+        # Work around faad2 unconditionally linking libm even on Windows
+        if (USE_VCPKG)
+            add_library(m STATIC)
+            target_link_libraries(melonDS PUBLIC m)
+        endif()
     endif()
 endif()
 
