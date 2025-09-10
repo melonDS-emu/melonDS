@@ -4,7 +4,7 @@
 Log_SetChannel(ContextEGLWayland);
 
 namespace GL {
-static const char* WAYLAND_EGL_MODNAME = "libwayland-egl.so.1";
+static const char* WAYLAND_EGL_MODNAME = "libwayland-egl.so";
 
 ContextEGLWayland::ContextEGLWayland(const WindowInfo& wi) : ContextEGL(wi) {}
 ContextEGLWayland::~ContextEGLWayland()
