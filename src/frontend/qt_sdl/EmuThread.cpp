@@ -269,6 +269,53 @@ bool ApplyHeadphoneOnce(NDS* nds, Config::Table& localCfg, uint32_t kCfgAddr, bo
 }
 
 /**
+ * メインハンター適用（フェイバリット/状態は完全維持）
+ *
+ * @param NDS* nds
+ * @param Config::Table& localCfg
+ *   - Metroid.Apply.Hunter    : bool  (適用ON/OFF)
+ *   - Metroid.Hunter.Selected : int   (0=Samus,1=Kanden,2=Trace,3=Sylux,4=Noxus,5=Spire,6=Weavel)
+ * @param std::uint32_t addrMainHunter 例: 0x220ECF40 (8bit)
+ * @return bool 書き込み実施有無
+ */
+bool applySelectedHunterStrict(NDS* nds, Config::Table& localCfg, std::uint32_t addrMainHunter)
+{
+    if (!nds) return false;
+    if (!localCfg.GetBool("Metroid.HunterLicense.Hunter.Apply")) return false;
+
+    // bit 定義
+    constexpr std::uint8_t FAVORITE_MASK = 0x80; // 参照のみ(保持)
+    constexpr std::uint8_t HUNTER_MASK = 0x78; // 置換対象 bit6–3
+    constexpr std::uint8_t STATE_MASK = 0x07; // 参照のみ(保持)
+
+    // 選択ハンター → bit6–3 パターン
+    constexpr std::uint8_t kHunterBitsLUT[7] = {
+        0x00, // Samus
+        0x08, // Kanden
+        0x10, // Trace
+        0x18, // Sylux
+        0x20, // Noxus
+        0x28, // Spire
+        0x30  // Weavel
+    };
+    int sel = localCfg.GetInt("Metroid.HunterLicense.Hunter.Selected");
+    if (sel < 0) sel = 0;
+    if (sel > 6) sel = 6;
+    const std::uint8_t desiredHunterBits = static_cast<std::uint8_t>(kHunterBitsLUT[sel] & HUNTER_MASK);
+
+    // 読み取り
+    const std::uint8_t oldVal = nds->ARM9Read8(addrMainHunter);
+
+    // ハンター種別のみ差し替え（bit7・bit2–0はそのまま）
+    const std::uint8_t newVal = static_cast<std::uint8_t>((oldVal & ~HUNTER_MASK) | desiredHunterBits);
+
+    if (newVal == oldVal) return false;      // 変更なし
+    nds->ARM9Write8(addrMainHunter, newVal); // 書き込み実行
+    return true;
+}
+
+
+/**
  * DS Name使用設定適用関数.
  *
  *
@@ -323,35 +370,19 @@ bool useDsName(NDS* nds, Config::Table& localCfg, std::uint32_t addrDsNameFlagAn
  *
  * @param NDS* nds NDS本体参照.
  * @param Config::Table& localCfg ローカル設定参照.
- * @param double& lastMphSensitivity キャッシュされた前回感度値.
  * @param std::uint32_t addrSensitivity 感度設定アドレス.
  * @return bool 書き込み実施有無.
  */
-bool ApplyMphSensitivity(NDS* nds, Config::Table& localCfg, double& lastMphSensitivity, std::uint32_t addrSensitivity)
+void ApplyMphSensitivity(NDS* nds, Config::Table& localCfg, std::uint32_t addrSensitivity)
 {
     // 現在の感度数値を設定から取得(ユーザー入力を読むため)
     double mphSensitivity = localCfg.GetDouble("Metroid.Sensitivity.Mph");
-
-    /*
-    * いったんやめた。感度が適用されていないことが多いため。
-    // 値が前回と同一か判定(不要な書き込みを避けるため)
-    if (__builtin_expect(mphSensitivity == lastMphSensitivity, 1)) {
-        // 書き込み不要結果返却(キャッシュ一致のため)
-        return false;
-    }
-    */
 
     // 感度数値をROMに適用可能な形式へ変換(ゲーム内部値に一致させるため)
     std::uint32_t sensiVal = sensiNumToSensiVal(mphSensitivity);
 
     // NDSメモリに16bit値を書き込み(ゲーム設定を即時反映するため)
     nds->ARM9Write16(addrSensitivity, static_cast<std::uint16_t>(sensiVal));
-
-    // キャッシュ更新(次回以降の無駄な書き込みを避けるため)
-    // lastMphSensitivity = mphSensitivity;
-
-    // 書き込み実施結果返却(呼び出し元でログや処理制御を可能にするため)
-    return true;
 }
 
 /**
@@ -445,8 +476,6 @@ bool isLayoutChangePending = true;       // MelonPrimeDS layout change flag - se
 bool isSensitivityChangePending = true;  // MelonPrimeDS sensitivity change flag - set true to trigger on first run
 bool isSnapTapMode = false;
 bool isUnlockHuntersMaps = false;
-// 前回のMPH本体感度値キャッシュ用
-double lastMphSensitivity = std::numeric_limits<double>::quiet_NaN();
 // グローバル適用フラグ定義(多重適用を避けるため)
 bool isHeadphoneApplied = false;
 
@@ -474,6 +503,7 @@ melonDS::u32 addrUnlockMapsHunters4; // All gallery open addr
 melonDS::u32 addrUnlockMapsHunters5; // All gallery open addr 2
 melonDS::u32 addrSensitivity;
 melonDS::u32 addrDsNameFlagAndMicVolume;
+melonDS::u32 addrMainHunter;
 // melonDS::u32 addrLanguage;
 static bool isUnlockMapsHuntersApplied = false;
 
@@ -564,7 +594,8 @@ __attribute__((always_inline, flatten)) inline void detectRomAndSetAddresses(Emu
         // ポーズ判定アドレス引数受け渡し実施(既存変数の直接利用のため)
         addrIsMapOrUserActionPaused,
         addrUnlockMapsHunters,
-        addrSensitivity
+        addrSensitivity,
+        addrMainHunter
     );
 
     // Addresses calculated from base values
@@ -592,7 +623,6 @@ __attribute__((always_inline, flatten)) inline void detectRomAndSetAddresses(Emu
     isUnlockMapsHuntersApplied = false;
     isHeadphoneApplied = false;
     // isSensitivityChangePending = true; // Aim感度リセット用 多分ここでは不要
-    // lastMphSensitivity = std::numeric_limits<double>::quiet_NaN(); // Mph感度リセット用
 }
 
 
@@ -2835,7 +2865,7 @@ void EmuThread::run()
                         ApplyHeadphoneOnce(emuInstance->nds, emuInstance->getLocalConfig(), addrOperationAndSound, isHeadphoneApplied);
 
                         // MPH感度設定適用処理呼び出し
-                        ApplyMphSensitivity(emuInstance->nds, emuInstance->getLocalConfig(), lastMphSensitivity, addrSensitivity);
+                        ApplyMphSensitivity(emuInstance->nds, emuInstance->getLocalConfig(), addrSensitivity);
                         
                         // ハンター/マップ全開処理
                         ApplyUnlockHuntersMaps(
@@ -2849,7 +2879,11 @@ void EmuThread::run()
                             addrUnlockMapsHunters5
                         );
 
+                        // DS名適用
                         useDsName(emuInstance->nds, emuInstance->getLocalConfig(), addrDsNameFlagAndMicVolume);
+
+                        // ハンター適用
+                        applySelectedHunterStrict(emuInstance->nds, emuInstance->getLocalConfig(), addrMainHunter);
                     }
 
                 }

@@ -128,6 +128,11 @@ InputConfigDialog::InputConfigDialog(QWidget* parent) : QDialog(parent), ui(new 
     ui->cbMetroidApplyHeadphone->setChecked(instcfg.GetBool("Metroid.Apply.Headphone"));
     ui->cbMetroidUseFirmwareName->setChecked(instcfg.GetBool("Metroid.Use.Firmware.Name"));
 
+    // Hunter license
+    ui->cbMetroidApplyHunter->setChecked(instcfg.GetBool("Metroid.HunterLicense.Hunter.Apply"));
+    ui->comboMetroidSelectedHunter->setCurrentIndex(
+        instcfg.GetInt("Metroid.HunterLicense.Hunter.Selected"));
+
     // } MelonPrimeDS
 
 
@@ -314,6 +319,12 @@ void InputConfigDialog::on_InputConfigDialog_accepted()
     instcfg.SetBool("Metroid.Data.Unlock", ui->cbMetroidUnlockAll->checkState() == Qt::Checked);
     instcfg.SetBool("Metroid.Apply.Headphone", ui->cbMetroidApplyHeadphone->checkState() == Qt::Checked);
     instcfg.SetBool("Metroid.Use.Firmware.Name", ui->cbMetroidUseFirmwareName->checkState() == Qt::Checked);
+
+    // Hunter license
+    instcfg.SetBool("Metroid.HunterLicense.Hunter.Apply",
+        ui->cbMetroidApplyHunter->checkState() == Qt::Checked);
+    instcfg.SetInt("Metroid.HunterLicense.Hunter.Selected",
+        ui->comboMetroidSelectedHunter->currentIndex());
 
     // } MelonPrimeDS
 
