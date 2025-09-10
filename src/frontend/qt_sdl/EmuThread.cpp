@@ -2207,23 +2207,25 @@ void EmuThread::run()
             float combinedSensitivityY;
         } static aimData = { 0, 0, 0.01f, 0.013333333f };
 
-        // 感度更新ラムダ定義(重複コード排除と単一責務化のため)
-        static const auto updateSensitivity = [&]() __attribute__((always_inline)) {
-            // 変更待ち判定(不要計算回避のため)
-            if (__builtin_expect(isSensitivityChangePending, 0)) {
-                // Retrieve sensitivity value (to apply settings)
-                const int sens = localCfg.GetInt("Metroid.Sensitivity.Aim");
-                const float aimYAxisScale = static_cast<float>(
-                    localCfg.GetDouble("Metroid.Sensitivity.AimYAxisScale")
-                    );
-                // Update X sensitivity (set scaling factor)
-                aimData.sensitivityFactor = sens * 0.01f;
-                // Update combined Y sensitivity (reduce multiplication operations)
-                aimData.combinedSensitivityY = aimData.sensitivityFactor * aimYAxisScale;
-                // Clear flag (prevent redundant recalculation)
-                isSensitivityChangePending = false;
-            }
-        };
+        // 感度更新マクロ定義(重複コード排除と単一責務化のため)
+#define UPDATE_SENSITIVITY(localCfg, aimData, isSensitivityChangePending)               \
+    do {                                                                               \
+        /* 変更待ち判定(不要計算回避のため) */                                         \
+        if (__builtin_expect(isSensitivityChangePending, 0)) {                         \
+            /* 感度値取得(設定値を適用するため) */                                     \
+            const int sens = (localCfg).GetInt("Metroid.Sensitivity.Aim");             \
+            /* Y軸倍率取得(ユーザー設定を反映するため) */                              \
+            const float aimYAxisScale = static_cast<float>(                           \
+                (localCfg).GetDouble("Metroid.Sensitivity.AimYAxisScale")              \
+            );                                                                         \
+            /* X感度更新(スケーリング係数を設定するため) */                           \
+            (aimData).sensitivityFactor = sens * 0.01f;                                \
+            /* Y感度更新(X感度との積で計算を簡略化するため) */                         \
+            (aimData).combinedSensitivityY = (aimData).sensitivityFactor * aimYAxisScale; \
+            /* フラグクリア(冗長な再計算を防ぐため) */                                \
+            isSensitivityChangePending = false;                                        \
+        }                                                                              \
+    } while (0)
 
         // Define macro to prevent drift by rounding (single evaluation and snap within tolerance range)
 #define AIM_ADJUST(v)                                        \
@@ -2260,7 +2262,8 @@ void EmuThread::run()
             if ((deltaX | deltaY) == 0) return;
 
             // 感度更新呼び出し(フラグ監視により一度だけ再計算するため)
-            updateSensitivity();
+            // 感度更新実行(必要なときだけ再計算するため)
+            UPDATE_SENSITIVITY(localCfg, aimData, isSensitivityChangePending);
 
             // Calculate X scaling (apply sensitivity)
             const float scaledX = deltaX * aimData.sensitivityFactor;
@@ -2300,7 +2303,7 @@ void EmuThread::run()
         isLayoutChangePending = false;
 
         // 感度更新呼び出し(設定変更を即時反映するため)
-        updateSensitivity();
+        UPDATE_SENSITIVITY(localCfg, aimData, isSensitivityChangePending);
 
 #else
         // スタイラス押下分岐(タッチ入力直通処理のため)
