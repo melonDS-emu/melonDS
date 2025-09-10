@@ -2277,9 +2277,9 @@ void EmuThread::run()
 
 
             // NDS書き込み（ndsポインタ一時化で間接参照削減）
-            static NDS* const __restrict nds = emuInstance->nds;
-            nds->ARM9Write16(addrAimX, outputX);
-            nds->ARM9Write16(addrAimY, outputY);
+            // static NDS* const __restrict nds = emuInstance->nds;
+            emuInstance->nds->ARM9Write16(addrAimX, outputX);
+            emuInstance->nds->ARM9Write16(addrAimY, outputY);
 
             // Set aim enable flag (for conditional processing downstream)
             enableAim = true;
