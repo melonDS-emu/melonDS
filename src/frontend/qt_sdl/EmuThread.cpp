@@ -284,9 +284,9 @@ bool applySelectedHunterStrict(NDS* nds, Config::Table& localCfg, std::uint32_t 
     if (!localCfg.GetBool("Metroid.HunterLicense.Hunter.Apply")) return false;
 
     // bit 定義
-    constexpr std::uint8_t FAVORITE_MASK = 0x80; // 参照のみ(保持)
+    //constexpr std::uint8_t FAVORITE_MASK = 0x80; // 参照のみ(保持)
     constexpr std::uint8_t HUNTER_MASK = 0x78; // 置換対象 bit6–3
-    constexpr std::uint8_t STATE_MASK = 0x07; // 参照のみ(保持)
+    //constexpr std::uint8_t STATE_MASK = 0x07; // 参照のみ(保持)
 
     // 選択ハンター → bit6–3 パターン
     constexpr std::uint8_t kHunterBitsLUT[7] = {
