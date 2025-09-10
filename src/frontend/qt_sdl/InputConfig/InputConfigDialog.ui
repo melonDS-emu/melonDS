@@ -2486,6 +2486,64 @@
 					</widget>
 				</item>
 
+				<!-- Apply selected Hunter -->
+				<item row="16" column="0">
+					<widget class="QCheckBox" name="cbMetroidApplyHunter">
+						<property name="text">
+							<string>Apply hunter on your license:</string>
+						</property>
+						<property name="toolTip">
+							<string>Enables applying the selected hunter to the license.</string>
+						</property>
+						<!-- 設定キー: Metroid.Apply.Hunter (bool) -->
+					</widget>
+				</item>
+				<item row="16" column="1">
+					<widget class="QComboBox" name="comboMetroidSelectedHunter">
+						<property name="toolTip">
+							<string>Select the hunter to apply.</string>
+						</property>
+						<item>
+							<property name="text">
+								<string>Samus</string>
+							</property>
+						</item>
+						<item>
+							<property name="text">
+								<string>Kanden</string>
+							</property>
+						</item>
+						<item>
+							<property name="text">
+								<string>Trace</string>
+							</property>
+						</item>
+						<item>
+							<property name="text">
+								<string>Sylux</string>
+							</property>
+						</item>
+						<item>
+							<property name="text">
+								<string>Noxus</string>
+							</property>
+						</item>
+						<item>
+							<property name="text">
+								<string>Spire</string>
+							</property>
+						</item>
+						<item>
+							<property name="text">
+								<string>Weavel</string>
+							</property>
+						</item>
+						<!-- 設定キー: Metroid.Hunter.Selected (int: 0..6) -->
+						<property name="currentIndex">
+							<number>0</number>
+						</property>
+					</widget>
+				</item>
 
 			</layout>
 	    </widget>
