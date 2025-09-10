@@ -2490,7 +2490,7 @@
 				<item row="16" column="0">
 					<widget class="QCheckBox" name="cbMetroidApplyHunter">
 						<property name="text">
-							<string>Apply hunter on your license:</string>
+							<string>Apply selected Hunter to your license:</string>
 						</property>
 						<property name="toolTip">
 							<string>Enables applying the selected hunter to the license.</string>
