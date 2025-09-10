@@ -7,7 +7,7 @@ _start:
 .word 0xBF8DA5ED
 .string " Chishm"
 .byte 1
-.byte 9 @ size
+.byte 10 @ size
 .byte 0
 .byte 0
 .string "melonDS DLDI driver"
