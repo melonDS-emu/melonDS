@@ -202,6 +202,11 @@ endif()
 
 if (WIN32)
     target_link_libraries(core PRIVATE ole32 comctl32 wsock32 ws2_32)
+
+    if (NOT MINGW)
+        find_path(DIRENT_INCLUDE_DIRS "dirent.h")
+        target_include_directories(core PUBLIC ${DIRENT_INCLUDE_DIRS})
+    endif()
 elseif(NOT APPLE AND NOT HAIKU)
     check_library_exists(rt shm_open "" NEED_LIBRT)
     if (NEED_LIBRT)

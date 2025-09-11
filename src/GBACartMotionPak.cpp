@@ -21,7 +21,6 @@
 #include "GBACart.h"
 #include "Platform.h"
 #include <algorithm>
-#define _USE_MATH_DEFINES
 #include "math.h"
 
 namespace melonDS
