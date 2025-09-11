@@ -17,7 +17,7 @@ if fuzzer_build
   extra_ldargs += '-fcoverage-mapping'
 endif
 
-deps = [glib_dep, libslirp_dep, platform_deps]
+deps = [ libslirp_libdep ] + libslirp_deps
 
 exes = [
         ['fuzz-arp', ['slirp_fuzz_arp.c', 'helper.c']],
