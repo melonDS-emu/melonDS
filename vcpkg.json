@@ -28,7 +28,9 @@
 			"name": "libslirp",
 			"platform": "linux"
 		},
-		"faad2"
+		"faad2",
+		"pkgconf",
+		{ "name": "dirent", "platform": "windows" }
 	],
 	"features": {
 		"qt6": {
