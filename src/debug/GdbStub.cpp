@@ -19,6 +19,7 @@
 #include <arpa/inet.h>
 #include <netinet/in.h>
 #include <netinet/tcp.h>
+#include <unistd.h>
 // actually do the define for unix platforms rather than windows so that
 // it's clearer what the code does
 #define closesocket(x) close(x)
