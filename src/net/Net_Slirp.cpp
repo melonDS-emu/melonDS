@@ -205,6 +205,7 @@ void FinishUDPFrame(u8* data, int len)
     *(u16*)&udpheader[6] = htons(tmp);
 }
 
+#if !SLIRP_CHECK_VERSION(4, 9, 1)
 void Net_Slirp::HandleDNSFrame(u8* data, int len) noexcept
 {
     u8* ipheader = &data[0xE];
@@ -361,6 +362,7 @@ void Net_Slirp::HandleDNSFrame(u8* data, int len) noexcept
     if (Callback)
         Callback(resp, framelen);
 }
+#endif
 
 int Net_Slirp::SendPacket(u8* data, int len) noexcept
 {
@@ -372,6 +374,7 @@ int Net_Slirp::SendPacket(u8* data, int len) noexcept
         return 0;
     }
 
+#if !SLIRP_CHECK_VERSION(4, 9, 1)
     u16 ethertype = ntohs(*(u16*)&data[0xC]);
 
     if (ethertype == 0x800)
@@ -387,6 +390,7 @@ int Net_Slirp::SendPacket(u8* data, int len) noexcept
             }
         }
     }
+#endif
 
     slirp_input(Ctx, data, len);
     return len;
