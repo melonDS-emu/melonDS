@@ -194,6 +194,7 @@ LegacyEntry LegacyFile[] =
     {"HKJoy_GuitarGripRed",       0, "Joystick.HK_GuitarGripRed", true},
     {"HKJoy_GuitarGripYellow",    0, "Joystick.HK_GuitarGripYellow", true},
     {"HKJoy_GuitarGripBlue",      0, "Joystick.HK_GuitarGripBlue", true},
+    {"HKJoy_TakeScreenshot",      0, "Joystick.HK_TakeScreenshot", true},
 
     {"JoystickID", 0, "JoystickID", true},
 
