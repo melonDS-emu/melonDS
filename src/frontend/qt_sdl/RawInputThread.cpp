@@ -1,5 +1,6 @@
 #include "RawInputThread.h"
 #include <QPair>
+#include <QMutexLocker>
 
 void sample_on_rel(void* tag, Raw_Axis axis, int delta, RawInputThread* rawInputThread) {
 	if (rawInputThread == nullptr) return;
@@ -48,13 +49,12 @@ void RawInputThread::internalReceiveDelta(Raw_Axis axis, int delta) {
 	mouseDeltaLock.unlock();
 }
 
-QPair<int ,int> RawInputThread::fetchMouseDelta() {
-	mouseDeltaLock.lock();
-	QPair<int, int> value = QPair(mouseDeltaX, mouseDeltaY);
-	mouseDeltaX = 0;
-	mouseDeltaY = 0;
-	mouseDeltaLock.unlock();
-	return value;
+QPair<int, int> RawInputThread::fetchMouseDelta() {
+    QMutexLocker lock(&mouseDeltaLock);
+    const QPair<int,int> value(mouseDeltaX, mouseDeltaY);  // ★ 明示的にテンプレ引数を指定
+    mouseDeltaX = 0;
+    mouseDeltaY = 0;
+    return value;
 }
 
 void RawInputThread::run()
