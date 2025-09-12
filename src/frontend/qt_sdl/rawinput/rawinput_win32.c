@@ -3,7 +3,6 @@
  #include <string.h>  /* memset 用 */
 typedef UINT u32;
 typedef SHORT i16;
-typedef ULONG u64;
 typedef USHORT u16;
 
 static bool inited = false;
@@ -172,9 +171,7 @@ static int scan_devices(Device *devices) {
     u32 n;
     int i;
 
-    if (0 != GetRawInputDeviceList(0, &n, sizeof(ridls[0]))) {
-        return 0;
-    }
+    if (GetRawInputDeviceList(NULL, &n, sizeof(ridls[0])) == (UINT)-1) { return 0; }
     n = n>MAX_DEVICES? MAX_DEVICES: n;
     GetRawInputDeviceList(ridls, &n, sizeof(ridls[0]));
 
@@ -344,26 +341,29 @@ void raw_init() {
     }
     hwnd = msg_window;
 
-    /* Register what type of rawinput we're interested in */
-    RAWINPUTDEVICE rids[4];
-    u64 flags = 0;
-    rids[0].usUsagePage = 0x01;
-    rids[0].usUsage = 0x06; /* Keyboards */
-    rids[0].hwndTarget = hwnd;
-    rids[0].dwFlags = flags;
-    rids[1].usUsagePage = 0x01;
-    rids[1].usUsage = 0x07; /* Keyboards */
-    rids[1].hwndTarget = hwnd;
-    rids[1].dwFlags = flags;
-    rids[2].usUsagePage = 0x01;
-    rids[2].usUsage = 0x02; /* Mice */
-    rids[2].hwndTarget = hwnd;
-    rids[2].dwFlags = flags;
-    rids[3].usUsagePage = 0x01;
-    rids[3].usUsage = 0x03; /* Mice */
-    rids[3].hwndTarget = hwnd;
-    rids[3].dwFlags = flags;
-    RegisterRawInputDevices(&rids[0], 4, (UINT)sizeof(rids[0]));
+    /* Register RAWINPUT targets: Keyboard(0x06) and Mouse(0x02) on GenericDesktop(0x01) */
+    RAWINPUTDEVICE rids[2];
+    DWORD flags = RIDEV_INPUTSINK; /* メッセージ専用ウィンドウで受け取るため必須 */
+    /* 必要に応じてレガシー抑止やデバイス通知を追加:
+       flags |= RIDEV_NOLEGACY;     // WM_KEYDOWN/WM_MOUSEMOVE等を抑止（用途に応じて）
+       flags |= RIDEV_DEVNOTIFY;    // WM_INPUT_DEVICE_CHANGEを受け取る
+    */
+
+    rids[0].usUsagePage = 0x01;      /* Generic Desktop */
+    rids[0].usUsage     = 0x06;      /* Keyboard */
+    rids[0].dwFlags     = flags;
+    rids[0].hwndTarget  = hwnd;
+
+    rids[1].usUsagePage = 0x01;      /* Generic Desktop */
+    rids[1].usUsage     = 0x02;      /* Mouse */
+    rids[1].dwFlags     = flags;
+    rids[1].hwndTarget  = hwnd;
+
+    if (!RegisterRawInputDevices(rids, (UINT)(sizeof(rids)/sizeof(rids[0])), (UINT)sizeof(rids[0]))) {
+        /* 失敗時はエラーコードをログに残すことを推奨 */
+        /* DWORD err = GetLastError(); (必要なら記録) */
+        return;
+    }
 
 }
 
@@ -381,15 +381,15 @@ void raw_quit() {
 }
 
 static void handle_msg(const MSG *msg) {
-    HRAWINPUT raw_input_handle = (HRAWINPUT)msg->lParam;
-    RAWINPUT input;
-    u32 size = sizeof(RAWINPUT);
-
-    if ((u32)-1 == GetRawInputData(raw_input_handle, RID_INPUT, &input, &size, sizeof(RAWINPUTHEADER))) {
+    if (msg->message != WM_INPUT) {
+        /* DEVNOTIFYを使うならここでWM_INPUT_DEVICE_CHANGEも処理可 */
         return;
     }
 
-    if (msg->message != WM_INPUT) {
+    HRAWINPUT raw_input_handle = (HRAWINPUT)msg->lParam;
+    RAWINPUT input;
+    u32 size = sizeof(RAWINPUT);
+    if ((u32)-1 == GetRawInputData(raw_input_handle, RID_INPUT, &input, &size, sizeof(RAWINPUTHEADER))) {
         return;
     }
 
@@ -424,7 +424,7 @@ static void handle_msg(const MSG *msg) {
         }
         break;
     case RIM_TYPEMOUSE:
-        if (input.data.mouse.usFlags == MOUSE_MOVE_RELATIVE) {
+        if (input.data.mouse.usFlags & MOUSE_MOVE_RELATIVE) {
             if (input.data.mouse.lLastX) {
                 emit_rel(tag, RA_X, input.data.mouse.lLastX);
             }
@@ -444,6 +444,13 @@ static void handle_msg(const MSG *msg) {
         if (input.data.mouse.usButtonFlags & RI_MOUSE_RIGHT_BUTTON_UP) {
             emit_key_up(tag, RK_RMB);
         }
+        /* XBUTTON1/2 */
+        if (input.data.mouse.usButtonFlags & RI_MOUSE_BUTTON_4_DOWN) emit_key_down(tag, RK_XBUTTON1);
+        if (input.data.mouse.usButtonFlags & RI_MOUSE_BUTTON_4_UP)   emit_key_up  (tag, RK_XBUTTON1);
+        if (input.data.mouse.usButtonFlags & RI_MOUSE_BUTTON_5_DOWN) emit_key_down(tag, RK_XBUTTON2);
+        if (input.data.mouse.usButtonFlags & RI_MOUSE_BUTTON_5_UP)   emit_key_up  (tag, RK_XBUTTON2);
+
+
         if (input.data.mouse.usButtonFlags & RI_MOUSE_MIDDLE_BUTTON_DOWN) {
             emit_key_down(tag, RK_MMB);
         }
@@ -453,6 +460,7 @@ static void handle_msg(const MSG *msg) {
         if (input.data.mouse.usButtonFlags & RI_MOUSE_WHEEL) {
             emit_rel(tag, RA_WHEEL, (i16)(input.data.mouse.usButtonData) / WHEEL_DELTA);
         }
+
         break;
     default:
         break;
@@ -514,7 +522,8 @@ void raw_poll() {
     if (!inited)
         return;
 
-    while (PeekMessage(&msg, msg_window, WM_INPUT, WM_INPUT, PM_REMOVE)) {
+    /* DEVNOTIFYも使うなら下のように範囲を広げる */
+    while (PeekMessage(&msg, msg_window, WM_INPUT, WM_INPUT_DEVICE_CHANGE, PM_REMOVE)) {
         handle_msg(&msg);
         TranslateMessage(&msg);
         DispatchMessage(&msg);

@@ -142,7 +142,10 @@ float mouseX;
 float mouseY;
 #include "MelonPrimeDef.h"
 #include "MelonPrimeRomAddrTable.h"
-#include "RawInputThread.h"
+#if defined(_WIN32)
+// #include "RawInputThread.h"
+#include "RawInputWinFilter.h"
+#endif
 
 /**
  * 感度値変換関数.
@@ -2181,13 +2184,25 @@ void EmuThread::run()
 
 
 
-
+#if defined(_WIN32)
         // RawMouseInput
-        RawInputThread* rawInputThread = new RawInputThread(parent());
-        rawInputThread->start();
+        //RawInputThread* rawInputThread = new RawInputThread(parent());
+        //rawInputThread->start();
 
+// ヘッダ参照(クラス宣言のため)
+#include "RawInputWinFilter.h"
+// アプリケーション参照(QCoreApplicationのため)
+#include <QCoreApplication>
 
+// 静的ポインタ定義(単一インスタンス保持のため)
+        static RawInputWinFilter* g_rawFilter = nullptr;
 
+        // どこか一度だけ(例: EmuThread::run の前段やMainWindow生成時)
+        if (!g_rawFilter) {
+            g_rawFilter = new RawInputWinFilter();
+            qApp->installNativeEventFilter(g_rawFilter);
+        }
+#endif
 
     /**
      * Aim input processing (QCursor-based, structure-preserving, low-latency, drift-prevention version).
@@ -2253,12 +2268,13 @@ void EmuThread::run()
                 int dx = 0, dy = 0;
 
                 // 取得（std::pair<int,int> 返却想定）
-                if (rawInputThread) {
-                    const auto d = rawInputThread->fetchMouseDelta();
-                    dx = d.first;  dy = d.second;
+                //if (rawInputThread) {
+                    //const QPair<int, int> d = rawInputThread->fetchMouseDelta();
+                    g_rawFilter->fetchMouseDelta(dx, dy);
+                    //dx = d.first;  dy = d.second;
                     // もし参照引数版なら↓に置換：
                     // rawInputThread->fetchMouseDelta(dx, dy);
-                }
+                //}
 
                 // 動きが無ければ何もしない
                 if ((dx | dy) == 0) return;
@@ -2967,9 +2983,9 @@ void EmuThread::run()
         frameAdvanceOnce();
 
     } // End of while (emuStatus != emuStatus_Exit)
-
-    rawInputThread->quit(); //rawMouseInput
-
+#if defined(_WIN32)
+    //rawInputThread->quit(); //rawMouseInput
+#endif
 
 }
 
