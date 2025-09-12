@@ -46,6 +46,14 @@ public:
         outDx = dx.exchange(0, std::memory_order_acq_rel);
         outDy = dy.exchange(0, std::memory_order_acq_rel);
     }
+    /**
+     * RAWデルタ破棄関数定義.
+     *
+     *
+     * @brief 累積された相対デルタを即時ゼロ化する.
+     */
+     // メソッド宣言(累積値の消去のため)
+    void discardDeltas();
 
 private:
     // アトミックデルタX(ロックレス累積のため)

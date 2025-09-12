@@ -54,3 +54,11 @@ bool RawInputWinFilter::nativeEventFilter(const QByteArray& eventType, void* mes
 #endif
         return false;
 }
+
+// 関数本体定義(累積カウンタの原子的クリアのため)
+void RawInputWinFilter::discardDeltas() {
+    // X累積値ゼロ化(可視性確保のため)
+    dx.exchange(0, std::memory_order_acq_rel);
+    // Y累積値ゼロ化(可視性確保のため)
+    dy.exchange(0, std::memory_order_acq_rel);
+}

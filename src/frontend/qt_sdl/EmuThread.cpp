@@ -2270,12 +2270,22 @@ void EmuThread::run()
 
 #if defined(_WIN32)
             /* ==== Raw Input 経路==== */
+                            // TODO フォーカスイン時にsetPosで中央に戻す処理が動くため、移動距離が強制で大きくなってしまう。
             do {
                 // 設定でRaw Inputが有効なら、WM_INPUT由来の相対デルタだけで処理して早期return
                 // emuInstance->osdAddMessage(0, "raw");
 
                 g_rawFilter->fetchMouseDelta(deltaX, deltaY);
 
+
+                // 復帰初回判定(直前フレーム非フォーカスの検出のため)
+                if (!wasLastFrameFocused) {
+                    // RAW累積捨て呼び出し(残存デルタの完全排除のため)
+                    g_rawFilter->discardDeltas();
+                    // 取得値ゼロ化(一発目の暴発防止のため)
+                    deltaX = 0;
+                    deltaY = 0;
+                }
             } while (0);
 
 
@@ -2335,6 +2345,10 @@ void EmuThread::run()
 
         // Set initial cursor position (for visual consistency and zeroing delta)
         QCursor::setPos(center);
+#if defined(_WIN32)
+        // RAW累積捨て呼び出し(センタリング直後の残存デルタ排除のため)
+        g_rawFilter->discardDeltas();
+#endif
         // Clear layout change flag (to return to hot path)
         isLayoutChangePending = false;
 
