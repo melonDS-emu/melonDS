@@ -2248,36 +2248,34 @@ void EmuThread::run()
         /* ==== Raw Input 経路（QCursorを完全スキップ／中心戻しなし）==== */
         #if defined(_WIN32)
             do {
-                // 設定でRaw Inputが有効なら、WM_INPUT由来の相対デルタだけで処理して早期return
-                const bool useRawInput = localCfg.GetBool("Input.RawInput.Enabled");
-                if (__builtin_expect(useRawInput, 0)) {
-                    int dx = 0, dy = 0;
+            // 設定でRaw Inputが有効なら、WM_INPUT由来の相対デルタだけで処理して早期return
+                emuInstance->osdAddMessage(0, "raw");
+                int dx = 0, dy = 0;
 
-                    // 取得（std::pair<int,int> 返却想定）
-                    if (rawInputThread) {
-                        const auto d = rawInputThread->fetchMouseDelta();
-                        dx = d.first;  dy = d.second;
-                        // もし参照引数版なら↓に置換：
-                        // rawInputThread->fetchMouseDelta(dx, dy);
-                    }
-
-                    // 動きが無ければ何もしない
-                    if ((dx | dy) == 0) return;
-
-                    // 感度キャッシュ更新（既存マクロを使用）
-                    UPDATE_SENSITIVITY(localCfg, aimData, isSensitivityChangePending);
-
-                    // スケーリング→±1スナップ（既存ロジック流用）
-                    const float   scaledX = dx * aimData.sensitivityFactor;
-                    const float   scaledY = dy * aimData.combinedSensitivityY;
-                    const int16_t outputX = AIM_ADJUST(scaledX);
-                    const int16_t outputY = AIM_ADJUST(scaledY);
-
-                    emuInstance->nds->ARM9Write16(addrAimX, outputX);
-                    emuInstance->nds->ARM9Write16(addrAimY, outputY);
-                    enableAim = true;
-                    return; // ここで終了（以下のQCursor経路は通らない）
+                // 取得（std::pair<int,int> 返却想定）
+                if (rawInputThread) {
+                    const auto d = rawInputThread->fetchMouseDelta();
+                    dx = d.first;  dy = d.second;
+                    // もし参照引数版なら↓に置換：
+                    // rawInputThread->fetchMouseDelta(dx, dy);
                 }
+
+                // 動きが無ければ何もしない
+                if ((dx | dy) == 0) return;
+
+                // 感度キャッシュ更新（既存マクロを使用）
+                UPDATE_SENSITIVITY(localCfg, aimData, isSensitivityChangePending);
+
+                // スケーリング→±1スナップ（既存ロジック流用）
+                const float   scaledX = dx * aimData.sensitivityFactor;
+                const float   scaledY = dy * aimData.combinedSensitivityY;
+                const int16_t outputX = AIM_ADJUST(scaledX);
+                const int16_t outputY = AIM_ADJUST(scaledY);
+
+                emuInstance->nds->ARM9Write16(addrAimX, outputX);
+                emuInstance->nds->ARM9Write16(addrAimY, outputY);
+                enableAim = true;
+                return; // ここで終了（以下のQCursor経路は通らない）
             } while (0);
         #endif
 
