@@ -2265,6 +2265,7 @@ void EmuThread::run()
 // Hot path branch (fast processing when focus is maintained and layout is unchanged)
 
         if (__builtin_expect(!isLayoutChangePending && wasLastFrameFocused, 1)) {
+			// フォーカス時かつレイアウト変更なしの場合の処理
             int deltaX = 0, deltaY = 0;
 
 
@@ -2276,16 +2277,6 @@ void EmuThread::run()
                 // emuInstance->osdAddMessage(0, "raw");
 
                 g_rawFilter->fetchMouseDelta(deltaX, deltaY);
-
-
-                // 復帰初回判定(直前フレーム非フォーカスの検出のため)
-                if (!wasLastFrameFocused) {
-                    // RAW累積捨て呼び出し(残存デルタの完全排除のため)
-                    g_rawFilter->discardDeltas();
-                    // 取得値ゼロ化(一発目の暴発防止のため)
-                    deltaX = 0;
-                    deltaY = 0;
-                }
             } while (0);
 
 
