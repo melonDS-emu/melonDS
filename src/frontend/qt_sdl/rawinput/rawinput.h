@@ -130,7 +130,9 @@ typedef enum Raw_Key {
     RK_BACKSLASH,
     RK_SEMICOLON,
     RK_QUOTE,
-
+    /* Mouse side buttons */
+    RK_XBUTTON1,
+    RK_XBUTTON2,
     RK_COUNT = 512  /* Enough space for virtual keys added in future */
 
 } Raw_Key;

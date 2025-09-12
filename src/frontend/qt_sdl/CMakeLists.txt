@@ -59,6 +59,7 @@ set(SOURCES_QT_SDL
     NetplayDialog.cpp
     rawinput/rawinput_common.c
     RawInputThread.cpp
+    RawInputWinFilter.cpp
 )
 
 option(USE_QT6 "Use Qt 6 instead of Qt 5" ON)
@@ -119,6 +120,7 @@ elseif (APPLE)
     target_link_libraries(melonDS PRIVATE ${OPENGL_LIB})
     target_sources(melonDS PRIVATE
         ../duckstation/gl/context_agl.mm
+        rawinput/rawinput_macos.c
     )
     set_source_files_properties(
         ../duckstation/gl/context_agl.mm

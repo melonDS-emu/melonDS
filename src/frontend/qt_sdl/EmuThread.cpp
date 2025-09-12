@@ -142,7 +142,10 @@ float mouseX;
 float mouseY;
 #include "MelonPrimeDef.h"
 #include "MelonPrimeRomAddrTable.h"
-#include "RawInputThread.h"
+#if defined(_WIN32)
+// #include "RawInputThread.h"
+#include "RawInputWinFilter.h"
+#endif
 
 /**
  * 感度値変換関数.
@@ -2181,13 +2184,25 @@ void EmuThread::run()
 
 
 
+#if defined(_WIN32)
+        // RawMouseInput
+        //RawInputThread* rawInputThread = new RawInputThread(parent());
+        //rawInputThread->start();
 
+// ヘッダ参照(クラス宣言のため)
+#include "RawInputWinFilter.h"
+// アプリケーション参照(QCoreApplicationのため)
+#include <QCoreApplication>
 
-        RawInputThread* rawInputThread = new RawInputThread(parent());
-        rawInputThread->start();
+// 静的ポインタ定義(単一インスタンス保持のため)
+        static RawInputWinFilter* g_rawFilter = nullptr;
 
-
-
+        // どこか一度だけ(例: EmuThread::run の前段やMainWindow生成時)
+        if (!g_rawFilter) {
+            g_rawFilter = new RawInputWinFilter();
+            qApp->installNativeEventFilter(g_rawFilter);
+        }
+#endif
 
     /**
      * Aim input processing (QCursor-based, structure-preserving, low-latency, drift-prevention version).
@@ -2245,45 +2260,26 @@ void EmuThread::run()
             static_cast<int16_t>(_v);                            \
         })
 
-        /* ==== Raw Input 経路（QCursorを完全スキップ／中心戻しなし）==== */
-        #if defined(_WIN32)
-            do {
-                // 設定でRaw Inputが有効なら、WM_INPUT由来の相対デルタだけで処理して早期return
-                const bool useRawInput = localCfg.GetBool("Input.RawInput.Enabled");
-                if (__builtin_expect(useRawInput, 0)) {
-                    int dx = 0, dy = 0;
 
-                    // 取得（std::pair<int,int> 返却想定）
-                    if (rawInputThread) {
-                        const auto d = rawInputThread->fetchMouseDelta();
-                        dx = d.first;  dy = d.second;
-                        // もし参照引数版なら↓に置換：
-                        // rawInputThread->fetchMouseDelta(dx, dy);
-                    }
-
-                    // 動きが無ければ何もしない
-                    if ((dx | dy) == 0) return;
-
-                    // 感度キャッシュ更新（既存マクロを使用）
-                    UPDATE_SENSITIVITY(localCfg, aimData, isSensitivityChangePending);
-
-                    // スケーリング→±1スナップ（既存ロジック流用）
-                    const float   scaledX = dx * aimData.sensitivityFactor;
-                    const float   scaledY = dy * aimData.combinedSensitivityY;
-                    const int16_t outputX = AIM_ADJUST(scaledX);
-                    const int16_t outputY = AIM_ADJUST(scaledY);
-
-                    emuInstance->nds->ARM9Write16(addrAimX, outputX);
-                    emuInstance->nds->ARM9Write16(addrAimY, outputY);
-                    enableAim = true;
-                    return; // ここで終了（以下のQCursor経路は通らない）
-                }
-            } while (0);
-        #endif
 
 // Hot path branch (fast processing when focus is maintained and layout is unchanged)
 
         if (__builtin_expect(!isLayoutChangePending && wasLastFrameFocused, 1)) {
+            int deltaX = 0, deltaY = 0;
+
+
+#if defined(_WIN32)
+            /* ==== Raw Input 経路==== */
+            do {
+                // 設定でRaw Inputが有効なら、WM_INPUT由来の相対デルタだけで処理して早期return
+                // emuInstance->osdAddMessage(0, "raw");
+
+                g_rawFilter->fetchMouseDelta(deltaX, deltaY);
+
+            } while (0);
+
+
+#else
             // Get current mouse coordinates (for delta calculation input)
             const QPoint currentPos = QCursor::pos();
             // Extract X coordinate (early retrieval from QPoint)
@@ -2292,9 +2288,10 @@ void EmuThread::run()
             const int posY = currentPos.y();
 
             // Calculate X delta (preserve raw value before scaling)
-            const int deltaX = posX - aimData.centerX;
+            deltaX = posX - aimData.centerX;
             // Calculate Y delta (preserve raw value before scaling)
-            const int deltaY = posY - aimData.centerY;
+            deltaY = posY - aimData.centerY;
+#endif
 
             // Early exit if no movement (prevent unnecessary processing)
             //if (!(deltaX | deltaY)) return;
@@ -2969,9 +2966,9 @@ void EmuThread::run()
         frameAdvanceOnce();
 
     } // End of while (emuStatus != emuStatus_Exit)
-
-    rawInputThread->quit(); //rawMouseInput
-
+#if defined(_WIN32)
+    //rawInputThread->quit(); //rawMouseInput
+#endif
 
 }
 
