@@ -1,4 +1,5 @@
 #include "RawInputThread.h"
+#include <QPair>
 
 void sample_on_rel(void* tag, Raw_Axis axis, int delta, RawInputThread* rawInputThread) {
 	if (rawInputThread == nullptr) return;
