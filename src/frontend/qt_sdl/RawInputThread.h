@@ -1,3 +1,5 @@
+//これは現在不使用
+
 #pragma once
 // ヘッダ参照(クラス宣言の参照のため)
 #include <QThread>
