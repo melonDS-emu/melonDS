@@ -57,6 +57,8 @@ set(SOURCES_QT_SDL
 
     LANDialog.cpp
     NetplayDialog.cpp
+    rawinput/rawinput_common.c
+    RawInputThread.cpp
 )
 
 option(USE_QT6 "Use Qt 6 instead of Qt 5" ON)
@@ -102,6 +104,7 @@ if (WIN32)
         ../duckstation/gl/context_wgl.cpp
 
         ../glad/glad_wgl.c
+        rawinput/rawinput_win32.c
     )
 
     if (MINGW AND CMAKE_HOST_SYSTEM_NAME STREQUAL "Linux")
@@ -150,6 +153,7 @@ else()
 
         ../glad/glad_egl.c
         ../glad/glad_glx.c
+        rawinput/rawinput_linux.c
     )
     target_link_libraries(melonDS PRIVATE "${X11_LIBRARIES}" "${EGL_LIBRARIES}")
     target_include_directories(melonDS PRIVATE "${X11_INCLUDE_DIR}")

@@ -267,8 +267,13 @@ void ScreenPanel::mousePressEvent(QMouseEvent* event)
     if (!emuInstance->emuIsActive()) { touching = false; return; }
     if (event->button() != Qt::LeftButton) return;
 
+    /*
     int x = event->pos().x();
     int y = event->pos().y();
+    */
+    const QPoint pos = event->pos();
+    int x = pos.x();
+    int y = pos.y();
 
     if (layout.GetTouchCoords(x, y, false))
     {
@@ -319,8 +324,13 @@ void ScreenPanel::mouseMoveEvent(QMouseEvent* event)
     //if (!(event->buttons() & Qt::LeftButton)) return;
     if (!touching) return;
 
+    /*
     int x = event->pos().x();
     int y = event->pos().y();
+    */
+    const QPoint pos = event->pos();
+    int x = pos.x();
+    int y = pos.y();
 
     if (layout.GetTouchCoords(x, y, true))
     {
@@ -339,8 +349,13 @@ void ScreenPanel::tabletEvent(QTabletEvent* event)
     case QEvent::TabletMove:
         {
 #if QT_VERSION_MAJOR == 6
+            /*
             int x = event->position().x();
             int y = event->position().y();
+            */
+            const QPointF pos = event->position();
+            int x = pos.x();
+            int y = pos.y();
 #else
             int x = event->x();
             int y = event->y();
