@@ -3,6 +3,7 @@
 
 #include <QThread>
 #include <QMutex>
+#include <QPair>
 
 extern "C"
 {

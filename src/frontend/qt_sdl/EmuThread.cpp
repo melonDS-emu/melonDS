@@ -2182,7 +2182,7 @@ void EmuThread::run()
 
 
 
-
+        // RawMouseInput
         RawInputThread* rawInputThread = new RawInputThread(parent());
         rawInputThread->start();
 
