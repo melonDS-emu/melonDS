@@ -526,19 +526,23 @@ MainWindow::MainWindow(int id, EmuInstance* inst, QWidget* parent) :
                 actScreenGap[6] = submenu->addAction(QString("Custom"));
                 actScreenGap[6]->setActionGroup(grpScreenGap);
                 actScreenGap[6]->setCheckable(true);
-
+                
                 actScreenGapTextbox = new QLineEdit(QString("0"), submenu);
                 actScreenGapTextbox->setValidator(new QIntValidator(screengap[0], screengap[5]));
-                
-                auto customGapWidget = new QWidgetAction(submenu);
+                actScreenGapTextbox->setFixedWidth(submenu->width());
+
+                QWidgetAction* customGapWidget = new QWidgetAction(submenu);
                 customGapWidget->setDefaultWidget(actScreenGapTextbox);
                 submenu->addAction(customGapWidget);
-                
-                // connect(actScreenGapTextbox, &QLineEdit::returnPressed, this, &MainWindow::onChangeScreenGap);
-                connect(actScreenGapTextbox, &QLineEdit::returnPressed, [&]() {
-                    actScreenGap[6]->setData(QVariant(actScreenGapTextbox->text().toInt()));
-                    onChangeScreenGap(actScreenGap[6]);
-                    submenu->close();
+
+                connect(actScreenGapTextbox, &QLineEdit::editingFinished, [&]()
+                {
+                    if (!actScreenGapTextbox->text().isEmpty()) 
+                    {
+                        const int customGap = actScreenGapTextbox->text().toInt();
+                        actScreenGap[6]->setData(QVariant(customGap));
+                        onChangeScreenGap(actScreenGap[6]);
+                    }
                 });
                 connect(grpScreenGap, &QActionGroup::triggered, this, &MainWindow::onChangeScreenGap);
             }
@@ -2098,10 +2102,6 @@ void MainWindow::onChangeScreenRotation(QAction* act)
 void MainWindow::onChangeScreenGap(QAction* act)
 {
     int gap = act->data().toInt();
-    // if (actScreenGap[6]->isChecked())
-    // {
-    //     gap = actScreenGapTextbox->text().toInt();
-    // }
     windowCfg.SetInt("ScreenGap", gap);
 
     emit screenLayoutChange();
