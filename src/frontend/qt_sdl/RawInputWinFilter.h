@@ -5,9 +5,8 @@
 #include <atomic>
 // Win32 API(登録と取得のため)
 #include <windows.h>
- #include <QAbstractNativeEventFilter>  // インタフェース参照のため
- #include <QByteArray>                  // 引数型参照のため
- #include <QtCore/qglobal.h>            // qintptr 定義のため
+#include <QByteArray>                  // 引数型参照のため
+#include <QtCore/qglobal.h>            // qintptr 定義のため
 
 /**
  * RawInputWinFilter クラス定義.
