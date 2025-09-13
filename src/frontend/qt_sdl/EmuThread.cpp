@@ -2976,15 +2976,15 @@ void EmuThread::run()
                     if (__builtin_expect(isRomDetected, 1)) {
 
                         // ヘッドフォン設定
-                        ApplyHeadphoneOnce(emuInstance->nds, emuInstance->getLocalConfig(), addrOperationAndSound, isHeadphoneApplied);
+                        ApplyHeadphoneOnce(emuInstance->nds, localCfg, addrOperationAndSound, isHeadphoneApplied);
 
                         // MPH感度設定適用処理呼び出し
-                        ApplyMphSensitivity(emuInstance->nds, emuInstance->getLocalConfig(), addrSensitivity);
+                        ApplyMphSensitivity(emuInstance->nds, localCfg, addrSensitivity);
                         
                         // ハンター/マップ全開処理
                         ApplyUnlockHuntersMaps(
                             emuInstance->nds,
-                            emuInstance->getLocalConfig(),
+                            localCfg,
                             isUnlockMapsHuntersApplied,
                             addrUnlockMapsHunters,
                             addrUnlockMapsHunters2,
@@ -2994,12 +2994,12 @@ void EmuThread::run()
                         );
 
                         // DS名適用
-                        useDsName(emuInstance->nds, emuInstance->getLocalConfig(), addrDsNameFlagAndMicVolume);
+                        useDsName(emuInstance->nds, localCfg, addrDsNameFlagAndMicVolume);
 
                         // ハンター適用
-                        applySelectedHunterStrict(emuInstance->nds, emuInstance->getLocalConfig(), addrMainHunter);
+                        applySelectedHunterStrict(emuInstance->nds, localCfg, addrMainHunter);
 						// ライセンスカラー適用
-                        applyLicenseColorStrict(emuInstance->nds, emuInstance->getLocalConfig(), addrRankColor);
+                        applyLicenseColorStrict(emuInstance->nds, localCfg, addrRankColor);
                     }
 
                 }

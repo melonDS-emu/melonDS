@@ -2454,7 +2454,7 @@
 				<item row="12" column="0">
 					<widget class="QCheckBox" name="cbMetroidUseFirmwareName">
 						<property name="text">
-							<string>Use firmware name (Reset in-game name): You can change the DS name from [Config -&gt; Firmware settings]. Make sure to check "Override settings from external firmware".</string>
+							<string>Use DS Name (Resets in-game name and HL color):You can change the DS name from [Config -&gt; Firmware Settings]. Make sure to enable 'Override settings from external firmware'.</string>
 						</property>
 					</widget>
 				</item>
@@ -2490,7 +2490,7 @@
 				<item row="16" column="0">
 					<widget class="QCheckBox" name="cbMetroidApplyHunter">
 						<property name="text">
-							<string>Apply selected hunter to your license:</string>
+							<string>Apply the selected hunter to your license. (Renaming will update the save data)</string>
 						</property>
 						<property name="toolTip">
 							<string>Enables applying the selected hunter to the license.</string>
@@ -2549,7 +2549,7 @@
 				<item row="17" column="0">
 					<widget class="QCheckBox" name="cbMetroidApplyColor">
 						<property name="text">
-							<string>Apply selected color to your license:</string>
+							<string>Apply the selected color to your license. (Renaming will update the save data)</string>
 						</property>
 						<property name="toolTip">
 							<string>Enables applying the selected color to the license.</string>
@@ -2577,7 +2577,7 @@
 								<string>Green(EU)</string>
 							</property>
 						</item>
-						<!-- 設定キー: Metroid.Color.Selected (int: 0..6) -->
+						<!-- 設定キー: Metroid.Color.Selected (int: 0..2) -->
 						<property name="currentIndex">
 							<number>0</number>
 						</property>
