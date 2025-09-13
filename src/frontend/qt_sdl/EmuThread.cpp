@@ -2321,8 +2321,16 @@ void EmuThread::run()
             // Set aim enable flag (for conditional processing downstream)
             enableAim = true;
 
+
+#if defined(_WIN32)
+            if(!(emuInstance->getMainWindow()->isFullScreen())){
+                // Return cursor to center (keep next delta calculation zero-based)
+                QCursor::setPos(aimData.centerX, aimData.centerY);
+            }
+#else
             // Return cursor to center (keep next delta calculation zero-based)
             QCursor::setPos(aimData.centerX, aimData.centerY);
+#endif
             // End processing (avoid unnecessary branching)
             return;
         }
