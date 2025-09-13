@@ -541,6 +541,7 @@ MainWindow::MainWindow(int id, EmuInstance* inst, QWidget* parent) :
                     {
                         const int customGap = actScreenGapTextbox->text().toInt();
                         actScreenGap[6]->setData(QVariant(customGap));
+                        actScreenGap[6]->setChecked(true);
                         onChangeScreenGap(actScreenGap[6]);
                     }
                 });
@@ -777,7 +778,7 @@ MainWindow::MainWindow(int id, EmuInstance* inst, QWidget* parent) :
 
         int screenGap = windowCfg.GetInt("ScreenGap");
 
-        if (!actScreenGap[6]->isChecked()) 
+        if (!actScreenGap[6]->isChecked())
         {
             for (int i = 0; i < 6; i++)
             {
