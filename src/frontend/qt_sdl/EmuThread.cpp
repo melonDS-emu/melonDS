@@ -273,6 +273,67 @@ bool ApplyHeadphoneOnce(NDS* nds, Config::Table& localCfg, uint32_t kCfgAddr, bo
 }
 
 /**
+ * ハンターライセンス色適用（装飾とランクは保持, ブランクは無視）.
+ *
+ * @param NDS* nds NDS本体ポインタ.
+ * @param Config::Table& localCfg 設定テーブル.
+ *   - Metroid.HunterLicense.Color.Apply    : bool  (適用ON/OFF).
+ *   - Metroid.HunterLicense.Color.Selected : int   (0=青,1=赤,2=緑).
+ * @param std::uint32_t addrRankColor ランクと色の格納アドレス（例: 0x220ECF43）.
+ * @return bool 書き込み実施有無.
+ */
+bool applyLicenseColorStrict(NDS* nds, Config::Table& localCfg, std::uint32_t addrRankColor)
+{
+    // NDSが無効なら処理しない（安全性確保のため）
+    if (!nds) return false;
+
+    // 設定で適用OFFなら処理しない
+    if (!localCfg.GetBool("Metroid.HunterLicense.Color.Apply"))
+        return false;
+
+    // 関数内enum（外部には露出させない）
+    enum LicenseColor : int {
+        Blue = 0, // bit7–6 = 00
+        Red = 1, // bit7–6 = 01
+        Green = 2  // bit7–6 = 10
+        // Blank (3) は無視
+    };
+
+    // 設定から選択色を取得
+    int sel = localCfg.GetInt("Metroid.HunterLicense.Color.Selected");
+
+    // 範囲外（ブランク含む）は無視
+    if (sel < Blue || sel > Green) return false;
+
+    // LUT定義（色コードを対応するbitパターンに変換するため）
+    constexpr std::uint8_t kColorBitsLUT[3] = {
+        0x00, // Blue
+        0x40, // Red
+        0x80  // Green
+    };
+
+    // マスク定義（装飾bitとランク保持のため）
+    constexpr std::uint8_t KEEP_MASK = 0x3F; // bit5–0
+    constexpr std::uint8_t COLOR_MASK = 0xC0; // bit7–6（参照のみ）
+
+    // 新しい色ビット
+    const std::uint8_t desiredColorBits = kColorBitsLUT[sel];
+
+    // 現在の値を読み出し
+    const std::uint8_t oldVal = nds->ARM9Read8(addrRankColor);
+
+    // 色のみ差し替え
+    const std::uint8_t newVal = static_cast<std::uint8_t>((oldVal & KEEP_MASK) | desiredColorBits);
+
+    // 差分なしなら無視
+    if (newVal == oldVal) return false;
+
+    // 書き込み実行
+    nds->ARM9Write8(addrRankColor, newVal);
+    return true;
+}
+
+/**
  * メインハンター適用（フェイバリット/状態は完全維持）
  *
  * @param NDS* nds
@@ -508,6 +569,7 @@ melonDS::u32 addrUnlockMapsHunters5; // All gallery open addr 2
 melonDS::u32 addrSensitivity;
 melonDS::u32 addrDsNameFlagAndMicVolume;
 melonDS::u32 addrMainHunter;
+melonDS::u32 addrRankColor;
 // melonDS::u32 addrLanguage;
 static bool isUnlockMapsHuntersApplied = false;
 
@@ -613,7 +675,7 @@ __attribute__((always_inline, flatten)) inline void detectRomAndSetAddresses(Emu
     addrUnlockMapsHunters5 = addrUnlockMapsHunters + 0xF;
     addrDsNameFlagAndMicVolume = addrUnlockMapsHunters5 + 0x1;
     // addrLanguage = addrUnlockMapsHunters - 0xB1;
-
+    addrRankColor = addrMainHunter + 0x3;
     isRomDetected = true;
 
     // ROM detection message
@@ -2936,6 +2998,8 @@ void EmuThread::run()
 
                         // ハンター適用
                         applySelectedHunterStrict(emuInstance->nds, emuInstance->getLocalConfig(), addrMainHunter);
+						// ライセンスカラー適用
+                        applyLicenseColorStrict(emuInstance->nds, emuInstance->getLocalConfig(), addrRankColor);
                     }
 
                 }

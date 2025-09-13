@@ -2490,7 +2490,7 @@
 				<item row="16" column="0">
 					<widget class="QCheckBox" name="cbMetroidApplyHunter">
 						<property name="text">
-							<string>Apply selected Hunter to your license:</string>
+							<string>Apply selected hunter to your license:</string>
 						</property>
 						<property name="toolTip">
 							<string>Enables applying the selected hunter to the license.</string>
@@ -2539,6 +2539,45 @@
 							</property>
 						</item>
 						<!-- 設定キー: Metroid.Hunter.Selected (int: 0..6) -->
+						<property name="currentIndex">
+							<number>0</number>
+						</property>
+					</widget>
+				</item>
+
+				<!-- Apply selected Color -->
+				<item row="17" column="0">
+					<widget class="QCheckBox" name="cbMetroidApplyColor">
+						<property name="text">
+							<string>Apply selected color to your license:</string>
+						</property>
+						<property name="toolTip">
+							<string>Enables applying the selected color to the license.</string>
+						</property>
+						<!-- 設定キー: Metroid.Apply.Color (bool) -->
+					</widget>
+				</item>
+				<item row="17" column="1">
+					<widget class="QComboBox" name="comboMetroidSelectedColor">
+						<property name="toolTip">
+							<string>Select the color to apply.</string>
+						</property>
+						<item>
+							<property name="text">
+								<string>Blue(US)</string>
+							</property>
+						</item>
+						<item>
+							<property name="text">
+								<string>Red(JP,KR)</string>
+							</property>
+						</item>
+						<item>
+							<property name="text">
+								<string>Green(EU)</string>
+							</property>
+						</item>
+						<!-- 設定キー: Metroid.Color.Selected (int: 0..6) -->
 						<property name="currentIndex">
 							<number>0</number>
 						</property>
