@@ -3130,6 +3130,7 @@ void EmuThread::handleMessages()
                     updateRenderer();
                 }
 
+                /*
                 // 感度値取得処理
                 uint32_t sensiVal = emuInstance->getNDS()->ARM9Read16(addrSensitivity);
                 double sensiNum = sensiValToSensiNum(sensiVal);
@@ -3138,6 +3139,7 @@ void EmuThread::handleMessages()
                 char message[256];
                 sprintf(message, "INFO sensitivity of the game itself: 0x%04X(%.5f)", sensiVal, sensiNum);
                 emuInstance->osdAddMessage(0, message);
+                */
 
                 // reset Settings when unPaused
                 isSnapTapMode = emuInstance->getLocalConfig().GetBool("Metroid.Operation.SnapTap"); // SnapTapリセット用
