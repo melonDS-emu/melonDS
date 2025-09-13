@@ -376,6 +376,7 @@ void InputConfigDialog::on_metroidResetSensitivityValues_clicked()
 {
     ui->metroidMphSensitvitySpinBox->setValue(-2);
     ui->metroidAimSensitvitySpinBox->setValue(45);
+    ui->metroidAimYAxisScaleSpinBox->setValue(1.500000);
 }
 
 void InputConfigDialog::on_metroidSetVideoQualityToLow_clicked()
