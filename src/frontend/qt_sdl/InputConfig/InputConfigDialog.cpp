@@ -133,6 +133,10 @@ InputConfigDialog::InputConfigDialog(QWidget* parent) : QDialog(parent), ui(new 
     ui->comboMetroidSelectedHunter->setCurrentIndex(
         instcfg.GetInt("Metroid.HunterLicense.Hunter.Selected"));
 
+    ui->cbMetroidApplyColor->setChecked(instcfg.GetBool("Metroid.HunterLicense.Color.Apply"));
+    ui->comboMetroidSelectedColor->setCurrentIndex(
+        instcfg.GetInt("Metroid.HunterLicense.Color.Selected"));
+
     // } MelonPrimeDS
 
 
@@ -325,6 +329,12 @@ void InputConfigDialog::on_InputConfigDialog_accepted()
         ui->cbMetroidApplyHunter->checkState() == Qt::Checked);
     instcfg.SetInt("Metroid.HunterLicense.Hunter.Selected",
         ui->comboMetroidSelectedHunter->currentIndex());
+
+    instcfg.SetBool("Metroid.HunterLicense.Color.Apply",
+        ui->cbMetroidApplyColor->checkState() == Qt::Checked);
+    instcfg.SetInt("Metroid.HunterLicense.Color.Selected",
+        ui->comboMetroidSelectedColor->currentIndex());
+
 
     // } MelonPrimeDS
 
