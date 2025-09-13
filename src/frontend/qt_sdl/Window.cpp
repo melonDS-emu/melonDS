@@ -520,7 +520,26 @@ MainWindow::MainWindow(int id, EmuInstance* inst, QWidget* parent) :
                     actScreenGap[i]->setData(QVariant(data));
                     actScreenGap[i]->setCheckable(true);
                 }
+                
+                submenu->addSeparator();
 
+                actScreenGap[6] = submenu->addAction(QString("Custom"));
+                actScreenGap[6]->setActionGroup(grpScreenGap);
+                actScreenGap[6]->setCheckable(true);
+
+                actScreenGapTextbox = new QLineEdit(QString("0"), submenu);
+                actScreenGapTextbox->setValidator(new QIntValidator(screengap[0], screengap[5]));
+                
+                auto customGapWidget = new QWidgetAction(submenu);
+                customGapWidget->setDefaultWidget(actScreenGapTextbox);
+                submenu->addAction(customGapWidget);
+                
+                // connect(actScreenGapTextbox, &QLineEdit::returnPressed, this, &MainWindow::onChangeScreenGap);
+                connect(actScreenGapTextbox, &QLineEdit::returnPressed, [&]() {
+                    actScreenGap[6]->setData(QVariant(actScreenGapTextbox->text().toInt()));
+                    onChangeScreenGap(actScreenGap[6]);
+                    submenu->close();
+                });
                 connect(grpScreenGap, &QActionGroup::triggered, this, &MainWindow::onChangeScreenGap);
             }
             {
@@ -753,12 +772,16 @@ MainWindow::MainWindow(int id, EmuInstance* inst, QWidget* parent) :
         actScreenRotation[windowCfg.GetInt("ScreenRotation")]->setChecked(true);
 
         int screenGap = windowCfg.GetInt("ScreenGap");
-        for (int i = 0; i < 6; i++)
+
+        if (!actScreenGap[6]->isChecked()) 
         {
-            if (actScreenGap[i]->data().toInt() == screenGap)
+            for (int i = 0; i < 6; i++)
             {
-                actScreenGap[i]->setChecked(true);
-                break;
+                if (actScreenGap[i]->data().toInt() == screenGap)
+                {
+                    actScreenGap[i]->setChecked(true);
+                    break;
+                }
             }
         }
 
@@ -2075,6 +2098,10 @@ void MainWindow::onChangeScreenRotation(QAction* act)
 void MainWindow::onChangeScreenGap(QAction* act)
 {
     int gap = act->data().toInt();
+    // if (actScreenGap[6]->isChecked())
+    // {
+    //     gap = actScreenGapTextbox->text().toInt();
+    // }
     windowCfg.SetInt("ScreenGap", gap);
 
     emit screenLayoutChange();
