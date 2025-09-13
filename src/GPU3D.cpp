@@ -183,6 +183,8 @@ void GPU3D::ResetRenderingState() noexcept
 
     RenderClearAttr1 = 0x3F000000;
     RenderClearAttr2 = 0x00007FFF;
+
+    RenderFrameIdentical = false;
 }
 
 void GPU3D::Reset() noexcept
@@ -236,7 +238,7 @@ void GPU3D::Reset() noexcept
     TotalParams = 0;
 
     GeometryEnabled = false;
-    RenderingEnabled = false;
+    RenderingEnabled = 0;
 
     DispCnt = 0;
     AlphaRefVal = 0;
@@ -254,6 +256,9 @@ void GPU3D::Reset() noexcept
     ClearAttr2 = 0x00007FFF;
 
     ResetRenderingState();
+    
+    UnderflowFlagVCount = -1;
+    RDLines = 63;
 
     AbortFrame = false;
 
@@ -549,12 +554,16 @@ void GPU3D::DoSavestate(Savestate* file) noexcept
 
     file->Bool32(&AbortFrame);
     file->Bool32(&GeometryEnabled);
-    file->Bool32(&RenderingEnabled);
+    file->Var8(&RenderingEnabled);
     file->Var32(&PolygonMode);
     file->Var32(&PolygonAttr);
     file->Var32(&CurPolygonAttr);
     file->Var32(&TexParam);
     file->Var32(&TexPalette);
+    
+    file->Var8(&RDLines);
+    file->Var8(&RDLinesTemp);
+
     RenderFrameIdentical = false;
     if (softRenderer && softRenderer->IsThreaded())
     {
@@ -567,9 +576,19 @@ void GPU3D::DoSavestate(Savestate* file) noexcept
 void GPU3D::SetEnabled(bool geometry, bool rendering) noexcept
 {
     GeometryEnabled = geometry;
-    RenderingEnabled = rendering;
-
-    if (!rendering) ResetRenderingState();
+    if (rendering)
+    {
+        if (RenderingEnabled == 0)
+        {
+            RenderingEnabled = 1;
+            RDLinesTemp = 63; // CHECKME
+        }
+    }
+    else
+    {
+        ResetRenderingState();
+        RenderingEnabled = 0;
+    }
 }
 
 
@@ -2458,12 +2477,16 @@ bool YSort(Polygon* a, Polygon* b)
 
 void GPU3D::VBlank() noexcept
 {
+    if (RenderingEnabled)
+        RDLines = RDLinesTemp;
+
     if (GeometryEnabled)
     {
-        if (RenderingEnabled)
+        if (RenderingEnabled >= 3)
         {
             if (FlushRequest)
             {
+                swap:
                 if (NumPolygons)
                 {
                     // separate translucent polygons from opaque ones
@@ -2517,6 +2540,15 @@ void GPU3D::VBlank() noexcept
             RenderClearAttr1 = ClearAttr1;
             RenderClearAttr2 = ClearAttr2;
         }
+        else if (RenderingEnabled != 0)
+        {
+            if (FlushRequest)
+            {
+                RenderingEnabled++;
+                if (RenderingEnabled >= 3)
+                    goto swap;
+            }
+        }
 
         if (FlushRequest)
         {
@@ -2545,6 +2577,10 @@ void GPU3D::SetRenderXPos(u16 xpos) noexcept
     RenderXPos = xpos & 0x01FF;
 }
 
+void GPU3D::ScanlineSync(int line) noexcept
+{
+    CurrentRenderer->ScanlineSync(line);
+}
 
 u32* GPU3D::GetLine(int line) noexcept
 {
@@ -2672,7 +2708,7 @@ u16 GPU3D::Read16(u32 addr) noexcept
         return DispCnt;
 
     case 0x04000320:
-        return 46; // TODO, eventually
+        return RDLines;
 
     case 0x04000600:
         {
@@ -2716,7 +2752,7 @@ u32 GPU3D::Read32(u32 addr) noexcept
         return DispCnt;
 
     case 0x04000320:
-        return 46; // TODO, eventually
+        return RDLines;
 
     case 0x04000600:
         {

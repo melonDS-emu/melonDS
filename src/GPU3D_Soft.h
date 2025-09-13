@@ -40,6 +40,7 @@ public:
     void RenderFrame(GPU& gpu) override;
     void RestartFrame(GPU& gpu) override;
     u32* GetLine(int line) override;
+    void ScanlineSync(int line) override;
 
     void SetupRenderThread(GPU& gpu);
     void EnableRenderThread();
@@ -436,21 +437,34 @@ private:
     };
 
     RendererPolygon PolygonList[2048];
+    bool DoTimings(s32 cycles, s32* timingcounter);
+    bool CheckTimings(s32 cycles, s32* timingcounter);
+    u32 DoTimingsPixels(s32 pixels, s32* timingcounter);
+    void FindFirstPolyDoTimings(int npolys, s32 y, int* firstpolyeven, int* firstpolyodd, s32* timingcountereven, s32*timingcounterodd);
     void TextureLookup(const GPU& gpu, u32 texparam, u32 texpal, s16 s, s16 t, u16* color, u8* alpha) const;
     u32 RenderPixel(const GPU& gpu, const Polygon* polygon, u8 vr, u8 vg, u8 vb, s16 s, s16 t) const;
     void PlotTranslucentPixel(const GPU3D& gpu3d, u32 pixeladdr, u32 color, u32 z, u32 polyattr, u32 shadow);
     void SetupPolygonLeftEdge(RendererPolygon* rp, s32 y) const;
     void SetupPolygonRightEdge(RendererPolygon* rp, s32 y) const;
     void SetupPolygon(RendererPolygon* rp, Polygon* polygon) const;
-    void RenderShadowMaskScanline(const GPU3D& gpu3d, RendererPolygon* rp, s32 y);
-    void RenderPolygonScanline(const GPU& gpu, RendererPolygon* rp, s32 y);
-    void RenderScanline(const GPU& gpu, s32 y, int npolys);
+    void Step(RendererPolygon* rp);
+    void CheckSlope(RendererPolygon* rp, s32 y);
+    bool RenderShadowMaskScanline(const GPU3D& gpu3d, RendererPolygon* rp, s32 y, s32* timingcounter);
+    bool RenderPolygonScanline(const GPU& gpu, RendererPolygon* rp, s32 y, s32* timingcounter);
+    void RenderScanline(const GPU& gpu, s32 y, int firstpoly, int npolys, s32* timingcounter);
     u32 CalculateFogDensity(const GPU3D& gpu3d, u32 pixeladdr) const;
-    void ScanlineFinalPass(const GPU3D& gpu3d, s32 y);
+    bool CheckEdgeMarkingPixel(u32 polyid, u32 z, u32 pixeladdr);
+    bool CheckEdgeMarkingClearPlane(const GPU3D& gpu3d, u32 polyid, u32 z);
+    template <bool push> void ScanlineFinalPass(const GPU3D& gpu3d, s32 y, bool checkprev, bool checknext);
     void ClearBuffers(const GPU& gpu);
-    void RenderPolygons(const GPU& gpu, bool threaded, Polygon** polygons, int npolys);
+    void RenderPolygonsFast(GPU& gpu, Polygon** polygons, int npolys);
+    void RenderPolygonsTiming(GPU& gpu, Polygon** polygons, int npolys);
 
     void RenderThreadFunc(GPU& gpu);
+    
+    // counters for scanline rasterization timings
+    s32 ScanlineTimeout;
+    s32 RasterTiming;
 
     // buffer dimensions are 258x194 to add a offscreen 1px border
     // which simplifies edge marking tests
@@ -458,14 +472,19 @@ private:
     // TODO: check if the hardware can accidentally plot pixels
     // offscreen in that border
 
-    static constexpr int ScanlineWidth = 258;
-    static constexpr int NumScanlines = 194;
-    static constexpr int BufferSize = ScanlineWidth * NumScanlines;
-    static constexpr int FirstPixelOffset = ScanlineWidth + 1;
+    static constexpr int ScanlineWidth = 256;
+    static constexpr int NumScanlinesIntBuf = 192;
+    //static constexpr int NumScanlinesRD = 48;
+    static constexpr int NumScanlinesFinal = 192;
+    static constexpr int BufferSize = ScanlineWidth * NumScanlinesIntBuf;
+    //static constexpr int RDBufferSize = ScanlineWidth * NumScanlinesRD;
+    static constexpr int FinalBufferSize = ScanlineWidth * NumScanlinesFinal;
 
     u32 ColorBuffer[BufferSize * 2];
     u32 DepthBuffer[BufferSize * 2];
     u32 AttrBuffer[BufferSize * 2];
+    //u32 RDBuffer[RDBufferSize]; // is this buffer ever initialized by hw before writing to it? what is its initial value? can you transfer 3d framebuffer data between games?
+    u32 FinalBuffer[FinalBufferSize];
 
     // attribute buffer:
     // bit0-3: edge flags (left/right/top/bottom)
