@@ -54,7 +54,7 @@ DefaultList<int> DefaultInts =
     {"Instance*.Window*.Width", 256},
     {"Instance*.Window*.Height", 384},
     {"Screen.VSyncInterval", 1},
-    {"3D.Renderer", renderer3D_OpenGLCompute}, // melonPrimeDS. renderer3D_Software  renderer3D_OpenGL  renderer3D_OpenGLCompute:
+    {"3D.Renderer", renderer3D_OpenGL}, // melonPrimeDS. renderer3D_Software  renderer3D_OpenGL  renderer3D_OpenGLCompute:
     {"3D.GL.ScaleFactor", 4}, // melonPrimeDS. 8 is too much 4 is enough
 #ifdef JIT_ENABLED
     {"JIT.MaxBlockSize", 32},

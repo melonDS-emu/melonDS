@@ -91,8 +91,18 @@ fix_interface_includes(PkgConfig::SDL2 PkgConfig::LibArchive)
 
 add_compile_definitions(ARCHIVE_SUPPORT_ENABLED)
 
-# macOSでは生RawInput連携を無効化する（該当ソースを除外）
-if(APPLE)
+
+if (WIN32)
+    # windowsの除外設定はとくになし。
+elseif (APPLE)
+    # macOSでは生RawInput連携を無効化する（該当ソースを除外）
+    list(REMOVE_ITEM SOURCES_QT_SDL
+        #rawinput/rawinput_common.c
+        #RawInputThread.cpp
+        RawInputWinFilter.cpp
+    )
+else()
+    # Linuxでは生RawInput連携を無効化する（該当ソースを除外）
     list(REMOVE_ITEM SOURCES_QT_SDL
         #rawinput/rawinput_common.c
         #RawInputThread.cpp
