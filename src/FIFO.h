@@ -225,7 +225,7 @@ public:
             u32 part1 = Size - WritePos;
             memcpy(&Buffer[WritePos], data, part1);
             if (len > part1)
-                memcpy(Buffer, &((u8*)data)[part1], len - part1);
+                memcpy(Buffer, &((const u8*)data)[part1], len - part1);
             WritePos = len - part1;
         }
         else
