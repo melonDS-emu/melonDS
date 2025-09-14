@@ -76,6 +76,7 @@
 #include "Savestate.h"
 #include "MPInterface.h"
 #include "LANDialog.h"
+#include "NetplayDialog.h"
 
 //#include "main_shaders.h"
 
@@ -465,7 +466,7 @@ MainWindow::MainWindow(int id, EmuInstance* inst, QWidget* parent) :
                 actLANStartClient = submenu->addAction("Join LAN game");
                 connect(actLANStartClient, &QAction::triggered, this, &MainWindow::onLANStartClient);
 
-                /*submenu->addSeparator();
+                submenu->addSeparator();
 
                 actNPStartHost = submenu->addAction("NETPLAY HOST");
                 connect(actNPStartHost, &QAction::triggered, this, &MainWindow::onNPStartHost);
@@ -474,7 +475,7 @@ MainWindow::MainWindow(int id, EmuInstance* inst, QWidget* parent) :
                 connect(actNPStartClient, &QAction::triggered, this, &MainWindow::onNPStartClient);
 
                 actNPTest = submenu->addAction("NETPLAY GO");
-                connect(actNPTest, &QAction::triggered, this, &MainWindow::onNPTest);*/
+                connect(actNPTest, &QAction::triggered, this, &MainWindow::onNPTest);
             }
         }
         {
