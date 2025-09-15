@@ -1934,7 +1934,7 @@ u8 NDS::ARM9Read8(u32 addr)
 {
 
 #ifdef GDBSTUB_ENABLED
-    if (EnableGDBStub)
+    if (EnableGDBStub && !EnableJIT)
     {
         ARM9.GdbCheckMemory(addr, true);
     }
@@ -2000,7 +2000,7 @@ u8 NDS::ARM9Read8(u32 addr)
 u16 NDS::ARM9Read16(u32 addr)
 {
 #ifdef GDBSTUB_ENABLED
-    if (EnableGDBStub)
+    if (EnableGDBStub && !EnableJIT)
     {
         ARM9.GdbCheckMemory(addr, true);
     }
@@ -2067,7 +2067,7 @@ u16 NDS::ARM9Read16(u32 addr)
 u32 NDS::ARM9Read32(u32 addr)
 {
 #ifdef GDBSTUB_ENABLED
-    if (EnableGDBStub)
+    if (EnableGDBStub && !EnableJIT)
     {
         ARM9.GdbCheckMemory(addr, true);
     }
@@ -2137,7 +2137,7 @@ u32 NDS::ARM9Read32(u32 addr)
 void NDS::ARM9Write8(u32 addr, u8 val)
 {
 #ifdef GDBSTUB_ENABLED
-    if (EnableGDBStub)
+    if (EnableGDBStub && !EnableJIT)
     {
         ARM9.GdbCheckMemory(addr, false);
     }
@@ -2183,7 +2183,7 @@ void NDS::ARM9Write8(u32 addr, u8 val)
 void NDS::ARM9Write16(u32 addr, u16 val)
 {
 #ifdef GDBSTUB_ENABLED
-    if (EnableGDBStub)
+    if (EnableGDBStub && !EnableJIT)
     {
         ARM9.GdbCheckMemory(addr, false);
     }
@@ -2250,7 +2250,7 @@ void NDS::ARM9Write16(u32 addr, u16 val)
 void NDS::ARM9Write32(u32 addr, u32 val)
 {
 #ifdef GDBSTUB_ENABLED
-    if (EnableGDBStub)
+    if (EnableGDBStub && !EnableJIT)
     {
         ARM9.GdbCheckMemory(addr, false);
     }
@@ -2353,7 +2353,7 @@ u8 NDS::ARM7Read8(u32 addr)
 {
 
 #ifdef GDBSTUB_ENABLED
-    if (EnableGDBStub)
+    if (EnableGDBStub && !EnableJIT)
     {
         ARM7.GdbCheckMemory(addr, true);
     }
@@ -2427,7 +2427,7 @@ u16 NDS::ARM7Read16(u32 addr)
 {
 
 #ifdef GDBSTUB_ENABLED
-    if (EnableGDBStub)
+    if (EnableGDBStub && !EnableJIT)
     {
         ARM7.GdbCheckMemory(addr, true);
     }
@@ -2500,7 +2500,7 @@ u16 NDS::ARM7Read16(u32 addr)
 u32 NDS::ARM7Read32(u32 addr)
 {
 #ifdef GDBSTUB_ENABLED
-    if (EnableGDBStub)
+    if (EnableGDBStub && !EnableJIT)
     {
         ARM7.GdbCheckMemory(addr, true);
     }
@@ -2576,7 +2576,7 @@ u32 NDS::ARM7Read32(u32 addr)
 void NDS::ARM7Write8(u32 addr, u8 val)
 {
 #ifdef GDBSTUB_ENABLED
-    if (EnableGDBStub)
+    if (EnableGDBStub && !EnableJIT)
     {
         ARM7.GdbCheckMemory(addr, false);
     }
@@ -2640,7 +2640,7 @@ void NDS::ARM7Write8(u32 addr, u8 val)
 void NDS::ARM7Write16(u32 addr, u16 val)
 {
 #ifdef GDBSTUB_ENABLED
-    if (EnableGDBStub)
+    if (EnableGDBStub && !EnableJIT)
     {
         ARM7.GdbCheckMemory(addr, false);
     }
@@ -2718,7 +2718,7 @@ void NDS::ARM7Write32(u32 addr, u32 val)
 {
 
 #ifdef GDBSTUB_ENABLED
-    if (EnableGDBStub)
+    if (EnableGDBStub && !EnableJIT)
     {
         ARM7.GdbCheckMemory(addr, false);
     }

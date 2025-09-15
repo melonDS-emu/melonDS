@@ -535,7 +535,7 @@ StubState GdbStub::Enter(bool stay, TgtStatus stat, u32 arg, bool wait_for_conn)
 		if(inited){
 			struct timespec ts;
 			ts.tv_sec = 0;
-			ts.tv_nsec = 1000*10000; // 10 ms
+			ts.tv_nsec = 1000*1000; // 1 ms
 			nanosleep(&ts, NULL);
 		}
 		inited = true;
@@ -650,7 +650,7 @@ StubState GdbStub::CheckWatchpt(u32 addr, bool isRead, bool enter, bool stay)
 	/* The watchpoint mode required by gdb */
 	int mode = GdbWatchMode::Write;
 	if(isRead){
-		int mode = GdbWatchMode::Read;
+		mode = GdbWatchMode::Read;
 	}
 
 	for (auto search = WpList.begin(); search != WpList.end(); ++search)
