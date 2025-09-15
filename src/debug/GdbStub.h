@@ -61,6 +61,7 @@ enum class StubState
 	Step,
 	Disconnect,
 	Attach,
+	Watchpt,
 	CheckNoHit
 };
 

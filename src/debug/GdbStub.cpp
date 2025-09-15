@@ -654,7 +654,7 @@ StubState GdbStub::CheckWatchpt(u32 addr, bool isRead, bool enter, bool stay)
 
 		if (addr >= search->addr && addr < search->addr + search->len && (search->kind == GdbWatchMode::ReadWrite || search->kind == mode))
 		{
-			if (enter) return Enter(stay, TgtStatus::Watchpt, addr);
+			if (enter) return Enter(stay, StubState::Watchpt, addr);
 			else
 			{
 				SignalStatus(TgtStatus::Watchpt, addr);

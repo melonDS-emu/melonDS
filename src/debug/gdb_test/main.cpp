@@ -72,7 +72,7 @@ int main(int argc, char** argv) {
 			{
 				struct timespec ts;
 				ts.tv_sec = 0;
-				ts.tv_nsec = 1000*1000; // 1 ms
+				ts.tv_nsec = 1000*100000; // 100 ms
 				nanosleep(&ts, NULL);
 				continue;
 			}
