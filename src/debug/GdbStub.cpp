@@ -528,6 +528,10 @@ StubState GdbStub::Enter(bool stay, TgtStatus stat, u32 arg, bool wait_for_conn)
 			SignalStatus(TgtStatus::None, ~(u32)0);
 			do_next = false;
 			break;
+		case StubState::Watchpt:
+			Log(LogLevel::Info, "[GDB] watch point\n");
+			SignalStatus(TgtStatus::Watchpt, arg);
+		break;
 		default: break;
 		}
 	}
@@ -636,13 +640,19 @@ StubState GdbStub::CheckBkpt(u32 addr, bool enter, bool stay)
 		return StubState::None;
 	}
 }
-StubState GdbStub::CheckWatchpt(u32 addr, int kind, bool enter, bool stay)
+StubState GdbStub::CheckWatchpt(u32 addr, bool isRead, bool enter, bool stay)
 {
+	/* The watchpoint mode required by gdb */
+	int mode = GdbWatchMode::Write;
+	if(isRead){
+		int mode = GdbWatchMode::Read;
+	}
+
 	for (auto search = WpList.begin(); search != WpList.end(); ++search)
 	{
 		if (search->addr > addr) break;
 
-		if (addr >= search->addr && addr < search->addr + search->len && search->kind == kind)
+		if (addr >= search->addr && addr < search->addr + search->len && (search->kind == GdbWatchMode::ReadWrite || search->kind == mode))
 		{
 			if (enter) return Enter(stay, TgtStatus::Watchpt, addr);
 			else

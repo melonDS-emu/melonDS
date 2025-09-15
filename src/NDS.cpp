@@ -1932,6 +1932,14 @@ void NDS::debug(u32 param)
 
 u8 NDS::ARM9Read8(u32 addr)
 {
+
+#ifdef GDBSTUB_ENABLED
+    if (EnableGDBStub)
+    {
+        ARM9.GdbCheckMemory(addr, true);
+    }
+#endif
+
     if ((addr & 0xFFFFF000) == 0xFFFF0000)
     {
         return *(u8*)&ARM9BIOS[addr & 0xFFF];
@@ -1991,6 +1999,13 @@ u8 NDS::ARM9Read8(u32 addr)
 
 u16 NDS::ARM9Read16(u32 addr)
 {
+#ifdef GDBSTUB_ENABLED
+    if (EnableGDBStub)
+    {
+        ARM9.GdbCheckMemory(addr, true);
+    }
+#endif
+
     addr &= ~0x1;
 
     if ((addr & 0xFFFFF000) == 0xFFFF0000)
@@ -2051,6 +2066,13 @@ u16 NDS::ARM9Read16(u32 addr)
 
 u32 NDS::ARM9Read32(u32 addr)
 {
+#ifdef GDBSTUB_ENABLED
+    if (EnableGDBStub)
+    {
+        ARM9.GdbCheckMemory(addr, true);
+    }
+#endif
+
     addr &= ~0x3;
 
     if ((addr & 0xFFFFF000) == 0xFFFF0000)
@@ -2114,6 +2136,13 @@ u32 NDS::ARM9Read32(u32 addr)
 
 void NDS::ARM9Write8(u32 addr, u8 val)
 {
+#ifdef GDBSTUB_ENABLED
+    if (EnableGDBStub)
+    {
+        ARM9.GdbCheckMemory(addr, false);
+    }
+#endif
+
     switch (addr & 0xFF000000)
     {
     case 0x02000000:
@@ -2153,6 +2182,13 @@ void NDS::ARM9Write8(u32 addr, u8 val)
 
 void NDS::ARM9Write16(u32 addr, u16 val)
 {
+#ifdef GDBSTUB_ENABLED
+    if (EnableGDBStub)
+    {
+        ARM9.GdbCheckMemory(addr, false);
+    }
+#endif
+
     addr &= ~0x1;
 
     switch (addr & 0xFF000000)
@@ -2213,6 +2249,13 @@ void NDS::ARM9Write16(u32 addr, u16 val)
 
 void NDS::ARM9Write32(u32 addr, u32 val)
 {
+#ifdef GDBSTUB_ENABLED
+    if (EnableGDBStub)
+    {
+        ARM9.GdbCheckMemory(addr, false);
+    }
+#endif
+
     addr &= ~0x3;
 
     switch (addr & 0xFF000000)
@@ -2308,6 +2351,14 @@ bool NDS::ARM9GetMemRegion(u32 addr, bool write, MemRegion* region)
 
 u8 NDS::ARM7Read8(u32 addr)
 {
+
+#ifdef GDBSTUB_ENABLED
+    if (EnableGDBStub)
+    {
+        ARM7.GdbCheckMemory(addr, true);
+    }
+#endif
+
     if (addr < 0x00004000)
     {
         // TODO: check the boundary? is it 4000 or higher on regular DS?
@@ -2374,6 +2425,14 @@ u8 NDS::ARM7Read8(u32 addr)
 
 u16 NDS::ARM7Read16(u32 addr)
 {
+
+#ifdef GDBSTUB_ENABLED
+    if (EnableGDBStub)
+    {
+        ARM7.GdbCheckMemory(addr, true);
+    }
+#endif
+
     addr &= ~0x1;
 
     if (addr < 0x00004000)
@@ -2440,6 +2499,13 @@ u16 NDS::ARM7Read16(u32 addr)
 
 u32 NDS::ARM7Read32(u32 addr)
 {
+#ifdef GDBSTUB_ENABLED
+    if (EnableGDBStub)
+    {
+        ARM7.GdbCheckMemory(addr, true);
+    }
+#endif
+
     addr &= ~0x3;
 
     if (addr < 0x00004000)
@@ -2509,6 +2575,13 @@ u32 NDS::ARM7Read32(u32 addr)
 
 void NDS::ARM7Write8(u32 addr, u8 val)
 {
+#ifdef GDBSTUB_ENABLED
+    if (EnableGDBStub)
+    {
+        ARM7.GdbCheckMemory(addr, false);
+    }
+#endif
+
     switch (addr & 0xFF800000)
     {
     case 0x02000000:
@@ -2566,6 +2639,13 @@ void NDS::ARM7Write8(u32 addr, u8 val)
 
 void NDS::ARM7Write16(u32 addr, u16 val)
 {
+#ifdef GDBSTUB_ENABLED
+    if (EnableGDBStub)
+    {
+        ARM7.GdbCheckMemory(addr, false);
+    }
+#endif
+
     addr &= ~0x1;
 
     switch (addr & 0xFF800000)
@@ -2636,6 +2716,14 @@ void NDS::ARM7Write16(u32 addr, u16 val)
 
 void NDS::ARM7Write32(u32 addr, u32 val)
 {
+
+#ifdef GDBSTUB_ENABLED
+    if (EnableGDBStub)
+    {
+        ARM7.GdbCheckMemory(addr, false);
+    }
+#endif
+
     addr &= ~0x3;
 
     switch (addr & 0xFF800000)

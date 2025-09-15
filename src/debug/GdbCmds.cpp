@@ -662,7 +662,7 @@ ExecResult GdbStub::Handle_z(GdbStub* stub, const u8* cmd, ssize_t len)
 	case 0: case 1: // remove breakpoint (we cheat & always insert a hardware breakpoint)
 		stub->DelBkpt(addr, kind);
 		break;
-	case 2: case 3: case 4: // watchpoint. currently not distinguishing between reads & writes oops
+	case GdbWatchMode::Write: case GdbWatchMode::Read: case GdbWatchMode::ReadWrite: // watchpoint
 		stub->DelWatchpt(addr, kind, typ);
 		break;
 	default:
@@ -690,7 +690,7 @@ ExecResult GdbStub::Handle_Z(GdbStub* stub, const u8* cmd, ssize_t len)
 	case 0: case 1: // insert breakpoint (we cheat & always insert a hardware breakpoint)
 		stub->AddBkpt(addr, kind);
 		break;
-	case 2: case 3: case 4: // watchpoint. currently not distinguishing between reads & writes oops
+	case GdbWatchMode::Write: case GdbWatchMode::Read: case GdbWatchMode::ReadWrite: // watchpoint
 		stub->AddWatchpt(addr, kind, typ);
 		break;
 	default:

@@ -227,6 +227,10 @@ protected:
     void GdbCheckA();
     void GdbCheckB();
     void GdbCheckC();
+
+public:
+    void GdbCheckMemory(u32 addr, bool isRead);
+
 };
 
 class ARMv5 : public ARM

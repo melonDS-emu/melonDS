@@ -86,6 +86,13 @@ enum class ExecResult
 	Continue
 };
 
+enum GdbWatchMode {
+	Write     = 2,
+	Read      = 3,
+	ReadWrite = 4
+};
+
+
 constexpr int GDBPROTO_BUFFER_CAPACITY = 1024+128;
 
 class GdbStub;
@@ -135,7 +142,7 @@ public:
 	void DelAllBpWp();
 
 	StubState CheckBkpt(u32 addr, bool enter, bool stay);
-	StubState CheckWatchpt(u32 addr, int kind, bool enter, bool stay);
+	StubState CheckWatchpt(u32 addr, bool isRead, bool enter, bool stay);
 
 #include "GdbCmds.h"
 

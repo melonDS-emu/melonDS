@@ -66,10 +66,20 @@ void ARM::GdbCheckC()
     }
     else GdbCheckB();
 }
+void ARM::GdbCheckMemory(u32 addr, bool isRead)
+{
+    Gdb::StubState st = GdbStub.CheckWatchpt(addr, isRead, true, true);
+    if (st != Gdb::StubState::CheckNoHit)
+    {
+        IsSingleStep = (st == Gdb::StubState::Step);
+        BreakReq = (st == Gdb::StubState::Attach || st == Gdb::StubState::Break);
+    }
+}
 #else
 void ARM::GdbCheckA() {}
 void ARM::GdbCheckB() {}
 void ARM::GdbCheckC() {}
+void ARM::GdbCheckMemory(u32 addr, bool isRead){}
 #endif
 
 
