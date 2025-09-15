@@ -50,6 +50,9 @@ const u8 kServerMAC[6] = {0x00, 0xAB, 0x33, 0x28, 0x99, 0x44};
 #ifdef __WIN32__
 
 #define poll WSAPoll
+#ifndef CLOCK_MONOTONIC
+#define CLOCK_MONOTONIC 1
+#endif
 
 // https://stackoverflow.com/questions/5404277/porting-clock-gettime-to-windows
 

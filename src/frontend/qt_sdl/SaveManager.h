@@ -20,7 +20,9 @@
 #define SAVEMANAGER_H
 
 #include <string>
+#ifndef _MSC_VER
 #include <unistd.h>
+#endif
 #include <time.h>
 #include <atomic>
 #include <memory>

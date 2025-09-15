@@ -35,5 +35,12 @@ typedef int64_t     s64;
 
 template<class T, std::size_t A, std::size_t B>
 using array2d = std::array<std::array<T, B>, A>;
+
+#ifdef _MSC_VER
+#define strcasecmp _stricmp
+#define strncasecmp _strnicmp
+
+typedef ptrdiff_t ssize_t;
+#endif
 }
 #endif // TYPES_H
