@@ -532,14 +532,14 @@ StubState GdbStub::Enter(bool stay, TgtStatus stat, u32 arg, bool wait_for_conn)
 			break;
 		default: break;
 		}
+		if(inited){
+			struct timespec ts;
+			ts.tv_sec = 0;
+			ts.tv_nsec = 1000*10000; // 50 ms
+			nanosleep(&ts, NULL);
+		}
+		inited = true;
 	}
-	if(inited){
-		struct timespec ts;
-		ts.tv_sec = 0;
-		ts.tv_nsec = 1000*50000; // 50 ms
-		nanosleep(&ts, NULL);
-	}
-	inited = true;
 	while (do_next && stay);
 
 	if (st != StubState::None && st != StubState::NoConn)
