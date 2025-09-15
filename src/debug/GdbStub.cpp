@@ -11,6 +11,7 @@
 #include <unistd.h>
 #include <string.h>
 #include <sys/types.h>
+#include <time.h>
 
 #ifndef _WIN32
 #include <sys/socket.h>
@@ -501,6 +502,7 @@ StubState GdbStub::Enter(bool stay, TgtStatus stat, u32 arg, bool wait_for_conn)
 
 	StubState st;
 	bool do_next = true;
+	bool inited = false;
 	do
 	{
 		bool was_conn = ConnFd > 0;
@@ -528,13 +530,16 @@ StubState GdbStub::Enter(bool stay, TgtStatus stat, u32 arg, bool wait_for_conn)
 			SignalStatus(TgtStatus::None, ~(u32)0);
 			do_next = false;
 			break;
-		case StubState::Watchpt:
-			Log(LogLevel::Info, "[GDB] watch point\n");
-			SignalStatus(TgtStatus::Watchpt, arg);
-		break;
 		default: break;
 		}
 	}
+	if(inited){
+		struct timespec ts;
+		ts.tv_sec = 0;
+		ts.tv_nsec = 1000*50000; // 50 ms
+		nanosleep(&ts, NULL);
+	}
+	inited = true;
 	while (do_next && stay);
 
 	if (st != StubState::None && st != StubState::NoConn)
@@ -654,7 +659,7 @@ StubState GdbStub::CheckWatchpt(u32 addr, bool isRead, bool enter, bool stay)
 
 		if (addr >= search->addr && addr < search->addr + search->len && (search->kind == GdbWatchMode::ReadWrite || search->kind == mode))
 		{
-			if (enter) return Enter(stay, StubState::Watchpt, addr);
+			if (enter) return Enter(stay, TgtStatus::Watchpt, addr);
 			else
 			{
 				SignalStatus(TgtStatus::Watchpt, addr);
