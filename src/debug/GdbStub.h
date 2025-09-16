@@ -93,7 +93,6 @@ enum GdbWatchMode {
 	ReadWrite = 4
 };
 
-
 constexpr int GDBPROTO_BUFFER_CAPACITY = 1024+128;
 
 class GdbStub;

@@ -11,7 +11,6 @@
 #include <unistd.h>
 #include <string.h>
 #include <sys/types.h>
-#include <time.h>
 
 #ifndef _WIN32
 #include <sys/socket.h>
@@ -529,13 +528,6 @@ StubState GdbStub::Enter(bool stay, TgtStatus stat, u32 arg, bool wait_for_conn)
 			SignalStatus(TgtStatus::None, ~(u32)0);
 			do_next = false;
 			break;
-		case StubState::None:
-			/* Sleep to avoid CPU overload */
-			struct timespec ts;
-			ts.tv_sec = 0;
-			ts.tv_nsec = 1000 * 100; // 0.1 ms
-			nanosleep(&ts, NULL);
-		break;
 		default: break;
 		}
 	}
