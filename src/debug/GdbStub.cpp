@@ -638,17 +638,14 @@ StubState GdbStub::CheckBkpt(u32 addr, bool enter, bool stay)
 }
 StubState GdbStub::CheckWatchpt(u32 addr, bool isRead, u32 pcReal, bool enter, bool stay)
 {
-	/* The watchpoint mode required by gdb */
-	int mode = GdbWatchMode::Write;
-	if(isRead){
-		 mode = GdbWatchMode::Read;
-	}
+	//The watchpoint mode required by gdb
+	int mode = isRead ? GdbWatchMode::Read : GdbWatchMode::Write;
 
 	for (auto search = WpList.begin(); search != WpList.end(); ++search)
 	{
 		if (search->addr > addr) break;
 
-		if (addr >= search->addr && addr < search->addr + search->len && (search->kind == GdbWatchMode::ReadWrite || search->kind == mode))
+		if (addr >= search->addr && addr < search->addr + search->len && (search->kind == GdbWatchMode::gdbWatchMode_ReadWrite || search->kind == mode))
 		{
 			if (enter) return Enter(stay, TgtStatus::Watchpt, pcReal);
 			else

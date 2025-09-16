@@ -61,7 +61,6 @@ enum class StubState
 	Step,
 	Disconnect,
 	Attach,
-	Watchpt,
 	CheckNoHit
 };
 
@@ -88,9 +87,9 @@ enum class ExecResult
 };
 
 enum GdbWatchMode {
-	Write     = 2,
-	Read      = 3,
-	ReadWrite = 4
+	gdbWatchMode_Write     = 2,
+	gdbWatchMode_Read      = 3,
+	gdbWatchMode_ReadWrite = 4
 };
 
 constexpr int GDBPROTO_BUFFER_CAPACITY = 1024+128;
