@@ -70,8 +70,6 @@ void ARM::GdbCheckMemory(u32 addr, bool isRead)
 {
     Gdb::StubState st = GdbStub.CheckWatchpt(addr, isRead, true, true);
 
-    Log(LogLevel::Debug, "[GDB] AAAA1234!\n");
-
     if (st != Gdb::StubState::CheckNoHit)
     {
         IsSingleStep = (st == Gdb::StubState::Step);
