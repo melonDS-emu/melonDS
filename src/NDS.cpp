@@ -892,7 +892,7 @@ void NDS::RunSystemSleep(u64 timestamp)
     for (int i = 0; i < Event_MAX; i++)
     {
         if (!mask) break;
-        if (i == Event_SPU || i == Event_RTC)
+        if (i == Event_RTC)
         {
             if (mask & 0x1)
             {
@@ -902,14 +902,8 @@ void NDS::RunSystemSleep(u64 timestamp)
                 {
                     SchedListMask &= ~(1<<i);
 
-                    u32 param;
-                    if (i == Event_SPU)
-                        param = 1;
-                    else
-                        param = evt.Param;
-
                     EventFunc func = evt.Funcs[evt.FuncID];
-                    func(evt.That, param);
+                    func(evt.That, evt.Param);
                 }
             }
         }
