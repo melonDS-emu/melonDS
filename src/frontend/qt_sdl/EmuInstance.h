@@ -125,6 +125,8 @@ public:
 
     // return: empty string = setup OK, non-empty = error message
     QString verifySetup();
+	// get game ID
+    std::string getGameID();
 
     bool updateConsole() noexcept;
 
