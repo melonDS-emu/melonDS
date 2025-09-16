@@ -170,6 +170,13 @@ void EmuInstance::audioCallback(void* data, Uint8* stream, int len)
         return;
     }
 
+    if (inst->audioVolume < 256)
+    {
+        s16* samples = (s16*) stream;
+        for (int i = 0; i < num_in * 2; i++)
+            samples[i] = ((s32) samples[i] * inst->audioVolume) >> 8;
+    }
+
     int margin = 6;
     if (num_in < len_in-margin)
     {
