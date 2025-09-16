@@ -999,7 +999,6 @@ void SPU::Mix(u32 spucycles)
         output[1] &= 0xFFC0;
     }
 
-    Platform::Mutex_Lock(AudioLock);
     BlipTimer += spucycles;
     if (BlipTimer >= 8191 * 512)
         BlipTimer = 8191 * 512;
@@ -1011,7 +1010,6 @@ void SPU::Mix(u32 spucycles)
 
     OutputLastSamples[0] = output[0];
     OutputLastSamples[1] = output[1];
-    Platform::Mutex_Unlock(AudioLock);
 
     NDS.ScheduleEvent(Event_SPU, true, MixInterval, 0, MixInterval >> 1);
 }
@@ -1027,6 +1025,7 @@ void SPU::EndFrame()
     blip_read_samples(BlipLeft, temp, avail, true);
     blip_read_samples(BlipRight, temp + 1, avail, true);
 
+    Platform::Mutex_Lock(AudioLock);
     for (int i = 0; i < avail * 2; i += 2)
     {
         OutputBuffer[OutputBufferWritePos++] = temp[i];
@@ -1041,6 +1040,7 @@ void SPU::EndFrame()
             OutputBufferReadPos &= ((2*OutputBufferSize)-1);
         }
     }
+    Platform::Mutex_Unlock(AudioLock);
 }
 
 void SPU::TrimOutput()
