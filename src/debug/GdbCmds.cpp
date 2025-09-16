@@ -573,7 +573,6 @@ ExecResult GdbStub::Handle_Question(GdbStub* stub, const u8* cmd, ssize_t len)
 		typ = 1;
 		goto bkpt_rest;
 	case TgtStatus::Watchpt:
-		Log(LogLevel::Debug, "[GDB] test12345!\n");
 		arg = stub->CurWatchpt;
 		typ = 2;
 	bkpt_rest:

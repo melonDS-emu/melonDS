@@ -529,7 +529,8 @@ StubState GdbStub::Enter(bool stay, TgtStatus stat, u32 arg, bool wait_for_conn)
 			SignalStatus(TgtStatus::None, ~(u32)0);
 			do_next = false;
 			break;
-		case StubState::CheckNoHit:
+		case StubState::None:
+			/* Sleep to avoid CPU overload */
 			struct timespec ts;
 			ts.tv_sec = 0;
 			ts.tv_nsec = 1000 * 1000; // 1 ms
