@@ -139,7 +139,12 @@ ExecResult GdbStub::Handle_g(GdbStub* stub, const u8* cmd, ssize_t len)
 
 	for (size_t i = 0; i < GDB_ARCH_N_REG; ++i)
 	{
-		u32 v = stub->Cb->ReadReg(static_cast<Register>(i));
+		Register reg = static_cast<Register>(i);
+		u32 v = stub->Cb->ReadReg(reg);
+		/* Hack: Fix incorrect PC on memory breakpoint */
+		if(reg == Register::pc && stub->Stat == TgtStatus::Watchpt){
+			v = stub->CurWatchpt;
+		}
 		hexfmt32(&regstrbuf[i*4*2], v);
 	}
 
