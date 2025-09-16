@@ -644,7 +644,7 @@ StubState GdbStub::CheckBkpt(u32 addr, bool enter, bool stay)
 		return StubState::None;
 	}
 }
-StubState GdbStub::CheckWatchpt(u32 addr, bool isRead, bool enter, bool stay)
+StubState GdbStub::CheckWatchpt(u32 addr, bool isRead, u32 pcReal, bool enter, bool stay)
 {
 	/* The watchpoint mode required by gdb */
 	int mode = GdbWatchMode::Write;
@@ -658,7 +658,7 @@ StubState GdbStub::CheckWatchpt(u32 addr, bool isRead, bool enter, bool stay)
 
 		if (addr >= search->addr && addr < search->addr + search->len && (search->kind == GdbWatchMode::ReadWrite || search->kind == mode))
 		{
-			if (enter) return Enter(stay, TgtStatus::Watchpt, addr);
+			if (enter) return Enter(stay, TgtStatus::Watchpt, pcReal);
 			else
 			{
 				SignalStatus(TgtStatus::Watchpt, addr);

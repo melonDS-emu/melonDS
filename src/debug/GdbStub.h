@@ -143,7 +143,7 @@ public:
 	void DelAllBpWp();
 
 	StubState CheckBkpt(u32 addr, bool enter, bool stay);
-	StubState CheckWatchpt(u32 addr, bool isRead, bool enter, bool stay);
+	StubState CheckWatchpt(u32 addr, bool isRead, u32 pcReal, bool enter, bool stay);
 
 #include "GdbCmds.h"
 

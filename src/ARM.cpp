@@ -68,7 +68,8 @@ void ARM::GdbCheckC()
 }
 void ARM::GdbCheckMemory(u32 addr, bool isRead)
 {
-    Gdb::StubState st = GdbStub.CheckWatchpt(addr, isRead, true, true);
+    u32 pc_real = R[15] - ((CPSR & 0x20) ? 2 : 4);
+    Gdb::StubState st = GdbStub.CheckWatchpt(addr, isRead, pc_real, true, true);
 
     if (st != Gdb::StubState::CheckNoHit)
     {
