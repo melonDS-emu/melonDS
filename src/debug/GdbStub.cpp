@@ -486,7 +486,7 @@ ExecResult GdbStub::CmdExec(const CmdHandler* handlers)
 
 void GdbStub::SignalStatus(TgtStatus stat, u32 arg)
 {
-	//Log(LogLevel::Debug, "[GDB] SIGNAL STATUS %d!\n", stat);
+	Log(LogLevel::Debug, "[GDB] SIGNAL STATUS %d!\n", stat);
 
 	this->Stat = stat;
 	StatFlag = true;
@@ -502,7 +502,7 @@ StubState GdbStub::Enter(bool stay, TgtStatus stat, u32 arg, bool wait_for_conn)
 
 	StubState st;
 	bool do_next = true;
-	bool inited = false;
+//	bool inited = false;
 	do
 	{
 		bool was_conn = ConnFd > 0;
@@ -532,13 +532,13 @@ StubState GdbStub::Enter(bool stay, TgtStatus stat, u32 arg, bool wait_for_conn)
 			break;
 		default: break;
 		}
-		if(inited){
-			struct timespec ts;
-			ts.tv_sec = 0;
-			ts.tv_nsec = 1000*1000; // 1 ms
-			nanosleep(&ts, NULL);
-		}
-		inited = true;
+		// if(inited){
+		// 	struct timespec ts;
+		// 	ts.tv_sec = 0;
+		// 	ts.tv_nsec = 1000*1000; // 1 ms
+		// 	nanosleep(&ts, NULL);
+		// }
+		// inited = true;
 	}
 	while (do_next && stay);
 
@@ -650,7 +650,7 @@ StubState GdbStub::CheckWatchpt(u32 addr, bool isRead, bool enter, bool stay)
 	/* The watchpoint mode required by gdb */
 	int mode = GdbWatchMode::Write;
 	if(isRead){
-		mode = GdbWatchMode::Read;
+		 mode = GdbWatchMode::Read;
 	}
 
 	for (auto search = WpList.begin(); search != WpList.end(); ++search)
