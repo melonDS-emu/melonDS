@@ -533,7 +533,7 @@ StubState GdbStub::Enter(bool stay, TgtStatus stat, u32 arg, bool wait_for_conn)
 			/* Sleep to avoid CPU overload */
 			struct timespec ts;
 			ts.tv_sec = 0;
-			ts.tv_nsec = 1000 * 10; // 0.01 ms
+			ts.tv_nsec = 1000 * 100; // 0.1 ms
 			nanosleep(&ts, NULL);
 		break;
 		default: break;
