@@ -85,6 +85,22 @@ ScreenPanel::ScreenPanel(QWidget* parent) : QWidget(parent)
     osdEnabled = false;
     osdID = 1;
     
+    //MelonPrime OSD
+    Overlay[0] = QImage(256, 192,QImage::Format_ARGB32_Premultiplied);
+    Overlay[0].fill(0xffffff00);
+    
+    Overlay[1] = QImage(256, 192,QImage::Format_ARGB32_Premultiplied);
+    Overlay[1].fill(0xffff00ff);
+    
+    Top_paint = new QPainter(&Overlay[0]);
+    Btm_paint = new QPainter(&Overlay[1]);
+
+
+    // printf("NewCanvas\n");
+    // OSDCanvas[0] = PrimeOSD::Canvas(256, 192,197); //Bottom Screen OSD (Can adjust Canvas sizes for higher resolution)
+    // OSDCanvas[1] = PrimeOSD::Canvas(256, 192,801); //Top Screen OSD
+    //OSDCanvas[2] = PrimeOSD::Canvas(500, 500); //Non-Screen target / floating (not tied to either screen) -unused for now...
+
     loadConfig();
     setFilter(mainWindow->getWindowConfig().GetBool("ScreenFilter"));
 
@@ -115,6 +131,8 @@ ScreenPanel::ScreenPanel(QWidget* parent) : QWidget(parent)
 ScreenPanel::~ScreenPanel()
 {
     /* MelonPrimeDS comment-out    */
+    Top_paint->end();
+    Btm_paint->end();
     mouseTimer->stop();
     delete mouseTimer;
 
@@ -850,13 +868,14 @@ void ScreenPanelNative::paintEvent(QPaintEvent* event)
         memcpy(screen[0].scanLine(0), nds->GPU.Framebuffer[frontbuf][0].get(), 256 * 192 * 4);
         memcpy(screen[1].scanLine(0), nds->GPU.Framebuffer[frontbuf][1].get(), 256 * 192 * 4);
         emuThread->frontBufferLock.unlock();
-
+        painter.setCompositionMode(QPainter::CompositionMode_SourceOver);
         QRect screenrc(0, 0, 256, 192);
 
         for (int i = 0; i < numScreens; i++)
         {
             painter.setTransform(screenTrans[i]);
             painter.drawImage(screenrc, screen[screenKind[i]]);
+            painter.drawImage(screenrc, Overlay[screenKind[i]]);
         }
         emuInstance->renderLock.unlock();
     }
@@ -1064,6 +1083,21 @@ void ScreenPanelGL::initOpenGL()
     logoTexture = tex;
 
     transferLayout();
+
+    OpenGL::CompileVertexFragmentProgram(overlayShader,
+                                    kScreenVS,kScreenFS_overlay,
+                                    "OverlayShader",
+                                        {{"vPosition", 0}, {"vTexcoord", 1}},
+                                        {{"oColor", 0}});
+
+    glUseProgram(overlayShader);
+
+    overlayScreenSizeULoc = glGetUniformLocation(overlayShader, "uScreenSize");
+    overlayTransformULoc = glGetUniformLocation(overlayShader, "uTransform");
+    overlayPosULoc = glGetUniformLocation(overlayShader, "uOverlayPos");
+    overlaySizeULoc = glGetUniformLocation(overlayShader, "uOverlaySize");
+    overlayScreenTypeULoc = glGetUniformLocation(overlayShader, "uOverlayScreenType");
+
     glInited = true;
 }
 
@@ -1093,6 +1127,12 @@ void ScreenPanelGL::deinitOpenGL()
 
     glDeleteProgram(osdShader);
 
+    glDeleteProgram(overlayShader);
+
+    glDeleteTextures(1,&OverlayID[0]);
+    isOverlayRendered[0]=false;
+    glDeleteTextures(1,&OverlayID[1]);
+    isOverlayRendered[1]=false;
 
     glContext->DoneCurrent();
 
@@ -1134,6 +1174,34 @@ void ScreenPanelGL::osdDeleteItem(OSDItem* item)
 
     ScreenPanel::osdDeleteItem(item);
 }
+
+void ScreenPanelGL::drawOverlays(int screenType,int screen)
+{
+    if (isOverlayRendered[screenType]==false)//Load texture if none loaded
+    {
+        glGenTextures(1,&OverlayID[screenType]);
+        glBindTexture(GL_TEXTURE_2D, OverlayID[screenType]);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, Overlay[screenType].width(), Overlay[screenType].height(), 0, GL_RGBA, GL_UNSIGNED_BYTE, Overlay[screenType].bits());
+        isOverlayRendered[screenType] = true;
+    }
+
+    glBindTexture(GL_TEXTURE_2D, OverlayID[screenType]);
+
+    //For now we assume we will need to update each overlay every frame...
+    glTexSubImage2D(GL_TEXTURE_2D,0,0,0,Overlay[screenType].width(),Overlay[screenType].height(),GL_RGBA,GL_UNSIGNED_BYTE,Overlay[screenType].bits());
+    
+    glUniform2f(overlayPosULoc,0,0);
+    glUniform2f(overlaySizeULoc,Overlay[screenType].width(),Overlay[screenType].height());
+    glUniform1i(overlayScreenTypeULoc, screenType);
+    glUniformMatrix2x3fv(overlayTransformULoc, 1, GL_TRUE,screenMatrix[screen]);
+    glDrawArrays(GL_TRIANGLES,screenType == 0 ? 0 : 2*3, 2*3);
+}
+
+
 
 void ScreenPanelGL::drawScreenGL()
 {
@@ -1254,6 +1322,24 @@ void ScreenPanelGL::drawScreenGL()
 
     if (osdEnabled)
     {
+
+        glUseProgram(overlayShader);
+
+        //Need to blend this layer onto the screen layer!
+        glEnable(GL_BLEND);
+        glBlendFunc(GL_ONE, GL_ONE_MINUS_SRC_ALPHA);
+
+        glUniform2f(overlayScreenSizeULoc, w / factor, h / factor);
+
+        screenSettingsLock.lock();
+
+        glBindBuffer(GL_ARRAY_BUFFER, screenVertexBuffer);
+        glBindVertexArray(screenVertexArray);
+        for (int i = 0; i < numScreens; i++)
+            drawOverlays(screenKind[i],i);
+
+        screenSettingsLock.unlock();
+
         osdMutex.lock();
 
         u32 y = kOSDMargin;

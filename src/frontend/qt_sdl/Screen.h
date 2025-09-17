@@ -71,6 +71,12 @@ public:
     void osdAddMessage(unsigned int color, const char* msg);
 
     /* MelonPrimeDS { */
+
+    QImage Overlay[2];
+    QPainter* Top_paint;
+    QPainter* Btm_paint;
+    bool isOverlayRendered[2]={false,false};
+    
     bool getFocused() { return isFocused; }
 
     void unfocus();
@@ -226,6 +232,13 @@ protected:
 
 private:
     void setupScreenLayout() override;
+    GLuint btmOverlayTexture;
+    GLuint topOverlayTexture;
+    GLuint OverlayID[2];
+
+
+
+    void drawOverlays(int type,int screen);
 
     std::unique_ptr<GL::Context> glContext;
     bool glInited;
@@ -252,6 +265,10 @@ private:
 
     void osdRenderItem(OSDItem* item) override;
     void osdDeleteItem(OSDItem* item) override;
+
+    GLuint overlayShader;
+    GLuint overlayScreenSizeULoc, overlayTransformULoc;
+    GLuint overlayPosULoc, overlaySizeULoc, overlayScreenTypeULoc;
 };
 
 #endif // SCREEN_H
