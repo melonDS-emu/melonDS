@@ -59,7 +59,7 @@
 // melonPrimeDS
 #include <cstdint>
 #include <cmath>
-#include <QPainter>
+
 
 using namespace melonDS;
 
@@ -1178,17 +1178,6 @@ void EmuThread::run()
     bool isCursorVisible = true;
     bool enableAim = true;
     bool wasLastFrameFocused = false;
-
-
-    //MelonPrime OSD stuff
-    #define Top_buffer (&(emuInstance->getMainWindow()->panel->Overlay[0]))
-    #define Btm_buffer (&(emuInstance->getMainWindow()->panel->Overlay[1]))
-    #define Top_paint emuInstance->getMainWindow()->panel->Top_paint
-    #define Btm_paint emuInstance->getMainWindow()->panel->Btm_paint
-
-    QPoint oldPos = QCursor::pos();
-    float virtualStylusX = 128;
-    float virtualStylusY = 96; // This might not be good - does it go out of bounds when bottom-only? Is Y=0 barely at the bottom limit?
 
     /**
      * @brief Function to show or hide the cursor on MelonPrimeDS
@@ -2964,43 +2953,6 @@ void EmuThread::run()
                     // End of in-game
                 }
                 else {
-
-                    //Clear OSD buffers
-                    Top_buffer->fill(0x00000000);
-                    Btm_buffer->fill(0x00000000);
-
-
-
-                    auto processVirtualStylus = [](float mouseRelValue, float scaleFactor, float& virtualStylus) {
-                        if (abs(mouseRelValue) > 0) {
-                            virtualStylus += mouseRelValue * scaleFactor;
-                        }
-                    };
-
-
-                    QPoint newPos = QCursor::pos();
-                    QPoint delta = newPos-oldPos;
-                    oldPos = newPos;
-
-                    processVirtualStylus(delta.x(), 0.5, virtualStylusX);
-                    processVirtualStylus(delta.y(), 0.5, virtualStylusY);
-
-                    // force virtualStylusX inside window
-                    if (virtualStylusX < 0) virtualStylusX = 0;
-                    if (virtualStylusX > 255) virtualStylusX = 255;
-                    // force virtualStylusY inside window
-                    if (virtualStylusY < 0) virtualStylusY = 0;
-                    if (virtualStylusY > 191) virtualStylusY = 191;
-
-                    Btm_paint->setPen(Qt::white);
-
-                    // Crosshair Circle
-                    Btm_paint->drawEllipse(virtualStylusX - 5, virtualStylusY - 5, 10, 10);
-
-                    // 3x3 center Crosshair
-                    Btm_paint->drawLine(virtualStylusX - 1, virtualStylusY, virtualStylusX + 1, virtualStylusY);
-                    Btm_paint->drawLine(virtualStylusX, virtualStylusY - 1, virtualStylusX, virtualStylusY + 1);
-
                     // !isInGame
 
                     isInAdventure = false;
