@@ -312,8 +312,8 @@ public: // TODO: Encapsulate the rest of these members
     // (Reminder: C++ fields are initialized in the order they're declared,
     // regardless of what the constructor's initializer list says.)
     melonDS::ARMJIT JIT;
-    ARMv5 ARM9;
-    ARMv4 ARM7;
+    ARMv5 *ARM9;
+    ARMv4 *ARM7;
     melonDS::SPU SPU;
     melonDS::Mic Mic;
     SPIHost SPI;
