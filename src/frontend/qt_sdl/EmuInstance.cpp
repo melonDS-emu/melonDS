@@ -1318,6 +1318,7 @@ bool EmuInstance::updateConsole() noexcept
             jitargs,
             static_cast<AudioBitDepth>(globalCfg.GetInt("Audio.BitDepth")),
             static_cast<AudioInterpolation>(globalCfg.GetInt("Audio.Interpolation")),
+            (double) audioFreq,
             gdbargs,
     };
     NDSArgs* args = &ndsargs;

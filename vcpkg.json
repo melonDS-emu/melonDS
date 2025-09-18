@@ -28,7 +28,8 @@
 			"name": "libslirp",
 			"platform": "linux"
 		},
-		"faad2"
+		"faad2",
+		"pkgconf"
 	],
 	"features": {
 		"qt6": {
