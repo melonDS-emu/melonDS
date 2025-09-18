@@ -313,6 +313,7 @@ GLRenderer::~GLRenderer()
 
 void GLRenderer::Reset(GPU& gpu)
 {
+    this->gpu = &gpu;
     // This is where the compositor's Reset() method would be called,
     // except there's no such method right now.
 }
@@ -749,14 +750,14 @@ int GLRenderer::RenderPolygonEdgeBatch(int i) const
     return numpolys;
 }
 
-void GLRenderer::RenderSceneChunk(const GPU3D& gpu3d, int y, int h)
+void GLRenderer::RenderSceneChunk(int y, int h)
 {
     u32 flags = 0;
-    if (gpu3d.RenderPolygonRAM[0]->WBuffer) flags |= RenderFlag_WBuffer;
+    if (gpu->GPU3D.RenderPolygonRAM[0]->WBuffer) flags |= RenderFlag_WBuffer;
 
     if (h != 192) glScissor(0, y<<ScaleFactor, 256<<ScaleFactor, h<<ScaleFactor);
 
-    GLboolean fogenable = (gpu3d.RenderDispCnt & (1<<7)) ? GL_TRUE : GL_FALSE;
+    GLboolean fogenable = (gpu->GPU3D.RenderDispCnt & (1<<7)) ? GL_TRUE : GL_FALSE;
 
     // TODO: proper 'equal' depth test!
     // (has margin of +-0x200 in Z-buffer mode, +-0xFF in W-buffer mode)
@@ -828,7 +829,7 @@ void GLRenderer::RenderSceneChunk(const GPU3D& gpu3d, int y, int h)
     glEnable(GL_BLEND);
     glBlendEquationSeparate(GL_FUNC_ADD, GL_MAX);
 
-    if (gpu3d.RenderDispCnt & (1<<3))
+    if (gpu->GPU3D.RenderDispCnt & (1<<3))
         glBlendFuncSeparate(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA, GL_ONE, GL_ONE);
     else
         glBlendFuncSeparate(GL_ONE, GL_ZERO, GL_ONE, GL_ONE);
@@ -840,7 +841,7 @@ void GLRenderer::RenderSceneChunk(const GPU3D& gpu3d, int y, int h)
         // pass 2: if needed, render translucent pixels that are against background pixels
         // when background alpha is zero, those need to be rendered with blending disabled
 
-        if ((gpu3d.RenderClearAttr1 & 0x001F0000) == 0)
+        if ((gpu->GPU3D.RenderClearAttr1 & 0x001F0000) == 0)
         {
             glDisable(GL_BLEND);
 
@@ -904,7 +905,7 @@ void GLRenderer::RenderSceneChunk(const GPU3D& gpu3d, int y, int h)
                     if (rp->PolyData->IsShadow)
                     {
                         // shadow against clear-plane will only pass if its polyID matches that of the clear plane
-                        u32 clrpolyid = (gpu3d.RenderClearAttr1 >> 24) & 0x3F;
+                        u32 clrpolyid = (gpu->GPU3D.RenderClearAttr1 >> 24) & 0x3F;
                         if (polyid != clrpolyid) { i++; continue; }
 
                         glEnable(GL_BLEND);
@@ -1052,7 +1053,7 @@ void GLRenderer::RenderSceneChunk(const GPU3D& gpu3d, int y, int h)
         }
     }
 
-    if (gpu3d.RenderDispCnt & 0x00A0) // fog/edge enabled
+    if (gpu->GPU3D.RenderDispCnt & 0x00A0) // fog/edge enabled
     {
         glColorMaski(0, GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
         glColorMaski(1, GL_FALSE, GL_FALSE, GL_FALSE, GL_FALSE);
@@ -1074,7 +1075,7 @@ void GLRenderer::RenderSceneChunk(const GPU3D& gpu3d, int y, int h)
         glBindBuffer(GL_ARRAY_BUFFER, ClearVertexBufferID);
         glBindVertexArray(ClearVertexArrayID);
 
-        if (gpu3d.RenderDispCnt & (1<<5))
+        if (gpu->GPU3D.RenderDispCnt & (1<<5))
         {
             // edge marking
             // TODO: depth/polyid values at screen edges
@@ -1086,19 +1087,19 @@ void GLRenderer::RenderSceneChunk(const GPU3D& gpu3d, int y, int h)
             glDrawArrays(GL_TRIANGLES, 0, 2*3);
         }
 
-        if (gpu3d.RenderDispCnt & (1<<7))
+        if (gpu->GPU3D.RenderDispCnt & (1<<7))
         {
             // fog
 
             glUseProgram(FinalPassFogShader);
 
-            if (gpu3d.RenderDispCnt & (1<<6))
+            if (gpu->GPU3D.RenderDispCnt & (1<<6))
                 glBlendFuncSeparate(GL_ZERO, GL_ONE, GL_CONSTANT_COLOR, GL_ONE_MINUS_SRC_ALPHA);
             else
                 glBlendFuncSeparate(GL_CONSTANT_COLOR, GL_ONE_MINUS_SRC_ALPHA, GL_CONSTANT_COLOR, GL_ONE_MINUS_SRC_ALPHA);
 
             {
-                u32 c = gpu3d.RenderFogColor;
+                u32 c = gpu->GPU3D.RenderFogColor;
                 u32 r = c & 0x1F;
                 u32 g = (c >> 5) & 0x1F;
                 u32 b = (c >> 10) & 0x1F;
@@ -1113,7 +1114,7 @@ void GLRenderer::RenderSceneChunk(const GPU3D& gpu3d, int y, int h)
 }
 
 
-void GLRenderer::RenderFrame(GPU& gpu)
+void GLRenderer::RenderFrame()
 {
     CurShaderID = -1;
 
@@ -1122,11 +1123,11 @@ void GLRenderer::RenderFrame(GPU& gpu)
 
     ShaderConfig.uScreenSize[0] = ScreenW;
     ShaderConfig.uScreenSize[1] = ScreenH;
-    ShaderConfig.uDispCnt = gpu.GPU3D.RenderDispCnt;
+    ShaderConfig.uDispCnt = gpu->GPU3D.RenderDispCnt;
 
     for (int i = 0; i < 32; i++)
     {
-        u16 c = gpu.GPU3D.RenderToonTable[i];
+        u16 c = gpu->GPU3D.RenderToonTable[i];
         u32 r = c & 0x1F;
         u32 g = (c >> 5) & 0x1F;
         u32 b = (c >> 10) & 0x1F;
@@ -1138,7 +1139,7 @@ void GLRenderer::RenderFrame(GPU& gpu)
 
     for (int i = 0; i < 8; i++)
     {
-        u16 c = gpu.GPU3D.RenderEdgeTable[i];
+        u16 c = gpu->GPU3D.RenderEdgeTable[i];
         u32 r = c & 0x1F;
         u32 g = (c >> 5) & 0x1F;
         u32 b = (c >> 10) & 0x1F;
@@ -1149,7 +1150,7 @@ void GLRenderer::RenderFrame(GPU& gpu)
     }
 
     {
-        u32 c = gpu.GPU3D.RenderFogColor;
+        u32 c = gpu->GPU3D.RenderFogColor;
         u32 r = c & 0x1F;
         u32 g = (c >> 5) & 0x1F;
         u32 b = (c >> 10) & 0x1F;
@@ -1163,12 +1164,12 @@ void GLRenderer::RenderFrame(GPU& gpu)
 
     for (int i = 0; i < 34; i++)
     {
-        u8 d = gpu.GPU3D.RenderFogDensityTable[i];
+        u8 d = gpu->GPU3D.RenderFogDensityTable[i];
         ShaderConfig.uFogDensity[i][0] = (float)d / 127.0;
     }
 
-    ShaderConfig.uFogOffset = gpu.GPU3D.RenderFogOffset;
-    ShaderConfig.uFogShift = gpu.GPU3D.RenderFogShift;
+    ShaderConfig.uFogOffset = gpu->GPU3D.RenderFogOffset;
+    ShaderConfig.uFogShift = gpu->GPU3D.RenderFogShift;
 
     glBindBuffer(GL_UNIFORM_BUFFER, ShaderConfigUBO);
     void* unibuf = glMapBuffer(GL_UNIFORM_BUFFER, GL_WRITE_ONLY);
@@ -1181,13 +1182,13 @@ void GLRenderer::RenderFrame(GPU& gpu)
     glBindTexture(GL_TEXTURE_2D, TexMemID);
     for (int i = 0; i < 4; i++)
     {
-        u32 mask = gpu.VRAMMap_Texture[i];
+        u32 mask = gpu->VRAMMap_Texture[i];
         u8* vram;
         if (!mask) continue;
-        else if (mask & (1<<0)) vram = gpu.VRAM_A;
-        else if (mask & (1<<1)) vram = gpu.VRAM_B;
-        else if (mask & (1<<2)) vram = gpu.VRAM_C;
-        else if (mask & (1<<3)) vram = gpu.VRAM_D;
+        else if (mask & (1<<0)) vram = gpu->VRAM_A;
+        else if (mask & (1<<1)) vram = gpu->VRAM_B;
+        else if (mask & (1<<2)) vram = gpu->VRAM_C;
+        else if (mask & (1<<3)) vram = gpu->VRAM_D;
 
         glTexSubImage2D(GL_TEXTURE_2D, 0, 0, i*128, 1024, 128, GL_RED_INTEGER, GL_UNSIGNED_BYTE, vram);
     }
@@ -1197,12 +1198,12 @@ void GLRenderer::RenderFrame(GPU& gpu)
     for (int i = 0; i < 6; i++)
     {
         // 6 x 16K chunks
-        u32 mask = gpu.VRAMMap_TexPal[i];
+        u32 mask = gpu->VRAMMap_TexPal[i];
         u8* vram;
         if (!mask) continue;
-        else if (mask & (1<<4)) vram = &gpu.VRAM_E[(i&3)*0x4000];
-        else if (mask & (1<<5)) vram = gpu.VRAM_F;
-        else if (mask & (1<<6)) vram = gpu.VRAM_G;
+        else if (mask & (1<<4)) vram = &gpu->VRAM_E[(i&3)*0x4000];
+        else if (mask & (1<<5)) vram = gpu->VRAM_F;
+        else if (mask & (1<<6)) vram = gpu->VRAM_G;
 
         glTexSubImage2D(GL_TEXTURE_2D, 0, 0, i*8, 1024, 8, GL_RGBA, GL_UNSIGNED_SHORT_1_5_5_5_REV, vram);
     }
@@ -1227,13 +1228,13 @@ void GLRenderer::RenderFrame(GPU& gpu)
         glUseProgram(ClearShaderPlain);
         glDepthFunc(GL_ALWAYS);
 
-        u32 r = gpu.GPU3D.RenderClearAttr1 & 0x1F;
-        u32 g = (gpu.GPU3D.RenderClearAttr1 >> 5) & 0x1F;
-        u32 b = (gpu.GPU3D.RenderClearAttr1 >> 10) & 0x1F;
-        u32 fog = (gpu.GPU3D.RenderClearAttr1 >> 15) & 0x1;
-        u32 a = (gpu.GPU3D.RenderClearAttr1 >> 16) & 0x1F;
-        u32 polyid = (gpu.GPU3D.RenderClearAttr1 >> 24) & 0x3F;
-        u32 z = ((gpu.GPU3D.RenderClearAttr2 & 0x7FFF) * 0x200) + 0x1FF;
+        u32 r = gpu->GPU3D.RenderClearAttr1 & 0x1F;
+        u32 g = (gpu->GPU3D.RenderClearAttr1 >> 5) & 0x1F;
+        u32 b = (gpu->GPU3D.RenderClearAttr1 >> 10) & 0x1F;
+        u32 fog = (gpu->GPU3D.RenderClearAttr1 >> 15) & 0x1;
+        u32 a = (gpu->GPU3D.RenderClearAttr1 >> 16) & 0x1F;
+        u32 polyid = (gpu->GPU3D.RenderClearAttr1 >> 24) & 0x3F;
+        u32 z = ((gpu->GPU3D.RenderClearAttr2 & 0x7FFF) * 0x200) + 0x1FF;
 
         glStencilFunc(GL_ALWAYS, 0xFF, 0xFF);
         glStencilOp(GL_REPLACE, GL_REPLACE, GL_REPLACE);
@@ -1252,20 +1253,20 @@ void GLRenderer::RenderFrame(GPU& gpu)
         glDrawArrays(GL_TRIANGLES, 0, 2*3);
     }
 
-    if (gpu.GPU3D.RenderNumPolygons)
+    if (gpu->GPU3D.RenderNumPolygons)
     {
         // render shit here
         u32 flags = 0;
-        if (gpu.GPU3D.RenderPolygonRAM[0]->WBuffer) flags |= RenderFlag_WBuffer;
+        if (gpu->GPU3D.RenderPolygonRAM[0]->WBuffer) flags |= RenderFlag_WBuffer;
 
         int npolys = 0;
         int firsttrans = -1;
-        for (u32 i = 0; i < gpu.GPU3D.RenderNumPolygons; i++)
+        for (u32 i = 0; i < gpu->GPU3D.RenderNumPolygons; i++)
         {
-            if (gpu.GPU3D.RenderPolygonRAM[i]->Degenerate) continue;
+            if (gpu->GPU3D.RenderPolygonRAM[i]->Degenerate) continue;
 
-            SetupPolygon(&PolygonList[npolys], gpu.GPU3D.RenderPolygonRAM[i]);
-            if (firsttrans < 0 && gpu.GPU3D.RenderPolygonRAM[i]->Translucent)
+            SetupPolygon(&PolygonList[npolys], gpu->GPU3D.RenderPolygonRAM[i]);
+            if (firsttrans < 0 && gpu->GPU3D.RenderPolygonRAM[i]->Translucent)
                 firsttrans = npolys;
 
             npolys++;
@@ -1282,13 +1283,13 @@ void GLRenderer::RenderFrame(GPU& gpu)
         glBufferSubData(GL_ELEMENT_ARRAY_BUFFER, 0, NumIndices * 2, IndexBuffer);
         glBufferSubData(GL_ELEMENT_ARRAY_BUFFER, EdgeIndicesOffset * 2, NumEdgeIndices * 2, IndexBuffer + EdgeIndicesOffset);
 
-        RenderSceneChunk(gpu.GPU3D, 0, 192);
+        RenderSceneChunk(0, 192);
     }
 }
 
-void GLRenderer::Stop(const GPU& gpu)
+void GLRenderer::Stop()
 {
-    CurGLCompositor.Stop(gpu);
+    CurGLCompositor.Stop(*gpu);
 }
 
 void GLRenderer::PrepareCaptureFrame()
@@ -1304,9 +1305,9 @@ void GLRenderer::PrepareCaptureFrame()
     glReadPixels(0, 0, 256, 192, GL_BGRA, GL_UNSIGNED_BYTE, NULL);
 }
 
-void GLRenderer::Blit(const GPU& gpu)
+void GLRenderer::Blit()
 {
-    CurGLCompositor.RenderFrame(gpu, *this);
+    CurGLCompositor.RenderFrame(*gpu, *this);
 }
 
 void GLRenderer::BindOutputTexture(int buffer)
