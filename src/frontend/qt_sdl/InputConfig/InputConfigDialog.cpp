@@ -127,6 +127,9 @@ InputConfigDialog::InputConfigDialog(QWidget* parent) : QDialog(parent), ui(new 
     ui->cbMetroidUnlockAll->setChecked(instcfg.GetBool("Metroid.Data.Unlock"));
     ui->cbMetroidApplyHeadphone->setChecked(instcfg.GetBool("Metroid.Apply.Headphone"));
     ui->cbMetroidUseFirmwareName->setChecked(instcfg.GetBool("Metroid.Use.Firmware.Name"));
+    // Visual configuration (Metroid)
+    ui->enable_customhud->setChecked(instcfg.GetBool("Metroid.Visual.CustomHUD"));
+    ui->crosshair_size->setValue(instcfg.GetInt("Metroid.Visual.CrosshairSize"));
 
     // Hunter license
     ui->cbMetroidApplyHunter->setChecked(instcfg.GetBool("Metroid.HunterLicense.Hunter.Apply"));
@@ -334,6 +337,9 @@ void InputConfigDialog::on_InputConfigDialog_accepted()
         ui->cbMetroidApplyColor->checkState() == Qt::Checked);
     instcfg.SetInt("Metroid.HunterLicense.Color.Selected",
         ui->comboMetroidSelectedColor->currentIndex());
+    // Visual configuration (Metroid)
+    instcfg.SetBool("Metroid.Visual.CustomHUD", ui->enable_customhud->isChecked());
+    instcfg.SetInt("Metroid.Visual.CrosshairSize", ui->crosshair_size->value());
 
 
     // } MelonPrimeDS
@@ -444,6 +450,18 @@ void InputConfigDialog::on_cbMetroidEnableSnapTap_stateChanged(int state)
 {
     auto& cfg = emuInstance->getGlobalConfig();
     cfg.SetBool("Metroid.Operation.SnapTap", state != 0);
+}
+
+void InputConfigDialog::on_enable_customhud_stateChanged(int state)
+{
+    auto& cfg = emuInstance->getGlobalConfig();
+    cfg.SetBool("Metroid.Visual.CustomHUD", state != 0);
+}
+
+void InputConfigDialog::on_crosshair_size_valueChanged(int value)
+{
+    auto& cfg = emuInstance->getGlobalConfig();
+    cfg.SetInt("Metroid.Visual.CrosshairSize", value);
 }
 
 

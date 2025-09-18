@@ -60,6 +60,9 @@
 #include <cstdint>
 #include <cmath>
 #include <QPainter>
+#include <QFontDatabase>
+#include <QFile>
+#include <QByteArray>
 
 using namespace melonDS;
 
@@ -541,6 +544,11 @@ bool isLayoutChangePending = true;       // MelonPrimeDS layout change flag - se
 bool isSensitivityChangePending = true;  // MelonPrimeDS sensitivity change flag - set true to trigger on first run
 bool isSnapTapMode = false;
 bool isUnlockHuntersMaps = false;
+// added for HUD
+uint32_t addrcurrentWeapon;
+uint32_t addrCurrentHp;
+uint32_t addrCurrentAmmoMissile;
+uint32_t addrCurrentAmmoSpecial;
 // グローバル適用フラグ定義(多重適用を避けるため)
 bool isHeadphoneApplied = false;
 
@@ -570,6 +578,11 @@ melonDS::u32 addrSensitivity;
 melonDS::u32 addrDsNameFlagAndMicVolume;
 melonDS::u32 addrMainHunter;
 melonDS::u32 addrRankColor;
+melonDS::u32 AddrIsDead;
+melonDS::u32 addrStartPressed;
+melonDS::u32 addrIsSpectacting;
+melonDS::u32 addrIsTransformingtoAlt;
+
 // melonDS::u32 addrLanguage;
 static bool isUnlockMapsHuntersApplied = false;
 
@@ -1179,16 +1192,31 @@ void EmuThread::run()
     bool enableAim = true;
     bool wasLastFrameFocused = false;
 
-
     //MelonPrime OSD stuff
+
     #define Top_buffer (&(emuInstance->getMainWindow()->panel->Overlay[0]))
     #define Btm_buffer (&(emuInstance->getMainWindow()->panel->Overlay[1]))
     #define Top_paint emuInstance->getMainWindow()->panel->Top_paint
     #define Btm_paint emuInstance->getMainWindow()->panel->Btm_paint
 
-    QPoint oldPos = QCursor::pos();
-    float virtualStylusX = 128;
-    float virtualStylusY = 96; // This might not be good - does it go out of bounds when bottom-only? Is Y=0 barely at the bottom limit?
+
+    // Load the custom font
+
+    QFontDatabase fontDB;
+    int fontId = QFontDatabase::addApplicationFont(":/mph-font");
+    if (fontId == -1) {
+            // Display an error message if the font loading failed.
+            emuInstance->osdAddMessage(0, "Font loading failed");
+        }
+    QString family = fontDB.applicationFontFamilies(fontId).at(0);
+    QFont font1(family, 6);
+
+    // Disable anti-aliasing for the font.
+    font1.setStyleStrategy(QFont::NoAntialias);
+    font1.setHintingPreference(QFont::HintingPreference::PreferFullHinting);
+
+    // Set the font for the painter object.
+    Top_paint->setFont(font1);
 
     /**
      * @brief Function to show or hide the cursor on MelonPrimeDS
@@ -2583,13 +2611,14 @@ void EmuThread::run()
                 addrLoadedSpecialWeapon = calculatePlayerAddress(addrBaseLoadedSpecialWeapon, playerPosition, incrementOfPlayerAddress);
                 addrChosenHunter = calculatePlayerAddress(addrBaseChosenHunter, playerPosition, 0x01);
                 addrWeaponChange = calculatePlayerAddress(addrBaseWeaponChange, playerPosition, incrementOfPlayerAddress);
-
                 addrSelectedWeapon = calculatePlayerAddress(addrBaseSelectedWeapon, playerPosition, incrementOfPlayerAddress); // 020DCAA3 in JP1.0
                 addrCurrentWeapon = addrSelectedWeapon - 0x1; // 020DCAA2 in JP1.0
                 addrHavingWeapons = addrSelectedWeapon + 0x3; // 020DCAA6 in JP1.0
-
                 addrWeaponAmmo = addrSelectedWeapon - 0x383; // 020D720 in JP1.0 current weapon ammo. DC722 is for MissleAmmo. can read both with read32.
                 addrJumpFlag = calculatePlayerAddress(addrBaseJumpFlag, playerPosition, incrementOfPlayerAddress);
+                addrCurrentHp = addrCurrentWeapon - (0x020DCAA2 - 0x020DC6AE);
+                addrCurrentAmmoMissile = addrCurrentWeapon - (0x020DCAA2 - 0x020DC722);
+                addrCurrentAmmoSpecial = addrCurrentWeapon - (0x020DCAA2 - 0x020DC720);
 
                 // getaddrChosenHunter
                 addrChosenHunter = calculatePlayerAddress(addrBaseChosenHunter, playerPosition, 0x01);
@@ -2624,6 +2653,156 @@ void EmuThread::run()
             }
 
             if (isFocused) {
+
+                // OSD : Custom HUD  //
+                bool customhud = localCfg.GetBool("Metroid.Visual.CustomHUD");
+                bool isStartPressed = emuInstance->nds->ARM9Read8(addrStartPressed) == 0x01 ;
+                // debug : Top_paint->drawText(QPoint(4, 150), (std::string("start ") + std::to_string(nds->ARM9Read8(isStartPressedAddr))).c_str());
+                if (customhud) {
+                    // Disable HUD :
+                    if (isStartPressed) {
+                        emuInstance->nds->ARM9Write8(0x020D9A50,0x11);
+                    }
+                    else {
+                        emuInstance->nds->ARM9Write8(0x020D9A50,0x01);
+                    }
+                }
+                
+                // Check if is dead / spectacting 
+                bool isDead;
+                isDead = emuInstance->nds->ARM9Read8(AddrIsDead) == 0x03 ||
+                emuInstance->nds->ARM9Read8(AddrIsDead) == 0x02;
+                bool isSpectacting = emuInstance->nds->ARM9Read8(addrIsSpectacting) == 0x05 ;
+
+                if (customhud && !isDead && !isStartPressed && !isSpectacting) {
+                                  
+                    // Draw HP information
+                    // Retrieve the current HP from the HP address.
+                    uint8_t currentHP = emuInstance->nds->ARM9Read16(addrCurrentHp);
+
+                    // If HP is 25 or below, set the pen color to red; otherwise, set it to white.
+                    if (currentHP <= 25) {
+                        Top_paint->setPen(QColor(255, 0, 0)); // Set the pen to red (RGB format for red).
+                    }
+                    else if (currentHP <= 50 && currentHP >= 26) {
+                        Top_paint->setPen(QColor(255, 165, 0)); // Set the pen to orange (RGB format for orange).
+                    }
+                    else {
+                        Top_paint->setPen(QColor(255, 255, 255)); // Set the pen to white (RGB format for white).
+                    }
+                    // Display the text to draw (display HP value in decimal).
+                    Top_paint->drawText(QPoint(4, 188), (std::string("hp ") + std::to_string(currentHP)).c_str());
+                    // Missile Ammo
+                    Top_paint->setPen(Qt::white);
+                    // Display the missile ammo text (divide value by 10 in decimal format).
+                    
+            
+                    // SpecialWeapon Ammo
+                    // 
+                    // Retrieve the current weapon from the currentWeaponAddr.
+                    uint8_t currentWeapon = emuInstance->nds->ARM9Read8(addrCurrentWeapon);
+
+                    // Retrieve the current ammo count from address 0x020DB0E0.
+                    uint8_t ammoCount = emuInstance->nds->ARM9Read16(addrCurrentAmmoSpecial);
+
+                    // Store the current ammo consumption value.
+                    uint8_t ammoConsumption = ammoCount; // Initially use the value as is.
+
+                    // Apply ammo consumption logic based on the currentWeapon value (use hexadecimal division).
+                    QImage image; // Declare QImage
+                    switch (currentWeapon) {
+                    case 0: // For PB.
+                        ammoConsumption = ammoCount; // PB does not consume ammo.
+                        image = QImage(":/mph-icon-pb");
+                        break;
+                    case 1: // For Voltra.
+                        ammoConsumption = ammoCount / 0x5;
+                        image = QImage(":/mph-icon-volt");
+                        break;
+                    case 2: // For Missiles.
+                        ammoConsumption = ammoCount / 0xA; // Missiles consume ammo in decimal (10).
+                        image = QImage(":/mph-icon-missile");
+                        Top_paint->drawText(QPoint(15, 173), (std::to_string(emuInstance->nds->ARM9Read16(addrCurrentAmmoMissile) / 0x0A)).c_str());
+                        Top_paint->drawImage(QPoint(4, 165), image);
+                        break;
+                    case 3: // For Battle Hammer.
+                        ammoConsumption = ammoCount / 0x4; // Battle Hammer consumes ammo in decimal (4).
+                        image = QImage(":/mph-icon-battlehammer");
+                        break;
+                    case 4: // For Imperialist.
+                        ammoConsumption = ammoCount / 0x14; // Imperialist consumes ammo in decimal (20).
+                        image = QImage(":/mph-icon-imperialist");
+                        break;
+                    case 5: // For Judicator.
+                        ammoConsumption = ammoCount / 0x5; // Judicator consumes ammo in decimal (5).
+                        image = QImage(":/mph-icon-judicator");
+                        break;
+                    case 6: // For Magmaul.
+                        ammoConsumption = ammoCount / 0xA; // Magmaul consumes ammo in decimal (10).
+                        image = QImage(":/mph-icon-magmaul");
+                        break;
+                    case 7: // For Shock Coil.
+                        ammoConsumption = ammoCount / 0xA; // Shock Coil consumes ammo in decimal (10).
+                        image = QImage(":/mph-icon-shock");
+                        break;
+                    case 8: // For Omega Cannon.
+                        ammoConsumption = 1; // Omega Cannon does not consume ammo.
+                        image = QImage(":/mph-icon-omega");
+                        break;
+                    default:
+                        ammoConsumption = ammoCount; // If unknown weapon, do not change ammo consumption.
+                        break;
+                    }
+                    if (currentWeapon != 0 && currentWeapon != 2) {
+                        // Display the text to draw (ammo consumption value in decimal format).
+                        Top_paint->drawText(QPoint(15, 173), (std::to_string(ammoConsumption)).c_str());
+                        Top_paint->drawImage(QPoint(5, 165), image);
+                    }
+    
+                    // Draw Crosshair:
+
+                    // Check if in alternate form (transformed state)
+                    isAltForm = emuInstance->nds->ARM9Read8(addrIsAltForm) == 0x02;
+
+                
+
+                    // Check if the upper 4 bits are odd (1 or 3)
+                    // this is for fixing issue: Shooting and transforming become impossible, when changing weapons at high speed while transitioning from transformed to normal form.
+                    // isTransforming = nds->ARM9Read8(addrJumpFlag) & 0x10;
+                    uint8_t currentJumpFlags = emuInstance->nds->ARM9Read8(addrJumpFlag);
+                    bool isTransforming = currentJumpFlags & 0x10;
+                    
+
+                    // isTransformingtoAlt = nds->ARM9Read8(isTransformingtoAltAddr) != 0x00 && 
+                    //     nds->ARM9Read8(isTransformingtoAltAddr) != 0x01 && 
+                    //     nds->ARM9Read8(isTransformingtoAltAddr) != 0x02 && 
+                    //     nds->ARM9Read8(isTransformingtoAltAddr) != 0x06 &&
+                    //     nds->ARM9Read8(isTransformingtoAltAddr) != 0x07 &&
+                    //     nds->ARM9Read8(isTransformingtoAltAddr) != 0x20 &&
+                    //     nds->ARM9Read8(isTransformingtoAltAddr) != 0x21 ;
+
+                    
+                    if (!isTransforming && !isAltForm) {
+                        // Read crosshair values
+                        // float crosshairX = nds->ARM9Read8(0x020DF024);
+                        // float crosshairY = nds->ARM9Read8(0x020DF026);
+                        //DEBUG: Top_paint->drawText(QPoint(164, 100), (std::to_string(nds->ARM9Read8(isTransformingtoAlt))).c_str());
+                        // currently US1.1 only... JP1.0 doesnt work with this addr
+                        float crosshairX = emuInstance->nds->ARM9Read8(addrAimX + 0x27E);
+                        float crosshairY = emuInstance->nds->ARM9Read8(addrAimX + 0x280);
+
+                        // Scale crosshair X value
+                        crosshairX = (crosshairX < 0) ? crosshairX + 254 : crosshairX;
+
+                        // Crosshair size (1 pixel)
+                        int crossSize = localCfg.GetInt("Metroid.Visual.CrosshairSize");
+
+                        // Draw crosshair using drawLine
+                        Top_paint->setPen(Qt::white);  // Cross color
+                        Top_paint->drawLine(crosshairX - crossSize, crosshairY, crosshairX + crossSize, crosshairY); // Horizontal line
+                        Top_paint->drawLine(crosshairX, crosshairY - crossSize, crosshairX, crosshairY + crossSize); // Vertical line
+                    }
+                }
 
 
                 // Calculate for aim 
@@ -2970,36 +3149,6 @@ void EmuThread::run()
                     Btm_buffer->fill(0x00000000);
 
 
-
-                    auto processVirtualStylus = [](float mouseRelValue, float scaleFactor, float& virtualStylus) {
-                        if (abs(mouseRelValue) > 0) {
-                            virtualStylus += mouseRelValue * scaleFactor;
-                        }
-                    };
-
-
-                    QPoint newPos = QCursor::pos();
-                    QPoint delta = newPos-oldPos;
-                    oldPos = newPos;
-
-                    processVirtualStylus(delta.x(), 0.5, virtualStylusX);
-                    processVirtualStylus(delta.y(), 0.5, virtualStylusY);
-
-                    // force virtualStylusX inside window
-                    if (virtualStylusX < 0) virtualStylusX = 0;
-                    if (virtualStylusX > 255) virtualStylusX = 255;
-                    // force virtualStylusY inside window
-                    if (virtualStylusY < 0) virtualStylusY = 0;
-                    if (virtualStylusY > 191) virtualStylusY = 191;
-
-                    Btm_paint->setPen(Qt::white);
-
-                    // Crosshair Circle
-                    Btm_paint->drawEllipse(virtualStylusX - 5, virtualStylusY - 5, 10, 10);
-
-                    // 3x3 center Crosshair
-                    Btm_paint->drawLine(virtualStylusX - 1, virtualStylusY, virtualStylusX + 1, virtualStylusY);
-                    Btm_paint->drawLine(virtualStylusX, virtualStylusY - 1, virtualStylusX, virtualStylusY + 1);
 
                     // !isInGame
 

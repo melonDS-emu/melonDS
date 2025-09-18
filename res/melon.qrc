@@ -3,5 +3,15 @@
 	<qresource>
 		<file alias="melon-icon">icon/melon_256x256.png</file>
 		<file alias="melon-logo">melon384.png</file>
+		<file alias="mph-font">fonts/mph.ttf</file>
+		<file alias="mph-icon-pb">assets/weapons/powerbeam.png</file>
+		<file alias="mph-icon-missile">assets/weapons/missile.png</file>
+		<file alias="mph-icon-shock">assets/weapons/shock.png</file>
+		<file alias="mph-icon-volt">assets/weapons/volt.png</file>
+		<file alias="mph-icon-magmaul">assets/weapons/magmaul.png</file>
+		<file alias="mph-icon-judicator">assets/weapons/judicator.png</file>
+		<file alias="mph-icon-battlehammer">assets/weapons/battlehammer.png</file>
+		<file alias="mph-icon-imperialist">assets/weapons/imperialist.png</file>
+		<file alias="mph-icon-omega">assets/weapons/omega.png</file>
 	</qresource>
 </RCC>

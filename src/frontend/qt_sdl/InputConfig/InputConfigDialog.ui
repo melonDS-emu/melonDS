@@ -2586,6 +2586,50 @@
 
 			</layout>
 	    </widget>
+
+        <!-- Tab Visual configuration (Metroid) -->
+        <widget class="QWidget" name="tabMetroidVisual">
+        <attribute name="title">
+            <string>Visual configuration (Metroid)</string>
+        </attribute>
+        <layout class="QFormLayout" name="metroidVisualFormLayout">
+
+            <!-- Enable custom HUD -->
+            <item row="0" column="0">
+            <widget class="QCheckBox" name="enable_customhud">
+                <property name="text">
+                <string>Enable custom HUD</string>
+                </property>
+            </widget>
+            </item>
+
+            <!-- Crosshair size label -->
+            <item row="1" column="0">
+            <widget class="QLabel" name="crosshair_size_label">
+                <property name="text">
+                <string>Crosshair size:</string>
+                </property>
+            </widget>
+            </item>
+
+            <!-- Crosshair size spin box -->
+            <item row="1" column="1">
+            <widget class="QSpinBox" name="crosshair_size">
+                <property name="minimum">
+                <number>0</number>
+                </property>
+                <property name="maximum">
+                <number>5</number>
+                </property>
+                <property name="value">
+                <number>3</number>
+                </property>
+            </widget>
+            </item>
+
+        </layout>
+        </widget>
+
 		<!-- /MelonPrimeDS -->
 	</widget>
    </item>

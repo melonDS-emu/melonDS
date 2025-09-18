@@ -227,6 +227,9 @@ private slots:
     void on_metroidSetVideoQualityToHigh2_clicked();
 
     void on_cbMetroidEnableSnapTap_stateChanged(int state);
+    void on_enable_customhud_stateChanged(int state);
+    void on_crosshair_size_valueChanged(int value);
+
     void on_cbMetroidUnlockAll_stateChanged(int state);
     void on_cbMetroidApplyHeadphone_stateChanged(int state);
     void on_cbMetroidUseFirmwareName_stateChanged(int state);
