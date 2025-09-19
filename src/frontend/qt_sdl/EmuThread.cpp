@@ -3197,7 +3197,11 @@ void EmuThread::run()
                 }
 
                 // Start / View Match progress, points / Map(Adventure)
+#if defined(_WIN32)
+                inputMask.setBit(INPUT_START, !(g_rawFilter&& g_rawFilter->hotkeyDown(HK_MetroidMenu)));
+#else
                 inputMask.setBit(INPUT_START, !hotkeyMask.testBit(HK_MetroidMenu));
+#endif
 
 
                 // END of if(isFocused)
