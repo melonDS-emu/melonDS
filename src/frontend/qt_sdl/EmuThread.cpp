@@ -3063,6 +3063,7 @@ void EmuThread::run()
 #else
                         if (hotkeyPress.testBit(HK_MetroidScanVisor))
 #endif
+                        {
                             emuInstance->nds->ReleaseScreen();
                             frameAdvanceTwice();
 
@@ -3226,9 +3227,6 @@ void EmuThread::run()
 
 
     } // End of while (emuStatus != emuStatus_Exit)
-#if defined(_WIN32)
-    //rawInputThread->quit(); //rawMouseInput
-#endif
 
 }
 
