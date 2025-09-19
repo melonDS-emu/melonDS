@@ -59,7 +59,8 @@ set(SOURCES_QT_SDL
     NetplayDialog.cpp
     #rawinput/rawinput_common.c
     #RawInputThread.cpp
-    RawInputWinFilter.cpp
+    MelonPrimeRawInputWinFilter.cpp
+    MelonPrimeHotkeyVkBinding.cpp
 )
 
 option(USE_QT6 "Use Qt 6 instead of Qt 5" ON)
@@ -99,14 +100,16 @@ elseif (APPLE)
     list(REMOVE_ITEM SOURCES_QT_SDL
         #rawinput/rawinput_common.c
         #RawInputThread.cpp
-        RawInputWinFilter.cpp
+        MelonPrimeRawInputWinFilter.cpp
+        MelonPrimeHotkeyVkBinding.cpp
     )
 else()
     # Linuxでは生RawInput連携を無効化する（該当ソースを除外）
     list(REMOVE_ITEM SOURCES_QT_SDL
         #rawinput/rawinput_common.c
         #RawInputThread.cpp
-        RawInputWinFilter.cpp
+        MelonPrimeRawInputWinFilter.cpp
+        MelonPrimeHotkeyVkBinding.cpp
     )
 endif()
 
