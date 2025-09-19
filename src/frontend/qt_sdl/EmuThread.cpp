@@ -64,6 +64,44 @@
 #include "MelonPrimeHotkeyVkBinding.h"
 #endif
 
+#if defined(_WIN32)
+
+// 既にどこかで include 済みなら重複はOK（ヘッダガードあり）
+#include "MelonPrimeRawInputWinFilter.h"
+
+// 匿名名前空間：この翻訳単位だけで見えるように
+namespace {
+
+    struct RawHK {
+        bool nowShoot = false, prevShoot = false;
+        bool nowZoom = false, prevZoom = false;
+
+        void refresh(RawInputWinFilter* f) noexcept {
+            if (!f) { nowShoot = nowZoom = false; return; }
+            // 必要になったらここに他HKも足していけます
+            nowShoot = f->hotkeyDown(HK_MetroidShootScan)
+                || f->hotkeyDown(HK_MetroidScanShoot);
+            nowZoom = f->hotkeyDown(HK_MetroidZoom);
+        }
+        void commit() noexcept {
+            prevShoot = nowShoot;
+            prevZoom = nowZoom;
+        }
+
+        // 使いたければ
+        bool shootDown()   const noexcept { return nowShoot; }
+        bool zoomDown()    const noexcept { return nowZoom; }
+        bool shootPressed()const noexcept { return  nowShoot && !prevShoot; }
+        bool shootReleased()const noexcept { return !nowShoot && prevShoot; }
+    };
+
+    RawHK g_rawHK;                       // ← これでどこからでも使える
+    RawInputWinFilter* g_rawFilter = nullptr; // ← フィルタもファイルスコープに出す
+
+} // namespace
+#endif
+
+
 using namespace melonDS;
 
 
@@ -149,6 +187,35 @@ float mouseY;
 // #include "RawInputThread.h"
 #include "MelonPrimeRawInputWinFilter.h"
 #endif
+
+
+// 入力マスク定義
+
+#include <initializer_list>
+// 任意個のHKが「どれか押されているか」を取得
+#if defined(_WIN32)
+#define MP_HK_ANY(...) \
+    ([&]() -> bool { \
+      bool _any = false; \
+      if (g_rawFilter) { \
+        for (int _hk : std::initializer_list<int>{ __VA_ARGS__ }) \
+          _any = _any || g_rawFilter->hotkeyDown(_hk); \
+      } \
+      return _any; \
+    }())
+#else
+#define MP_HK_ANY(...) \
+    ([&]() -> bool { \
+      bool _any = false; \
+      for (int _hk : std::initializer_list<int>{ __VA_ARGS__ }) \
+        _any = _any || hotkeyMask.testBit(_hk); \
+      return _any; \
+    }())
+#endif
+
+// 入力マスクに「否定で」反映（押されてたら false=押下、未押なら true）
+#define MP_SET_NEG(bit, ...) inputMask.setBit((bit), !(MP_HK_ANY(__VA_ARGS__)))
+
 
 /**
  * 感度値変換関数.
@@ -776,8 +843,7 @@ void EmuThread::run()
     emuInstance->fastForwardToggled = false;
     emuInstance->slowmoToggled = false;
 
-    
-
+ 
 
 
     auto frameAdvanceOnce = [&]()  __attribute__((hot, always_inline, flatten)) {
@@ -1147,6 +1213,7 @@ void EmuThread::run()
         }
 
         handleMessages();
+
     };
 
 
@@ -2156,14 +2223,19 @@ void EmuThread::run()
             // (フレーム間で切り替え優先度を維持するため)
             static uint16_t snapState = 0;
 
-            // 入力読み取り(演算前に確定値取得のため)
+
+            // ★ ここだけ差し替え（Win32=RAW / 他OS=Qt）
+#if defined(_WIN32)
+            const uint32_t f = (g_rawFilter && g_rawFilter->hotkeyDown(HK_MetroidMoveForward));
+            const uint32_t b = (g_rawFilter && g_rawFilter->hotkeyDown(HK_MetroidMoveBack));
+            const uint32_t l = (g_rawFilter && g_rawFilter->hotkeyDown(HK_MetroidMoveLeft));
+            const uint32_t r = (g_rawFilter && g_rawFilter->hotkeyDown(HK_MetroidMoveRight));
+#else
             const uint32_t f = hk.testBit(HK_MetroidMoveForward);
-            // 入力読み取り(演算前に確定値取得のため)
             const uint32_t b = hk.testBit(HK_MetroidMoveBack);
-            // 入力読み取り(演算前に確定値取得のため)
             const uint32_t l = hk.testBit(HK_MetroidMoveLeft);
-            // 入力読み取り(演算前に確定値取得のため)
             const uint32_t r = hk.testBit(HK_MetroidMoveRight);
+#endif
 
             // 4方向の現在ビット生成(後段LUT索引用ビット圧縮のため)
             const uint32_t curr = (f) | (b << 1) | (l << 2) | (r << 3);
@@ -2257,22 +2329,17 @@ void EmuThread::run()
 #include <QCoreApplication>
 
 // 静的ポインタ定義(単一インスタンス保持のため)
-        static RawInputWinFilter* g_rawFilter = nullptr;
+        // static RawInputWinFilter* g_rawFilter = nullptr;
 
         // どこか一度だけ(例: EmuThread::run の前段やMainWindow生成時)
         if (!g_rawFilter) {
             g_rawFilter = new RawInputWinFilter();
             qApp->installNativeEventFilter(g_rawFilter);
+            // 新: 全HK（Shoot/Zoom 以外も）をRawに登録
+            BindMetroidHotkeysFromConfig(g_rawFilter, /*instance*/ 0);
         }
 #endif
 
-
-// Rawフィルタ生成直後または設定適用直後で呼出(対応表同期のため)
-#if defined(_WIN32)
-
-    // HK→VK登録呼出(インスタンス0前提のため)
-        BindShootZoomFromConfig(g_rawFilter, /*instance*/ 0);
-#endif
 
     /**
      * Aim input processing (QCursor-based, structure-preserving, low-latency, drift-prevention version).
@@ -2415,7 +2482,7 @@ void EmuThread::run()
 #if defined(_WIN32)
         // RAW累積捨て呼び出し(センタリング直後の残存デルタ排除のため)
         // フォーカスイン時にsetPosで中央に戻す処理が動くため、移動距離が強制で大きくなってしまうため
-        g_rawFilter->discardDeltas();
+        // g_rawFilter->discardDeltas();
 #endif
         // Clear layout change flag (to return to hot path)
         isLayoutChangePending = false;
@@ -2526,7 +2593,30 @@ void EmuThread::run()
     static QBitArray& inputMask = emuInstance->inputMask;
     static const QBitArray& hotkeyPress = emuInstance->hotkeyPress;
 
-#define TOUCH_IF(PRESS, X, Y) if (hotkeyPress.testBit(PRESS)) { emuInstance->nds->ReleaseScreen(); frameAdvanceTwice(); emuInstance->nds->TouchScreen(X, Y); frameAdvanceTwice(); }
+// #define TOUCH_IF(PRESS, X, Y) if (hotkeyPress.testBit(PRESS)) { emuInstance->nds->ReleaseScreen(); frameAdvanceTwice(); emuInstance->nds->TouchScreen(X, Y); frameAdvanceTwice(); }
+
+#if defined(_WIN32)
+#define TOUCH_IF(PRESS, X, Y)                                            \
+    do {                                                                 \
+        if (g_rawFilter && g_rawFilter->hotkeyPressed(PRESS)) {          \
+            emuInstance->nds->ReleaseScreen();                           \
+            frameAdvanceTwice();                                          \
+            emuInstance->nds->TouchScreen((X), (Y));                     \
+            frameAdvanceTwice();                                          \
+        }                                                                \
+    } while (0)
+#else
+#define TOUCH_IF(PRESS, X, Y)                                            \
+    do {                                                                 \
+        if (hotkeyPress.testBit(PRESS)) {                                \
+            emuInstance->nds->ReleaseScreen();                           \
+            frameAdvanceTwice();                                          \
+            emuInstance->nds->TouchScreen((X), (Y));                     \
+            frameAdvanceTwice();                                          \
+        }                                                                \
+    } while (0)
+#endif
+
 
 
     while (emuStatus != emuStatus_Exit) {
@@ -2697,12 +2787,20 @@ void EmuThread::run()
 
                     // Zoom, map zoom out
                     inputMask.setBit(INPUT_R, !hotkeyMask.testBit(HK_MetroidZoom));
-                    */
-                    // Jump
+                                        // Jump
                     inputMask.setBit(INPUT_B, !hotkeyMask.testBit(HK_MetroidJump));
 
+                    */
+
+                    // Jump（B）
+#if defined(_WIN32)
+                    inputMask.setBit(INPUT_B, !(g_rawFilter&& g_rawFilter->hotkeyDown(HK_MetroidJump)));
+#else
+                    inputMask.setBit(INPUT_B, !hotkeyMask.testBit(HK_MetroidJump));
+#endif
+
                     // Alt-form
-                    TOUCH_IF(HK_MetroidMorphBall, 231, 167) 
+                    TOUCH_IF(HK_MetroidMorphBall, 231, 167);
 
                     // Compile-time constants
                     static constexpr uint8_t WEAPON_ORDER[] = { 0, 2, 7, 6, 5, 4, 3, 1, 8 };
@@ -2974,11 +3072,11 @@ void EmuThread::run()
                             frameAdvanceTwice();
                         }
 
-                        TOUCH_IF(HK_MetroidUIOk, 128, 142) // OK (in scans and messages)
-                        TOUCH_IF(HK_MetroidUILeft, 71, 141) // Left arrow (in scans and messages)
-                        TOUCH_IF(HK_MetroidUIRight, 185, 141) // Right arrow (in scans and messages)
-                        TOUCH_IF(HK_MetroidUIYes, 96, 142)  // Enter to Starship
-                        TOUCH_IF(HK_MetroidUINo, 160, 142) // No Enter to Starship
+                        TOUCH_IF(HK_MetroidUIOk, 128, 142); // OK (in scans and messages)
+                        TOUCH_IF(HK_MetroidUILeft, 71, 141); // Left arrow (in scans and messages)
+                        TOUCH_IF(HK_MetroidUIRight, 185, 141); // Right arrow (in scans and messages)
+                        TOUCH_IF(HK_MetroidUIYes, 96, 142);  // Enter to Starship
+                        TOUCH_IF(HK_MetroidUINo, 160, 142); // No Enter to Starship
 
                     } // End of Adventure Functions
 
@@ -3085,6 +3183,7 @@ void EmuThread::run()
                     if (g_rawFilter) g_rawFilter->resetMouseButtons();
                     // キー押下状態リセット呼出(誤爆抑止のため)
                     if (g_rawFilter) g_rawFilter->resetAllKeys();
+                    if (g_rawFilter) g_rawFilter->resetHotkeyEdges();
 #endif
             }
             
@@ -3101,6 +3200,7 @@ void EmuThread::run()
 
 
         frameAdvanceOnce();
+
 
     } // End of while (emuStatus != emuStatus_Exit)
 #if defined(_WIN32)

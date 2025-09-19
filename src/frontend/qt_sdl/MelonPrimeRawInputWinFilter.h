@@ -122,6 +122,14 @@ public:
      // メンバ関数宣言(押下照会のため)
     bool hotkeyDown(int hk) const;
 
+    // 追加：エッジ判定（commit不要）
+    bool hotkeyPressed(int hk)  noexcept;
+    bool hotkeyReleased(int hk) noexcept;
+
+    // 追加：必要なら初期化時/リセット時に呼ぶ
+    inline void resetHotkeyEdges() noexcept {
+        for (auto& a : m_hkPrev) a.store(0, std::memory_order_relaxed);
+    }
     ///**
     /// * 左ボタン押下参照インライン関数宣言.
     /// *
@@ -168,4 +176,6 @@ private:
 
     // HK→VK対応表宣言(押下判定解決のため)
     std::unordered_map<int, std::vector<UINT>> m_hkToVk;
+
+    std::array<std::atomic<uint8_t>, 512> m_hkPrev{}; // 前回の「down」状態（HKごと）
 };

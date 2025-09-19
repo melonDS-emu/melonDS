@@ -268,3 +268,18 @@ bool RawInputWinFilter::hotkeyDown(int hk) const
     // 非押下返却処理(全否定のため)
     return false;
 }
+
+bool RawInputWinFilter::hotkeyPressed(int hk) noexcept {
+    const bool down = hotkeyDown(hk); // いま押下中？
+    auto& prev = m_hkPrev[static_cast<size_t>(hk) & 511];
+    const uint8_t p = prev.exchange(down, std::memory_order_acq_rel);
+    return down && !p;  // 今trueで前回falseなら Pressed
+}
+
+bool RawInputWinFilter::hotkeyReleased(int hk) noexcept {
+    const bool down = hotkeyDown(hk);
+    auto& prev = m_hkPrev[static_cast<size_t>(hk) & 511];
+    const uint8_t p = prev.exchange(down, std::memory_order_acq_rel);
+    return (!down) && p; // 今falseで前回trueなら Released
+}
+

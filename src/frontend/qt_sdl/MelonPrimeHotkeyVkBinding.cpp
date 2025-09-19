@@ -189,6 +189,13 @@ namespace melonDS {
         // Next / Previous
         BindOneHotkeyFromConfig(filter, instance, "Keyboard.HK_MetroidWeaponNext", HK_MetroidWeaponNext);
         BindOneHotkeyFromConfig(filter, instance, "Keyboard.HK_MetroidWeaponPrevious", HK_MetroidWeaponPrevious);
+
+        // UIŒn‚ð‚Ü‚Æ‚ß‚Ä
+        BindOneHotkeyFromConfig(filter, instance, "Keyboard.HK_MetroidUIOk", HK_MetroidUIOk);
+        BindOneHotkeyFromConfig(filter, instance, "Keyboard.HK_MetroidUILeft", HK_MetroidUILeft);
+        BindOneHotkeyFromConfig(filter, instance, "Keyboard.HK_MetroidUIRight", HK_MetroidUIRight);
+        BindOneHotkeyFromConfig(filter, instance, "Keyboard.HK_MetroidUIYes", HK_MetroidUIYes);
+        BindOneHotkeyFromConfig(filter, instance, "Keyboard.HK_MetroidUINo", HK_MetroidUINo);
     }
 
 } // namespace melonDS
