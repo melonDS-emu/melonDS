@@ -48,6 +48,34 @@
 #include "font.h"
 #include "version.h"
 
+// melonprimeds
+#if defined(_WIN32)
+
+#ifndef WIN32_LEAN_AND_MEAN
+#define WIN32_LEAN_AND_MEAN
+#endif
+#include <windows.h>
+
+
+#endif
+
+// 先頭の include 群のあとに
+// MelonPrimeDS
+#ifdef _WIN32
+#include <windows.h>
+static RECT computeCenter1pxClipRect(HWND hwnd) {
+    RECT rc; GetClientRect(hwnd, &rc);
+    POINT tl{ rc.left, rc.top }, br{ rc.right, rc.bottom };
+    ClientToScreen(hwnd, &tl);
+    ClientToScreen(hwnd, &br);
+    const LONG cx = (tl.x + br.x) / 2;
+    RECT clip{ cx, tl.y, cx + 1, br.y }; // 幅1pxの縦帯
+    return clip;
+}
+#endif
+
+
+
 using namespace melonDS;
 
 
@@ -55,6 +83,35 @@ const u32 kOSDMargin = 6;
 const int kLogoWidth = 192;
 
 bool isFocused; // MelonPrimeDS TODO move this.
+
+// 既存の匿名namespaceのヘルパは削除/未使用にしてOK。
+// メソッドとして実装（UIスレッドで実行される想定）
+void ScreenPanel::clipCenter1px() { // MelonPrimeDS
+    clipWanted = true;
+#ifdef _WIN32
+    if (!isVisible() || !window() || !window()->isActiveWindow()) return;
+    const HWND hwnd = reinterpret_cast<HWND>(winId());
+    const RECT clip = computeCenter1pxClipRect(hwnd);
+    ClipCursor(&clip);
+#endif
+}
+
+void ScreenPanel::unclip() { // MelonPrimeDS
+    clipWanted = false;
+#ifdef _WIN32
+    ClipCursor(nullptr);
+#endif
+}
+
+void ScreenPanel::updateClipIfNeeded() { // MelonPrimeDS
+    if (!clipWanted) return;
+#ifdef _WIN32
+    if (!isVisible() || !window() || !window()->isActiveWindow()) return;
+    const HWND hwnd = reinterpret_cast<HWND>(winId());
+    const RECT clip = computeCenter1pxClipRect(hwnd);
+    ClipCursor(&clip);
+#endif
+}
 
 
 ScreenPanel::ScreenPanel(QWidget* parent) : QWidget(parent)
@@ -115,6 +172,10 @@ ScreenPanel::ScreenPanel(QWidget* parent) : QWidget(parent)
 ScreenPanel::~ScreenPanel()
 {
     /* MelonPrimeDS comment-out    */
+#if defined(_WIN32)
+    unclip(); // MelonPrimeDS
+#endif
+
     mouseTimer->stop();
     delete mouseTimer;
 
@@ -250,6 +311,10 @@ void ScreenPanel::onAutoScreenSizingChanged(int sizing)
 void ScreenPanel::resizeEvent(QResizeEvent* event)
 {
     setupScreenLayout();
+#if defined(_WIN32)
+    // melonprimeds
+    updateClipIfNeeded();
+#endif
     QWidget::resizeEvent(event);
 }
 
@@ -289,10 +354,17 @@ void ScreenPanel::mousePressEvent(QMouseEvent* event)
 // #define STYLUS_MODE 1 // this is for stylus user
 
 #ifndef STYLUS_MODE
-        if (!emuInstance->getEmuThread()->isCursorMode) {
+        if (!emuInstance->getEmuThread()->isCursorMode) { // MelonPrimeDS
             // BlankCursor when it's focused and inGame.
-            setCursor(Qt::BlankCursor);
+            setCursor(Qt::BlankCursor); // MelonPrimeDS
         }
+#if defined(_WIN32)
+        // in-game かつ カーソルモードでなければ 1px クリップ開始
+        if (!emuInstance->getEmuThread()->isCursorMode) { // MelonPrimeDS
+            clipCenter1px(); // MelonPrimeDS
+        } // MelonPrimeDS
+#endif
+
 #endif
     }
 }
@@ -1399,9 +1471,17 @@ void ScreenPanel::unfocus()
 {
     isFocused = false;
     setCursor(Qt::ArrowCursor);
+#if defined(_WIN32)
+    unclip(); // MelonPrimeDS
+#endif
 }
 
 void ScreenPanel::focusOutEvent(QFocusEvent* event)
 {
     unfocus();
+}
+
+void ScreenPanel::moveEvent(QMoveEvent* e) {
+	updateClipIfNeeded(); // MelonPrimeDS
+    QWidget::moveEvent(e);
 }

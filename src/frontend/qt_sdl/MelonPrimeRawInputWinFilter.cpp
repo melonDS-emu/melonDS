@@ -5,6 +5,12 @@
 // アルゴリズム参照宣言(補助ユーティリティのため)
 #include <algorithm>
 
+#ifdef _WIN32
+#include <windows.h>
+#include <hidsdi.h>
+#endif
+
+
 ///**
 /// * コンストラクタ定義.
 /// *
@@ -47,6 +53,8 @@ RawInputWinFilter::~RawInputWinFilter()
     RegisterRawInputDevices(rid, 2, sizeof(RAWINPUTDEVICE));
 }
 
+
+
 ///**
 /// * ネイティブイベントフィルタ定義.
 /// *
@@ -55,104 +63,51 @@ RawInputWinFilter::~RawInputWinFilter()
 bool RawInputWinFilter::nativeEventFilter(const QByteArray& eventType, void* message, qintptr* result)
 {
 #ifdef _WIN32
-    // MSG取得処理(Win32メッセージ参照のため)
     MSG* msg = static_cast<MSG*>(message);
-    // ヌル判定早期復帰処理(防御目的のため)
     if (!msg) return false;
 
-    // WM_INPUT判定処理(Raw入力限定処理のため)
+    // RawInput
     if (msg->message == WM_INPUT) {
-        // スタック配置RAWINPUTバッファ処理(ヒープ回避のため)
         alignas(8) BYTE buffer[sizeof(RAWINPUT)];
         RAWINPUT* raw = reinterpret_cast<RAWINPUT*>(buffer);
-        // サイズ初期化処理(取得長指定のため)
         UINT size = sizeof(RAWINPUT);
-
-        // データ取得呼出処理(入力受領のため)
         if (GetRawInputData(reinterpret_cast<HRAWINPUT>(msg->lParam),
             RID_INPUT, raw, &size, sizeof(RAWINPUTHEADER)) == (UINT)-1) {
-            // 取得失敗通過処理(Qt共存維持のため)
             return false;
         }
 
-        // マウス分岐判定処理(相対移動/ボタン処理のため)
         if (raw->header.dwType == RIM_TYPEMOUSE) {
-            // マウスデータ直接参照処理(ポインタ削減のため)
             const auto& m = raw->data.mouse;
-
-            // 相対座標同時更新処理(アトミック削減のため)
             dx.fetch_add(m.lLastX, std::memory_order_relaxed);
             dy.fetch_add(m.lLastY, std::memory_order_relaxed);
-
-            // ボタンフラグ取得処理(押下/解放検出のため)
             const USHORT f = m.usButtonFlags;
-
-            // ビットマスク一括判定処理(分岐削減のため)
-            if (f & (RI_MOUSE_LEFT_BUTTON_DOWN | RI_MOUSE_LEFT_BUTTON_UP)) {
-                m_mb[kMB_Left].store(f & RI_MOUSE_LEFT_BUTTON_DOWN ? 1 : 0, std::memory_order_relaxed);
-            }
-            if (f & (RI_MOUSE_RIGHT_BUTTON_DOWN | RI_MOUSE_RIGHT_BUTTON_UP)) {
-                m_mb[kMB_Right].store(f & RI_MOUSE_RIGHT_BUTTON_DOWN ? 1 : 0, std::memory_order_relaxed);
-            }
-            if (f & (RI_MOUSE_MIDDLE_BUTTON_DOWN | RI_MOUSE_MIDDLE_BUTTON_UP)) {
-                m_mb[kMB_Middle].store(f & RI_MOUSE_MIDDLE_BUTTON_DOWN ? 1 : 0, std::memory_order_relaxed);
-            }
-            if (f & (RI_MOUSE_BUTTON_4_DOWN | RI_MOUSE_BUTTON_4_UP)) {
-                m_mb[kMB_X1].store(f & RI_MOUSE_BUTTON_4_DOWN ? 1 : 0, std::memory_order_relaxed);
-            }
-            if (f & (RI_MOUSE_BUTTON_5_DOWN | RI_MOUSE_BUTTON_5_UP)) {
-                m_mb[kMB_X2].store(f & RI_MOUSE_BUTTON_5_DOWN ? 1 : 0, std::memory_order_relaxed);
-            }
-
-            // Qt側通過返却処理(共存維持のため)
+            if (f & (RI_MOUSE_LEFT_BUTTON_DOWN | RI_MOUSE_LEFT_BUTTON_UP)) m_mb[kMB_Left].store((f & RI_MOUSE_LEFT_BUTTON_DOWN) ? 1 : 0, std::memory_order_relaxed);
+            if (f & (RI_MOUSE_RIGHT_BUTTON_DOWN | RI_MOUSE_RIGHT_BUTTON_UP)) m_mb[kMB_Right].store((f & RI_MOUSE_RIGHT_BUTTON_DOWN) ? 1 : 0, std::memory_order_relaxed);
+            if (f & (RI_MOUSE_MIDDLE_BUTTON_DOWN | RI_MOUSE_MIDDLE_BUTTON_UP)) m_mb[kMB_Middle].store((f & RI_MOUSE_MIDDLE_BUTTON_DOWN) ? 1 : 0, std::memory_order_relaxed);
+            if (f & (RI_MOUSE_BUTTON_4_DOWN | RI_MOUSE_BUTTON_4_UP)) m_mb[kMB_X1].store((f & RI_MOUSE_BUTTON_4_DOWN) ? 1 : 0, std::memory_order_relaxed);
+            if (f & (RI_MOUSE_BUTTON_5_DOWN | RI_MOUSE_BUTTON_5_UP)) m_mb[kMB_X2].store((f & RI_MOUSE_BUTTON_5_DOWN) ? 1 : 0, std::memory_order_relaxed);
             return false;
         }
 
-        // キーボード分岐判定処理(VK押下状態更新のため)
         if (raw->header.dwType == RIM_TYPEKEYBOARD) {
-            // RAWKEYBOARD直接参照処理(フィールド抽出のため)
             const auto& kb = raw->data.keyboard;
-            // 仮想キー取得処理(正規化前VKのため)
             UINT vk = kb.VKey;
-            // フラグ取得処理(判定高速化のため)
             const USHORT flags = kb.Flags;
-
-            // 特殊キー高速判定処理(switch最適化のため)
             switch (vk) {
-            case VK_SHIFT:
-                // Shift正規化処理(左右識別のため)
-                vk = MapVirtualKey(kb.MakeCode, MAPVK_VSC_TO_VK_EX);
-                break;
-            case VK_CONTROL:
-                // Control正規化処理(左右識別のため)
-                vk = (flags & RI_KEY_E0) ? VK_RCONTROL : VK_LCONTROL;
-                break;
-            case VK_MENU:
-                // Alt正規化処理(左右識別のため)
-                vk = (flags & RI_KEY_E0) ? VK_RMENU : VK_LMENU;
-                break;
+            case VK_SHIFT:   vk = MapVirtualKey(kb.MakeCode, MAPVK_VSC_TO_VK_EX); break;
+            case VK_CONTROL: vk = (flags & RI_KEY_E0) ? VK_RCONTROL : VK_LCONTROL; break;
+            case VK_MENU:    vk = (flags & RI_KEY_E0) ? VK_RMENU : VK_LMENU;    break;
             }
-
-            // 範囲内判定処理(配列境界保護のため)
             if (vk < m_vkDown.size()) {
-                // 押下状態直接書込処理(三項演算子削減のため)
                 m_vkDown[vk].store(!(flags & RI_KEY_BREAK), std::memory_order_relaxed);
             }
-
-            // Qt側通過返却処理(共存維持のため)
             return false;
         }
-
-        // フォールバック通過返却処理(未対応種別維持のため)
         return false;
     }
 #else
-    // 未使用抑止処理(非Win環境の警告回避のため)
-    Q_UNUSED(eventType)
-        Q_UNUSED(message)
-        Q_UNUSED(result)
+    Q_UNUSED(eventType) Q_UNUSED(message) Q_UNUSED(result)
 #endif
-        // 既定通過返却処理(Qt側処理継続のため)
         return false;
 }
 
@@ -164,10 +119,9 @@ bool RawInputWinFilter::nativeEventFilter(const QByteArray& eventType, void* mes
  // メンバ関数本体定義(相対デルタ取り出しのため)
 void RawInputWinFilter::fetchMouseDelta(int& outDx, int& outDy)
 {
-    // X交換取得処理(現在値受領のため)
-    outDx = dx.exchange(0, std::memory_order_acq_rel);
-    // Y交換取得処理(現在値受領のため)
-    outDy = dy.exchange(0, std::memory_order_acq_rel);
+    // ★ relaxed で十分（単に最新値を回収するだけ）
+    outDx = dx.exchange(0, std::memory_order_relaxed);
+    outDy = dy.exchange(0, std::memory_order_relaxed);
 }
 
 ///**
@@ -178,10 +132,8 @@ void RawInputWinFilter::fetchMouseDelta(int& outDx, int& outDy)
  // メンバ関数本体定義(残差除去のため)
 void RawInputWinFilter::discardDeltas()
 {
-    // Xゼロ化交換処理(可視性確保のため)
-    dx.exchange(0, std::memory_order_acq_rel);
-    // Yゼロ化交換処理(可視性確保のため)
-    dy.exchange(0, std::memory_order_acq_rel);
+    dx.exchange(0, std::memory_order_relaxed);
+    dy.exchange(0, std::memory_order_relaxed);
 }
 
 ///**
@@ -270,4 +222,3 @@ bool RawInputWinFilter::hotkeyReleased(int hk) noexcept {
     const uint8_t p = prev.exchange(down, std::memory_order_acq_rel);
     return (!down) && p; // 今falseで前回trueなら Released
 }
-

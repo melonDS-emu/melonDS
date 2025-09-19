@@ -131,6 +131,9 @@ public:
         for (auto& a : m_hkPrev) a.store(0, std::memory_order_relaxed);
     }
 
+    void setAimClipArmed(bool armed) noexcept;  // これで「今はクリップ許可/不許可」を外部から指定
+
+
 #ifdef COMMENTOUTTTTTTTTT
     ///**
     /// * 左ボタン押下参照インライン関数宣言.
@@ -160,6 +163,7 @@ private:
 #ifdef _WIN32
     // RAWINPUTDEVICE配列宣言(マウス/キーボードのため)
     RAWINPUTDEVICE rid[2]{};
+
 #endif
 
     // 相対X累積宣言(ロックレス加算のため)
@@ -181,4 +185,6 @@ private:
     std::unordered_map<int, std::vector<UINT>> m_hkToVk;
 
     std::array<std::atomic<uint8_t>, 512> m_hkPrev{}; // 前回の「down」状態（HKごと）
+
+
 };

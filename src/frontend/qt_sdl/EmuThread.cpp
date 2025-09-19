@@ -59,6 +59,7 @@
 // melonPrimeDS
 #include <cstdint>
 #include <cmath>
+
 #if defined(_WIN32)
         // 追加ヘッダ参照(バインド呼出のため)
 #include "MelonPrimeHotkeyVkBinding.h"
@@ -843,6 +844,7 @@ void EmuThread::run()
             emit screenEmphasisToggle();
             isLayoutChangePending = true;
         }
+
         // Define minimum sensitivity as a constant to improve readability and optimization
         static constexpr int MIN_SENSITIVITY = 1;
 
@@ -1240,6 +1242,12 @@ void EmuThread::run()
             [panel, show]() {
                 // Set cursor visibility (normal ArrowCursor or invisible BlankCursor)
                 panel->setCursor(show ? Qt::ArrowCursor : Qt::BlankCursor);
+                if (show) {
+                    panel->unclip();
+                }
+                else {
+                    panel->clipCenter1px();
+                }
             },
             Qt::ConnectionType::QueuedConnection
         );
@@ -2372,9 +2380,13 @@ void EmuThread::run()
 
 
 // Hot path branch (fast processing when focus is maintained and layout is unchanged)
-
-        if (Q_LIKELY(!isLayoutChangePending && wasLastFrameFocused)) {
-			// フォーカス時かつレイアウト変更なしの場合の処理
+#if defined(_WIN32)
+        // noIf
+#else
+        if (Q_LIKELY(!isLayoutChangePending && wasLastFrameFocused))
+#endif
+        {
+            // フォーカス時かつレイアウト変更なしの場合の処理
             int deltaX = 0, deltaY = 0;
 
 
@@ -2432,16 +2444,22 @@ void EmuThread::run()
 
 #if defined(_WIN32)
             // RawInputでもこの処理は必用。無いとこうなる： If you have a secondary screen the mouse can slide to it and the main window gets unfocused
-            QCursor::setPos(aimData.centerX, aimData.centerY);
-            g_rawFilter->discardDeltas();
+            //QCursor::setPos(aimData.centerX, aimData.centerY);
+            //g_rawFilter->discardDeltas();
 #else
             // Return cursor to center (keep next delta calculation zero-based)
             QCursor::setPos(aimData.centerX, aimData.centerY);
 #endif
+
+
             // End processing (avoid unnecessary branching)
             return;
         }
 
+
+#if defined(_WIN32)
+
+#else
         // Recalculate center coordinates (for layout changes and initialization)
         const QPoint center = getAdjustedCenter();
         // Update center X (set origin for next delta calculation)
@@ -2451,16 +2469,22 @@ void EmuThread::run()
 
         // Set initial cursor position (for visual consistency and zeroing delta)
         QCursor::setPos(center);
+#endif
+
+
 #if defined(_WIN32)
         // RAW累積捨て呼び出し(センタリング直後の残存デルタ排除のため)
         // フォーカスイン時にsetPosで中央に戻す処理が動くため、移動距離が強制で大きくなってしまうため
         // g_rawFilter->discardDeltas();
-#endif
+#else
+
         // Clear layout change flag (to return to hot path)
         isLayoutChangePending = false;
 
         // 感度更新呼び出し(設定変更を即時反映するため)
         UPDATE_SENSITIVITY(localCfg, aimData, isSensitivityChangePending);
+
+#endif
 
 #else
         // スタイラス押下分岐(タッチ入力直通処理のため)
@@ -3099,6 +3123,15 @@ void EmuThread::run()
 
                     if (hasInitialized) {
                         hasInitialized = false;
+
+#if defined(_WIN32)
+                        // カーソルクリップ解除
+                        if (auto* panel = emuInstance->getMainWindow()->panel) {
+                            QMetaObject::invokeMethod(panel, &ScreenPanel::unclip, Qt::QueuedConnection);
+                            // クリップするにはこれ： QMetaObject::invokeMethod(panel, &ScreenPanel::clipCenter1px, Qt::QueuedConnection);
+                        }
+#endif
+
                     }
 
                     // Resolve Menu flickering
@@ -3155,14 +3188,12 @@ void EmuThread::run()
                 }
 
                 if (isCursorMode) {
-
                     if (emuInstance->isTouching) {
                         emuInstance->nds->TouchScreen(emuInstance->touchX, emuInstance->touchY);
                     }
                     else {
                         emuInstance->nds->ReleaseScreen();
                     }
-
                 }
 
                 // Start / View Match progress, points / Map(Adventure)

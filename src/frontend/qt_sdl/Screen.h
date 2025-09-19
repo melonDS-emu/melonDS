@@ -81,8 +81,12 @@ public:
         wheelDelta = 0;
         return currentDelta;
     }
-    /* MelonPrimeDS } */
 
+public slots:
+    void clipCenter1px();
+    void unclip();
+    void updateClipIfNeeded();
+    /* MelonPrimeDS } */
 private slots:
     void onScreenLayoutChanged();
     void onAutoScreenSizingChanged(int sizing);
@@ -105,6 +109,7 @@ protected:
 
     ScreenLayout layout;
     void focusOutEvent(QFocusEvent* event) override; // MelonPrimeDS
+	void moveEvent(QMoveEvent* event) override; // MelonPrimeDS
     float screenMatrix[kMaxScreenTransforms][6];
     int screenKind[kMaxScreenTransforms];
     int numScreens;
@@ -172,6 +177,10 @@ protected:
     void osdUpdate();
 
     void calcSplashLayout();
+
+    private:
+
+        bool clipWanted = false;   // çSë©óvãÅÉtÉâÉO melonPrimeDS
 };
 
 
@@ -225,6 +234,7 @@ protected:
     QPaintEngine* paintEngine() const override;
 
 private:
+
     void setupScreenLayout() override;
 
     std::unique_ptr<GL::Context> glContext;
