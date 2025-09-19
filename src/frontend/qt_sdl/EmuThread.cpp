@@ -2596,26 +2596,23 @@ void EmuThread::run()
 // #define TOUCH_IF(PRESS, X, Y) if (hotkeyPress.testBit(PRESS)) { emuInstance->nds->ReleaseScreen(); frameAdvanceTwice(); emuInstance->nds->TouchScreen(X, Y); frameAdvanceTwice(); }
 
 #if defined(_WIN32)
-#define TOUCH_IF(PRESS, X, Y)                                            \
-    do {                                                                 \
-        if (g_rawFilter && g_rawFilter->hotkeyPressed(PRESS)) {          \
-            emuInstance->nds->ReleaseScreen();                           \
-            frameAdvanceTwice();                                          \
-            emuInstance->nds->TouchScreen((X), (Y));                     \
-            frameAdvanceTwice();                                          \
-        }                                                                \
-    } while (0)
+#define TOUCH_IF(PRESS, X, Y)                                         \
+    if (g_rawFilter && g_rawFilter->hotkeyPressed(PRESS)) {           \
+        emuInstance->nds->ReleaseScreen();                            \
+        frameAdvanceTwice();                                           \
+        emuInstance->nds->TouchScreen((X), (Y));                      \
+        frameAdvanceTwice();                                           \
+    }
 #else
-#define TOUCH_IF(PRESS, X, Y)                                            \
-    do {                                                                 \
-        if (hotkeyPress.testBit(PRESS)) {                                \
-            emuInstance->nds->ReleaseScreen();                           \
-            frameAdvanceTwice();                                          \
-            emuInstance->nds->TouchScreen((X), (Y));                     \
-            frameAdvanceTwice();                                          \
-        }                                                                \
-    } while (0)
+#define TOUCH_IF(PRESS, X, Y)                                         \
+    if (hotkeyPress.testBit(PRESS)) {                                 \
+        emuInstance->nds->ReleaseScreen();                            \
+        frameAdvanceTwice();                                           \
+        emuInstance->nds->TouchScreen((X), (Y));                      \
+        frameAdvanceTwice();                                           \
+    }
 #endif
+
 
 
 
@@ -2800,7 +2797,7 @@ void EmuThread::run()
 #endif
 
                     // Alt-form
-                    TOUCH_IF(HK_MetroidMorphBall, 231, 167);
+                    TOUCH_IF(HK_MetroidMorphBall, 231, 167)
 
                     // Compile-time constants
                     static constexpr uint8_t WEAPON_ORDER[] = { 0, 2, 7, 6, 5, 4, 3, 1, 8 };
@@ -3072,11 +3069,11 @@ void EmuThread::run()
                             frameAdvanceTwice();
                         }
 
-                        TOUCH_IF(HK_MetroidUIOk, 128, 142); // OK (in scans and messages)
-                        TOUCH_IF(HK_MetroidUILeft, 71, 141); // Left arrow (in scans and messages)
-                        TOUCH_IF(HK_MetroidUIRight, 185, 141); // Right arrow (in scans and messages)
-                        TOUCH_IF(HK_MetroidUIYes, 96, 142);  // Enter to Starship
-                        TOUCH_IF(HK_MetroidUINo, 160, 142); // No Enter to Starship
+                        TOUCH_IF(HK_MetroidUIOk, 128, 142) // OK (in scans and messages)
+                        TOUCH_IF(HK_MetroidUILeft, 71, 141) // Left arrow (in scans and messages)
+                        TOUCH_IF(HK_MetroidUIRight, 185, 141) // Right arrow (in scans and messages)
+                        TOUCH_IF(HK_MetroidUIYes, 96, 142)  // Enter to Starship
+                        TOUCH_IF(HK_MetroidUINo, 160, 142) // No Enter to Starship
 
                     } // End of Adventure Functions
 

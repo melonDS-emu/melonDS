@@ -130,6 +130,8 @@ public:
     inline void resetHotkeyEdges() noexcept {
         for (auto& a : m_hkPrev) a.store(0, std::memory_order_relaxed);
     }
+
+#ifdef COMMENTOUTTTTTTTTT
     ///**
     /// * 左ボタン押下参照インライン関数宣言.
     /// *
@@ -151,6 +153,7 @@ public:
         // 読み取り処理実行(原子参照のため)
         return m_mb[kMB_Right].load(std::memory_order_relaxed);
     }
+#endif // COMMENTOUTTTTTTTTT
 
 private:
     // Win32デバイス登録配列宣言(登録/解除管理のため)

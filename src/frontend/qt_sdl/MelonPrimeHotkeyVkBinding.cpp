@@ -138,18 +138,6 @@ namespace melonDS {
         filter->setHotkeyVks(hkId, vks);
     }
 
-    // ŠÖ”–{‘Ì’è‹`(Shoot/Zoom‚Ü‚Æ‚ß“o˜^‚Ì‚½‚ß)
-    void BindShootZoomFromConfig(RawInputWinFilter* filter, int instance) {
-        // ƒtƒBƒ‹ƒ^‘¶İ”»’è(ˆÀ‘SÀs‚Ì‚½‚ß)
-        if (!filter) return;
-        // Shoot“o˜^ˆ—(åËHK‚Ì‚½‚ß)
-        BindOneHotkeyFromConfig(filter, instance, "Keyboard.HK_MetroidShootScan", HK_MetroidShootScan);
-        // Zoom“o˜^ˆ—(ƒY[ƒ€HK‚Ì‚½‚ß)
-        BindOneHotkeyFromConfig(filter, instance, "Keyboard.HK_MetroidZoom", HK_MetroidZoom);
-        // •¹—p“o˜^ˆ—(”½“]ËHK‚Ì‚½‚ß)
-        BindOneHotkeyFromConfig(filter, instance, "Keyboard.HK_MetroidScanShoot", HK_MetroidScanShoot);
-    }
-
     void BindMetroidHotkeysFromConfig(RawInputWinFilter* filter, int instance)
     {
         if (!filter) return;

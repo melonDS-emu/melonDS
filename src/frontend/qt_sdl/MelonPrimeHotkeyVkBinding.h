@@ -32,14 +32,6 @@ namespace melonDS {
      // 関数宣言(キー種別正規化のため)
     std::vector<UINT> MapQtKeyIntToVks(int qtKey);
 
-    /**
-     * Shoot/Zoom向けHK登録関数定義.
-     *
-     * @param filter RawInputフィルタ.
-     * @param instance 設定インスタンス番号.
-     */
-     // 関数宣言(設定同期のため)
-    void BindShootZoomFromConfig(RawInputWinFilter* filter, int instance);
 
     /**
      * 任意HK登録関数定義.
