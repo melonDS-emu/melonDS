@@ -2834,7 +2834,15 @@ void EmuThread::run()
                                 //if (hotkeyPress.testBit(HOTKEY_MAP[i].hotkey)) {
                                 //    states |= (1u << i);
                                 //}
-                                states |= static_cast<uint32_t>(hotkeyPress.testBit(HOTKEY_MAP[i].hotkey)) << i;
+#if defined(_WIN32)
+                                states |= static_cast<uint32_t>(
+                                    g_rawFilter && g_rawFilter->hotkeyPressed(HOTKEY_MAP[i].hotkey)
+                                    ) << i;
+#else
+                                states |= static_cast<uint32_t>(
+                                    hotkeyPress.testBit(HOTKEY_MAP[i].hotkey)
+                                    ) << i;
+#endif
                             }
                             return states;
                             };
@@ -2925,8 +2933,13 @@ void EmuThread::run()
                         // Lambda: Process wheel and navigation keys
                         static const auto processWheelInput = [&]() -> bool {
                             const int wheelDelta = emuInstance->getMainWindow()->panel->getDelta();
+#if defined(_WIN32)
+                            const bool nextKey = (g_rawFilter && g_rawFilter->hotkeyPressed(HK_MetroidWeaponNext));
+                            const bool prevKey = (g_rawFilter && g_rawFilter->hotkeyPressed(HK_MetroidWeaponPrevious));
+#else
                             const bool nextKey = hotkeyPress.testBit(HK_MetroidWeaponNext);
                             const bool prevKey = hotkeyPress.testBit(HK_MetroidWeaponPrevious);
+#endif
 
                             if (!wheelDelta && !nextKey && !prevKey) return false;
 
@@ -3000,7 +3013,12 @@ void EmuThread::run()
                     // INFO If this function is not used, mouse boosting can only be done once.
                     // This is because it doesn't release from the touch state, which is necessary for aiming. 
                     // There's no way around it.
+// Morph ball boost（保持型）
+#if defined(_WIN32)
+                    if (isSamus && g_rawFilter && g_rawFilter->hotkeyDown(HK_MetroidHoldMorphBallBoost))
+#else
                     if (isSamus && hotkeyMask.testBit(HK_MetroidHoldMorphBallBoost))
+#endif
                     {
                         isAltForm = emuInstance->nds->ARM9Read8(addrIsAltForm) == 0x02;
                         if (isAltForm) {
@@ -3040,7 +3058,11 @@ void EmuThread::run()
                         isPaused = emuInstance->nds->ARM9Read8(addrIsMapOrUserActionPaused) == 0x1;
 
                         // Scan Visor
-                        if (hotkeyPress.testBit(HK_MetroidScanVisor)) {
+#if defined(_WIN32)
+                        if (g_rawFilter && g_rawFilter->hotkeyPressed(HK_MetroidScanVisor))
+#else
+                        if (hotkeyPress.testBit(HK_MetroidScanVisor))
+#endif
                             emuInstance->nds->ReleaseScreen();
                             frameAdvanceTwice();
 
@@ -3112,10 +3134,14 @@ void EmuThread::run()
                         updateRenderer();
                     }
 
-                    // L For Hunter License
+                    // L / R for Hunter License (one-frame press)
+#if defined(_WIN32)
+                    inputMask.setBit(INPUT_L, !(g_rawFilter&& g_rawFilter->hotkeyPressed(HK_MetroidUILeft)));
+                    inputMask.setBit(INPUT_R, !(g_rawFilter&& g_rawFilter->hotkeyPressed(HK_MetroidUIRight)));
+#else
                     inputMask.setBit(INPUT_L, !hotkeyPress.testBit(HK_MetroidUILeft));
-                    // R For Hunter License
                     inputMask.setBit(INPUT_R, !hotkeyPress.testBit(HK_MetroidUIRight));
+#endif
 
                     if (Q_LIKELY(isRomDetected)) {
 
