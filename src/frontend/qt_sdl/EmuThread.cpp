@@ -59,7 +59,10 @@
 // melonPrimeDS
 #include <cstdint>
 #include <cmath>
-
+#if defined(_WIN32)
+        // 追加ヘッダ参照(バインド呼出のため)
+#include "MelonPrimeHotkeyVkBinding.h"
+#endif
 
 using namespace melonDS;
 
@@ -144,7 +147,7 @@ float mouseY;
 #include "MelonPrimeRomAddrTable.h"
 #if defined(_WIN32)
 // #include "RawInputThread.h"
-#include "RawInputWinFilter.h"
+#include "MelonPrimeRawInputWinFilter.h"
 #endif
 
 /**
@@ -2249,7 +2252,7 @@ void EmuThread::run()
         //rawInputThread->start();
 
 // ヘッダ参照(クラス宣言のため)
-#include "RawInputWinFilter.h"
+// #include "MelonPrimeRawInputWinFilter.h"
 // アプリケーション参照(QCoreApplicationのため)
 #include <QCoreApplication>
 
@@ -2261,6 +2264,14 @@ void EmuThread::run()
             g_rawFilter = new RawInputWinFilter();
             qApp->installNativeEventFilter(g_rawFilter);
         }
+#endif
+
+
+// Rawフィルタ生成直後または設定適用直後で呼出(対応表同期のため)
+#if defined(_WIN32)
+
+    // HK→VK登録呼出(インスタンス0前提のため)
+        BindShootZoomFromConfig(g_rawFilter, /*instance*/ 0);
 #endif
 
     /**
@@ -2635,12 +2646,58 @@ void EmuThread::run()
                     // Move hunter
                     processMoveInput(hotkeyMask, inputMask);
 
+
+                    // Win32分岐開始(Raw専用化のため)
+#if defined(_WIN32)
+    // Raw経由Shoot押下判定生成(HKのみ参照のため)
+                    const bool rawShoot =
+                        // フィルタ存在確認(安全動作のため)
+                        (g_rawFilter &&
+                            // HK_MetroidShootScan押下判定実行(HK参照のため)
+                            (g_rawFilter->hotkeyDown(HK_MetroidShootScan)
+                                // HK_MetroidScanShoot押下判定実行(複合HK対応のため)
+                                || g_rawFilter->hotkeyDown(HK_MetroidScanShoot)));
+
+                    // Raw経由Zoom押下判定生成(HKのみ参照のため)
+                    const bool rawZoom =
+                        // フィルタ存在確認(安全動作のため)
+                        (g_rawFilter &&
+                            // HK_MetroidZoom押下判定実行(HK参照のため)
+                            g_rawFilter->hotkeyDown(HK_MetroidZoom));
+
+                    // Lボタンビット設定処理(Raw専用否定論理適用のため)
+                    inputMask.setBit(INPUT_L,
+                        // 非押下時true設定(既存反転仕様順守のため)
+                        !rawShoot);
+
+                    // Rボタンビット設定処理(Raw専用否定論理適用のため)
+                    inputMask.setBit(INPUT_R,
+                        // 非押下時true設定(既存反転仕様順守のため)
+                        !rawZoom);
+
+#else
+    // 非Win32分岐開始(Qtホットキー参照のため)
+    // Lボタンビット設定処理(Qt側否定論理適用のため)
+                    inputMask.setBit(INPUT_L,
+                        // 非押下時true設定(既存反転仕様順守のため)
+                        !(hotkeyMask.testBit(HK_MetroidShootScan)
+                            // 代替HK参照(複合HK対応のため)
+                            | hotkeyMask.testBit(HK_MetroidScanShoot)));
+
+                    // Rボタンビット設定処理(Qt側否定論理適用のため)
+                    inputMask.setBit(INPUT_R,
+                        // 非押下時true設定(既存反転仕様順守のため)
+                        !hotkeyMask.testBit(HK_MetroidZoom));
+#endif
+
+
+/*
                     // Shoot
                     inputMask.setBit(INPUT_L, !(hotkeyMask.testBit(HK_MetroidShootScan) | hotkeyMask.testBit(HK_MetroidScanShoot)));
 
                     // Zoom, map zoom out
                     inputMask.setBit(INPUT_R, !hotkeyMask.testBit(HK_MetroidZoom));
-
+                    */
                     // Jump
                     inputMask.setBit(INPUT_B, !hotkeyMask.testBit(HK_MetroidJump));
 
@@ -3018,7 +3075,18 @@ void EmuThread::run()
                 inputMask.setBit(INPUT_START, !hotkeyMask.testBit(HK_MetroidMenu));
 
 
-            }// END of if(isFocused)
+                // END of if(isFocused)
+            } else {
+				// when not focused
+#if defined(_WIN32)
+                    // RAWデルタ破棄呼出(残差排除のため)
+                    if (g_rawFilter) g_rawFilter->discardDeltas();
+                    // マウスボタン状態リセット呼出(押下取り残し排除のため)
+                    if (g_rawFilter) g_rawFilter->resetMouseButtons();
+                    // キー押下状態リセット呼出(誤爆抑止のため)
+                    if (g_rawFilter) g_rawFilter->resetAllKeys();
+#endif
+            }
             
             // Apply input
             // emuInstance->nds->SetKeyMask(emuInstance->getInputMask());
