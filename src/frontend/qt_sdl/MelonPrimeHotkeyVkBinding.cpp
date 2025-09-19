@@ -184,6 +184,8 @@ namespace melonDS {
         BindOneHotkeyFromConfig(filter, instance, "Keyboard.HK_MetroidUIRight", HK_MetroidUIRight);
         BindOneHotkeyFromConfig(filter, instance, "Keyboard.HK_MetroidUIYes", HK_MetroidUIYes);
         BindOneHotkeyFromConfig(filter, instance, "Keyboard.HK_MetroidUINo", HK_MetroidUINo);
+
+        BindOneHotkeyFromConfig(filter, instance, "Keyboard.HK_MetroidMenu", HK_MetroidMenu);
     }
 
 } // namespace melonDS
