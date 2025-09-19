@@ -2399,17 +2399,8 @@
 					</widget>
 				</item>
 
-				<!-- Add vertical spacing -->
-				<item row="6" column="0">
-					<widget class="QLabel" name="emptyLabel">
-						<property name="text">
-							<string> </string>
-						</property>
-					</widget>
-				</item>
-
 			    <!-- Reset button for sensitivity settings -->
-			    <item row="7" column="0">
+			    <item row="8" column="0">
 				    <widget class="QPushButton" name="metroidResetSensitivityValues">
 					    <property name="text">
 						    <string>Reset sensitivity values</string>
@@ -2418,7 +2409,7 @@
 			    </item>
 
 			    <!-- Add vertical spacing -->
-			    <item row="8" column="0">
+			    <item row="9" column="0">
 				    <widget class="QLabel" name="emptyLabel2">
 					    <property name="text">
 						    <string> </string>
@@ -2427,7 +2418,7 @@
 			    </item>
 
 				<!-- SnapTap -->
-				<item row="9" column="0">
+				<item row="10" column="0">
 					<widget class="QCheckBox" name="cbMetroidEnableSnapTap">
 						<property name="text">
 							<string>Enable SnapTap (Faster directional switching for smooth strafing — may slightly increase input delay)</string>
@@ -2435,7 +2426,7 @@
 					</widget>
 				</item>
 				
-				<item row="10" column="0">
+				<item row="11" column="0">
 					<widget class="QCheckBox" name="cbMetroidUnlockAll">
 						<property name="text">
 							<string>Unlock All Hunters/Maps/SoundTest/Gallery (Change a setting in MPH and save to update the save data. Uncheck this option after saving)</string>
@@ -2443,7 +2434,7 @@
 					</widget>
 				</item>
 
-				<item row="11" column="0">
+				<item row="12" column="0">
 					<widget class="QCheckBox" name="cbMetroidApplyHeadphone">
 						<property name="text">
 							<string>Set MPH audio settings to headphones.(recommended) (Change a setting in MPH and save to update the save data. Uncheck this option after saving)</string>
@@ -2451,7 +2442,7 @@
 					</widget>
 				</item>
 
-				<item row="12" column="0">
+				<item row="13" column="0">
 					<widget class="QCheckBox" name="cbMetroidUseFirmwareName">
 						<property name="text">
 							<string>Use DS Name (Resets in-game name and HL color):You can change the DS name from [Config -&gt; Firmware Settings]. Make sure to enable 'Override settings from external firmware'.</string>
@@ -2460,7 +2451,7 @@
 				</item>
 
 				<!-- Low quality -->
-			    <item row="13" column="0">
+			    <item row="14" column="0">
 				    <widget class="QPushButton" name="metroidSetVideoQualityToLow">
 					    <property name="text">
 						    <string>Video quality: Low (High Performance)</string>
@@ -2469,7 +2460,7 @@
 			    </item>
 
 			    <!-- High quality -->
-			    <item row="14" column="0">
+			    <item row="15" column="0">
 				    <widget class="QPushButton" name="metroidSetVideoQualityToHigh">
 					    <property name="text">
 						    <string>Video quality: High (Lower Performance)</string>
@@ -2478,7 +2469,7 @@
 			    </item>
 
 				<!-- High2 quality -->
-				<item row="15" column="0">
+				<item row="16" column="0">
 					<widget class="QPushButton" name="metroidSetVideoQualityToHigh2">
 						<property name="text">
 							<string>Video quality: High2 (Recommended. Best Performance, Minor Visual Glitches) </string>
@@ -2487,7 +2478,7 @@
 				</item>
 
 				<!-- Apply selected Hunter -->
-				<item row="16" column="0">
+				<item row="17" column="0">
 					<widget class="QCheckBox" name="cbMetroidApplyHunter">
 						<property name="text">
 							<string>Apply the selected hunter to your license. (Renaming will update the save data)</string>
@@ -2498,7 +2489,7 @@
 						<!-- 設定キー: Metroid.Apply.Hunter (bool) -->
 					</widget>
 				</item>
-				<item row="16" column="1">
+				<item row="17" column="1">
 					<widget class="QComboBox" name="comboMetroidSelectedHunter">
 						<property name="toolTip">
 							<string>Select the hunter to apply.</string>
@@ -2546,7 +2537,7 @@
 				</item>
 
 				<!-- Apply selected Color -->
-				<item row="17" column="0">
+				<item row="18" column="0">
 					<widget class="QCheckBox" name="cbMetroidApplyColor">
 						<property name="text">
 							<string>Apply the selected color to your license. (Renaming will update the save data)</string>
@@ -2557,7 +2548,7 @@
 						<!-- 設定キー: Metroid.Apply.Color (bool) -->
 					</widget>
 				</item>
-				<item row="17" column="1">
+				<item row="18" column="1">
 					<widget class="QComboBox" name="comboMetroidSelectedColor">
 						<property name="toolTip">
 							<string>Select the color to apply.</string>

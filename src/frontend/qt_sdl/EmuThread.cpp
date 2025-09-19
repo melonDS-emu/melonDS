@@ -230,12 +230,12 @@ bool ApplyHeadphoneOnce(NDS* nds, Config::Table& localCfg, uint32_t kCfgAddr, bo
     }
 
     // 多重適用回避(すでに処理済みなら即リターンするため)
-    if (__builtin_expect(isHeadphoneApplied, 0)) {
+    if (Q_LIKELY(isHeadphoneApplied)) {
         return false;
     }
 
     // 設定有効判定(ユーザーがヘッドフォン適用を指定しなければ即リターンするため)
-    if (!localCfg.GetBool("Metroid.Apply.Headphone")) {
+    if (Q_LIKELY(!localCfg.GetBool("Metroid.Apply.Headphone"))) {
         return false;
     }
 
@@ -288,7 +288,7 @@ bool applyLicenseColorStrict(NDS* nds, Config::Table& localCfg, std::uint32_t ad
     if (!nds) return false;
 
     // 設定で適用OFFなら処理しない
-    if (!localCfg.GetBool("Metroid.HunterLicense.Color.Apply"))
+    if (Q_LIKELY(!localCfg.GetBool("Metroid.HunterLicense.Color.Apply")))
         return false;
 
     // 関数内enum（外部には露出させない）
@@ -346,7 +346,7 @@ bool applyLicenseColorStrict(NDS* nds, Config::Table& localCfg, std::uint32_t ad
 bool applySelectedHunterStrict(NDS* nds, Config::Table& localCfg, std::uint32_t addrMainHunter)
 {
     if (!nds) return false;
-    if (!localCfg.GetBool("Metroid.HunterLicense.Hunter.Apply")) return false;
+    if (Q_LIKELY(!localCfg.GetBool("Metroid.HunterLicense.Hunter.Apply"))) return false;
 
     // bit 定義
     //constexpr std::uint8_t FAVORITE_MASK = 0x80; // 参照のみ(保持)
@@ -398,7 +398,8 @@ bool useDsName(NDS* nds, Config::Table& localCfg, std::uint32_t addrDsNameFlagAn
     }
 
     // 設定有効判定(ユーザーがDSの名前を使う指定をしていなければ即リターンするため)
-    bool useDsNameSetting = localCfg.GetBool("Metroid.Use.Firmware.Name");
+    if (Q_LIKELY(!localCfg.GetBool("Metroid.Use.Firmware.Name"))) return false;
+
 
     // 現在値読み込み(フラグの状態を確認するため)
     std::uint8_t oldVal = nds->ARM9Read8(addrDsNameFlagAndMicVolume);
@@ -408,14 +409,10 @@ bool useDsName(NDS* nds, Config::Table& localCfg, std::uint32_t addrDsNameFlagAn
 
     // 新しい値を算出(useDsNameSettingの真偽に応じてビット操作を行うため)
     std::uint8_t newVal;
-    if (useDsNameSetting) {
-        // 設定がtrue → フラグをオフに設定(bit0を下ろしてDSの名前を使うようにするため)
-        newVal = static_cast<std::uint8_t>(oldVal & ~kFlagMask);
-    }
-    else {
-        // 設定がfalse → フラグをオンに設定(bit0を立ててDSの名前を使わないようにするため)
-        newVal = static_cast<std::uint8_t>(oldVal | kFlagMask);
-    }
+    
+    // 設定がtrue → DS名設定済みフラグをオフに設定
+    // (bit0を下ろしてDSの名前を使うようにするため)
+    newVal = static_cast<std::uint8_t>(oldVal & ~kFlagMask);
 
     // 差分確認(値に変化がなければ何もせずリターンするため)
     if (newVal == oldVal) {
@@ -475,12 +472,12 @@ bool ApplyUnlockHuntersMaps(
 {
 
     // 既適用チェック(多重実行防止のため)
-    if (__builtin_expect(isUnlockApplied, 0)) {
+    if (Q_LIKELY(isUnlockApplied)) {
         return false;
     }
 
     // 設定フラグ確認(ユーザー指定OFFなら処理不要のため)
-    if (!localCfg.GetBool("Metroid.Data.Unlock")) {
+    if (Q_LIKELY(!localCfg.GetBool("Metroid.Data.Unlock"))) {
         return false;
     }
 
@@ -1471,7 +1468,7 @@ void EmuThread::run()
             uint8_t finalState;
 
             // 分岐予測最適化 - 通常モード優先
-            if (__builtin_expect(!isSnapTapMode, 1)) {
+            if (Q_LIKELY(!isSnapTapMode)) {
                 // 通常モード - 直接配列アクセス（最速）
                 finalState = LUT[curr];
             }
@@ -1484,7 +1481,7 @@ void EmuThread::run()
                 const uint32_t vConflict = (curr & VERT_MASK) ^ VERT_MASK;
 
                 // 条件最適化 - 新入力は稀
-                if (__builtin_expect(newPressed != 0, 0)) {
+                if (Q_UNLIKELY(newPressed != 0)) {
                     // 超高速branchless更新 - 単一式統合
                     const uint32_t hMask = -(hConflict == 0);
                     const uint32_t vMask = -(vConflict == 0);
@@ -1503,7 +1500,7 @@ void EmuThread::run()
                     ((hConflict == 0) ? HORIZ_MASK : 0) |
                     ((vConflict == 0) ? VERT_MASK : 0);
 
-                if (__builtin_expect(conflictMask != 0, 0)) {
+                if (Q_UNLIKELY(conflictMask != 0)) {
                     finalInput = (finalInput & ~conflictMask) | (snapTapState.priorityInput & conflictMask);
                 }
 
@@ -1579,7 +1576,7 @@ void EmuThread::run()
             uint8_t finalState;
 
             // 分岐予測最適化 - 通常モード優先
-            if (__builtin_expect(!isSnapTapMode, 1)) {
+            if (Q_LIKELY(!isSnapTapMode)) {
                 // 通常モード - 直接配列アクセス（最速）
                 finalState = LUT[curr];
             }
@@ -1592,7 +1589,7 @@ void EmuThread::run()
                 const uint32_t vConflict = (curr & VERT_MASK) ^ VERT_MASK;
 
                 // 条件最適化 - 新入力は稀
-                if (__builtin_expect(newPressed != 0, 0)) {
+                if (Q_UNLIKELY(newPressed != 0)) {
                     // 超高速branchless更新 - 単一式統合
                     const uint32_t hMask = -(hConflict == 0);
                     const uint32_t vMask = -(vConflict == 0);
@@ -1611,7 +1608,7 @@ void EmuThread::run()
                     ((hConflict == 0) ? HORIZ_MASK : 0) |
                     ((vConflict == 0) ? VERT_MASK : 0);
 
-                if (__builtin_expect(conflictMask != 0, 0)) {
+                if (Q_UNLIKELY(conflictMask != 0)) {
                     finalInput = (finalInput & ~conflictMask) | (snapTapState.priorityInput & conflictMask);
                 }
 
@@ -1688,7 +1685,7 @@ void EmuThread::run()
             uint8_t finalState;
 
             // 分岐予測最適化 - 通常モード優先
-            if (__builtin_expect(!isSnapTapMode, 1)) {
+            if (Q_LIKELY(!isSnapTapMode)) {
                 // 通常モード - 直接配列アクセス（最速）
                 finalState = LUT[curr];
 
@@ -1709,7 +1706,7 @@ void EmuThread::run()
             const uint32_t vConflict = (curr & VERT_MASK) ^ VERT_MASK;
 
             // 条件最適化 - 新入力は稀
-            if (__builtin_expect(newPressed != 0, 0)) {
+            if (Q_UNLIKELY(newPressed != 0)) {
                 // 超高速branchless更新 - 単一式統合
                 const uint32_t hMask = -(hConflict == 0);
                 const uint32_t vMask = -(vConflict == 0);
@@ -1728,7 +1725,7 @@ void EmuThread::run()
                 ((hConflict == 0) ? HORIZ_MASK : 0) |
                 ((vConflict == 0) ? VERT_MASK : 0);
 
-            if (__builtin_expect(conflictMask != 0, 0)) {
+            if (Q_UNLIKELY(conflictMask != 0)) {
                 finalInput = (finalInput & ~conflictMask) | (snapTapState.priorityInput & conflictMask);
             }
 
@@ -1796,7 +1793,7 @@ void EmuThread::run()
                 (hk[HK_MetroidMoveRight] ? 8 : 0);
 
             // SnapTapが無効な場合、即座にLUT参照して方向bit反映（最短4命令）
-            if (__builtin_expect(!isSnapTapMode, 1)) {
+            if (Q_LIKELY(!isSnapTapMode)) {
                 mask[INPUT_UP] = MaskLUT[curr][0];
                 mask[INPUT_DOWN] = MaskLUT[curr][1];
                 mask[INPUT_LEFT] = MaskLUT[curr][2];
@@ -1880,7 +1877,7 @@ void EmuThread::run()
                 (-hk[HK_MetroidMoveRight] & 8);     // Right = bit3
 
             // 通常モード：即座にLUT適用
-            if (__builtin_expect(!isSnapTapMode, 1)) {
+            if (Q_LIKELY(!isSnapTapMode)) {
                 const uint32_t maskBits = MaskLUT[curr];
                 mask[INPUT_UP] = maskBits & 1;
                 mask[INPUT_DOWN] = (maskBits >> 8) & 1;
@@ -1975,7 +1972,7 @@ void EmuThread::run()
             const uint32_t curr = f | (b << 1) | (l << 2) | (r << 3);
 
             // 通常モード：即座にLUT適用
-            if (__builtin_expect(!isSnapTapMode, 1)) {
+            if (Q_LIKELY(!isSnapTapMode)) {
                 const uint32_t maskBits = MaskLUT[curr];
                 mask[INPUT_UP] = maskBits & 1;
                 mask[INPUT_DOWN] = (maskBits >> 8) & 1;
@@ -2060,7 +2057,7 @@ void EmuThread::run()
             const uint32_t curr = f | (b << 1) | (l << 2) | (r << 3);
 
             // 通常モード：即座にLUT適用
-            if (__builtin_expect(!isSnapTapMode, 1)) {
+            if (Q_LIKELY(!isSnapTapMode)) {
                 const uint32_t maskBits = MaskLUT[curr];
                 mask[INPUT_UP] = maskBits & 1;
                 mask[INPUT_DOWN] = (maskBits >> 8) & 1;
@@ -2169,7 +2166,7 @@ void EmuThread::run()
             const uint32_t curr = (f) | (b << 1) | (l << 2) | (r << 3);
 
             // 通常モード判定(分岐予測命中率向上のため)
-            if (__builtin_expect(!isSnapTapMode, 1)) {
+            if (Q_LIKELY(!isSnapTapMode)) {
                 // LUTロード(即時マスク決定のため)
                 const uint32_t mb = MaskLUT[curr];
 
@@ -2291,7 +2288,7 @@ void EmuThread::run()
 #define UPDATE_SENSITIVITY(localCfg, aimData, isSensitivityChangePending)               \
     do {                                                                               \
         /* 変更待ち判定(不要計算回避のため) */                                         \
-        if (__builtin_expect(isSensitivityChangePending, 0)) {                         \
+        if (Q_UNLIKELY(isSensitivityChangePending)) {                         \
             /* 感度値取得(設定値を適用するため) */                                     \
             const int sens = (localCfg).GetInt("Metroid.Sensitivity.Aim");             \
             /* Y軸倍率取得(ユーザー設定を反映するため) */                              \
@@ -2326,7 +2323,7 @@ void EmuThread::run()
 
 // Hot path branch (fast processing when focus is maintained and layout is unchanged)
 
-        if (__builtin_expect(!isLayoutChangePending && wasLastFrameFocused, 1)) {
+        if (Q_LIKELY(!isLayoutChangePending && wasLastFrameFocused)) {
 			// フォーカス時かつレイアウト変更なしの場合の処理
             int deltaX = 0, deltaY = 0;
 
@@ -2417,7 +2414,7 @@ void EmuThread::run()
 
 #else
         // スタイラス押下分岐(タッチ入力直通処理のため)
-        if (__builtin_expect(emuInstance->isTouching, 1)) {
+        if (Q_LIKELY(emuInstance->isTouching)) {
             // タッチ送出(座標反映のため)
             emuInstance->nds->TouchScreen(emuInstance->touchX, emuInstance->touchY);
         }
@@ -2539,7 +2536,7 @@ void EmuThread::run()
         }
         // No "else" here, cuz flag will be changed after detecting.
 
-        if (__builtin_expect(isRomDetected, 1)) {
+        if (Q_LIKELY(isRomDetected)) {
             isInGame = emuInstance->nds->ARM9Read16(addrInGame) == 0x0001;
 
             // Determine whether it is cursor mode in one place
@@ -2621,7 +2618,7 @@ void EmuThread::run()
                 // Handle the case when the window is focused
                 // Update mouse relative position and recenter cursor for aim control
 
-                if (__builtin_expect(isInGame, 1)) {
+                if (Q_LIKELY(isInGame)) {
                     // inGame
 
                     /*
@@ -2673,10 +2670,6 @@ void EmuThread::run()
                         { HK_MetroidWeaponSpecial, 0xFF }
                     };
 
-                    // Branch prediction hints
-                    #define likely(x)   __builtin_expect(!!(x), 1)
-                    #define unlikely(x) __builtin_expect(!!(x), 0)
-
                     // Main lambda for weapon switching
                     static const auto processWeaponSwitch = [&]() -> bool {
                         bool weaponSwitched = false;
@@ -2700,7 +2693,7 @@ void EmuThread::run()
 
                             const int firstSet = __builtin_ctz(hotkeyStates);
 
-                            if (unlikely(firstSet == 8)) {
+                            if (Q_UNLIKELY(firstSet == 8)) {
                                 const uint8_t special = emuInstance->nds->ARM9Read8(addrLoadedSpecialWeapon);
                                 if (special != 0xFF) {
                                     SwitchWeapon(special);
@@ -2888,7 +2881,7 @@ void EmuThread::run()
                         }
                     }
 
-                    if (__builtin_expect(isInAdventure, 0)) {
+                    if (Q_UNLIKELY(isInAdventure)) {
                         // Adventure Mode Functions
 
                         // To determine the state of pause or user operation stop (to detect the state of map or action pause)
@@ -2972,7 +2965,7 @@ void EmuThread::run()
                     // R For Hunter License
                     inputMask.setBit(INPUT_R, !hotkeyPress.testBit(HK_MetroidUIRight));
 
-                    if (__builtin_expect(isRomDetected, 1)) {
+                    if (Q_LIKELY(isRomDetected)) {
 
                         // ヘッドフォン設定
                         ApplyHeadphoneOnce(emuInstance->nds, localCfg, addrOperationAndSound, isHeadphoneApplied);
