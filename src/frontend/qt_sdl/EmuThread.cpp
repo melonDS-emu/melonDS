@@ -189,34 +189,6 @@ float mouseY;
 #endif
 
 
-// 入力マスク定義
-
-#include <initializer_list>
-// 任意個のHKが「どれか押されているか」を取得
-#if defined(_WIN32)
-#define MP_HK_ANY(...) \
-    ([&]() -> bool { \
-      bool _any = false; \
-      if (g_rawFilter) { \
-        for (int _hk : std::initializer_list<int>{ __VA_ARGS__ }) \
-          _any = _any || g_rawFilter->hotkeyDown(_hk); \
-      } \
-      return _any; \
-    }())
-#else
-#define MP_HK_ANY(...) \
-    ([&]() -> bool { \
-      bool _any = false; \
-      for (int _hk : std::initializer_list<int>{ __VA_ARGS__ }) \
-        _any = _any || hotkeyMask.testBit(_hk); \
-      return _any; \
-    }())
-#endif
-
-// 入力マスクに「否定で」反映（押されてたら false=押下、未押なら true）
-#define MP_SET_NEG(bit, ...) inputMask.setBit((bit), !(MP_HK_ANY(__VA_ARGS__)))
-
-
 /**
  * 感度値変換関数.
  *
