@@ -1631,8 +1631,22 @@ void MainWindow::onSaveState()
     {
         if (slot > 0) emuInstance->osdAddMessage(0, "State saved to slot %d", slot);
         else          emuInstance->osdAddMessage(0, "State saved to file");
-
+		
+		time_t now = time(nullptr);
+        savestateTimestamps[slot] = now;
+        std::string gameID = emuInstance->getGameID();
+        std::string key = gameID + "_SavestateTimestamp" + std::to_string(slot);
+        windowCfg.SetInt(key, (int)now);
         actLoadState[slot]->setEnabled(true);
+        
+        actSaveState[slot]->setText(QString("%1 (%2)")
+            .arg(slot)
+            .arg(formatTimestamp(now)));
+        actLoadState[slot]->setText(QString("%1 (%2)")
+            .arg(slot)
+            .arg(formatTimestamp(now)));
+
+       
     }
     else
     {
