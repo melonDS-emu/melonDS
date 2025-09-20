@@ -8,6 +8,7 @@
 #ifdef _WIN32
 #include <windows.h>
 #include <hidsdi.h>
+#include <QBitArray>
 #endif
 
 
@@ -178,35 +179,30 @@ void RawInputWinFilter::setHotkeyVks(int hk, const std::vector<UINT>& vks)
 /// */
 bool RawInputWinFilter::hotkeyDown(int hk) const
 {
-    // マップ探索処理(登録確認のため)
+    // 1) Raw（マウス/キーボード）を先にチェック
     auto it = m_hkToVk.find(hk);
-    // 未登録早期復帰処理(安全化のため)
-    if (it == m_hkToVk.end()) return false;
-
-    // VK列参照処理(逐次判定のため)
-    const auto& vks = it->second;
-
-    // 反復判定処理(いずれか真で押下確定のため)
-    for (UINT vk : vks) {
-        // マウス高速判定処理(ビット演算利用のため)
-        if (vk <= VK_XBUTTON2) {
-            // マウスボタン直接判定処理(分岐削減のため)
-            switch (vk) {
-            case VK_LBUTTON:  if (m_mb[kMB_Left].load(std::memory_order_relaxed)) return true; break;
-            case VK_RBUTTON:  if (m_mb[kMB_Right].load(std::memory_order_relaxed)) return true; break;
-            case VK_MBUTTON:  if (m_mb[kMB_Middle].load(std::memory_order_relaxed)) return true; break;
-            case VK_XBUTTON1: if (m_mb[kMB_X1].load(std::memory_order_relaxed)) return true; break;
-            case VK_XBUTTON2: if (m_mb[kMB_X2].load(std::memory_order_relaxed)) return true; break;
+    if (it != m_hkToVk.end()) {
+        const auto& vks = it->second;
+        for (UINT vk : vks) {
+            if (vk <= VK_XBUTTON2) {
+                switch (vk) {
+                case VK_LBUTTON:  if (m_mb[kMB_Left].load(std::memory_order_relaxed)) return true; break;
+                case VK_RBUTTON:  if (m_mb[kMB_Right].load(std::memory_order_relaxed)) return true; break;
+                case VK_MBUTTON:  if (m_mb[kMB_Middle].load(std::memory_order_relaxed)) return true; break;
+                case VK_XBUTTON1: if (m_mb[kMB_X1].load(std::memory_order_relaxed)) return true; break;
+                case VK_XBUTTON2: if (m_mb[kMB_X2].load(std::memory_order_relaxed)) return true; break;
+                }
+            }
+            else if (vk < m_vkDown.size() && m_vkDown[vk].load(std::memory_order_relaxed)) {
+                return true;
             }
         }
-        // キーボード判定処理(配列境界保護のため)
-        else if (vk < m_vkDown.size() && m_vkDown[vk].load(std::memory_order_relaxed)) {
-            return true;
-        }
     }
-
-    // 非押下返却処理(全否定のため)
     return false;
+    /*
+    // 2) joystick（QBitArray）を後でチェック
+    const QBitArray* jm = m_joyHK;
+    return jm && static_cast<unsigned>(hk) < static_cast<unsigned>(jm->size()) && jm->testBit(hk);*/
 }
 
 bool RawInputWinFilter::hotkeyPressed(int hk) noexcept {
