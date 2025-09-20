@@ -87,10 +87,10 @@ ScreenPanel::ScreenPanel(QWidget* parent) : QWidget(parent)
     
     //MelonPrime OSD
     Overlay[0] = QImage(256, 192,QImage::Format_ARGB32_Premultiplied);
-    Overlay[0].fill(0xffffff00);
+    Overlay[0].fill(0x00000000);
     
     Overlay[1] = QImage(256, 192,QImage::Format_ARGB32_Premultiplied);
-    Overlay[1].fill(0xffff00ff);
+    Overlay[1].fill(0x00000000);
     
     Top_paint = new QPainter(&Overlay[0]);
     Btm_paint = new QPainter(&Overlay[1]);
