@@ -3123,15 +3123,6 @@ void EmuThread::run()
 
                     if (hasInitialized) {
                         hasInitialized = false;
-
-#if defined(_WIN32)
-                        // カーソルクリップ解除
-                        if (auto* panel = emuInstance->getMainWindow()->panel) {
-                            QMetaObject::invokeMethod(panel, &ScreenPanel::unclip, Qt::QueuedConnection);
-                            // クリップするにはこれ： QMetaObject::invokeMethod(panel, &ScreenPanel::clipCenter1px, Qt::QueuedConnection);
-                        }
-#endif
-
                     }
 
                     // Resolve Menu flickering
