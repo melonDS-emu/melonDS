@@ -40,6 +40,9 @@ struct RomAddrs
     uint32_t addrUnlockMapsHunters;
     uint32_t addrSensitivity;
     uint32_t addrMainHunter;
+    uint32_t addrHudToggle;
+    uint32_t addrStartPressed;
+
 };
 
 ///**
@@ -165,7 +168,11 @@ static constexpr std::array<RomAddrs, GROUP_COUNT> kRomAddrTable = { {
         // addrSensitivity設定
         0x020E832C,
         // addrMainHunter設定
-        0x020E83BC + 0x3504 // addrIsInAdventure + 0x3504;
+        0x020E83BC + 0x3504, // addrIsInAdventure + 0x3504;
+        // addrHudToggle
+        0x020D9A50,
+        // addrStartPressed
+        0x020DEEB4,
     },
     // GROUP_US1_0行定義
     {
@@ -194,7 +201,11 @@ static constexpr std::array<RomAddrs, GROUP_COUNT> kRomAddrTable = { {
         // addrSensitivity設定
         0x020E786C,
         // addrMainHunter設定
-        0x020E78FC + 0x3504 // addrIsInAdventure + 0x3504;
+        0x020E78FC + 0x3504, // addrIsInAdventure + 0x3504;
+        // addrHudToggle
+        0x020D91D0,
+        // addrStartPressed
+        0x020DE634,
     },
     // GROUP_EU1_1行定義
     {
@@ -223,7 +234,11 @@ static constexpr std::array<RomAddrs, GROUP_COUNT> kRomAddrTable = { {
         // addrSensitivity設定
         0x020E83CC,
         // addrMainHunter設定
-        0x020E845C + 0x3504 // addrIsInAdventure + 0x3504;
+        0x020E845C + 0x3504, // addrIsInAdventure + 0x3504;
+        // addrHudToggle
+        0x020D9AF0,
+        // addrStartPressed
+        0x020DEF54,
     },
     // GROUP_EU1_0行定義
     {
@@ -252,7 +267,11 @@ static constexpr std::array<RomAddrs, GROUP_COUNT> kRomAddrTable = { {
         // addrSensitivity設定
         0x020E834C,
         // addrMainHunter設定
-        0x020E83DC + 0x3504 // addrIsInAdventure + 0x3504;
+        0x020E83DC + 0x3504, // addrIsInAdventure + 0x3504;
+        // addrHudToggle
+        0x020D9A70,
+        // addrStartPressed
+        0x020DEED4,
     },
     // GROUP_JP1_0行定義(JP1.0素値の明示反映のため)
     {
@@ -281,7 +300,11 @@ static constexpr std::array<RomAddrs, GROUP_COUNT> kRomAddrTable = { {
         // addrSensitivity設定
         0x020E99AC,
         // addrMainHunter設定
-        0x020ECF40
+        0x020ECF40,
+        // addrHudToggle
+        0x020DB090,
+        // addrStartPressed
+        0x020E0538,
     },
     // GROUP_JP1_1行定義
     {
@@ -310,7 +333,11 @@ static constexpr std::array<RomAddrs, GROUP_COUNT> kRomAddrTable = { {
         // addrSensitivity設定
         0x020E996C,
         // addrMainHunter設定
-        0x020E99FC + 0x3504 // addrIsInAdventure + 0x3504;
+        0x020E99FC + 0x3504, // addrIsInAdventure + 0x3504;
+        // addrHudToggle
+        0x020DB050,
+        // addrStartPressed
+        0x020E04F8,
     },
     // GROUP_KR1_0行定義
     {
@@ -339,7 +366,11 @@ static constexpr std::array<RomAddrs, GROUP_COUNT> kRomAddrTable = { {
         // addrSensitivity設定
         0x020E1168,
         // addrMainHunter設定
-        0x020E44BC
+        0x020E44BC,
+        // addrHudToggle
+        0x020D31C0,
+        // addrStartPressed
+        0x020D7D29,
     }
 }};
 
@@ -391,7 +422,9 @@ static __attribute__((always_inline, flatten)) inline void detectRomAndSetAddres
     uint32_t& addrIsMapOrUserActionPaused_,
     uint32_t& addrUnlockMapsHunters,
     uint32_t& addrSensitivity,
-    uint32_t& addrMainHunter
+    uint32_t& addrMainHunter,
+    uint32_t& addrHudToggle,
+    uint32_t& addrStartPressed
 ) noexcept
 {
     // テーブル取得実施(分岐削減のため)
@@ -419,6 +452,8 @@ static __attribute__((always_inline, flatten)) inline void detectRomAndSetAddres
     addrUnlockMapsHunters = a.addrUnlockMapsHunters;
     addrSensitivity = a.addrSensitivity;
     addrMainHunter = a.addrMainHunter;
+    addrHudToggle = a.addrHudToggle;
+    addrStartPressed = a.addrStartPressed;
 }
 
 #endif // MELON_PRIME_ROM_ADDR_TABLE_H

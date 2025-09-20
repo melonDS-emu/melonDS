@@ -582,6 +582,7 @@ melonDS::u32 AddrIsDead;
 melonDS::u32 addrStartPressed;
 melonDS::u32 addrIsSpectacting;
 melonDS::u32 addrIsTransformingtoAlt;
+melonDS::u32 addrHudToggle;
 
 // melonDS::u32 addrLanguage;
 static bool isUnlockMapsHuntersApplied = false;
@@ -674,7 +675,9 @@ __attribute__((always_inline, flatten)) inline void detectRomAndSetAddresses(Emu
         addrIsMapOrUserActionPaused,
         addrUnlockMapsHunters,
         addrSensitivity,
-        addrMainHunter
+        addrMainHunter,
+        addrHudToggle,
+        addrStartPressed
     );
 
     // Addresses calculated from base values
@@ -703,39 +706,6 @@ __attribute__((always_inline, flatten)) inline void detectRomAndSetAddresses(Emu
     isHeadphoneApplied = false;
     // isSensitivityChangePending = true; // Aim感度リセット用 多分ここでは不要
 }
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 
 
@@ -1209,7 +1179,7 @@ void EmuThread::run()
             emuInstance->osdAddMessage(0, "Font loading failed");
         }
     QString family = fontDB.applicationFontFamilies(fontId).at(0);
-    QFont font1(family, 3);
+    QFont font1(family, 4);
 
     // Disable anti-aliasing for the font.
     font1.setStyleStrategy(QFont::NoAntialias);
@@ -2619,9 +2589,10 @@ void EmuThread::run()
                 addrHavingWeapons = addrSelectedWeapon + 0x3; // 020DCAA6 in JP1.0
                 addrWeaponAmmo = addrSelectedWeapon - 0x383; // 020D720 in JP1.0 current weapon ammo. DC722 is for MissleAmmo. can read both with read32.
                 addrJumpFlag = calculatePlayerAddress(addrBaseJumpFlag, playerPosition, incrementOfPlayerAddress);
-                addrCurrentHp = addrCurrentWeapon - (0x020DCAA2 - 0x020DC6AE);
-                addrCurrentAmmoMissile = addrCurrentWeapon - (0x020DCAA2 - 0x020DC722);
-                addrCurrentAmmoSpecial = addrCurrentWeapon - (0x020DCAA2 - 0x020DC720);
+                addrCurrentHp          = addrCurrentWeapon - 0x3F4;
+                addrCurrentAmmoMissile = addrCurrentWeapon - 0x380;
+                addrCurrentAmmoSpecial = addrCurrentWeapon - 0x382;
+
 
                 // getaddrChosenHunter
                 addrChosenHunter = calculatePlayerAddress(addrBaseChosenHunter, playerPosition, 0x01);
@@ -3077,24 +3048,23 @@ void EmuThread::run()
             }// END of if(isFocused)
             
             bool customhud = localCfg.GetBool("Metroid.Visual.CustomHUD");
-            // Debug pour afficher la valeur de isInGame
-            Top_paint->drawText(QPoint(4, 150), (std::string("isInGame: ") + std::to_string(isInGame)).c_str());
-            
+
             if (isInGame && customhud) {
                 
                 //Clear OSD buffers
                 Top_buffer->fill(0x00000000);
                 Btm_buffer->fill(0x00000000);
                 // OSD : Custom HUD  //
-                bool isStartPressed = emuInstance->nds->ARM9Read8(addrStartPressed) == 0x01 ;
-                // debug : Top_paint->drawText(QPoint(4, 150), (std::string("start ") + std::to_string(nds->ARM9Read8(isStartPressedAddr))).c_str());
+                bool isStartPressed = emuInstance->nds->ARM9Read8(addrStartPressed) == 0x01;
                 if (customhud) {
                     // Disable HUD :
                     if (isStartPressed) {
-                        emuInstance->nds->ARM9Write8(0x020D9A50,0x11);
+                        // Écrire 0x11 à l'adresse HUD spécifique à la ROM détectée
+                        emuInstance->nds->ARM9Write8(addrHudToggle, 0x11);
                     }
                     else {
-                        emuInstance->nds->ARM9Write8(0x020D9A50,0x01);
+                        // Réactiver HUD
+                        emuInstance->nds->ARM9Write8(addrHudToggle, 0x01);
                     }
                 }
                 
@@ -3202,14 +3172,17 @@ void EmuThread::run()
                     uint8_t currentJumpFlags = emuInstance->nds->ARM9Read8(addrJumpFlag);
                     bool isTransforming = currentJumpFlags & 0x10;
                     
-
-                    // isTransformingtoAlt = nds->ARM9Read8(isTransformingtoAltAddr) != 0x00 && 
-                    //     nds->ARM9Read8(isTransformingtoAltAddr) != 0x01 && 
-                    //     nds->ARM9Read8(isTransformingtoAltAddr) != 0x02 && 
-                    //     nds->ARM9Read8(isTransformingtoAltAddr) != 0x06 &&
-                    //     nds->ARM9Read8(isTransformingtoAltAddr) != 0x07 &&
-                    //     nds->ARM9Read8(isTransformingtoAltAddr) != 0x20 &&
-                    //     nds->ARM9Read8(isTransformingtoAltAddr) != 0x21 ;
+                    bool isTransformingtoAlt;
+                    melonDS::u32 isTransformingtoAltAddr;
+                    isTransformingtoAltAddr = 0x020DB459;
+                    
+                    isTransformingtoAlt = emuInstance->nds->ARM9Read8(isTransformingtoAltAddr) != 0x00 && 
+                        emuInstance->nds->ARM9Read8(isTransformingtoAltAddr) != 0x01 && 
+                        emuInstance->nds->ARM9Read8(isTransformingtoAltAddr) != 0x02 && 
+                        emuInstance->nds->ARM9Read8(isTransformingtoAltAddr) != 0x06 &&
+                        emuInstance->nds->ARM9Read8(isTransformingtoAltAddr) != 0x07 &&
+                        emuInstance->nds->ARM9Read8(isTransformingtoAltAddr) != 0x20 &&
+                        emuInstance->nds->ARM9Read8(isTransformingtoAltAddr) != 0x21 ;
 
                     
                     if (!isTransforming && !isAltForm) {
