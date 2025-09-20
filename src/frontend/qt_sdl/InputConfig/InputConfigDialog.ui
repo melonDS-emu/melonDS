@@ -2598,7 +2598,7 @@
             <item row="0" column="0">
             <widget class="QCheckBox" name="enable_customhud">
                 <property name="text">
-                <string>Enable custom HUD</string>
+                <string>Enable custom HUD (For testing purpose only ! WIP)</string>
                 </property>
             </widget>
             </item>
