@@ -581,7 +581,6 @@ melonDS::u32 addrRankColor;
 melonDS::u32 AddrIsDead;
 melonDS::u32 addrStartPressed;
 melonDS::u32 addrIsSpectacting;
-melonDS::u32 addrIsTransformingtoAlt;
 melonDS::u32 addrHudToggle;
 
 // melonDS::u32 addrLanguage;
