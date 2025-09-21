@@ -114,9 +114,31 @@ ninja
 
 Downloadable builds were made using GitHub actions
 
-### Todo
+### Features:
 
--   Update to latest melonDS
+- Compatible with all ROM versions (ensure the ROM is unmodified, untrimmed, and unencrypted):
+  - USA, USA rev1 (Australian version shares the same binary as the USA)
+  - EU, EU rev1
+  - Japan, Japan rev1
+  - Korea
+
+- Gameplay remains smooth and problem-free regardless of player role, whether as the host or as a guest player (P2, P3, or P4).
+- The process has been reviewed for more comfortable game controls such as AIM.
+- Optimized morph ball boosting. Press and hold Shift-key to continue boosting at a higher speed.
+   You can still boost with right-click as before, but holding Shift-key will activate faster boosting.
+-  Optimized the process by not loading the adventure function in multiplayer.
+- Prevents jumping when switching weapons rapidly.
+- Automatically toggles the virtual stylus on or off depending on whether you are in-game.
+- Implemented a key for switching to the last used special weapon or Omega Cannon.
+- Implemented keys for real-time sensitivity adjustment.
+- Implemented keys for clicking “YES” or “NO” in Adventure Mode.
+ - Quick Stop Movement: You can now stop more quickly by pressing both left and right movement keys simultaneously, or both forward and backward movement keys at the same time. This allows for faster halts during gameplay.
+ - You can now switch to the next or previous weapon in the order using the mouse wheel or designated keys.
+- The LR functionality is now available on the Hunter License screen. You can use it by assigning keys to UI Left / Right in the key configuration menu.
+- Menu flickering has been resolved.
+- VSync is now forcibly disabled internally to minimize latency (this also reduces latency in OpenGL Classic mode).
+- The newly implemented SnapTap feature enables faster directional key switching, allowing for smoother technical movements such as strafing. This feature can be enabled from the settings menu. Learn more about SnapTap in this video: [SnapTap Introduction](https://www.youtube.com/watch?v=wDcRf4uCzuM).
+
 
 <p align="center"><img src="./res/icon/melon_128x128.png"></p>
 <h1 align="center"><b>melonPrimeDS</b></h1>
@@ -226,6 +248,25 @@ ninja
 
 ダウンロード可能なビルドはGitHub actionsを使用して作成されました
 
-### Todo
-
--   最新のmelonDSに更新する
+# 機能：
+- すべてのROMバージョンと互換性があります（ROMが未修正、未トリム、未暗号化であることを確認してください）：
+  - アメリカ版、アメリカ版rev1（オーストラリア版はアメリカ版と同じバイナリを共有）
+  - ヨーロッパ版、ヨーロッパ版rev1
+  - 日本版、日本版rev1
+  - 韓国版
+- ホストとしても、ゲストプレイヤー（P2、P3、P4）としても、プレイヤーの役割に関係なくゲームプレイはスムーズで問題ありません
+- AIMなどのゲームコントロールをより快適にするためにプロセスが見直されています
+- モーフボールブーストの最適化。Shiftキーを押し続けることで、より高速なブーストを継続できます
+   従来通り右クリックでブーストすることもできますが、Shiftキーを押すとより速いブーストが作動します
+- マルチプレイヤーでアドベンチャー機能を読み込まないようにプロセスを最適化
+- 武器の素早い切り替え時にジャンプするのを防止
+- ゲーム内かどうかに応じて、自動的に仮想スタイラスをオン/オフにします
+- 最後に使用した特殊武器またはオメガキャノンに切り替えるキーを実装
+- リアルタイム感度調整用のキーを実装
+- アドベンチャーモードで「はい」または「いいえ」をクリックするためのキーを実装
+- クイック停止移動：左右の移動キーを同時に押す、または前後の移動キーを同時に押すことで、より素早く停止できるようになりました。これにより、ゲームプレイ中の素早い停止が可能になります
+- マウスホイールまたは指定されたキーを使用して、順番に次または前の武器に切り替えることができるようになりました
+- ハンターライセンス画面でLR機能が利用可能になりました。キー設定メニューでUI左/右にキーを割り当てることで使用できます
+- メニューのちらつきが解決されました
+- レイテンシーを最小限に抑えるために、VSyncが内部で強制的に無効化されています（これにより、OpenGL Classicモードでもレイテンシーが減少します）
+- 新しく実装されたSnapTap機能により、方向キーの切り替えがより速くなり、ストレイフィングなどの技術的な動きがよりスムーズになります。この機能は設定メニューから有効にできます。SnapTapについて詳しくは、こちらの動画をご覧ください：[SnapTap紹介](https://www.youtube.com/watch?v=wDcRf4uCzuM)
