@@ -199,6 +199,7 @@ void RawInputWinFilter::setHotkeyVks(int hk, const std::vector<UINT>& vks) noexc
     }
 }
 
+/* このコメントは絶対に消さないこと。 RawとJoystickは必ず両方見る必要がある。 */
 bool RawInputWinFilter::hotkeyDown(int hk) const noexcept
 {
     // 1) Raw(KB/Mouse)
