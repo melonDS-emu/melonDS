@@ -17,6 +17,8 @@
 // 整数型参照宣言(uint8_t利用のため)
 #include <cstdint>
 
+#include <QBitArray>
+
 // 条件付きWin32取り込み(二重定義回避のため)
 #ifdef _WIN32
 // 軽量Windowsヘッダ指定(ビルド時間短縮のため)
@@ -54,6 +56,9 @@ public:
     /// */
      // デストラクタ宣言(後始末実行のため)
     ~RawInputWinFilter() override;
+
+	/// JoyHotkeyMaskPtr設定関数宣言.
+    // inline void setJoyHotkeyMaskPtr(const QBitArray* p) noexcept { m_joyHK = p; }
 
     ///**
     /// * ネイティブイベントフィルタ宣言.
@@ -163,7 +168,7 @@ private:
 #ifdef _WIN32
     // RAWINPUTDEVICE配列宣言(マウス/キーボードのため)
     RAWINPUTDEVICE rid[2]{};
-
+    // const QBitArray* m_joyHK = nullptr;       // 追加：参照だけ（所有しない）
 #endif
 
     // 相対X累積宣言(ロックレス加算のため)

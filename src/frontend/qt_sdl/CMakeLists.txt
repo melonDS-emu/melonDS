@@ -61,6 +61,8 @@ set(SOURCES_QT_SDL
     #RawInputThread.cpp
     MelonPrimeRawInputWinFilter.cpp
     MelonPrimeHotkeyVkBinding.cpp
+    MelonPrimeXInputFilter.cpp
+    MelonPrimeXInputBinding.cpp
 )
 
 option(USE_QT6 "Use Qt 6 instead of Qt 5" ON)
@@ -102,6 +104,8 @@ elseif (APPLE)
         #RawInputThread.cpp
         MelonPrimeRawInputWinFilter.cpp
         MelonPrimeHotkeyVkBinding.cpp
+        MelonPrimeXInputFilter.cpp
+        MelonPrimeXInputBinding.cpp
     )
 else()
     # Linuxでは生RawInput連携を無効化する（該当ソースを除外）
@@ -110,6 +114,8 @@ else()
         #RawInputThread.cpp
         MelonPrimeRawInputWinFilter.cpp
         MelonPrimeHotkeyVkBinding.cpp
+        MelonPrimeXInputFilter.cpp
+        MelonPrimeXInputBinding.cpp
     )
 endif()
 
@@ -122,6 +128,7 @@ target_link_libraries(melonDS PRIVATE net-utils)
 
 if (WIN32)
     target_link_libraries(melonDS PUBLIC opengl32)
+    target_link_libraries(melonDS PRIVATE Xinput9_1_0) # MelonPrimeDS
 
     target_sources(melonDS PRIVATE
         ../duckstation/gl/context_wgl.cpp

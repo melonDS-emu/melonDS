@@ -160,8 +160,10 @@ namespace melonDS {
         BindOneHotkeyFromConfig(filter, instance, "Keyboard.HK_MetroidScanVisor", HK_MetroidScanVisor);
 
         // 感度調整（ゲーム内）
+		/* これはQT側で処理する
         BindOneHotkeyFromConfig(filter, instance, "Keyboard.HK_MetroidIngameSensiUp", HK_MetroidIngameSensiUp);
         BindOneHotkeyFromConfig(filter, instance, "Keyboard.HK_MetroidIngameSensiDown", HK_MetroidIngameSensiDown);
+        */
 
         // 直接武器＆スペシャル
         BindOneHotkeyFromConfig(filter, instance, "Keyboard.HK_MetroidWeaponBeam", HK_MetroidWeaponBeam);
