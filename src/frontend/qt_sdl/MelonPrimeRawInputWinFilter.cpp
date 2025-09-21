@@ -223,58 +223,43 @@ void RawInputWinFilter::setHotkeyVks(int hk, const std::vector<UINT>& vks) noexc
 
 bool RawInputWinFilter::hotkeyDown(int hk) const noexcept
 {
-    // 1) Check keyboard/mouse state (optimized)
-    const HotkeyMapping* mapping = findHotkey(hk);
-    if (Q_LIKELY(mapping != nullptr)) [[likely]] {
-        const uint8_t vkCount = mapping->vkCount;
-        const UINT* vks = mapping->vks;
+    // 1) Raw(KB/Mouse)
+    const HotkeyMapping* m = findHotkey(hk);
+    if (Q_LIKELY(m)) {
+        const UINT* p = m->vks;
+        const UINT* e = p + m->vkCount;
 
-        // Manual unrolling for common cases
-        if (vkCount == 1) {
-            const UINT vk = vks[0];
+        // 単体バインド最速パス
+        if (Q_LIKELY(p + 1 == e)) {
+            const UINT vk = *p;
             if (vk < 8) {
-                const uint8_t mbIndex = kMouseButtonLUT[vk];
-                if (mbIndex != 255) {
-                    return m_mb[mbIndex].load(std::memory_order_relaxed) != 0;
-                }
+                const uint8_t idx = kMouseButtonLUT[vk];
+                return (idx != 0xFF) && m_mb[idx].load(std::memory_order_relaxed);
             }
-            return (vk < m_vkDown.size()) &&
-                m_vkDown[vk].load(std::memory_order_relaxed) != 0;
+            return (vk < m_vkDown.size()) && m_vkDown[vk].load(std::memory_order_relaxed);
         }
 
-        // General case with prefetching
-        for (uint8_t i = 0; i < vkCount; ++i) {
-            const UINT vk = vks[i];
+        // 複数バインド
+        for (; p != e; ++p) {
+            const UINT vk = *p;
 
-            if (Q_UNLIKELY(vk < 8)) [[unlikely]] {
-                const uint8_t mbIndex = kMouseButtonLUT[vk];
-                if (mbIndex != 255 && m_mb[mbIndex].load(std::memory_order_relaxed)) {
+            if (vk < 8) {
+                const uint8_t idx = kMouseButtonLUT[vk];
+                if (idx != 0xFF && m_mb[idx].load(std::memory_order_relaxed))
                     return true;
-                }
             }
-            else if (Q_LIKELY(vk < m_vkDown.size())) [[likely]] {
-                // Prefetch next key if not last
-                if (i + 1 < vkCount && vks[i + 1] < m_vkDown.size()) {
-                    _mm_prefetch(reinterpret_cast<const char*>(&m_vkDown[vks[i + 1]]), _MM_HINT_T0);
-                }
-
-                if (m_vkDown[vk].load(std::memory_order_relaxed)) {
-                    return true;
-                }
+            else if (vk < m_vkDown.size() && m_vkDown[vk].load(std::memory_order_relaxed)) {
+                return true;
             }
         }
     }
 
-    // 2) Check joystick state
-    const QBitArray* const joyMask = m_joyHK;
-    const int maskSize = joyMask->size();
-
-    if (Q_LIKELY(static_cast<unsigned>(hk) < static_cast<unsigned>(maskSize))) [[likely]] {
-        return joyMask->testBit(hk);
-    }
-
-    return false;
+    // 2) Joystick mask（EmuInstance が毎フレ更新、非null前提）
+    const QBitArray* jm = m_joyHK;      // 非null保証がある前提
+    const int n = jm->size();
+    return (static_cast<unsigned>(hk) < static_cast<unsigned>(n)) && jm->testBit(hk);
 }
+
 
 bool RawInputWinFilter::hotkeyPressed(int hk) noexcept
 {
