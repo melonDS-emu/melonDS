@@ -140,9 +140,6 @@ public:
         for (auto& a : m_hkPrev) a.store(0, std::memory_order_relaxed);
     }
 
-    void setAimClipArmed(bool armed) noexcept;  // これで「今はクリップ許可/不許可」を外部から指定
-
-
 #ifdef COMMENTOUTTTTTTTTT
     ///**
     /// * 左ボタン押下参照インライン関数宣言.

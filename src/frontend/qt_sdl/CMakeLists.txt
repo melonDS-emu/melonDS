@@ -128,7 +128,7 @@ target_link_libraries(melonDS PRIVATE net-utils)
 
 if (WIN32)
     target_link_libraries(melonDS PUBLIC opengl32)
-    target_link_libraries(melonDS PRIVATE Xinput9_1_0) # MelonPrimeDS
+    #target_link_libraries(melonDS PRIVATE Xinput9_1_0) # MelonPrimeDS
 
     target_sources(melonDS PRIVATE
         ../duckstation/gl/context_wgl.cpp
