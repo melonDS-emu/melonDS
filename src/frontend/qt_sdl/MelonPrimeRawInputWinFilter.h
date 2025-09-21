@@ -22,10 +22,11 @@ public:
     RawInputWinFilter();
     ~RawInputWinFilter() override;
 
+    /*
     inline void setJoyHotkeyMaskPtr(const QBitArray* p) noexcept {
         m_joyHK = p ? p : &kEmptyMask;
     }
-
+    */
     bool nativeEventFilter(const QByteArray& eventType, void* message, qintptr* result) override;
 
     // Inline hot path functions
@@ -67,9 +68,11 @@ public:
 private:
 #ifdef _WIN32
     RAWINPUTDEVICE rid[2]{};
+    /*
+    * joy stick
     const QBitArray* m_joyHK = nullptr;
     inline static const QBitArray kEmptyMask{};
-
+    */
     // Cache line aligned buffer (128 bytes for AVX-512 compatibility)
     alignas(128) BYTE m_rawBuf[sizeof(RAWINPUT) + 128];
 

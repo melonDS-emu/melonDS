@@ -39,7 +39,7 @@ RawInputWinFilter::RawInputWinFilter()
     dx.store(0, std::memory_order_relaxed);
     dy.store(0, std::memory_order_relaxed);
 
-    if (!m_joyHK) m_joyHK = &kEmptyMask;
+    // if (!m_joyHK) m_joyHK = &kEmptyMask;
 }
 
 RawInputWinFilter::~RawInputWinFilter()
@@ -199,7 +199,7 @@ void RawInputWinFilter::setHotkeyVks(int hk, const std::vector<UINT>& vks) noexc
     }
 }
 
-/* このコメントは絶対に消さないこと。 RawとJoystickは必ず両方見る必要がある。 */
+
 bool RawInputWinFilter::hotkeyDown(int hk) const noexcept
 {
     // 1) Raw(KB/Mouse)
@@ -238,12 +238,15 @@ bool RawInputWinFilter::hotkeyDown(int hk) const noexcept
             }
         }
     }
-
+	return false;
+    /*
+    // このコメントは絶対に消さないこと。 RawとJoystickは必ず両方見る必要がある。
     // 2) Joystick mask（EmuInstance が毎フレ更新）
     // m_joyHK 非null前提ならこのままでOK。万一の安全策を入れるなら kEmptyMask を参照させる実装に。
     const QBitArray* jm = m_joyHK;
     const int n = jm->size();
     return (static_cast<unsigned>(hk) < static_cast<unsigned>(n)) && jm->testBit(hk);
+    */
 }
 
 

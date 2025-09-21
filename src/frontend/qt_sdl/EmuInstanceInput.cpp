@@ -119,6 +119,15 @@ void EmuInstance::inputInit()
     joyHotkeyMask.fill(false, HK_MAX);
     hotkeyMask.fill(false, HK_MAX);
     lastHotkeyMask.fill(false, HK_MAX);
+
+
+    joyHotkeyPress.resize(HK_MAX);
+    joyHotkeyRelease.resize(HK_MAX);
+    lastJoyHotkeyMask.resize(HK_MAX);
+    joyHotkeyPress.fill(false);
+    joyHotkeyRelease.fill(false);
+    lastJoyHotkeyMask.fill(false);
+
     /* MelonPrimeDS {{} */
 
 
@@ -459,6 +468,11 @@ void EmuInstance::inputProcess()
                 // joyHotkeyMask |= (1 << i);// MelonPrimeDS comment-out
                 joyHotkeyMask.setBit(i, true); // MelonPrimeDS
     }
+
+
+    joyHotkeyPress = joyHotkeyMask & ~lastJoyHotkeyMask;
+    joyHotkeyRelease = lastJoyHotkeyMask & ~joyHotkeyMask;
+    lastJoyHotkeyMask = joyHotkeyMask;
 
     hotkeyMask = keyHotkeyMask | joyHotkeyMask;
     hotkeyPress = hotkeyMask & ~lastHotkeyMask;

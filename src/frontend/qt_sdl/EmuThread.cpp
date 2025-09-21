@@ -68,9 +68,14 @@
 // 既にどこかで include 済みなら重複はOK（ヘッダガードあり）
 #include "MelonPrimeRawInputWinFilter.h"
 #include "MelonPrimeHotkeyVkBinding.h"
-//#include "MelonPrimeXInputFilter.h"
-//#include "MelonPrimeXInputBinding.h"
 
+// MelonPrimeDS joystick
+/*
+#include "MelonPrimeXInputFilter.h"
+#include "MelonPrimeXInputBinding.h"
+#include "MelonPrimeDirectInputBinding.h"
+#include "MelonPrimeDirectInputFilter.h"
+*/
 
 // 匿名名前空間：この翻訳単位だけで見えるように
 namespace {
@@ -749,8 +754,11 @@ __attribute__((always_inline, flatten)) inline void detectRomAndSetAddresses(Emu
 
 
 
-
-
+// MelonPrimeDS input handling for joystics
+/*
+static MelonPrimeXInputFilter* g_xin = nullptr;
+static MelonPrimeDirectInputFilter* g_din = nullptr;
+*/
 
 /* MelonPrimeDS function goes here */
 void EmuThread::run()
@@ -776,20 +784,30 @@ void EmuThread::run()
         /*
         if (g_rawFilter) {
             g_rawFilter->setJoyHotkeyMaskPtr(&emuInstance->joyHotkeyMask);
-        }*/
+        }
+        */
         qApp->installNativeEventFilter(g_rawFilter);
         // 新: 全HK（Shoot/Zoom 以外も）をRawに登録
         BindMetroidHotkeysFromConfig(g_rawFilter, /*instance*/ emuInstance->getInstanceID());
-        // 追加：ジョイスティックの HK ビット列を Raw に参照させる
-        g_rawFilter->setJoyHotkeyMaskPtr(&emuInstance->joyHotkeyMask);
     }
     /*
-    static MelonPrimeXInputFilter* g_xin = nullptr;
     if (!g_xin) {
         g_xin = new MelonPrimeXInputFilter();
         g_xin->autoPickUserIndex();
         g_xin->setDeadzone(7849, 8689, 30);
         MelonPrime_BindMetroidHotkeysFromJoystickConfig(g_xin, emuInstance->getInstanceID());
+    }
+
+    // グローバル or EmuThreadメンバ
+    if (!g_din) {
+        g_din = new MelonPrimeDirectInputFilter();
+
+        // Qt のウィンドウハンドル → HWND
+        MainWindow* mw = emuInstance->getMainWindow();
+        HWND hwnd = reinterpret_cast<HWND>(mw ? mw->winId() : 0);
+
+        g_din->init(hwnd); // ※あなたの DirectInput フィルタの初期化API名に合わせて
+        MelonPrime_BindMetroidHotkeysFromJoystickConfig(g_din, emuInstance->getInstanceID());
     }
     */
 #endif
@@ -801,12 +819,24 @@ void EmuThread::run()
 
 // ---- Hotkey boolean macros (WIN: RawInput + XInput / Non-WIN: Qt) ----
 #if defined(_WIN32)
-//#define MP_HK_DOWN(id)     ( ((g_rawFilter && g_rawFilter->hotkeyDown((id)))     || (g_xin && g_xin->hotkeyDown((id)))) )
-//#define MP_HK_PRESSED(id)  ( ((g_rawFilter && g_rawFilter->hotkeyPressed((id)))  || (g_xin && g_xin->hotkeyPressed((id)))) )
-//#define MP_HK_RELEASED(id) ( ((g_rawFilter && g_rawFilter->hotkeyReleased((id))) || (g_xin && g_xin->hotkeyReleased((id)))) )
-#define MP_HK_DOWN(id)     ( (g_rawFilter && g_rawFilter->hotkeyDown((id)))   ) 
-#define MP_HK_PRESSED(id)  ( (g_rawFilter && g_rawFilter->hotkeyPressed((id))) )
-#define MP_HK_RELEASED(id) ( (g_rawFilter && g_rawFilter->hotkeyReleased((id))) )
+
+    // ジョイだけ版
+#define MP_JOY_DOWN(id)      (emuInstance->joyHotkeyMask.testBit((id)))
+#define MP_JOY_PRESSED(id)   (emuInstance->joyHotkeyPress.testBit((id)))
+#define MP_JOY_RELEASED(id)  (emuInstance->joyHotkeyRelease.testBit((id)))
+
+//#define MP_HK_DOWN(id)     ( ((g_rawFilter && g_rawFilter->hotkeyDown((id)))     || (g_xin && g_xin->hotkeyDown((id)))     || (g_din && g_din->hotkeyDown((id))) ) )
+//#define MP_HK_PRESSED(id)  ( ((g_rawFilter && g_rawFilter->hotkeyPressed((id)))  || (g_xin && g_xin->hotkeyPressed((id)))  || (g_din && g_din->hotkeyPressed((id))) ) )
+//#define MP_HK_RELEASED(id) ( ((g_rawFilter && g_rawFilter->hotkeyReleased((id))) || (g_xin && g_xin->hotkeyReleased((id))) || (g_din && g_din->hotkeyReleased((id))) ) )
+
+//#define MP_HK_DOWN(id)     ( (g_rawFilter && g_rawFilter->hotkeyDown((id)))   ) 
+//#define MP_HK_PRESSED(id)  ( (g_rawFilter && g_rawFilter->hotkeyPressed((id))) )
+//#define MP_HK_RELEASED(id) ( (g_rawFilter && g_rawFilter->hotkeyReleased((id))) )
+
+#define MP_HK_DOWN(id)     ( (g_rawFilter && g_rawFilter->hotkeyDown((id)))     || MP_JOY_DOWN((id)) )
+#define MP_HK_PRESSED(id)  ( (g_rawFilter && g_rawFilter->hotkeyPressed((id)))  || MP_JOY_PRESSED((id)) )
+#define MP_HK_RELEASED(id) ( (g_rawFilter && g_rawFilter->hotkeyReleased((id))) || MP_JOY_RELEASED((id)) )
+
 
 #else
 #define MP_HK_DOWN(id)     ( hotkeyMask.testBit((id)) )
@@ -877,7 +907,10 @@ void EmuThread::run()
     auto frameAdvanceOnce = [&]()  __attribute__((hot, always_inline, flatten)) {
         MPInterface::Get().Process();
 #ifdef _WIN32
-        // if (g_xin) g_xin->update(); // MelonPrimeDS
+        
+        //if (g_xin) g_xin->update(); // MelonPrimeDS
+        //if (g_din) g_din->update(); // MelonPrimeDS
+         
 #endif
         emuInstance->inputProcess();
 

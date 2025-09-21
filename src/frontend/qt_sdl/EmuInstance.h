@@ -405,7 +405,9 @@ private:
     QBitArray keyHotkeyMask, joyHotkeyMask;
     QBitArray hotkeyMask, lastHotkeyMask;
     QBitArray hotkeyPress, hotkeyRelease;
-
+    QBitArray joyHotkeyPress;    // ★追加: ジョイだけの「今回押された」
+    QBitArray joyHotkeyRelease;  // ★追加: ジョイだけの「今回離された」
+    QBitArray lastJoyHotkeyMask; // ★追加: 前フレのジョイHK
     QBitArray inputMask;
     /* MelonPrimeDS } */
 
