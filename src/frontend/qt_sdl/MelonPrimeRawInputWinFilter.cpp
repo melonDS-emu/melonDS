@@ -74,61 +74,97 @@ RawInputWinFilter::~RawInputWinFilter()
   * 3. ビット演算の最適化
   * 4. キャッシュ局所性の向上
   */
-  ///**
-  /// * ネイティブイベントフィルタ定義.
-  /// *
-  /// * WM_INPUTからマウス/キーボード状態を収集する.
-  /// */
 bool RawInputWinFilter::nativeEventFilter(const QByteArray& eventType, void* message, qintptr* result)
 {
 #ifdef _WIN32
     MSG* msg = static_cast<MSG*>(message);
-    if (!msg) return false;
 
-    // RawInput
-    if (msg->message == WM_INPUT) {
-        alignas(8) BYTE buffer[sizeof(RAWINPUT)];
-        RAWINPUT* raw = reinterpret_cast<RAWINPUT*>(buffer);
-        UINT size = sizeof(RAWINPUT);
-        if (GetRawInputData(reinterpret_cast<HRAWINPUT>(msg->lParam),
-            RID_INPUT, raw, &size, sizeof(RAWINPUTHEADER)) == (UINT)-1) {
-            return false;
-        }
+    // 早期リターン：WM_INPUT以外は即座に除外
+    if (Q_LIKELY(msg->message != WM_INPUT)) return false;
 
-        if (raw->header.dwType == RIM_TYPEMOUSE) {
-            const auto& m = raw->data.mouse;
-            dx.fetch_add(m.lLastX, std::memory_order_relaxed);
-            dy.fetch_add(m.lLastY, std::memory_order_relaxed);
-            const USHORT f = m.usButtonFlags;
-            if (f & (RI_MOUSE_LEFT_BUTTON_DOWN | RI_MOUSE_LEFT_BUTTON_UP)) m_mb[kMB_Left].store((f & RI_MOUSE_LEFT_BUTTON_DOWN) ? 1 : 0, std::memory_order_relaxed);
-            if (f & (RI_MOUSE_RIGHT_BUTTON_DOWN | RI_MOUSE_RIGHT_BUTTON_UP)) m_mb[kMB_Right].store((f & RI_MOUSE_RIGHT_BUTTON_DOWN) ? 1 : 0, std::memory_order_relaxed);
-            if (f & (RI_MOUSE_MIDDLE_BUTTON_DOWN | RI_MOUSE_MIDDLE_BUTTON_UP)) m_mb[kMB_Middle].store((f & RI_MOUSE_MIDDLE_BUTTON_DOWN) ? 1 : 0, std::memory_order_relaxed);
-            if (f & (RI_MOUSE_BUTTON_4_DOWN | RI_MOUSE_BUTTON_4_UP)) m_mb[kMB_X1].store((f & RI_MOUSE_BUTTON_4_DOWN) ? 1 : 0, std::memory_order_relaxed);
-            if (f & (RI_MOUSE_BUTTON_5_DOWN | RI_MOUSE_BUTTON_5_UP)) m_mb[kMB_X2].store((f & RI_MOUSE_BUTTON_5_DOWN) ? 1 : 0, std::memory_order_relaxed);
-            return false;
-        }
+    // 最小限のスタックバッファ（128バイト境界アライン）
+    alignas(128) BYTE buffer[256];
+    UINT size = sizeof(buffer);
 
-        if (raw->header.dwType == RIM_TYPEKEYBOARD) {
-            const auto& kb = raw->data.keyboard;
-            UINT vk = kb.VKey;
-            const USHORT flags = kb.Flags;
-            switch (vk) {
-            case VK_SHIFT:   vk = MapVirtualKey(kb.MakeCode, MAPVK_VSC_TO_VK_EX); break;
-            case VK_CONTROL: vk = (flags & RI_KEY_E0) ? VK_RCONTROL : VK_LCONTROL; break;
-            case VK_MENU:    vk = (flags & RI_KEY_E0) ? VK_RMENU : VK_LMENU;    break;
-            }
-            if (vk < m_vkDown.size()) {
-                m_vkDown[vk].store(!(flags & RI_KEY_BREAK), std::memory_order_relaxed);
-            }
-            return false;
-        }
+    // RAWINPUTデータ取得（失敗時即座にリターン）
+    if (Q_UNLIKELY(GetRawInputData(reinterpret_cast<HRAWINPUT>(msg->lParam),
+        RID_INPUT, buffer, &size, sizeof(RAWINPUTHEADER)) == (UINT)-1)) {
         return false;
     }
+
+    RAWINPUT* raw = reinterpret_cast<RAWINPUT*>(buffer);
+    const DWORD dwType = raw->header.dwType;
+
+    // マウス処理（最も頻繁な処理を先に配置）
+    if (Q_LIKELY(dwType == RIM_TYPEMOUSE)) {
+        const RAWMOUSE& m = raw->data.mouse;
+
+        // 移動処理：ゼロチェックを単一比較で実行
+        const LONG deltaX = m.lLastX;
+        const LONG deltaY = m.lLastY;
+        if (Q_LIKELY((deltaX | deltaY) != 0)) {
+            dx.fetch_add(deltaX, std::memory_order_relaxed);
+            dy.fetch_add(deltaY, std::memory_order_relaxed);
+        }
+
+        // ボタン処理：フラグが0なら即座にリターン
+        const USHORT flags = m.usButtonFlags;
+        if (Q_LIKELY(flags == 0)) return false;
+
+        // ボタンマッピング：コンパイル時定数配列
+        static constexpr struct {
+            USHORT downFlag, upFlag;
+            size_t index;
+        } buttonMap[] = {
+            {RI_MOUSE_LEFT_BUTTON_DOWN,   RI_MOUSE_LEFT_BUTTON_UP,   kMB_Left},
+            {RI_MOUSE_RIGHT_BUTTON_DOWN,  RI_MOUSE_RIGHT_BUTTON_UP,  kMB_Right},
+            {RI_MOUSE_MIDDLE_BUTTON_DOWN, RI_MOUSE_MIDDLE_BUTTON_UP, kMB_Middle},
+            {RI_MOUSE_BUTTON_4_DOWN,      RI_MOUSE_BUTTON_4_UP,      kMB_X1},
+            {RI_MOUSE_BUTTON_5_DOWN,      RI_MOUSE_BUTTON_5_UP,      kMB_X2}
+        };
+
+        // ループアンロール：各ボタンを個別処理
+        for (const auto& btn : buttonMap) {
+            const USHORT mask = btn.downFlag | btn.upFlag;
+            if (Q_UNLIKELY(flags & mask)) {
+                m_mb[btn.index].store((flags & btn.downFlag) ? 1 : 0,
+                    std::memory_order_relaxed);
+            }
+        }
+    }
+    // キーボード処理
+    else if (Q_UNLIKELY(dwType == RIM_TYPEKEYBOARD)) {
+        const RAWKEYBOARD& kb = raw->data.keyboard;
+        UINT vk = kb.VKey;
+        const USHORT flags = kb.Flags;
+        const bool isUp = (flags & RI_KEY_BREAK) != 0;
+
+        // 特殊キー正規化：分岐を最小化
+        switch (vk) {
+        case VK_SHIFT:
+            vk = MapVirtualKey(kb.MakeCode, MAPVK_VSC_TO_VK_EX);
+            break;
+        case VK_CONTROL:
+            vk = (flags & RI_KEY_E0) ? VK_RCONTROL : VK_LCONTROL;
+            break;
+        case VK_MENU:
+            vk = (flags & RI_KEY_E0) ? VK_RMENU : VK_LMENU;
+            break;
+        }
+
+        // 範囲チェック後に原子更新
+        if (Q_LIKELY(vk < m_vkDown.size())) {
+            m_vkDown[vk].store(static_cast<uint8_t>(!isUp),
+                std::memory_order_relaxed);
+        }
+    }
+
+    return false;
 #else
     Q_UNUSED(eventType) Q_UNUSED(message) Q_UNUSED(result)
-#endif
         return false;
-}   
+#endif
+}
 
 
 /**

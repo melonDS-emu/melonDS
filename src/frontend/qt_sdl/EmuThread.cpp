@@ -1781,9 +1781,7 @@ void EmuThread::run()
 
 
 #if defined(_WIN32)
-            // RawInputでもこの処理は必用。無いとこうなる： If you have a secondary screen the mouse can slide to it and the main window gets unfocused
-            //QCursor::setPos(aimData.centerX, aimData.centerY);
-            //g_rawFilter->discardDeltas();
+
 #else
             // Return cursor to center (keep next delta calculation zero-based)
             QCursor::setPos(aimData.centerX, aimData.centerY);
