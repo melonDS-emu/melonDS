@@ -47,20 +47,29 @@ float MelonPrimeXInputFilter::normTrig(BYTE v, BYTE dz) noexcept {
     return (v - dz) / (255.0f - dz);
 }
 
+// update() の中で、未接続のときだけ再探索（毎フレじゃなく「切れたときだけ」）
 void MelonPrimeXInputFilter::update() noexcept {
     ensureLoaded();
-    m_prev = m_now;
-    if (!pGetState) { std::memset(&m_now, 0, sizeof(m_now)); m_connected.store(false, std::memory_order_relaxed); return; }
+    if (!pGetState) { m_connected = false; return; }
 
-    XINPUT_STATE st{};
-    DWORD r = pGetState(m_user, &st);
-    if (r == ERROR_SUCCESS) {
-        m_now = st;
-        m_connected.store(true, std::memory_order_relaxed);
+    m_prev = m_now;
+    if (pGetState(m_user, &m_now) == ERROR_SUCCESS) {
+        m_connected = true;
     }
     else {
-        std::memset(&m_now, 0, sizeof(m_now));
-        m_connected.store(false, std::memory_order_relaxed);
+        // 今のインデックスが死んだっぽいので、軽く総当り
+        XINPUT_STATE st{};
+        bool found = false;
+        for (DWORD i = 0; i < 4; ++i) {
+            if (pGetState(i, &st) == ERROR_SUCCESS) {
+                m_user = i;
+                m_now = st;
+                found = true;
+                break;
+            }
+        }
+        m_connected = found;
+        if (!found) memset(&m_now, 0, sizeof(m_now));
     }
 }
 
@@ -136,4 +145,24 @@ void MelonPrimeXInputFilter::rumble(WORD low, WORD high) noexcept {
     v.wRightMotorSpeed = high;
     pSetState(m_user, &v);
 }
+
+void MelonPrimeXInputFilter::autoPickUserIndex() noexcept {
+    ensureLoaded();
+    if (!pGetState) { m_connected = false; return; }
+
+    XINPUT_STATE st{};
+    for (DWORD i = 0; i < 4; ++i) {
+        if (pGetState(i, &st) == ERROR_SUCCESS) {
+            m_user = i;
+            m_connected = true;
+            return;
+        }
+    }
+    m_connected = false;
+}
+
+
+
+
+
 #endif

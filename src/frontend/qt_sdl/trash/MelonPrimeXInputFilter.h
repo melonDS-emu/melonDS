@@ -25,7 +25,7 @@ public:
 
     MelonPrimeXInputFilter();
     ~MelonPrimeXInputFilter();
-
+    void autoPickUserIndex() noexcept;
     void setUserIndex(DWORD idx) noexcept { m_user = (idx <= 3) ? idx : 0; }
     void setDeadzone(short left = 7849, short right = 8689, BYTE trig = 30) noexcept { m_dzLeft = left; m_dzRight = right; m_dzTrig = trig; }
 

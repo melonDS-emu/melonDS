@@ -294,42 +294,51 @@ void RawInputWinFilter::setHotkeyVks(int hk, const std::vector<UINT>& vks)
 /// */
 bool RawInputWinFilter::hotkeyDown(int hk) const
 {
-    // 1) Raw（マウス/キーボード）を先にチェック
+    // 1) まず Raw(KB/Mouse) 登録があればチェック
     auto it = m_hkToVk.find(hk);
     if (it != m_hkToVk.end()) {
         const auto& vks = it->second;
         for (UINT vk : vks) {
+            // マウス
             if (vk <= VK_XBUTTON2) {
                 switch (vk) {
-                case VK_LBUTTON:  if (m_mb[kMB_Left].load(std::memory_order_relaxed)) return true; break;
+                case VK_LBUTTON:  if (m_mb[kMB_Left].load(std::memory_order_relaxed))  return true; break;
                 case VK_RBUTTON:  if (m_mb[kMB_Right].load(std::memory_order_relaxed)) return true; break;
-                case VK_MBUTTON:  if (m_mb[kMB_Middle].load(std::memory_order_relaxed)) return true; break;
-                case VK_XBUTTON1: if (m_mb[kMB_X1].load(std::memory_order_relaxed)) return true; break;
-                case VK_XBUTTON2: if (m_mb[kMB_X2].load(std::memory_order_relaxed)) return true; break;
+                case VK_MBUTTON:  if (m_mb[kMB_Middle].load(std::memory_order_relaxed))return true; break;
+                case VK_XBUTTON1: if (m_mb[kMB_X1].load(std::memory_order_relaxed))    return true; break;
+                case VK_XBUTTON2: if (m_mb[kMB_X2].load(std::memory_order_relaxed))    return true; break;
                 }
             }
+            // キーボード
             else if (vk < m_vkDown.size() && m_vkDown[vk].load(std::memory_order_relaxed)) {
                 return true;
             }
         }
     }
-    return false;
-    /*
-    // 2) joystick（QBitArray）を後でチェック
+
+    // 2) 次にジョイスティック（EmuInstance が毎フレ更新する joyHotkeyMask）を参照
     const QBitArray* jm = m_joyHK;
-    return jm && static_cast<unsigned>(hk) < static_cast<unsigned>(jm->size()) && jm->testBit(hk);*/
+    if (jm) {
+        const int n = jm->size();
+        if ((unsigned)hk < (unsigned)n && jm->testBit(hk))
+            return true;
+    }
+
+    return false;
 }
 
-bool RawInputWinFilter::hotkeyPressed(int hk) noexcept {
-    const bool down = hotkeyDown(hk); // いま押下中？
-    auto& prev = m_hkPrev[static_cast<size_t>(hk) & 511];
-    const uint8_t p = prev.exchange(down, std::memory_order_acq_rel);
-    return down && !p;  // 今trueで前回falseなら Pressed
-}
-
-bool RawInputWinFilter::hotkeyReleased(int hk) noexcept {
+bool RawInputWinFilter::hotkeyPressed(int hk) noexcept
+{
     const bool down = hotkeyDown(hk);
-    auto& prev = m_hkPrev[static_cast<size_t>(hk) & 511];
-    const uint8_t p = prev.exchange(down, std::memory_order_acq_rel);
-    return (!down) && p; // 今falseで前回trueなら Released
+    auto& prev = m_hkPrev[(size_t)hk & 511];
+    const uint8_t was = prev.exchange(down, std::memory_order_acq_rel);
+    return down && !was;
+}
+
+bool RawInputWinFilter::hotkeyReleased(int hk) noexcept
+{
+    const bool down = hotkeyDown(hk);
+    auto& prev = m_hkPrev[(size_t)hk & 511];
+    const uint8_t was = prev.exchange(down, std::memory_order_acq_rel);
+    return (!down) && was;
 }

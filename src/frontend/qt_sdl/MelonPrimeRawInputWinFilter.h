@@ -60,6 +60,9 @@ public:
 	/// JoyHotkeyMaskPtr設定関数宣言.
     // inline void setJoyHotkeyMaskPtr(const QBitArray* p) noexcept { m_joyHK = p; }
 
+        // EmuInstance 側の joyHotkeyMask を参照させる（所有しない）
+    inline void setJoyHotkeyMaskPtr(const QBitArray* p) noexcept { m_joyHK = p; }
+
     ///**
     /// * ネイティブイベントフィルタ宣言.
     /// *
@@ -169,6 +172,7 @@ private:
     // RAWINPUTDEVICE配列宣言(マウス/キーボードのため)
     RAWINPUTDEVICE rid[2]{};
     // const QBitArray* m_joyHK = nullptr;       // 追加：参照だけ（所有しない）
+    const QBitArray* m_joyHK = nullptr; // ジョイスティック由来のHKビット列（読み取り専用）
 #endif
 
     // 相対X累積宣言(ロックレス加算のため)
