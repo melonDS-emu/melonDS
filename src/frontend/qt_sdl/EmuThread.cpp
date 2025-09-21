@@ -798,36 +798,26 @@ void EmuThread::run()
     static QBitArray& inputMask = emuInstance->inputMask;
     static const QBitArray& hotkeyPress = emuInstance->hotkeyPress;
 
-    // #define TOUCH_IF(PRESS, X, Y) if (hotkeyPress.testBit(PRESS)) { emuInstance->nds->ReleaseScreen(); frameAdvanceTwice(); emuInstance->nds->TouchScreen(X, Y); frameAdvanceTwice(); }
-
+// ---- Hotkey boolean macros (WIN: RawInput + XInput / Non-WIN: Qt) ----
 #if defined(_WIN32)
+#define MP_HK_DOWN(id)     ( ((g_rawFilter && g_rawFilter->hotkeyDown((id)))     || (g_xin && g_xin->hotkeyDown((id)))) )
+#define MP_HK_PRESSED(id)  ( ((g_rawFilter && g_rawFilter->hotkeyPressed((id)))  || (g_xin && g_xin->hotkeyPressed((id)))) )
+#define MP_HK_RELEASED(id) ( ((g_rawFilter && g_rawFilter->hotkeyReleased((id))) || (g_xin && g_xin->hotkeyReleased((id)))) )
+#else
+#define MP_HK_DOWN(id)     ( hotkeyMask.testBit((id)) )
+#define MP_HK_PRESSED(id)  ( hotkeyPress.testBit((id)) )
+#define MP_HK_RELEASED(id) ( hotkeyRelease.testBit((id)) )
+#endif
+
+        // #define TOUCH_IF(PRESS, X, Y) if (hotkeyPress.testBit(PRESS)) { emuInstance->nds->ReleaseScreen(); frameAdvanceTwice(); emuInstance->nds->TouchScreen(X, Y); frameAdvanceTwice(); }
+
 #define TOUCH_IF(PRESS, X, Y)                                         \
-    if (g_rawFilter && g_rawFilter->hotkeyPressed(PRESS)) {           \
+    if (MP_HK_PRESSED(PRESS)) {           \
         emuInstance->nds->ReleaseScreen();                            \
         frameAdvanceTwice();                                           \
         emuInstance->nds->TouchScreen((X), (Y));                      \
         frameAdvanceTwice();                                           \
     }
-#else
-#define TOUCH_IF(PRESS, X, Y)                                         \
-    if (hotkeyPress.testBit(PRESS)) {                                 \
-        emuInstance->nds->ReleaseScreen();                            \
-        frameAdvanceTwice();                                           \
-        emuInstance->nds->TouchScreen((X), (Y));                      \
-        frameAdvanceTwice();                                           \
-    }
-#endif
-
-
-
-
-#if defined(_WIN32)
-#define MP_HK_DOWN(id) \
-    ( ((g_rawFilter && g_rawFilter->hotkeyDown((id))) || \
-       (g_xin       && g_xin->hotkeyDown((id))) ) ? 1u : 0u )
-#else
-#define MP_HK_DOWN(id) ( hotkeyMask.testBit((id)) ? 1u : 0u )
-#endif
 
     Config::Table& globalCfg = emuInstance->getGlobalConfig();
     Config::Table& localCfg = emuInstance->getLocalConfig();
@@ -2042,62 +2032,20 @@ void EmuThread::run()
                     processMoveInput(inputMask);
 
 
-                    // Win32分岐開始(Raw専用化のため)
-#if defined(_WIN32)
-    // Raw経由Shoot押下判定生成(HKのみ参照のため)
-                    const bool rawShoot = (
-                        (g_rawFilter && (g_rawFilter->hotkeyDown(HK_MetroidShootScan) || g_rawFilter->hotkeyDown(HK_MetroidScanShoot))) ||
-                        (g_xin && (g_xin->hotkeyDown(HK_MetroidShootScan) || g_xin->hotkeyDown(HK_MetroidScanShoot)))
-                        );
+                    // 射撃（Shoot/Scanのどちらか）
+                    const bool rawShoot = MP_HK_DOWN(HK_MetroidShootScan) || MP_HK_DOWN(HK_MetroidScanShoot);
 
-                    // Raw経由Zoom押下判定生成(HKのみ参照のため)
-                    const bool rawZoom =
-                        ((g_rawFilter && g_rawFilter->hotkeyDown(HK_MetroidZoom)) ||
-                            (g_xin && g_xin->hotkeyDown(HK_MetroidZoom)));
+                    // ズーム
+                    const bool rawZoom = MP_HK_DOWN(HK_MetroidZoom);
 
-                    // Lボタンビット設定処理(Raw専用否定論理適用のため)
-                    inputMask.setBit(INPUT_L,
-                        // 非押下時true設定(既存反転仕様順守のため)
-                        !rawShoot);
+                    // 射撃（Shoot/Scanのどちらか）
+                    inputMask.setBit(INPUT_L, !rawShoot);
 
-                    // Rボタンビット設定処理(Raw専用否定論理適用のため)
-                    inputMask.setBit(INPUT_R,
-                        // 非押下時true設定(既存反転仕様順守のため)
-                        !rawZoom);
-
-#else
-    // 非Win32分岐開始(Qtホットキー参照のため)
-    // Lボタンビット設定処理(Qt側否定論理適用のため)
-                    inputMask.setBit(INPUT_L,
-                        // 非押下時true設定(既存反転仕様順守のため)
-                        !(hotkeyMask.testBit(HK_MetroidShootScan)
-                            // 代替HK参照(複合HK対応のため)
-                            | hotkeyMask.testBit(HK_MetroidScanShoot)));
-
-                    // Rボタンビット設定処理(Qt側否定論理適用のため)
-                    inputMask.setBit(INPUT_R,
-                        // 非押下時true設定(既存反転仕様順守のため)
-                        !hotkeyMask.testBit(HK_MetroidZoom));
-#endif
-
-
-/*
-                    // Shoot
-                    inputMask.setBit(INPUT_L, !(hotkeyMask.testBit(HK_MetroidShootScan) | hotkeyMask.testBit(HK_MetroidScanShoot)));
-
-                    // Zoom, map zoom out
-                    inputMask.setBit(INPUT_R, !hotkeyMask.testBit(HK_MetroidZoom));
-                                        // Jump
-                    inputMask.setBit(INPUT_B, !hotkeyMask.testBit(HK_MetroidJump));
-
-                    */
+                    // ズーム
+                    inputMask.setBit(INPUT_R, !rawZoom);
 
                     // Jump（B）
-#if defined(_WIN32)
-                    inputMask.setBit(INPUT_B, !(g_rawFilter&& g_rawFilter->hotkeyDown(HK_MetroidJump)));
-#else
-                    inputMask.setBit(INPUT_B, !hotkeyMask.testBit(HK_MetroidJump));
-#endif
+                    inputMask.setBit(INPUT_B, !MP_HK_DOWN(HK_MetroidJump));
 
                     // Alt-form
                     TOUCH_IF(HK_MetroidMorphBall, 231, 167)
@@ -2133,19 +2081,7 @@ void EmuThread::run()
                         static const auto gatherHotkeyStates = [&]() -> uint32_t {
                             uint32_t states = 0;
                             for (size_t i = 0; i < 9; ++i) {
-                                // if (hotkeyPressed(HOTKEY_MAP[i].hotkey)) {
-                                //if (hotkeyPress.testBit(HOTKEY_MAP[i].hotkey)) {
-                                //    states |= (1u << i);
-                                //}
-#if defined(_WIN32)
-                                states |= static_cast<uint32_t>(
-                                    g_rawFilter && g_rawFilter->hotkeyPressed(HOTKEY_MAP[i].hotkey)
-                                    ) << i;
-#else
-                                states |= static_cast<uint32_t>(
-                                    hotkeyPress.testBit(HOTKEY_MAP[i].hotkey)
-                                    ) << i;
-#endif
+                                states |= static_cast<uint32_t>(MP_HK_PRESSED(HOTKEY_MAP[i].hotkey)) << i;
                             }
                             return states;
                             };
@@ -2236,13 +2172,9 @@ void EmuThread::run()
                         // Lambda: Process wheel and navigation keys
                         static const auto processWheelInput = [&]() -> bool {
                             const int wheelDelta = emuInstance->getMainWindow()->panel->getDelta();
-#if defined(_WIN32)
-                            const bool nextKey = (g_rawFilter && g_rawFilter->hotkeyPressed(HK_MetroidWeaponNext));
-                            const bool prevKey = (g_rawFilter && g_rawFilter->hotkeyPressed(HK_MetroidWeaponPrevious));
-#else
-                            const bool nextKey = hotkeyPress.testBit(HK_MetroidWeaponNext);
-                            const bool prevKey = hotkeyPress.testBit(HK_MetroidWeaponPrevious);
-#endif
+                            const bool nextKey = MP_HK_PRESSED(HK_MetroidWeaponNext);
+                            const bool prevKey = MP_HK_PRESSED(HK_MetroidWeaponPrevious);
+
 
                             if (!wheelDelta && !nextKey && !prevKey) return false;
 
@@ -2317,12 +2249,7 @@ void EmuThread::run()
                     // This is because it doesn't release from the touch state, which is necessary for aiming. 
                     // There's no way around it.
 // Morph ball boost（保持型）
-#if defined(_WIN32)
-                    if (isSamus && g_rawFilter && g_rawFilter->hotkeyDown(HK_MetroidHoldMorphBallBoost))
-#else
-                    if (isSamus && hotkeyMask.testBit(HK_MetroidHoldMorphBallBoost))
-#endif
-                    {
+                    if (isSamus && MP_HK_DOWN(HK_MetroidHoldMorphBallBoost)) {
                         isAltForm = emuInstance->nds->ARM9Read8(addrIsAltForm) == 0x02;
                         if (isAltForm) {
                             uint8_t boostGaugeValue = emuInstance->nds->ARM9Read8(addrBoostGauge);
@@ -2361,12 +2288,7 @@ void EmuThread::run()
                         isPaused = emuInstance->nds->ARM9Read8(addrIsMapOrUserActionPaused) == 0x1;
 
                         // Scan Visor
-#if defined(_WIN32)
-                        if (g_rawFilter && g_rawFilter->hotkeyPressed(HK_MetroidScanVisor))
-#else
-                        if (hotkeyPress.testBit(HK_MetroidScanVisor))
-#endif
-                        {
+                        if (MP_HK_PRESSED(HK_MetroidScanVisor)) {
                             emuInstance->nds->ReleaseScreen();
                             frameAdvanceTwice();
 
@@ -2439,13 +2361,9 @@ void EmuThread::run()
                     }
 
                     // L / R for Hunter License (one-frame press)
-#if defined(_WIN32)
-                    inputMask.setBit(INPUT_L, !(g_rawFilter&& g_rawFilter->hotkeyPressed(HK_MetroidUILeft)));
-                    inputMask.setBit(INPUT_R, !(g_rawFilter&& g_rawFilter->hotkeyPressed(HK_MetroidUIRight)));
-#else
-                    inputMask.setBit(INPUT_L, !hotkeyPress.testBit(HK_MetroidUILeft));
-                    inputMask.setBit(INPUT_R, !hotkeyPress.testBit(HK_MetroidUIRight));
-#endif
+                    inputMask.setBit(INPUT_L, !MP_HK_PRESSED(HK_MetroidUILeft));
+                    inputMask.setBit(INPUT_R, !MP_HK_PRESSED(HK_MetroidUIRight));
+
 
                     if (Q_LIKELY(isRomDetected)) {
 
@@ -2495,12 +2413,7 @@ void EmuThread::run()
                 }
 
                 // Start / View Match progress, points / Map(Adventure)
-#if defined(_WIN32)
-                inputMask.setBit(INPUT_START, !(g_rawFilter&& g_rawFilter->hotkeyDown(HK_MetroidMenu)));
-#else
-                inputMask.setBit(INPUT_START, !hotkeyMask.testBit(HK_MetroidMenu));
-#endif
-
+                inputMask.setBit(INPUT_START, !MP_HK_DOWN(HK_MetroidMenu));
 
                 // END of if(isFocused)
             } else {
