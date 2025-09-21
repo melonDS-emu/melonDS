@@ -69,23 +69,24 @@ private:
     {
     public:
         constexpr Interpolator() {}
-        constexpr Interpolator(s32 x0, s32 x1, s32 w0, s32 w1)
+        constexpr Interpolator(s32 x0, s32 x1, s32 w0, s32 w1, bool wbuffer, s32 z0, s32 z1)
         {
-            Setup(x0, x1, w0, w1);
+            Setup(x0, x1, w0, w1, wbuffer, z0, z1);
         }
 
-        constexpr void Setup(s32 x0, s32 x1, s32 w0, s32 w1)
+        constexpr void Setup(s32 x0, s32 x1, s32 w0, s32 w1, bool wbuffer, s32 z0 = 0, s32 z1 = 0)
         {
             this->x0 = x0;
             this->x1 = x1;
             this->xdiff = x1 - x0;
+            this->wbuffer = wbuffer;
 
-            // calculate reciprocal for Z interpolation
-            // TODO eventually: use a faster reciprocal function?
-            if (this->xdiff != 0)
-                this->xrecip_z = (1<<22) / this->xdiff;
-            else
-                this->xrecip_z = 0;
+            // calculate increment and init counter for Z interpolation
+            if (!dir && !wbuffer && xdiff != 0)
+            {
+                this->zincr = ((z1 - z0) >> 1) / xdiff << 1;
+                this->zcounter = z0;
+            }
 
             // linear mode is used if both W values are equal and have
             // low-order bits cleared (0-6 along X, 1-6 along Y)
@@ -135,7 +136,7 @@ private:
 
         constexpr s32 Interpolate(s32 y0, s32 y1) const
         {
-            if (xdiff == 0 || y0 == y1) return y0;
+            if (x == 0 || xdiff == 0 ||  y0 == y1) return y0;
 
             if (!linear)
             {
@@ -155,9 +156,9 @@ private:
             }
         }
 
-        constexpr s32 InterpolateZ(s32 z0, s32 z1, bool wbuffer) const
+        constexpr s32 InterpolateZ(s32 z0, s32 z1)
         {
-            if (xdiff == 0 || z0 == z1) return z0;
+            if (x == 0 || xdiff == 0 || z0 == z1) return z0;
 
             if (wbuffer)
             {
@@ -170,37 +171,22 @@ private:
             else
             {
                 // Z-buffering: linear interpolation
-                // still doesn't quite match hardware...
-                s32 base = 0, disp = 0, factor = 0;
-
-                if (z0 < z1)
-                {
-                    base = z0;
-                    disp = z1 - z0;
-                    factor = x;
-                }
-                else
-                {
-                    base = z1;
-                    disp = z0 - z1,
-                    factor = xdiff - x;
-                }
+                // not perfect, but close
 
                 if (dir)
                 {
-                    int shift = 0;
-                    while (disp > 0x3FF)
-                    {
-                        disp >>= 1;
-                        shift++;
-                    }
-
-                    return base + ((((s64)disp * factor * xrecip_z) >> 22) << shift);
+                    // interpolating along y uses a different algorithm than x
+                    // this algo probably isn't quite right though...
+                    if (z0 < z1)
+                        return z0 + (s64)(z1-z0) * x / xdiff;
+                    else
+                        return z1 + (s64)(z0-z1) * (xdiff-x) / xdiff;
                 }
                 else
                 {
-                    disp >>= 9;
-                    return base + (((s64)disp * factor * xrecip_z) >> 13);
+                    // unoptimized algorithm is: z0 + ((z1-z0 >> 1) / xdiff * x << 1);
+                    // or alternatively there's: z0 + (z1-z0) / (xdiff<<1) * (x<<1);
+                    return zcounter += zincr;
                 }
             }
         }
@@ -210,8 +196,10 @@ private:
 
         int shift;
         bool linear;
+        bool wbuffer;
 
-        s32 xrecip_z;
+        s32 zincr;
+        s32 zcounter;
         s32 w0n, w0d, w1d;
 
         u32 yfactor;
@@ -235,7 +223,7 @@ private:
             Increment = 0;
             XMajor = false;
 
-            Interp.Setup(0, 0, 0, 0);
+            Interp.Setup(0, 0, 0, 0, false);
             Interp.SetX(0);
 
             xcov_incr = 0;
@@ -243,7 +231,7 @@ private:
             return x0;
         }
 
-        constexpr s32 Setup(s32 x0, s32 x1, s32 y0, s32 y1, s32 w0, s32 w1, s32 y)
+        constexpr s32 Setup(s32 x0, s32 x1, s32 y0, s32 y1, s32 w0, s32 w1, s32 y, bool wbuffer)
         {
             this->x0 = x0;
             this->y = y;
@@ -309,7 +297,7 @@ private:
             s32 x = XVal();
 
             int interpoffset = (Increment >= 0x40000) && (side ^ Negative);
-            Interp.Setup(y0-interpoffset, y1-interpoffset, w0, w1);
+            Interp.Setup(y0-interpoffset, y1-interpoffset, w0, w1, wbuffer);
             Interp.SetX(y);
 
             // used for calculating AA coverage
