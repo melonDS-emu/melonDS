@@ -199,54 +199,40 @@ void RawInputWinFilter::setHotkeyVks(int hk, const std::vector<UINT>& vks) noexc
     }
 }
 
-
 bool RawInputWinFilter::hotkeyDown(int hk) const noexcept
 {
-    // 1) Raw(KB/Mouse)
+    // Raw(KB/Mouse) だけを見る低サイクル版
     const HotkeyMapping* m = findHotkey(hk);
-    if (Q_LIKELY(m)) {
-        const UINT* p = m->vks;
-        const UINT* e = p + m->vkCount;
+    if (Q_UNLIKELY(!m)) return false;
 
-        // 単体バインド：押下なら即 return true、未押下ならフォールスルーで Joy を見る
-        if (Q_LIKELY(p + 1 == e)) {
-            const UINT vk = *p;
-            bool down = false;
+    const UINT* p = m->vks;
+    const UINT* e = p + m->vkCount;
+    const size_t vkCap = m_vkDown.size();
 
-            if (vk < 8) {
-                const uint8_t idx = kMouseButtonLUT[vk];
-                if (idx != 0xFF) down = (m_mb[idx].load(std::memory_order_relaxed) != 0);
-            }
-            else if (vk < m_vkDown.size()) {
-                down = (m_vkDown[vk].load(std::memory_order_relaxed) != 0);
-            }
-
-            if (down) return true;
+    // 単体バインド最速パス
+    if (Q_LIKELY(p + 1 == e)) {
+        const UINT vk = *p;
+        if (vk < 8) {
+            const uint8_t idx = kMouseButtonLUT[vk];
+            return (idx != 0xFF) && m_mb[idx].load(std::memory_order_relaxed);
         }
-        else {
-            // 複数バインド：どれか押下で即 return、未押下ならフォールスルー
-            for (; p != e; ++p) {
-                const UINT vk = *p;
+        return (vk < vkCap) && m_vkDown[vk].load(std::memory_order_relaxed);
+    }
 
-                if (vk < 8) {
-                    const uint8_t idx = kMouseButtonLUT[vk];
-                    if (idx != 0xFF && m_mb[idx].load(std::memory_order_relaxed)) return true;
-                }
-                else if (vk < m_vkDown.size() && m_vkDown[vk].load(std::memory_order_relaxed)) {
-                    return true;
-                }
-            }
+    // 複数バインド：いずれか押下で即 return
+    for (; p != e; ++p) {
+        const UINT vk = *p;
+
+        if (vk < 8) {
+            const uint8_t idx = kMouseButtonLUT[vk];
+            if (idx != 0xFF && m_mb[idx].load(std::memory_order_relaxed))
+                return true;
+        }
+        else if (vk < vkCap && m_vkDown[vk].load(std::memory_order_relaxed)) {
+            return true;
         }
     }
-	return false;
-    /*
-    // このコメントは絶対に消さないこと。 RawとJoystickは必ず両方見る必要がある。
-    // 2) Joystick mask（EmuInstance が毎フレ更新）
-    // m_joyHK 非null前提ならこのままでOK。万一の安全策を入れるなら kEmptyMask を参照させる実装に。
-    const QBitArray* jm = m_joyHK;
-    const int n = jm->size();
-    return (static_cast<unsigned>(hk) < static_cast<unsigned>(n)) && jm->testBit(hk);
-    */
+    return false;
 }
 
 
