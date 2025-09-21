@@ -14,25 +14,8 @@ RawInputWinFilter::RawInputWinFilter()
     rid[1] = { 0x01, 0x06, 0, nullptr }; // keyboard
     RegisterRawInputDevices(rid, 2, sizeof(RAWINPUTDEVICE));
 
-    // Use AVX for faster initialization if available
-#ifdef __AVX2__
-    const __m256i zero = _mm256_setzero_si256();
-
-    // Initialize m_vkDown
-    __m256i* vkPtr = reinterpret_cast<__m256i*>(m_vkDown.data());
-    for (size_t i = 0; i < sizeof(m_vkDown) / 32; ++i) {
-        _mm256_store_si256(vkPtr + i, zero);
-    }
-
-    // Initialize m_hkPrev
-    __m256i* hkPtr = reinterpret_cast<__m256i*>(m_hkPrev.data());
-    for (size_t i = 0; i < sizeof(m_hkPrev) / 32; ++i) {
-        _mm256_store_si256(hkPtr + i, zero);
-    }
-#else
     std::memset(m_vkDown.data(), 0, sizeof(m_vkDown));
     std::memset(m_hkPrev.data(), 0, sizeof(m_hkPrev));
-#endif
 
     std::memset(m_mb.data(), 0, sizeof(m_mb));
 
