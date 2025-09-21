@@ -61,8 +61,9 @@ public:
     // inline void setJoyHotkeyMaskPtr(const QBitArray* p) noexcept { m_joyHK = p; }
 
         // EmuInstance 側の joyHotkeyMask を参照させる（所有しない）
-    inline void setJoyHotkeyMaskPtr(const QBitArray* p) noexcept { m_joyHK = p; }
-
+    inline void setJoyHotkeyMaskPtr(const QBitArray* p) noexcept {
+        m_joyHK = p ? p : &kEmptyMask;
+    }
     ///**
     /// * ネイティブイベントフィルタ宣言.
     /// *
@@ -173,6 +174,7 @@ private:
     RAWINPUTDEVICE rid[2]{};
     // const QBitArray* m_joyHK = nullptr;       // 追加：参照だけ（所有しない）
     const QBitArray* m_joyHK = nullptr; // ジョイスティック由来のHKビット列（読み取り専用）
+    inline static const QBitArray kEmptyMask{};  // これなら .cpp 定義不要
 #endif
 
     // 相対X累積宣言(ロックレス加算のため)
