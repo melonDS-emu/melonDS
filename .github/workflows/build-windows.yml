@@ -44,8 +44,13 @@ jobs:
           mkdir -p ./cmake/overlay-triplets
           [ -f ./cmake/overlay-ports/.keep ] || echo keep > ./cmake/overlay-ports/.keep
           [ -f ./cmake/overlay-triplets/.keep ] || echo keep > ./cmake/overlay-triplets/.keep
-
+          # vcpkg files backend 用の実体ディレクトリを必ず作成（重要：キャッシュ周りだけの変更）
+          mkdir -p "${{ github.workspace }}/vcpkg_cache"
+          # どのパスが使われるかの確認（任意）
+          echo "VCPKG_BINARY_SOURCES=${VCPKG_BINARY_SOURCES}"
+          ls -la "${{ github.workspace }}/vcpkg_cache" || true
       - name: Restore vcpkg binary cache
+        id: vcpkg-cache-restore
         uses: actions/cache/restore@v4
         with:
           path: ${{ github.workspace }}/vcpkg_cache
@@ -82,8 +87,8 @@ jobs:
           path: build/release-mingw-x86_64/melonDS.exe
 
       - name: Save vcpkg binary cache
+        if: always() && steps.vcpkg-cache-restore.outputs.cache-hit != 'true'
         uses: actions/cache/save@v4
-        if: always()
         with:
           path: ${{ github.workspace }}/vcpkg_cache
           key: vcpkg-x86_64-mingw-${{ hashFiles('vcpkg.json') }}
