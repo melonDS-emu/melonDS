@@ -15,15 +15,8 @@ RawInputWinFilter::RawInputWinFilter()
     // エッジ状態ゼロ
     for (auto& w : m_hkPrev) w.store(0, std::memory_order_relaxed);
 
-    // 事前計算マスクをゼロ
-#if defined(__AVX2__)
-    const __m256i z = _mm256_setzero_si256();
-    for (auto& hk : m_hkMask) {
-        _mm256_store_si256(reinterpret_cast<__m256i*>(&hk), z);
-    }
-#else
+    // 事前計算マスクをゼロ（AVXなし・移植性優先）
     std::memset(m_hkMask.data(), 0, sizeof(m_hkMask));
-#endif
 }
 
 RawInputWinFilter::~RawInputWinFilter()
@@ -64,7 +57,7 @@ bool RawInputWinFilter::nativeEventFilter(const QByteArray& /*eventType*/, void*
         const USHORT f = m.usButtonFlags;
         if ((f & kAllMouseBtnMask) == 0) return false;
 
-        // down/up を5bitにパック（分岐無し）
+        // down/up を5bitにパック（分岐最小化）
         const uint8_t downMask =
             ((f & 0x0001) ? 0x01 : 0) | ((f & 0x0004) ? 0x02 : 0) |
             ((f & 0x0010) ? 0x04 : 0) | ((f & 0x0040) ? 0x08 : 0) |
@@ -83,15 +76,15 @@ bool RawInputWinFilter::nativeEventFilter(const QByteArray& /*eventType*/, void*
         // 互換配列（必要なら）
         if (downMask | upMask) {
             if (downMask & 0x01) m_mbCompat[kMB_Left].store(1, std::memory_order_relaxed);
-            if (upMask & 0x01) m_mbCompat[kMB_Left].store(0, std::memory_order_relaxed);
+            if (upMask & 0x01)   m_mbCompat[kMB_Left].store(0, std::memory_order_relaxed);
             if (downMask & 0x02) m_mbCompat[kMB_Right].store(1, std::memory_order_relaxed);
-            if (upMask & 0x02) m_mbCompat[kMB_Right].store(0, std::memory_order_relaxed);
+            if (upMask & 0x02)   m_mbCompat[kMB_Right].store(0, std::memory_order_relaxed);
             if (downMask & 0x04) m_mbCompat[kMB_Middle].store(1, std::memory_order_relaxed);
-            if (upMask & 0x04) m_mbCompat[kMB_Middle].store(0, std::memory_order_relaxed);
+            if (upMask & 0x04)   m_mbCompat[kMB_Middle].store(0, std::memory_order_relaxed);
             if (downMask & 0x08) m_mbCompat[kMB_X1].store(1, std::memory_order_relaxed);
-            if (upMask & 0x08) m_mbCompat[kMB_X1].store(0, std::memory_order_relaxed);
+            if (upMask & 0x08)   m_mbCompat[kMB_X1].store(0, std::memory_order_relaxed);
             if (downMask & 0x10) m_mbCompat[kMB_X2].store(1, std::memory_order_relaxed);
-            if (upMask & 0x10) m_mbCompat[kMB_X2].store(0, std::memory_order_relaxed);
+            if (upMask & 0x10)   m_mbCompat[kMB_X2].store(0, std::memory_order_relaxed);
         }
 
         return false;
@@ -146,14 +139,8 @@ void RawInputWinFilter::discardDeltas()
 
 void RawInputWinFilter::resetAllKeys()
 {
-#if defined(__AVX2__)
-    const __m256i z = _mm256_setzero_si256();
-    _mm256_store_si256(reinterpret_cast<__m256i*>(&m_state.vkDown[0]), z);
-    _mm256_store_si256(reinterpret_cast<__m256i*>(&m_state.vkDown[2]), z);
-    _mm_sfence();
-#else
+    // AVXなし：各アトミックをゼロ化
     for (auto& w : m_state.vkDown) w.store(0, std::memory_order_relaxed);
-#endif
     for (auto& a : m_vkDownCompat) a.store(0, std::memory_order_relaxed);
 }
 
@@ -185,13 +172,7 @@ void RawInputWinFilter::setHotkeyVks(int hk, const std::vector<UINT>& vks)
 {
     if ((unsigned)hk < kMaxHotkeyId) {
         HotkeyMask& m = m_hkMask[hk];
-#if defined(__AVX2__)
-        const __m256i z = _mm256_setzero_si256();
-        _mm256_store_si256(reinterpret_cast<__m256i*>(&m), z);
-        _mm_sfence();
-#else
-        std::memset(&m, 0, sizeof(m));
-#endif
+        std::memset(&m, 0, sizeof(m)); // AVXなし
         const size_t n = (vks.size() > 8) ? 8 : vks.size(); // 8個までで十分
         for (size_t i = 0; i < n; ++i) addVkToMask(m, vks[i]);
         return;
@@ -234,10 +215,6 @@ bool RawInputWinFilter::hotkeyDown(int hk) const noexcept
         }
     }
     return false;
-    // 3) SDL 側 joyHotkeyMask（毎フレ更新）
-    //   ※「Rawに joy も統合」方針なのでここが最後のOR
-    //const QBitArray* jm = m_joyHK; // 常に非null前提ならチェック不要
-    //return (unsigned)hk < (unsigned)jm->size() && jm->testBit(hk);
 }
 
 bool RawInputWinFilter::hotkeyPressed(int hk) noexcept

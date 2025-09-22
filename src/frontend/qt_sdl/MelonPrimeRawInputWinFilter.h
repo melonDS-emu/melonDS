@@ -19,21 +19,14 @@
 #include <cstdint>
 #include <cstring>
 
-#if defined(__AVX2__)
-#include <immintrin.h>
-#endif
-
 // 強制インラインヒント
 #ifndef FORCE_INLINE
-#if defined(_MSC_VER)
-#define FORCE_INLINE __forceinline
-#else
-#define FORCE_INLINE __attribute__((always_inline)) inline
+#  if defined(_MSC_VER)
+#    define FORCE_INLINE __forceinline
+#  else
+#    define FORCE_INLINE __attribute__((always_inline)) inline
+#  endif
 #endif
-#endif
-
-// SSE/AVX を使わないビルドでも安全に動作するように条件分岐
-// （AVX2がある場合のみストリームストア等を使用）
 
 class RawInputWinFilter : public QAbstractNativeEventFilter
 {
@@ -61,10 +54,6 @@ public:
 
     // HK→VK の登録（キーボード/マウス側の前計算マスクを作る）
     void setHotkeyVks(int hk, const std::vector<UINT>& vks);
-
-    // SDL 側（EmuInstance）が毎フレ更新する joyHotkeyMask を参照させる
-    // （常に有効を渡す前提ならnullチェック不要）
-    //FORCE_INLINE void setJoyHotkeyMaskPtr(const QBitArray* p) noexcept { m_joyHK = p ? p : &kEmptyMask; }
 
     // 取得系
     bool hotkeyDown(int hk) const noexcept;
@@ -139,10 +128,6 @@ private:
 
     // フォールバック用（大きいHK IDなど）
     std::unordered_map<int, std::vector<UINT>> m_hkToVk;
-
-    // joyHotkeyMask 参照
-    //inline static const QBitArray kEmptyMask{};
-    //const QBitArray* m_joyHK = &kEmptyMask;
 
     // 立上り/立下りエッジ検出用（O(1)）
     std::array<std::atomic<uint64_t>, (kMaxHotkeyId + 63) / 64> m_hkPrev{};
