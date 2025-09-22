@@ -12,7 +12,7 @@ env:
   MELONDS_GIT_HASH: ${{ github.sha }}
   MELONDS_BUILD_PROVIDER: GitHub Actions
   # vcpkg バイナリキャッシュ（リポ直下のフォルダを使う）
-  VCPKG_BINARY_SOURCES: clear;files,${{ github.workspace }}/vcpkg_binary_cache,readwrite
+  VCPKG_BINARY_SOURCES: clear;x-gha,readwrite;files,${{ github.workspace }}/vcpkg_binary_cache,readwrite
 
 jobs:
   build:
