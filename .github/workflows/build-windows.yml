@@ -6,17 +6,11 @@ on:
     branches:
       - master
       - ci/*
-  #pull_request:
-  #  branches:
-  #    - master
 
 env:
-  VCPKG_COMMIT: 2ad004460f5db4d3b66f62f5799ff66c265c4b5d
   MELONDS_GIT_BRANCH: ${{ github.ref }}
   MELONDS_GIT_HASH: ${{ github.sha }}
   MELONDS_BUILD_PROVIDER: GitHub Actions
-  VCPKG_MAX_CONCURRENCY: 8
-  CMAKE_BUILD_PARALLEL_LEVEL: 8
   # vcpkg バイナリキャッシュ（リポ直下のフォルダを使う）
   VCPKG_BINARY_SOURCES: clear;files,${{ github.workspace }}/vcpkg_binary_cache,readwrite
 
@@ -31,6 +25,7 @@ jobs:
       - name: Check out sources
         uses: actions/checkout@v3
 
+      # MSYS2 のパッケージキャッシュ
       - name: Cache MSYS2 packages
         uses: actions/cache@v3
         with:
@@ -38,7 +33,7 @@ jobs:
             C:/msys64/var/cache/pacman/pkg
             C:/msys64/etc/pacman.d/gnupg
             D:/a/_temp/msys64/var/cache/pacman/pkg
-            D:/a/${{ github.repository }}/**/vcpkg/downloads/tools/msys2
+            ${{ github.workspace }}/vcpkg/downloads/tools/msys2
           key: ${{ runner.os }}-msys2-pacman-${{ hashFiles('**/*.cmake') }}
           restore-keys: |
             ${{ runner.os }}-msys2-pacman-
@@ -47,8 +42,7 @@ jobs:
         uses: msys2/setup-msys2@v2
         with:
           msystem: ucrt64
-          update: false
-          # これが無いと Ninja / g++ が PATH に乗らず検出失敗することがある
+          update: true
           path-type: inherit
           pacboy: gcc:p cmake:p ninja:p make:p jq:p
 
@@ -60,8 +54,14 @@ jobs:
           [ -f ./cmake/overlay-ports/.keep ] || echo keep > ./cmake/overlay-ports/.keep
           [ -f ./cmake/overlay-triplets/.keep ] || echo keep > ./cmake/overlay-triplets/.keep
 
-      # vcpkg 改良キャッシュ
-      - name: Cache vcpkg (sources, installed, buildtrees, downloads, packages, binary cache)
+      # vcpkg バイナリキャッシュ用の実体フォルダ
+      - name: Ensure vcpkg binary cache directory exists
+        run: |
+          mkdir -p "${{ github.workspace }}/vcpkg_binary_cache"
+          ls -la "${{ github.workspace }}/vcpkg_binary_cache" || true
+
+      # vcpkg ディレクトリ群のキャッシュ（参考構成）
+      - name: Cache vcpkg directories
         uses: actions/cache@v3
         with:
           path: |
@@ -71,15 +71,14 @@ jobs:
             ${{ github.workspace }}/vcpkg/downloads
             ${{ github.workspace }}/vcpkg/packages
             ${{ github.workspace }}/vcpkg_binary_cache
-          key: ${{ runner.os }}-vcpkg-${{ env.VCPKG_COMMIT }}-${{ hashFiles('CMakeLists.txt', 'cmake/**', 'cmake/overlay-triplets/*.cmake') }}
+          key: ${{ runner.os }}-vcpkg-${{ hashFiles('vcpkg.json', 'CMakeLists.txt', 'cmake/**', 'cmake/overlay-triplets/*.cmake') }}
           restore-keys: |
-            ${{ runner.os }}-vcpkg-${{ env.VCPKG_COMMIT }}-${{ hashFiles('CMakeLists.txt') }}
-            ${{ runner.os }}-vcpkg-${{ env.VCPKG_COMMIT }}-
+            ${{ runner.os }}-vcpkg-${{ hashFiles('vcpkg.json') }}
+            ${{ runner.os }}-vcpkg-
 
-      - name: Set up vcpkg (manifest, pinned)
+      - name: Set up vcpkg (manifest)
         uses: lukka/run-vcpkg@v11
         with:
-          vcpkgGitCommitId: ${{ env.VCPKG_COMMIT }}
           vcpkgJsonGlob: vcpkg.json
 
       # （任意）最初の数行だけでもログを出すと原因追跡が楽
@@ -89,6 +88,7 @@ jobs:
             sed -n '1,160p' build/release-mingw-x86_64/vcpkg-manifest-install.log || true
           fi
 
+      # CMake ビルドディレクトリのキャッシュ
       - name: Cache CMake build directory
         uses: actions/cache@v3
         with:
@@ -103,17 +103,9 @@ jobs:
           cmake --preset=release-mingw-x86_64 \
             -DUSE_VCPKG=ON \
             -DMELONDS_EMBED_BUILD_INFO=ON
-        env:
-          NINJA_STATUS: "[%f/%t %o/s %es] "
-          # vcpkgのバイナリキャッシュを有効化
-          VCPKG_BINARY_SOURCES: ${{ env.VCPKG_BINARY_SOURCES }}
 
       - name: Build
-        run: cmake --build --preset=release-mingw-x86_64 --parallel ${{ env.CMAKE_BUILD_PARALLEL_LEVEL }}
-        env:
-          NINJA_STATUS: "[%f/%t %o/s %es] "
-          # vcpkgのバイナリキャッシュを有効化
-          VCPKG_BINARY_SOURCES: ${{ env.VCPKG_BINARY_SOURCES }}
+        run: cmake --build --preset=release-mingw-x86_64 --parallel
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
