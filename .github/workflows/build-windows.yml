@@ -32,11 +32,16 @@ jobs:
           path: |
             C:/msys64/var/cache/pacman/pkg
             C:/msys64/etc/pacman.d/gnupg
-            D:/a/_temp/msys64/var/cache/pacman/pkg
             ${{ github.workspace }}/vcpkg/downloads/tools/msys2
           key: ${{ runner.os }}-msys2-pacman-${{ hashFiles('**/*.cmake') }}
           restore-keys: |
             ${{ runner.os }}-msys2-pacman-
+
+      - name: Purge temp msys64 (cache safety)
+        shell: pwsh
+        run: |
+          $p = Join-Path $env:RUNNER_TEMP 'msys64'
+          if (Test-Path $p) { Remove-Item -Recurse -Force $p }
 
       - name: Set up MSYS2 (ucrt64)
         uses: msys2/setup-msys2@v2
