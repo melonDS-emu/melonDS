@@ -70,6 +70,7 @@ jobs:
           cmake --preset=release-mingw-x86_64 \
             -DUSE_VCPKG=ON \
             -DMELONDS_EMBED_BUILD_INFO=ON
+            -DCMAKE_CXX_FLAGS_RELEASE:STRING="-O3 -DNDEBUG -mavx2 -mfma -mbmi2 -mlzcnt" # MelonPrimeDS CPU opt AVX2
 
       - name: Build
         run: cmake --build --preset=release-mingw-x86_64 --parallel
