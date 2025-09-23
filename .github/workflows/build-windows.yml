@@ -12,7 +12,7 @@ env:
   MELONDS_GIT_HASH: ${{ github.sha }}
   MELONDS_BUILD_PROVIDER: GitHub Actions
   # vcpkg バイナリキャッシュ（リポ直下のフォルダを使う）
-  VCPKG_BINARY_SOURCES: clear;x-gha,readwrite;files,${{ github.workspace }}/vcpkg_binary_cache,readwrite
+  VCPKG_BINARY_SOURCES: clear;files,${{ github.workspace }}/vcpkg_binary_cache,readwrite
 
 jobs:
   build:
@@ -65,7 +65,7 @@ jobs:
           mkdir -p "${{ github.workspace }}/vcpkg_binary_cache"
           ls -la "${{ github.workspace }}/vcpkg_binary_cache" || true
 
-      # vcpkg ディレクトリ群のキャッシュ（参考構成）
+      # vcpkg ディレクトリ群のキャッシュ
       - name: Cache vcpkg directories
         uses: actions/cache@v3
         with:
@@ -76,9 +76,8 @@ jobs:
             ${{ github.workspace }}/vcpkg/downloads
             ${{ github.workspace }}/vcpkg/packages
             ${{ github.workspace }}/vcpkg_binary_cache
-          key: ${{ runner.os }}-vcpkg-${{ hashFiles('vcpkg.json', 'CMakeLists.txt', 'cmake/**', 'cmake/overlay-triplets/*.cmake') }}
+          key: ${{ runner.os }}-vcpkg-${{ hashFiles('vcpkg.json', 'vcpkg-configuration.json', 'cmake/overlay-triplets/**', 'cmake/overlay-ports/**', 'triplets/**') }}
           restore-keys: |
-            ${{ runner.os }}-vcpkg-${{ hashFiles('vcpkg.json') }}
             ${{ runner.os }}-vcpkg-
 
       - name: Set up vcpkg (manifest)
@@ -98,9 +97,8 @@ jobs:
         uses: actions/cache@v3
         with:
           path: ${{ github.workspace }}/build
-          key: ${{ runner.os }}-cmake-build-${{ hashFiles('CMakeLists.txt', 'src/**', 'include/**', 'cmake/**') }}
+          key: ${{ runner.os }}-cmake-build-${{ hashFiles('CMakeLists.txt', 'cmake/**', 'CMakePresets.json') }}
           restore-keys: |
-            ${{ runner.os }}-cmake-build-${{ hashFiles('CMakeLists.txt') }}
             ${{ runner.os }}-cmake-build-
 
       - name: Configure (preset)
