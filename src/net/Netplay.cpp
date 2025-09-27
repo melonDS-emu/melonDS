@@ -960,7 +960,6 @@ void Netplay::ReceiveInputs(ENetEvent &event)
     // check if we have the frames we were missing before
     if (PendingFrame.Active)
     {
-        std::clock_t start = std::clock();
 
         auto &playerHistory = InputHistory[1];
         auto it = playerHistory.find(PendingFrame.FrameNum);
@@ -974,15 +973,13 @@ void Netplay::ReceiveInputs(ENetEvent &event)
             nds->DoSavestate(&PendingFrame.SavestateBuffer[0]);
 
             // iterate over the frames until we reach the point we were at before
-            for (u32 i = PendingFrame.FrameNum; i < currFrame; ++i)
+            std::clock_t start = std::clock();
+            for (u32 i = nds->NumFrames; i < currFrame; ++i)
             {
                 if (it != playerHistory.end())
                 {
                     PendingFrame.FrameNum = i; // make sure this is our "last completed frame"
                     InputFrame& frameData = it->second;
-                    if (frameData.FrameNum != i) {
-                        printf("frame number mismatch!\n");
-                    }
                     nds->SetKeyMask(frameData.KeyMask);
                     if (frameData.Touching) nds->TouchScreen(frameData.TouchX, frameData.TouchY);
                     else nds->ReleaseScreen();
@@ -997,13 +994,18 @@ void Netplay::ReceiveInputs(ENetEvent &event)
                     new (&PendingFrame.SavestateBuffer[0]) Savestate();
                     nds->DoSavestate(&PendingFrame.SavestateBuffer[0]);
                 }
+                else
+                {
+                    nds->SetKeyMask(0xFFF);
+                    nds->ReleaseScreen();
+                }
                 nds->RunFrame();
             }
 
             std::clock_t end = std::clock();
             double elapsed_seconds = double(end - start) / CLOCKS_PER_SEC;
 
-            printf("managed to catch up %d frames. still missing %d, seconds: %lf\n", PendingFrame.FrameNum - prevWaitFrame, nds->NumFrames - PendingFrame.FrameNum, elapsed_seconds);
+            printf("managed to catch up %d frames. still missing %d, seconds: %lf, the size is %d\n", PendingFrame.FrameNum - prevWaitFrame, nds->NumFrames - PendingFrame.FrameNum, elapsed_seconds, playerHistory.size());
         }
     }
 
