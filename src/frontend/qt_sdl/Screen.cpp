@@ -86,7 +86,7 @@ bool isFocused; // MelonPrimeDS TODO move this.
 
 // 既存の匿名namespaceのヘルパは削除/未使用にしてOK。
 // メソッドとして実装（UIスレッドで実行される想定）
-void ScreenPanel::clipCenter1px() { // MelonPrimeDS
+void ScreenPanel::clipCursorCenter1px() { // MelonPrimeDS
     clipWanted = true;
 #ifdef _WIN32
     if (!isVisible() || !window() || !window()->isActiveWindow()) return;
@@ -361,7 +361,7 @@ void ScreenPanel::mousePressEvent(QMouseEvent* event)
 #if defined(_WIN32)
         // in-game かつ カーソルモードでなければ 1px クリップ開始
         if (!emuInstance->getEmuThread()->isCursorMode) { // MelonPrimeDS
-            clipCenter1px(); // MelonPrimeDS
+            clipCursorCenter1px(); // MelonPrimeDS
         } // MelonPrimeDS
 #endif
 

@@ -180,6 +180,24 @@ void EmuThread::detachWindow(MainWindow* window)
 // melonPrime
 static bool hasInitialized = false;
 
+// 共有キャッシュ定義(エイムのホットパスから再計算を排除するため)
+// X軸感度係数(ホットパスで直接参照するため)
+static float gAimSensiFactor = 0.01f;          // 初期値(安全側)
+// Y軸合成係数(ホットパスで直接参照するため)
+static float gAimCombinedY   = 0.013333333f;   // 初期値(安全側)
+
+// 再計算関数(感度キャッシュを即時更新するため)
+// localCfgから現在のAimとAimYAxisScaleを取り出し、共有キャッシュへ反映
+static inline void RecalcAimSensitivityCache(Config::Table& localCfg) {
+    // 現在のAim感度値取得(再計算入力の取得のため)
+    const int   sens          = localCfg.GetInt("Metroid.Sensitivity.Aim");
+    // Y軸倍率取得(合成係数算出のため)
+    const float aimYAxisScale = static_cast<float>(localCfg.GetDouble("Metroid.Sensitivity.AimYAxisScale"));
+    // X係数更新(掛け算のみで済ませるため)
+    gAimSensiFactor = sens * 0.01f;
+    // Y係数更新(X係数との積で毎フレームの乗算を1回に集約するため)
+    gAimCombinedY   = gAimSensiFactor * aimYAxisScale;
+}
 
 /**
  * 感度値変換関数.
@@ -569,7 +587,6 @@ __attribute__((always_inline, flatten)) inline uint32_t calculatePlayerAddress(u
 bool isAltForm;
 bool isInGame = false; // MelonPrimeDS
 bool isLayoutChangePending = true;       // MelonPrimeDS layout change flag - set true to trigger on first run
-bool isSensitivityChangePending = true;  // MelonPrimeDS sensitivity change flag - set true to trigger on first run
 bool isSnapTapMode = false;
 bool isUnlockHuntersMaps = false;
 // グローバル適用フラグ定義(多重適用を避けるため)
@@ -716,10 +733,12 @@ __attribute__((always_inline, flatten)) inline void detectRomAndSetAddresses(Emu
 
     // ROM判定後の処理
 
-    // フラグリセット
+    // フラグリセット(起動後初期適用のため)
     isUnlockMapsHuntersApplied = false;
     isHeadphoneApplied = false;
-    // isSensitivityChangePending = true; // Aim感度リセット用 多分ここでは不要
+
+    // 感度キャッシュ初期化(ホットパス無関与で一度だけ反映するため)
+    RecalcAimSensitivityCache(emuInstance->getLocalConfig());
 }
 
 
@@ -901,7 +920,530 @@ void EmuThread::run()
     emuInstance->fastForwardToggled = false;
     emuInstance->slowmoToggled = false;
 
+
+    // melonPrimeDS
+
+    bool isCursorVisible = true;
+    bool enableAim = true;
+    bool wasLastFrameFocused = false;
+
+    /**
+     * @brief Function to show or hide the cursor on MelonPrimeDS
+     *
+     * Controls the mouse cursor visibility state on MelonPrimeDS. Does nothing if
+     * the requested state is the same as the current state. When changing cursor
+     * visibility, uses Qt::QueuedConnection to safely execute on the UI thread.
+     *
+     * @param show true to show the cursor, false to hide it
+     */
+    auto showCursorOnMelonPrimeDS = [&](bool show) __attribute__((always_inline, flatten)) {
+        // Do nothing if the requested state is the same as current state (optimization)
+        if (show == isCursorVisible) return;
+
+        // Get and verify panel exists
+        auto* panel = emuInstance->getMainWindow()->panel;
+        if (!panel) return;
+
+        // Use Qt::QueuedConnection to safely execute on the UI thread
+        QMetaObject::invokeMethod(panel,
+            [panel, show]() {
+                // Set cursor visibility (normal ArrowCursor or invisible BlankCursor)
+                panel->setCursor(show ? Qt::ArrowCursor : Qt::BlankCursor);
+                if (show) {
+                    panel->unclip();
+                }
+                else {
+                    panel->clipCursorCenter1px();// Clip Cursor
+                }
+            },
+            Qt::ConnectionType::QueuedConnection
+        );
+
+        // Record the state change
+        isCursorVisible = show;
+    };
+
+    // #define STYLUS_MODE 1 // this is for stylus user. MelonEK
+
+#define INPUT_A 0
+#define INPUT_B 1
+#define INPUT_SELECT 2
+#define INPUT_START 3
+#define INPUT_RIGHT 4
+#define INPUT_LEFT 5
+#define INPUT_UP 6
+#define INPUT_DOWN 7
+#define INPUT_R 8
+#define INPUT_L 9
+#define INPUT_X 10
+#define INPUT_Y 11
+
+/*
+#define FN_INPUT_PRESS(i)   emuInstance->inputMask.setBit(i, false) // No semicolon at the end here
+#define FN_INPUT_RELEASE(i) emuInstance->inputMask.setBit(i, true)  // No semicolon at the end here
+
+// Optimized macro definitions - perform direct bit operations instead of using setBit()
+// #define FN_INPUT_PRESS(i)   emuInstance->inputMask[i] = false   // Direct assignment for press
+// #define FN_INPUT_RELEASE(i) emuInstance->inputMask[i] = true    // Direct assignment for release
+
+    /*
+#define PERFORM_TOUCH(x, y) do { \
+    emuInstance->nds->ReleaseScreen(); \
+    frameAdvanceTwice(); \
+    emuInstance->nds->TouchScreen(x, y); \
+    frameAdvanceTwice(); \
+} while(0)
+*/
+/*
+//
+    static const auto PERFORM_TOUCH = [&](int x, int y) __attribute__((always_inline)) {
+        emuInstance->nds->ReleaseScreen();
+        frameAdvanceTwice();
+        emuInstance->nds->TouchScreen(x, y);
+        frameAdvanceTwice();
+    };
+    */
+
+    /**
+     * Macro to obtain a 12-bit input state from a QBitArray as a bitmask.
+     * Originally defined in EmuInstanceInput.cpp.
+     *
+     * @param input QBitArray (must have at least 12 bits).
+     * @return uint32_t Bitmask containing input state (bits 0–11).
+     */
+#define GET_INPUT_MASK(inputMask) (                                          \
+    (static_cast<uint32_t>((inputMask).testBit(0))  << 0)  |                 \
+    (static_cast<uint32_t>((inputMask).testBit(1))  << 1)  |                 \
+    (static_cast<uint32_t>((inputMask).testBit(2))  << 2)  |                 \
+    (static_cast<uint32_t>((inputMask).testBit(3))  << 3)  |                 \
+    (static_cast<uint32_t>((inputMask).testBit(4))  << 4)  |                 \
+    (static_cast<uint32_t>((inputMask).testBit(5))  << 5)  |                 \
+    (static_cast<uint32_t>((inputMask).testBit(6))  << 6)  |                 \
+    (static_cast<uint32_t>((inputMask).testBit(7))  << 7)  |                 \
+    (static_cast<uint32_t>((inputMask).testBit(8))  << 8)  |                 \
+    (static_cast<uint32_t>((inputMask).testBit(9))  << 9)  |                 \
+    (static_cast<uint32_t>((inputMask).testBit(10)) << 10) |                 \
+    (static_cast<uint32_t>((inputMask).testBit(11)) << 11)                   \
+)
+
+    uint8_t playerPosition;
+    const uint16_t incrementOfPlayerAddress = 0xF30;
+    const uint8_t incrementOfAimAddr = 0x48;
+    uint32_t addrIsAltForm;
+    uint32_t addrLoadedSpecialWeapon;
+    uint32_t addrChosenHunter;
+    uint32_t addrWeaponChange;
+    uint32_t addrSelectedWeapon;
+    uint32_t addrJumpFlag;
+
+    uint32_t addrHavingWeapons;
+    uint32_t addrCurrentWeapon;
+
+    uint32_t addrBoostGauge;
+    uint32_t addrIsBoosting;
+
+    uint32_t addrWeaponAmmo;
+
+    // uint32_t isPrimeHunterAddr;
+
+
+    bool isRoundJustStarted;
+    bool isInAdventure;
+    bool isSamus;
+
+    bool isWeavel;
+    bool isPaused = false; // MelonPrimeDS
+
+    // The QPoint class defines a point in the plane using integer precision. 
+    // auto mouseRel = rawInputThread->fetchMouseDelta();
+    // QPoint mouseRel;
+
+    // Initialize Adjusted Center 
+
+
+    // test
+    // Lambda function to get adjusted center position based on window geometry and screen layout
+#ifndef STYLUS_MODE
+    static const auto getAdjustedCenter = [&]()__attribute__((hot, always_inline, flatten)) -> QPoint {
+        // Cache static constants outside the function to avoid recomputation
+        static constexpr float DEFAULT_ADJUSTMENT = 0.25f;
+        static constexpr float HYBRID_RIGHT = 0.333203125f;  // (2133-1280)/2560 = 85/256  = (n * 85) >> 8
+        static constexpr float HYBRID_LEFT = 0.166796875f;   // (1280-853)/2560 = 43/256  =  (n * 43) >> 8
+        static QPoint adjustedCenter;
+        static bool lastFullscreen = false;
+        static bool lastSwapped = false;
+        static int lastScreenSizing = -1;
+        static int lastLayout = -1;
+
+        auto& windowCfg = emuInstance->getMainWindow()->getWindowConfig();
+
+        // Fast access to current settings - get all at once
+        int currentLayout = windowCfg.GetInt("ScreenLayout");
+        int currentScreenSizing = windowCfg.GetInt("ScreenSizing");
+        bool currentSwapped = windowCfg.GetBool("ScreenSwap");
+        bool currentFullscreen = emuInstance->getMainWindow()->isFullScreen();
+
+        // Return cached value if settings haven't changed
+        if (currentLayout == lastLayout &&
+            currentScreenSizing == lastScreenSizing &&
+            currentSwapped == lastSwapped &&
+            currentFullscreen == lastFullscreen) {
+            return adjustedCenter;
+        }
+
+        // Update cached settings
+        lastLayout = currentLayout;
+        lastScreenSizing = currentScreenSizing;
+        lastSwapped = currentSwapped;
+        lastFullscreen = currentFullscreen;
+
+        // Get display dimensions once
+        const QRect& displayRect = emuInstance->getMainWindow()->panel->geometry();
+        const int displayWidth = displayRect.width();
+        const int displayHeight = displayRect.height();
+
+        // Calculate base center position
+        adjustedCenter = emuInstance->getMainWindow()->panel->mapToGlobal(
+            QPoint(displayWidth >> 1, displayHeight >> 1)
+        );
+
+        // Fast path for special cases
+        if (currentScreenSizing == screenSizing_TopOnly) {
+            return adjustedCenter;
+        }
+
+        if (currentScreenSizing == screenSizing_BotOnly) {
+            if (currentFullscreen) {
+                // Precompute constants to avoid repeated multiplications
+                const float widthAdjust = displayWidth * 0.4f;
+                const float heightAdjust = displayHeight * 0.4f;
+
+                adjustedCenter.rx() -= static_cast<int>(widthAdjust);
+                adjustedCenter.ry() -= static_cast<int>(heightAdjust);
+            }
+            return adjustedCenter;
+        }
+
+        // Fast path for Hybrid layout with swap
+        if (currentLayout == screenLayout_Hybrid && currentSwapped) {
+            // Directly compute result for this specific case
+            adjustedCenter.rx() += static_cast<int>(displayWidth * HYBRID_RIGHT);
+            adjustedCenter.ry() -= static_cast<int>(displayHeight * DEFAULT_ADJUSTMENT);
+            return adjustedCenter;
+        }
+
+        // For other cases, determine adjustment values
+        float xAdjust = 0.0f;
+        float yAdjust = 0.0f;
+
+        // Simplified switch with fewer branches
+        switch (currentLayout) {
+        case screenLayout_Natural:
+        case screenLayout_Vertical:
+            yAdjust = DEFAULT_ADJUSTMENT;
+            break;
+        case screenLayout_Horizontal:
+            xAdjust = DEFAULT_ADJUSTMENT;
+            break;
+        case screenLayout_Hybrid:
+            // We already handled the swapped case above
+            xAdjust = HYBRID_LEFT;
+            break;
+        }
+
+        // Apply non-zero adjustments only
+        if (xAdjust != 0.0f) {
+            // Using direct ternary operator instead of swapFactor variable
+            adjustedCenter.rx() += static_cast<int>(displayWidth * xAdjust * (currentSwapped ? 1.0f : -1.0f));
+        }
+
+        if (yAdjust != 0.0f) {
+            // Using direct ternary operator instead of swapFactor variable
+            adjustedCenter.ry() += static_cast<int>(displayHeight * yAdjust * (currentSwapped ? 1.0f : -1.0f));
+        }
+
+        return adjustedCenter;
+    };
+#endif
+
+
+    // processMoveInputFunction{
+        /**
+ * 移動入力処理 v6 最低遅延版.
+ *
+ *
+ * @note x86_64向けに分岐最小化とアクセス回数削減を徹底.
+         押しっぱなしでも移動できるようにすること。
+ *       snapTapモードじゃないときは、左右キーを同時押しで左右移動をストップしないといけない。上下キーも同様。
+ *       通常モードの同時押しキャンセルは LUT によってすでに表現されている」
+ *       snapTapの時は左を押しているときに右を押しても右移動できる。上下も同様。
+ *
+ *       読み取りはtestBitで確定値取得. 書き込みはsetBit/clearBitで確定反映.
+ *       snapTapの優先ロジックはビット演算で維持し、水平/垂直の競合は同値判定で分岐レスに処理.
+ *       通常モードの同時押しキャンセルは既存LUT表現を厳守.
+ *       snapTapでは新規押下が競合時に優先側を上書き保持.
+ * .
+ */
+    static const auto processMoveInput = [&](QBitArray& mask) __attribute__((hot, always_inline, flatten)) {
+        // 反転型マスクLUT定義(0=有効,1=無効 として各出力ビットのLSBを使用するための値で構成)
+        // (後続のLUTロード時のキャッシュ効率確保と即時抽出のため)
+        alignas(64) static constexpr uint32_t MaskLUT[16] = {
+            // 入力ビット配列: [bit0=UP, bit1=DOWN, bit2=LEFT, bit3=RIGHT]
+            // 各バイト順序: [UP(byte0), DOWN(byte1), LEFT(byte2), RIGHT(byte3)]
+            // 各バイトのLSB(1bit)のみ評価する構成
+            // 0000
+            0x0F0F0F0F,
+            // 0001
+            0x0F0F0F0E,
+            // 0010
+            0x0F0F0E0F,
+            // 0011 ←→キャンセル
+            0x0F0F0F0F,
+            // 0100
+            0x0F0E0F0F,
+            // 0101
+            0x0F0E0F0E,
+            // 0110
+            0x0F0E0E0F,
+            // 0111
+            0x0F0E0F0F,
+            // 1000
+            0x0E0F0F0F,
+            // 1001
+            0x0E0F0F0E,
+            // 1010
+            0x0E0F0E0F,
+            // 1011
+            0x0E0F0F0F,
+            // 1100 ↑↓キャンセル
+            0x0F0F0F0F,
+            // 1101
+            0x0F0F0F0E,
+            // 1110
+            0x0F0F0E0F,
+            // 1111 全キャンセル
+            0x0F0F0F0F
+        };
+
+        // SnapTap状態格納(下位8bit=直近入力, 上位8bit=優先保持)
+        // (フレーム間で切り替え優先度を維持するため)
+        static uint16_t snapState = 0;
+
+
+        const uint32_t f = MP_HK_DOWN(HK_MetroidMoveForward);
+        const uint32_t b = MP_HK_DOWN(HK_MetroidMoveBack);
+        const uint32_t l = MP_HK_DOWN(HK_MetroidMoveLeft);
+        const uint32_t r = MP_HK_DOWN(HK_MetroidMoveRight);
+
+        // 4方向の現在ビット生成(後段LUT索引用ビット圧縮のため)
+        const uint32_t curr = (f) | (b << 1) | (l << 2) | (r << 3);
+
+        // 通常モード判定(分岐予測命中率向上のため)
+        if (Q_LIKELY(!isSnapTapMode)) {
+            // LUTロード(即時マスク決定のため)
+            const uint32_t mb = MaskLUT[curr];
+
+            // 出力UP確定(LSB評価で分岐レス化のため)
+            (mb & 0x00000001) ? mask.setBit(INPUT_UP) : mask.clearBit(INPUT_UP);
+            // 出力DOWN確定(LSB評価で分岐レス化のため)
+            ((mb >> 8) & 0x01) ? mask.setBit(INPUT_DOWN) : mask.clearBit(INPUT_DOWN);
+            // 出力LEFT確定(LSB評価で分岐レス化のため)
+            ((mb >> 16) & 0x01) ? mask.setBit(INPUT_LEFT) : mask.clearBit(INPUT_LEFT);
+            // 出力RIGHT確定(LSB評価で分岐レス化のため)
+            ((mb >> 24) & 0x01) ? mask.setBit(INPUT_RIGHT) : mask.clearBit(INPUT_RIGHT);
+
+            // 早期return(無駄な計算回避のため)
+            return;
+        }
+
+        // 直近状態抽出(優先制御に使用するため)
+        const uint32_t last = snapState & 0xFFu;
+        // 優先保持抽出(競合時の優先を保持するため)
+        const uint32_t priority = snapState >> 8;
+
+        // 新規押下検出(前フレームとの差分抽出のため)
+        const uint32_t newPress = curr & ~last;
+
+        // 水平競合検出(== 3 を分岐レスで表現するため)
+        const uint32_t h3 = (curr & 0x3u);
+        // 水平競合マスク生成(完全一致時のみ3を返すため)
+        const uint32_t hConflict = (h3 ^ 0x3u) ? 0u : 0x3u;
+
+        // 垂直競合検出(== 12 を分岐レスで表現するため)
+        const uint32_t v12 = (curr & 0xCu);
+        // 垂直競合マスク生成(完全一致時のみ12を返すため)
+        const uint32_t vConflict = (v12 ^ 0xCu) ? 0u : 0xCu;
+
+        // 総合競合マスク作成(水平垂直の論理和で一括処理のため)
+        const uint32_t conflict = vConflict | hConflict;
+
+        // 競合発生時の更新フラグ生成(新規押下が競合線上に存在する場合のみ1化するため)
+        const uint32_t updateMask = -((newPress & conflict) != 0u);
+
+        // 新優先の計算(PR=既存優先を該当軸でクリアし、新規押下を該当軸のみで立てるため)
+        const uint32_t newPriority =
+            (priority & ~(conflict & updateMask)) | (newPress & conflict & updateMask);
+
+        // 現在入力に限定した優先(押下継続時のみ優先を有効化するため)
+        const uint32_t activePriority = newPriority & curr;
+
+        // 状態更新(次フレームの差分検出と優先保持のため)
+        snapState = static_cast<uint16_t>((curr & 0xFFu) | ((activePriority & 0xFFu) << 8));
+
+        // 競合軸の最終入力決定(非競合はそのまま、競合は優先側のみ残すため)
+        const uint32_t final = (curr & ~conflict) | (activePriority & conflict);
+
+        // LUTロード(確定入力をマスク出力に変換するため)
+        const uint32_t mb = MaskLUT[final];
+
+        // 出力UP確定(LSB評価で分岐レス化のため)
+        (mb & 0x00000001) ? mask.setBit(INPUT_UP) : mask.clearBit(INPUT_UP);
+        // 出力DOWN確定(LSB評価で分岐レス化のため)
+        ((mb >> 8) & 0x01) ? mask.setBit(INPUT_DOWN) : mask.clearBit(INPUT_DOWN);
+        // 出力LEFT確定(LSB評価で分岐レス化のため)
+        ((mb >> 16) & 0x01) ? mask.setBit(INPUT_LEFT) : mask.clearBit(INPUT_LEFT);
+        // 出力RIGHT確定(LSB評価で分岐レス化のため)
+        ((mb >> 24) & 0x01) ? mask.setBit(INPUT_RIGHT) : mask.clearBit(INPUT_RIGHT);
+    };
+
+    // /processMoveInputFunction }
+
+
+
+
+
+
  
+
+    /**
+     * Aim input processing (QCursor-based, structure-preserving, low-latency, drift-prevention version).
+     *
+     * @note Minimizes hot-path branching and reduces QPoint copying.
+     *       Sensitivity recalculation is performed only once via flag monitoring.
+     *       AIM_ADJUST is fixed as a safe single-evaluation macro with lightweight ±1 range snapping.
+     */
+    static const auto processAimInput = [&]() __attribute__((hot, always_inline, flatten)) {
+#ifndef STYLUS_MODE
+
+        // Define macro to prevent drift by rounding (single evaluation and snap within tolerance range)
+#define AIM_ADJUST(v)                                        \
+        ({                                                       \
+            /* Store input value (to prevent multiple evaluations) */ \
+            float _v = (v);                                      \
+            /* Convert to int scaled by 10 (make threshold comparison constant-domain) */ \
+            int _vi = static_cast<int>(_v * 10.001f);            \
+            /* Snap positive range (fix ±1 for values in 0.5–0.9 range) */ \
+            (_vi >= 5 && _vi <= 9) ? 1 :                         \
+            /* Snap negative range (fix ±1 for values in -0.9–-0.5 range) */ \
+            (_vi >= -9 && _vi <= -5) ? -1 :                      \
+            /* Otherwise truncate (to suppress drift) */         \
+            static_cast<int16_t>(_v);                            \
+        })
+
+// Hot path branch (fast processing when focus is maintained and layout is unchanged)
+#if defined(_WIN32)
+        // noIf
+#else
+        // Structure definition for aim processing (to improve cache locality)
+        struct alignas(64) {
+            // Store center X coordinate (maintain origin for delta calculation)
+            int centerX;
+            // Store center Y coordinate (maintain origin for delta calculation)
+            int centerY;
+        } static aimData = { 0, 0 };
+        if (Q_LIKELY(!isLayoutChangePending && wasLastFrameFocused))
+#endif
+        {
+            // フォーカス時かつレイアウト変更なしの場合の処理
+            int deltaX = 0, deltaY = 0;
+
+
+#if defined(_WIN32)
+            /* ==== Raw Input 経路==== */
+            do {
+                // 設定でRaw Inputが有効なら、WM_INPUT由来の相対デルタだけで処理して早期return
+                // emuInstance->osdAddMessage(0, "raw");
+
+                g_rawFilter->fetchMouseDelta(deltaX, deltaY);
+            } while (0);
+
+
+#else
+            // Get current mouse coordinates (for delta calculation input)
+            const QPoint currentPos = QCursor::pos();
+            // Extract X coordinate (early retrieval from QPoint)
+            const int posX = currentPos.x();
+            // Extract Y coordinate (early retrieval from QPoint)
+            const int posY = currentPos.y();
+
+            // Calculate X delta (preserve raw value before scaling)
+            deltaX = posX - aimData.centerX;
+            // Calculate Y delta (preserve raw value before scaling)
+            deltaY = posY - aimData.centerY;
+#endif
+
+            // Early exit if no movement (prevent unnecessary processing)
+            //if (!(deltaX | deltaY)) return;
+            if ((deltaX | deltaY) == 0) return;
+
+            // 係数は共有キャッシュから直接取得(ホットパスでの再計算排除のため)
+            const float scaledX = deltaX * gAimSensiFactor;
+            const float scaledY = deltaY * gAimCombinedY;
+
+            // NDS書き込み
+            emuInstance->nds->ARM9Write16(addrAimX, static_cast<int16_t>(AIM_ADJUST(scaledX)));
+            emuInstance->nds->ARM9Write16(addrAimY, static_cast<int16_t>(AIM_ADJUST(scaledY)));
+
+            // Set aim enable flag (for conditional processing downstream)
+            enableAim = true;
+
+
+#if defined(_WIN32)
+
+#else
+            // Return cursor to center (keep next delta calculation zero-based)
+            QCursor::setPos(aimData.centerX, aimData.centerY);
+#endif
+
+
+            // End processing (avoid unnecessary branching)
+            return;
+        }
+
+
+#if defined(_WIN32)
+
+#else
+        // Recalculate center coordinates (for layout changes and initialization)
+        const QPoint center = getAdjustedCenter();
+        // Update center X (set origin for next delta calculation)
+        aimData.centerX = center.x();
+        // Update center Y (set origin for next delta calculation)
+        aimData.centerY = center.y();
+
+        // Set initial cursor position (for visual consistency and zeroing delta)
+        QCursor::setPos(center);
+
+        // Clear layout change flag (to return to hot path)
+        isLayoutChangePending = false;
+
+#endif
+
+#else
+        // スタイラス押下分岐(タッチ入力直通処理のため)
+        if (Q_LIKELY(emuInstance->isTouching)) {
+            // タッチ送出(座標反映のため)
+            emuInstance->nds->TouchScreen(emuInstance->touchX, emuInstance->touchY);
+        }
+        // 非押下分岐(タッチ解放反映のため)
+        else {
+            // 画面解放(入力状態リセットのため)
+            emuInstance->nds->ReleaseScreen();
+        }
+#endif
+    };
+
+
 
 
     auto frameAdvanceOnce = [&]()  __attribute__((hot, always_inline, flatten)) {
@@ -955,16 +1497,15 @@ void EmuThread::run()
 
             // Only process if the value has actually changed
             if (newSensitivity != currentSensitivity) {
-                // Update the configuration with new value
+                // 設定更新(新しい値の永続化のため)
                 localCfg.SetInt("Metroid.Sensitivity.Aim", newSensitivity);
                 Config::Save();
-
-                // Display message using format string instead of concatenation
+                // OSD表示(ユーザー通知のため)
                 emuInstance->osdAddMessage(0, "AimSensi Updated: %d->%d", currentSensitivity, newSensitivity);
-				isSensitivityChangePending = true;  // フラグを立てる
+                // 即時再計算(ホットパスでのポーリング排除のため)
+                RecalcAimSensitivityCache(localCfg);
             }
             };
-
         // Optimize hotkey handling with a single expression
         {
             const int sensitivityChange =
@@ -1126,6 +1667,9 @@ void EmuThread::run()
             }
             else
             {
+                if (!isCursorMode) {
+                    processAimInput();
+                }
                 nlines = emuInstance->nds->RunFrame();
             }
 
@@ -1305,562 +1849,6 @@ void EmuThread::run()
         frameAdvanceOnce();
     };
 
-    // melonPrimeDS
-
-    bool isCursorVisible = true;
-    bool enableAim = true;
-    bool wasLastFrameFocused = false;
-
-    /**
-     * @brief Function to show or hide the cursor on MelonPrimeDS
-     *
-     * Controls the mouse cursor visibility state on MelonPrimeDS. Does nothing if
-     * the requested state is the same as the current state. When changing cursor
-     * visibility, uses Qt::QueuedConnection to safely execute on the UI thread.
-     *
-     * @param show true to show the cursor, false to hide it
-     */
-    auto showCursorOnMelonPrimeDS = [&](bool show) __attribute__((always_inline, flatten)) {
-        // Do nothing if the requested state is the same as current state (optimization)
-        if (show == isCursorVisible) return;
-
-        // Get and verify panel exists
-        auto* panel = emuInstance->getMainWindow()->panel;
-        if (!panel) return;
-
-        // Use Qt::QueuedConnection to safely execute on the UI thread
-        QMetaObject::invokeMethod(panel,
-            [panel, show]() {
-                // Set cursor visibility (normal ArrowCursor or invisible BlankCursor)
-                panel->setCursor(show ? Qt::ArrowCursor : Qt::BlankCursor);
-                if (show) {
-                    panel->unclip();
-                }
-                else {
-                    panel->clipCenter1px();
-                }
-            },
-            Qt::ConnectionType::QueuedConnection
-        );
-
-        // Record the state change
-        isCursorVisible = show;
-        };
-
-// #define STYLUS_MODE 1 // this is for stylus user. MelonEK
-
-#define INPUT_A 0
-#define INPUT_B 1
-#define INPUT_SELECT 2
-#define INPUT_START 3
-#define INPUT_RIGHT 4
-#define INPUT_LEFT 5
-#define INPUT_UP 6
-#define INPUT_DOWN 7
-#define INPUT_R 8
-#define INPUT_L 9
-#define INPUT_X 10
-#define INPUT_Y 11
-
-/*
-#define FN_INPUT_PRESS(i)   emuInstance->inputMask.setBit(i, false) // No semicolon at the end here
-#define FN_INPUT_RELEASE(i) emuInstance->inputMask.setBit(i, true)  // No semicolon at the end here
-
-// Optimized macro definitions - perform direct bit operations instead of using setBit()
-// #define FN_INPUT_PRESS(i)   emuInstance->inputMask[i] = false   // Direct assignment for press
-// #define FN_INPUT_RELEASE(i) emuInstance->inputMask[i] = true    // Direct assignment for release
-
-    /*
-#define PERFORM_TOUCH(x, y) do { \
-    emuInstance->nds->ReleaseScreen(); \
-    frameAdvanceTwice(); \
-    emuInstance->nds->TouchScreen(x, y); \
-    frameAdvanceTwice(); \
-} while(0)
-*/
-/*
-// 
-    static const auto PERFORM_TOUCH = [&](int x, int y) __attribute__((always_inline)) {
-        emuInstance->nds->ReleaseScreen();
-        frameAdvanceTwice();
-        emuInstance->nds->TouchScreen(x, y);
-        frameAdvanceTwice();
-    };
-    */
-
-    /**
-     * Macro to obtain a 12-bit input state from a QBitArray as a bitmask.
-     * Originally defined in EmuInstanceInput.cpp.
-     *
-     * @param input QBitArray (must have at least 12 bits).
-     * @return uint32_t Bitmask containing input state (bits 0–11).
-     */
-#define GET_INPUT_MASK(inputMask) (                                          \
-    (static_cast<uint32_t>((inputMask).testBit(0))  << 0)  |                 \
-    (static_cast<uint32_t>((inputMask).testBit(1))  << 1)  |                 \
-    (static_cast<uint32_t>((inputMask).testBit(2))  << 2)  |                 \
-    (static_cast<uint32_t>((inputMask).testBit(3))  << 3)  |                 \
-    (static_cast<uint32_t>((inputMask).testBit(4))  << 4)  |                 \
-    (static_cast<uint32_t>((inputMask).testBit(5))  << 5)  |                 \
-    (static_cast<uint32_t>((inputMask).testBit(6))  << 6)  |                 \
-    (static_cast<uint32_t>((inputMask).testBit(7))  << 7)  |                 \
-    (static_cast<uint32_t>((inputMask).testBit(8))  << 8)  |                 \
-    (static_cast<uint32_t>((inputMask).testBit(9))  << 9)  |                 \
-    (static_cast<uint32_t>((inputMask).testBit(10)) << 10) |                 \
-    (static_cast<uint32_t>((inputMask).testBit(11)) << 11)                   \
-)
-
-    uint8_t playerPosition;
-    const uint16_t incrementOfPlayerAddress = 0xF30;
-    const uint8_t incrementOfAimAddr = 0x48;
-    uint32_t addrIsAltForm;
-    uint32_t addrLoadedSpecialWeapon;
-    uint32_t addrChosenHunter;
-    uint32_t addrWeaponChange;
-    uint32_t addrSelectedWeapon;
-    uint32_t addrJumpFlag;
-
-    uint32_t addrHavingWeapons;
-    uint32_t addrCurrentWeapon;
-
-    uint32_t addrBoostGauge;
-    uint32_t addrIsBoosting;
-
-    uint32_t addrWeaponAmmo;
-
-    // uint32_t isPrimeHunterAddr;
-
-
-    bool isRoundJustStarted;
-    bool isInAdventure;
-    bool isSamus;
-
-    bool isWeavel;
-    bool isPaused = false; // MelonPrimeDS
-
-    // The QPoint class defines a point in the plane using integer precision. 
-    // auto mouseRel = rawInputThread->fetchMouseDelta();
-    // QPoint mouseRel;
-
-    // Initialize Adjusted Center 
-
-
-    // test
-    // Lambda function to get adjusted center position based on window geometry and screen layout
-#ifndef STYLUS_MODE
-    static const auto getAdjustedCenter = [&]()__attribute__((hot, always_inline, flatten)) -> QPoint {
-        // Cache static constants outside the function to avoid recomputation
-        static constexpr float DEFAULT_ADJUSTMENT = 0.25f;
-        static constexpr float HYBRID_RIGHT = 0.333203125f;  // (2133-1280)/2560 = 85/256  = (n * 85) >> 8
-        static constexpr float HYBRID_LEFT = 0.166796875f;   // (1280-853)/2560 = 43/256  =  (n * 43) >> 8
-        static QPoint adjustedCenter;
-        static bool lastFullscreen = false;
-        static bool lastSwapped = false;
-        static int lastScreenSizing = -1;
-        static int lastLayout = -1;
-
-        auto& windowCfg = emuInstance->getMainWindow()->getWindowConfig();
-
-        // Fast access to current settings - get all at once
-        int currentLayout = windowCfg.GetInt("ScreenLayout");
-        int currentScreenSizing = windowCfg.GetInt("ScreenSizing");
-        bool currentSwapped = windowCfg.GetBool("ScreenSwap");
-        bool currentFullscreen = emuInstance->getMainWindow()->isFullScreen();
-
-        // Return cached value if settings haven't changed
-        if (currentLayout == lastLayout &&
-            currentScreenSizing == lastScreenSizing &&
-            currentSwapped == lastSwapped &&
-            currentFullscreen == lastFullscreen) {
-            return adjustedCenter;
-        }
-
-        // Update cached settings
-        lastLayout = currentLayout;
-        lastScreenSizing = currentScreenSizing;
-        lastSwapped = currentSwapped;
-        lastFullscreen = currentFullscreen;
-
-        // Get display dimensions once
-        const QRect& displayRect = emuInstance->getMainWindow()->panel->geometry();
-        const int displayWidth = displayRect.width();
-        const int displayHeight = displayRect.height();
-
-        // Calculate base center position
-        adjustedCenter = emuInstance->getMainWindow()->panel->mapToGlobal(
-            QPoint(displayWidth >> 1, displayHeight >> 1)
-        );
-
-        // Fast path for special cases
-        if (currentScreenSizing == screenSizing_TopOnly) {
-            return adjustedCenter;
-        }
-
-        if (currentScreenSizing == screenSizing_BotOnly) {
-            if (currentFullscreen) {
-                // Precompute constants to avoid repeated multiplications
-                const float widthAdjust = displayWidth * 0.4f;
-                const float heightAdjust = displayHeight * 0.4f;
-
-                adjustedCenter.rx() -= static_cast<int>(widthAdjust);
-                adjustedCenter.ry() -= static_cast<int>(heightAdjust);
-            }
-            return adjustedCenter;
-        }
-
-        // Fast path for Hybrid layout with swap
-        if (currentLayout == screenLayout_Hybrid && currentSwapped) {
-            // Directly compute result for this specific case
-            adjustedCenter.rx() += static_cast<int>(displayWidth * HYBRID_RIGHT);
-            adjustedCenter.ry() -= static_cast<int>(displayHeight * DEFAULT_ADJUSTMENT);
-            return adjustedCenter;
-        }
-
-        // For other cases, determine adjustment values
-        float xAdjust = 0.0f;
-        float yAdjust = 0.0f;
-
-        // Simplified switch with fewer branches
-        switch (currentLayout) {
-        case screenLayout_Natural:
-        case screenLayout_Vertical:
-            yAdjust = DEFAULT_ADJUSTMENT;
-            break;
-        case screenLayout_Horizontal:
-            xAdjust = DEFAULT_ADJUSTMENT;
-            break;
-        case screenLayout_Hybrid:
-            // We already handled the swapped case above
-            xAdjust = HYBRID_LEFT;
-            break;
-        }
-
-        // Apply non-zero adjustments only
-        if (xAdjust != 0.0f) {
-            // Using direct ternary operator instead of swapFactor variable
-            adjustedCenter.rx() += static_cast<int>(displayWidth * xAdjust * (currentSwapped ? 1.0f : -1.0f));
-        }
-
-        if (yAdjust != 0.0f) {
-            // Using direct ternary operator instead of swapFactor variable
-            adjustedCenter.ry() += static_cast<int>(displayHeight * yAdjust * (currentSwapped ? 1.0f : -1.0f));
-        }
-
-        return adjustedCenter;
-        };
-#endif
-
-
-    // processMoveInputFunction{
-        /**
- * 移動入力処理 v6 最低遅延版.
- *
- *
- * @note x86_64向けに分岐最小化とアクセス回数削減を徹底.
-         押しっぱなしでも移動できるようにすること。
- *       snapTapモードじゃないときは、左右キーを同時押しで左右移動をストップしないといけない。上下キーも同様。
- *       通常モードの同時押しキャンセルは LUT によってすでに表現されている」
- *       snapTapの時は左を押しているときに右を押しても右移動できる。上下も同様。
- * 
- *       読み取りはtestBitで確定値取得. 書き込みはsetBit/clearBitで確定反映.
- *       snapTapの優先ロジックはビット演算で維持し、水平/垂直の競合は同値判定で分岐レスに処理.
- *       通常モードの同時押しキャンセルは既存LUT表現を厳守.
- *       snapTapでは新規押下が競合時に優先側を上書き保持.
- * .
- */
-        static const auto processMoveInput = [&](QBitArray& mask) __attribute__((hot, always_inline, flatten)) {
-            // 反転型マスクLUT定義(0=有効,1=無効 として各出力ビットのLSBを使用するための値で構成)
-            // (後続のLUTロード時のキャッシュ効率確保と即時抽出のため)
-            alignas(64) static constexpr uint32_t MaskLUT[16] = {
-                // 入力ビット配列: [bit0=UP, bit1=DOWN, bit2=LEFT, bit3=RIGHT]
-                // 各バイト順序: [UP(byte0), DOWN(byte1), LEFT(byte2), RIGHT(byte3)]
-                // 各バイトのLSB(1bit)のみ評価する構成
-                // 0000
-                0x0F0F0F0F,
-                // 0001
-                0x0F0F0F0E,
-                // 0010
-                0x0F0F0E0F,
-                // 0011 ←→キャンセル
-                0x0F0F0F0F,
-                // 0100
-                0x0F0E0F0F,
-                // 0101
-                0x0F0E0F0E,
-                // 0110
-                0x0F0E0E0F,
-                // 0111
-                0x0F0E0F0F,
-                // 1000
-                0x0E0F0F0F,
-                // 1001
-                0x0E0F0F0E,
-                // 1010
-                0x0E0F0E0F,
-                // 1011
-                0x0E0F0F0F,
-                // 1100 ↑↓キャンセル
-                0x0F0F0F0F,
-                // 1101
-                0x0F0F0F0E,
-                // 1110
-                0x0F0F0E0F,
-                // 1111 全キャンセル
-                0x0F0F0F0F
-            };
-
-            // SnapTap状態格納(下位8bit=直近入力, 上位8bit=優先保持)
-            // (フレーム間で切り替え優先度を維持するため)
-            static uint16_t snapState = 0;
-
-
-            const uint32_t f = MP_HK_DOWN(HK_MetroidMoveForward);
-            const uint32_t b = MP_HK_DOWN(HK_MetroidMoveBack);
-            const uint32_t l = MP_HK_DOWN(HK_MetroidMoveLeft);
-            const uint32_t r = MP_HK_DOWN(HK_MetroidMoveRight);
-
-            // 4方向の現在ビット生成(後段LUT索引用ビット圧縮のため)
-            const uint32_t curr = (f) | (b << 1) | (l << 2) | (r << 3);
-
-            // 通常モード判定(分岐予測命中率向上のため)
-            if (Q_LIKELY(!isSnapTapMode)) {
-                // LUTロード(即時マスク決定のため)
-                const uint32_t mb = MaskLUT[curr];
-
-                // 出力UP確定(LSB評価で分岐レス化のため)
-                (mb & 0x00000001) ? mask.setBit(INPUT_UP) : mask.clearBit(INPUT_UP);
-                // 出力DOWN確定(LSB評価で分岐レス化のため)
-                ((mb >> 8) & 0x01) ? mask.setBit(INPUT_DOWN) : mask.clearBit(INPUT_DOWN);
-                // 出力LEFT確定(LSB評価で分岐レス化のため)
-                ((mb >> 16) & 0x01) ? mask.setBit(INPUT_LEFT) : mask.clearBit(INPUT_LEFT);
-                // 出力RIGHT確定(LSB評価で分岐レス化のため)
-                ((mb >> 24) & 0x01) ? mask.setBit(INPUT_RIGHT) : mask.clearBit(INPUT_RIGHT);
-
-                // 早期return(無駄な計算回避のため)
-                return;
-            }
-
-            // 直近状態抽出(優先制御に使用するため)
-            const uint32_t last = snapState & 0xFFu;
-            // 優先保持抽出(競合時の優先を保持するため)
-            const uint32_t priority = snapState >> 8;
-
-            // 新規押下検出(前フレームとの差分抽出のため)
-            const uint32_t newPress = curr & ~last;
-
-            // 水平競合検出(== 3 を分岐レスで表現するため)
-            const uint32_t h3 = (curr & 0x3u);
-            // 水平競合マスク生成(完全一致時のみ3を返すため)
-            const uint32_t hConflict = (h3 ^ 0x3u) ? 0u : 0x3u;
-
-            // 垂直競合検出(== 12 を分岐レスで表現するため)
-            const uint32_t v12 = (curr & 0xCu);
-            // 垂直競合マスク生成(完全一致時のみ12を返すため)
-            const uint32_t vConflict = (v12 ^ 0xCu) ? 0u : 0xCu;
-
-            // 総合競合マスク作成(水平垂直の論理和で一括処理のため)
-            const uint32_t conflict = vConflict | hConflict;
-
-            // 競合発生時の更新フラグ生成(新規押下が競合線上に存在する場合のみ1化するため)
-            const uint32_t updateMask = -((newPress & conflict) != 0u);
-
-            // 新優先の計算(PR=既存優先を該当軸でクリアし、新規押下を該当軸のみで立てるため)
-            const uint32_t newPriority =
-                (priority & ~(conflict & updateMask)) | (newPress & conflict & updateMask);
-
-            // 現在入力に限定した優先(押下継続時のみ優先を有効化するため)
-            const uint32_t activePriority = newPriority & curr;
-
-            // 状態更新(次フレームの差分検出と優先保持のため)
-            snapState = static_cast<uint16_t>((curr & 0xFFu) | ((activePriority & 0xFFu) << 8));
-
-            // 競合軸の最終入力決定(非競合はそのまま、競合は優先側のみ残すため)
-            const uint32_t final = (curr & ~conflict) | (activePriority & conflict);
-
-            // LUTロード(確定入力をマスク出力に変換するため)
-            const uint32_t mb = MaskLUT[final];
-
-            // 出力UP確定(LSB評価で分岐レス化のため)
-            (mb & 0x00000001) ? mask.setBit(INPUT_UP) : mask.clearBit(INPUT_UP);
-            // 出力DOWN確定(LSB評価で分岐レス化のため)
-            ((mb >> 8) & 0x01) ? mask.setBit(INPUT_DOWN) : mask.clearBit(INPUT_DOWN);
-            // 出力LEFT確定(LSB評価で分岐レス化のため)
-            ((mb >> 16) & 0x01) ? mask.setBit(INPUT_LEFT) : mask.clearBit(INPUT_LEFT);
-            // 出力RIGHT確定(LSB評価で分岐レス化のため)
-            ((mb >> 24) & 0x01) ? mask.setBit(INPUT_RIGHT) : mask.clearBit(INPUT_RIGHT);
-        };
-
-    // /processMoveInputFunction }
-
-    /**
-     * Aim input processing (QCursor-based, structure-preserving, low-latency, drift-prevention version).
-     *
-     * @note Minimizes hot-path branching and reduces QPoint copying.
-     *       Sensitivity recalculation is performed only once via flag monitoring.
-     *       AIM_ADJUST is fixed as a safe single-evaluation macro with lightweight ±1 range snapping.
-     */
-    static const auto processAimInput = [&]() __attribute__((hot, always_inline, flatten)) {
-#ifndef STYLUS_MODE
-        // Structure definition for aim processing (to improve cache locality)
-        struct alignas(64) {
-            // Store center X coordinate (maintain origin for delta calculation)
-            int centerX;
-            // Store center Y coordinate (maintain origin for delta calculation)
-            int centerY;
-            // Store X-axis sensitivity factor (speed up scaling)
-            float sensitivityFactor;
-            // Store combined Y-axis sensitivity (reduce multiplication operations)
-            float combinedSensitivityY;
-        } static aimData = { 0, 0, 0.01f, 0.013333333f };
-
-        // 感度更新マクロ定義(重複コード排除と単一責務化のため)
-#define UPDATE_SENSITIVITY(localCfg, aimData, isSensitivityChangePending)               \
-    do {                                                                               \
-        /* 変更待ち判定(不要計算回避のため) */                                         \
-        if (Q_UNLIKELY(isSensitivityChangePending)) {                         \
-            /* 感度値取得(設定値を適用するため) */                                     \
-            const int sens = (localCfg).GetInt("Metroid.Sensitivity.Aim");             \
-            /* Y軸倍率取得(ユーザー設定を反映するため) */                              \
-            const float aimYAxisScale = static_cast<float>(                           \
-                (localCfg).GetDouble("Metroid.Sensitivity.AimYAxisScale")              \
-            );                                                                         \
-            /* X感度更新(スケーリング係数を設定するため) */                           \
-            (aimData).sensitivityFactor = sens * 0.01f;                                \
-            /* Y感度更新(X感度との積で計算を簡略化するため) */                         \
-            (aimData).combinedSensitivityY = (aimData).sensitivityFactor * aimYAxisScale; \
-            /* フラグクリア(冗長な再計算を防ぐため) */                                \
-            isSensitivityChangePending = false;                                        \
-        }                                                                              \
-    } while (0)
-
-        // Define macro to prevent drift by rounding (single evaluation and snap within tolerance range)
-#define AIM_ADJUST(v)                                        \
-        ({                                                       \
-            /* Store input value (to prevent multiple evaluations) */ \
-            float _v = (v);                                      \
-            /* Convert to int scaled by 10 (make threshold comparison constant-domain) */ \
-            int _vi = static_cast<int>(_v * 10.001f);            \
-            /* Snap positive range (fix ±1 for values in 0.5–0.9 range) */ \
-            (_vi >= 5 && _vi <= 9) ? 1 :                         \
-            /* Snap negative range (fix ±1 for values in -0.9–-0.5 range) */ \
-            (_vi >= -9 && _vi <= -5) ? -1 :                      \
-            /* Otherwise truncate (to suppress drift) */         \
-            static_cast<int16_t>(_v);                            \
-        })
-
-
-
-// Hot path branch (fast processing when focus is maintained and layout is unchanged)
-#if defined(_WIN32)
-        // noIf
-#else
-        if (Q_LIKELY(!isLayoutChangePending && wasLastFrameFocused))
-#endif
-        {
-            // フォーカス時かつレイアウト変更なしの場合の処理
-            int deltaX = 0, deltaY = 0;
-
-
-#if defined(_WIN32)
-            /* ==== Raw Input 経路==== */
-            do {
-                // 設定でRaw Inputが有効なら、WM_INPUT由来の相対デルタだけで処理して早期return
-                // emuInstance->osdAddMessage(0, "raw");
-
-                g_rawFilter->fetchMouseDelta(deltaX, deltaY);
-            } while (0);
-
-
-#else
-            // Get current mouse coordinates (for delta calculation input)
-            const QPoint currentPos = QCursor::pos();
-            // Extract X coordinate (early retrieval from QPoint)
-            const int posX = currentPos.x();
-            // Extract Y coordinate (early retrieval from QPoint)
-            const int posY = currentPos.y();
-
-            // Calculate X delta (preserve raw value before scaling)
-            deltaX = posX - aimData.centerX;
-            // Calculate Y delta (preserve raw value before scaling)
-            deltaY = posY - aimData.centerY;
-#endif
-
-            // Early exit if no movement (prevent unnecessary processing)
-            //if (!(deltaX | deltaY)) return;
-            if ((deltaX | deltaY) == 0) return;
-
-            // 感度更新呼び出し(フラグ監視により一度だけ再計算するため)
-            // 感度更新実行(必要なときだけ再計算するため)
-            UPDATE_SENSITIVITY(localCfg, aimData, isSensitivityChangePending);
-
-            // Calculate X scaling (apply sensitivity)
-            const float scaledX = deltaX * aimData.sensitivityFactor;
-            // Calculate Y scaling (apply sensitivity)
-            const float scaledY = deltaY * aimData.combinedSensitivityY;
-
-            // Calculate X output adjustment (prevent drift and snap to ±1)
-            const int16_t outputX = AIM_ADJUST(scaledX);
-            // Calculate Y output adjustment (prevent drift and snap to ±1)
-            const int16_t outputY = AIM_ADJUST(scaledY);
-
-
-            // NDS書き込み（ndsポインタ一時化で間接参照削減）
-            // static NDS* const __restrict nds = emuInstance->nds;
-            emuInstance->nds->ARM9Write16(addrAimX, outputX);
-            emuInstance->nds->ARM9Write16(addrAimY, outputY);
-
-            // Set aim enable flag (for conditional processing downstream)
-            enableAim = true;
-
-
-#if defined(_WIN32)
-
-#else
-            // Return cursor to center (keep next delta calculation zero-based)
-            QCursor::setPos(aimData.centerX, aimData.centerY);
-#endif
-
-
-            // End processing (avoid unnecessary branching)
-            return;
-        }
-
-
-#if defined(_WIN32)
-
-#else
-        // Recalculate center coordinates (for layout changes and initialization)
-        const QPoint center = getAdjustedCenter();
-        // Update center X (set origin for next delta calculation)
-        aimData.centerX = center.x();
-        // Update center Y (set origin for next delta calculation)
-        aimData.centerY = center.y();
-
-        // Set initial cursor position (for visual consistency and zeroing delta)
-        QCursor::setPos(center);
-
-        // Clear layout change flag (to return to hot path)
-        isLayoutChangePending = false;
-
-        // 感度更新呼び出し(設定変更を即時反映するため)
-        UPDATE_SENSITIVITY(localCfg, aimData, isSensitivityChangePending);
-
-#endif
-
-#else
-        // スタイラス押下分岐(タッチ入力直通処理のため)
-        if (Q_LIKELY(emuInstance->isTouching)) {
-            // タッチ送出(座標反映のため)
-            emuInstance->nds->TouchScreen(emuInstance->touchX, emuInstance->touchY);
-        }
-        // 非押下分岐(タッチ解放反映のため)
-        else {
-            // 画面解放(入力状態リセットのため)
-            emuInstance->nds->ReleaseScreen();
-        }
-#endif
-    };
-
 
 
     // Define a lambda function to switch weapons
@@ -1944,11 +1932,7 @@ void EmuThread::run()
 
         }
 
-        };
-
-
-
-
+    };
 
     while (emuStatus != emuStatus_Exit) {
 
@@ -2060,9 +2044,7 @@ void EmuThread::run()
                     }
                     */
 
-                    if (!isCursorMode) {
-                        processAimInput();
-                    }
+
 
                     // Move hunter
                     processMoveInput(inputMask);
@@ -2578,7 +2560,6 @@ void EmuThread::handleMessages()
                 // reset Settings when unPaused
                 isSnapTapMode = emuInstance->getLocalConfig().GetBool("Metroid.Operation.SnapTap"); // SnapTapリセット用
                 isUnlockMapsHuntersApplied = false; // Unlockリセット用
-                isSensitivityChangePending = true; // Aim感度リセット用
                 // lastMphSensitivity = std::numeric_limits<double>::quiet_NaN(); // Mph感度リセット用
                 isHeadphoneApplied = false; // ヘッドフォンリセット用
 

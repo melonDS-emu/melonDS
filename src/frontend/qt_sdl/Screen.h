@@ -83,7 +83,7 @@ public:
     }
 
 public slots:
-    void clipCenter1px();
+    void clipCursorCenter1px();
     void unclip();
     void updateClipIfNeeded();
     /* MelonPrimeDS } */
