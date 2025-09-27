@@ -74,7 +74,8 @@ int getEventKeyVal(QKeyEvent* event);
 class EmuInstance
 {
 public:
-    EmuInstance(int inst);
+    EmuInstance(int inst, bool createMainWindow = true);
+
     ~EmuInstance();
 
     int getInstanceID() { return instanceID; }
@@ -135,6 +136,11 @@ public:
     void setJoystick(int id);
     int getJoystickID() { return joystickID; }
     SDL_Joystick* getJoystick() { return joystick; }
+    bool IsHeadless() { return headless; }
+    void RegisterNetplayDS(int id) { netplayID = id; }
+
+    void releaseScreen();
+    void touchScreen(int x, int y);
 
 private:
     static int lastSep(const std::string& path);
@@ -220,6 +226,9 @@ private:
     bool hotkeyReleased(int id) { return hotkeyRelease & (1<<id); }
 
     bool deleting;
+
+    bool headless;
+    int netplayID; // -1 is none, 0 >= is the netplay DS number
 
     int instanceID;
 
@@ -307,6 +316,9 @@ private:
     melonDS::u32 hotkeyPress, hotkeyRelease;
 
     melonDS::u32 inputMask;
+
+    bool isTouching;
+    melonDS::u16 touchX, touchY;
 
     friend class EmuThread;
     friend class MainWindow;
