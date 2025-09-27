@@ -65,11 +65,14 @@ const string kWifiSettingsPath = "wfcsettings.bin";
 extern Net net;
 
 
-EmuInstance::EmuInstance(int inst) : deleting(false),
+EmuInstance::EmuInstance(int inst, bool createMainWindow) : deleting(false),
     instanceID(inst),
     globalCfg(Config::GetGlobalTable()),
     localCfg(Config::GetLocalTable(inst))
 {
+    headless = !createMainWindow;
+    netplayID = -1;
+
     consoleType = globalCfg.GetInt("Emu.ConsoleType");
 
     ndsSave = nullptr;
@@ -144,6 +147,8 @@ std::string EmuInstance::instanceFileSuffix()
 
 void EmuInstance::createWindow()
 {
+    if (IsHeadless()) return;
+
     if (numWindows >= kMaxWindows)
     {
         // TODO
@@ -257,12 +262,14 @@ void EmuInstance::emuStop(StopReason reason)
 
 bool EmuInstance::usesOpenGL()
 {
-    return globalCfg.GetBool("Screen.UseGL") ||
-           (globalCfg.GetInt("3D.Renderer") != renderer3D_Software);
+    return !IsHeadless() && (globalCfg.GetBool("Screen.UseGL") ||
+           (globalCfg.GetInt("3D.Renderer") != renderer3D_Software));
 }
 
 void EmuInstance::initOpenGL()
 {
+    if (IsHeadless()) return;
+
     for (int i = 0; i < kMaxWindows; i++)
     {
         if (windowList[i])
@@ -300,11 +307,15 @@ void EmuInstance::setVSyncGL(bool vsync)
 
 void EmuInstance::makeCurrentGL()
 {
+    if (IsHeadless()) return;
+
     mainWindow->makeCurrentGL();
 }
 
 void EmuInstance::drawScreenGL()
 {
+    if (IsHeadless()) return;
+
     for (int i = 0; i < kMaxWindows; i++)
     {
         if (windowList[i])
@@ -1259,7 +1270,7 @@ bool EmuInstance::updateConsole(UpdateConsoleNDSArgs&& _ndsargs, UpdateConsoleGB
 void EmuInstance::reset()
 {
     consoleType = globalCfg.GetInt("Emu.ConsoleType");
-    
+
     updateConsole(Keep {}, Keep {});
 
     if (consoleType == 1) ejectGBACart();

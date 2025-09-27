@@ -62,6 +62,8 @@ const char* EmuInstance::hotkeyNames[HK_MAX] =
 
 void EmuInstance::inputInit()
 {
+    if (IsHeadless()) return;
+
     keyInputMask = 0xFFF;
     joyInputMask = 0xFFF;
     inputMask = 0xFFF;
@@ -312,6 +314,8 @@ bool EmuInstance::joystickButtonDown(int val)
 
 void EmuInstance::inputProcess()
 {
+    if (IsHeadless()) return;
+
     SDL_JoystickUpdate();
 
     if (joystick)
@@ -349,4 +353,16 @@ void EmuInstance::inputProcess()
     hotkeyPress = hotkeyMask & ~lastHotkeyMask;
     hotkeyRelease = lastHotkeyMask & ~hotkeyMask;
     lastHotkeyMask = hotkeyMask;
+}
+
+void EmuInstance::touchScreen(int x, int y)
+{
+    touchX = x;
+    touchY = y;
+    isTouching = true;
+}
+
+void EmuInstance::releaseScreen()
+{
+    isTouching = false;
 }

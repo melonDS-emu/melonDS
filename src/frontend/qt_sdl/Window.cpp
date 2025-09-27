@@ -444,13 +444,13 @@ MainWindow::MainWindow(int id, EmuInstance* inst, QWidget* parent) :
 
             submenu->addSeparator();
 
-            actNPStartHost = submenu->addAction("NETPLAY HOST");
+            actNPStartHost = submenu->addAction("Host Netplay game");
             connect(actNPStartHost, &QAction::triggered, this, &MainWindow::onNPStartHost);
 
-            actNPStartClient = submenu->addAction("NETPLAY CLIENT");
+            actNPStartClient = submenu->addAction("Join Netplay game");
             connect(actNPStartClient, &QAction::triggered, this, &MainWindow::onNPStartClient);
 
-            actNPTest = submenu->addAction("NETPLAY GO");
+            actNPTest = submenu->addAction("Start Netplay game");
             connect(actNPTest, &QAction::triggered, this, &MainWindow::onNPTest);
         }
     }
@@ -1020,7 +1020,7 @@ bool MainWindow::preloadROMs(QStringList file, QStringList gbafile, bool boot)
     if (!file.isEmpty())
     {
         if (!emuInstance->loadROM(file, true)) return false;
-        
+
         recentFileList.removeAll(file.join("|"));
         recentFileList.prepend(file.join("|"));
         updateRecentFilesMenu();
@@ -1223,7 +1223,7 @@ void MainWindow::onOpenFile()
         emuThread->emuUnpause();
         return;
     }
-    
+
     if (!emuInstance->loadROM(file, true))
     {
         emuThread->emuUnpause();
@@ -1322,7 +1322,7 @@ void MainWindow::onClickRecentFile()
         emuThread->emuUnpause();
         return;
     }
-    
+
     if (!emuInstance->loadROM(file, true))
     {
         emuThread->emuUnpause();
@@ -1792,6 +1792,30 @@ bool MainWindow::netplayWarning(bool host)
 
     if (doStop) emuThread->emuStop(true);
     if (doDelInstances) deleteAllEmuInstances(1);
+
+    // hack: create function to allow interaction with frontend
+    OnStartEmulatorThread = [this]()
+    {
+        deleteAllEmuInstances(1);
+
+        auto &netplay = (Netplay&)MPInterface::Get();
+
+        // start local ds
+        EmuInstance *localEmuInstance = ((MainWindow*)this)->getEmuInstance();
+        localEmuInstance->RegisterNetplayDS(0); // register the local ds
+        localEmuInstance->nds->Start();
+        localEmuInstance->getEmuThread()->emuRun();
+        return; // todo DEV just to test with 1 ds, since it's so far more stable
+
+        // create and start the new ds'
+        for (int i = 1; i < netplay.GetNumPlayers(); ++i)
+        {
+            EmuInstance *emuInstance = new EmuInstance(i, false);
+            emuInstance->RegisterNetplayDS(i);
+            emuInstance->nds->Start();
+            emuInstance->getEmuThread()->emuRun();
+        }
+    };
 
     return true;
 }

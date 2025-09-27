@@ -270,6 +270,8 @@ void EmuInstance::micLoadWav(const std::string& name)
 
 void EmuInstance::micProcess()
 {
+    if (IsHeadless()) return;
+
     int type = micInputType;
     bool cmd = hotkeyDown(HK_Mic);
 
@@ -368,6 +370,8 @@ void EmuInstance::setupMicInputData()
 
 void EmuInstance::audioInit()
 {
+    if (IsHeadless()) return;
+
     audioVolume = localCfg.GetInt("Audio.Volume");
     audioDSiVolumeSync = localCfg.GetBool("Audio.DSiVolumeSync");
 

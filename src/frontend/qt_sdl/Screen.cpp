@@ -77,7 +77,7 @@ ScreenPanel::ScreenPanel(QWidget* parent) : QWidget(parent)
 
     osdEnabled = false;
     osdID = 1;
-    
+
     loadConfig();
     setFilter(mainWindow->getWindowConfig().GetBool("ScreenFilter"));
 }
@@ -91,7 +91,7 @@ ScreenPanel::~ScreenPanel()
 void ScreenPanel::loadConfig()
 {
     auto& cfg = mainWindow->getWindowConfig();
-    
+
     screenRotation = cfg.GetInt("ScreenRotation");
     screenGap = cfg.GetInt("ScreenGap");
     screenLayout = cfg.GetInt("ScreenLayout");
@@ -231,7 +231,7 @@ void ScreenPanel::mousePressEvent(QMouseEvent* event)
     {
         touching = true;
         assert(emuInstance->getNDS() != nullptr);
-        emuInstance->getNDS()->TouchScreen(x, y);
+        emuInstance->touchScreen(x, y);
     }
 }
 
@@ -244,7 +244,7 @@ void ScreenPanel::mouseReleaseEvent(QMouseEvent* event)
     {
         touching = false;
         assert(emuInstance->getNDS() != nullptr);
-        emuInstance->getNDS()->ReleaseScreen();
+        emuInstance->releaseScreen();
     }
 }
 
@@ -263,7 +263,7 @@ void ScreenPanel::mouseMoveEvent(QMouseEvent* event)
     if (layout.GetTouchCoords(x, y, true))
     {
         assert(emuInstance->getNDS() != nullptr);
-        emuInstance->getNDS()->TouchScreen(x, y);
+        emuInstance->touchScreen(x, y);
     }
 }
 
@@ -288,7 +288,7 @@ void ScreenPanel::tabletEvent(QTabletEvent* event)
             {
                 touching = true;
                 assert(emuInstance->getNDS() != nullptr);
-                emuInstance->getNDS()->TouchScreen(x, y);
+                emuInstance->touchScreen(x, y);
             }
         }
         break;
@@ -296,7 +296,7 @@ void ScreenPanel::tabletEvent(QTabletEvent* event)
         if (touching)
         {
             assert(emuInstance->getNDS() != nullptr);
-            emuInstance->getNDS()->ReleaseScreen();
+            emuInstance->releaseScreen();
             touching = false;
         }
         break;
@@ -334,7 +334,7 @@ void ScreenPanel::touchEvent(QTouchEvent* event)
             {
                 touching = true;
                 assert(emuInstance->getNDS() != nullptr);
-                emuInstance->getNDS()->TouchScreen(x, y);
+                emuInstance->touchScreen(x, y);
             }
         }
         break;
@@ -342,7 +342,7 @@ void ScreenPanel::touchEvent(QTouchEvent* event)
         if (touching)
         {
             assert(emuInstance->getNDS() != nullptr);
-            emuInstance->getNDS()->ReleaseScreen();
+            emuInstance->releaseScreen();
             touching = false;
         }
         break;
