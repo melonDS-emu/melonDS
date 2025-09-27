@@ -936,7 +936,8 @@ void Netplay::ReceiveInputs(ENetEvent &event)
     size_t remaining = dataSize - sizeof(InputReport);
     size_t entryCount = remaining / sizeof(InputFrame);
 
-    InputHistory[1].clear();
+    auto &playerHistory = InputHistory[1];
+    playerHistory.clear();
     for (size_t i = 0; i < entryCount; ++i) {
         const InputFrame* netFrame = reinterpret_cast<const InputFrame*>(ptr);
 
@@ -947,9 +948,63 @@ void Netplay::ReceiveInputs(ENetEvent &event)
         frame.TouchX   = netFrame->TouchX;
         frame.TouchY   = netFrame->TouchY;
 
-        InputHistory[1][frame.FrameNum] = frame;
+        playerHistory[frame.FrameNum] = frame;
 
         ptr += sizeof(InputFrame);
+    }
+    if (playerHistory.find(PendingFrame.FrameNum) == playerHistory.end())
+    {
+        printf("got an update frame from the other player, but it didn't have the frame we wanted!\n");
+    }
+
+    // check if we have the frames we were missing before
+    if (PendingFrame.Active)
+    {
+        std::clock_t start = std::clock();
+
+        auto &playerHistory = InputHistory[1];
+        auto it = playerHistory.find(PendingFrame.FrameNum);
+        if (it != playerHistory.end())
+        {
+            u32 prevWaitFrame = PendingFrame.FrameNum;
+            u32 currFrame = nds->NumFrames;
+            PendingFrame.Active = false;
+
+            // load the save state
+            nds->DoSavestate(&PendingFrame.SavestateBuffer[0]);
+
+            // iterate over the frames until we reach the point we were at before
+            for (u32 i = PendingFrame.FrameNum; i < currFrame; ++i)
+            {
+                if (it != playerHistory.end())
+                {
+                    PendingFrame.FrameNum = i; // make sure this is our "last completed frame"
+                    InputFrame& frameData = it->second;
+                    if (frameData.FrameNum != i) {
+                        printf("frame number mismatch!\n");
+                    }
+                    nds->SetKeyMask(frameData.KeyMask);
+                    if (frameData.Touching) nds->TouchScreen(frameData.TouchX, frameData.TouchY);
+                    else nds->ReleaseScreen();
+                    ++it;
+                }
+                else if (!PendingFrame.Active)
+                {
+                    // there's still some frames we didn't get
+                    PendingFrame.Active = true;
+                    PendingFrame.FrameNum = i;
+                    PendingFrame.SavestateBuffer[0].~Savestate();
+                    new (&PendingFrame.SavestateBuffer[0]) Savestate();
+                    nds->DoSavestate(&PendingFrame.SavestateBuffer[0]);
+                }
+                nds->RunFrame();
+            }
+
+            std::clock_t end = std::clock();
+            double elapsed_seconds = double(end - start) / CLOCKS_PER_SEC;
+
+            printf("managed to catch up %d frames. still missing %d, seconds: %lf\n", PendingFrame.FrameNum - prevWaitFrame, nds->NumFrames - PendingFrame.FrameNum, elapsed_seconds);
+        }
     }
 
     ReceivedInputThisFrame[index] = true;
@@ -995,53 +1050,6 @@ void Netplay::ProcessInput(int netplayID, NDS *nds, u32 inputMask, bool isTouchi
         enet_host_broadcast(Host, 1, pkt);
     }
 
-    // check if we have the frames we were missing before
-    if (PendingFrame.Active)
-    {
-        std::clock_t start = std::clock();
-
-        auto &playerHistory = InputHistory[1];
-        auto it = playerHistory.find(PendingFrame.FrameNum);
-        if (it != playerHistory.end())
-        {
-            u32 prevWaitFrame = PendingFrame.FrameNum;
-            u32 currFrame = nds->NumFrames;
-            PendingFrame.Active = false;
-
-            // load the save state
-            nds->DoSavestate(PendingFrame.SavestateBuffer[0]);
-
-            // iterate over the frames until we reach the point we were at before
-            for (u32 i = PendingFrame.FrameNum; i < currFrame; ++i)
-            {
-                if (it != playerHistory.end())
-                {
-                    PendingFrame.FrameNum = i; // make sure this is our "last completed frame"
-                    InputFrame& frameData = it->second;
-                    nds->SetKeyMask(frameData.KeyMask);
-                    if (frameData.Touching) nds->TouchScreen(frameData.TouchX, frameData.TouchY);
-                    else nds->ReleaseScreen();
-                    ++it;
-                }
-                else if (!PendingFrame.Active)
-                {
-                    // there's still some frames we didn't get
-                    PendingFrame.Active = true;
-                    PendingFrame.FrameNum = i;
-                    delete PendingFrame.SavestateBuffer[0];
-                    PendingFrame.SavestateBuffer[0] = new Savestate();
-                    nds->DoSavestate(PendingFrame.SavestateBuffer[0]);
-                }
-                nds->RunFrame();
-            }
-
-            std::clock_t end = std::clock();
-            double elapsed_seconds = double(end - start) / CLOCKS_PER_SEC;
-
-            printf("managed to catch up %d frames. still missing %d, seconds: %lf\n", PendingFrame.FrameNum - prevWaitFrame, nds->NumFrames - PendingFrame.FrameNum, elapsed_seconds);
-        }
-    }
-
     // if we have no inputs, or the only inputs we have are for frames behind us
     // save a state of this frame before it's played so that we can come back here
     // later when we know what the inputs were and replay this frame.
@@ -1079,9 +1087,9 @@ void Netplay::ProcessInput(int netplayID, NDS *nds, u32 inputMask, bool isTouchi
     {
         printf("missing inputs! saving state... inputs: %d, stall: %d\n", !tempFrame, StallFrame);
         PendingFrame.Active = true;
-        delete PendingFrame.SavestateBuffer[0];
-        PendingFrame.SavestateBuffer[0] = new Savestate();
-        nds->DoSavestate(PendingFrame.SavestateBuffer[0]);
+        PendingFrame.SavestateBuffer[0].~Savestate();
+        new (&PendingFrame.SavestateBuffer[0]) Savestate();
+        nds->DoSavestate(&PendingFrame.SavestateBuffer[0]);
         StallFrame = false;
     }
 }
@@ -1103,7 +1111,7 @@ void Netplay::ApplyInput(int netplayID, NDS *nds)
             if (frame->Touching) nds->TouchScreen(frame->TouchX, frame->TouchY);
             else                 nds->ReleaseScreen();
         }
-        printf("didn't get any inputs from the other player for this frame %d\n", nds->NumFrames);
+        printf("didn't get any inputs from the other player for this frame %d, but we're waiting for %d\n", nds->NumFrames, PendingFrame.FrameNum);
         return;
     }
 

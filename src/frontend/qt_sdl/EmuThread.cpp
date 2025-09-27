@@ -156,6 +156,12 @@ void EmuThread::run()
     {
         bool needLag = false;
         MPInterface &mpInterface = MPInterface::Get();
+        if (emuInstance->netplayID > -1)
+        {
+            // provide netplay with a copy of the nds pointer
+            auto &netplay = (Netplay&) mpInterface;
+            netplay.nds = emuInstance->nds;
+        }
         mpInterface.Process(emuInstance->instanceID);
         emuInstance->inputProcess();
         if (emuInstance->netplayID > -1)

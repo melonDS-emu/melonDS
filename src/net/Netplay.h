@@ -74,6 +74,7 @@ public:
     InputDelayMode NetworkMode = InputDelayMode_Fair;
     int GolfModePlayerID;
     bool StallFrame;
+    NDS *nds;
 
     bool StartHost(const char* player, int port);
     bool StartClient(const char* player, const char* host, int port);
@@ -147,7 +148,7 @@ private:
     {
         bool Active;
         u32 FrameNum;
-        Savestate *SavestateBuffer[16];
+        Savestate SavestateBuffer[16];
     };
     WaitingFrame PendingFrame;
 
