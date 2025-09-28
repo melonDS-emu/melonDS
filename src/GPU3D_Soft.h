@@ -115,6 +115,8 @@ private:
 
                 this->shift = 8;
             }
+
+            yfactor = 0;
         }
 
         constexpr void SetX(s32 x)
