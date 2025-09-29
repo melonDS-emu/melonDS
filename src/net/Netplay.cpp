@@ -99,7 +99,7 @@ Netplay::Netplay() noexcept : LocalMP(), Inited(false)
     Inited = true;
 }
 
-Netplay::~Netplay()
+Netplay::~Netplay() noexcept
 {
     EndSession();
 
@@ -1094,7 +1094,7 @@ void Netplay::ProcessInput(int netplayID, NDS *nds, u32 inputMask, bool isTouchi
             InputFrame tmp = pair.second;
             tmp.FrameNum = htonl(tmp.FrameNum);
             if (((ptr - buffer.data()) + sizeof(InputFrame)) > buffer.size()) {
-                printf("did the history size change? %d, %d\n", InputHistory[0], buffer.size());
+                printf("did the history size change? %d, %d\n", InputHistory[0].size(), buffer.size());
                 assert(false);
                 break;
             }
