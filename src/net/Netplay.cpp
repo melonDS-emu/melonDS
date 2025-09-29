@@ -63,7 +63,6 @@ Netplay::Netplay() noexcept : LocalMP(), Inited(false)
 {
     Active = false;
     IsHost = false;
-    IsMirror = false;
     Host = nullptr;
     StallFrame = false;
     Settings.Delay = 4;
@@ -92,8 +91,8 @@ Netplay::Netplay() noexcept : LocalMP(), Inited(false)
     // TODO make this somewhat nicer
     if (enet_initialize() != 0)
     {
-        Blobs[i] = nullptr;
-        BlobLens[i] = 0;
+        Platform::Log(Platform::LogLevel::Error, "Netplay: failed to initialize enet\n");
+        return;
     }
 
     Platform::Log(Platform::LogLevel::Info, "Netplay: enet initialized\n");
@@ -112,6 +111,23 @@ Netplay::~Netplay()
     Platform::Log(Platform::LogLevel::Info, "Netplay: enet deinitialized\n");
 }
 
+// To be called just before a game starts
+bool Netplay::InitGame()
+{
+    static bool isInited = false;
+    if (isInited) return true;
+
+    if (!OnStartEmulatorThread)
+    {
+        printf("error, tried to start netplay game with OnStartEmulatorThread null!\n");
+        return false;
+    }
+
+    OnStartEmulatorThread(); // Hack to access frontend code
+
+    isInited = true;
+    return true;
+}
 
 std::vector<Netplay::Player> Netplay::GetPlayerList()
 {
@@ -163,7 +179,7 @@ bool Netplay::StartHost(const char* playername, int port)
     if (!Host)
     {
         printf("host shat itself :(\n");
-        return;
+        return false;
     }
 
     Platform::Mutex_Lock(PlayersMutex);
@@ -182,27 +198,13 @@ bool Netplay::StartHost(const char* playername, int port)
 
     HostAddress = 0x0100007F;
 
-    NumMirrorClients = 0;
-
-    ENetAddress mirroraddr;
-    mirroraddr.host = ENET_HOST_ANY;
-    mirroraddr.port = port + 1;
-printf("host mirror host connecting to %08X:%d\n", mirroraddr.host, mirroraddr.port);
-    MirrorHost = enet_host_create(&mirroraddr, 16, 2, 0, 0);
-    if (!MirrorHost)
-    {
-        printf("mirror host shat itself :(\n");
-        return;
-    }
-
     Active = true;
     IsHost = true;
-    IsMirror = false;
 
-    //netplayDlg->updatePlayerList(Players, NumPlayers);
+    return true;
 }
 
-void StartClient(const char* playername, const char* host, int port)
+bool Netplay::StartClient(const char* playername, const char* host, int port)
 {
     Host = enet_host_create(nullptr, 16, Chan_Max, 0, 0);
     if (!Host)
@@ -496,8 +498,8 @@ void Netplay::RecvBlob(ENetPeer* peer, ENetPacket* pkt)
     {
         if (pkt->dataLength != 2) return;
 
-        bool res = false;
-#if 0
+        InitGame();
+
         // reset
         nds->ConsoleType = buf[1];
 
@@ -565,7 +567,7 @@ void Netplay::SyncClients()
     printf("[HOST] clients synced\n");
 }
 
-void StartGame()
+void Netplay::StartGame()
 {
     if (!IsHost)
     {
@@ -573,6 +575,7 @@ void StartGame()
         return;
     }
 
+    InitGame();
 
     if (NumPlayers > 1)
     {
@@ -594,12 +597,6 @@ void StartGame()
 
 void Netplay::StartLocal()
 {
-    if (!OnStartEmulatorThread)
-    {
-        printf("error, tried to start netplay game with OnStartEmulatorThread null!\n");
-        return;
-    }
-
     printf("starting netplay game\n");
 
     // assign local instances to players
@@ -620,11 +617,11 @@ void Netplay::StartLocal()
         i++;
     }
 
-    OnStartEmulatorThread(); // Hack to access frontend code
+    InitGame();
 }
 
 
-void ProcessHost()
+void Netplay::ProcessHost()
 {
     if (!Host) return;
 
@@ -637,13 +634,22 @@ void ProcessHost()
         {
         case ENET_EVENT_TYPE_CONNECT:
             {
+                if ((NumPlayers >= MaxPlayers) || (NumPlayers >= 16))
+                {
+                    // game is full, reject connection
+                    enet_peer_disconnect(event.peer, 0);
+                    break;
+                }
+
+                // TODO: reject connection if game is running
+
                 // client connected; assign player number
 
                 int id;
                 for (id = 0; id < 16; id++)
                 {
                     if (id >= NumPlayers) break;
-                    if (Players[id].Status == 0) break;
+                    if (Players[id].Status == Player_None) break;
                 }
 
                 if (id < 16)
@@ -668,7 +674,7 @@ void ProcessHost()
                     Platform::Mutex_Lock(PlayersMutex);
 
                     Players[id].ID = id;
-                    Players[id].Status = 3;
+                    Players[id].Status = Player_Connecting;
                     Players[id].Address = event.peer->address.host;
                     event.peer->data = &Players[id];
                     NumPlayers++;
@@ -726,7 +732,7 @@ void ProcessHost()
                 u8* data = (u8*)event.packet->data;
                 switch (data[0])
                 {
-                case 0x02: // client sending player info
+                case Cmd_PlayerInfo: // client sending player info
                     {
                         if (event.packet->dataLength != (9+sizeof(Player))) break;
 
@@ -769,11 +775,11 @@ void ProcessHost()
 
                         // broadcast updated player list
                         u8 cmd[2+sizeof(Players)];
-                        cmd[0] = 0x03;
+                        cmd[0] = Cmd_PlayerList;
                         cmd[1] = (u8)NumPlayers;
                         memcpy(&cmd[2], Players, sizeof(Players));
                         ENetPacket* pkt = enet_packet_create(cmd, 2+sizeof(Players), ENET_PACKET_FLAG_RELIABLE);
-                        enet_host_broadcast(Host, 0, pkt);
+                        enet_host_broadcast(Host, Chan_Cmd, pkt);
 
                         //netplayDlg->updatePlayerList(Players, NumPlayers);
                     }
@@ -781,14 +787,12 @@ void ProcessHost()
                 }
             }
             break;
-        case ENET_EVENT_TYPE_NONE:
-            break;
         }
     }
     Platform::Mutex_Unlock(NetworkMutex);
 }
 
-void ProcessClient()
+void Netplay::ProcessClient()
 {
     if (!Host) return;
 
@@ -855,35 +859,7 @@ void ProcessClient()
                 u8* data = (u8*)event.packet->data;
                 switch (data[0])
                 {
-                case 0x01: // host sending player ID
-                    {
-                        if (event.packet->dataLength != 2) break;
-
-                        NumMirrorClients = 0;
-
-                        // create mirror host
-                        ENetAddress mirroraddr;
-                        mirroraddr.host = ENET_HOST_ANY;
-                        mirroraddr.port = 8064+1 + data[1]; // FIXME!!!!
-printf("client mirror host connecting to %08X:%d\n", mirroraddr.host, mirroraddr.port);
-                        MirrorHost = enet_host_create(&mirroraddr, 16, 2, 0, 0);
-                        if (!MirrorHost)
-                        {
-                            printf("mirror host shat itself :(\n");
-                            break;
-                        }
-
-                        // send player information
-                        MyPlayer.ID = data[1];
-                        u8 cmd[1+sizeof(Player)];
-                        cmd[0] = 0x02;
-                        memcpy(&cmd[1], &MyPlayer, sizeof(Player));
-                        ENetPacket* pkt = enet_packet_create(cmd, 1+sizeof(Player), ENET_PACKET_FLAG_RELIABLE);
-                        enet_peer_send(event.peer, 0, pkt);
-                    }
-                    break;
-
-                case 0x03: // host sending player list
+                case Cmd_PlayerList: // host sending player list
                     {
                         if (event.packet->dataLength != (2+sizeof(Players))) break;
                         if (data[1] > 16) break;
@@ -933,8 +909,6 @@ printf("client mirror host connecting to %08X:%d\n", mirroraddr.host, mirroraddr
                     }
                 }
             }
-            break;
-        case ENET_EVENT_TYPE_NONE:
             break;
         }
     }

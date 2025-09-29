@@ -363,7 +363,7 @@ void EmuInstance::setupMicInputData()
 
 int EmuInstance::micReadInput(s16* data, int maxlength)
 {
-    if (IsHeadless()) return;
+    if (IsHeadless()) return 0;
 
     int type = micInputType;
     if ((type == micInputType_External) && (micExtBufferCount == 0))

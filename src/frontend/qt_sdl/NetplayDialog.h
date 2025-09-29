@@ -94,10 +94,8 @@ public:
         return dlg;
     }
 
-    void updatePlayerList(Netplay::Player* players, int num);
-
-signals:
-    void sgUpdatePlayerList(Netplay::Player* players, int num);
+protected:
+    void timerEvent(QTimerEvent* event) override;
 
 private slots:
     void on_btnStartGame_clicked();
@@ -105,10 +103,11 @@ private slots:
     void on_spnInputBufferSize_valueChanged(int value);
     void done(int r);
 
-    void doUpdatePlayerList(Netplay::Player* players, int num);
+    void doUpdatePlayerList();
 
 private:
     Ui::NetplayDialog* ui;
+    int timerID;
 };
 
 #endif // NETPLAYDIALOG_H

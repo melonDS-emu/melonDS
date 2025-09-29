@@ -76,6 +76,7 @@
 #include "Savestate.h"
 #include "MPInterface.h"
 #include "LANDialog.h"
+#include "NetplayDialog.h"
 
 //#include "main_shaders.h"
 
@@ -465,16 +466,13 @@ MainWindow::MainWindow(int id, EmuInstance* inst, QWidget* parent) :
                 actLANStartClient = submenu->addAction("Join LAN game");
                 connect(actLANStartClient, &QAction::triggered, this, &MainWindow::onLANStartClient);
 
-                /*submenu->addSeparator();
+                submenu->addSeparator();
 
-                actNPStartHost = submenu->addAction("NETPLAY HOST");
+                actNPStartHost = submenu->addAction("Host Netplay game");
                 connect(actNPStartHost, &QAction::triggered, this, &MainWindow::onNPStartHost);
 
-                actNPStartClient = submenu->addAction("NETPLAY CLIENT");
+                actNPStartClient = submenu->addAction("Join Netplay game");
                 connect(actNPStartClient, &QAction::triggered, this, &MainWindow::onNPStartClient);
-
-                actNPTest = submenu->addAction("NETPLAY GO");
-                connect(actNPTest, &QAction::triggered, this, &MainWindow::onNPTest);*/
             }
         }
         {
@@ -1803,20 +1801,14 @@ void MainWindow::onLANStartClient()
 
 void MainWindow::onNPStartHost()
 {
-    //Netplay::StartHost();
-    //NetplayStartHostDialog::openDlg(this);
+    if (!netplayWarning(true)) return;
+    NetplayStartHostDialog::openDlg(this);
 }
 
 void MainWindow::onNPStartClient()
 {
-    //Netplay::StartClient();
-    //NetplayStartClientDialog::openDlg(this);
-}
-
-void MainWindow::onNPTest()
-{
-    // HAX
-    //Netplay::StartGame();
+    if (!netplayWarning(false)) return;
+    NetplayStartClientDialog::openDlg(this);
 }
 
 void MainWindow::updateMPInterface(MPInterfaceType type)
@@ -1829,9 +1821,8 @@ void MainWindow::updateMPInterface(MPInterfaceType type)
     actMPNewInstance->setEnabled(enable);
     actLANStartHost->setEnabled(enable);
     actLANStartClient->setEnabled(enable);
-    /*actNPStartHost->setEnabled(enable);
+    actNPStartHost->setEnabled(enable);
     actNPStartClient->setEnabled(enable);
-    actNPTest->setEnabled(enable);*/
 }
 
 bool MainWindow::lanWarning(bool host)
@@ -1883,8 +1874,11 @@ bool MainWindow::netplayWarning(bool host)
         // start local ds
         EmuInstance *localEmuInstance = ((MainWindow*)this)->getEmuInstance();
         localEmuInstance->RegisterNetplayDS(0); // register the local ds
+        if (!localEmuInstance->nds) localEmuInstance->updateConsole();
         localEmuInstance->nds->Start();
         localEmuInstance->getEmuThread()->emuRun();
+
+        netplay.nds = localEmuInstance->nds; // so many hacks just to get access to this pointer!
         return; // todo DEV just to test with 1 ds, since it's so far more stable
 
         // create and start the new ds'
@@ -1892,6 +1886,7 @@ bool MainWindow::netplayWarning(bool host)
         {
             EmuInstance *emuInstance = new EmuInstance(i, true);
             emuInstance->RegisterNetplayDS(i);
+            emuInstance->updateConsole();
             emuInstance->nds->Start();
             emuInstance->getEmuThread()->emuRun();
         }

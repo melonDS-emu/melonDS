@@ -19,6 +19,10 @@
 #ifndef NETPLAY_H
 #define NETPLAY_H
 
+#include <queue>
+
+#include <enet/enet.h>
+
 #include "types.h"
 #include "Platform.h"
 #include "LocalMP.h"
@@ -80,7 +84,7 @@ public:
 
     void SetInputBufferSize(int value);
 
-void StartGame();
+    void StartGame();
 
     std::vector<Player> GetPlayerList();
     int GetNumPlayers() { return NumPlayers; }
@@ -169,6 +173,8 @@ private:
     u32 CurBlobLen;
     u32 CurBlobCRC = 0;
     u32 BlobCurrSize;
+
+    bool InitGame();
 
     void SyncClients();
 

@@ -24,21 +24,14 @@
 #include <enet/enet.h>
 
 #include <QStandardItemModel>
-#include <QProcess>
 #include <QPushButton>
 #include <QInputDialog>
 #include <QMessageBox>
 
-#include "NDS.h"
-#include "NDSCart.h"
-#include "main.h"
-//#include "IPC.h"
 #include "NetplayDialog.h"
-//#include "Input.h"
-//#include "ROMManager.h"
 #include "Config.h"
-#include "Savestate.h"
-#include "Platform.h"
+#include "main.h"
+#include "Netplay.h"
 
 #include "ui_NetplayStartHostDialog.h"
 #include "ui_NetplayStartClientDialog.h"
@@ -47,14 +40,17 @@
 using namespace melonDS;
 
 
-extern EmuThread* emuThread;
-NetplayDialog* netplayDlg;
+NetplayDialog* netplayDlg = nullptr;
+
+#define netplay() ((Netplay&)MPInterface::Get())
 
 
 NetplayStartHostDialog::NetplayStartHostDialog(QWidget* parent) : QDialog(parent), ui(new Ui::NetplayStartHostDialog)
 {
     ui->setupUi(this);
     setAttribute(Qt::WA_DeleteOnClose);
+
+    setMPInterface(MPInterface_Netplay);
 
     ui->txtPort->setText("8064");
 
@@ -97,6 +93,8 @@ NetplayStartClientDialog::NetplayStartClientDialog(QWidget* parent) : QDialog(pa
 {
     ui->setupUi(this);
     setAttribute(Qt::WA_DeleteOnClose);
+
+    setMPInterface(MPInterface_Netplay);
 
     ui->txtPort->setText("8064");
     ui->txtPlayerName->setText("guest");
@@ -161,6 +159,8 @@ NetplayDialog::NetplayDialog(QWidget* parent) : QDialog(parent), ui(new Ui::Netp
 
 NetplayDialog::~NetplayDialog()
 {
+    killTimer(timerID);
+
     delete ui;
 }
 
@@ -193,35 +193,38 @@ void NetplayDialog::done(int r)
     QDialog::done(r);
 }
 
-void NetplayDialog::updatePlayerList(Netplay::Player* players, int num)
+void NetplayDialog::timerEvent(QTimerEvent *event)
 {
-    emit sgUpdatePlayerList(players, num);
+    doUpdatePlayerList();
 }
 
-void NetplayDialog::doUpdatePlayerList(Netplay::Player* players, int num)
+void NetplayDialog::doUpdatePlayerList()
 {
+    auto playerlist = netplay().GetPlayerList();
+    int numplayers = playerlist.size();
+    auto maxplayers = netplay().GetMaxPlayers();
+
     QStandardItemModel* model = (QStandardItemModel*)ui->tvPlayerList->model();
 
     model->clear();
-    model->setRowCount(num);
+    model->setRowCount(numplayers);
 
     // TODO: remove IP column in final product
 
     const QStringList header = {"#", "Player", "Status", "Ping", "IP"};
     model->setHorizontalHeaderLabels(header);
 
-    for (int i = 0; i < num; i++)
+    int i = 0;
+    for (const auto& player : playerlist)
     {
-        Netplay::Player* player = &players[i];
-
-        QString id = QString("%0").arg(player->ID+1);
+        QString id = QString("%0").arg(player.ID+1);
         model->setItem(i, 0, new QStandardItem(id));
 
-        QString name = player->Name;
+        QString name = player.Name;
         model->setItem(i, 1, new QStandardItem(name));
 
         QString status;
-        switch (player->Status)
+        switch (player.Status)
         {
             case Netplay::Player_Client:     status = "Connected"; break;
             case Netplay::Player_Host:       status = "Host"; break;
@@ -254,5 +257,6 @@ void NetplayDialog::doUpdatePlayerList(Netplay::Player* players, int num)
             model->setItem(i, 4, new QStandardItem(ip));
         }
 
+        i++;
     }
 }
