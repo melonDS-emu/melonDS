@@ -572,16 +572,20 @@ void Netplay::StartGame()
         return;
     }
 
-    Platform::Mutex_Lock(NetworkMutex);
 
-    SyncClients();
+    if (NumPlayers > 1)
+    {
+        Platform::Mutex_Lock(NetworkMutex);
 
-    // tell remote peers to start game
-    u8 cmd[1] = {Cmd_StartGame};
-    ENetPacket* pkt = enet_packet_create(cmd, sizeof(cmd), ENET_PACKET_FLAG_RELIABLE);
-    enet_host_broadcast(Host, Chan_Cmd, pkt);
+        SyncClients();
 
-    Platform::Mutex_Unlock(NetworkMutex);
+        // tell remote peers to start game
+        u8 cmd[1] = { Cmd_StartGame };
+        ENetPacket* pkt = enet_packet_create(cmd, sizeof(cmd), ENET_PACKET_FLAG_RELIABLE);
+        enet_host_broadcast(Host, Chan_Cmd, pkt);
+
+        Platform::Mutex_Unlock(NetworkMutex);
+    }
 
     // start game locally
     StartLocal();
@@ -1087,12 +1091,14 @@ void Netplay::ProcessInput(int netplayID, NDS *nds, u32 inputMask, bool isTouchi
         std::memcpy(ptr, &report, sizeof(report));
         ptr += sizeof(report);
 
+        Platform::Mutex_Lock(InstanceMutex);
         for (auto& pair : InputHistory[0]) {
             InputFrame tmp = pair.second;
             tmp.FrameNum = htonl(tmp.FrameNum);
             std::memcpy(ptr, &tmp, sizeof(InputFrame));
             ptr += sizeof(InputFrame);
         }
+        Platform::Mutex_Unlock(InstanceMutex);
 
         ENetPacket* pkt = enet_packet_create(buffer.data(), buffer.size(), ENET_PACKET_FLAG_UNSEQUENCED);
         enet_host_broadcast(Host, 2, pkt);
