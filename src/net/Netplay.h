@@ -31,6 +31,8 @@
 namespace melonDS
 {
 
+const u32 kChunkSize = 0x10000;
+
 extern std::function<void()> OnStartEmulatorThread;
 
 // since netplay relies on local MP comm locally,
@@ -152,6 +154,26 @@ private:
     };
     WaitingFrame PendingFrame;
 
+    Platform::Mutex* InstanceMutex;
+    Platform::Mutex* NetworkMutex;
+
+    enum
+    {
+        Blob_CartROM = 0,
+        Blob_CartSRAM,
+        Blob_InitState,
+
+        Blob_MAX
+    };
+
+    u8 ChunkBuffer[0x10 + kChunkSize];
+    u8* Blobs[Blob_MAX];
+    u32 BlobLens[Blob_MAX];
+    int CurBlobType;
+    u32 CurBlobLen;
+    u32 CurBlobCRC = 0;
+    u32 BlobCurrSize;
+
     void SyncClients();
 
     void SendNetworkSettings();
@@ -167,8 +189,8 @@ private:
 
     void ReceiveInputs(ENetEvent &event);
 
-    bool SendBlobToMirrorClients(int type, u32 len, u8* data);
-    void RecvBlobFromMirrorHost(ENetPeer* peer, ENetPacket* pkt);
+    bool SendBlob(int type, u32 len, u8* data);
+    void RecvBlob(ENetPeer* peer, ENetPacket* pkt);
 };
 
 }
