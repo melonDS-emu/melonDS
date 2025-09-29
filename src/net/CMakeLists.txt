@@ -15,6 +15,10 @@ target_include_directories(net-utils PUBLIC
     "${CMAKE_CURRENT_SOURCE_DIR}"
     "${CMAKE_CURRENT_SOURCE_DIR}/..")
 
+find_package(ZLIB REQUIRED)
+
+target_link_libraries(net-utils PRIVATE ZLIB::ZLIB)
+
 option(USE_SYSTEM_LIBSLIRP "Use system libslirp instead of the bundled version" OFF)
 if (USE_SYSTEM_LIBSLIRP)
     pkg_check_modules(Slirp REQUIRED IMPORTED_TARGET slirp)

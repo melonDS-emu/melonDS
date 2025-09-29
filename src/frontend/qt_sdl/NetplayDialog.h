@@ -100,6 +100,9 @@ signals:
     void sgUpdatePlayerList(Netplay::Player* players, int num);
 
 private slots:
+    void on_btnStartGame_clicked();
+    void on_btnLeaveGame_clicked();
+    void on_spnInputBufferSize_valueChanged(int value);
     void done(int r);
 
     void doUpdatePlayerList(Netplay::Player* players, int num);

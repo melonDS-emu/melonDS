@@ -20,128 +20,165 @@
 #include <stdlib.h>
 #include <string.h>
 #include <queue>
+#include <cassert>
 
 #include <enet/enet.h>
+#include <zlib.h>
 
-#include "NDS.h"
 #include "NDSCart.h"
-//#include "IPC.h"
 #include "Netplay.h"
-//#include "Input.h"
-//#include "ROMManager.h"
-//#include "Config.h"
 #include "Savestate.h"
 #include "Platform.h"
 
-using namespace melonDS;
 
-namespace Netplay
+namespace melonDS
 {
 
-bool Active;
-bool IsHost;
-bool IsMirror;
+const u32 kNetplayMagic = 0x5054454E; // NETP
 
-ENetHost* Host;
-ENetHost* MirrorHost;
+const u32 kProtocolVersion = 1;
 
-Player Players[16];
-int NumPlayers;
-
-Player MyPlayer;
-u32 HostAddress;
-bool Lag;
-
-int NumMirrorClients;
-
-struct InputFrame
-{
-    u32 FrameNum;
-    u32 KeyMask;
-    u32 Touching;
-    u32 TouchX, TouchY;
-};
-
-std::queue<InputFrame> InputQueue;
+const u32 kLocalhost = 0x0100007F;
 
 enum
 {
-    Blob_CartROM = 0,
-    Blob_CartSRAM,
-    Blob_InitState,
-
-    Blob_MAX
+    Chan_Input0 = 0,        // channels 0-15 -- input from players 0-15 resp.
+    Chan_Cmd = 16,          // channel 16 -- control commands
+    Chan_Blob,              // channel 17 -- blob
+    Chan_Max,
 };
 
-const u32 kChunkSize = 0x10000;
-u8 ChunkBuffer[0x10 + kChunkSize];
-u8* Blobs[Blob_MAX];
-u32 BlobLens[Blob_MAX];
-int CurBlobType;
-u32 CurBlobLen;
+enum
+{
+    Cmd_ClientInit = 1,             // 01 -- host->client -- init new client and assign ID
+    Cmd_PlayerInfo,                 // 02 -- client->host -- send client player info to host
+    Cmd_PlayerList,                 // 03 -- host->client -- broadcast updated player list
+    Cmd_StartGame,                  // 04 -- host->client -- start the game on all players
+    Cmd_UpdateSettings,             // 05 -- host->client -- game settings changed
+};
 
+std::function<void()> OnStartEmulatorThread = nullptr;
 
-bool Init()
+Netplay::Netplay() noexcept : LocalMP(), Inited(false)
 {
     Active = false;
     IsHost = false;
     IsMirror = false;
     Host = nullptr;
-    MirrorHost = nullptr;
-    Lag = false;
+    StallFrame = false;
+    Settings.Delay = 4;
 
-    memset(Players, 0, sizeof(Players));
-    NumPlayers = 0;
-
-    NumMirrorClients = 0;
+    CurBlobType = -1;
+    CurBlobLen = 0;
 
     for (int i = 0; i < Blob_MAX; i++)
     {
         Blobs[i] = nullptr;
         BlobLens[i] = 0;
     }
-    CurBlobType = -1;
-    CurBlobLen = 0;
 
-    /*if (enet_initialize() != 0)
+    PlayersMutex = Platform::Mutex_Create();
+    InstanceMutex = Platform::Mutex_Create();
+    NetworkMutex = Platform::Mutex_Create();
+
+    memset(RemotePeers, 0, sizeof(RemotePeers));
+    memset(Players, 0, sizeof(Players));
+    NumPlayers = 0;
+    MaxPlayers = 0;
+
+    memset(PlayerToInstance, 0, sizeof(PlayerToInstance));
+    memset(InstanceToPlayer, 0, sizeof(InstanceToPlayer));
+
+    // TODO make this somewhat nicer
+    if (enet_initialize() != 0)
     {
-        printf("enet shat itself :(\n");
-        return false;
+        Blobs[i] = nullptr;
+        BlobLens[i] = 0;
     }
 
-    printf("enet init OK\n");*/
-    return true;
+    Platform::Log(Platform::LogLevel::Info, "Netplay: enet initialized\n");
+    Inited = true;
 }
 
-void DeInit()
+Netplay::~Netplay()
 {
-    // TODO: cleanup resources properly!!
+    EndSession();
 
-    //enet_deinitialize();
+    Inited = false;
+    enet_deinitialize();
+
+    Platform::Mutex_Free(PlayersMutex);
+
+    Platform::Log(Platform::LogLevel::Info, "Netplay: enet deinitialized\n");
 }
 
 
-void StartHost(const char* playername, int port)
+std::vector<Netplay::Player> Netplay::GetPlayerList()
+{
+    Platform::Mutex_Lock(PlayersMutex);
+
+    std::vector<Player> ret;
+    for (int i = 0; i < 16; i++)
+    {
+        if (Players[i].Status == Player_None) continue;
+
+        // make a copy of the player entry, fix up the address field
+        Player newp = Players[i];
+        if (newp.ID == MyPlayer.ID)
+        {
+            newp.IsLocalPlayer = true;
+            newp.Address = kLocalhost;
+        }
+        else
+        {
+            newp.IsLocalPlayer = false;
+            if (newp.Status == Player_Host)
+                newp.Address = HostAddress;
+        }
+
+        ret.push_back(newp);
+    }
+
+    Platform::Mutex_Unlock(PlayersMutex);
+    return ret;
+}
+
+int Netplay::GetPlayerIndexFromPort(u16 port)
+{
+    auto it = PortToPlayerIndex.find(port);
+    if (it != PortToPlayerIndex.end()) {
+        return it->second;
+    }
+    printf("what? %d\n", port);
+    return -1;
+}
+
+bool Netplay::StartHost(const char* playername, int port)
 {
     ENetAddress addr;
     addr.host = ENET_HOST_ANY;
     addr.port = port;
 
-    Host = enet_host_create(&addr, 16, 1, 0, 0);
+    Host = enet_host_create(&addr, 16, Chan_Max, 0, 0);
     if (!Host)
     {
         printf("host shat itself :(\n");
         return;
     }
 
+    Platform::Mutex_Lock(PlayersMutex);
+
     Player* player = &Players[0];
     memset(player, 0, sizeof(Player));
     player->ID = 0;
     strncpy(player->Name, playername, 31);
-    player->Status = 2;
+    player->Status = Player_Host;
     player->Address = 0x0100007F;
     NumPlayers = 1;
+    MaxPlayers = 16;
     memcpy(&MyPlayer, player, sizeof(Player));
+
+    Platform::Mutex_Unlock(PlayersMutex);
 
     HostAddress = 0x0100007F;
 
@@ -167,11 +204,11 @@ printf("host mirror host connecting to %08X:%d\n", mirroraddr.host, mirroraddr.p
 
 void StartClient(const char* playername, const char* host, int port)
 {
-    Host = enet_host_create(nullptr, 1, 1, 0, 0);
+    Host = enet_host_create(nullptr, 16, Chan_Max, 0, 0);
     if (!Host)
     {
-        printf("client shat itself :(\n");
-        return;
+        printf("connection failed\n");
+        return false;
     }
 
     printf("client created, connecting (%s, %s:%d)\n", playername, host, port);
@@ -179,168 +216,143 @@ void StartClient(const char* playername, const char* host, int port)
     ENetAddress addr;
     enet_address_set_host(&addr, host);
     addr.port = port;
-    ENetPeer* peer = enet_host_connect(Host, &addr, 1, 0);
+    ENetPeer* peer = enet_host_connect(Host, &addr, Chan_Max, 0);
     if (!peer)
     {
-        printf("connect shat itself :(\n");
-        return;
-    }
-
-    ENetEvent event;
-    bool conn = false;
-    if (enet_host_service(Host, &event, 5000) > 0)
-    {
-        if (event.type == ENET_EVENT_TYPE_CONNECT)
-        {
-            printf("connected!\n");
-            conn = true;
-        }
-    }
-
-    if (!conn)
-    {
         printf("connection failed\n");
-        enet_peer_reset(peer);
-        return;
+        return false;
     }
+
+    Platform::Mutex_Lock(PlayersMutex);
 
     Player* player = &MyPlayer;
     memset(player, 0, sizeof(Player));
     player->ID = 0;
     strncpy(player->Name, playername, 31);
-    player->Status = 3;
+    player->Status = Player_Connecting;
 
-    HostAddress = addr.host;
-
-    Active = true;
-    IsHost = false;
-    IsMirror = false;
-}
-
-void StartMirror(const Player* player)
-{
-    for (int i = 0; i < Blob_MAX; i++)
-    {
-        Blobs[i] = nullptr;
-        BlobLens[i] = 0;
-    }
-    CurBlobType = -1;
-    CurBlobLen = 0;
-
-    MirrorHost = enet_host_create(nullptr, 1, 2, 0, 0);
-    if (!MirrorHost)
-    {
-        printf("mirror shat itself :(\n");
-        return;
-    }
-
-    printf("mirror created, connecting\n");
-
-    ENetAddress addr;
-    addr.host = player->Address;
-    addr.port = 8064+1 + player->ID; // FIXME!!!!!!!!!!
-    printf("mirror client connecting to %08X:%d\n", addr.host, addr.port);
-    ENetPeer* peer = enet_host_connect(MirrorHost, &addr, 2, 0);
-    if (!peer)
-    {
-        printf("connect shat itself :(\n");
-        return;
-    }
+    Platform::Mutex_Unlock(PlayersMutex);
 
     ENetEvent event;
-    bool conn = false;
-    if (enet_host_service(MirrorHost, &event, 5000) > 0)
+    int conn = 0;
+    u32 starttick = (u32)Platform::GetMSCount();
+    const int conntimeout = 5000;
+    for (;;)
     {
-        if (event.type == ENET_EVENT_TYPE_CONNECT)
+        u32 curtick = (u32)Platform::GetMSCount();
+        if (curtick < starttick) break;
+        int timeout = conntimeout - (int)(curtick - starttick);
+        if (timeout < 0) break;
+        if (enet_host_service(Host, &event, timeout) > 0)
         {
-            printf("connected!\n");
-            conn = true;
-        }
-    }
-
-    if (!conn)
-    {
-        printf("connection failed\n");
-        enet_peer_reset(peer);
-        return;
-    }
-
-    memcpy(&MyPlayer, player, sizeof(Player));
-
-    HostAddress = addr.host;
-
-    Active = true;
-    IsHost = false;
-    IsMirror = true;
-}
-
-
-u32 PlayerAddress(int id)
-{
-    if (id < 0 || id > 16) return 0;
-
-    u32 ret = Players[id].Address;
-    if (ret == 0x0100007F) ret = HostAddress;
-    return ret;
-}
-
-
-bool SpawnMirrorInstance(Player player)
-{
-#if 0
-    u16 curmask = IPC::GetInstanceBitmask();
-
-    QProcess newinst;
-    newinst.setProgram(QApplication::applicationFilePath());
-    newinst.setArguments(QApplication::arguments().mid(1, QApplication::arguments().length()-1));
-
-#ifdef __WIN32__
-    newinst.setCreateProcessArgumentsModifier([] (QProcess::CreateProcessArguments *args)
-    {
-        args->flags |= CREATE_NEW_CONSOLE;
-    });
-#endif
-
-    if (!newinst.startDetached())
-        return false;
-
-    // try to determine the ID of the new instance
-
-    int newid = -1;
-    for (int tries = 0; tries < 10; tries++)
-    {
-        QThread::usleep(100 * 1000);
-
-        u16 newmask = IPC::GetInstanceBitmask();
-        if (newmask == curmask) continue;
-
-        newmask &= ~curmask;
-        for (int id = 0; id < 16; id++)
-        {
-            if (newmask & (1 << id))
+            if (conn == 0 && event.type == ENET_EVENT_TYPE_CONNECT)
             {
-                newid = id;
+                conn = 1;
+            }
+            else if (conn == 1 && event.type == ENET_EVENT_TYPE_RECEIVE)
+            {
+                u8* data = event.packet->data;
+                if (event.channelID != Chan_Cmd) continue;
+                if (data[0] != Cmd_ClientInit) continue;
+                if (event.packet->dataLength != 11 + sizeof(NetworkSettings)) continue;
+
+                u32 magic = data[1] | (data[2] << 8) | (data[3] << 16) | (data[4] << 24);
+                u32 version = data[5] | (data[6] << 8) | (data[7] << 16) | (data[8] << 24);
+                if (magic != kNetplayMagic) continue;
+                if (version != kProtocolVersion) continue;
+                if (data[10] > 16) continue;
+
+                MaxPlayers = data[10];
+                memcpy(&Settings, &data[11], sizeof(NetworkSettings));
+
+                // send player information
+                MyPlayer.ID = data[9];
+                u8 cmd[9+sizeof(Player)];
+                cmd[0] = Cmd_PlayerInfo;
+                cmd[1] = (u8)kNetplayMagic;
+                cmd[2] = (u8)(kNetplayMagic >> 8);
+                cmd[3] = (u8)(kNetplayMagic >> 16);
+                cmd[4] = (u8)(kNetplayMagic >> 24);
+                cmd[5] = (u8)kProtocolVersion;
+                cmd[6] = (u8)(kProtocolVersion >> 8);
+                cmd[7] = (u8)(kProtocolVersion >> 16);
+                cmd[8] = (u8)(kProtocolVersion >> 24);
+                memcpy(&cmd[9], &MyPlayer, sizeof(Player));
+                ENetPacket* pkt = enet_packet_create(cmd, 9+sizeof(Player), ENET_PACKET_FLAG_RELIABLE);
+                enet_peer_send(event.peer, Chan_Cmd, pkt);
+
+                conn = 2;
+                break;
+            }
+            else if (event.type == ENET_EVENT_TYPE_DISCONNECT)
+            {
+                conn = 0;
                 break;
             }
         }
+        else
+            break;
     }
 
-    if (newid == -1) return false;
+    if (conn != 2)
+    {
+        enet_peer_reset(peer);
+        enet_host_destroy(Host);
+        Host = nullptr;
+        return false;
+    }
 
-    // setup that instance
-    printf("netplay: spawned mirror instance for player %d with ID %d, configuring\n", player.ID, newid);
+    HostAddress = addr.host;
+    RemotePeers[0] = peer;
+    PortToPlayerIndex[port] = 0;
 
-    //std::string rompath = ROMManager::FullROMPath.join('|').toStdString();
-    //IPC::SendCommandStr(1<<newid, IPC::Cmd_LoadROM, rompath);
-
-    if (player.Address == 0x0100007F) player.Address = HostAddress;
-    // calls Netplay::StartMirror()
-    //IPC::SendCommand(1<<newid, IPC::Cmd_SetupNetplayMirror, sizeof(Player), &player);
-#endif
+    Active = true;
+    IsHost = false;
     return true;
 }
 
-bool SendBlobToMirrorClients(int type, u32 len, u8* data)
+void Netplay::EndSession()
+{
+    if (!Active) return;
+
+    Active = false;
+
+    for (int i = 0; i < 16; i++)
+    {
+        if (i == MyPlayer.ID) continue;
+
+        if (RemotePeers[i])
+            enet_peer_disconnect(RemotePeers[i], 0);
+
+        RemotePeers[i] = nullptr;
+    }
+
+    enet_host_destroy(Host);
+    Host = nullptr;
+    IsHost = false;
+}
+
+void Netplay::SendNetworkSettings()
+{
+    if (!IsHost) return;
+
+    u8 cmd[1 + sizeof(NetworkSettings)];
+    cmd[0] = Cmd_UpdateSettings;
+    memcpy(&cmd[1], &Settings, sizeof(NetworkSettings));
+    ENetPacket* pkt = enet_packet_create(cmd, sizeof(cmd), ENET_PACKET_FLAG_RELIABLE);
+    enet_host_broadcast(Host, Chan_Cmd, pkt);
+}
+
+void Netplay::SetInputBufferSize(int value)
+{
+    if (!IsHost) return;
+    Settings.Delay = value;
+
+    // tell clients that it changed
+    SendNetworkSettings();
+}
+
+bool Netplay::SendBlob(int type, u32 len, u8* data)
 {
     u8* buf = ChunkBuffer;
 
@@ -350,8 +362,15 @@ bool SendBlobToMirrorClients(int type, u32 len, u8* data)
     buf[3] = 0;
     *(u32*)&buf[4] = len;
 
-    ENetPacket* pkt = enet_packet_create(buf, 8, ENET_PACKET_FLAG_RELIABLE);
-    enet_host_broadcast(MirrorHost, 1, pkt);
+    u32 crc = crc32(0L, Z_NULL, 0);
+    if (len > 0)
+        crc = crc32(crc, data, len);
+    *(u32*)&buf[8] = crc;
+
+    printf("send blob, type %d, len 0x%08X, hash: 0x%08X\n", type, len, crc);
+
+    ENetPacket* pkt = enet_packet_create(buf, 12, ENET_PACKET_FLAG_RELIABLE);
+    enet_host_broadcast(Host, Chan_Blob, pkt);
 
     if (len > 0)
     {
@@ -368,26 +387,27 @@ bool SendBlobToMirrorClients(int type, u32 len, u8* data)
             memcpy(&buf[16], &data[pos], chunklen);
 
             ENetPacket* pkt = enet_packet_create(buf, 16+chunklen, ENET_PACKET_FLAG_RELIABLE);
-            enet_host_broadcast(MirrorHost, 1, pkt);
-            //enet_host_flush(MirrorHost);
+            enet_host_broadcast(Host, Chan_Blob, pkt);
         }
     }
 
     buf[0] = 0x03;
+    *(u32*)&buf[8] = crc;
 
-    pkt = enet_packet_create(buf, 8, ENET_PACKET_FLAG_RELIABLE);
-    enet_host_broadcast(MirrorHost, 1, pkt);
+    pkt = enet_packet_create(buf, 12, ENET_PACKET_FLAG_RELIABLE);
+    enet_host_broadcast(Host, Chan_Blob, pkt);
 
     return true;
 }
 
-void RecvBlobFromMirrorHost(ENetPeer* peer, ENetPacket* pkt)
+void Netplay::RecvBlob(ENetPeer* peer, ENetPacket* pkt)
 {
     u8* buf = pkt->data;
+    printf("got a blob packet %d\n", buf[0]);
     if (buf[0] == 0x01)
     {
         if (CurBlobType != -1) return;
-        if (pkt->dataLength != 8) return;
+        if (pkt->dataLength != 12) return;
 
         int type = buf[1];
         if (type > Blob_MAX) return;
@@ -397,19 +417,23 @@ void RecvBlobFromMirrorHost(ENetPeer* peer, ENetPacket* pkt)
 
         if (Blobs[type] != nullptr) return;
         if (BlobLens[type] != 0) return;
-printf("[MC] start blob type=%d len=%d\n", type, len);
+        printf("[MC] start blob type=%d len=%d\n", type, len);
         if (len) Blobs[type] = new u8[len];
         BlobLens[type] = len;
 
         CurBlobType = type;
         CurBlobLen = len;
 
+        CurBlobCRC  = crc32(0L, Z_NULL, 0);
+
+        BlobCurrSize = 0;
+
         ENetEvent evt;
-        while (enet_host_service(MirrorHost, &evt, 5000) > 0)
+        while (enet_host_service(Host, &evt, 5000) > 0)
         {
-            if (evt.type == ENET_EVENT_TYPE_RECEIVE && evt.channelID == 1)
+            if (evt.type == ENET_EVENT_TYPE_RECEIVE && evt.channelID == Chan_Blob)
             {
-                RecvBlobFromMirrorHost(evt.peer, evt.packet);
+                RecvBlob(evt.peer, evt.packet);
                 if (evt.packet->dataLength >= 1 && evt.packet->data[0] == 0x03)
                 {
                     printf("[MC] blob done while in fast recv loop\n");
@@ -443,18 +467,28 @@ printf("[MC] start blob type=%d len=%d\n", type, len);
         if (BlobLens[type] != len) return;
         printf("[MC] recv blob data, type=%d pos=%08X len=%08X data=%08lX\n", type, pos, len, pkt->dataLength-16);
         memcpy(&dst[pos], &buf[16], pkt->dataLength-16);
+        BlobCurrSize += pkt->dataLength-16;
+        CurBlobCRC = crc32(CurBlobCRC, &buf[16], pkt->dataLength - 16);
     }
     else if (buf[0] == 0x03)
     {
         if (CurBlobType < 0 || CurBlobType > Blob_MAX) return;
-        if (pkt->dataLength != 8) return;
+        if (pkt->dataLength != 12) return;
 
         int type = buf[1];
         if (type != CurBlobType) return;
 
         u32 len = *(u32*)&buf[4];
         if (len != CurBlobLen) return;
-printf("[MC] finish blob type=%d len=%d\n", type, len);
+
+        u32 ExpectedCRC = *(u32*)&buf[8];
+        if (CurBlobCRC != ExpectedCRC) {
+            printf("Blob %d CRC mismatch! expected 0x%08X got 0x%08X\n",
+                   CurBlobType, ExpectedCRC, CurBlobCRC);
+            return;
+        }
+
+        printf("[MC] finish blob type=%d len=%d, matching hashes! 0x%08X\n", type, len, CurBlobCRC);
         CurBlobType = -1;
         CurBlobLen = 0;
     }
@@ -465,38 +499,14 @@ printf("[MC] finish blob type=%d len=%d\n", type, len);
         bool res = false;
 #if 0
         // reset
-        NDS::SetConsoleType(buf[1]);
-        NDS::EjectCart();
-        NDS::Reset();
-        //SetBatteryLevels();
+        nds->ConsoleType = buf[1];
 
-        if (Blobs[Blob_CartROM])
-        {
-            res = NDS::LoadCart(Blobs[Blob_CartROM], BlobLens[Blob_CartROM],
-                                Blobs[Blob_CartSRAM], BlobLens[Blob_CartSRAM]);
-            if (!res)
-            {
-                printf("!!!! FAIL!!\n");
-                return;
-            }
-        }
+        printf("received instruction to load save state! set console type to %d. size: 0x%08X\n", nds->ConsoleType, BlobCurrSize);
 
-        if (res)
-        {
-            ROMManager::CartType = 0;
-            //ROMManager::NDSSave = new SaveManager(savname);
-
-            //LoadCheats();
-        }
-#endif
         // load initial state
-        // TODO: terrible hack!!
-        #if 0
-        FILE* f = Platform::OpenFile("netplay2.mln", "wb");
-        fwrite(Blobs[Blob_InitState], BlobLens[Blob_InitState], 1, f);
-        fclose(f);
-        Savestate* state = new Savestate("netplay2.mln", false);
-        NDS::DoSavestate(state);
+        // todo can you do this on the stack?
+        Savestate* state = new Savestate(Blobs[Blob_InitState], BlobLens[Blob_InitState], false);
+        bool success = nds->DoSavestate(state);
         delete state;
 
         for (int i = 0; i < Blob_MAX; i++)
@@ -506,62 +516,38 @@ printf("[MC] finish blob type=%d len=%d\n", type, len);
             BlobLens[i] = 0;
         }
 
-        /*Savestate* zorp = new Savestate("netplay3.mln", true);
-        NDS::DoSavestate(zorp);
-        delete zorp;*/
-
-printf("[MC] state loaded, PC=%08X/%08X\n", NDS::GetPC(0), NDS::GetPC(1));
+        if (success) {
+            printf("[MC] state loaded, PC=%08X/%08X\n", nds->GetPC(0), nds->GetPC(1));
+        } else {
+            printf("[MC] couldn't load state\n");
+        }
         ENetPacket* resp = enet_packet_create(buf, 1, ENET_PACKET_FLAG_RELIABLE);
-        enet_peer_send(peer, 1, resp);
-        #endif
-    }
-    else if (buf[0] == 0x05)
-    {
-        printf("[MIRROR CLIENT] start\n");
-        StartLocal();
+        enet_peer_send(peer, Chan_Blob, resp);
     }
 }
 
-void SyncMirrorClients()
+void Netplay::SyncClients()
 {
-    printf("[MIRROR HOST] syncing clients\n");
-
-#if 0
-    SendBlobToMirrorClients(Blob_CartSRAM, NDSCart::GetSaveMemoryLength(), NDSCart::GetSaveMemory());
+    if (!IsHost) return;
 
     // send initial state
-    // TODO: this is a terrible hack!
-    /*printf("[MH] state start\n");
-    Savestate* state = new Savestate("netplay.mln", true);
-    NDS::DoSavestate(state);
-    delete state;
-    printf("[MH] state taken: PC=%08X/%08X\n", NDS::GetPC(0), NDS::GetPC(1));
-    FILE* f = Platform::OpenLocalFile("netplay.mln", "rb");
-    printf("[MH] state=%d\n", f?1:0);
-    fseek(f, 0, SEEK_END);
-    u32 flen = ftell(f);
-    fseek(f, 0, SEEK_SET);
-    u8* statebuf = new u8[flen];
-    fread(statebuf, flen, 1, f);
-    fclose(f);
-    printf("[MH] state read, len=%d\n", flen);
-    SendBlobToMirrorClients(Blob_InitState, flen, statebuf);
-    printf("[MH] state sent\n");
-    delete[] statebuf;*/
+    std::unique_ptr<Savestate> state = std::make_unique<Savestate>(Savestate::DEFAULT_SIZE);
+    nds->DoSavestate(state.get());
+    printf("[HOST] syncing clients. sending save state with size %d\n", state->Length());
+    SendBlob(Blob_InitState, state->Length(), (u8 *) state->Buffer());
 
     u8 data[2];
     data[0] = 0x04;
-    data[1] = (u8)Config::ConsoleType;
+    data[1] = (u8) nds->ConsoleType;
     ENetPacket* pkt = enet_packet_create(&data, 2, ENET_PACKET_FLAG_RELIABLE);
-    enet_host_broadcast(MirrorHost, 1, pkt);
-    //enet_host_flush(MirrorHost);
+    enet_host_broadcast(Host, Chan_Blob, pkt);
 
     // wait for all clients to have caught up
     int ngood = 0;
     ENetEvent evt;
-    while (enet_host_service(MirrorHost, &evt, 300000) > 0)
+    while (enet_host_service(Host, &evt, 300000) > 0)
     {printf("EVENT %d CH %d\n", evt.type, evt.channelID);
-        if (evt.type == ENET_EVENT_TYPE_RECEIVE && evt.channelID == 1)
+        if (evt.type == ENET_EVENT_TYPE_RECEIVE && evt.channelID == Chan_Blob)
         {
             if (evt.packet->dataLength == 1 && evt.packet->data[0] == 0x04)
                 ngood++;
@@ -576,17 +562,7 @@ void SyncMirrorClients()
     if (ngood != (NumPlayers-1))
         printf("!!! BAD!! %d %d\n", ngood, NumPlayers);
 
-    printf("[MIRROR HOST] clients synced\n");
-
-    // start
-
-    data[0] = 0x05;
-    pkt = enet_packet_create(&data, 1, ENET_PACKET_FLAG_RELIABLE);
-    enet_host_broadcast(MirrorHost, 1, pkt);
-    //enet_host_flush(MirrorHost);
-
-    StartLocal();
-#endif
+    printf("[HOST] clients synced\n");
 }
 
 void StartGame()
@@ -597,53 +573,62 @@ void StartGame()
         return;
     }
 
-    // spawn mirror instances as needed
-    for (int i = 1; i < NumPlayers; i++)
+
+    if (NumPlayers > 1)
     {
-        SpawnMirrorInstance(Players[i]);
+        Platform::Mutex_Lock(NetworkMutex);
+
+        SyncClients();
+
+        // tell remote peers to start game
+        u8 cmd[1] = { Cmd_StartGame };
+        ENetPacket* pkt = enet_packet_create(cmd, sizeof(cmd), ENET_PACKET_FLAG_RELIABLE);
+        enet_host_broadcast(Host, Chan_Cmd, pkt);
+
+        Platform::Mutex_Unlock(NetworkMutex);
     }
-
-    //SyncMirrorClients();
-
-    // tell remote peers to start game
-    u8 cmd[1] = {0x04};
-    ENetPacket* pkt = enet_packet_create(cmd, sizeof(cmd), ENET_PACKET_FLAG_RELIABLE);
-    enet_host_broadcast(Host, 0, pkt);
-
-    // tell other mirror instances to start the game
-    //IPC::SendCommand(0xFFFF, IPC::Cmd_Start, 0, nullptr);
-
-    // TO START MIRROR CLIENT SHITO
-                        //
-                        // 1. NDS::Reset()
-                        // 2. load ROM
-                        // 3. load state
 
     // start game locally
-    //StartLocal();
+    StartLocal();
 }
 
-void StartLocal()
+void Netplay::StartLocal()
 {
-    for (int i = 0; i < 4; i++)
+    if (!OnStartEmulatorThread)
     {
-        InputFrame frame;
-        frame.FrameNum = i;
-        frame.KeyMask = 0xFFF;
-        frame.Touching = 0;
-        frame.TouchX = 0;
-        frame.TouchY = 0;
-        InputQueue.push(frame);
+        printf("error, tried to start netplay game with OnStartEmulatorThread null!\n");
+        return;
     }
 
-    //NDS::Start();
-    //emuThread->emuRun();
+    printf("starting netplay game\n");
+
+    // assign local instances to players
+
+    PlayerToInstance[MyPlayer.ID] = 0;
+    InstanceToPlayer[0] = MyPlayer.ID;
+
+    for (int p = 0, i = 1; p < 16; p++)
+    {
+        if (p == MyPlayer.ID) continue;
+
+        Player* player = &Players[p];
+        if (player->Status == Player_None) continue;
+
+        PlayerToInstance[p] = i;
+        InstanceToPlayer[i] = p;
+        ReceivedInputThisFrame[p] = false;
+        i++;
+    }
+
+    OnStartEmulatorThread(); // Hack to access frontend code
 }
 
 
 void ProcessHost()
 {
     if (!Host) return;
+
+    Platform::Mutex_Lock(NetworkMutex);
 
     ENetEvent event;
     while (enet_host_service(Host, &event, 0) > 0)
@@ -663,25 +648,62 @@ void ProcessHost()
 
                 if (id < 16)
                 {
-                    u8 cmd[2];
-                    cmd[0] = 0x01;
-                    cmd[1] = (u8)id;
-                    ENetPacket* pkt = enet_packet_create(cmd, 2, ENET_PACKET_FLAG_RELIABLE);
-                    enet_peer_send(event.peer, 0, pkt);
+                    u8 cmd[11 + sizeof(NetworkSettings)];
+                    cmd[0] = Cmd_ClientInit;
+                    cmd[1] = (u8)kNetplayMagic;
+                    cmd[2] = (u8)(kNetplayMagic >> 8);
+                    cmd[3] = (u8)(kNetplayMagic >> 16);
+                    cmd[4] = (u8)(kNetplayMagic >> 24);
+                    cmd[5] = (u8)kProtocolVersion;
+                    cmd[6] = (u8)(kProtocolVersion >> 8);
+                    cmd[7] = (u8)(kProtocolVersion >> 16);
+                    cmd[8] = (u8)(kProtocolVersion >> 24);
+                    cmd[9] = (u8)id;
+                    cmd[10] = MaxPlayers;
+                    memcpy(&cmd[11], &Settings, sizeof(NetworkSettings));
+                    printf("a client is connecting with id %d, from %08X, port %d\n", id, event.peer->address.host, event.peer->address.port);
+                    ENetPacket* pkt = enet_packet_create(cmd, sizeof(cmd), ENET_PACKET_FLAG_RELIABLE);
+                    enet_peer_send(event.peer, Chan_Cmd, pkt);
+
+                    Platform::Mutex_Lock(PlayersMutex);
 
                     Players[id].ID = id;
                     Players[id].Status = 3;
                     Players[id].Address = event.peer->address.host;
                     event.peer->data = &Players[id];
                     NumPlayers++;
+
+                    Platform::Mutex_Unlock(PlayersMutex);
+
+                    SendNetworkSettings();
+
+                    PortToPlayerIndex[event.peer->address.port] = id;
+                    RemotePeers[id] = event.peer;
+                }
+                else
+                {
+                    // ???
+                    enet_peer_disconnect(event.peer, 0);
                 }
             }
             break;
 
         case ENET_EVENT_TYPE_DISCONNECT:
             {
-                // TODO
-                printf("disco\n");
+                Player* player = (Player*)event.peer->data;
+                if (!player) break;
+
+                int id = player->ID;
+                RemotePeers[id] = nullptr;
+
+                player->ID = 0;
+                player->Status = Player_None;
+                NumPlayers--;
+
+                // todo broadcast updated player list
+                // HostUpdatePlayerList();
+
+                printf("disconnected player %d\n", player->ID);
             }
             break;
 
@@ -689,28 +711,61 @@ void ProcessHost()
             {
                 if (event.packet->dataLength < 1) break;
 
+                if (event.channelID > Chan_Input0 && event.channelID < Chan_Cmd)
+                {
+                    ReceiveInputs(event);
+                    break;
+                }
+
+                if (event.channelID == Chan_Blob)
+                {
+                    RecvBlob(event.peer, event.packet);
+                    break;
+                }
+
                 u8* data = (u8*)event.packet->data;
                 switch (data[0])
                 {
                 case 0x02: // client sending player info
                     {
-                        if (event.packet->dataLength != (1+sizeof(Player))) break;
+                        if (event.packet->dataLength != (9+sizeof(Player))) break;
+
+                        u32 magic = data[1] | (data[2] << 8) | (data[3] << 16) | (data[4] << 24);
+                        u32 version = data[5] | (data[6] << 8) | (data[7] << 16) | (data[8] << 24);
+                        if ((magic != kNetplayMagic) || (version != kProtocolVersion))
+                        {
+                            enet_peer_disconnect(event.peer, 0);
+                            break;
+                        }
 
                         Player player;
-                        memcpy(&player, &data[1], sizeof(Player));
+                        memcpy(&player, &data[9], sizeof(Player));
                         player.Name[31] = '\0';
 
                         Player* hostside = (Player*)event.peer->data;
                         if (player.ID != hostside->ID)
                         {
-                            printf("what??? %d =/= %d\n", player.ID, hostside->ID);
-                            // TODO: disconnect
+                            enet_peer_disconnect(event.peer, 0);
                             break;
                         }
 
-                        player.Status = 1;
+                        Platform::Mutex_Lock(PlayersMutex);
+
+                        player.Status = Player_Client;
                         player.Address = event.peer->address.host;
-                        memcpy(hostside, &player, sizeof(Player));
+                        player.Port = event.peer->address.port;
+                        memcpy(&Players[player.ID], &player, sizeof(Player));
+
+                        Platform::Mutex_Unlock(PlayersMutex);
+
+                        printf("new player list!\n");
+                        for (int i = 0; i < NumPlayers; ++i)
+                        {
+                            Player& player = Players[i];
+                            if (player.Status == Player_None) continue;
+
+                            printf("%s: %d, %d, address: %d port: %d\n", player.Name, player.ID, i, player.Address, player.Port);
+                        }
 
                         // broadcast updated player list
                         u8 cmd[2+sizeof(Players)];
@@ -730,6 +785,7 @@ void ProcessHost()
             break;
         }
     }
+    Platform::Mutex_Unlock(NetworkMutex);
 }
 
 void ProcessClient()
@@ -742,7 +798,35 @@ void ProcessClient()
         switch (event.type)
         {
         case ENET_EVENT_TYPE_CONNECT:
-            printf("schmo\n");
+            {
+                // another client is establishing a direct connection to us
+
+                int playerid = -1;
+                for (int i = 0; i < 16; i++)
+                {
+                    Player* player = &Players[i];
+                    if (i == MyPlayer.ID) continue;
+                    if (player->Status != Player_Client) continue;
+
+                    if (player->Address == event.peer->address.host)
+                    {
+                        playerid = i;
+                        break;
+                    }
+                }
+
+                if (playerid < 0)
+                {
+                    enet_peer_disconnect(event.peer, 0);
+                    break;
+                }
+
+                PortToPlayerIndex[event.peer->address.port] = playerid;
+                RemotePeers[playerid] = event.peer;
+                event.peer->data = &Players[playerid];
+
+                printf("connected to peer %d, from %08X, port %d, event.data: %d\n", playerid, event.peer->address.host, event.peer->address.port, event.data);
+            }
             break;
 
         case ENET_EVENT_TYPE_DISCONNECT:
@@ -755,6 +839,18 @@ void ProcessClient()
         case ENET_EVENT_TYPE_RECEIVE:
             {
                 if (event.packet->dataLength < 1) break;
+
+                if (event.channelID > Chan_Input0 && event.channelID < Chan_Cmd)
+                {
+                    ReceiveInputs(event);
+                    break;
+                }
+
+                if (event.channelID == Chan_Blob)
+                {
+                    RecvBlob(event.peer, event.packet);
+                    break;
+                }
 
                 u8* data = (u8*)event.packet->data;
                 switch (data[0])
@@ -791,6 +887,8 @@ printf("client mirror host connecting to %08X:%d\n", mirroraddr.host, mirroraddr
                     {
                         if (event.packet->dataLength != (2+sizeof(Players))) break;
                         if (data[1] > 16) break;
+                        printf("client: receive player list, %08X %d\n", event.peer->address.host, event.peer->address.port);
+                        Platform::Mutex_Lock(PlayersMutex);
 
                         NumPlayers = data[1];
                         memcpy(Players, &data[2], sizeof(Players));
@@ -799,28 +897,40 @@ printf("client mirror host connecting to %08X:%d\n", mirroraddr.host, mirroraddr
                             Players[i].Name[31] = '\0';
                         }
 
-                        //netplayDlg->updatePlayerList(Players, NumPlayers);
-                    }
-                    break;
+                        Platform::Mutex_Unlock(PlayersMutex);
 
-                case 0x04: // start game
-                    {
-                        // spawn mirror instances as needed
-                        for (int i = 0; i < NumPlayers; i++)
+                        // establish connections to any new clients
+                        for (int i = 0; i < 16; i++)
                         {
-                            if (i != MyPlayer.ID)
-                                SpawnMirrorInstance(Players[i]);
-                        }
+                            Player* player = &Players[i];
+                            if (i == MyPlayer.ID) continue;
+                            if (player->Status != Player_Client) continue;
 
-                        //SyncMirrorClients();
-printf("bourf\n");
-                        // tell other mirror instances to start the game
-                        //IPC::SendCommand(0xFFFF, IPC::Cmd_Start, 0, nullptr);
-printf("birf\n");
-                        // start game locally
-                        //StartLocal();
+                            if (!RemotePeers[i])
+                            {
+                                ENetAddress peeraddr;
+                                peeraddr.host = player->Address;
+                                peeraddr.port = player->Port;
+                                ENetPeer* peer = enet_host_connect(Host, &peeraddr, Chan_Max, 0);
+                                if (!peer)
+                                {
+                                    // TODO deal with this
+                                    continue;
+                                }
+                            }
+                        }
                     }
                     break;
+
+                case Cmd_StartGame: // start game
+                    {
+                        StartLocal();
+                    }
+                    break;
+                case Cmd_UpdateSettings:
+                    {
+                        memcpy(&Settings, &data[1], sizeof(NetworkSettings));
+                    }
                 }
             }
             break;
@@ -830,172 +940,9 @@ printf("birf\n");
     }
 }
 
-void ProcessMirrorHost()
+void Netplay::ProcessFrame(int inst)
 {
-    if (!MirrorHost) return;
-#if 0
-    bool block = false;
-    ENetEvent event;
-    while (enet_host_service(MirrorHost, &event, block ? 5000 : 0) > 0)
-    {
-        switch (event.type)
-        {
-        case ENET_EVENT_TYPE_CONNECT:
-            printf("[MIRROR HOST] mirror client connected\n");
-            NumMirrorClients++;
-            event.peer->data = (void*)0;
-
-            if (NumMirrorClients >= NumPlayers)
-            {
-                printf("??????\n");
-            }
-            else if (NumMirrorClients == (NumPlayers-1))
-            {
-                // all mirror clients are connected, we're ready to go
-                SyncMirrorClients();
-                //StartLocal();
-            }
-            break;
-
-        case ENET_EVENT_TYPE_DISCONNECT:
-            {
-                // TODO
-                printf("[MIRROR HOST] mirror client disconnected\n");
-                NumMirrorClients--;
-            }
-            break;
-
-        case ENET_EVENT_TYPE_RECEIVE:
-            if (event.channelID == 0)
-            {
-                if (event.packet->dataLength != 4) break;
-                /*u8* data = (u8*)event.packet->data;
-
-                if (data[0])
-                {
-                    event.peer->data = (void*)1;
-                    block = true;
-                }
-                else
-                {
-                    event.peer->data = (void*)0;
-                    block = false;
-
-                    for (int i = 0; i < MirrorHost->peerCount; i++)
-                    {
-                        ENetPeer* peer = &(MirrorHost->peers[i]);
-                        if (peer->state != ENET_PEER_STATE_CONNECTED) continue;
-                        if (peer->data != (void*)0)
-                        {
-                            block = true;
-                            break;
-                        }
-                    }
-                }*/
-                s32 clientframes = *(s32*)event.packet->data;
-//printf("[SYNC] HOST=%d CLIENT=%d\n", NDS::NumFrames, clientframes);
-                if (clientframes < (((s32)NDS::NumFrames) - 16))
-                {
-                    event.peer->data = (void*)1;
-                    block = true;
-                }
-                else
-                {
-                    event.peer->data = (void*)0;
-                    block = false;
-
-                    for (int i = 0; i < MirrorHost->peerCount; i++)
-                    {
-                        ENetPeer* peer = &(MirrorHost->peers[i]);
-                        if (peer->state != ENET_PEER_STATE_CONNECTED) continue;
-                        if (peer->data != (void*)0)
-                        {
-                            block = true;
-                            break;
-                        }
-                    }
-                }
-            }
-            break;
-        }
-    }
-#endif
-}
-
-void ProcessMirrorClient()
-{
-    if (!MirrorHost) return;
-#if 0
-    bool block = false;
-    if (emuThread->emuIsRunning())// && NDS::NumFrames > 4)
-    {
-        if (InputQueue.empty())
-            block = true;
-    }
-
-    ENetEvent event;
-    while (enet_host_service(MirrorHost, &event, block ? 5000 : 0) > 0)
-    {
-        switch (event.type)
-        {
-        case ENET_EVENT_TYPE_CONNECT:
-            printf("schmu\n");
-            Lag = false;
-            break;
-
-        case ENET_EVENT_TYPE_DISCONNECT:
-            {
-                // TODO
-                printf("shmz\n");
-            }
-            break;
-
-        case ENET_EVENT_TYPE_RECEIVE://printf("RX %d %d\n", event.channelID, event.packet->dataLength);
-            if (event.channelID == 0)
-            {
-                if (event.packet->dataLength != sizeof(InputFrame)) break;
-
-                u8* data = (u8*)event.packet->data;
-                InputFrame frame;
-                memcpy(&frame, data, sizeof(InputFrame));
-                InputQueue.push(frame);
-
-                /*bool lag = (InputQueue.size() > 4*2);
-                if (lag != Lag)
-                {
-                    // let the mirror host know they are running too fast for us
-printf("mirror client lag notify: %d\n", lag);
-                    u8 data = lag ? 1 : 0;
-                    ENetPacket* pkt = enet_packet_create(&data, 1, ENET_PACKET_FLAG_RELIABLE);
-                    enet_peer_send(event.peer, 0, pkt);
-
-                    Lag = lag;
-                }*/
-                {
-                    ENetPacket* pkt = enet_packet_create(&NDS::NumFrames, 4, ENET_PACKET_FLAG_RELIABLE);
-                    enet_peer_send(event.peer, 0, pkt);
-                    //enet_host_flush(MirrorHost);
-                }
-            }
-            else if (event.channelID == 1)
-            {
-                RecvBlobFromMirrorHost(event.peer, event.packet);
-            }
-            break;
-        }
-
-        if (block) break;
-    }
-#endif
-}
-
-void ProcessFrame()
-{
-    if (IsMirror)
-    {
-        ProcessMirrorClient();
-    }
-    else
+    if (inst == 0)
     {
         if (IsHost)
         {
@@ -1005,84 +952,313 @@ void ProcessFrame()
         {
             ProcessClient();
         }
-
-        ProcessMirrorHost();
     }
 }
 
-void ProcessInput()
+Netplay::InputFrame *Netplay::GetInputFrame(u16 playerID, u32 frameNum)
 {
-    // netplay input processing
-    //
-    // N = current frame #
-    // L = amount of lag frames
-    //
-    // host side:
-    // we take the current input (normally meant for frame N)
-    // and delay it to frame N+L
-    //
-    // client side:
-    // we receive input from the host
-    // apply each input to the frame it's assigned to
-    // before running a frame, we need to wait to have received input for it
-    // TODO: alert host if we are running too far behind
-#if 0
-    if (!IsMirror)
-    {
-        u32 lag = 4; // TODO: make configurable!!
+    if (playerID >= 16) return nullptr;
+
+    auto &playerHistory = InputHistory[playerID];
+
+    auto it = playerHistory.find(frameNum);
+    return (it != playerHistory.end()) ? &it->second : nullptr;
+}
+
+void Netplay::ReceiveInputs(ENetEvent &event)
+{
+    Platform::Mutex_Lock(InstanceMutex);
+
+    int index = GetPlayerIndexFromPort(event.peer->address.port);
+    if (index == -1) return;
+
+    u8* data = (u8*)event.packet->data;
+    size_t dataSize = event.packet->dataLength;
+
+    const InputReport* report = reinterpret_cast<const InputReport*>(data);
+
+    u8 stallFrame = report->stallFrame;
+    u32 latestFrame = ntohl(report->frameIndex);
+    u32 lastCompleteFrame = ntohl(report->lastCompleteFrame);
+
+    // register the last frame this player has completed
+    Platform::Mutex_Lock(PlayersMutex);
+    Player &player = Players[index];
+    player.LastCompletedFrame = lastCompleteFrame;
+    Platform::Mutex_Unlock(PlayersMutex);
+
+    const u8* ptr = data + sizeof(InputReport);
+    size_t remaining = dataSize - sizeof(InputReport);
+    size_t entryCount = remaining / sizeof(InputFrame);
+
+    auto &playerHistory = InputHistory[1];
+    playerHistory.clear();
+    for (size_t i = 0; i < entryCount; ++i) {
+        const InputFrame* netFrame = reinterpret_cast<const InputFrame*>(ptr);
 
         InputFrame frame;
-        frame.FrameNum = NDS::NumFrames + lag;
-        frame.KeyMask = Input::InputMask;
-        frame.Touching = Input::Touching ? 1:0;
-        frame.TouchX = Input::TouchX;
-        frame.TouchY = Input::TouchY;
-        // TODO: other shit! (some hotkeys for example?)
+        frame.FrameNum = ntohl(netFrame->FrameNum);
+        frame.KeyMask  = netFrame->KeyMask;
+        frame.Touching = netFrame->Touching;
+        frame.TouchX   = netFrame->TouchX;
+        frame.TouchY   = netFrame->TouchY;
 
-        InputQueue.push(frame);
+        playerHistory[frame.FrameNum] = frame;
 
-        u8 cmd[sizeof(InputFrame)];
-        memcpy(cmd, &frame, sizeof(InputFrame));
-        ENetPacket* pkt = enet_packet_create(cmd, sizeof(cmd), ENET_PACKET_FLAG_RELIABLE);
-        enet_host_broadcast(MirrorHost, 0, pkt);
-        //enet_host_flush(MirrorHost);
+        ptr += sizeof(InputFrame);
+    }
+    if (playerHistory.find(PendingFrame.FrameNum) == playerHistory.end())
+    {
+        printf("got an update frame from the other player, but it didn't have the frame we wanted!\n");
     }
 
-    if (InputQueue.empty())
+    // check if we have the frames we were missing before
+    if (PendingFrame.Active)
     {
-        //if (NDS::NumFrames > 4)
-            printf("Netplay: BAD! INPUT QUEUE EMPTY\n");
-        return;
-    }
-
-    InputFrame& frame = InputQueue.front();
-
-    if (frame.FrameNum < NDS::NumFrames)
-    {
-        // TODO: this situation is a desync
-        printf("Netplay: BAD! LAGGING BEHIND\n");
-        while (frame.FrameNum < NDS::NumFrames)
+        auto &playerHistory = InputHistory[1];
+        auto it = playerHistory.find(PendingFrame.FrameNum);
+        if (it != playerHistory.end())
         {
-            if (InputQueue.size() < 2) break;
-            InputQueue.pop();
-            frame = InputQueue.front();
+            u32 prevWaitFrame = PendingFrame.FrameNum;
+            u32 currFrame = nds->NumFrames;
+            PendingFrame.Active = false;
+
+            // load the save state
+            nds->DoSavestate(&PendingFrame.SavestateBuffer[0]);
+            nds->NumFrames = PendingFrame.FrameNum;
+            u32 startF = nds->NumFrames;
+
+            u32 iterations = currFrame - nds->NumFrames;
+
+            std::clock_t start = std::clock();
+            std::clock_t loopStart = std::clock();
+            std::clock_t end;
+
+            // iterate over the frames until we reach the point we were at before
+            for (u32 i = nds->NumFrames; i < currFrame; ++i)
+            {
+                if (it != playerHistory.end())
+                {
+                    PendingFrame.FrameNum = i; // make sure this is our "last completed frame"
+                    InputFrame& frameData = it->second;
+                    nds->SetKeyMask(frameData.KeyMask);
+                    if (frameData.Touching) nds->TouchScreen(frameData.TouchX, frameData.TouchY);
+                    else nds->ReleaseScreen();
+                    ++it;
+                }
+                else if (!PendingFrame.Active)
+                {
+                    // there's still some frames we didn't get
+                    PendingFrame.Active = true;
+                    PendingFrame.FrameNum = i;
+                    PendingFrame.SavestateBuffer[0].~Savestate();
+                    new (&PendingFrame.SavestateBuffer[0]) Savestate();
+                    nds->DoSavestate(&PendingFrame.SavestateBuffer[0]);
+                }
+                else
+                {
+                    nds->SetKeyMask(0xFFF);
+                    nds->ReleaseScreen();
+                }
+                if (i == startF) {
+                    start = std::clock();
+                }
+                nds->RunFrame();
+                if (i == startF) {
+                    end = std::clock();
+                }
+            }
+
+            // end = std::clock();
+            double elapsed_seconds = double(end - start) / CLOCKS_PER_SEC;
+            double loop_elapsed_seconds = double(end - loopStart) / CLOCKS_PER_SEC;
+
+            printf("managed to catch up %d frames. still missing %d, seconds: %lf, loop sec: %1f the size is %d, iterations %d\n",
+PendingFrame.FrameNum - prevWaitFrame, nds->NumFrames - PendingFrame.FrameNum, elapsed_seconds, loop_elapsed_seconds, playerHistory.size(), iterations);
         }
     }
 
-    if (frame.FrameNum > NDS::NumFrames)
+    ReceivedInputThisFrame[index] = true;
+    printf("got input from %d\n", index);
+
+    Platform::Mutex_Unlock(InstanceMutex);
+}
+
+void Netplay::ProcessInput(int netplayID, NDS *nds, u32 inputMask, bool isTouching, u16 touchX, u16 touchY)
+{
+    StallFrame = false;
+
+    InputFrame frame;
+    frame.FrameNum = nds->NumFrames + Settings.Delay;
+    frame.KeyMask = inputMask;
+    frame.Touching = isTouching;
+    frame.TouchX = touchX;
+    frame.TouchY = touchY;
+
+    Platform::Mutex_Lock(InstanceMutex);
+    InputHistory[0][frame.FrameNum] = frame;
+    Platform::Mutex_Unlock(InstanceMutex);
+
+    // Send the inputs to other players
     {
-        // frame in the future, ignore
-        return;
+        size_t packetSize = sizeof(InputReport) + InputHistory[0].size() * sizeof(InputFrame);
+
+        std::vector<u8> buffer(packetSize);
+        u8* ptr = buffer.data();
+
+        InputReport report = {
+            .stallFrame = false,
+            .frameIndex = htonl(nds->NumFrames),
+            .lastCompleteFrame = htonl(PendingFrame.FrameNum - 1),
+        };
+
+        std::memcpy(ptr, &report, sizeof(report));
+        ptr += sizeof(report);
+
+        Platform::Mutex_Lock(InstanceMutex);
+        for (auto& pair : InputHistory[0]) {
+            InputFrame tmp = pair.second;
+            tmp.FrameNum = htonl(tmp.FrameNum);
+            if (((ptr - buffer.data()) + sizeof(InputFrame)) > buffer.size()) {
+                printf("did the history size change? %d, %d\n", InputHistory[0], buffer.size());
+                assert(false);
+                break;
+            }
+            std::memcpy(ptr, &tmp, sizeof(InputFrame));
+            ptr += sizeof(InputFrame);
+        }
+        Platform::Mutex_Unlock(InstanceMutex);
+
+        ENetPacket* pkt = enet_packet_create(buffer.data(), buffer.size(), ENET_PACKET_FLAG_UNSEQUENCED);
+        enet_host_broadcast(Host, 2, pkt);
     }
 
-    // apply this input frame
-    if (frame.KeyMask != 0xFFF) printf("[%08d] INPUT=%08X (%08d) (backlog=%d)\n", NDS::NumFrames, frame.KeyMask, frame.FrameNum, InputQueue.size());
-    NDS::SetKeyMask(frame.KeyMask);
-    if (frame.Touching) NDS::TouchScreen(frame.TouchX, frame.TouchY);
-    else                NDS::ReleaseScreen();
+    // if we have no inputs, or the only inputs we have are for frames behind us
+    // save a state of this frame before it's played so that we can come back here
+    // later when we know what the inputs were and replay this frame.
+    // also find the last completed frame of all players
+    // in other words, the most recent frame that everyone has everyone's inputs for
+    int lastCompletedFrame = -1;
+    for (int i = 0; i < NumPlayers; ++i)
+    {
+        if (i == MyPlayer.ID) continue;
+        Player &player = Players[i];
+        if (player.Status != Player_Client && player.Status != Player_Host) continue;
 
-    InputQueue.pop();
-#endif
+        if (!ReceivedInputThisFrame[i])
+        {
+            StallFrame = true;
+        }
+        if (lastCompletedFrame == -1 || player.LastCompletedFrame < lastCompletedFrame)
+        {
+            lastCompletedFrame = player.LastCompletedFrame;
+        }
+    }
+
+    // delete all the frames that everyone already have
+    // to save memory and keep packet sizes down
+    if (lastCompletedFrame != -1)
+    {
+        Platform::Mutex_Lock(InstanceMutex);
+        auto& playerHistory = InputHistory[0];
+        auto cutoff = playerHistory.lower_bound(static_cast<unsigned>(lastCompletedFrame));
+        playerHistory.erase(playerHistory.begin(), cutoff);
+        Platform::Mutex_Unlock(InstanceMutex);
+    }
+
+    // check if this frame has no inputs available
+    InputFrame *tempFrame = GetInputFrame(1, nds->NumFrames);
+    if ((StallFrame || !tempFrame) && nds->NumFrames > Settings.Delay && !PendingFrame.Active)
+    {
+        Platform::Mutex_Lock(InstanceMutex);
+        printf("missing inputs! saving state... inputs: %d, stall: %d\n", !tempFrame, StallFrame);
+        PendingFrame.Active = true;
+        PendingFrame.SavestateBuffer[0].~Savestate();
+        new (&PendingFrame.SavestateBuffer[0]) Savestate();
+        nds->DoSavestate(&PendingFrame.SavestateBuffer[0]);
+        StallFrame = false;
+        Platform::Mutex_Unlock(InstanceMutex);
+    }
+}
+
+void Netplay::ApplyInput(int netplayID, NDS *nds)
+{
+    // clear inputs in case we return
+    nds->SetKeyMask(0xFFF);
+    nds->ReleaseScreen();
+
+    Platform::Mutex_Lock(InstanceMutex);
+    InputFrame *frame = GetInputFrame(1, nds->NumFrames);
+    if (!frame)
+    {
+        // This isn't an error, apply our own inputs now, we can use save states
+        // to apply the missing frame later, when we receive it.
+        printf("didn't get any inputs from the other player for this frame %d, but we're waiting for %d\n", nds->NumFrames, PendingFrame.FrameNum);
+        frame = GetInputFrame(0, nds->NumFrames);
+        if (!frame) { Platform::Mutex_Unlock(InstanceMutex); return; }
+        InputFrame frameCopy = *frame;
+        frame = &frameCopy;
+        Platform::Mutex_Unlock(InstanceMutex);
+        nds->SetKeyMask(frame->KeyMask);
+        if (frame->Touching) nds->TouchScreen(frame->TouchX, frame->TouchY);
+        else                 nds->ReleaseScreen();
+        return;
+    }
+    InputFrame frameCopy = *frame;
+    frame = &frameCopy;
+    Platform::Mutex_Unlock(InstanceMutex);
+
+    if (frame->FrameNum != nds->NumFrames)
+    {
+        return; // this is not allowed (but shouldn't be possible with the lookup)
+    }
+
+    // merge the other player's inputs with this instance inputs
+    Platform::Mutex_Lock(InstanceMutex);
+    InputFrame *personalFrame = GetInputFrame(0, nds->NumFrames);
+    if (personalFrame && frame->KeyMask == 0xFFF && !frame->Touching) {
+        frame->KeyMask = personalFrame->KeyMask;
+        frame->Touching = personalFrame->Touching;
+        frame->TouchX = personalFrame->TouchX;
+        frame->TouchY = personalFrame->TouchY;
+    }
+    Platform::Mutex_Unlock(InstanceMutex);
+
+    printf("applying client inputs %d, size of inputs: %d, frame num %d, nds num %d, delay %d, touching %d, keymask %03X, merged %d\n",
+        netplayID, InputHistory[1].size(), frame->FrameNum, nds->NumFrames, Settings.Delay, frame->Touching, frame->KeyMask, personalFrame);
+
+    PendingFrame.FrameNum = nds->NumFrames;
+
+    // apply this input frame
+    nds->SetKeyMask(frame->KeyMask);
+    if (frame->Touching) nds->TouchScreen(frame->TouchX, frame->TouchY);
+    else                 nds->ReleaseScreen();
+}
+
+void Netplay::Process(int inst)
+{
+    ProcessFrame(inst);
+    LocalMP::Process(inst);
+
+    static u8 FrameCount = 0;
+    FrameCount++;
+    if (FrameCount >= 60)
+    {
+        FrameCount = 0;
+
+        Platform::Mutex_Lock(PlayersMutex);
+
+        for (int i = 0; i < 16; i++)
+        {
+            if (Players[i].Status == Player_None) continue;
+            if (i == MyPlayer.ID) continue;
+            if (!RemotePeers[i]) continue;
+
+            Players[i].Ping = RemotePeers[i]->roundTripTime;
+        }
+
+        Platform::Mutex_Unlock(PlayersMutex);
+    }
 }
 
 }
