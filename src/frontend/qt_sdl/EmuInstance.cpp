@@ -177,6 +177,7 @@ void EmuInstance::createWindow()
 
 void EmuInstance::deleteWindow(int id, bool close)
 {
+    if (IsHeadless()) return;
     if (id >= kMaxWindows) return;
 
     MainWindow* win = windowList[id];

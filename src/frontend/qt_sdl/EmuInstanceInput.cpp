@@ -312,9 +312,13 @@ bool EmuInstance::joystickButtonDown(int val)
     return false;
 }
 
+static SDL_mutex* joystick_mutex = SDL_CreateMutex();
+
 void EmuInstance::inputProcess()
 {
     if (IsHeadless()) return;
+
+    SDL_LockMutex(joystick_mutex);
 
     SDL_JoystickUpdate();
 
@@ -353,6 +357,8 @@ void EmuInstance::inputProcess()
     hotkeyPress = hotkeyMask & ~lastHotkeyMask;
     hotkeyRelease = lastHotkeyMask & ~hotkeyMask;
     lastHotkeyMask = hotkeyMask;
+
+    SDL_UnlockMutex(joystick_mutex);
 }
 
 void EmuInstance::touchScreen(int x, int y)
