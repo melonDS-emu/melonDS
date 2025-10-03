@@ -2674,7 +2674,8 @@ void NDS::ARM7Write32(u32 addr, u32 val)
             Wifi.Write(addr+2, val >> 16);
             return;
         }
-        break;
+        NDS::ARM7IOWrite32(addr, val);
+        return;
 
     case 0x06000000:
     case 0x06800000:
@@ -3287,7 +3288,9 @@ void NDS::ARM9IOWrite8(u32 addr, u8 val)
         return;
 
     // NO$GBA debug register "Char Out"
-        case 0x04FFFA1C: Log(LogLevel::Debug, "%c", char(val)); return;
+    case 0x04FFFA1C:
+        Log(LogLevel::Debug, "%c", char(val));
+        return;
     }
 
     if (addr >= 0x04000000 && addr < 0x04000060)
@@ -3681,7 +3684,9 @@ void NDS::ARM9IOWrite32(u32 addr, u32 val)
         }
 
     // NO$GBA debug register "Char Out"
-        case 0x04FFFA1C: Log(LogLevel::Debug, "%c", val & 0xFF); return;
+    case 0x04FFFA1C:
+        Log(LogLevel::Debug, "%c", val & 0xFF);
+        return;
     }
 
     if (addr >= 0x04000000 && addr < 0x04000060)
@@ -3800,6 +3805,15 @@ u8 NDS::ARM7IORead8(u32 addr)
     if (addr >= 0x04000400 && addr < 0x04000520)
     {
         return SPU.Read8(addr);
+    }
+
+    // NO$GBA debug register "Emulation ID"
+    if (addr >= 0x04FFFA00 && addr < 0x04FFFA10)
+    {
+        // FIX: GBATek says this should be padded with spaces
+        static char const emuID[16] = "melonDS " MELONDS_VERSION_BASE;
+        auto idx = addr - 0x04FFFA00;
+        return (u8)(emuID[idx]);
     }
 
     if ((addr & 0xFFFFF000) != 0x04004000)
@@ -4402,6 +4416,34 @@ void NDS::ARM7IOWrite32(u32 addr, u32 val)
 
     case 0x04100010:
         if (ExMemCnt[0] & (1<<11))  NDSCartSlot.WriteROMData(val);
+        return;
+
+    // NO$GBA debug register "String Out (raw)"
+    case 0x04FFFA10:
+        {
+            char output[1024] = { 0 };
+            char ch = '.';
+            for (size_t i = 0; i < 1023 && ch != '\0'; i++)
+            {
+                ch = NDS::ARM7Read8(val + i);
+                output[i] = ch;
+            }
+            Log(LogLevel::Debug, "%s", output);
+            return;
+        }
+
+    // NO$GBA debug registers "String Out (with parameters)" and "String Out (with parameters, plus linefeed)"
+    case 0x04FFFA14:
+    case 0x04FFFA18:
+        {
+            NocashPrint(1, val, 0x04FFFA18 == addr);
+
+            return;
+        }
+
+    // NO$GBA debug register "Char Out"
+    case 0x04FFFA1C:
+        Log(LogLevel::Debug, "%c", val & 0xFF);
         return;
     }
 

@@ -1557,6 +1557,7 @@ void* ARMJIT_Memory::GetFuncForAddr(ARM* cpu, u32 addr, bool store, int size) co
         switch (addr & 0xFF800000)
         {
         case 0x04000000:
+        case 0x04800000:
             /*if (addr >= 0x04000400 && addr < 0x04000520)
             {
                 switch (size | store)
@@ -1581,7 +1582,7 @@ void* ARMJIT_Memory::GetFuncForAddr(ARM* cpu, u32 addr, bool store, int size) co
             }
             break;
             // TODO: the wifi funcs also ought to check POWCNT
-        /*case 0x04800000:
+        /*
             if (addr < 0x04810000 && size >= 16)
             {
                 switch (size | store)
