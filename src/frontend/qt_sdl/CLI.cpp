@@ -42,6 +42,7 @@ CommandLineOptions* ManageArgs(QApplication& melon)
     parser.addPositionalArgument("gba", "GBA ROM (or an archive file which contains it) to load into Slot-2");
 
     parser.addOption(QCommandLineOption({"b", "boot"}, "Whether to boot firmware on startup. Defaults to \"auto\" (boot if NDS rom given)", "auto/always/never", "auto"));
+    parser.addOption(QCommandLineOption({"c", "config"}, "toml config file used for session", "default"));
     parser.addOption(QCommandLineOption({"f", "fullscreen"}, "Start melonDS in fullscreen mode"));
 
 #ifdef ARCHIVE_SUPPORT_ENABLED
@@ -71,7 +72,7 @@ CommandLineOptions* ManageArgs(QApplication& melon)
     QString bootMode = parser.value("boot");
     if (bootMode == "auto")
     {
-        options->boot = !posargs.empty();
+        options->boot = (options->dsRomPath || options->gbaRomPath);
     }
     else if (bootMode == "always")
     {
@@ -85,6 +86,14 @@ CommandLineOptions* ManageArgs(QApplication& melon)
     {
         Log(LogLevel::Error, "ERROR: -b/--boot only accepts auto/always/never as arguments\n");
         exit(1);
+    }
+
+    if (parser.value("config") == "default")
+    { options->configPath = std::nullopt; }
+    else
+    {
+        options->configPath = parser.value("config");
+        // options->configPath = "C:\\User\\Dagai\\Desktop\\ds-emu\\config.toml";
     }
 
 #ifdef ARCHIVE_SUPPORT_ENABLED
