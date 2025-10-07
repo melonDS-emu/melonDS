@@ -72,7 +72,7 @@ CommandLineOptions* ManageArgs(QApplication& melon)
     QString bootMode = parser.value("boot");
     if (bootMode == "auto")
     {
-        options->boot = (options->dsRomPath || options->gbaRomPath);
+        options->boot = !posargs.empty();
     }
     else if (bootMode == "always")
     {
@@ -88,12 +88,18 @@ CommandLineOptions* ManageArgs(QApplication& melon)
         exit(1);
     }
 
-    if (parser.value("config") == "default")
-    { options->configPath = std::nullopt; }
+    QString cfgValue = parser.value("config");
+    /*
+    * I'm definitely missing something, but for some reason qt isn't setting 
+    * my config option its default value, instead it just puts in an empty string idk
+    */
+    if (cfgValue.isEmpty() || cfgValue == "default")
+    {
+        options->configPath = std::nullopt;
+    }
     else
     {
-        options->configPath = parser.value("config");
-        // options->configPath = "C:\\User\\Dagai\\Desktop\\ds-emu\\config.toml";
+        options->configPath = cfgValue;
     }
 
 #ifdef ARCHIVE_SUPPORT_ENABLED

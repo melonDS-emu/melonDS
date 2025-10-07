@@ -40,10 +40,10 @@ using namespace melonDS;
 
 
 const char* kConfigFile = "melonDS.toml";
-QString qConfigPath;
 
 const char* kLegacyConfigFile = "melonDS.ini";
 const char* kLegacyUniqueConfigFile = "melonDS.%d.ini";
+std::optional<std::string> cfgpathOverride = std::nullopt;
 
 toml::value RootTable;
 
@@ -783,17 +783,11 @@ bool LoadLegacy()
     return true;
 }
 
-void SetCfgPath(std::optional<QString>const& newpath)
-{
-    if(newpath == std::nullopt)
-    { qConfigPath = QString::fromStdString(Platform::GetLocalFilePath(kConfigFile)); return; }
-
-    qConfigPath = *newpath;
-}
-
 bool Load()
 {
-    const auto cfgpath = qConfigPath.toStdString();
+    std::string cfgpath = Platform::GetLocalFilePath(kConfigFile);
+    if(cfgpathOverride)
+    { cfgpath = *cfgpathOverride; }
 
     if (!Platform::CheckFileWritable(cfgpath))
         return false;
@@ -817,7 +811,9 @@ bool Load()
 
 void Save()
 {
-    const auto cfgpath = qConfigPath.toStdString();
+    std::string cfgpath = Platform::GetLocalFilePath(kConfigFile);
+    if (cfgpathOverride)
+    { cfgpath = *cfgpathOverride; }
 
     if (!Platform::CheckFileWritable(cfgpath))
         return;

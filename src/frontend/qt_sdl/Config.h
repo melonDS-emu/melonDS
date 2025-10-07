@@ -30,6 +30,7 @@
 
 namespace Config
 {
+extern std::optional<std::string> cfgpathOverride;
 
 struct LegacyEntry
 {
@@ -130,7 +131,6 @@ private:
     template<typename T> T FindDefault(const std::string& path, T def, DefaultList<T> list);
 };
 
-void SetCfgPath(std::optional<QString>const& newpath);
 bool Load();
 void Save();
 

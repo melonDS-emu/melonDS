@@ -21,7 +21,6 @@
 #include <stdio.h>
 #include <string.h>
 
-#include <iostream>
 #include <optional>
 #include <string>
 
@@ -297,9 +296,9 @@ int main(int argc, char** argv)
 
     CLI::CommandLineOptions* options = CLI::ManageArgs(melon);
 
-    // Now Config::SetCfgPath needs to be called before any Save/Load functions are called
-    // can be called with std::optional::nullopt passed in so that the default path can be set like before
-    Config::SetCfgPath(*options->configPath);
+    // set config path override variable if -c/--config flag was passed
+    if(options->configPath)
+    { Config::cfgpathOverride = options->configPath->toStdString(); }
 
     // http://stackoverflow.com/questions/14543333/joystick-wont-work-using-sdl
     SDL_SetHint(SDL_HINT_JOYSTICK_ALLOW_BACKGROUND_EVENTS, "1");
