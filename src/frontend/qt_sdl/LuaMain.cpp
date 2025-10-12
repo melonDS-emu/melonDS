@@ -256,6 +256,25 @@ enum ramInfo_ByteType
     ramInfo_FourBytes = 4
 };
 
+void SetMainRAMValue(const melonDS::u32& addr, const ramInfo_ByteType& byteType, int value, LuaBundle* bundle)
+{
+    melonDS::NDS* nds = bundle->getEmuInstance()->getNDS();
+    switch (byteType)
+    {
+        case ramInfo_OneByte:
+            *(melonDS::u8*)(nds->MainRAM + (addr&nds->MainRAMMask)) = (melonDS::u8)value;
+            return;
+        case ramInfo_TwoBytes:
+            *(melonDS::u16*)(nds->MainRAM + (addr&nds->MainRAMMask)) = (melonDS::u16)value;
+            return;
+        case ramInfo_FourBytes:
+            *(melonDS::u32*)(nds->MainRAM + (addr&nds->MainRAMMask)) = (melonDS::u32)value;
+            return;
+        default:
+            return;
+    }
+}
+
 melonDS::u32 GetMainRAMValueU(const melonDS::u32& addr, const ramInfo_ByteType& byteType,LuaBundle* bundle)
 {
 
@@ -290,6 +309,14 @@ melonDS::s32 GetMainRAMValueS(const melonDS::u32& addr, const ramInfo_ByteType& 
     }
 }
 
+int Lua_WriteData(lua_State* L,ramInfo_ByteType byteType){
+    LuaBundle* bundle = get_bundle(L);
+    int value = luaL_checkinteger(L,1);
+    melonDS::u32 address = luaL_checkinteger(L,2);
+    SetMainRAMValue(address,byteType,value,bundle);
+    return 0;
+}
+
 int Lua_ReadDatau(lua_State* L,ramInfo_ByteType byteType) 
 {   
     LuaBundle* bundle = get_bundle(L);
@@ -314,11 +341,25 @@ int Lua_Readu8(lua_State* L)
 }
 AddLuaFunction(Lua_Readu8,Readu8);
 
+int Lua_Writeu8(lua_State* L)
+{
+    return Lua_WriteData(L,ramInfo_OneByte);
+}
+AddLuaFunction(Lua_Writeu8,Writeu8);
+
+
 int Lua_Readu16(lua_State* L)
 {
     return Lua_ReadDatau(L,ramInfo_TwoBytes);
 }
 AddLuaFunction(Lua_Readu16,Readu16);
+
+int Lua_Writeu16(lua_State* L)
+{
+    return Lua_WriteData(L,ramInfo_TwoBytes);
+}
+AddLuaFunction(Lua_Writeu16,Writeu16);
+
 
 int Lua_Readu32(lua_State* L)
 {
@@ -326,11 +367,24 @@ int Lua_Readu32(lua_State* L)
 }
 AddLuaFunction(Lua_Readu32,Readu32);
 
+int Lua_Writeu32(lua_State* L)
+{
+    return Lua_WriteData(L,ramInfo_FourBytes);
+}
+AddLuaFunction(Lua_Writeu32,Writeu32);
+
+
 int Lua_Reads8(lua_State* L)
 {
     return Lua_ReadDatas(L,ramInfo_OneByte);
 }
 AddLuaFunction(Lua_Reads8,Reads8);
+
+int Lua_Writes8(lua_State* L)
+{
+    return Lua_WriteData(L,ramInfo_OneByte);
+}
+AddLuaFunction(Lua_Writes8,Writes8);
 
 int Lua_Reads16(lua_State* L)
 {
@@ -338,11 +392,23 @@ int Lua_Reads16(lua_State* L)
 }
 AddLuaFunction(Lua_Reads16,Reads16);
 
+int Lua_Writes16(lua_State* L)
+{
+    return Lua_WriteData(L,ramInfo_TwoBytes);
+}
+AddLuaFunction(Lua_Writes16,Writes16);
+
 int Lua_Reads32(lua_State* L)
 {
     return Lua_ReadDatas(L,ramInfo_FourBytes);
 }
 AddLuaFunction(Lua_Reads32,Reads32);
+
+int Lua_Writes32(lua_State* L)
+{
+    return Lua_WriteData(L,ramInfo_FourBytes);
+}
+AddLuaFunction(Lua_Writes32,Writes32);
 
 int Lua_NDSTapDown(lua_State* L)
 {

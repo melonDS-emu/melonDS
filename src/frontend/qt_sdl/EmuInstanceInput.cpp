@@ -338,7 +338,11 @@ void EmuInstance::onKeyPress(QKeyEvent* event)
 
 void EmuInstance::onKeyRelease(QKeyEvent* event)
 {
-    heldKeys.erase(std::find(heldKeys.begin(),heldKeys.end(),event->key()));
+    if (!heldKeys.empty()){
+        auto iterator = std::find(heldKeys.begin(),heldKeys.end(),event->key());
+        if (iterator != heldKeys.end()) heldKeys.erase(iterator);
+    }
+    
     int keyHK = getEventKeyVal(event);
     int keyKP = keyHK;
     if (event->modifiers() != Qt::KeypadModifier)

@@ -1,5 +1,6 @@
 -- Simple Script to test most of the different Lua Functions for MelonDS
 -- Written by NPO197
+-- TODO: re-write to be more readable... 
 
 MelonClear()
 print("This text Should be cleared")
