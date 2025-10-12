@@ -41,6 +41,7 @@
           libGL
           libslirp
           enet
+          faad2
         ]) ++ optionals (!isDarwin) (with pkgs; [
           kdePackages.extra-cmake-modules
           qt6.qtwayland

@@ -1,5 +1,5 @@
 /*
-    Copyright 2016-2024 melonDS team
+    Copyright 2016-2025 melonDS team
 
     This file is part of melonDS.
 
@@ -119,14 +119,6 @@ void DSi_TSC::SetTouchCoords(u16 x, u16 y)
         TouchX |= 0x8000;
         TouchY |= 0x8000;
     }
-}
-
-void DSi_TSC::MicInputFrame(const s16* data, int samples)
-{
-    if (TSCMode == 0x00) return TSC::MicInputFrame(data, samples);
-
-    // otherwise we don't handle mic input
-    // TODO: handle it where it needs to be
 }
 
 void DSi_TSC::Write(u8 val)

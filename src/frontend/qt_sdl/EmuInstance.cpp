@@ -1,5 +1,5 @@
 /*
-    Copyright 2016-2024 melonDS team
+    Copyright 2016-2025 melonDS team
 
     This file is part of melonDS.
 
@@ -204,7 +204,7 @@ void EmuInstance::createWindow(int id)
     if (windowList[id])
         return;
 
-    MainWindow* win = new MainWindow(id, this, topWindow);
+    MainWindow* win = new MainWindow(id, this, mainWindow ? mainWindow : topWindow);
     if (!topWindow) topWindow = win;
     if (!mainWindow) mainWindow = win;
     windowList[id] = win;
@@ -406,6 +406,15 @@ void EmuInstance::setVSyncGL(bool vsync)
 void EmuInstance::makeCurrentGL()
 {
     mainWindow->makeCurrentGL();
+}
+
+void EmuInstance::releaseGL()
+{
+    for (int i = 0; i < kMaxWindows; i++)
+    {
+        if (windowList[i])
+            windowList[i]->releaseGL();
+    }
 }
 
 void EmuInstance::drawScreenGL()
@@ -1013,28 +1022,35 @@ std::optional<Firmware> EmuInstance::loadFirmware(int type) noexcept
             return generateFirmware(type);
         }
     }
-    //const string& firmwarepath = type == 1 ? Config::DSiFirmwarePath : Config::FirmwarePath;
+
     string firmwarepath;
     if (type == 1)
         firmwarepath = globalCfg.GetString("DSi.FirmwarePath");
     else
         firmwarepath = globalCfg.GetString("DS.FirmwarePath");
 
-    Log(Debug, "SPI firmware: loading from file %s\n", firmwarepath.c_str());
+    string fwpath_inst = firmwarepath + instanceFileSuffix();
 
-    FileHandle* file = OpenLocalFile(firmwarepath, Read);
+    Log(Debug, "Loading firmware from file %s\n", fwpath_inst.c_str());
+    FileHandle* file = OpenLocalFile(fwpath_inst, Read);
 
     if (!file)
     {
-        Log(Error, "SPI firmware: couldn't open firmware file!\n");
-        return std::nullopt;
+        Log(Debug, "Loading firmware from file %s\n", firmwarepath.c_str());
+        file = OpenLocalFile(firmwarepath, Read);
+        if (!file)
+        {
+            Log(Error, "Couldn't open firmware file!\n");
+            return std::nullopt;
+        }
     }
+
     Firmware firmware(file);
     CloseFile(file);
 
     if (!firmware.Buffer())
     {
-        Log(Error, "SPI firmware: couldn't read firmware file!\n");
+        Log(Error, "Couldn't read firmware file!\n");
         return std::nullopt;
     }
 
@@ -1302,6 +1318,7 @@ bool EmuInstance::updateConsole() noexcept
             jitargs,
             static_cast<AudioBitDepth>(globalCfg.GetInt("Audio.BitDepth")),
             static_cast<AudioInterpolation>(globalCfg.GetInt("Audio.Interpolation")),
+            (double) audioFreq,
             gdbargs,
     };
     NDSArgs* args = &ndsargs;
@@ -1330,6 +1347,7 @@ bool EmuInstance::updateConsole() noexcept
                 std::move(*nand),
                 std::move(sdcard),
                 globalCfg.GetBool("DSi.FullBIOSBoot"),
+                globalCfg.GetBool("DSi.DSP.HLE")
         };
 
         dsiargs = std::move(_dsiargs);
@@ -1370,6 +1388,7 @@ bool EmuInstance::updateConsole() noexcept
             DSiArgs& _dsiargs = *dsiargs;
 
             dsi->SetFullBIOSBoot(_dsiargs.FullBIOSBoot);
+            dsi->SetDSPHLE(_dsiargs.DSPHLE);
             dsi->ARM7iBIOS = *_dsiargs.ARM7iBIOS;
             dsi->ARM9iBIOS = *_dsiargs.ARM9iBIOS;
             dsi->SetNAND(std::move(_dsiargs.NANDImage));
@@ -2148,6 +2167,12 @@ QString EmuInstance::gbaAddonName(int addon)
         return "Solar Sensor (Boktai 2)";
     case GBAAddon_SolarSensorBoktai3:
         return "Solar Sensor (Boktai 3)";
+    case GBAAddon_MotionPakHomebrew:
+        return "Motion Pak (Homebrew)";
+    case GBAAddon_MotionPakRetail:
+        return "Motion Pack (Retail)";
+    case GBAAddon_GuitarGrip:
+        return "Guitar Grip";
     }
 
     return "???";

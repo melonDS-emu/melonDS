@@ -1,5 +1,5 @@
 /*
-    Copyright 2016-2024 melonDS team
+    Copyright 2016-2025 melonDS team
 
     This file is part of melonDS.
 
@@ -242,8 +242,6 @@ u16 CartGame::ROMRead(u32 addr) const
             case 0xC8: return GPIO.control;
             }
         }
-        else
-            return 0;
     }
 
     // CHECKME: does ROM mirror?
@@ -775,6 +773,27 @@ void CartRumblePak::ROMWrite(u32 addr, u16 val)
     }
 }
 
+CartGuitarGrip::CartGuitarGrip(void* userdata) : 
+    CartCommon(GuitarGrip),
+    UserData(userdata)
+{
+}
+
+CartGuitarGrip::~CartGuitarGrip() = default;
+
+u16 CartGuitarGrip::ROMRead(u32 addr) const
+{
+    return 0xF9FF;
+}
+
+u8 CartGuitarGrip::SRAMRead(u32 addr)
+{
+    return ~((Platform::Addon_KeyDown(Platform::KeyGuitarGripGreen, UserData) ? 0x40 : 0)
+        | (Platform::Addon_KeyDown(Platform::KeyGuitarGripRed, UserData) ? 0x20 : 0)
+        | (Platform::Addon_KeyDown(Platform::KeyGuitarGripYellow, UserData) ? 0x10 : 0)
+        | (Platform::Addon_KeyDown(Platform::KeyGuitarGripBlue, UserData) ? 0x08 : 0));
+}
+
 GBACartSlot::GBACartSlot(melonDS::NDS& nds, std::unique_ptr<CartCommon>&& cart) noexcept : NDS(nds), Cart(std::move(cart))
 {
 }
@@ -905,6 +924,15 @@ std::unique_ptr<CartCommon> LoadAddon(int type, void* userdata)
     case GBAAddon_SolarSensorBoktai3:
         // JP Boktai 3
         cart = CreateFakeSolarSensorROM("U33J", nullptr, userdata);
+        break;
+    case GBAAddon_MotionPakHomebrew:
+        cart = std::make_unique<CartMotionPakHomebrew>(userdata);
+        break;
+    case GBAAddon_MotionPakRetail:
+        cart = std::make_unique<CartMotionPakRetail>(userdata);
+        break;
+    case GBAAddon_GuitarGrip:
+        cart = std::make_unique<CartGuitarGrip>(userdata);
         break;
     default:
         Log(LogLevel::Warn, "GBACart: !! invalid addon type %d\n", type);

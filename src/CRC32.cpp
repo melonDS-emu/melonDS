@@ -1,5 +1,5 @@
 /*
-    Copyright 2016-2024 melonDS team
+    Copyright 2016-2025 melonDS team
 
     This file is part of melonDS.
 
@@ -59,8 +59,17 @@ u32 CRC32(const u8 *data, int len, u32 start)
 
 	u32 crc = start ^ 0xFFFFFFFF;
 
-	while (len--)
-        crc = (crc >> 8) ^ Crc32Table[(crc & 0xFF) ^ *data++];
+    if (data)
+    {
+        while (len--)
+            crc = (crc >> 8) ^ Crc32Table[(crc & 0xFF) ^ *data++];
+    }
+    else
+    {
+        // null data acts like checksumming a block of zeros
+        while (len--)
+            crc = (crc >> 8) ^ Crc32Table[(crc & 0xFF)];
+    }
 
 	return (crc ^ 0xFFFFFFFF);
 }

@@ -344,9 +344,20 @@ MMIORegion::MMIORegion(MemoryInterfaceUnit& miu, ICU& icu, Apbp& apbp_from_cpu, 
             BitFieldSlot{4, 1, {}, std::bind(&Btdmp::GetTransmitEmpty, &btdmp[i])},
         });
         impl->cells[0x2C6 + i * 0x80].set = std::bind(&Btdmp::Send, &btdmp[i], _1);
-        impl->cells[0x2C6 + i * 0x80].get = std::bind(&Btdmp::Receive, &btdmp[i]);
         impl->cells[0x2CA + i * 0x80].set = std::bind(&Btdmp::SetTransmitFlush, &btdmp[i], _1);
         impl->cells[0x2CA + i * 0x80].get = std::bind(&Btdmp::GetTransmitFlush, &btdmp[i]);
+
+        impl->cells[0x282 + i * 0x80].set = std::bind(&Btdmp::SetReceiveClockConfig, &btdmp[i], _1);
+        impl->cells[0x282 + i * 0x80].get = std::bind(&Btdmp::GetReceiveClockConfig, &btdmp[i]);
+        impl->cells[0x29E + i * 0x80].set = std::bind(&Btdmp::SetReceiveEnable, &btdmp[i], _1);
+        impl->cells[0x29E + i * 0x80].get = std::bind(&Btdmp::GetReceiveEnable, &btdmp[i]);
+        impl->cells[0x2C0 + i * 0x80] = Cell::BitFieldCell({
+            BitFieldSlot{3, 1, {}, std::bind(&Btdmp::GetReceiveFull, &btdmp[i])},
+            BitFieldSlot{4, 1, {}, std::bind(&Btdmp::GetReceiveEmpty, &btdmp[i])},
+        });
+        impl->cells[0x2C4 + i * 0x80].get = std::bind(&Btdmp::Receive, &btdmp[i]);
+        impl->cells[0x2C8 + i * 0x80].set = std::bind(&Btdmp::SetReceiveFlush, &btdmp[i], _1);
+        impl->cells[0x2C8 + i * 0x80].get = std::bind(&Btdmp::GetReceiveFlush, &btdmp[i]);
     }
 }
 

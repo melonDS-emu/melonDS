@@ -1,5 +1,5 @@
 /*
-    Copyright 2016-2024 melonDS team
+    Copyright 2016-2025 melonDS team
 
     This file is part of melonDS.
 
@@ -37,6 +37,7 @@ public:
     void DoSavestate(Savestate* file) override;
 
     void Reset() override;
+    void ReleaseReset();
     void Stop();
     bool IsActivated() const;
 
@@ -44,7 +45,7 @@ public:
     bool TransferDone() const;
 
     // lengths in words
-    int TransferScanline(u32* buffer, int maxlen);
+    int TransferScanline(u32* buffer, int maxlen, int& nlines);
 
     void Acquire() override;
     u8 Read(bool last) override;
@@ -55,6 +56,8 @@ public:
     u32 Num;
 
 private:
+    bool ResetHeld;
+
     u32 DataPos;
     u32 RegAddr;
     u16 RegData;
@@ -77,6 +80,7 @@ private:
 
     u16 FrameWidth, FrameHeight;
     u16 FrameReadMode, FrameFormat;
+    int InternalY;
     int TransferY;
     u32 FrameBuffer[640*480/2]; // YUYV framebuffer, two pixels per word
 };
@@ -117,14 +121,26 @@ private:
 
     u32 CropStart, CropEnd;
 
-    // pixel data buffer holds a maximum of 512 words, regardless of how long scanlines are
-    u32 DataBuffer[512];
-    u32 BufferReadPos, BufferWritePos;
+    bool Transferring;
+
+    // pixel data buffers hold a maximum of 512 words, regardless of how long scanlines are
+    typedef struct
+    {
+        u32 Data[512];
+        u32 ReadPos, WritePos;
+
+    } sPixelBuffer;
+    sPixelBuffer PixelBuffer[2];
+    u8 CurPixelBuffer;
     u32 BufferNumLines;
     DSi_Camera* CurCamera;
 
     static const u32 kIRQInterval;
+    static const u32 kScanlineTime;
     static const u32 kTransferStart;
+
+    void SwapPixelBuffers();
+    bool IsTransferring();
 };
 
 }

@@ -1,5 +1,5 @@
 /*
-    Copyright 2016-2024 melonDS team
+    Copyright 2016-2025 melonDS team
 
     This file is part of melonDS.
 
@@ -82,7 +82,13 @@ ROMInfoDialog::ROMInfoDialog(QWidget* parent) : QDialog(parent), ui(new Ui::ROMI
         ui->dsiIconImage->setPixmap(QPixmap::fromImage(iconImage));
     }
 
-    ui->iconTitle->setText(QString::fromUtf16(banner->EnglishTitle));
+    // It seems that setting line-height is not supported in QSS, but is supported in the subset of
+    // CSS implemented in rich text areas. So this will have to be here instead of in the .ui file.
+    ui->iconTitle->setText(
+        "<div style='line-height: 85%;'>" +
+        QString::fromUtf16(banner->EnglishTitle).replace('\n', "<br>") +
+        "</div>"
+    );
 
     ui->japaneseTitle->setText(QString::fromUtf16(banner->JapaneseTitle));
     ui->englishTitle->setText(QString::fromUtf16(banner->EnglishTitle));

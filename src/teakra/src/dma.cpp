@@ -3,6 +3,7 @@
 #include "ahbm.h"
 #include "dma.h"
 #include "shared_memory.h"
+#include "../../Savestate.h"
 
 namespace Teakra {
 
@@ -10,6 +11,41 @@ void Dma::Reset() {
     enable_channel = 0;
     active_channel = 0;
     channels = {};
+}
+
+void Dma::DoSavestate(melonDS::Savestate *file) {
+    file->Section("TKdm");
+
+    file->Var16(&enable_channel);
+    file->Var16(&active_channel);
+    for (auto& chan : channels) {
+        file->Var16(&chan.addr_src_low);
+        file->Var16(&chan.addr_src_high);
+        file->Var16(&chan.addr_dst_low);
+        file->Var16(&chan.addr_dst_high);
+        file->Var16(&chan.size0);
+        file->Var16(&chan.size1);
+        file->Var16(&chan.size2);
+        file->Var16(&chan.src_step0);
+        file->Var16(&chan.dst_step0);
+        file->Var16(&chan.src_step1);
+        file->Var16(&chan.dst_step1);
+        file->Var16(&chan.src_step2);
+        file->Var16(&chan.dst_step2);
+        file->Var16(&chan.src_space);
+        file->Var16(&chan.dst_space);
+        file->Var16(&chan.dword_mode);
+        file->Var16(&chan.y);
+        file->Var16(&chan.z);
+
+        file->Var32(&chan.current_src);
+        file->Var32(&chan.current_dst);
+        file->Var16(&chan.counter0);
+        file->Var16(&chan.counter1);
+        file->Var16(&chan.counter2);
+        file->Var16(&chan.running);
+        file->Var16(&chan.ahbm_channel);
+    }
 }
 
 void Dma::DoDma(u16 channel) {

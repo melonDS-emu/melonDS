@@ -1,5 +1,5 @@
 /*
-    Copyright 2016-2024 melonDS team
+    Copyright 2016-2025 melonDS team
 
     This file is part of melonDS.
 
@@ -35,6 +35,7 @@
 
 #include "DSi_NDMA.h"
 #include "DSi_I2C.h"
+#include "DSi_I2S.h"
 #include "DSi_SD.h"
 #include "DSi_AES.h"
 #include "DSi_NAND.h"
@@ -106,6 +107,7 @@ DSi::DSi(DSiArgs&& args, void* userdata) noexcept :
     SDMMC(*this, std::move(args.NANDImage), std::move(args.DSiSDCard)),
     SDIO(*this),
     I2C(*this),
+    I2S(*this),
     CamModule(*this),
     AES(*this)
 {
@@ -113,6 +115,9 @@ DSi::DSi(DSiArgs&& args, void* userdata) noexcept :
     NWRAM_A = JIT.Memory.GetNWRAM_A();
     NWRAM_B = JIT.Memory.GetNWRAM_B();
     NWRAM_C = JIT.Memory.GetNWRAM_C();
+
+    SetFullBIOSBoot(args.FullBIOSBoot);
+    SetDSPHLE(args.DSPHLE);
 }
 
 DSi::~DSi() noexcept
@@ -139,6 +144,7 @@ void DSi::Reset()
     for (int i = 0; i < 8; i++) NDMAs[i].Reset();
 
     I2C.Reset();
+    I2S.Reset();
     CamModule.Reset();
     DSP.Reset();
 
@@ -175,6 +181,8 @@ void DSi::Reset()
     // LCD init flag
     GPU.DispStat[0] |= (1<<6);
     GPU.DispStat[1] |= (1<<6);
+
+    UpdateVRAMTimings();
 }
 
 void DSi::Stop(Platform::StopReason reason)
@@ -189,7 +197,6 @@ void DSi::SetNDSCart(std::unique_ptr<NDSCart::CartCommon>&& cart)
     SetCartInserted(NDSCartSlot.GetCart() != nullptr);
 }
 
-
 std::unique_ptr<NDSCart::CartCommon> DSi::EjectCart()
 {
     auto oldcart = NDS::EjectCart();
@@ -199,18 +206,28 @@ std::unique_ptr<NDSCart::CartCommon> DSi::EjectCart()
     return oldcart;
 }
 
-void DSi::CamInputFrame(int cam, const u32* data, int width, int height, bool rgb)
+void DSi::SetDSPHLE(bool hle)
 {
-    switch (cam)
-    {
-    case 0: return I2C.GetOuterCamera()->InputFrame(data, width, height, rgb);
-    case 1: return I2C.GetInnerCamera()->InputFrame(data, width, height, rgb);
-    }
+    DSP.SetDSPHLE(hle);
+}
+
+u32 DSi::GetSavestateConfig()
+{
+    u32 ret = NDS::GetSavestateConfig();
+
+    if (DSP.GetDSPHLE())
+        ret |= SC_DSi_DSPHLE;
+
+    return ret;
 }
 
 void DSi::DoSavestateExtra(Savestate* file)
 {
     file->Section("DSIG");
+
+    file->VarArray(NWRAM_A, NWRAMSize);
+    file->VarArray(NWRAM_B, NWRAMSize);
+    file->VarArray(NWRAM_C, NWRAMSize);
 
     file->Var16(&SCFG_BIOS);
     file->Var16(&SCFG_Clock9);
@@ -232,7 +249,6 @@ void DSi::DoSavestateExtra(Savestate* file)
     {
         Set_SCFG_Clock9(SCFG_Clock9);
         Set_SCFG_MC(SCFG_MC);
-        DSP.SetRstLine(SCFG_RST & 0x0001);
 
         MBK[0][8] = 0;
         MBK[1][8] = 0;
@@ -280,11 +296,14 @@ void DSi::DoSavestateExtra(Savestate* file)
         NDMAs[i].DoSavestate(file);
 
     AES.DoSavestate(file);
-    CamModule.DoSavestate(file);
     DSP.DoSavestate(file);
     I2C.DoSavestate(file);
+    I2S.DoSavestate(file);
+    CamModule.DoSavestate(file);
     SDMMC.DoSavestate(file);
     SDIO.DoSavestate(file);
+
+    UpdateVRAMTimings();
 }
 
 void DSi::SetCartInserted(bool inserted)
@@ -642,6 +661,8 @@ void DSi::SetupDirectBoot()
 
     SPI.GetFirmwareMem()->SetupDirectBoot();
 
+    I2S.WriteSndExCnt(0x8008, 0xFFFF);
+
     ARM9.CP15Write(0x100, 0x00056078);
     ARM9.CP15Write(0x200, 0x0000004A);
     ARM9.CP15Write(0x201, 0x0000004A);
@@ -666,6 +687,8 @@ void DSi::SetupDirectBoot()
     ARM9.CP15Write(0x671, 0x02FFC01B);
     ARM9.CP15Write(0x910, 0x0E00000A);
     ARM9.CP15Write(0x911, 0x00000020);
+
+    UpdateVRAMTimings();
 }
 
 void DSi::SoftReset()
@@ -687,6 +710,9 @@ void DSi::SoftReset()
     ARM9.CP15Reset();
 
     NDS::MapSharedWRAM(3);
+
+    // TODO: is this actually reset?
+    I2S.Reset();
 
     // TODO: does the DSP get reset? NWRAM doesn't, so I'm assuming no
     // *HOWEVER*, the bootrom (which does get rerun) does remap NWRAM, and thus
@@ -717,10 +743,11 @@ void DSi::SoftReset()
     SCFG_RST = 0;
     DSP.SetRstLine(false);
 
-
     // LCD init flag
     GPU.DispStat[0] |= (1<<6);
     GPU.DispStat[1] |= (1<<6);
+
+    UpdateVRAMTimings();
 }
 
 bool DSi::LoadNAND()
@@ -1249,6 +1276,20 @@ void DSi::MapNWRAMRange(u32 cpu, u32 num, u32 val)
         case 2: NWRAMMask[cpu][num] = 0x3; break;
         case 3: NWRAMMask[cpu][num] = 0x7; break;
         }
+    }
+}
+
+void DSi::UpdateVRAMTimings()
+{
+    if (SCFG_EXT[0] & (1<<13))
+    {
+        SetARM9RegionTimings(0x06000, 0x07000, Mem9_VRAM, 32, 1, 1);
+        SetARM7RegionTimings(0x06000, 0x07000, Mem7_VRAM, 32, 1, 1);
+    }
+    else
+    {
+        SetARM9RegionTimings(0x06000, 0x07000, Mem9_VRAM, 16, 1, 1);
+        SetARM7RegionTimings(0x06000, 0x07000, Mem7_VRAM, 16, 1, 1);
     }
 }
 
@@ -2565,6 +2606,8 @@ void DSi::ARM9IOWrite32(u32 addr, u32 val)
             //if (newram != oldram)
             //    NDS::ScheduleEvent(NDS::Event_DSi_RAMSizeChange, false, 512*512*512, ApplyNewRAMSize, newram);
             Log(LogLevel::Debug, "from %08X, ARM7 %08X, %08X\n", NDS::GetPC(0), NDS::GetPC(1), ARM7.R[1]);
+
+            UpdateVRAMTimings();
         }
         return;
 
@@ -2705,8 +2748,16 @@ u8 DSi::ARM7IORead8(u32 addr)
     case 0x04004D07: if (SCFG_BIOS & (1<<10)) return 0; return SDMMC.GetNAND()->GetConsoleID() >> 56;
     case 0x04004D08: return 0;
 
-    case 0x4004700: return DSP.ReadSNDExCnt() & 0xFF;
-    case 0x4004701: return DSP.ReadSNDExCnt() >> 8;
+    case 0x4004600: if (!(SCFG_EXT[1] & (1 << 20))) return 0; return I2S.ReadMicCnt() & 0xFF;
+    case 0x4004601: if (!(SCFG_EXT[1] & (1 << 20))) return 0; return I2S.ReadMicCnt() >> 8;
+    case 0x4004602: return 0;
+    case 0x4004603: return 0;
+    case 0x4004604: if (!(SCFG_EXT[1] & (1 << 20))) return 0; return I2S.ReadMicData() & 0xFF;
+    case 0x4004605: if (!(SCFG_EXT[1] & (1 << 20))) return 0; return (I2S.ReadMicData() >> 8) & 0xFF;
+    case 0x4004606: if (!(SCFG_EXT[1] & (1 << 20))) return 0; return (I2S.ReadMicData() >> 16) & 0xFF;
+    case 0x4004607: if (!(SCFG_EXT[1] & (1 << 20))) return 0; return I2S.ReadMicData() >> 24;
+    case 0x4004700: if (!(SCFG_EXT[1] & (1 << 21))) return 0; return I2S.ReadSndExCnt() & 0xFF;
+    case 0x4004701: if (!(SCFG_EXT[1] & (1 << 21))) return 0; return I2S.ReadSndExCnt() >> 8;
 
     case 0x04004C00: return GPIO_Data;
     case 0x04004C01: return GPIO_Dir;
@@ -2749,7 +2800,11 @@ u16 DSi::ARM7IORead16(u32 addr)
     case 0x04004D06: if (SCFG_BIOS & (1<<10)) return 0; return SDMMC.GetNAND()->GetConsoleID() >> 48;
     case 0x04004D08: return 0;
 
-    case 0x4004700: return DSP.ReadSNDExCnt();
+    case 0x4004600: if (!(SCFG_EXT[1] & (1 << 20))) return 0; return I2S.ReadMicCnt();
+    case 0x4004602: return 0;
+    case 0x4004604: if (!(SCFG_EXT[1] & (1 << 20))) return 0; return I2S.ReadMicData() & 0xFFFF;
+    case 0x4004606: if (!(SCFG_EXT[1] & (1 << 20))) return 0; return I2S.ReadMicData() >> 16;
+    case 0x4004700: if (!(SCFG_EXT[1] & (1 << 21))) return 0; return I2S.ReadSndExCnt();
 
     case 0x04004C00: return GPIO_Data | ((u16)GPIO_Dir << 8);
     case 0x04004C02: return GPIO_IEdgeSel | ((u16)GPIO_IE << 8);
@@ -2827,9 +2882,9 @@ u32 DSi::ARM7IORead32(u32 addr)
     case 0x04004D04: if (SCFG_BIOS & (1<<10)) return 0; return SDMMC.GetNAND()->GetConsoleID() >> 32;
     case 0x04004D08: return 0;
 
-    case 0x4004700:
-        Log(LogLevel::Debug, "32-Bit SNDExCnt read? %08X\n", ARM7.R[15]);
-        return DSP.ReadSNDExCnt();
+    case 0x4004600: if (!(SCFG_EXT[1] & (1 << 20))) return 0; return I2S.ReadMicCnt();
+    case 0x4004604: if (!(SCFG_EXT[1] & (1 << 20))) return 0; return I2S.ReadMicData();
+    case 0x4004700: if (!(SCFG_EXT[1] & (1 << 21))) return 0; return I2S.ReadSndExCnt();
     }
 
     if (addr >= 0x04004800 && addr < 0x04004A00)
@@ -2882,11 +2937,25 @@ void DSi::ARM7IOWrite8(u32 addr, u8 val)
     case 0x04004500: I2C.WriteData(val); return;
     case 0x04004501: I2C.WriteCnt(val); return;
 
+    case 0x4004600:
+        if (!(SCFG_EXT[1] & (1 << 20)))
+            return;
+        I2S.WriteMicCnt((u16)val, 0xFF);
+        return;
+    case 0x4004601:
+        if (!(SCFG_EXT[1] & (1 << 20)))
+            return;
+        I2S.WriteMicCnt(((u16)val << 8), 0xFF00);
+        return;
     case 0x4004700:
-        DSP.WriteSNDExCnt((u16)val, 0xFF);
+        if (!(SCFG_EXT[1] & (1 << 21)))
+            return;
+        I2S.WriteSndExCnt((u16)val, 0xFF);
         return;
     case 0x4004701:
-        DSP.WriteSNDExCnt(((u16)val << 8), 0xFF00);
+        if (!(SCFG_EXT[1] & (1 << 21)))
+            return;
+        I2S.WriteSndExCnt(((u16)val << 8), 0xFF00);
         return;
 
     case 0x04004C00:
@@ -2985,8 +3054,15 @@ void DSi::ARM7IOWrite16(u32 addr, u16 val)
             AES.WriteBlkCnt(val<<16);
             return;
 
+        case 0x4004600:
+            if (!(SCFG_EXT[1] & (1 << 20)))
+                return;
+            I2S.WriteMicCnt(val, 0xFFFF);
+            return;
         case 0x4004700:
-            DSP.WriteSNDExCnt(val, 0xFFFF);
+            if (!(SCFG_EXT[1] & (1 << 21)))
+                return;
+            I2S.WriteSndExCnt(val, 0xFFFF);
             return;
 
         case 0x04004C00:
@@ -3134,9 +3210,15 @@ void DSi::ARM7IOWrite32(u32 addr, u32 val)
     case 0x04004404: AES.WriteBlkCnt(val); return;
     case 0x04004408: AES.WriteInputFIFO(val); return;
 
+    case 0x4004600:
+        if (!(SCFG_EXT[1] & (1 << 20)))
+            return;
+        I2S.WriteMicCnt(val, 0xFFFF);
+        return;
     case 0x4004700:
-        Log(LogLevel::Debug, "32-Bit SNDExCnt write? %08X %08X\n", val, ARM7.R[15]);
-        DSP.WriteSNDExCnt(val, 0xFFFF);
+        if (!(SCFG_EXT[1] & (1 << 21)))
+            return;
+        I2S.WriteSndExCnt(val, 0xFFFF);
         return;
     }
 

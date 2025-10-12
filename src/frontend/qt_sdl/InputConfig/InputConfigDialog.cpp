@@ -1,5 +1,5 @@
 /*
-    Copyright 2016-2024 melonDS team
+    Copyright 2016-2025 melonDS team
 
     This file is part of melonDS.
 
@@ -251,4 +251,9 @@ void InputConfigDialog::on_cbxJoystick_currentIndexChanged(int id)
 SDL_Joystick* InputConfigDialog::getJoystick()
 {
     return emuInstance->getJoystick();
+}
+
+std::shared_ptr<SDL_mutex> InputConfigDialog::getJoyMutex()
+{
+    return emuInstance->getJoyMutex();
 }

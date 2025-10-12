@@ -1,5 +1,5 @@
 /*
-    Copyright 2016-2024 melonDS team
+    Copyright 2016-2025 melonDS team
 
     This file is part of melonDS.
 
@@ -29,12 +29,12 @@
 #include <QThread>
 #include <QSemaphore>
 #include <QMutex>
-#include <QSharedMemory>
 #include <QTemporaryFile>
 #include <SDL_loadso.h>
 
 #include "Platform.h"
 #include "Config.h"
+#include "EmuInstance.h"
 #include "main.h"
 #include "CameraManager.h"
 #include "Net.h"
@@ -534,6 +534,22 @@ int Net_RecvPacket(u8* data, void* userdata)
 }
 
 
+void Mic_Start(void* userdata)
+{
+    return ((EmuInstance*)userdata)->micStart();
+}
+
+void Mic_Stop(void* userdata)
+{
+    return ((EmuInstance*)userdata)->micStop();
+}
+
+int Mic_ReadInput(s16* data, int maxlength, void* userdata)
+{
+    return ((EmuInstance*)userdata)->micReadInput(data, maxlength);
+}
+
+
 void Camera_Start(int num, void* userdata)
 {
     return camManager[num]->start();
@@ -549,6 +565,18 @@ void Camera_CaptureFrame(int num, u32* frame, int width, int height, bool yuv, v
     return camManager[num]->captureFrame(frame, width, height, yuv);
 }
 
+static const int hotkeyMap[] = {
+    HK_GuitarGripGreen,
+    HK_GuitarGripRed,
+    HK_GuitarGripYellow,
+    HK_GuitarGripBlue,
+};
+
+bool Addon_KeyDown(KeyType type, void* userdata)
+{
+    return ((EmuInstance*)userdata)->inputHotkeyDown(hotkeyMap[type]);
+}
+
 void Addon_RumbleStart(u32 len, void* userdata)
 {
     ((EmuInstance*)userdata)->inputRumbleStart(len);
@@ -557,6 +585,11 @@ void Addon_RumbleStart(u32 len, void* userdata)
 void Addon_RumbleStop(void* userdata)
 {
     ((EmuInstance*)userdata)->inputRumbleStop();
+}
+
+float Addon_MotionQuery(MotionQueryType type, void* userdata)
+{
+    return ((EmuInstance*)userdata)->inputMotionQuery(type);
 }
 
 DynamicLibrary* DynamicLibrary_Load(const char* lib)

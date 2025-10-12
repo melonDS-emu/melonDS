@@ -1,5 +1,5 @@
 /*
-    Copyright 2016-2024 melonDS team
+    Copyright 2016-2025 melonDS team
 
     This file is part of melonDS.
 
@@ -287,8 +287,10 @@ void DSi_SDHost::SetCardIRQ()
     u16 oldflags = CardIRQStatus & ~CardIRQMask;
     DSi_SDDevice* dev = Ports[PortSelect & 0x1].get();
 
-    if (dev->IRQ) CardIRQStatus |=  (1<<0);
-    else          CardIRQStatus &= ~(1<<0);
+    if (dev && dev->IRQ)
+        CardIRQStatus |=  (1<<0);
+    else
+        CardIRQStatus &= ~(1<<0);
 
     u16 newflags = CardIRQStatus & ~CardIRQMask;
 

@@ -1,5 +1,5 @@
 /*
-    Copyright 2016-2024 melonDS team
+    Copyright 2016-2025 melonDS team
 
     This file is part of melonDS.
 
@@ -141,6 +141,7 @@ EmuSettingsDialog::EmuSettingsDialog(QWidget* parent) : QDialog(parent), ui(new 
     on_cbDLDIEnable_toggled();
 
     ui->cbDSiFullBIOSBoot->setChecked(cfg.GetBool("DSi.FullBIOSBoot"));
+    ui->cbDSPHLE->setChecked(cfg.GetBool("DSi.DSP.HLE"));
 
     ui->cbDSiSDEnable->setChecked(cfg.GetBool("DSi.SD.Enable"));
     ui->txtDSiSDPath->setText(cfg.GetQString("DSi.SD.ImagePath"));
@@ -273,7 +274,9 @@ void EmuSettingsDialog::done(int r)
             cfg.SetQString("DSi.BIOS7Path", ui->txtDSiBIOS7Path->text());
             cfg.SetQString("DSi.FirmwarePath", ui->txtDSiFirmwarePath->text());
             cfg.SetQString("DSi.NANDPath", ui->txtDSiNANDPath->text());
+
             cfg.SetBool("DSi.FullBIOSBoot", ui->cbDSiFullBIOSBoot->isChecked());
+            cfg.SetBool("DSi.DSP.HLE", ui->cbDSPHLE->isChecked());
 
             cfg.SetBool("DSi.SD.Enable", ui->cbDSiSDEnable->isChecked());
             cfg.SetQString("DSi.SD.ImagePath", ui->txtDSiSDPath->text());

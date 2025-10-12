@@ -34,6 +34,7 @@ set(SOURCES_QT_SDL
     OSD_shaders.h
     font.h
     Platform.cpp
+    Platform_AAC.cpp
     QPathInput.h
     SaveManager.cpp
     CameraManager.cpp
@@ -86,8 +87,8 @@ endif()
 pkg_check_modules(SDL2 REQUIRED IMPORTED_TARGET sdl2)
 pkg_check_modules(LibArchive REQUIRED IMPORTED_TARGET libarchive)
 pkg_check_modules(Zstd REQUIRED IMPORTED_TARGET libzstd)
-## pkg_search_module(Lua REQUIRED IMPORTED_TARGET lua)
-
+pkg_check_modules(Faad REQUIRED IMPORTED_TARGET faad2)
+pkg_check_modules(Lua REQUIRED IMPORT_TARGET lua)
 fix_interface_includes(PkgConfig::SDL2 PkgConfig::LibArchive)
 
 add_compile_definitions(ARCHIVE_SUPPORT_ENABLED)
@@ -185,7 +186,7 @@ else()
     target_include_directories(melonDS PUBLIC ${Qt5Gui_PRIVATE_INCLUDE_DIRS})
 endif()
 target_link_libraries(melonDS PRIVATE core)
-target_link_libraries(melonDS PRIVATE PkgConfig::SDL2 PkgConfig::LibArchive PkgConfig::Zstd ${LUA_LIBRARIES})
+target_link_libraries(melonDS PRIVATE PkgConfig::SDL2 PkgConfig::LibArchive PkgConfig::Zstd PkgConfig::Faad ${LUA_LIBRARIES})
 target_link_libraries(melonDS PRIVATE ${QT_LINK_LIBS} ${CMAKE_DL_LIBS})
 
 if (WIN32)

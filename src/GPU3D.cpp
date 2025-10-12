@@ -1,5 +1,5 @@
 /*
-    Copyright 2016-2024 melonDS team
+    Copyright 2016-2025 melonDS team
 
     This file is part of melonDS.
 
@@ -1219,7 +1219,7 @@ void GPU3D::SubmitPolygon() noexcept
 
     u32 texfmt = (TexParam >> 26) & 0x7;
     u32 polyalpha = (CurPolygonAttr >> 16) & 0x1F;
-    poly->Translucent = ((texfmt == 1 || texfmt == 6) && !(CurPolygonAttr & 0x10)) || (polyalpha > 0 && polyalpha < 31);
+    poly->Translucent = (texfmt == 1 || texfmt == 6) || (polyalpha > 0 && polyalpha < 31);
 
     poly->IsShadowMask = ((CurPolygonAttr & 0x3F000030) == 0x00000030);
     poly->IsShadow = ((CurPolygonAttr & 0x30) == 0x30) && !poly->IsShadowMask;

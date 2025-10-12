@@ -1,5 +1,5 @@
 /*
-    Copyright 2016-2024 melonDS team
+    Copyright 2016-2025 melonDS team
 
     This file is part of melonDS.
 
@@ -89,6 +89,9 @@ void DSi_AES::Reset()
     *(u32*)&KeyX[1][4] = 0x4A00004E;
     *(u32*)&KeyX[1][8] = (u32)(consoleid >> 32) ^ 0xC80C4B72;
     *(u32*)&KeyX[1][12] = (u32)consoleid;
+
+    // slot 2: For 'Tad'
+    std::memcpy(KeyX[2], &DSi.ARM9iBIOS[0x8B8C], 0x10);
 
     // slot 3: console-unique eMMC crypto
     *(u32*)&KeyX[3][0] = (u32)consoleid;

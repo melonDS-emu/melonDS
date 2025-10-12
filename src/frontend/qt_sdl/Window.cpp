@@ -1,5 +1,5 @@
 /*
-    Copyright 2016-2024 melonDS team
+    Copyright 2016-2025 melonDS team
 
     This file is part of melonDS.
 
@@ -16,6 +16,7 @@
     with melonDS. If not, see http://www.gnu.org/licenses/.
 */
 
+#include "NDS.h"
 #include <stdlib.h>
 #include <time.h>
 #include <stdio.h>
@@ -322,7 +323,18 @@ MainWindow::MainWindow(int id, EmuInstance* inst, QWidget* parent) :
                 QMenu * submenu = menu->addMenu("Insert add-on cart");
                 QAction *act;
 
-                int addons[] = {GBAAddon_RAMExpansion, GBAAddon_RumblePak, GBAAddon_SolarSensorBoktai1, GBAAddon_SolarSensorBoktai2, GBAAddon_SolarSensorBoktai3, -1};
+                int addons[] = {
+                    GBAAddon_RAMExpansion,
+                    GBAAddon_RumblePak,
+                    GBAAddon_SolarSensorBoktai1,
+                    GBAAddon_SolarSensorBoktai2,
+                    GBAAddon_SolarSensorBoktai3,
+                    GBAAddon_MotionPakHomebrew,
+                    GBAAddon_MotionPakRetail,
+                    GBAAddon_GuitarGrip,
+                    -1
+                };
+
                 for (int i = 0; addons[i] != -1; i++)
                 {
                     int addon = addons[i];
@@ -826,12 +838,20 @@ void MainWindow::saveEnabled(bool enabled)
 
 void MainWindow::closeEvent(QCloseEvent* event)
 {
-    if (!emuInstance) return;
+    if (emuInstance)
+    {
+        if (windowID == 0)
+            emuInstance->saveEnabledWindows();
+        else
+            saveEnabled(false);
+    }
 
-    if (windowID == 0)
-        emuInstance->saveEnabledWindows();
-    else
-        saveEnabled(false);
+    // explicitly close children windows, so the OpenGL contexts get closed properly
+    auto childwins = findChildren<MainWindow *>(nullptr, Qt::FindDirectChildrenOnly);
+    for (auto child : childwins)
+        child->close();
+
+    if (!emuInstance) return;
 
     QByteArray geom = saveGeometry();
     QByteArray enc = geom.toBase64(QByteArray::Base64Encoding);
@@ -859,7 +879,10 @@ void MainWindow::createScreenPanel()
         ScreenPanelGL* panelGL = new ScreenPanelGL(this);
         panelGL->show();
 
-        panel = panelGL;
+        // make sure no GL context is in use by the emu thread
+        // otherwise we may fail to create a shared context
+        if (windowID != 0)
+            emuThread->borrowGL();
 
         // Check that creating the context hasn't failed
         if (panelGL->createContext() == false)
@@ -869,7 +892,15 @@ void MainWindow::createScreenPanel()
 
             globalCfg.SetBool("Screen.UseGL", false);
             globalCfg.SetInt("3D.Renderer", renderer3D_Software);
+
+            delete panelGL;
+            panelGL = nullptr;
         }
+
+        if (windowID != 0)
+            emuThread->returnGL();
+
+        panel = panelGL;
     }
 
     if (!hasOGL)
@@ -919,6 +950,7 @@ void MainWindow::setGLSwapInterval(int intv)
     if (!hasOGL) return;
 
     ScreenPanelGL* glpanel = static_cast<ScreenPanelGL*>(panel);
+    if (!glpanel) return;
     return glpanel->setSwapInterval(intv);
 }
 
@@ -927,7 +959,17 @@ void MainWindow::makeCurrentGL()
     if (!hasOGL) return;
 
     ScreenPanelGL* glpanel = static_cast<ScreenPanelGL*>(panel);
+    if (!glpanel) return;
     return glpanel->makeCurrentGL();
+}
+
+void MainWindow::releaseGL()
+{
+    if (!hasOGL) return;
+
+    ScreenPanelGL* glpanel = static_cast<ScreenPanelGL*>(panel);
+    if (!glpanel) return;
+    return glpanel->releaseGL();
 }
 
 void MainWindow::drawScreenGL()
@@ -935,6 +977,7 @@ void MainWindow::drawScreenGL()
     if (!hasOGL) return;
 
     ScreenPanelGL* glpanel = static_cast<ScreenPanelGL*>(panel);
+    if (!glpanel) return;
     return glpanel->drawScreenGL();
 }
 
@@ -943,7 +986,7 @@ void MainWindow::keyPressEvent(QKeyEvent* event)
     if (event->isAutoRepeat()) return;
 
     // TODO!! REMOVE ME IN RELEASE BUILDS!!
-    //if (event->key() == Qt::Key_F11) emuThread->NDS->debug(0);
+    //if (event->key() == Qt::Key_F11) emuInstance->getNDS()->debug(0);
 
     emuInstance->onKeyPress(event);
 }
@@ -1987,7 +2030,7 @@ void MainWindow::onUpdateAudioSettings()
 
 void MainWindow::onAudioSettingsFinished(int res)
 {
-    //AudioInOut::UpdateSettings(*emuThread->NDS);
+    emuInstance->audioUpdateSettings();
 }
 
 void MainWindow::onOpenMPSettings()
@@ -2174,6 +2217,29 @@ void MainWindow::onChangeAudioSync(bool checked)
 
 void MainWindow::onTitleUpdate(QString title)
 {
+    if (!emuInstance) return;
+
+    int numinst = numEmuInstances();
+    int numwin = emuInstance->getNumWindows();
+    if ((numinst > 1) && (numwin > 1))
+    {
+        // add player/window prefix
+        QString prefix = QString("[p%1:w%2] ").arg(emuInstance->instanceID+1).arg(windowID+1);
+        title = prefix + title;
+    }
+    else if (numinst > 1)
+    {
+        // add player prefix
+        QString prefix = QString("[p%1] ").arg(emuInstance->instanceID+1);
+        title = prefix + title;
+    }
+    else if (numwin > 1)
+    {
+        // add window prefix
+        QString prefix = QString("[w%1] ").arg(windowID+1);
+        title = prefix + title;
+    }
+
     setWindowTitle(title);
 }
 
@@ -2288,42 +2354,49 @@ void MainWindow::onUpdateVideoSettings(bool glchange)
     if (parentwin)
         return parentwin->onUpdateVideoSettings(glchange);
 
+    auto childwins = findChildren<MainWindow *>(nullptr);
+
     bool hadOGL = hasOGL;
     if (glchange)
     {
         emuThread->emuPause();
-        if (hadOGL) emuThread->deinitContext(windowID);
+        if (hadOGL)
+        {
+            emuThread->deinitContext(windowID);
+            for (auto child: childwins)
+            {
+                auto thread = child->getEmuInstance()->getEmuThread();
+                thread->deinitContext(child->windowID);
+            }
+        }
 
         createScreenPanel();
+        for (auto child: childwins)
+        {
+            child->createScreenPanel();
+        }
     }
 
     emuThread->updateVideoSettings();
-
-    if (glchange)
-    {
-        if (hasOGL) emuThread->initContext(windowID);
-    }
-
-    // update any child windows we have
-    auto childwins = findChildren<MainWindow *>(nullptr, Qt::FindDirectChildrenOnly);
     for (auto child: childwins)
     {
         // child windows may belong to a different instance
         // in that case we need to signal their thread appropriately
         auto thread = child->getEmuInstance()->getEmuThread();
-
-        if (glchange)
-        {
-            if (hadOGL) thread->deinitContext(child->windowID);
-            child->createScreenPanel();
-        }
-
         if (child->getWindowID() == 0)
             thread->updateVideoSettings();
+    }
 
-        if (glchange)
+    if (glchange)
+    {
+        if (hasOGL) 
         {
-            if (hasOGL) thread->initContext(child->windowID);
+            emuThread->initContext(windowID);
+            for (auto child: childwins)
+            {
+                auto thread = child->getEmuInstance()->getEmuThread();
+                thread->initContext(child->windowID);
+            }
         }
     }
 

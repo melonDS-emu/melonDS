@@ -9,7 +9,7 @@ namespace Teakra {
 
 class Timer : public CoreTiming::Callbacks {
 public:
-    Timer(CoreTiming& core_timing);
+    Timer(CoreTiming& core_timing, int num);
 
     enum class CountMode : u16 {
         Single = 0,
@@ -19,6 +19,7 @@ public:
     };
 
     void Reset();
+    void DoSavestate(melonDS::Savestate* file);
 
     void Restart();
     void Tick() override;
@@ -42,6 +43,7 @@ public:
     }
 
 private:
+    int num;
     std::function<void()> interrupt_handler;
 
     void UpdateMMIO();

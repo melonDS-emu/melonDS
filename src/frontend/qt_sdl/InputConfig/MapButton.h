@@ -1,5 +1,5 @@
 /*
-    Copyright 2016-2024 melonDS team
+    Copyright 2016-2025 melonDS team
 
     This file is part of melonDS.
 
@@ -220,7 +220,7 @@ protected:
         QPushButton::focusOutEvent(event);
     }
 
-    void timerEvent(QTimerEvent* event) override
+    void checkJoystick()
     {
         SDL_Joystick* joy = parentDialog->getJoystick();
         if (!joy) { click(); return; }
@@ -287,6 +287,14 @@ protected:
         }
     }
 
+    void timerEvent(QTimerEvent* event) override
+    {
+        auto mutex = parentDialog->getJoyMutex();
+        SDL_LockMutex(mutex.get());
+        checkJoystick();
+        SDL_UnlockMutex(mutex.get());
+    }
+
     bool focusNextPrevChild(bool next) override { return false; }
 
 private slots:
@@ -299,6 +307,8 @@ private slots:
 
             memset(axesRest, 0, sizeof(axesRest));
 
+            auto mutex = parentDialog->getJoyMutex();
+            SDL_LockMutex(mutex.get());
             SDL_Joystick* joy = parentDialog->getJoystick();
             if (joy && SDL_JoystickGetAttached(joy))
             {
@@ -309,6 +319,7 @@ private slots:
                     axesRest[a] = SDL_JoystickGetAxis(joy, a);
                 }
             }
+            SDL_UnlockMutex(mutex.get());
         }
         else
         {
