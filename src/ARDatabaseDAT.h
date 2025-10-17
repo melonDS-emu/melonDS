@@ -22,6 +22,7 @@
 #include <string>
 #include <list>
 #include <vector>
+#include <unordered_map>
 #include "types.h"
 
 namespace melonDS
@@ -54,13 +55,24 @@ public:
 
     bool Error = false;
 
-    bool Load();
+    bool LoadEntries();
     //bool Save();
 
     //ARCodeCatList Categories {};
 
 private:
     std::string Filename;
+
+    struct Entry
+    {
+        u32 GameCode;
+        u32 Checksum;
+        u32 Offset;
+        // TODO more shit here
+    };
+
+    // list of entries per gamecode
+    std::unordered_map<u32, std::list<Entry>> EntryList;
 };
 
 }

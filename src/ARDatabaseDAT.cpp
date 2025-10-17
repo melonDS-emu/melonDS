@@ -33,7 +33,7 @@ ARDatabaseDAT::ARDatabaseDAT(const std::string& filename)
 {
     Filename = filename;
 
-    if (!Load())
+    if (!LoadEntries())
         Error = true;
 }
 
@@ -55,10 +55,10 @@ ARDatabaseDAT::ARDatabaseDAT(const std::string& filename)
     return codes;
 }*/
 
-bool ARDatabaseDAT::Load()
+bool ARDatabaseDAT::LoadEntries()
 {
-    FileHandle* f = OpenFile(Filename, FileMode::ReadText);
-    if (!f) return true;
+    FileHandle* f = OpenFile(Filename, FileMode::Read);
+    if (!f) return false;
 
     // todo: load
     //
@@ -108,8 +108,85 @@ bool ARDatabaseDAT::Load()
      * code
     */
 
+    u64 filelen = FileLength(f);
+
+    char header[16];
+    FileRead(header, 16, 1, f);
+    //if (strncmp(header, "R4 CheatCode", 12) != 0)
+    if (memcmp(header, "R4 CheatCode\x00\x01\x00\x00", 16) != 0)
+    {
+        CloseFile(f);
+        return false;
+    }
+
+    FileSeek(f, 0x100, FileSeekOrigin::Start);
+    while (!IsEndOfFile(f))
+    {
+        u32 entrydata[4];
+        FileRead(entrydata, 16, 1, f);
+
+        // a zero entry marks the end of the entry list
+        if (entrydata[0] == 0)
+            break;
+
+        if ((entrydata[2] < 0x100) || (entrydata[2] >= filelen))
+        {
+            Log(LogLevel::Error, "AR: malformed database file (invalid offset %08X)\n", entrydata[2]);
+            CloseFile(f);
+            return false;
+        }
+
+        printf("got entry %08X %08X %08X\n", entrydata[0], entrydata[1], entrydata[2]);
+
+        Entry entry;
+        entry.GameCode = entrydata[0];
+        entry.Checksum = entrydata[1];
+        entry.Offset = entrydata[2];
+
+        EntryList[entry.GameCode].push_back(entry);
+    }
+
     CloseFile(f);
     return true;
+}
+
+
+std::string ReadNTString(Platform::FileHandle* f)
+{
+    char tmp[256];
+    std::string ret;
+    int readlen = 0;
+    u64 startpos = FilePosition(f);
+
+    while (!IsEndOfFile(f))
+    {
+        // read 256 bytes of data, see where the string actually ends
+        memset(tmp, 0, 256);
+        u64 nread = FileRead(tmp, 1, 256, f);
+
+        bool done = false;
+        for (int i = 0; i < nread; i++)
+        {
+            readlen++;
+            if (!tmp[i]) { done = true; break; }
+            ret += tmp[i];
+        }
+
+        if (done)
+            break;
+    }
+
+    // correct the file position to point right after the end of this string
+    FileSeek(f, startpos + readlen, FileSeekOrigin::Start);
+
+    return ret;
+}
+
+void AlignFilePos(Platform::FileHandle* f)
+{
+    u64 pos = FilePosition(f);
+    if (pos & 3)
+        FileSeek(f, (pos + 3) & (~3), FileSeekOrigin::Start);
 }
 
 }
