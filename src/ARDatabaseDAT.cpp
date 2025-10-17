@@ -66,8 +66,9 @@ bool ARDatabaseDAT::Load()
 
      header:
      00: ID string "R4 CheatCode" (12 bytes)
-     0C: offset to entry list? (always 0x100)
+     0C: version? must be 0x100
      10: database description
+     4C: ??? (gets set by r4cce.exe, but zero in usrcheat.dat)
      50: database active flag
      100: entry list
 
