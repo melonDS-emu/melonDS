@@ -28,6 +28,7 @@
 
 #include "CheatsDialog.h"
 #include "ui_CheatsDialog.h"
+#include "ui_CheatImportDialog.h"
 
 using namespace melonDS;
 using Platform::Log;
@@ -219,6 +220,18 @@ void CheatsDialog::on_btnDeleteCode_clicked()
     }
 }
 
+void CheatsDialog::on_btnImportCheats_clicked()
+{
+    // TODO we need to ask the user to pick a DB file before showing the dialog
+    // but we need to test the shito somehow
+
+    CheatImportDialog* importdlg = new CheatImportDialog(this);
+    importdlg->open();
+    //connect(importdlg, &CheatImportDialog::finished, this, &CheatsDialog::onImportCheatsFinished);
+
+    importdlg->show();
+}
+
 void CheatsDialog::onCheatSelectionChanged(const QItemSelection& sel, const QItemSelection& desel)
 {
     QModelIndexList indices = sel.indexes();
@@ -403,4 +416,22 @@ void ARCodeChecker::highlightBlock(const QString& text)
             setFormat(match.capturedStart(), match.capturedLength(), errformat);
         }
     }*/
+}
+
+
+CheatImportDialog::CheatImportDialog(QWidget *parent)
+: QDialog(parent), ui(new Ui::CheatImportDialog)
+{
+    ui->setupUi(this);
+    setAttribute(Qt::WA_DeleteOnClose);
+}
+
+CheatImportDialog::~CheatImportDialog()
+{
+    delete ui;
+}
+
+void CheatImportDialog::accept()
+{
+    //
 }
