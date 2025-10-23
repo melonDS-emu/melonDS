@@ -28,6 +28,9 @@ using namespace Platform;
 // TODO: import codes from other sources (usrcheat.dat, ...)
 // TODO: more user-friendly error reporting
 
+std::string ReadNTString(Platform::FileHandle* f);
+void AlignFilePos(Platform::FileHandle* f);
+
 
 ARDatabaseDAT::ARDatabaseDAT(const std::string& filename)
 {
@@ -109,6 +112,11 @@ bool ARDatabaseDAT::LoadEntries()
     */
 
     u64 filelen = FileLength(f);
+    if (filelen > 0xFFFFFFFFULL)
+    {
+        CloseFile(f);
+        return false;
+    }
 
     char header[16];
     FileRead(header, 16, 1, f);
@@ -142,8 +150,96 @@ bool ARDatabaseDAT::LoadEntries()
         entry.GameCode = entrydata[0];
         entry.Checksum = entrydata[1];
         entry.Offset = entrydata[2];
+        entry.EndOffset = (u32)filelen;
 
         EntryList[entry.GameCode].push_back(entry);
+    }
+
+    // correct end offsets for each entry
+    /*for (auto it = EntryList.begin(); it != EntryList.end(); it++)
+    {
+        auto list = (*it).second;
+        for (auto jt = list.begin(); jt != list.end(); jt++)
+        {
+            //
+        }
+    }*/
+
+    CloseFile(f);
+    return true;
+}
+
+void ARDatabaseDAT::Test()
+{
+    auto& entry = EntryList[0x50443241][0];
+    //auto& list = EntryList[0x41324450];
+    //auto& entry = list[0];
+    LoadCheatCodes(entry);
+}
+
+bool ARDatabaseDAT::LoadCheatCodes(Entry& entry)
+{
+    FileHandle* f = OpenFile(Filename, FileMode::Read);
+    if (!f) return false;
+
+    u64 filelen = FileLength(f);
+    if (filelen > 0xFFFFFFFFULL)
+    {
+        CloseFile(f);
+        return false;
+    }
+
+    if ((entry.Offset < 0x100) || (entry.Offset >= filelen))
+    {
+        CloseFile(f);
+        return false;
+    }
+
+    FileSeek(f, entry.Offset, FileSeekOrigin::Start);
+
+    std::string name = ReadNTString(f);
+    AlignFilePos(f);
+
+    u32 flags[9] = {0};
+    FileRead(flags, 4*9, 1, f);
+
+    printf("name=%s flags=%08X\n", name.c_str(), flags[0]);
+
+    u32 numentries = flags[0] & 0xFFFFFF;
+    for (u32 i = 0; i < numentries; i++)
+    {
+        if (IsEndOfFile((f)))
+            break;
+
+        u32 itemflags = 0;
+        FileRead(&itemflags, 4, 1, f);
+
+        std::string itemname = ReadNTString(f);
+        std::string itemdesc = ReadNTString(f);
+        AlignFilePos(f);
+
+        printf("- item %d: flags=%08X name=%s desc=%s\n", i, itemflags, itemname.c_str(), itemdesc.c_str());
+
+        if (!(itemflags & (1<<28)))
+        {
+            // this item is a code
+
+            u32 codelen = 0;
+            FileRead(&codelen, 4, 1, f);
+
+            printf("-- code len = %d words\n", codelen);
+
+            u32* code = new u32[codelen];
+            FileRead(code, codelen*4, 1, f);
+
+            for (u32 j = 0; j < codelen; j+=2)
+            {
+                printf("-- %08X %08X\n", code[j], code[j+1]);
+            }
+
+            // TODO put it somewhere
+            delete[] code;
+        }
     }
 
     CloseFile(f);

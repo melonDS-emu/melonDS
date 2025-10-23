@@ -60,6 +60,8 @@ public:
 
     //ARCodeCatList Categories {};
 
+    void Test();
+
 private:
     std::string Filename;
 
@@ -68,11 +70,14 @@ private:
         u32 GameCode;
         u32 Checksum;
         u32 Offset;
+        u32 EndOffset;
         // TODO more shit here
     };
 
     // list of entries per gamecode
-    std::unordered_map<u32, std::list<Entry>> EntryList;
+    std::unordered_map<u32, std::vector<Entry>> EntryList;
+
+    bool LoadCheatCodes(Entry& entry);
 };
 
 }

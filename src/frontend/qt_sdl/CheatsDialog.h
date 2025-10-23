@@ -30,15 +30,15 @@
 Q_DECLARE_METATYPE(melonDS::ARCodeList::iterator)
 Q_DECLARE_METATYPE(melonDS::ARCodeCatList::iterator)
 
-namespace Ui
-{
-    class CheatsDialog;
-    class CheatImportDialog;
-}
+namespace Ui { class CheatsDialog; }
 class CheatsDialog;
-class CheatImportDialog;
 
 class EmuInstance;
+
+namespace melonDS
+{
+    class ARDatabaseDAT;
+}
 
 class ARCodeChecker : public QSyntaxHighlighter
 {
@@ -99,21 +99,6 @@ private:
 
     melonDS::ARCodeFile* codeFile;
     ARCodeChecker* codeChecker;
-};
-
-class CheatImportDialog : public QDialog
-{
-    Q_OBJECT
-
-public:
-    explicit CheatImportDialog(QWidget* parent);
-    ~CheatImportDialog();
-
-private slots:
-    void accept() override;
-
-private:
-    Ui::CheatImportDialog* ui;
 };
 
 #endif // CHEATSDIALOG_H

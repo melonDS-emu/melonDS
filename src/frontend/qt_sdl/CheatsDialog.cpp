@@ -25,10 +25,11 @@
 #include "Platform.h"
 #include "Config.h"
 #include "EmuInstance.h"
+#include "ARDatabaseDAT.h"
 
 #include "CheatsDialog.h"
 #include "ui_CheatsDialog.h"
-#include "ui_CheatImportDialog.h"
+#include "CheatImportDialog.h"
 
 using namespace melonDS;
 using Platform::Log;
@@ -416,22 +417,4 @@ void ARCodeChecker::highlightBlock(const QString& text)
             setFormat(match.capturedStart(), match.capturedLength(), errformat);
         }
     }*/
-}
-
-
-CheatImportDialog::CheatImportDialog(QWidget *parent)
-: QDialog(parent), ui(new Ui::CheatImportDialog)
-{
-    ui->setupUi(this);
-    setAttribute(Qt::WA_DeleteOnClose);
-}
-
-CheatImportDialog::~CheatImportDialog()
-{
-    delete ui;
-}
-
-void CheatImportDialog::accept()
-{
-    //
 }
