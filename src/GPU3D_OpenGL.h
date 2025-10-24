@@ -39,14 +39,14 @@ public:
     [[nodiscard]] bool GetBetterPolygons() const noexcept { return BetterPolygons; }
     [[nodiscard]] int GetScaleFactor() const noexcept { return ScaleFactor; }
 
-    void VCount144(GPU& gpu) override {};
-    void RenderFrame(GPU& gpu) override;
-    void Stop(const GPU& gpu) override;
+    void VCount144() override {};
+    void RenderFrame() override;
+    void Stop() override;
     u32* GetLine(int line) override;
 
     void SetupAccelFrame() override;
     void PrepareCaptureFrame() override;
-    void Blit(const GPU& gpu) override;
+    void Blit() override;
 
     void BindOutputTexture(int buffer) override;
 
@@ -84,7 +84,7 @@ private:
     int RenderSinglePolygon(int i) const;
     int RenderPolygonBatch(int i) const;
     int RenderPolygonEdgeBatch(int i) const;
-    void RenderSceneChunk(const GPU3D& gpu3d, int y, int h);
+    void RenderSceneChunk(int y, int h);
 
     enum
     {
