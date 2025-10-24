@@ -42,6 +42,7 @@ CommandLineOptions* ManageArgs(QApplication& melon)
     parser.addPositionalArgument("gba", "GBA ROM (or an archive file which contains it) to load into Slot-2");
 
     parser.addOption(QCommandLineOption({"b", "boot"}, "Whether to boot firmware on startup. Defaults to \"auto\" (boot if NDS rom given)", "auto/always/never", "auto"));
+    parser.addOption(QCommandLineOption({"c", "config"}, "toml config file used for session", "default"));
     parser.addOption(QCommandLineOption({"f", "fullscreen"}, "Start melonDS in fullscreen mode"));
 
 #ifdef ARCHIVE_SUPPORT_ENABLED
@@ -85,6 +86,20 @@ CommandLineOptions* ManageArgs(QApplication& melon)
     {
         Log(LogLevel::Error, "ERROR: -b/--boot only accepts auto/always/never as arguments\n");
         exit(1);
+    }
+
+    QString cfgValue = parser.value("config");
+    /*
+    * I'm definitely missing something, but for some reason qt isn't setting 
+    * my config option its default value, instead it just puts in an empty string idk
+    */
+    if (cfgValue.isEmpty() || cfgValue == "default")
+    {
+        options->configPath = std::nullopt;
+    }
+    else
+    {
+        options->configPath = cfgValue;
     }
 
 #ifdef ARCHIVE_SUPPORT_ENABLED

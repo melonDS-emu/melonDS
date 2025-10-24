@@ -19,6 +19,7 @@
 #ifndef CONFIG_H
 #define CONFIG_H
 
+#include <optional>
 #include <variant>
 #include <string>
 #include <QString>
@@ -29,6 +30,7 @@
 
 namespace Config
 {
+extern std::optional<std::string> cfgpathOverride;
 
 struct LegacyEntry
 {
@@ -128,7 +130,6 @@ private:
     toml::value& ResolvePath(const std::string& path);
     template<typename T> T FindDefault(const std::string& path, T def, DefaultList<T> list);
 };
-
 
 bool Load();
 void Save();
