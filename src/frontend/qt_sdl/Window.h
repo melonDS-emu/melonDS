@@ -190,7 +190,6 @@ private slots:
     void onLANStartClient();
     void onNPStartHost();
     void onNPStartClient();
-    void onNPTest();
 
     void onOpenEmuSettings();
     void onEmuSettingsDialogFinished(int res);
@@ -258,6 +257,7 @@ private:
     void createScreenPanel();
 
     bool lanWarning(bool host);
+    bool netplayWarning(bool host);
 
     bool showOSD;
 
