@@ -2721,8 +2721,13 @@ u8 DSi::ARM7IORead8(u32 addr)
     switch (addr)
     {
     case 0x04004000:
+        if (!(SCFG_EXT[1] & (1 << 31))) /* no access to SCFG Registers if disabled*/
+            return 0;
         return SCFG_BIOS & 0xFF;
-    case 0x04004001: return SCFG_BIOS >> 8;
+    case 0x04004001:
+        if (!(SCFG_EXT[1] & (1 << 31))) /* no access to SCFG Registers if disabled*/
+            return 0;
+        return SCFG_BIOS >> 8;
     case 0x04004002: return 0; // SCFG_ROMWE, always 0
 
     CASE_READ8_32BIT(0x04004040, MBK[1][0])
@@ -2778,7 +2783,10 @@ u16 DSi::ARM7IORead16(u32 addr)
     case 0x04000218: return NDS::IE2;
     case 0x0400021C: return NDS::IF2;
 
-    case 0x04004000: return SCFG_BIOS;
+    case 0x04004000:
+        if (!(SCFG_EXT[1] & (1 << 31))) /* no access to SCFG Registers if disabled*/
+            return 0;
+        return SCFG_BIOS;
     case 0x04004002: return 0; // SCFG_ROMWE, always 0
     case 0x04004004: return SCFG_Clock7;
     case 0x04004006: return 0; // JTAG register
@@ -2831,7 +2839,10 @@ u32 DSi::ARM7IORead32(u32 addr)
     case 0x04000218: return NDS::IE2;
     case 0x0400021C: return NDS::IF2;
 
-    case 0x04004000: return SCFG_BIOS;
+    case 0x04004000:
+        if (!(SCFG_EXT[1] & (1 << 31))) /* no access to SCFG Registers if disabled*/
+            return 0;
+        return SCFG_BIOS;
     case 0x04004008: return SCFG_EXT[1];
     case 0x04004010: return SCFG_MC;
 
