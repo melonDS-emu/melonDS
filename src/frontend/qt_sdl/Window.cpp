@@ -47,9 +47,6 @@
 #include <unistd.h>
 #include <sys/socket.h>
 #include <signal.h>
-#ifndef APPLE
-#include <qpa/qplatformnativeinterface.h>
-#endif
 #endif
 
 #include "main.h"
