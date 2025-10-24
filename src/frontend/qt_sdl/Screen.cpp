@@ -47,7 +47,7 @@
 using namespace melonDS;
 
 #if !defined(_WIN32) && !defined(APPLE)
-#if QT_VERSION_CHECK(6, 5, 0)
+#if QT_VERSION >= QT_VERSION_CHECK(6, 5, 0)
 using namespace QNativeInterface;
 #else
 #include <qpa/qplatformnativeinterface.h>
@@ -1291,7 +1291,7 @@ std::optional<WindowInfo> ScreenPanelGL::getWindowInfo()
     #else
     const QString platform_name = QGuiApplication::platformName();
 
-    #if QT_VERSION_CHECK(6, 5, 0)
+    #if QT_VERSION >= QT_VERSION_CHECK(6, 5, 0)
     if (platform_name == QStringLiteral("xcb"))
     {
         wi.type = WindowInfo::Type::X11;
