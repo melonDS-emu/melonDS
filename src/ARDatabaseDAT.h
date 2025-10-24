@@ -24,25 +24,20 @@
 #include <vector>
 #include <unordered_map>
 #include "types.h"
+#include "ARCodeFile.h"
 
 namespace melonDS
 {
-/*struct ARCode
+
+struct ARDatabaseEntry
 {
+    u32 GameCode;
+    u32 Checksum;
     std::string Name;
-    bool Enabled;
-    std::vector<u32> Code;
+    ARCodeCatList Categories;
 };
 
-typedef std::list<ARCode> ARCodeList;
-
-struct ARCodeCat
-{
-    std::string Name;
-    ARCodeList Codes;
-};
-
-typedef std::list<ARCodeCat> ARCodeCatList;*/
+typedef std::vector<ARDatabaseEntry> ARDatabaseEntryList;
 
 
 class ARDatabaseDAT
@@ -51,33 +46,27 @@ public:
     ARDatabaseDAT(const std::string& filename);
     ~ARDatabaseDAT() noexcept = default;
 
-    //[[nodiscard]] std::vector<ARCode> GetCodes() const noexcept;
-
     bool Error = false;
 
-    bool LoadEntries();
-    //bool Save();
+    //void Test();
 
-    //ARCodeCatList Categories {};
-
-    void Test();
+    ARDatabaseEntryList GetEntriesByGameCode(u32 gamecode);
 
 private:
     std::string Filename;
 
-    struct Entry
+    struct EntryInfo
     {
         u32 GameCode;
         u32 Checksum;
         u32 Offset;
-        u32 EndOffset;
-        // TODO more shit here
     };
 
     // list of entries per gamecode
-    std::unordered_map<u32, std::vector<Entry>> EntryList;
+    std::unordered_map<u32, std::vector<EntryInfo>> EntryList;
 
-    bool LoadCheatCodes(Entry& entry);
+    bool LoadEntries();
+    bool LoadCheatCodes(EntryInfo& info, ARDatabaseEntry& entry);
 };
 
 }

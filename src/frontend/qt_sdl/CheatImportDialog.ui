@@ -27,14 +27,14 @@
       <number>0</number>
      </property>
      <item>
-      <widget class="QCheckBox" name="cbShowAllMatches">
+      <widget class="QCheckBox" name="chkShowAllMatches">
        <property name="text">
         <string>Show all game code matches</string>
        </property>
       </widget>
      </item>
      <item>
-      <widget class="QCheckBox" name="cbRemoveDuplicates">
+      <widget class="QCheckBox" name="chkRemoveDuplicates">
        <property name="text">
         <string>Remove duplicate codes upon import</string>
        </property>

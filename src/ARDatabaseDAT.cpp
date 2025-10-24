@@ -21,11 +21,56 @@
 #include "ARDatabaseDAT.h"
 #include "Platform.h"
 
+/* FILE FORMAT for usrcheat.dat
+
+ header:
+ 00: ID string "R4 CheatCode" (12 bytes)
+ 0C: version? must be 0x100
+ 10: database description
+ 4C: ??? (gets set by r4cce.exe, but zero in usrcheat.dat)
+ 50: database active flag
+ 100: entry list
+
+ entry:
+ 00: game code
+ 04: checksum of ROM header (logical NOT of CRC32 over first 512 bytes)
+ 08: offset to cheat data (absolute)
+ 0C: zero
+
+ the entry list is terminated with an all-zero entry
+
+ cheat data: header then items
+
+ header:
+ * game name (null-term string)
+ * padding (to align entry below to 4-byte boundary)
+ * flags (word): bit0-27 = total number of items, bit28-31 = game active (0=inactive, F=active)
+ * master codes (8 words) - use unclear
+
+ item:
+ * flags (word): bit0-23 = data length, bit24 = flag, bit28 = type
+ * item name (null-term string)
+ * item description (null-term string)
+ * padding (to align data below to 4-byte boundary)
+ * item data
+
+ meaning of item type/flag:
+ * type=0: cheat, bit0-23 = total data length in words, bit24 = cheat active
+ * type=1: category, bit0-23 = number of cheats inside, bit24 = only one cheat may be active in this category
+
+ empty description still takes up one extra byte (for the null terminator)
+
+ for a category: item data is a list of cheat items
+
+ for a cheat: item data is as follows:
+ * number of code words (word)
+ * code
+*/
+
 namespace melonDS
 {
 using namespace Platform;
 
-// TODO: import codes from other sources (usrcheat.dat, ...)
 // TODO: more user-friendly error reporting
 
 std::string ReadNTString(Platform::FileHandle* f);
@@ -40,76 +85,27 @@ ARDatabaseDAT::ARDatabaseDAT(const std::string& filename)
         Error = true;
 }
 
-/*std::vector<ARCode> ARDatabaseDAT::GetCodes() const noexcept
+ARDatabaseEntryList ARDatabaseDAT::GetEntriesByGameCode(u32 gamecode)
 {
-    if (Error)
-        return {};
+    ARDatabaseEntryList ret;
+    auto it = EntryList.find(gamecode);
+    if (it == EntryList.end())
+        return ret;
 
-    std::vector<ARCode> codes;
-
-    for (const ARCodeCat& cat : Categories)
+    for (auto& info : (*it).second)
     {
-        for (const ARCode& code : cat.Codes)
-        {
-            codes.push_back(code);
-        }
+        ARDatabaseEntry entry;
+        LoadCheatCodes(info, entry);
+        ret.push_back(entry);
     }
 
-    return codes;
-}*/
+    return ret;
+}
 
 bool ARDatabaseDAT::LoadEntries()
 {
     FileHandle* f = OpenFile(Filename, FileMode::Read);
     if (!f) return false;
-
-    // todo: load
-    //
-    /* FILE FORMAT
-
-     header:
-     00: ID string "R4 CheatCode" (12 bytes)
-     0C: version? must be 0x100
-     10: database description
-     4C: ??? (gets set by r4cce.exe, but zero in usrcheat.dat)
-     50: database active flag
-     100: entry list
-
-     entry:
-     00: game code
-     04: checksum of ROM header (logical NOT of CRC32 over first 512 bytes)
-     08: offset to cheat data (absolute)
-     0C: zero
-
-     the entry list is terminated with an all-zero entry
-
-     cheat data: header then items
-
-     header:
-     * game name (null-term string)
-     * padding (to align entry below to 4-byte boundary)
-     * flags (word): bit0-27 = total number of items, bit28-31 = game active (0=inactive, F=active)
-     * master codes (8 words) - use unclear
-
-     item:
-     * flags (word): bit0-23 = data length in words, bit24 = flag, bit28 = type
-     * item name (null-term string)
-     * item description (null-term string)
-     * padding (to align data below to 4-byte boundary)
-     * item data
-
-     meaning of item type/flag:
-     * type=0: cheat, bit24 = cheat active
-     * type=1: category, bit24 = only one cheat may be active in this category
-
-     empty description still takes up one extra byte (for the null terminator)
-
-     for a category: item data is a list of cheat items
-
-     for a cheat: item data is as follows:
-     * number of code words (word)
-     * code
-    */
 
     u64 filelen = FileLength(f);
     if (filelen > 0xFFFFFFFFULL)
@@ -146,38 +142,52 @@ bool ARDatabaseDAT::LoadEntries()
 
         printf("got entry %08X %08X %08X\n", entrydata[0], entrydata[1], entrydata[2]);
 
-        Entry entry;
+        EntryInfo entry;
         entry.GameCode = entrydata[0];
         entry.Checksum = entrydata[1];
         entry.Offset = entrydata[2];
-        entry.EndOffset = (u32)filelen;
 
         EntryList[entry.GameCode].push_back(entry);
     }
-
-    // correct end offsets for each entry
-    /*for (auto it = EntryList.begin(); it != EntryList.end(); it++)
-    {
-        auto list = (*it).second;
-        for (auto jt = list.begin(); jt != list.end(); jt++)
-        {
-            //
-        }
-    }*/
 
     CloseFile(f);
     return true;
 }
 
-void ARDatabaseDAT::Test()
+/*void ARDatabaseDAT::Test()
 {
     auto& entry = EntryList[0x50443241][0];
     //auto& list = EntryList[0x41324450];
     //auto& entry = list[0];
-    LoadCheatCodes(entry);
-}
+    ARDatabaseEntry derp;
+    LoadCheatCodes(entry, derp);
 
-bool ARDatabaseDAT::LoadCheatCodes(Entry& entry)
+    printf("DERP STATUS: name=%s\n", derp.Name.c_str());
+
+    for (const ARCodeCat& cat : derp.Categories)
+    {
+        if (cat.IsRoot)
+            printf("[ROOT]\n\n");
+        else
+        {
+            printf("[%s] onehot=%d\n", cat.Name.c_str(), cat.OnlyOneCodeEnabled);
+            printf("--%s--\n\n", cat.Description.c_str());
+        }
+
+        for (const ARCode& code : cat.Codes)
+        {
+            printf("    [%s]\n", code.Name.c_str());
+            printf("    --%s--\n", code.Description.c_str());
+            for (int i = 0; i < code.Code.size(); i+=2)
+            {
+                printf("        %08X %08X\n", code.Code[i], code.Code[i+1]);
+            }
+            printf("\n");
+        }
+    }
+}*/
+
+bool ARDatabaseDAT::LoadCheatCodes(EntryInfo& info, ARDatabaseEntry& entry)
 {
     FileHandle* f = OpenFile(Filename, FileMode::Read);
     if (!f) return false;
@@ -189,21 +199,30 @@ bool ARDatabaseDAT::LoadCheatCodes(Entry& entry)
         return false;
     }
 
-    if ((entry.Offset < 0x100) || (entry.Offset >= filelen))
+    if ((info.Offset < 0x100) || (info.Offset >= filelen))
     {
         CloseFile(f);
         return false;
     }
 
-    FileSeek(f, entry.Offset, FileSeekOrigin::Start);
+    entry.GameCode = info.GameCode;
+    entry.Checksum = info.Checksum;
 
-    std::string name = ReadNTString(f);
+    FileSeek(f, info.Offset, FileSeekOrigin::Start);
+
+    entry.Name = ReadNTString(f);
     AlignFilePos(f);
 
     u32 flags[9] = {0};
     FileRead(flags, 4*9, 1, f);
 
-    printf("name=%s flags=%08X\n", name.c_str(), flags[0]);
+    printf("name=%s flags=%08X\n", entry.Name.c_str(), flags[0]);
+
+    // every code that isn't part of a category will be added to a null 'root' category
+    ARCodeCat nullcat = {.IsRoot = true};
+
+    ARCodeCat curcat = nullcat;
+    int catlen = 0;
 
     u32 numentries = flags[0] & 0xFFFFFF;
     for (u32 i = 0; i < numentries; i++)
@@ -214,33 +233,108 @@ bool ARDatabaseDAT::LoadCheatCodes(Entry& entry)
         u32 itemflags = 0;
         FileRead(&itemflags, 4, 1, f);
 
+        u32 totallen = itemflags & 0xFFFFFF;
+
         std::string itemname = ReadNTString(f);
         std::string itemdesc = ReadNTString(f);
         AlignFilePos(f);
 
         printf("- item %d: flags=%08X name=%s desc=%s\n", i, itemflags, itemname.c_str(), itemdesc.c_str());
 
-        if (!(itemflags & (1<<28)))
+        if (itemflags & (1<<28))
+        {
+            // this item is a category
+
+            if ((totallen >= 0x10000) || (totallen == 0))
+            {
+                Log(LogLevel::Error, "AR: unreasonable category length %08X\n",
+                    totallen);
+                Log(LogLevel::Error, "game=%s, offset=%08X, cat=%s\n",
+                    entry.Name.c_str(), info.Offset, itemname.c_str());
+
+                CloseFile(f);
+                return false;
+            }
+
+            if (!curcat.Codes.empty())
+                entry.Categories.push_back(curcat);
+
+            curcat.IsRoot = false;
+            curcat.Name = itemname;
+            curcat.Description = itemdesc;
+            curcat.OnlyOneCodeEnabled = !!(itemflags & (1<<24));
+            curcat.Codes = {};
+
+            catlen = totallen;
+        }
+        else
         {
             // this item is a code
 
             u32 codelen = 0;
             FileRead(&codelen, 4, 1, f);
 
+            u32 chklen = itemname.length() + 1 + itemdesc.length() + 1;
+            chklen = ((chklen + 3) >> 2) + 1 + codelen;
+            if (chklen != totallen)
+            {
+                Log(LogLevel::Error, "AR: malformed code entry, codelen=%08X, totallen=%08X (expected %08X)\n",
+                    codelen, totallen, chklen);
+                Log(LogLevel::Error, "game=%s, offset=%08X, cheat=%s\n",
+                    entry.Name.c_str(), info.Offset, itemname.c_str());
+
+                CloseFile(f);
+                return false;
+            }
+
+            if ((codelen >= 0x100000) || (codelen & 1))
+            {
+                Log(LogLevel::Error, "AR: unreasonable code length %08X\n",
+                    codelen);
+                Log(LogLevel::Error, "game=%s, offset=%08X, cheat=%s\n",
+                    entry.Name.c_str(), info.Offset, itemname.c_str());
+
+                CloseFile(f);
+                return false;
+            }
+
             printf("-- code len = %d words\n", codelen);
 
-            u32* code = new u32[codelen];
-            FileRead(code, codelen*4, 1, f);
+            if (catlen == 0)
+            {
+                if (!curcat.Codes.empty())
+                    entry.Categories.push_back(curcat);
+
+                curcat = nullcat;
+            }
+
+            ARCode code;
+            code.Name = itemname;
+            code.Description = itemdesc;
+            code.Enabled = !!(itemflags & (1<<24));
+
+            u32* rawcode = new u32[codelen];
+            FileRead(rawcode, codelen*4, 1, f);
 
             for (u32 j = 0; j < codelen; j+=2)
             {
-                printf("-- %08X %08X\n", code[j], code[j+1]);
+                code.Code.push_back(rawcode[j]);
+                code.Code.push_back(rawcode[j+1]);
+
+                printf("-- %08X %08X\n", rawcode[j], rawcode[j+1]);
             }
 
-            // TODO put it somewhere
-            delete[] code;
+            delete[] rawcode;
+
+            curcat.Codes.push_back(code);
+
+            if (catlen >= 0)
+                catlen--;
         }
     }
+
+    if (!curcat.Codes.empty())
+        entry.Categories.push_back(curcat);
 
     CloseFile(f);
     return true;
@@ -253,6 +347,8 @@ std::string ReadNTString(Platform::FileHandle* f)
     std::string ret;
     int readlen = 0;
     u64 startpos = FilePosition(f);
+
+    // TODO might break with UTF8 and shit
 
     while (!IsEndOfFile(f))
     {

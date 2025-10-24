@@ -29,6 +29,7 @@ namespace melonDS
 struct ARCode
 {
     std::string Name;
+    std::string Description;
     bool Enabled;
     std::vector<u32> Code;
 };
@@ -37,7 +38,10 @@ typedef std::list<ARCode> ARCodeList;
 
 struct ARCodeCat
 {
+    bool IsRoot;
     std::string Name;
+    std::string Description;
+    bool OnlyOneCodeEnabled;
     ARCodeList Codes;
 };
 

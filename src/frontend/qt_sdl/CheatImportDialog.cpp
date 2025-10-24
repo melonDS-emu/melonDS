@@ -41,6 +41,12 @@ CheatImportDialog::CheatImportDialog(QWidget *parent)
     ui->setupUi(this);
     setAttribute(Qt::WA_DeleteOnClose);
 
+    emuInstance = ((MainWindow*)parent->parentWidget())->getEmuInstance();
+
+    auto rom = emuInstance->getNDS()->NDSCartSlot.GetCart();
+    gameCode = rom->GetHeader().GameCodeAsU32();
+    gameChecksum = ~CRC32(rom->GetROM(), 0x200, 0);
+
     // TODO this could be a base class thing and support multiple types of database
     // also maybe don't hardcode the filename
     database = new ARDatabaseDAT("usrcheat.dat");
@@ -51,7 +57,11 @@ CheatImportDialog::CheatImportDialog(QWidget *parent)
     }
 
     // test
-    database->Test();
+    //database->Test();
+
+    auto listmodel = new CheatGameList(ui->lvEntryList, database);
+    listmodel->setGameInfo(gameCode, gameChecksum);
+    ui->lvEntryList->setModel(listmodel);
 }
 
 CheatImportDialog::~CheatImportDialog()
@@ -63,4 +73,92 @@ CheatImportDialog::~CheatImportDialog()
 void CheatImportDialog::accept()
 {
     //
+}
+
+void CheatImportDialog::on_chkShowAllMatches_clicked(bool checked)
+{
+    ((CheatGameList*)ui->lvEntryList->model())->setListByChecksum(!checked);
+}
+
+
+CheatGameList::CheatGameList(QObject* parent, melonDS::ARDatabaseDAT* db)
+: QAbstractListModel(parent), database(db)
+{
+    gameCode = 0;
+    gameChecksum = 0;
+    dbEntriesByGameCode = {};
+    dbEntriesByChecksum = {};
+    listByChecksum = false;
+
+    QImage blank(64, 64, QImage::Format_Alpha8);
+    blank.fill(0);
+    blankIcon = QIcon(QPixmap::fromImage(blank));
+
+    matchIcon = ((QWidget*)parent)->style()->standardIcon(QStyle::SP_DialogApplyButton);
+}
+
+CheatGameList::~CheatGameList()
+{
+}
+
+void CheatGameList::setGameInfo(melonDS::u32 code, melonDS::u32 checksum)
+{
+    gameCode = code;
+    gameChecksum = checksum;
+
+    dbEntriesByGameCode = database->GetEntriesByGameCode(gameCode);
+
+    dbEntriesByChecksum = {};
+    for (auto& entry : dbEntriesByGameCode)
+    {
+        if (entry.Checksum == gameChecksum)
+            dbEntriesByChecksum.push_back(entry);
+    }
+}
+
+int CheatGameList::rowCount(const QModelIndex& parent) const
+{
+    auto& list = listByChecksum ? dbEntriesByChecksum : dbEntriesByGameCode;
+    return list.size();
+}
+
+QVariant CheatGameList::data(const QModelIndex& index, int role) const
+{
+    auto& list = listByChecksum ? dbEntriesByChecksum : dbEntriesByGameCode;
+    int row = index.row();
+    if (row >= list.size())
+        return {};
+
+    if (role == Qt::DisplayRole)
+    {
+        auto entry = list.at(row);
+        return QString::fromStdString(entry.Name);
+    }
+    else if (role == Qt::DecorationRole)
+    {
+        auto entry = list.at(row);
+        if (entry.Checksum == gameChecksum)
+            return matchIcon;
+        else
+            return blankIcon;
+    }
+
+    return {};
+}
+
+Qt::ItemFlags CheatGameList::flags(const QModelIndex& index) const
+{
+    return Qt::ItemIsEnabled | Qt::ItemIsSelectable;
+}
+
+QVariant CheatGameList::headerData(int section, Qt::Orientation orientation, int role) const
+{
+    return {};
+}
+
+void CheatGameList::setListByChecksum(bool val)
+{
+    beginResetModel();
+    listByChecksum = val;
+    endResetModel();
 }
