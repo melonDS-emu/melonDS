@@ -223,7 +223,7 @@ bool ARDatabaseDAT::LoadCheatCodes(EntryInfo& info, ARDatabaseEntry& entry)
     printf("name=%s flags=%08X\n", entry.Name.c_str(), flags[0]);
 
     // every code that isn't part of a category will be added to a null 'root' category
-    ARCodeCat nullcat = {.IsRoot = true};
+    ARCodeCat nullcat = {.IsRoot = true, .OnlyOneCodeEnabled = false};
 
     ARCodeCat curcat = nullcat;
     int catlen = 0;
@@ -345,6 +345,24 @@ bool ARDatabaseDAT::LoadCheatCodes(EntryInfo& info, ARDatabaseEntry& entry)
         for (auto& code : cat.Codes)
         {
             code.Parent = &cat;
+        }
+
+        // for categories that only allow one code to be enabled:
+        // make sure we don't have multiple ones enabled
+        if (cat.OnlyOneCodeEnabled)
+        {
+            bool foundone = false;
+            for (auto& code : cat.Codes)
+            {
+                if (!code.Enabled) continue;
+                if (foundone)
+                    code.Enabled = false;
+                else
+                    foundone = true;
+            }
+
+            //if (!foundone)
+            //    cat.Codes.front().Enabled = true;
         }
     }
 
