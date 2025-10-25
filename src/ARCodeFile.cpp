@@ -102,6 +102,7 @@ bool ARCodeFile::Load()
             if (isincat) Categories.push_back(curcat);
             isincat = true;
 
+            curcat.IsRoot = false;
             curcat.Name = catname;
             curcat.Codes.clear();
         }
@@ -159,6 +160,14 @@ bool ARCodeFile::Load()
 
     if (isincode) curcat.Codes.push_back(curcode);
     if (isincat) Categories.push_back(curcat);
+
+    for (auto& cat : Categories)
+    {
+        for (auto& code : cat.Codes)
+        {
+            code.Parent = &cat;
+        }
+    }
 
     CloseFile(f);
     return true;

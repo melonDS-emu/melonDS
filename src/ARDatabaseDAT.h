@@ -50,10 +50,12 @@ public:
 
     //void Test();
 
+    std::string GetDBName() const { return DBName; }
     ARDatabaseEntryList GetEntriesByGameCode(u32 gamecode);
 
 private:
     std::string Filename;
+    std::string DBName;
 
     struct EntryInfo
     {

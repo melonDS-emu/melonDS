@@ -26,8 +26,12 @@
 
 namespace melonDS
 {
+
+struct ARCodeCat;
+
 struct ARCode
 {
+    ARCodeCat* Parent;
     std::string Name;
     std::string Description;
     bool Enabled;

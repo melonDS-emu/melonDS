@@ -123,6 +123,10 @@ bool ARDatabaseDAT::LoadEntries()
         return false;
     }
 
+    char name[0x3D] = {0};
+    FileRead(name, 0x3C, 1, f);
+    DBName = name;
+
     FileSeek(f, 0x100, FileSeekOrigin::Start);
     while (!IsEndOfFile(f))
     {
@@ -335,6 +339,14 @@ bool ARDatabaseDAT::LoadCheatCodes(EntryInfo& info, ARDatabaseEntry& entry)
 
     if (!curcat.Codes.empty())
         entry.Categories.push_back(curcat);
+
+    for (auto& cat : entry.Categories)
+    {
+        for (auto& code : cat.Codes)
+        {
+            code.Parent = &cat;
+        }
+    }
 
     CloseFile(f);
     return true;
