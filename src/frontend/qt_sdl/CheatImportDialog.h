@@ -63,6 +63,8 @@ private:
 
     bool updatingImportChk;
 
+    std::unordered_map<melonDS::ARCode*, bool> importEnableMap;
+
     void populateEntryList();
     void populateEntryInfo();
     void populateCheatList();

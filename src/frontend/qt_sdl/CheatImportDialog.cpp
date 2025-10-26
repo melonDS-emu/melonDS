@@ -139,6 +139,14 @@ void CheatImportDialog::onCheatSelectionChanged(const QItemSelection &sel, const
 
 void CheatImportDialog::onCheatEntryModified(QStandardItem* item)
 {
+    int itemtype = item->data(Qt::UserRole).toInt();
+    if (itemtype == 2)
+    {
+        // sync up the enable map
+        auto code = item->data(Qt::UserRole+1).value<melonDS::ARCode*>();
+        importEnableMap[code] = (item->checkState() == Qt::Checked);
+    }
+
     if (updatingImportChk) return;
     updatingImportChk = true;
 
@@ -240,6 +248,7 @@ void CheatImportDialog::populateCheatList()
 
     auto treemodel = (QStandardItemModel*)ui->tvCheatList->model();
     treemodel->clear();
+    importEnableMap.clear();
 
     int idx = ui->cbEntryList->currentIndex();
     if ((idx < 0) || (idx >= ui->cbEntryList->count()))
@@ -284,6 +293,8 @@ void CheatImportDialog::populateCheatList()
             codeitem->setData(QVariant::fromValue(&code), Qt::UserRole+1);
             codeitem->setCheckable(true);
             codeitem->setCheckState(Qt::Checked);
+
+            importEnableMap[&code] = true;
         }
     }
 
