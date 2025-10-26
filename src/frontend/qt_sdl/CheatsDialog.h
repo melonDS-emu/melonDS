@@ -32,6 +32,7 @@ Q_DECLARE_METATYPE(melonDS::ARCodeCatList::iterator)
 
 namespace Ui { class CheatsDialog; }
 class CheatsDialog;
+class CheatImportDialog;
 
 class EmuInstance;
 
@@ -86,6 +87,7 @@ private slots:
     void on_btnNewARCode_clicked();
     void on_btnDeleteCode_clicked();
     void on_btnImportCheats_clicked();
+    void onImportCheatsFinished(int res);
 
     void onCheatSelectionChanged(const QItemSelection& sel, const QItemSelection& desel);
     void onCheatEntryModified(QStandardItem* item);
@@ -97,8 +99,16 @@ private:
 
     EmuInstance* emuInstance;
 
+    melonDS::u32 gameCode;
+    melonDS::u32 gameChecksum;
+
     melonDS::ARCodeFile* codeFile;
     ARCodeChecker* codeChecker;
+
+    melonDS::ARDatabaseDAT* importDB;
+    CheatImportDialog* importDlg;
+
+    void populateCheatList();
 };
 
 #endif // CHEATSDIALOG_H

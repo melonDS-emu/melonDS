@@ -48,9 +48,8 @@ public:
 
     bool Error = false;
 
-    //void Test();
-
     std::string GetDBName() const { return DBName; }
+    bool FindGameCode(u32 gamecode);
     ARDatabaseEntryList GetEntriesByGameCode(u32 gamecode);
 
 private:

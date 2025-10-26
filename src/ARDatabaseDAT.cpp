@@ -85,6 +85,16 @@ ARDatabaseDAT::ARDatabaseDAT(const std::string& filename)
         Error = true;
 }
 
+bool ARDatabaseDAT::FindGameCode(u32 gamecode)
+{
+    auto it = EntryList.find(gamecode);
+    if (it == EntryList.end())
+        return false;
+    if ((*it).second.empty())
+        return false;
+    return true;
+}
+
 ARDatabaseEntryList ARDatabaseDAT::GetEntriesByGameCode(u32 gamecode)
 {
     ARDatabaseEntryList ret;
@@ -157,39 +167,6 @@ bool ARDatabaseDAT::LoadEntries()
     CloseFile(f);
     return true;
 }
-
-/*void ARDatabaseDAT::Test()
-{
-    auto& entry = EntryList[0x50443241][0];
-    //auto& list = EntryList[0x41324450];
-    //auto& entry = list[0];
-    ARDatabaseEntry derp;
-    LoadCheatCodes(entry, derp);
-
-    printf("DERP STATUS: name=%s\n", derp.Name.c_str());
-
-    for (const ARCodeCat& cat : derp.Categories)
-    {
-        if (cat.IsRoot)
-            printf("[ROOT]\n\n");
-        else
-        {
-            printf("[%s] onehot=%d\n", cat.Name.c_str(), cat.OnlyOneCodeEnabled);
-            printf("--%s--\n\n", cat.Description.c_str());
-        }
-
-        for (const ARCode& code : cat.Codes)
-        {
-            printf("    [%s]\n", code.Name.c_str());
-            printf("    --%s--\n", code.Description.c_str());
-            for (int i = 0; i < code.Code.size(); i+=2)
-            {
-                printf("        %08X %08X\n", code.Code[i], code.Code[i+1]);
-            }
-            printf("\n");
-        }
-    }
-}*/
 
 bool ARDatabaseDAT::LoadCheatCodes(EntryInfo& info, ARDatabaseEntry& entry)
 {

@@ -22,7 +22,7 @@
      <property name="handleWidth">
       <number>2</number>
      </property>
-     <widget class="QWidget" name="">
+     <widget class="QWidget" name="layoutWidget">
       <layout class="QVBoxLayout" name="verticalLayout">
        <property name="rightMargin">
         <number>2</number>
@@ -38,16 +38,16 @@
         <widget class="QComboBox" name="cbEntryList"/>
        </item>
        <item>
-        <widget class="QCheckBox" name="chkRemoveDuplicates">
+        <widget class="QCheckBox" name="chkRemoveOld">
          <property name="text">
-          <string>Remove duplicate codes upon import</string>
+          <string>Clear cheat file before import</string>
          </property>
         </widget>
        </item>
        <item>
         <widget class="QLabel" name="label_8">
          <property name="text">
-          <string>Check the codes to import in the list below.</string>
+          <string>Check the cheat codes to import in the list below.</string>
          </property>
         </widget>
        </item>
@@ -60,7 +60,7 @@
        </item>
       </layout>
      </widget>
-     <widget class="QWidget" name="">
+     <widget class="QWidget" name="layoutWidget">
       <layout class="QVBoxLayout" name="verticalLayout_2">
        <property name="leftMargin">
         <number>2</number>

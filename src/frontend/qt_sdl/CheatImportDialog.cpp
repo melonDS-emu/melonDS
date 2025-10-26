@@ -36,37 +36,14 @@ using Platform::Log;
 using Platform::LogLevel;
 
 
-CheatImportDialog::CheatImportDialog(QWidget *parent)
-: QDialog(parent), ui(new Ui::CheatImportDialog)
+CheatImportDialog::CheatImportDialog(QWidget *parent, melonDS::ARDatabaseDAT* db, melonDS::u32 gamecode, melonDS::u32 checksum)
+: QDialog(parent), ui(new Ui::CheatImportDialog), database(db), gameCode(gamecode), gameChecksum(checksum)
 {
     ui->setupUi(this);
     setAttribute(Qt::WA_DeleteOnClose);
 
-    emuInstance = ((MainWindow*)parent->parentWidget())->getEmuInstance();
-
-    auto rom = emuInstance->getNDS()->NDSCartSlot.GetCart();
-    gameCode = rom->GetHeader().GameCodeAsU32();
-    gameChecksum = ~CRC32(rom->GetROM(), 0x200, 0);
-
-    // TODO this could be a base class thing and support multiple types of database
-    // also maybe don't hardcode the filename
-    database = new ARDatabaseDAT("usrcheat.dat");
-    if (database->Error)
-    {
-        QMessageBox::critical(this, "melonDS",
-                              "Failed to open the cheat database file.");
-        close();
-        return;
-    }
-
     dbEntriesByGameCode = database->GetEntriesByGameCode(gameCode);
-    if (dbEntriesByGameCode.empty())
-    {
-        QMessageBox::critical(this, "melonDS",
-                              "No cheat codes were found in this database for this game.");
-        close();
-        return;
-    }
+    assert(!dbEntriesByGameCode.empty());
 
     hasChecksumMatches = false;
     for (auto& entry : dbEntriesByGameCode)
@@ -88,6 +65,8 @@ CheatImportDialog::CheatImportDialog(QWidget *parent)
         ui->chkShowAllMatches->setEnabled(false);
         ui->chkShowAllMatches->setCheckState(Qt::Checked);
     }
+
+    ui->chkRemoveOld->setCheckState(Qt::Checked);
 
     auto dbname = database->GetDBName();
     ui->lblDatabaseName->setText(QString::fromStdString(dbname));
@@ -113,13 +92,24 @@ CheatImportDialog::CheatImportDialog(QWidget *parent)
 
 CheatImportDialog::~CheatImportDialog()
 {
-    delete database;
     delete ui;
 }
 
-void CheatImportDialog::accept()
+melonDS::ARDatabaseEntry& CheatImportDialog::getImportCheats()
 {
-    //
+    QVariant data = ui->cbEntryList->currentData();
+    auto entry = data.value<melonDS::ARDatabaseEntry*>();
+    return *entry;
+}
+
+CheatEnableMap& CheatImportDialog::getImportEnableMap()
+{
+    return importEnableMap;
+}
+
+bool CheatImportDialog::getRemoveOldCodes()
+{
+    return (ui->chkRemoveOld->checkState() == Qt::Checked);
 }
 
 void CheatImportDialog::on_chkShowAllMatches_clicked(bool checked)

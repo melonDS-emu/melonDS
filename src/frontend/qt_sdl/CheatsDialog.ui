@@ -43,7 +43,7 @@
      <item>
       <widget class="QPushButton" name="btnImportCheats">
        <property name="text">
-        <string>import test</string>
+        <string>Import...</string>
        </property>
       </widget>
      </item>

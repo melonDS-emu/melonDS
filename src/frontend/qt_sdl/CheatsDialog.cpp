@@ -43,7 +43,14 @@ CheatsDialog::CheatsDialog(QWidget* parent) : QDialog(parent), ui(new Ui::Cheats
     ui->setupUi(this);
     setAttribute(Qt::WA_DeleteOnClose);
 
+    importDB = nullptr;
+    importDlg = nullptr;
+
     emuInstance = ((MainWindow*)parent)->getEmuInstance();
+
+    auto rom = emuInstance->getNDS()->NDSCartSlot.GetCart();
+    gameCode = rom->GetHeader().GameCodeAsU32();
+    gameChecksum = ~CRC32(rom->GetROM(), 0x200, 0);
 
     codeFile = emuInstance->getCheatFile();
 
@@ -52,31 +59,7 @@ CheatsDialog::CheatsDialog(QWidget* parent) : QDialog(parent), ui(new Ui::Cheats
     connect(model, &QStandardItemModel::itemChanged, this, &CheatsDialog::onCheatEntryModified);
     connect(ui->tvCodeList->selectionModel(), &QItemSelectionModel::selectionChanged, this, &CheatsDialog::onCheatSelectionChanged);
 
-    {
-        QStandardItem* root = model->invisibleRootItem();
-
-        for (ARCodeCatList::iterator i = codeFile->Categories.begin(); i != codeFile->Categories.end(); i++)
-        {
-            ARCodeCat& cat = *i;
-
-            QStandardItem* catitem = new QStandardItem(QString::fromStdString(cat.Name));
-            catitem->setEditable(true);
-            catitem->setData(QVariant::fromValue(i));
-            root->appendRow(catitem);
-
-            for (ARCodeList::iterator j = cat.Codes.begin(); j != cat.Codes.end(); j++)
-            {
-                ARCode& code = *j;
-
-                QStandardItem* codeitem = new QStandardItem(QString::fromStdString(code.Name));
-                codeitem->setEditable(true);
-                codeitem->setCheckable(true);
-                codeitem->setCheckState(code.Enabled ? Qt::Checked : Qt::Unchecked);
-                codeitem->setData(QVariant::fromValue(j));
-                catitem->appendRow(codeitem);
-            }
-        }
-    }
+    populateCheatList();
 
     ui->txtCode->setPlaceholderText("");
     codeChecker = new ARCodeChecker(ui->txtCode->document());
@@ -223,14 +206,89 @@ void CheatsDialog::on_btnDeleteCode_clicked()
 
 void CheatsDialog::on_btnImportCheats_clicked()
 {
-    // TODO we need to ask the user to pick a DB file before showing the dialog
-    // but we need to test the shito somehow
+    QString file = QFileDialog::getOpenFileName(this,
+                                                "Select cheat database...",
+                                                emuDirectory,
+                                                "R4 cheat database (*.dat);;Any file (*.*)");
 
-    CheatImportDialog* importdlg = new CheatImportDialog(this);
-    importdlg->open();
-    //connect(importdlg, &CheatImportDialog::finished, this, &CheatsDialog::onImportCheatsFinished);
+    if (file.isEmpty()) return;
 
-    importdlg->show();
+    importDB = new ARDatabaseDAT(file.toStdString());
+    if (importDB->Error)
+    {
+        QMessageBox::critical(this, "melonDS",
+                              "Failed to open this cheat database file.");
+        delete importDB;
+        return;
+    }
+
+    if (!importDB->FindGameCode(gameCode))
+    {
+        QMessageBox::critical(this, "melonDS",
+                              "No cheat codes were found in this database for the current game.");
+        delete importDB;
+        return;
+    }
+
+    importDlg = new CheatImportDialog(this, importDB, gameCode, gameChecksum);
+    importDlg->open();
+    connect(importDlg, &CheatImportDialog::finished, this, &CheatsDialog::onImportCheatsFinished);
+
+    importDlg->show();
+}
+
+void CheatsDialog::onImportCheatsFinished(int res)
+{
+    if (!importDlg) return;
+
+    if (res == QDialog::Accepted)
+    {
+        auto& cheats = importDlg->getImportCheats();
+        auto& enablemap = importDlg->getImportEnableMap();
+        auto removeold = importDlg->getRemoveOldCodes();
+
+        if (removeold)
+            codeFile->Categories.clear();
+
+        for (auto& cat : cheats.Categories)
+        {
+            bool shouldimport = false;
+            for (auto& code : cat.Codes)
+            {
+                if (enablemap[&code])
+                {
+                    shouldimport = true;
+                    break;
+                }
+            }
+
+            if (!shouldimport)
+                continue;
+
+            melonDS::ARCodeCat newcat;
+            newcat.IsRoot = cat.IsRoot;
+            newcat.Name = cat.Name;
+            newcat.Description = cat.Description;
+            newcat.OnlyOneCodeEnabled = cat.OnlyOneCodeEnabled;
+
+            for (auto& code : cat.Codes)
+            {
+                if (!enablemap[&code])
+                    continue;
+
+                melonDS::ARCode newcode = code;
+                newcat.Codes.push_back(newcode);
+            }
+
+            codeFile->Categories.push_back(newcat);
+        }
+
+        populateCheatList();
+    }
+
+    delete importDB;
+    importDB = nullptr;
+    importDlg = nullptr;
 }
 
 void CheatsDialog::onCheatSelectionChanged(const QItemSelection& sel, const QItemSelection& desel)
@@ -384,6 +442,36 @@ void CheatsDialog::on_txtCode_textChanged()
 
     ARCode& code = *(data.value<ARCodeList::iterator>());
     code.Code = codeout;
+}
+
+void CheatsDialog::populateCheatList()
+{
+    auto model = (QStandardItemModel*)ui->tvCodeList->model();
+    model->clear();
+
+    QStandardItem* root = model->invisibleRootItem();
+
+    for (auto i = codeFile->Categories.begin(); i != codeFile->Categories.end(); i++)
+    {
+        ARCodeCat& cat = *i;
+
+        auto catitem = new QStandardItem(QString::fromStdString(cat.Name));
+        catitem->setEditable(true);
+        catitem->setData(QVariant::fromValue(i));
+        root->appendRow(catitem);
+
+        for (auto j = cat.Codes.begin(); j != cat.Codes.end(); j++)
+        {
+            ARCode& code = *j;
+
+            auto codeitem = new QStandardItem(QString::fromStdString(code.Name));
+            codeitem->setEditable(true);
+            codeitem->setCheckable(true);
+            codeitem->setCheckState(code.Enabled ? Qt::Checked : Qt::Unchecked);
+            codeitem->setData(QVariant::fromValue(j));
+            catitem->appendRow(codeitem);
+        }
+    }
 }
 
 void ARCodeChecker::highlightBlock(const QString& text)

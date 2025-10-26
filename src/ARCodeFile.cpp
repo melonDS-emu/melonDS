@@ -249,7 +249,7 @@ bool ARCodeFile::Save()
     FileHandle* f = Platform::OpenFile(Filename, FileMode::WriteText);
     if (!f) return false;
 
-    for (ARCodeCatList::iterator it = Categories.begin(); it != Categories.end(); it++)
+    for (auto it = Categories.begin(); it != Categories.end(); it++)
     {
         ARCodeCat& cat = *it;
 
@@ -265,7 +265,7 @@ bool ARCodeFile::Save()
             FileWriteFormatted(f, "\n");
         }
 
-        for (ARCodeList::iterator jt = cat.Codes.begin(); jt != cat.Codes.end(); jt++)
+        for (auto jt = cat.Codes.begin(); jt != cat.Codes.end(); jt++)
         {
             ARCode& code = *jt;
             FileWriteFormatted(f, "CODE %d %s\n", code.Enabled, code.Name.c_str());

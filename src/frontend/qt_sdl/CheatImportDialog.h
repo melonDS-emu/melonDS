@@ -30,19 +30,21 @@
 namespace Ui { class CheatImportDialog; }
 class CheatImportDialog;
 
-class EmuInstance;
+typedef std::unordered_map<melonDS::ARCode*, bool> CheatEnableMap;
 
 class CheatImportDialog : public QDialog
 {
     Q_OBJECT
 
 public:
-    explicit CheatImportDialog(QWidget* parent);
+    explicit CheatImportDialog(QWidget* parent, melonDS::ARDatabaseDAT* db, melonDS::u32 gamecode, melonDS::u32 checksum);
     ~CheatImportDialog();
 
-private slots:
-    void accept() override;
+    melonDS::ARDatabaseEntry& getImportCheats();
+    CheatEnableMap& getImportEnableMap();
+    bool getRemoveOldCodes();
 
+private slots:
     void on_chkShowAllMatches_clicked(bool checked);
     void on_cbEntryList_currentIndexChanged(int idx);
     void onCheatSelectionChanged(const QItemSelection& sel, const QItemSelection& desel);
@@ -51,8 +53,6 @@ private slots:
 private:
     Ui::CheatImportDialog* ui;
     QIcon blankIcon, matchIcon;
-
-    EmuInstance* emuInstance;
 
     melonDS::ARDatabaseDAT* database;
     melonDS::u32 gameCode;
@@ -63,7 +63,7 @@ private:
 
     bool updatingImportChk;
 
-    std::unordered_map<melonDS::ARCode*, bool> importEnableMap;
+    CheatEnableMap importEnableMap;
 
     void populateEntryList();
     void populateEntryInfo();
