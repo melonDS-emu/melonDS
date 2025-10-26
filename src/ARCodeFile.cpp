@@ -133,6 +133,7 @@ bool ARCodeFile::Load()
 
             curcat.IsRoot = false;
             curcat.Name = catname;
+            curcat.Description = "";
             curcat.OnlyOneCodeEnabled = onlyone!=0;
             curcat.Codes.clear();
 
@@ -163,6 +164,7 @@ bool ARCodeFile::Load()
             isincode = true;
 
             curcode.Name = codename;
+            curcode.Description = "";
             curcode.Enabled = enable!=0;
             curcode.Code.clear();
 
