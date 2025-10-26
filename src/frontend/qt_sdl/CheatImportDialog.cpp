@@ -155,7 +155,12 @@ void CheatImportDialog::onCheatEntryModified(QStandardItem* item)
         // if this item is a category, we need to check/uncheck all the children
 
         Qt::CheckState chk = item->checkState();
-        if (chk == Qt::PartiallyChecked) return;
+        if (chk == Qt::PartiallyChecked)
+        {
+            updatingImportChk = false;
+            return;
+        }
+
         int rows = item->rowCount();
         for (int i = 0; i < rows; i++)
             item->child(i)->setCheckState(chk);
@@ -167,7 +172,10 @@ void CheatImportDialog::onCheatEntryModified(QStandardItem* item)
         QStandardItem* parent = item->parent();
         QStandardItem* root = ((QStandardItemModel*)ui->tvCheatList->model())->invisibleRootItem();
         if ((!parent) || (parent == root))
+        {
+            updatingImportChk = false;
             return;
+        }
 
         bool allyes = true;
         bool allno = true;

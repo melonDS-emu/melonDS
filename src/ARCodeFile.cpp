@@ -62,11 +62,16 @@ bool ARCodeFile::Load()
 
     Categories.clear();
 
+    // every code that isn't part of a category will be added to a null 'root' category
+    ARCodeCat nullcat = {.IsRoot = true, .OnlyOneCodeEnabled = false};
+
     bool isincat = false;
     ARCodeCat curcat;
 
     bool isincode = false;
     ARCode curcode;
+
+    int lastentry = 0;
 
     char linebuf[1024];
     while (!IsEndOfFile(f))
@@ -83,13 +88,37 @@ bool ARCodeFile::Load()
         if (start[0]=='#' || start[0]=='\r' || start[0]=='\n' || start[0]=='\0')
             continue;
 
-        if (!strncasecmp(start, "CAT", 3))
+        if (!strncasecmp(start, "ROOT", 4))
+        {
+            if (isincode) curcat.Codes.push_back(curcode);
+            isincode = false;
+
+            if (isincat) Categories.push_back(curcat);
+            isincat = true;
+
+            curcat = nullcat;
+            lastentry = 0;
+        }
+        else if (!strncasecmp(start, "CAT", 3))
         {
             char catname[128];
-            int ret = sscanf(start, "CAT %127[^\r\n]", catname);
+            int ret, retchk;
+            int onlyone;
+            if (start[3] == ' ' && (start[4] == '0' || start[4] == '1') && start[5] == ' ')
+            {
+                retchk = 2;
+                ret = sscanf(start, "CAT %d %127[^\r\n]", &onlyone, catname);
+            }
+            else
+            {
+                // backwards compatibility
+                onlyone = 0;
+                retchk = 1;
+                ret = sscanf(start, "CAT %127[^\r\n]", catname);
+            }
             catname[127] = '\0';
 
-            if (ret < 1)
+            if (ret < retchk)
             {
                 Log(LogLevel::Error, "AR: malformed CAT line: %s\n", start);
                 CloseFile(f);
@@ -104,7 +133,10 @@ bool ARCodeFile::Load()
 
             curcat.IsRoot = false;
             curcat.Name = catname;
+            curcat.OnlyOneCodeEnabled = onlyone!=0;
             curcat.Codes.clear();
+
+            lastentry = 1;
         }
         else if (!strncasecmp(start, "CODE", 4))
         {
@@ -133,6 +165,32 @@ bool ARCodeFile::Load()
             curcode.Name = codename;
             curcode.Enabled = enable!=0;
             curcode.Code.clear();
+
+            lastentry = 2;
+        }
+        else if (!strncasecmp(start, "DESC", 4))
+        {
+            char desc[256];
+            int ret = sscanf(start, "DESC %255[^\r\n]", desc);
+            desc[255] = '\0';
+
+            if (ret < 1)
+            {
+                Log(LogLevel::Error, "AR: malformed DESC line: %s\n", start);
+                CloseFile(f);
+                return false;
+            }
+
+            if (lastentry == 2)
+                curcode.Description = desc;
+            else if (lastentry == 1)
+                curcat.Description = desc;
+            else
+            {
+                Log(LogLevel::Error, "AR: encountered DESC line not part of anything\n");
+                CloseFile(f);
+                return false;
+            }
         }
         else
         {
@@ -167,6 +225,21 @@ bool ARCodeFile::Load()
         {
             code.Parent = &cat;
         }
+
+        // for categories that only allow one code to be enabled:
+        // make sure we don't have multiple ones enabled
+        if (cat.OnlyOneCodeEnabled)
+        {
+            bool foundone = false;
+            for (auto& code : cat.Codes)
+            {
+                if (!code.Enabled) continue;
+                if (foundone)
+                    code.Enabled = false;
+                else
+                    foundone = true;
+            }
+        }
     }
 
     CloseFile(f);
@@ -183,12 +256,20 @@ bool ARCodeFile::Save()
         ARCodeCat& cat = *it;
 
         if (it != Categories.begin()) FileWriteFormatted(f, "\n");
-        FileWriteFormatted(f, "CAT %s\n\n", cat.Name.c_str());
+
+        if (cat.IsRoot)
+            FileWriteFormatted(f, "ROOT\n\n");
+        else
+        {
+            FileWriteFormatted(f, "CAT %d %s\n\n", cat.OnlyOneCodeEnabled, cat.Name.c_str());
+            FileWriteFormatted(f, "DESC %s\n\n", cat.Description.c_str());
+        }
 
         for (ARCodeList::iterator jt = cat.Codes.begin(); jt != cat.Codes.end(); jt++)
         {
             ARCode& code = *jt;
             FileWriteFormatted(f, "CODE %d %s\n", code.Enabled, code.Name.c_str());
+            FileWriteFormatted(f, "DESC %s\n\n", code.Description.c_str());
 
             for (size_t i = 0; i < code.Code.size(); i+=2)
             {

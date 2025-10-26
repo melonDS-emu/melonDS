@@ -360,9 +360,6 @@ bool ARDatabaseDAT::LoadCheatCodes(EntryInfo& info, ARDatabaseEntry& entry)
                 else
                     foundone = true;
             }
-
-            //if (!foundone)
-            //    cat.Codes.front().Enabled = true;
         }
     }
 
