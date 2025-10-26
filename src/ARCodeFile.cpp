@@ -177,11 +177,7 @@ bool ARCodeFile::Load()
             desc[255] = '\0';
 
             if (ret < 1)
-            {
-                Log(LogLevel::Error, "AR: malformed DESC line: %s\n", start);
-                CloseFile(f);
-                return false;
-            }
+                continue;
 
             if (lastentry == 2)
                 curcode.Description = desc;
@@ -263,15 +259,18 @@ bool ARCodeFile::Save()
             FileWriteFormatted(f, "ROOT\n\n");
         else
         {
-            FileWriteFormatted(f, "CAT %d %s\n\n", cat.OnlyOneCodeEnabled, cat.Name.c_str());
-            FileWriteFormatted(f, "DESC %s\n\n", cat.Description.c_str());
+            FileWriteFormatted(f, "CAT %d %s\n", cat.OnlyOneCodeEnabled, cat.Name.c_str());
+            if (!cat.Description.empty())
+                FileWriteFormatted(f, "DESC %s\n", cat.Description.c_str());
+            FileWriteFormatted(f, "\n");
         }
 
         for (ARCodeList::iterator jt = cat.Codes.begin(); jt != cat.Codes.end(); jt++)
         {
             ARCode& code = *jt;
             FileWriteFormatted(f, "CODE %d %s\n", code.Enabled, code.Name.c_str());
-            FileWriteFormatted(f, "DESC %s\n\n", code.Description.c_str());
+            if (!code.Description.empty())
+                FileWriteFormatted(f, "DESC %s\n", code.Description.c_str());
 
             for (size_t i = 0; i < code.Code.size(); i+=2)
             {
