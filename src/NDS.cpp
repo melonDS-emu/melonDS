@@ -3363,7 +3363,6 @@ void NDS::ARM9IOWrite16(u32 addr, u16 val)
         IPCSync7 |= ((val & 0x0F00) >> 8);
         IPCSync9 &= 0xB0FF;
         IPCSync9 |= (val & 0x4F00);
-        printf("ARM9 IPCSYNC=%04X (%04X|%04X) @ %08X\n", val, IPCSync9, IPCSync7, ARM9.R[15]);
         if ((val & 0x2000) && (IPCSync7 & 0x4000))
         {
             SetIRQ(1, IRQ_IPCSync);
@@ -4152,7 +4151,6 @@ void NDS::ARM7IOWrite16(u32 addr, u16 val)
         IPCSync9 |= ((val & 0x0F00) >> 8);
         IPCSync7 &= 0xB0FF;
         IPCSync7 |= (val & 0x4F00);
-        printf("ARM7 IPCSYNC=%04X (%04X|%04X) @ %08X\n", val, IPCSync9, IPCSync7, ARM7.R[15]);
         if ((val & 0x2000) && (IPCSync9 & 0x4000))
         {
             SetIRQ(0, IRQ_IPCSync);
