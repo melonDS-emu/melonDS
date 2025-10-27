@@ -421,6 +421,8 @@ void DSi::SetupDirectBoot()
     u32 cartid = NDSCartSlot.GetCart()->ID();
     DSi_TSC* tsc = (DSi_TSC*)SPI.GetTSC();
 
+    // TODO properly setup SCFG_EXT
+
     // TODO: add controls for forcing DS or DSi mode?
     if (!(header.UnitCode & 0x02))
         dsmode = true;
@@ -448,6 +450,9 @@ void DSi::SetupDirectBoot()
 
         tsc->SetMode(0x00);
         Set_SCFG_Clock9(0x0000);
+
+        SCFG_EXT[0] &= ~0xC000;
+        ApplyNewRAMSize(0);
     }
     else
     {
@@ -598,8 +603,6 @@ void DSi::SetupDirectBoot()
         ARM9Write8(0x02FFFDFA, I2C.GetBPTWL()->GetBootFlag() | 0x80);
         ARM9Write8(0x02FFFDFB, 0x01);
     }
-
-    // TODO: for DS-mode ROMs, switch RAM size here
 
     u32 arm9start = 0;
 
@@ -1308,6 +1311,19 @@ void DSi::ApplyNewRAMSize(u32 size)
         Log(LogLevel::Debug, "RAM: 16MB\n");
         break;
     }
+
+    // mirror the RAM size setting to the ARM7 register
+    SCFG_EXT[1] &= ~0xC000;
+    SCFG_EXT[1] |= (size << 14);
+}
+
+void DSi::CheckDSiLoaderHack()
+{
+    if (!(SCFG_EXT[0] & SCFG_DSiLoaderHack))
+        return;
+
+    SCFG_EXT[0] &= ~SCFG_DSiLoaderHack;
+    ApplyNewRAMSize((SCFG_EXT[0] >> 14) & 0x3);
 }
 
 
@@ -2582,30 +2598,51 @@ void DSi::ARM9IOWrite32(u32 addr, u32 val)
 
             SCFG_EXT[0] &= ~0x8007F19F;
             SCFG_EXT[0] |= (val & 0x8007F19F);
-            SCFG_EXT[1] &= ~0x0000F080;
-            SCFG_EXT[1] |= (val & 0x0000F080);
+            SCFG_EXT[1] &= ~0x00003080;
+            SCFG_EXT[1] |= (val & 0x00003080);
             Log(LogLevel::Debug, "SCFG_EXT = %08X / %08X (val9 %08X)\n", SCFG_EXT[0], SCFG_EXT[1], val);
-            /*switch ((SCFG_EXT[0] >> 14) & 0x3)
+            
+            if (newram != oldram)
             {
-            case 0:
-            case 1:
-                NDS::MainRAMMask = 0x3FFFFF;
-                printf("RAM: 4MB\n");
-                //baziderp=true;
-                break;
-            case 2:
-            case 3: // TODO: debug console w/ 32MB?
-                NDS::MainRAMMask = 0xFFFFFF;
-                printf("RAM: 16MB\n");
-                break;
-            }*/
-            // HAX!!
-            // a change to the RAM size setting is supposed to apply immediately (it does so on hardware)
-            // however, doing so will cause DS-mode app startup to break, because the change happens while the ARM7
-            // is still busy clearing/relocating shit
-            //if (newram != oldram)
-            //    NDS::ScheduleEvent(NDS::Event_DSi_RAMSizeChange, false, 512*512*512, ApplyNewRAMSize, newram);
-            Log(LogLevel::Debug, "from %08X, ARM7 %08X, %08X\n", NDS::GetPC(0), NDS::GetPC(1), ARM7.R[1]);
+                bool isDSiLoader = (ARM9.R[15] == 0x023FEED0) && (IPCSync9 == 0x0505);
+                if (isDSiLoader)
+                {
+                    /*
+                     -- DSI LOADER HACK --
+
+                     When loading a title, the DSi loader does the following: (after other steps)
+                     * ARM7 sends IPCSYNC=5 and waits for ARM9
+                     * ARM9 sends IPCSYNC=5
+                     * ARM7 clears/moves a bunch of memory regions, then sends IPCSYNC=0
+                     * ARM9 clears DTCM (clear/move lists are empty, so that's it)
+                     * ARM9 changes RAM size if required (when loading a DS title)
+                     * ARM9 waits for ARM7, then sends IPCSYNC=0
+                     * the title is booted
+
+                     When loading a DS game, the loader crashes, because the ARM9 tries to change the RAM size
+                     while the ARM7 is still clearing/moving RAM, causing it to overwrite the ARM9 code.
+
+                     The ARM9 has caches off. The ARM7 has priority over main RAM.
+                     On hardware, the loader works due to main RAM contention: the ARM7-side memory clearing/moving
+                     slows down the ARM9 a lot, because the two are actively competing for main RAM access.
+                     Thus, the ARM9 is only able to change the RAM size after the ARM7 has finished its work.
+                     If EXMEMCNT is changed to give priority to the ARM9, the loader will crash.
+
+                     Main RAM contention would be incredibly difficult to emulate without a cycle-accurate emulator
+                     (which melonDS is not).
+                     A possible workaround might be to count main RAM accesses over a time slice and calculate a
+                     penalty to apply to either ARM9 or ARM7. This would be gross and have potential to cause new
+                     timing issues unless it is calibrated precisely.
+
+                     In the meantime, this hack will take care of the DSi loader's shoddy programming, hopefully
+                     with no side effects.
+                     */
+
+                    SCFG_EXT[0] |= SCFG_DSiLoaderHack;
+                }
+                else
+                    ApplyNewRAMSize(newram);
+            }
 
             UpdateVRAMTimings();
         }
@@ -3016,6 +3053,12 @@ void DSi::ARM7IOWrite16(u32 addr, u16 val)
     assert(ConsoleType == 1);
     switch (addr)
     {
+        case 0x04000180:
+            // DSi loader hack hook
+            if ((val & 0x0F00) == 0x0000)
+                CheckDSiLoaderHack();
+            return NDS::ARM7IOWrite16(addr, val);
+
         case 0x04000218: NDS::IE2 = (val & 0x7FF7); NDS::UpdateIRQ(1); return;
         case 0x0400021C: NDS::IF2 &= ~(val & 0x7FF7); NDS::UpdateIRQ(1); return;
 
@@ -3130,6 +3173,12 @@ void DSi::ARM7IOWrite32(u32 addr, u32 val)
     assert(ConsoleType == 1);
     switch (addr)
     {
+    case 0x04000180:
+        // DSi loader hack hook
+        if ((val & 0x0F00) == 0x0000)
+            CheckDSiLoaderHack();
+        return NDS::ARM7IOWrite32(addr, val);
+
     case 0x04000218: NDS::IE2 = (val & 0x7FF7); NDS::UpdateIRQ(1); return;
     case 0x0400021C: NDS::IF2 &= ~(val & 0x7FF7); NDS::UpdateIRQ(1); return;
 
