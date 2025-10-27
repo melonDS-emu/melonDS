@@ -108,6 +108,8 @@ private:
     melonDS::ARDatabaseDAT* importDB;
     CheatImportDialog* importDlg;
 
+    bool updatingEnableChk;
+
     void populateCheatList();
 };
 

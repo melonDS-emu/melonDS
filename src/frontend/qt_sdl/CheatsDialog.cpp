@@ -45,6 +45,7 @@ CheatsDialog::CheatsDialog(QWidget* parent) : QDialog(parent), ui(new Ui::Cheats
 
     importDB = nullptr;
     importDlg = nullptr;
+    updatingEnableChk = false;
 
     emuInstance = ((MainWindow*)parent)->getEmuInstance();
 
@@ -183,6 +184,9 @@ void CheatsDialog::on_btnDeleteCode_clicked()
     QStandardItemModel* model = (QStandardItemModel*)ui->tvCodeList->model();
     QStandardItem* item = model->itemFromIndex(indices.first());
 
+    QStandardItem* itemparent = item->parent();
+    if (!itemparent) itemparent = model->invisibleRootItem();
+
     QVariant data = item->data();
     if (data.canConvert<ARCodeCatList::iterator>())
     {
@@ -191,16 +195,16 @@ void CheatsDialog::on_btnDeleteCode_clicked()
         (*it_cat).Codes.clear();
         codeFile->Categories.erase(it_cat);
 
-        model->invisibleRootItem()->removeRow(item->row());
+        itemparent->removeRow(item->row());
     }
     else if (data.canConvert<ARCodeList::iterator>())
     {
         ARCodeList::iterator it_code = data.value<ARCodeList::iterator>();
-        ARCodeCatList::iterator it_cat = item->parent()->data().value<ARCodeCatList::iterator>();
+        auto cat = (*it_code).Parent;
 
-        (*it_cat).Codes.erase(it_code);
+        cat->Codes.erase(it_code);
 
-        item->parent()->removeRow(item->row());
+        itemparent->removeRow(item->row());
     }
 }
 
@@ -305,6 +309,8 @@ void CheatsDialog::onCheatSelectionChanged(const QItemSelection& sel, const QIte
 
 void CheatsDialog::onCheatEntryModified(QStandardItem* item)
 {
+    if (updatingEnableChk) return;
+
     QVariant data = item->data();
     if (data.canConvert<ARCodeCatList::iterator>())
     {
@@ -335,6 +341,31 @@ void CheatsDialog::onCheatEntryModified(QStandardItem* item)
         }
 
         code.Enabled = (item->checkState() == Qt::Checked);
+
+        if (code.Enabled && code.Parent->OnlyOneCodeEnabled)
+        {
+            // if needed, disable other codes
+
+            updatingEnableChk = true;
+
+            auto parent = item->parent();
+            for (int i = 0; i < parent->rowCount(); i++)
+            {
+                auto child = parent->child(i);
+                if (child == item) continue;
+
+                QVariant childdata = child->data();
+                if (childdata.canConvert<ARCodeList::iterator>())
+                {
+                    ARCode& childcode = *(childdata.value<ARCodeList::iterator>());
+                    childcode.Enabled = false;
+
+                    child->setCheckState(Qt::Unchecked);
+                }
+            }
+
+            updatingEnableChk = false;
+        }
     }
 }
 

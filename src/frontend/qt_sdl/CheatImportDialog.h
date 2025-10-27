@@ -30,8 +30,6 @@
 namespace Ui { class CheatImportDialog; }
 class CheatImportDialog;
 
-typedef std::unordered_map<melonDS::ARCode*, bool> CheatEnableMap;
-
 class CheatImportDialog : public QDialog
 {
     Q_OBJECT
@@ -41,7 +39,7 @@ public:
     ~CheatImportDialog();
 
     melonDS::ARDatabaseEntry& getImportCheats();
-    CheatEnableMap& getImportEnableMap();
+    melonDS::ARCodeEnableMap& getImportEnableMap();
     bool getRemoveOldCodes();
 
 private slots:
@@ -63,7 +61,7 @@ private:
 
     bool updatingImportChk;
 
-    CheatEnableMap importEnableMap;
+    melonDS::ARCodeEnableMap importEnableMap;
 
     void populateEntryList();
     void populateEntryInfo();

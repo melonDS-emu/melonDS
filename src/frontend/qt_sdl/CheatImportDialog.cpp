@@ -102,7 +102,7 @@ melonDS::ARDatabaseEntry& CheatImportDialog::getImportCheats()
     return *entry;
 }
 
-CheatEnableMap& CheatImportDialog::getImportEnableMap()
+melonDS::ARCodeEnableMap& CheatImportDialog::getImportEnableMap()
 {
     return importEnableMap;
 }
