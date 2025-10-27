@@ -247,41 +247,7 @@ void CheatsDialog::onImportCheatsFinished(int res)
         auto& enablemap = importDlg->getImportEnableMap();
         auto removeold = importDlg->getRemoveOldCodes();
 
-        if (removeold)
-            codeFile->Categories.clear();
-
-        for (auto& cat : cheats.Categories)
-        {
-            bool shouldimport = false;
-            for (auto& code : cat.Codes)
-            {
-                if (enablemap[&code])
-                {
-                    shouldimport = true;
-                    break;
-                }
-            }
-
-            if (!shouldimport)
-                continue;
-
-            melonDS::ARCodeCat newcat;
-            newcat.IsRoot = cat.IsRoot;
-            newcat.Name = cat.Name;
-            newcat.Description = cat.Description;
-            newcat.OnlyOneCodeEnabled = cat.OnlyOneCodeEnabled;
-
-            for (auto& code : cat.Codes)
-            {
-                if (!enablemap[&code])
-                    continue;
-
-                melonDS::ARCode newcode = code;
-                newcat.Codes.push_back(newcode);
-            }
-
-            codeFile->Categories.push_back(newcat);
-        }
+        codeFile->Import(cheats, enablemap, removeold);
 
         populateCheatList();
     }
@@ -455,10 +421,18 @@ void CheatsDialog::populateCheatList()
     {
         ARCodeCat& cat = *i;
 
-        auto catitem = new QStandardItem(QString::fromStdString(cat.Name));
-        catitem->setEditable(true);
-        catitem->setData(QVariant::fromValue(i));
-        root->appendRow(catitem);
+        QStandardItem* catitem;
+        if (cat.IsRoot)
+        {
+            catitem = root;
+        }
+        else
+        {
+            catitem = new QStandardItem(QString::fromStdString(cat.Name));
+            catitem->setEditable(true);
+            catitem->setData(QVariant::fromValue(i));
+            root->appendRow(catitem);
+        }
 
         for (auto j = cat.Codes.begin(); j != cat.Codes.end(); j++)
         {

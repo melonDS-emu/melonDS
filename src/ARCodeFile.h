@@ -22,6 +22,7 @@
 #include <string>
 #include <list>
 #include <vector>
+#include <unordered_map>
 #include "types.h"
 
 namespace melonDS
@@ -51,6 +52,9 @@ struct ARCodeCat
 
 typedef std::list<ARCodeCat> ARCodeCatList;
 
+struct ARDatabaseEntry;
+typedef std::unordered_map<ARCode*, bool> ARCodeEnableMap;
+
 
 class ARCodeFile
 {
@@ -65,10 +69,14 @@ public:
     bool Load();
     bool Save();
 
+    void Import(ARDatabaseEntry& dbentry, ARCodeEnableMap& enablemap, bool clear);
+
     ARCodeCatList Categories {};
 
 private:
     std::string Filename;
+
+    void FinalizeList();
 };
 
 }

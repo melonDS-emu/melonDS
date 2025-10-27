@@ -19,6 +19,7 @@
 #include <stdio.h>
 #include <string.h>
 #include "ARCodeFile.h"
+#include "ARDatabaseDAT.h"
 #include "Platform.h"
 
 namespace melonDS
@@ -217,28 +218,7 @@ bool ARCodeFile::Load()
     if (isincode) curcat.Codes.push_back(curcode);
     if (isincat) Categories.push_back(curcat);
 
-    for (auto& cat : Categories)
-    {
-        for (auto& code : cat.Codes)
-        {
-            code.Parent = &cat;
-        }
-
-        // for categories that only allow one code to be enabled:
-        // make sure we don't have multiple ones enabled
-        if (cat.OnlyOneCodeEnabled)
-        {
-            bool foundone = false;
-            for (auto& code : cat.Codes)
-            {
-                if (!code.Enabled) continue;
-                if (foundone)
-                    code.Enabled = false;
-                else
-                    foundone = true;
-            }
-        }
-    }
+    FinalizeList();
 
     CloseFile(f);
     return true;
@@ -283,6 +263,80 @@ bool ARCodeFile::Save()
 
     CloseFile(f);
     return true;
+}
+
+void ARCodeFile::Import(ARDatabaseEntry& dbentry, ARCodeEnableMap& enablemap, bool clear)
+{
+    bool hasenablemap = !enablemap.empty();
+
+    if (clear)
+        Categories.clear();
+
+    for (auto& cat : dbentry.Categories)
+    {
+        bool shouldimport = false;
+        if (hasenablemap)
+        {
+            for (auto &code: cat.Codes)
+            {
+                if (enablemap[&code])
+                {
+                    shouldimport = true;
+                    break;
+                }
+            }
+        }
+        else
+            shouldimport = true;
+
+        if (!shouldimport)
+            continue;
+
+        melonDS::ARCodeCat newcat;
+        newcat.IsRoot = cat.IsRoot;
+        newcat.Name = cat.Name;
+        newcat.Description = cat.Description;
+        newcat.OnlyOneCodeEnabled = cat.OnlyOneCodeEnabled;
+
+        for (auto& code : cat.Codes)
+        {
+            if (hasenablemap && (!enablemap[&code]))
+                continue;
+
+            melonDS::ARCode newcode = code;
+            newcat.Codes.push_back(newcode);
+        }
+
+        Categories.push_back(newcat);
+    }
+
+    FinalizeList();
+}
+
+void ARCodeFile::FinalizeList()
+{
+    for (auto& cat : Categories)
+    {
+        for (auto& code : cat.Codes)
+        {
+            code.Parent = &cat;
+        }
+
+        // for categories that only allow one code to be enabled:
+        // make sure we don't have multiple ones enabled
+        if (cat.OnlyOneCodeEnabled)
+        {
+            bool foundone = false;
+            for (auto& code : cat.Codes)
+            {
+                if (!code.Enabled) continue;
+                if (foundone)
+                    code.Enabled = false;
+                else
+                    foundone = true;
+            }
+        }
+    }
 }
 
 }
