@@ -41,6 +41,7 @@ set(SOURCES_QT_SDL
     AboutDialog.cpp
     AboutDialog.h
     AboutDialog.ui
+    MemViewDialog.cpp
 
     ArchiveUtil.h
     ArchiveUtil.cpp
