@@ -3,7 +3,7 @@
 ## Current state
 We chose to use libFuzzer because of its custom mutator feature, which allows to keep coherent informations inside the packets being sent to libslirp. This ease the process of fuzzing as packets are less likely to be rejected early during processing them.
 
-In the current state, the `meson.build` file is not compatible with the original one used by libSlirp main repository but it should be easy to merge them in a clean way. Also **in the current state, it seems that there is a memory leak inside the fuzzing code**, which make it run out of memory. The current goal is to find and get rid of this leak to allow fuzzing for longer without the process being interrupted because of it.
+In the current state, the `meson.build` file is not compatible with the original one used by libSlirp main repository but it should be easy to merge them in a clean way.
 
 Six harness are currently available, more are to be added later to focus on other parts of the code :
 
