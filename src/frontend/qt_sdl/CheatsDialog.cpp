@@ -47,6 +47,9 @@ CheatsDialog::CheatsDialog(QWidget* parent) : QDialog(parent), ui(new Ui::Cheats
     importDlg = nullptr;
     updatingEnableChk = false;
 
+    ui->splitter->setStretchFactor(0, 2);
+    ui->splitter->setStretchFactor(1, 3);
+
     emuInstance = ((MainWindow*)parent)->getEmuInstance();
 
     auto rom = emuInstance->getNDS()->NDSCartSlot.GetCart();

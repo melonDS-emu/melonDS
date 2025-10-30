@@ -22,6 +22,9 @@
      <property name="handleWidth">
       <number>2</number>
      </property>
+     <property name="childrenCollapsible">
+      <bool>false</bool>
+     </property>
      <widget class="QWidget" name="layoutWidget">
       <layout class="QVBoxLayout" name="verticalLayout">
        <property name="rightMargin">
@@ -164,6 +167,12 @@
        </item>
        <item>
         <widget class="QGroupBox" name="gbCatInfo">
+         <property name="sizePolicy">
+          <sizepolicy hsizetype="Preferred" vsizetype="Expanding">
+           <horstretch>0</horstretch>
+           <verstretch>0</verstretch>
+          </sizepolicy>
+         </property>
          <property name="title">
           <string>Selected category</string>
          </property>
@@ -242,6 +251,12 @@
        </item>
        <item>
         <widget class="QGroupBox" name="gbCodeInfo">
+         <property name="sizePolicy">
+          <sizepolicy hsizetype="Preferred" vsizetype="Expanding">
+           <horstretch>0</horstretch>
+           <verstretch>0</verstretch>
+          </sizepolicy>
+         </property>
          <property name="title">
           <string>Selected code</string>
          </property>
@@ -329,6 +344,11 @@
               <horstretch>0</horstretch>
               <verstretch>0</verstretch>
              </sizepolicy>
+            </property>
+            <property name="font">
+             <font>
+              <family>Noto Sans Mono</family>
+             </font>
             </property>
             <property name="sizeAdjustPolicy">
              <enum>QAbstractScrollArea::SizeAdjustPolicy::AdjustToContents</enum>
