@@ -56,7 +56,7 @@ public:
     void SetRecvTimeout(int timeout) noexcept { RecvTimeout = timeout; }
 
     // function called every video frame
-    virtual void Process() = 0;
+    virtual void Process(int inst) = 0;
 
     virtual void Begin(int inst) = 0;
     virtual void End(int inst) = 0;

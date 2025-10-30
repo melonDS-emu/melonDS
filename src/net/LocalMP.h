@@ -48,18 +48,18 @@ public:
     LocalMP& operator=(LocalMP&& other) = delete;
     ~LocalMP() noexcept;
 
-    void Process() {}
+    void Process(int inst) override {}
 
-    void Begin(int inst);
-    void End(int inst);
+    void Begin(int inst) override;
+    void End(int inst) override;
 
-    int SendPacket(int inst, u8* data, int len, u64 timestamp);
-    int RecvPacket(int inst, u8* data, u64* timestamp);
-    int SendCmd(int inst, u8* data, int len, u64 timestamp);
-    int SendReply(int inst, u8* data, int len, u64 timestamp, u16 aid);
-    int SendAck(int inst, u8* data, int len, u64 timestamp);
-    int RecvHostPacket(int inst, u8* data, u64* timestamp);
-    u16 RecvReplies(int inst, u8* data, u64 timestamp, u16 aidmask);
+    int SendPacket(int inst, u8* data, int len, u64 timestamp) override;
+    int RecvPacket(int inst, u8* data, u64* timestamp) override;
+    int SendCmd(int inst, u8* data, int len, u64 timestamp) override;
+    int SendReply(int inst, u8* data, int len, u64 timestamp, u16 aid) override;
+    int SendAck(int inst, u8* data, int len, u64 timestamp) override;
+    int RecvHostPacket(int inst, u8* data, u64* timestamp) override;
+    u16 RecvReplies(int inst, u8* data, u64 timestamp, u16 aidmask) override;
 
 private:
     void FIFORead(int inst, int fifo, void* buf, int len) noexcept;
