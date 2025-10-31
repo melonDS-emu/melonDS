@@ -103,12 +103,12 @@ public:
     void CheckFIFOIRQ() noexcept;
     void CheckFIFODMA() noexcept;
 
-    void VCount144(GPU& gpu) noexcept;
+    void VCount144() noexcept;
     void VBlank() noexcept;
-    void VCount215(GPU& gpu) noexcept;
+    void VCount215() noexcept;
 
-    void RestartFrame(GPU& gpu) noexcept;
-    void Stop(const GPU& gpu) noexcept;
+    void RestartFrame() noexcept;
+    void Stop() noexcept;
 
     void SetRenderXPos(u16 xpos) noexcept;
     [[nodiscard]] u16 GetRenderXPos() const noexcept { return RenderXPos; }
@@ -127,7 +127,7 @@ public:
     void Write8(u32 addr, u8 val) noexcept;
     void Write16(u32 addr, u16 val) noexcept;
     void Write32(u32 addr, u32 val) noexcept;
-    void Blit(const GPU& gpu) noexcept;
+    void Blit() noexcept;
 private:
     melonDS::NDS& NDS;
     typedef union
@@ -344,12 +344,12 @@ public:
     // are more detailed "traits" that we can ask of the Renderer3D type
     const bool Accelerated;
 
-    virtual void VCount144(GPU& gpu) {};
-    virtual void Stop(const GPU& gpu) {}
-    virtual void RenderFrame(GPU& gpu) = 0;
-    virtual void RestartFrame(GPU& gpu) {};
+    virtual void VCount144() {};
+    virtual void Stop() {}
+    virtual void RenderFrame() = 0;
+    virtual void RestartFrame() {};
     virtual u32* GetLine(int line) = 0;
-    virtual void Blit(const GPU& gpu) {};
+    virtual void Blit() {};
 
     virtual void SetupAccelFrame() {}
     virtual void PrepareCaptureFrame() {}
@@ -360,6 +360,7 @@ public:
 
 protected:
     Renderer3D(bool Accelerated);
+    GPU* gpu;
 };
 
 }
