@@ -451,6 +451,9 @@ void EmuThread::run()
         }
 
         handleMessages();
+        
+        //Lua Script Stuff (-for now happens at the end of each frame regardless of emuStatus)
+        emit signalLuaUpdate();
     }
 }
 

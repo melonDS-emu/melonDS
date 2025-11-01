@@ -163,6 +163,8 @@ signals:
 
     void syncVolumeLevel();
 
+    void signalLuaUpdate();
+
 private:
     void handleMessages();
 
