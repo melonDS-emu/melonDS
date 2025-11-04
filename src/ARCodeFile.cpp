@@ -94,11 +94,14 @@ bool ARCodeFile::Load()
             if (isincode) curcat.Codes.push_back(curcode);
             isincode = false;
 
-            if (isincat) Categories.push_back(curcat);
-            isincat = true;
+            if ((!isincat) || (!curcat.IsRoot))
+            {
+                if (isincat) Categories.push_back(curcat);
+                isincat = true;
 
-            curcat = nullcat;
-            lastentry = 0;
+                curcat = nullcat;
+                lastentry = 0;
+            }
         }
         else if (!strncasecmp(start, "CAT", 3))
         {
@@ -233,16 +236,30 @@ bool ARCodeFile::Save()
     {
         ARCodeCat& cat = *it;
 
-        if (it != Categories.begin()) FileWriteFormatted(f, "\n");
-
-        if (cat.IsRoot)
-            FileWriteFormatted(f, "ROOT\n\n");
-        else
+        // if we happen to have a root category right after another one, merge them
+        // TODO: this is really crummy and we should have better data structures
+        bool skip = false;
+        if (it != Categories.begin())
         {
-            FileWriteFormatted(f, "CAT %d %s\n", cat.OnlyOneCodeEnabled, cat.Name.c_str());
-            if (!cat.Description.empty())
-                FileWriteFormatted(f, "DESC %s\n", cat.Description.c_str());
-            FileWriteFormatted(f, "\n");
+            auto previt = it; previt--;
+            auto& prevcat = *previt;
+            if (cat.IsRoot && prevcat.IsRoot)
+                skip = true;
+        }
+
+        if (!skip)
+        {
+            if (it != Categories.begin()) FileWriteFormatted(f, "\n");
+
+            if (cat.IsRoot)
+                FileWriteFormatted(f, "ROOT\n\n");
+            else
+            {
+                FileWriteFormatted(f, "CAT %d %s\n", cat.OnlyOneCodeEnabled, cat.Name.c_str());
+                if (!cat.Description.empty())
+                    FileWriteFormatted(f, "DESC %s\n", cat.Description.c_str());
+                FileWriteFormatted(f, "\n");
+            }
         }
 
         for (auto jt = cat.Codes.begin(); jt != cat.Codes.end(); jt++)

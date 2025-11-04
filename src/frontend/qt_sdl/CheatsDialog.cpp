@@ -67,9 +67,6 @@ CheatsDialog::CheatsDialog(QWidget* parent) : QDialog(parent), ui(new Ui::Cheats
 
     //ui->txtCode->setPlaceholderText("");
     codeChecker = new ARCodeChecker(ui->txtCode->document());
-
-    ui->btnNewARCode->setEnabled(false);
-    ui->btnDeleteCode->setEnabled(false);
 }
 
 CheatsDialog::~CheatsDialog()
@@ -106,66 +103,82 @@ void CheatsDialog::on_btnNewCat_clicked()
     cat.Name = "(new category)";
 
     codeFile->Categories.push_back(cat);
-    ARCodeCatList::iterator id = codeFile->Categories.end(); id--;
+    auto id = codeFile->Categories.end(); id--;
 
-    QStandardItem* catitem = new QStandardItem(QString::fromStdString(cat.Name));
-    //catitem->setEditable(true);
+    auto catitem = new QStandardItem(QString::fromStdString(cat.Name));
     catitem->setData(QVariant::fromValue(id));
     root->appendRow(catitem);
 
     ui->tvCodeList->selectionModel()->select(catitem->index(), QItemSelectionModel::ClearAndSelect);
     ui->tvCodeList->scrollTo(catitem->index());
-    //ui->tvCodeList->edit(catitem->index());
+
+    ui->btnEditCode->click();
 }
 
 void CheatsDialog::on_btnNewARCode_clicked()
 {
-    QModelIndexList indices = ui->tvCodeList->selectionModel()->selectedIndexes();
-    if (indices.isEmpty())
+    auto model = (QStandardItemModel*)ui->tvCodeList->model();
+    auto selmodel = ui->tvCodeList->selectionModel();
+    QStandardItem* parentitem = nullptr;
+    ARCodeCat* cat;
+
+    if (selmodel->hasSelection())
     {
-        // ????
-        return;
+        QModelIndexList indices = selmodel->selectedIndexes();
+        QStandardItem *item = model->itemFromIndex(indices.first());
+
+        QVariant data = item->data();
+        if (data.canConvert<ARCodeCatList::iterator>())
+            parentitem = item;
+        else if (data.canConvert<ARCodeList::iterator>())
+            parentitem = item->parent();
+        else
+            assert(false);
     }
 
-    QStandardItemModel* model = (QStandardItemModel*)ui->tvCodeList->model();
-    QStandardItem* item = model->itemFromIndex(indices.first());
-    QStandardItem* parentitem;
+    if (!parentitem)
+    {
+        // if we have no category selected, create this new code in a root category
 
-    QVariant data = item->data();
-    if (data.canConvert<ARCodeCatList::iterator>())
-    {
-        parentitem = item;
-    }
-    else if (data.canConvert<ARCodeList::iterator>())
-    {
-        parentitem = item->parent();
+        parentitem = model->invisibleRootItem();
+
+        auto id = codeFile->Categories.end(); id--;
+        auto& lastcat = *id;
+        if (lastcat.IsRoot)
+            cat = &lastcat;
+        else
+        {
+            ARCodeCat newcat = {.IsRoot = true, .OnlyOneCodeEnabled = false};
+            codeFile->Categories.push_back(newcat);
+
+            id++;
+            cat = &(*id);
+        }
     }
     else
     {
-        Log(LogLevel::Warn, "what?? :(\n");
-        return;
+        auto it_cat = parentitem->data().value<ARCodeCatList::iterator>();
+        cat = &(*it_cat);
     }
-
-    ARCodeCatList::iterator it_cat = parentitem->data().value<ARCodeCatList::iterator>();
-    ARCodeCat& cat = *it_cat;
 
     ARCode code;
     code.Name = "(new AR code)";
     code.Enabled = true;
     code.Code.clear();
 
-    cat.Codes.push_back(code);
-    ARCodeList::iterator id = cat.Codes.end(); id--;
+    cat->Codes.push_back(code);
+    auto id = cat->Codes.end(); id--;
 
-    QStandardItem* codeitem = new QStandardItem(QString::fromStdString(code.Name));
-    codeitem->setEditable(true);
+    auto codeitem = new QStandardItem(QString::fromStdString(code.Name));
     codeitem->setCheckable(true);
     codeitem->setCheckState(code.Enabled ? Qt::Checked : Qt::Unchecked);
     codeitem->setData(QVariant::fromValue(id));
     parentitem->appendRow(codeitem);
 
     ui->tvCodeList->selectionModel()->select(codeitem->index(), QItemSelectionModel::ClearAndSelect);
-    ui->tvCodeList->edit(codeitem->index());
+    ui->tvCodeList->scrollTo(codeitem->index());
+
+    ui->btnEditCode->click();
 }
 
 void CheatsDialog::on_btnDeleteCode_clicked()
@@ -320,6 +333,8 @@ void CheatsDialog::onCheatEntryModified(QStandardItem* item)
 
 void CheatsDialog::on_btnEditCode_clicked()
 {
+    ui->btnNewCat->setEnabled(false);
+    ui->btnNewARCode->setEnabled(false);
     ui->tvCodeList->setEnabled(false);
 
     ui->btnEditCode->hide();
@@ -392,6 +407,8 @@ void CheatsDialog::on_btnSaveCode_clicked()
         updatingEnableChk = false;
     }
 
+    ui->btnNewCat->setEnabled(true);
+    ui->btnNewARCode->setEnabled(true);
     ui->tvCodeList->setEnabled(true);
 
     ui->btnEditCode->show();
@@ -408,6 +425,8 @@ void CheatsDialog::on_btnSaveCode_clicked()
 
 void CheatsDialog::on_btnCancelEdit_clicked()
 {
+    ui->btnNewCat->setEnabled(true);
+    ui->btnNewARCode->setEnabled(true);
     ui->tvCodeList->setEnabled(true);
 
     ui->btnEditCode->show();
@@ -565,6 +584,7 @@ int CheatsDialog::validateInput(bool iscode)
 #endif
     for (QStringList::iterator it = lines.begin(); it != lines.end(); it++)
     {
+        // TODO use regex variant?
         QString line = *it;
         line = line.trimmed();
         if (line.isEmpty()) continue;
