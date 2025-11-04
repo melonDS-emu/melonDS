@@ -92,6 +92,10 @@ private slots:
     void onCheatSelectionChanged(const QItemSelection& sel, const QItemSelection& desel);
     void onCheatEntryModified(QStandardItem* item);
 
+    void on_btnEditCode_clicked();
+    void on_btnSaveCode_clicked();
+    void on_btnCancelEdit_clicked();
+
     void on_txtCode_textChanged();
 
 private:
@@ -111,6 +115,8 @@ private:
     bool updatingEnableChk;
 
     void populateCheatList();
+    void populateCheatInfo();
+    std::vector<melonDS::u32> convertCodeInput();
 };
 
 #endif // CHEATSDIALOG_H
