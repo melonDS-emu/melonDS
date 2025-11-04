@@ -56,6 +56,9 @@
        </item>
        <item>
         <widget class="QTreeView" name="tvCheatList">
+         <property name="editTriggers">
+          <set>QAbstractItemView::EditTrigger::NoEditTriggers</set>
+         </property>
          <property name="headerHidden">
           <bool>true</bool>
          </property>

@@ -70,7 +70,6 @@ CheatsDialog::CheatsDialog(QWidget* parent) : QDialog(parent), ui(new Ui::Cheats
 
     ui->btnNewARCode->setEnabled(false);
     ui->btnDeleteCode->setEnabled(false);
-    ui->txtCode->setEnabled(false);
 }
 
 CheatsDialog::~CheatsDialog()
@@ -110,12 +109,13 @@ void CheatsDialog::on_btnNewCat_clicked()
     ARCodeCatList::iterator id = codeFile->Categories.end(); id--;
 
     QStandardItem* catitem = new QStandardItem(QString::fromStdString(cat.Name));
-    catitem->setEditable(true);
+    //catitem->setEditable(true);
     catitem->setData(QVariant::fromValue(id));
     root->appendRow(catitem);
 
     ui->tvCodeList->selectionModel()->select(catitem->index(), QItemSelectionModel::ClearAndSelect);
-    ui->tvCodeList->edit(catitem->index());
+    ui->tvCodeList->scrollTo(catitem->index());
+    //ui->tvCodeList->edit(catitem->index());
 }
 
 void CheatsDialog::on_btnNewARCode_clicked()
@@ -486,7 +486,6 @@ void CheatsDialog::populateCheatInfo()
     }
 
     ui->splitter->widget(1)->setEnabled(true);
-    ui->txtCode->setEnabled(true);
 
     auto index = selmodel->selectedIndexes()[0];
     QVariant data = index.data(Qt::UserRole + 1);
