@@ -274,33 +274,9 @@ void CheatsDialog::onCheatEntryModified(QStandardItem* item)
     if (updatingEnableChk) return;
 
     QVariant data = item->data();
-    if (data.canConvert<ARCodeCatList::iterator>())
-    {
-        ARCodeCat& cat = *(data.value<ARCodeCatList::iterator>());
-
-        /*if (item->text().isEmpty())
-        {
-            QString oldname = QString::fromStdString(cat.Name);
-            item->setText(oldname.isEmpty() ? "(blank category name?)" : oldname);
-        }
-        else
-        {
-            cat.Name = item->text().toStdString();
-        }*/
-    }
-    else if (data.canConvert<ARCodeList::iterator>())
+    if (data.canConvert<ARCodeList::iterator>())
     {
         ARCode& code = *(data.value<ARCodeList::iterator>());
-
-        /*if (item->text().isEmpty())
-        {
-            QString oldname = QString::fromStdString(code.Name);
-            item->setText(oldname.isEmpty() ? "(blank code name?)" : oldname);
-        }
-        else
-        {
-            code.Name = item->text().toStdString();
-        }*/
 
         code.Enabled = (item->checkState() == Qt::Checked);
 
@@ -329,7 +305,16 @@ void CheatsDialog::onCheatEntryModified(QStandardItem* item)
             updatingEnableChk = false;
         }
 
-        // TODO reflect in other checkbox?
+        // if this item is selected, reflect the checkbox change
+        auto selmodel = ui->tvCodeList->selectionModel();
+        if (selmodel->hasSelection())
+        {
+            auto index = selmodel->selectedIndexes()[0];
+            if (index == item->index())
+            {
+                ui->chkItemOption->setChecked(code.Enabled);
+            }
+        }
     }
 }
 
@@ -354,6 +339,21 @@ void CheatsDialog::on_btnSaveCode_clicked()
     auto index = selmodel->selectedIndexes()[0];
     QVariant data = index.data(Qt::UserRole + 1);
 
+    int valres = validateInput(data.canConvert<ARCodeList::iterator>());
+    if (valres < 0)
+    {
+        QString errmsg = "Error: invalid input.";
+        switch (valres)
+        {
+            case -1: errmsg = "Error: no name entered."; break;
+            case -2: errmsg = "Error: no code entered."; break;
+            case -3: errmsg = "Error: the code entered is invalid."; break;
+        }
+
+        QMessageBox::critical(this, "melonDS", errmsg);
+        return;
+    }
+
     if (data.canConvert<ARCodeCatList::iterator>())
     {
         ARCodeCat& cat = *(data.value<ARCodeCatList::iterator>());
@@ -373,7 +373,7 @@ void CheatsDialog::on_btnSaveCode_clicked()
         auto codeconv = convertCodeInput();
         if (codeconv.empty())
         {
-            QMessageBox::critical(this, "melonDS", "Error: the entered code is empty or invalid.");
+            QMessageBox::critical(this, "melonDS", "Error: the code entered is empty or invalid.");
             return;
         }
 
@@ -417,78 +417,6 @@ void CheatsDialog::on_btnCancelEdit_clicked()
     populateCheatInfo();
 }
 
-void CheatsDialog::on_txtCode_textChanged()
-{
-    QModelIndexList indices = ui->tvCodeList->selectionModel()->selectedIndexes();
-    if (indices.isEmpty())
-        return;
-
-    QStandardItem* item = ((QStandardItemModel*)ui->tvCodeList->model())->itemFromIndex(indices.first());
-    QVariant data = item->data();
-    if (!data.canConvert<ARCodeList::iterator>())
-        return;
-
-    bool error = false;
-    std::vector<u32> codeout;
-    codeout.reserve(64);
-
-    QString text = ui->txtCode->toPlainText();
-#if QT_VERSION >= QT_VERSION_CHECK(5, 14, 0)
-    QStringList lines = text.split('\n', Qt::SkipEmptyParts);
-#else
-    QStringList lines = text.split('\n', QString::SkipEmptyParts);
-#endif
-    for (QStringList::iterator it = lines.begin(); it != lines.end(); it++)
-    {
-        QString line = *it;
-        line = line.trimmed();
-        if (line.isEmpty()) continue;
-
-        if (line.length() > 17)
-        {
-            error = true;
-            break;
-        }
-
-        QStringList numbers = line.split(' ');
-        if (numbers.length() != 2)
-        {
-            error = true;
-            break;
-        }
-
-        QStringList::iterator jt = numbers.begin();
-        QString s0 = *jt++;
-        QString s1 = *jt++;
-
-        bool c0good, c1good;
-        u32 c0, c1;
-
-        c0 = s0.toUInt(&c0good, 16);
-        c1 = s1.toUInt(&c1good, 16);
-
-        if (!c0good || !c1good)
-        {
-            error = true;
-            break;
-        }
-
-        codeout.push_back(c0);
-        codeout.push_back(c1);
-    }
-
-    ui->btnNewCat->setEnabled(!error);
-    ui->btnNewARCode->setEnabled(!error);
-    ui->btnDeleteCode->setEnabled(!error);
-    ui->tvCodeList->setEnabled(!error);
-    ui->buttonBox->button(QDialogButtonBox::Ok)->setEnabled(!error);
-
-    if (error) return;
-
-    //ARCode& code = *(data.value<ARCodeList::iterator>());
-    //code.Code = codeout;
-}
-
 void CheatsDialog::populateCheatList()
 {
     auto model = (QStandardItemModel*)ui->tvCodeList->model();
@@ -508,7 +436,6 @@ void CheatsDialog::populateCheatList()
         else
         {
             catitem = new QStandardItem(QString::fromStdString(cat.Name));
-            //catitem->setEditable(true);
             catitem->setData(QVariant::fromValue(i));
             root->appendRow(catitem);
         }
@@ -518,7 +445,6 @@ void CheatsDialog::populateCheatList()
             ARCode& code = *j;
 
             auto codeitem = new QStandardItem(QString::fromStdString(code.Name));
-            //codeitem->setEditable(true);
             codeitem->setCheckable(true);
             codeitem->setCheckState(code.Enabled ? Qt::Checked : Qt::Unchecked);
             codeitem->setData(QVariant::fromValue(j));
@@ -560,6 +486,7 @@ void CheatsDialog::populateCheatInfo()
     }
 
     ui->splitter->widget(1)->setEnabled(true);
+    ui->txtCode->setEnabled(true);
 
     auto index = selmodel->selectedIndexes()[0];
     QVariant data = index.data(Qt::UserRole + 1);
@@ -620,9 +547,60 @@ void CheatsDialog::populateCheatInfo()
     }
 }
 
+int CheatsDialog::validateInput(bool iscode)
+{
+    if (ui->txtItemName->text().trimmed().isEmpty())
+        return -1;
+
+    if (!iscode)
+        return 0;
+
+    QString text = ui->txtCode->toPlainText();
+    if (text.trimmed().isEmpty())
+        return -2;
+
+#if QT_VERSION >= QT_VERSION_CHECK(5, 14, 0)
+    QStringList lines = text.split('\n', Qt::SkipEmptyParts);
+#else
+    QStringList lines = text.split('\n', QString::SkipEmptyParts);
+#endif
+    for (QStringList::iterator it = lines.begin(); it != lines.end(); it++)
+    {
+        QString line = *it;
+        line = line.trimmed();
+        if (line.isEmpty()) continue;
+
+        if (line.length() > 17)
+        {
+            return -3;
+        }
+
+        QStringList numbers = line.split(' ');
+        if (numbers.length() != 2)
+        {
+            return -3;
+        }
+
+        QStringList::iterator jt = numbers.begin();
+        QString s0 = *jt++;
+        QString s1 = *jt++;
+
+        bool c0good, c1good;
+
+        s0.toUInt(&c0good, 16);
+        s1.toUInt(&c1good, 16);
+
+        if (!c0good || !c1good)
+        {
+            return -3;
+        }
+    }
+
+    return 0;
+}
+
 std::vector<u32> CheatsDialog::convertCodeInput()
 {
-    bool error = false;
     std::vector<u32> codeout;
 
     QString text = ui->txtCode->toPlainText();
@@ -639,15 +617,13 @@ std::vector<u32> CheatsDialog::convertCodeInput()
 
         if (line.length() > 17)
         {
-            error = true;
-            break;
+            return {};
         }
 
         QStringList numbers = line.split(' ');
         if (numbers.length() != 2)
         {
-            error = true;
-            break;
+            return {};
         }
 
         QStringList::iterator jt = numbers.begin();
@@ -662,15 +638,13 @@ std::vector<u32> CheatsDialog::convertCodeInput()
 
         if (!c0good || !c1good)
         {
-            error = true;
-            break;
+            return {};
         }
 
         codeout.push_back(c0);
         codeout.push_back(c1);
     }
 
-    if (error) return {};
     return codeout;
 }
 

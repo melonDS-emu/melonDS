@@ -96,8 +96,6 @@ private slots:
     void on_btnSaveCode_clicked();
     void on_btnCancelEdit_clicked();
 
-    void on_txtCode_textChanged();
-
 private:
     Ui::CheatsDialog* ui;
 
@@ -116,6 +114,7 @@ private:
 
     void populateCheatList();
     void populateCheatInfo();
+    int validateInput(bool iscode);
     std::vector<melonDS::u32> convertCodeInput();
 };
 
