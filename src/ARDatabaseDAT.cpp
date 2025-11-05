@@ -154,8 +154,6 @@ bool ARDatabaseDAT::LoadEntries()
             return false;
         }
 
-        printf("got entry %08X %08X %08X\n", entrydata[0], entrydata[1], entrydata[2]);
-
         EntryInfo entry;
         entry.GameCode = entrydata[0];
         entry.Checksum = entrydata[1];
@@ -197,8 +195,6 @@ bool ARDatabaseDAT::LoadCheatCodes(EntryInfo& info, ARDatabaseEntry& entry)
     u32 flags[9] = {0};
     FileRead(flags, 4*9, 1, f);
 
-    printf("name=%s flags=%08X\n", entry.Name.c_str(), flags[0]);
-
     // every code that isn't part of a category will be added to a null 'root' category
     ARCodeCat nullcat = {.IsRoot = true, .OnlyOneCodeEnabled = false};
 
@@ -219,8 +215,6 @@ bool ARDatabaseDAT::LoadCheatCodes(EntryInfo& info, ARDatabaseEntry& entry)
         std::string itemname = ReadNTString(f);
         std::string itemdesc = ReadNTString(f);
         AlignFilePos(f);
-
-        printf("- item %d: flags=%08X name=%s desc=%s\n", i, itemflags, itemname.c_str(), itemdesc.c_str());
 
         if (itemflags & (1<<28))
         {
@@ -279,8 +273,6 @@ bool ARDatabaseDAT::LoadCheatCodes(EntryInfo& info, ARDatabaseEntry& entry)
                 return false;
             }
 
-            printf("-- code len = %d words\n", codelen);
-
             if (catlen == 0)
             {
                 if (!curcat.Codes.empty())
@@ -301,8 +293,6 @@ bool ARDatabaseDAT::LoadCheatCodes(EntryInfo& info, ARDatabaseEntry& entry)
             {
                 code.Code.push_back(rawcode[j]);
                 code.Code.push_back(rawcode[j+1]);
-
-                printf("-- %08X %08X\n", rawcode[j], rawcode[j+1]);
             }
 
             delete[] rawcode;
