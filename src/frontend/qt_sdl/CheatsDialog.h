@@ -80,8 +80,7 @@ public:
     }
 
 private slots:
-    void on_CheatsDialog_accepted();
-    void on_CheatsDialog_rejected();
+    void done(int r) override;
 
     void on_btnNewCat_clicked();
     void on_btnNewARCode_clicked();
@@ -114,7 +113,6 @@ private:
 
     void populateCheatList();
     void populateCheatInfo();
-    int validateInput(bool iscode);
     std::vector<melonDS::u32> convertCodeInput();
 };
 

@@ -65,7 +65,6 @@ CheatsDialog::CheatsDialog(QWidget* parent) : QDialog(parent), ui(new Ui::Cheats
 
     populateCheatList();
 
-    //ui->txtCode->setPlaceholderText("");
     codeChecker = new ARCodeChecker(ui->txtCode->document());
 }
 
@@ -80,17 +79,11 @@ CheatsDialog::~CheatsDialog()
     delete ui;
 }
 
-void CheatsDialog::on_CheatsDialog_accepted()
+void CheatsDialog::done(int r)
 {
     codeFile->Save();
 
-    closeDlg();
-}
-
-void CheatsDialog::on_CheatsDialog_rejected()
-{
-    codeFile->Load();
-
+    QDialog::done(r);
     closeDlg();
 }
 
@@ -101,6 +94,7 @@ void CheatsDialog::on_btnNewCat_clicked()
     ARCodeCat cat;
     cat.Codes.clear();
     cat.Name = "(new category)";
+    cat.OnlyOneCodeEnabled = false;
 
     codeFile->Categories.push_back(cat);
     auto id = codeFile->Categories.end(); id--;
@@ -162,8 +156,9 @@ void CheatsDialog::on_btnNewARCode_clicked()
     }
 
     ARCode code;
+    code.Parent = cat;
     code.Name = "(new AR code)";
-    code.Enabled = true;
+    code.Enabled = false;
     code.Code.clear();
 
     cat->Codes.push_back(code);
@@ -354,18 +349,9 @@ void CheatsDialog::on_btnSaveCode_clicked()
     auto index = selmodel->selectedIndexes()[0];
     QVariant data = index.data(Qt::UserRole + 1);
 
-    int valres = validateInput(data.canConvert<ARCodeList::iterator>());
-    if (valres < 0)
+    if (ui->txtItemName->text().trimmed().isEmpty())
     {
-        QString errmsg = "Error: invalid input.";
-        switch (valres)
-        {
-            case -1: errmsg = "Error: no name entered."; break;
-            case -2: errmsg = "Error: no code entered."; break;
-            case -3: errmsg = "Error: the code entered is invalid."; break;
-        }
-
-        QMessageBox::critical(this, "melonDS", errmsg);
+        QMessageBox::critical(this, "melonDS", "Error: no name entered.");
         return;
     }
 
@@ -415,12 +401,7 @@ void CheatsDialog::on_btnSaveCode_clicked()
     ui->btnSaveCode->hide();
     ui->btnCancelEdit->hide();
 
-    ui->txtItemName->setReadOnly(true);
-    ui->txtItemDesc->setReadOnly(true);
-    ui->chkItemOption->setEnabled(false);
-    ui->txtCode->setReadOnly(true);
-
-    // TODO actually save shit?
+    populateCheatInfo();
 }
 
 void CheatsDialog::on_btnCancelEdit_clicked()
@@ -563,59 +544,6 @@ void CheatsDialog::populateCheatInfo()
         ui->txtCode->setPlainText(codestr);
         ui->txtCode->setReadOnly(true);
     }
-}
-
-int CheatsDialog::validateInput(bool iscode)
-{
-    if (ui->txtItemName->text().trimmed().isEmpty())
-        return -1;
-
-    if (!iscode)
-        return 0;
-
-    QString text = ui->txtCode->toPlainText();
-    if (text.trimmed().isEmpty())
-        return -2;
-
-#if QT_VERSION >= QT_VERSION_CHECK(5, 14, 0)
-    QStringList lines = text.split('\n', Qt::SkipEmptyParts);
-#else
-    QStringList lines = text.split('\n', QString::SkipEmptyParts);
-#endif
-    for (QStringList::iterator it = lines.begin(); it != lines.end(); it++)
-    {
-        // TODO use regex variant?
-        QString line = *it;
-        line = line.trimmed();
-        if (line.isEmpty()) continue;
-
-        if (line.length() > 17)
-        {
-            return -3;
-        }
-
-        QStringList numbers = line.split(' ');
-        if (numbers.length() != 2)
-        {
-            return -3;
-        }
-
-        QStringList::iterator jt = numbers.begin();
-        QString s0 = *jt++;
-        QString s1 = *jt++;
-
-        bool c0good, c1good;
-
-        s0.toUInt(&c0good, 16);
-        s1.toUInt(&c1good, 16);
-
-        if (!c0good || !c1good)
-        {
-            return -3;
-        }
-    }
-
-    return 0;
 }
 
 std::vector<u32> CheatsDialog::convertCodeInput()
