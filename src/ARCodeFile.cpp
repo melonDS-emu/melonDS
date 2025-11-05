@@ -45,10 +45,21 @@ std::vector<ARCode> ARCodeFile::GetCodes() const noexcept
 
     std::vector<ARCode> codes;
 
-    for (const ARCodeCat& cat : Categories)
+    for (auto& item : RootCat.Children)
     {
-        for (const ARCode& code : cat.Codes)
+        if (std::holds_alternative<ARCodeCat>(item))
         {
+            auto& cat = std::get<ARCodeCat>(item);
+
+            for (auto& childitem : cat.Children)
+            {
+                auto& code = std::get<ARCode>(childitem);
+                codes.push_back(code);
+            }
+        }
+        else
+        {
+            auto& code = std::get<ARCode>(item);
             codes.push_back(code);
         }
     }
@@ -61,16 +72,15 @@ bool ARCodeFile::Load()
     FileHandle* f = OpenFile(Filename, FileMode::ReadText);
     if (!f) return true;
 
-    Categories.clear();
-
-    // every code that isn't part of a category will be added to a null 'root' category
-    ARCodeCat nullcat = {.IsRoot = true, .OnlyOneCodeEnabled = false};
+    RootCat.Parent = nullptr;
+    RootCat.OnlyOneCodeEnabled = false;
+    RootCat.Children.clear();
 
     bool isincat = false;
-    ARCodeCat curcat;
+    ARCodeCat* curcat = &RootCat;
 
     bool isincode = false;
-    ARCode curcode;
+    ARCode* curcode = nullptr;
 
     int lastentry = 0;
 
@@ -91,17 +101,11 @@ bool ARCodeFile::Load()
 
         if (!strncasecmp(start, "ROOT", 4))
         {
-            if (isincode) curcat.Codes.push_back(curcode);
             isincode = false;
+            isincat = true;
 
-            if ((!isincat) || (!curcat.IsRoot))
-            {
-                if (isincat) Categories.push_back(curcat);
-                isincat = true;
-
-                curcat = nullcat;
-                lastentry = 0;
-            }
+            curcat = &RootCat;
+            lastentry = 0;
         }
         else if (!strncasecmp(start, "CAT", 3))
         {
@@ -129,17 +133,18 @@ bool ARCodeFile::Load()
                 return false;
             }
 
-            if (isincode) curcat.Codes.push_back(curcode);
             isincode = false;
-
-            if (isincat) Categories.push_back(curcat);
             isincat = true;
 
-            curcat.IsRoot = false;
-            curcat.Name = catname;
-            curcat.Description = "";
-            curcat.OnlyOneCodeEnabled = onlyone!=0;
-            curcat.Codes.clear();
+            ARCodeCat cat = {
+                .Parent = &RootCat,
+                .Name = catname,
+                .Description = "",
+                .OnlyOneCodeEnabled = onlyone!=0,
+                .Children = {}
+            };
+            RootCat.Children.emplace_back(cat);
+            curcat = &std::get<ARCodeCat>(RootCat.Children.back());
 
             lastentry = 1;
         }
@@ -164,13 +169,17 @@ bool ARCodeFile::Load()
                 return false;
             }
 
-            if (isincode) curcat.Codes.push_back(curcode);
             isincode = true;
 
-            curcode.Name = codename;
-            curcode.Description = "";
-            curcode.Enabled = enable!=0;
-            curcode.Code.clear();
+            ARCode code = {
+                .Parent = curcat,
+                .Name = codename,
+                .Description = "",
+                .Enabled = enable!=0,
+                .Code = {}
+            };
+            curcat->Children.emplace_back(code);
+            curcode = &std::get<ARCode>(curcat->Children.back());
 
             lastentry = 2;
         }
@@ -184,9 +193,9 @@ bool ARCodeFile::Load()
                 continue;
 
             if (lastentry == 2)
-                curcode.Description = desc;
+                curcode->Description = desc;
             else if (lastentry == 1)
-                curcat.Description = desc;
+                curcat->Description = desc;
             else
             {
                 Log(LogLevel::Error, "AR: encountered DESC line not part of anything\n");
@@ -213,13 +222,10 @@ bool ARCodeFile::Load()
                 return false;
             }
 
-            curcode.Code.push_back(c0);
-            curcode.Code.push_back(c1);
+            curcode->Code.push_back(c0);
+            curcode->Code.push_back(c1);
         }
     }
-
-    if (isincode) curcat.Codes.push_back(curcode);
-    if (isincat) Categories.push_back(curcat);
 
     FinalizeList();
 
@@ -232,47 +238,51 @@ bool ARCodeFile::Save()
     FileHandle* f = Platform::OpenFile(Filename, FileMode::WriteText);
     if (!f) return false;
 
-    for (auto it = Categories.begin(); it != Categories.end(); it++)
+    bool isincat = true;
+
+    for (auto& item : RootCat.Children)
     {
-        ARCodeCat& cat = *it;
-
-        // if we happen to have a root category right after another one, merge them
-        // TODO: this is really crummy and we should have better data structures
-        bool skip = false;
-        if (it != Categories.begin())
+        if (std::holds_alternative<ARCodeCat>(item))
         {
-            auto previt = it; previt--;
-            auto& prevcat = *previt;
-            if (cat.IsRoot && prevcat.IsRoot)
-                skip = true;
-        }
+            auto& cat = std::get<ARCodeCat>(item);
 
-        if (!skip)
-        {
-            if (it != Categories.begin()) FileWriteFormatted(f, "\n");
+            FileWriteFormatted(f, "CAT %d %s\n", cat.OnlyOneCodeEnabled, cat.Name.c_str());
+            if (!cat.Description.empty())
+                FileWriteFormatted(f, "DESC %s\n", cat.Description.c_str());
+            FileWriteFormatted(f, "\n");
 
-            if (cat.IsRoot)
-                FileWriteFormatted(f, "ROOT\n\n");
-            else
+            isincat = true;
+
+            for (auto& childitem : cat.Children)
             {
-                FileWriteFormatted(f, "CAT %d %s\n", cat.OnlyOneCodeEnabled, cat.Name.c_str());
-                if (!cat.Description.empty())
-                    FileWriteFormatted(f, "DESC %s\n", cat.Description.c_str());
+                auto& code = std::get<ARCode>(childitem);
+
+                FileWriteFormatted(f, "CODE %d %s\n", code.Enabled, code.Name.c_str());
+                if (!code.Description.empty())
+                    FileWriteFormatted(f, "DESC %s\n", code.Description.c_str());
+
+                for (size_t i = 0; i < code.Code.size(); i+=2)
+                    FileWriteFormatted(f, "%08X %08X\n", code.Code[i], code.Code[i + 1]);
+
                 FileWriteFormatted(f, "\n");
             }
         }
-
-        for (auto jt = cat.Codes.begin(); jt != cat.Codes.end(); jt++)
+        else
         {
-            ARCode& code = *jt;
+            auto& code = std::get<ARCode>(item);
+
+            if (isincat)
+            {
+                isincat = false;
+                FileWriteFormatted(f, "ROOT\n\n");
+            }
+
             FileWriteFormatted(f, "CODE %d %s\n", code.Enabled, code.Name.c_str());
             if (!code.Description.empty())
                 FileWriteFormatted(f, "DESC %s\n", code.Description.c_str());
 
             for (size_t i = 0; i < code.Code.size(); i+=2)
-            {
                 FileWriteFormatted(f, "%08X %08X\n", code.Code[i], code.Code[i + 1]);
-            }
 
             FileWriteFormatted(f, "\n");
         }
@@ -287,44 +297,74 @@ void ARCodeFile::Import(ARDatabaseEntry& dbentry, ARCodeEnableMap& enablemap, bo
     bool hasenablemap = !enablemap.empty();
 
     if (clear)
-        Categories.clear();
+        RootCat.Children.clear();
 
-    for (auto& cat : dbentry.Categories)
+    for (auto& item : dbentry.RootCat.Children)
     {
-        bool shouldimport = false;
-        if (hasenablemap)
+        if (std::holds_alternative<ARCodeCat>(item))
         {
-            for (auto &code: cat.Codes)
+            auto& cat = std::get<ARCodeCat>(item);
+
+            bool shouldimport = false;
+            if (hasenablemap)
             {
-                if (enablemap[&code])
+                for (auto& childitem: cat.Children)
                 {
-                    shouldimport = true;
-                    break;
+                    auto& code = std::get<ARCode>(childitem);
+                    if (enablemap[&code])
+                    {
+                        shouldimport = true;
+                        break;
+                    }
                 }
+            }
+            else
+                shouldimport = true;
+
+            if (!shouldimport)
+                continue;
+
+            ARCodeCat newcat = {
+                .Parent = &RootCat,
+                .Name = cat.Name,
+                .Description = cat.Description,
+                .OnlyOneCodeEnabled = cat.OnlyOneCodeEnabled,
+                .Children = {}
+            };
+            RootCat.Children.emplace_back(newcat);
+            ARCodeCat* parentptr = &std::get<ARCodeCat>(RootCat.Children.back());
+
+            for (auto& childitem : cat.Children)
+            {
+                auto& code = std::get<ARCode>(childitem);
+                if (hasenablemap && (!enablemap[&code]))
+                    continue;
+
+                ARCode newcode = {
+                    .Parent = parentptr,
+                    .Name = code.Name,
+                    .Description = code.Description,
+                    .Enabled = code.Enabled,
+                    .Code = code.Code
+                };
+                parentptr->Children.emplace_back(newcode);
             }
         }
         else
-            shouldimport = true;
-
-        if (!shouldimport)
-            continue;
-
-        melonDS::ARCodeCat newcat;
-        newcat.IsRoot = cat.IsRoot;
-        newcat.Name = cat.Name;
-        newcat.Description = cat.Description;
-        newcat.OnlyOneCodeEnabled = cat.OnlyOneCodeEnabled;
-
-        for (auto& code : cat.Codes)
         {
+            auto& code = std::get<ARCode>(item);
             if (hasenablemap && (!enablemap[&code]))
                 continue;
 
-            melonDS::ARCode newcode = code;
-            newcat.Codes.push_back(newcode);
+            ARCode newcode = {
+                .Parent = &RootCat,
+                .Name = code.Name,
+                .Description = code.Description,
+                .Enabled = code.Enabled,
+                .Code = code.Code
+            };
+            RootCat.Children.emplace_back(newcode);
         }
-
-        Categories.push_back(newcat);
     }
 
     FinalizeList();
@@ -332,26 +372,27 @@ void ARCodeFile::Import(ARDatabaseEntry& dbentry, ARCodeEnableMap& enablemap, bo
 
 void ARCodeFile::FinalizeList()
 {
-    for (auto& cat : Categories)
+    for (auto& item : RootCat.Children)
     {
-        for (auto& code : cat.Codes)
-        {
-            code.Parent = &cat;
-        }
+        if (!std::holds_alternative<ARCodeCat>(item))
+            continue;
+
+        auto& cat = std::get<ARCodeCat>(item);
+        if (!cat.OnlyOneCodeEnabled)
+            continue;
 
         // for categories that only allow one code to be enabled:
         // make sure we don't have multiple ones enabled
-        if (cat.OnlyOneCodeEnabled)
+
+        bool foundone = false;
+        for (auto& childitem : cat.Children)
         {
-            bool foundone = false;
-            for (auto& code : cat.Codes)
-            {
-                if (!code.Enabled) continue;
-                if (foundone)
-                    code.Enabled = false;
-                else
-                    foundone = true;
-            }
+            auto& code = std::get<ARCode>(childitem);
+            if (!code.Enabled) continue;
+            if (foundone)
+                code.Enabled = false;
+            else
+                foundone = true;
         }
     }
 }

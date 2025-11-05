@@ -27,9 +27,6 @@
 
 #include "ARCodeFile.h"
 
-Q_DECLARE_METATYPE(melonDS::ARCodeList::iterator)
-Q_DECLARE_METATYPE(melonDS::ARCodeCatList::iterator)
-
 namespace Ui { class CheatsDialog; }
 class CheatsDialog;
 class CheatImportDialog;
@@ -111,6 +108,7 @@ private:
 
     bool updatingEnableChk;
 
+    void populateCheatListCat(QStandardItem* parentitem, melonDS::ARCodeCat& parentcat);
     void populateCheatList();
     void populateCheatInfo();
     std::vector<melonDS::u32> convertCodeInput();

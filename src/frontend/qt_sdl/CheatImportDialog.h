@@ -65,6 +65,7 @@ private:
 
     void populateEntryList();
     void populateEntryInfo();
+    void populateCheatListCat(QStandardItem* parentitem, melonDS::ARCodeCat& parentcat);
     void populateCheatList();
     void populateCheatInfo();
 };

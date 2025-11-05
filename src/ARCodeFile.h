@@ -23,6 +23,7 @@
 #include <list>
 #include <vector>
 #include <unordered_map>
+#include <variant>
 #include "types.h"
 
 namespace melonDS
@@ -39,18 +40,17 @@ struct ARCode
     std::vector<u32> Code;
 };
 
-typedef std::list<ARCode> ARCodeList;
+typedef std::variant<ARCode, ARCodeCat> ARCodeItem;
+typedef std::list<ARCodeItem> ARCodeItemList;
 
 struct ARCodeCat
 {
-    bool IsRoot;
+    ARCodeCat* Parent;
     std::string Name;
     std::string Description;
     bool OnlyOneCodeEnabled;
-    ARCodeList Codes;
+    ARCodeItemList Children;
 };
-
-typedef std::list<ARCodeCat> ARCodeCatList;
 
 struct ARDatabaseEntry;
 typedef std::unordered_map<ARCode*, bool> ARCodeEnableMap;
@@ -71,7 +71,7 @@ public:
 
     void Import(ARDatabaseEntry& dbentry, ARCodeEnableMap& enablemap, bool clear);
 
-    ARCodeCatList Categories {};
+    ARCodeCat RootCat {};
 
 private:
     std::string Filename;

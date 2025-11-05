@@ -90,16 +90,19 @@ void CheatsDialog::on_btnNewCat_clicked()
 {
     QStandardItem* root = ((QStandardItemModel*)ui->tvCodeList->model())->invisibleRootItem();
 
+    ARCodeCat& parentcat = codeFile->RootCat;
+
     ARCodeCat cat;
-    cat.Codes.clear();
+    cat.Parent = &parentcat;
     cat.Name = "(new category)";
     cat.OnlyOneCodeEnabled = false;
 
-    codeFile->Categories.push_back(cat);
-    auto id = codeFile->Categories.end(); id--;
+    parentcat.Children.emplace_back(cat);
+    auto catptr = &std::get<ARCodeCat>(parentcat.Children.back());
 
     auto catitem = new QStandardItem(QString::fromStdString(cat.Name));
-    catitem->setData(QVariant::fromValue(id));
+    catitem->setData(1, Qt::UserRole);
+    catitem->setData(QVariant::fromValue(catptr), Qt::UserRole+1);
     root->appendRow(catitem);
 
     ui->tvCodeList->selectionModel()->select(catitem->index(), QItemSelectionModel::ClearAndSelect);
@@ -120,10 +123,10 @@ void CheatsDialog::on_btnNewARCode_clicked()
         QModelIndexList indices = selmodel->selectedIndexes();
         QStandardItem *item = model->itemFromIndex(indices.first());
 
-        QVariant data = item->data();
-        if (data.canConvert<ARCodeCatList::iterator>())
+        int itemtype = item->data(Qt::UserRole).toInt();
+        if (itemtype == 1)
             parentitem = item;
-        else if (data.canConvert<ARCodeList::iterator>())
+        else if (itemtype == 2)
             parentitem = item->parent();
         else
             assert(false);
@@ -131,42 +134,29 @@ void CheatsDialog::on_btnNewARCode_clicked()
 
     if (!parentitem)
     {
-        // if we have no category selected, create this new code in a root category
+        // if we have no category selected, this code goes at the root
 
         parentitem = model->invisibleRootItem();
-
-        auto id = codeFile->Categories.end(); id--;
-        auto& lastcat = *id;
-        if (lastcat.IsRoot)
-            cat = &lastcat;
-        else
-        {
-            ARCodeCat newcat = {.IsRoot = true, .OnlyOneCodeEnabled = false};
-            codeFile->Categories.push_back(newcat);
-
-            id++;
-            cat = &(*id);
-        }
+        cat = &codeFile->RootCat;
     }
     else
     {
-        auto it_cat = parentitem->data().value<ARCodeCatList::iterator>();
-        cat = &(*it_cat);
+        cat = parentitem->data(Qt::UserRole+1).value<ARCodeCat*>();
     }
 
     ARCode code;
     code.Parent = cat;
     code.Name = "(new AR code)";
     code.Enabled = false;
-    code.Code.clear();
 
-    cat->Codes.push_back(code);
-    auto id = cat->Codes.end(); id--;
+    cat->Children.emplace_back(code);
+    auto codeptr = &std::get<ARCode>(cat->Children.back());
 
     auto codeitem = new QStandardItem(QString::fromStdString(code.Name));
     codeitem->setCheckable(true);
     codeitem->setCheckState(code.Enabled ? Qt::Checked : Qt::Unchecked);
-    codeitem->setData(QVariant::fromValue(id));
+    codeitem->setData(2, Qt::UserRole);
+    codeitem->setData(QVariant::fromValue(codeptr), Qt::UserRole+1);
     parentitem->appendRow(codeitem);
 
     ui->tvCodeList->selectionModel()->select(codeitem->index(), QItemSelectionModel::ClearAndSelect);
@@ -191,31 +181,51 @@ void CheatsDialog::on_btnDeleteCode_clicked()
                                                             QMessageBox::No);
     if (res != QMessageBox::Yes) return;
 
-    QStandardItemModel* model = (QStandardItemModel*)ui->tvCodeList->model();
+    auto model = (QStandardItemModel*)ui->tvCodeList->model();
     QStandardItem* item = model->itemFromIndex(indices.first());
 
     QStandardItem* itemparent = item->parent();
     if (!itemparent) itemparent = model->invisibleRootItem();
 
-    QVariant data = item->data();
-    if (data.canConvert<ARCodeCatList::iterator>())
+    int itemtype = item->data(Qt::UserRole).toInt();
+    if (itemtype == 1)
     {
-        ARCodeCatList::iterator it_cat = data.value<ARCodeCatList::iterator>();
+        auto cat = item->data(Qt::UserRole+1).value<ARCodeCat*>();
 
-        (*it_cat).Codes.clear();
-        codeFile->Categories.erase(it_cat);
+        auto parentcat = cat->Parent;
+        for (auto it = parentcat->Children.begin(); it != parentcat->Children.end(); it++)
+        {
+            auto& childitem = *it;
+            if (!std::holds_alternative<ARCodeCat>(childitem))
+                continue;
+            if (&std::get<ARCodeCat>(childitem) != cat)
+                continue;
 
-        itemparent->removeRow(item->row());
+            parentcat->Children.erase(it);
+            break;
+        }
     }
-    else if (data.canConvert<ARCodeList::iterator>())
+    else if (itemtype == 2)
     {
-        ARCodeList::iterator it_code = data.value<ARCodeList::iterator>();
-        auto cat = (*it_code).Parent;
+        auto code = item->data(Qt::UserRole+1).value<ARCode*>();
 
-        cat->Codes.erase(it_code);
+        auto parentcat = code->Parent;
+        for (auto it = parentcat->Children.begin(); it != parentcat->Children.end(); it++)
+        {
+            auto& childitem = *it;
+            if (!std::holds_alternative<ARCode>(childitem))
+                continue;
+            if (&std::get<ARCode>(childitem) != code)
+                continue;
 
-        itemparent->removeRow(item->row());
+            parentcat->Children.erase(it);
+            break;
+        }
     }
+    else
+        assert(false);
+
+    itemparent->removeRow(item->row());
 }
 
 void CheatsDialog::on_btnImportCheats_clicked()
@@ -280,14 +290,14 @@ void CheatsDialog::onCheatEntryModified(QStandardItem* item)
 {
     if (updatingEnableChk) return;
 
-    QVariant data = item->data();
-    if (data.canConvert<ARCodeList::iterator>())
+    int itemtype = item->data(Qt::UserRole).toInt();
+    if (itemtype == 2)
     {
-        ARCode& code = *(data.value<ARCodeList::iterator>());
+        auto code = item->data(Qt::UserRole+1).value<ARCode*>();
 
-        code.Enabled = (item->checkState() == Qt::Checked);
+        code->Enabled = (item->checkState() == Qt::Checked);
 
-        if (code.Enabled && code.Parent->OnlyOneCodeEnabled)
+        if (code->Enabled && code->Parent->OnlyOneCodeEnabled)
         {
             // if needed, disable other codes
 
@@ -299,11 +309,11 @@ void CheatsDialog::onCheatEntryModified(QStandardItem* item)
                 auto child = parent->child(i);
                 if (child == item) continue;
 
-                QVariant childdata = child->data();
-                if (childdata.canConvert<ARCodeList::iterator>())
+                int childtype = child->data(Qt::UserRole).toInt();
+                if (childtype == 2)
                 {
-                    ARCode& childcode = *(childdata.value<ARCodeList::iterator>());
-                    childcode.Enabled = false;
+                    auto childcode = child->data(Qt::UserRole+1).value<ARCode*>();
+                    childcode->Enabled = false;
 
                     child->setCheckState(Qt::Unchecked);
                 }
@@ -319,7 +329,7 @@ void CheatsDialog::onCheatEntryModified(QStandardItem* item)
             auto index = selmodel->selectedIndexes()[0];
             if (index == item->index())
             {
-                ui->chkItemOption->setChecked(code.Enabled);
+                ui->chkItemOption->setChecked(code->Enabled);
             }
         }
     }
@@ -346,7 +356,6 @@ void CheatsDialog::on_btnSaveCode_clicked()
     auto selmodel = ui->tvCodeList->selectionModel();
     assert(selmodel->hasSelection());
     auto index = selmodel->selectedIndexes()[0];
-    QVariant data = index.data(Qt::UserRole + 1);
 
     if (ui->txtItemName->text().trimmed().isEmpty())
     {
@@ -354,21 +363,22 @@ void CheatsDialog::on_btnSaveCode_clicked()
         return;
     }
 
-    if (data.canConvert<ARCodeCatList::iterator>())
+    int itemtype = index.data(Qt::UserRole).toInt();
+    if (itemtype == 1)
     {
-        ARCodeCat& cat = *(data.value<ARCodeCatList::iterator>());
+        auto cat = index.data(Qt::UserRole+1).value<ARCodeCat*>();
 
-        cat.Name = ui->txtItemName->text().toStdString();
-        cat.Description = ui->txtItemDesc->text().toStdString();
-        cat.OnlyOneCodeEnabled = ui->chkItemOption->isChecked();
+        cat->Name = ui->txtItemName->text().toStdString();
+        cat->Description = ui->txtItemDesc->text().toStdString();
+        cat->OnlyOneCodeEnabled = ui->chkItemOption->isChecked();
 
         auto tvmodel = (QStandardItemModel*)ui->tvCodeList->model();
         auto tvitem = tvmodel->itemFromIndex(index);
         tvitem->setText(ui->txtItemName->text());
     }
-    else if (data.canConvert<ARCodeList::iterator>())
+    else if (itemtype == 2)
     {
-        ARCode& code = *(data.value<ARCodeList::iterator>());
+        auto code = index.data(Qt::UserRole+1).value<ARCode*>();
 
         auto codeconv = convertCodeInput();
         if (codeconv.empty())
@@ -377,20 +387,22 @@ void CheatsDialog::on_btnSaveCode_clicked()
             return;
         }
 
-        code.Name = ui->txtItemName->text().toStdString();
-        code.Description = ui->txtItemDesc->text().toStdString();
-        code.Enabled = ui->chkItemOption->isChecked();
-        code.Code = codeconv;
+        code->Name = ui->txtItemName->text().toStdString();
+        code->Description = ui->txtItemDesc->text().toStdString();
+        code->Enabled = ui->chkItemOption->isChecked();
+        code->Code = codeconv;
 
         updatingEnableChk = true;
 
         auto tvmodel = (QStandardItemModel*)ui->tvCodeList->model();
         auto tvitem = tvmodel->itemFromIndex(index);
         tvitem->setText(ui->txtItemName->text());
-        tvitem->setCheckState(code.Enabled ? Qt::Checked : Qt::Unchecked);
+        tvitem->setCheckState(code->Enabled ? Qt::Checked : Qt::Unchecked);
 
         updatingEnableChk = false;
     }
+    else
+        assert(false);
 
     ui->btnNewCat->setEnabled(true);
     ui->btnNewARCode->setEnabled(true);
@@ -416,40 +428,42 @@ void CheatsDialog::on_btnCancelEdit_clicked()
     populateCheatInfo();
 }
 
+void CheatsDialog::populateCheatListCat(QStandardItem* parentitem, ARCodeCat& parentcat)
+{
+    for (auto& item : parentcat.Children)
+    {
+        if (std::holds_alternative<ARCodeCat>(item))
+        {
+            auto& cat = std::get<ARCodeCat>(item);
+
+            auto catitem = new QStandardItem(QString::fromStdString(cat.Name));
+            catitem->setData(1, Qt::UserRole);
+            catitem->setData(QVariant::fromValue(&cat), Qt::UserRole+1);
+            parentitem->appendRow(catitem);
+
+            populateCheatListCat(catitem, cat);
+        }
+        else
+        {
+            auto& code = std::get<ARCode>(item);
+
+            auto codeitem = new QStandardItem(QString::fromStdString(code.Name));
+            codeitem->setCheckable(true);
+            codeitem->setCheckState(code.Enabled ? Qt::Checked : Qt::Unchecked);
+            codeitem->setData(2, Qt::UserRole);
+            codeitem->setData(QVariant::fromValue(&code), Qt::UserRole+1);
+            parentitem->appendRow(codeitem);
+        }
+    }
+}
+
 void CheatsDialog::populateCheatList()
 {
     auto model = (QStandardItemModel*)ui->tvCodeList->model();
     model->clear();
 
     QStandardItem* root = model->invisibleRootItem();
-
-    for (auto i = codeFile->Categories.begin(); i != codeFile->Categories.end(); i++)
-    {
-        ARCodeCat& cat = *i;
-
-        QStandardItem* catitem;
-        if (cat.IsRoot)
-        {
-            catitem = root;
-        }
-        else
-        {
-            catitem = new QStandardItem(QString::fromStdString(cat.Name));
-            catitem->setData(QVariant::fromValue(i));
-            root->appendRow(catitem);
-        }
-
-        for (auto j = cat.Codes.begin(); j != cat.Codes.end(); j++)
-        {
-            ARCode& code = *j;
-
-            auto codeitem = new QStandardItem(QString::fromStdString(code.Name));
-            codeitem->setCheckable(true);
-            codeitem->setCheckState(code.Enabled ? Qt::Checked : Qt::Unchecked);
-            codeitem->setData(QVariant::fromValue(j));
-            catitem->appendRow(codeitem);
-        }
-    }
+    populateCheatListCat(root, codeFile->RootCat);
 
     populateCheatInfo();
 }
@@ -487,10 +501,10 @@ void CheatsDialog::populateCheatInfo()
     ui->splitter->widget(1)->setEnabled(true);
 
     auto index = selmodel->selectedIndexes()[0];
-    QVariant data = index.data(Qt::UserRole + 1);
-    if (data.canConvert<ARCodeCatList::iterator>())
+    int itemtype = index.data(Qt::UserRole).toInt();
+    if (itemtype == 1)
     {
-        ARCodeCat& cat = *(data.value<ARCodeCatList::iterator>());
+        auto cat = index.data(Qt::UserRole+1).value<ARCodeCat*>();
 
         ui->btnDeleteCode->setEnabled(true);
         ui->btnEditCode->show();
@@ -498,21 +512,21 @@ void CheatsDialog::populateCheatInfo()
         ui->btnSaveCode->hide();
         ui->btnCancelEdit->hide();
 
-        ui->txtItemName->setText(QString::fromStdString(cat.Name));
+        ui->txtItemName->setText(QString::fromStdString(cat->Name));
         ui->txtItemName->setReadOnly(true);
-        ui->txtItemDesc->setText(QString::fromStdString(cat.Description));
+        ui->txtItemDesc->setText(QString::fromStdString(cat->Description));
         ui->txtItemDesc->setReadOnly(true);
 
         ui->chkItemOption->setText("Only allow one code enabled");
-        ui->chkItemOption->setChecked(cat.OnlyOneCodeEnabled);
+        ui->chkItemOption->setChecked(cat->OnlyOneCodeEnabled);
         ui->chkItemOption->setEnabled(false);
 
         ui->lblCode->hide();
         ui->txtCode->hide();
     }
-    else if (data.canConvert<ARCodeList::iterator>())
+    else if (itemtype == 2)
     {
-        ARCode& code = *(data.value<ARCodeList::iterator>());
+        auto code = index.data(Qt::UserRole+1).value<ARCode*>();
 
         ui->btnDeleteCode->setEnabled(true);
         ui->btnEditCode->show();
@@ -520,23 +534,23 @@ void CheatsDialog::populateCheatInfo()
         ui->btnSaveCode->hide();
         ui->btnCancelEdit->hide();
 
-        ui->txtItemName->setText(QString::fromStdString(code.Name));
+        ui->txtItemName->setText(QString::fromStdString(code->Name));
         ui->txtItemName->setReadOnly(true);
-        ui->txtItemDesc->setText(QString::fromStdString(code.Description));
+        ui->txtItemDesc->setText(QString::fromStdString(code->Description));
         ui->txtItemDesc->setReadOnly(true);
 
         ui->chkItemOption->setText("Enabled");
-        ui->chkItemOption->setChecked(code.Enabled);
+        ui->chkItemOption->setChecked(code->Enabled);
         ui->chkItemOption->setEnabled(false);
 
         ui->lblCode->show();
         ui->txtCode->show();
 
         QString codestr = "";
-        for (size_t i = 0; i < code.Code.size(); i += 2)
+        for (size_t i = 0; i < code->Code.size(); i += 2)
         {
-            u32 c0 = code.Code[i+0];
-            u32 c1 = code.Code[i+1];
+            u32 c0 = code->Code[i+0];
+            u32 c1 = code->Code[i+1];
             //codestr += QString("%1 %2\n").arg(c0, 8, 16, '0').arg(c1, 8, 16, '0').toUpper();
             codestr += QString::asprintf("%08X %08X\n", c0, c1);
         }

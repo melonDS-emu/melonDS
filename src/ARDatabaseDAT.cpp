@@ -194,10 +194,11 @@ bool ARDatabaseDAT::LoadCheatCodes(EntryInfo& info, ARDatabaseEntry& entry)
     u32 flags[9] = {0};
     FileRead(flags, 4*9, 1, f);
 
-    // every code that isn't part of a category will be added to a null 'root' category
-    ARCodeCat nullcat = {.IsRoot = true, .OnlyOneCodeEnabled = false};
+    entry.RootCat.Parent = nullptr;
+    entry.RootCat.OnlyOneCodeEnabled = false;
+    entry.RootCat.Children.clear();
 
-    ARCodeCat curcat = nullcat;
+    ARCodeCat* curcat = &entry.RootCat;
     int catlen = 0;
 
     u32 numentries = flags[0] & 0xFFFFFF;
@@ -230,14 +231,15 @@ bool ARDatabaseDAT::LoadCheatCodes(EntryInfo& info, ARDatabaseEntry& entry)
                 return false;
             }
 
-            if (!curcat.Codes.empty())
-                entry.Categories.push_back(curcat);
-
-            curcat.IsRoot = false;
-            curcat.Name = itemname;
-            curcat.Description = itemdesc;
-            curcat.OnlyOneCodeEnabled = !!(itemflags & (1<<24));
-            curcat.Codes = {};
+            ARCodeCat cat = {
+                    .Parent = &entry.RootCat,
+                    .Name = itemname,
+                    .Description = itemdesc,
+                    .OnlyOneCodeEnabled = !!(itemflags & (1<<24)),
+                    .Children = {}
+            };
+            entry.RootCat.Children.emplace_back(cat);
+            curcat = &std::get<ARCodeCat>(entry.RootCat.Children.back());
 
             catlen = totallen;
         }
@@ -274,10 +276,7 @@ bool ARDatabaseDAT::LoadCheatCodes(EntryInfo& info, ARDatabaseEntry& entry)
 
             if (catlen == 0)
             {
-                if (!curcat.Codes.empty())
-                    entry.Categories.push_back(curcat);
-
-                curcat = nullcat;
+                curcat = &entry.RootCat;
             }
 
             ARCode code;
@@ -296,36 +295,34 @@ bool ARDatabaseDAT::LoadCheatCodes(EntryInfo& info, ARDatabaseEntry& entry)
 
             delete[] rawcode;
 
-            curcat.Codes.push_back(code);
+            curcat->Children.emplace_back(code);
 
             if (catlen >= 0)
                 catlen--;
         }
     }
 
-    if (!curcat.Codes.empty())
-        entry.Categories.push_back(curcat);
-
-    for (auto& cat : entry.Categories)
+    for (auto& item : entry.RootCat.Children)
     {
-        for (auto& code : cat.Codes)
-        {
-            code.Parent = &cat;
-        }
+        if (!std::holds_alternative<ARCodeCat>(item))
+            continue;
+
+        auto& cat = std::get<ARCodeCat>(item);
+        if (!cat.OnlyOneCodeEnabled)
+            continue;
 
         // for categories that only allow one code to be enabled:
         // make sure we don't have multiple ones enabled
-        if (cat.OnlyOneCodeEnabled)
+
+        bool foundone = false;
+        for (auto& childitem : cat.Children)
         {
-            bool foundone = false;
-            for (auto& code : cat.Codes)
-            {
-                if (!code.Enabled) continue;
-                if (foundone)
-                    code.Enabled = false;
-                else
-                    foundone = true;
-            }
+            auto& code = std::get<ARCode>(childitem);
+            if (!code.Enabled) continue;
+            if (foundone)
+                code.Enabled = false;
+            else
+                foundone = true;
         }
     }
 

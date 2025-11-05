@@ -34,7 +34,7 @@ struct ARDatabaseEntry
     u32 GameCode;
     u32 Checksum;
     std::string Name;
-    ARCodeCatList Categories;
+    ARCodeCat RootCat;
 };
 
 typedef std::vector<ARDatabaseEntry> ARDatabaseEntryList;

@@ -35,7 +35,7 @@ using Platform::Log;
 using Platform::LogLevel;
 
 
-CheatImportDialog::CheatImportDialog(QWidget *parent, melonDS::ARDatabaseDAT* db, melonDS::u32 gamecode, melonDS::u32 checksum)
+CheatImportDialog::CheatImportDialog(QWidget *parent, ARDatabaseDAT* db, u32 gamecode, u32 checksum)
 : QDialog(parent), ui(new Ui::CheatImportDialog), database(db), gameCode(gamecode), gameChecksum(checksum)
 {
     ui->setupUi(this);
@@ -94,14 +94,14 @@ CheatImportDialog::~CheatImportDialog()
     delete ui;
 }
 
-melonDS::ARDatabaseEntry& CheatImportDialog::getImportCheats()
+ARDatabaseEntry& CheatImportDialog::getImportCheats()
 {
     QVariant data = ui->cbEntryList->currentData();
-    auto entry = data.value<melonDS::ARDatabaseEntry*>();
+    auto entry = data.value<ARDatabaseEntry*>();
     return *entry;
 }
 
-melonDS::ARCodeEnableMap& CheatImportDialog::getImportEnableMap()
+ARCodeEnableMap& CheatImportDialog::getImportEnableMap()
 {
     return importEnableMap;
 }
@@ -132,7 +132,7 @@ void CheatImportDialog::onCheatEntryModified(QStandardItem* item)
     if (itemtype == 2)
     {
         // sync up the enable map
-        auto code = item->data(Qt::UserRole+1).value<melonDS::ARCode*>();
+        auto code = item->data(Qt::UserRole+1).value<ARCode*>();
         importEnableMap[code] = (item->checkState() == Qt::Checked);
     }
 
@@ -225,7 +225,7 @@ void CheatImportDialog::populateEntryInfo()
     ui->gbEntryInfo->show();
 
     QVariant data = ui->cbEntryList->currentData();
-    auto entry = data.value<melonDS::ARDatabaseEntry*>();
+    auto entry = data.value<ARDatabaseEntry*>();
 
     ui->lblEntryName->setText(QString::fromStdString(entry->Name));
 
@@ -237,6 +237,45 @@ void CheatImportDialog::populateEntryInfo()
     ui->lblEntryChecksum->setText(chksum);
 
     populateCheatList();
+}
+
+void CheatImportDialog::populateCheatListCat(QStandardItem* parentitem, ARCodeCat& parentcat)
+{
+    for (auto& item : parentcat.Children)
+    {
+        if (std::holds_alternative<ARCodeCat>(item))
+        {
+            auto& cat = std::get<ARCodeCat>(item);
+
+            QString catname = QString::fromStdString(cat.Name);
+
+            auto catitem = new QStandardItem(catname);
+            parentitem->appendRow(catitem);
+
+            catitem->setData(1, Qt::UserRole);
+            catitem->setData(QVariant::fromValue(&cat), Qt::UserRole+1);
+            catitem->setCheckable(true);
+            catitem->setCheckState(Qt::Checked);
+
+            populateCheatListCat(catitem, cat);
+        }
+        else
+        {
+            auto& code = std::get<ARCode>(item);
+
+            QString codename = QString::fromStdString(code.Name);
+
+            auto codeitem = new QStandardItem(codename);
+            parentitem->appendRow(codeitem);
+
+            codeitem->setData(2, Qt::UserRole);
+            codeitem->setData(QVariant::fromValue(&code), Qt::UserRole+1);
+            codeitem->setCheckable(true);
+            codeitem->setCheckState(Qt::Checked);
+
+            importEnableMap[&code] = true;
+        }
+    }
 }
 
 void CheatImportDialog::populateCheatList()
@@ -258,42 +297,8 @@ void CheatImportDialog::populateCheatList()
     QStandardItem* rootitem = treemodel->invisibleRootItem();
 
     QVariant data = ui->cbEntryList->currentData();
-    auto entry = data.value<melonDS::ARDatabaseEntry*>();
-    for (auto& cat : entry->Categories)
-    {
-        QStandardItem* catitem;
-        if (cat.IsRoot)
-        {
-            catitem = rootitem;
-        }
-        else
-        {
-            QString catname = QString::fromStdString(cat.Name);
-
-            catitem = new QStandardItem(catname);
-            rootitem->appendRow(catitem);
-
-            catitem->setData(1, Qt::UserRole);
-            catitem->setData(QVariant::fromValue(&cat), Qt::UserRole+1);
-            catitem->setCheckable(true);
-            catitem->setCheckState(Qt::Checked);
-        }
-
-        for (auto& code : cat.Codes)
-        {
-            QString codename = QString::fromStdString(code.Name);
-
-            auto codeitem = new QStandardItem(codename);
-            catitem->appendRow(codeitem);
-
-            codeitem->setData(2, Qt::UserRole);
-            codeitem->setData(QVariant::fromValue(&code), Qt::UserRole+1);
-            codeitem->setCheckable(true);
-            codeitem->setCheckState(Qt::Checked);
-
-            importEnableMap[&code] = true;
-        }
-    }
+    auto entry = data.value<ARDatabaseEntry*>();
+    populateCheatListCat(rootitem, entry->RootCat);
 
     updatingImportChk = false;
     populateCheatInfo();
@@ -317,7 +322,7 @@ void CheatImportDialog::populateCheatInfo()
         ui->gbCodeInfo->show();
         ui->gbCodeInfo->setTitle("Selected category");
 
-        auto cat = index.data(Qt::UserRole+1).value<melonDS::ARCodeCat*>();
+        auto cat = index.data(Qt::UserRole+1).value<ARCodeCat*>();
         QString catname = QString::fromStdString(cat->Name);
         QString catdesc = QString::fromStdString(cat->Description);
         QString codeenable = cat->OnlyOneCodeEnabled ? "Only one" : "Multiple";
@@ -337,7 +342,7 @@ void CheatImportDialog::populateCheatInfo()
         ui->gbCodeInfo->show();
         ui->gbCodeInfo->setTitle("Selected code");
 
-        auto code = index.data(Qt::UserRole+1).value<melonDS::ARCode*>();
+        auto code = index.data(Qt::UserRole+1).value<ARCode*>();
         QString codename = QString::fromStdString(code->Name);
         QString codedesc = QString::fromStdString(code->Description);
         QString codeenable = code->Enabled ? "Enabled" : "Disabled";
