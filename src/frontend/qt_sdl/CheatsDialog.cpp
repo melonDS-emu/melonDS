@@ -351,6 +351,7 @@ void CheatsDialog::on_btnEditCode_clicked()
     ui->tvCodeList->setEnabled(false);
 
     ui->btnEditCode->hide();
+    ui->btnDeleteCode->hide();
     ui->btnSaveCode->show();
     ui->btnCancelEdit->show();
 
@@ -418,6 +419,7 @@ void CheatsDialog::on_btnSaveCode_clicked()
     ui->tvCodeList->setEnabled(true);
 
     ui->btnEditCode->show();
+    ui->btnDeleteCode->show();
     ui->btnSaveCode->hide();
     ui->btnCancelEdit->hide();
 
@@ -431,6 +433,7 @@ void CheatsDialog::on_btnCancelEdit_clicked()
     ui->tvCodeList->setEnabled(true);
 
     ui->btnEditCode->show();
+    ui->btnDeleteCode->show();
     ui->btnSaveCode->hide();
     ui->btnCancelEdit->hide();
 
@@ -484,6 +487,7 @@ void CheatsDialog::populateCheatInfo()
     {
         ui->splitter->widget(1)->setEnabled(false);
 
+        ui->btnDeleteCode->show();
         ui->btnDeleteCode->setEnabled(false);
         ui->btnEditCode->show();
         ui->btnEditCode->setEnabled(false);
@@ -515,6 +519,7 @@ void CheatsDialog::populateCheatInfo()
     {
         auto cat = index.data(Qt::UserRole+1).value<ARCodeCat*>();
 
+        ui->btnDeleteCode->show();
         ui->btnDeleteCode->setEnabled(true);
         ui->btnEditCode->show();
         ui->btnEditCode->setEnabled(true);
@@ -537,6 +542,7 @@ void CheatsDialog::populateCheatInfo()
     {
         auto code = index.data(Qt::UserRole+1).value<ARCode*>();
 
+        ui->btnDeleteCode->show();
         ui->btnDeleteCode->setEnabled(true);
         ui->btnEditCode->show();
         ui->btnEditCode->setEnabled(true);

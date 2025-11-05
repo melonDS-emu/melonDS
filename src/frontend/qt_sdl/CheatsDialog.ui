@@ -34,13 +34,6 @@
       </widget>
      </item>
      <item>
-      <widget class="QPushButton" name="btnDeleteCode">
-       <property name="text">
-        <string>Delete</string>
-       </property>
-      </widget>
-     </item>
-     <item>
       <widget class="QPushButton" name="btnImportCheats">
        <property name="text">
         <string>Import...</string>
@@ -146,6 +139,13 @@
           <widget class="QPushButton" name="btnCancelEdit">
            <property name="text">
             <string>Cancel edit</string>
+           </property>
+          </widget>
+         </item>
+         <item>
+          <widget class="QPushButton" name="btnDeleteCode">
+           <property name="text">
+            <string>Delete</string>
            </property>
           </widget>
          </item>
