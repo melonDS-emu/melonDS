@@ -71,8 +71,8 @@ CheatImportDialog::CheatImportDialog(QWidget *parent, melonDS::ARDatabaseDAT* db
     auto dbname = database->GetDBName();
     ui->lblDatabaseName->setText(QString::fromStdString(dbname));
 
-    ui->gbCatInfo->hide();
     ui->gbCodeInfo->hide();
+    ui->vlRightPanel->addStretch();
 
     QImage blank(64, 64, QImage::Format_Alpha8);
     blank.fill(0);
@@ -305,7 +305,6 @@ void CheatImportDialog::populateCheatInfo()
     auto selmodel = ui->tvCheatList->selectionModel();
     if (!selmodel->hasSelection())
     {
-        ui->gbCatInfo->hide();
         ui->gbCodeInfo->hide();
         return;
     }
@@ -316,24 +315,28 @@ void CheatImportDialog::populateCheatInfo()
     {
         // category
 
-        ui->gbCatInfo->show();
-        ui->gbCodeInfo->hide();
+        ui->gbCodeInfo->show();
+        ui->gbCodeInfo->setTitle("Selected category");
 
         auto cat = index.data(Qt::UserRole+1).value<melonDS::ARCodeCat*>();
         QString catname = QString::fromStdString(cat->Name);
         QString catdesc = QString::fromStdString(cat->Description);
         QString codeenable = cat->OnlyOneCodeEnabled ? "Only one" : "Multiple";
 
-        ui->lblCatName->setText(catname);
-        ui->lblCatDesc->setText(catdesc);
-        ui->lblCatEnableMode->setText(codeenable);
+        ui->lblCodeName->setText(catname);
+        ui->lblCodeDesc->setText(catdesc);
+        ui->lblCodeStatusLabel->setText("Code enable:");
+        ui->lblCodeStatus->setText(codeenable);
+
+        ui->lblCodeCodeLabel->hide();
+        ui->txtCodeCode->hide();
     }
     else if (itemtype == 2)
     {
         // cheat
 
-        ui->gbCatInfo->hide();
         ui->gbCodeInfo->show();
+        ui->gbCodeInfo->setTitle("Selected code");
 
         auto code = index.data(Qt::UserRole+1).value<melonDS::ARCode*>();
         QString codename = QString::fromStdString(code->Name);
@@ -342,6 +345,7 @@ void CheatImportDialog::populateCheatInfo()
 
         ui->lblCodeName->setText(codename);
         ui->lblCodeDesc->setText(codedesc);
+        ui->lblCodeStatusLabel->setText("Status:");
         ui->lblCodeStatus->setText(codeenable);
 
         QString codecode = "";
@@ -351,6 +355,8 @@ void CheatImportDialog::populateCheatInfo()
             codecode += QString::asprintf("%08X %08X", code->Code[i], code->Code[i+1]);
         }
 
+        ui->lblCodeCodeLabel->show();
+        ui->txtCodeCode->show();
         ui->txtCodeCode->setPlainText(codecode);
     }
 }
