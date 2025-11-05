@@ -290,6 +290,7 @@ void CheatsDialog::onCheatEntryModified(QStandardItem* item)
 {
     if (updatingEnableChk) return;
 
+    auto selmodel = ui->tvCodeList->selectionModel();
     int itemtype = item->data(Qt::UserRole).toInt();
     if (itemtype == 2)
     {
@@ -316,6 +317,15 @@ void CheatsDialog::onCheatEntryModified(QStandardItem* item)
                     childcode->Enabled = false;
 
                     child->setCheckState(Qt::Unchecked);
+
+                    if (selmodel->hasSelection())
+                    {
+                        auto index = selmodel->selectedIndexes()[0];
+                        if (index == child->index())
+                        {
+                            ui->chkItemOption->setChecked(childcode->Enabled);
+                        }
+                    }
                 }
             }
 
@@ -323,7 +333,6 @@ void CheatsDialog::onCheatEntryModified(QStandardItem* item)
         }
 
         // if this item is selected, reflect the checkbox change
-        auto selmodel = ui->tvCodeList->selectionModel();
         if (selmodel->hasSelection())
         {
             auto index = selmodel->selectedIndexes()[0];
@@ -392,14 +401,14 @@ void CheatsDialog::on_btnSaveCode_clicked()
         code->Enabled = ui->chkItemOption->isChecked();
         code->Code = codeconv;
 
-        updatingEnableChk = true;
+        //updatingEnableChk = true;
 
         auto tvmodel = (QStandardItemModel*)ui->tvCodeList->model();
         auto tvitem = tvmodel->itemFromIndex(index);
         tvitem->setText(ui->txtItemName->text());
         tvitem->setCheckState(code->Enabled ? Qt::Checked : Qt::Unchecked);
 
-        updatingEnableChk = false;
+        //updatingEnableChk = false;
     }
     else
         assert(false);
