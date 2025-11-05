@@ -16,7 +16,6 @@
     with melonDS. If not, see http://www.gnu.org/licenses/.
 */
 
-#include <stdio.h>
 #include <QtGlobal>
 #include <QFileDialog>
 #include <QMessageBox>
