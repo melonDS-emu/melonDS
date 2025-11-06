@@ -645,7 +645,7 @@ QMimeData* CheatListModel::mimeData(const QModelIndexList& indexes) const
     else if (itemtype == 2)
     {
         auto code = index.data(Qt::UserRole+1).value<ARCode*>();
-        itemptr  = (quintptr)code;
+        itemptr = (quintptr)code;
     }
 
     for (int i = 0; i < sizeof(quintptr); i++)
@@ -695,7 +695,7 @@ bool CheatListModel::dropMimeData(const QMimeData* mime, Qt::DropAction action, 
     int flags = (unsigned char)data[0];
     int itemtype = flags & 0xF;
 
-    quintptr itemptr;
+    quintptr itemptr = 0;
     for (int i = sizeof(quintptr) - 1; i >= 0; i--)
     {
         itemptr <<= 8;
