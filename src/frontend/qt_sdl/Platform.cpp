@@ -263,6 +263,11 @@ void FileRewind(FileHandle* file)
     rewind(reinterpret_cast<FILE *>(file));
 }
 
+u64 FilePosition(FileHandle* file)
+{
+    return ftell(reinterpret_cast<FILE *>(file));
+}
+
 u64 FileRead(void* data, u64 size, u64 count, FileHandle* file)
 {
     return fread(data, size, count, reinterpret_cast<FILE *>(file));
