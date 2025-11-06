@@ -23,7 +23,6 @@
 
 #include "types.h"
 #include "Platform.h"
-#include "Config.h"
 #include "EmuInstance.h"
 #include "ARDatabaseDAT.h"
 
@@ -58,7 +57,7 @@ CheatsDialog::CheatsDialog(QWidget* parent) : QDialog(parent), ui(new Ui::Cheats
 
     codeFile = emuInstance->getCheatFile();
 
-    auto* model = new CheatListModel();
+    auto* model = new CheatListModel(ui->tvCodeList);
     ui->tvCodeList->setModel(model);
     connect(model, &QStandardItemModel::itemChanged, this, &CheatsDialog::onCheatEntryModified);
     connect(ui->tvCodeList->selectionModel(), &QItemSelectionModel::selectionChanged, this, &CheatsDialog::onCheatSelectionChanged);
@@ -631,7 +630,12 @@ QMimeData* CheatListModel::mimeData(const QModelIndexList& indexes) const
     int itemtype = index.data(Qt::UserRole).toInt();
     quintptr itemptr;
 
-    array.append((char)itemtype);
+    auto parentlist = (QTreeView*)this->parent();
+    unsigned char flags = (unsigned char)itemtype;
+    if (parentlist->isExpanded(index))
+        flags |= 0x10;
+
+    array.append((char)flags);
     if (itemtype == 1)
     {
         auto cat = index.data(Qt::UserRole+1).value<ARCodeCat*>();
@@ -663,7 +667,8 @@ bool CheatListModel::canDropMimeData(const QMimeData* mime, Qt::DropAction actio
     if (data.length() != (1 + sizeof(quintptr)))
         return false;
 
-    int itemtype = (unsigned char)data[0];
+    int flags = (unsigned char)data[0];
+    int itemtype = flags & 0xF;
 
     QStandardItem* parentitem = itemFromIndex(parent);
     if (!parentitem) parentitem = invisibleRootItem();
@@ -687,7 +692,9 @@ bool CheatListModel::dropMimeData(const QMimeData* mime, Qt::DropAction action, 
     if (data.length() != (1 + sizeof(quintptr)))
         return false;
 
-    int itemtype = (unsigned char)data[0];
+    int flags = (unsigned char)data[0];
+    int itemtype = flags & 0xF;
+
     quintptr itemptr;
     for (int i = sizeof(quintptr) - 1; i >= 0; i--)
     {
@@ -697,8 +704,10 @@ bool CheatListModel::dropMimeData(const QMimeData* mime, Qt::DropAction action, 
 
     QStandardItem* parentitem = itemFromIndex(parent);
     if (!parentitem) parentitem = invisibleRootItem();
+    if (row < 0) row = parentitem->rowCount();
 
     auto newparent = parentitem->data(Qt::UserRole+1).value<ARCodeCat*>();
+    QStandardItem* newitem;
 
     if (itemtype == 1)
     {
@@ -763,10 +772,8 @@ bool CheatListModel::dropMimeData(const QMimeData* mime, Qt::DropAction action, 
         catitem->setData(1, Qt::UserRole);
         catitem->setData(QVariant::fromValue(newcatptr), Qt::UserRole+1);
 
-        if (row < 0)
-            parentitem->appendRow(catitem);
-        else
-            parentitem->insertRow(row, catitem);
+        parentitem->insertRow(row, catitem);
+        newitem = catitem;
 
         populateCheatListCat(catitem, *newcatptr);
     }
@@ -817,13 +824,25 @@ bool CheatListModel::dropMimeData(const QMimeData* mime, Qt::DropAction action, 
         codeitem->setData(2, Qt::UserRole);
         codeitem->setData(QVariant::fromValue(newcodeptr), Qt::UserRole+1);
 
-        if (row < 0)
-            parentitem->appendRow(codeitem);
-        else
-            parentitem->insertRow(row, codeitem);
+        parentitem->insertRow(row, codeitem);
+        newitem = codeitem;
     }
     else
         return false;
+
+    auto parentlist = (QTreeView*)this->parent();
+    auto newindex = newitem->index();
+    if (flags & 0x10)
+        parentlist->expand(newindex);
+
+    // quality of life: select the item after it's been moved
+    // we have to add a small delay here
+    // if we do this immediately, it will cause the dragdrop operation to fail
+    QTimer::singleShot(1, [=]()
+    {
+        parentlist->selectionModel()->select(newindex, QItemSelectionModel::ClearAndSelect);
+        parentlist->scrollTo(newindex);
+    });
 
     return true;
 }
