@@ -341,6 +341,7 @@ void CheatsDialog::on_btnEditCode_clicked()
 {
     ui->btnNewCat->setEnabled(false);
     ui->btnNewARCode->setEnabled(false);
+    ui->btnImportCheats->setEnabled(false);
     ui->tvCodeList->setEnabled(false);
 
     ui->btnEditCode->hide();
@@ -409,6 +410,7 @@ void CheatsDialog::on_btnSaveCode_clicked()
 
     ui->btnNewCat->setEnabled(true);
     ui->btnNewARCode->setEnabled(true);
+    ui->btnImportCheats->setEnabled(true);
     ui->tvCodeList->setEnabled(true);
 
     ui->btnEditCode->show();
@@ -423,6 +425,7 @@ void CheatsDialog::on_btnCancelEdit_clicked()
 {
     ui->btnNewCat->setEnabled(true);
     ui->btnNewARCode->setEnabled(true);
+    ui->btnImportCheats->setEnabled(true);
     ui->tvCodeList->setEnabled(true);
 
     ui->btnEditCode->show();

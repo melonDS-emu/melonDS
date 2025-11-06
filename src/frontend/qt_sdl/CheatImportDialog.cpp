@@ -77,7 +77,7 @@ CheatImportDialog::CheatImportDialog(QWidget *parent, ARDatabaseDAT* db, u32 gam
     blank.fill(0);
     blankIcon = QIcon(QPixmap::fromImage(blank.copy()));
 
-    matchIcon = ((QWidget*)parent)->style()->standardIcon(QStyle::SP_DialogApplyButton);
+    matchIcon = style()->standardIcon(QStyle::SP_DialogApplyButton);
 
     updatingImportChk = true;
     auto treemodel = new QStandardItemModel();
