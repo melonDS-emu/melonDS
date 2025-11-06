@@ -346,6 +346,10 @@ int main(int argc, char** argv)
         }
     }
 
+    // fix for Wayland OpenGL glitches
+    QGuiApplication::setAttribute(Qt::AA_NativeWindows, false);
+    QGuiApplication::setAttribute(Qt::AA_DontCreateNativeWidgetSiblings, true);
+
     // default MP interface type is local MP
     // this will be changed if a LAN or netplay session is initiated
     setMPInterface(MPInterface_Local);
