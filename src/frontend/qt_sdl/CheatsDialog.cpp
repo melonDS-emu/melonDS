@@ -544,6 +544,7 @@ std::vector<u32> CheatsDialog::convertCodeInput()
     std::vector<u32> codeout;
 
     QString text = ui->txtCode->toPlainText();
+    text = text.replace('o', '0', Qt::CaseInsensitive);
 #if QT_VERSION >= QT_VERSION_CHECK(5, 14, 0)
     QStringList lines = text.split('\n', Qt::SkipEmptyParts);
 #else
@@ -852,7 +853,7 @@ void ARCodeChecker::highlightBlock(const QString& text)
     QTextCharFormat errformat; errformat.setForeground(Qt::red);
 
     {
-        QRegularExpression expr("^\\s*[0-9A-Fa-f]{1,8} [0-9A-Fa-f]{1,8}\\s*$");
+        QRegularExpression expr("^\\s*[0-9A-Fa-foO]{1,8} [0-9A-Fa-foO]{1,8}\\s*$");
         QRegularExpressionMatchIterator it = expr.globalMatch(text);
         if (!it.hasNext())
         {
