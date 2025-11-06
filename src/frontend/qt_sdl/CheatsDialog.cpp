@@ -544,7 +544,7 @@ std::vector<u32> CheatsDialog::convertCodeInput()
     std::vector<u32> codeout;
 
     QString text = ui->txtCode->toPlainText();
-    text = text.replace('o', '0', Qt::CaseInsensitive);
+    text = text.replace((QChar)'o', (QChar)'0', Qt::CaseInsensitive);
 #if QT_VERSION >= QT_VERSION_CHECK(5, 14, 0)
     QStringList lines = text.split('\n', Qt::SkipEmptyParts);
 #else
