@@ -80,7 +80,7 @@ CheatImportDialog::CheatImportDialog(QWidget *parent, ARDatabaseDAT* db, u32 gam
     matchIcon = style()->standardIcon(QStyle::SP_DialogApplyButton);
 
     updatingImportChk = true;
-    auto treemodel = new QStandardItemModel();
+    auto treemodel = new QStandardItemModel(ui->tvCheatList);
     ui->tvCheatList->setModel(treemodel);
     connect(treemodel, &QStandardItemModel::itemChanged, this, &CheatImportDialog::onCheatEntryModified);
     connect(ui->tvCheatList->selectionModel(), &QItemSelectionModel::selectionChanged, this, &CheatImportDialog::onCheatSelectionChanged);

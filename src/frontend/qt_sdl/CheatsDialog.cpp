@@ -69,10 +69,6 @@ CheatsDialog::CheatsDialog(QWidget* parent) : QDialog(parent), ui(new Ui::Cheats
 
 CheatsDialog::~CheatsDialog()
 {
-    QAbstractItemModel* model = ui->tvCodeList->model();
-    ui->tvCodeList->setModel(nullptr);
-    delete model;
-
     delete codeChecker;
 
     delete ui;
