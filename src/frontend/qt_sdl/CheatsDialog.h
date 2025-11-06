@@ -38,6 +38,23 @@ namespace melonDS
     class ARDatabaseDAT;
 }
 
+class CheatListModel : public QStandardItemModel
+{
+    Q_OBJECT
+
+public:
+    CheatListModel(QObject* parent = nullptr) : QStandardItemModel(parent) {}
+
+    void populateCheatListCat(QStandardItem* parentitem, melonDS::ARCodeCat& parentcat);
+
+    Qt::DropActions supportedDragActions() const override { return Qt::MoveAction; }
+    Qt::DropActions supportedDropActions() const override { return Qt::MoveAction; }
+
+    QMimeData* mimeData(const QModelIndexList& indexes) const override;
+    bool canDropMimeData(const QMimeData* mime, Qt::DropAction action, int row, int column, const QModelIndex& parent) const override;
+    bool dropMimeData(const QMimeData* mime, Qt::DropAction action, int row, int column, const QModelIndex& parent) override;
+};
+
 class ARCodeChecker : public QSyntaxHighlighter
 {
     Q_OBJECT
@@ -108,7 +125,6 @@ private:
 
     bool updatingEnableChk;
 
-    void populateCheatListCat(QStandardItem* parentitem, melonDS::ARCodeCat& parentcat);
     void populateCheatList();
     void populateCheatInfo();
     std::vector<melonDS::u32> convertCodeInput();

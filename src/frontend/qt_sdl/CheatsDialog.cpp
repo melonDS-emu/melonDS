@@ -19,6 +19,7 @@
 #include <QtGlobal>
 #include <QFileDialog>
 #include <QMessageBox>
+#include <QMimeData>
 
 #include "types.h"
 #include "Platform.h"
@@ -57,7 +58,7 @@ CheatsDialog::CheatsDialog(QWidget* parent) : QDialog(parent), ui(new Ui::Cheats
 
     codeFile = emuInstance->getCheatFile();
 
-    QStandardItemModel* model = new QStandardItemModel();
+    auto* model = new CheatListModel();
     ui->tvCodeList->setModel(model);
     connect(model, &QStandardItemModel::itemChanged, this, &CheatsDialog::onCheatEntryModified);
     connect(ui->tvCodeList->selectionModel(), &QItemSelectionModel::selectionChanged, this, &CheatsDialog::onCheatSelectionChanged);
@@ -101,6 +102,7 @@ void CheatsDialog::on_btnNewCat_clicked()
     auto catptr = &std::get<ARCodeCat>(parentcat.Children.back());
 
     auto catitem = new QStandardItem(QString::fromStdString(cat.Name));
+    catitem->setDropEnabled(true);
     catitem->setData(1, Qt::UserRole);
     catitem->setData(QVariant::fromValue(catptr), Qt::UserRole+1);
     root->appendRow(catitem);
@@ -132,17 +134,8 @@ void CheatsDialog::on_btnNewARCode_clicked()
             assert(false);
     }
 
-    if (!parentitem)
-    {
-        // if we have no category selected, this code goes at the root
-
-        parentitem = model->invisibleRootItem();
-        cat = &codeFile->RootCat;
-    }
-    else
-    {
-        cat = parentitem->data(Qt::UserRole+1).value<ARCodeCat*>();
-    }
+    if (!parentitem) parentitem = model->invisibleRootItem();
+    cat = parentitem->data(Qt::UserRole+1).value<ARCodeCat*>();
 
     ARCode code;
     code.Parent = cat;
@@ -155,6 +148,7 @@ void CheatsDialog::on_btnNewARCode_clicked()
     auto codeitem = new QStandardItem(QString::fromStdString(code.Name));
     codeitem->setCheckable(true);
     codeitem->setCheckState(code.Enabled ? Qt::Checked : Qt::Unchecked);
+    codeitem->setDropEnabled(false);
     codeitem->setData(2, Qt::UserRole);
     codeitem->setData(QVariant::fromValue(codeptr), Qt::UserRole+1);
     parentitem->appendRow(codeitem);
@@ -440,42 +434,15 @@ void CheatsDialog::on_btnCancelEdit_clicked()
     populateCheatInfo();
 }
 
-void CheatsDialog::populateCheatListCat(QStandardItem* parentitem, ARCodeCat& parentcat)
-{
-    for (auto& item : parentcat.Children)
-    {
-        if (std::holds_alternative<ARCodeCat>(item))
-        {
-            auto& cat = std::get<ARCodeCat>(item);
-
-            auto catitem = new QStandardItem(QString::fromStdString(cat.Name));
-            catitem->setData(1, Qt::UserRole);
-            catitem->setData(QVariant::fromValue(&cat), Qt::UserRole+1);
-            parentitem->appendRow(catitem);
-
-            populateCheatListCat(catitem, cat);
-        }
-        else
-        {
-            auto& code = std::get<ARCode>(item);
-
-            auto codeitem = new QStandardItem(QString::fromStdString(code.Name));
-            codeitem->setCheckable(true);
-            codeitem->setCheckState(code.Enabled ? Qt::Checked : Qt::Unchecked);
-            codeitem->setData(2, Qt::UserRole);
-            codeitem->setData(QVariant::fromValue(&code), Qt::UserRole+1);
-            parentitem->appendRow(codeitem);
-        }
-    }
-}
-
 void CheatsDialog::populateCheatList()
 {
-    auto model = (QStandardItemModel*)ui->tvCodeList->model();
+    auto model = (CheatListModel*)ui->tvCodeList->model();
     model->clear();
 
     QStandardItem* root = model->invisibleRootItem();
-    populateCheatListCat(root, codeFile->RootCat);
+    root->setData(0, Qt::UserRole);
+    root->setData(QVariant::fromValue(&codeFile->RootCat), Qt::UserRole+1);
+    model->populateCheatListCat(root, codeFile->RootCat);
 
     populateCheatInfo();
 }
@@ -622,6 +589,245 @@ std::vector<u32> CheatsDialog::convertCodeInput()
 
     return codeout;
 }
+
+
+void CheatListModel::populateCheatListCat(QStandardItem* parentitem, ARCodeCat& parentcat)
+{
+    for (auto& item : parentcat.Children)
+    {
+        if (std::holds_alternative<ARCodeCat>(item))
+        {
+            auto& cat = std::get<ARCodeCat>(item);
+
+            auto catitem = new QStandardItem(QString::fromStdString(cat.Name));
+            catitem->setDropEnabled(true);
+            catitem->setData(1, Qt::UserRole);
+            catitem->setData(QVariant::fromValue(&cat), Qt::UserRole+1);
+            parentitem->appendRow(catitem);
+
+            populateCheatListCat(catitem, cat);
+        }
+        else
+        {
+            auto& code = std::get<ARCode>(item);
+
+            auto codeitem = new QStandardItem(QString::fromStdString(code.Name));
+            codeitem->setCheckable(true);
+            codeitem->setCheckState(code.Enabled ? Qt::Checked : Qt::Unchecked);
+            codeitem->setDropEnabled(false);
+            codeitem->setData(2, Qt::UserRole);
+            codeitem->setData(QVariant::fromValue(&code), Qt::UserRole+1);
+            parentitem->appendRow(codeitem);
+        }
+    }
+}
+
+QMimeData* CheatListModel::mimeData(const QModelIndexList& indexes) const
+{
+    QMimeData* mime = new QMimeData();
+    QByteArray array;
+
+    auto& index = indexes[0];
+    int itemtype = index.data(Qt::UserRole).toInt();
+    quintptr itemptr;
+
+    array.append((char)itemtype);
+    if (itemtype == 1)
+    {
+        auto cat = index.data(Qt::UserRole+1).value<ARCodeCat*>();
+        itemptr = (quintptr)cat;
+
+    }
+    else if (itemtype == 2)
+    {
+        auto code = index.data(Qt::UserRole+1).value<ARCode*>();
+        itemptr  = (quintptr)code;
+    }
+
+    for (int i = 0; i < sizeof(quintptr); i++)
+    {
+        array.append((char)(itemptr & 0xFF));
+        itemptr >>= 8;
+    }
+
+    mime->setData("application/x-qabstractitemmodeldatalist", array);
+    return mime;
+}
+
+bool CheatListModel::canDropMimeData(const QMimeData* mime, Qt::DropAction action, int row, int column, const QModelIndex& parent) const
+{
+    if (action != Qt::MoveAction)
+        return false;
+
+    QByteArray data = mime->data("application/x-qabstractitemmodeldatalist");
+    if (data.length() != (1 + sizeof(quintptr)))
+        return false;
+
+    int itemtype = (unsigned char)data[0];
+
+    QStandardItem* parentitem = itemFromIndex(parent);
+    if (!parentitem) parentitem = invisibleRootItem();
+
+    if (itemtype == 1)
+    {
+        // if we are trying to drop a category into another category: reject this move
+        if (parentitem != invisibleRootItem())
+            return false;
+    }
+
+    return true;
+}
+
+bool CheatListModel::dropMimeData(const QMimeData* mime, Qt::DropAction action, int row, int column, const QModelIndex& parent)
+{
+    if (action != Qt::MoveAction)
+        return false;
+
+    QByteArray data = mime->data("application/x-qabstractitemmodeldatalist");
+    if (data.length() != (1 + sizeof(quintptr)))
+        return false;
+
+    int itemtype = (unsigned char)data[0];
+    quintptr itemptr;
+    for (int i = sizeof(quintptr) - 1; i >= 0; i--)
+    {
+        itemptr <<= 8;
+        itemptr |= (unsigned char)data[1 + i];
+    }
+
+    QStandardItem* parentitem = itemFromIndex(parent);
+    if (!parentitem) parentitem = invisibleRootItem();
+
+    auto newparent = parentitem->data(Qt::UserRole+1).value<ARCodeCat*>();
+
+    if (itemtype == 1)
+    {
+        if (parentitem != invisibleRootItem())
+            return false;
+
+        ARCodeCat* cat = (ARCodeCat*)itemptr;
+        auto oldparent = cat->Parent;
+
+        // retrieve iterator to insert new category at
+        auto newit = newparent->Children.begin();
+        for (int i = 0; newit != newparent->Children.end(); i++)
+        {
+            if (i == row) break;
+            newit++;
+        }
+
+        // create new category
+        ARCodeCat newcat = {
+            .Parent = newparent,
+            .Name = cat->Name,
+            .Description = cat->Description,
+            .OnlyOneCodeEnabled = cat->OnlyOneCodeEnabled,
+            .Children = cat->Children
+        };
+
+        // delete category from old parent
+        for (auto it = oldparent->Children.begin(); it != oldparent->Children.end(); it++)
+        {
+            auto& childitem = *it;
+            if (!std::holds_alternative<ARCodeCat>(childitem))
+                continue;
+            if (&std::get<ARCodeCat>(childitem) != cat)
+                continue;
+
+            oldparent->Children.erase(it);
+            break;
+        }
+
+        // add it to new parent
+        newit = newparent->Children.emplace(newit, newcat);
+        ARCodeCat* newcatptr = &std::get<ARCodeCat>(*newit);
+
+        // reparent the children
+        for (auto& childitem : newcatptr->Children)
+        {
+            if (std::holds_alternative<ARCodeCat>(childitem))
+            {
+                auto& thiscat = std::get<ARCodeCat>(childitem);
+                thiscat.Parent = newcatptr;
+            }
+            else
+            {
+                auto& thiscode = std::get<ARCode>(childitem);
+                thiscode.Parent = newcatptr;
+            }
+        }
+
+        // create and add new item
+        auto catitem = new QStandardItem(QString::fromStdString(newcatptr->Name));
+        catitem->setDropEnabled(true);
+        catitem->setData(1, Qt::UserRole);
+        catitem->setData(QVariant::fromValue(newcatptr), Qt::UserRole+1);
+
+        if (row < 0)
+            parentitem->appendRow(catitem);
+        else
+            parentitem->insertRow(row, catitem);
+
+        populateCheatListCat(catitem, *newcatptr);
+    }
+    else if (itemtype == 2)
+    {
+        ARCode* code = (ARCode*)itemptr;
+        auto oldparent = code->Parent;
+
+        // retrieve iterator to insert new code at
+        auto newit = newparent->Children.begin();
+        for (int i = 0; newit != newparent->Children.end(); i++)
+        {
+            if (i == row) break;
+            newit++;
+        }
+
+        // create new code
+        ARCode newcode = {
+            .Parent = newparent,
+            .Name = code->Name,
+            .Description = code->Description,
+            .Enabled = code->Enabled,
+            .Code = code->Code
+        };
+
+        // delete code from old parent
+        for (auto it = oldparent->Children.begin(); it != oldparent->Children.end(); it++)
+        {
+            auto& childitem = *it;
+            if (!std::holds_alternative<ARCode>(childitem))
+                continue;
+            if (&std::get<ARCode>(childitem) != code)
+                continue;
+
+            oldparent->Children.erase(it);
+            break;
+        }
+
+        // add it to new parent
+        newit = newparent->Children.emplace(newit, newcode);
+        ARCode* newcodeptr = &std::get<ARCode>(*newit);
+
+        // create and add new item
+        auto codeitem = new QStandardItem(QString::fromStdString(newcodeptr->Name));
+        codeitem->setCheckable(true);
+        codeitem->setCheckState(newcodeptr->Enabled ? Qt::Checked : Qt::Unchecked);
+        codeitem->setDropEnabled(false);
+        codeitem->setData(2, Qt::UserRole);
+        codeitem->setData(QVariant::fromValue(newcodeptr), Qt::UserRole+1);
+
+        if (row < 0)
+            parentitem->appendRow(codeitem);
+        else
+            parentitem->insertRow(row, codeitem);
+    }
+    else
+        return false;
+
+    return true;
+}
+
 
 void ARCodeChecker::highlightBlock(const QString& text)
 {

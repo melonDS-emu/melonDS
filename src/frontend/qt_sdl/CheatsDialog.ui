@@ -107,6 +107,15 @@
       <property name="editTriggers">
        <set>QAbstractItemView::EditTrigger::NoEditTriggers</set>
       </property>
+      <property name="dragEnabled">
+       <bool>true</bool>
+      </property>
+      <property name="dragDropMode">
+       <enum>QAbstractItemView::DragDropMode::InternalMove</enum>
+      </property>
+      <property name="defaultDropAction">
+       <enum>Qt::DropAction::IgnoreAction</enum>
+      </property>
       <property name="headerHidden">
        <bool>true</bool>
       </property>
