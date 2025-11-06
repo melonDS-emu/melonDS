@@ -341,7 +341,7 @@ void CheatsDialog::on_btnEditCode_clicked()
     ui->tvCodeList->setEnabled(false);
 
     ui->btnEditCode->hide();
-    ui->btnDeleteCode->hide();
+    ui->btnDeleteCode->setEnabled(false);
     ui->btnSaveCode->show();
     ui->btnCancelEdit->show();
 
@@ -410,7 +410,7 @@ void CheatsDialog::on_btnSaveCode_clicked()
     ui->tvCodeList->setEnabled(true);
 
     ui->btnEditCode->show();
-    ui->btnDeleteCode->show();
+    ui->btnDeleteCode->setEnabled(true);
     ui->btnSaveCode->hide();
     ui->btnCancelEdit->hide();
 
@@ -425,7 +425,7 @@ void CheatsDialog::on_btnCancelEdit_clicked()
     ui->tvCodeList->setEnabled(true);
 
     ui->btnEditCode->show();
-    ui->btnDeleteCode->show();
+    ui->btnDeleteCode->setEnabled(true);
     ui->btnSaveCode->hide();
     ui->btnCancelEdit->hide();
 

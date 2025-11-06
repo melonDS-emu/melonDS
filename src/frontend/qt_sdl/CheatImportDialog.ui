@@ -28,7 +28,7 @@
      <widget class="QWidget" name="layoutWidget">
       <layout class="QVBoxLayout" name="verticalLayout">
        <property name="rightMargin">
-        <number>2</number>
+        <number>4</number>
        </property>
        <item>
         <widget class="QCheckBox" name="chkShowAllMatches">
@@ -75,7 +75,7 @@
      <widget class="QWidget" name="layoutWidget">
       <layout class="QVBoxLayout" name="vlRightPanel" stretch="0,0,1">
        <property name="leftMargin">
-        <number>2</number>
+        <number>4</number>
        </property>
        <item>
         <widget class="QGroupBox" name="gbDatabaseInfo">
