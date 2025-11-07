@@ -83,7 +83,7 @@ int getEventKeyVal(QKeyEvent* event);
 class EmuInstance
 {
 public:
-    EmuInstance(int inst);
+    EmuInstance(int inst, bool createMainWindow = true);
     ~EmuInstance();
 
     int getInstanceID() { return instanceID; }
@@ -166,6 +166,8 @@ public:
     int micReadInput(melonDS::s16* data, int maxlength);
 
     QMutex renderLock;
+    bool IsHeadless() { return headless; }
+    void RegisterNetplayDS(int id) { netplayID = id; }
 
 private:
     static int lastSep(const std::string& path);
@@ -257,6 +259,9 @@ private:
     void setDateTime();
 
     bool deleting;
+
+    bool headless;
+    int netplayID; // -1 is none, 0 >= is the netplay DS number
 
     int instanceID;
 
