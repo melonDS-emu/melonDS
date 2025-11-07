@@ -32,6 +32,7 @@
 #include <QMutex>
 #include <QScreen>
 #include <QCloseEvent>
+#include <ctime>
 
 #include "Screen.h"
 #include "Config.h"
@@ -40,8 +41,8 @@
 
 class EmuInstance;
 class EmuThread;
-
 const int kMaxRecentROMs = 10;
+
 
 /*
 class WindowBase : public QMainWindow
@@ -104,6 +105,9 @@ class MainWindow : public QMainWindow
 {
     Q_OBJECT
 
+
+
+
 public:
     explicit MainWindow(int id, EmuInstance* inst, QWidget* parent = nullptr);
     ~MainWindow();
@@ -154,8 +158,19 @@ protected:
     void focusInEvent(QFocusEvent* event) override;
     void focusOutEvent(QFocusEvent* event) override;
 
+
+ 
+
+private:
+    time_t savestateTimestamps[9];
+    QString formatTimestamp(time_t t);
+    //remember timestamps of last 9 savestates + current
+private:
+    void loadGameSpecificSettings();
+	//for different timestamps for different games
 signals:
     void screenLayoutChange();
+
 
 private slots:
     void onOpenFile();
@@ -169,6 +184,8 @@ private slots:
     void onEjectGBACart();
     void onSaveState();
     void onLoadState();
+	void onRollingSaveState();
+	void onRollingLoadState();
     void onUndoStateLoad();
     void onImportSavefile();
     void onQuit();
@@ -295,6 +312,8 @@ public:
     QAction* actImportSavefile;
     QAction* actSaveState[9];
     QAction* actLoadState[9];
+    QAction* actRollingSave;
+	QAction* actRollingLoad;
     QAction* actUndoStateLoad;
     QAction* actOpenConfig;
     QAction* actQuit;

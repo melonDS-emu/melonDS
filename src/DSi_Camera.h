@@ -37,7 +37,6 @@ public:
     void DoSavestate(Savestate* file) override;
 
     void Reset() override;
-    void ReleaseReset();
     void Stop();
     bool IsActivated() const;
 
@@ -56,8 +55,6 @@ public:
     u32 Num;
 
 private:
-    bool ResetHeld;
-
     u32 DataPos;
     u32 RegAddr;
     u16 RegData;
