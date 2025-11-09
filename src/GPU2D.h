@@ -131,6 +131,10 @@ class Renderer2D
 public:
     virtual ~Renderer2D() {}
 
+    // 0 = A on bottom, B on top
+    // 1 = A on top, B on bottom
+    virtual void SetScreenSwap(int val) = 0;
+
     virtual void DrawScanline(u32 line, Unit* unit) = 0;
     virtual void DrawSprites(u32 line, Unit* unit) = 0;
 

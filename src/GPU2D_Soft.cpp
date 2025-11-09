@@ -44,6 +44,8 @@ SoftRenderer::SoftRenderer(melonDS::GPU& gpu, bool accel)
         Framebuffer[1][1] = new u32[len];
         BackBuffer = 0;
     }
+
+    ScreenSwap = 0;
 }
 
 SoftRenderer::~SoftRenderer()
@@ -135,7 +137,7 @@ void SoftRenderer::DrawScanline(u32 line, Unit* unit)
 
     //int stride = GPU.GPU3D.IsRendererAccelerated() ? (256*3 + 1) : 256;
     //u32* dst = &Framebuffer[CurUnit->Num][stride * line];
-    int screen = CurUnit->Num; // FIXME need to be screen position
+    int screen = !(CurUnit->Num ^ ScreenSwap);
     const int stride = 256;
     u32* dst = &Framebuffer[BackBuffer][screen][stride * line];
 

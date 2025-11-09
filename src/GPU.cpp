@@ -191,6 +191,7 @@ void GPU::Reset() noexcept
 
     //int backbuf = FrontBuffer ? 0 : 1;
     //GPU2D_Renderer->SetFramebuffer(Framebuffer[backbuf][1].get(), Framebuffer[backbuf][0].get());
+    GPU2D_Renderer->SetScreenSwap((NDS.PowerControl9 >> 15) & 1);
 
     ResetVRAMCache();
 
@@ -845,8 +846,7 @@ void GPU::SetPowerCnt(u32 val) noexcept
     GPU2D_B.SetEnabled(val & (1<<9));
     GPU3D.SetEnabled(val & (1<<3), val & (1<<2));
 
-    // TODO transmit bit15 to the renderer!!
-    //AssignFramebuffers();
+    GPU2D_Renderer->SetScreenSwap((val >> 15) & 1);
 }
 
 
