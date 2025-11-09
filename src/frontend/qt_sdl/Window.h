@@ -175,6 +175,7 @@ private slots:
 
     void onPause(bool checked);
     void onReset();
+    void onReloadMostRecentROM();
     void onStop();
     void onFrameStep();
     void onOpenPowerManagement();
