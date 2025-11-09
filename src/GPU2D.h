@@ -136,13 +136,19 @@ public:
 
     virtual void VBlankEnd(Unit* unitA, Unit* unitB) = 0;
 
-    void SetFramebuffer(u32* unitA, u32* unitB)
+    // a 2D renderer may render to RAM buffers, or to something else (ie. OpenGL)
+    // if the renderer uses RAM buffers, they should be 32-bit BGRA, 256x192 for each screen
+    virtual bool GetFramebuffers(u32** top, u32** bottom) = 0;
+    virtual void SwapBuffers() = 0;
+
+    /*void SetFramebuffer(u32* unitA, u32* unitB)
     {
         Framebuffer[0] = unitA;
         Framebuffer[1] = unitB;
-    }
+    }*/
+
 protected:
-    u32* Framebuffer[2];
+    //u32* Framebuffer[2];
 
     Unit* CurUnit;
 };

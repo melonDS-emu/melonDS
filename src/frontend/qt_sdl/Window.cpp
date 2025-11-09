@@ -962,13 +962,9 @@ void MainWindow::releaseGL()
     return glpanel->releaseGL();
 }
 
-void MainWindow::drawScreenGL()
+void MainWindow::drawScreen()
 {
-    if (!hasOGL) return;
-
-    ScreenPanelGL* glpanel = static_cast<ScreenPanelGL*>(panel);
-    if (!glpanel) return;
-    return glpanel->drawScreenGL();
+    return panel->drawScreen();
 }
 
 void MainWindow::keyPressEvent(QKeyEvent* event)

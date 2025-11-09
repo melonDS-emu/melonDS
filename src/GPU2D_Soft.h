@@ -30,15 +30,25 @@ namespace GPU2D
 class SoftRenderer : public Renderer2D
 {
 public:
-    SoftRenderer(melonDS::GPU& gpu);
-    ~SoftRenderer() override {}
+    SoftRenderer(melonDS::GPU& gpu) : SoftRenderer(gpu, false) {}
+    ~SoftRenderer() override;
 
     void DrawScanline(u32 line, Unit* unit) override;
     void DrawSprites(u32 line, Unit* unit) override;
     void VBlankEnd(Unit* unitA, Unit* unitB) override;
 
+    bool GetFramebuffers(u32** top, u32** bottom) override;
+    void SwapBuffers() override;
+
 protected:
+    SoftRenderer(melonDS::GPU& gpu, bool accel);
+
     melonDS::GPU& GPU;
+
+    bool Accelerated;
+    u32* Framebuffer[2][2];
+    int BackBuffer;
+
     alignas(8) u32 BGOBJLine[256*3];
     u32* _3DLine;
 

@@ -20,14 +20,41 @@
 #include "GPU.h"
 #include "GPU3D.h"
 
-namespace melonDS
+namespace melonDS::GPU2D
 {
-namespace GPU2D
-{
-SoftRenderer::SoftRenderer(melonDS::GPU& gpu)
-    : Renderer2D(), GPU(gpu)
+
+SoftRenderer::SoftRenderer(melonDS::GPU& gpu, bool accel)
+    : Renderer2D(), GPU(gpu), Accelerated(accel)
 {
     // mosaic table is initialized at compile-time
+
+    if (Accelerated)
+    {
+        Framebuffer[0][0] = nullptr;
+        Framebuffer[0][1] = nullptr;
+        Framebuffer[1][0] = nullptr;
+        Framebuffer[1][1] = nullptr;
+    }
+    else
+    {
+        const size_t len = 256 * 192;
+        Framebuffer[0][0] = new u32[len];
+        Framebuffer[0][1] = new u32[len];
+        Framebuffer[1][0] = new u32[len];
+        Framebuffer[1][1] = new u32[len];
+        BackBuffer = 0;
+    }
+}
+
+SoftRenderer::~SoftRenderer()
+{
+    if (Accelerated)
+    {
+        delete[] Framebuffer[0][0];
+        delete[] Framebuffer[0][1];
+        delete[] Framebuffer[1][0];
+        delete[] Framebuffer[1][1];
+    }
 }
 
 u32 SoftRenderer::ColorComposite(int i, u32 val1, u32 val2) const
@@ -106,8 +133,11 @@ void SoftRenderer::DrawScanline(u32 line, Unit* unit)
 {
     CurUnit = unit;
 
-    int stride = GPU.GPU3D.IsRendererAccelerated() ? (256*3 + 1) : 256;
-    u32* dst = &Framebuffer[CurUnit->Num][stride * line];
+    //int stride = GPU.GPU3D.IsRendererAccelerated() ? (256*3 + 1) : 256;
+    //u32* dst = &Framebuffer[CurUnit->Num][stride * line];
+    int screen = CurUnit->Num; // FIXME need to be screen position
+    const int stride = 256;
+    u32* dst = &Framebuffer[BackBuffer][screen][stride * line];
 
     int n3dline = line;
     line = GPU.VCount;
@@ -317,6 +347,21 @@ void SoftRenderer::VBlankEnd(Unit* unitA, Unit* unitB)
     }
 #endif
 }
+
+
+bool SoftRenderer::GetFramebuffers(u32** top, u32** bottom)
+{
+    int frontbuf = BackBuffer ^ 1;
+    *top = Framebuffer[frontbuf][0];
+    *bottom = Framebuffer[frontbuf][1];
+    return true;
+}
+
+void SoftRenderer::SwapBuffers()
+{
+    BackBuffer ^= 1;
+}
+
 
 void SoftRenderer::DoCapture(u32 line, u32 width)
 {
@@ -2172,5 +2217,4 @@ void SoftRenderer::DrawSprite_Normal(u32 num, u32 width, u32 height, s32 xpos, s
     }
 }
 
-}
 }

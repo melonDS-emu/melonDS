@@ -62,6 +62,11 @@ public:
 
     void DoSavestate(Savestate* file) noexcept;
 
+    // return value for GetFramebuffers:
+    // true -> pointers to finished framebuffers are returned via the parameters
+    // false -> this renderer doesn't use RAM framebuffers
+    bool GetFramebuffers(u32** top, u32** bottom);
+
     /// Sets the active renderer to the renderer given in the provided pointer.
     /// The pointer is moved-from, so it will be \c nullptr after this method is called.
     /// If the pointer is \c nullptr, the renderer is reset to the default renderer.
@@ -581,8 +586,8 @@ public:
     u8* VRAMPtr_BBG[0x8] {};
     u8* VRAMPtr_BOBJ[0x8] {};
 
-    int FrontBuffer = 0;
-    std::unique_ptr<u32[]> Framebuffer[2][2] {};
+    //int FrontBuffer = 0;
+    //std::unique_ptr<u32[]> Framebuffer[2][2] {};
 
     GPU2D::Unit GPU2D_A;
     GPU2D::Unit GPU2D_B;
@@ -617,8 +622,8 @@ public:
     alignas(u64) u8 VRAMFlat_TexPal[128*1024] {};
 private:
     void ResetVRAMCache() noexcept;
-    void AssignFramebuffers() noexcept;
-    void InitFramebuffers() noexcept;
+    //void AssignFramebuffers() noexcept;
+    //void InitFramebuffers() noexcept;
     template<typename T>
     T ReadVRAM_ABGExtPal(u32 addr) const noexcept
     {

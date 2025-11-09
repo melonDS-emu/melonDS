@@ -78,7 +78,7 @@ GPU::GPU(melonDS::NDS& nds, std::unique_ptr<Renderer3D>&& renderer3d, std::uniqu
     });
     NDS.RegisterEventFuncs(Event_DisplayFIFO, this, {MakeEventThunk(GPU, DisplayFIFO)});
 
-    InitFramebuffers();
+    //InitFramebuffers();
 }
 
 GPU::~GPU() noexcept
@@ -167,7 +167,7 @@ void GPU::Reset() noexcept
     memset(VRAMPtr_BBG, 0, sizeof(VRAMPtr_BBG));
     memset(VRAMPtr_BOBJ, 0, sizeof(VRAMPtr_BOBJ));
 
-    size_t fbsize;
+    /*size_t fbsize;
     if (GPU3D.IsRendererAccelerated())
         fbsize = (256*3 + 1) * 192;
     else
@@ -182,14 +182,15 @@ void GPU::Reset() noexcept
     {
         Framebuffer[0][1][i] = 0xFFFFFFFF;
         Framebuffer[1][1][i] = 0xFFFFFFFF;
-    }
+    }*/
+    // TODO reset the buffer!!
 
     GPU2D_A.Reset();
     GPU2D_B.Reset();
     GPU3D.Reset();
 
-    int backbuf = FrontBuffer ? 0 : 1;
-    GPU2D_Renderer->SetFramebuffer(Framebuffer[backbuf][1].get(), Framebuffer[backbuf][0].get());
+    //int backbuf = FrontBuffer ? 0 : 1;
+    //GPU2D_Renderer->SetFramebuffer(Framebuffer[backbuf][1].get(), Framebuffer[backbuf][0].get());
 
     ResetVRAMCache();
 
@@ -205,10 +206,11 @@ void GPU::Stop() noexcept
     else
         fbsize = 256 * 192;
 
-    memset(Framebuffer[0][0].get(), 0, fbsize*4);
+    /*memset(Framebuffer[0][0].get(), 0, fbsize*4);
     memset(Framebuffer[0][1].get(), 0, fbsize*4);
     memset(Framebuffer[1][0].get(), 0, fbsize*4);
-    memset(Framebuffer[1][1].get(), 0, fbsize*4);
+    memset(Framebuffer[1][1].get(), 0, fbsize*4);*/
+    // TODO stop on the GPU2D!!
 
     GPU3D.Stop(*this);
 }
@@ -280,7 +282,7 @@ void GPU::DoSavestate(Savestate* file) noexcept
         ResetVRAMCache();
 }
 
-void GPU::AssignFramebuffers() noexcept
+/*void GPU::AssignFramebuffers() noexcept
 {
     int backbuf = FrontBuffer ? 0 : 1;
     if (NDS.PowerControl9 & (1<<15))
@@ -291,7 +293,7 @@ void GPU::AssignFramebuffers() noexcept
     {
         GPU2D_Renderer->SetFramebuffer(Framebuffer[backbuf][1].get(), Framebuffer[backbuf][0].get());
     }
-}
+}*/
 
 void GPU::SetRenderer3D(std::unique_ptr<Renderer3D>&& renderer) noexcept
 {
@@ -300,10 +302,10 @@ void GPU::SetRenderer3D(std::unique_ptr<Renderer3D>&& renderer) noexcept
     else
         GPU3D.SetCurrentRenderer(std::move(renderer));
 
-    InitFramebuffers();
+    //InitFramebuffers();
 }
 
-void GPU::InitFramebuffers() noexcept
+/*void GPU::InitFramebuffers() noexcept
 {
     int fbsize;
     if (GPU3D.IsRendererAccelerated())
@@ -322,6 +324,12 @@ void GPU::InitFramebuffers() noexcept
     memset(Framebuffer[1][1].get(), 0, fbsize*4);
 
     AssignFramebuffers();
+}*/
+
+
+bool GPU::GetFramebuffers(u32** top, u32** bottom)
+{
+    return GPU2D_Renderer->GetFramebuffers(top, bottom);
 }
 
 
@@ -837,7 +845,8 @@ void GPU::SetPowerCnt(u32 val) noexcept
     GPU2D_B.SetEnabled(val & (1<<9));
     GPU3D.SetEnabled(val & (1<<3), val & (1<<2));
 
-    AssignFramebuffers();
+    // TODO transmit bit15 to the renderer!!
+    //AssignFramebuffers();
 }
 
 
@@ -920,8 +929,9 @@ void GPU::StartHBlank(u32 line) noexcept
 
 void GPU::FinishFrame(u32 lines) noexcept
 {
-    FrontBuffer = FrontBuffer ? 0 : 1;
-    AssignFramebuffers();
+    //FrontBuffer = FrontBuffer ? 0 : 1;
+    //AssignFramebuffers();
+    GPU2D_Renderer->SwapBuffers();
 
     TotalScanlines = lines;
 
@@ -934,7 +944,7 @@ void GPU::FinishFrame(u32 lines) noexcept
 
 void GPU::BlankFrame() noexcept
 {
-    int backbuf = FrontBuffer ? 0 : 1;
+    /*int backbuf = FrontBuffer ? 0 : 1;
     int fbsize;
     if (GPU3D.IsRendererAccelerated())
         fbsize = (256*3 + 1) * 192;
@@ -945,7 +955,8 @@ void GPU::BlankFrame() noexcept
     memset(Framebuffer[backbuf][1].get(), 0, fbsize*4);
 
     FrontBuffer = backbuf;
-    AssignFramebuffers();
+    AssignFramebuffers();*/
+    // TODO do it on the renderer!!
 
     TotalScanlines = 263;
 }

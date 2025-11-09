@@ -225,19 +225,20 @@ void GLCompositor::SetScaleFactor(int scale) noexcept
 
 void GLCompositor::Stop(const GPU& gpu) noexcept
 {
-    for (int i = 0; i < 2; i++)
+    /*for (int i = 0; i < 2; i++)
     {
         glBindFramebuffer(GL_READ_FRAMEBUFFER, 0);
         glBindFramebuffer(GL_DRAW_FRAMEBUFFER, CompScreenOutputFB[gpu.FrontBuffer]);
 
         glClear(GL_COLOR_BUFFER_BIT);
-    }
+    }*/
 
     glBindFramebuffer(GL_FRAMEBUFFER, 0);
 }
 
 void GLCompositor::RenderFrame(const GPU& gpu, Renderer3D& renderer) noexcept
 {
+#if 0
     int backbuf = gpu.FrontBuffer ^ 1;
     glBindFramebuffer(GL_READ_FRAMEBUFFER, 0);
     glBindFramebuffer(GL_DRAW_FRAMEBUFFER, CompScreenOutputFB[backbuf]);
@@ -272,6 +273,7 @@ void GLCompositor::RenderFrame(const GPU& gpu, Renderer3D& renderer) noexcept
     glBindBuffer(GL_ARRAY_BUFFER, CompVertexBufferID);
     glBindVertexArray(CompVertexArrayID);
     glDrawArrays(GL_TRIANGLES, 0, 4*3);
+#endif
 }
 
 void GLCompositor::BindOutputTexture(int buf)

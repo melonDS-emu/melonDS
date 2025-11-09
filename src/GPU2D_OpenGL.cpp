@@ -20,10 +20,9 @@
 #include "GPU.h"
 #include "GPU3D.h"
 
-namespace melonDS
+namespace melonDS::GPU2D
 {
-namespace GPU2D
-{
+
 GLRenderer::GLRenderer(melonDS::GPU& gpu)
     : SoftRenderer(gpu)
 {
@@ -36,7 +35,9 @@ void GLRenderer::DrawScanline(u32 line, Unit* unit)
     // schm
     CurUnit = unit;
 
-    DrawBG_Text<true, DrawPixel_Test>(line, 0);
+    printf("ass\n");
+    SoftRenderer::DrawScanline(line, unit);
+    //DrawBG_Text<true, DrawPixel_Test>(line, 0);
 }
 
 /*void GLRenderer::VBlankEnd(Unit* unitA, Unit* unitB)
@@ -68,5 +69,4 @@ void GLRenderer::DrawPixel_Test(u32* dst, u16 color, u32 flag)
 
 
 
-}
 }

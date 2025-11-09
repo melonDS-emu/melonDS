@@ -752,6 +752,8 @@ void ScreenPanel::calcSplashLayout()
 
 ScreenPanelNative::ScreenPanelNative(QWidget* parent) : ScreenPanel(parent)
 {
+    hasBuffers = false;
+
     screen[0] = QImage(256, 192, QImage::Format_RGB32);
     screen[1] = QImage(256, 192, QImage::Format_RGB32);
 
@@ -776,6 +778,23 @@ void ScreenPanelNative::setupScreenLayout()
     }
 }
 
+void ScreenPanelNative::drawScreen()
+{
+    auto emuThread = emuInstance->getEmuThread();
+    if (!emuThread->emuIsActive())
+    {
+        hasBuffers = false;
+        return;
+    }
+
+    auto nds = emuInstance->getNDS();
+    assert(nds != nullptr);
+
+    bufferLock.lock();
+    hasBuffers = nds->GPU.GetFramebuffers(&topBuffer, &bottomBuffer);
+    bufferLock.unlock();
+}
+
 void ScreenPanelNative::paintEvent(QPaintEvent* event)
 {
     QPainter painter(this);
@@ -784,24 +803,18 @@ void ScreenPanelNative::paintEvent(QPaintEvent* event)
     painter.fillRect(event->rect(), QColor::fromRgb(0, 0, 0));
 
     auto emuThread = emuInstance->getEmuThread();
-
+    
     if (emuThread->emuIsActive())
     {
         emuInstance->renderLock.lock();
-        auto nds = emuInstance->getNDS();
 
-        assert(nds != nullptr);
-        emuThread->frontBufferLock.lock();
-        int frontbuf = emuThread->frontBuffer;
-        if (!nds->GPU.Framebuffer[frontbuf][0] || !nds->GPU.Framebuffer[frontbuf][1])
+        bufferLock.lock();
+        if (hasBuffers)
         {
-            emuThread->frontBufferLock.unlock();
-            return;
+            memcpy(screen[0].scanLine(0), topBuffer, 256 * 192 * 4);
+            memcpy(screen[1].scanLine(0), bottomBuffer, 256 * 192 * 4);
         }
-
-        memcpy(screen[0].scanLine(0), nds->GPU.Framebuffer[frontbuf][0].get(), 256 * 192 * 4);
-        memcpy(screen[1].scanLine(0), nds->GPU.Framebuffer[frontbuf][1].get(), 256 * 192 * 4);
-        emuThread->frontBufferLock.unlock();
+        bufferLock.unlock();
 
         QRect screenrc(0, 0, 256, 192);
 
@@ -1096,7 +1109,7 @@ void ScreenPanelGL::osdDeleteItem(OSDItem* item)
     ScreenPanel::osdDeleteItem(item);
 }
 
-void ScreenPanelGL::drawScreenGL()
+void ScreenPanelGL::drawScreen()
 {
     if (!glContext) return;
 
@@ -1125,27 +1138,20 @@ void ScreenPanelGL::drawScreenGL()
         glUseProgram(screenShaderProgram);
         glUniform2f(screenShaderScreenSizeULoc, w / factor, h / factor);
 
-        int frontbuf = emuThread->frontBuffer;
         glActiveTexture(GL_TEXTURE0);
 
-#ifdef OGLRENDERER_ENABLED
-        if (nds->GPU.GetRenderer3D().Accelerated)
+        u32* topbuf; u32* bottombuf;
+        if (nds->GPU.GetFramebuffers(&topbuf, &bottombuf))
         {
-            // hardware-accelerated render
-            nds->GPU.GetRenderer3D().BindOutputTexture(frontbuf);
-        } else
-#endif
-        {
-            // regular render
+            // if we're doing a regular render, use the provided framebuffers
+            // otherwise, GetFramebuffers() will set up the required state
+
             glBindTexture(GL_TEXTURE_2D, screenTexture);
 
-            if (nds->GPU.Framebuffer[frontbuf][0] && nds->GPU.Framebuffer[frontbuf][1])
-            {
-                glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, 256, 192, GL_RGBA,
-                                GL_UNSIGNED_BYTE, nds->GPU.Framebuffer[frontbuf][0].get());
-                glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 192 + 2, 256, 192, GL_RGBA,
-                                GL_UNSIGNED_BYTE, nds->GPU.Framebuffer[frontbuf][1].get());
-            }
+            glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, 256, 192, GL_RGBA,
+                            GL_UNSIGNED_BYTE, topbuf);
+            glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 192 + 2, 256, 192, GL_RGBA,
+                            GL_UNSIGNED_BYTE, bottombuf);
         }
 
         screenSettingsLock.lock();

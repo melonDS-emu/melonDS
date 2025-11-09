@@ -48,6 +48,8 @@
 #include "RTC.h"
 #include "DSi.h"
 #include "DSi_I2C.h"
+#include "GPU2D_Soft.h"
+#include "GPU2D_OpenGL.h"
 #include "GPU3D_Soft.h"
 #include "GPU3D_OpenGL.h"
 #include "GPU3D_Compute.h"
@@ -318,17 +320,7 @@ void EmuThread::run()
             if (emuInstance->firmwareSave)
                 emuInstance->firmwareSave->CheckFlush();
 
-            if (!useOpenGL)
-            {
-                frontBufferLock.lock();
-                frontBuffer = emuInstance->nds->GPU.FrontBuffer;
-                frontBufferLock.unlock();
-            }
-            else
-            {
-                frontBuffer = emuInstance->nds->GPU.FrontBuffer;
-                emuInstance->drawScreenGL();
-            }
+            emuInstance->drawScreen();
 
 #ifdef MELONCAP
             MelonCap::Update();
@@ -444,10 +436,7 @@ void EmuThread::run()
 
             SDL_Delay(75);
 
-            if (useOpenGL)
-            {
-                emuInstance->drawScreenGL();
-            }
+            emuInstance->drawScreen();
         }
 
         handleMessages();
@@ -867,15 +856,23 @@ void EmuThread::updateRenderer()
 {
     if (videoRenderer != lastVideoRenderer)
     {
+        // TODO: TAKE DECISION
+        // * on one hand, I am not a fan at all of the idea of having the frontend provide both 2D and 3D renderers
+        //   (with the technical possibility of mismatching them)
+        // * on the other hand, we may need customization ability in some situations (ie. the Switch port)
+        auto& gpu = emuInstance->nds->GPU;
         switch (videoRenderer)
         {
             case renderer3D_Software:
+                gpu.SetRenderer2D(std::make_unique<GPU2D::SoftRenderer>(gpu));
                 emuInstance->nds->GPU.SetRenderer3D(std::make_unique<SoftRenderer>());
                 break;
             case renderer3D_OpenGL:
+                gpu.SetRenderer2D(std::make_unique<GPU2D::GLRenderer>(gpu));
                 emuInstance->nds->GPU.SetRenderer3D(GLRenderer::New());
                 break;
             case renderer3D_OpenGLCompute:
+                gpu.SetRenderer2D(std::make_unique<GPU2D::GLRenderer>(gpu));
                 emuInstance->nds->GPU.SetRenderer3D(ComputeRenderer::New());
                 break;
             default: __builtin_unreachable();
