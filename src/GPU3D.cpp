@@ -2995,11 +2995,11 @@ void GPU3D::Write32(u32 addr, u32 val) noexcept
     Log(LogLevel::Debug, "unknown GPU3D write32 %08X %08X\n", addr, val);
 }
 
-void GPU3D::Blit(const GPU& gpu) noexcept
+/*void GPU3D::Blit(const GPU& gpu) noexcept
 {
     if (CurrentRenderer)
         CurrentRenderer->Blit(gpu);
-}
+}*/
 
 Renderer3D::Renderer3D(bool Accelerated)
 : Accelerated(Accelerated)

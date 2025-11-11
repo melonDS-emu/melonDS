@@ -846,6 +846,7 @@ void GPU::SetPowerCnt(u32 val) noexcept
     GPU2D_B.SetEnabled(val & (1<<9));
     GPU3D.SetEnabled(val & (1<<3), val & (1<<2));
 
+    // TODO find a way to make the renderer not keep the state or w/e
     GPU2D_Renderer->SetScreenSwap((val >> 15) & 1);
 }
 
@@ -1050,8 +1051,9 @@ void GPU::StartScanline(u32 line) noexcept
             GPU3D.VBlank();
 
             // Need a better way to identify the openGL renderer in particular
-            if (GPU3D.IsRendererAccelerated())
-                GPU3D.Blit(*this);
+            //if (GPU3D.IsRendererAccelerated())
+                //GPU3D.Blit(*this);
+            GPU2D_Renderer->VBlank(&GPU2D_A, &GPU2D_B);
         }
     }
 

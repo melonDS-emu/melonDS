@@ -127,7 +127,7 @@ public:
     void Write8(u32 addr, u8 val) noexcept;
     void Write16(u32 addr, u16 val) noexcept;
     void Write32(u32 addr, u32 val) noexcept;
-    void Blit(const GPU& gpu) noexcept;
+    //void Blit(const GPU& gpu) noexcept;
 private:
     melonDS::NDS& NDS;
     typedef union
@@ -349,11 +349,11 @@ public:
     virtual void RenderFrame(GPU& gpu) = 0;
     virtual void RestartFrame(GPU& gpu) {};
     virtual u32* GetLine(int line) = 0;
-    virtual void Blit(const GPU& gpu) {};
+    /*virtual void Blit(const GPU& gpu) {};
 
     virtual void SetupAccelFrame() {}
     virtual void PrepareCaptureFrame() {}
-    virtual void BindOutputTexture(int buffer) {}
+    virtual void BindOutputTexture(int buffer) {}*/
 
     virtual bool NeedsShaderCompile() { return false; }
     virtual void ShaderCompileStep(int& current, int& count) {}

@@ -18,7 +18,10 @@
 
 #pragma once
 
-#include "GPU2D_Soft.h"
+#include <memory>
+#include <optional>
+#include "OpenGLSupport.h"
+#include "GPU2D.h"
 
 namespace melonDS
 {
@@ -27,20 +30,98 @@ class GPU;
 namespace GPU2D
 {
 
-class GLRenderer : public SoftRenderer
+class GLRenderer : public Renderer2D
 {
 public:
-    GLRenderer(melonDS::GPU& gpu);
-    ~GLRenderer() override {}
+    static std::unique_ptr<GLRenderer> New(melonDS::GPU& gpu) noexcept;
+    ~GLRenderer() override;
+
+    void SetScaleFactor(int scale);
+
+    void SetScreenSwap(int val) override { ScreenSwap = val; }
 
     void DrawScanline(u32 line, Unit* unit) override;
-    /*void DrawSprites(u32 line, Unit* unit) override;
-    void VBlankEnd(Unit* unitA, Unit* unitB) override;*/
+    void DrawSprites(u32 line, Unit* unit) override;
+    void VBlank(Unit* unitA, Unit* unitB) override;
+    void VBlankEnd(Unit* unitA, Unit* unitB) override;
 
-private:
-    static void DrawPixel_Test(u32* dst, u16 color, u32 flag);
+    bool GetFramebuffers(u32** top, u32** bottom) override;
+    void SwapBuffers() override;
+
+protected:
+    GLRenderer(melonDS::GPU& gpu);
+    melonDS::GPU& GPU;
+
+    int ScaleFactor;
+    int ScreenW, ScreenH;
+
+    GLuint FPShaderID = 0;
+    GLuint FPScaleULoc = 0;
+
+    GLuint FPVertexBufferID = 0;
+    GLuint FPVertexArrayID = 0;
+
+    GLuint BGOBJTex = 0;                   // prerender of BG/OBJ layers
+    //GLuint AuxInputTex = 0;                // aux input (VRAM or mainmem FIFO)
+    //
+    std::array<GLuint, 2> FPOutputTex {};  // final output
+    std::array<GLuint, 2> FPOutputFB {};
+
+    u32* BGOBJBuffer;
+    //u16* AuxInputBuffer;
+
+    //u32* Framebuffer[2][2];
+    int BackBuffer;
+    int ScreenSwap;
+
+    // REMOVEME
+    alignas(8) u32 BGOBJLine[256*3];
+    u32* _3DLine;
+
+    alignas(8) u8 WindowMask[256];
+
+    alignas(8) u32 OBJLine[2][256];
+    alignas(8) u8 OBJWindow[2][256];
+
+    u32 NumSprites[2];
+
+    u8* CurBGXMosaicTable;
+    array2d<u8, 16, 256> MosaicTable = []() constexpr
+    {
+        array2d<u8, 16, 256> table {};
+        // initialize mosaic table
+        for (int m = 0; m < 16; m++)
+        {
+            for (int x = 0; x < 256; x++)
+            {
+                int offset = x % (m+1);
+                table[m][x] = offset;
+            }
+        }
+
+        return table;
+    }();
+
+    template<u32 bgmode> void DrawScanlineBGMode(u32 line);
+    void DrawScanlineBGMode6(u32 line);
+    void DrawScanlineBGMode7(u32 line);
+    void DrawScanline_BGOBJ(u32 line);
+
+    static void DrawPixel(u32* dst, u16 color, u32 flag);
+
+    void DrawBG_3D();
+    template<bool mosaic> void DrawBG_Text(u32 line, u32 bgnum);
+    template<bool mosaic> void DrawBG_Affine(u32 line, u32 bgnum);
+    template<bool mosaic> void DrawBG_Extended(u32 line, u32 bgnum);
+    template<bool mosaic> void DrawBG_Large(u32 line);
+
+    void ApplySpriteMosaicX();
+    void InterleaveSprites(u32 prio);
+    template<bool window> void DrawSprite_Rotscale(u32 num, u32 boundwidth, u32 boundheight, u32 width, u32 height, s32 xpos, s32 ypos);
+    template<bool window> void DrawSprite_Normal(u32 num, u32 width, u32 height, s32 xpos, s32 ypos);
+
+    void DoCapture(u32 line, u32 width);
 };
 
 }
-
 }

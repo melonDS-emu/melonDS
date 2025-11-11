@@ -868,11 +868,11 @@ void EmuThread::updateRenderer()
                 emuInstance->nds->GPU.SetRenderer3D(std::make_unique<SoftRenderer>());
                 break;
             case renderer3D_OpenGL:
-                gpu.SetRenderer2D(std::make_unique<GPU2D::GLRenderer>(gpu));
+                gpu.SetRenderer2D(GPU2D::GLRenderer::New(gpu));
                 emuInstance->nds->GPU.SetRenderer3D(GLRenderer::New());
                 break;
             case renderer3D_OpenGLCompute:
-                gpu.SetRenderer2D(std::make_unique<GPU2D::GLRenderer>(gpu));
+                gpu.SetRenderer2D(GPU2D::GLRenderer::New(gpu));
                 emuInstance->nds->GPU.SetRenderer3D(ComputeRenderer::New());
                 break;
             default: __builtin_unreachable();
@@ -889,11 +889,15 @@ void EmuThread::updateRenderer()
                     emuInstance->nds->GPU);
             break;
         case renderer3D_OpenGL:
+            static_cast<GPU2D::GLRenderer&>(emuInstance->nds->GPU.GetRenderer2D()).SetScaleFactor(
+                    cfg.GetInt("3D.GL.ScaleFactor"));
             static_cast<GLRenderer&>(emuInstance->nds->GPU.GetRenderer3D()).SetRenderSettings(
                     cfg.GetBool("3D.GL.BetterPolygons"),
                     cfg.GetInt("3D.GL.ScaleFactor"));
             break;
         case renderer3D_OpenGLCompute:
+            static_cast<GPU2D::GLRenderer&>(emuInstance->nds->GPU.GetRenderer2D()).SetScaleFactor(
+                    cfg.GetInt("3D.GL.ScaleFactor"));
             static_cast<ComputeRenderer&>(emuInstance->nds->GPU.GetRenderer3D()).SetRenderSettings(
                     cfg.GetInt("3D.GL.ScaleFactor"),
                     cfg.GetBool("3D.GL.HiresCoordinates"));

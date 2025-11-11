@@ -138,6 +138,7 @@ public:
     virtual void DrawScanline(u32 line, Unit* unit) = 0;
     virtual void DrawSprites(u32 line, Unit* unit) = 0;
 
+    virtual void VBlank(Unit* unitA, Unit* unitB) = 0;
     virtual void VBlankEnd(Unit* unitA, Unit* unitB) = 0;
 
     // a 2D renderer may render to RAM buffers, or to something else (ie. OpenGL)

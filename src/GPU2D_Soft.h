@@ -30,29 +30,27 @@ namespace GPU2D
 class SoftRenderer : public Renderer2D
 {
 public:
-    SoftRenderer(melonDS::GPU& gpu) : SoftRenderer(gpu, false) {}
+    SoftRenderer(melonDS::GPU& gpu);
     ~SoftRenderer() override;
 
     void SetScreenSwap(int val) override { ScreenSwap = val; }
 
     void DrawScanline(u32 line, Unit* unit) override;
     void DrawSprites(u32 line, Unit* unit) override;
+    void VBlank(Unit* unitA, Unit* unitB) override {}
     void VBlankEnd(Unit* unitA, Unit* unitB) override;
 
     bool GetFramebuffers(u32** top, u32** bottom) override;
     void SwapBuffers() override;
 
-protected:
-    SoftRenderer(melonDS::GPU& gpu, bool accel);
-
+private:
     melonDS::GPU& GPU;
 
-    bool Accelerated;
     u32* Framebuffer[2][2];
     int BackBuffer;
     int ScreenSwap;
 
-    alignas(8) u32 BGOBJLine[256*3];
+    alignas(8) u32 BGOBJLine[256*2];
     u32* _3DLine;
 
     alignas(8) u8 WindowMask[256];
@@ -138,19 +136,15 @@ protected:
     void DrawScanlineBGMode7(u32 line);
     void DrawScanline_BGOBJ(u32 line);
 
-    static void DrawPixel_Normal(u32* dst, u16 color, u32 flag);
-    static void DrawPixel_Accel(u32* dst, u16 color, u32 flag);
-
-    typedef void (*DrawPixel)(u32* dst, u16 color, u32 flag);
+    static void DrawPixel(u32* dst, u16 color, u32 flag);
 
     void DrawBG_3D();
-    template<bool mosaic, DrawPixel drawPixel> void DrawBG_Text(u32 line, u32 bgnum);
-    template<bool mosaic, DrawPixel drawPixel> void DrawBG_Affine(u32 line, u32 bgnum);
-    template<bool mosaic, DrawPixel drawPixel> void DrawBG_Extended(u32 line, u32 bgnum);
-    template<bool mosaic, DrawPixel drawPixel> void DrawBG_Large(u32 line);
+    template<bool mosaic> void DrawBG_Text(u32 line, u32 bgnum);
+    template<bool mosaic> void DrawBG_Affine(u32 line, u32 bgnum);
+    template<bool mosaic> void DrawBG_Extended(u32 line, u32 bgnum);
+    template<bool mosaic> void DrawBG_Large(u32 line);
 
     void ApplySpriteMosaicX();
-    template<DrawPixel drawPixel>
     void InterleaveSprites(u32 prio);
     template<bool window> void DrawSprite_Rotscale(u32 num, u32 boundwidth, u32 boundheight, u32 width, u32 height, s32 xpos, s32 ypos);
     template<bool window> void DrawSprite_Normal(u32 num, u32 width, u32 height, s32 xpos, s32 ypos);

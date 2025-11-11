@@ -27,8 +27,8 @@
 namespace melonDS
 {
 
-ComputeRenderer::ComputeRenderer(GLCompositor&& compositor)
-    : Renderer3D(true), Texcache(TexcacheOpenGLLoader()), CurGLCompositor(std::move(compositor))
+ComputeRenderer::ComputeRenderer()//GLCompositor&& compositor)
+    : Renderer3D(true), Texcache(TexcacheOpenGLLoader())//, CurGLCompositor(std::move(compositor))
 {}
 
 bool ComputeRenderer::CompileShader(GLuint& shader, const std::string& source, const std::initializer_list<const char*>& defines)
@@ -176,11 +176,12 @@ void blah(GLenum source, GLenum type, GLuint id, GLenum severity, GLsizei length
 
 std::unique_ptr<ComputeRenderer> ComputeRenderer::New()
 {
-    std::optional<GLCompositor> compositor =  GLCompositor::New();
+    /*std::optional<GLCompositor> compositor =  GLCompositor::New();
     if (!compositor)
-        return nullptr;
+        return nullptr;*/
 
-    std::unique_ptr<ComputeRenderer> result = std::unique_ptr<ComputeRenderer>(new ComputeRenderer(std::move(*compositor)));
+    //std::unique_ptr<ComputeRenderer> result = std::unique_ptr<ComputeRenderer>(new ComputeRenderer(std::move(*compositor)));
+    std::unique_ptr<ComputeRenderer> result = std::unique_ptr<ComputeRenderer>(new ComputeRenderer());
 
     //glDebugMessageCallback(blah, NULL);
     //glEnable(GL_DEBUG_OUTPUT);
@@ -297,7 +298,7 @@ void ComputeRenderer::Reset(GPU& gpu)
 
 void ComputeRenderer::SetRenderSettings(int scale, bool highResolutionCoordinates)
 {
-    CurGLCompositor.SetScaleFactor(scale);
+    //CurGLCompositor.SetScaleFactor(scale);
 
     if (ScaleFactor != -1)
     {
@@ -1107,7 +1108,7 @@ u32* ComputeRenderer::GetLine(int line)
     return &FramebufferCPU[stride * line];
 }
 
-void ComputeRenderer::SetupAccelFrame()
+/*void ComputeRenderer::SetupAccelFrame()
 {
     glBindTexture(GL_TEXTURE_2D, Framebuffer);
 }
@@ -1127,11 +1128,11 @@ void ComputeRenderer::BindOutputTexture(int buffer)
 void ComputeRenderer::Blit(const GPU &gpu)
 {
     CurGLCompositor.RenderFrame(gpu, *this);
-}
+}*/
 
 void ComputeRenderer::Stop(const GPU &gpu)
 {
-    CurGLCompositor.Stop(gpu);
+    //CurGLCompositor.Stop(gpu);
 }
 
 }
