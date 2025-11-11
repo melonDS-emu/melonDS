@@ -53,6 +53,10 @@ out vec4 oColor;
 void main()
 {
     ivec4 pixel = ivec4(texelFetch(ScreenTex, ivec2(fTexcoord), 0));
+pixel.rgb <<= 2;
+    pixel.rgb |= (pixel.rgb >> 6);
+oColor = vec4(vec3(pixel.bgr) / 255.0, 1.0);
+return;
 
     ivec4 mbright = ivec4(texelFetch(ScreenTex, ivec2(256*3, int(fTexcoord.y)), 0));
     int dispmode = mbright.b & 0x3;

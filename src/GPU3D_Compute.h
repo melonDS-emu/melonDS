@@ -26,7 +26,6 @@
 #include "GPU3D.h"
 
 #include "OpenGLSupport.h"
-#include "GPU_OpenGL.h"
 
 #include "GPU3D_TexcacheOpenGL.h"
 

@@ -50,6 +50,8 @@ std::unique_ptr<GLRenderer> GLRenderer::New(melonDS::GPU& gpu) noexcept
 GLRenderer::GLRenderer(melonDS::GPU& gpu)
         : Renderer2D(), GPU(gpu)
 {
+    BackBuffer = 0;
+
     BGOBJBuffer = new u32[256 * 3 * 192 * 2];
     //AuxInputBuffer = new u16[256 * 192];
 
@@ -182,7 +184,7 @@ void GLRenderer::DrawScanline(u32 line, Unit* unit)
 
     int screen = CurUnit->ScreenPos;
     int yoffset = (screen * 192) + line;
-    u32* dst = &BGOBJBuffer[256 * yoffset];
+    u32* dst = &BGOBJBuffer[256 * 3 * yoffset];
 
     int n3dline = line;
     line = GPU.VCount;
@@ -221,6 +223,7 @@ void GLRenderer::DrawScanline(u32 line, Unit* unit)
 
     if (forceblank)
     {
+        // TODO signal blank differently.
         for (int i = 0; i < 256; i++)
             dst[i] = 0xFFFFFFFF;
 
@@ -231,6 +234,7 @@ void GLRenderer::DrawScanline(u32 line, Unit* unit)
     dispmode &= (CurUnit->Num ? 0x1 : 0x3);
 
     // always render regular graphics
+    BGOBJLine = &BGOBJBuffer[256 * 3 * yoffset];
     DrawScanline_BGOBJ(line);
     CurUnit->UpdateMosaicCounters(line);
 
@@ -238,6 +242,8 @@ void GLRenderer::DrawScanline(u32 line, Unit* unit)
     {
         // add window mask for color effects
         // TODO
+
+        //dst[i] = 0xFF3F003F | (line << 8);
     }
 
     // TODO: if needed, capture VRAM/mainmem FIFO
@@ -246,7 +252,36 @@ void GLRenderer::DrawScanline(u32 line, Unit* unit)
 
 void GLRenderer::VBlank(Unit* unitA, Unit* unitB)
 {
-    // TODO: do GL rendering here
+    int backbuf = BackBuffer;
+    glBindFramebuffer(GL_READ_FRAMEBUFFER, 0);
+    glBindFramebuffer(GL_DRAW_FRAMEBUFFER, FPOutputFB[backbuf]);
+
+    glDisable(GL_DEPTH_TEST);
+    glDisable(GL_STENCIL_TEST);
+    glDisable(GL_BLEND);
+    glColorMaski(0, GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
+
+    glViewport(0, 0, ScreenW, ScreenH);
+
+    glClear(GL_COLOR_BUFFER_BIT);
+
+    // TODO: select more shaders (filtering, etc)
+    glUseProgram(FPShaderID);
+    glUniform1ui(FPScaleULoc, ScaleFactor);
+
+    glActiveTexture(GL_TEXTURE0);
+    glBindTexture(GL_TEXTURE_2D, BGOBJTex);
+
+    glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, 256 * 3, 192 * 2, GL_RGBA_INTEGER,
+                    GL_UNSIGNED_BYTE, BGOBJBuffer);
+
+    glActiveTexture(GL_TEXTURE1);
+    //renderer.SetupAccelFrame();
+    // TODO configure shit for 3D renderer
+
+    glBindBuffer(GL_ARRAY_BUFFER, FPVertexBufferID);
+    glBindVertexArray(FPVertexArrayID);
+    glDrawArrays(GL_TRIANGLES, 0, 4*3);
 }
 
 void GLRenderer::VBlankEnd(Unit* unitA, Unit* unitB)
@@ -266,9 +301,7 @@ void GLRenderer::VBlankEnd(Unit* unitA, Unit* unitB)
 bool GLRenderer::GetFramebuffers(u32** top, u32** bottom)
 {
     int frontbuf = BackBuffer ^ 1;
-
-    // TODO map output texture here (BindOutputTexture())
-    
+    glBindTexture(GL_TEXTURE_2D, FPOutputTex[frontbuf]);
     return false;
 }
 

@@ -88,9 +88,8 @@ endif()
 
 if (ENABLE_OGLRENDERER)
     target_sources(core PRIVATE
-        GPU_OpenGL.cpp
-        GPU_OpenGL_shaders.h
         GPU2D_OpenGL.cpp
+        GPU2D_OpenGL_shaders.h
         GPU3D_OpenGL.cpp
         GPU3D_Compute.cpp
         GPU3D_TexcacheOpenGL.cpp

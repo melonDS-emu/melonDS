@@ -20,7 +20,6 @@
 
 #ifdef OGLRENDERER_ENABLED
 #include "GPU3D.h"
-#include "GPU_OpenGL.h"
 #include "OpenGLSupport.h"
 
 namespace melonDS

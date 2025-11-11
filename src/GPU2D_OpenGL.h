@@ -71,8 +71,9 @@ protected:
     //u32* Framebuffer[2][2];
     int BackBuffer;
 
+    u32* BGOBJLine;
     // REMOVEME
-    alignas(8) u32 BGOBJLine[256*3];
+    //alignas(8) u32 BGOBJLine[256*3];
     u32* _3DLine;
 
     alignas(8) u8 WindowMask[256];
