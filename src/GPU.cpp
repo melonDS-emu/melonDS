@@ -191,7 +191,6 @@ void GPU::Reset() noexcept
 
     //int backbuf = FrontBuffer ? 0 : 1;
     //GPU2D_Renderer->SetFramebuffer(Framebuffer[backbuf][1].get(), Framebuffer[backbuf][0].get());
-    GPU2D_Renderer->SetScreenSwap((NDS.PowerControl9 >> 15) & 1);
 
     ResetVRAMCache();
 
@@ -842,12 +841,9 @@ void GPU::SetPowerCnt(u32 val) noexcept
 
     if (!(val & (1<<0))) Log(LogLevel::Warn, "!!! CLEARING POWCNT BIT0. DANGER\n");
 
-    GPU2D_A.SetEnabled(val & (1<<1));
-    GPU2D_B.SetEnabled(val & (1<<9));
+    GPU2D_A.SetEnabled(val & (1<<1), val & (1<<15));
+    GPU2D_B.SetEnabled(val & (1<<9), val & (1<<15));
     GPU3D.SetEnabled(val & (1<<3), val & (1<<2));
-
-    // TODO find a way to make the renderer not keep the state or w/e
-    GPU2D_Renderer->SetScreenSwap((val >> 15) & 1);
 }
 
 

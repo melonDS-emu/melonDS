@@ -43,7 +43,12 @@ public:
 
     void DoSavestate(Savestate* file);
 
-    void SetEnabled(bool enable) { Enabled = enable; }
+    void SetEnabled(bool enable, bool swap)
+    {
+        Enabled = enable;
+        if (swap) ScreenPos = Num;
+        else      ScreenPos = Num ^ 1;
+    }
 
     u8 Read8(u32 addr);
     u16 Read16(u32 addr);
@@ -80,6 +85,7 @@ public:
 
     u32 Num;
     bool Enabled;
+    u32 ScreenPos;
 
     u16 DispFIFO[16];
     u32 DispFIFOReadPtr;
@@ -130,10 +136,6 @@ class Renderer2D
 {
 public:
     virtual ~Renderer2D() {}
-
-    // 0 = A on bottom, B on top
-    // 1 = A on top, B on bottom
-    virtual void SetScreenSwap(int val) = 0;
 
     virtual void DrawScanline(u32 line, Unit* unit) = 0;
     virtual void DrawSprites(u32 line, Unit* unit) = 0;

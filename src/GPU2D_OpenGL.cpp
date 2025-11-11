@@ -50,8 +50,6 @@ std::unique_ptr<GLRenderer> GLRenderer::New(melonDS::GPU& gpu) noexcept
 GLRenderer::GLRenderer(melonDS::GPU& gpu)
         : Renderer2D(), GPU(gpu)
 {
-    ScreenSwap = 0;
-
     BGOBJBuffer = new u32[256 * 3 * 192 * 2];
     //AuxInputBuffer = new u16[256 * 192];
 
@@ -182,7 +180,7 @@ void GLRenderer::DrawScanline(u32 line, Unit* unit)
 {
     CurUnit = unit;
 
-    int screen = !(CurUnit->Num ^ ScreenSwap);
+    int screen = CurUnit->ScreenPos;
     int yoffset = (screen * 192) + line;
     u32* dst = &BGOBJBuffer[256 * yoffset];
 

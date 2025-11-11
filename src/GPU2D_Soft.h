@@ -33,8 +33,6 @@ public:
     SoftRenderer(melonDS::GPU& gpu);
     ~SoftRenderer() override;
 
-    void SetScreenSwap(int val) override { ScreenSwap = val; }
-
     void DrawScanline(u32 line, Unit* unit) override;
     void DrawSprites(u32 line, Unit* unit) override;
     void VBlank(Unit* unitA, Unit* unitB) override {}
@@ -48,7 +46,6 @@ private:
 
     u32* Framebuffer[2][2];
     int BackBuffer;
-    int ScreenSwap;
 
     alignas(8) u32 BGOBJLine[256*2];
     u32* _3DLine;

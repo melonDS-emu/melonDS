@@ -34,8 +34,6 @@ SoftRenderer::SoftRenderer(melonDS::GPU& gpu)
     Framebuffer[1][0] = new u32[len];
     Framebuffer[1][1] = new u32[len];
     BackBuffer = 0;
-
-    ScreenSwap = 0;
 }
 
 SoftRenderer::~SoftRenderer()
@@ -122,7 +120,7 @@ void SoftRenderer::DrawScanline(u32 line, Unit* unit)
 {
     CurUnit = unit;
 
-    int screen = !(CurUnit->Num ^ ScreenSwap);
+    int screen = CurUnit->ScreenPos;
     u32* dst = &Framebuffer[BackBuffer][screen][256 * line];
 
     int n3dline = line;

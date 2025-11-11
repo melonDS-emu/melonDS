@@ -38,8 +38,6 @@ public:
 
     void SetScaleFactor(int scale);
 
-    void SetScreenSwap(int val) override { ScreenSwap = val; }
-
     void DrawScanline(u32 line, Unit* unit) override;
     void DrawSprites(u32 line, Unit* unit) override;
     void VBlank(Unit* unitA, Unit* unitB) override;
@@ -72,7 +70,6 @@ protected:
 
     //u32* Framebuffer[2][2];
     int BackBuffer;
-    int ScreenSwap;
 
     // REMOVEME
     alignas(8) u32 BGOBJLine[256*3];

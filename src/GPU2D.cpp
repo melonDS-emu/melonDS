@@ -94,6 +94,8 @@ Unit::Unit(u32 num, melonDS::GPU& gpu) : Num(num), GPU(gpu)
 void Unit::Reset()
 {
     Enabled = false;
+    ScreenPos = Num ^ 1;
+
     DispCnt = 0;
     memset(BGCnt, 0, 4*2);
     memset(BGXPos, 0, 4*2);
