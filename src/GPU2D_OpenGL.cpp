@@ -44,6 +44,8 @@ std::unique_ptr<GLRenderer> GLRenderer::New(melonDS::GPU& gpu) noexcept
 
     auto ret = std::unique_ptr<GLRenderer>(new GLRenderer(gpu));
     ret->FPShaderID = shaderid;
+    if (!ret->GLInit())
+        return nullptr;
     return ret;
 }
 
@@ -52,16 +54,28 @@ GLRenderer::GLRenderer(melonDS::GPU& gpu)
 {
     BackBuffer = 0;
 
+    LineAttribBuffer = new u32[3 * 192 * 2];
     BGOBJBuffer = new u32[256 * 3 * 192 * 2];
     //AuxInputBuffer = new u16[256 * 192];
+}
+
+bool GLRenderer::GLInit()
+{
+    glUseProgram(FPShaderID);
 
     FPScaleULoc = glGetUniformLocation(FPShaderID, "u3DScale");
 
-    glUseProgram(FPShaderID);
-    GLuint screenTextureUniform = glGetUniformLocation(FPShaderID, "ScreenTex");
-    glUniform1i(screenTextureUniform, 0);
-    GLuint _3dTextureUniform = glGetUniformLocation(FPShaderID, "_3DTex");
-    glUniform1i(_3dTextureUniform, 1);
+    // TEXTURE UNIT ASSIGNMENT
+    // 0 = output from 3D renderer
+    // 1 = per-scanline attributes
+    // 2 = BG/OBJ layers
+    GLuint uniloc;
+    uniloc = glGetUniformLocation(FPShaderID, "_3DTex");
+    glUniform1i(uniloc, 0);
+    uniloc = glGetUniformLocation(FPShaderID, "LineAttribTex");
+    glUniform1i(uniloc, 1);
+    uniloc = glGetUniformLocation(FPShaderID, "BGOBJTex");
+    glUniform1i(uniloc, 2);
 
     // all this mess is to prevent bleeding
     float vertices[12][4];
@@ -103,8 +117,16 @@ GLRenderer::GLRenderer(melonDS::GPU& gpu)
 
     glGenFramebuffers(FPOutputFB.size(), &FPOutputFB[0]);
 
+    glGenTextures(1, &LineAttribTex);
+    glActiveTexture(GL_TEXTURE1);
+    glBindTexture(GL_TEXTURE_1D, LineAttribTex);
+    glTexParameteri(GL_TEXTURE_1D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+    glTexParameteri(GL_TEXTURE_1D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+    glTexParameteri(GL_TEXTURE_1D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+    glTexImage1D(GL_TEXTURE_1D, 0, GL_RGB32UI, 192*2, 0, GL_RGB_INTEGER, GL_UNSIGNED_INT, nullptr);
+
     glGenTextures(1, &BGOBJTex);
-    glActiveTexture(GL_TEXTURE0);
+    glActiveTexture(GL_TEXTURE2);
     glBindTexture(GL_TEXTURE_2D, BGOBJTex);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
@@ -132,11 +154,14 @@ GLRenderer::GLRenderer(melonDS::GPU& gpu)
     }
 
     glBindFramebuffer(GL_FRAMEBUFFER, 0);
+
+    return true;
 }
 
 GLRenderer::~GLRenderer()
 {
     glDeleteFramebuffers(FPOutputFB.size(), &FPOutputFB[0]);
+    glDeleteTextures(1, &LineAttribTex);
     glDeleteTextures(1, &BGOBJTex);
     glDeleteTextures(FPOutputTex.size(), &FPOutputTex[0]);
 
@@ -145,8 +170,9 @@ GLRenderer::~GLRenderer()
 
     glDeleteProgram(FPShaderID);
 
-    //delete[] AuxInputBuffer;
+    delete[] LineAttribBuffer;
     delete[] BGOBJBuffer;
+    //
 }
 
 
@@ -184,6 +210,8 @@ void GLRenderer::DrawScanline(u32 line, Unit* unit)
 
     int screen = CurUnit->ScreenPos;
     int yoffset = (screen * 192) + line;
+
+    u32* attrib = &LineAttribBuffer[3 * yoffset];
     u32* dst = &BGOBJBuffer[256 * 3 * yoffset];
 
     int n3dline = line;
@@ -230,21 +258,37 @@ void GLRenderer::DrawScanline(u32 line, Unit* unit)
         return;
     }
 
-    u32 dispmode = CurUnit->DispCnt >> 16;
-    dispmode &= (CurUnit->Num ? 0x1 : 0x3);
+    attrib[0] = CurUnit->DispCnt;
+
+    u32 bldcnt = CurUnit->BlendCnt;
+    switch ((bldcnt >> 6) & 0x3)
+    {
+        case 1: bldcnt |= (CurUnit->EVA << 16) | (CurUnit->EVB << 24); break;
+        case 2:
+        case 3: bldcnt |= (CurUnit->EVY << 16); break;
+    }
+    attrib[1] = bldcnt;
+
+    u32 attr2 = CurUnit->MasterBrightness;
+    if (!CurUnit->Num)
+        attr2 |= (GPU.GPU3D.GetRenderXPos() << 16);
+    attrib[2] = attr2;
+
+    //u32 dispmode = CurUnit->DispCnt >> 16;
+    //dispmode &= (CurUnit->Num ? 0x1 : 0x3);
 
     // always render regular graphics
     BGOBJLine = &BGOBJBuffer[256 * 3 * yoffset];
     DrawScanline_BGOBJ(line);
     CurUnit->UpdateMosaicCounters(line);
 
-    for (int i = 0; i < 256; i++)
+    /*for (int i = 0; i < 256; i++)
     {
         // add window mask for color effects
         // TODO
 
         //dst[i] = 0xFF3F003F | (line << 8);
-    }
+    }*/
 
     // TODO: if needed, capture VRAM/mainmem FIFO
     // also do it for display capture if source B is used
@@ -269,13 +313,17 @@ void GLRenderer::VBlank(Unit* unitA, Unit* unitB)
     glUseProgram(FPShaderID);
     glUniform1ui(FPScaleULoc, ScaleFactor);
 
-    glActiveTexture(GL_TEXTURE0);
-    glBindTexture(GL_TEXTURE_2D, BGOBJTex);
+    glActiveTexture(GL_TEXTURE1);
+    glBindTexture(GL_TEXTURE_1D, LineAttribTex);
+    glTexSubImage1D(GL_TEXTURE_1D, 0, 0, 192 * 2, GL_RGB_INTEGER,
+                    GL_UNSIGNED_INT, LineAttribBuffer);
 
+    glActiveTexture(GL_TEXTURE2);
+    glBindTexture(GL_TEXTURE_2D, BGOBJTex);
     glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, 256 * 3, 192 * 2, GL_RGBA_INTEGER,
                     GL_UNSIGNED_BYTE, BGOBJBuffer);
 
-    glActiveTexture(GL_TEXTURE1);
+    glActiveTexture(GL_TEXTURE0);
     //renderer.SetupAccelFrame();
     // TODO configure shit for 3D renderer
 
@@ -474,11 +522,7 @@ void GLRenderer::DrawScanline_BGOBJ(u32 line)
     else     backdrop = *(u16*)&GPU.Palette[0];
 
     {
-        u8 r = (backdrop & 0x001F) << 1;
-        u8 g = (backdrop & 0x03E0) >> 4;
-        u8 b = (backdrop & 0x7C00) >> 9;
-
-        backdrop = r | (g << 8) | (b << 16) | 0x20000000;
+        backdrop |= 0x05000000;
         backdrop |= (backdrop << 32);
 
         for (int i = 0; i < 256; i+=2)
@@ -505,10 +549,11 @@ void GLRenderer::DrawScanline_BGOBJ(u32 line)
         case 7: DrawScanlineBGMode7(line); break;
     }
 
-    // color special effects
-    // can likely be optimized
-
-    // TODO actually do color effects
+    for (int i = 0; i < 256; i++)
+    {
+        if (WindowMask[i] & 0x20)
+            BGOBJLine[i] |= (1<<30);
+    }
 
     if (CurUnit->BGMosaicY >= CurUnit->BGMosaicYMax)
     {
@@ -531,44 +576,31 @@ void GLRenderer::DrawScanline_BGOBJ(u32 line)
 
 void GLRenderer::DrawPixel(u32* dst, u16 color, u32 flag)
 {
-    u8 r = (color & 0x001F) << 1;
+    /*u8 r = (color & 0x001F) << 1;
     u8 g = (color & 0x03E0) >> 4;
     u8 b = (color & 0x7C00) >> 9;
 
     *(dst+512) = *(dst+256);
     *(dst+256) = *dst;
-    *dst = r | (g << 8) | (b << 16) | flag;
+    *dst = r | (g << 8) | (b << 16) | flag;*/
+    u32 val = color | flag;
+    // TODO add in windowmask
+
+    *(dst+512) = *(dst+256);
+    *(dst+256) = *dst;
+    *dst = val;
 }
 
 void GLRenderer::DrawBG_3D()
 {
-    int i = 0;
-
-    /*if (GPU.GPU3D.IsRendererAccelerated())
+    for (int i = 0; i < 256; i++)
     {
-        for (i = 0; i < 256; i++)
-        {
-            if (!(WindowMask[i] & 0x01)) continue;
+        if (!(WindowMask[i] & 0x01)) continue;
 
-            BGOBJLine[i+512] = BGOBJLine[i+256];
-            BGOBJLine[i+256] = BGOBJLine[i];
-            BGOBJLine[i] = 0x40000000; // 3D-layer placeholder
-        }
+        BGOBJLine[i+512] = BGOBJLine[i+256];
+        BGOBJLine[i+256] = BGOBJLine[i];
+        BGOBJLine[i] = 0x80000000; // 3D-layer placeholder
     }
-    else
-    {
-        for (i = 0; i < 256; i++)
-        {
-            u32 c = _3DLine[i];
-
-            if ((c >> 24) == 0) continue;
-            if (!(WindowMask[i] & 0x01)) continue;
-
-            BGOBJLine[i+256] = BGOBJLine[i];
-            BGOBJLine[i] = c | 0x40000000;
-        }
-    }*/
-    // TODO placeholder for 3D
 }
 
 template<bool mosaic>
@@ -677,7 +709,7 @@ void GLRenderer::DrawBG_Text(u32 line, u32 bgnum)
                 color = bgvram[(pixelsaddr + tilexoff) & bgvrammask];
 
                 if (color)
-                    DrawPixel(&BGOBJLine[i], curpal[color], 0x01000000<<bgnum);
+                    DrawPixel(&BGOBJLine[i], curpal[color], bgnum<<24);
             }
 
             xoff++;
@@ -730,7 +762,7 @@ void GLRenderer::DrawBG_Text(u32 line, u32 bgnum)
                 }
 
                 if (color)
-                    DrawPixel(&BGOBJLine[i], curpal[color], 0x01000000<<bgnum);
+                    DrawPixel(&BGOBJLine[i], curpal[color], bgnum<<24);
             }
 
             xoff++;
@@ -827,7 +859,7 @@ void GLRenderer::DrawBG_Affine(u32 line, u32 bgnum)
                 color = bgvram[(tilesetaddr + (curtile << 6) + (tileyoff << 3) + tilexoff) & bgvrammask];
 
                 if (color)
-                    DrawPixel(&BGOBJLine[i], pal[color], 0x01000000<<bgnum);
+                    DrawPixel(&BGOBJLine[i], pal[color], bgnum<<24);
             }
         }
 
@@ -926,7 +958,7 @@ void GLRenderer::DrawBG_Extended(u32 line, u32 bgnum)
                         color = *(u16*)&bgvram[(tilemapaddr + (((((finalY & ymask) >> 8) << yshift) + ((finalX & xmask) >> 8)) << 1)) & bgvrammask];
 
                         if (color & 0x8000)
-                            DrawPixel(&BGOBJLine[i], color, 0x01000000<<bgnum);
+                            DrawPixel(&BGOBJLine[i], color, bgnum<<24);
                     }
                 }
 
@@ -965,7 +997,7 @@ void GLRenderer::DrawBG_Extended(u32 line, u32 bgnum)
                         color = bgvram[(tilemapaddr + (((finalY & ymask) >> 8) << yshift) + ((finalX & xmask) >> 8)) & bgvrammask];
 
                         if (color)
-                            DrawPixel(&BGOBJLine[i], pal[color], 0x01000000<<bgnum);
+                            DrawPixel(&BGOBJLine[i], pal[color], bgnum<<24);
                     }
                 }
 
@@ -1047,7 +1079,7 @@ void GLRenderer::DrawBG_Extended(u32 line, u32 bgnum)
                     color = bgvram[(tilesetaddr + ((curtile & 0x03FF) << 6) + (tileyoff << 3) + tilexoff) & bgvrammask];
 
                     if (color)
-                        DrawPixel(&BGOBJLine[i], curpal[color], 0x01000000<<bgnum);
+                        DrawPixel(&BGOBJLine[i], curpal[color], bgnum<<24);
                 }
             }
 
@@ -1142,7 +1174,7 @@ void GLRenderer::DrawBG_Large(u32 line) // BG is always BG2
                 color = bgvram[((((finalY & ymask) >> 8) << yshift) + ((finalX & xmask) >> 8)) & bgvrammask];
 
                 if (color)
-                    DrawPixel(&BGOBJLine[i], pal[color], 0x01000000<<2);
+                    DrawPixel(&BGOBJLine[i], pal[color], 2<<24);
             }
         }
 
@@ -1209,7 +1241,7 @@ void GLRenderer::InterleaveSprites(u32 prio)
             else
                 color = extpal[pixel & 0xFFF];
 
-            DrawPixel(&BGOBJLine[i], color, pixel & 0xFF000000);
+            DrawPixel(&BGOBJLine[i], color, pixel & 0xFFF00000);
         }
     }
     else
@@ -1229,7 +1261,7 @@ void GLRenderer::InterleaveSprites(u32 prio)
             else
                 color = pal[pixel & 0xFF];
 
-            DrawPixel(&BGOBJLine[i], color, pixel & 0xFF000000);
+            DrawPixel(&BGOBJLine[i], color, pixel & 0xFFF00000);
         }
     }
 }
@@ -1336,8 +1368,6 @@ void GLRenderer::DrawSprites(u32 line, Unit* unit)
                 if (xpos <= -boundwidth)
                     continue;
 
-                u32 rotparamgroup = (attrib[1] >> 9) & 0x1F;
-
                 DoDrawSprite(Rotscale, sprnum, boundwidth, boundheight, width, height, xpos, ypos);
 
                 NumSprites[CurUnit->Num]++;
@@ -1425,11 +1455,12 @@ void GLRenderer::DrawSprite_Rotscale(u32 num, u32 boundwidth, u32 boundheight, u
 
     if (spritemode == 3)
     {
+        // bitmap sprite
+
         u32 alpha = attrib[2] >> 12;
         if (!alpha) return;
-        alpha++;
 
-        pixelattr |= (0xC0000000 | (alpha << 24));
+        pixelattr |= (0x14000000 | (alpha << 20));
 
         u32 pixelsaddr;
         if (CurUnit->DispCnt & 0x40)
@@ -1498,8 +1529,8 @@ void GLRenderer::DrawSprite_Rotscale(u32 num, u32 boundwidth, u32 boundheight, u
             ytilefactor = 0x20;
         }
 
-        if (spritemode == 1) pixelattr |= 0x80000000;
-        else                 pixelattr |= 0x10000000;
+        if (spritemode == 1) pixelattr |= 0x0C000000;
+        else                 pixelattr |= 0x04000000;
 
         ytilefactor <<= 5;
         pixelsaddr <<= 5;
@@ -1633,7 +1664,7 @@ void GLRenderer::DrawSprite_Normal(u32 num, u32 width, u32 height, s32 xpos, s32
         if (!alpha) return;
         alpha++;
 
-        pixelattr |= (0xC0000000 | (alpha << 24));
+        pixelattr |= (0x14000000 | (alpha << 20));
 
         u32 pixelsaddr = tilenum;
         if (CurUnit->DispCnt & 0x40)
@@ -1713,8 +1744,8 @@ void GLRenderer::DrawSprite_Normal(u32 num, u32 width, u32 height, s32 xpos, s32
             pixelsaddr += ((ypos >> 3) * 0x20);
         }
 
-        if (spritemode == 1) pixelattr |= 0x80000000;
-        else                 pixelattr |= 0x10000000;
+        if (spritemode == 1) pixelattr |= 0x0C000000;
+        else                 pixelattr |= 0x04000000;
 
         if (attrib[0] & 0x2000)
         {

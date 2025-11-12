@@ -46,8 +46,9 @@ public:
     bool GetFramebuffers(u32** top, u32** bottom) override;
     void SwapBuffers() override;
 
-protected:
+private:
     GLRenderer(melonDS::GPU& gpu);
+    bool GLInit();
     melonDS::GPU& GPU;
 
     int ScaleFactor;
@@ -59,12 +60,14 @@ protected:
     GLuint FPVertexBufferID = 0;
     GLuint FPVertexArrayID = 0;
 
-    GLuint BGOBJTex = 0;                   // prerender of BG/OBJ layers
+    GLuint LineAttribTex = 0;               // per-scanline attribute texture
+    GLuint BGOBJTex = 0;                    // prerender of BG/OBJ layers
     //GLuint AuxInputTex = 0;                // aux input (VRAM or mainmem FIFO)
     //
     std::array<GLuint, 2> FPOutputTex {};  // final output
     std::array<GLuint, 2> FPOutputFB {};
 
+    u32* LineAttribBuffer;
     u32* BGOBJBuffer;
     //u16* AuxInputBuffer;
 
