@@ -181,6 +181,25 @@ void main()
         col_out = ivec3(0, 63, 63);
     }
 
+    if (dispmode != 0)
+    {
+        // master brightness
+        int brightmode = (attrib.b >> 14) & 0x3;
+        int evy = attrib.b & 0x1F;
+        if (evy > 16) evy = 16;
+
+        if (brightmode == 1)
+        {
+            // up
+            col_out += (((0x3F - col_out) * evy) >> 4);
+        }
+        else if (brightmode == 2)
+        {
+            // down
+            col_out -= (((col_out * evy) + 0xF) >> 4);
+        }
+    }
+
     oColor = vec4(vec3(col_out.bgr) / 63.0, 1.0);
     return;
 /*
