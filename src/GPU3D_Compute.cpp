@@ -360,7 +360,8 @@ void ComputeRenderer::SetRenderSettings(int scale, bool highResolutionCoordinate
 
 void ComputeRenderer::VCount144(GPU& gpu)
 {
-
+    glActiveTexture(GL_TEXTURE0);
+    glBindTexture(GL_TEXTURE_2D, Framebuffer);
 }
 
 void ComputeRenderer::SetupAttrs(SpanSetupY* span, Polygon* poly, int from, int to)

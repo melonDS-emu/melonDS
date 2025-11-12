@@ -23,9 +23,9 @@ namespace melonDS::GPU2D
 const char* kFinalPassVS = R"(#version 140
 
 in vec2 vPosition;
-in vec2 vTexcoord;
+in vec3 vTexcoord;
 
-smooth out vec2 fTexcoord;
+smooth out vec3 fTexcoord;
 
 void main()
 {
@@ -43,22 +43,23 @@ const char* kFinalPassFS = R"(#version 140
 
 uniform uint u3DScale;
 
+uniform sampler2D _3DTex;
 uniform usampler1D LineAttribTex;
 uniform usampler2D BGOBJTex;
-uniform sampler2D _3DTex;
 
-smooth in vec2 fTexcoord;
+smooth in vec3 fTexcoord;
 
 out vec4 oColor;
 
-ivec4 ResolveColor(ivec4 col)
+ivec4 ResolveColor(ivec4 col, ivec4 col_3d)
 {
     ivec4 ret;
     if ((col.a & 0x80) == 0x80)
     {
         // hi-res placeholder
         // TODO
-        ret = ivec4(0, 0, 0, 0);
+        ret = col_3d;
+        return ret;
     }
     else
     {
@@ -77,22 +78,33 @@ ivec4 ResolveColor(ivec4 col)
 void main()
 {
     ivec4 attrib = ivec4(texelFetch(LineAttribTex, int(fTexcoord.y), 0));
-    vec4 _3dval = vec4(0,0,0,0); // TODO!! (also only fetch it for unit A)
+
+    // FFD2 -> 1D2 -> -46
+    // FFFF -> 1FF -> -1
+    int bg0hofs = (attrib.b >> 16) & 0x1FF;
+    if ((bg0hofs & 0x100) != 0) bg0hofs -= 512;
+    vec2 pos_3d = fTexcoord.xz + vec2(float(bg0hofs), 0);
+
+    ivec4 col_3d;
+    if ((attrib.b & (1<<31)) != 0)
+        col_3d = ivec4(texelFetch(_3DTex, ivec2(pos_3d * u3DScale), 0).bgra * vec4(63,63,63,31));
+    else
+        col_3d = ivec4(0);
 
     ivec4 bgobj;
     {
         ivec4 val1 = ivec4(texelFetch(BGOBJTex, ivec2(fTexcoord), 0));
-        ivec4 val2 = ivec4(texelFetch(BGOBJTex, ivec2(fTexcoord) + ivec2(256,0), 0));
-        ivec4 val3 = ivec4(texelFetch(BGOBJTex, ivec2(fTexcoord) + ivec2(512,0), 0));
+        ivec4 val2 = ivec4(texelFetch(BGOBJTex, ivec2(fTexcoord) + ivec2(256, 0), 0));
+        ivec4 val3 = ivec4(texelFetch(BGOBJTex, ivec2(fTexcoord) + ivec2(512, 0), 0));
 
         int flags1 = val1.a;
         int flags2 = val2.a;
         int flags3 = val3.a;
         bool colwin = (flags1 & 0x40) == 0x40;
 
-        val1 = ResolveColor(val1);
-        val2 = ResolveColor(val2);
-        val3 = ResolveColor(val3);
+        val1 = ResolveColor(val1, col_3d);
+        val2 = ResolveColor(val2, col_3d);
+        val3 = ResolveColor(val3, col_3d);
 
         // select the two topmost pixels
 
@@ -113,6 +125,7 @@ void main()
         int coleffect = (attrib.g >> 6) & 0x3;
         int eva = (attrib.g >> 16) & 0xFF;
         int evb = (attrib.g >> 24) & 0xFF;
+        int evy = (attrib.b >> 8) & 0xFF;
 
         if (((flags1 & 0x9F) == 0x80) && sel2)
         {
@@ -132,6 +145,12 @@ void main()
             bgobj = ((val1 * eva) + (val2 * evb) + 0x8) >> 4;
             //bgobj = min(bgobj, 0x3F);
         }
+        else if (((flags1 & 0x1F) == 0x0C) && sel2)
+        {
+            // mode1 sprite blending
+            bgobj = ((val1 * eva) + (val2 * evb) + 0x8) >> 4;
+            bgobj = min(bgobj, 0x3F);
+        }
         else if ((coleffect == 1) && sel1 && sel2 && colwin)
         {
             // regular blending
@@ -141,12 +160,12 @@ void main()
         else if ((coleffect == 2) && sel1 && colwin)
         {
             // brightness up
-            bgobj = val1 + ((((0x3F - val1) * eva) + 0x8) >> 4);
+            bgobj = val1 + ((((0x3F - val1) * evy) + 0x8) >> 4);
         }
         else if ((coleffect == 3) && sel1 && colwin)
         {
             // brightness down
-            bgobj = val1 - (((val1 * eva) + 0x7) >> 4);
+            bgobj = val1 - (((val1 * evy) + 0x7) >> 4);
         }
         else
         {
@@ -184,7 +203,7 @@ void main()
     if (dispmode != 0)
     {
         // master brightness
-        int brightmode = (attrib.b >> 14) & 0x3;
+        int brightmode = (attrib.b >> 6) & 0x3;
         int evy = attrib.b & 0x1F;
         if (evy > 16) evy = 16;
 
@@ -203,7 +222,6 @@ void main()
     oColor = vec4(vec3(col_out.bgr) / 63.0, 1.0);
     return;
 }
-
 )";
 
 }

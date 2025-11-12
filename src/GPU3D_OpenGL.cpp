@@ -1287,6 +1287,12 @@ void GLRenderer::RenderFrame(GPU& gpu)
     }
 }
 
+void GLRenderer::VCount144(GPU& gpu)
+{
+    glActiveTexture(GL_TEXTURE0);
+    glBindTexture(GL_TEXTURE_2D, ColorBufferTex);
+}
+
 void GLRenderer::Stop(const GPU& gpu)
 {
     //CurGLCompositor.Stop(gpu);

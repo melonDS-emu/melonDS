@@ -39,7 +39,7 @@ public:
     [[nodiscard]] bool GetBetterPolygons() const noexcept { return BetterPolygons; }
     [[nodiscard]] int GetScaleFactor() const noexcept { return ScaleFactor; }
 
-    void VCount144(GPU& gpu) override {};
+    void VCount144(GPU& gpu) override;
     void RenderFrame(GPU& gpu) override;
     void Stop(const GPU& gpu) override;
     u32* GetLine(int line) override;

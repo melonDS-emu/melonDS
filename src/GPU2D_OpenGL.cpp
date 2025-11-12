@@ -78,29 +78,30 @@ bool GLRenderer::GLInit()
     glUniform1i(uniloc, 2);
 
     // all this mess is to prevent bleeding
-    float vertices[12][4];
-#define SETVERTEX(i, x, y, offset) \
+    float vertices[12][5];
+#define SETVERTEX(i, x, y, offset, t) \
     vertices[i][0] = x; \
     vertices[i][1] = y + offset; \
     vertices[i][2] = (x + 1.f) * (256.f / 2.f); \
-    vertices[i][3] = (y + 1.f) * (384.f / 2.f)
+    vertices[i][3] = (y + 1.f) * (384.f / 2.f); \
+    vertices[i][4] = 192-t;
 
     const float padOffset = 1.f/(192*2.f+2.f)*2.f;
     // top screen
-    SETVERTEX(0, -1, 1, 0);
-    SETVERTEX(1, 1, 0, padOffset);
-    SETVERTEX(2, 1, 1, 0);
-    SETVERTEX(3, -1, 1, 0);
-    SETVERTEX(4, -1, 0, padOffset);
-    SETVERTEX(5, 1, 0, padOffset);
+    SETVERTEX(0, -1, 1, 0, 0);
+    SETVERTEX(1, 1, 0, padOffset, 192);
+    SETVERTEX(2, 1, 1, 0, 0);
+    SETVERTEX(3, -1, 1, 0, 0);
+    SETVERTEX(4, -1, 0, padOffset, 192);
+    SETVERTEX(5, 1, 0, padOffset, 192);
 
     // bottom screen
-    SETVERTEX(6, -1, 0, -padOffset);
-    SETVERTEX(7, 1, -1, 0);
-    SETVERTEX(8, 1, 0, -padOffset);
-    SETVERTEX(9, -1, 0, -padOffset);
-    SETVERTEX(10, -1, -1, 0);
-    SETVERTEX(11, 1, -1, 0);
+    SETVERTEX(6, -1, 0, -padOffset, 0);
+    SETVERTEX(7, 1, -1, 0, 192);
+    SETVERTEX(8, 1, 0, -padOffset, 0);
+    SETVERTEX(9, -1, 0, -padOffset, 0);
+    SETVERTEX(10, -1, -1, 0, 192);
+    SETVERTEX(11, 1, -1, 0, 192);
 
 #undef SETVERTEX
 
@@ -111,9 +112,9 @@ bool GLRenderer::GLInit()
     glGenVertexArrays(1, &FPVertexArrayID);
     glBindVertexArray(FPVertexArrayID);
     glEnableVertexAttribArray(0); // position
-    glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, 4 * sizeof(float), (void*)0);
+    glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, 5 * sizeof(float), (void*)0);
     glEnableVertexAttribArray(1); // texcoord
-    glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 4 * sizeof(float), (void*)(2 * sizeof(float)));
+    glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, 5 * sizeof(float), (void*)(2 * sizeof(float)));
 
     glGenFramebuffers(FPOutputFB.size(), &FPOutputFB[0]);
 
@@ -259,19 +260,12 @@ void GLRenderer::DrawScanline(u32 line, Unit* unit)
     }
 
     attrib[0] = CurUnit->DispCnt;
+    attrib[1] = CurUnit->BlendCnt | (CurUnit->EVA << 16) | (CurUnit->EVB << 24);
 
-    u32 bldcnt = CurUnit->BlendCnt;
-    switch ((bldcnt >> 6) & 0x3)
-    {
-        case 1: bldcnt |= (CurUnit->EVA << 16) | (CurUnit->EVB << 24); break;
-        case 2:
-        case 3: bldcnt |= (CurUnit->EVY << 16); break;
-    }
-    attrib[1] = bldcnt;
-
-    u32 attr2 = CurUnit->MasterBrightness;
+    u32 attr2 = (CurUnit->MasterBrightness & 0x1F) | ((CurUnit->MasterBrightness & 0xC000) >> 8) |
+            (CurUnit->EVY << 8);
     if (!CurUnit->Num)
-        attr2 |= (GPU.GPU3D.GetRenderXPos() << 16);
+        attr2 |= (GPU.GPU3D.GetRenderXPos() << 16) | (1<<31);
     attrib[2] = attr2;
 
     //u32 dispmode = CurUnit->DispCnt >> 16;
@@ -323,7 +317,7 @@ void GLRenderer::VBlank(Unit* unitA, Unit* unitB)
     glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, 256 * 3, 192 * 2, GL_RGBA_INTEGER,
                     GL_UNSIGNED_BYTE, BGOBJBuffer);
 
-    glActiveTexture(GL_TEXTURE0);
+    //glActiveTexture(GL_TEXTURE0);
     //renderer.SetupAccelFrame();
     // TODO configure shit for 3D renderer
 
