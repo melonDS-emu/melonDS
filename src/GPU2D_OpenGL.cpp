@@ -247,6 +247,7 @@ void GLRenderer::DrawScanline(u32 line, Unit* unit)
     // oddly that's not the case for GPU A
     if (CurUnit->Num && !CurUnit->Enabled) forceblank = true;
 
+    // TODO move this logic to GPU!! (or atleast outside of the renderer)
     if (line == 0 && CurUnit->CaptureCnt & (1 << 31) && !forceblank)
         CurUnit->CaptureLatch = true;
 
@@ -263,7 +264,7 @@ void GLRenderer::DrawScanline(u32 line, Unit* unit)
     attrib[1] = CurUnit->BlendCnt | (CurUnit->EVA << 16) | (CurUnit->EVB << 24);
 
     u32 attr2 = (CurUnit->MasterBrightness & 0x1F) | ((CurUnit->MasterBrightness & 0xC000) >> 8) |
-            (CurUnit->EVY << 8);
+                (CurUnit->EVY << 8);
     if (!CurUnit->Num)
         attr2 |= (GPU.GPU3D.GetRenderXPos() << 16) | (1<<31);
     attrib[2] = attr2;
@@ -337,6 +338,12 @@ void GLRenderer::VBlankEnd(Unit* unitA, Unit* unitB)
         }
     }
 #endif*/
+}
+
+
+void GLRenderer::SyncVRAMCapture(u32 bank, u32 start, u32 len, bool complete)
+{
+    printf("SYNC VRAM CAPTURE: %d %d %d %d\n", bank, start, len, complete);
 }
 
 

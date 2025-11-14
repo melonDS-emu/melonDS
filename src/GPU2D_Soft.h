@@ -38,6 +38,8 @@ public:
     void VBlank(Unit* unitA, Unit* unitB) override {}
     void VBlankEnd(Unit* unitA, Unit* unitB) override;
 
+    void SyncVRAMCapture(u32 bank, u32 start, u32 len, bool complete) override {}
+
     bool GetFramebuffers(u32** top, u32** bottom) override;
     void SwapBuffers() override;
 

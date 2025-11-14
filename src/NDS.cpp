@@ -1960,11 +1960,11 @@ u8 NDS::ARM9Read8(u32 addr)
     case 0x06000000:
         switch (addr & 0x00E00000)
         {
-        case 0x00000000: return GPU.ReadVRAM_ABG<u8>(addr);
-        case 0x00200000: return GPU.ReadVRAM_BBG<u8>(addr);
-        case 0x00400000: return GPU.ReadVRAM_AOBJ<u8>(addr);
-        case 0x00600000: return GPU.ReadVRAM_BOBJ<u8>(addr);
-        default:         return GPU.ReadVRAM_LCDC<u8>(addr);
+        case 0x00000000: GPU.SyncVRAM_ABG(addr, false); return GPU.ReadVRAM_ABG<u8>(addr);
+        case 0x00200000: GPU.SyncVRAM_BBG(addr, false); return GPU.ReadVRAM_BBG<u8>(addr);
+        case 0x00400000: GPU.SyncVRAM_AOBJ(addr, false); return GPU.ReadVRAM_AOBJ<u8>(addr);
+        case 0x00600000: GPU.SyncVRAM_BOBJ(addr, false); return GPU.ReadVRAM_BOBJ<u8>(addr);
+        default:         GPU.SyncVRAM_LCDC(addr, false); return GPU.ReadVRAM_LCDC<u8>(addr);
         }
 
     case 0x07000000:
@@ -2020,11 +2020,11 @@ u16 NDS::ARM9Read16(u32 addr)
     case 0x06000000:
         switch (addr & 0x00E00000)
         {
-        case 0x00000000: return GPU.ReadVRAM_ABG<u16>(addr);
-        case 0x00200000: return GPU.ReadVRAM_BBG<u16>(addr);
-        case 0x00400000: return GPU.ReadVRAM_AOBJ<u16>(addr);
-        case 0x00600000: return GPU.ReadVRAM_BOBJ<u16>(addr);
-        default:         return GPU.ReadVRAM_LCDC<u16>(addr);
+        case 0x00000000: GPU.SyncVRAM_ABG(addr, false); return GPU.ReadVRAM_ABG<u16>(addr);
+        case 0x00200000: GPU.SyncVRAM_BBG(addr, false); return GPU.ReadVRAM_BBG<u16>(addr);
+        case 0x00400000: GPU.SyncVRAM_AOBJ(addr, false); return GPU.ReadVRAM_AOBJ<u16>(addr);
+        case 0x00600000: GPU.SyncVRAM_BOBJ(addr, false); return GPU.ReadVRAM_BOBJ<u16>(addr);
+        default:         GPU.SyncVRAM_LCDC(addr, false); return GPU.ReadVRAM_LCDC<u16>(addr);
         }
 
     case 0x07000000:
@@ -2080,11 +2080,11 @@ u32 NDS::ARM9Read32(u32 addr)
     case 0x06000000:
         switch (addr & 0x00E00000)
         {
-        case 0x00000000: return GPU.ReadVRAM_ABG<u32>(addr);
-        case 0x00200000: return GPU.ReadVRAM_BBG<u32>(addr);
-        case 0x00400000: return GPU.ReadVRAM_AOBJ<u32>(addr);
-        case 0x00600000: return GPU.ReadVRAM_BOBJ<u32>(addr);
-        default:         return GPU.ReadVRAM_LCDC<u32>(addr);
+        case 0x00000000: GPU.SyncVRAM_ABG(addr, false); return GPU.ReadVRAM_ABG<u32>(addr);
+        case 0x00200000: GPU.SyncVRAM_BBG(addr, false); return GPU.ReadVRAM_BBG<u32>(addr);
+        case 0x00400000: GPU.SyncVRAM_AOBJ(addr, false); return GPU.ReadVRAM_AOBJ<u32>(addr);
+        case 0x00600000: GPU.SyncVRAM_BOBJ(addr, false); return GPU.ReadVRAM_BOBJ<u32>(addr);
+        default:         GPU.SyncVRAM_LCDC(addr, false); return GPU.ReadVRAM_LCDC<u32>(addr);
         }
 
     case 0x07000000:
@@ -2180,11 +2180,11 @@ void NDS::ARM9Write16(u32 addr, u16 val)
         JIT.CheckAndInvalidate<0, ARMJIT_Memory::memregion_VRAM>(addr);
         switch (addr & 0x00E00000)
         {
-        case 0x00000000: GPU.WriteVRAM_ABG<u16>(addr, val); return;
-        case 0x00200000: GPU.WriteVRAM_BBG<u16>(addr, val); return;
-        case 0x00400000: GPU.WriteVRAM_AOBJ<u16>(addr, val); return;
-        case 0x00600000: GPU.WriteVRAM_BOBJ<u16>(addr, val); return;
-        default: GPU.WriteVRAM_LCDC<u16>(addr, val); return;
+        case 0x00000000: GPU.SyncVRAM_ABG(addr, true); GPU.WriteVRAM_ABG<u16>(addr, val); return;
+        case 0x00200000: GPU.SyncVRAM_BBG(addr, true); GPU.WriteVRAM_BBG<u16>(addr, val); return;
+        case 0x00400000: GPU.SyncVRAM_AOBJ(addr, true); GPU.WriteVRAM_AOBJ<u16>(addr, val); return;
+        case 0x00600000: GPU.SyncVRAM_BOBJ(addr, true); GPU.WriteVRAM_BOBJ<u16>(addr, val); return;
+        default: GPU.SyncVRAM_LCDC(addr, true); GPU.WriteVRAM_LCDC<u16>(addr, val); return;
         }
 
     case 0x07000000:
@@ -2240,11 +2240,11 @@ void NDS::ARM9Write32(u32 addr, u32 val)
         JIT.CheckAndInvalidate<0, ARMJIT_Memory::memregion_VRAM>(addr);
         switch (addr & 0x00E00000)
         {
-        case 0x00000000: GPU.WriteVRAM_ABG<u32>(addr, val); return;
-        case 0x00200000: GPU.WriteVRAM_BBG<u32>(addr, val); return;
-        case 0x00400000: GPU.WriteVRAM_AOBJ<u32>(addr, val); return;
-        case 0x00600000: GPU.WriteVRAM_BOBJ<u32>(addr, val); return;
-        default: GPU.WriteVRAM_LCDC<u32>(addr, val); return;
+        case 0x00000000: GPU.SyncVRAM_ABG(addr, true); GPU.WriteVRAM_ABG<u32>(addr, val); return;
+        case 0x00200000: GPU.SyncVRAM_BBG(addr, true); GPU.WriteVRAM_BBG<u32>(addr, val); return;
+        case 0x00400000: GPU.SyncVRAM_AOBJ(addr, true); GPU.WriteVRAM_AOBJ<u32>(addr, val); return;
+        case 0x00600000: GPU.SyncVRAM_BOBJ(addr, true); GPU.WriteVRAM_BOBJ<u32>(addr, val); return;
+        default: GPU.SyncVRAM_LCDC(addr, true); GPU.WriteVRAM_LCDC<u32>(addr, val); return;
         }
 
     case 0x07000000:

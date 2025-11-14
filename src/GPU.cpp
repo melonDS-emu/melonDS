@@ -41,6 +41,15 @@ enum
     LCD_FinishFrame,
 };
 
+// flags for VRAM blocks that can serve for display captures
+// each block is 32K, thus each of banks A/B/C/D contains 4 blocks
+enum
+{
+    CBFlag_IsCapture    = (1<<0), // the contents of this block are a display capture
+    CBFlag_Complete     = (1<<1), // this block contains a complete capture (not in progress)
+    CBFlag_Synced       = (1<<2), // this block has been synced back to emulated VRAM
+};
+
 
 /*
     VRAM invalidation tracking
@@ -166,6 +175,8 @@ void GPU::Reset() noexcept
     memset(VRAMPtr_AOBJ, 0, sizeof(VRAMPtr_AOBJ));
     memset(VRAMPtr_BBG, 0, sizeof(VRAMPtr_BBG));
     memset(VRAMPtr_BOBJ, 0, sizeof(VRAMPtr_BOBJ));
+
+    // TODO RESET CAPUTRE FLAGS!!!
 
     /*size_t fbsize;
     if (GPU3D.IsRendererAccelerated())
@@ -879,6 +890,8 @@ void GPU::StartFrame() noexcept
 
     TotalScanlines = 0;
     StartScanline(0);
+
+    CheckCaptureStart();
 }
 
 void GPU::StartHBlank(u32 line) noexcept
@@ -1026,7 +1039,7 @@ void GPU::StartScanline(u32 line) noexcept
             // and games might already start to modify texture memory.
             // That doesn't matter for us because we cache the entire
             // texture memory anyway and only update it before the start
-            //of the next frame.
+            // of the next frame.
             // So we can give the rasteriser a bit more headroom
             GPU3D.VCount144(*this);
 
@@ -1041,6 +1054,8 @@ void GPU::StartScanline(u32 line) noexcept
 
             if (DispStat[0] & (1<<3)) NDS.SetIRQ(0, IRQ_VBlank);
             if (DispStat[1] & (1<<3)) NDS.SetIRQ(1, IRQ_VBlank);
+
+            CheckCaptureEnd();
 
             GPU2D_A.VBlank();
             GPU2D_B.VBlank();
@@ -1195,4 +1210,99 @@ bool GPU::MakeVRAMFlat_BOBJExtPalCoherent(NonStupidBitField<8*1024/VRAMDirtyGran
 {
     return CopyLinearVRAM<8*1024>(VRAMFlat_BOBJExtPal, &VRAMMap_BOBJExtPal, dirty, &GPU::ReadVRAM_BOBJExtPal<u64>);
 }
+
+
+void GPU::VRAMCBFlagsSet(u32 bank, u32 block, u8 val)
+{
+    u8* cbflags = &VRAMCaptureBlockFlags[bank << 2];
+    u8 flags = cbflags[block];
+    u32 start = (flags >> 4) & 0x3;
+    u32 len = (flags >> 6) & 0x3;
+
+    u32 b = start;
+    for (u32 i = 0; i < len; i++)
+    {
+        cbflags[b] = val;
+        b = (b + 1) & 0x3;
+    }
+}
+
+void GPU::VRAMCBFlagsOr(u32 bank, u32 block, u8 val)
+{
+    u8* cbflags = &VRAMCaptureBlockFlags[bank << 2];
+    u8 flags = cbflags[block];
+    u32 start = (flags >> 4) & 0x3;
+    u32 len = (flags >> 6) & 0x3;
+
+    u32 b = start;
+    for (u32 i = 0; i < len; i++)
+    {
+        cbflags[b] |= val;
+        b = (b + 1) & 0x3;
+    }
+}
+
+void GPU::CheckCaptureStart()
+{
+    if (!(GPU2D_A.CaptureCnt & (1<<31)))
+        return;
+
+    u32 dstbank = (GPU2D_A.CaptureCnt >> 16) & 0x3;
+    if (!(VRAMMap_LCDC & (1<<dstbank)))
+        return;
+
+    u32 dstoff = (GPU2D_A.CaptureCnt >> 18) & 0x3;
+    u32 len = (GPU2D_A.CaptureCnt >> 20) & 0x3;
+    const u32 lentbl[4] = {1, 1, 2, 3};
+    len = lentbl[len];
+
+    // if needed, invalidate old capture
+    // TODO should we sync before?
+    u8 oldflags = VRAMCaptureBlockFlags[(dstbank<<2) | dstoff];
+    if (oldflags & CBFlag_IsCapture)
+        VRAMCBFlagsSet(dstbank, dstoff, 0);
+
+    // mark involved VRAM blocks as being a new capture
+    u8 newval = CBFlag_IsCapture | (dstoff << 4) | (len << 6);
+    VRAMCBFlagsSet(dstbank, dstoff, newval);
+}
+
+void GPU::CheckCaptureEnd()
+{
+    if (!(GPU2D_A.CaptureCnt & (1<<31)))
+        return;
+
+    // mark this capture as complete
+    // TODO should be done before VBlank for smaller capture sizes?
+    u32 dstbank = (GPU2D_A.CaptureCnt >> 16) & 0x3;
+    u32 dstoff = (GPU2D_A.CaptureCnt >> 18) & 0x3;
+    VRAMCBFlagsOr(dstbank, dstoff, CBFlag_Complete);
+}
+
+void GPU::SyncVRAMCaptureBlock(u32 block, bool write)
+{
+    u8 flags = VRAMCaptureBlockFlags[block];
+    if (!(flags & CBFlag_IsCapture)) return;
+    if (flags & CBFlag_Synced) return;
+
+    // sync the capture which contains this block
+    u32 bank = block >> 2;
+    u32 start = (flags >> 4) & 0x3;
+    u32 len = (flags >> 6) & 0x3;
+    GPU2D_Renderer->SyncVRAMCapture(bank, start, len, (flags & CBFlag_Complete));
+
+    u8* cbflags = &VRAMCaptureBlockFlags[bank << 2];
+    if (write)
+    {
+        // if this block was written to by the CPU, invalidate the entire capture
+        // the renderer will need to use the emulated VRAM contents
+        VRAMCBFlagsSet(bank, start, 0);
+    }
+    else
+    {
+        // if this block was simply read by the CPU, we just need to mark it as synced
+        VRAMCBFlagsOr(bank, start, CBFlag_Synced);
+    }
+}
+
 }
