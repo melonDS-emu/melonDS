@@ -451,23 +451,25 @@ int Lua_getMouse(lua_State* L)
 {
     Qt::MouseButtons btns = QGuiApplication::mouseButtons();
     LuaBundle* bundle = get_bundle(L);
+    int wheel = bundle->getEmuInstance()->getMainWindow()->panel->getMouseWheel();
     QPoint pos = bundle->getEmuInstance()->getMainWindow()->panel->mapFromGlobal(QCursor::pos(QGuiApplication::primaryScreen()));
-    const char* keys[6] = {"Left","Middle","Right","XButton1","XButton2","Wheel"};
-    bool vals[6] =
+    const char* keys[5] = {"Left","Middle","Right","XButton1","XButton2"};
+    bool vals[5] =
     {
         btns.testFlag(Qt::LeftButton),
         btns.testFlag(Qt::MiddleButton),
         btns.testFlag(Qt::RightButton),
         btns.testFlag(Qt::XButton1),
-        btns.testFlag(Qt::XButton2),
-        false //TODO: add mouse wheel support
+        btns.testFlag(Qt::XButton2)
     };
     lua_createtable(L, 0, 8);
     lua_pushinteger(L, pos.x());
     lua_setfield(L, -2, "X");
     lua_pushinteger(L, pos.y());
     lua_setfield(L, -2, "Y");
-    for (int i=0;i<6;i++)
+    lua_pushinteger(L,wheel);
+    lua_setfield(L,-2,"Wheel");
+    for (int i=0;i<5;i++)
     {
         lua_pushboolean(L,vals[i]);
         lua_setfield(L,-2,keys[i]);
@@ -538,7 +540,7 @@ int Lua_Flip(lua_State* L)
 }
 AddLuaFunction(Lua_Flip,Flip);
 
-//Text(int x, int y, string message, [u32 color = 'black'], [int fontsize = 9], [string fontfamily = Helvetica])
+//Text(int x, int y, string message, [u32 color = 'black'], [int fontsize = 9], [string fontfamily = Helvetica], [int spacing = 0])
 int Lua_text(lua_State* L) 
 {
     LuaBundle* bundle = get_bundle(L);
@@ -548,11 +550,11 @@ int Lua_text(lua_State* L)
     melonDS::u32 color = luaL_optnumber(L,4,0x00000000);
     const char* FontFamily = luaL_optlstring(L,6,"Helvetica",NULL);
     int size = luaL_optnumber(L,5,9);
+    int spacing = luaL_optnumber(L,7,0);
 
     QPainter painter(bundle->luaCanvas->imageBuffer);
     QFont font(FontFamily,size,0,false);
-    //font.setStyleStrategy(QFont::NoAntialias);
-    //font.setLetterSpacing(QFont::AbsoluteSpacing,-1);
+    font.setLetterSpacing(QFont::AbsoluteSpacing,spacing);
     painter.setFont(font);
     painter.setPen(color);
     painter.drawText(x,y,message);

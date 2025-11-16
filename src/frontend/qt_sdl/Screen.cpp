@@ -297,6 +297,11 @@ void ScreenPanel::mouseMoveEvent(QMouseEvent* event)
     }
 }
 
+void ScreenPanel::wheelEvent(QWheelEvent* event)
+{
+    mouseWheel += event->angleDelta().y();
+}
+
 void ScreenPanel::tabletEvent(QTabletEvent* event)
 {
     event->accept();
