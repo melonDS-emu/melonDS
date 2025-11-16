@@ -1328,7 +1328,7 @@ int GPU::GetCaptureBlock_LCDC(u32 offset)
     u8 flags = VRAMCaptureBlockFlags[offset >> 15];
     //return (flags & CBFlag_IsCapture);
     if (flags & CBFlag_IsCapture)
-        return offset >> 15;
+        return ((offset >> 15) & 0xC) | ((flags >> 4) & 0x3);
     return -1;
 }
 

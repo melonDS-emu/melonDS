@@ -56,7 +56,8 @@ GLRenderer::GLRenderer(melonDS::GPU& gpu)
 
     LineAttribBuffer = new u32[3 * 192 * 2];
     BGOBJBuffer = new u32[256 * 3 * 192 * 2];
-    //AuxInputBuffer = new u16[256 * 192];
+    AuxInputBuffer[0] = new u16[256 * 192];
+    AuxInputBuffer[1] = new u16[256 * 192];
 
     // TODO those need to get reset upon emu reset
     memset(CaptureBuffers, 0, sizeof(CaptureBuffers));
@@ -70,6 +71,7 @@ bool GLRenderer::GLInit()
 
     FPScaleULoc = glGetUniformLocation(FPShaderID, "u3DScale");
     FPCaptureRegULoc = glGetUniformLocation(FPShaderID, "uCaptureReg");
+    FPCaptureMaskULoc = glGetUniformLocation(FPShaderID, "uCaptureVRAMMask");
 
     for (int i = 0; i < 16; i++)
     {
@@ -89,36 +91,8 @@ bool GLRenderer::GLInit()
     glUniform1i(uniloc, 1);
     uniloc = glGetUniformLocation(FPShaderID, "BGOBJTex");
     glUniform1i(uniloc, 2);
-
-#if 0
-    // all this mess is to prevent bleeding
-    float vertices[12][5];
-#define SETVERTEX(i, x, y, offset, t) \
-    vertices[i][0] = x; \
-    vertices[i][1] = y + offset; \
-    vertices[i][2] = (x + 1.f) * (256.f / 2.f); \
-    vertices[i][3] = (y + 1.f) * (384.f / 2.f); \
-    vertices[i][4] = 192-t;
-
-    const float padOffset = 1.f/(192*2.f+2.f)*2.f;
-    // top screen
-    SETVERTEX(0, -1, 1, 0, 0);
-    SETVERTEX(1, 1, 0, padOffset, 192);
-    SETVERTEX(2, 1, 1, 0, 0);
-    SETVERTEX(3, -1, 1, 0, 0);
-    SETVERTEX(4, -1, 0, padOffset, 192);
-    SETVERTEX(5, 1, 0, padOffset, 192);
-
-    // bottom screen
-    SETVERTEX(6, -1, 0, -padOffset, 0);
-    SETVERTEX(7, 1, -1, 0, 192);
-    SETVERTEX(8, 1, 0, -padOffset, 0);
-    SETVERTEX(9, -1, 0, -padOffset, 0);
-    SETVERTEX(10, -1, -1, 0, 192);
-    SETVERTEX(11, 1, -1, 0, 192);
-
-#undef SETVERTEX
-#endif
+    uniloc = glGetUniformLocation(FPShaderID, "AuxInputTex");
+    glUniform1i(uniloc, 3);
 
     float vertices[12][4];
 #define SETVERTEX(i, x, y) \
@@ -167,22 +141,14 @@ bool GLRenderer::GLInit()
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
     glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8UI, 256*3, 192*2, 0, GL_RGBA_INTEGER, GL_UNSIGNED_BYTE, nullptr);
 
-    /*glGenTextures(1, &AuxInputTex);
-    glActiveTexture(GL_TEXTURE0);
-    glBindTexture(GL_TEXTURE_2D, AuxInputTex);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
-    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB5_A1, 256, 192, 0, GL_RGBA_INTEGER, GL_UNSIGNED_SHORT_1_5_5_5_REV, nullptr);*/
-
-    /*glGenTextures(1, &test);
-    glBindTexture(GL_TEXTURE_2D, test);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
-    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, 256, 192, 0, GL_RGBA, GL_UNSIGNED_BYTE, nullptr);*/
+    glGenTextures(1, &AuxInputTex);
+    glActiveTexture(GL_TEXTURE3);
+    glBindTexture(GL_TEXTURE_2D_ARRAY, AuxInputTex);
+    glTexParameteri(GL_TEXTURE_2D_ARRAY, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+    glTexParameteri(GL_TEXTURE_2D_ARRAY, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+    glTexParameteri(GL_TEXTURE_2D_ARRAY, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+    glTexParameteri(GL_TEXTURE_2D_ARRAY, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+    glTexImage3D(GL_TEXTURE_2D_ARRAY, 0, GL_RGB5_A1, 256, 192, 2, 0, GL_RGBA, GL_UNSIGNED_SHORT_1_5_5_5_REV, nullptr);
 
     //glGenTextures(FPOutputTex.size(), &FPOutputTex[0]);
     for (int i = 0; i < 2; i++)
@@ -223,7 +189,8 @@ GLRenderer::~GLRenderer()
 
     delete[] LineAttribBuffer;
     delete[] BGOBJBuffer;
-    //
+    delete[] AuxInputBuffer[0];
+    delete[] AuxInputBuffer[1];
 }
 
 
@@ -250,10 +217,6 @@ void GLRenderer::SetScaleFactor(int scale)
             glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, ScreenW, ScreenH, 0, GL_RGBA, GL_UNSIGNED_BYTE, nullptr);
         }
 
-        // TEST
-        //glBindTexture(GL_TEXTURE_2D, test);
-        //glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, ScreenW, ScreenH, 0, GL_RGBA, GL_UNSIGNED_BYTE, nullptr);
-
         GLenum fbassign[] = {GL_COLOR_ATTACHMENT0, GL_COLOR_ATTACHMENT1, GL_COLOR_ATTACHMENT2};
         glBindFramebuffer(GL_FRAMEBUFFER, FPOutputFB[i]);
         glFramebufferTexture(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, FPOutputTex[i][0], 0);
@@ -279,7 +242,7 @@ void GLRenderer::DrawScanline(u32 line, Unit* unit)
     u32* attrib = &LineAttribBuffer[3 * yoffset];
     u32* dst = &BGOBJBuffer[256 * 3 * yoffset];
 
-    int n3dline = line;
+    int lineout = line;
     line = GPU.VCount;
 
     if (CurUnit->Num == 0)
@@ -349,8 +312,63 @@ void GLRenderer::DrawScanline(u32 line, Unit* unit)
         //dst[i] = 0xFF3F003F | (line << 8);
     }*/
 
-    // TODO: if needed, capture VRAM/mainmem FIFO
-    // also do it for display capture if source B is used
+    if (CurUnit->Num == 0)
+    {
+        u32 dispmode = (CurUnit->DispCnt >> 16) & 0x3;
+        u32 capcnt = CurUnit->CaptureCnt;
+        u32 capsel = (capcnt >> 29) & 0x3;
+        u32 capB = (capcnt >> 25) & 0x1;
+        bool checkcap = CurUnit->CaptureLatch && (capsel != 0);
+
+        if ((dispmode == 2) || (checkcap && (capB == 0)))
+        {
+            AuxUsageMask |= (1<<0);
+
+            u32 vrambank = (CurUnit->DispCnt >> 18) & 0x3;
+            if (GPU.VRAMMap_LCDC & (1<<vrambank))
+            {
+                u32 vramoffset = line * 256;
+                if (dispmode != 2)
+                    vramoffset += ((capcnt >> 26) & 0x3) << 14;
+
+                int capblk = GPU.GetCaptureBlock_LCDC((vrambank << 17) | (vramoffset << 1));
+                if (capblk != -1)
+                {
+                    // TODO inexact!
+                    CaptureUsageMask |= (1 << capblk);
+                }
+                else
+                {
+                    u16* vram = (u16*)GPU.VRAM[vrambank];
+                    u16* adst = &AuxInputBuffer[0][lineout * 256];
+
+                    for (int i = 0; i < 256; i++)
+                    {
+                        adst[i] = vram[vramoffset & 0xFFFF];
+                        vramoffset++;
+                    }
+                }
+            }
+            else
+            {
+                for (int i = 0; i < 256; i++)
+                {
+                    dst[i] = 0;
+                }
+            }
+        }
+
+        if ((dispmode == 3) || (checkcap && (capB == 1)))
+        {
+            AuxUsageMask |= (1<<1);
+
+            u16* adst = &AuxInputBuffer[0][lineout * 256];
+            for (int i = 0; i < 256; i++)
+            {
+                adst[i] = CurUnit->DispFIFOBuffer[i];
+            }
+        }
+    }
 }
 
 void GLRenderer::VBlank(Unit* unitA, Unit* unitB)
@@ -381,6 +399,7 @@ void GLRenderer::VBlank(Unit* unitA, Unit* unitB)
     // TODO: latch the register?
     // also it has bit31 cleared by now. sucks
     glUniform1i(FPCaptureRegULoc, unitA->CaptureCnt | (unitA->CaptureLatch << 31));
+    glUniform1i(FPCaptureMaskULoc, CaptureUsageMask);
 
     // 3D renderer has bound its output texture to GL_TEXTURE0
 
@@ -394,8 +413,21 @@ void GLRenderer::VBlank(Unit* unitA, Unit* unitB)
     glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, 256 * 3, 192 * 2, GL_RGBA_INTEGER,
                     GL_UNSIGNED_BYTE, BGOBJBuffer);
 
+    if (AuxUsageMask)
+    {
+        glActiveTexture(GL_TEXTURE3);
+        glBindTexture(GL_TEXTURE_2D_ARRAY, AuxInputTex);
+
+        if (AuxUsageMask & (1<<0))
+            glTexSubImage3D(GL_TEXTURE_2D_ARRAY, 0, 0, 0, 0, 256, 192, 1, GL_RGBA,
+                            GL_UNSIGNED_SHORT_1_5_5_5_REV, AuxInputBuffer[0]);
+        if (AuxUsageMask & (1<<1))
+            glTexSubImage3D(GL_TEXTURE_2D_ARRAY, 0, 0, 0, 1, 256, 192, 1, GL_RGBA,
+                            GL_UNSIGNED_SHORT_1_5_5_5_REV, AuxInputBuffer[1]);
+    }
+
     printf("SMOOSH=%04X\n", CaptureUsageMask);
-    int tex = 3;
+    int tex = 4;
     for (int i = 0; i < 16; i++)
     {
         if (!(CaptureUsageMask & (1<<i)))
@@ -439,6 +471,7 @@ void GLRenderer::VBlankEnd(Unit* unitA, Unit* unitB)
 #endif*/
 
     CaptureUsageMask = 0;
+    AuxUsageMask = 0;
 }
 
 

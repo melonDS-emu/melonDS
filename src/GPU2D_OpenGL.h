@@ -60,6 +60,7 @@ private:
     GLuint FPShaderID = 0;
     GLint FPScaleULoc = 0;
     GLint FPCaptureRegULoc = 0;
+    GLint FPCaptureMaskULoc = 0;
     GLint FPCaptureTexLoc[16] {};
 
     GLuint FPVertexBufferID = 0;
@@ -67,7 +68,7 @@ private:
 
     GLuint LineAttribTex = 0;               // per-scanline attribute texture
     GLuint BGOBJTex = 0;                    // prerender of BG/OBJ layers
-    //GLuint AuxInputTex = 0;                // aux input (VRAM or mainmem FIFO)
+    GLuint AuxInputTex = 0;                 // aux input (VRAM and mainmem FIFO)
 
     // hi-res capture buffers
     // since the DS can read from and capture to the same VRAM bank (VRAM display + capture),
@@ -94,7 +95,7 @@ private:
 
     u32* LineAttribBuffer;
     u32* BGOBJBuffer;
-    //u16* AuxInputBuffer;
+    u16* AuxInputBuffer[2];
 
     //u32* Framebuffer[2][2];
     int BackBuffer;
@@ -103,6 +104,8 @@ private:
     // REMOVEME
     //alignas(8) u32 BGOBJLine[256*3];
     u32* _3DLine;
+
+    u8 AuxUsageMask;
 
     alignas(8) u8 WindowMask[256];
 

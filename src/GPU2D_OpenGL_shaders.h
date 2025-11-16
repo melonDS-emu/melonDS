@@ -43,11 +43,12 @@ const char* kFinalPassFS = R"(#version 140
 
 uniform uint u3DScale;
 uniform int uCaptureReg;
+uniform int uCaptureVRAMMask;
 
 uniform sampler2D _3DTex;
 uniform usampler1D LineAttribTex;
 uniform usampler2D BGOBJTex;
-//
+uniform sampler2DArray AuxInputTex;
 uniform sampler2D CaptureTex[16];
 
 smooth in vec2 fTexcoord;
@@ -295,6 +296,23 @@ void main()
     int dispmode_main = (attrib_main.r >> 16) & 0x3;
     int dispmode_sub = (attrib_sub.r >> 16) & 0x1;
 
+    // TODO not always sample those? (VRAM/FIFO)
+
+    int capblock = 0;
+    if (dispmode_main != 2)
+        capblock = ((uCaptureReg >> 26) & 0x3);
+    //capblock += int(fTexcoord.y / 64);
+    capblock = (capblock & 0x3) | (((attrib_main.r >> 18) & 0x3) << 2);
+
+    vec4 tmp_vram;
+    if ((uCaptureVRAMMask & (1 << capblock)) != 0)
+        tmp_vram = SampleCaptureTex(capblock, ivec2(fTexcoord.xy * u3DScale));
+    else
+        tmp_vram = texelFetch(AuxInputTex, ivec3(ivec2(fTexcoord.xy), 0), 0);
+
+    ivec4 col_vram = ivec4(tmp_vram * vec4(63,63,63,31));
+    ivec4 col_fifo = ivec4(texelFetch(AuxInputTex, ivec3(ivec2(fTexcoord.xy), 0), 1) * vec4(63,63,63,31));
+
     if (dispmode_main == 0)
     {
         // screen disabled (white)
@@ -308,14 +326,12 @@ void main()
     else if (dispmode_main == 2)
     {
         // VRAM display
-        //
-        output_main = ivec3(63, 63, 0);
+        output_main = col_vram.rgb;
     }
     else //if (dispmode_main == 3)
     {
         // mainmem FIFO
-        //
-        output_main = ivec3(0, 63, 63);
+        output_main = col_fifo.rgb;
     }
 
     if (dispmode_sub == 0)
@@ -368,7 +384,11 @@ void main()
             else
                 srcA = col_main;
 
-            ivec4 srcB = ivec4(0);// TODO
+            ivec4 srcB;
+            if ((uCaptureReg & (1<<25)) != 0)
+                srcB = col_fifo;
+            else
+                srcB = col_vram;
 
             ivec4 cap_out;
             int srcsel = (uCaptureReg >> 29) & 0x3;
@@ -389,7 +409,7 @@ void main()
                 cap_out.a = (eva>0 ? aa : 0) | (evb>0 ? ab : 0);
             }
 
-            oCaptureColor = vec4(vec3(cap_out.bgr) / 63.0, 1.0);
+            oCaptureColor = vec4(vec3(cap_out.bgr) / 63.0, (cap_out.a>0) ? 1.0 : 0.0);
         }
     }
 }
