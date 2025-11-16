@@ -106,11 +106,22 @@ void T_BL_LONG_2(ARM* cpu)
 {
     s32 offset = (cpu->CurInstr & 0x7FF) << 1;
     u32 pc = cpu->R[14] + offset;
-    cpu->R[14] = (cpu->R[15] - 2) | 1;
 
-    if ((cpu->Num==1) || (cpu->CurInstr & (1<<12)))
+    if ((cpu->Num==1) || (cpu->CurInstr & (1<<12))) // BL
+    {
         pc |= 1;
+    }
+    else // BLX
+    {
+        if (cpu->CurInstr & 1) // lsb of immediate is set, implying halfword offset; this raises undefined.
+            return T_UNK(cpu);
 
+        // instruction always switches to arm mode
+        // interworking bit should be cleared.
+        pc &= ~1;
+    }
+
+    cpu->R[14] = (cpu->R[15] - 2) | 1;
     cpu->JumpTo(pc);
 }
 
