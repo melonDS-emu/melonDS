@@ -1963,24 +1963,10 @@ void GLRenderer::DrawSprite_Normal(u32 num, u32 width, u32 height, s32 xpos, s32
             pixelattr &= ~0xFF000000;
             pixelattr |= 0x80000000 | (capblock << 24);
             CaptureUsageMask |= (1<<capblock);
+            pixelsaddr -= ((capblock & 0x3) << 15);
 
             for (; xoff < xend;)
             {
-                /*color = *(u16*)&objvram[pixelsaddr & objvrammask];
-
-                pixelsaddr += pixelstride;
-
-                if (color & 0x8000)
-                {
-                    if (window) objWindow[xpos] = 1;
-                    else        objLine[xpos] = color | pixelattr;
-                }
-                else if (!window)
-                {
-                    if (objLine[xpos] == 0)
-                        objLine[xpos] = pixelattr & 0x180000;
-                }*/
-
                 // FIXME
                 u32 xp = (pixelsaddr >> 1) & 0xFF;
                 u32 yp = (pixelsaddr >> 9) & 0xFF;
