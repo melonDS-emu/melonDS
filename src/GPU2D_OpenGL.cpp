@@ -39,7 +39,7 @@ std::unique_ptr<GLRenderer> GLRenderer::New(melonDS::GPU& gpu) noexcept
                                               kFinalPassVS, kFinalPassFS,
                                               "2DFinalPassShader",
                                               {{"vPosition", 0}, {"vTexcoord", 1}},
-                                              {{"oColor", 0}}))
+                                              {{"oTopColor", 0}, {"oBottomColor", 1}, {"oCaptureColor", 2}}))
         return nullptr;
 
     auto ret = std::unique_ptr<GLRenderer>(new GLRenderer(gpu));
@@ -57,6 +57,11 @@ GLRenderer::GLRenderer(melonDS::GPU& gpu)
     LineAttribBuffer = new u32[3 * 192 * 2];
     BGOBJBuffer = new u32[256 * 3 * 192 * 2];
     //AuxInputBuffer = new u16[256 * 192];
+
+    // TODO those need to get reset upon emu reset
+    memset(CaptureBuffers, 0, sizeof(CaptureBuffers));
+    memset(CaptureLastBuffer, 0, sizeof(CaptureLastBuffer));
+    ActiveCapture = -1;
 }
 
 bool GLRenderer::GLInit()
@@ -64,12 +69,20 @@ bool GLRenderer::GLInit()
     glUseProgram(FPShaderID);
 
     FPScaleULoc = glGetUniformLocation(FPShaderID, "u3DScale");
+    FPCaptureRegULoc = glGetUniformLocation(FPShaderID, "uCaptureReg");
+
+    for (int i = 0; i < 16; i++)
+    {
+        char var[32];
+        sprintf(var, "CaptureTex[%d]", i);
+        FPCaptureTexLoc[i] = glGetUniformLocation(FPShaderID, var);
+    }
 
     // TEXTURE UNIT ASSIGNMENT
     // 0 = output from 3D renderer
     // 1 = per-scanline attributes
     // 2 = BG/OBJ layers
-    GLuint uniloc;
+    GLint uniloc;
     uniloc = glGetUniformLocation(FPShaderID, "_3DTex");
     glUniform1i(uniloc, 0);
     uniloc = glGetUniformLocation(FPShaderID, "LineAttribTex");
@@ -77,6 +90,7 @@ bool GLRenderer::GLInit()
     uniloc = glGetUniformLocation(FPShaderID, "BGOBJTex");
     glUniform1i(uniloc, 2);
 
+#if 0
     // all this mess is to prevent bleeding
     float vertices[12][5];
 #define SETVERTEX(i, x, y, offset, t) \
@@ -104,6 +118,23 @@ bool GLRenderer::GLInit()
     SETVERTEX(11, 1, -1, 0, 192);
 
 #undef SETVERTEX
+#endif
+
+    float vertices[12][4];
+#define SETVERTEX(i, x, y) \
+    vertices[i][0] = x; \
+    vertices[i][1] = y; \
+    vertices[i][2] = (x + 1.f) * (256.f / 2.f); \
+    vertices[i][3] = (y + 1.f) * (192.f / 2.f); \
+
+    SETVERTEX(0, -1, 1);
+    SETVERTEX(1, 1, -1);
+    SETVERTEX(2, 1, 1);
+    SETVERTEX(3, -1, 1);
+    SETVERTEX(4, -1, -1);
+    SETVERTEX(5, 1, -1);
+
+#undef SETVERTEX
 
     glGenBuffers(1, &FPVertexBufferID);
     glBindBuffer(GL_ARRAY_BUFFER, FPVertexBufferID);
@@ -112,11 +143,12 @@ bool GLRenderer::GLInit()
     glGenVertexArrays(1, &FPVertexArrayID);
     glBindVertexArray(FPVertexArrayID);
     glEnableVertexAttribArray(0); // position
-    glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, 5 * sizeof(float), (void*)0);
+    glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, 4 * sizeof(float), (void*)0);
     glEnableVertexAttribArray(1); // texcoord
-    glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, 5 * sizeof(float), (void*)(2 * sizeof(float)));
+    glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 4 * sizeof(float), (void*)(2 * sizeof(float)));
 
-    glGenFramebuffers(FPOutputFB.size(), &FPOutputFB[0]);
+    //glGenFramebuffers(FPOutputFB.size(), &FPOutputFB[0]);
+    glGenFramebuffers(2, &FPOutputFB[0]);
 
     glGenTextures(1, &LineAttribTex);
     glActiveTexture(GL_TEXTURE1);
@@ -144,14 +176,26 @@ bool GLRenderer::GLInit()
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
     glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB5_A1, 256, 192, 0, GL_RGBA_INTEGER, GL_UNSIGNED_SHORT_1_5_5_5_REV, nullptr);*/
 
-    glGenTextures(FPOutputTex.size(), &FPOutputTex[0]);
-    for (GLuint i : FPOutputTex)
+    /*glGenTextures(1, &test);
+    glBindTexture(GL_TEXTURE_2D, test);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, 256, 192, 0, GL_RGBA, GL_UNSIGNED_BYTE, nullptr);*/
+
+    //glGenTextures(FPOutputTex.size(), &FPOutputTex[0]);
+    for (int i = 0; i < 2; i++)
     {
-        glBindTexture(GL_TEXTURE_2D, i);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+        glGenTextures(2, FPOutputTex[i]);
+        for (GLuint tex: FPOutputTex[i])
+        {
+            glBindTexture(GL_TEXTURE_2D, tex);
+            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+        }
     }
 
     glBindFramebuffer(GL_FRAMEBUFFER, 0);
@@ -161,10 +205,16 @@ bool GLRenderer::GLInit()
 
 GLRenderer::~GLRenderer()
 {
-    glDeleteFramebuffers(FPOutputFB.size(), &FPOutputFB[0]);
+    // TODO delete capture textures!!
+
+    //glDeleteFramebuffers(FPOutputFB.size(), &FPOutputFB[0]);
+    glDeleteFramebuffers(2, &FPOutputFB[0]);
     glDeleteTextures(1, &LineAttribTex);
     glDeleteTextures(1, &BGOBJTex);
-    glDeleteTextures(FPOutputTex.size(), &FPOutputTex[0]);
+    //glDeleteTextures(FPOutputTex.size(), &FPOutputTex[0]);
+    for (int i = 0; i < 2; i++)
+        glDeleteTextures(2, FPOutputTex[i]);
+    //glDeleteTextures(1, &test);
 
     glDeleteVertexArrays(1, &FPVertexArrayID);
     glDeleteBuffers(1, &FPVertexBufferID);
@@ -184,21 +234,34 @@ void GLRenderer::SetScaleFactor(int scale)
 
     ScaleFactor = scale;
     ScreenW = 256 * scale;
-    ScreenH = (384+2) * scale;
+    ScreenH = 192 * scale;
+    //ScreenH = (384+2) * scale;
 
     for (int i = 0; i < 2; i++)
     {
-        glBindTexture(GL_TEXTURE_2D, FPOutputTex[i]);
+        /*glBindTexture(GL_TEXTURE_2D, FPOutputTex[i]);
         glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, ScreenW, ScreenH, 0, GL_RGBA, GL_UNSIGNED_BYTE, NULL);
         // fill the padding
         u8* zeroPixels = (u8*) calloc(1, ScreenW*2*scale*4);
-        glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 192*scale, ScreenW, 2*scale, GL_RGBA, GL_UNSIGNED_BYTE, zeroPixels);
+        glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 192*scale, ScreenW, 2*scale, GL_RGBA, GL_UNSIGNED_BYTE, zeroPixels);*/
+        for (GLuint tex : FPOutputTex[i])
+        {
+            glBindTexture(GL_TEXTURE_2D, tex);
+            glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, ScreenW, ScreenH, 0, GL_RGBA, GL_UNSIGNED_BYTE, nullptr);
+        }
 
-        GLenum fbassign[] = {GL_COLOR_ATTACHMENT0};
+        // TEST
+        //glBindTexture(GL_TEXTURE_2D, test);
+        //glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, ScreenW, ScreenH, 0, GL_RGBA, GL_UNSIGNED_BYTE, nullptr);
+
+        GLenum fbassign[] = {GL_COLOR_ATTACHMENT0, GL_COLOR_ATTACHMENT1, GL_COLOR_ATTACHMENT2};
         glBindFramebuffer(GL_FRAMEBUFFER, FPOutputFB[i]);
-        glFramebufferTexture(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, FPOutputTex[i], 0);
-        glDrawBuffers(1, fbassign);
-        free(zeroPixels);
+        glFramebufferTexture(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, FPOutputTex[i][0], 0);
+        glFramebufferTexture(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT1, FPOutputTex[i][1], 0);
+        glFramebufferTexture(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT2, 0, 0);
+        //glFramebufferTexture(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT2, test, 0);
+        glDrawBuffers(3, fbassign);
+        //free(zeroPixels);
     }
 
     glBindFramebuffer(GL_FRAMEBUFFER, 0);
@@ -210,7 +273,8 @@ void GLRenderer::DrawScanline(u32 line, Unit* unit)
     CurUnit = unit;
 
     int screen = CurUnit->ScreenPos;
-    int yoffset = (screen * 192) + line;
+    //int yoffset = (screen * 192) + line;
+    int yoffset = (CurUnit->Num * 192) + line;
 
     u32* attrib = &LineAttribBuffer[3 * yoffset];
     u32* dst = &BGOBJBuffer[256 * 3 * yoffset];
@@ -264,9 +328,9 @@ void GLRenderer::DrawScanline(u32 line, Unit* unit)
     attrib[1] = CurUnit->BlendCnt | (CurUnit->EVA << 16) | (CurUnit->EVB << 24);
 
     u32 attr2 = (CurUnit->MasterBrightness & 0x1F) | ((CurUnit->MasterBrightness & 0xC000) >> 8) |
-                (CurUnit->EVY << 8);
+                (CurUnit->EVY << 8) | (CurUnit->ScreenPos << 31);
     if (!CurUnit->Num)
-        attr2 |= (GPU.GPU3D.GetRenderXPos() << 16) | (1<<31);
+        attr2 |= (GPU.GPU3D.GetRenderXPos() << 16);
     attrib[2] = attr2;
 
     //u32 dispmode = CurUnit->DispCnt >> 16;
@@ -295,18 +359,30 @@ void GLRenderer::VBlank(Unit* unitA, Unit* unitB)
     glBindFramebuffer(GL_READ_FRAMEBUFFER, 0);
     glBindFramebuffer(GL_DRAW_FRAMEBUFFER, FPOutputFB[backbuf]);
 
+    // TODO: unmap capture buffer when not capturing?
+
     glDisable(GL_DEPTH_TEST);
     glDisable(GL_STENCIL_TEST);
     glDisable(GL_BLEND);
     glColorMaski(0, GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
+    glColorMaski(1, GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
+    if (unitA->CaptureLatch)
+        glColorMaski(2, GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
+    else
+        glColorMaski(2, GL_FALSE, GL_FALSE, GL_FALSE, GL_FALSE);
 
     glViewport(0, 0, ScreenW, ScreenH);
 
-    glClear(GL_COLOR_BUFFER_BIT);
+    //glClear(GL_COLOR_BUFFER_BIT);
 
     // TODO: select more shaders (filtering, etc)
     glUseProgram(FPShaderID);
     glUniform1ui(FPScaleULoc, ScaleFactor);
+    // TODO: latch the register?
+    // also it has bit31 cleared by now. sucks
+    glUniform1i(FPCaptureRegULoc, unitA->CaptureCnt | (unitA->CaptureLatch << 31));
+
+    // 3D renderer has bound its output texture to GL_TEXTURE0
 
     glActiveTexture(GL_TEXTURE1);
     glBindTexture(GL_TEXTURE_1D, LineAttribTex);
@@ -318,13 +394,36 @@ void GLRenderer::VBlank(Unit* unitA, Unit* unitB)
     glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, 256 * 3, 192 * 2, GL_RGBA_INTEGER,
                     GL_UNSIGNED_BYTE, BGOBJBuffer);
 
-    //glActiveTexture(GL_TEXTURE0);
-    //renderer.SetupAccelFrame();
-    // TODO configure shit for 3D renderer
+    printf("SMOOSH=%04X\n", CaptureUsageMask);
+    int tex = 3;
+    for (int i = 0; i < 16; i++)
+    {
+        if (!(CaptureUsageMask & (1<<i)))
+            continue;
+
+        glActiveTexture(GL_TEXTURE0 + tex);
+        glUniform1i(FPCaptureTexLoc[i], tex);
+
+        int cur = CaptureLastBuffer[i];
+        auto& capbuf = CaptureBuffers[i][cur];
+        glBindTexture(GL_TEXTURE_2D, capbuf.Texture);
+        tex++;
+    }
 
     glBindBuffer(GL_ARRAY_BUFFER, FPVertexBufferID);
     glBindVertexArray(FPVertexArrayID);
-    glDrawArrays(GL_TRIANGLES, 0, 4*3);
+    glDrawArrays(GL_TRIANGLES, 0, 2*3);
+
+    if (ActiveCapture != -1)
+    {printf("we finished capturing to block %d\n", ActiveCapture);
+        int block = ActiveCapture;
+        int cur = CaptureLastBuffer[block] ^ 1;
+        auto& capbuf = CaptureBuffers[block][cur];
+
+        capbuf.Complete = true;
+        CaptureLastBuffer[block] = cur;
+        ActiveCapture = -1;
+    }
 }
 
 void GLRenderer::VBlankEnd(Unit* unitA, Unit* unitB)
@@ -338,8 +437,52 @@ void GLRenderer::VBlankEnd(Unit* unitA, Unit* unitB)
         }
     }
 #endif*/
+
+    CaptureUsageMask = 0;
 }
 
+
+void GLRenderer::AllocCapture(u32 bank, u32 start, u32 len)
+{
+    printf("GL: alloc capture in bank %d, start=%d len=%d\n", bank, start, len);
+
+    int block = (bank << 2) | start;
+    int cur = CaptureLastBuffer[block] ^ 1;
+    auto& capbuf = CaptureBuffers[block][cur];
+
+    if (!capbuf.Texture)
+    {
+        printf("allocating new capture texture\n");
+        glGenTextures(1, &capbuf.Texture);
+
+        // TODO: textures should get reallocated if scale factor is changed?
+
+        glBindTexture(GL_TEXTURE_2D, capbuf.Texture);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, ScreenW, ScreenH, 0, GL_RGBA, GL_UNSIGNED_BYTE, nullptr);
+    }
+
+    if (len == 0)
+    {
+        capbuf.Width = 128;
+        capbuf.Height = 128;
+    }
+    else
+    {
+        capbuf.Width = 256;
+        capbuf.Height = 64 * len;
+    }
+
+    capbuf.Complete = false;
+    ActiveCapture = block;
+
+    // map it to the renderer, so it will get filled in
+    glBindFramebuffer(GL_FRAMEBUFFER, FPOutputFB[BackBuffer]);
+    glFramebufferTexture(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT2, capbuf.Texture, 0);
+}
 
 void GLRenderer::SyncVRAMCapture(u32 bank, u32 start, u32 len, bool complete)
 {
@@ -350,7 +493,10 @@ void GLRenderer::SyncVRAMCapture(u32 bank, u32 start, u32 len, bool complete)
 bool GLRenderer::GetFramebuffers(u32** top, u32** bottom)
 {
     int frontbuf = BackBuffer ^ 1;
-    glBindTexture(GL_TEXTURE_2D, FPOutputTex[frontbuf]);
+    glActiveTexture(GL_TEXTURE0);
+    glBindTexture(GL_TEXTURE_2D, FPOutputTex[frontbuf][0]);
+    glActiveTexture(GL_TEXTURE1);
+    glBindTexture(GL_TEXTURE_2D, FPOutputTex[frontbuf][1]);
     return false;
 }
 
@@ -575,7 +721,7 @@ void GLRenderer::DrawScanline_BGOBJ(u32 line)
 
 
 
-void GLRenderer::DrawPixel(u32* dst, u16 color, u32 flag)
+void GLRenderer::DrawPixel(u32* dst, u32 color, u32 flag)
 {
     /*u8 r = (color & 0x001F) << 1;
     u8 g = (color & 0x03E0) >> 4;
@@ -935,36 +1081,84 @@ void GLRenderer::DrawBG_Extended(u32 line, u32 bgnum)
         {
             // direct color bitmap
 
-            u16 color;
-
-            for (int i = 0; i < 256; i++)
+            int capblock = CurUnit->GetCaptureBlock_BG(tilemapaddr);
+            if (capblock != -1)
             {
-                if (WindowMask[i] & (1<<bgnum))
+                // this layer is a hi-res capture
+                // fill it in with placeholder values
+                u32 flags = 0x80000000 | (bgnum << 24) | (capblock << 16);
+                CaptureUsageMask |= (1<<capblock);
+
+                for (int i = 0; i < 256; i++)
                 {
-                    s32 finalX, finalY;
-                    if (mosaic)
+                    if (WindowMask[i] & (1<<bgnum))
                     {
-                        int im = CurBGXMosaicTable[i];
-                        finalX = rotX - (im * rotA);
-                        finalY = rotY - (im * rotC);
-                    }
-                    else
-                    {
-                        finalX = rotX;
-                        finalY = rotY;
+                        s32 finalX, finalY;
+                        if (mosaic)
+                        {
+                            int im = CurBGXMosaicTable[i];
+                            finalX = rotX - (im * rotA);
+                            finalY = rotY - (im * rotC);
+                        }
+                        else
+                        {
+                            finalX = rotX;
+                            finalY = rotY;
+                        }
+
+                        if (!(finalX & ofxmask) && !(finalY & ofymask))
+                        {
+                            //color = *(u16*)&bgvram[(tilemapaddr + (((((finalY & ymask) >> 8) << yshift) + ((finalX & xmask) >> 8)) << 1)) & bgvrammask];
+
+                            // FIXME!! those are inaccurate
+                            // need to be adjusted based on the capture size
+                            u32 xp = (finalX & xmask) >> 8;
+                            u32 yp = (finalY & ymask) >> 8;
+                            /*u32 offset = (((finalY & ymask) >> 8) << yshift) + ((finalX & xmask) >> 8);
+                            u32 xp = offset & 0xFF;
+                            u32 yp = (offset >> 8) & 0xFF;*/
+
+                            DrawPixel(&BGOBJLine[i], xp | (yp << 8), flags);
+                        }
                     }
 
-                    if (!(finalX & ofxmask) && !(finalY & ofymask))
-                    {
-                        color = *(u16*)&bgvram[(tilemapaddr + (((((finalY & ymask) >> 8) << yshift) + ((finalX & xmask) >> 8)) << 1)) & bgvrammask];
-
-                        if (color & 0x8000)
-                            DrawPixel(&BGOBJLine[i], color, bgnum<<24);
-                    }
+                    rotX += rotA;
+                    rotY += rotC;
                 }
+            }
+            else
+            {
+                u16 color;
 
-                rotX += rotA;
-                rotY += rotC;
+                for (int i = 0; i < 256; i++)
+                {
+                    if (WindowMask[i] & (1<<bgnum))
+                    {
+                        s32 finalX, finalY;
+                        if (mosaic)
+                        {
+                            int im = CurBGXMosaicTable[i];
+                            finalX = rotX - (im * rotA);
+                            finalY = rotY - (im * rotC);
+                        }
+                        else
+                        {
+                            finalX = rotX;
+                            finalY = rotY;
+                        }
+
+                        if (!(finalX & ofxmask) && !(finalY & ofymask))
+                        {
+                            color = *(u16*)&bgvram[(tilemapaddr + (((((finalY & ymask) >> 8) << yshift) + ((finalX & xmask) >> 8)) << 1)) & bgvrammask];
+
+                            if (color & 0x8000)
+                                DrawPixel(&BGOBJLine[i], color, bgnum<<24);
+                        }
+                    }
+
+                    rotX += rotA;
+                    rotY += rotC;
+                }
             }
         }
         else
@@ -1235,14 +1429,24 @@ void GLRenderer::InterleaveSprites(u32 prio)
             u16 color;
             u32 pixel = objLine[i];
 
-            if (pixel & 0x8000)
-                color = pixel & 0x7FFF;
-            else if (pixel & 0x1000)
-                color = pal[pixel & 0xFF];
+            if (pixel & 0x80000000)
+            {
+                color = pixel & 0xFFFF;
+                pixel = 0x94000000 | ((pixel & 0x0F000000) >> 8) | (pixel & 0x00F00000);
+            }
             else
-                color = extpal[pixel & 0xFFF];
+            {
+                if (pixel & 0x8000)
+                    color = pixel & 0x7FFF;
+                else if (pixel & 0x1000)
+                    color = pal[pixel & 0xFF];
+                else
+                    color = extpal[pixel & 0xFFF];
 
-            DrawPixel(&BGOBJLine[i], color, pixel & 0xFFF00000);
+                pixel &= ~0xF0000;
+            }
+
+            DrawPixel(&BGOBJLine[i], color, pixel & 0xFFFF0000);
         }
     }
     else
@@ -1257,12 +1461,22 @@ void GLRenderer::InterleaveSprites(u32 prio)
             u16 color;
             u32 pixel = objLine[i];
 
-            if (pixel & 0x8000)
-                color = pixel & 0x7FFF;
+            if (pixel & 0x80000000)
+            {
+                color = pixel & 0xFFFF;
+                pixel = 0x94000000 | ((pixel & 0x0F000000) >> 8) | (pixel & 0x00F00000);
+            }
             else
-                color = pal[pixel & 0xFF];
+            {
+                if (pixel & 0x8000)
+                    color = pixel & 0x7FFF;
+                else
+                    color = pal[pixel & 0xFF];
 
-            DrawPixel(&BGOBJLine[i], color, pixel & 0xFFF00000);
+                pixel &= ~0xF0000;
+            }
+
+            DrawPixel(&BGOBJLine[i], color, pixel & 0xFFFF0000);
         }
     }
 }
@@ -1663,7 +1877,6 @@ void GLRenderer::DrawSprite_Normal(u32 num, u32 width, u32 height, s32 xpos, s32
 
         u32 alpha = attrib[2] >> 12;
         if (!alpha) return;
-        alpha++;
 
         pixelattr |= (0x14000000 | (alpha << 20));
 
@@ -1711,25 +1924,62 @@ void GLRenderer::DrawSprite_Normal(u32 num, u32 width, u32 height, s32 xpos, s32
             pixelstride = 2;
         }
 
-        for (; xoff < xend;)
+        int capblock = CurUnit->GetCaptureBlock_OBJ(pixelsaddr);
+        if (capblock != -1)
         {
-            color = *(u16*)&objvram[pixelsaddr & objvrammask];
+            pixelattr &= ~0xFF000000;
+            pixelattr |= 0x80000000 | (capblock << 24);
+            CaptureUsageMask |= (1<<capblock);
 
-            pixelsaddr += pixelstride;
-
-            if (color & 0x8000)
+            for (; xoff < xend;)
             {
-                if (window) objWindow[xpos] = 1;
-                else        objLine[xpos] = color | pixelattr;
-            }
-            else if (!window)
-            {
-                if (objLine[xpos] == 0)
-                    objLine[xpos] = pixelattr & 0x180000;
-            }
+                /*color = *(u16*)&objvram[pixelsaddr & objvrammask];
 
-            xoff++;
-            xpos++;
+                pixelsaddr += pixelstride;
+
+                if (color & 0x8000)
+                {
+                    if (window) objWindow[xpos] = 1;
+                    else        objLine[xpos] = color | pixelattr;
+                }
+                else if (!window)
+                {
+                    if (objLine[xpos] == 0)
+                        objLine[xpos] = pixelattr & 0x180000;
+                }*/
+
+                // FIXME
+                u32 xp = (pixelsaddr >> 1) & 0xFF;
+                u32 yp = (pixelsaddr >> 9) & 0xFF;
+                objLine[xpos] = pixelattr | xp | (yp << 8);
+
+                pixelsaddr += pixelstride;
+                xoff++;
+                xpos++;
+            }
+        }
+        else
+        {
+            for (; xoff < xend;)
+            {
+                color = *(u16*)&objvram[pixelsaddr & objvrammask];
+
+                pixelsaddr += pixelstride;
+
+                if (color & 0x8000)
+                {
+                    if (window) objWindow[xpos] = 1;
+                    else        objLine[xpos] = color | pixelattr;
+                }
+                else if (!window)
+                {
+                    if (objLine[xpos] == 0)
+                        objLine[xpos] = pixelattr & 0x180000;
+                }
+
+                xoff++;
+                xpos++;
+            }
         }
     }
     else

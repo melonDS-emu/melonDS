@@ -1065,6 +1065,7 @@ void GPU::StartScanline(u32 line) noexcept
             //if (GPU3D.IsRendererAccelerated())
                 //GPU3D.Blit(*this);
             GPU2D_Renderer->VBlank(&GPU2D_A, &GPU2D_B);
+            GPU2D_A.CaptureLatch = false;
         }
     }
 
@@ -1215,6 +1216,20 @@ bool GPU::MakeVRAMFlat_BOBJExtPalCoherent(NonStupidBitField<8*1024/VRAMDirtyGran
 void GPU::VRAMCBFlagsSet(u32 bank, u32 block, u8 val)
 {
     u8* cbflags = &VRAMCaptureBlockFlags[bank << 2];
+    u32 start = (val >> 4) & 0x3;
+    u32 len = (val >> 6) & 0x3;
+
+    u32 b = start;
+    for (u32 i = 0; i < len; i++)
+    {
+        cbflags[b] = val;
+        b = (b + 1) & 0x3;
+    }
+}
+
+void GPU::VRAMCBFlagsClear(u32 bank, u32 block)
+{
+    u8* cbflags = &VRAMCaptureBlockFlags[bank << 2];
     u8 flags = cbflags[block];
     u32 start = (flags >> 4) & 0x3;
     u32 len = (flags >> 6) & 0x3;
@@ -1222,7 +1237,7 @@ void GPU::VRAMCBFlagsSet(u32 bank, u32 block, u8 val)
     u32 b = start;
     for (u32 i = 0; i < len; i++)
     {
-        cbflags[b] = val;
+        cbflags[b] = 0;
         b = (b + 1) & 0x3;
     }
 }
@@ -1252,19 +1267,22 @@ void GPU::CheckCaptureStart()
         return;
 
     u32 dstoff = (GPU2D_A.CaptureCnt >> 18) & 0x3;
-    u32 len = (GPU2D_A.CaptureCnt >> 20) & 0x3;
-    const u32 lentbl[4] = {1, 1, 2, 3};
-    len = lentbl[len];
+    u32 size = (GPU2D_A.CaptureCnt >> 20) & 0x3;
+    u32 len = (size == 0) ? 1 : size;
 
     // if needed, invalidate old capture
-    // TODO should we sync before?
     u8 oldflags = VRAMCaptureBlockFlags[(dstbank<<2) | dstoff];
     if (oldflags & CBFlag_IsCapture)
+    {
+        // TODO sync VRAM if this is a different block?
+
         VRAMCBFlagsSet(dstbank, dstoff, 0);
+    }
 
     // mark involved VRAM blocks as being a new capture
     u8 newval = CBFlag_IsCapture | (dstoff << 4) | (len << 6);
     VRAMCBFlagsSet(dstbank, dstoff, newval);
+    GPU2D_Renderer->AllocCapture(dstbank, dstoff, size);
 }
 
 void GPU::CheckCaptureEnd()
@@ -1303,6 +1321,96 @@ void GPU::SyncVRAMCaptureBlock(u32 block, bool write)
         // if this block was simply read by the CPU, we just need to mark it as synced
         VRAMCBFlagsOr(bank, start, CBFlag_Synced);
     }
+}
+
+int GPU::GetCaptureBlock_LCDC(u32 offset)
+{
+    u8 flags = VRAMCaptureBlockFlags[offset >> 15];
+    //return (flags & CBFlag_IsCapture);
+    if (flags & CBFlag_IsCapture)
+        return offset >> 15;
+    return -1;
+}
+
+int GPU::GetCaptureBlock_ABG(u32 offset)
+{
+    u32 mask = VRAMMap_ABG[(offset >> 14) & 0x1F];
+    offset = (offset >> 15) & 0x3;
+    /*if ((mask & (1<<0)) && (VRAMCaptureBlockFlags[(0<<2) | offset] & CBFlag_IsCapture)) return true;
+    if ((mask & (1<<1)) && (VRAMCaptureBlockFlags[(1<<2) | offset] & CBFlag_IsCapture)) return true;
+    if ((mask & (1<<2)) && (VRAMCaptureBlockFlags[(2<<2) | offset] & CBFlag_IsCapture)) return true;
+    if ((mask & (1<<3)) && (VRAMCaptureBlockFlags[(3<<2) | offset] & CBFlag_IsCapture)) return true;*/
+    if (mask & (1<<0))
+    {
+        u8 flags = VRAMCaptureBlockFlags[(0<<2) | offset];
+        if (flags & CBFlag_IsCapture)
+            return (0<<2) | ((flags>>4) & 0x3);
+    }
+    if (mask & (1<<1))
+    {
+        u8 flags = VRAMCaptureBlockFlags[(1<<2) | offset];
+        if (flags & CBFlag_IsCapture)
+            return (1<<2) | ((flags>>4) & 0x3);
+    }
+    if (mask & (1<<2))
+    {
+        u8 flags = VRAMCaptureBlockFlags[(2<<2) | offset];
+        if (flags & CBFlag_IsCapture)
+            return (2<<2) | ((flags>>4) & 0x3);
+    }
+    if (mask & (1<<3))
+    {
+        u8 flags = VRAMCaptureBlockFlags[(3<<2) | offset];
+        if (flags & CBFlag_IsCapture)
+            return (3<<2) | ((flags>>4) & 0x3);
+    }
+    return -1;
+}
+
+int GPU::GetCaptureBlock_AOBJ(u32 offset)
+{
+    u32 mask = VRAMMap_AOBJ[(offset >> 14) & 0xF];
+    offset = (offset >> 15) & 0x3;
+    if (mask & (1<<0))
+    {
+        u8 flags = VRAMCaptureBlockFlags[(0<<2) | offset];
+        if (flags & CBFlag_IsCapture)
+            return (0<<2) | ((flags>>4) & 0x3);
+    }
+    if (mask & (1<<1))
+    {
+        u8 flags = VRAMCaptureBlockFlags[(1<<2) | offset];
+        if (flags & CBFlag_IsCapture)
+            return (1<<2) | ((flags>>4) & 0x3);
+    }
+    return -1;
+}
+
+int GPU::GetCaptureBlock_BBG(u32 offset)
+{
+    u32 mask = VRAMMap_BBG[(offset >> 14) & 0x7];
+    offset = (offset >> 15) & 0x3;
+    //if ((mask & (1<<2)) && (VRAMCaptureBlockFlags[(2<<2) | offset] & CBFlag_IsCapture)) return true;
+    if (mask & (1<<2))
+    {
+        u8 flags = VRAMCaptureBlockFlags[(2<<2) | offset];
+        if (flags & CBFlag_IsCapture)
+            return (2<<2) | ((flags>>4) & 0x3);
+    }
+    return -1;
+}
+
+int GPU::GetCaptureBlock_BOBJ(u32 offset)
+{
+    u32 mask = VRAMMap_BOBJ[(offset >> 14) & 0x7];
+    offset = (offset >> 15) & 0x3;
+    if (mask & (1<<3))
+    {
+        u8 flags = VRAMCaptureBlockFlags[(3<<2) | offset];
+        if (flags & CBFlag_IsCapture)
+            return (3<<2) | ((flags>>4) & 0x3);
+    }
+    return -1;
 }
 
 }

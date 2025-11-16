@@ -143,6 +143,12 @@ public:
         if (mask & (1<<3)) SyncVRAMCaptureBlock((3<<2) | addr, write);
     }
 
+    int GetCaptureBlock_LCDC(u32 offset);
+    int GetCaptureBlock_ABG(u32 offset);
+    int GetCaptureBlock_AOBJ(u32 offset);
+    int GetCaptureBlock_BBG(u32 offset);
+    int GetCaptureBlock_BOBJ(u32 offset);
+
     template<typename T>
     T ReadVRAM_LCDC(u32 addr) const noexcept
     {
@@ -756,6 +762,7 @@ private:
     }
 
     void VRAMCBFlagsSet(u32 bank, u32 block, u8 val);
+    void VRAMCBFlagsClear(u32 bank, u32 block);
     void VRAMCBFlagsOr(u32 bank, u32 block, u8 val);
     void CheckCaptureStart();
     void CheckCaptureEnd();

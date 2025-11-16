@@ -43,6 +43,7 @@ public:
     void VBlank(Unit* unitA, Unit* unitB) override;
     void VBlankEnd(Unit* unitA, Unit* unitB) override;
 
+    void AllocCapture(u32 bank, u32 start, u32 len) override;
     void SyncVRAMCapture(u32 bank, u32 start, u32 len, bool complete) override;
 
     bool GetFramebuffers(u32** top, u32** bottom) override;
@@ -57,7 +58,9 @@ private:
     int ScreenW, ScreenH;
 
     GLuint FPShaderID = 0;
-    GLuint FPScaleULoc = 0;
+    GLint FPScaleULoc = 0;
+    GLint FPCaptureRegULoc = 0;
+    GLint FPCaptureTexLoc[16] {};
 
     GLuint FPVertexBufferID = 0;
     GLuint FPVertexArrayID = 0;
@@ -65,9 +68,29 @@ private:
     GLuint LineAttribTex = 0;               // per-scanline attribute texture
     GLuint BGOBJTex = 0;                    // prerender of BG/OBJ layers
     //GLuint AuxInputTex = 0;                // aux input (VRAM or mainmem FIFO)
+
+    // hi-res capture buffers
+    // since the DS can read from and capture to the same VRAM bank (VRAM display + capture),
+    // these need to be double-buffered
+    struct sCaptureBuffer
+    {
+        GLuint Texture;
+        u16 Width, Height;
+        //int Length;
+        bool Complete;
+    } CaptureBuffers[16][2];
+    int CaptureLastBuffer[16];
+    int ActiveCapture;
+
+    u16 CaptureUsageMask;
+
     //
-    std::array<GLuint, 2> FPOutputTex {};  // final output
-    std::array<GLuint, 2> FPOutputFB {};
+    //std::array<GLuint, 2> FPOutputTex {};  // final output
+    //std::array<GLuint, 2> FPOutputFB {};
+    GLuint FPOutputTex[2][2];               // final output
+    GLuint FPOutputFB[2];
+
+    //GLuint test;
 
     u32* LineAttribBuffer;
     u32* BGOBJBuffer;
@@ -110,7 +133,7 @@ private:
     void DrawScanlineBGMode7(u32 line);
     void DrawScanline_BGOBJ(u32 line);
 
-    static void DrawPixel(u32* dst, u16 color, u32 flag);
+    static void DrawPixel(u32* dst, u32 color, u32 flag);
 
     void DrawBG_3D();
     template<bool mosaic> void DrawBG_Text(u32 line, u32 bgnum);

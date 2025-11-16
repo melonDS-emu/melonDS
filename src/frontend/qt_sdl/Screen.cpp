@@ -930,13 +930,15 @@ void ScreenPanelGL::initOpenGL()
                                          {{"oColor", 0}});
 
     glUseProgram(screenShaderProgram);
-    glUniform1i(glGetUniformLocation(screenShaderProgram, "ScreenTex"), 0);
+    glUniform1i(glGetUniformLocation(screenShaderProgram, "TopScreenTex"), 0);
+    glUniform1i(glGetUniformLocation(screenShaderProgram, "BottomScreenTex"), 1);
 
     screenShaderScreenSizeULoc = glGetUniformLocation(screenShaderProgram, "uScreenSize");
     screenShaderTransformULoc = glGetUniformLocation(screenShaderProgram, "uTransform");
 
     // to prevent bleeding between both parts of the screen
     // with bilinear filtering enabled
+#if 0
     const int paddedHeight = 192*2+2;
     const float padPixels = 1.f / paddedHeight;
 
@@ -956,6 +958,23 @@ void ScreenPanelGL::initOpenGL()
         256.f, 192.f,  1.f, 1.f,
         256.f, 0.f,    1.f, 0.5f + padPixels
     };
+#endif
+    const float vertices[] =
+    {
+        0.f,   0.f,    0.f, 0.f, 0.f,
+        0.f,   192.f,  0.f, 1.f, 0.f,
+        256.f, 192.f,  1.f, 1.f, 0.f,
+        0.f,   0.f,    0.f, 0.f, 0.f,
+        256.f, 192.f,  1.f, 1.f, 0.f,
+        256.f, 0.f,    1.f, 0.f, 0.f,
+
+        0.f,   0.f,    0.f, 0.f, 1.f,
+        0.f,   192.f,  0.f, 1.f, 1.f,
+        256.f, 192.f,  1.f, 1.f, 1.f,
+        0.f,   0.f,    0.f, 0.f, 1.f,
+        256.f, 192.f,  1.f, 1.f, 1.f,
+        256.f, 0.f,    1.f, 0.f, 1.f
+    };
 
     glGenBuffers(1, &screenVertexBuffer);
     glBindBuffer(GL_ARRAY_BUFFER, screenVertexBuffer);
@@ -964,9 +983,9 @@ void ScreenPanelGL::initOpenGL()
     glGenVertexArrays(1, &screenVertexArray);
     glBindVertexArray(screenVertexArray);
     glEnableVertexAttribArray(0); // position
-    glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, 4*4, (void*)(0));
+    glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, 5*4, (void*)(0));
     glEnableVertexAttribArray(1); // texcoord
-    glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 4*4, (void*)(2*4));
+    glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, 5*4, (void*)(2*4));
 
     glGenTextures(1, &screenTexture);
     glActiveTexture(GL_TEXTURE0);
@@ -975,7 +994,8 @@ void ScreenPanelGL::initOpenGL()
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
-    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, 256, paddedHeight, 0, GL_RGBA, GL_UNSIGNED_BYTE, NULL);
+    //glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, 256, paddedHeight, 0, GL_RGBA, GL_UNSIGNED_BYTE, NULL);
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, 256, 192*2, 0, GL_RGBA, GL_UNSIGNED_BYTE, NULL);
     // fill the padding
     u8 zeroData[256*4*4];
     memset(zeroData, 0, sizeof(zeroData));
@@ -1138,14 +1158,13 @@ void ScreenPanelGL::drawScreen()
         glUseProgram(screenShaderProgram);
         glUniform2f(screenShaderScreenSizeULoc, w / factor, h / factor);
 
-        glActiveTexture(GL_TEXTURE0);
-
         u32* topbuf; u32* bottombuf;
         if (nds->GPU.GetFramebuffers(&topbuf, &bottombuf))
         {
             // if we're doing a regular render, use the provided framebuffers
             // otherwise, GetFramebuffers() will set up the required state
 
+            glActiveTexture(GL_TEXTURE0);
             glBindTexture(GL_TEXTURE_2D, screenTexture);
 
             glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, 256, 192, GL_RGBA,

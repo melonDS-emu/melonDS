@@ -25,9 +25,9 @@ uniform vec2 uScreenSize;
 uniform mat2x3 uTransform;
 
 in vec2 vPosition;
-in vec2 vTexcoord;
+in vec3 vTexcoord;
 
-smooth out vec2 fTexcoord;
+smooth out vec3 fTexcoord;
 
 void main()
 {
@@ -47,15 +47,20 @@ void main()
 
 const char* kScreenFS = R"(#version 140
 
-uniform sampler2D ScreenTex;
+uniform sampler2D TopScreenTex;
+uniform sampler2D BottomScreenTex;
 
-smooth in vec2 fTexcoord;
+smooth in vec3 fTexcoord;
 
 out vec4 oColor;
 
 void main()
 {
-    vec4 pixel = texture(ScreenTex, fTexcoord);
+    vec4 pixel;
+    if (fTexcoord.z > 0.5)
+        pixel = texture(BottomScreenTex, fTexcoord.xy);
+    else
+        pixel = texture(TopScreenTex, fTexcoord.xy);
 
     oColor = vec4(pixel.bgr, 1.0);
 }

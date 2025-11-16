@@ -599,7 +599,7 @@ void Unit::VBlank()
     if (CaptureLatch)
     {
         CaptureCnt &= ~(1<<31);
-        CaptureLatch = false;
+        //CaptureLatch = false;
     }
 
     DispFIFOReadPtr = 0;
@@ -731,6 +731,22 @@ void Unit::GetOBJVRAM(u8*& data, u32& mask) const
         data = GPU.VRAMFlat_BOBJ;
         mask = 0x1FFFF;
     }
+}
+
+int Unit::GetCaptureBlock_BG(u32 offset) const
+{
+    if (Num == 0)
+        return GPU.GetCaptureBlock_ABG(offset);
+    else
+        return GPU.GetCaptureBlock_BBG(offset);
+}
+
+int Unit::GetCaptureBlock_OBJ(u32 offset) const
+{
+    if (Num == 0)
+        return GPU.GetCaptureBlock_AOBJ(offset);
+    else
+        return GPU.GetCaptureBlock_BOBJ(offset);
 }
 
 }

@@ -80,6 +80,9 @@ public:
     void GetBGVRAM(u8*& data, u32& mask) const;
     void GetOBJVRAM(u8*& data, u32& mask) const;
 
+    int GetCaptureBlock_BG(u32 offset) const;
+    int GetCaptureBlock_OBJ(u32 offset) const;
+
     void UpdateMosaicCounters(u32 line);
     void CalculateWindowMask(u32 line, u8* windowMask, const u8* objWindow);
 
@@ -144,6 +147,7 @@ public:
     virtual void VBlank(Unit* unitA, Unit* unitB) = 0;
     virtual void VBlankEnd(Unit* unitA, Unit* unitB) = 0;
 
+    virtual void AllocCapture(u32 bank, u32 start, u32 len) = 0;
     virtual void SyncVRAMCapture(u32 bank, u32 start, u32 len, bool complete) = 0;
 
     // a 2D renderer may render to RAM buffers, or to something else (ie. OpenGL)
