@@ -316,7 +316,7 @@ void GPU3D::DoSavestate(Savestate* file) noexcept
     SoftRenderer* softRenderer = dynamic_cast<SoftRenderer*>(CurrentRenderer.get());
     if (softRenderer && softRenderer->IsThreaded())
     {
-        softRenderer->SetupRenderThread(NDS.GPU);
+        softRenderer->SetupRenderThread();
     }
 
     CmdFIFO.DoSavestate(file);
@@ -555,11 +555,9 @@ void GPU3D::DoSavestate(Savestate* file) noexcept
     file->Var32(&CurPolygonAttr);
     file->Var32(&TexParam);
     file->Var32(&TexPalette);
+
     RenderFrameIdentical = false;
-    if (softRenderer && softRenderer->IsThreaded())
-    {
-        softRenderer->EnableRenderThread();
-    }
+    CurrentRenderer->RenderFrame();
 }
 
 
@@ -2427,20 +2425,20 @@ void GPU3D::CheckFIFODMA() noexcept
         NDS.CheckDMAs(0, 0x07);
 }
 
-void GPU3D::VCount144(GPU& gpu) noexcept
+void GPU3D::VCount144() noexcept
 {
-    CurrentRenderer->VCount144(gpu);
+    CurrentRenderer->VCount144();
 }
 
-void GPU3D::RestartFrame(GPU& gpu) noexcept
+void GPU3D::RestartFrame() noexcept
 {
-    CurrentRenderer->RestartFrame(gpu);
+    CurrentRenderer->RestartFrame();
 }
 
-void GPU3D::Stop(const GPU& gpu) noexcept
+void GPU3D::Stop() noexcept
 {
     if (CurrentRenderer)
-        CurrentRenderer->Stop(gpu);
+        CurrentRenderer->Stop();
 }
 
 
@@ -2533,9 +2531,9 @@ void GPU3D::VBlank() noexcept
     }
 }
 
-void GPU3D::VCount215(GPU& gpu) noexcept
+void GPU3D::VCount215() noexcept
 {
-    CurrentRenderer->RenderFrame(gpu);
+    CurrentRenderer->RenderFrame();
 }
 
 void GPU3D::SetRenderXPos(u16 xpos) noexcept
@@ -2995,10 +2993,10 @@ void GPU3D::Write32(u32 addr, u32 val) noexcept
     Log(LogLevel::Debug, "unknown GPU3D write32 %08X %08X\n", addr, val);
 }
 
-void GPU3D::Blit(const GPU& gpu) noexcept
+void GPU3D::Blit() noexcept
 {
     if (CurrentRenderer)
-        CurrentRenderer->Blit(gpu);
+        CurrentRenderer->Blit();
 }
 
 Renderer3D::Renderer3D(bool Accelerated)
