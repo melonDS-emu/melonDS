@@ -72,7 +72,7 @@
        </item>
       </layout>
      </widget>
-     <widget class="QWidget" name="layoutWidget">
+     <widget class="QWidget" name="layoutWidget2">
       <layout class="QVBoxLayout" name="vlRightPanel" stretch="0,0,1">
        <property name="leftMargin">
         <number>4</number>
