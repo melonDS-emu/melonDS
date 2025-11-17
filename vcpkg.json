@@ -29,7 +29,8 @@
 			"platform": "linux"
 		},
 		"faad2",
-		"pkgconf"
+		"pkgconf",
+		{ "name": "dirent", "platform": "windows" }
 	],
 	"features": {
 		"qt6": {

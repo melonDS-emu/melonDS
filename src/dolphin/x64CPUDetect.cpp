@@ -8,7 +8,9 @@
 #include "CPUDetect.h"
 #include "../types.h"
 
-#ifndef _MSVC_VER
+using namespace melonDS;
+
+#ifndef _MSC_VER
 
 #ifdef __FreeBSD__
 #include <unistd.h>
@@ -16,8 +18,6 @@
 #include <machine/cpufunc.h>
 #include <sys/types.h>
 #endif
-
-using namespace melonDS;
 
 static inline void __cpuidex(int info[4], int function_id, int subfunction_id)
 {
@@ -40,7 +40,7 @@ static inline void __cpuid(int info[4], int function_id)
 
 #endif  // ifndef _WIN32
 
-#ifdef _MSVC_VER
+#ifdef _MSC_VER
 
 static u64 xgetbv(u32 index)
 {
