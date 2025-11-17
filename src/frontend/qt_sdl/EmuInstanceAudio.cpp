@@ -128,7 +128,7 @@ void EmuInstance::audioSync()
     if (audioDevice)
     {
         SDL_LockMutex(audioSyncLock);
-        while (nds->SPU.GetOutputSize() > audioBufSize)
+        while (nds->SPU.GetOutputSize() >= audioFreq / INTERNAL_FRAME_RATE)
         {
             int ret = SDL_CondWaitTimeout(audioSyncCond, audioSyncLock, 500);
             if (ret == SDL_MUTEX_TIMEDOUT) break;
