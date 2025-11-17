@@ -185,6 +185,10 @@ if (NOT MSVC)
     # (which is fundamentally non-portable, so this is fine)
 endif()
 
+# Fix xxhash compile errors when using -Og
+# See https://github.com/Cyan4973/xxHash/blob/136cc1f8fe4d5ea62a7c16c8424d4fa5158f6d68/README.md?plain=1#L159-L163
+target_compile_definitions(core PRIVATE $<$<CONFIG:DEBUG>:XXH_NO_INLINE_HINTS=1>)
+
 find_library(m MATH_LIBRARY)
 
 if (MATH_LIBRARY)
