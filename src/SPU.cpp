@@ -207,7 +207,8 @@ SPU::SPU(melonDS::NDS& nds, AudioBitDepth bitdepth, AudioInterpolation interpola
     },
     AudioLock(Platform::Mutex_Create()),
     Degrade10Bit(bitdepth == AudioBitDepth::_10Bit || (nds.ConsoleType == 1 && bitdepth == AudioBitDepth::Auto)),
-    OutputSampleRate(outputSampleRate)
+    OutputSampleRate(outputSampleRate),
+    OutputBuffer(nullptr)
 {
     NDS.RegisterEventFuncs(Event_SPU, this, {MakeEventThunk(SPU, Mix)});
 
