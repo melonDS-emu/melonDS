@@ -29,7 +29,8 @@
 			"platform": "linux"
 		},
 		"faad2",
-		"pkgconf"
+		"pkgconf",
+		"lua"
 	],
 	"features": {
 		"qt6": {
