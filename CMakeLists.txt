@@ -63,7 +63,7 @@ detect_architecture("__arm__" ARM)
 detect_architecture("__aarch64__" ARM64)
 
 cmake_dependent_option(ENABLE_JIT "Enable JIT recompiler" ON
-    "ARCHITECTURE STREQUAL x86_64 OR ARCHITECTURE STREQUAL ARM64" OFF)
+    "(ARCHITECTURE STREQUAL x86_64 AND NOT APPLE) OR ARCHITECTURE STREQUAL ARM64" OFF)
 cmake_dependent_option(ENABLE_JIT_PROFILING "Enable JIT profiling with VTune" OFF "ENABLE_JIT" OFF)
 option(ENABLE_OGLRENDERER "Enable OpenGL renderer" ON)
 
