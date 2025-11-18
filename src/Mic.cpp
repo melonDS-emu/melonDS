@@ -204,13 +204,13 @@ void Mic::Advance(u32 cycles)
     }
 
     // NDS mic input has no explicit start/stop control
-    // so this counter will turn it off if the TSC AUX input doesn't get sampled for one video frame
+    // so this counter will turn it off if the TSC AUX input doesn't get sampled for two video frames
     // other sources also get similar counters, in case we are dealing with stupid code that keeps
     // turning the mic on and off (hi DSi-mode libnds)
     for (int i = 0; i < 3; i++)
     {
         StopCount[i] += cycles;
-        if (StopCount[i] >= 560190)
+        if (StopCount[i] >= 560190*2)
             DoStop((MicSource)i);
     }
 }
