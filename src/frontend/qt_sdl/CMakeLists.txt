@@ -11,6 +11,7 @@ set(SOURCES_QT_SDL
     EmuInstanceAudio.cpp
     EmuInstanceInput.cpp
     EmuThread.cpp
+    CheatImportDialog.cpp
     CheatsDialog.cpp
     Config.cpp
     DateTimeDialog.cpp
@@ -34,6 +35,7 @@ set(SOURCES_QT_SDL
     OSD_shaders.h
     font.h
     Platform.cpp
+    Platform_AAC.cpp
     QPathInput.h
     SaveManager.cpp
     CameraManager.cpp
@@ -83,6 +85,7 @@ endif()
 pkg_check_modules(SDL2 REQUIRED IMPORTED_TARGET sdl2)
 pkg_check_modules(LibArchive REQUIRED IMPORTED_TARGET libarchive)
 pkg_check_modules(Zstd REQUIRED IMPORTED_TARGET libzstd)
+pkg_check_modules(Faad REQUIRED IMPORTED_TARGET faad2)
 
 fix_interface_includes(PkgConfig::SDL2 PkgConfig::LibArchive)
 
@@ -106,6 +109,13 @@ if (WIN32)
 
     if (MINGW AND CMAKE_HOST_SYSTEM_NAME STREQUAL "Linux")
         set_property(TARGET melonDS PROPERTY AUTORCC_OPTIONS "--no-zstd")
+    endif()
+
+    if (BUILD_STATIC)
+        find_package(SDL2 CONFIG COMPONENTS SDL2main)
+        if (TARGET SDL2::SDL2main)
+            target_link_libraries(melonDS PRIVATE SDL2::SDL2main)
+        endif()
     endif()
 elseif (APPLE)
     if (NOT USE_QT6)
@@ -180,7 +190,7 @@ else()
     target_include_directories(melonDS PUBLIC ${Qt5Gui_PRIVATE_INCLUDE_DIRS})
 endif()
 target_link_libraries(melonDS PRIVATE core)
-target_link_libraries(melonDS PRIVATE PkgConfig::SDL2 PkgConfig::LibArchive PkgConfig::Zstd)
+target_link_libraries(melonDS PRIVATE PkgConfig::SDL2 PkgConfig::LibArchive PkgConfig::Zstd PkgConfig::Faad)
 target_link_libraries(melonDS PRIVATE ${QT_LINK_LIBS} ${CMAKE_DL_LIBS})
 
 if (WIN32)
@@ -203,10 +213,19 @@ if (WIN32)
         string(TOLOWER "${ARCHITECTURE}" WIN32_ARCHITECTURE)
     endif()
 
-    configure_file("${CMAKE_SOURCE_DIR}/res/xp.manifest.in" "${CMAKE_BINARY_DIR}/res/xp.manifest")
 
     target_link_libraries(melonDS PRIVATE ws2_32 iphlpapi)
-    set_target_properties(melonDS PROPERTIES LINK_FLAGS_DEBUG "-mconsole")
+    set_target_properties(melonDS PROPERTIES WIN32_EXECUTABLE $<IF:$<CONFIG:Debug>,OFF,ON>)
+
+    if (MINGW)
+        configure_file("${CMAKE_SOURCE_DIR}/res/xp.manifest.in" "${CMAKE_BINARY_DIR}/res/xp.manifest")
+    else()
+        # Work around faad2 unconditionally linking libm even on Windows
+        if (USE_VCPKG)
+            add_library(m STATIC)
+            target_link_libraries(melonDS PUBLIC m)
+        endif()
+    endif()
 endif()
 
 if (APPLE)

@@ -1,0 +1,107 @@
+name: BSD
+
+on:
+  push:
+    branches:
+      - master
+      - ci/*
+  pull_request:
+    branches:
+      - master
+
+env:
+  MELONDS_GIT_BRANCH: ${{ github.ref }}
+  MELONDS_GIT_HASH: ${{ github.sha }}
+  MELONDS_BUILD_PROVIDER: GitHub Actions
+
+jobs:
+  build:
+    strategy:
+      matrix:
+        os: [freebsd, netbsd, openbsd]
+        # The emulated aarch64 VMs are quite slow, so disable aarch64
+        # runs for now.
+        arch: [x86_64] #, aarch64]
+        include:
+          - os: freebsd
+            os_name: FreeBSD
+            # CMake's autorcc for Qt tries to lock files, so we need to
+            # start lockd for NFS, otherwise the build will fail.
+            prepare_vm: service lockd onestart
+            install_deps: >
+              pkg install -y cmake kf6-extra-cmake-modules pkgconf ninja
+              qt6-base qt6-multimedia qt6-svg sdl2 libarchive zstd enet
+              faad2
+
+          - os: netbsd
+            os_name: NetBSD
+            # The NetBSD VM image does not come with X sets by default,
+            # so download and unpack the sets we need manually.
+            # See https://github.com/vmactions/netbsd-vm/issues/2
+            # Also, for some reason pkg_add is not in $PATH, so we have
+            # to call it using its absolute location.
+            prepare_vm: |
+              /usr/sbin/pkg_add pkgin curl
+              mach=$(uname -m | sed "s/evbarm/evbarm-$(uname -p)/")
+              for set in xbase xcomp; do
+                curl -sL ${PKG_PATH%%/pkgsrc*}/NetBSD/NetBSD-$(uname -r
+                  )/$mach/binary/sets/$set.tar.xz | tar xJpf - -C /
+              done
+            install_deps: >
+              pkgin -y install cmake extra-cmake-modules pkgconf
+              ninja-build qt6-qtbase qt6-qtmultimedia qt6-qtsvg SDL2
+              libarchive zstd enet faad2
+
+          - os: openbsd
+            os_name: OpenBSD
+            install_deps: >
+              pkg_add -v cmake kf6-extra-cmake-modules pkgconf ninja
+              qt6-qtbase qt6-qtmultimedia qt6-qtsvg sdl2 libarchive zstd
+              enet faad
+
+
+    name: ${{ matrix.os_name }} / ${{ matrix.arch }}
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        shell: ${{ matrix.os }} {0}
+
+    steps:
+    - uses: actions/checkout@v4
+      name: Check out sources
+
+    - name: Start ${{ matrix.os_name }} VM
+      uses: jenseng/dynamic-uses@v1
+      with:
+        uses: vmactions/${{ matrix.os }}-vm@v1
+        # As we are using multiple steps, we need to use NFS to sync the
+        # workspace between host and VM, as with the default, rsync, the
+        # workspace is only synced before and after the setup VM step.
+        with: >
+          {
+            "arch": ${{ matrix.arch }},
+            "envs": "MELONDS_GIT_BRANCH MELONDS_GIT_HASH
+                     MELONDS_BUILD_PROVIDER",
+            "prepare": ${{ toJSON(matrix.prepare_vm) }},
+            "sync": "nfs",
+            "usesh": "true",
+          }
+
+    - name: Install dependencies
+      run: ${{ matrix.install_deps }}
+
+    - name: Configure
+      run: |
+        cd $GITHUB_WORKSPACE
+        cmake -B build -G Ninja -DMELONDS_EMBED_BUILD_INFO=ON
+
+    - name: Build
+      run: |
+        cd $GITHUB_WORKSPACE
+        cmake --build build
+
+    - name: Upload binary
+      uses: actions/upload-artifact@v4
+      with:
+        name: melonDS-${{ matrix.os }}-${{ matrix.arch }}
+        path: build/melonDS

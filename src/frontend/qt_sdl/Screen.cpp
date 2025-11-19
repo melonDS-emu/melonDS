@@ -23,11 +23,7 @@
 
 #include <QPaintEvent>
 #include <QPainter>
-#ifndef _WIN32
-#ifndef APPLE
-#include <qpa/qplatformnativeinterface.h>
-#endif
-#endif
+
 #include <QDateTime>
 
 #include "OpenGLSupport.h"
@@ -49,6 +45,14 @@
 #include "version.h"
 
 using namespace melonDS;
+
+#if !defined(_WIN32) && !defined(APPLE)
+#if QT_VERSION >= QT_VERSION_CHECK(6, 5, 0)
+using namespace QNativeInterface;
+#else
+#include <qpa/qplatformnativeinterface.h>
+#endif
+#endif
 
 
 const u32 kOSDMargin = 6;
@@ -1285,8 +1289,25 @@ std::optional<WindowInfo> ScreenPanelGL::getWindowInfo()
     wi.type = WindowInfo::Type::MacOS;
     wi.window_handle = reinterpret_cast<void*>(winId());
     #else
-    QPlatformNativeInterface* pni = QGuiApplication::platformNativeInterface();
     const QString platform_name = QGuiApplication::platformName();
+
+    #if QT_VERSION >= QT_VERSION_CHECK(6, 5, 0)
+    if (platform_name == QStringLiteral("xcb"))
+    {
+        wi.type = WindowInfo::Type::X11;
+        const QX11Application* x11 = qApp->nativeInterface<QX11Application>();
+        wi.display_connection = x11->display();
+        wi.window_handle = reinterpret_cast<void*>(winId());
+    }
+    else if (platform_name == QStringLiteral("wayland"))
+    {
+        wi.type = WindowInfo::Type::Wayland;
+        const QWaylandApplication* wl = qApp->nativeInterface<QWaylandApplication>();
+        wi.display_connection = wl->display();
+        wi.window_handle = reinterpret_cast<void*>(winId());
+    }
+    #else
+    QPlatformNativeInterface* pni = QGuiApplication::platformNativeInterface();
     if (platform_name == QStringLiteral("xcb"))
     {
         wi.type = WindowInfo::Type::X11;
@@ -1303,9 +1324,9 @@ std::optional<WindowInfo> ScreenPanelGL::getWindowInfo()
         wi.display_connection = pni->nativeResourceForWindow("display", handle);
         wi.window_handle = pni->nativeResourceForWindow("surface", handle);
     }
+    #endif
     else
     {
-        //qCritical() << "Unknown PNI platform " << platform_name;
         Platform::Log(Platform::LogLevel::Error, "Unknown PNI platform %s\n", platform_name.toStdString().c_str());
         return std::nullopt;
     }

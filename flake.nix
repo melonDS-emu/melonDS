@@ -40,6 +40,7 @@
           libGL
           libslirp
           enet
+          faad2
         ]) ++ optionals (!isDarwin) (with pkgs; [
           kdePackages.extra-cmake-modules
           qt6.qtwayland
@@ -79,6 +80,12 @@
           packages = with pkgs; [
             qt6.qttools
           ];
+
+          # https://discourse.nixos.org/t/how-to-create-a-qt-devshell/58529/5
+          shellHook = ''
+            export LD_LIBRARY_PATH="$LD_LIBRARY_PATH:$APPEND_LIBRARY_PATH"
+            eval $(echo "''${qtWrapperArgs[@]}"|perl -n -e '$_ =~ s/--prefix (\w+) : ([\w-.\/]+)/export ''${1}="''${2}:\''${''${1}}";/g;print')
+          '';
         };
 
         # Shell for building static melonDS release builds with vcpkg

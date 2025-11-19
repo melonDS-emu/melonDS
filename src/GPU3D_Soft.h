@@ -69,16 +69,17 @@ private:
     {
     public:
         constexpr Interpolator() {}
-        constexpr Interpolator(s32 x0, s32 x1, s32 w0, s32 w1)
+        constexpr Interpolator(s32 x0, s32 x1, s32 w0, s32 w1, bool wbuffer)
         {
-            Setup(x0, x1, w0, w1);
+            Setup(x0, x1, w0, w1, wbuffer);
         }
 
-        constexpr void Setup(s32 x0, s32 x1, s32 w0, s32 w1)
+        constexpr void Setup(s32 x0, s32 x1, s32 w0, s32 w1, bool wbuffer)
         {
             this->x0 = x0;
             this->x1 = x1;
             this->xdiff = x1 - x0;
+            this->wbuffer = wbuffer;
 
             // calculate reciprocal for Z interpolation
             // TODO eventually: use a faster reciprocal function?
@@ -99,18 +100,9 @@ private:
             {
                 // along Y
 
-                if ((w0 & 0x1) && !(w1 & 0x1))
-                {
-                    this->w0n = w0 - 1;
-                    this->w0d = w0 + 1;
-                    this->w1d = w1;
-                }
-                else
-                {
-                    this->w0n = w0 & 0xFFFE;
-                    this->w0d = w0 & 0xFFFE;
-                    this->w1d = w1 & 0xFFFE;
-                }
+                this->w0n = w0 >> 1;
+                this->w0d = (w0 + ((w0 & ~w1) & 1)) >> 1;
+                this->w1d = w1 >> 1;
 
                 this->shift = 9;
             }
@@ -130,15 +122,15 @@ private:
         {
             x -= x0;
             this->x = x;
-            if (xdiff != 0 && !linear)
+            if ((xdiff != 0) && ((!linear) || wbuffer))
             {
-                s64 num = ((s64)x * w0n) << shift;
-                s32 den = (x * w0d) + ((xdiff-x) * w1d);
+                u32 num = (x * w0n) << shift;
+                u32 den = (x * w0d) + ((xdiff-x) * w1d);
 
                 // this seems to be a proper division on hardware :/
                 // I haven't been able to find cases that produce imperfect output
                 if (den == 0) yfactor = 0;
-                else          yfactor = (s32)(num / den);
+                else          yfactor = num / den;
             }
         }
 
@@ -164,7 +156,7 @@ private:
             }
         }
 
-        constexpr s32 InterpolateZ(s32 z0, s32 z1, bool wbuffer) const
+        constexpr s32 InterpolateZ(s32 z0, s32 z1) const
         {
             if (xdiff == 0 || z0 == z1) return z0;
 
@@ -219,6 +211,7 @@ private:
 
         int shift;
         bool linear;
+        bool wbuffer;
 
         s32 xrecip_z;
         s32 w0n, w0d, w1d;
@@ -233,7 +226,7 @@ private:
     public:
         constexpr Slope() {}
 
-        constexpr s32 SetupDummy(s32 x0)
+        constexpr s32 SetupDummy(s32 x0, bool wbuffer)
         {
             dx = 0;
 
@@ -244,7 +237,7 @@ private:
             Increment = 0;
             XMajor = false;
 
-            Interp.Setup(0, 0, 0, 0);
+            Interp.Setup(0, 0, 0, 0, wbuffer);
             Interp.SetX(0);
 
             xcov_incr = 0;
@@ -252,7 +245,7 @@ private:
             return x0;
         }
 
-        constexpr s32 Setup(s32 x0, s32 x1, s32 y0, s32 y1, s32 w0, s32 w1, s32 y)
+        constexpr s32 Setup(s32 x0, s32 x1, s32 y0, s32 y1, s32 w0, s32 w1, s32 y, bool wbuffer)
         {
             this->x0 = x0;
             this->y = y;
@@ -318,7 +311,7 @@ private:
             s32 x = XVal();
 
             int interpoffset = (Increment >= 0x40000) && (side ^ Negative);
-            Interp.Setup(y0-interpoffset, y1-interpoffset, w0, w1);
+            Interp.Setup(y0-interpoffset, y1-interpoffset, w0, w1, wbuffer);
             Interp.SetX(y);
 
             // used for calculating AA coverage

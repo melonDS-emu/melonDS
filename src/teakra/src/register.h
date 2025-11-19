@@ -7,12 +7,165 @@
 #include "common_types.h"
 #include "crash.h"
 #include "operand.h"
+#include "../../Savestate.h"
 
 namespace Teakra {
 
 struct RegisterState {
     void Reset() {
         *this = RegisterState();
+    }
+
+    void DoSavestate(melonDS::Savestate* file) {
+        file->Var32(&pc);
+        file->Var16(&prpage);
+        file->Var16(&cpc);
+
+        file->Var16(&repc);
+        file->Var16(&repcs);
+        file->Bool32(&rep);
+        file->Var16(&crep);
+
+        file->Var16(&bcn);
+        file->Var16(&lp);
+
+        for (auto& rep : bkrep_stack) {
+            file->Var32(&rep.start);
+            file->Var32(&rep.end);
+            file->Var16(&rep.lc);
+        }
+
+        file->Var64(&a[0]);
+        file->Var64(&a[1]);
+        file->Var64(&b[0]);
+        file->Var64(&b[1]);
+
+        file->Var64(&a1s);
+        file->Var64(&b1s);
+        file->Var16(&ccnta);
+
+        file->Var16(&sat);
+        file->Var16(&sata);
+        file->Var16(&s);
+        file->Var16(&sv);
+
+        file->Var16(&fz);
+        file->Var16(&fm);
+        file->Var16(&fn);
+        file->Var16(&fv);
+        file->Var16(&fe);
+        file->Var16(&fc0);
+        file->Var16(&fc1);
+        file->Var16(&flm);
+        file->Var16(&fvl);
+        file->Var16(&fr);
+
+        file->Var16(&vtr0);
+        file->Var16(&vtr1);
+
+        file->Var16(&x[0]);
+        file->Var16(&x[1]);
+        file->Var16(&y[0]);
+        file->Var16(&y[1]);
+        file->Var16(&hwm);
+        file->Var32(&p[0]);
+        file->Var32(&p[1]);
+        file->Var16(&pe[0]);
+        file->Var16(&pe[1]);
+        file->Var16(&ps[0]);
+        file->Var16(&ps[1]);
+        file->Var16(&p0h_cbs);
+
+        for (int i = 0; i < 8; i++)
+            file->Var16(&r[i]);
+        file->Var16(&mixp);
+        file->Var16(&sp);
+        file->Var16(&page);
+        file->Var16(&pcmhi);
+
+        file->Var16(&r0b);
+        file->Var16(&r1b);
+        file->Var16(&r4b);
+        file->Var16(&r7b);
+
+        file->Var16(&stepi);
+        file->Var16(&stepj);
+        file->Var16(&modi);
+        file->Var16(&modj);
+        file->Var16(&stepi0);
+        file->Var16(&stepj0);
+
+        file->Var16(&stepib);
+        file->Var16(&stepjb);
+        file->Var16(&modib);
+        file->Var16(&modjb);
+        file->Var16(&stepi0b);
+        file->Var16(&stepj0b);
+
+        for (int i = 0; i < 8; i++)
+            file->Var16(&m[i]);
+        for (int i = 0; i < 8; i++)
+            file->Var16(&br[i]);
+        file->Var16(&stp16);
+
+        file->Var16(&cmd);
+        file->Var16(&epi);
+        file->Var16(&epj);
+
+        for (int i = 0; i < 4; i++)
+            file->Var16(&arstep[i]);
+        for (int i = 0; i < 4; i++)
+            file->Var16(&arpstepi[i]);
+        for (int i = 0; i < 4; i++)
+            file->Var16(&arpstepj[i]);
+
+        for (int i = 0; i < 4; i++)
+            file->Var16(&aroffset[i]);
+        for (int i = 0; i < 4; i++)
+            file->Var16(&arpoffseti[i]);
+        for (int i = 0; i < 4; i++)
+            file->Var16(&arpoffsetj[i]);
+
+        for (int i = 0; i < 4; i++)
+            file->Var16(&arrn[i]);
+
+        for (int i = 0; i < 4; i++)
+            file->Var16(&arprni[i]);
+        for (int i = 0; i < 4; i++)
+            file->Var16(&arprnj[i]);
+
+        for (int i = 0; i < 3; i++)
+            file->Var16(&ip[i]);
+        file->Var16(&ipv);
+
+        for (int i = 0; i < 3; i++)
+            file->Var16(&im[i]);
+        file->Var16(&imv);
+
+        for (int i = 0; i < 3; i++)
+            file->Var16(&ic[i]);
+        file->Var16(&nimc);
+
+        file->Var16(&ie);
+
+        for (int i = 0; i < 5; i++)
+            file->Var16(&ou[i]);
+        for (int i = 0; i < 2; i++)
+            file->Var16(&iu[i]);
+        for (int i = 0; i < 4; i++)
+            file->Var16(&ext[i]);
+
+        file->Var16(&mod0_unk_const);
+
+        shadow_registers.DoSavestate(file);
+        shadow_swap_registers.DoSavestate(file);
+
+        shadow_swap_ar0.DoSavestate(file);
+        shadow_swap_ar1.DoSavestate(file);
+        shadow_swap_arp0.DoSavestate(file);
+        shadow_swap_arp1.DoSavestate(file);
+        shadow_swap_arp2.DoSavestate(file);
+        shadow_swap_arp3.DoSavestate(file);
     }
 
     /** Program control unit **/
@@ -170,6 +323,10 @@ struct RegisterState {
     template <u16 RegisterState::*origin>
     class ShadowRegister {
     public:
+        void DoSavestate(melonDS::Savestate* file) {
+            file->Var16(&shadow);
+        }
+
         void Store(RegisterState* self) {
             shadow = self->*origin;
         }
@@ -184,6 +341,11 @@ struct RegisterState {
     template <std::size_t size, std::array<u16, size> RegisterState::*origin>
     class ShadowArrayRegister {
     public:
+        void DoSavestate(melonDS::Savestate* file) {
+            for (std::size_t i = 0; i < size; i++)
+                file->Var16(&shadow[i]);
+        }
+
         void Store(RegisterState* self) {
             shadow = self->*origin;
         }
@@ -198,6 +360,10 @@ struct RegisterState {
     template <typename... ShadowRegisters>
     class ShadowRegisterList : private ShadowRegisters... {
     public:
+        void DoSavestate(melonDS::Savestate* file) {
+            (ShadowRegisters::DoSavestate(file), ...);
+        }
+
         void Store(RegisterState* self) {
             (ShadowRegisters::Store(self), ...);
         }
@@ -209,6 +375,10 @@ struct RegisterState {
     template <u16 RegisterState::*origin>
     class ShadowSwapRegister {
     public:
+        void DoSavestate(melonDS::Savestate* file) {
+            file->Var16(&shadow);
+        }
+
         void Swap(RegisterState* self) {
             std::swap(self->*origin, shadow);
         }
@@ -220,6 +390,11 @@ struct RegisterState {
     template <std::size_t size, std::array<u16, size> RegisterState::*origin>
     class ShadowSwapArrayRegister {
     public:
+        void DoSavestate(melonDS::Savestate* file) {
+            for (std::size_t i = 0; i < size; i++)
+                file->Var16(&shadow[i]);
+        }
+
         void Swap(RegisterState* self) {
             std::swap(self->*origin, shadow);
         }
@@ -231,6 +406,10 @@ struct RegisterState {
     template <typename... ShadowSwapRegisters>
     class ShadowSwapRegisterList : private ShadowSwapRegisters... {
     public:
+        void DoSavestate(melonDS::Savestate* file) {
+            (ShadowSwapRegisters::DoSavestate(file), ...);
+        }
+
         void Swap(RegisterState* self) {
             (ShadowSwapRegisters::Swap(self), ...);
         }
@@ -274,6 +453,15 @@ struct RegisterState {
     template <unsigned index>
     class ShadowSwapAr {
     public:
+        void DoSavestate(melonDS::Savestate* file) {
+            file->Var16(&rni);
+            file->Var16(&rnj);
+            file->Var16(&stepi);
+            file->Var16(&stepj);
+            file->Var16(&offseti);
+            file->Var16(&offsetj);
+        }
+
         void Swap(RegisterState* self) {
             std::swap(self->arrn[index * 2], rni);
             std::swap(self->arrn[index * 2 + 1], rnj);
@@ -290,6 +478,15 @@ struct RegisterState {
     template <unsigned index>
     class ShadowSwapArp {
     public:
+        void DoSavestate(melonDS::Savestate* file) {
+            file->Var16(&rni);
+            file->Var16(&rnj);
+            file->Var16(&stepi);
+            file->Var16(&stepj);
+            file->Var16(&offseti);
+            file->Var16(&offsetj);
+        }
+
         void Swap(RegisterState* self) {
             std::swap(self->arprni[index], rni);
             std::swap(self->arprnj[index], rnj);

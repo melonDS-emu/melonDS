@@ -27,6 +27,7 @@ public:
     };
 
     void Reset();
+    void DoSavestate(melonDS::Savestate* file);
 
     u16 GetBusyFlag() const {
         return busy_flag;

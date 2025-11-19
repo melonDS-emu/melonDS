@@ -106,6 +106,7 @@ struct NDSArgs
 
     AudioBitDepth BitDepth = AudioBitDepth::Auto;
     AudioInterpolation Interpolation = AudioInterpolation::None;
+    double OutputSampleRate = 48000.f;
 
     /// How the GDB stub should be handled.
     /// Defaults to disabled.
@@ -135,6 +136,7 @@ struct DSiArgs final : public NDSArgs
     std::optional<FATStorage> DSiSDCard;
 
     bool FullBIOSBoot = false;
+    bool DSPHLE = false;
 };
 }
 #endif //MELONDS_ARGS_H

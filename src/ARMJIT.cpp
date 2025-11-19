@@ -1161,6 +1161,8 @@ void ARMJIT::JitEnableWrite() noexcept
     #if defined(__APPLE__) && defined(__aarch64__)
         if (__builtin_available(macOS 11.0, *))
             pthread_jit_write_protect_np(false);
+    #elif defined(__NetBSD__)
+        mprotect(JITCompiler.CodeMemBase, ARMJIT_Global::CodeMemorySliceSize, PROT_READ | PROT_WRITE);
     #endif
 }
 
@@ -1169,6 +1171,8 @@ void ARMJIT::JitEnableExecute() noexcept
     #if defined(__APPLE__) && defined(__aarch64__)
         if (__builtin_available(macOS 11.0, *))
             pthread_jit_write_protect_np(true);
+    #elif defined(__NetBSD__)
+        mprotect(JITCompiler.CodeMemBase, ARMJIT_Global::CodeMemorySliceSize, PROT_READ | PROT_EXEC);
     #endif
 }
 

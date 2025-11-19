@@ -1,11 +1,46 @@
 #include <cstdio>
 #include "ahbm.h"
+#include "../../Savestate.h"
 
 namespace Teakra {
 
 void Ahbm::Reset() {
     busy_flag = 0;
     channels = {};
+}
+
+void Ahbm::DoSavestate(melonDS::Savestate *file) {
+    file->Section("TKah");
+
+    file->Var16(&busy_flag);
+    for (auto& chan : channels) {
+        file->Var16((u16*)&chan.unit_size);
+        file->Var16((u16*)&chan.burst_size);
+        file->Var16((u16*)&chan.direction);
+        file->Var16(&chan.dma_channel);
+
+        if (file->Saving) {
+            auto tmpqueue = chan.burst_queue;
+            u8 qlen = tmpqueue.size();
+            file->Var8(&qlen);
+            while (!tmpqueue.empty()) {
+                u32 val = tmpqueue.front();
+                tmpqueue.pop();
+                file->Var32(&val);
+            }
+        } else {
+            chan.burst_queue = {};
+            u8 qlen;
+            file->Var8(&qlen);
+            for (u8 i = 0; i < qlen; i++) {
+                u32 val;
+                file->Var32(&val);
+                chan.burst_queue.push(val);
+            }
+        }
+
+        file->Var32(&chan.write_burst_start);
+    }
 }
 
 unsigned Ahbm::Channel::GetBurstSize() {

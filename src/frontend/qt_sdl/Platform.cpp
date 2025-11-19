@@ -29,7 +29,6 @@
 #include <QThread>
 #include <QSemaphore>
 #include <QMutex>
-#include <QSharedMemory>
 #include <QTemporaryFile>
 #include <SDL_loadso.h>
 
@@ -43,8 +42,11 @@
 #include "SPI_Firmware.h"
 
 #ifdef __WIN32__
+#include <io.h>
+#define fdopen _fdopen
 #define fseek _fseeki64
 #define ftell _ftelli64
+#define dup _dup
 #endif // __WIN32__
 
 extern CameraManager* camManager[2];
@@ -137,20 +139,19 @@ FileHandle* OpenFile(const std::string& path, FileMode mode)
     std::string modeString = GetModeString(mode, QFile::exists(qpath));
     QIODevice::OpenMode qmode = GetQMode(mode);
     QFile qfile{qpath};
-    qfile.open(qmode);
-    FILE* file = fdopen(dup(qfile.handle()), modeString.c_str());
-    qfile.close();
+    if (qfile.open(qmode))
+    {
+        FILE* file = fdopen(dup(qfile.handle()), modeString.c_str());
+        qfile.close();
 
-    if (file)
-    {
-        Log(LogLevel::Debug, "Opened \"%s\" with FileMode 0x%x (effective mode \"%s\")\n", path.c_str(), mode, modeString.c_str());
-        return reinterpret_cast<FileHandle *>(file);
+        if (file)
+        {
+            Log(LogLevel::Debug, "Opened \"%s\" with FileMode 0x%x (effective mode \"%s\")\n", path.c_str(), mode, modeString.c_str());
+            return reinterpret_cast<FileHandle *>(file);
+        }
     }
-    else
-    {
-        Log(LogLevel::Warn, "Failed to open \"%s\" with FileMode 0x%x (effective mode \"%s\")\n", path.c_str(), mode, modeString.c_str());
-        return nullptr;
-    }
+    Log(LogLevel::Warn, "Failed to open \"%s\" with FileMode 0x%x (effective mode \"%s\")\n", path.c_str(), mode, modeString.c_str());
+    return nullptr;
 }
 
 std::string GetLocalFilePath(const std::string& filename)
@@ -262,6 +263,11 @@ bool FileSeek(FileHandle* file, s64 offset, FileSeekOrigin origin)
 void FileRewind(FileHandle* file)
 {
     rewind(reinterpret_cast<FILE *>(file));
+}
+
+u64 FilePosition(FileHandle* file)
+{
+    return ftell(reinterpret_cast<FILE *>(file));
 }
 
 u64 FileRead(void* data, u64 size, u64 count, FileHandle* file)
@@ -532,6 +538,22 @@ int Net_RecvPacket(u8* data, void* userdata)
 {
     int inst = ((EmuInstance*)userdata)->getInstanceID();
     return net.RecvPacket(data, inst);
+}
+
+
+void Mic_Start(void* userdata)
+{
+    return ((EmuInstance*)userdata)->micStart();
+}
+
+void Mic_Stop(void* userdata)
+{
+    return ((EmuInstance*)userdata)->micStop();
+}
+
+int Mic_ReadInput(s16* data, int maxlength, void* userdata)
+{
+    return ((EmuInstance*)userdata)->micReadInput(data, maxlength);
 }
 
 

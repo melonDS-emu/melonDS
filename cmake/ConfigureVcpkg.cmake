@@ -9,15 +9,22 @@ if (VCPKG_ROOT STREQUAL "${_DEFAULT_VCPKG_ROOT}")
     endif()
     FetchContent_Declare(vcpkg
         GIT_REPOSITORY "https://github.com/Microsoft/vcpkg.git"
-        GIT_TAG 2ad004460f5db4d3b66f62f5799ff66c265c4b5d
+        GIT_TAG HEAD
         EXCLUDE_FROM_ALL
         SOURCE_DIR "${CMAKE_SOURCE_DIR}/vcpkg")
     FetchContent_MakeAvailable(vcpkg)
 endif()
 
-set(VCPKG_OVERLAY_TRIPLETS "${CMAKE_SOURCE_DIR}/cmake/overlay-triplets")
-
 option(USE_RECOMMENDED_TRIPLETS "Use the recommended triplets that are used for official builds" ON)
+
+# Required for Windows non-MinGW debug builds, optional for all other platforms
+if (WIN32)
+    if (DEFINED ENV{MINGW_PREFIX})
+        option(ENABLE_DEBUG_DEPS "Enable debug builds of vcpkg dependencies" OFF)
+    else()
+        option(ENABLE_DEBUG_DEPS "Enable debug builds of vcpkg dependencies" ON)
+    endif()
+endif()
 
 # Duplicated here because it needs to be set before project()
 option(USE_QT6 "Use Qt 6 instead of Qt 5" ON)
@@ -61,9 +68,30 @@ if (USE_RECOMMENDED_TRIPLETS)
             set(CMAKE_OSX_DEPLOYMENT_TARGET 10.15)
         endif()
     elseif(WIN32)
-        # TODO Windows arm64 if possible
         set(_CAN_TARGET_AS_HOST ON)
-        set(_WANTED_TRIPLET x64-mingw-static-release)
+        if (ENABLE_DEBUG_DEPS)
+            set(_RELEASE_SUFFIX "")
+        else()
+            set(_RELEASE_SUFFIX "-release")
+        endif()
+
+        if (DEFINED ENV{MINGW_PREFIX})
+            set(_WIN32_ENV mingw)
+        else()
+            set(_WIN32_ENV windows)
+        endif()
+
+        if ("$ENV{PROCESSOR_ARCHITECTURE}" STREQUAL "AMD64")
+            set(_WIN32_ARCH x64)
+        elseif ("$ENV{PROCESSOR_ARCHITECTURE}" STREQUAL "ARM64")
+            set(_WIN32_ARCH arm64)
+        elseif ("$ENV{PROCESSOR_ARCHITECTURE}" STREQUAL "x86")
+            set(_WIN32_ARCH x86)
+        else()
+            message(FATAL_ERROR "Unknown processor architecture '$ENV{PROCESSOR_ARCHITECTURE}'. Please disable USE_RECOMMENDED_TRIPLETS and set your vcpkg settings manually.")
+        endif()
+
+        set(_WANTED_TRIPLET ${_WIN32_ARCH}-${_WIN32_ENV}-static${_RELEASE_SUFFIX})
     elseif(CMAKE_HOST_SYSTEM_NAME STREQUAL Linux)
         # Can't really detect cross compiling here.
         set(_CAN_TARGET_AS_HOST ON)

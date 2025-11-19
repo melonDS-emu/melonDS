@@ -155,9 +155,15 @@ public:
     void setJoystick(int id);
     int getJoystickID() { return joystickID; }
     SDL_Joystick* getJoystick() { return joystick; }
+    std::shared_ptr<SDL_mutex> getJoyMutex() { return joyMutex; }
 
     void touchScreen(int x, int y);
     void releaseScreen();
+
+    // mic start/stop control from core
+    void micStart();
+    void micStop();
+    int micReadInput(melonDS::s16* data, int maxlength);
 
     QMutex renderLock;
 
@@ -223,13 +229,13 @@ private:
     void micOpen();
     void micClose();
     void micLoadWav(const std::string& name);
-    void micProcess();
     void setupMicInputData();
 
     int audioGetNumSamplesOut(int outlen);
-    void audioResample(melonDS::s16* inbuf, int inlen, melonDS::s16* outbuf, int outlen, int volume);
-
     static void audioCallback(void* data, Uint8* stream, int len);
+
+    int micGetNumSamplesIn(int inlen);
+    void micResample(melonDS::s16* inbuf, int inlen);
     static void micCallback(void* data, Uint8* stream, int len);
 
     void onKeyPress(QKeyEvent* event);
@@ -313,7 +319,13 @@ private:
 
     int mpAudioMode;
 
+    bool micStarted;
+
     SDL_AudioDeviceID micDevice;
+    int micFreq;
+    int micBufSize;
+    float micSampleFrac;
+
     melonDS::s16 micExtBuffer[4096];
     melonDS::u32 micExtBufferWritePos;
     melonDS::u32 micExtBufferCount;
@@ -346,6 +358,9 @@ private:
     bool hasGyroscope = false;
     bool hasRumble = false;
     bool isRumbling = false;
+
+    static std::shared_ptr<SDL_mutex> joyMutexGlobal;
+    std::shared_ptr<SDL_mutex> joyMutex;
 
     melonDS::u32 keyInputMask, joyInputMask;
     melonDS::u32 keyHotkeyMask, joyHotkeyMask;

@@ -21,6 +21,7 @@
 
 #include "NDS.h"
 #include "DSi_NDMA.h"
+#include "DSi_I2S.h"
 #include "DSi_SD.h"
 #include "DSi_DSP.h"
 #include "DSi_AES.h"
@@ -30,6 +31,7 @@
 namespace melonDS
 {
 class DSi_I2CHost;
+class DSi_I2S;
 class DSi_CamModule;
 class DSi_AES;
 class DSi_DSP;
@@ -40,9 +42,15 @@ namespace DSi_NAND
     class NANDImage;
 }
 
+enum
+{
+    SCFG_DSiLoaderHack = (1<<30),
+};
+
 class DSi final : public NDS
 {
 protected:
+    u32 GetSavestateConfig() override;
     void DoSavestateExtra(Savestate* file) override;
 public:
     u16 SCFG_BIOS;
@@ -69,6 +77,7 @@ public:
     u32 NWRAMMask[2][3];
 
     DSi_I2CHost I2C;
+    DSi_I2S I2S;
     DSi_CamModule CamModule;
     DSi_AES AES;
     DSi_DSP DSP;
@@ -156,7 +165,6 @@ public:
     void SetSDCard(FATStorage&& sdcard) noexcept { SDMMC.SetSDCard(std::move(sdcard)); }
     void SetSDCard(std::optional<FATStorage>&& sdcard) noexcept { SDMMC.SetSDCard(std::move(sdcard)); }
 
-    void CamInputFrame(int cam, const u32* data, int width, int height, bool rgb) override;
     bool DMAsInMode(u32 cpu, u32 mode) const override;
     bool DMAsRunning(u32 cpu) const override;
     void StopDMAs(u32 cpu, u32 mode) override;
@@ -177,12 +185,15 @@ public:
 
     bool GetFullBIOSBoot() const noexcept { return FullBIOSBoot; }
     void SetFullBIOSBoot(bool full) noexcept { FullBIOSBoot = full; }
+
+    void SetDSPHLE(bool hle);
 private:
     bool FullBIOSBoot;
     void Set_SCFG_Clock9(u16 val);
     void Set_SCFG_MC(u32 val);
     void DecryptModcryptArea(u32 offset, u32 size, const u8* iv);
     void ApplyNewRAMSize(u32 size);
+    void CheckDSiLoaderHack();
 };
 
 }

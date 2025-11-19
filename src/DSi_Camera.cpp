@@ -319,7 +319,7 @@ u16 DSi_CamModule::Read16(u32 addr)
 {
     switch (addr)
     {
-    case 0x04004200: return ModuleCnt;
+    case 0x04004200: return ModuleCnt | (1<<7);
     case 0x04004202: return Cnt | (Transferring ? (1<<15) : 0);
     }
 
@@ -366,21 +366,23 @@ void DSi_CamModule::Write16(u32 addr, u16 val)
     {
     case 0x04004200:
         {
+            if (IsTransferring()) return;
+
             u16 oldcnt = ModuleCnt;
             ModuleCnt = val;
 
-            if ((ModuleCnt & (1<<1)) && !(oldcnt & (1<<1)))
-            {
-                // reset shit to zero
-                // CHECKME
+            // bit 1 doesn't seem to actually do anything?
+            // bit 5 controls camera reset
 
-                Cnt = 0;
-                Transferring = false;
+            if ((!(ModuleCnt & (1<<5))) && (oldcnt & (1<<5)))
+            {
+                Camera0->Reset();
+                Camera1->Reset();
             }
-
-            if ((ModuleCnt & (1<<5)) && !(oldcnt & (1<<5)))
+            else if ((ModuleCnt & (1<<5)) && (!(oldcnt & (1<<5))))
             {
-                // TODO: reset I2C??
+                Camera0->ReleaseReset();
+                Camera1->ReleaseReset();
             }
         }
         return;
@@ -483,6 +485,8 @@ void DSi_Camera::Reset()
 {
     Platform::Camera_Stop(Num, DSi.UserData);
 
+    ResetHeld = true;
+
     DataPos = 0;
     RegAddr = 0;
     RegData = 0;
@@ -503,6 +507,11 @@ void DSi_Camera::Reset()
     InternalY = 0;
     TransferY = 0;
     memset(FrameBuffer, 0, (640*480/2)*sizeof(u32));
+}
+
+void DSi_Camera::ReleaseReset()
+{
+    ResetHeld = false;
 }
 
 void DSi_Camera::Stop()
@@ -625,6 +634,8 @@ void DSi_Camera::Acquire()
 
 u8 DSi_Camera::Read(bool last)
 {
+    if (ResetHeld) return 0xFF;
+
     u8 ret;
 
     if (DataPos & 0x1)
@@ -646,6 +657,8 @@ u8 DSi_Camera::Read(bool last)
 
 void DSi_Camera::Write(u8 val, bool last)
 {
+    if (ResetHeld) return;
+
     if (DataPos < 2)
     {
         if (DataPos == 0)

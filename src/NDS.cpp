@@ -95,7 +95,8 @@ NDS::NDS(NDSArgs&& args, int type, void* userdata) noexcept :
     ARM7BIOSNative(CRC32(ARM7BIOS.data(), ARM7BIOS.size()) == ARM7BIOSCRC32),
     ARM9BIOSNative(CRC32(ARM9BIOS.data(), ARM9BIOS.size()) == ARM9BIOSCRC32),
     JIT(*this, args.JIT),
-    SPU(*this, args.BitDepth, args.Interpolation),
+    SPU(*this, args.BitDepth, args.Interpolation, args.OutputSampleRate),
+    Mic(*this),
     GPU(*this, std::move(args.Renderer3D)),
     SPI(*this, std::move(args.Firmware)),
     RTC(*this),
@@ -220,7 +221,7 @@ void NDS::SetJITArgs(std::optional<JITArgs> args) noexcept
     }
     else if (args.has_value() != EnableJIT)
     { // Else if we want to turn the JIT off, and it wasn't already off...
-        JIT.ResetBlockCache();
+        JIT.Reset();
     }
 
     EnableJIT = args.has_value();
@@ -538,6 +539,7 @@ void NDS::Reset()
     NDSCartSlot.Reset();
     GBACartSlot.Reset();
     SPU.Reset();
+    Mic.Reset();
     SPI.Reset();
     RTC.Reset();
     Wifi.Reset();
@@ -608,24 +610,35 @@ void NDS::Stop(Platform::StopReason reason)
     Platform::SignalStop(reason, UserData);
     GPU.Stop();
     SPU.Stop();
+    Mic.StopAll();
+}
+
+u32 NDS::GetSavestateConfig()
+{
+    u32 ret = 0;
+
+    if (ConsoleType == 1)
+        ret |= SC_Console_DSi;
+
+    return ret;
 }
 
 bool NDS::DoSavestate(Savestate* file)
 {
     file->Section("NDSG");
 
+    u32 config = GetSavestateConfig();
     if (file->Saving)
     {
-        u32 console = ConsoleType;
-        file->Var32(&console);
+        file->Var32(&config);
     }
     else
     {
-        u32 console;
-        file->Var32(&console);
-        if (console != ConsoleType)
+        u32 config_chk;
+        file->Var32(&config_chk);
+        if (config_chk != config)
         {
-            Log(LogLevel::Error, "savestate: Expected console type %d, got console type %d. cannot load.\n", ConsoleType, console);
+            Log(LogLevel::Error, "savestate: Expected config word %08X, got %08X. cannot load.\n", config, config_chk);
             return false;
         }
     }
@@ -733,6 +746,7 @@ bool NDS::DoSavestate(Savestate* file)
         GBACartSlot.DoSavestate(file);
     GPU.DoSavestate(file);
     SPU.DoSavestate(file);
+    Mic.DoSavestate(file);
     SPI.DoSavestate(file);
     RTC.DoSavestate(file);
     Wifi.DoSavestate(file);
@@ -878,7 +892,7 @@ void NDS::RunSystemSleep(u64 timestamp)
     for (int i = 0; i < Event_MAX; i++)
     {
         if (!mask) break;
-        if (i == Event_SPU || i == Event_RTC)
+        if (i == Event_RTC)
         {
             if (mask & 0x1)
             {
@@ -888,14 +902,8 @@ void NDS::RunSystemSleep(u64 timestamp)
                 {
                     SchedListMask &= ~(1<<i);
 
-                    u32 param;
-                    if (i == Event_SPU)
-                        param = 1;
-                    else
-                        param = evt.Param;
-
                     EventFunc func = evt.Funcs[evt.FuncID];
-                    func(evt.That, param);
+                    func(evt.That, evt.Param);
                 }
             }
         }
@@ -1047,6 +1055,9 @@ u32 NDS::RunFrame()
 #endif
         break;
     }
+
+    // Signal to the SPU that it should read out the buffered audio from blip-buf to a buffer for the frontend to consume
+    SPU.EndFrame();
 
     // In the context of TASes, frame count is traditionally the primary measure of emulated time,
     // so it needs to be tracked even if NDS is powered off.
@@ -1219,11 +1230,6 @@ void NDS::SetLidClosed(bool closed)
         KeyInput &= ~(1<<23);
         SetIRQ(1, IRQ_LidOpen);
     }
-}
-
-void NDS::MicInputFrame(s16* data, int samples)
-{
-    return SPI.GetTSC()->MicInputFrame(data, samples);
 }
 
 /*int ImportSRAM(u8* data, u32 length)
@@ -1901,8 +1907,8 @@ void NDS::debug(u32 param)
     }
     Platform::CloseFile(shit);*/
 
-    /*FILE*
-    shit = fopen("debug/camera9.bin", "wb");
+    FILE*
+    shit = fopen("debug/castle9.bin", "wb");
     fwrite(ARM9.ITCM, 0x8000, 1, shit);
     for (u32 i = 0x02000000; i < 0x04000000; i+=4)
     {
@@ -1910,13 +1916,13 @@ void NDS::debug(u32 param)
         fwrite(&val, 4, 1, shit);
     }
     fclose(shit);
-    shit = fopen("debug/camera7.bin", "wb");
+    shit = fopen("debug/castle7.bin", "wb");
     for (u32 i = 0x02000000; i < 0x04000000; i+=4)
     {
         u32 val = ARM7Read32(i);
         fwrite(&val, 4, 1, shit);
     }
-    fclose(shit);*/
+    fclose(shit);
 }
 
 
@@ -3279,6 +3285,9 @@ void NDS::ARM9IOWrite8(u32 addr, u8 val)
         if (PostFlag9 & 0x01) val |= 0x01;
         PostFlag9 = val & 0x03;
         return;
+
+    // NO$GBA debug register "Char Out"
+        case 0x04FFFA1C: Log(LogLevel::Debug, "%c", char(val)); return;
     }
 
     if (addr >= 0x04000000 && addr < 0x04000060)

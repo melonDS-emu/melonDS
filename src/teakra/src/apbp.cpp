@@ -3,6 +3,7 @@
 #include <mutex>
 #include <utility>
 #include "apbp.h"
+#include "../../Savestate.h"
 
 namespace Teakra {
 class DataChannel {
@@ -10,6 +11,12 @@ public:
     void Reset() {
         ready = false;
         data = 0;
+    }
+
+    void DoSavestate(melonDS::Savestate* file) {
+        file->Bool32(&ready);
+        file->Var16(&data);
+        file->Var16(&disable_interrupt);
     }
 
     void Send(u16 data) {
@@ -55,6 +62,7 @@ private:
 
 class Apbp::Impl {
 public:
+    int num;
     std::array<DataChannel, 3> data_channels;
     u16 semaphore = 0;
     u16 semaphore_mask = 0;
@@ -69,13 +77,27 @@ public:
         semaphore_mask = 0;
         semaphore_master_signal = false;
     }
+
+    void DoSavestate(melonDS::Savestate* file) {
+        file->Section(num ? "TKa1" : "TKa0");
+
+        for (auto& c : data_channels)
+            c.DoSavestate(file);
+        file->Var16(&semaphore);
+        file->Var16(&semaphore_mask);
+        file->Bool32(&semaphore_master_signal);
+    }
 };
 
-Apbp::Apbp() : impl(new Impl) {}
+Apbp::Apbp(int num) : impl(new Impl) {impl->num = num;}
 Apbp::~Apbp() = default;
 
 void Apbp::Reset() {
     impl->Reset();
+}
+
+void Apbp::DoSavestate(melonDS::Savestate *file) {
+    impl->DoSavestate(file);
 }
 
 void Apbp::SendData(unsigned channel, u16 data) {
