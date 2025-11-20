@@ -30,6 +30,7 @@
 		},
 		"faad2",
 		"pkgconf",
+		{ "name": "pkgconf", "host": true },
 		{ "name": "dirent", "platform": "windows" }
 	],
 	"features": {
