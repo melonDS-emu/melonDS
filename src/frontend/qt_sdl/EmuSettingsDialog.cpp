@@ -185,29 +185,56 @@ void EmuSettingsDialog::verifyFirmware()
     // I don't know about all the firmware hacks in existence, but the one I
     // looked at has 0x180 bytes from the header repeated at 0x3FC80, but
     // bytes 0x0C-0x14 are different.
+    //
+    // The earlier version (v1-v4) of custom firmware FlashMe is one of known
+    // firmwares which occupied WFC. And FlashMe fixed this problem from v5.
+    // FlasheMe copy some data from the major header of firmware to 
+    // the end of firmware where the minor header of FlashMe located.
+    // In v1-v4, the minor header is located at 0x3FC80-0x3FDFF which occupied WFC.
+    // In v5-v8, the minor header is located at 0x3F680-0x3F7FF to avoid the WFC.
+    // The 0x0C-0x14 of major/minor header is used to store the rom and ram data of 
+    // major arm9&arm7 boot code made by FlashMe or
+    // minor arm9&arm7 boot code which contain the hacked original boot code.
+    //
+    // FlashMe version:
+    // if Major_header[0x17C] is 0x01, it's v1-v4.
+    // If Major_header[0x17C] is 0x02, and Minor_header[0x17C] >=2, it's v5-v8 (version = Minor_header[0x17C] + 3). 
+    // if Major_header[0x17C] is 0x03, it's homebrew version.
+    // if Major_header[0x17C] is 0xFF, it's not FlashMe.
 
     std::string filename = ui->txtFirmwarePath->text().toStdString();
     FileHandle* f = Platform::OpenLocalFile(filename, FileMode::Read);
     if (!f) return;
-    u8 chk1[0x180], chk2[0x180];
+    u8 MajorHeader[0x180], MinorHeader[0x180];
 
     FileRewind(f);
-    FileRead(chk1, 1, 0x180, f);
+    FileRead(MajorHeader, 1, 0x180, f);
     FileSeek(f, -0x380, FileSeekOrigin::End);
-    FileRead(chk2, 1, 0x180, f);
+    FileRead(MinorHeader, 1, 0x180, f);
 
-    memset(&chk1[0x0C], 0, 8);
-    memset(&chk2[0x0C], 0, 8);
+    memset(&MajorHeader[0x0C], 0, 8);
+    memset(&MinorHeader[0x0C], 0, 8);
 
     CloseFile(f);
 
-    if (!memcmp(chk1, chk2, 0x180))
-    {
-        QMessageBox::warning((QWidget*)this->parent(),
-                      "Problematic firmware dump",
-                      "You are using an old hacked firmware dump.\n"
-                      "Firmware boot will stop working if you run any game that alters WFC settings.\n\n"
-                      "Note that the issue is not from melonDS, it would also happen on an actual DS.");
+    if (!memcmp(MajorHeader, MinorHeader, 0x180))
+    {   
+        if (MajorHeader[0x17C] == 0x01)
+        {
+            QMessageBox::warning((QWidget*)this->parent(),
+                        "Problematic firmware dump",
+                        "You are using an old version (v1-v4) of FlashMe firmware dump.\n"
+                        "Firmware boot will stop working if you run any game that alters WFC settings.\n\n"
+                        "Note that the issue is not from melonDS, it would also happen on an actual DS.");
+        }
+        else
+        {
+            QMessageBox::warning((QWidget*)this->parent(),
+                        "Problematic firmware dump",
+                        "You are using an old hacked firmware dump.\n"
+                        "Firmware boot will stop working if you run any game that alters WFC settings.\n\n"
+                        "Note that the issue is not from melonDS, it would also happen on an actual DS.");
+        }
     }
 }
 
