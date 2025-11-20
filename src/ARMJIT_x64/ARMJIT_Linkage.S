@@ -20,17 +20,12 @@
 
 #include "ARMJIT_Offsets.h"
 
-// Fixes a stupid bug on clang-cl builds (defines _WIN64 but not _MSC_VER (this one is correct) or WIN64 (this one is MinGW weirdness))
-#if !defined(WIN64) && defined(_WIN64)
-#define WIN64 _WIN64
-#endif
-
 .text
 
 #define RCPU rbp
 #define RCPSR r15d
 
-#ifdef WIN64
+#ifdef _WIN64
 #define ARG1_REG ecx
 #define ARG2_REG edx
 #define ARG3_REG r8d
@@ -59,7 +54,7 @@ _ARM_Dispatch:
 .global ARM_Dispatch
 ARM_Dispatch:
 #endif
-#ifdef WIN64
+#ifdef _WIN64
     push rdi
     push rsi
 #endif
@@ -70,7 +65,7 @@ ARM_Dispatch:
     push r15
     push rbp
 
-#ifdef WIN64
+#ifdef _WIN64
     sub rsp, 0x28
 #else
     sub rsp, 0x8
@@ -91,7 +86,7 @@ ARM_Ret:
 #endif
     mov [RCPU + ARM_CPSR_offset], RCPSR
 
-#ifdef WIN64
+#ifdef _WIN64
     add rsp, 0x28
 #else
     add rsp, 0x8
@@ -103,14 +98,14 @@ ARM_Ret:
     pop r13
     pop r12
     pop rbx
-#ifdef WIN64
+#ifdef _WIN64
     pop rsi
     pop rdi
 #endif
 
     ret
 
-#if !defined(__APPLE__) && !defined(WIN64) && !defined(_MSC_VER)
+#if !defined(__APPLE__) && !defined(_WIN64) && !defined(_MSC_VER)
 .section .note.GNU-stack,"",@progbits
 #endif
 
