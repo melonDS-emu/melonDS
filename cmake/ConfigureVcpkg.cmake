@@ -99,7 +99,7 @@ if (USE_RECOMMENDED_TRIPLETS)
             endif()
         endif()
 
-        if (_WIN32_ARCH STREQUAL "")
+	if (NOT _WIN32_ARCH)
             if ("$ENV{PROCESSOR_ARCHITECTURE}" STREQUAL "AMD64")
                 set(_WIN32_ARCH x64)
             elseif ("$ENV{PROCESSOR_ARCHITECTURE}" STREQUAL "ARM64")
