@@ -407,6 +407,9 @@ int main(int argc, char** argv)
 
 #include <windows.h>
 
+// This function is needed for booting filename which contains East Asian char 
+// or non ASCII char from CommandLine in windows.
+// This function needs to be retained until an alternative solution is found.
 int CALLBACK WinMain(HINSTANCE hinst, HINSTANCE hprev, LPSTR cmdline, int cmdshow)
 {
     if (AttachConsole(ATTACH_PARENT_PROCESS) && GetStdHandle(STD_OUTPUT_HANDLE))
