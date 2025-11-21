@@ -1357,10 +1357,11 @@ int GPU::GetCaptureBlock_LCDC(u32 offset)
 
 int GPU::GetCaptureBlock_ABG(u32 offset)
 {
-    u16* cbf = VRAMCBF_ABG[(offset >> 15) & 0xF];
+    offset >>= 15;
+    u16* cbf = VRAMCBF_ABG[offset & 0xF];
     if (!cbf) return -1;
 
-    u16 flags = cbf[offset & 0x3];
+    u16 flags = *cbf;
     if (!(flags & CBFlag_IsCapture))
         return -1;
 
@@ -1402,10 +1403,11 @@ int GPU::GetCaptureBlock_ABG(u32 offset)
 
 int GPU::GetCaptureBlock_AOBJ(u32 offset)
 {
-    u16* cbf = VRAMCBF_AOBJ[(offset >> 15) & 0x7];
+    offset >>= 15;
+    u16* cbf = VRAMCBF_AOBJ[offset & 0x7];
     if (!cbf) return -1;
 
-    u16 flags = cbf[offset & 0x3];
+    u16 flags = *cbf;
     if (!(flags & CBFlag_IsCapture))
         return -1;
 
@@ -1431,10 +1433,11 @@ int GPU::GetCaptureBlock_AOBJ(u32 offset)
 
 int GPU::GetCaptureBlock_BBG(u32 offset)
 {
-    u16* cbf = VRAMCBF_BBG[(offset >> 15) & 0x3];
+    offset >>= 15;
+    u16* cbf = VRAMCBF_BBG[offset & 0x3];
     if (!cbf) return -1;
 
-    u16 flags = cbf[offset & 0x3];
+    u16 flags = *cbf;
     if (!(flags & CBFlag_IsCapture))
         return -1;
 
@@ -1455,10 +1458,11 @@ int GPU::GetCaptureBlock_BBG(u32 offset)
 
 int GPU::GetCaptureBlock_BOBJ(u32 offset)
 {
-    u16* cbf = VRAMCBF_BOBJ[(offset >> 15) & 0x3];
+    offset >>= 15;
+    u16* cbf = VRAMCBF_BOBJ[offset & 0x3];
     if (!cbf) return -1;
 
-    u16 flags = cbf[offset & 0x3];
+    u16 flags = *cbf;
     if (!(flags & CBFlag_IsCapture))
         return -1;
 
