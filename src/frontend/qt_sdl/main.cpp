@@ -288,6 +288,14 @@ int main(int argc, char** argv)
     if (argc != 0 && (!strcasecmp(argv[0], "derpDS") || !strcasecmp(argv[0], "./derpDS")))
         printf("did you just call me a derp???\n");
 
+#ifdef _WIN32
+    // argc and argv are passed as UTF8 by SDL's WinMain function
+    // QT checks for the original value in local encoding though
+    // to see whether it is unmodified to activate its hack that
+    // retrieves the unicode value via CommandLineToArgvW.
+    argc = __argc;
+    argv = __argv;
+#endif
     MelonApplication melon(argc, argv);
     pathInit();
 
