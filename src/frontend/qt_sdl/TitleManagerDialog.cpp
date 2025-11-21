@@ -412,13 +412,10 @@ TitleImportDialog::~TitleImportDialog()
 
 void TitleImportDialog::accept()
 {
-    QString path;
-    FILE* f;
-
     bool tmdfromfile = (grpTmdSource->checkedId() == 0);
 
-    path = ui->txtAppFile->text();
-    f = fopen(path.toStdString().c_str(), "rb");
+    QString path = ui->txtAppFile->text();
+    Platform::FileHandle* f = Platform::OpenFile(path.toStdString(), FileMode::Read);
     if (!f)
     {
         QMessageBox::critical(this,
@@ -427,9 +424,9 @@ void TitleImportDialog::accept()
         return;
     }
 
-    fseek(f, 0x230, SEEK_SET);
-    fread(titleid, 8, 1, f);
-    fclose(f);
+    Platform::FileSeek(f, 0x230, FileSeekOrigin::Start);
+    Platform::FileRead(titleid, 8, 1, f);
+    Platform::CloseFile(f);
 
     if (titleid[1] != 0x00030004)
     {
@@ -442,7 +439,7 @@ void TitleImportDialog::accept()
     if (tmdfromfile)
     {
         path = ui->txtTmdFile->text();
-        f = fopen(path.toStdString().c_str(), "rb");
+        Platform::FileHandle* f = Platform::OpenFile(path.toStdString(), FileMode::Read);
         if (!f)
         {
             QMessageBox::critical(this,
@@ -451,8 +448,8 @@ void TitleImportDialog::accept()
             return;
         }
 
-        fread((void *) tmdData, sizeof(DSi_TMD::TitleMetadata), 1, f);
-        fclose(f);
+        Platform::FileRead((void *) tmdData, sizeof(DSi_TMD::TitleMetadata), 1, f);
+        Platform::CloseFile(f);
 
         u32 tmdtitleid[2];
         tmdtitleid[0] = tmdData->GetCategory();
