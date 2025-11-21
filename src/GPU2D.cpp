@@ -37,8 +37,9 @@ using Platform::LogLevel;
 // * VRAM/FIFO display modes convert colors the same way
 // * 3D engine converts colors differently (18bit = 15bit * 2 + 1, except 0 = 0)
 // * 'screen disabled' white is 63,63,63
-// * [Gericom] bit15 is used as bottom green bit for palettes. TODO: check where this applies.
-//   tested on the normal BG palette and applies there
+// * [Gericom] bit15 is used as bottom green bit for palettes.
+//   applies to any BG/OBJ graphics except direct color
+//   does not apply to VRAM display or mainmem FIFO
 //
 // for VRAM display mode, VRAM must be mapped to LCDC
 //

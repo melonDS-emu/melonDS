@@ -640,7 +640,7 @@ void SoftRenderer::DrawScanline_BGOBJ(u32 line)
 
     {
         u8 r = (backdrop & 0x001F) << 1;
-        u8 g = (backdrop & 0x03E0) >> 4;
+        u8 g = ((backdrop & 0x03E0) >> 4) | ((backdrop & 0x8000) >> 15);
         u8 b = (backdrop & 0x7C00) >> 9;
 
         backdrop = r | (g << 8) | (b << 16) | 0x20000000;
@@ -702,9 +702,8 @@ void SoftRenderer::DrawScanline_BGOBJ(u32 line)
 void SoftRenderer::DrawPixel(u32* dst, u16 color, u32 flag)
 {
     u8 r = (color & 0x001F) << 1;
-    u8 g = (color & 0x03E0) >> 4;
+    u8 g = ((color & 0x03E0) >> 4) | ((color & 0x8000) >> 15);
     u8 b = (color & 0x7C00) >> 9;
-    //g |= ((color & 0x8000) >> 15);
 
     *(dst+256) = *dst;
     *dst = r | (g << 8) | (b << 16) | flag;
@@ -1081,7 +1080,7 @@ void SoftRenderer::DrawBG_Extended(u32 line, u32 bgnum)
                         color = *(u16*)&bgvram[(tilemapaddr + (((((finalY & ymask) >> 8) << yshift) + ((finalX & xmask) >> 8)) << 1)) & bgvrammask];
 
                         if (color & 0x8000)
-                            DrawPixel(&BGOBJLine[i], color, 0x01000000<<bgnum);
+                            DrawPixel(&BGOBJLine[i], color & 0x7FFF, 0x01000000<<bgnum);
                     }
                 }
 
@@ -1490,8 +1489,6 @@ void SoftRenderer::DrawSprites(u32 line, Unit* unit)
                 s32 xpos = (s32)(attrib[1] << 23) >> 23;
                 if (xpos <= -boundwidth)
                     continue;
-
-                u32 rotparamgroup = (attrib[1] >> 9) & 0x1F;
 
                 DoDrawSprite(Rotscale, sprnum, boundwidth, boundheight, width, height, xpos, ypos);
 
