@@ -761,9 +761,10 @@ private:
         return change;
     }
 
-    void VRAMCBFlagsSet(u32 bank, u32 block, u8 val);
+    u16* GetUniqueBankCBF(u32 mask, u32 offset);
+    void VRAMCBFlagsSet(u32 bank, u32 block, u16 val);
     void VRAMCBFlagsClear(u32 bank, u32 block);
-    void VRAMCBFlagsOr(u32 bank, u32 block, u8 val);
+    void VRAMCBFlagsOr(u32 bank, u32 block, u16 val);
     void CheckCaptureStart();
     void CheckCaptureEnd();
     void SyncVRAMCaptureBlock(u32 block, bool write);
@@ -779,13 +780,18 @@ private:
     u32 OAMDirty = 0;
     u32 PaletteDirty = 0;
 
-    u8 VRAMCaptureBlockFlags[16];
+    u16 VRAMCaptureBlockFlags[16];
     /*u8 VRAMBlockCaptureFlags[4 * 128*1024/VRAMCaptureGranularity] {};
     NonStupidBitField<1024*1024/VRAMCaptureGranularity> VRAMCaptureFlags_LCDC {};
     NonStupidBitField<512*1024/VRAMCaptureGranularity> VRAMCaptureFlags_ABG {};
     NonStupidBitField<256*1024/VRAMCaptureGranularity> VRAMCaptureFlags_AOBJ {};
     NonStupidBitField<128*1024/VRAMCaptureGranularity> VRAMCaptureFlags_BBG {};
     NonStupidBitField<128*1024/VRAMCaptureGranularity> VRAMCaptureFlags_BOBJ {};*/
+
+    u16* VRAMCBF_ABG[0x10] {};
+    u16* VRAMCBF_AOBJ[0x8] {};
+    u16* VRAMCBF_BBG[0x4] {};
+    u16* VRAMCBF_BOBJ[0x4] {};
 };
 }
 
