@@ -21,6 +21,12 @@
 
 #include <SDL2/SDL.h>
 
+struct InstanceStartupOptions
+{
+    std::optional<bool> arm9BreakOnStart;
+    std::optional<bool> arm7BreakOnStart;
+};
+
 #include "Platform.h"
 #include "main.h"
 #include "NDS.h"
@@ -84,6 +90,7 @@ class EmuInstance
 {
 public:
     EmuInstance(int inst);
+    EmuInstance(int inst, InstanceStartupOptions options);
     ~EmuInstance();
 
     int getInstanceID() { return instanceID; }
@@ -285,6 +292,11 @@ private:
     std::string baseGBAAssetName;
     bool changeGBACart;
     std::unique_ptr<melonDS::GBACart::CartCommon> nextGBACart;
+
+#ifdef GDBSTUB_ENABLED
+    std::optional<bool> overrideArm9BreakOnStart = std::nullopt;
+    std::optional<bool> overrideArm7BreakOnStart = std::nullopt;
+#endif
 
     // HACK
 public:
