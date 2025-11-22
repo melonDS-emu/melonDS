@@ -176,7 +176,12 @@ void GPU::Reset() noexcept
     memset(VRAMPtr_BBG, 0, sizeof(VRAMPtr_BBG));
     memset(VRAMPtr_BOBJ, 0, sizeof(VRAMPtr_BOBJ));
 
-    // TODO RESET CAPUTRE FLAGS!!!
+    memset(VRAMCaptureBlockFlags, 0, sizeof(VRAMCaptureBlockFlags));
+
+    memset(VRAMCBF_ABG, 0, sizeof(VRAMCBF_ABG));
+    memset(VRAMCBF_AOBJ, 0, sizeof(VRAMCBF_AOBJ));
+    memset(VRAMCBF_BBG, 0, sizeof(VRAMCBF_BBG));
+    memset(VRAMCBF_BOBJ, 0, sizeof(VRAMCBF_BOBJ));
 
     /*size_t fbsize;
     if (GPU3D.IsRendererAccelerated())
@@ -393,7 +398,7 @@ u16* GPU::GetUniqueBankCBF(u32 mask, u32 offset)
     //mask &= 0xF;
     if (!mask || (mask & (mask - 1)) != 0) return nullptr;
     int num = __builtin_ctz(mask);
-    return &VRAMCaptureBlockFlags[(num << 2) | offset];
+    return &VRAMCaptureBlockFlags[(num << 2) | (offset >> 1)];
 }
 
 #define MAP_RANGE(map, base, n)    for (int i = 0; i < n; i++) VRAMMap_##map[(base)+i] |= bankmask;
@@ -405,7 +410,7 @@ u16* GPU::GetUniqueBankCBF(u32 mask, u32 offset)
     for (int i = 0; i < n; i++) { VRAMMap_##map[(base)+i] &= ~bankmask; VRAMPtr_##map[(base)+i] = GetUniqueBankPtr(VRAMMap_##map[(base)+i], ((base)+i)<<14); }
 
 #define SET_RANGE_CBF(map, base) \
-    for (int i = 0; i < 4; i++) { VRAMCBF_##map[(base)+i] = GetUniqueBankCBF(VRAMMap_##map[((base)+i)<<1], ((base)+i)); }
+    for (int i = 0; i < 8; i++) { VRAMCBF_##map[(base)+i] = GetUniqueBankCBF(VRAMMap_##map[(base)+i], ((base)+i)); }
 
 void GPU::MapVRAM_AB(u32 bank, u8 cnt) noexcept
 {
@@ -430,13 +435,13 @@ void GPU::MapVRAM_AB(u32 bank, u8 cnt) noexcept
 
         case 1: // ABG
             UNMAP_RANGE_PTR(ABG, oldofs<<3, 8);
-            SET_RANGE_CBF(ABG, oldofs<<2);
+            SET_RANGE_CBF(ABG, oldofs<<3);
             break;
 
         case 2: // AOBJ
             oldofs &= 0x1;
             UNMAP_RANGE_PTR(AOBJ, oldofs<<3, 8);
-            SET_RANGE_CBF(AOBJ, oldofs<<2);
+            SET_RANGE_CBF(AOBJ, oldofs<<3);
             break;
 
         case 3: // texture
@@ -455,13 +460,13 @@ void GPU::MapVRAM_AB(u32 bank, u8 cnt) noexcept
 
         case 1: // ABG
             MAP_RANGE_PTR(ABG, ofs<<3, 8);
-            SET_RANGE_CBF(ABG, ofs<<2);
+            SET_RANGE_CBF(ABG, ofs<<3);
             break;
 
         case 2: // AOBJ
             ofs &= 0x1;
             MAP_RANGE_PTR(AOBJ, ofs<<3, 8);
-            SET_RANGE_CBF(AOBJ, ofs<<2);
+            SET_RANGE_CBF(AOBJ, ofs<<3);
             break;
 
         case 3: // texture
@@ -533,7 +538,7 @@ void GPU::MapVRAM_CD(u32 bank, u8 cnt) noexcept
 
         case 1: // ABG
             MAP_RANGE_PTR(ABG, ofs<<3, 8);
-            SET_RANGE_CBF(ABG, ofs<<2);
+            SET_RANGE_CBF(ABG, ofs<<3);
             break;
 
         case 2: // ARM7 VRAM
@@ -1357,8 +1362,7 @@ int GPU::GetCaptureBlock_LCDC(u32 offset)
 
 int GPU::GetCaptureBlock_ABG(u32 offset)
 {
-    offset >>= 15;
-    u16* cbf = VRAMCBF_ABG[offset & 0xF];
+    u16* cbf = VRAMCBF_ABG[(offset >> 14) & 0x1F];
     if (!cbf) return -1;
 
     u16 flags = *cbf;
@@ -1403,8 +1407,7 @@ int GPU::GetCaptureBlock_ABG(u32 offset)
 
 int GPU::GetCaptureBlock_AOBJ(u32 offset)
 {
-    offset >>= 15;
-    u16* cbf = VRAMCBF_AOBJ[offset & 0x7];
+    u16* cbf = VRAMCBF_AOBJ[(offset >> 14) & 0xF];
     if (!cbf) return -1;
 
     u16 flags = *cbf;
@@ -1433,8 +1436,7 @@ int GPU::GetCaptureBlock_AOBJ(u32 offset)
 
 int GPU::GetCaptureBlock_BBG(u32 offset)
 {
-    offset >>= 15;
-    u16* cbf = VRAMCBF_BBG[offset & 0x3];
+    u16* cbf = VRAMCBF_BBG[(offset >> 14) & 0x7];
     if (!cbf) return -1;
 
     u16 flags = *cbf;
@@ -1458,8 +1460,7 @@ int GPU::GetCaptureBlock_BBG(u32 offset)
 
 int GPU::GetCaptureBlock_BOBJ(u32 offset)
 {
-    offset >>= 15;
-    u16* cbf = VRAMCBF_BOBJ[offset & 0x3];
+    u16* cbf = VRAMCBF_BOBJ[(offset >> 14) & 0x7];
     if (!cbf) return -1;
 
     u16 flags = *cbf;

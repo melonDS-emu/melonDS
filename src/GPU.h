@@ -31,7 +31,6 @@ class GPU3D;
 class ARMJIT;
 
 static constexpr u32 VRAMDirtyGranularity = 512;
-static constexpr u32 VRAMCaptureGranularity = 32768;
 class GPU;
 
 template <u32 Size, u32 MappingGranularity>
@@ -788,10 +787,10 @@ private:
     NonStupidBitField<128*1024/VRAMCaptureGranularity> VRAMCaptureFlags_BBG {};
     NonStupidBitField<128*1024/VRAMCaptureGranularity> VRAMCaptureFlags_BOBJ {};*/
 
-    u16* VRAMCBF_ABG[0x10] {};
-    u16* VRAMCBF_AOBJ[0x8] {};
-    u16* VRAMCBF_BBG[0x4] {};
-    u16* VRAMCBF_BOBJ[0x4] {};
+    u16* VRAMCBF_ABG[0x20] {};
+    u16* VRAMCBF_AOBJ[0x10] {};
+    u16* VRAMCBF_BBG[0x8] {};
+    u16* VRAMCBF_BOBJ[0x8] {};
 };
 }
 
