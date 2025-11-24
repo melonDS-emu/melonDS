@@ -20,6 +20,43 @@
 
 namespace melonDS::GPU2D
 {
+
+const char* kLayersVS = R"(#version 140
+
+in vec2 vPosition;
+in vec2 vTexcoord;
+
+smooth out vec2 fTexcoord;
+
+void main()
+{
+    vec4 fpos;
+    fpos.xy = vPosition;
+    fpos.z = 0.0;
+    fpos.w = 1.0;
+
+    gl_Position = fpos;
+    fTexcoord = vTexcoord;
+}
+)";
+
+const char* kLayersFS = R"(#version 140
+
+// uniform shit goes here
+
+smooth in vec2 fTexcoord;
+
+// TODO have more so we can render more layers
+out vec4 oBG0Color;
+
+void main()
+{
+    oBG0Color = vec4(0,1,0,1);
+}
+)";
+
+
+
 const char* kFinalPassVS = R"(#version 140
 
 in vec2 vPosition;

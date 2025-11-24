@@ -57,6 +57,11 @@ private:
     int ScaleFactor;
     int ScreenW, ScreenH;
 
+    GLuint VRAM_ABG_Tex = 0;
+    GLuint VRAM_AOBJ_Tex = 0;
+    GLuint VRAM_BBG_Tex = 0;
+    GLuint VRAM_BOBJ_Tex = 0;
+
     GLuint FPShaderID = 0;
     GLint FPScaleULoc = 0;
     GLint FPCaptureRegULoc = 0;
