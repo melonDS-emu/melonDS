@@ -26,6 +26,8 @@
 #include <string>
 #include <algorithm>
 
+#include <QDateTime>
+
 #include <SDL2/SDL.h>
 
 #include "main.h"
@@ -168,6 +170,8 @@ void EmuThread::run()
 
         if (emuInstance->hotkeyPressed(HK_SwapScreens)) emit swapScreensToggle();
         if (emuInstance->hotkeyPressed(HK_SwapScreenEmphasis)) emit screenEmphasisToggle();
+
+        if (emuInstance->hotkeyPressed(HK_TakeScreenshot)) emuScreenshot();
 
         if (emuStatus == emuStatus_Running || emuStatus == emuStatus_FrameStep)
         {
@@ -558,6 +562,62 @@ void EmuThread::handleMessages()
             emuInstance->osdAddMessage(0, "Reset");
             break;
 
+        case msg_EmuScreenshot:
+            if  (emuIsActive()) {
+                auto nds = emuInstance->getNDS();
+
+                assert(nds != nullptr);
+
+                QImage capture;
+
+                frontBufferLock.lock();
+                int frontbuf = frontBuffer;
+
+#ifdef OGLRENDERER_ENABLED
+                if (nds->GPU.GetRenderer3D().Accelerated)
+                {
+                    int scaleFactor = nds->GPU.GetRenderer3D().GetScaleFactor();
+                    capture = QImage(256 * scaleFactor, (192 * 2 + 2) * scaleFactor, QImage::Format_RGB32);
+                    GLint currentBinding;
+                    glGetIntegerv(GL_PIXEL_PACK_BUFFER_BINDING, &currentBinding); /* Is this Necessary? */
+                    glBindBuffer(GL_PIXEL_PACK_BUFFER, 0);
+                    nds->GPU.GetRenderer3D().BindOutputTexture(frontbuf);
+                    glGetTexImage(GL_TEXTURE_2D, 0, GL_RGBA, GL_UNSIGNED_BYTE, capture.scanLine(0));
+                    glBindBuffer(GL_PIXEL_PACK_BUFFER, currentBinding); /* Is this Necessary? */
+                } else
+#endif
+                {
+                    capture = QImage(256, 192 * 2, QImage::Format_RGB32);
+                    if (!nds->GPU.Framebuffer[frontbuf][0] || !nds->GPU.Framebuffer[frontbuf][1])
+                    {
+                        frontBufferLock.unlock();
+                        return;
+                    }
+                    
+                    memcpy(capture.scanLine(0), nds->GPU.Framebuffer[frontbuf][0].get(), 256 * 192 * 4);
+                    memcpy(capture.scanLine(192), nds->GPU.Framebuffer[frontbuf][1].get(), 256 * 192 * 4);
+                }
+                frontBufferLock.unlock();
+
+                auto curr_time = QDateTime::currentDateTime();
+                auto prefix = curr_time.toString("'melonDS'-yyyy-MM-dd-hhmmss");
+
+                std::string screenshotFile;
+                uint8_t index = 0;
+                do {
+                    std::string filename = (prefix + (index != 0 ? QString::asprintf(" (%0u)", index) : "")).toStdString();
+                    screenshotFile = emuInstance->getAssetPath(false, emuInstance->localCfg.GetString("ScreenshotPath"), ".png", filename);
+                    index++;
+                } while(Platform::FileExists(screenshotFile));
+
+                if (capture.save(screenshotFile.c_str(), "png")) {
+                    emuInstance->osdAddMessage(0, "Screenshot taken: %s", screenshotFile.c_str());
+                } else {               
+                    emuInstance->osdAddMessage(0, "Failed to save: %s", screenshotFile.c_str());
+                }
+            }
+            break;
+
         case msg_InitGL:
             emuInstance->initOpenGL(msg.param.value<int>());
             useOpenGL = true;
@@ -759,6 +819,12 @@ void EmuThread::emuFrameStep()
 void EmuThread::emuReset()
 {
     sendMessage(msg_EmuReset);
+    waitMessage();
+}
+
+void EmuThread::emuScreenshot()
+{
+    sendMessage(msg_EmuScreenshot);
     waitMessage();
 }
 

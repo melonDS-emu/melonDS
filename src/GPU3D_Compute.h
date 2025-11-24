@@ -42,6 +42,8 @@ public:
     ~ComputeRenderer() override;
 
     void Reset(GPU& gpu) override;
+    
+    [[nodiscard]] int GetScaleFactor() const noexcept override { return ScaleFactor; }
 
     void SetRenderSettings(int scale, bool highResolutionCoordinates);
 

@@ -35,7 +35,7 @@
      </property>
     </widget>
    </item>
-   <item row="5" column="0" colspan="3">
+   <item row="6" column="0" colspan="3">
     <widget class="QLabel" name="label_5">
      <property name="text">
       <string/>
@@ -63,7 +63,28 @@
      </property>
     </widget>
    </item>
-   <item row="6" column="0" colspan="3">
+   <item row="4" column="0">
+    <widget class="QLabel" name="label_6">
+     <property name="text">
+      <string>Screenshots path:</string>
+     </property>
+    </widget>
+   </item>
+   <item row="4" column="1">
+    <widget class="QLineEdit" name="txtScreenshotsPath">
+     <property name="clearButtonEnabled">
+      <bool>true</bool>
+     </property>
+    </widget>
+   </item>
+   <item row="4" column="2">
+    <widget class="QPushButton" name="btnScreenshotsBrowse">
+     <property name="text">
+      <string>Browse...</string>
+     </property>
+    </widget>
+   </item>
+   <item row="7" column="0" colspan="3">
     <widget class="QDialogButtonBox" name="buttonBox">
      <property name="orientation">
       <enum>Qt::Horizontal</enum>
@@ -87,7 +108,7 @@
      </property>
     </widget>
    </item>
-   <item row="4" column="0" colspan="3">
+   <item row="5" column="0" colspan="3">
     <widget class="QLabel" name="label">
      <property name="text">
       <string>Leave a path blank to use the current ROM's path.</string>
@@ -117,6 +138,8 @@
   <tabstop>btnSavestateBrowse</tabstop>
   <tabstop>txtCheatFilePath</tabstop>
   <tabstop>btnCheatFileBrowse</tabstop>
+  <tabstop>txtScreenshotsPath</tabstop>
+  <tabstop>btnScreenshotsBrowse</tabstop>
  </tabstops>
  <resources/>
  <connections>
