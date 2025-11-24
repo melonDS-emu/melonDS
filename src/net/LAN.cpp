@@ -885,7 +885,7 @@ void LAN::ProcessLAN(int type)
     }
 }
 
-void LAN::Process()
+void LAN::Process(int inst)
 {
     if (!Active) return;
 
