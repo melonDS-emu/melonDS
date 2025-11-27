@@ -33,7 +33,15 @@ namespace melonDS::GPU2D
 std::unique_ptr<GLRenderer> GLRenderer::New(melonDS::GPU& gpu) noexcept
 {
     assert(glBindAttribLocation != nullptr);
-    GLuint shaderid;
+    GLuint shaderid, shaderid2;
+
+    // TODO move those to GLInit()
+    if (!OpenGL::CompileVertexFragmentProgram(shaderid2,
+                                              kLayerVS, kLayerFS,
+                                              "2DLayerShader",
+                                              {{"vPosition", 0}},
+                                              {{"oColor", 0}}))
+        return nullptr;
 
     if (!OpenGL::CompileVertexFragmentProgram(shaderid,
                                               kFinalPassVS, kFinalPassFS,
@@ -43,6 +51,7 @@ std::unique_ptr<GLRenderer> GLRenderer::New(melonDS::GPU& gpu) noexcept
         return nullptr;
 
     auto ret = std::unique_ptr<GLRenderer>(new GLRenderer(gpu));
+    ret->LayerShader = shaderid2;
     ret->FPShaderID = shaderid;
     if (!ret->GLInit())
         return nullptr;
@@ -67,6 +76,112 @@ GLRenderer::GLRenderer(melonDS::GPU& gpu)
 
 bool GLRenderer::GLInit()
 {
+    GLint uniloc;
+
+    float rectvertices[2*2*3] = {
+        0, 1,   1, 0,   1, 1,
+        0, 1,   0, 0,   1, 0
+    };
+
+    glGenBuffers(1, &RectVtxBuffer);
+    glBindBuffer(GL_ARRAY_BUFFER, RectVtxBuffer);
+    glBufferData(GL_ARRAY_BUFFER, sizeof(rectvertices), rectvertices, GL_STATIC_DRAW);
+
+    glGenVertexArrays(1, &RectVtxArray);
+    glBindVertexArray(RectVtxArray);
+    glEnableVertexAttribArray(0); // position
+    glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, 2 * sizeof(float), (void*)0);
+
+    for (int i = 0; i < 2; i++)
+    {
+        auto& state = UnitState[i];
+        memset(&state, 0, sizeof(state));
+
+        // generate textures to hold raw BG and OBJ VRAM and palettes
+
+        int bgheight = (i == 0) ? 512 : 128;
+        int objheight = (i == 0) ? 256 : 128;
+
+        state.LayerConfig.uVRAMMask = bgheight - 1;
+
+        glGenTextures(1, &state.VRAMTex_BG);
+        glBindTexture(GL_TEXTURE_2D, state.VRAMTex_BG);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+        glTexImage2D(GL_TEXTURE_2D, 0, GL_R8UI, 1024, bgheight, 0, GL_RED_INTEGER, GL_UNSIGNED_BYTE, nullptr);
+
+        glGenTextures(1, &state.VRAMTex_OBJ);
+        glBindTexture(GL_TEXTURE_2D, state.VRAMTex_OBJ);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+        glTexImage2D(GL_TEXTURE_2D, 0, GL_R8UI, 1024, objheight, 0, GL_RED_INTEGER, GL_UNSIGNED_BYTE, nullptr);
+
+        glGenTextures(1, &state.PalTex_BG);
+        glBindTexture(GL_TEXTURE_2D, state.PalTex_BG);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB5_A1, 256, 1+(4*16), 0, GL_RGBA, GL_UNSIGNED_SHORT_1_5_5_5_REV, nullptr);
+
+        glGenTextures(1, &state.PalTex_OBJ);
+        glBindTexture(GL_TEXTURE_2D, state.PalTex_OBJ);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB5_A1, 256, 1+16, 0, GL_RGBA, GL_UNSIGNED_SHORT_1_5_5_5_REV, nullptr);
+
+        // generate texture to hold pre-rendered BG layers
+
+        glGenTextures(1, &state.BGLayerTex);
+        glBindTexture(GL_TEXTURE_2D_ARRAY, state.BGLayerTex);
+        glTexParameteri(GL_TEXTURE_2D_ARRAY, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+        glTexParameteri(GL_TEXTURE_2D_ARRAY, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+        glTexParameteri(GL_TEXTURE_2D_ARRAY, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+        glTexParameteri(GL_TEXTURE_2D_ARRAY, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+        glTexImage3D(GL_TEXTURE_2D_ARRAY, 0, GL_RGBA, 1024, 1024, 4, 0, GL_RGBA, GL_UNSIGNED_BYTE, nullptr);
+
+        glGenFramebuffers(4, state.BGLayerFB);
+        for (int j = 0; j < 4; j++)
+        {
+            glBindFramebuffer(GL_FRAMEBUFFER, state.BGLayerFB[j]);
+            glFramebufferTextureLayer(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, state.BGLayerTex, 0, j);
+            glDrawBuffer(GL_COLOR_ATTACHMENT0);
+        }
+
+        // generate UBO for the layer shader
+
+        /*glGenBuffers(1, &state.LayerConfigUBO);
+        glBindBuffer(GL_UNIFORM_BUFFER, state.LayerConfigUBO);
+        static_assert((sizeof(state.LayerConfig) & 15) == 0);
+        glBufferData(GL_UNIFORM_BUFFER, sizeof(state.LayerConfig), &state.LayerConfig, GL_STREAM_DRAW);
+        glBindBufferBase(GL_UNIFORM_BUFFER, 0, state.LayerConfigUBO);*/
+    }
+
+    glUseProgram(LayerShader);
+
+    glGenBuffers(1, &LSConfigUBO);
+    glBindBuffer(GL_UNIFORM_BUFFER, LSConfigUBO);
+    static_assert((sizeof(sUnitState::sLayerConfig) & 15) == 0);
+    glBufferData(GL_UNIFORM_BUFFER, sizeof(sUnitState::sLayerConfig), nullptr, GL_STREAM_DRAW);
+    //glBufferData(GL_UNIFORM_BUFFER, sizeof(sUnitState::sLayerConfig), nullptr, GL_STATIC_DRAW);
+    glBindBufferBase(GL_UNIFORM_BUFFER, 1, LSConfigUBO);
+
+    uniloc = glGetUniformLocation(LayerShader, "VRAMTex");
+    glUniform1i(uniloc, 0);
+    uniloc = glGetUniformLocation(LayerShader, "PalTex");
+    glUniform1i(uniloc, 1);
+
+    LSConfigULoc = glGetUniformBlockIndex(LayerShader, "uConfig");
+    glUniformBlockBinding(LayerShader, LSConfigULoc, 1);
+
+    LSCurBGULoc = glGetUniformLocation(LayerShader, "uCurBG");
+
     glUseProgram(FPShaderID);
 
     FPScaleULoc = glGetUniformLocation(FPShaderID, "u3DScale");
@@ -84,7 +199,6 @@ bool GLRenderer::GLInit()
     // 0 = output from 3D renderer
     // 1 = per-scanline attributes
     // 2 = BG/OBJ layers
-    GLint uniloc;
     uniloc = glGetUniformLocation(FPShaderID, "_3DTex");
     glUniform1i(uniloc, 0);
     uniloc = glGetUniformLocation(FPShaderID, "LineAttribTex");
@@ -185,7 +299,25 @@ GLRenderer::~GLRenderer()
     glDeleteVertexArrays(1, &FPVertexArrayID);
     glDeleteBuffers(1, &FPVertexBufferID);
 
+    glDeleteVertexArrays(1, &RectVtxArray);
+    glDeleteBuffers(1, &RectVtxBuffer);
+
     glDeleteProgram(FPShaderID);
+    glDeleteProgram(LayerShader);
+
+    for (int i = 0; i < 2; i++)
+    {
+        auto& state = UnitState[i];
+
+        glDeleteTextures(1, &state.VRAMTex_BG);
+        glDeleteTextures(1, &state.VRAMTex_OBJ);
+        glDeleteTextures(1, &state.PalTex_BG);
+        glDeleteTextures(1, &state.PalTex_OBJ);
+        glDeleteTextures(1, &state.BGLayerTex);
+        //glDeleteBuffers(1, &state.LayerConfigUBO);
+    }
+
+    glDeleteBuffers(1, &LSConfigUBO);
 
     delete[] LineAttribBuffer;
     delete[] BGOBJBuffer;
@@ -244,6 +376,9 @@ void GLRenderer::DrawScanline(u32 line, Unit* unit)
 
     int lineout = line;
     line = GPU.VCount;
+
+    // TODO detect if VRAM was modified and do a partial render
+    bool vramdirty = false;
 
     if (CurUnit->Num == 0)
     {
@@ -373,6 +508,189 @@ void GLRenderer::DrawScanline(u32 line, Unit* unit)
 
 void GLRenderer::VBlank(Unit* unitA, Unit* unitB)
 {
+    GLuint fart;
+    glGetIntegerv(GL_TEXTURE_BINDING_2D, (GLint*)&fart);
+
+    // test zone
+    {
+        //Unit* unit = unitA;
+        Unit* unit = unitB;
+        auto& state = UnitState[unit->Num];
+
+        u32 dispcnt = unit->DispCnt;
+
+        u32 tilebase, mapbase;
+        if (!unit->Num)
+        {
+            tilebase = ((dispcnt >> 24) & 0x7) << 16;
+            mapbase = ((dispcnt >> 27) & 0x7) << 16;
+        }
+        else
+        {
+            tilebase = 0;
+            mapbase = 0;
+        }
+
+        glUseProgram(LayerShader);
+
+        // update VRAM and palettes
+        // TODO only update parts that are dirty
+
+        u8* vram; u32 vrammask;
+        unit->GetBGVRAM(vram, vrammask);
+        u32 vramheight = (vrammask+1) >> 10;
+
+        glActiveTexture(GL_TEXTURE0);
+        glBindTexture(GL_TEXTURE_2D, state.VRAMTex_BG);
+        glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, 1024, vramheight, GL_RED_INTEGER, GL_UNSIGNED_BYTE, vram);
+
+        memcpy(&TempPalBuffer[0], &GPU.Palette[unit->Num ? 0x400 : 0], 256*2);
+        for (int s = 0; s < 4; s++)
+        {
+            for (int p = 0; p < 16; p++)
+            {
+                u16* pal = unit->GetBGExtPal(s, p);
+                memcpy(&TempPalBuffer[(1+((s*16)+p)) * 256], pal, 256*2);
+            }
+        }
+
+        glActiveTexture(GL_TEXTURE1);
+        glBindTexture(GL_TEXTURE_2D, state.PalTex_BG);
+        glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, 256, 1+(4*16), GL_RGBA, GL_UNSIGNED_SHORT_1_5_5_5_REV, TempPalBuffer);
+
+        // update layer config
+
+        int layertype[4] = {1, 1, 0, 0};
+        switch (dispcnt & 0x7)
+        {
+            case 0: layertype[2] = 1; layertype[3] = 1; break;
+            case 1: layertype[2] = 1; layertype[3] = 2; break;
+            case 2: layertype[2] = 2; layertype[3] = 2; break;
+            case 3: layertype[2] = 1; layertype[3] = 3; break;
+            case 4: layertype[2] = 2; layertype[3] = 3; break;
+            case 5: layertype[2] = 3; layertype[3] = 3; break;
+            case 6: layertype[2] = 4; layertype[3] = 0; break;
+            case 7: layertype[2] = 0; layertype[3] = 0; break;
+        }
+
+        for (int layer = 0; layer < 4; layer++)
+        {
+            int type = layertype[layer];
+            if (!type)
+                continue;
+
+            u16 bgcnt = unit->BGCnt[layer];
+            auto& cfg = state.LayerConfig.uBGConfig[layer];
+
+            cfg.TileOffset = tilebase + (((bgcnt >> 2) & 0x3) << 14);
+            cfg.MapOffset = mapbase + (((bgcnt >> 8) & 0x1F) << 11);
+
+            if (type == 1)
+            {
+                // text layer
+
+                switch (bgcnt >> 14)
+                {
+                    case 0: cfg.Size[0] = 256; cfg.Size[1] = 256; break;
+                    case 1: cfg.Size[0] = 512; cfg.Size[1] = 256; break;
+                    case 2: cfg.Size[0] = 256; cfg.Size[1] = 512; break;
+                    case 3: cfg.Size[0] = 512; cfg.Size[1] = 512; break;
+                }
+
+                if (bgcnt & (1<<7))
+                {
+                    // 256-color
+                    cfg.Type = 1;
+                    if (dispcnt & (1<<30))
+                    {
+                        // extended palette
+                        int paloff = layer;
+                        if ((layer < 2) && (bgcnt & (1<<13)))
+                            paloff += 2;
+                        cfg.PalOffset = 1 + (16 * paloff);
+                    }
+                    else
+                        cfg.PalOffset = 0;
+                }
+                else
+                {
+                    // 16-color
+                    cfg.Type = 0;
+                    cfg.PalOffset = 0;
+                }
+            }
+            else if (type == 3)
+            {
+                // extended layer
+
+                if (bgcnt & (1<<7))
+                {
+                    // bitmap modes
+
+                    switch (bgcnt >> 14)
+                    {
+                        case 0: cfg.Size[0] = 128; cfg.Size[1] = 128; break;
+                        case 1: cfg.Size[0] = 256; cfg.Size[1] = 256; break;
+                        case 2: cfg.Size[0] = 512; cfg.Size[1] = 256; break;
+                        case 3: cfg.Size[0] = 512; cfg.Size[1] = 512; break;
+                    }
+
+                    if (bgcnt & (1<<2))
+                        cfg.Type = 5;
+                    else
+                        cfg.Type = 4;
+
+                    cfg.PalOffset = 0;
+                    cfg.TileOffset = 0;
+                    cfg.MapOffset = ((bgcnt >> 8) & 0x1F) << 14;
+                }
+                else
+                {
+                    // rotscale w/ tiles
+
+                    switch (bgcnt >> 14)
+                    {
+                        case 0: cfg.Size[0] = 128; cfg.Size[1] = 128; break;
+                        case 1: cfg.Size[0] = 256; cfg.Size[1] = 256; break;
+                        case 2: cfg.Size[0] = 512; cfg.Size[1] = 512; break;
+                        case 3: cfg.Size[0] = 1024; cfg.Size[1] = 1024; break;
+                    }
+
+                    // this layer type is always 256-color
+                    cfg.Type = 3;
+                    if (dispcnt & (1<<30))
+                    {
+                        // extended palette
+                        int paloff = layer;
+                        if ((layer < 2) && (bgcnt & (1<<13)))
+                            paloff += 2;
+                        cfg.PalOffset = 1 + (16 * paloff);
+                    }
+                    else
+                        cfg.PalOffset = 0;
+                }
+            }
+        }
+
+        //glBindBuffer(GL_UNIFORM_BUFFER, state.LayerConfigUBO);
+        glBindBuffer(GL_UNIFORM_BUFFER, LSConfigUBO);
+        /*void* unibuf = glMapBuffer(GL_UNIFORM_BUFFER, GL_WRITE_ONLY);
+        if (unibuf) memcpy(unibuf, &state.LayerConfig, sizeof(state.LayerConfig));
+        else printf("AAAAAAAAAAAAAAA %04X\n", glGetError());
+        glUnmapBuffer(GL_UNIFORM_BUFFER);*/
+        glBufferSubData(GL_UNIFORM_BUFFER, 0, sizeof(state.LayerConfig), &state.LayerConfig);
+        //glUniformBlockBinding(LayerShader, LSConfigULoc, unit->Num);
+
+        glDisable(GL_DEPTH_TEST);
+        glDisable(GL_STENCIL_TEST);
+        glDisable(GL_BLEND);
+        glColorMaski(0, GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
+
+        PrerenderLayer(unit, 3);
+    }
+
+
+
     int backbuf = BackBuffer;
     glBindFramebuffer(GL_READ_FRAMEBUFFER, 0);
     glBindFramebuffer(GL_DRAW_FRAMEBUFFER, FPOutputFB[backbuf]);
@@ -402,6 +720,8 @@ void GLRenderer::VBlank(Unit* unitA, Unit* unitB)
     glUniform1i(FPCaptureMaskULoc, CaptureUsageMask);
 
     // 3D renderer has bound its output texture to GL_TEXTURE0
+    glActiveTexture(GL_TEXTURE0);
+    glBindTexture(GL_TEXTURE_2D, fart);
 
     glActiveTexture(GL_TEXTURE1);
     glBindTexture(GL_TEXTURE_1D, LineAttribTex);
@@ -472,6 +792,28 @@ void GLRenderer::VBlankEnd(Unit* unitA, Unit* unitB)
 
     CaptureUsageMask = 0;
     AuxUsageMask = 0;
+}
+
+
+void GLRenderer::PrerenderLayer(Unit* unit, int layer)
+{
+    auto& state = UnitState[unit->Num];
+    auto& cfg = state.LayerConfig.uBGConfig[layer];
+
+    glBindFramebuffer(GL_READ_FRAMEBUFFER, 0);
+    glBindFramebuffer(GL_DRAW_FRAMEBUFFER, state.BGLayerFB[layer]);
+
+    glUniform1i(LSCurBGULoc, layer);
+
+    // set layer size
+    glViewport(0, 0, cfg.Size[0], cfg.Size[1]);
+
+    // TODO: set other layer parameters
+    // maybe use uniform buffer/structure
+
+    glBindBuffer(GL_ARRAY_BUFFER, RectVtxBuffer);
+    glBindVertexArray(RectVtxArray);
+    glDrawArrays(GL_TRIANGLES, 0, 2*3);
 }
 
 

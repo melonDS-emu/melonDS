@@ -57,10 +57,44 @@ private:
     int ScaleFactor;
     int ScreenW, ScreenH;
 
-    GLuint VRAM_ABG_Tex = 0;
-    GLuint VRAM_AOBJ_Tex = 0;
-    GLuint VRAM_BBG_Tex = 0;
-    GLuint VRAM_BOBJ_Tex = 0;
+    GLuint RectVtxBuffer;
+    GLuint RectVtxArray;
+
+    GLuint LayerShader;
+    GLint LSConfigULoc;
+    GLint LSCurBGULoc;
+    GLuint LSConfigUBO;
+
+    struct sUnitState
+    {
+        GLuint VRAMTex_BG;
+        GLuint VRAMTex_OBJ;
+        GLuint PalTex_BG;
+        GLuint PalTex_OBJ;
+
+        GLuint BGLayerFB[4];
+        GLuint BGLayerTex;
+
+        // std140 compliant config struct for the layer shader
+        struct sLayerConfig
+        {
+            u32 uVRAMMask;
+            u32 __pad0[3];
+            struct sBGConfig
+            {
+                u32 Size[2];
+                u32 Type;
+                u32 PalOffset;
+                u32 TileOffset;
+                u32 MapOffset;
+                u32 __pad0[2];
+            } uBGConfig[4];
+        } LayerConfig;
+        //GLuint LayerConfigUBO;
+
+    } UnitState[2];
+
+    u16 TempPalBuffer[256 * (1 + (4*16))];
 
     GLuint FPShaderID = 0;
     GLint FPScaleULoc = 0;
@@ -135,6 +169,8 @@ private:
 
         return table;
     }();
+
+    void PrerenderLayer(Unit* unit, int layer);
 
     template<u32 bgmode> void DrawScanlineBGMode(u32 line);
     void DrawScanlineBGMode6(u32 line);
