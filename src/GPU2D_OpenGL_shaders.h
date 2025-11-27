@@ -203,7 +203,21 @@ vec4 GetBGLayerPixel(int layer, ivec2 coord)
     else if (uBGConfig[layer].Type == 2)
     {
         // affine - 256 color tiles
-        ret = vec4(1, 0, 1, 1);
+
+        int mapoffset = uBGConfig[layer].MapOffset +
+            (coord.x >> 3) +
+            ((coord.y >> 3) * (uBGConfig[layer].Size.x >> 3));
+
+        int mapval = VRAMRead8(mapoffset);
+        int tileoffset = uBGConfig[layer].TileOffset + (mapval << 6);
+
+        tileoffset += ((coord.y & 0x7) << 3);
+        tileoffset += (coord.x & 0x7);
+
+        int col = VRAMRead8(tileoffset);
+
+        ret = GetBGPalEntry(layer, 0, col);
+        ret.a = (col == 0) ? 0 : 1;
     }
     else if (uBGConfig[layer].Type == 3)
     {

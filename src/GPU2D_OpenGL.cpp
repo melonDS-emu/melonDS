@@ -584,6 +584,7 @@ void GLRenderer::VBlank(Unit* unitA, Unit* unitB)
 
             cfg.TileOffset = tilebase + (((bgcnt >> 2) & 0x3) << 14);
             cfg.MapOffset = mapbase + (((bgcnt >> 8) & 0x1F) << 11);
+            cfg.PalOffset = 0;
 
             if (type == 1)
             {
@@ -609,15 +610,26 @@ void GLRenderer::VBlank(Unit* unitA, Unit* unitB)
                             paloff += 2;
                         cfg.PalOffset = 1 + (16 * paloff);
                     }
-                    else
-                        cfg.PalOffset = 0;
                 }
                 else
                 {
                     // 16-color
                     cfg.Type = 0;
-                    cfg.PalOffset = 0;
                 }
+            }
+            else if (type == 2)
+            {
+                // affine layer
+
+                switch (bgcnt >> 14)
+                {
+                    case 0: cfg.Size[0] = 128; cfg.Size[1] = 128; break;
+                    case 1: cfg.Size[0] = 256; cfg.Size[1] = 256; break;
+                    case 2: cfg.Size[0] = 512; cfg.Size[1] = 512; break;
+                    case 3: cfg.Size[0] = 1024; cfg.Size[1] = 1024; break;
+                }
+
+                cfg.Type = 2;
             }
             else if (type == 3)
             {
@@ -640,7 +652,6 @@ void GLRenderer::VBlank(Unit* unitA, Unit* unitB)
                     else
                         cfg.Type = 4;
 
-                    cfg.PalOffset = 0;
                     cfg.TileOffset = 0;
                     cfg.MapOffset = ((bgcnt >> 8) & 0x1F) << 14;
                 }
@@ -666,9 +677,23 @@ void GLRenderer::VBlank(Unit* unitA, Unit* unitB)
                             paloff += 2;
                         cfg.PalOffset = 1 + (16 * paloff);
                     }
-                    else
-                        cfg.PalOffset = 0;
                 }
+            }
+            else //if (type == 4)
+            {
+                // large layer
+
+                switch (bgcnt >> 14)
+                {
+                    case 0: cfg.Size[0] = 512; cfg.Size[1] = 1024; break;
+                    case 1: cfg.Size[0] = 1024; cfg.Size[1] = 512; break;
+                    case 2: cfg.Size[0] = 512; cfg.Size[1] = 256; break;
+                    case 3: cfg.Size[0] = 512; cfg.Size[1] = 512; break;
+                }
+
+                cfg.Type = 4;
+                cfg.TileOffset = 0;
+                cfg.MapOffset = 0;
             }
         }
 
