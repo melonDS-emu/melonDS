@@ -25,6 +25,9 @@
 namespace melonDS::GPU2D
 {
 
+#include "OpenGL_shaders/LayerVS.h"
+#include "OpenGL_shaders/LayerFS.h"
+
 // NOTE
 // for now, this is largely a reimplementation of the software 2D renderer
 // in the future, the rendering may be refined to involve more hardware processing

@@ -20,7 +20,7 @@
 
 namespace melonDS::GPU2D
 {
-
+#if 0
 const char* kLayerVS = R"(#version 140
 
 struct sBGConfig
@@ -280,17 +280,10 @@ vec4 GetBGLayerPixel(int layer, ivec2 coord)
 
 void main()
 {
-    //oColor = vec4(0,1,0,1);
-    //oColor = texelFetch(PalTex, ivec2(fTexcoord), 0);
-
-    //oColor = vec4(float(uBGConfig[0].Size.x)/512, float(uBGConfig[0].Size.y)/512, 0, 1);
-    //oColor = vec4(float(uVRAMMask&0xF)/15, float((uVRAMMask>>4)&0xF)/15, float(uVRAMMask>>8)/15, 1);
-    //int derp = uBGConfig[0].Size.x;
-    //oColor = vec4(float(derp&0xF)/15, float((derp>>4)&0xF)/15, float((derp>>8)&0xF)/15, 1);
     oColor = GetBGLayerPixel(uCurBG, ivec2(fTexcoord));
 }
 )";
-
+#endif
 
 
 const char* kFinalPassVS = R"(#version 140
