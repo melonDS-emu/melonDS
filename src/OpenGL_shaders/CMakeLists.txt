@@ -20,6 +20,5 @@ foreach(SH_INPUT ${OPENGL_SHADER_FILES})
     list(APPEND OPENGL_SHADER_OUT ${SH_OUTPUT})
 endforeach()
 
-message(STATUS ${OPENGL_SHADER_OUT})
 add_custom_target(OpenGL_shaders ALL DEPENDS ${OPENGL_SHADER_OUT})
 add_dependencies(core OpenGL_shaders)
