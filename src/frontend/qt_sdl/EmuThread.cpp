@@ -364,6 +364,7 @@ void EmuThread::run()
 
             fastforward = enablefastforward;
             slowmo = enableslowmo;
+            emuInstance->updateFastForwardMute(fastforward);
 
             if (slowmo) emuInstance->curFPS = emuInstance->slowmoFPS;
             else if (fastforward) emuInstance->curFPS = emuInstance->fastForwardFPS;

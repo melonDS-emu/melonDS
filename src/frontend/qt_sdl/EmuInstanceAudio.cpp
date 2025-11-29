@@ -37,6 +37,7 @@ void EmuInstance::audioInit()
     audioDSiVolumeSync = localCfg.GetBool("Audio.DSiVolumeSync");
 
     audioMutedToggle = false;
+    audioMutedByFastForward = false;
     audioMutedByWindowFocus = false;
     audioSyncCond = SDL_CreateCond();
     audioSyncLock = SDL_CreateMutex();
@@ -129,6 +130,11 @@ void EmuInstance::toggleAudioMute()
     audioMutedToggle = !audioMutedToggle;
 }
 
+void EmuInstance::updateFastForwardMute(bool fastForward)
+{
+    audioMutedByFastForward = fastForward && globalCfg.GetBool("MuteFastForward");
+}
+
 void EmuInstance::audioSync()
 {
     if (audioDevice)
@@ -170,7 +176,7 @@ void EmuInstance::audioCallback(void* data, Uint8* stream, int len)
     SDL_CondSignal(inst->audioSyncCond);
     SDL_UnlockMutex(inst->audioSyncLock);
 
-    if ((num_in < 1) || inst->audioMutedByWindowFocus || inst->audioMutedToggle)
+    if ((num_in < 1) || inst->audioMutedByWindowFocus || inst->audioMutedToggle || inst->audioMutedByFastForward)
     {
         memset(stream, 0, len*sizeof(s16)*2);
         return;

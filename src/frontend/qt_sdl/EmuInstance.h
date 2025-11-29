@@ -225,6 +225,7 @@ private:
     void audioDisable();
     void updateAudioMuteByWindowFocus();
     void toggleAudioMute();
+    void updateFastForwardMute(bool fastForward);
     void audioSync();
     void audioUpdateSettings();
 
@@ -316,6 +317,7 @@ private:
     int audioBufSize;
     float audioSampleFrac;
     bool audioMutedToggle;
+    bool audioMutedByFastForward;
     bool audioMutedByWindowFocus;
     SDL_cond* audioSyncCond;
     SDL_mutex* audioSyncLock;
