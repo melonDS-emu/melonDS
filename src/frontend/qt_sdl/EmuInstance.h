@@ -48,6 +48,7 @@ enum
     HK_PowerButton,
     HK_VolumeUp,
     HK_VolumeDown,
+    HK_AudioMuteToggle,
     HK_SlowMo,
     HK_FastForwardToggle,
     HK_SlowMoToggle,
@@ -222,7 +223,8 @@ private:
     void audioDeInit();
     void audioEnable();
     void audioDisable();
-    void audioMute();
+    void updateAudioMuteByWindowFocus();
+    void toggleAudioMute();
     void audioSync();
     void audioUpdateSettings();
 
@@ -313,7 +315,8 @@ private:
     int audioFreq;
     int audioBufSize;
     float audioSampleFrac;
-    bool audioMuted;
+    bool audioMutedToggle;
+    bool audioMutedByWindowFocus;
     SDL_cond* audioSyncCond;
     SDL_mutex* audioSyncLock;
 
