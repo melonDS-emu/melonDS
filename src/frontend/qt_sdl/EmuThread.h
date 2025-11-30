@@ -90,6 +90,9 @@ public:
     {
         MessageType type;
         QVariant param;
+
+        // The save message will serialize to the pointed-to std::string.
+        std::string* save_buffer;
     };
 
     void sendMessage(Message msg);
@@ -119,7 +122,7 @@ public:
     void ejectCart(bool gba);
     int insertGBAAddon(int type, QString& errorstr);
 
-    int saveState(const QString& filename);
+    int saveState(std::string& buffer);
     int loadState(const QString& filename);
     int undoStateLoad();
 
