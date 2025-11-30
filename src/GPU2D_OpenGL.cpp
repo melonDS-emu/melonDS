@@ -27,6 +27,8 @@ namespace melonDS::GPU2D
 
 #include "OpenGL_shaders/LayerVS.h"
 #include "OpenGL_shaders/LayerFS.h"
+#include "OpenGL_shaders/SpriteVS.h"
+#include "OpenGL_shaders/SpriteFS.h"
 
 // NOTE
 // for now, this is largely a reimplementation of the software 2D renderer
@@ -36,17 +38,24 @@ namespace melonDS::GPU2D
 std::unique_ptr<GLRenderer> GLRenderer::New(melonDS::GPU& gpu) noexcept
 {
     assert(glBindAttribLocation != nullptr);
-    GLuint shaderid, shaderid2;
+    GLuint shaderid[3];
 
     // TODO move those to GLInit()
-    if (!OpenGL::CompileVertexFragmentProgram(shaderid2,
+    if (!OpenGL::CompileVertexFragmentProgram(shaderid[0],
                                               kLayerVS, kLayerFS,
                                               "2DLayerShader",
                                               {{"vPosition", 0}},
                                               {{"oColor", 0}}))
         return nullptr;
 
-    if (!OpenGL::CompileVertexFragmentProgram(shaderid,
+    if (!OpenGL::CompileVertexFragmentProgram(shaderid[1],
+                                              kSpriteVS, kSpriteFS,
+                                              "2DSpriteShader",
+                                              {{"vPosition", 0}},
+                                              {{"oColor", 0}}))
+        return nullptr;
+
+    if (!OpenGL::CompileVertexFragmentProgram(shaderid[2],
                                               kFinalPassVS, kFinalPassFS,
                                               "2DFinalPassShader",
                                               {{"vPosition", 0}, {"vTexcoord", 1}},
@@ -54,8 +63,9 @@ std::unique_ptr<GLRenderer> GLRenderer::New(melonDS::GPU& gpu) noexcept
         return nullptr;
 
     auto ret = std::unique_ptr<GLRenderer>(new GLRenderer(gpu));
-    ret->LayerShader = shaderid2;
-    ret->FPShaderID = shaderid;
+    ret->LayerShader = shaderid[0];
+    ret->SpriteShader = shaderid[1];
+    ret->FPShaderID = shaderid[2];
     if (!ret->GLInit())
         return nullptr;
     return ret;
@@ -77,6 +87,12 @@ GLRenderer::GLRenderer(melonDS::GPU& gpu)
     ActiveCapture = -1;
 }
 
+#define glDefaultTexParams(target) \
+    glTexParameteri(target, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE); \
+    glTexParameteri(target, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE); \
+    glTexParameteri(target, GL_TEXTURE_MIN_FILTER, GL_NEAREST); \
+    glTexParameteri(target, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+
 bool GLRenderer::GLInit()
 {
     GLint uniloc;
@@ -95,6 +111,21 @@ bool GLRenderer::GLInit()
     glEnableVertexAttribArray(0); // position
     glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, 2 * sizeof(float), (void*)0);
 
+    // sprite vertex data: 2x position, 1x sprite index
+    int sprdatasize = (3 * 6) * 128;
+    SpriteVtxData = new u16[sprdatasize];
+
+    glGenBuffers(1, &SpriteVtxBuffer);
+    glBindBuffer(GL_ARRAY_BUFFER, SpriteVtxBuffer);
+    glBufferData(GL_ARRAY_BUFFER, sprdatasize * sizeof(u16), nullptr, GL_STREAM_DRAW);
+
+    glGenVertexArrays(1, &SpriteVtxArray);
+    glBindVertexArray(SpriteVtxArray);
+    glEnableVertexAttribArray(0); // position
+    glVertexAttribIPointer(0, 2, GL_SHORT, 3 * sizeof(u16), (void*)0);
+    glEnableVertexAttribArray(1); // sprite index
+    glVertexAttribIPointer(1, 1, GL_SHORT, 3 * sizeof(u16), (void*)(2 * sizeof(u16)));
+
     for (int i = 0; i < 2; i++)
     {
         auto& state = UnitState[i];
@@ -109,44 +140,29 @@ bool GLRenderer::GLInit()
 
         glGenTextures(1, &state.VRAMTex_BG);
         glBindTexture(GL_TEXTURE_2D, state.VRAMTex_BG);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+        glDefaultTexParams(GL_TEXTURE_2D);
         glTexImage2D(GL_TEXTURE_2D, 0, GL_R8UI, 1024, bgheight, 0, GL_RED_INTEGER, GL_UNSIGNED_BYTE, nullptr);
 
         glGenTextures(1, &state.VRAMTex_OBJ);
         glBindTexture(GL_TEXTURE_2D, state.VRAMTex_OBJ);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+        glDefaultTexParams(GL_TEXTURE_2D);
         glTexImage2D(GL_TEXTURE_2D, 0, GL_R8UI, 1024, objheight, 0, GL_RED_INTEGER, GL_UNSIGNED_BYTE, nullptr);
 
         glGenTextures(1, &state.PalTex_BG);
         glBindTexture(GL_TEXTURE_2D, state.PalTex_BG);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+        glDefaultTexParams(GL_TEXTURE_2D);
         glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB5_A1, 256, 1+(4*16), 0, GL_RGBA, GL_UNSIGNED_SHORT_1_5_5_5_REV, nullptr);
 
         glGenTextures(1, &state.PalTex_OBJ);
         glBindTexture(GL_TEXTURE_2D, state.PalTex_OBJ);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+        glDefaultTexParams(GL_TEXTURE_2D);
         glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB5_A1, 256, 1+16, 0, GL_RGBA, GL_UNSIGNED_SHORT_1_5_5_5_REV, nullptr);
 
         // generate texture to hold pre-rendered BG layers
 
         glGenTextures(1, &state.BGLayerTex);
         glBindTexture(GL_TEXTURE_2D_ARRAY, state.BGLayerTex);
-        glTexParameteri(GL_TEXTURE_2D_ARRAY, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
-        glTexParameteri(GL_TEXTURE_2D_ARRAY, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
-        glTexParameteri(GL_TEXTURE_2D_ARRAY, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
-        glTexParameteri(GL_TEXTURE_2D_ARRAY, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+        glDefaultTexParams(GL_TEXTURE_2D_ARRAY);
         glTexImage3D(GL_TEXTURE_2D_ARRAY, 0, GL_RGBA, 1024, 1024, 4, 0, GL_RGBA, GL_UNSIGNED_BYTE, nullptr);
 
         glGenFramebuffers(4, state.BGLayerFB);
@@ -157,33 +173,55 @@ bool GLRenderer::GLInit()
             glDrawBuffer(GL_COLOR_ATTACHMENT0);
         }
 
-        // generate UBO for the layer shader
+        // generate texture to hold pre-rendered sprites
 
-        /*glGenBuffers(1, &state.LayerConfigUBO);
-        glBindBuffer(GL_UNIFORM_BUFFER, state.LayerConfigUBO);
-        static_assert((sizeof(state.LayerConfig) & 15) == 0);
-        glBufferData(GL_UNIFORM_BUFFER, sizeof(state.LayerConfig), &state.LayerConfig, GL_STREAM_DRAW);
-        glBindBufferBase(GL_UNIFORM_BUFFER, 0, state.LayerConfigUBO);*/
+        glGenTextures(1, &state.SpriteTex);
+        glBindTexture(GL_TEXTURE_2D, state.SpriteTex);
+        glDefaultTexParams(GL_TEXTURE_2D);
+        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, 1024, 512, 0, GL_RGBA, GL_UNSIGNED_BYTE, nullptr);
+
+        glGenFramebuffers(1, &state.SpriteFB);
+        glBindFramebuffer(GL_FRAMEBUFFER, state.SpriteFB);
+        glFramebufferTexture(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, state.SpriteTex, 0);
+        glDrawBuffer(GL_COLOR_ATTACHMENT0);
     }
-
-    glUseProgram(LayerShader);
 
     glGenBuffers(1, &LSConfigUBO);
     glBindBuffer(GL_UNIFORM_BUFFER, LSConfigUBO);
     static_assert((sizeof(sUnitState::sLayerConfig) & 15) == 0);
     glBufferData(GL_UNIFORM_BUFFER, sizeof(sUnitState::sLayerConfig), nullptr, GL_STREAM_DRAW);
-    //glBufferData(GL_UNIFORM_BUFFER, sizeof(sUnitState::sLayerConfig), nullptr, GL_STATIC_DRAW);
-    glBindBufferBase(GL_UNIFORM_BUFFER, 1, LSConfigUBO);
+    glBindBufferBase(GL_UNIFORM_BUFFER, 10, LSConfigUBO);
+
+    glGenBuffers(1, &SpriteConfigUBO);
+    glBindBuffer(GL_UNIFORM_BUFFER, SpriteConfigUBO);
+    static_assert((sizeof(sUnitState::sSpriteConfig) & 15) == 0);
+    glBufferData(GL_UNIFORM_BUFFER, sizeof(sUnitState::sSpriteConfig), nullptr, GL_STREAM_DRAW);// checkme
+    glBindBufferBase(GL_UNIFORM_BUFFER, 11, SpriteConfigUBO);
+
+
+    glUseProgram(LayerShader);
 
     uniloc = glGetUniformLocation(LayerShader, "VRAMTex");
     glUniform1i(uniloc, 0);
     uniloc = glGetUniformLocation(LayerShader, "PalTex");
     glUniform1i(uniloc, 1);
 
-    LSConfigULoc = glGetUniformBlockIndex(LayerShader, "uConfig");
-    glUniformBlockBinding(LayerShader, LSConfigULoc, 1);
+    uniloc = glGetUniformBlockIndex(LayerShader, "uConfig");
+    glUniformBlockBinding(LayerShader, uniloc, 10);
 
     LSCurBGULoc = glGetUniformLocation(LayerShader, "uCurBG");
+
+
+    glUseProgram(SpriteShader);
+
+    uniloc = glGetUniformLocation(SpriteShader, "VRAMTex");
+    glUniform1i(uniloc, 0);
+    uniloc = glGetUniformLocation(SpriteShader, "PalTex");
+    glUniform1i(uniloc, 1);
+
+    uniloc = glGetUniformBlockIndex(LayerShader, "uConfig");
+    glUniformBlockBinding(LayerShader, uniloc, 11);
+
 
     glUseProgram(FPShaderID);
 
@@ -536,6 +574,9 @@ void GLRenderer::VBlank(Unit* unitA, Unit* unitB)
 
         glUseProgram(LayerShader);
 
+        GLint uniloc = glGetUniformBlockIndex(LayerShader, "uConfig");
+        glUniformBlockBinding(LayerShader, uniloc, 10);
+
         // update VRAM and palettes
         // TODO only update parts that are dirty
 
@@ -715,6 +756,38 @@ void GLRenderer::VBlank(Unit* unitA, Unit* unitB)
         glColorMaski(0, GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
 
         PrerenderLayer(unit, 3);
+
+        // MORE TEST
+
+        // TODO only update parts that are dirty, too
+
+        //u8* vram; u32 vrammask;
+        unit->GetOBJVRAM(vram, vrammask);
+        vramheight = (vrammask+1) >> 10;
+
+        glActiveTexture(GL_TEXTURE0);
+        glBindTexture(GL_TEXTURE_2D, state.VRAMTex_OBJ);
+        glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, 1024, vramheight, GL_RED_INTEGER, GL_UNSIGNED_BYTE, vram);
+
+        memcpy(&TempPalBuffer[0], &GPU.Palette[unit->Num ? 0x600 : 0x200], 256*2);
+        {
+            u16* pal = unit->GetOBJExtPal();
+            memcpy(&TempPalBuffer[256], pal, 256*16*2);
+        }
+
+        glActiveTexture(GL_TEXTURE1);
+        glBindTexture(GL_TEXTURE_2D, state.PalTex_OBJ);
+        glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, 256, 1+16, GL_RGBA, GL_UNSIGNED_SHORT_1_5_5_5_REV, TempPalBuffer);
+
+        glBindBuffer(GL_UNIFORM_BUFFER, SpriteConfigUBO);
+        glBufferSubData(GL_UNIFORM_BUFFER,
+                        offsetof(sUnitState::sSpriteConfig, uVRAMMask),
+                        sizeof(u32),
+                        &vrammask);
+
+        state.NumSprites = 0;
+        UpdateOAM(unit, 0, 192);
+        PrerenderSprites(unit);
     }
 
 
@@ -822,6 +895,224 @@ void GLRenderer::VBlankEnd(Unit* unitA, Unit* unitB)
     AuxUsageMask = 0;
 }
 
+
+void GLRenderer::UpdateOAM(Unit* unit, int ystart, int yend)
+{
+    auto& state = UnitState[unit->Num];
+    auto& cfg = state.SpriteConfig;
+
+    const u8 spritewidth[16] =
+    {
+        8, 16, 8, 8,
+        16, 32, 8, 8,
+        32, 32, 16, 8,
+        64, 64, 32, 8
+    };
+    const u8 spriteheight[16] =
+    {
+        8, 8, 16, 8,
+        16, 8, 32, 8,
+        32, 16, 32, 8,
+        64, 32, 64, 8
+    };
+
+    u16* oam = (u16*)&GPU.OAM[unit->Num ? 0x400 : 0];
+    for (int bgnum = 0x0C00; bgnum >= 0x0000; bgnum-=0x0400)
+    {
+        for (int sprnum = 127; sprnum >= 0; sprnum--)
+        {
+            u16* attrib = &oam[sprnum * 4];
+
+            if ((attrib[2] & 0x0C00) != bgnum)
+                continue;
+
+            u32 sprtype = (attrib[0] >> 8) & 0x3;
+            if (sprtype == 1) // sprite disabled
+                continue;
+
+            // note on sprite position:
+            // X > 255 is interpreted as negative (-256..-1)
+            // Y > 127 is interpreted as both positive (128..255) and negative (-128..-1)
+
+            s32 xpos = (s32)(attrib[1] << 23) >> 23;
+            s32 ypos = (s32)(attrib[0] << 24) >> 24;
+
+            u32 sizeparam = (attrib[0] >> 14) | ((attrib[1] & 0xC000) >> 12);
+            s32 width = spritewidth[sizeparam];
+            s32 height = spriteheight[sizeparam];
+            s32 boundwidth = width;
+            s32 boundheight = height;
+
+            if (sprtype == 3)
+            {
+                // double-size rotscale sprite
+                boundwidth <<= 1;
+                boundheight <<= 1;
+            }
+
+            if (xpos <= -boundwidth)
+                continue;
+
+            bool yc0 = ((ypos + boundheight) > ystart) && (ypos < yend);
+            bool yc1 = (((ypos&0xFF) + boundheight) > ystart) && ((ypos&0xFF) < yend);
+            if (!(yc0 || yc1))
+                continue;
+
+            u32 sprmode = (attrib[0] >> 10) & 0x3;
+            if (sprmode == 3)
+            {
+                if ((unit->DispCnt & 0x60) == 0x60)
+                    continue;
+                if ((attrib[2] >> 12) == 0)
+                    continue;
+            }
+
+            if (state.NumSprites >= 128)
+            {
+                printf("GPU2D_OpenGL: SPRITE BUFFER IS FULL!!!!!\n");
+                break;
+            }
+
+            // add this sprite to the OAM array
+            // TODO: if we do partial rendering, we need to check whether it was already in the array
+
+            auto& sprcfg = cfg.uOAM[state.NumSprites];
+
+            sprcfg.Position[0] = (u32)xpos;
+            sprcfg.Position[1] = (u32)ypos;
+            sprcfg.Size[0] = width;
+            sprcfg.Size[1] = height;
+            sprcfg.BoundSize[0] = boundwidth;
+            sprcfg.BoundSize[1] = boundheight;
+
+            if (sprtype & 2)
+            {
+                sprcfg.Flip[0] = 0;
+                sprcfg.Flip[1] = 0;
+                sprcfg.Rotscale = (attrib[1] >> 9) & 0x1F;
+            }
+            else
+            {
+                sprcfg.Flip[0] = !!(attrib[1] & (1<<12));
+                sprcfg.Flip[1] = !!(attrib[1] & (1<<13));
+                sprcfg.Rotscale = (u32)-1;
+            }
+
+            sprcfg.OBJMode = sprmode;
+            sprcfg.Mosaic = !!(attrib[0] & (1<<12));
+            sprcfg.BGPrio = (attrib[2] >> 10) & 0x3;
+
+            u32 tilenum = attrib[2] & 0x3FF;
+
+            if (sprmode == 3)
+            {
+                // bitmap sprite
+
+                if (unit->DispCnt & (1<<6))
+                {
+                    // 1D mapping
+                    sprcfg.TileOffset = tilenum << (7 + ((CurUnit->DispCnt >> 22) & 0x1));
+                    sprcfg.TileStride = width * 2;
+                }
+                else if (unit->DispCnt & (1<<5))
+                {
+                    // 2D mapping, 256 pixels
+                    sprcfg.TileOffset = ((tilenum & 0x01F) << 4) + ((tilenum & 0x3E0) << 7);
+                    sprcfg.TileStride = 256 * 2;
+                }
+                else
+                {
+                    // 2D mapping, 128 pixels
+                    sprcfg.TileOffset = ((tilenum & 0x00F) << 4) + ((tilenum & 0x3F0) << 7);
+                    sprcfg.TileStride = 128 * 2;
+                }
+
+                sprcfg.Type = 2;
+                sprcfg.PalOffset = 1 + (attrib[2] >> 12); // alpha
+            }
+            else
+            {
+                if (unit->DispCnt & (1<<4))
+                {
+                    // 1D mapping
+                    sprcfg.TileOffset = tilenum << (5 + ((unit->DispCnt >> 20) & 0x3));
+                    sprcfg.TileStride = (width >> 3) * 32;
+                    if (attrib[0] & (1<<13))
+                        sprcfg.TileStride <<= 1;
+                }
+                else
+                {
+                    // 2D mapping
+                    sprcfg.TileOffset = tilenum << 5;
+                    sprcfg.TileStride = 32 * 32;
+                }
+
+                if (attrib[0] & (1<<13))
+                {
+                    // 256-color sprite
+                    sprcfg.Type = 1;
+                    if (unit->DispCnt & (1<<31))
+                        sprcfg.PalOffset = 1 + (attrib[2] >> 12);
+                    else
+                        sprcfg.PalOffset = 0;
+                }
+                else
+                {
+                    // 16-color sprite
+                    sprcfg.Type = 0;
+                    sprcfg.PalOffset = (attrib[2] >> 12) << 4;
+                }
+            }
+
+            state.NumSprites++;
+        }
+    }
+
+    // TODO: add rotscale params
+
+    glBindBuffer(GL_UNIFORM_BUFFER, SpriteConfigUBO);
+    glBufferSubData(GL_UNIFORM_BUFFER,
+                    offsetof(sUnitState::sSpriteConfig, uOAM),
+                    state.NumSprites * sizeof(sUnitState::sSpriteConfig::sOAM),
+                    &state.SpriteConfig.uOAM[0]);
+}
+
+
+void GLRenderer::PrerenderSprites(Unit* unit)
+{
+    auto& state = UnitState[unit->Num];
+
+    glUseProgram(SpriteShader);
+
+    GLint uniloc = glGetUniformBlockIndex(SpriteShader, "uConfig");
+    glUniformBlockBinding(SpriteShader, uniloc, 11);
+
+    glBindFramebuffer(GL_READ_FRAMEBUFFER, 0);
+    glBindFramebuffer(GL_DRAW_FRAMEBUFFER, state.SpriteFB);
+    glViewport(0, 0, 1024, 512);
+
+    // TODO upload VRAM shit
+
+    u16* vtxbuf = SpriteVtxData;
+    int vtxnum = 0;
+
+    for (int i = 0; i < state.NumSprites; i++)
+    {
+        *vtxbuf++ = 0; *vtxbuf++ = 1; *vtxbuf++ = i;
+        *vtxbuf++ = 1; *vtxbuf++ = 0; *vtxbuf++ = i;
+        *vtxbuf++ = 1; *vtxbuf++ = 1; *vtxbuf++ = i;
+        *vtxbuf++ = 0; *vtxbuf++ = 1; *vtxbuf++ = i;
+        *vtxbuf++ = 0; *vtxbuf++ = 0; *vtxbuf++ = i;
+        *vtxbuf++ = 1; *vtxbuf++ = 0; *vtxbuf++ = i;
+        vtxnum += 6;
+    }
+
+    glBindBuffer(GL_ARRAY_BUFFER, SpriteVtxBuffer);
+    glBufferSubData(GL_ARRAY_BUFFER, 0, vtxnum * 3 * sizeof(u16), SpriteVtxData);
+
+    glBindVertexArray(SpriteVtxArray);
+    glDrawArrays(GL_TRIANGLES, 0, vtxnum);
+}
 
 void GLRenderer::PrerenderLayer(Unit* unit, int layer)
 {

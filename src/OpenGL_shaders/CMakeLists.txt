@@ -1,6 +1,8 @@
 set(OPENGL_SHADER_FILES
     LayerVS.glsl
     LayerFS.glsl
+    SpriteVS.glsl
+    SpriteFS.glsl
 )
 
 foreach(SH_INPUT ${OPENGL_SHADER_FILES})

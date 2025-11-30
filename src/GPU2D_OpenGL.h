@@ -61,9 +61,14 @@ private:
     GLuint RectVtxArray;
 
     GLuint LayerShader;
-    GLint LSConfigULoc;
     GLint LSCurBGULoc;
     GLuint LSConfigUBO;
+
+    GLuint SpriteShader;
+    GLuint SpriteConfigUBO;
+    GLuint SpriteVtxBuffer;
+    GLuint SpriteVtxArray;
+    u16* SpriteVtxData;
 
     struct sUnitState
     {
@@ -74,6 +79,9 @@ private:
 
         GLuint BGLayerFB[4];
         GLuint BGLayerTex;
+
+        GLuint SpriteFB;
+        GLuint SpriteTex;
 
         // std140 compliant config struct for the layer shader
         struct sLayerConfig
@@ -91,6 +99,28 @@ private:
             } uBGConfig[4];
         } LayerConfig;
         //GLuint LayerConfigUBO;
+
+        struct sSpriteConfig
+        {
+            u32 uVRAMMask;
+            u32 __pad0[3];
+            struct sOAM
+            {
+                s32 Position[2];
+                s32 Flip[2];
+                s32 Size[2];
+                s32 BoundSize[2];
+                u32 OBJMode;
+                u32 Type;
+                u32 PalOffset;
+                u32 TileOffset;
+                u32 TileStride;
+                u32 Rotscale;
+                u32 BGPrio;
+                u32 Mosaic;
+            } uOAM[128];
+        } SpriteConfig;
+        int NumSprites;
 
     } UnitState[2];
 
@@ -170,6 +200,9 @@ private:
         return table;
     }();
 
+    void UpdateOAM(Unit* unit, int ystart, int yend);
+
+    void PrerenderSprites(Unit* unit);
     void PrerenderLayer(Unit* unit, int layer);
 
     template<u32 bgmode> void DrawScanlineBGMode(u32 line);
