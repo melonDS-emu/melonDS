@@ -772,19 +772,12 @@ bool EmuInstance::loadState(const std::string& filename)
     return true;
 }
 
-bool EmuInstance::saveState(const std::string& filename)
+bool EmuInstance::saveState(std::string& buffer)
 {
-    Platform::FileHandle* file = Platform::OpenFile(filename, Platform::FileMode::Write);
-
-    if (file == nullptr)
-    { // If the file couldn't be opened...
-        return false;
-    }
 
     Savestate state;
     if (state.Error)
     { // If there was an error creating the state (and allocating its memory)...
-        Platform::CloseFile(file);
         return false;
     }
 
@@ -793,30 +786,10 @@ bool EmuInstance::saveState(const std::string& filename)
 
     if (state.Error)
     {
-        Platform::CloseFile(file);
         return false;
     }
 
-    if (Platform::FileWrite(state.Buffer(), state.Length(), 1, file) == 0)
-    { // Write the Savestate buffer to the file. If that fails...
-        Platform::Log(Platform::Error,
-                      "Failed to write %d-byte savestate to %s\n",
-                      state.Length(),
-                      filename.c_str()
-        );
-        Platform::CloseFile(file);
-        return false;
-    }
-
-    Platform::CloseFile(file);
-
-    if (globalCfg.GetBool("Savestate.RelocSRAM") && ndsSave)
-    {
-        std::string savefile = filename.substr(lastSep(filename)+1);
-        savefile = getAssetPath(false, localCfg.GetString("SaveFilePath"), ".sav", savefile);
-        savefile += instanceFileSuffix();
-        ndsSave->SetPath(savefile, false);
-    }
+    buffer = std::string(static_cast<char*>(state.Buffer()), state.Length());
 
     return true;
 }

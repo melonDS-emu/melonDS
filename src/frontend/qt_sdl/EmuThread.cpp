@@ -625,8 +625,8 @@ void EmuThread::handleMessages()
             break;
 
         case msg_SaveState:
-            msgResult = emuInstance->saveState(msg.param.value<QString>().toStdString());
-            break;
+          msgResult = emuInstance->saveState(*msg.save_buffer);
+          break;
 
         case msg_LoadState:
             msgResult = emuInstance->loadState(msg.param.value<QString>().toStdString());
@@ -828,11 +828,10 @@ int EmuThread::insertGBAAddon(int type, QString& errorstr)
     return msgResult;
 }
 
-int EmuThread::saveState(const QString& filename)
-{
-    sendMessage({.type = msg_SaveState, .param = filename});
-    waitMessage();
-    return msgResult;
+int EmuThread::saveState(std::string &output_buffer) {
+  sendMessage({.type = msg_SaveState, .save_buffer = &output_buffer});
+  waitMessage();
+  return msgResult;
 }
 
 int EmuThread::loadState(const QString& filename)
