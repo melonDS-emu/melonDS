@@ -1056,9 +1056,6 @@ u32 NDS::RunFrame()
         break;
     }
 
-    // Signal to the SPU that it should read out the buffered audio from blip-buf to a buffer for the frontend to consume
-    SPU.EndFrame();
-
     // In the context of TASes, frame count is traditionally the primary measure of emulated time,
     // so it needs to be tracked even if NDS is powered off.
     NumFrames++;

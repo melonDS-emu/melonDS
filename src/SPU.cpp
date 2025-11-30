@@ -215,8 +215,8 @@ SPU::SPU(melonDS::NDS& nds, AudioBitDepth bitdepth, AudioInterpolation interpola
     ApplyBias = true;
     Degrade10Bit = false;
 
-    BlipLeft = blip_new(8192);
-    BlipRight = blip_new(8192);
+    BlipLeft = blip_new(512);
+    BlipRight = blip_new(512);
 
     OutputBufferReadPos = 0;
     OutputBufferWritePos = 0;
@@ -1001,8 +1001,6 @@ void SPU::Mix(u32 spucycles)
     }
 
     BlipTimer += spucycles;
-    if (BlipTimer >= 8191 * 512)
-        BlipTimer = 8191 * 512;
 
     if (output[0] != OutputLastSamples[0])
         blip_add_delta(BlipLeft, BlipTimer, (int) output[0] - OutputLastSamples[0]);
@@ -1012,10 +1010,13 @@ void SPU::Mix(u32 spucycles)
     OutputLastSamples[0] = output[0];
     OutputLastSamples[1] = output[1];
 
+    if (BlipTimer >= 512 * 128)
+        BufferAudio();
+
     NDS.ScheduleEvent(Event_SPU, true, MixInterval, 0, MixInterval >> 1);
 }
 
-void SPU::EndFrame()
+void SPU::BufferAudio()
 {
     blip_end_frame(BlipLeft, BlipTimer);
     blip_end_frame(BlipRight, BlipTimer);
