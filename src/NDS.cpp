@@ -1056,6 +1056,9 @@ u32 NDS::RunFrame()
         break;
     }
 
+    // Ensure the last audio samples produced for this frame are available to the frontend immediately
+    SPU.BufferAudio();
+
     // In the context of TASes, frame count is traditionally the primary measure of emulated time,
     // so it needs to be tracked even if NDS is powered off.
     NumFrames++;
