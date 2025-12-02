@@ -59,7 +59,13 @@ set(SOURCES_QT_SDL
     LANDialog.cpp
     NetplayDialog.cpp
 
-    LuaMain.cpp
+    lua/LuaMain.cpp
+    lua/libs/LuaForms.cpp
+    lua/libs/LuaGui.cpp
+    lua/libs/LuaInput.cpp
+    lua/libs/LuaMemory.cpp
+    lua/libs/LuaSavestate.cpp
+    lua/libs/LuaMisc.cpp
 )
 
 option(USE_QT6 "Use Qt 6 instead of Qt 5" ON)

@@ -306,6 +306,10 @@ public:
     bool doAudioSync;
 
     melonDS::u32 getInputMask(){return inputMask;}
+    int getCartType(){return cartType;}
+    std::string getbaseROMDir(){return baseROMDir;}
+    std::string getbaseROMName(){return baseROMName;}
+
 private:
 
     std::unique_ptr<melonDS::Savestate> backupState;

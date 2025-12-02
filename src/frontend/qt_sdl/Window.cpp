@@ -85,7 +85,7 @@
 #include "Window.h"
 #include "AboutDialog.h"
 
-#include "LuaMain.h"
+#include "lua/LuaMain.h"
 
 using namespace melonDS;
 

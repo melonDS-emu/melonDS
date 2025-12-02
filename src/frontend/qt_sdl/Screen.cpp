@@ -49,7 +49,7 @@
 
 #include "version.h"
 
-#include "LuaMain.h"
+#include "lua/LuaMain.h"
 
 using namespace melonDS;
 

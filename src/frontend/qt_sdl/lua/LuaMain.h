@@ -47,6 +47,7 @@ public slots:
     void onStop();
     void onPausePlay();
     void onLuaUpdate();
+    void onLuaCallback();
 };
 
 //Based on ScreenLayout::GetScreenTransforms
@@ -69,8 +70,9 @@ struct OverlayCanvas
     unsigned int GLTexture; // used by GL rendering
     bool GLTextureLoaded;
     OverlayCanvas(int x, int y,int w, int h, LuaCanvasTarget target = canvasTarget_OSD);
-    void flip();//used to swap buffers / update canvas
-    bool flipped; //used to signal update to graphics.
+    void flip();//used to swap buffers
+    bool flipped; //used to signal to graphics to swap buffers.
+    bool updated; //used to track if current buffer has been updated.
 };
 
 typedef int(*luaFunctionPointer)(lua_State*);
@@ -79,6 +81,22 @@ struct LuaFunction
     luaFunctionPointer cfunction;
     const char* name;
     LuaFunction(luaFunctionPointer,const char*,std::vector<LuaFunction*>*);
+};
+
+struct LuaLibrary
+{
+    const char* libName;
+    std::vector<luaL_Reg>* luaFuncs;
+    LuaLibrary(const char* libName,std::vector<luaL_Reg>* luaFuncs);
+    void load(lua_State* L);
+};
+
+struct LuaFunctionRegister
+{
+    LuaFunctionRegister(int(*funct)(lua_State *L),const char* functName,std::vector<luaL_Reg>* lib){
+        luaL_Reg reg = {functName,funct};
+        lib->push_back(reg);
+    };
 };
 
 class LuaBundle
@@ -104,13 +122,16 @@ public:
     void printText(QString string);
     void createLuaState();
     void luaUpdate();
+    void luaCallback(int ref);
     bool flagPause = false;
     bool flagStop = false;
     bool flagNewLua = false;
     OverlayCanvas* luaCanvas = nullptr;
     std::vector<OverlayCanvas>* overlays;
     QHash<QString, QImage>* imageHash;
+    QList<QWidget*>* luaWidgets;
 
 };
+LuaBundle* get_bundle(lua_State * L);
 
 #endif
