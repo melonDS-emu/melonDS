@@ -2,104 +2,173 @@
   "version": 6,
   "configurePresets": [
     {
-      "name": "release",
-      "displayName": "Release",
-      "description": "Default release build configuration.",
+      "name": "base",
+      "description": "Base configuration",
       "generator": "Ninja",
-      "binaryDir": "${sourceDir}/build/release"
+      "binaryDir": "${sourceDir}/build/${presetName}",
+      "hidden": true,
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Release"
+      }
     },
     {
-      "inherits": "release",
-      "name": "release-vcpkg",
-      "displayName": "Release (vcpkg)",
-      "description": "Release build with packages from vcpkg.",
+      "name": "base-vcpkg",
+      "inherits": "base",
+      "description": "Base configuration with vcpkg",
       "cacheVariables": {
         "USE_VCPKG": {
           "type": "BOOL",
           "value": "ON"
-        }
-      }
-    },
-    {
-      "name": "release-mingw-x86_64",
-      "inherits": "release-vcpkg",
-      "displayName": "Windows MinGW release (x86_64)",
-      "binaryDir": "${sourceDir}/build/release-mingw-x86_64",
-      "generator": "Ninja",
-      "cacheVariables": {
+        },
         "BUILD_STATIC": {
           "type": "BOOL",
           "value": "ON"
         }
+      },
+      "hidden": true
+    },
+    {
+      "name": "release",
+      "inherits": "base",
+      "description": "Generic release build",
+      "condition": {
+        "type": "notEquals",
+        "lhs": "${hostSystemName}",
+        "rhs": "Windows"
+      }
+    },
+    {
+      "name": "release-mingw-x86_64",
+      "inherits": "base-vcpkg",
+      "displayName": "Windows MinGW Release (x64)",
+      "condition": {
+        "type": "notEquals",
+        "lhs": "$env{MINGW_PREFIX}",
+        "rhs": ""
+      }
+    },
+    {
+      "name": "base-windows",
+      "inherits": "base-vcpkg",
+      "description": "Base settings for Windows VS builds",
+      "hidden": true,
+      "displayName": "Windows base",
+      "cacheVariables": {
+        "CMAKE_C_COMPILER": "clang-cl.exe",
+        "CMAKE_CXX_COMPILER": "clang-cl.exe"
+      },
+      "condition": {
+        "type": "equals",
+        "lhs": "${hostSystemName}",
+        "rhs": "Windows"
+      },
+      "vendor": {
+        "microsoft.com/VisualStudioSettings/CMake/1.0": {
+          "hostOS": [ "Windows" ]
+        }
+      }
+    },
+    {
+      "name": "release-windows-x86_64",
+      "inherits": "base-windows",
+      "displayName": "Windows Release (x64)",
+      "architecture": {
+        "value": "x64",
+        "strategy": "external"
+      }
+    },
+    {
+      "name": "debug-windows-x86_64",
+      "inherits": "release-windows-x86_64",
+      "displayName": "Windows Debug (x64)",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Debug"
+      }
+    },
+    {
+      "name": "release-windows-arm64",
+      "inherits": "base-windows",
+      "displayName": "Windows Release (ARM64)",
+      "architecture": {
+        "value": "arm64",
+        "strategy": "external"
+      }
+    },
+    {
+      "name": "debug-windows-arm64",
+      "inherits": "release-windows-arm64",
+      "displayName": "Windows Debug (ARM64)",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Debug"
       }
     },
     {
       "name": "release-mac-x86_64",
-      "inherits": "release-vcpkg",
+      "inherits": "base-vcpkg",
       "displayName": "macOS release (x86_64)",
-      "binaryDir": "${sourceDir}/build/release-mac-x86_64",
-      "cacheVariables": { "CMAKE_OSX_ARCHITECTURES": "x86_64" }
+      "cacheVariables": {
+        "CMAKE_OSX_ARCHITECTURES": "x86_64"
+      },
+      "condition": {
+        "type": "equals",
+        "lhs": "${hostSystemName}",
+        "rhs": "Darwin"
+      }
     },
     {
       "name": "release-mac-arm64",
-      "inherits": "release-vcpkg",
+      "inherits": "base-vcpkg",
       "displayName": "macOS release (arm64)",
-      "binaryDir": "${sourceDir}/build/release-mac-arm64",
-      "cacheVariables": { "CMAKE_OSX_ARCHITECTURES": "arm64" }
+      "cacheVariables": {
+        "CMAKE_OSX_ARCHITECTURES": "arm64"
+      },
+      "condition": {
+        "type": "equals",
+        "lhs": "${hostSystemName}",
+        "rhs": "Darwin"
+      }
     }
   ],
   "buildPresets": [
     {
       "name": "release",
-      "configurePreset": "release"
-    },
-    {
-      "name": "release-vcpkg",
-      "configurePreset": "release-vcpkg"
+      "configurePreset": "release",
+      "displayName": "Release"
     },
     {
       "name": "release-mingw-x86_64",
-      "configurePreset": "release-mingw-x86_64"
+      "configurePreset": "release-mingw-x86_64",
+      "displayName": "MinGW Release (x86_64)"
+    },
+    {
+      "name": "release-windows-x86_64",
+      "configurePreset": "release-windows-x86_64",
+      "displayName": "Windows Release (x64)"
+    },
+    {
+      "name": "debug-windows-x86_64",
+      "configurePreset": "debug-windows-x86_64",
+      "displayName": "Windows Debug (x64)"
+    },
+    {
+      "name": "release-windows-arm64",
+      "configurePreset": "release-windows-arm64",
+      "displayName": "Windows Release (ARM64)"
+    },
+    {
+      "name": "debug-windows-arm64",
+      "configurePreset": "debug-windows-arm64",
+      "displayName": "Windows Debug (ARM64)"
     },
     {
       "name": "release-mac-x86_64",
-      "configurePreset": "release-mac-x86_64"
+      "configurePreset": "release-mac-x86_64",
+      "displayName": "macOS Release (x86_64)"
     },
     {
       "name": "release-mac-arm64",
-      "configurePreset": "release-mac-arm64"
-    }
-  ],
-  "workflowPresets": [
-    {
-      "name": "release",
-      "displayName": "Release",
-      "steps": [
-        { "type": "configure", "name": "release" },
-        { "type": "build", "name": "release" }
-      ]
-    },
-    {
-      "name": "release-vcpkg",
-      "displayName": "Release (vcpkg)",
-      "steps": [
-        { "type": "configure", "name": "release-vcpkg" },
-        { "type": "build", "name": "release-vcpkg" }
-      ]
-    },
-    {
-      "name": "release-mac-x86_64",
-      "steps": [
-        { "type": "configure", "name": "release-mac-x86_64" },
-        { "type": "build", "name": "release-mac-x86_64" }
-      ]
-    },
-    {
-      "name": "release-mac-arm64",
-      "steps": [
-        { "type": "configure", "name": "release-mac-arm64" },
-        { "type": "build", "name": "release-mac-arm64" }
-      ]
+      "configurePreset": "release-mac-arm64",
+      "displayName": "macOS Release (arm64)"
     }
   ]
 }

@@ -16,68 +16,59 @@
     with melonDS. If not, see http://www.gnu.org/licenses/.
 */
 
-#ifndef ARCODEFILE_H
-#define ARCODEFILE_H
+#ifndef ARDATABASEDAT_H
+#define ARDATABASEDAT_H
 
 #include <string>
 #include <list>
 #include <vector>
 #include <unordered_map>
-#include <variant>
 #include "types.h"
+#include "ARCodeFile.h"
 
 namespace melonDS
 {
 
-struct ARCodeCat;
-
-struct ARCode
+struct ARDatabaseEntry
 {
-    ARCodeCat* Parent;
+    u32 GameCode;
+    u32 Checksum;
     std::string Name;
-    std::string Description;
-    bool Enabled;
-    std::vector<u32> Code;
+    ARCodeCat RootCat;
 };
 
-typedef std::variant<ARCode, ARCodeCat> ARCodeItem;
-typedef std::list<ARCodeItem> ARCodeItemList;
-
-struct ARCodeCat
-{
-    ARCodeCat* Parent;
-    std::string Name;
-    std::string Description;
-    bool OnlyOneCodeEnabled;
-    ARCodeItemList Children;
-};
-
-struct ARDatabaseEntry;
-typedef std::unordered_map<ARCode*, bool> ARCodeEnableMap;
+typedef std::vector<ARDatabaseEntry> ARDatabaseEntryList;
 
 
-class ARCodeFile
+class ARDatabaseDAT
 {
 public:
-    ARCodeFile(const std::string& filename);
-    ~ARCodeFile() noexcept = default;
-
-    [[nodiscard]] std::vector<ARCode> GetCodes() const noexcept;
+    ARDatabaseDAT(const std::string& filename);
+    ~ARDatabaseDAT() noexcept = default;
 
     bool Error = false;
 
-    bool Load();
-    bool Save();
-
-    void Import(ARDatabaseEntry& dbentry, ARCodeEnableMap& enablemap, bool clear);
-
-    ARCodeCat RootCat {};
+    std::string GetDBName() const { return DBName; }
+    bool FindGameCode(u32 gamecode);
+    ARDatabaseEntryList GetEntriesByGameCode(u32 gamecode);
 
 private:
     std::string Filename;
+    std::string DBName;
 
-    void FinalizeList();
+    struct EntryInfo
+    {
+        u32 GameCode;
+        u32 Checksum;
+        u32 Offset;
+    };
+
+    // list of entries per gamecode
+    std::unordered_map<u32, std::vector<EntryInfo>> EntryList;
+
+    bool LoadEntries();
+    bool LoadCheatCodes(EntryInfo& info, ARDatabaseEntry& entry);
 };
 
 }
-#endif // ARCODEFILE_H
+#endif // ARDATABASEDAT_H

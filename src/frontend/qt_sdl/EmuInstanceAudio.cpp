@@ -41,7 +41,7 @@ void EmuInstance::audioInit()
     audioSyncLock = SDL_CreateMutex();
 
     audioFreq = 48000; // TODO: make both of these configurable?
-    audioBufSize = 1024;
+    audioBufSize = 512;
 
     SDL_AudioSpec whatIwant, whatIget;
     memset(&whatIwant, 0, sizeof(SDL_AudioSpec));
@@ -128,7 +128,7 @@ void EmuInstance::audioSync()
     if (audioDevice)
     {
         SDL_LockMutex(audioSyncLock);
-        while (nds->SPU.GetOutputSize() > audioBufSize)
+        while (nds->SPU.GetOutputSize() >= audioBufSize)
         {
             int ret = SDL_CondWaitTimeout(audioSyncCond, audioSyncLock, 500);
             if (ret == SDL_MUTEX_TIMEDOUT) break;

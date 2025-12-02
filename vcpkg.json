@@ -30,7 +30,9 @@
 		},
 		"faad2",
 		"pkgconf",
-		"lua"
+		"lua",
+		{ "name": "pkgconf", "host": true },
+		{ "name": "dirent", "platform": "windows" }
 	],
 	"features": {
 		"qt6": {
