@@ -4,11 +4,6 @@
 std::vector<luaL_Reg> memoryFunctions;// list of registered lua_CFunctions for this library
 LuaLibrary memoryLibrary("memory",&memoryFunctions);//adds "memory" to the list of luaLibraries
 
-namespace luaMemoryDefinitions
-{
-//Macro to register lua_CFunction with 'name' to the "memory" library
-#define AddMemoryFunction(functPointer,name)LuaFunctionRegister name(&functPointer,#name,&memoryFunctions)
-
 using namespace melonDS;
 
 enum isbus{
@@ -161,16 +156,33 @@ void memoryDomain::read(u8* buffer,s64 address,s64 count){
 	}
 }
 
+namespace luaMemoryDefinitions
+{
+//Macro to register lua_CFunction with 'name' to the "memory" library
+#define AddMemoryFunction(functPointer,name)LuaFunctionRegister name(&functPointer,#name,&memoryFunctions)
+
+memoryDomain get_currentMemoryDomain(LuaBundle* bundle){
+	if (bundle->currentMemoryDomain!=nullptr) return *bundle->currentMemoryDomain;
+	memoryDomain domain;
+	NDS* CurrentNDS = bundle->getEmuInstance()->getNDS();
+	const auto mainRamSize = CurrentNDS->ConsoleType == 1 ? melonDS::MainRAMMaxSize : melonDS::MainRAMMaxSize / 4;
+	domain.name="Main RAM";
+	domain.base=CurrentNDS->MainRAM;
+	domain.size=mainRamSize;
+	return domain;
+}
+
 /**
  * Finds active memoryDomain that matchs the optional string function argument `narg`,
- * returns current memoryDomain ie. "Main RAM" if if `narg` is absent/nil,
+ * returns currentMemoryDomain (Default "Main RAM") if if `narg` is absent/nil,
  * or if unable to find the memoryDomain / the memoryDomain is currently unused. 
  * (based off BizHawk's API)
 **/
 memoryDomain L_checkForMemoryDomain(lua_State* L, int narg){
 	LuaBundle* bundle = get_bundle(L);
+	if (lua_isnoneornil(L,narg)) return get_currentMemoryDomain(bundle);
+	const char* name = luaL_checklstring(L,narg,NULL);
 	NDS* CurrentNDS = bundle->getEmuInstance()->getNDS();
-	const char* name = luaL_optlstring(L,narg,"Main RAM",NULL);
 	memoryDomain domain;
 	domain.CurrentNDS=CurrentNDS;
     #define ADD_MEMORY_DOMAIN(domain_name,domain_base,domain_size) if (std::strcmp(name,domain_name)==0){\
@@ -232,13 +244,92 @@ memoryDomain L_checkForMemoryDomain(lua_State* L, int narg){
 
     // DEFAULT
     // DomainName not found / is not in use:
-	domain.name="Main RAM";
-	domain.base=CurrentNDS->MainRAM;
-	domain.size=mainRamSize;
-    return domain;
+	return get_currentMemoryDomain(bundle);
 }
 
+int Lua_getcurrentmemorydomain(lua_State* L)
+{
+	LuaBundle* bundle = get_bundle(L);
+	const char* domainName = get_currentMemoryDomain(bundle).name;
+	lua_pushstring(L,domainName);
+	return 1;
+}
+AddMemoryFunction(Lua_getcurrentmemorydomain,getcurrentmemorydomain);
 
+int Lua_getcurrentmemorydomainsize(lua_State* L)
+{
+	LuaBundle* bundle = get_bundle(L);
+	u64 domainSize = get_currentMemoryDomain(bundle).size;
+	lua_pushinteger(L,domainSize);
+	return 1;
+}
+AddMemoryFunction(Lua_getcurrentmemorydomainsize,getcurrentmemorydomainsize);
+
+int Lua_getmemorydomainlist(lua_State* L)
+{
+	LuaBundle* bundle = get_bundle(L);
+	NDS* CurrentNDS = bundle->getEmuInstance()->getNDS();
+	std::vector<const char*> domainList;
+	domainList.push_back("Main RAM");
+	domainList.push_back("Shared WRAM");
+	domainList.push_back("ARM7 WRAM");
+	if (auto* ndsCart = CurrentNDS->GetNDSCart())
+	{
+		domainList.push_back("SRAM");
+		domainList.push_back("ROM");
+	}
+	if (auto* gbaCart = CurrentNDS->GetGBACart())
+	{
+		domainList.push_back("GBA SRAM");
+		domainList.push_back("GBA ROM");
+	}
+	domainList.push_back("Instruction TCM");
+	domainList.push_back("Data TCM");
+	domainList.push_back("ARM9 BIOS");
+	domainList.push_back("ARM7 BIOS");
+	domainList.push_back("Firmware");
+	if (CurrentNDS->ConsoleType == 1)
+	{
+		domainList.push_back("ARM9i BIOS");
+		domainList.push_back("ARM7i BIOS");
+		domainList.push_back("NWRAM A");
+		domainList.push_back("NWRAM B");
+		domainList.push_back("NWRAM C");
+	}
+	domainList.push_back("ARM9 System Bus");
+	domainList.push_back("ARM7 System Bus");
+	lua_createtable(L,domainList.size(),0);
+	for(int i=1;i<=domainList.size();i++){
+		lua_pushstring(L,domainList.at(i-1));
+		lua_seti(L,-2,i);
+	}
+	return 1;
+}
+AddMemoryFunction(Lua_getmemorydomainlist,getmemorydomainlist);
+
+int Lua_getmemorydomainsize(lua_State* L)
+{
+	memoryDomain domain = L_checkForMemoryDomain(L,1);
+	lua_pushinteger(L,domain.size);
+	return 1;
+}
+AddMemoryFunction(Lua_getmemorydomainsize,getmemorydomainsize);
+
+//TODO: memory.hash_region
+
+int Lua_usememorydomain(lua_State* L)
+{
+	const char* name = luaL_checklstring(L,1,NULL);
+	memoryDomain domain = L_checkForMemoryDomain(L,1);
+	if (std::strcmp(name,domain.name)==0){
+		LuaBundle* bundle = get_bundle(L);
+		bundle->currentMemoryDomain = &domain;
+		lua_pushboolean(L,true);
+		return 1;
+	}
+	lua_pushboolean(L,false);
+	return 0;
+}
 
 int Lua_read_bytes_as_array(lua_State* L)
 {
@@ -261,6 +352,8 @@ int Lua_read_bytes_as_array(lua_State* L)
 }
 AddMemoryFunction(Lua_read_bytes_as_array,read_bytes_as_array);
 
+//TODO: memory.read_bytes_as_dict
+
 int Lua_write_bytes_as_array(lua_State* L)
 {
     LuaBundle* bundle = get_bundle(L);
@@ -279,6 +372,8 @@ int Lua_write_bytes_as_array(lua_State* L)
 	domain.write(buff.data(),address,buff.size());
     return 0; 
 }
+
+//TODO: memory.write_bytes_as_dict
 
 void byteswap(u8* arr,size_t size){
 	for(int i = 0; i < size/2; i++) {

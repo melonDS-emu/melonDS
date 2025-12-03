@@ -18,6 +18,8 @@ public slots:
 
 class LuaBundle;
 
+struct memoryDomain;
+
 class LuaConsoleDialog: public QDialog
 {
     Q_OBJECT
@@ -130,7 +132,7 @@ public:
     std::vector<OverlayCanvas>* overlays;
     QHash<QString, QImage>* imageHash;
     QList<QWidget*>* luaWidgets;
-
+    memoryDomain* currentMemoryDomain=nullptr;
 };
 LuaBundle* get_bundle(lua_State * L);
 
