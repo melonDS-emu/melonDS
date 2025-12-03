@@ -406,7 +406,7 @@ void TSC::SetTouchCoords(u16 x, u16 y)
 void TSC::Write(u8 val)
 {
     if (DataPos == 1)
-        Data = (ConvResult >> 5) & 0xFF;
+        Data = (ConvResult >> 5) & 0x7F;
     else if (DataPos == 2)
         Data = (ConvResult << 3) & 0xFF;
     else
@@ -428,7 +428,7 @@ void TSC::Write(u8 val)
                 // after a certain time of no mic sampling, it will be stopped
                 NDS.Mic.Start(Mic_NDS);
 
-                s16 sample = NDS.Mic.ReadSample();
+                u16 sample = (u16)NDS.Mic.ReadSample();
 
                 // make it unsigned 12-bit
                 sample ^= 0x8000;

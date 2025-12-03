@@ -366,7 +366,7 @@ void NDS::SetupDirectBoot()
 
     SPI.GetFirmwareMem()->SetupDirectBoot();
 
-    ARM9.CP15Write(0x100, 0x00012078);
+    ARM9.CP15Write(0x100, 0x00052078);
     ARM9.CP15Write(0x200, 0x00000042);
     ARM9.CP15Write(0x201, 0x00000042);
     ARM9.CP15Write(0x300, 0x00000002);
@@ -1056,8 +1056,8 @@ u32 NDS::RunFrame()
         break;
     }
 
-    // Signal to the SPU that it should read out the buffered audio from blip-buf to a buffer for the frontend to consume
-    SPU.EndFrame();
+    // Ensure the last audio samples produced for this frame are available to the frontend immediately
+    SPU.BufferAudio();
 
     // In the context of TASes, frame count is traditionally the primary measure of emulated time,
     // so it needs to be tracked even if NDS is powered off.

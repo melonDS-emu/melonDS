@@ -495,7 +495,7 @@ public: // TODO: Encapsulate the rest of these members
     void SetGdbArgs(std::optional<GDBArgs> args) noexcept {}
 #endif
 
-private:
+protected:
     void InitTimings();
     u32 SchedListMask;
     u64 SysTimestamp;
