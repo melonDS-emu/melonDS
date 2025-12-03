@@ -31,7 +31,7 @@ jobs:
             install_deps: >
               pkg install -y cmake kf6-extra-cmake-modules pkgconf ninja
               qt6-base qt6-multimedia qt6-svg sdl2 libarchive zstd enet
-              faad2 lua
+              faad2 lua54
 
           - os: netbsd
             os_name: NetBSD
@@ -50,14 +50,14 @@ jobs:
             install_deps: >
               pkgin -y install cmake extra-cmake-modules pkgconf
               ninja-build qt6-qtbase qt6-qtmultimedia qt6-qtsvg SDL2
-              libarchive zstd enet faad2 lua
+              libarchive zstd enet faad2 lua54
 
           - os: openbsd
             os_name: OpenBSD
             install_deps: >
               pkg_add -v cmake kf6-extra-cmake-modules pkgconf ninja
               qt6-qtbase qt6-qtmultimedia qt6-qtsvg sdl2 libarchive zstd
-              enet faad lua
+              enet faad lua54
 
 
     name: ${{ matrix.os_name }} / ${{ matrix.arch }}
