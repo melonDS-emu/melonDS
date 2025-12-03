@@ -1,6 +1,10 @@
 set(OPENGL_SHADER_FILES
+    LayerPreVS.glsl
+    LayerPreFS.glsl
     LayerVS.glsl
     LayerFS.glsl
+    SpritePreVS.glsl
+    SpritePreFS.glsl
     SpriteVS.glsl
     SpriteFS.glsl
 )

@@ -25,8 +25,12 @@
 namespace melonDS::GPU2D
 {
 
+#include "OpenGL_shaders/LayerPreVS.h"
+#include "OpenGL_shaders/LayerPreFS.h"
 #include "OpenGL_shaders/LayerVS.h"
 #include "OpenGL_shaders/LayerFS.h"
+#include "OpenGL_shaders/SpritePreVS.h"
+#include "OpenGL_shaders/SpritePreFS.h"
 #include "OpenGL_shaders/SpriteVS.h"
 #include "OpenGL_shaders/SpriteFS.h"
 
@@ -38,24 +42,38 @@ namespace melonDS::GPU2D
 std::unique_ptr<GLRenderer> GLRenderer::New(melonDS::GPU& gpu) noexcept
 {
     assert(glBindAttribLocation != nullptr);
-    GLuint shaderid[3];
+    GLuint shaderid[5];
 
     // TODO move those to GLInit()
     if (!OpenGL::CompileVertexFragmentProgram(shaderid[0],
+                                              kLayerPreVS, kLayerPreFS,
+                                              "2DLayerPreShader",
+                                              {{"vPosition", 0}},
+                                              {{"oColor", 0}}))
+        return nullptr;
+
+    if (!OpenGL::CompileVertexFragmentProgram(shaderid[1],
                                               kLayerVS, kLayerFS,
                                               "2DLayerShader",
                                               {{"vPosition", 0}},
                                               {{"oColor", 0}}))
         return nullptr;
 
-    if (!OpenGL::CompileVertexFragmentProgram(shaderid[1],
-                                              kSpriteVS, kSpriteFS,
-                                              "2DSpriteShader",
-                                              {{"vPosition", 0}},
+    if (!OpenGL::CompileVertexFragmentProgram(shaderid[2],
+                                              kSpritePreVS, kSpritePreFS,
+                                              "2DSpritePreShader",
+                                              {{"vPosition", 0}, {"vSpriteIndex", 1}},
                                               {{"oColor", 0}}))
         return nullptr;
 
-    if (!OpenGL::CompileVertexFragmentProgram(shaderid[2],
+    if (!OpenGL::CompileVertexFragmentProgram(shaderid[3],
+                                              kSpriteVS, kSpriteFS,
+                                              "2DSpriteShader",
+                                              {{"vPosition", 0}, {"vTexcoord", 1}, {"vSpriteIndex", 2}},
+                                              {{"oColor", 0}, {"oFlags", 1}}))
+        return nullptr;
+
+    if (!OpenGL::CompileVertexFragmentProgram(shaderid[4],
                                               kFinalPassVS, kFinalPassFS,
                                               "2DFinalPassShader",
                                               {{"vPosition", 0}, {"vTexcoord", 1}},
@@ -63,9 +81,11 @@ std::unique_ptr<GLRenderer> GLRenderer::New(melonDS::GPU& gpu) noexcept
         return nullptr;
 
     auto ret = std::unique_ptr<GLRenderer>(new GLRenderer(gpu));
-    ret->LayerShader = shaderid[0];
-    ret->SpriteShader = shaderid[1];
-    ret->FPShaderID = shaderid[2];
+    ret->LayerPreShader = shaderid[0];
+    ret->LayerShader = shaderid[1];
+    ret->SpritePreShader = shaderid[2];
+    ret->SpriteShader = shaderid[3];
+    ret->FPShaderID = shaderid[4];
     if (!ret->GLInit())
         return nullptr;
     return ret;
@@ -111,8 +131,24 @@ bool GLRenderer::GLInit()
     glEnableVertexAttribArray(0); // position
     glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, 2 * sizeof(float), (void*)0);
 
-    // sprite vertex data: 2x position, 1x sprite index
+    // sprite prerender vertex data: 2x position, 1x sprite index
     int sprdatasize = (3 * 6) * 128;
+    SpritePreVtxData = new u16[sprdatasize];
+
+    glGenBuffers(1, &SpritePreVtxBuffer);
+    glBindBuffer(GL_ARRAY_BUFFER, SpritePreVtxBuffer);
+    glBufferData(GL_ARRAY_BUFFER, sprdatasize * sizeof(u16), nullptr, GL_STREAM_DRAW);
+
+    glGenVertexArrays(1, &SpritePreVtxArray);
+    glBindVertexArray(SpritePreVtxArray);
+    glEnableVertexAttribArray(0); // position
+    glVertexAttribIPointer(0, 2, GL_SHORT, 3 * sizeof(u16), (void*)0);
+    glEnableVertexAttribArray(1); // sprite index
+    glVertexAttribIPointer(1, 1, GL_SHORT, 3 * sizeof(u16), (void*)(2 * sizeof(u16)));
+
+    // sprite vertex data: 2x position, 2x texcoord, 1x index
+    // TODO might change
+    sprdatasize = (5 * 6) * 256;
     SpriteVtxData = new u16[sprdatasize];
 
     glGenBuffers(1, &SpriteVtxBuffer);
@@ -122,9 +158,11 @@ bool GLRenderer::GLInit()
     glGenVertexArrays(1, &SpriteVtxArray);
     glBindVertexArray(SpriteVtxArray);
     glEnableVertexAttribArray(0); // position
-    glVertexAttribIPointer(0, 2, GL_SHORT, 3 * sizeof(u16), (void*)0);
-    glEnableVertexAttribArray(1); // sprite index
-    glVertexAttribIPointer(1, 1, GL_SHORT, 3 * sizeof(u16), (void*)(2 * sizeof(u16)));
+    glVertexAttribIPointer(0, 2, GL_SHORT, 5 * sizeof(u16), (void*)0);
+    glEnableVertexAttribArray(1); // texcoord
+    glVertexAttribIPointer(1, 2, GL_SHORT, 5 * sizeof(u16), (void*)(2 * sizeof(u16)));
+    glEnableVertexAttribArray(2); // sprite index
+    glVertexAttribIPointer(2, 1, GL_SHORT, 5 * sizeof(u16), (void*)(4 * sizeof(u16)));
 
     for (int i = 0; i < 2; i++)
     {
@@ -184,43 +222,78 @@ bool GLRenderer::GLInit()
         glBindFramebuffer(GL_FRAMEBUFFER, state.SpriteFB);
         glFramebufferTexture(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, state.SpriteTex, 0);
         glDrawBuffer(GL_COLOR_ATTACHMENT0);
+
+        // generate texture to hold final (upscaled) layers (BG/OBJ)
+
+        glGenTextures(1, &state.FinalLayerTex);
+        glBindTexture(GL_TEXTURE_2D_ARRAY, state.FinalLayerTex);
+        glDefaultTexParams(GL_TEXTURE_2D_ARRAY);
+        //glTexImage3D(GL_TEXTURE_2D_ARRAY, 0, GL_RGBA, 1024, 1024, 4, 0, GL_RGBA, GL_UNSIGNED_BYTE, nullptr);
+
+        glGenFramebuffers(5, state.FinalLayerFB);
     }
 
-    glGenBuffers(1, &LSConfigUBO);
-    glBindBuffer(GL_UNIFORM_BUFFER, LSConfigUBO);
+    glGenBuffers(1, &LayerConfigUBO);
+    glBindBuffer(GL_UNIFORM_BUFFER, LayerConfigUBO);
     static_assert((sizeof(sUnitState::sLayerConfig) & 15) == 0);
     glBufferData(GL_UNIFORM_BUFFER, sizeof(sUnitState::sLayerConfig), nullptr, GL_STREAM_DRAW);
-    glBindBufferBase(GL_UNIFORM_BUFFER, 10, LSConfigUBO);
+    glBindBufferBase(GL_UNIFORM_BUFFER, 10, LayerConfigUBO);
 
     glGenBuffers(1, &SpriteConfigUBO);
     glBindBuffer(GL_UNIFORM_BUFFER, SpriteConfigUBO);
     static_assert((sizeof(sUnitState::sSpriteConfig) & 15) == 0);
-    glBufferData(GL_UNIFORM_BUFFER, sizeof(sUnitState::sSpriteConfig), nullptr, GL_STREAM_DRAW);// checkme
+    glBufferData(GL_UNIFORM_BUFFER, sizeof(sUnitState::sSpriteConfig), nullptr, GL_STREAM_DRAW);
     glBindBufferBase(GL_UNIFORM_BUFFER, 11, SpriteConfigUBO);
+
+    glGenBuffers(1, &ScanlineConfigUBO);
+    glBindBuffer(GL_UNIFORM_BUFFER, ScanlineConfigUBO);
+    static_assert((sizeof(sUnitState::sScanlineConfig) & 15) == 0);
+    glBufferData(GL_UNIFORM_BUFFER, sizeof(sUnitState::sScanlineConfig), nullptr, GL_STREAM_DRAW);
+    glBindBufferBase(GL_UNIFORM_BUFFER, 12, ScanlineConfigUBO);
+
+
+    glUseProgram(LayerPreShader);
+
+    uniloc = glGetUniformLocation(LayerPreShader, "VRAMTex");
+    glUniform1i(uniloc, 0);
+    uniloc = glGetUniformLocation(LayerPreShader, "PalTex");
+    glUniform1i(uniloc, 1);
+
+    uniloc = glGetUniformBlockIndex(LayerPreShader, "uConfig");
+    glUniformBlockBinding(LayerPreShader, uniloc, 10);
+
+    LayerPreCurBGULoc = glGetUniformLocation(LayerPreShader, "uCurBG");
 
 
     glUseProgram(LayerShader);
 
-    uniloc = glGetUniformLocation(LayerShader, "VRAMTex");
+    uniloc = glGetUniformLocation(LayerShader, "BGLayerTex");
     glUniform1i(uniloc, 0);
-    uniloc = glGetUniformLocation(LayerShader, "PalTex");
+
+    uniloc = glGetUniformBlockIndex(LayerShader, "uScanlineConfig");
+    glUniformBlockBinding(LayerShader, uniloc, 12);
+
+    LayerCurBGULoc = glGetUniformLocation(LayerShader, "uCurBG");
+
+
+    glUseProgram(SpritePreShader);
+
+    uniloc = glGetUniformLocation(SpritePreShader, "VRAMTex");
+    glUniform1i(uniloc, 0);
+    uniloc = glGetUniformLocation(SpritePreShader, "PalTex");
     glUniform1i(uniloc, 1);
 
-    uniloc = glGetUniformBlockIndex(LayerShader, "uConfig");
-    glUniformBlockBinding(LayerShader, uniloc, 10);
-
-    LSCurBGULoc = glGetUniformLocation(LayerShader, "uCurBG");
+    uniloc = glGetUniformBlockIndex(SpritePreShader, "uConfig");
+    glUniformBlockBinding(SpritePreShader, uniloc, 11);
 
 
     glUseProgram(SpriteShader);
 
-    uniloc = glGetUniformLocation(SpriteShader, "VRAMTex");
+    uniloc = glGetUniformLocation(SpriteShader, "SpriteTex");
     glUniform1i(uniloc, 0);
-    uniloc = glGetUniformLocation(SpriteShader, "PalTex");
-    glUniform1i(uniloc, 1);
 
-    uniloc = glGetUniformBlockIndex(LayerShader, "uConfig");
-    glUniformBlockBinding(LayerShader, uniloc, 11);
+    uniloc = glGetUniformBlockIndex(SpriteShader, "uConfig");
+    glUniformBlockBinding(SpriteShader, uniloc, 11);
 
 
     glUseProgram(FPShaderID);
@@ -344,7 +417,7 @@ GLRenderer::~GLRenderer()
     glDeleteBuffers(1, &RectVtxBuffer);
 
     glDeleteProgram(FPShaderID);
-    glDeleteProgram(LayerShader);
+    glDeleteProgram(LayerPreShader);
 
     for (int i = 0; i < 2; i++)
     {
@@ -358,7 +431,7 @@ GLRenderer::~GLRenderer()
         //glDeleteBuffers(1, &state.LayerConfigUBO);
     }
 
-    glDeleteBuffers(1, &LSConfigUBO);
+    glDeleteBuffers(1, &LayerConfigUBO);
 
     delete[] LineAttribBuffer;
     delete[] BGOBJBuffer;
@@ -376,6 +449,25 @@ void GLRenderer::SetScaleFactor(int scale)
     ScreenW = 256 * scale;
     ScreenH = 192 * scale;
     //ScreenH = (384+2) * scale;
+
+    for (auto& state : UnitState)
+    {
+        glBindTexture(GL_TEXTURE_2D_ARRAY, state.FinalLayerTex);
+        glTexImage3D(GL_TEXTURE_2D_ARRAY, 0, GL_RGBA, ScreenW, ScreenH, 6, 0, GL_RGBA, GL_UNSIGNED_BYTE, nullptr);
+
+        for (int i = 0; i < 4; i++)
+        {
+            glBindFramebuffer(GL_FRAMEBUFFER, state.FinalLayerFB[i]);
+            glFramebufferTextureLayer(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, state.FinalLayerTex, 0, i);
+            glDrawBuffer(GL_COLOR_ATTACHMENT0);
+        }
+
+        glBindFramebuffer(GL_FRAMEBUFFER, state.FinalLayerFB[4]);
+        glFramebufferTextureLayer(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, state.FinalLayerTex, 0, 4);
+        glFramebufferTextureLayer(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT1, state.FinalLayerTex, 0, 5);
+        const GLenum fbassign[] = {GL_COLOR_ATTACHMENT0, GL_COLOR_ATTACHMENT1};
+        glDrawBuffers(2, fbassign);
+    }
 
     for (int i = 0; i < 2; i++)
     {
@@ -453,6 +545,9 @@ void GLRenderer::DrawScanline(u32 line, Unit* unit)
     // TODO move this logic to GPU!! (or atleast outside of the renderer)
     if (line == 0 && CurUnit->CaptureCnt & (1 << 31) && !forceblank)
         CurUnit->CaptureLatch = true;
+
+    // TODO: do partial rendering if any critical registers/VRAM were modified
+    UpdateScanlineConfig(unit, line);
 
     if (forceblank)
     {
@@ -554,8 +649,8 @@ void GLRenderer::VBlank(Unit* unitA, Unit* unitB)
 
     // test zone
     {
-        //Unit* unit = unitA;
-        Unit* unit = unitB;
+        Unit* unit = unitA;
+        //Unit* unit = unitB;
         auto& state = UnitState[unit->Num];
 
         u32 dispcnt = unit->DispCnt;
@@ -572,10 +667,10 @@ void GLRenderer::VBlank(Unit* unitA, Unit* unitB)
             mapbase = 0;
         }
 
-        glUseProgram(LayerShader);
+        glUseProgram(LayerPreShader);
 
-        GLint uniloc = glGetUniformBlockIndex(LayerShader, "uConfig");
-        glUniformBlockBinding(LayerShader, uniloc, 10);
+        GLint uniloc = glGetUniformBlockIndex(LayerPreShader, "uConfig");
+        glUniformBlockBinding(LayerPreShader, uniloc, 10);
 
         // update VRAM and palettes
         // TODO only update parts that are dirty
@@ -626,10 +721,10 @@ void GLRenderer::VBlank(Unit* unitA, Unit* unitB)
             u16 bgcnt = unit->BGCnt[layer];
             auto& cfg = state.LayerConfig.uBGConfig[layer];
 
-            cfg.TileOffset = tilebase + (((bgcnt >> 2) & 0x3) << 14);
+            cfg.TileOffset = tilebase + (((bgcnt >> 2) & 0xF) << 14);
             cfg.MapOffset = mapbase + (((bgcnt >> 8) & 0x1F) << 11);
             cfg.PalOffset = 0;
-
+printf("BG%d: cnt=%04X tile=%08X map=%08X\n", layer, bgcnt, cfg.TileOffset, cfg.MapOffset);
             if (type == 1)
             {
                 // text layer
@@ -742,19 +837,22 @@ void GLRenderer::VBlank(Unit* unitA, Unit* unitB)
         }
 
         //glBindBuffer(GL_UNIFORM_BUFFER, state.LayerConfigUBO);
-        glBindBuffer(GL_UNIFORM_BUFFER, LSConfigUBO);
+        glBindBuffer(GL_UNIFORM_BUFFER, LayerConfigUBO);
         /*void* unibuf = glMapBuffer(GL_UNIFORM_BUFFER, GL_WRITE_ONLY);
         if (unibuf) memcpy(unibuf, &state.LayerConfig, sizeof(state.LayerConfig));
         else printf("AAAAAAAAAAAAAAA %04X\n", glGetError());
         glUnmapBuffer(GL_UNIFORM_BUFFER);*/
         glBufferSubData(GL_UNIFORM_BUFFER, 0, sizeof(state.LayerConfig), &state.LayerConfig);
-        //glUniformBlockBinding(LayerShader, LSConfigULoc, unit->Num);
+        //glUniformBlockBinding(LayerPreShader, LSConfigULoc, unit->Num);
 
         glDisable(GL_DEPTH_TEST);
         glDisable(GL_STENCIL_TEST);
         glDisable(GL_BLEND);
         glColorMaski(0, GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
 
+        PrerenderLayer(unit, 0);
+        PrerenderLayer(unit, 1);
+        PrerenderLayer(unit, 2);
         PrerenderLayer(unit, 3);
 
         // MORE TEST
@@ -788,6 +886,21 @@ void GLRenderer::VBlank(Unit* unitA, Unit* unitB)
         state.NumSprites = 0;
         UpdateOAM(unit, 0, 192);
         PrerenderSprites(unit);
+
+        // HAHAHAHAHAH
+
+        RenderSprites(unit, 0, 192);
+
+        glUseProgram(LayerShader);
+
+        // update scanline config buffer
+        glBindBuffer(GL_UNIFORM_BUFFER, ScanlineConfigUBO);
+        glBufferSubData(GL_UNIFORM_BUFFER, 0, sizeof(sUnitState::sScanlineConfig), &state.ScanlineConfig);
+
+        RenderLayer(unit, 0, 0, 192);
+        RenderLayer(unit, 1, 0, 192);
+        RenderLayer(unit, 2, 0, 192);
+        RenderLayer(unit, 3, 0, 192);
     }
 
 
@@ -896,10 +1009,81 @@ void GLRenderer::VBlankEnd(Unit* unitA, Unit* unitB)
 }
 
 
+void GLRenderer::UpdateScanlineConfig(Unit* unit, int line)
+{
+    auto& state = UnitState[unit->Num];
+    auto& cfg = state.ScanlineConfig.uScanline[line];
+
+    u32 bgmode = unit->DispCnt & 0x7;
+
+    if ((unit->Num == 0) && (unit->DispCnt & (1<<3)))
+    {
+        // 3D layer
+        cfg.BGOffset[0][0] = GPU.GPU3D.GetRenderXPos();
+        cfg.BGOffset[0][1] = 0;
+    }
+    else
+    {
+        // text layer
+        cfg.BGOffset[0][0] = unit->BGXPos[0];
+        cfg.BGOffset[0][1] = unit->BGYPos[0];
+    }
+
+    // always a text layer
+    cfg.BGOffset[1][0] = unit->BGXPos[1];
+    cfg.BGOffset[1][1] = unit->BGYPos[1];
+
+    if ((bgmode == 2) || (bgmode >= 4 && bgmode <= 6))
+    {
+        // rotscale layer
+        cfg.BGOffset[2][0] = unit->BGXRefInternal[0];
+        cfg.BGOffset[2][1] = unit->BGYRefInternal[0];
+        cfg.BGRotscale[0][0] = unit->BGRotA[0];
+        cfg.BGRotscale[0][1] = unit->BGRotB[0];
+        cfg.BGRotscale[0][2] = unit->BGRotC[0];
+        cfg.BGRotscale[0][3] = unit->BGRotD[0];
+    }
+    else
+    {
+        // text layer
+        cfg.BGOffset[2][0] = unit->BGXPos[2];
+        cfg.BGOffset[2][1] = unit->BGYPos[2];
+    }
+
+    if (bgmode >= 1 && bgmode <= 5)
+    {
+        // rotscale layer
+        cfg.BGOffset[3][0] = unit->BGXRefInternal[1];
+        cfg.BGOffset[3][1] = unit->BGYRefInternal[1];
+        cfg.BGRotscale[1][0] = unit->BGRotA[1];
+        cfg.BGRotscale[1][1] = unit->BGRotB[1];
+        cfg.BGRotscale[1][2] = unit->BGRotC[1];
+        cfg.BGRotscale[1][3] = unit->BGRotD[1];
+    }
+    else
+    {
+        // text layer
+        cfg.BGOffset[3][0] = unit->BGXPos[3];
+        cfg.BGOffset[3][1] = unit->BGYPos[3];
+    }
+}
+
 void GLRenderer::UpdateOAM(Unit* unit, int ystart, int yend)
 {
     auto& state = UnitState[unit->Num];
     auto& cfg = state.SpriteConfig;
+    u16* oam = (u16*)&GPU.OAM[unit->Num ? 0x400 : 0];
+
+    for (int i = 0; i < 32; i++)
+    {
+        s16* rotscale = (s16*)&oam[(i * 16) + 3];
+        auto& rotdst = cfg.uRotscale[i];
+
+        rotdst[0] = rotscale[0];
+        rotdst[1] = rotscale[4];
+        rotdst[2] = rotscale[8];
+        rotdst[3] = rotscale[12];
+    }
 
     const u8 spritewidth[16] =
     {
@@ -916,7 +1100,6 @@ void GLRenderer::UpdateOAM(Unit* unit, int ystart, int yend)
         64, 32, 64, 8
     };
 
-    u16* oam = (u16*)&GPU.OAM[unit->Num ? 0x400 : 0];
     for (int bgnum = 0x0C00; bgnum >= 0x0000; bgnum-=0x0400)
     {
         for (int sprnum = 127; sprnum >= 0; sprnum--)
@@ -1068,13 +1251,11 @@ void GLRenderer::UpdateOAM(Unit* unit, int ystart, int yend)
         }
     }
 
-    // TODO: add rotscale params
-
     glBindBuffer(GL_UNIFORM_BUFFER, SpriteConfigUBO);
     glBufferSubData(GL_UNIFORM_BUFFER,
-                    offsetof(sUnitState::sSpriteConfig, uOAM),
-                    state.NumSprites * sizeof(sUnitState::sSpriteConfig::sOAM),
-                    &state.SpriteConfig.uOAM[0]);
+                    offsetof(sUnitState::sSpriteConfig, uRotscale),
+                    sizeof(cfg.uRotscale) + (state.NumSprites * sizeof(cfg.uOAM[0])),
+                    &cfg.uRotscale);
 }
 
 
@@ -1082,10 +1263,7 @@ void GLRenderer::PrerenderSprites(Unit* unit)
 {
     auto& state = UnitState[unit->Num];
 
-    glUseProgram(SpriteShader);
-
-    GLint uniloc = glGetUniformBlockIndex(SpriteShader, "uConfig");
-    glUniformBlockBinding(SpriteShader, uniloc, 11);
+    glUseProgram(SpritePreShader);
 
     glBindFramebuffer(GL_READ_FRAMEBUFFER, 0);
     glBindFramebuffer(GL_DRAW_FRAMEBUFFER, state.SpriteFB);
@@ -1093,7 +1271,7 @@ void GLRenderer::PrerenderSprites(Unit* unit)
 
     // TODO upload VRAM shit
 
-    u16* vtxbuf = SpriteVtxData;
+    u16* vtxbuf = SpritePreVtxData;
     int vtxnum = 0;
 
     for (int i = 0; i < state.NumSprites; i++)
@@ -1107,10 +1285,10 @@ void GLRenderer::PrerenderSprites(Unit* unit)
         vtxnum += 6;
     }
 
-    glBindBuffer(GL_ARRAY_BUFFER, SpriteVtxBuffer);
-    glBufferSubData(GL_ARRAY_BUFFER, 0, vtxnum * 3 * sizeof(u16), SpriteVtxData);
+    glBindBuffer(GL_ARRAY_BUFFER, SpritePreVtxBuffer);
+    glBufferSubData(GL_ARRAY_BUFFER, 0, vtxnum * 3 * sizeof(u16), SpritePreVtxData);
 
-    glBindVertexArray(SpriteVtxArray);
+    glBindVertexArray(SpritePreVtxArray);
     glDrawArrays(GL_TRIANGLES, 0, vtxnum);
 }
 
@@ -1122,13 +1300,111 @@ void GLRenderer::PrerenderLayer(Unit* unit, int layer)
     glBindFramebuffer(GL_READ_FRAMEBUFFER, 0);
     glBindFramebuffer(GL_DRAW_FRAMEBUFFER, state.BGLayerFB[layer]);
 
-    glUniform1i(LSCurBGULoc, layer);
+    glUniform1i(LayerPreCurBGULoc, layer);
 
     // set layer size
     glViewport(0, 0, cfg.Size[0], cfg.Size[1]);
 
     // TODO: set other layer parameters
     // maybe use uniform buffer/structure
+
+    glBindBuffer(GL_ARRAY_BUFFER, RectVtxBuffer);
+    glBindVertexArray(RectVtxArray);
+    glDrawArrays(GL_TRIANGLES, 0, 2*3);
+}
+
+
+void GLRenderer::RenderSprites(Unit* unit, int ystart, int yend)
+{
+    auto& state = UnitState[unit->Num];
+
+    glUseProgram(SpriteShader);
+
+    glBindFramebuffer(GL_READ_FRAMEBUFFER, 0);
+    glBindFramebuffer(GL_DRAW_FRAMEBUFFER, state.FinalLayerFB[4]);
+    glViewport(0, 0, ScreenW, ScreenH);
+
+    // TODO enable scissor test when needed
+    //glScissor(0, ystart * ScaleFactor, ScreenW, yend * ScaleFactor);
+
+    glColorMaski(0, GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
+    glColorMaski(1, GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
+
+    glClearColor(0, 0, 0, 0);
+    glClear(GL_COLOR_BUFFER_BIT);
+
+    glActiveTexture(GL_TEXTURE0);
+    glBindTexture(GL_TEXTURE_2D, state.SpriteTex);
+
+    u16* vtxbuf = SpriteVtxData;
+    int vtxnum = 0;
+
+    for (int i = 0; i < state.NumSprites; i++)
+    {
+        auto& sprite = state.SpriteConfig.uOAM[i];
+
+        s32 xpos = sprite.Position[0];
+        s32 ypos = sprite.Position[1];
+        s32 boundwidth = sprite.BoundSize[0];
+        s32 boundheight = sprite.BoundSize[1];
+
+        bool yc0 = ((ypos + boundheight) > ystart) && (ypos < yend);
+        bool yc1 = (((ypos&0xFF) + boundheight) > ystart) && ((ypos&0xFF) < yend);
+
+        if (yc0)
+        {
+            s32 x0 = xpos, x1 = xpos + boundwidth;
+            s32 y0 = ypos, y1 = ypos + boundheight;
+
+            *vtxbuf++ = x0; *vtxbuf++ = y1; *vtxbuf++ = 0; *vtxbuf++ = 1; *vtxbuf++ = i;
+            *vtxbuf++ = x1; *vtxbuf++ = y0; *vtxbuf++ = 1; *vtxbuf++ = 0; *vtxbuf++ = i;
+            *vtxbuf++ = x1; *vtxbuf++ = y1; *vtxbuf++ = 1; *vtxbuf++ = 1; *vtxbuf++ = i;
+            *vtxbuf++ = x0; *vtxbuf++ = y1; *vtxbuf++ = 0; *vtxbuf++ = 1; *vtxbuf++ = i;
+            *vtxbuf++ = x0; *vtxbuf++ = y0; *vtxbuf++ = 0; *vtxbuf++ = 0; *vtxbuf++ = i;
+            *vtxbuf++ = x1; *vtxbuf++ = y0; *vtxbuf++ = 1; *vtxbuf++ = 0; *vtxbuf++ = i;
+            vtxnum += 6;
+        }
+
+        if (yc1)
+        {
+            ypos &= 0xFF;
+            s32 x0 = xpos, x1 = xpos + boundwidth;
+            s32 y0 = ypos, y1 = ypos + boundheight;
+
+            *vtxbuf++ = x0; *vtxbuf++ = y1; *vtxbuf++ = 0; *vtxbuf++ = 1; *vtxbuf++ = i;
+            *vtxbuf++ = x1; *vtxbuf++ = y0; *vtxbuf++ = 1; *vtxbuf++ = 0; *vtxbuf++ = i;
+            *vtxbuf++ = x1; *vtxbuf++ = y1; *vtxbuf++ = 1; *vtxbuf++ = 1; *vtxbuf++ = i;
+            *vtxbuf++ = x0; *vtxbuf++ = y1; *vtxbuf++ = 0; *vtxbuf++ = 1; *vtxbuf++ = i;
+            *vtxbuf++ = x0; *vtxbuf++ = y0; *vtxbuf++ = 0; *vtxbuf++ = 0; *vtxbuf++ = i;
+            *vtxbuf++ = x1; *vtxbuf++ = y0; *vtxbuf++ = 1; *vtxbuf++ = 0; *vtxbuf++ = i;
+            vtxnum += 6;
+        }
+    }
+
+    glBindBuffer(GL_ARRAY_BUFFER, SpriteVtxBuffer);
+    glBufferSubData(GL_ARRAY_BUFFER, 0, vtxnum * 5 * sizeof(u16), SpriteVtxData);
+
+    glBindVertexArray(SpriteVtxArray);
+    glDrawArrays(GL_TRIANGLES, 0, vtxnum);
+}
+
+void GLRenderer::RenderLayer(Unit* unit, int layer, int ystart, int yend)
+{
+    auto& state = UnitState[unit->Num];
+
+    glBindFramebuffer(GL_READ_FRAMEBUFFER, 0);
+    glBindFramebuffer(GL_DRAW_FRAMEBUFFER, state.FinalLayerFB[layer]);
+    glViewport(0, 0, ScreenW, ScreenH);
+
+    // TODO enable scissor test when needed
+    //glScissor(0, ystart * ScaleFactor, ScreenW, yend * ScaleFactor);
+
+    glUniform1i(LayerCurBGULoc, layer);
+
+    glColorMaski(0, GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
+
+    glActiveTexture(GL_TEXTURE0);
+    glBindTexture(GL_TEXTURE_2D_ARRAY, state.BGLayerTex);
 
     glBindBuffer(GL_ARRAY_BUFFER, RectVtxBuffer);
     glBindVertexArray(RectVtxArray);

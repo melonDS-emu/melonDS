@@ -60,12 +60,21 @@ private:
     GLuint RectVtxBuffer;
     GLuint RectVtxArray;
 
+    GLuint LayerPreShader;
+    GLint LayerPreCurBGULoc;
+    GLuint LayerConfigUBO;
+
     GLuint LayerShader;
-    GLint LSCurBGULoc;
-    GLuint LSConfigUBO;
+    GLint LayerCurBGULoc;
+    GLuint ScanlineConfigUBO;
+
+    GLuint SpritePreShader;
+    GLuint SpriteConfigUBO;
+    GLuint SpritePreVtxBuffer;
+    GLuint SpritePreVtxArray;
+    u16* SpritePreVtxData;
 
     GLuint SpriteShader;
-    GLuint SpriteConfigUBO;
     GLuint SpriteVtxBuffer;
     GLuint SpriteVtxArray;
     u16* SpriteVtxData;
@@ -82,6 +91,9 @@ private:
 
         GLuint SpriteFB;
         GLuint SpriteTex;
+
+        GLuint FinalLayerFB[5];
+        GLuint FinalLayerTex;
 
         // std140 compliant config struct for the layer shader
         struct sLayerConfig
@@ -104,6 +116,7 @@ private:
         {
             u32 uVRAMMask;
             u32 __pad0[3];
+            s32 uRotscale[32][4];
             struct sOAM
             {
                 s32 Position[2];
@@ -121,6 +134,15 @@ private:
             } uOAM[128];
         } SpriteConfig;
         int NumSprites;
+
+        struct sScanlineConfig
+        {
+            struct sScanline
+            {
+                s32 BGOffset[4][4];     // really [4][2]
+                s32 BGRotscale[2][4];
+            } uScanline[192];
+        } ScanlineConfig;
 
     } UnitState[2];
 
@@ -200,10 +222,14 @@ private:
         return table;
     }();
 
+    void UpdateScanlineConfig(Unit* unit, int line);
     void UpdateOAM(Unit* unit, int ystart, int yend);
 
     void PrerenderSprites(Unit* unit);
     void PrerenderLayer(Unit* unit, int layer);
+
+    void RenderSprites(Unit* unit, int ystart, int yend);
+    void RenderLayer(Unit* unit, int layer, int ystart, int yend);
 
     template<u32 bgmode> void DrawScanlineBGMode(u32 line);
     void DrawScanlineBGMode6(u32 line);
