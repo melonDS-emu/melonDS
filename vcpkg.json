@@ -29,8 +29,8 @@
 			"platform": "linux"
 		},
 		"faad2",
-		"pkgconf",
 		"lua",
+		"pkgconf",
 		{ "name": "pkgconf", "host": true },
 		{ "name": "dirent", "platform": "windows" }
 	],
