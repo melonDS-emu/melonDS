@@ -112,6 +112,17 @@ int Lua_getJoyStick(lua_State* L)
     lua_pushinteger(L,val);
     return 1;
 }
-AddInputFunction(Lua_getJoyStick,GetJoyStick);
+AddInputFunction(Lua_getJoyStick,getjoystick);
+}
+
+std::vector<luaL_Reg> joypadFunctions;// list of registered lua_CFunctions for this library
+LuaLibrary joypadLibrary("joypad",&joypadFunctions);//adds "joypad" to the list of luaLibraries
+
+namespace luaJoypadDefinitions
+{
+//Macro to register lua_CFunction with 'name' to the "joypad" library
+#define AddJoypadFunction(functPointer,name)LuaFunctionRegister name(functPointer,#name,&joypadFunctions)
+
+AddJoypadFunction(luaInputDefinitions::Lua_getJoy,get);//aliase for input.getjoy
 
 }

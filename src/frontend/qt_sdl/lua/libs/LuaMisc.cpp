@@ -67,6 +67,25 @@ int Lua_getromhash(lua_State* L)
     return 1;
 }
 AddGameinfoFunction(Lua_getromhash,getromhash);
+
+int Lua_getromname(lua_State* L)
+{
+    LuaBundle* bundle = get_bundle(L);
+    auto emuInstance = bundle->getEmuInstance();
+
+    auto nds = emuInstance->getNDS();
+    if (emuInstance->getCartType() == -1)
+    {
+        lua_pushstring(L,"NULL");
+        return 1;
+    }
+
+    const char* romName = emuInstance->getbaseROMName().c_str();
+    lua_pushstring(L,romName);
+    return 1;
+}
+AddGameinfoFunction(Lua_getromname,getromname);
+
 }
 
 std::vector<luaL_Reg> emuFunctions;// list of registered lua_CFunctions for this library
@@ -103,4 +122,21 @@ int Lua_Framecount(lua_State* L)
     return 1;
 }
 AddEmuFunction(Lua_Framecount,framecount);
+}
+
+std::vector<luaL_Reg> consoleFunctions;// list of registered lua_CFunctions for this library
+LuaLibrary consoleLibrary("console",&consoleFunctions);//adds "console" to the list of luaLibraries
+
+namespace luaConsoleDefinitions
+{
+//Macro to register lua_CFunction with 'name' to the "console" library
+#define AddConsoleFunction(functPointer,name)LuaFunctionRegister name(functPointer,#name,&consoleFunctions)
+
+int lua_Clear(lua_State* L)
+{
+    LuaBundle* bundle = get_bundle(L);
+    bundle->getluaDialog()->console->clear();
+    return 0;
+}
+AddConsoleFunction(lua_Clear,clear);
 }

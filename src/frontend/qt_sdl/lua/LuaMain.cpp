@@ -198,12 +198,4 @@ int lua_MelonPrint(lua_State* L)
 }
 AddLuaFunction(lua_MelonPrint,print); //re-defines gloabal "print" function
 
-int lua_MelonClear(lua_State* L)
-{
-    LuaBundle* bundle = get_bundle(L);
-    bundle->getluaDialog()->console->clear();
-    return 0;
-}
-AddLuaFunction(lua_MelonClear,console_clear); //defines a global "console_clear" function
-
 }
