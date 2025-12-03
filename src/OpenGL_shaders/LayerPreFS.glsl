@@ -10,6 +10,7 @@ struct sBGConfig
     int PalOffset;
     int TileOffset;
     int MapOffset;
+    bool Clamp;
 };
 
 layout(std140) uniform uConfig

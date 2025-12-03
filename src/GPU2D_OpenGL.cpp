@@ -272,6 +272,8 @@ bool GLRenderer::GLInit()
 
     uniloc = glGetUniformBlockIndex(LayerShader, "uScanlineConfig");
     glUniformBlockBinding(LayerShader, uniloc, 12);
+    uniloc = glGetUniformBlockIndex(LayerShader, "uConfig");
+    glUniformBlockBinding(LayerShader, uniloc, 10);
 
     LayerCurBGULoc = glGetUniformLocation(LayerShader, "uCurBG");
 
@@ -649,8 +651,8 @@ void GLRenderer::VBlank(Unit* unitA, Unit* unitB)
 
     // test zone
     {
-        Unit* unit = unitA;
-        //Unit* unit = unitB;
+        //Unit* unit = unitA;
+        Unit* unit = unitB;
         auto& state = UnitState[unit->Num];
 
         u32 dispcnt = unit->DispCnt;
@@ -669,8 +671,8 @@ void GLRenderer::VBlank(Unit* unitA, Unit* unitB)
 
         glUseProgram(LayerPreShader);
 
-        GLint uniloc = glGetUniformBlockIndex(LayerPreShader, "uConfig");
-        glUniformBlockBinding(LayerPreShader, uniloc, 10);
+        //GLint uniloc = glGetUniformBlockIndex(LayerPreShader, "uConfig");
+        //glUniformBlockBinding(LayerPreShader, uniloc, 10);
 
         // update VRAM and palettes
         // TODO only update parts that are dirty
@@ -724,7 +726,7 @@ void GLRenderer::VBlank(Unit* unitA, Unit* unitB)
             cfg.TileOffset = tilebase + (((bgcnt >> 2) & 0xF) << 14);
             cfg.MapOffset = mapbase + (((bgcnt >> 8) & 0x1F) << 11);
             cfg.PalOffset = 0;
-printf("BG%d: cnt=%04X tile=%08X map=%08X\n", layer, bgcnt, cfg.TileOffset, cfg.MapOffset);
+
             if (type == 1)
             {
                 // text layer
@@ -755,6 +757,8 @@ printf("BG%d: cnt=%04X tile=%08X map=%08X\n", layer, bgcnt, cfg.TileOffset, cfg.
                     // 16-color
                     cfg.Type = 0;
                 }
+
+                cfg.Clamp = 0;
             }
             else if (type == 2)
             {
@@ -769,6 +773,7 @@ printf("BG%d: cnt=%04X tile=%08X map=%08X\n", layer, bgcnt, cfg.TileOffset, cfg.
                 }
 
                 cfg.Type = 2;
+                cfg.Clamp = !(bgcnt & (1<<13));
             }
             else if (type == 3)
             {
@@ -817,6 +822,8 @@ printf("BG%d: cnt=%04X tile=%08X map=%08X\n", layer, bgcnt, cfg.TileOffset, cfg.
                         cfg.PalOffset = 1 + (16 * paloff);
                     }
                 }
+
+                cfg.Clamp = !(bgcnt & (1<<13));
             }
             else //if (type == 4)
             {
@@ -833,6 +840,7 @@ printf("BG%d: cnt=%04X tile=%08X map=%08X\n", layer, bgcnt, cfg.TileOffset, cfg.
                 cfg.Type = 4;
                 cfg.TileOffset = 0;
                 cfg.MapOffset = 0;
+                cfg.Clamp = !(bgcnt & (1<<13));
             }
         }
 

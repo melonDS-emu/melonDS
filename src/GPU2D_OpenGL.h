@@ -107,7 +107,8 @@ private:
                 u32 PalOffset;
                 u32 TileOffset;
                 u32 MapOffset;
-                u32 __pad0[2];
+                u32 Clamp;
+                u32 __pad0[1];
             } uBGConfig[4];
         } LayerConfig;
         //GLuint LayerConfigUBO;
