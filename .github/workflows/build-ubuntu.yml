@@ -78,7 +78,7 @@ jobs:
           apt update
           apt -y full-upgrade
           apt -y install git {gcc-12,g++-12}-aarch64-linux-gnu cmake ninja-build extra-cmake-modules \
-            {libsdl2,qt6-{base,base-private,multimedia},libqt6svg6,libarchive,libzstd,libenet,liblua5.4}-dev:arm64 \
+            {libsdl2,qt6-{base,base-private,multimedia},libqt6svg6,libarchive,libzstd,libenet,libfaad-dev,liblua5.4}-dev:arm64 \
             pkg-config dpkg-dev 
       - name: Check out source
         uses: actions/checkout@v4
