@@ -83,7 +83,7 @@ public:
 
         msg_ImportSavefile,
 
-        msg_EnableCheats,
+        msg_EnableCheats
     };
 
     struct Message
@@ -157,6 +157,7 @@ signals:
     void autoScreenSizingChange(int sizing);
 
     void windowFullscreenToggle();
+    void reloadMostRecentROM();
 
     void swapScreensToggle();
     void screenEmphasisToggle();
