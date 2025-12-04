@@ -126,7 +126,7 @@ static struct tcpcb *tcp_timers(register struct tcpcb *tp, int timer)
      * control block.  Otherwise, check again in a bit.
      */
     case TCPT_2MSL:
-        if (tp->t_state != TCPS_TIME_WAIT && tp->t_idle <= TCP_MAXIDLE)
+        if (tp->t_state != TCPS_TIME_WAIT && tp->t_idle <= TCP_LINGERTIME)
             tp->t_timer[TCPT_2MSL] = TCPTV_KEEPINTVL;
         else
             tp = tcp_close(tp);
