@@ -648,6 +648,8 @@ void SoftRenderer::DrawScanline_BGOBJ(u32 line)
 
         for (int i = 0; i < 256; i+=2)
             *(u64*)&BGOBJLine[i] = backdrop;
+        for (int i = 256; i < 512; i+=2)
+            *(u64*)&BGOBJLine[i] = 0;
     }
 
     if (CurUnit->DispCnt & 0xE000)
