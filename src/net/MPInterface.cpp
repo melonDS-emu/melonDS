@@ -19,6 +19,7 @@
 #include "MPInterface.h"
 #include "LocalMP.h"
 #include "LAN.h"
+#include "Netplay.h"
 
 namespace melonDS
 {
@@ -26,7 +27,7 @@ namespace melonDS
 class DummyMP : public MPInterface
 {
 public:
-    void Process() override {}
+    void Process(int inst) override {}
 
     void Begin(int inst) override {}
     void End(int inst) override {}
@@ -55,6 +56,10 @@ void MPInterface::Set(MPInterfaceType type)
 
     case MPInterface_LAN:
         Current = std::make_unique<LAN>();
+        break;
+
+    case MPInterface_Netplay:
+        Current = std::make_unique<Netplay>();
         break;
 
     default:
