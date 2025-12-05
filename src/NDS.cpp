@@ -1270,29 +1270,29 @@ void NDS::MapSharedWRAM(u8 val)
     switch (WRAMCnt & 0x3)
     {
     case 0:
-        SWRAM_ARM9->Mem = &SharedWRAM[0];
-        SWRAM_ARM9->Mask = 0x7FFF;
+        SWRAM_ARM9.Mem = &SharedWRAM[0];
+        SWRAM_ARM9.Mask = 0x7FFF;
         SWRAM_ARM7.Mem = NULL;
         SWRAM_ARM7.Mask = 0;
         break;
 
     case 1:
-        SWRAM_ARM9->Mem = &SharedWRAM[0x4000];
-        SWRAM_ARM9->Mask = 0x3FFF;
+        SWRAM_ARM9.Mem = &SharedWRAM[0x4000];
+        SWRAM_ARM9.Mask = 0x3FFF;
         SWRAM_ARM7.Mem = &SharedWRAM[0];
         SWRAM_ARM7.Mask = 0x3FFF;
         break;
 
     case 2:
-        SWRAM_ARM9->Mem = &SharedWRAM[0];
-        SWRAM_ARM9->Mask = 0x3FFF;
+        SWRAM_ARM9.Mem = &SharedWRAM[0];
+        SWRAM_ARM9.Mask = 0x3FFF;
         SWRAM_ARM7.Mem = &SharedWRAM[0x4000];
         SWRAM_ARM7.Mask = 0x3FFF;
         break;
 
     case 3:
-        SWRAM_ARM9->Mem = NULL;
-        SWRAM_ARM9->Mask = 0;
+        SWRAM_ARM9.Mem = NULL;
+        SWRAM_ARM9.Mask = 0;
         SWRAM_ARM7.Mem = &SharedWRAM[0];
         SWRAM_ARM7.Mask = 0x7FFF;
         break;
@@ -1953,9 +1953,9 @@ u8 NDS::ARM9Read8(u32 addr)
         return *(u8*)&MainRAM[addr & MainRAMMask];
 
     case 0x03000000:
-        if (SWRAM_ARM9->Mem)
+        if (SWRAM_ARM9.Mem)
         {
-            return *(u8*)&SWRAM_ARM9->Mem[addr & SWRAM_ARM9->Mask];
+            return *(u8*)&SWRAM_ARM9.Mem[addr & SWRAM_ARM9.Mask];
         }
         else
         {
@@ -2014,9 +2014,9 @@ u16 NDS::ARM9Read16(u32 addr)
         return *(u16*)&MainRAM[addr & MainRAMMask];
 
     case 0x03000000:
-        if (SWRAM_ARM9->Mem)
+        if (SWRAM_ARM9.Mem)
         {
-            return *(u16*)&SWRAM_ARM9->Mem[addr & SWRAM_ARM9->Mask];
+            return *(u16*)&SWRAM_ARM9.Mem[addr & SWRAM_ARM9.Mask];
         }
         else
         {
@@ -2074,9 +2074,9 @@ u32 NDS::ARM9Read32(u32 addr)
         return *(u32*)&MainRAM[addr & MainRAMMask];
 
     case 0x03000000:
-        if (SWRAM_ARM9->Mem)
+        if (SWRAM_ARM9.Mem)
         {
-            return *(u32*)&SWRAM_ARM9->Mem[addr & SWRAM_ARM9->Mask];
+            return *(u32*)&SWRAM_ARM9.Mem[addr & SWRAM_ARM9.Mask];
         }
         else
         {
@@ -2132,10 +2132,10 @@ void NDS::ARM9Write8(u32 addr, u8 val)
         return;
 
     case 0x03000000:
-        if (SWRAM_ARM9->Mem)
+        if (SWRAM_ARM9.Mem)
         {
             JIT.CheckAndInvalidate<0, ARMJIT_Memory::memregion_SharedWRAM>(addr);
-            *(u8*)&SWRAM_ARM9->Mem[addr & SWRAM_ARM9->Mask] = val;
+            *(u8*)&SWRAM_ARM9.Mem[addr & SWRAM_ARM9.Mask] = val;
         }
         return;
 
@@ -2173,10 +2173,10 @@ void NDS::ARM9Write16(u32 addr, u16 val)
         return;
 
     case 0x03000000:
-        if (SWRAM_ARM9->Mem)
+        if (SWRAM_ARM9.Mem)
         {
             JIT.CheckAndInvalidate<0, ARMJIT_Memory::memregion_SharedWRAM>(addr);
-            *(u16*)&SWRAM_ARM9->Mem[addr & SWRAM_ARM9->Mask] = val;
+            *(u16*)&SWRAM_ARM9.Mem[addr & SWRAM_ARM9.Mask] = val;
         }
         return;
 
@@ -2233,10 +2233,10 @@ void NDS::ARM9Write32(u32 addr, u32 val)
         return ;
 
     case 0x03000000:
-        if (SWRAM_ARM9->Mem)
+        if (SWRAM_ARM9.Mem)
         {
             JIT.CheckAndInvalidate<0, ARMJIT_Memory::memregion_SharedWRAM>(addr);
-            *(u32*)&SWRAM_ARM9->Mem[addr & SWRAM_ARM9->Mask] = val;
+            *(u32*)&SWRAM_ARM9.Mem[addr & SWRAM_ARM9.Mask] = val;
         }
         return;
 
@@ -2294,10 +2294,10 @@ bool NDS::ARM9GetMemRegion(u32 addr, bool write, MemRegion* region)
         return true;
 
     case 0x03000000:
-        if (SWRAM_ARM9->Mem)
+        if (SWRAM_ARM9.Mem)
         {
-            region->Mem = SWRAM_ARM9->Mem;
-            region->Mask = SWRAM_ARM9->Mask;
+            region->Mem = SWRAM_ARM9.Mem;
+            region->Mask = SWRAM_ARM9.Mask;
             return true;
         }
         break;
