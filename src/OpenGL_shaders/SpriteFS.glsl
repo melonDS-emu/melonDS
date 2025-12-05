@@ -72,7 +72,7 @@ void main()
     // b = OBJ window flag
     // a = BG prio
 
-    if (uOAM[fSpriteIndex].OBJMode == 1)
+    if (uOAM[fSpriteIndex].OBJMode == 2)
     {
         // OBJ window
         // OBJ mosaic doesn't apply to "OBJ window" sprites
@@ -84,19 +84,19 @@ void main()
         if (uOAM[fSpriteIndex].OBJMode == 1)
         {
             // semi-transparent sprite
-            flags.r = 1 / 255;
+            flags.r = 1.0 / 255;
         }
         else if (uOAM[fSpriteIndex].OBJMode == 3)
         {
             // bitmap sprite
             col.a = float(uOAM[fSpriteIndex].PalOffset) / 31;
-            flags.r = 2 / 255;
+            flags.r = 2.0 / 255;
         }
 
         if (uOAM[fSpriteIndex].Mosaic)
             flags.g = 1;
 
-        flags.a = uOAM[fSpriteIndex].BGPrio / 255;
+        flags.a = float(uOAM[fSpriteIndex].BGPrio) / 255;
     }
 
     oColor = col;
