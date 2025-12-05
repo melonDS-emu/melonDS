@@ -99,6 +99,7 @@ EmuInstance::EmuInstance(int inst) : deleting(false),
         targetFPS = 60.0;
     }
     else targetFPS = val;
+    curFPS = targetFPS;
 
     val = globalCfg.GetDouble("FastForwardFPS");
     if (val == 0.0)
@@ -1318,6 +1319,7 @@ bool EmuInstance::updateConsole() noexcept
             jitargs,
             static_cast<AudioBitDepth>(globalCfg.GetInt("Audio.BitDepth")),
             static_cast<AudioInterpolation>(globalCfg.GetInt("Audio.Interpolation")),
+            (double) audioFreq,
             gdbargs,
     };
     NDSArgs* args = &ndsargs;

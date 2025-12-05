@@ -42,6 +42,11 @@ namespace DSi_NAND
     class NANDImage;
 }
 
+enum
+{
+    SCFG_DSiLoaderHack = (1<<30),
+};
+
 class DSi final : public NDS
 {
 protected:
@@ -188,6 +193,7 @@ private:
     void Set_SCFG_MC(u32 val);
     void DecryptModcryptArea(u32 offset, u32 size, const u8* iv);
     void ApplyNewRAMSize(u32 size);
+    void CheckDSiLoaderHack();
 };
 
 }

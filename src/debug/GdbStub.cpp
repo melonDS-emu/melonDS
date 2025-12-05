@@ -8,7 +8,6 @@
 #include <stdarg.h>
 #include <stdlib.h>
 #include <stdio.h>
-#include <unistd.h>
 #include <string.h>
 #include <sys/types.h>
 
@@ -20,6 +19,10 @@
 #include <arpa/inet.h>
 #include <netinet/in.h>
 #include <netinet/tcp.h>
+#include <unistd.h>
+// actually do the define for unix platforms rather than windows so that
+// it's clearer what the code does
+#define closesocket(x) close(x)
 #endif
 
 
@@ -139,11 +142,7 @@ bool GdbStub::Init(int port)
 err:
 	if (SockFd != 0)
 	{
-#ifdef _WIN32
 		closesocket(SockFd);
-#else
-		close(SockFd);
-#endif
 		SockFd = 0;
 	}
 
@@ -153,13 +152,13 @@ err:
 void GdbStub::Close()
 {
 	Disconnect();
-	if (SockFd > 0) close(SockFd);
+	if (SockFd > 0) closesocket(SockFd);
 	SockFd = 0;
 }
 
 void GdbStub::Disconnect()
 {
-	if (ConnFd > 0) close(ConnFd);
+	if (ConnFd > 0) closesocket(ConnFd);
 	ConnFd = 0;
 }
 
@@ -318,7 +317,7 @@ StubState GdbStub::Poll(bool wait)
 		if (WaitAckBlocking(&a, 1000) < 0)
 		{
 			Log(LogLevel::Error, "[GDB] inital handshake: didn't receive inital ack!\n");
-			close(ConnFd);
+			closesocket(ConnFd);
 			ConnFd = 0;
 			return StubState::Disconnect;
 		}
@@ -404,7 +403,7 @@ StubState GdbStub::Poll(bool wait)
 	case_gdbp_eof:
 	case ReadResult::Eof:
 		Log(LogLevel::Info, "[GDB] EOF!\n");
-		close(ConnFd);
+		closesocket(ConnFd);
 		ConnFd = 0;
 		return StubState::Disconnect;
 	case ReadResult::CksumErr:

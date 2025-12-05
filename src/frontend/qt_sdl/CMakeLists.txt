@@ -11,6 +11,7 @@ set(SOURCES_QT_SDL
     EmuInstanceAudio.cpp
     EmuInstanceInput.cpp
     EmuThread.cpp
+    CheatImportDialog.cpp
     CheatsDialog.cpp
     Config.cpp
     DateTimeDialog.cpp
@@ -109,6 +110,13 @@ if (WIN32)
     if (MINGW AND CMAKE_HOST_SYSTEM_NAME STREQUAL "Linux")
         set_property(TARGET melonDS PROPERTY AUTORCC_OPTIONS "--no-zstd")
     endif()
+
+    if (BUILD_STATIC)
+        find_package(SDL2 CONFIG COMPONENTS SDL2main)
+        if (TARGET SDL2::SDL2main)
+            target_link_libraries(melonDS PRIVATE SDL2::SDL2main)
+        endif()
+    endif()
 elseif (APPLE)
     if (NOT USE_QT6)
         find_library(COCOA_LIB Cocoa)
@@ -205,10 +213,19 @@ if (WIN32)
         string(TOLOWER "${ARCHITECTURE}" WIN32_ARCHITECTURE)
     endif()
 
-    configure_file("${CMAKE_SOURCE_DIR}/res/xp.manifest.in" "${CMAKE_BINARY_DIR}/res/xp.manifest")
 
     target_link_libraries(melonDS PRIVATE ws2_32 iphlpapi)
-    set_target_properties(melonDS PROPERTIES LINK_FLAGS_DEBUG "-mconsole")
+    set_target_properties(melonDS PROPERTIES WIN32_EXECUTABLE $<IF:$<CONFIG:Debug>,OFF,ON>)
+
+    if (MINGW)
+        configure_file("${CMAKE_SOURCE_DIR}/res/xp.manifest.in" "${CMAKE_BINARY_DIR}/res/xp.manifest")
+    else()
+        # Work around faad2 unconditionally linking libm even on Windows
+        if (USE_VCPKG)
+            add_library(m STATIC)
+            target_link_libraries(melonDS PUBLIC m)
+        endif()
+    endif()
 endif()
 
 if (APPLE)

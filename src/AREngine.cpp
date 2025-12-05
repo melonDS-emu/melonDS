@@ -285,8 +285,39 @@ void AREngine::RunCheat(const ARCode& arcode)
             offset = b;
             break;
 
-        case 0xD4: // datareg += b
-            datareg += b;
+        case 0xD4: // data op
+            switch (a & 0xFF)
+            {
+                case 0x00: datareg += b; break;
+                case 0x01: datareg |= b; break;
+                case 0x02: datareg &= b; break;
+                case 0x03: datareg ^= b; break;
+
+                case 0x04:
+                    b &= 0xFF;
+                    if (b > 31) datareg = 0;
+                    else        datareg <<= b;
+                    break;
+                case 0x05:
+                    b &= 0xFF;
+                    if (b > 31) datareg = 0;
+                    else        datareg >>= b;
+                    break;
+                case 0x06:
+                    datareg = ROR(datareg, b & 0x1F);
+                    break;
+                case 0x07:
+                    b &= 0xFF;
+                    if (b > 31) datareg = ((s32)datareg) >> 31;
+                    else        datareg = ((s32)datareg) >> b;
+                    break;
+
+                case 0x08: datareg *= b; break;
+
+                default:
+                    Log(LogLevel::Warn, "!! bad AR D4 opcode %08X %08X\n", a, b);
+                    break;
+            }
             break;
 
         case 0xD5: // datareg = b

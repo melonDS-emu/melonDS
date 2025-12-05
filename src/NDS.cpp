@@ -95,7 +95,7 @@ NDS::NDS(NDSArgs&& args, int type, void* userdata) noexcept :
     ARM7BIOSNative(CRC32(ARM7BIOS.data(), ARM7BIOS.size()) == ARM7BIOSCRC32),
     ARM9BIOSNative(CRC32(ARM9BIOS.data(), ARM9BIOS.size()) == ARM9BIOSCRC32),
     JIT(*this, args.JIT),
-    SPU(*this, args.BitDepth, args.Interpolation),
+    SPU(*this, args.BitDepth, args.Interpolation, args.OutputSampleRate),
     Mic(*this),
     GPU(*this, std::move(args.Renderer3D)),
     SPI(*this, std::move(args.Firmware)),
@@ -379,7 +379,7 @@ void NDS::SetupDirectBoot()
 
     SPI.GetFirmwareMem()->SetupDirectBoot();
 
-    ARM9->CP15Write(0x100, 0x00012078);
+    ARM9->CP15Write(0x100, 0x00052078);
     ARM9->CP15Write(0x200, 0x00000042);
     ARM9->CP15Write(0x201, 0x00000042);
     ARM9->CP15Write(0x300, 0x00000002);
@@ -905,7 +905,7 @@ void NDS::RunSystemSleep(u64 timestamp)
     for (int i = 0; i < Event_MAX; i++)
     {
         if (!mask) break;
-        if (i == Event_SPU || i == Event_RTC)
+        if (i == Event_RTC)
         {
             if (mask & 0x1)
             {
@@ -915,14 +915,8 @@ void NDS::RunSystemSleep(u64 timestamp)
                 {
                     SchedListMask &= ~(1<<i);
 
-                    u32 param;
-                    if (i == Event_SPU)
-                        param = 1;
-                    else
-                        param = evt.Param;
-
                     EventFunc func = evt.Funcs[evt.FuncID];
-                    func(evt.That, param);
+                    func(evt.That, evt.Param);
                 }
             }
         }
@@ -1074,6 +1068,9 @@ u32 NDS::RunFrame()
 #endif
         break;
     }
+
+    // Ensure the last audio samples produced for this frame are available to the frontend immediately
+    SPU.BufferAudio();
 
     // In the context of TASes, frame count is traditionally the primary measure of emulated time,
     // so it needs to be tracked even if NDS is powered off.
@@ -1273,29 +1270,29 @@ void NDS::MapSharedWRAM(u8 val)
     switch (WRAMCnt & 0x3)
     {
     case 0:
-        SWRAM_ARM9.Mem = &SharedWRAM[0];
-        SWRAM_ARM9.Mask = 0x7FFF;
+        SWRAM_ARM9->Mem = &SharedWRAM[0];
+        SWRAM_ARM9->Mask = 0x7FFF;
         SWRAM_ARM7.Mem = NULL;
         SWRAM_ARM7.Mask = 0;
         break;
 
     case 1:
-        SWRAM_ARM9.Mem = &SharedWRAM[0x4000];
-        SWRAM_ARM9.Mask = 0x3FFF;
+        SWRAM_ARM9->Mem = &SharedWRAM[0x4000];
+        SWRAM_ARM9->Mask = 0x3FFF;
         SWRAM_ARM7.Mem = &SharedWRAM[0];
         SWRAM_ARM7.Mask = 0x3FFF;
         break;
 
     case 2:
-        SWRAM_ARM9.Mem = &SharedWRAM[0];
-        SWRAM_ARM9.Mask = 0x3FFF;
+        SWRAM_ARM9->Mem = &SharedWRAM[0];
+        SWRAM_ARM9->Mask = 0x3FFF;
         SWRAM_ARM7.Mem = &SharedWRAM[0x4000];
         SWRAM_ARM7.Mask = 0x3FFF;
         break;
 
     case 3:
-        SWRAM_ARM9.Mem = NULL;
-        SWRAM_ARM9.Mask = 0;
+        SWRAM_ARM9->Mem = NULL;
+        SWRAM_ARM9->Mask = 0;
         SWRAM_ARM7.Mem = &SharedWRAM[0];
         SWRAM_ARM7.Mask = 0x7FFF;
         break;
@@ -1956,9 +1953,9 @@ u8 NDS::ARM9Read8(u32 addr)
         return *(u8*)&MainRAM[addr & MainRAMMask];
 
     case 0x03000000:
-        if (SWRAM_ARM9.Mem)
+        if (SWRAM_ARM9->Mem)
         {
-            return *(u8*)&SWRAM_ARM9.Mem[addr & SWRAM_ARM9.Mask];
+            return *(u8*)&SWRAM_ARM9->Mem[addr & SWRAM_ARM9->Mask];
         }
         else
         {
@@ -2017,9 +2014,9 @@ u16 NDS::ARM9Read16(u32 addr)
         return *(u16*)&MainRAM[addr & MainRAMMask];
 
     case 0x03000000:
-        if (SWRAM_ARM9.Mem)
+        if (SWRAM_ARM9->Mem)
         {
-            return *(u16*)&SWRAM_ARM9.Mem[addr & SWRAM_ARM9.Mask];
+            return *(u16*)&SWRAM_ARM9->Mem[addr & SWRAM_ARM9->Mask];
         }
         else
         {
@@ -2077,9 +2074,9 @@ u32 NDS::ARM9Read32(u32 addr)
         return *(u32*)&MainRAM[addr & MainRAMMask];
 
     case 0x03000000:
-        if (SWRAM_ARM9.Mem)
+        if (SWRAM_ARM9->Mem)
         {
-            return *(u32*)&SWRAM_ARM9.Mem[addr & SWRAM_ARM9.Mask];
+            return *(u32*)&SWRAM_ARM9->Mem[addr & SWRAM_ARM9->Mask];
         }
         else
         {
@@ -2135,10 +2132,10 @@ void NDS::ARM9Write8(u32 addr, u8 val)
         return;
 
     case 0x03000000:
-        if (SWRAM_ARM9.Mem)
+        if (SWRAM_ARM9->Mem)
         {
             JIT.CheckAndInvalidate<0, ARMJIT_Memory::memregion_SharedWRAM>(addr);
-            *(u8*)&SWRAM_ARM9.Mem[addr & SWRAM_ARM9.Mask] = val;
+            *(u8*)&SWRAM_ARM9->Mem[addr & SWRAM_ARM9->Mask] = val;
         }
         return;
 
@@ -2176,10 +2173,10 @@ void NDS::ARM9Write16(u32 addr, u16 val)
         return;
 
     case 0x03000000:
-        if (SWRAM_ARM9.Mem)
+        if (SWRAM_ARM9->Mem)
         {
             JIT.CheckAndInvalidate<0, ARMJIT_Memory::memregion_SharedWRAM>(addr);
-            *(u16*)&SWRAM_ARM9.Mem[addr & SWRAM_ARM9.Mask] = val;
+            *(u16*)&SWRAM_ARM9->Mem[addr & SWRAM_ARM9->Mask] = val;
         }
         return;
 
@@ -2236,10 +2233,10 @@ void NDS::ARM9Write32(u32 addr, u32 val)
         return ;
 
     case 0x03000000:
-        if (SWRAM_ARM9.Mem)
+        if (SWRAM_ARM9->Mem)
         {
             JIT.CheckAndInvalidate<0, ARMJIT_Memory::memregion_SharedWRAM>(addr);
-            *(u32*)&SWRAM_ARM9.Mem[addr & SWRAM_ARM9.Mask] = val;
+            *(u32*)&SWRAM_ARM9->Mem[addr & SWRAM_ARM9->Mask] = val;
         }
         return;
 
@@ -2297,10 +2294,10 @@ bool NDS::ARM9GetMemRegion(u32 addr, bool write, MemRegion* region)
         return true;
 
     case 0x03000000:
-        if (SWRAM_ARM9.Mem)
+        if (SWRAM_ARM9->Mem)
         {
-            region->Mem = SWRAM_ARM9.Mem;
-            region->Mask = SWRAM_ARM9.Mask;
+            region->Mem = SWRAM_ARM9->Mem;
+            region->Mask = SWRAM_ARM9->Mask;
             return true;
         }
         break;

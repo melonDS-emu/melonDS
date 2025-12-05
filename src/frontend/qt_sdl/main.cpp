@@ -42,9 +42,6 @@
 #include <unistd.h>
 #include <sys/socket.h>
 #include <signal.h>
-#ifndef APPLE
-#include <qpa/qplatformnativeinterface.h>
-#endif
 #endif
 
 #include <SDL2/SDL.h>
@@ -291,6 +288,14 @@ int main(int argc, char** argv)
     if (argc != 0 && (!strcasecmp(argv[0], "derpDS") || !strcasecmp(argv[0], "./derpDS")))
         printf("did you just call me a derp???\n");
 
+#ifdef _WIN32
+    // argc and argv are passed as UTF8 by SDL's WinMain function
+    // QT checks for the original value in local encoding though
+    // to see whether it is unmodified to activate its hack that
+    // retrieves the unicode value via CommandLineToArgvW.
+    argc = __argc;
+    argv = __argv;
+#endif
     MelonApplication melon(argc, argv);
     pathInit();
 
@@ -349,6 +354,10 @@ int main(int argc, char** argv)
         }
     }
 
+    // fix for Wayland OpenGL glitches
+    QGuiApplication::setAttribute(Qt::AA_NativeWindows, false);
+    QGuiApplication::setAttribute(Qt::AA_DontCreateNativeWidgetSiblings, true);
+
     // default MP interface type is local MP
     // this will be changed if a LAN or netplay session is initiated
     setMPInterface(MPInterface_Local);
@@ -401,24 +410,3 @@ int main(int argc, char** argv)
     SDL_Quit();
     return ret;
 }
-
-#ifdef __WIN32__
-
-#include <windows.h>
-
-int CALLBACK WinMain(HINSTANCE hinst, HINSTANCE hprev, LPSTR cmdline, int cmdshow)
-{
-    if (AttachConsole(ATTACH_PARENT_PROCESS) && GetStdHandle(STD_OUTPUT_HANDLE))
-    {
-        freopen("CONOUT$", "w", stdout);
-        freopen("CONOUT$", "w", stderr);
-    }
-
-    int ret = main(__argc, __argv);
-
-    printf("\n\n>");
-
-    return ret;
-}
-
-#endif
