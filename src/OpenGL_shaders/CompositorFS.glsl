@@ -28,9 +28,7 @@ layout(std140) uniform uCompositorConfig
     ivec3 uBlendCoef;
 };
 
-//uniform int uScaleFactor;
-
-smooth in vec2 fTexcoord;
+smooth in vec4 fTexcoord;
 
 out vec4 oColor;
 
@@ -45,8 +43,8 @@ ivec3 ConvertColor(int col)
 
 vec4 CompositeLayers()
 {
-    ivec2 coord = ivec2(fTexcoord);
-    int line = coord.y;
+    ivec2 coord = ivec2(fTexcoord.zw);
+    int line = int(fTexcoord.y);
 
     ivec4 col1 = ivec4(ConvertColor(uScanline[line].BackColor), 0x20);
     int mask1 = 0x20;
