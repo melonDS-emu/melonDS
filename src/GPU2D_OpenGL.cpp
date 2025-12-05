@@ -33,6 +33,8 @@ namespace melonDS::GPU2D
 #include "OpenGL_shaders/SpritePreFS.h"
 #include "OpenGL_shaders/SpriteVS.h"
 #include "OpenGL_shaders/SpriteFS.h"
+#include "OpenGL_shaders/CompositorVS.h"
+#include "OpenGL_shaders/CompositorFS.h"
 
 // NOTE
 // for now, this is largely a reimplementation of the software 2D renderer
@@ -42,7 +44,7 @@ namespace melonDS::GPU2D
 std::unique_ptr<GLRenderer> GLRenderer::New(melonDS::GPU& gpu) noexcept
 {
     assert(glBindAttribLocation != nullptr);
-    GLuint shaderid[5];
+    GLuint shaderid[6];
 
     // TODO move those to GLInit()
     if (!OpenGL::CompileVertexFragmentProgram(shaderid[0],
@@ -74,6 +76,13 @@ std::unique_ptr<GLRenderer> GLRenderer::New(melonDS::GPU& gpu) noexcept
         return nullptr;
 
     if (!OpenGL::CompileVertexFragmentProgram(shaderid[4],
+                                              kCompositorVS, kCompositorFS,
+                                              "2DCompositorShader",
+                                              {{"vPosition", 0}},
+                                              {{"oColor", 0}}))
+        return nullptr;
+
+    if (!OpenGL::CompileVertexFragmentProgram(shaderid[5],
                                               kFinalPassVS, kFinalPassFS,
                                               "2DFinalPassShader",
                                               {{"vPosition", 0}, {"vTexcoord", 1}},
@@ -85,7 +94,8 @@ std::unique_ptr<GLRenderer> GLRenderer::New(melonDS::GPU& gpu) noexcept
     ret->LayerShader = shaderid[1];
     ret->SpritePreShader = shaderid[2];
     ret->SpriteShader = shaderid[3];
-    ret->FPShaderID = shaderid[4];
+    ret->CompositorShader = shaderid[4];
+    ret->FPShaderID = shaderid[5];
     if (!ret->GLInit())
         return nullptr;
     return ret;
@@ -189,12 +199,14 @@ bool GLRenderer::GLInit()
         glGenTextures(1, &state.PalTex_BG);
         glBindTexture(GL_TEXTURE_2D, state.PalTex_BG);
         glDefaultTexParams(GL_TEXTURE_2D);
-        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB5_A1, 256, 1+(4*16), 0, GL_RGBA, GL_UNSIGNED_SHORT_1_5_5_5_REV, nullptr);
+        //glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB5_A1, 256, 1+(4*16), 0, GL_RGBA, GL_UNSIGNED_SHORT_1_5_5_5_REV, nullptr);
+        glTexImage2D(GL_TEXTURE_2D, 0, GL_R16UI, 256, 1+(4*16), 0, GL_RED_INTEGER, GL_UNSIGNED_SHORT, nullptr);
 
         glGenTextures(1, &state.PalTex_OBJ);
         glBindTexture(GL_TEXTURE_2D, state.PalTex_OBJ);
         glDefaultTexParams(GL_TEXTURE_2D);
-        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB5_A1, 256, 1+16, 0, GL_RGBA, GL_UNSIGNED_SHORT_1_5_5_5_REV, nullptr);
+        //glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB5_A1, 256, 1+16, 0, GL_RGBA, GL_UNSIGNED_SHORT_1_5_5_5_REV, nullptr);
+        glTexImage2D(GL_TEXTURE_2D, 0, GL_R16UI, 256, 1+16, 0, GL_RED_INTEGER, GL_UNSIGNED_SHORT, nullptr);
 
         // generate texture to hold pre-rendered BG layers
 
@@ -251,6 +263,12 @@ bool GLRenderer::GLInit()
     glBufferData(GL_UNIFORM_BUFFER, sizeof(sUnitState::sScanlineConfig), nullptr, GL_STREAM_DRAW);
     glBindBufferBase(GL_UNIFORM_BUFFER, 12, ScanlineConfigUBO);
 
+    glGenBuffers(1, &CompositorConfigUBO);
+    glBindBuffer(GL_UNIFORM_BUFFER, CompositorConfigUBO);
+    static_assert((sizeof(sUnitState::sCompositorConfig) & 15) == 0);
+    glBufferData(GL_UNIFORM_BUFFER, sizeof(sUnitState::sCompositorConfig), nullptr, GL_STREAM_DRAW);
+    glBindBufferBase(GL_UNIFORM_BUFFER, 13, CompositorConfigUBO);
+
 
     glUseProgram(LayerPreShader);
 
@@ -296,6 +314,19 @@ bool GLRenderer::GLInit()
 
     uniloc = glGetUniformBlockIndex(SpriteShader, "uConfig");
     glUniformBlockBinding(SpriteShader, uniloc, 11);
+
+
+    glUseProgram(CompositorShader);
+
+    uniloc = glGetUniformLocation(CompositorShader, "LayerTex");
+    glUniform1i(uniloc, 0);
+
+    uniloc = glGetUniformBlockIndex(CompositorShader, "uScanlineConfig");
+    glUniformBlockBinding(CompositorShader, uniloc, 12);
+    uniloc = glGetUniformBlockIndex(CompositorShader, "uCompositorConfig");
+    glUniformBlockBinding(CompositorShader, uniloc, 13);
+
+    CompositorScaleULoc = glGetUniformLocation(CompositorShader, "uScaleFactor");
 
 
     glUseProgram(FPShaderID);
@@ -560,21 +591,21 @@ void GLRenderer::DrawScanline(u32 line, Unit* unit)
         return;
     }
 
-    attrib[0] = CurUnit->DispCnt;
+    /*attrib[0] = CurUnit->DispCnt;
     attrib[1] = CurUnit->BlendCnt | (CurUnit->EVA << 16) | (CurUnit->EVB << 24);
 
     u32 attr2 = (CurUnit->MasterBrightness & 0x1F) | ((CurUnit->MasterBrightness & 0xC000) >> 8) |
                 (CurUnit->EVY << 8) | (CurUnit->ScreenPos << 31);
     if (!CurUnit->Num)
         attr2 |= (GPU.GPU3D.GetRenderXPos() << 16);
-    attrib[2] = attr2;
+    attrib[2] = attr2;*/
 
     //u32 dispmode = CurUnit->DispCnt >> 16;
     //dispmode &= (CurUnit->Num ? 0x1 : 0x3);
 
     // always render regular graphics
-    BGOBJLine = &BGOBJBuffer[256 * 3 * yoffset];
-    DrawScanline_BGOBJ(line);
+    //BGOBJLine = &BGOBJBuffer[256 * 3 * yoffset];
+    //DrawScanline_BGOBJ(line);
     CurUnit->UpdateMosaicCounters(line);
 
     /*for (int i = 0; i < 256; i++)
@@ -584,6 +615,12 @@ void GLRenderer::DrawScanline(u32 line, Unit* unit)
 
         //dst[i] = 0xFF3F003F | (line << 8);
     }*/
+
+    // TODO is it also done if forceblank is set?
+    unit->BGXRefInternal[0] += unit->BGRotB[0];
+    unit->BGYRefInternal[0] += unit->BGRotD[0];
+    unit->BGXRefInternal[1] += unit->BGRotB[1];
+    unit->BGYRefInternal[1] += unit->BGRotD[1];
 
     if (CurUnit->Num == 0)
     {
@@ -651,8 +688,8 @@ void GLRenderer::VBlank(Unit* unitA, Unit* unitB)
 
     // test zone
     {
-        //Unit* unit = unitA;
-        Unit* unit = unitB;
+        Unit* unit = unitA;
+        //Unit* unit = unitB;
         auto& state = UnitState[unit->Num];
 
         u32 dispcnt = unit->DispCnt;
@@ -697,7 +734,8 @@ void GLRenderer::VBlank(Unit* unitA, Unit* unitB)
 
         glActiveTexture(GL_TEXTURE1);
         glBindTexture(GL_TEXTURE_2D, state.PalTex_BG);
-        glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, 256, 1+(4*16), GL_RGBA, GL_UNSIGNED_SHORT_1_5_5_5_REV, TempPalBuffer);
+        //glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, 256, 1+(4*16), GL_RGBA, GL_UNSIGNED_SHORT_1_5_5_5_REV, TempPalBuffer);
+        glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, 256, 1+(4*16), GL_RED_INTEGER, GL_UNSIGNED_SHORT, TempPalBuffer);
 
         // update layer config
 
@@ -844,14 +882,26 @@ void GLRenderer::VBlank(Unit* unitA, Unit* unitB)
             }
         }
 
-        //glBindBuffer(GL_UNIFORM_BUFFER, state.LayerConfigUBO);
         glBindBuffer(GL_UNIFORM_BUFFER, LayerConfigUBO);
-        /*void* unibuf = glMapBuffer(GL_UNIFORM_BUFFER, GL_WRITE_ONLY);
-        if (unibuf) memcpy(unibuf, &state.LayerConfig, sizeof(state.LayerConfig));
-        else printf("AAAAAAAAAAAAAAA %04X\n", glGetError());
-        glUnmapBuffer(GL_UNIFORM_BUFFER);*/
         glBufferSubData(GL_UNIFORM_BUFFER, 0, sizeof(state.LayerConfig), &state.LayerConfig);
-        //glUniformBlockBinding(LayerPreShader, LSConfigULoc, unit->Num);
+
+        // compositor info buffer
+        // TODO this could go with another buffer? optimize later
+        for (int i = 0; i < 4; i++)
+            state.CompositorConfig.uBGPrio[i] = -1;
+
+        for (int layer = 0; layer < 4; layer++)
+        {
+            if (!(unit->DispCnt & (0x100 << layer)))
+                continue;
+            if (layer==0) continue; // HACK
+
+            int prio = unit->BGCnt[layer] & 0x3;
+            state.CompositorConfig.uBGPrio[layer] = prio;
+        }
+
+        glBindBuffer(GL_UNIFORM_BUFFER, CompositorConfigUBO);
+        glBufferSubData(GL_UNIFORM_BUFFER, 0, sizeof(state.CompositorConfig), &state.CompositorConfig);
 
         glDisable(GL_DEPTH_TEST);
         glDisable(GL_STENCIL_TEST);
@@ -883,7 +933,8 @@ void GLRenderer::VBlank(Unit* unitA, Unit* unitB)
 
         glActiveTexture(GL_TEXTURE1);
         glBindTexture(GL_TEXTURE_2D, state.PalTex_OBJ);
-        glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, 256, 1+16, GL_RGBA, GL_UNSIGNED_SHORT_1_5_5_5_REV, TempPalBuffer);
+        //glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, 256, 1+16, GL_RGBA, GL_UNSIGNED_SHORT_1_5_5_5_REV, TempPalBuffer);
+        glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, 256, 1+16, GL_RED_INTEGER, GL_UNSIGNED_SHORT, TempPalBuffer);
 
         glBindBuffer(GL_UNIFORM_BUFFER, SpriteConfigUBO);
         glBufferSubData(GL_UNIFORM_BUFFER,
@@ -909,10 +960,34 @@ void GLRenderer::VBlank(Unit* unitA, Unit* unitB)
         RenderLayer(unit, 1, 0, 192);
         RenderLayer(unit, 2, 0, 192);
         RenderLayer(unit, 3, 0, 192);
+
+
+        glUseProgram(CompositorShader);
+
+        // TODO not set this all the time?
+        glUniform1i(CompositorScaleULoc, ScaleFactor);
+
+        int backbuf = BackBuffer;
+        glBindFramebuffer(GL_READ_FRAMEBUFFER, 0);
+        glBindFramebuffer(GL_DRAW_FRAMEBUFFER, FPOutputFB[backbuf]);
+
+        glDisable(GL_DEPTH_TEST);
+        glDisable(GL_STENCIL_TEST);
+        glDisable(GL_BLEND);
+        glColorMaski(0, GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
+
+        glViewport(0, 0, ScreenW, ScreenH);
+
+        glActiveTexture(GL_TEXTURE0);
+        glBindTexture(GL_TEXTURE_2D_ARRAY, state.FinalLayerTex);
+
+        glBindBuffer(GL_ARRAY_BUFFER, RectVtxBuffer);
+        glBindVertexArray(RectVtxArray);
+        glDrawArrays(GL_TRIANGLES, 0, 2*3);
     }
 
 
-
+#if 0
     int backbuf = BackBuffer;
     glBindFramebuffer(GL_READ_FRAMEBUFFER, 0);
     glBindFramebuffer(GL_DRAW_FRAMEBUFFER, FPOutputFB[backbuf]);
@@ -998,6 +1073,7 @@ void GLRenderer::VBlank(Unit* unitA, Unit* unitB)
         CaptureLastBuffer[block] = cur;
         ActiveCapture = -1;
     }
+#endif
 }
 
 void GLRenderer::VBlankEnd(Unit* unitA, Unit* unitB)
@@ -1074,7 +1150,35 @@ void GLRenderer::UpdateScanlineConfig(Unit* unit, int line)
         cfg.BGOffset[3][0] = unit->BGXPos[3];
         cfg.BGOffset[3][1] = unit->BGYPos[3];
     }
-}
+
+    u16* pal = (u16*)&GPU.Palette[unit->Num ? 0x400 : 0];
+    cfg.BackColor = pal[0];
+
+    /*int bgassign[4] = {-1, -1, -1, -1};
+    int bgnum = 0;
+    bool bgplaced[4] = {false, false, false, false};
+
+    for (int prio = 0; prio < 4; prio++)
+    {
+        for (int bg = 0; bg < 4; bg++)
+        {
+            if (!(unit->DispCnt & (0x100 << bg)))
+                continue;
+            if (bgplaced[bg])
+                continue;
+            if ((unit->BGCnt[bg] & 0x3) != prio)
+                continue;
+
+            bgassign[bgnum++] = bg;
+            bgplaced[bg] = true;
+            if (bgnum == 4) break;
+        }
+        if (bgnum == 4) break;
+    }
+
+    printf("UNIT%d LINE%d: PRIO=%d/%d/%d/%d\n",
+           unit->Num, line, bgassign[0], bgassign[1], bgassign[2], bgassign[3]);*/
+};
 
 void GLRenderer::UpdateOAM(Unit* unit, int ystart, int yend)
 {
@@ -1489,975 +1593,8 @@ void GLRenderer::DoCapture(u32 line, u32 width)
     // TODO
 }
 
-#define DoDrawBG(type, line, num) \
-do \
-{ \
-    if ((bgCnt[num] & 0x0040) && (CurUnit->BGMosaicSize[0] > 0)) \
-    { \
-        DrawBG_##type<true>(line, num); \
-    } \
-    else \
-    { \
-        DrawBG_##type<false>(line, num); \
-    } \
-} while (false)
 
-#define DoDrawBG_Large(line) \
-do \
-{ \
-    if ((bgCnt[2] & 0x0040) && (CurUnit->BGMosaicSize[0] > 0)) \
-    { \
-        DrawBG_Large<true>(line); \
-    } \
-    else \
-    { \
-        DrawBG_Large<false>(line); \
-    } \
-} while (false)
 
-template<u32 bgmode>
-void GLRenderer::DrawScanlineBGMode(u32 line)
-{
-    u32 dispCnt = CurUnit->DispCnt;
-    u16* bgCnt = CurUnit->BGCnt;
-    for (int i = 3; i >= 0; i--)
-    {
-        if ((bgCnt[3] & 0x3) == i)
-        {
-            if (dispCnt & 0x0800)
-            {
-                if (bgmode >= 3)
-                    DoDrawBG(Extended, line, 3);
-                else if (bgmode >= 1)
-                    DoDrawBG(Affine, line, 3);
-                else
-                    DoDrawBG(Text, line, 3);
-            }
-        }
-        if ((bgCnt[2] & 0x3) == i)
-        {
-            if (dispCnt & 0x0400)
-            {
-                if (bgmode == 5)
-                    DoDrawBG(Extended, line, 2);
-                else if (bgmode == 4 || bgmode == 2)
-                    DoDrawBG(Affine, line, 2);
-                else
-                    DoDrawBG(Text, line, 2);
-            }
-        }
-        if ((bgCnt[1] & 0x3) == i)
-        {
-            if (dispCnt & 0x0200)
-            {
-                DoDrawBG(Text, line, 1);
-            }
-        }
-        if ((bgCnt[0] & 0x3) == i)
-        {
-            if (dispCnt & 0x0100)
-            {
-                if (!CurUnit->Num && (dispCnt & 0x8))
-                    DrawBG_3D();
-                else
-                    DoDrawBG(Text, line, 0);
-            }
-        }
-        if ((dispCnt & 0x1000) && NumSprites[CurUnit->Num])
-        {
-            InterleaveSprites(0x40000 | (i<<16));
-        }
-
-    }
-}
-
-void GLRenderer::DrawScanlineBGMode6(u32 line)
-{
-    u32 dispCnt = CurUnit->DispCnt;
-    u16* bgCnt = CurUnit->BGCnt;
-    for (int i = 3; i >= 0; i--)
-    {
-        if ((bgCnt[2] & 0x3) == i)
-        {
-            if (dispCnt & 0x0400)
-            {
-                DoDrawBG_Large(line);
-            }
-        }
-        if ((bgCnt[0] & 0x3) == i)
-        {
-            if (dispCnt & 0x0100)
-            {
-                if ((!CurUnit->Num) && (dispCnt & 0x8))
-                    DrawBG_3D();
-            }
-        }
-        if ((dispCnt & 0x1000) && NumSprites[CurUnit->Num])
-        {
-            InterleaveSprites(0x40000 | (i<<16));
-        }
-    }
-}
-
-void GLRenderer::DrawScanlineBGMode7(u32 line)
-{
-    u32 dispCnt = CurUnit->DispCnt;
-    u16* bgCnt = CurUnit->BGCnt;
-    // mode 7 only has text-mode BG0 and BG1
-
-    for (int i = 3; i >= 0; i--)
-    {
-        if ((bgCnt[1] & 0x3) == i)
-        {
-            if (dispCnt & 0x0200)
-            {
-                DoDrawBG(Text, line, 1);
-            }
-        }
-        if ((bgCnt[0] & 0x3) == i)
-        {
-            if (dispCnt & 0x0100)
-            {
-                if (!CurUnit->Num && (dispCnt & 0x8))
-                    DrawBG_3D();
-                else
-                    DoDrawBG(Text, line, 0);
-            }
-        }
-        if ((dispCnt & 0x1000) && NumSprites[CurUnit->Num])
-        {
-            InterleaveSprites(0x40000 | (i<<16));
-        }
-    }
-}
-
-void GLRenderer::DrawScanline_BGOBJ(u32 line)
-{
-    // forced blank disables BG/OBJ compositing
-    if (CurUnit->DispCnt & (1<<7))
-    {
-        for (int i = 0; i < 256; i++)
-            BGOBJLine[i] = 0xFF3F3F3F;
-
-        return;
-    }
-
-    u64 backdrop;
-    if (CurUnit->Num) backdrop = *(u16*)&GPU.Palette[0x400];
-    else     backdrop = *(u16*)&GPU.Palette[0];
-
-    {
-        backdrop |= 0x05000000;
-        backdrop |= (backdrop << 32);
-
-        for (int i = 0; i < 256; i+=2)
-            *(u64*)&BGOBJLine[i] = backdrop;
-    }
-
-    if (CurUnit->DispCnt & 0xE000)
-        CurUnit->CalculateWindowMask(line, WindowMask, OBJWindow[CurUnit->Num]);
-    else
-        memset(WindowMask, 0xFF, 256);
-
-    ApplySpriteMosaicX();
-    CurBGXMosaicTable = MosaicTable[CurUnit->BGMosaicSize[0]].data();
-
-    switch (CurUnit->DispCnt & 0x7)
-    {
-        case 0: DrawScanlineBGMode<0>(line); break;
-        case 1: DrawScanlineBGMode<1>(line); break;
-        case 2: DrawScanlineBGMode<2>(line); break;
-        case 3: DrawScanlineBGMode<3>(line); break;
-        case 4: DrawScanlineBGMode<4>(line); break;
-        case 5: DrawScanlineBGMode<5>(line); break;
-        case 6: DrawScanlineBGMode6(line); break;
-        case 7: DrawScanlineBGMode7(line); break;
-    }
-
-    for (int i = 0; i < 256; i++)
-    {
-        if (WindowMask[i] & 0x20)
-            BGOBJLine[i] |= (1<<30);
-    }
-
-    if (CurUnit->BGMosaicY >= CurUnit->BGMosaicYMax)
-    {
-        CurUnit->BGMosaicY = 0;
-        CurUnit->BGMosaicYMax = CurUnit->BGMosaicSize[1];
-    }
-    else
-        CurUnit->BGMosaicY++;
-
-    /*if (OBJMosaicY >= OBJMosaicYMax)
-    {
-        OBJMosaicY = 0;
-        OBJMosaicYMax = OBJMosaicSize[1];
-    }
-    else
-        OBJMosaicY++;*/
-}
-
-
-
-void GLRenderer::DrawPixel(u32* dst, u32 color, u32 flag)
-{
-    /*u8 r = (color & 0x001F) << 1;
-    u8 g = (color & 0x03E0) >> 4;
-    u8 b = (color & 0x7C00) >> 9;
-
-    *(dst+512) = *(dst+256);
-    *(dst+256) = *dst;
-    *dst = r | (g << 8) | (b << 16) | flag;*/
-    u32 val = color | flag;
-    // TODO add in windowmask
-
-    *(dst+512) = *(dst+256);
-    *(dst+256) = *dst;
-    *dst = val;
-}
-
-void GLRenderer::DrawBG_3D()
-{
-    for (int i = 0; i < 256; i++)
-    {
-        if (!(WindowMask[i] & 0x01)) continue;
-
-        BGOBJLine[i+512] = BGOBJLine[i+256];
-        BGOBJLine[i+256] = BGOBJLine[i];
-        BGOBJLine[i] = 0x80000000; // 3D-layer placeholder
-    }
-}
-
-template<bool mosaic>
-void GLRenderer::DrawBG_Text(u32 line, u32 bgnum)
-{
-    // workaround for backgrounds missing on aarch64 with lto build
-    asm volatile ("" : : : "memory");
-
-    u16 bgcnt = CurUnit->BGCnt[bgnum];
-
-    u32 tilesetaddr, tilemapaddr;
-    u16* pal;
-    u32 extpal, extpalslot;
-
-    u16 xoff = CurUnit->BGXPos[bgnum];
-    u16 yoff = CurUnit->BGYPos[bgnum] + line;
-
-    if (bgcnt & 0x0040)
-    {
-        // vertical mosaic
-        yoff -= CurUnit->BGMosaicY;
-    }
-
-    u32 widexmask = (bgcnt & 0x4000) ? 0x100 : 0;
-
-    extpal = (CurUnit->DispCnt & 0x40000000);
-    if (extpal) extpalslot = ((bgnum<2) && (bgcnt&0x2000)) ? (2+bgnum) : bgnum;
-
-    u8* bgvram;
-    u32 bgvrammask;
-    CurUnit->GetBGVRAM(bgvram, bgvrammask);
-    if (CurUnit->Num)
-    {
-        tilesetaddr = ((bgcnt & 0x003C) << 12);
-        tilemapaddr = ((bgcnt & 0x1F00) << 3);
-
-        pal = (u16*)&GPU.Palette[0x400];
-    }
-    else
-    {
-        tilesetaddr = ((CurUnit->DispCnt & 0x07000000) >> 8) + ((bgcnt & 0x003C) << 12);
-        tilemapaddr = ((CurUnit->DispCnt & 0x38000000) >> 11) + ((bgcnt & 0x1F00) << 3);
-
-        pal = (u16*)&GPU.Palette[0];
-    }
-
-    // adjust Y position in tilemap
-    if (bgcnt & 0x8000)
-    {
-        tilemapaddr += ((yoff & 0x1F8) << 3);
-        if (bgcnt & 0x4000)
-            tilemapaddr += ((yoff & 0x100) << 3);
-    }
-    else
-        tilemapaddr += ((yoff & 0xF8) << 3);
-
-    u16 curtile;
-    u16* curpal;
-    u32 pixelsaddr;
-    u8 color;
-    u32 lastxpos;
-
-    if (bgcnt & 0x0080)
-    {
-        // 256-color
-
-        // preload shit as needed
-        if ((xoff & 0x7) || mosaic)
-        {
-            curtile = *(u16*)&bgvram[(tilemapaddr + ((xoff & 0xF8) >> 2) + ((xoff & widexmask) << 3)) & bgvrammask];
-
-            if (extpal) curpal = CurUnit->GetBGExtPal(extpalslot, curtile>>12);
-            else        curpal = pal;
-
-            pixelsaddr = tilesetaddr + ((curtile & 0x03FF) << 6)
-                         + (((curtile & 0x0800) ? (7-(yoff&0x7)) : (yoff&0x7)) << 3);
-        }
-
-        if (mosaic) lastxpos = xoff;
-
-        for (int i = 0; i < 256; i++)
-        {
-            u32 xpos;
-            if (mosaic) xpos = xoff - CurBGXMosaicTable[i];
-            else        xpos = xoff;
-
-            if ((!mosaic && (!(xpos & 0x7))) ||
-                (mosaic && ((xpos >> 3) != (lastxpos >> 3))))
-            {
-                // load a new tile
-                curtile = *(u16*)&bgvram[(tilemapaddr + ((xpos & 0xF8) >> 2) + ((xpos & widexmask) << 3)) & bgvrammask];
-
-                if (extpal) curpal = CurUnit->GetBGExtPal(extpalslot, curtile>>12);
-                else        curpal = pal;
-
-                pixelsaddr = tilesetaddr + ((curtile & 0x03FF) << 6)
-                             + (((curtile & 0x0800) ? (7-(yoff&0x7)) : (yoff&0x7)) << 3);
-
-                if (mosaic) lastxpos = xpos;
-            }
-
-            // draw pixel
-            if (WindowMask[i] & (1<<bgnum))
-            {
-                u32 tilexoff = (curtile & 0x0400) ? (7-(xpos&0x7)) : (xpos&0x7);
-                color = bgvram[(pixelsaddr + tilexoff) & bgvrammask];
-
-                if (color)
-                    DrawPixel(&BGOBJLine[i], curpal[color], bgnum<<24);
-            }
-
-            xoff++;
-        }
-    }
-    else
-    {
-        // 16-color
-
-        // preload shit as needed
-        if ((xoff & 0x7) || mosaic)
-        {
-            curtile = *(u16*)&bgvram[((tilemapaddr + ((xoff & 0xF8) >> 2) + ((xoff & widexmask) << 3))) & bgvrammask];
-            curpal = pal + ((curtile & 0xF000) >> 8);
-            pixelsaddr = tilesetaddr + ((curtile & 0x03FF) << 5)
-                         + (((curtile & 0x0800) ? (7-(yoff&0x7)) : (yoff&0x7)) << 2);
-        }
-
-        if (mosaic) lastxpos = xoff;
-
-        for (int i = 0; i < 256; i++)
-        {
-            u32 xpos;
-            if (mosaic) xpos = xoff - CurBGXMosaicTable[i];
-            else        xpos = xoff;
-
-            if ((!mosaic && (!(xpos & 0x7))) ||
-                (mosaic && ((xpos >> 3) != (lastxpos >> 3))))
-            {
-                // load a new tile
-                curtile = *(u16*)&bgvram[(tilemapaddr + ((xpos & 0xF8) >> 2) + ((xpos & widexmask) << 3)) & bgvrammask];
-                curpal = pal + ((curtile & 0xF000) >> 8);
-                pixelsaddr = tilesetaddr + ((curtile & 0x03FF) << 5)
-                             + (((curtile & 0x0800) ? (7-(yoff&0x7)) : (yoff&0x7)) << 2);
-
-                if (mosaic) lastxpos = xpos;
-            }
-
-            // draw pixel
-            if (WindowMask[i] & (1<<bgnum))
-            {
-                u32 tilexoff = (curtile & 0x0400) ? (7-(xpos&0x7)) : (xpos&0x7);
-                if (tilexoff & 0x1)
-                {
-                    color = bgvram[(pixelsaddr + (tilexoff >> 1)) & bgvrammask] >> 4;
-                }
-                else
-                {
-                    color = bgvram[(pixelsaddr + (tilexoff >> 1)) & bgvrammask] & 0x0F;
-                }
-
-                if (color)
-                    DrawPixel(&BGOBJLine[i], curpal[color], bgnum<<24);
-            }
-
-            xoff++;
-        }
-    }
-}
-
-template<bool mosaic>
-void GLRenderer::DrawBG_Affine(u32 line, u32 bgnum)
-{
-    u16 bgcnt = CurUnit->BGCnt[bgnum];
-
-    u32 tilesetaddr, tilemapaddr;
-    u16* pal;
-
-    u32 coordmask;
-    u32 yshift;
-    switch (bgcnt & 0xC000)
-    {
-        case 0x0000: coordmask = 0x07800; yshift = 7; break;
-        case 0x4000: coordmask = 0x0F800; yshift = 8; break;
-        case 0x8000: coordmask = 0x1F800; yshift = 9; break;
-        case 0xC000: coordmask = 0x3F800; yshift = 10; break;
-    }
-
-    u32 overflowmask;
-    if (bgcnt & 0x2000) overflowmask = 0;
-    else                overflowmask = ~(coordmask | 0x7FF);
-
-    s16 rotA = CurUnit->BGRotA[bgnum-2];
-    s16 rotB = CurUnit->BGRotB[bgnum-2];
-    s16 rotC = CurUnit->BGRotC[bgnum-2];
-    s16 rotD = CurUnit->BGRotD[bgnum-2];
-
-    s32 rotX = CurUnit->BGXRefInternal[bgnum-2];
-    s32 rotY = CurUnit->BGYRefInternal[bgnum-2];
-
-    if (bgcnt & 0x0040)
-    {
-        // vertical mosaic
-        rotX -= (CurUnit->BGMosaicY * rotB);
-        rotY -= (CurUnit->BGMosaicY * rotD);
-    }
-
-    u8* bgvram;
-    u32 bgvrammask;
-    CurUnit->GetBGVRAM(bgvram, bgvrammask);
-
-    if (CurUnit->Num)
-    {
-        tilesetaddr = ((bgcnt & 0x003C) << 12);
-        tilemapaddr = ((bgcnt & 0x1F00) << 3);
-
-        pal = (u16*)&GPU.Palette[0x400];
-    }
-    else
-    {
-        tilesetaddr = ((CurUnit->DispCnt & 0x07000000) >> 8) + ((bgcnt & 0x003C) << 12);
-        tilemapaddr = ((CurUnit->DispCnt & 0x38000000) >> 11) + ((bgcnt & 0x1F00) << 3);
-
-        pal = (u16*)&GPU.Palette[0];
-    }
-
-    u16 curtile;
-    u8 color;
-
-    yshift -= 3;
-
-    for (int i = 0; i < 256; i++)
-    {
-        if (WindowMask[i] & (1<<bgnum))
-        {
-            s32 finalX, finalY;
-            if (mosaic)
-            {
-                int im = CurBGXMosaicTable[i];
-                finalX = rotX - (im * rotA);
-                finalY = rotY - (im * rotC);
-            }
-            else
-            {
-                finalX = rotX;
-                finalY = rotY;
-            }
-
-            if ((!((finalX|finalY) & overflowmask)))
-            {
-                curtile = bgvram[(tilemapaddr + ((((finalY & coordmask) >> 11) << yshift) + ((finalX & coordmask) >> 11))) & bgvrammask];
-
-                // draw pixel
-                u32 tilexoff = (finalX >> 8) & 0x7;
-                u32 tileyoff = (finalY >> 8) & 0x7;
-
-                color = bgvram[(tilesetaddr + (curtile << 6) + (tileyoff << 3) + tilexoff) & bgvrammask];
-
-                if (color)
-                    DrawPixel(&BGOBJLine[i], pal[color], bgnum<<24);
-            }
-        }
-
-        rotX += rotA;
-        rotY += rotC;
-    }
-
-    CurUnit->BGXRefInternal[bgnum-2] += rotB;
-    CurUnit->BGYRefInternal[bgnum-2] += rotD;
-}
-
-template<bool mosaic>
-void GLRenderer::DrawBG_Extended(u32 line, u32 bgnum)
-{
-    u16 bgcnt = CurUnit->BGCnt[bgnum];
-
-    u32 tilesetaddr, tilemapaddr;
-    u16* pal;
-    u32 extpal;
-
-    u8* bgvram;
-    u32 bgvrammask;
-    CurUnit->GetBGVRAM(bgvram, bgvrammask);
-
-    extpal = (CurUnit->DispCnt & 0x40000000);
-
-    s16 rotA = CurUnit->BGRotA[bgnum-2];
-    s16 rotB = CurUnit->BGRotB[bgnum-2];
-    s16 rotC = CurUnit->BGRotC[bgnum-2];
-    s16 rotD = CurUnit->BGRotD[bgnum-2];
-
-    s32 rotX = CurUnit->BGXRefInternal[bgnum-2];
-    s32 rotY = CurUnit->BGYRefInternal[bgnum-2];
-
-    if (bgcnt & 0x0040)
-    {
-        // vertical mosaic
-        rotX -= (CurUnit->BGMosaicY * rotB);
-        rotY -= (CurUnit->BGMosaicY * rotD);
-    }
-
-    if (bgcnt & 0x0080)
-    {
-        // bitmap modes
-
-        u32 xmask, ymask;
-        u32 yshift;
-        switch (bgcnt & 0xC000)
-        {
-            case 0x0000: xmask = 0x07FFF; ymask = 0x07FFF; yshift = 7; break;
-            case 0x4000: xmask = 0x0FFFF; ymask = 0x0FFFF; yshift = 8; break;
-            case 0x8000: xmask = 0x1FFFF; ymask = 0x0FFFF; yshift = 9; break;
-            case 0xC000: xmask = 0x1FFFF; ymask = 0x1FFFF; yshift = 9; break;
-        }
-
-        u32 ofxmask, ofymask;
-        if (bgcnt & 0x2000)
-        {
-            ofxmask = 0;
-            ofymask = 0;
-        }
-        else
-        {
-            ofxmask = ~xmask;
-            ofymask = ~ymask;
-        }
-
-        if (CurUnit->Num) tilemapaddr = ((bgcnt & 0x1F00) << 6);
-        else              tilemapaddr = ((bgcnt & 0x1F00) << 6);
-
-        if (bgcnt & 0x0004)
-        {
-            // direct color bitmap
-
-            int capblock = CurUnit->GetCaptureBlock_BG(tilemapaddr);
-            if (capblock != -1)
-            {
-                // this layer is a hi-res capture
-                // fill it in with placeholder values
-                u32 flags = 0x80000000 | (bgnum << 24) | (capblock << 16);
-                CaptureUsageMask |= (1<<capblock);
-
-                for (int i = 0; i < 256; i++)
-                {
-                    if (WindowMask[i] & (1<<bgnum))
-                    {
-                        s32 finalX, finalY;
-                        if (mosaic)
-                        {
-                            int im = CurBGXMosaicTable[i];
-                            finalX = rotX - (im * rotA);
-                            finalY = rotY - (im * rotC);
-                        }
-                        else
-                        {
-                            finalX = rotX;
-                            finalY = rotY;
-                        }
-
-                        if (!(finalX & ofxmask) && !(finalY & ofymask))
-                        {
-                            //color = *(u16*)&bgvram[(tilemapaddr + (((((finalY & ymask) >> 8) << yshift) + ((finalX & xmask) >> 8)) << 1)) & bgvrammask];
-
-                            // FIXME!! those are inaccurate
-                            // need to be adjusted based on the capture size
-                            u32 xp = (finalX & xmask) >> 8;
-                            u32 yp = (finalY & ymask) >> 8;
-                            /*u32 offset = (((finalY & ymask) >> 8) << yshift) + ((finalX & xmask) >> 8);
-                            u32 xp = offset & 0xFF;
-                            u32 yp = (offset >> 8) & 0xFF;*/
-
-                            DrawPixel(&BGOBJLine[i], xp | (yp << 8), flags);
-                        }
-                    }
-
-                    rotX += rotA;
-                    rotY += rotC;
-                }
-            }
-            else
-            {
-                u16 color;
-
-                for (int i = 0; i < 256; i++)
-                {
-                    if (WindowMask[i] & (1<<bgnum))
-                    {
-                        s32 finalX, finalY;
-                        if (mosaic)
-                        {
-                            int im = CurBGXMosaicTable[i];
-                            finalX = rotX - (im * rotA);
-                            finalY = rotY - (im * rotC);
-                        }
-                        else
-                        {
-                            finalX = rotX;
-                            finalY = rotY;
-                        }
-
-                        if (!(finalX & ofxmask) && !(finalY & ofymask))
-                        {
-                            color = *(u16*)&bgvram[(tilemapaddr + (((((finalY & ymask) >> 8) << yshift) + ((finalX & xmask) >> 8)) << 1)) & bgvrammask];
-
-                            if (color & 0x8000)
-                                DrawPixel(&BGOBJLine[i], color, bgnum<<24);
-                        }
-                    }
-
-                    rotX += rotA;
-                    rotY += rotC;
-                }
-            }
-        }
-        else
-        {
-            // 256-color bitmap
-
-            if (CurUnit->Num) pal = (u16*)&GPU.Palette[0x400];
-            else              pal = (u16*)&GPU.Palette[0];
-
-            u8 color;
-
-            for (int i = 0; i < 256; i++)
-            {
-                if (WindowMask[i] & (1<<bgnum))
-                {
-                    s32 finalX, finalY;
-                    if (mosaic)
-                    {
-                        int im = CurBGXMosaicTable[i];
-                        finalX = rotX - (im * rotA);
-                        finalY = rotY - (im * rotC);
-                    }
-                    else
-                    {
-                        finalX = rotX;
-                        finalY = rotY;
-                    }
-
-                    if (!(finalX & ofxmask) && !(finalY & ofymask))
-                    {
-                        color = bgvram[(tilemapaddr + (((finalY & ymask) >> 8) << yshift) + ((finalX & xmask) >> 8)) & bgvrammask];
-
-                        if (color)
-                            DrawPixel(&BGOBJLine[i], pal[color], bgnum<<24);
-                    }
-                }
-
-                rotX += rotA;
-                rotY += rotC;
-            }
-        }
-    }
-    else
-    {
-        // mixed affine/text mode
-
-        u32 coordmask;
-        u32 yshift;
-        switch (bgcnt & 0xC000)
-        {
-            case 0x0000: coordmask = 0x07800; yshift = 7; break;
-            case 0x4000: coordmask = 0x0F800; yshift = 8; break;
-            case 0x8000: coordmask = 0x1F800; yshift = 9; break;
-            case 0xC000: coordmask = 0x3F800; yshift = 10; break;
-        }
-
-        u32 overflowmask;
-        if (bgcnt & 0x2000) overflowmask = 0;
-        else                overflowmask = ~(coordmask | 0x7FF);
-
-        if (CurUnit->Num)
-        {
-            tilesetaddr = ((bgcnt & 0x003C) << 12);
-            tilemapaddr = ((bgcnt & 0x1F00) << 3);
-
-            pal = (u16*)&GPU.Palette[0x400];
-        }
-        else
-        {
-            tilesetaddr = ((CurUnit->DispCnt & 0x07000000) >> 8) + ((bgcnt & 0x003C) << 12);
-            tilemapaddr = ((CurUnit->DispCnt & 0x38000000) >> 11) + ((bgcnt & 0x1F00) << 3);
-
-            pal = (u16*)&GPU.Palette[0];
-        }
-
-        u16 curtile;
-        u16* curpal;
-        u8 color;
-
-        yshift -= 3;
-
-        for (int i = 0; i < 256; i++)
-        {
-            if (WindowMask[i] & (1<<bgnum))
-            {
-                s32 finalX, finalY;
-                if (mosaic)
-                {
-                    int im = CurBGXMosaicTable[i];
-                    finalX = rotX - (im * rotA);
-                    finalY = rotY - (im * rotC);
-                }
-                else
-                {
-                    finalX = rotX;
-                    finalY = rotY;
-                }
-
-                if ((!((finalX|finalY) & overflowmask)))
-                {
-                    curtile = *(u16*)&bgvram[(tilemapaddr + (((((finalY & coordmask) >> 11) << yshift) + ((finalX & coordmask) >> 11)) << 1)) & bgvrammask];
-
-                    if (extpal) curpal = CurUnit->GetBGExtPal(bgnum, curtile>>12);
-                    else        curpal = pal;
-
-                    // draw pixel
-                    u32 tilexoff = (finalX >> 8) & 0x7;
-                    u32 tileyoff = (finalY >> 8) & 0x7;
-
-                    if (curtile & 0x0400) tilexoff = 7-tilexoff;
-                    if (curtile & 0x0800) tileyoff = 7-tileyoff;
-
-                    color = bgvram[(tilesetaddr + ((curtile & 0x03FF) << 6) + (tileyoff << 3) + tilexoff) & bgvrammask];
-
-                    if (color)
-                        DrawPixel(&BGOBJLine[i], curpal[color], bgnum<<24);
-                }
-            }
-
-            rotX += rotA;
-            rotY += rotC;
-        }
-    }
-
-    CurUnit->BGXRefInternal[bgnum-2] += rotB;
-    CurUnit->BGYRefInternal[bgnum-2] += rotD;
-}
-
-template<bool mosaic>
-void GLRenderer::DrawBG_Large(u32 line) // BG is always BG2
-{
-    u16 bgcnt = CurUnit->BGCnt[2];
-
-    u16* pal;
-
-    // large BG sizes:
-    // 0: 512x1024
-    // 1: 1024x512
-    // 2: 512x256
-    // 3: 512x512
-    u32 xmask, ymask;
-    u32 yshift;
-    switch (bgcnt & 0xC000)
-    {
-        case 0x0000: xmask = 0x1FFFF; ymask = 0x3FFFF; yshift = 9; break;
-        case 0x4000: xmask = 0x3FFFF; ymask = 0x1FFFF; yshift = 10; break;
-        case 0x8000: xmask = 0x1FFFF; ymask = 0x0FFFF; yshift = 9; break;
-        case 0xC000: xmask = 0x1FFFF; ymask = 0x1FFFF; yshift = 9; break;
-    }
-
-    u32 ofxmask, ofymask;
-    if (bgcnt & 0x2000)
-    {
-        ofxmask = 0;
-        ofymask = 0;
-    }
-    else
-    {
-        ofxmask = ~xmask;
-        ofymask = ~ymask;
-    }
-
-    s16 rotA = CurUnit->BGRotA[0];
-    s16 rotB = CurUnit->BGRotB[0];
-    s16 rotC = CurUnit->BGRotC[0];
-    s16 rotD = CurUnit->BGRotD[0];
-
-    s32 rotX = CurUnit->BGXRefInternal[0];
-    s32 rotY = CurUnit->BGYRefInternal[0];
-
-    if (bgcnt & 0x0040)
-    {
-        // vertical mosaic
-        rotX -= (CurUnit->BGMosaicY * rotB);
-        rotY -= (CurUnit->BGMosaicY * rotD);
-    }
-
-    u8* bgvram;
-    u32 bgvrammask;
-    CurUnit->GetBGVRAM(bgvram, bgvrammask);
-
-    // 256-color bitmap
-
-    if (CurUnit->Num) pal = (u16*)&GPU.Palette[0x400];
-    else     pal = (u16*)&GPU.Palette[0];
-
-    u8 color;
-
-    for (int i = 0; i < 256; i++)
-    {
-        if (WindowMask[i] & (1<<2))
-        {
-            s32 finalX, finalY;
-            if (mosaic)
-            {
-                int im = CurBGXMosaicTable[i];
-                finalX = rotX - (im * rotA);
-                finalY = rotY - (im * rotC);
-            }
-            else
-            {
-                finalX = rotX;
-                finalY = rotY;
-            }
-
-            if (!(finalX & ofxmask) && !(finalY & ofymask))
-            {
-                color = bgvram[((((finalY & ymask) >> 8) << yshift) + ((finalX & xmask) >> 8)) & bgvrammask];
-
-                if (color)
-                    DrawPixel(&BGOBJLine[i], pal[color], 2<<24);
-            }
-        }
-
-        rotX += rotA;
-        rotY += rotC;
-    }
-
-    CurUnit->BGXRefInternal[0] += rotB;
-    CurUnit->BGYRefInternal[0] += rotD;
-}
-
-// OBJ line buffer:
-// * bit0-15: color (bit15=1: direct color, bit15=0: palette index, bit12=0 to indicate extpal)
-// * bit16-17: BG-relative priority
-// * bit18: non-transparent sprite pixel exists here
-// * bit19: X mosaic should be applied here
-// * bit24-31: compositor flags
-
-void GLRenderer::ApplySpriteMosaicX()
-{
-    // apply X mosaic if needed
-    // X mosaic for sprites is applied after all sprites are rendered
-
-    if (CurUnit->OBJMosaicSize[0] == 0) return;
-
-    u32* objLine = OBJLine[CurUnit->Num];
-
-    u8* curOBJXMosaicTable = MosaicTable[CurUnit->OBJMosaicSize[0]].data();
-
-    u32 lastcolor = objLine[0];
-
-    for (u32 i = 1; i < 256; i++)
-    {
-        u32 currentcolor = objLine[i];
-
-        if (!(lastcolor & currentcolor & 0x100000) || curOBJXMosaicTable[i] == 0)
-            lastcolor = currentcolor;
-        else
-            objLine[i] = lastcolor;
-    }
-}
-
-void GLRenderer::InterleaveSprites(u32 prio)
-{
-    u32* objLine = OBJLine[CurUnit->Num];
-    u16* pal = (u16*)&GPU.Palette[CurUnit->Num ? 0x600 : 0x200];
-
-    if (CurUnit->DispCnt & 0x80000000)
-    {
-        u16* extpal = CurUnit->GetOBJExtPal();
-
-        for (u32 i = 0; i < 256; i++)
-        {
-            if ((objLine[i] & 0x70000) != prio) continue;
-            if (!(WindowMask[i] & 0x10))        continue;
-
-            u16 color;
-            u32 pixel = objLine[i];
-
-            if (pixel & 0x80000000)
-            {
-                color = pixel & 0xFFFF;
-                pixel = 0x94000000 | ((pixel & 0x0F000000) >> 8) | (pixel & 0x00F00000);
-            }
-            else
-            {
-                if (pixel & 0x8000)
-                    color = pixel & 0x7FFF;
-                else if (pixel & 0x1000)
-                    color = pal[pixel & 0xFF];
-                else
-                    color = extpal[pixel & 0xFFF];
-
-                pixel &= ~0xF0000;
-            }
-
-            DrawPixel(&BGOBJLine[i], color, pixel & 0xFFFF0000);
-        }
-    }
-    else
-    {
-        // optimized no-extpal version
-
-        for (u32 i = 0; i < 256; i++)
-        {
-            if ((objLine[i] & 0x70000) != prio) continue;
-            if (!(WindowMask[i] & 0x10))        continue;
-
-            u16 color;
-            u32 pixel = objLine[i];
-
-            if (pixel & 0x80000000)
-            {
-                color = pixel & 0xFFFF;
-                pixel = 0x94000000 | ((pixel & 0x0F000000) >> 8) | (pixel & 0x00F00000);
-            }
-            else
-            {
-                if (pixel & 0x8000)
-                    color = pixel & 0x7FFF;
-                else
-                    color = pal[pixel & 0xFF];
-
-                pixel &= ~0xF0000;
-            }
-
-            DrawPixel(&BGOBJLine[i], color, pixel & 0xFFFF0000);
-        }
-    }
-}
 
 #define DoDrawSprite(type, ...) \
 if (iswin) \
@@ -2473,6 +1610,8 @@ void GLRenderer::DrawSprites(u32 line, Unit* unit)
 {
     CurUnit = unit;
 
+    // TODO is there shit to be done here?
+
     if (line == 0)
     {
         // reset those counters here
@@ -2485,7 +1624,7 @@ void GLRenderer::DrawSprites(u32 line, Unit* unit)
         CurUnit->OBJMosaicYCount = 0;
     }
 
-    if (CurUnit->Num == 0)
+    /*if (CurUnit->Num == 0)
     {
         auto objDirty = GPU.VRAMDirty_AOBJ.DeriveState(GPU.VRAMMap_AOBJ, GPU);
         GPU.MakeVRAMFlat_AOBJCoherent(objDirty);
@@ -2588,493 +1727,7 @@ void GLRenderer::DrawSprites(u32 line, Unit* unit)
                 NumSprites[CurUnit->Num]++;
             }
         }
-    }
-}
-
-template<bool window>
-void GLRenderer::DrawSprite_Rotscale(u32 num, u32 boundwidth, u32 boundheight, u32 width, u32 height, s32 xpos, s32 ypos)
-{
-    u16* oam = (u16*)&GPU.OAM[CurUnit->Num ? 0x400 : 0];
-    u16* attrib = &oam[num * 4];
-    u16* rotparams = &oam[(((attrib[1] >> 9) & 0x1F) * 16) + 3];
-
-    u32 pixelattr = ((attrib[2] & 0x0C00) << 6) | 0xC0000;
-    u32 tilenum = attrib[2] & 0x03FF;
-    u32 spritemode = window ? 0 : ((attrib[0] >> 10) & 0x3);
-
-    u32 ytilefactor;
-
-    u8* objvram;
-    u32 objvrammask;
-    CurUnit->GetOBJVRAM(objvram, objvrammask);
-
-    u32* objLine = OBJLine[CurUnit->Num];
-    u8* objWindow = OBJWindow[CurUnit->Num];
-
-    s32 centerX = boundwidth >> 1;
-    s32 centerY = boundheight >> 1;
-
-    if ((attrib[0] & 0x1000) && !window)
-    {
-        // apply Y mosaic
-        pixelattr |= 0x100000;
-    }
-
-    u32 xoff;
-    if (xpos >= 0)
-    {
-        xoff = 0;
-        if ((xpos+boundwidth) > 256)
-            boundwidth = 256-xpos;
-    }
-    else
-    {
-        xoff = -xpos;
-        xpos = 0;
-    }
-
-    s16 rotA = (s16)rotparams[0];
-    s16 rotB = (s16)rotparams[4];
-    s16 rotC = (s16)rotparams[8];
-    s16 rotD = (s16)rotparams[12];
-
-    s32 rotX = ((xoff-centerX) * rotA) + ((ypos-centerY) * rotB) + (width << 7);
-    s32 rotY = ((xoff-centerX) * rotC) + ((ypos-centerY) * rotD) + (height << 7);
-
-    width <<= 8;
-    height <<= 8;
-
-    u16 color = 0; // transparent in all cases
-
-    if (spritemode == 3)
-    {
-        // bitmap sprite
-
-        u32 alpha = attrib[2] >> 12;
-        if (!alpha) return;
-
-        pixelattr |= (0x14000000 | (alpha << 20));
-
-        u32 pixelsaddr;
-        if (CurUnit->DispCnt & 0x40)
-        {
-            if (CurUnit->DispCnt & 0x20)
-            {
-                // 'reserved'
-                // draws nothing
-
-                return;
-            }
-            else
-            {
-                pixelsaddr = tilenum << (7 + ((CurUnit->DispCnt >> 22) & 0x1));
-                ytilefactor = ((width >> 8) * 2);
-            }
-        }
-        else
-        {
-            if (CurUnit->DispCnt & 0x20)
-            {
-                pixelsaddr = ((tilenum & 0x01F) << 4) + ((tilenum & 0x3E0) << 7);
-                ytilefactor = (256 * 2);
-            }
-            else
-            {
-                pixelsaddr = ((tilenum & 0x00F) << 4) + ((tilenum & 0x3F0) << 7);
-                ytilefactor = (128 * 2);
-            }
-        }
-
-        for (; xoff < boundwidth;)
-        {
-            if ((u32)rotX < width && (u32)rotY < height)
-            {
-                color = *(u16*)&objvram[(pixelsaddr + ((rotY >> 8) * ytilefactor) + ((rotX >> 8) << 1)) & objvrammask];
-
-                if (color & 0x8000)
-                {
-                    if (window) objWindow[xpos] = 1;
-                    else        objLine[xpos] = color | pixelattr;
-                }
-                else if (!window)
-                {
-                    if (objLine[xpos] == 0)
-                        objLine[xpos] = pixelattr & 0x180000;
-                }
-            }
-
-            rotX += rotA;
-            rotY += rotC;
-            xoff++;
-            xpos++;
-        }
-    }
-    else
-    {
-        u32 pixelsaddr = tilenum;
-        if (CurUnit->DispCnt & 0x10)
-        {
-            pixelsaddr <<= ((CurUnit->DispCnt >> 20) & 0x3);
-            ytilefactor = (width >> 11) << ((attrib[0] & 0x2000) ? 1:0);
-        }
-        else
-        {
-            ytilefactor = 0x20;
-        }
-
-        if (spritemode == 1) pixelattr |= 0x0C000000;
-        else                 pixelattr |= 0x04000000;
-
-        ytilefactor <<= 5;
-        pixelsaddr <<= 5;
-
-        if (attrib[0] & 0x2000)
-        {
-            // 256-color
-
-            if (!window)
-            {
-                if (!(CurUnit->DispCnt & 0x80000000))
-                    pixelattr |= 0x1000;
-                else
-                    pixelattr |= ((attrib[2] & 0xF000) >> 4);
-            }
-
-            for (; xoff < boundwidth;)
-            {
-                if ((u32)rotX < width && (u32)rotY < height)
-                {
-                    color = objvram[(pixelsaddr + ((rotY>>11)*ytilefactor) + ((rotY&0x700)>>5) + ((rotX>>11)*64) + ((rotX&0x700)>>8)) & objvrammask];
-
-                    if (color)
-                    {
-                        if (window) objWindow[xpos] = 1;
-                        else        objLine[xpos] = color | pixelattr;
-                    }
-                    else if (!window)
-                    {
-                        if (objLine[xpos] == 0)
-                            objLine[xpos] = pixelattr & 0x180000;
-                    }
-                }
-
-                rotX += rotA;
-                rotY += rotC;
-                xoff++;
-                xpos++;
-            }
-        }
-        else
-        {
-            // 16-color
-            if (!window)
-            {
-                pixelattr |= 0x1000;
-                pixelattr |= ((attrib[2] & 0xF000) >> 8);
-            }
-
-            for (; xoff < boundwidth;)
-            {
-                if ((u32)rotX < width && (u32)rotY < height)
-                {
-                    color = objvram[(pixelsaddr + ((rotY>>11)*ytilefactor) + ((rotY&0x700)>>6) + ((rotX>>11)*32) + ((rotX&0x700)>>9)) & objvrammask];
-                    if (rotX & 0x100)
-                        color >>= 4;
-                    else
-                        color &= 0x0F;
-
-                    if (color)
-                    {
-                        if (window) objWindow[xpos] = 1;
-                        else        objLine[xpos] = color | pixelattr;
-                    }
-                    else if (!window)
-                    {
-                        if (objLine[xpos] == 0)
-                            objLine[xpos] = pixelattr & 0x180000;
-                    }
-                }
-
-                rotX += rotA;
-                rotY += rotC;
-                xoff++;
-                xpos++;
-            }
-        }
-    }
-}
-
-template<bool window>
-void GLRenderer::DrawSprite_Normal(u32 num, u32 width, u32 height, s32 xpos, s32 ypos)
-{
-    u16* oam = (u16*)&GPU.OAM[CurUnit->Num ? 0x400 : 0];
-    u16* attrib = &oam[num * 4];
-
-    u32 pixelattr = ((attrib[2] & 0x0C00) << 6) | 0xC0000;
-    u32 tilenum = attrib[2] & 0x03FF;
-    u32 spritemode = window ? 0 : ((attrib[0] >> 10) & 0x3);
-
-    u32 wmask = width - 8; // really ((width - 1) & ~0x7)
-
-    if ((attrib[0] & 0x1000) && !window)
-    {
-        // apply Y mosaic
-        pixelattr |= 0x100000;
-    }
-
-    u8* objvram;
-    u32 objvrammask;
-    CurUnit->GetOBJVRAM(objvram, objvrammask);
-
-    u32* objLine = OBJLine[CurUnit->Num];
-    u8* objWindow = OBJWindow[CurUnit->Num];
-
-    // yflip
-    if (attrib[1] & 0x2000)
-        ypos = height-1 - ypos;
-
-    u32 xoff;
-    u32 xend = width;
-    if (xpos >= 0)
-    {
-        xoff = 0;
-        if ((xpos+xend) > 256)
-            xend = 256-xpos;
-    }
-    else
-    {
-        xoff = -xpos;
-        xpos = 0;
-    }
-
-    u16 color = 0; // transparent in all cases
-
-    if (spritemode == 3)
-    {
-        // bitmap sprite
-
-        u32 alpha = attrib[2] >> 12;
-        if (!alpha) return;
-
-        pixelattr |= (0x14000000 | (alpha << 20));
-
-        u32 pixelsaddr = tilenum;
-        if (CurUnit->DispCnt & 0x40)
-        {
-            if (CurUnit->DispCnt & 0x20)
-            {
-                // 'reserved'
-                // draws nothing
-
-                return;
-            }
-            else
-            {
-                pixelsaddr <<= (7 + ((CurUnit->DispCnt >> 22) & 0x1));
-                pixelsaddr += (ypos * width * 2);
-            }
-        }
-        else
-        {
-            if (CurUnit->DispCnt & 0x20)
-            {
-                pixelsaddr = ((tilenum & 0x01F) << 4) + ((tilenum & 0x3E0) << 7);
-                pixelsaddr += (ypos * 256 * 2);
-            }
-            else
-            {
-                pixelsaddr = ((tilenum & 0x00F) << 4) + ((tilenum & 0x3F0) << 7);
-                pixelsaddr += (ypos * 128 * 2);
-            }
-        }
-
-        s32 pixelstride;
-
-        if (attrib[1] & 0x1000) // xflip
-        {
-            pixelsaddr += ((width-1) << 1);
-            pixelsaddr -= (xoff << 1);
-            pixelstride = -2;
-        }
-        else
-        {
-            pixelsaddr += (xoff << 1);
-            pixelstride = 2;
-        }
-
-        int capblock = CurUnit->GetCaptureBlock_OBJ(pixelsaddr);
-        if (capblock != -1)
-        {
-            pixelattr &= ~0xFF000000;
-            pixelattr |= 0x80000000 | (capblock << 24);
-            CaptureUsageMask |= (1<<capblock);
-            pixelsaddr -= ((capblock & 0x3) << 15);
-
-            for (; xoff < xend;)
-            {
-                // FIXME
-                u32 xp = (pixelsaddr >> 1) & 0xFF;
-                u32 yp = (pixelsaddr >> 9) & 0xFF;
-                objLine[xpos] = pixelattr | xp | (yp << 8);
-
-                pixelsaddr += pixelstride;
-                xoff++;
-                xpos++;
-            }
-        }
-        else
-        {
-            for (; xoff < xend;)
-            {
-                color = *(u16*)&objvram[pixelsaddr & objvrammask];
-
-                pixelsaddr += pixelstride;
-
-                if (color & 0x8000)
-                {
-                    if (window) objWindow[xpos] = 1;
-                    else        objLine[xpos] = color | pixelattr;
-                }
-                else if (!window)
-                {
-                    if (objLine[xpos] == 0)
-                        objLine[xpos] = pixelattr & 0x180000;
-                }
-
-                xoff++;
-                xpos++;
-            }
-        }
-    }
-    else
-    {
-        u32 pixelsaddr = tilenum;
-        if (CurUnit->DispCnt & 0x10)
-        {
-            pixelsaddr <<= ((CurUnit->DispCnt >> 20) & 0x3);
-            pixelsaddr += ((ypos >> 3) * (width >> 3)) << ((attrib[0] & 0x2000) ? 1:0);
-        }
-        else
-        {
-            pixelsaddr += ((ypos >> 3) * 0x20);
-        }
-
-        if (spritemode == 1) pixelattr |= 0x0C000000;
-        else                 pixelattr |= 0x04000000;
-
-        if (attrib[0] & 0x2000)
-        {
-            // 256-color
-            pixelsaddr <<= 5;
-            pixelsaddr += ((ypos & 0x7) << 3);
-            s32 pixelstride;
-
-            if (!window)
-            {
-                if (!(CurUnit->DispCnt & 0x80000000))
-                    pixelattr |= 0x1000;
-                else
-                    pixelattr |= ((attrib[2] & 0xF000) >> 4);
-            }
-
-            if (attrib[1] & 0x1000) // xflip
-            {
-                pixelsaddr += (((width-1) & wmask) << 3);
-                pixelsaddr += ((width-1) & 0x7);
-                pixelsaddr -= ((xoff & wmask) << 3);
-                pixelsaddr -= (xoff & 0x7);
-                pixelstride = -1;
-            }
-            else
-            {
-                pixelsaddr += ((xoff & wmask) << 3);
-                pixelsaddr += (xoff & 0x7);
-                pixelstride = 1;
-            }
-
-            for (; xoff < xend;)
-            {
-                color = objvram[pixelsaddr & objvrammask];
-
-                pixelsaddr += pixelstride;
-
-                if (color)
-                {
-                    if (window) objWindow[xpos] = 1;
-                    else        objLine[xpos] = color | pixelattr;
-                }
-                else if (!window)
-                {
-                    if (objLine[xpos] == 0)
-                        objLine[xpos] = pixelattr & 0x180000;
-                }
-
-                xoff++;
-                xpos++;
-                if (!(xoff & 0x7)) pixelsaddr += (56 * pixelstride);
-            }
-        }
-        else
-        {
-            // 16-color
-            pixelsaddr <<= 5;
-            pixelsaddr += ((ypos & 0x7) << 2);
-            s32 pixelstride;
-
-            if (!window)
-            {
-                pixelattr |= 0x1000;
-                pixelattr |= ((attrib[2] & 0xF000) >> 8);
-            }
-
-            // TODO: optimize VRAM access!!
-            // TODO: do xflip better? the 'two pixels per byte' thing makes it a bit shitty
-
-            if (attrib[1] & 0x1000) // xflip
-            {
-                pixelsaddr += (((width-1) & wmask) << 2);
-                pixelsaddr += (((width-1) & 0x7) >> 1);
-                pixelsaddr -= ((xoff & wmask) << 2);
-                pixelsaddr -= ((xoff & 0x7) >> 1);
-                pixelstride = -1;
-            }
-            else
-            {
-                pixelsaddr += ((xoff & wmask) << 2);
-                pixelsaddr += ((xoff & 0x7) >> 1);
-                pixelstride = 1;
-            }
-
-            for (; xoff < xend;)
-            {
-                if (attrib[1] & 0x1000)
-                {
-                    if (xoff & 0x1) { color = objvram[pixelsaddr & objvrammask] & 0x0F; pixelsaddr--; }
-                    else              color = objvram[pixelsaddr & objvrammask] >> 4;
-                }
-                else
-                {
-                    if (xoff & 0x1) { color = objvram[pixelsaddr & objvrammask] >> 4; pixelsaddr++; }
-                    else              color = objvram[pixelsaddr & objvrammask] & 0x0F;
-                }
-
-                if (color)
-                {
-                    if (window) objWindow[xpos] = 1;
-                    else        objLine[xpos] = color | pixelattr;
-                }
-                else if (!window)
-                {
-                    if (objLine[xpos] == 0)
-                        objLine[xpos] = pixelattr & 0x180000;
-                }
-
-                xoff++;
-                xpos++;
-                if (!(xoff & 0x7)) pixelsaddr += ((attrib[1] & 0x1000) ? -28 : 28);
-            }
-        }
-    }
+    }*/
 }
 
 }

@@ -61,7 +61,6 @@ void main()
         coord = vec2(uScanline[line].BGOffset[uCurBG]) + fTexcoord;
     }
 
-    // TODO remember to update BGXRefInternal/etc per scanline
     // TODO also provision for hi-res capture
 
     if (uBGConfig[uCurBG].Clamp)
