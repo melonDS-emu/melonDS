@@ -562,6 +562,12 @@ void GLRenderer::DrawScanline(u32 line, Unit* unit)
 {
     CurUnit = unit;
 
+    /*if (unit->Num == 1)
+    {
+        printf("line %d OAM %08X\n", line, GPU.OAMDirty);
+        GPU.OAMDirty = 0;
+    }*/
+
     int screen = CurUnit->ScreenPos;
     //int yoffset = (screen * 192) + line;
     int yoffset = (CurUnit->Num * 192) + line;
@@ -1146,7 +1152,7 @@ void GLRenderer::UpdateOAM(Unit* unit, int ystart, int yend)
                 continue;
 
             u32 sprtype = (attrib[0] >> 8) & 0x3;
-            if (sprtype == 1) // sprite disabled
+            if (sprtype == 2) // sprite disabled
                 continue;
 
             // note on sprite position:
@@ -1204,7 +1210,7 @@ void GLRenderer::UpdateOAM(Unit* unit, int ystart, int yend)
             sprcfg.BoundSize[0] = boundwidth;
             sprcfg.BoundSize[1] = boundheight;
 
-            if (sprtype & 2)
+            if (sprtype & 1)
             {
                 sprcfg.Flip[0] = 0;
                 sprcfg.Flip[1] = 0;
@@ -1353,6 +1359,8 @@ void GLRenderer::PrerenderSprites(Unit* unit)
         *vtxbuf++ = 1; *vtxbuf++ = 0; *vtxbuf++ = i;
         vtxnum += 6;
     }
+
+    if (vtxnum == 0) return;
 
     glBindBuffer(GL_ARRAY_BUFFER, SpritePreVtxBuffer);
     glBufferSubData(GL_ARRAY_BUFFER, 0, vtxnum * 3 * sizeof(u16), SpritePreVtxData);

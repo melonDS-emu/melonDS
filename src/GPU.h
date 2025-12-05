@@ -681,6 +681,9 @@ public:
     alignas(u64) u8 VRAMFlat_Texture[512*1024] {};
     alignas(u64) u8 VRAMFlat_TexPal[128*1024] {};
 
+    u32 OAMDirty = 0;
+    u32 PaletteDirty = 0;
+
 private:
     void ResetVRAMCache() noexcept;
     //void AssignFramebuffers() noexcept;
@@ -775,9 +778,6 @@ private:
     u16 VMatch[2] {};
 
     std::unique_ptr<GPU2D::Renderer2D> GPU2D_Renderer = nullptr;
-
-    u32 OAMDirty = 0;
-    u32 PaletteDirty = 0;
 
     u16 VRAMCaptureBlockFlags[16];
     /*u8 VRAMBlockCaptureFlags[4 * 128*1024/VRAMCaptureGranularity] {};
