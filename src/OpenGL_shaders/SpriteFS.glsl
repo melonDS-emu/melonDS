@@ -40,16 +40,14 @@ vec4 GetSpritePixel(int sprite, vec2 coord)
 
 void main()
 {
+    vec4 col;
+
     if (uOAM[fSpriteIndex].Rotscale == -1)
     {
         // regular sprite
         // fTexcoord is the position within the sprite bitmap
 
-        vec4 col = GetSpritePixel(fSpriteIndex, ivec2(fTexcoord));
-        if (col.a == 0) discard;
-
-        oColor = col;
-        oFlags = vec4(1,1,1,1);
+        col = GetSpritePixel(fSpriteIndex, ivec2(fTexcoord));
     }
     else
     {
@@ -63,10 +61,12 @@ void main()
         if (any(lessThan(rscoord, vec2(0)))) discard;
         if (any(greaterThanEqual(rscoord, sprsize))) discard;
 
-        vec4 col = GetSpritePixel(fSpriteIndex, rscoord);
-        if (col.a == 0) discard;
-
-        oColor = col;
-        oFlags = vec4(1,1,1,1);
+        col = GetSpritePixel(fSpriteIndex, rscoord);
     }
+
+    if (col.a == 0) discard;
+    col.a = float(0x10) / 255; // TODO: fixme for trans sprites, etc
+
+    oColor = col;
+    oFlags = vec4(1,1,1,1);
 }

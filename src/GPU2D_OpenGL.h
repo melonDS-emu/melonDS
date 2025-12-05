@@ -79,6 +79,10 @@ private:
     GLuint SpriteVtxArray;
     u16* SpriteVtxData;
 
+    GLuint CompositorShader;
+    GLuint CompositorConfigUBO;
+    GLint CompositorScaleULoc;
+
     struct sUnitState
     {
         GLuint VRAMTex_BG;
@@ -142,8 +146,15 @@ private:
             {
                 s32 BGOffset[4][4];     // really [4][2]
                 s32 BGRotscale[2][4];
+                u32 BackColor;
+                u32 __pad0[3];
             } uScanline[192];
         } ScanlineConfig;
+
+        struct sCompositorConfig
+        {
+            u32 uBGPrio[4];
+        } CompositorConfig;
 
     } UnitState[2];
 

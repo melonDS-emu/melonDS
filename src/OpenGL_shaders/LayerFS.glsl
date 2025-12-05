@@ -6,6 +6,7 @@ struct sScanline
 {
     ivec2 BGOffset[4];
     ivec4 BGRotscale[2];
+    int BackColor;
 };
 
 layout(std140) uniform uScanlineConfig
@@ -76,5 +77,7 @@ void main()
         coord = mod(coord, bgsize);
     }
 
-    oColor = GetBGLayerPixel(uCurBG, coord);
+    vec4 col = GetBGLayerPixel(uCurBG, coord);
+    col.a *= float(1 << uCurBG) / 255;
+    oColor = col;
 }

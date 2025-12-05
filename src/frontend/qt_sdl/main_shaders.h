@@ -62,7 +62,7 @@ void main()
     else
         pixel = texture(TopScreenTex, fTexcoord.xy);
 
-    oColor = vec4(pixel.bgr, 1.0);
+    oColor = vec4(pixel.rgb, 1.0);
 }
 )";
 

@@ -1,7 +1,7 @@
 #version 140
 
 uniform usampler2D VRAMTex;
-uniform sampler2D PalTex;
+uniform usampler2D PalTex;
 
 struct sBGConfig
 {
@@ -28,7 +28,14 @@ out vec4 oColor;
 vec4 GetBGPalEntry(int layer, int pal, int id)
 {
     ivec2 coord = ivec2(id, uBGConfig[layer].PalOffset + pal);
-    return texelFetch(PalTex, coord, 0);
+    //return texelFetch(PalTex, coord, 0);
+    int col = int(texelFetch(PalTex, coord, 0).r);
+    ivec4 ret;
+    ret.r = (col & 0x1F) << 1;
+    ret.g = ((col & 0x3E0) >> 4) | (col >> 15);
+    ret.b = (col & 0x7C00) >> 9;
+    ret.a = 0xFF;
+    return vec4(ret) / vec4(63,63,63,255);
 }
 
 int VRAMRead8(int addr)
