@@ -100,6 +100,9 @@ private:
         GLuint FinalLayerFB[5];
         GLuint FinalLayerTex;
 
+        GLuint OutputFB;
+        GLuint OutputTex;
+
         // std140 compliant config struct for the layer shader
         struct sLayerConfig
         {
@@ -164,21 +167,35 @@ private:
 
     } UnitState[2];
 
+    struct sFinalPassConfig
+    {
+        u32 uScreenSwap[192];
+        u32 uScaleFactor;
+        u32 uAuxScaleFactor;
+        u32 uDispModeA;
+        u32 uDispModeB;
+        u32 uBrightModeA;
+        u32 uBrightModeB;
+        u32 uBrightFactorA;
+        u32 uBrightFactorB;
+    } FinalPassConfig;
+
     u16 TempPalBuffer[256 * (1 + (4*16))];
 
     GLuint _3DLayerTex;
 
     GLuint FPShaderID = 0;
-    GLint FPScaleULoc = 0;
+    /*GLint FPScaleULoc = 0;
     GLint FPCaptureRegULoc = 0;
     GLint FPCaptureMaskULoc = 0;
-    GLint FPCaptureTexLoc[16] {};
+    GLint FPCaptureTexLoc[16] {};*/
+    GLuint FPConfigUBO;
 
     GLuint FPVertexBufferID = 0;
     GLuint FPVertexArrayID = 0;
 
-    GLuint LineAttribTex = 0;               // per-scanline attribute texture
-    GLuint BGOBJTex = 0;                    // prerender of BG/OBJ layers
+    //GLuint LineAttribTex = 0;               // per-scanline attribute texture
+    //GLuint BGOBJTex = 0;                    // prerender of BG/OBJ layers
     GLuint AuxInputTex = 0;                 // aux input (VRAM and mainmem FIFO)
 
     // hi-res capture buffers
@@ -243,13 +260,17 @@ private:
     }();
 
     void UpdateScanlineConfig(Unit* unit, int line);
+    void UpdateLayerConfig(Unit* unit);
     void UpdateOAM(Unit* unit, int ystart, int yend);
+    void UpdateCompositorConfig(Unit* unit);
 
     void PrerenderSprites(Unit* unit);
     void PrerenderLayer(Unit* unit, int layer);
 
     void RenderSprites(Unit* unit, int ystart, int yend);
     void RenderLayer(Unit* unit, int layer, int ystart, int yend);
+
+    void RenderScreen(Unit* unit, int ystart, int yend);
 
     void DoCapture(u32 line, u32 width);
 };

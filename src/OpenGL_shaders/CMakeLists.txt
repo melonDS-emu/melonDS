@@ -9,6 +9,8 @@ set(OPENGL_SHADER_FILES
     SpriteFS.glsl
     CompositorVS.glsl
     CompositorFS.glsl
+    FinalPassVS.glsl
+    FinalPassFS.glsl
 )
 
 foreach(SH_INPUT ${OPENGL_SHADER_FILES})
