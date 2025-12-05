@@ -156,7 +156,10 @@ private:
         {
             u32 uBGPrio[4];
             u32 uEnableOBJ;
-            u32 __pad0[3];
+            u32 uEnable3D;
+            u32 uBlendCnt;
+            u32 uBlendEffect;
+            u32 uBlendCoef[4];
         } CompositorConfig;
 
     } UnitState[2];

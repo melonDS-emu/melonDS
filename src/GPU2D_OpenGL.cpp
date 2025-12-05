@@ -926,6 +926,14 @@ void GLRenderer::VBlank(Unit* unitA, Unit* unitB)
         // TODO should it account for the other bits?
         state.CompositorConfig.uEnableOBJ = !!(unit->DispCnt & (1<<12));
 
+        state.CompositorConfig.uEnable3D = !!(unit->DispCnt & (1<<3));
+
+        state.CompositorConfig.uBlendCnt = unit->BlendCnt;
+        state.CompositorConfig.uBlendEffect = (unit->BlendCnt >> 6) & 0x3;
+        state.CompositorConfig.uBlendCoef[0] = unit->EVA;
+        state.CompositorConfig.uBlendCoef[1] = unit->EVB;
+        state.CompositorConfig.uBlendCoef[2] = unit->EVY;
+
         glBindBuffer(GL_UNIFORM_BUFFER, CompositorConfigUBO);
         glBufferSubData(GL_UNIFORM_BUFFER, 0, sizeof(state.CompositorConfig), &state.CompositorConfig);
 
