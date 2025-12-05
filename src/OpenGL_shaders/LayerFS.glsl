@@ -1,6 +1,7 @@
 #version 140
 
 uniform sampler2DArray BGLayerTex;
+uniform sampler2D _3DLayerTex;
 
 struct sScanline
 {
@@ -30,6 +31,7 @@ layout(std140) uniform uConfig
     sBGConfig uBGConfig[4];
 };
 
+uniform int uScaleFactor;
 uniform int uCurBG;
 
 smooth in vec2 fTexcoord;
@@ -46,6 +48,25 @@ void main()
     vec2 coord;
     int line = int(fTexcoord.y);
     vec2 bgsize = vec2(uBGConfig[uCurBG].Size);
+
+    if (uBGConfig[uCurBG].Type == 6)
+    {
+        // 3D layer
+        int hofs = uScanline[line].BGOffset[uCurBG].x & 0x1FF;
+        hofs -= ((hofs & 0x100) << 1);
+        coord = vec2(float(hofs), 0) + fTexcoord;
+
+        if (coord.x < 0 || coord.x >= 256)
+        {
+            oColor = vec4(0);
+            return;
+        }
+
+        vec4 col = texelFetch(_3DLayerTex, ivec2(coord * uScaleFactor), 0);
+        col.a *= float(0x01) / 255;
+        oColor = col;
+        return;
+    }
 
     if (uBGConfig[uCurBG].Type >= 2)
     {

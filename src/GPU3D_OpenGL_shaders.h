@@ -47,7 +47,7 @@ out vec4 oAttr;
 
 void main()
 {
-    oColor = vec4(uColor).bgra / 31.0;
+    oColor = vec4(uColor).rgba / 31.0;
     oAttr.r = float(uOpaquePolyID) / 63.0;
     oAttr.g = 0;
     oAttr.b = float(uFogFlag);
@@ -136,7 +136,7 @@ void main()
         {
             // mark this pixel!
 
-            ret.rgb = uEdgeColors[polyid >> 3].bgr;
+            ret.rgb = uEdgeColors[polyid >> 3].rgb;
 
             // this isn't quite accurate, but it will have to do
             if ((uDispCnt & (1<<4)) != 0)
@@ -644,7 +644,7 @@ vec4 FinalColor()
         }
     }
 
-    return col.bgra;
+    return col.rgba;
 }
 )";
 

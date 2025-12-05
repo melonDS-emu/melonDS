@@ -1637,7 +1637,7 @@ void main()
     //if ((gl_GlobalInvocationID.y % 8) == 7 || (gl_GlobalInvocationID.y % 8) == 7)
     //    color.x = 0x1F00001FU | 0x40000000U;
 
-    vec4 result = vec4(bitfieldExtract(color.x, 16, 8), bitfieldExtract(color.x, 8, 8), color.x & 0x3FU, bitfieldExtract(color.x, 24, 8));
+    vec4 result = vec4(color.x & 0x3FU, bitfieldExtract(color.x, 8, 8), bitfieldExtract(color.x, 16, 8), bitfieldExtract(color.x, 24, 8));
     result /= vec4(63.0, 63.0, 63.0, 31.0);
     imageStore(FinalFB, ivec2(gl_GlobalInvocationID.xy), result);
 

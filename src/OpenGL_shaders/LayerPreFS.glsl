@@ -214,7 +214,7 @@ vec4 GetBGLayerPixel(int layer, ivec2 coord)
         ret = GetBGPalEntry(layer, 0, col);
         ret.a = (col == 0) ? 0 : 1;
     }
-    else //if (uBGConfig[layer].Type == 5)
+    else if (uBGConfig[layer].Type == 5)
     {
         // extended - direct color bitmap
 

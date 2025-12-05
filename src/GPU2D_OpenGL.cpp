@@ -287,12 +287,15 @@ bool GLRenderer::GLInit()
 
     uniloc = glGetUniformLocation(LayerShader, "BGLayerTex");
     glUniform1i(uniloc, 0);
+    uniloc = glGetUniformLocation(LayerShader, "_3DLayerTex");
+    glUniform1i(uniloc, 1);
 
     uniloc = glGetUniformBlockIndex(LayerShader, "uScanlineConfig");
     glUniformBlockBinding(LayerShader, uniloc, 12);
     uniloc = glGetUniformBlockIndex(LayerShader, "uConfig");
     glUniformBlockBinding(LayerShader, uniloc, 10);
 
+    LayerScaleULoc = glGetUniformLocation(LayerShader, "uScaleFactor");
     LayerCurBGULoc = glGetUniformLocation(LayerShader, "uCurBG");
 
 
@@ -683,8 +686,10 @@ void GLRenderer::DrawScanline(u32 line, Unit* unit)
 
 void GLRenderer::VBlank(Unit* unitA, Unit* unitB)
 {
+    // TODO!!! do this more nicely!!!
     GLuint fart;
     glGetIntegerv(GL_TEXTURE_BINDING_2D, (GLint*)&fart);
+    _3DLayerTex = fart;
 
     // test zone
     {
@@ -765,7 +770,15 @@ void GLRenderer::VBlank(Unit* unitA, Unit* unitB)
             cfg.MapOffset = mapbase + (((bgcnt >> 8) & 0x1F) << 11);
             cfg.PalOffset = 0;
 
-            if (type == 1)
+            if ((layer == 0) && (unit->DispCnt & (1<<3)))
+            {
+                // 3D layer
+
+                cfg.Size[0] = 256; cfg.Size[1] = 192;
+                cfg.Type = 6;
+                cfg.Clamp = 1;
+            }
+            else if (type == 1)
             {
                 // text layer
 
@@ -894,11 +907,13 @@ void GLRenderer::VBlank(Unit* unitA, Unit* unitB)
         {
             if (!(unit->DispCnt & (0x100 << layer)))
                 continue;
-            if (layer==0) continue; // HACK
 
             int prio = unit->BGCnt[layer] & 0x3;
             state.CompositorConfig.uBGPrio[layer] = prio;
         }
+
+        // TODO should it account for the other bits?
+        state.CompositorConfig.uEnableOBJ = !!(unit->DispCnt & (1<<12));
 
         glBindBuffer(GL_UNIFORM_BUFFER, CompositorConfigUBO);
         glBufferSubData(GL_UNIFORM_BUFFER, 0, sizeof(state.CompositorConfig), &state.CompositorConfig);
@@ -951,6 +966,9 @@ void GLRenderer::VBlank(Unit* unitA, Unit* unitB)
         RenderSprites(unit, 0, 192);
 
         glUseProgram(LayerShader);
+
+        // TODO not set this all the time!!
+        glUniform1i(LayerScaleULoc, ScaleFactor);
 
         // update scanline config buffer
         glBindBuffer(GL_UNIFORM_BUFFER, ScanlineConfigUBO);
@@ -1100,7 +1118,7 @@ void GLRenderer::UpdateScanlineConfig(Unit* unit, int line)
 
     u32 bgmode = unit->DispCnt & 0x7;
 
-    if ((unit->Num == 0) && (unit->DispCnt & (1<<3)))
+    if (unit->DispCnt & (1<<3))
     {
         // 3D layer
         cfg.BGOffset[0][0] = GPU.GPU3D.GetRenderXPos();
@@ -1517,6 +1535,9 @@ void GLRenderer::RenderLayer(Unit* unit, int layer, int ystart, int yend)
 
     glActiveTexture(GL_TEXTURE0);
     glBindTexture(GL_TEXTURE_2D_ARRAY, state.BGLayerTex);
+
+    glActiveTexture(GL_TEXTURE1);
+    glBindTexture(GL_TEXTURE_2D, _3DLayerTex);
 
     glBindBuffer(GL_ARRAY_BUFFER, RectVtxBuffer);
     glBindVertexArray(RectVtxArray);

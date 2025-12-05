@@ -65,6 +65,7 @@ private:
     GLuint LayerConfigUBO;
 
     GLuint LayerShader;
+    GLint LayerScaleULoc;
     GLint LayerCurBGULoc;
     GLuint ScanlineConfigUBO;
 
@@ -154,11 +155,15 @@ private:
         struct sCompositorConfig
         {
             u32 uBGPrio[4];
+            u32 uEnableOBJ;
+            u32 __pad0[3];
         } CompositorConfig;
 
     } UnitState[2];
 
     u16 TempPalBuffer[256 * (1 + (4*16))];
+
+    GLuint _3DLayerTex;
 
     GLuint FPShaderID = 0;
     GLint FPScaleULoc = 0;

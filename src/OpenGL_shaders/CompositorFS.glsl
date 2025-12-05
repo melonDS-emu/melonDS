@@ -21,6 +21,7 @@ layout(std140) uniform uScanlineConfig
 layout(std140) uniform uCompositorConfig
 {
     ivec4 uBGPrio;
+    bool uEnableOBJ;
 };
 
 //uniform int uScaleFactor;
