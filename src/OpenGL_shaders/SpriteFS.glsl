@@ -40,7 +40,7 @@ vec4 GetSpritePixel(int sprite, vec2 coord)
 
 void main()
 {
-    vec4 col;
+    vec4 col, flags = vec4(0);
 
     if (uOAM[fSpriteIndex].Rotscale == -1)
     {
@@ -65,8 +65,40 @@ void main()
     }
 
     if (col.a == 0) discard;
-    col.a = float(0x10) / 255; // TODO: fixme for trans sprites, etc
+
+    // oFlags:
+    // r = sprite blending flag
+    // g = mosaic flag
+    // b = OBJ window flag
+    // a = BG prio
+
+    if (uOAM[fSpriteIndex].OBJMode == 1)
+    {
+        // OBJ window
+        // OBJ mosaic doesn't apply to "OBJ window" sprites
+        // TODO set appropriate color mask so the color buffer isn't updated
+        flags.b = 1;
+    }
+    else
+    {
+        if (uOAM[fSpriteIndex].OBJMode == 1)
+        {
+            // semi-transparent sprite
+            flags.r = 1 / 255;
+        }
+        else if (uOAM[fSpriteIndex].OBJMode == 3)
+        {
+            // bitmap sprite
+            col.a = float(uOAM[fSpriteIndex].PalOffset) / 31;
+            flags.r = 2 / 255;
+        }
+
+        if (uOAM[fSpriteIndex].Mosaic)
+            flags.g = 1;
+
+        flags.a = uOAM[fSpriteIndex].BGPrio / 255;
+    }
 
     oColor = col;
-    oFlags = vec4(1,1,1,1);
+    oFlags = flags;
 }

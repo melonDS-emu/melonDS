@@ -62,9 +62,7 @@ void main()
             return;
         }
 
-        vec4 col = texelFetch(_3DLayerTex, ivec2(coord * uScaleFactor), 0);
-        col.a *= float(0x01) / 255;
-        oColor = col;
+        oColor = texelFetch(_3DLayerTex, ivec2(coord * uScaleFactor), 0);
         return;
     }
 
@@ -97,7 +95,5 @@ void main()
         coord = mod(coord, bgsize);
     }
 
-    vec4 col = GetBGLayerPixel(uCurBG, coord);
-    col.a *= float(1 << uCurBG) / 255;
-    oColor = col;
+    oColor = GetBGLayerPixel(uCurBG, coord);
 }

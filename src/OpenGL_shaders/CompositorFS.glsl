@@ -43,25 +43,38 @@ vec4 CompositeLayers()
 {
     ivec2 coord = ivec2(fTexcoord);
     int line = coord.y;
-    ivec4 col1 = ivec4(ConvertColor(uScanline[line].BackColor), 0x20);
-    ivec4 col2 = ivec4(0);
 
-    vec4 bgcol[4];
-    for (int bg = 0; bg < 4; bg++)
-        bgcol[bg] = texelFetch(LayerTex, ivec3(coord, bg), 0);
+    ivec4 col1 = ivec4(ConvertColor(uScanline[line].BackColor), 0x20);
+    int mask1 = 0x20;
+    ivec4 col2 = ivec4(0);
+    int mask2 = 0;
+
+    vec4 layercol[6];
+    for (int bg = 0; bg < 6; bg++)
+        layercol[bg] = texelFetch(LayerTex, ivec3(coord, bg), 0);
+
+    ivec4 objattr = ivec4(layercol[5] * 255);
 
     for (int prio = 3; prio >= 0; prio--)
     {
         for (int bg = 3; bg >= 0; bg--)
         {
-            if ((uBGPrio[bg] == prio) && (bgcol[bg].a > 0))
+            if ((uBGPrio[bg] == prio) && (layercol[bg].a > 0))
             {
                 col2 = col1;
-                col1 = ivec4(bgcol[bg] * vec4(63,63,63,255));
+                mask2 = mask1 << 8;
+                col1 = ivec4(layercol[bg] * vec4(63,63,63,31));
+                mask1 = (1 << bg);
             }
         }
 
-        // TODO do sprite layer here
+        if ((objattr.a == prio) && (layercol[4].a > 0))
+        {
+            col2 = col1;
+            mask2 = mask1 << 8;
+            col1 = ivec4(layercol[4] * vec4(63,63,63,31));
+            mask1 = (1 << 4);
+        }
     }
 
     // TODO compositor.
