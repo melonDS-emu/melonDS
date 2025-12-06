@@ -7,10 +7,10 @@ struct sScanline
 {
     ivec2 BGOffset[4];
     ivec4 BGRotscale[2];
-    //bvec4 BGEnable;
-    //ivec4 BGAssign;
     int BackColor;
-    //bool BG03D;
+    uint WinRegs;
+    int WinMask;
+    ivec4 WinPos;
 };
 
 layout(std140) uniform uScanlineConfig
@@ -44,6 +44,7 @@ ivec3 ConvertColor(int col)
 vec4 CompositeLayers()
 {
     ivec2 coord = ivec2(fTexcoord.zw);
+    int xpos = int(fTexcoord.x);
     int line = int(fTexcoord.y);
 
     ivec4 col1 = ivec4(ConvertColor(uScanline[line].BackColor), 0x20);
@@ -58,11 +59,37 @@ vec4 CompositeLayers()
 
     ivec4 objflags = ivec4(layercol[5] * 255);
 
+    int winmask = uScanline[line].WinMask;
+    bool inside_win0, inside_win1;
+
+    if (xpos < uScanline[line].WinPos[0])
+        inside_win0 = ((winmask & (1<<0)) != 0);
+    else if (xpos < uScanline[line].WinPos[1])
+        inside_win0 = ((winmask & (1<<1)) != 0);
+    else
+        inside_win0 = ((winmask & (1<<2)) != 0);
+
+    if (xpos < uScanline[line].WinPos[2])
+        inside_win1 = ((winmask & (1<<3)) != 0);
+    else if (xpos < uScanline[line].WinPos[3])
+        inside_win1 = ((winmask & (1<<4)) != 0);
+    else
+        inside_win1 = ((winmask & (1<<5)) != 0);
+
+    uint winregs = uScanline[line].WinRegs;
+    uint winsel = winregs;
+    if (objflags.b > 0)
+        winsel = winregs >> 8;
+    if (inside_win1)
+        winsel = winregs >> 16;
+    if (inside_win0)
+        winsel = winregs >> 24;
+
     for (int prio = 3; prio >= 0; prio--)
     {
         for (int bg = 3; bg >= 0; bg--)
         {
-            if ((uBGPrio[bg] == prio) && (layercol[bg].a > 0))
+            if ((uBGPrio[bg] == prio) && (layercol[bg].a > 0) && ((winsel & (1u << bg)) != 0u))
             {
                 col2 = col1;
                 mask2 = mask1 << 8;
@@ -72,7 +99,7 @@ vec4 CompositeLayers()
             }
         }
 
-        if (uEnableOBJ && (objflags.a == prio) && (layercol[4].a > 0))
+        if (uEnableOBJ && (objflags.a == prio) && (layercol[4].a > 0) && ((winsel & (1u << 4)) != 0u))
         {
             col2 = col1;
             mask2 = mask1 << 8;
@@ -109,9 +136,8 @@ vec4 CompositeLayers()
             evb = 16 - eva;
         }
     }
-    else if ((uBlendCnt & mask1) != 0)
+    else if (((uBlendCnt & mask1) != 0) && ((winsel & (1u << 5)) != 0u))
     {
-        // TODO also check window settings up there!!
         effect = uBlendEffect;
         if (effect == 1)
         {

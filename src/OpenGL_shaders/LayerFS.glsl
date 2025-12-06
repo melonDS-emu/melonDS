@@ -8,6 +8,9 @@ struct sScanline
     ivec2 BGOffset[4];
     ivec4 BGRotscale[2];
     int BackColor;
+    uint WinRegs;
+    int WinMask;
+    ivec4 WinPos;
 };
 
 layout(std140) uniform uScanlineConfig

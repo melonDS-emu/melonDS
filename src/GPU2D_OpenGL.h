@@ -150,8 +150,11 @@ private:
             {
                 s32 BGOffset[4][4];     // really [4][2]
                 s32 BGRotscale[2][4];
-                u32 BackColor;
-                u32 __pad0[3];
+                u32 BackColor;          // 96
+                u32 WinRegs;            // 100
+                u32 WinMask;            // 104
+                u32 __pad0[1];
+                s32 WinPos[4];
             } uScanline[192];
         } ScanlineConfig;
 
@@ -267,7 +270,7 @@ private:
     void PrerenderSprites(Unit* unit);
     void PrerenderLayer(Unit* unit, int layer);
 
-    void RenderSprites(Unit* unit, int ystart, int yend);
+    void RenderSprites(Unit* unit, bool window, int ystart, int yend);
     void RenderLayer(Unit* unit, int layer, int ystart, int yend);
 
     void RenderScreen(Unit* unit, int ystart, int yend);
