@@ -18,7 +18,9 @@ struct sOAM
 
 layout(std140) uniform uConfig
 {
+    int uScaleFactor;
     int uVRAMMask;
+    ivec4 uCaptureMask[8];
     ivec4 uRotscale[32];
     sOAM uOAM[128];
 };

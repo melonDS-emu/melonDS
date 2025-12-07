@@ -208,6 +208,7 @@ bool GLRenderer::GLInit()
         int objheight = (i == 0) ? 256 : 128;
 
         state.LayerConfig.uVRAMMask = bgheight - 1;
+        state.SpriteConfig.uVRAMMask = objheight - 1;
 
         glGenTextures(1, &state.VRAMTex_BG);
         glBindTexture(GL_TEXTURE_2D, state.VRAMTex_BG);
@@ -283,10 +284,15 @@ bool GLRenderer::GLInit()
 
     // generate buffers to hold display capture output
 
-    glGenTextures(1, &CaptureOutputTex);
-    glBindTexture(GL_TEXTURE_2D_ARRAY, CaptureOutputTex);
+    glGenTextures(1, &CaptureOutput256Tex);
+    glBindTexture(GL_TEXTURE_2D_ARRAY, CaptureOutput256Tex);
     glDefaultTexParams(GL_TEXTURE_2D_ARRAY);
-    glGenFramebuffers(4, CaptureOutputFB);
+    glGenFramebuffers(4, CaptureOutput256FB);
+
+    glGenTextures(1, &CaptureOutput128Tex);
+    glBindTexture(GL_TEXTURE_2D_ARRAY, CaptureOutput128Tex);
+    glDefaultTexParams(GL_TEXTURE_2D_ARRAY);
+    glGenFramebuffers(16, CaptureOutput128FB);
 
     glGenTextures(1, &CaptureSyncTex);
     glBindTexture(GL_TEXTURE_2D, CaptureSyncTex);
@@ -356,6 +362,8 @@ bool GLRenderer::GLInit()
     glUniform1i(uniloc, 0);
     uniloc = glGetUniformLocation(LayerShader, "_3DLayerTex");
     glUniform1i(uniloc, 1);
+    uniloc = glGetUniformLocation(LayerShader, "CaptureTex");
+    glUniform1i(uniloc, 2);
 
     uniloc = glGetUniformBlockIndex(LayerShader, "uScanlineConfig");
     glUniformBlockBinding(LayerShader, uniloc, 12);
@@ -382,6 +390,10 @@ bool GLRenderer::GLInit()
 
     uniloc = glGetUniformLocation(SpriteShader, "SpriteTex");
     glUniform1i(uniloc, 0);
+    uniloc = glGetUniformLocation(SpriteShader, "Capture128Tex");
+    glUniform1i(uniloc, 1);
+    uniloc = glGetUniformLocation(SpriteShader, "Capture256Tex");
+    glUniform1i(uniloc, 2);
 
     uniloc = glGetUniformBlockIndex(SpriteShader, "uConfig");
     glUniformBlockBinding(SpriteShader, uniloc, 11);
@@ -409,7 +421,7 @@ bool GLRenderer::GLInit()
     for (int i = 0; i < 16; i++)
     {
         char var[32];
-        sprintf(var, "CaptureOutputTex[%d]", i);
+        sprintf(var, "CaptureOutput256Tex[%d]", i);
         FPCaptureTexLoc[i] = glGetUniformLocation(FPShaderID, var);
     }*/
 
@@ -574,19 +586,31 @@ void GLRenderer::SetScaleFactor(int scale)
     glBindTexture(GL_TEXTURE_2D, CaptureInputTex);
     glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, ScreenW, ScreenH, 0, GL_RGBA, GL_UNSIGNED_BYTE, nullptr);
 
-    glBindTexture(GL_TEXTURE_2D_ARRAY, CaptureOutputTex);
+    glBindTexture(GL_TEXTURE_2D_ARRAY, CaptureOutput256Tex);
     glTexImage3D(GL_TEXTURE_2D_ARRAY, 0, GL_RGBA, 256*ScaleFactor, 256*ScaleFactor, 4, 0, GL_RGBA, GL_UNSIGNED_BYTE, nullptr);
 
     for (int i = 0; i < 4; i++)
     {
-        glBindFramebuffer(GL_FRAMEBUFFER, CaptureOutputFB[i]);
-        glFramebufferTextureLayer(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, CaptureOutputTex, 0, i);
+        glBindFramebuffer(GL_FRAMEBUFFER, CaptureOutput256FB[i]);
+        glFramebufferTextureLayer(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, CaptureOutput256Tex, 0, i);
+        glDrawBuffer(GL_COLOR_ATTACHMENT0);
+    }
+
+    glBindTexture(GL_TEXTURE_2D_ARRAY, CaptureOutput128Tex);
+    glTexImage3D(GL_TEXTURE_2D_ARRAY, 0, GL_RGBA, 128*ScaleFactor, 128*ScaleFactor, 16, 0, GL_RGBA, GL_UNSIGNED_BYTE, nullptr);
+
+    for (int i = 0; i < 16; i++)
+    {
+        glBindFramebuffer(GL_FRAMEBUFFER, CaptureOutput128FB[i]);
+        glFramebufferTextureLayer(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, CaptureOutput128Tex, 0, i);
         glDrawBuffer(GL_COLOR_ATTACHMENT0);
     }
 
     for (int u = 0; u < 2; u++)
     {
         auto& state = UnitState[u];
+
+        state.SpriteConfig.uScaleFactor = ScaleFactor;
 
         glBindTexture(GL_TEXTURE_2D_ARRAY, state.FinalLayerTex);
         glTexImage3D(GL_TEXTURE_2D_ARRAY, 0, GL_RGBA, ScreenW, ScreenH, 6, 0, GL_RGBA, GL_UNSIGNED_BYTE, nullptr);
@@ -1107,6 +1131,14 @@ void GLRenderer::UpdateLayerConfig(Unit* unit)
     auto& state = UnitState[unit->Num];
     u32 dispcnt = unit->DispCnt;
 
+    // determine which parts of VRAM were used for captures
+    // TODO make this more efficient
+    for (u32 i = 0; i < (unit->Num ? 0x20000 : 0x80000); i += 0x4000)
+    {
+        int blk = unit->GetCaptureBlock_BG(i);
+        state.LayerConfig.uCaptureMask[i >> 14] = blk;
+    }
+
     u32 tilebase, mapbase;
     if (!unit->Num)
     {
@@ -1268,29 +1300,6 @@ void GLRenderer::UpdateLayerConfig(Unit* unit)
             cfg.MapOffset = 0;
             cfg.Clamp = !(bgcnt & (1<<13));
         }
-
-        // check for bitmap layers being used to render a display capture
-        if (cfg.Type == 5)
-        {
-            u32 startaddr = cfg.MapOffset;
-            u32 endaddr = startaddr + (cfg.Size[0] * cfg.Size[1] * 2);
-            int numcap = 0;
-            int blk = -1;
-            printf("unit%d bitmap bg%d at addr %08X:%08X\n", unit->Num, layer, startaddr, endaddr);
-
-            for (u32 addr = startaddr; addr < endaddr; addr += 0x4000)
-            {
-                int capblk = unit->GetCaptureBlock_BG(addr);
-                if (capblk != -1)
-                {
-                    printf("%08X -> %d\n", addr, capblk);
-                    numcap++;
-                    blk = capblk;
-                }
-            }
-
-            printf("bitmap bg%d uses %d cap blocks\n", layer, numcap);
-        }
     }
 
     glBindBuffer(GL_UNIFORM_BUFFER, LayerConfigUBO);
@@ -1303,6 +1312,14 @@ void GLRenderer::UpdateOAM(Unit* unit, int ystart, int yend)
     auto& cfg = state.SpriteConfig;
     //u16* oam = (u16*)&GPU.OAM[unit->Num ? 0x400 : 0];
     u16* oam = state.OAM;
+
+    // determine which parts of VRAM were used for captures
+    // TODO make this more efficient
+    for (u32 i = 0; i < (unit->Num ? 0x20000 : 0x40000); i += 0x4000)
+    {
+        int blk = unit->GetCaptureBlock_OBJ(i);
+        cfg.uCaptureMask[i >> 14] = blk;
+    }
 
     for (int i = 0; i < 32; i++)
     {
@@ -1483,9 +1500,9 @@ void GLRenderer::UpdateOAM(Unit* unit, int ystart, int yend)
 
     glBindBuffer(GL_UNIFORM_BUFFER, SpriteConfigUBO);
     glBufferSubData(GL_UNIFORM_BUFFER,
-                    offsetof(sUnitState::sSpriteConfig, uRotscale),
-                    sizeof(cfg.uRotscale) + (state.NumSprites * sizeof(cfg.uOAM[0])),
-                    &cfg.uRotscale);
+                    0,
+                    offsetof(sUnitState::sSpriteConfig, uOAM) + (state.NumSprites * sizeof(cfg.uOAM[0])),
+                    &cfg);
 }
 
 void GLRenderer::UpdateCompositorConfig(Unit* unit)
@@ -1665,6 +1682,12 @@ void GLRenderer::RenderSprites(Unit* unit, bool window, int ystart, int yend)
     glActiveTexture(GL_TEXTURE0);
     glBindTexture(GL_TEXTURE_2D, state.SpriteTex);
 
+    glActiveTexture(GL_TEXTURE1);
+    glBindTexture(GL_TEXTURE_2D_ARRAY, CaptureOutput128Tex);
+
+    glActiveTexture(GL_TEXTURE2);
+    glBindTexture(GL_TEXTURE_2D_ARRAY, CaptureOutput256Tex);
+
     glBindBuffer(GL_ARRAY_BUFFER, SpriteVtxBuffer);
     glBufferSubData(GL_ARRAY_BUFFER, 0, vtxnum * 5 * sizeof(u16), SpriteVtxData);
 
@@ -1675,6 +1698,7 @@ void GLRenderer::RenderSprites(Unit* unit, bool window, int ystart, int yend)
 void GLRenderer::RenderLayer(Unit* unit, int layer, int ystart, int yend)
 {
     auto& state = UnitState[unit->Num];
+    auto& cfg = state.LayerConfig.uBGConfig[layer];
 
     glBindFramebuffer(GL_READ_FRAMEBUFFER, 0);
     glBindFramebuffer(GL_DRAW_FRAMEBUFFER, state.FinalLayerFB[layer]);
@@ -1697,6 +1721,15 @@ void GLRenderer::RenderLayer(Unit* unit, int layer, int ystart, int yend)
     glActiveTexture(GL_TEXTURE1);
     glBindTexture(GL_TEXTURE_2D, _3DLayerTex);
 
+    if (cfg.Type == 5)
+    {
+        glActiveTexture(GL_TEXTURE2);
+        if (cfg.Size[0] == 128)
+            glBindTexture(GL_TEXTURE_2D_ARRAY, CaptureOutput128Tex);
+        else if (cfg.Size[0] == 256)
+            glBindTexture(GL_TEXTURE_2D_ARRAY, CaptureOutput256Tex);
+    }
+
     glBindBuffer(GL_ARRAY_BUFFER, RectVtxBuffer);
     glBindVertexArray(RectVtxArray);
     glDrawArrays(GL_TRIANGLES, 0, 2*3);
@@ -1710,8 +1743,6 @@ void GLRenderer::RenderScreen(Unit* unit, int ystart, int yend)
 
     // update VRAM and palettes
     // TODO only update parts that are dirty
-
-    UpdateLayerConfig(unit);
 
     u8* vram; u32 vrammask;
     unit->GetBGVRAM(vram, vrammask);
@@ -1736,7 +1767,7 @@ void GLRenderer::RenderScreen(Unit* unit, int ystart, int yend)
     //glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, 256, 1+(4*16), GL_RGBA, GL_UNSIGNED_SHORT_1_5_5_5_REV, TempPalBuffer);
     glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, 256, 1+(4*16), GL_RED_INTEGER, GL_UNSIGNED_SHORT, TempPalBuffer);
 
-    //UpdateLayerConfig(unit);
+    UpdateLayerConfig(unit);
 
     glDisable(GL_SCISSOR_TEST);
     glDisable(GL_DEPTH_TEST);
@@ -1771,12 +1802,6 @@ void GLRenderer::RenderScreen(Unit* unit, int ystart, int yend)
         glBindTexture(GL_TEXTURE_2D, state.PalTex_OBJ);
         //glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, 256, 1+16, GL_RGBA, GL_UNSIGNED_SHORT_1_5_5_5_REV, TempPalBuffer);
         glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, 256, 1+16, GL_RED_INTEGER, GL_UNSIGNED_SHORT, TempPalBuffer);
-
-        glBindBuffer(GL_UNIFORM_BUFFER, SpriteConfigUBO);
-        glBufferSubData(GL_UNIFORM_BUFFER,
-                        offsetof(sUnitState::sSpriteConfig, uVRAMMask),
-                        sizeof(u32),
-                        &vrammask);
 
         int spr_ystart = state.LastSpriteLine;
 
@@ -1897,7 +1922,8 @@ void GLRenderer::SyncVRAMCapture(u32 bank, u32 start, u32 len, bool complete)
     u8* vram = GPU.VRAM[bank];
 
     // TODO only do this if needed
-    glBindFramebuffer(GL_READ_FRAMEBUFFER, CaptureOutputFB[bank]);
+    // TODO also select the 128px one if needed
+    glBindFramebuffer(GL_READ_FRAMEBUFFER, CaptureOutput256FB[bank]);
     glBindFramebuffer(GL_DRAW_FRAMEBUFFER, CaptureSyncFB);
     glBlitFramebuffer(0, 0, 256*ScaleFactor, 256*ScaleFactor,
                       0, 0, 256, 256,
@@ -1947,20 +1973,24 @@ void GLRenderer::DoCapture(Unit* unit)
     glUseProgram(CaptureShader);
 
     u32 capcnt = unit->CaptureCnt;
+    u32 dstblock = (capcnt >> 16) & 0x3;
     u32 dstoffset = (capcnt >> 18) & 0x3;
     u32 capsize = (capcnt >> 20) & 0x3;
 
     glBindFramebuffer(GL_READ_FRAMEBUFFER, 0);
-    glBindFramebuffer(GL_DRAW_FRAMEBUFFER, CaptureOutputFB[(capcnt >> 16) & 0x3]);
-    glViewport(0, 0, 256*ScaleFactor, 256*ScaleFactor);
-
     if (capsize == 0)
     {
+        glBindFramebuffer(GL_DRAW_FRAMEBUFFER, CaptureOutput128FB[(dstblock << 2) | dstoffset]);
+        glViewport(0, 0, 128*ScaleFactor, 128*ScaleFactor);
+
         CaptureConfig.uCaptureSize[0] = 128;
         CaptureConfig.uCaptureSize[1] = 128;
     }
     else
     {
+        glBindFramebuffer(GL_DRAW_FRAMEBUFFER, CaptureOutput256FB[dstblock]);
+        glViewport(0, 0, 256*ScaleFactor, 256*ScaleFactor);
+
         CaptureConfig.uCaptureSize[0] = 256;
         CaptureConfig.uCaptureSize[1] = 64 * capsize;
     }
@@ -1992,10 +2022,21 @@ void GLRenderer::DoCapture(Unit* unit)
     u16* vptr = vtxbuf;
     int numvtx;
 
-    u32 blksize = (capsize == 0) ? 1 : capsize;
-    if ((dstoffset + blksize) > 3)
+    if (capsize == 0)
     {
-        // wraparound
+        // 128x128
+        *vptr++ = 0;   *vptr++ = 128; *vptr++ = 0;   *vptr++ = 128;
+        *vptr++ = 128; *vptr++ = 0;   *vptr++ = 128; *vptr++ = 0;
+        *vptr++ = 128; *vptr++ = 128; *vptr++ = 128; *vptr++ = 128;
+        *vptr++ = 0;   *vptr++ = 128; *vptr++ = 0;   *vptr++ = 128;
+        *vptr++ = 0;   *vptr++ = 0;   *vptr++ = 0;   *vptr++ = 0;
+        *vptr++ = 128; *vptr++ = 0;   *vptr++ = 128; *vptr++ = 0;
+
+        numvtx = 6;
+    }
+    else if ((dstoffset + capsize) > 4)
+    {
+        // 256xN, wraparound
         u16 y0, y1, t0, t1;
         u32 h0 = 4 - dstoffset;
 
@@ -2011,9 +2052,9 @@ void GLRenderer::DoCapture(Unit* unit)
         *vptr++ = 256; *vptr++ = y0; *vptr++ = 256; *vptr++ = t0;
 
         y0 = 0;
-        y1 = (blksize - h0) * 64;
+        y1 = (capsize - h0) * 64;
         t0 = h0 * 64;
-        t1 = blksize * 64;
+        t1 = capsize * 64;
         *vptr++ = 0;   *vptr++ = y1; *vptr++ = 0;   *vptr++ = t1;
         *vptr++ = 256; *vptr++ = y0; *vptr++ = 256; *vptr++ = t0;
         *vptr++ = 256; *vptr++ = y1; *vptr++ = 256; *vptr++ = t1;
@@ -2025,12 +2066,13 @@ void GLRenderer::DoCapture(Unit* unit)
     }
     else
     {
+        // 256xN, no wraparound
         u16 y0, y1, t0, t1;
 
         y0 = dstoffset * 64;
-        y1 = (dstoffset + blksize) * 64;
+        y1 = (dstoffset + capsize) * 64;
         t0 = 0;
-        t1 = blksize * 64;
+        t1 = capsize * 64;
         *vptr++ = 0;   *vptr++ = y1; *vptr++ = 0;   *vptr++ = t1;
         *vptr++ = 256; *vptr++ = y0; *vptr++ = 256; *vptr++ = t0;
         *vptr++ = 256; *vptr++ = y1; *vptr++ = 256; *vptr++ = t1;
@@ -2091,12 +2133,6 @@ void GLRenderer::DrawSprites(u32 line, Unit* unit)
         glBindTexture(GL_TEXTURE_2D, state.PalTex_OBJ);
         //glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, 256, 1+16, GL_RGBA, GL_UNSIGNED_SHORT_1_5_5_5_REV, TempPalBuffer);
         glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, 256, 1+16, GL_RED_INTEGER, GL_UNSIGNED_SHORT, TempPalBuffer);
-
-        glBindBuffer(GL_UNIFORM_BUFFER, SpriteConfigUBO);
-        glBufferSubData(GL_UNIFORM_BUFFER,
-                        offsetof(sUnitState::sSpriteConfig, uVRAMMask),
-                        sizeof(u32),
-                        &vrammask);
 
         state.NumSprites = 0;
         UpdateOAM(unit, ystart, yend);

@@ -1,6 +1,8 @@
 #version 140
 
 uniform sampler2D SpriteTex;
+uniform sampler2DArray Capture128Tex;
+uniform sampler2DArray Capture256Tex;
 
 struct sOAM
 {
@@ -20,7 +22,9 @@ struct sOAM
 
 layout(std140) uniform uConfig
 {
+    int uScaleFactor;
     int uVRAMMask;
+    ivec4 uCaptureMask[8];
     ivec4 uRotscale[32];
     sOAM uOAM[128];
 };
@@ -41,13 +45,14 @@ vec4 GetSpritePixel(int sprite, vec2 coord)
 void main()
 {
     vec4 col, flags = vec4(0);
+    vec2 coord;
 
     if (uOAM[fSpriteIndex].Rotscale == -1)
     {
         // regular sprite
         // fTexcoord is the position within the sprite bitmap
 
-        col = GetSpritePixel(fSpriteIndex, ivec2(fTexcoord));
+        coord = fTexcoord;
     }
     else
     {
@@ -57,11 +62,46 @@ void main()
         vec2 sprsize = vec2(uOAM[fSpriteIndex].Size);
         vec4 rotscale = vec4(uRotscale[uOAM[fSpriteIndex].Rotscale]) / 256;
         mat2 rsmatrix = mat2(rotscale.xy, rotscale.zw);
-        vec2 rscoord = (fTexcoord * rsmatrix) + (sprsize / 2);
-        if (any(lessThan(rscoord, vec2(0)))) discard;
-        if (any(greaterThanEqual(rscoord, sprsize))) discard;
+        coord = (fTexcoord * rsmatrix) + (sprsize / 2);
+        if (any(lessThan(coord, vec2(0)))) discard;
+        if (any(greaterThanEqual(coord, sprsize))) discard;
+    }
 
-        col = GetSpritePixel(fSpriteIndex, rscoord);
+    if ((uOAM[fSpriteIndex].Type == 2) && (uOAM[fSpriteIndex].TileStride >= 256))
+    {
+        // bitmap sprite
+        // check for a display capture
+
+        ivec2 icoord = ivec2(coord);
+        int tileoffset = uOAM[fSpriteIndex].TileOffset +
+            (icoord.x * 2) +
+            (icoord.y * uOAM[fSpriteIndex].TileStride);
+
+        int block = (tileoffset >> 14) & (uVRAMMask >> 4);
+        int cap = uCaptureMask[block >> 2][block & 0x3];
+        if (cap != -1)
+        {
+            if (uOAM[fSpriteIndex].TileStride == 256)
+            {
+                coord += (uOAM[fSpriteIndex].TileOffset / ivec2(2, 256));
+                coord = mod(coord, 128);
+                icoord = ivec2(coord * uScaleFactor);
+                col = texelFetch(Capture128Tex, ivec3(icoord, cap), 0);
+            }
+            else
+            {
+                coord += (uOAM[fSpriteIndex].TileOffset / ivec2(2, 512));
+                coord = mod(coord, 256);
+                icoord = ivec2(coord * uScaleFactor);
+                col = texelFetch(Capture256Tex, ivec3(icoord, cap>>2), 0);
+            }
+        }
+        else
+            col = GetSpritePixel(fSpriteIndex, coord);
+    }
+    else
+    {
+        col = GetSpritePixel(fSpriteIndex, coord);
     }
 
     if (col.a == 0) discard;

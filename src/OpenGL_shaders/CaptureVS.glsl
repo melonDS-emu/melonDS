@@ -13,11 +13,12 @@ layout(std140) uniform uCaptureConfig
 in ivec2 vPosition;
 in ivec2 vTexcoord;
 
-smooth out vec2 fTexcoord;
+smooth out vec4 fTexcoord;
 
 void main()
 {
-    vec2 pos = vec2(vPosition) / 256;
+    vec2 pos = vec2(vPosition) / uCaptureSize.xx;
     gl_Position = vec4((pos * 2) - 1, 0, 1);
-    fTexcoord = vec2(vTexcoord);
+    fTexcoord.xy = vec2(vTexcoord);
+    fTexcoord.zw = fTexcoord.xy * uScaleFactor;
 }

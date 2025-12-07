@@ -109,6 +109,7 @@ private:
         {
             u32 uVRAMMask;
             u32 __pad0[3];
+            u32 uCaptureMask[32];
             struct sBGConfig
             {
                 u32 Size[2];
@@ -124,8 +125,10 @@ private:
 
         struct sSpriteConfig
         {
+            u32 uScaleFactor;
             u32 uVRAMMask;
-            u32 __pad0[3];
+            u32 __pad0[2];
+            u32 uCaptureMask[32];
             s32 uRotscale[32][4];
             struct sOAM
             {
@@ -245,8 +248,10 @@ private:
     GLuint CaptureVtxBuffer;
     GLuint CaptureVtxArray;
 
-    GLuint CaptureOutputFB[4];
-    GLuint CaptureOutputTex;
+    GLuint CaptureOutput256FB[4];
+    GLuint CaptureOutput256Tex;
+    GLuint CaptureOutput128FB[16];
+    GLuint CaptureOutput128Tex;
 
     GLuint CaptureSyncFB;
     GLuint CaptureSyncTex;

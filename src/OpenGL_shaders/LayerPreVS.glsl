@@ -13,6 +13,7 @@ struct sBGConfig
 layout(std140) uniform uConfig
 {
     int uVRAMMask;
+    ivec4 uCaptureMask[8];
     sBGConfig uBGConfig[4];
 };
 

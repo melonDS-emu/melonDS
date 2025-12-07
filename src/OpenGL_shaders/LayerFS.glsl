@@ -2,6 +2,7 @@
 
 uniform sampler2DArray BGLayerTex;
 uniform sampler2D _3DLayerTex;
+uniform sampler2DArray CaptureTex;
 
 struct sScanline
 {
@@ -31,6 +32,7 @@ struct sBGConfig
 layout(std140) uniform uConfig
 {
     int uVRAMMask;
+    ivec4 uCaptureMask[8];
     sBGConfig uBGConfig[4];
 };
 
@@ -88,8 +90,6 @@ void main()
         coord = vec2(uScanline[line].BGOffset[uCurBG]) + fTexcoord;
     }
 
-    // TODO also provision for hi-res capture
-
     if (uBGConfig[uCurBG].Clamp)
     {
         if (any(lessThan(coord, vec2(0))) || any(greaterThanEqual(coord, bgsize)))
@@ -101,6 +101,36 @@ void main()
     else
     {
         coord = mod(coord, bgsize);
+    }
+
+    if ((uBGConfig[uCurBG].Type == 5) && (uBGConfig[uCurBG].Size.x <= 256))
+    {
+        // direct bitmap BG
+        // check for a display capture
+
+        ivec2 icoord = ivec2(coord);
+        int mapoffset = uBGConfig[uCurBG].MapOffset +
+            ((icoord.x +
+            (icoord.y * uBGConfig[uCurBG].Size.x)) << 1);
+
+        int block = (mapoffset >> 14) & (uVRAMMask >> 4);
+        int cap = uCaptureMask[block >> 2][block & 0x3];
+        if (cap != -1)
+        {
+            if (uBGConfig[uCurBG].Size.x == 128)
+            {
+                icoord = ivec2(coord * uScaleFactor);
+                oColor = texelFetch(CaptureTex, ivec3(icoord, cap), 0);
+            }
+            else
+            {
+                coord.y += (uBGConfig[uCurBG].MapOffset >> 9);
+                coord.y = mod(coord.y, 256);
+                icoord = ivec2(coord * uScaleFactor);
+                oColor = texelFetch(CaptureTex, ivec3(icoord, cap>>2), 0);
+            }
+            return;
+        }
     }
 
     oColor = GetBGLayerPixel(uCurBG, coord);
