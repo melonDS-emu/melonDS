@@ -35,11 +35,13 @@ layout(std140) uniform uConfig
 };
 
 uniform int uScaleFactor;
+uniform int uCurUnit;
 uniform int uCurBG;
 
 smooth in vec2 fTexcoord;
 
 out vec4 oColor;
+out vec4 oCaptureColor;
 
 vec4 GetBGLayerPixel(int layer, vec2 coord)
 {
@@ -51,21 +53,24 @@ void main()
     vec2 coord;
     int line = int(fTexcoord.y);
     vec2 bgsize = vec2(uBGConfig[uCurBG].Size);
+    vec4 _3dcolor = vec4(0);
 
-    if (uBGConfig[uCurBG].Type == 6)
+    if ((uCurUnit == 0) && (uCurBG == 0))
     {
-        // 3D layer
         int hofs = uScanline[line].BGOffset[uCurBG].x & 0x1FF;
         hofs -= ((hofs & 0x100) << 1);
         coord = vec2(float(hofs), 0) + fTexcoord;
 
-        if (coord.x < 0 || coord.x >= 256)
-        {
-            oColor = vec4(0);
-            return;
-        }
+        if (coord.x >= 0 && coord.x < 256)
+            _3dcolor = texelFetch(_3DLayerTex, ivec2(coord * uScaleFactor), 0);
 
-        oColor = texelFetch(_3DLayerTex, ivec2(coord * uScaleFactor), 0);
+        oCaptureColor = _3dcolor;
+    }
+
+    if (uBGConfig[uCurBG].Type == 6)
+    {
+        // 3D layer
+        oColor = _3dcolor;
         return;
     }
 

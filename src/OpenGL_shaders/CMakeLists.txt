@@ -11,6 +11,8 @@ set(OPENGL_SHADER_FILES
     CompositorFS.glsl
     FinalPassVS.glsl
     FinalPassFS.glsl
+    CaptureVS.glsl
+    CaptureFS.glsl
 )
 
 foreach(SH_INPUT ${OPENGL_SHADER_FILES})

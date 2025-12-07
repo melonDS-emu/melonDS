@@ -31,6 +31,7 @@ layout(std140) uniform uCompositorConfig
 smooth in vec4 fTexcoord;
 
 out vec4 oColor;
+out vec4 oCaptureColor;
 
 ivec3 ConvertColor(int col)
 {
@@ -179,4 +180,5 @@ vec4 CompositeLayers()
 void main()
 {
     oColor = CompositeLayers();
+    oCaptureColor = oColor;
 }
