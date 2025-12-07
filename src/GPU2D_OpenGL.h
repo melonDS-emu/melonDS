@@ -168,6 +168,10 @@ private:
             u32 uBlendCoef[4];
         } CompositorConfig;
 
+        int LastSpriteLine;
+
+        u16 OAM[512];
+
     } UnitState[2];
 
     struct sFinalPassConfig

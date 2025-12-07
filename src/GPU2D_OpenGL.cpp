@@ -740,6 +740,10 @@ void GLRenderer::VBlank(Unit* unitA, Unit* unitB)
     RenderScreen(unitA, 0, 192);
     RenderScreen(unitB, 0, 192);
 
+    GPU.OAMDirty = 0;
+    UnitState[0].LastSpriteLine = 0;
+    UnitState[1].LastSpriteLine = 0;
+
 
     int backbuf = BackBuffer;
     glBindFramebuffer(GL_READ_FRAMEBUFFER, 0);
@@ -1174,7 +1178,13 @@ void GLRenderer::UpdateOAM(Unit* unit, int ystart, int yend)
 {
     auto& state = UnitState[unit->Num];
     auto& cfg = state.SpriteConfig;
-    u16* oam = (u16*)&GPU.OAM[unit->Num ? 0x400 : 0];
+    //u16* oam = (u16*)&GPU.OAM[unit->Num ? 0x400 : 0];
+    u16* oam = state.OAM;
+
+    if (unit->Num)
+    {
+        printf("y=%03d-%03d: %04X:%04X:%04X\n", ystart, yend, oam[0], oam[1], oam[2]);
+    }
 
     for (int i = 0; i < 32; i++)
     {
@@ -1234,7 +1244,7 @@ void GLRenderer::UpdateOAM(Unit* unit, int ystart, int yend)
                 boundwidth <<= 1;
                 boundheight <<= 1;
             }
-
+if(unit->Num)printf("spr%d: x=%d y=%d w=%d h=%d\n", sprnum, xpos, ypos, boundwidth, boundheight);
             if (xpos <= -boundwidth)
                 continue;
 
@@ -1242,7 +1252,7 @@ void GLRenderer::UpdateOAM(Unit* unit, int ystart, int yend)
             bool yc1 = (((ypos&0xFF) + boundheight) > ystart) && ((ypos&0xFF) < yend);
             if (!(yc0 || yc1))
                 continue;
-
+if(unit->Num) printf("spr%d passed\n", sprnum);
             u32 sprmode = (attrib[0] >> 10) & 0x3;
             if (sprmode == 3)
             {
@@ -1604,6 +1614,7 @@ void GLRenderer::RenderScreen(Unit* unit, int ystart, int yend)
 
     UpdateLayerConfig(unit);
 
+    glDisable(GL_SCISSOR_TEST);
     glDisable(GL_DEPTH_TEST);
     glDisable(GL_STENCIL_TEST);
     glDisable(GL_BLEND);
@@ -1643,12 +1654,22 @@ void GLRenderer::RenderScreen(Unit* unit, int ystart, int yend)
                         sizeof(u32),
                         &vrammask);
 
+        int spr_ystart = state.LastSpriteLine;
+
         state.NumSprites = 0;
-        UpdateOAM(unit, ystart, yend);
+        UpdateOAM(unit, spr_ystart, yend);
         PrerenderSprites(unit);
 
-        RenderSprites(unit, true, ystart, yend);
-        RenderSprites(unit, false, ystart, yend);
+        if (spr_ystart != 0)
+        {
+            glEnable(GL_SCISSOR_TEST);
+            glScissor(0, spr_ystart * ScaleFactor, ScreenW, (yend-spr_ystart) * ScaleFactor);
+        }
+
+        RenderSprites(unit, true, spr_ystart, yend);
+        RenderSprites(unit, false, spr_ystart, yend);
+
+        glDisable(GL_SCISSOR_TEST);
     }
 
     glUseProgram(LayerShader);
@@ -1764,140 +1785,71 @@ void GLRenderer::DoCapture(u32 line, u32 width)
 }
 
 
-
-
-#define DoDrawSprite(type, ...) \
-if (iswin) \
-{ \
-    DrawSprite_##type<true>(__VA_ARGS__); \
-} \
-else \
-{ \
-    DrawSprite_##type<false>(__VA_ARGS__); \
-}
-
 void GLRenderer::DrawSprites(u32 line, Unit* unit)
 {
-    CurUnit = unit;
-
-    // TODO is there shit to be done here?
+    auto& state = UnitState[unit->Num];
+    u32 dirtymask = (1 << unit->Num);
 
     if (line == 0)
     {
-        // reset those counters here
-        // TODO: find out when those are supposed to be reset
-        // it would make sense to reset them at the end of VBlank
-        // however, sprites are rendered one scanline in advance
-        // so they need to be reset a bit earlier
-
-        CurUnit->OBJMosaicY = 0;
-        CurUnit->OBJMosaicYCount = 0;
+        state.LastSpriteLine = 0;
+        memcpy(state.OAM, &GPU.OAM[unit->Num ? 0x400 : 0], 0x400);
+        GPU.OAMDirty &= ~dirtymask;
+        return;
     }
 
-    /*if (CurUnit->Num == 0)
+    if (!(GPU.OAMDirty & dirtymask)) return;
+
+    int ystart = state.LastSpriteLine;
+    int yend = line;
+    if (ystart == yend) return;
+
+    if (unit->DispCnt & (1<<12))
     {
-        auto objDirty = GPU.VRAMDirty_AOBJ.DeriveState(GPU.VRAMMap_AOBJ, GPU);
-        GPU.MakeVRAMFlat_AOBJCoherent(objDirty);
-    }
-    else
-    {
-        auto objDirty = GPU.VRAMDirty_BOBJ.DeriveState(GPU.VRAMMap_BOBJ, GPU);
-        GPU.MakeVRAMFlat_BOBJCoherent(objDirty);
-    }
+        // TODO only update parts that are dirty, too
+        // TODO also check dirty flags up here
 
-    NumSprites[CurUnit->Num] = 0;
-    memset(OBJLine[CurUnit->Num], 0, 256*4);
-    memset(OBJWindow[CurUnit->Num], 0, 256);
-    if (!(CurUnit->DispCnt & 0x1000)) return;
+        u8* vram; u32 vrammask;
+        unit->GetOBJVRAM(vram, vrammask);
+        u32 vramheight = (vrammask+1) >> 10;
 
-    u16* oam = (u16*)&GPU.OAM[CurUnit->Num ? 0x400 : 0];
+        glActiveTexture(GL_TEXTURE0);
+        glBindTexture(GL_TEXTURE_2D, state.VRAMTex_OBJ);
+        glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, 1024, vramheight, GL_RED_INTEGER, GL_UNSIGNED_BYTE, vram);
 
-    const s32 spritewidth[16] =
-            {
-                    8, 16, 8, 8,
-                    16, 32, 8, 8,
-                    32, 32, 16, 8,
-                    64, 64, 32, 8
-            };
-    const s32 spriteheight[16] =
-            {
-                    8, 8, 16, 8,
-                    16, 8, 32, 8,
-                    32, 16, 32, 8,
-                    64, 32, 64, 8
-            };
-
-    for (int bgnum = 0x0C00; bgnum >= 0x0000; bgnum -= 0x0400)
-    {
-        for (int sprnum = 127; sprnum >= 0; sprnum--)
+        memcpy(&TempPalBuffer[0], &GPU.Palette[unit->Num ? 0x600 : 0x200], 256*2);
         {
-            u16* attrib = &oam[sprnum*4];
-
-            if ((attrib[2] & 0x0C00) != bgnum)
-                continue;
-
-            bool iswin = (((attrib[0] >> 10) & 0x3) == 2);
-
-            u32 sprline;
-            if ((attrib[0] & 0x1000) && !iswin)
-            {
-                // apply Y mosaic
-                sprline = CurUnit->OBJMosaicY;
-            }
-            else
-                sprline = line;
-
-            if (attrib[0] & 0x0100)
-            {
-                u32 sizeparam = (attrib[0] >> 14) | ((attrib[1] & 0xC000) >> 12);
-                s32 width = spritewidth[sizeparam];
-                s32 height = spriteheight[sizeparam];
-                s32 boundwidth = width;
-                s32 boundheight = height;
-
-                if (attrib[0] & 0x0200)
-                {
-                    boundwidth <<= 1;
-                    boundheight <<= 1;
-                }
-
-                u32 ypos = attrib[0] & 0xFF;
-                if (((line - ypos) & 0xFF) >= (u32)boundheight)
-                    continue;
-                ypos = (sprline - ypos) & 0xFF;
-
-                s32 xpos = (s32)(attrib[1] << 23) >> 23;
-                if (xpos <= -boundwidth)
-                    continue;
-
-                DoDrawSprite(Rotscale, sprnum, boundwidth, boundheight, width, height, xpos, ypos);
-
-                NumSprites[CurUnit->Num]++;
-            }
-            else
-            {
-                if (attrib[0] & 0x0200)
-                    continue;
-
-                u32 sizeparam = (attrib[0] >> 14) | ((attrib[1] & 0xC000) >> 12);
-                s32 width = spritewidth[sizeparam];
-                s32 height = spriteheight[sizeparam];
-
-                u32 ypos = attrib[0] & 0xFF;
-                if (((line - ypos) & 0xFF) >= (u32)height)
-                    continue;
-                ypos = (sprline - ypos) & 0xFF;
-
-                s32 xpos = (s32)(attrib[1] << 23) >> 23;
-                if (xpos <= -width)
-                    continue;
-
-                DoDrawSprite(Normal, sprnum, width, height, xpos, ypos);
-
-                NumSprites[CurUnit->Num]++;
-            }
+            u16* pal = unit->GetOBJExtPal();
+            memcpy(&TempPalBuffer[256], pal, 256*16*2);
         }
-    }*/
+
+        glActiveTexture(GL_TEXTURE1);
+        glBindTexture(GL_TEXTURE_2D, state.PalTex_OBJ);
+        //glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, 256, 1+16, GL_RGBA, GL_UNSIGNED_SHORT_1_5_5_5_REV, TempPalBuffer);
+        glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, 256, 1+16, GL_RED_INTEGER, GL_UNSIGNED_SHORT, TempPalBuffer);
+
+        glBindBuffer(GL_UNIFORM_BUFFER, SpriteConfigUBO);
+        glBufferSubData(GL_UNIFORM_BUFFER,
+                        offsetof(sUnitState::sSpriteConfig, uVRAMMask),
+                        sizeof(u32),
+                        &vrammask);
+
+        state.NumSprites = 0;
+        UpdateOAM(unit, ystart, yend);
+        PrerenderSprites(unit);
+
+        glEnable(GL_SCISSOR_TEST);
+        glScissor(0, ystart * ScaleFactor, ScreenW, (yend-ystart) * ScaleFactor);
+
+        RenderSprites(unit, true, ystart, yend);
+        RenderSprites(unit, false, ystart, yend);
+
+        glDisable(GL_SCISSOR_TEST);
+    }
+
+    state.LastSpriteLine = yend;
+    memcpy(state.OAM, &GPU.OAM[unit->Num ? 0x400 : 0], 0x400);
+    GPU.OAMDirty &= ~dirtymask;
 }
 
 }
