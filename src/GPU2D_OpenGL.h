@@ -248,6 +248,9 @@ private:
     GLuint CaptureOutputFB[4];
     GLuint CaptureOutputTex;
 
+    GLuint CaptureSyncFB;
+    GLuint CaptureSyncTex;
+
     //GLuint test;
 
     u32* LineAttribBuffer;

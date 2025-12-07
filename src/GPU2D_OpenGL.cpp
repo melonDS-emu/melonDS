@@ -288,6 +288,17 @@ bool GLRenderer::GLInit()
     glDefaultTexParams(GL_TEXTURE_2D_ARRAY);
     glGenFramebuffers(4, CaptureOutputFB);
 
+    glGenTextures(1, &CaptureSyncTex);
+    glBindTexture(GL_TEXTURE_2D, CaptureSyncTex);
+    glDefaultTexParams(GL_TEXTURE_2D);
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB5_A1, 256, 256, 0, GL_RGBA, GL_UNSIGNED_SHORT_1_5_5_5_REV, nullptr);
+
+    glGenFramebuffers(1, &CaptureSyncFB);
+    glBindFramebuffer(GL_FRAMEBUFFER, CaptureSyncFB);
+    glFramebufferTexture(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, CaptureSyncTex, 0);
+    glDrawBuffer(GL_COLOR_ATTACHMENT0);
+    glReadBuffer(GL_COLOR_ATTACHMENT0);
+
 
     glGenBuffers(1, &LayerConfigUBO);
     glBindBuffer(GL_UNIFORM_BUFFER, LayerConfigUBO);
@@ -1264,6 +1275,7 @@ void GLRenderer::UpdateLayerConfig(Unit* unit)
             u32 startaddr = cfg.MapOffset;
             u32 endaddr = startaddr + (cfg.Size[0] * cfg.Size[1] * 2);
             int numcap = 0;
+            int blk = -1;
             printf("unit%d bitmap bg%d at addr %08X:%08X\n", unit->Num, layer, startaddr, endaddr);
 
             for (u32 addr = startaddr; addr < endaddr; addr += 0x4000)
@@ -1273,6 +1285,7 @@ void GLRenderer::UpdateLayerConfig(Unit* unit)
                 {
                     printf("%08X -> %d\n", addr, capblk);
                     numcap++;
+                    blk = capblk;
                 }
             }
 
@@ -1698,6 +1711,8 @@ void GLRenderer::RenderScreen(Unit* unit, int ystart, int yend)
     // update VRAM and palettes
     // TODO only update parts that are dirty
 
+    UpdateLayerConfig(unit);
+
     u8* vram; u32 vrammask;
     unit->GetBGVRAM(vram, vrammask);
     u32 vramheight = (vrammask+1) >> 10;
@@ -1721,7 +1736,7 @@ void GLRenderer::RenderScreen(Unit* unit, int ystart, int yend)
     //glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, 256, 1+(4*16), GL_RGBA, GL_UNSIGNED_SHORT_1_5_5_5_REV, TempPalBuffer);
     glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, 256, 1+(4*16), GL_RED_INTEGER, GL_UNSIGNED_SHORT, TempPalBuffer);
 
-    UpdateLayerConfig(unit);
+    //UpdateLayerConfig(unit);
 
     glDisable(GL_SCISSOR_TEST);
     glDisable(GL_DEPTH_TEST);
@@ -1875,6 +1890,39 @@ void GLRenderer::AllocCapture(u32 bank, u32 start, u32 len)
 void GLRenderer::SyncVRAMCapture(u32 bank, u32 start, u32 len, bool complete)
 {
     printf("SYNC VRAM CAPTURE: %d %d %d %d\n", bank, start, len, complete);
+
+    if (!complete)
+        printf("!!! READING VRAM AS IT IS BEING CAPTURED TO\n");
+
+    u8* vram = GPU.VRAM[bank];
+
+    // TODO only do this if needed
+    glBindFramebuffer(GL_READ_FRAMEBUFFER, CaptureOutputFB[bank]);
+    glBindFramebuffer(GL_DRAW_FRAMEBUFFER, CaptureSyncFB);
+    glBlitFramebuffer(0, 0, 256*ScaleFactor, 256*ScaleFactor,
+                      0, 0, 256, 256,
+                      GL_COLOR_BUFFER_BIT, GL_NEAREST);
+
+    glBindFramebuffer(GL_READ_FRAMEBUFFER, CaptureSyncFB);
+    glBindBuffer(GL_PIXEL_PACK_BUFFER, 0); // TODO remove me
+
+    u32 pos = start;
+    for (u32 i = 0; i < len; )
+    {
+        u32 end = pos + len;
+        if (end > 4)
+            end = 4;
+
+        glReadPixels(0, pos*64, 256, (end-pos)*64,
+                     GL_RGBA, GL_UNSIGNED_SHORT_1_5_5_5_REV, &vram[pos*64*512]);
+
+        for (u32 j = pos*64; j < end*64; j++)
+            GPU.VRAMDirty[bank][j] = true;
+
+        i += (end-pos);
+        pos += (end-pos);
+        pos &= 3;
+    }
 }
 
 

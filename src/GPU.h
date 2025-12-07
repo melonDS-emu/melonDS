@@ -107,7 +107,7 @@ public:
         if (bank >= 4) return;
 
         if (VRAMMap_LCDC & (1<<bank))
-            SyncVRAMCaptureBlock((addr >> 15) & 0x3, write);
+            SyncVRAMCaptureBlock((addr >> 15) & 0xF, write);
     }
 
     void SyncVRAM_ABG(u32 addr, bool write)
