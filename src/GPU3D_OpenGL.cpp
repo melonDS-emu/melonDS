@@ -1105,7 +1105,7 @@ void GLRenderer::RenderSceneChunk(const GPU3D& gpu3d, int y, int h)
                 u32 b = (c >> 10) & 0x1F;
                 u32 a = (c >> 16) & 0x1F;
 
-                glBlendColor((float)b/31.0, (float)g/31.0, (float)r/31.0, (float)a/31.0);
+                glBlendColor((float)r/31.0, (float)g/31.0, (float)b/31.0, (float)a/31.0);
             }
 
             glDrawArrays(GL_TRIANGLES, 0, 2*3);
