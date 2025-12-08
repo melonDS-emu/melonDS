@@ -592,10 +592,12 @@ void GPU::MapVRAM_E(u32 bank, u8 cnt) noexcept
 
         case 1: // ABG
             UNMAP_RANGE_PTR(ABG, 0, 4);
+            SET_RANGE_CBF(ABG, 0);
             break;
 
         case 2: // AOBJ
             UNMAP_RANGE_PTR(AOBJ, 0, 4);
+            SET_RANGE_CBF(AOBJ, 0);
             break;
 
         case 3: // texture palette
@@ -618,10 +620,12 @@ void GPU::MapVRAM_E(u32 bank, u8 cnt) noexcept
 
         case 1: // ABG
             MAP_RANGE_PTR(ABG, 0, 4);
+            SET_RANGE_CBF(ABG, 0);
             break;
 
         case 2: // AOBJ
             MAP_RANGE_PTR(AOBJ, 0, 4);
+            SET_RANGE_CBF(AOBJ, 0);
             break;
 
         case 3: // texture palette
@@ -663,6 +667,8 @@ void GPU::MapVRAM_FG(u32 bank, u8 cnt) noexcept
                 VRAMMap_ABG[base + 2] &= ~bankmask;
                 VRAMPtr_ABG[base] = GetUniqueBankPtr(VRAMMap_ABG[base], base << 14);
                 VRAMPtr_ABG[base + 2] = GetUniqueBankPtr(VRAMMap_ABG[base + 2], (base + 2) << 14);
+                VRAMCBF_ABG[base] = GetUniqueBankCBF(VRAMMap_ABG[base], base);
+                VRAMCBF_ABG[base + 2] = GetUniqueBankCBF(VRAMMap_ABG[base + 2], base + 2);
             }
             break;
 
@@ -673,6 +679,8 @@ void GPU::MapVRAM_FG(u32 bank, u8 cnt) noexcept
                 VRAMMap_AOBJ[base + 2] &= ~bankmask;
                 VRAMPtr_AOBJ[base] = GetUniqueBankPtr(VRAMMap_AOBJ[base], base << 14);
                 VRAMPtr_AOBJ[base + 2] = GetUniqueBankPtr(VRAMMap_AOBJ[base + 2], (base + 2) << 14);
+                VRAMCBF_AOBJ[base] = GetUniqueBankCBF(VRAMMap_AOBJ[base], base);
+                VRAMCBF_AOBJ[base + 2] = GetUniqueBankCBF(VRAMMap_AOBJ[base + 2], base + 2);
             }
             break;
 
@@ -706,6 +714,8 @@ void GPU::MapVRAM_FG(u32 bank, u8 cnt) noexcept
                 VRAMMap_ABG[base + 2] |= bankmask;
                 VRAMPtr_ABG[base] = GetUniqueBankPtr(VRAMMap_ABG[base], base << 14);
                 VRAMPtr_ABG[base + 2] = GetUniqueBankPtr(VRAMMap_ABG[base + 2], (base + 2) << 14);
+                VRAMCBF_ABG[base] = GetUniqueBankCBF(VRAMMap_ABG[base], base);
+                VRAMCBF_ABG[base + 2] = GetUniqueBankCBF(VRAMMap_ABG[base + 2], base + 2);
             }
             break;
 
@@ -716,6 +726,8 @@ void GPU::MapVRAM_FG(u32 bank, u8 cnt) noexcept
                 VRAMMap_AOBJ[base + 2] |= bankmask;
                 VRAMPtr_AOBJ[base] = GetUniqueBankPtr(VRAMMap_AOBJ[base], base << 14);
                 VRAMPtr_AOBJ[base + 2] = GetUniqueBankPtr(VRAMMap_AOBJ[base + 2], (base + 2) << 14);
+                VRAMCBF_AOBJ[base] = GetUniqueBankCBF(VRAMMap_AOBJ[base], base);
+                VRAMCBF_AOBJ[base + 2] = GetUniqueBankCBF(VRAMMap_AOBJ[base + 2], base + 2);
             }
             break;
 
@@ -755,14 +767,12 @@ void GPU::MapVRAM_H(u32 bank, u8 cnt) noexcept
             break;
 
         case 1: // BBG
-            VRAMMap_BBG[0] &= ~bankmask;
-            VRAMMap_BBG[1] &= ~bankmask;
-            VRAMMap_BBG[4] &= ~bankmask;
-            VRAMMap_BBG[5] &= ~bankmask;
-            VRAMPtr_BBG[0] = GetUniqueBankPtr(VRAMMap_BBG[0], 0 << 14);
-            VRAMPtr_BBG[1] = GetUniqueBankPtr(VRAMMap_BBG[1], 1 << 14);
-            VRAMPtr_BBG[4] = GetUniqueBankPtr(VRAMMap_BBG[4], 4 << 14);
-            VRAMPtr_BBG[5] = GetUniqueBankPtr(VRAMMap_BBG[5], 5 << 14);
+            for (int i : {0, 1, 4, 5})
+            {
+                VRAMMap_BBG[i] &= ~bankmask;
+                VRAMPtr_BBG[i] = GetUniqueBankPtr(VRAMMap_BBG[i], i << 14);
+                VRAMCBF_BBG[i] = GetUniqueBankCBF(VRAMMap_BBG[i], i);
+            }
             break;
 
         case 2: // BBG ext palette
@@ -780,14 +790,12 @@ void GPU::MapVRAM_H(u32 bank, u8 cnt) noexcept
             break;
 
         case 1: // BBG
-            VRAMMap_BBG[0] |= bankmask;
-            VRAMMap_BBG[1] |= bankmask;
-            VRAMMap_BBG[4] |= bankmask;
-            VRAMMap_BBG[5] |= bankmask;
-            VRAMPtr_BBG[0] = GetUniqueBankPtr(VRAMMap_BBG[0], 0 << 14);
-            VRAMPtr_BBG[1] = GetUniqueBankPtr(VRAMMap_BBG[1], 1 << 14);
-            VRAMPtr_BBG[4] = GetUniqueBankPtr(VRAMMap_BBG[4], 4 << 14);
-            VRAMPtr_BBG[5] = GetUniqueBankPtr(VRAMMap_BBG[5], 5 << 14);
+            for (int i : {0, 1, 4, 5})
+            {
+                VRAMMap_BBG[i] |= bankmask;
+                VRAMPtr_BBG[i] = GetUniqueBankPtr(VRAMMap_BBG[i], i << 14);
+                VRAMCBF_BBG[i] = GetUniqueBankCBF(VRAMMap_BBG[i], i);
+            }
             break;
 
         case 2: // BBG ext palette
@@ -817,18 +825,17 @@ void GPU::MapVRAM_I(u32 bank, u8 cnt) noexcept
             break;
 
         case 1: // BBG
-            VRAMMap_BBG[2] &= ~bankmask;
-            VRAMMap_BBG[3] &= ~bankmask;
-            VRAMMap_BBG[6] &= ~bankmask;
-            VRAMMap_BBG[7] &= ~bankmask;
-            VRAMPtr_BBG[2] = GetUniqueBankPtr(VRAMMap_BBG[2], 2 << 14);
-            VRAMPtr_BBG[3] = GetUniqueBankPtr(VRAMMap_BBG[3], 3 << 14);
-            VRAMPtr_BBG[6] = GetUniqueBankPtr(VRAMMap_BBG[6], 6 << 14);
-            VRAMPtr_BBG[7] = GetUniqueBankPtr(VRAMMap_BBG[7], 7 << 14);
+            for (int i : {2, 3, 6, 7})
+            {
+                VRAMMap_BBG[i] &= ~bankmask;
+                VRAMPtr_BBG[i] = GetUniqueBankPtr(VRAMMap_BBG[i], i << 14);
+                VRAMCBF_BBG[i] = GetUniqueBankCBF(VRAMMap_BBG[i], i);
+            }
             break;
 
         case 2: // BOBJ
             UNMAP_RANGE_PTR(BOBJ, 0, 8);
+            SET_RANGE_CBF(BOBJ, 0);
             break;
 
         case 3: // BOBJ ext palette
@@ -846,18 +853,17 @@ void GPU::MapVRAM_I(u32 bank, u8 cnt) noexcept
             break;
 
         case 1: // BBG
-            VRAMMap_BBG[2] |= bankmask;
-            VRAMMap_BBG[3] |= bankmask;
-            VRAMMap_BBG[6] |= bankmask;
-            VRAMMap_BBG[7] |= bankmask;
-            VRAMPtr_BBG[2] = GetUniqueBankPtr(VRAMMap_BBG[2], 2 << 14);
-            VRAMPtr_BBG[3] = GetUniqueBankPtr(VRAMMap_BBG[3], 3 << 14);
-            VRAMPtr_BBG[6] = GetUniqueBankPtr(VRAMMap_BBG[6], 6 << 14);
-            VRAMPtr_BBG[7] = GetUniqueBankPtr(VRAMMap_BBG[7], 7 << 14);
+            for (int i : {2, 3, 6, 7})
+            {
+                VRAMMap_BBG[i] |= bankmask;
+                VRAMPtr_BBG[i] = GetUniqueBankPtr(VRAMMap_BBG[i], i << 14);
+                VRAMCBF_BBG[i] = GetUniqueBankCBF(VRAMMap_BBG[i], i);
+            }
             break;
 
         case 2: // BOBJ
             MAP_RANGE_PTR(BOBJ, 0, 8);
+            SET_RANGE_CBF(BOBJ, 0);
             break;
 
         case 3: // BOBJ ext palette
