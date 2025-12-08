@@ -1934,6 +1934,9 @@ void GLRenderer::SyncVRAMCapture(u32 bank, u32 start, u32 len, bool complete)
 
         glReadPixels(0, 0, 128, 128,
                      GL_RGBA, GL_UNSIGNED_SHORT_1_5_5_5_REV, &vram[start * 64 * 512]);
+
+        for (u32 j = start * 64; j < (start+1) * 64; j++)
+            GPU.VRAMDirty[bank][j] = true;
     }
     else
     {
