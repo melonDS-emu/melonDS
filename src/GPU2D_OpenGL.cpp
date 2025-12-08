@@ -1921,33 +1921,48 @@ void GLRenderer::SyncVRAMCapture(u32 bank, u32 start, u32 len, bool complete)
 
     u8* vram = GPU.VRAM[bank];
 
-    // TODO only do this if needed
-    // TODO also select the 128px one if needed
-    glBindFramebuffer(GL_READ_FRAMEBUFFER, CaptureOutput256FB[bank]);
-    glBindFramebuffer(GL_DRAW_FRAMEBUFFER, CaptureSyncFB);
-    glBlitFramebuffer(0, 0, 256*ScaleFactor, 256*ScaleFactor,
-                      0, 0, 256, 256,
-                      GL_COLOR_BUFFER_BIT, GL_NEAREST);
-
-    glBindFramebuffer(GL_READ_FRAMEBUFFER, CaptureSyncFB);
-    glBindBuffer(GL_PIXEL_PACK_BUFFER, 0); // TODO remove me
-
-    u32 pos = start;
-    for (u32 i = 0; i < len; )
+    if (len == 0) // 128x128
     {
-        u32 end = pos + len;
-        if (end > 4)
-            end = 4;
+        glBindFramebuffer(GL_READ_FRAMEBUFFER, CaptureOutput128FB[(bank<<2) | start]);
+        glBindFramebuffer(GL_DRAW_FRAMEBUFFER, CaptureSyncFB);
+        glBlitFramebuffer(0, 0, 128 * ScaleFactor, 128 * ScaleFactor,
+                          0, 0, 128, 128,
+                          GL_COLOR_BUFFER_BIT, GL_NEAREST);
 
-        glReadPixels(0, pos*64, 256, (end-pos)*64,
-                     GL_RGBA, GL_UNSIGNED_SHORT_1_5_5_5_REV, &vram[pos*64*512]);
+        glBindFramebuffer(GL_READ_FRAMEBUFFER, CaptureSyncFB);
+        glBindBuffer(GL_PIXEL_PACK_BUFFER, 0); // TODO remove me
 
-        for (u32 j = pos*64; j < end*64; j++)
-            GPU.VRAMDirty[bank][j] = true;
+        glReadPixels(0, 0, 128, 128,
+                     GL_RGBA, GL_UNSIGNED_SHORT_1_5_5_5_REV, &vram[start * 64 * 512]);
+    }
+    else
+    {
+        glBindFramebuffer(GL_READ_FRAMEBUFFER, CaptureOutput256FB[bank]);
+        glBindFramebuffer(GL_DRAW_FRAMEBUFFER, CaptureSyncFB);
+        glBlitFramebuffer(0, 0, 256 * ScaleFactor, 256 * ScaleFactor,
+                          0, 0, 256, 256,
+                          GL_COLOR_BUFFER_BIT, GL_NEAREST);
 
-        i += (end-pos);
-        pos += (end-pos);
-        pos &= 3;
+        glBindFramebuffer(GL_READ_FRAMEBUFFER, CaptureSyncFB);
+        glBindBuffer(GL_PIXEL_PACK_BUFFER, 0); // TODO remove me
+
+        u32 pos = start;
+        for (u32 i = 0; i < len;)
+        {
+            u32 end = pos + len;
+            if (end > 4)
+                end = 4;
+
+            glReadPixels(0, pos * 64, 256, (end - pos) * 64,
+                         GL_RGBA, GL_UNSIGNED_SHORT_1_5_5_5_REV, &vram[pos * 64 * 512]);
+
+            for (u32 j = pos * 64; j < end * 64; j++)
+                GPU.VRAMDirty[bank][j] = true;
+
+            i += (end - pos);
+            pos += (end - pos);
+            pos &= 3;
+        }
     }
 }
 

@@ -1314,7 +1314,7 @@ void GPU::CheckCaptureStart()
     }
 
     // mark involved VRAM blocks as being a new capture
-    u16 newval = CBFlag_IsCapture | dstoff | (dstbank << 2) | (len << 4);
+    u16 newval = CBFlag_IsCapture | dstoff | (dstbank << 2) | (len << 4) | (size << 6);
     VRAMCBFlagsSet(dstbank, dstoff, newval);
     GPU2D_Renderer->AllocCapture(dstbank, dstoff, size);
 }
@@ -1340,7 +1340,7 @@ void GPU::SyncVRAMCaptureBlock(u32 block, bool write)
     // sync the capture which contains this block
     u32 bank = block >> 2;
     u32 start = flags & 0x3;
-    u32 len = (flags >> 4) & 0x3;
+    u32 len = (flags >> 6) & 0x3;
     GPU2D_Renderer->SyncVRAMCapture(bank, start, len, (flags & CBFlag_Complete));
 
     //u16* cbflags = &VRAMCaptureBlockFlags[bank << 2];
