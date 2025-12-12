@@ -26,7 +26,7 @@ int Lua_StateSave(lua_State* L)
     bundle->getluaDialog()->onLuaSaveState((QString)filename);
     return 0;
 }
-AddSavestateFunction(Lua_StateSave,StateSave);
+AddSavestateFunction(Lua_StateSave,save);
 
 int Lua_StateLoad(lua_State* L)
 {
@@ -36,5 +36,5 @@ int Lua_StateLoad(lua_State* L)
     bundle->getluaDialog()->onLuaLoadState((QString)filename);
     return 0;
 }
-AddSavestateFunction(Lua_StateLoad,StateLoad);
+AddSavestateFunction(Lua_StateLoad,load);
 }
