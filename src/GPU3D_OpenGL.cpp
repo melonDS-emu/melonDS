@@ -763,6 +763,20 @@ void GLRenderer::RenderSceneChunk(const GPU3D& gpu3d, int y, int h)
     // (has margin of +-0x200 in Z-buffer mode, +-0xFF in W-buffer mode)
     // for now we're using GL_LEQUAL to make it work to some extent
 
+    // STENCIL BUFFER VALUES
+    // 1111'1111 : background (clear plane)
+    // 1111'1110 : shadow mask against background
+    // 00pp'pppp : opaque polygon ID p
+    // 01pp'pppp : translucent polygon ID p
+    // 1___'____ : shadow mask
+
+    // POLYGON ID BASED RENDERING RULES
+    // opaque polygons: polygon ID ignored
+    // translucent polygons: if dst is opaque
+    //                       OR if dst is translucent and polygon ID is different
+    // shadow polygons: if (dst is opaque AND dst opaque polygon ID is different)
+    //                  OR (dst is translucent and dst translucent polygon ID is different)
+
     // pass 1: opaque pixels
 
     UseRenderShader(flags);
@@ -860,6 +874,8 @@ void GLRenderer::RenderSceneChunk(const GPU3D& gpu3d, int y, int h)
                     glColorMaski(1, GL_FALSE, GL_FALSE, GL_FALSE, GL_FALSE);
                     glDepthMask(GL_FALSE);
 
+                    // render where stencil is 0xFF
+                    // set to 0xFE where this polygon z-fails
                     glDepthFunc(GL_LESS);
                     glStencilFunc(GL_EQUAL, 0xFF, 0xFF);
                     glStencilOp(GL_KEEP, GL_INVERT, GL_KEEP);
@@ -887,6 +903,7 @@ void GLRenderer::RenderSceneChunk(const GPU3D& gpu3d, int y, int h)
                         glColorMaski(0, GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
                         glColorMaski(1, GL_TRUE, GL_TRUE, fogenable, GL_FALSE);
 
+                        // set stencil to the polygon's ID
                         glStencilFunc(GL_ALWAYS, polyid, 0xFF);
                         glStencilOp(GL_KEEP, GL_KEEP, GL_REPLACE);
                         glStencilMask(0xFF);
@@ -912,6 +929,9 @@ void GLRenderer::RenderSceneChunk(const GPU3D& gpu3d, int y, int h)
                         glColorMaski(0, GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
                         glColorMaski(1, GL_FALSE, GL_FALSE, transfog, GL_FALSE);
 
+                        // draw where shadow mask has previously been rendered (stencil=0xFE)
+                        // when passing, set it to (polyID | 0x40)
+                        // TODO might break bit0 of polyID
                         glStencilFunc(GL_EQUAL, 0xFE, 0xFF);
                         glStencilOp(GL_KEEP, GL_KEEP, GL_INVERT);
                         glStencilMask(~(0x40|polyid)); // heheh
@@ -926,6 +946,8 @@ void GLRenderer::RenderSceneChunk(const GPU3D& gpu3d, int y, int h)
                         glColorMaski(0, GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
                         glColorMaski(1, GL_FALSE, GL_FALSE, transfog, GL_FALSE);
 
+                        // draw on either background (0xFF) or shadowmask (0xFE)
+                        // when passing, set it to (polyID | 0x40)
                         glStencilFunc(GL_EQUAL, 0xFF, 0xFE);
                         glStencilOp(GL_KEEP, GL_KEEP, GL_INVERT);
                         glStencilMask(~(0x40|polyid)); // heheh
@@ -966,6 +988,7 @@ void GLRenderer::RenderSceneChunk(const GPU3D& gpu3d, int y, int h)
                 glColorMaski(1, GL_FALSE, GL_FALSE, GL_FALSE, GL_FALSE);
                 glDepthMask(GL_FALSE);
 
+                // set stencil bit7 where the shadowmask z-fails
                 glDepthFunc(GL_LESS);
                 glStencilFunc(GL_ALWAYS, 0x80, 0x80);
                 glStencilOp(GL_KEEP, GL_REPLACE, GL_KEEP);
@@ -992,6 +1015,7 @@ void GLRenderer::RenderSceneChunk(const GPU3D& gpu3d, int y, int h)
                     glColorMaski(0, GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
                     glColorMaski(1, GL_TRUE, GL_TRUE, fogenable, GL_FALSE);
 
+                    // set stencil to polyID
                     glStencilFunc(GL_ALWAYS, polyid, 0xFF);
                     glStencilOp(GL_KEEP, GL_KEEP, GL_REPLACE);
                     glStencilMask(0xFF);
@@ -1013,6 +1037,9 @@ void GLRenderer::RenderSceneChunk(const GPU3D& gpu3d, int y, int h)
                     glColorMaski(0, GL_FALSE, GL_FALSE, GL_FALSE, GL_FALSE);
                     glColorMaski(1, GL_FALSE, GL_FALSE, GL_FALSE, GL_FALSE);
                     glDepthMask(GL_FALSE);
+
+                    // render where polyID matches (ignoring other bits)
+                    // clear bit7 where it passes
                     glStencilFunc(GL_EQUAL, polyid, 0x3F);
                     glStencilOp(GL_KEEP, GL_KEEP, GL_ZERO);
                     glStencilMask(0x80);
@@ -1023,6 +1050,8 @@ void GLRenderer::RenderSceneChunk(const GPU3D& gpu3d, int y, int h)
                     glColorMaski(0, GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
                     glColorMaski(1, GL_FALSE, GL_FALSE, transfog, GL_FALSE);
 
+                    // render where bit7 is set (ie. shadow mask)
+                    // set bit6 and replace polyID
                     glStencilFunc(GL_EQUAL, 0xC0|polyid, 0x80);
                     glStencilOp(GL_KEEP, GL_KEEP, GL_REPLACE);
                     glStencilMask(0x7F);
@@ -1038,6 +1067,8 @@ void GLRenderer::RenderSceneChunk(const GPU3D& gpu3d, int y, int h)
                     glColorMaski(0, GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
                     glColorMaski(1, GL_FALSE, GL_FALSE, transfog, GL_FALSE);
 
+                    // render where polyID and bit6 do not match
+                    // set bit6 and set polyID
                     glStencilFunc(GL_NOTEQUAL, 0x40|polyid, 0x7F);
                     glStencilOp(GL_KEEP, GL_KEEP, GL_REPLACE);
                     glStencilMask(0x7F);
