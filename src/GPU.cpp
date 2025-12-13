@@ -1487,4 +1487,32 @@ int GPU::GetCaptureBlock_BOBJ(u32 offset)
 #endif
 }
 
+void GPU::GetCaptureInfo_Texture(int* info)
+{
+    for (int b = 0; b < 16; b++)
+    {
+        int bank = b >> 2;
+        int subblock = b & 0x3;
+        u32 mask = VRAMMap_Texture[bank];
+        u16 cbf = 0;
+
+        // check the bank mask
+        // for now we don't bother with overlapping banks
+        // this may change if a game happens to do this
+        if (mask == (1<<0))
+            cbf = VRAMCaptureBlockFlags[(0<<2) | subblock];
+        else if (mask == (1<<1))
+            cbf = VRAMCaptureBlockFlags[(1<<2) | subblock];
+        else if (mask == (1<<2))
+            cbf = VRAMCaptureBlockFlags[(2<<2) | subblock];
+        else if (mask == (1<<3))
+            cbf = VRAMCaptureBlockFlags[(3<<2) | subblock];
+
+        if (cbf & CBFlag_IsCapture)
+            info[b] = cbf & 0xF;
+        else
+            info[b] = -1;
+    }
+}
+
 }

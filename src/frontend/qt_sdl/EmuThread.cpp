@@ -865,15 +865,15 @@ void EmuThread::updateRenderer()
         {
             case renderer3D_Software:
                 gpu.SetRenderer2D(std::make_unique<GPU2D::SoftRenderer>(gpu));
-                emuInstance->nds->GPU.SetRenderer3D(std::make_unique<SoftRenderer>());
+                gpu.SetRenderer3D(std::make_unique<SoftRenderer>());
                 break;
             case renderer3D_OpenGL:
                 gpu.SetRenderer2D(GPU2D::GLRenderer::New(gpu));
-                emuInstance->nds->GPU.SetRenderer3D(GLRenderer::New());
+                gpu.SetRenderer3D(GLRenderer::New());
                 break;
             case renderer3D_OpenGLCompute:
                 gpu.SetRenderer2D(GPU2D::GLRenderer::New(gpu));
-                emuInstance->nds->GPU.SetRenderer3D(ComputeRenderer::New());
+                gpu.SetRenderer3D(ComputeRenderer::New(gpu));
                 break;
             default: __builtin_unreachable();
         }

@@ -37,7 +37,7 @@ namespace melonDS
 class ComputeRenderer : public Renderer3D
 {
 public:
-    static std::unique_ptr<ComputeRenderer> New();
+    static std::unique_ptr<ComputeRenderer> New(GPU& gpu);
     ~ComputeRenderer() override;
 
     void Reset(GPU& gpu) override;
@@ -162,6 +162,10 @@ private:
         float TextureLayer;
     };
 
+    GLuint CaptureTexView128;
+    GLuint CaptureTexView256;
+    //
+
     static constexpr int TileSize = 8;
     static constexpr int CoarseTileCountX = 8;
     static constexpr int CoarseTileCountY = 4;
@@ -175,6 +179,8 @@ private:
 
     static constexpr int UniformIdxCurVariant = 0;
     static constexpr int UniformIdxTextureSize = 1;
+    static constexpr int UniformIdxTexIsCapture = 2;
+    static constexpr int UniformIdxCaptureYOffset = 3;
 
     static constexpr int MaxFullscreenLayers = 16;
 

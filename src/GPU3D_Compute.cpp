@@ -16,6 +16,8 @@
     with melonDS. If not, see http://www.gnu.org/licenses/.
 */
 
+#include "GPU2D_OpenGL.h"
+
 #include "GPU3D_Compute.h"
 
 #include <assert.h>
@@ -174,7 +176,7 @@ void blah(GLenum source, GLenum type, GLuint id, GLenum severity, GLsizei length
     printf("%s\n", message);
 }
 
-std::unique_ptr<ComputeRenderer> ComputeRenderer::New()
+std::unique_ptr<ComputeRenderer> ComputeRenderer::New(GPU& gpu)
 {
     /*std::optional<GLCompositor> compositor =  GLCompositor::New();
     if (!compositor)
@@ -225,6 +227,13 @@ std::unique_ptr<ComputeRenderer> ComputeRenderer::New()
     glGenBuffers(1, &result->PixelBuffer);
     glBindBuffer(GL_PIXEL_PACK_BUFFER, result->PixelBuffer);
     glBufferData(GL_PIXEL_PACK_BUFFER, 256*192*4, NULL, GL_DYNAMIC_READ);
+
+    // init views on the 2D hi-res capture textures
+    // TODO make sure this is done after 2D renderer init
+    // all really ought to be made nicer!!
+    auto& gpu2D = (GPU2D::GLRenderer&)gpu.GetRenderer2D();
+    result->CaptureTexView128 = gpu2D.GetCaptureBuffer(128);
+    result->CaptureTexView256 = gpu2D.GetCaptureBuffer(256);
 
     return result;
 }
@@ -570,10 +579,12 @@ struct Variant
     GLuint Texture, Sampler;
     u16 Width, Height;
     u8 BlendMode;
+    int CaptureYOffset;
 
     bool operator==(const Variant& other)
     {
-        return Texture == other.Texture && Sampler == other.Sampler && BlendMode == other.BlendMode;
+        return Texture == other.Texture && Sampler == other.Sampler && BlendMode == other.BlendMode &&
+               CaptureYOffset == other.CaptureYOffset;
     }
 };
 
@@ -599,6 +610,10 @@ void ComputeRenderer::RenderFrame(GPU& gpu)
         return;
     }
 
+    // figure out which chunks of texture memory contain display captures
+    int captureinfo[16];
+    gpu.GetCaptureInfo_Texture(captureinfo);
+
     int numYSpans = 0;
     int numSetupIndices = 0;
 
@@ -616,6 +631,7 @@ void ComputeRenderer::RenderFrame(GPU& gpu)
     */
     u32 numVariants = 0, prevVariant, prevTexLayer;
     Variant variants[MaxVariants];
+    u32 capLastVariant[16] = {0};
 
     bool enableTextureMaps = gpu.GPU3D.RenderDispCnt & (1<<0);
 
@@ -652,9 +668,55 @@ void ComputeRenderer::RenderFrame(GPU& gpu)
             variant.Sampler = 0;
             u32* textureLastVariant = nullptr;
             // we always need to look up the texture to get the layer of the array texture
-            if (enableTextureMaps && (polygon->TexParam >> 26) & 0x7)
+            u32 textype = (polygon->TexParam >> 26) & 0x7;
+            if (enableTextureMaps && textype)
             {
-                Texcache.GetTexture(gpu, polygon->TexParam, polygon->TexPalette, variant.Texture, prevTexLayer, textureLastVariant);
+                u32 texaddr = polygon->TexParam & 0xFFFF;
+                u32 texwidth = TextureWidth(polygon->TexParam);
+                u32 texheight = TextureHeight(polygon->TexParam);
+                int capblock = -1;
+                if ((textype == 7) && ((texwidth == 128) || (texwidth == 256)))
+                {
+                    // if this is a direct color texture, and the width is 128 or 256
+                    // then it might be a display capture
+                    u32 startaddr = texaddr << 3;
+                    u32 endaddr = startaddr + (texheight * texwidth * 2);
+
+                    startaddr >>= 15;
+                    endaddr = (endaddr + 0x7FFF) >> 15;
+
+                    for (u32 b = startaddr; b < endaddr; b++)
+                    {
+                        int blk = captureinfo[b];
+                        if (blk == -1) continue;
+
+                        capblock = blk;
+                    }
+                }
+
+                if (capblock != -1)
+                {
+                    if (texwidth == 128)
+                    {
+                        variant.Texture = CaptureTexView128;
+                        variant.CaptureYOffset = (int)((texaddr >> 5) & 0x7F);
+                        prevTexLayer = capblock;
+                    }
+                    else
+                    {
+                        variant.Texture = CaptureTexView256;
+                        variant.CaptureYOffset = (int)((texaddr >> 6) & 0xFF);
+                        prevTexLayer = capblock >> 2;
+                    }
+
+                    textureLastVariant = &capLastVariant[capblock];
+                }
+                else
+                {
+                    Texcache.GetTexture(gpu, polygon->TexParam, polygon->TexPalette, variant.Texture, prevTexLayer, textureLastVariant);
+                    variant.CaptureYOffset = -1;
+                }
+
                 bool wrapS = (polygon->TexParam >> 16) & 1;
                 bool wrapT = (polygon->TexParam >> 17) & 1;
                 bool mirrorS = (polygon->TexParam >> 18) & 1;
@@ -1014,6 +1076,13 @@ void ComputeRenderer::RenderFrame(GPU& gpu)
 
                 glUniform1ui(UniformIdxCurVariant, i);
                 glUniform2f(UniformIdxTextureSize, 1.f / variants[i].Width, 1.f / variants[i].Height);
+                if (variants[i].CaptureYOffset != -1)
+                {
+                    glUniform1i(UniformIdxTexIsCapture, 1);
+                    glUniform1f(UniformIdxCaptureYOffset, (float)variants[i].CaptureYOffset / (float)variants[i].Height);
+                }
+                else
+                    glUniform1i(UniformIdxTexIsCapture, 0);
                 glBindBuffer(GL_DISPATCH_INDIRECT_BUFFER, BinResultMemory);
                 glDispatchComputeIndirect(offsetof(BinResultHeader, VariantWorkCount) + i*4*4);
             }

@@ -49,6 +49,13 @@ public:
     bool GetFramebuffers(u32** top, u32** bottom) override;
     void SwapBuffers() override;
 
+    GLuint GetCaptureBuffer(int width)
+    {
+        if (width == 128) return CaptureOutput128Tex;
+        if (width == 256) return CaptureOutput256Tex;
+        return 0;
+    }
+
 private:
     GLRenderer(melonDS::GPU& gpu);
     bool GLInit();

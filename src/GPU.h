@@ -148,6 +148,8 @@ public:
     int GetCaptureBlock_BBG(u32 offset);
     int GetCaptureBlock_BOBJ(u32 offset);
 
+    void GetCaptureInfo_Texture(int* info);
+
     template<typename T>
     T ReadVRAM_LCDC(u32 addr) const noexcept
     {
