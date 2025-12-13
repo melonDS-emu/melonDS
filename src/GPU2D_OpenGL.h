@@ -191,7 +191,7 @@ private:
     {
         u32 uScreenSwap[192];
         u32 uScaleFactor;
-        u32 uAuxScaleFactor;
+        s32 uAuxCapBlock;
         u32 uDispModeA;
         u32 uDispModeB;
         u32 uBrightModeA;

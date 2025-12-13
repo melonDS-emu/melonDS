@@ -431,6 +431,8 @@ bool GLRenderer::GLInit()
     glUniform1i(uniloc, 1);
     uniloc = glGetUniformLocation(FPShaderID, "AuxInputTex");
     glUniform1i(uniloc, 2);
+    uniloc = glGetUniformLocation(FPShaderID, "AuxCapInputTex");
+    glUniform1i(uniloc, 3);
 
     uniloc = glGetUniformBlockIndex(FPShaderID, "uFinalPassConfig");
     glUniformBlockBinding(FPShaderID, uniloc, 14);
@@ -809,13 +811,13 @@ void GLRenderer::DrawScanline(u32 line, Unit* unit)
                 if (dispmode != 2)
                     vramoffset += ((capcnt >> 26) & 0x3) << 14;
 
-                int capblk = GPU.GetCaptureBlock_LCDC((vrambank << 17) | (vramoffset << 1));
+                /*int capblk = GPU.GetCaptureBlock_LCDC((vrambank << 17) | (vramoffset << 1));
                 if (capblk != -1)
                 {
                     // TODO inexact!
                     CaptureUsageMask |= (1 << capblk);
                 }
-                else
+                else*/
                 {
                     u16* vram = (u16*)GPU.VRAM[vrambank];
                     u16* adst = &AuxInputBuffer[0][lineout * 256];
@@ -840,7 +842,7 @@ void GLRenderer::DrawScanline(u32 line, Unit* unit)
         {
             AuxUsageMask |= (1<<1);
 
-            u16* adst = &AuxInputBuffer[0][lineout * 256];
+            u16* adst = &AuxInputBuffer[1][lineout * 256];
             for (int i = 0; i < 256; i++)
             {
                 adst[i] = CurUnit->DispFIFOBuffer[i];
@@ -868,17 +870,11 @@ void GLRenderer::VBlank(Unit* unitA, Unit* unitB)
     glBindFramebuffer(GL_READ_FRAMEBUFFER, 0);
     glBindFramebuffer(GL_DRAW_FRAMEBUFFER, FPOutputFB[backbuf]);
 
-    // TODO: unmap capture buffer when not capturing?
-
     glDisable(GL_DEPTH_TEST);
     glDisable(GL_STENCIL_TEST);
     glDisable(GL_BLEND);
     glColorMaski(0, GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
     glColorMaski(1, GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
-    if (unitA->CaptureLatch)
-        glColorMaski(2, GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
-    else
-        glColorMaski(2, GL_FALSE, GL_FALSE, GL_FALSE, GL_FALSE);
 
     glViewport(0, 0, ScreenW, ScreenH);
 
@@ -893,7 +889,7 @@ void GLRenderer::VBlank(Unit* unitA, Unit* unitB)
     //glUniform1i(FPCaptureMaskULoc, CaptureUsageMask);
 
     FinalPassConfig.uScaleFactor = ScaleFactor;
-    FinalPassConfig.uAuxScaleFactor = 1; // TODO adjust this for hi-res capture
+    FinalPassConfig.uAuxCapBlock = -1;
     FinalPassConfig.uDispModeA = (unitA->DispCnt >> 16) & 0x3;
     FinalPassConfig.uDispModeB = (unitB->DispCnt >> 16) & 0x1;
     FinalPassConfig.uBrightModeA = (unitA->MasterBrightness >> 14) & 0x3;
@@ -901,45 +897,48 @@ void GLRenderer::VBlank(Unit* unitA, Unit* unitB)
     FinalPassConfig.uBrightFactorA = std::min(unitA->MasterBrightness & 0x1F, 16);
     FinalPassConfig.uBrightFactorB = std::min(unitB->MasterBrightness & 0x1F, 16);
 
-    glBindBuffer(GL_UNIFORM_BUFFER, FPConfigUBO);
-    glBufferSubData(GL_UNIFORM_BUFFER, 0, sizeof(FinalPassConfig), &FinalPassConfig);
-
     glActiveTexture(GL_TEXTURE0);
     glBindTexture(GL_TEXTURE_2D, UnitState[0].OutputTex);
 
     glActiveTexture(GL_TEXTURE1);
     glBindTexture(GL_TEXTURE_2D, UnitState[1].OutputTex);
 
-    if (AuxUsageMask)
+    u32 modeA = (unitA->DispCnt >> 16) & 0x3;
+    if (modeA == 2)
     {
+        // VRAM display
+
+        int capblk = -1;
+        u32 vrambank = (unitA->DispCnt >> 18) & 0x3;
+        if (GPU.VRAMMap_LCDC & (1<<vrambank))
+            capblk = GPU.GetCaptureBlock_LCDC(vrambank << 17);
+
+        if (capblk != -1)
+        {
+            glActiveTexture(GL_TEXTURE3);
+            glBindTexture(GL_TEXTURE_2D_ARRAY, CaptureOutput256Tex);
+            FinalPassConfig.uAuxCapBlock = capblk >> 2;
+        }
+        else
+        {
+            glActiveTexture(GL_TEXTURE2);
+            glBindTexture(GL_TEXTURE_2D, AuxInputTex);
+            glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, 256, 192, GL_RGBA,
+                            GL_UNSIGNED_SHORT_1_5_5_5_REV, AuxInputBuffer[0]);
+        }
+    }
+    else if (modeA == 3)
+    {
+        // main memory display FIFO
+
         glActiveTexture(GL_TEXTURE2);
         glBindTexture(GL_TEXTURE_2D, AuxInputTex);
-
-        // TODO!!
-        /*if (AuxUsageMask & (1<<0))
-            glTexSubImage3D(GL_TEXTURE_2D_ARRAY, 0, 0, 0, 0, 256, 192, 1, GL_RGBA,
-                            GL_UNSIGNED_SHORT_1_5_5_5_REV, AuxInputBuffer[0]);
-        if (AuxUsageMask & (1<<1))
-            glTexSubImage3D(GL_TEXTURE_2D_ARRAY, 0, 0, 0, 1, 256, 192, 1, GL_RGBA,
-                            GL_UNSIGNED_SHORT_1_5_5_5_REV, AuxInputBuffer[1]);*/
+        glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, 256, 192, GL_RGBA,
+                        GL_UNSIGNED_SHORT_1_5_5_5_REV, AuxInputBuffer[1]);
     }
 
-    // TODO!! do capture!!
-    /*printf("SMOOSH=%04X\n", CaptureUsageMask);
-    int tex = 4;
-    for (int i = 0; i < 16; i++)
-    {
-        if (!(CaptureUsageMask & (1<<i)))
-            continue;
-
-        glActiveTexture(GL_TEXTURE0 + tex);
-        glUniform1i(FPCaptureTexLoc[i], tex);
-
-        int cur = CaptureLastBuffer[i];
-        auto& capbuf = CaptureBuffers[i][cur];
-        glBindTexture(GL_TEXTURE_2D, capbuf.Texture);
-        tex++;
-    }*/
+    glBindBuffer(GL_UNIFORM_BUFFER, FPConfigUBO);
+    glBufferSubData(GL_UNIFORM_BUFFER, 0, sizeof(FinalPassConfig), &FinalPassConfig);
 
     glBindBuffer(GL_ARRAY_BUFFER, FPVertexBufferID);
     glBindVertexArray(FPVertexArrayID);

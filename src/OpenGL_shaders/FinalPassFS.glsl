@@ -3,12 +3,13 @@
 uniform sampler2D MainInputTexA;
 uniform sampler2D MainInputTexB;
 uniform sampler2D AuxInputTex;
+uniform sampler2DArray AuxCapInputTex;
 
 layout(std140) uniform uFinalPassConfig
 {
     bvec4 uScreenSwap[48]; // one bool per scanline
     int uScaleFactor;
-    int uAuxScaleFactor;
+    int uAuxCapBlock;
     int uDispModeA;
     int uDispModeB;
     int uBrightModeA;
@@ -17,7 +18,7 @@ layout(std140) uniform uFinalPassConfig
     int uBrightFactorB;
 };
 
-smooth in vec2 fTexcoord;
+smooth in vec4 fTexcoord;
 
 out vec4 oTopColor;
 out vec4 oBottomColor;
@@ -40,7 +41,7 @@ ivec3 MasterBrightness(ivec3 color, int brightmode, int evy)
 
 void main()
 {
-    ivec2 coord = ivec2(fTexcoord * uScaleFactor);
+    ivec2 coord = ivec2(fTexcoord.zw);
 
     ivec4 col_main = ivec4(texelFetch(MainInputTexA, coord, 0) * vec4(63,63,63,31));
     ivec4 col_sub = ivec4(texelFetch(MainInputTexB, coord, 0) * vec4(63,63,63,31));
@@ -49,13 +50,11 @@ void main()
 
     // TODO not always sample those? (VRAM/FIFO)
 
-    /*int capblock = 0;
-    if (dispmode_main != 2)
-        capblock = ((uCaptureReg >> 26) & 0x3);
-    //capblock += int(fTexcoord.y / 64);
-    capblock = (capblock & 0x3) | (((attrib_main.r >> 18) & 0x3) << 2);*/
-
-    ivec4 col_aux = ivec4(texelFetch(AuxInputTex, ivec2(fTexcoord * uAuxScaleFactor), 0) * vec4(63,63,63,31));
+    ivec4 col_aux;
+    if (uAuxCapBlock != -1)
+        col_aux = ivec4(texelFetch(AuxCapInputTex, ivec3(coord, uAuxCapBlock), 0) * vec4(63,63,63,31));
+    else
+        col_aux = ivec4(texelFetch(AuxInputTex, ivec2(fTexcoord.xy), 0) * vec4(63,63,63,31));
 
     if (uDispModeA == 0)
     {
