@@ -1496,12 +1496,6 @@ void main()
     ProcessCoarseMask(linearTile, coarseMaskLo, 0, color, depth, attr, stencil, prevIsShadowMask);
     ProcessCoarseMask(linearTile, coarseMaskHi, BinStride/2, color, depth, attr, stencil, prevIsShadowMask);
 
-    //uint fartx = (gl_WorkGroupID.x * TileSize) + gl_LocalInvocationID.x;
-    //uint farty = (gl_WorkGroupID.y * TileSize) + gl_LocalInvocationID.y;
-    //uint fartx = gl_GlobalInvocationID.x;
-    //uint farty = gl_GlobalInvocationID.y;
-    //color.x = ((fartx>>4) & 0x3Fu) | (((farty>>4) & 0x3Fu) << 8u) | 0x1F000000u;
-
     int resultOffset = int(gl_GlobalInvocationID.x) + int(gl_GlobalInvocationID.y) * ScreenWidth;
     ResultValue[ResultColorStart+resultOffset] = color.x;
     ResultValue[ResultColorStart+resultOffset+FramebufferStride] = color.y;
