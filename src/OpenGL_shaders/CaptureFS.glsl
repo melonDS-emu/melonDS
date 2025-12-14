@@ -1,12 +1,13 @@
 #version 140
 
 uniform sampler2D InputTexA;
-uniform sampler2D InputTexB;
+uniform sampler2DArray InputTexB;
 
 layout(std140) uniform uCaptureConfig
 {
     ivec2 uCaptureSize;
     int uScaleFactor;
+    int uSrcBLayer;
     int uSrcBOffset;
     int uDstOffset;
     int uDstMode;
@@ -30,8 +31,8 @@ ivec4 ConvertColor(int col)
 void main()
 {
     ivec2 coordA = ivec2(fTexcoord.zw);
-    ivec2 coordB = ivec2(fTexcoord.xy);
-    coordB.y = (coordB.y + uSrcBOffset) & 0xFF;
+    vec3 coordB = vec3(fTexcoord.xy, uSrcBLayer);
+    coordB.y += (float(uSrcBOffset) / 256.0);
     ivec4 cap_out;
 
     if (uDstMode == 0)
@@ -42,13 +43,13 @@ void main()
     else if (uDstMode == 1)
     {
         // source B only
-        cap_out = ivec4(texelFetch(InputTexB, coordB, 0) * vec4(63,63,63,31));
+        cap_out = ivec4(texture(InputTexB, coordB) * vec4(63,63,63,31));
     }
     else
     {
         // sources A and B blended
         ivec4 srcA = ivec4(texelFetch(InputTexA, coordA, 0) * vec4(63,63,63,31));
-        ivec4 srcB = ivec4(texelFetch(InputTexB, coordB, 0) * vec4(63,63,63,31));
+        ivec4 srcB = ivec4(texture(InputTexB, coordB) * vec4(63,63,63,31));
 
         int eva = uBlendFactors[0];
         int evb = uBlendFactors[1];

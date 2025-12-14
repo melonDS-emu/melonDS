@@ -4,7 +4,7 @@ layout(std140) uniform uFinalPassConfig
 {
     bvec4 uScreenSwap[48]; // one bool per scanline
     int uScaleFactor;
-    int uAuxCapBlock;
+    int uAuxLayer;
     int uDispModeA;
     int uDispModeB;
     int uBrightModeA;
@@ -26,6 +26,6 @@ void main()
     fpos.w = 1.0;
 
     gl_Position = fpos;
-    fTexcoord.xy = vTexcoord;
+    fTexcoord.xy = vTexcoord / 256;
     fTexcoord.zw = vTexcoord * uScaleFactor;
 }

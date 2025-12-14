@@ -191,7 +191,7 @@ private:
     {
         u32 uScreenSwap[192];
         u32 uScaleFactor;
-        s32 uAuxCapBlock;
+        u32 uAuxLayer;
         u32 uDispModeA;
         u32 uDispModeB;
         u32 uBrightModeA;
@@ -218,6 +218,10 @@ private:
     //GLuint BGOBJTex = 0;                    // prerender of BG/OBJ layers
     GLuint AuxInputTex = 0;                 // aux input (VRAM and mainmem FIFO)
 
+    // texture/fb for display capture VRAM input
+    GLuint CaptureVRAMTex;
+    GLuint CaptureVRAMFB;
+
     // hi-res capture buffers
     // since the DS can read from and capture to the same VRAM bank (VRAM display + capture),
     // these need to be double-buffered
@@ -243,10 +247,13 @@ private:
     {
         u32 uCaptureSize[2];
         u32 uScaleFactor;
+        u32 uSrcBLayer;
         u32 uSrcBOffset;
         u32 uDstOffset;
         u32 uDstMode;
+        u32 __pad0[1];
         u32 uBlendFactors[2];
+        u32 __pad1[2];
     } CaptureConfig;
 
     GLuint CaptureShader;
@@ -304,7 +311,7 @@ private:
 
     void RenderScreen(Unit* unit, int ystart, int yend);
 
-    void DoCapture(Unit* unit);
+    void DoCapture(Unit* unit, int vramcap);
 };
 
 }

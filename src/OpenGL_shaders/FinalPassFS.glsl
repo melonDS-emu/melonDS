@@ -2,14 +2,13 @@
 
 uniform sampler2D MainInputTexA;
 uniform sampler2D MainInputTexB;
-uniform sampler2D AuxInputTex;
-uniform sampler2DArray AuxCapInputTex;
+uniform sampler2DArray AuxInputTex;
 
 layout(std140) uniform uFinalPassConfig
 {
     bvec4 uScreenSwap[48]; // one bool per scanline
     int uScaleFactor;
-    int uAuxCapBlock;
+    int uAuxLayer;
     int uDispModeA;
     int uDispModeB;
     int uBrightModeA;
@@ -48,14 +47,6 @@ void main()
 
     ivec3 output_main, output_sub;
 
-    // TODO not always sample those? (VRAM/FIFO)
-
-    ivec4 col_aux;
-    if (uAuxCapBlock != -1)
-        col_aux = ivec4(texelFetch(AuxCapInputTex, ivec3(coord, uAuxCapBlock), 0) * vec4(63,63,63,31));
-    else
-        col_aux = ivec4(texelFetch(AuxInputTex, ivec2(fTexcoord.xy), 0) * vec4(63,63,63,31));
-
     if (uDispModeA == 0)
     {
         // screen disabled (white)
@@ -69,7 +60,7 @@ void main()
     else
     {
         // VRAM display / mainmem FIFO
-        output_main = col_aux.rgb;
+        output_main = ivec3(texture(AuxInputTex, vec3(fTexcoord.xy, uAuxLayer)).rgb * vec3(63,63,63));
     }
 
     if (uDispModeB == 0)
