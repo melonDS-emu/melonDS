@@ -57,7 +57,7 @@ void main()
         int aa = (srcA.a > 0) ? 1 : 0;
         int ab = (srcB.a > 0) ? 1 : 0;
 
-        cap_out.rgb = ((srcA.rgb * aa * eva) + (srcB.rgb * ab * evb) + 0x10) >> 4;
+        cap_out.rgb = ((srcA.rgb * aa * eva) + (srcB.rgb * ab * evb) + 0x8) >> 4;
         cap_out.rgb = min(cap_out.rgb, 0x3F);
         cap_out.a = (eva>0 ? aa : 0) | (evb>0 ? ab : 0);
     }
