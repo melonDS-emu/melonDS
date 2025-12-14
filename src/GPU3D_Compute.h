@@ -164,7 +164,6 @@ private:
 
     GLuint CaptureTexView128;
     GLuint CaptureTexView256;
-    //
 
     static constexpr int TileSize = 8;
     static constexpr int CoarseTileCountX = 8;
@@ -212,10 +211,16 @@ private:
         u32 ClearColor, ClearDepth, ClearAttr;
 
         u32 FogOffset, FogShift, FogColor;
+
+        float ClearBitmapOffset[2];
     };
     GLuint MetaUniformMemory;
 
     GLuint Samplers[9];
+
+    GLuint ClearBitmapTex[2];
+    u32* ClearBitmap[2];
+    u8 ClearBitmapDirty;
 
     GLuint Framebuffer = 0;
     GLuint LowResFramebuffer;
