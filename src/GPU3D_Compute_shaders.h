@@ -1475,14 +1475,14 @@ void main()
 
     uvec2 color, depth;
     uvec2 attr = uvec2(ClearAttr, 0U);
-    if ((DispCnt & (1<<14)) != 0u)
+    if ((DispCnt & (1<<14)) != 0U)
     {
         float scale = 1.0 / ScreenWidth;
         vec2 pos = (vec2(gl_GlobalInvocationID.xy) * scale) + ClearBitmapOffset;
-        color.x = texture(ClearBitmapColor, pos).r;
-        depth.x = texture(ClearBitmapDepth, pos).r;
-        attr.x = (attr.x & ~0x8000u) | ((depth.x >> 9) & 0x8000u);
-        depth.x &= ~0x1000000u;
+        color = uvec2(texture(ClearBitmapColor, pos).r, 0U);
+        depth = uvec2(texture(ClearBitmapDepth, pos).r, 0U);
+        attr.x = (attr.x & ~0x8000U) | ((depth.x >> 9) & 0x8000U);
+        depth.x &= 0xFFFFFFU;
     }
     else
     {
