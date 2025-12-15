@@ -1163,6 +1163,8 @@ void ComputeRenderer::RenderFrame(GPU& gpu)
     }
     glMemoryBarrier(GL_SHADER_STORAGE_BARRIER_BIT);
 
+    glBindSampler(0, 0);
+    glBindSampler(1, 0);
     glActiveTexture(GL_TEXTURE0);
     glBindTexture(GL_TEXTURE_2D, ClearBitmapTex[0]);
     glActiveTexture(GL_TEXTURE1);
