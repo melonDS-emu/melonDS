@@ -23,25 +23,38 @@
 #include <string.h>
 #include "NDS.h"
 #include "GPU.h"
-#include "GPU3D_OpenGL_shaders.h"
 
 namespace melonDS
 {
 
-bool GLRenderer::BuildRenderShader(u32 flags, const std::string& vs, const std::string& fs)
+#include "OpenGL_shaders/3DClearVS.h"
+#include "OpenGL_shaders/3DClearFS.h"
+#include "OpenGL_shaders/3DRenderVS.h"
+#include "OpenGL_shaders/3DRenderFS.h"
+#include "OpenGL_shaders/3DFinalPassVS.h"
+#include "OpenGL_shaders/3DFinalPassEdgeFS.h"
+#include "OpenGL_shaders/3DFinalPassFogFS.h"
+
+bool GLRenderer::BuildRenderShader(bool wbuffer)
 {
+    std::string wbufdef = "#define WBuffer\n";
+
     char shadername[32];
-    snprintf(shadername, sizeof(shadername), "RenderShader%02X", flags);
+    snprintf(shadername, sizeof(shadername), "RenderShader%c", wbuffer?'W':'Z');
 
-    std::string vsbuf;
-    vsbuf += kShaderHeader;
-    vsbuf += kRenderVSCommon;
-    vsbuf += vs;
+    std::string vsbuf = k3DRenderVS;
+    if (wbuffer)
+    {
+        auto pos = vsbuf.find('\n') + 1;
+        vsbuf = vsbuf.substr(0, pos) + wbufdef + vsbuf.substr(pos);
+    }
 
-    std::string fsbuf;
-    fsbuf += kShaderHeader;
-    fsbuf += kRenderFSCommon;
-    fsbuf += fs;
+    std::string fsbuf = k3DRenderFS;
+    if (wbuffer)
+    {
+        auto pos = fsbuf.find('\n') + 1;
+        fsbuf = fsbuf.substr(0, pos) + wbufdef + fsbuf.substr(pos);
+    }
 
     GLuint prog;
     bool ret = OpenGL::CompileVertexFragmentProgram(prog,
@@ -62,16 +75,19 @@ bool GLRenderer::BuildRenderShader(u32 flags, const std::string& vs, const std::
     uni_id = glGetUniformLocation(prog, "TexPalMem");
     glUniform1i(uni_id, 1);
 
-    RenderShader[flags] = prog;
+    RenderShader[(int)wbuffer] = prog;
 
     return true;
 }
 
-void GLRenderer::UseRenderShader(u32 flags)
+void GLRenderer::UseRenderShader(bool wbuffer)
 {
+    int flags = (int)wbuffer;
     if (CurShaderID == flags) return;
     glUseProgram(RenderShader[flags]);
     CurShaderID = flags;
+
+    RenderModeULoc = glGetUniformLocation(RenderShader[flags], "uRenderMode");
 }
 
 void SetupDefaultTexParams(GLuint tex)
@@ -114,7 +130,7 @@ std::unique_ptr<GLRenderer> GLRenderer::New() noexcept
     glClearDepth(1.0);
 
     if (!OpenGL::CompileVertexFragmentProgram(result->ClearShaderPlain,
-            kClearVS, kClearFS,
+            k3DClearVS, k3DClearFS,
             "ClearShader",
             {{"vPosition", 0}},
             {{"oColor", 0}, {"oAttr", 1}}))
@@ -127,38 +143,20 @@ std::unique_ptr<GLRenderer> GLRenderer::New() noexcept
 
     memset(result->RenderShader, 0, sizeof(RenderShader));
 
-    if (!result->BuildRenderShader(0, kRenderVS_Z, kRenderFS_ZO))
+    if (!result->BuildRenderShader(false))
         return nullptr;
 
-    if (!result->BuildRenderShader(RenderFlag_WBuffer, kRenderVS_W, kRenderFS_WO))
-        return nullptr;
-
-    if (!result->BuildRenderShader(RenderFlag_Edge, kRenderVS_Z, kRenderFS_ZE))
-        return nullptr;
-
-    if (!result->BuildRenderShader(RenderFlag_Edge | RenderFlag_WBuffer, kRenderVS_W, kRenderFS_WE))
-        return nullptr;
-
-    if (!result->BuildRenderShader(RenderFlag_Trans, kRenderVS_Z, kRenderFS_ZT))
-        return nullptr;
-
-    if (!result->BuildRenderShader(RenderFlag_Trans | RenderFlag_WBuffer, kRenderVS_W, kRenderFS_WT))
-        return nullptr;
-
-    if (!result->BuildRenderShader(RenderFlag_ShadowMask, kRenderVS_Z, kRenderFS_ZSM))
-        return nullptr;
-
-    if (!result->BuildRenderShader(RenderFlag_ShadowMask | RenderFlag_WBuffer, kRenderVS_W, kRenderFS_WSM))
+    if (!result->BuildRenderShader(true))
         return nullptr;
 
     if (!OpenGL::CompileVertexFragmentProgram(result->FinalPassEdgeShader,
-            kFinalPassVS, kFinalPassEdgeFS,
+            k3DFinalPassVS, k3DFinalPassEdgeFS,
             "FinalPassEdgeShader",
             {{"vPosition", 0}},
             {{"oColor", 0}}))
         return nullptr;
     if (!OpenGL::CompileVertexFragmentProgram(result->FinalPassFogShader,
-            kFinalPassVS, kFinalPassFogFS,
+            k3DFinalPassVS, k3DFinalPassFogFS,
             "FinalPassFogShader",
             {{"vPosition", 0}},
             {{"oColor", 0}}))
@@ -752,8 +750,8 @@ int GLRenderer::RenderPolygonEdgeBatch(int i) const
 
 void GLRenderer::RenderSceneChunk(const GPU3D& gpu3d, int y, int h)
 {
-    u32 flags = 0;
-    if (gpu3d.RenderPolygonRAM[0]->WBuffer) flags |= RenderFlag_WBuffer;
+    bool flags = gpu3d.RenderPolygonRAM[0]->WBuffer;
+    UseRenderShader(flags);
 
     if (h != 192) glScissor(0, y<<ScaleFactor, 256<<ScaleFactor, h<<ScaleFactor);
 
@@ -779,7 +777,7 @@ void GLRenderer::RenderSceneChunk(const GPU3D& gpu3d, int y, int h)
 
     // pass 1: opaque pixels
 
-    UseRenderShader(flags);
+    glUniform1i(RenderModeULoc, RenderMode_Opaque);
     glLineWidth(1.0);
 
     glColorMaski(1, GL_TRUE, GL_TRUE, fogenable, GL_FALSE);
@@ -867,7 +865,7 @@ void GLRenderer::RenderSceneChunk(const GPU3D& gpu3d, int y, int h)
                 {
                     // draw actual shadow mask
 
-                    UseRenderShader(flags | RenderFlag_ShadowMask);
+                    glUniform1i(RenderModeULoc, RenderMode_ShadowMask);
 
                     glDisable(GL_BLEND);
                     glColorMaski(0, GL_FALSE, GL_FALSE, GL_FALSE, GL_FALSE);
@@ -897,7 +895,7 @@ void GLRenderer::RenderSceneChunk(const GPU3D& gpu3d, int y, int h)
 
                     if (needopaque)
                     {
-                        UseRenderShader(flags);
+                        glUniform1i(RenderModeULoc, RenderMode_Opaque);
 
                         glDisable(GL_BLEND);
                         glColorMaski(0, GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
@@ -913,7 +911,7 @@ void GLRenderer::RenderSceneChunk(const GPU3D& gpu3d, int y, int h)
                         RenderSinglePolygon(i);
                     }
 
-                    UseRenderShader(flags | RenderFlag_Trans);
+                    glUniform1i(RenderModeULoc, RenderMode_Translucent);
 
                     GLboolean transfog;
                     if (!(polyattr & (1<<15))) transfog = fogenable;
@@ -981,7 +979,7 @@ void GLRenderer::RenderSceneChunk(const GPU3D& gpu3d, int y, int h)
 
                 // draw actual shadow mask
 
-                UseRenderShader(flags | RenderFlag_ShadowMask);
+                glUniform1i(RenderModeULoc, RenderMode_ShadowMask);
 
                 glDisable(GL_BLEND);
                 glColorMaski(0, GL_FALSE, GL_FALSE, GL_FALSE, GL_FALSE);
@@ -1009,7 +1007,7 @@ void GLRenderer::RenderSceneChunk(const GPU3D& gpu3d, int y, int h)
 
                 if (needopaque)
                 {
-                    UseRenderShader(flags);
+                    glUniform1i(RenderModeULoc, RenderMode_Opaque);
 
                     glDisable(GL_BLEND);
                     glColorMaski(0, GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
@@ -1025,7 +1023,7 @@ void GLRenderer::RenderSceneChunk(const GPU3D& gpu3d, int y, int h)
                     RenderSinglePolygon(i);
                 }
 
-                UseRenderShader(flags | RenderFlag_Trans);
+                glUniform1i(RenderModeULoc, RenderMode_Translucent);
 
                 GLboolean transfog;
                 if (!(polyattr & (1<<15))) transfog = fogenable;
@@ -1286,10 +1284,6 @@ void GLRenderer::RenderFrame(GPU& gpu)
 
     if (gpu.GPU3D.RenderNumPolygons)
     {
-        // render shit here
-        u32 flags = 0;
-        if (gpu.GPU3D.RenderPolygonRAM[0]->WBuffer) flags |= RenderFlag_WBuffer;
-
         int npolys = 0;
         int firsttrans = -1;
         for (u32 i = 0; i < gpu.GPU3D.RenderNumPolygons; i++)

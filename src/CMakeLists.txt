@@ -94,7 +94,6 @@ if (ENABLE_OGLRENDERER)
         GPU3D_Compute.cpp
         GPU3D_TexcacheOpenGL.cpp
         GPU3D_TexcacheOpenGL.h
-        GPU3D_OpenGL_shaders.h
         OpenGLSupport.cpp)
 
     target_compile_definitions(core PUBLIC OGLRENDERER_ENABLED)

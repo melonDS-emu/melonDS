@@ -75,8 +75,8 @@ private:
     //GLCompositor CurGLCompositor;
     RendererPolygon PolygonList[2048] {};
 
-    bool BuildRenderShader(u32 flags, const std::string& vs, const std::string& fs);
-    void UseRenderShader(u32 flags);
+    bool BuildRenderShader(bool wbuffer);
+    void UseRenderShader(bool wbuffer);
     void SetupPolygon(RendererPolygon* rp, Polygon* polygon) const;
     u32* SetupVertex(const Polygon* poly, int vid, const Vertex* vtx, u32 vtxattr, u32* vptr) const;
     void BuildPolygons(RendererPolygon* polygons, int npolys);
@@ -85,18 +85,19 @@ private:
     int RenderPolygonEdgeBatch(int i) const;
     void RenderSceneChunk(const GPU3D& gpu3d, int y, int h);
 
+
     enum
     {
-        RenderFlag_WBuffer     = 0x01,
-        RenderFlag_Trans       = 0x02,
-        RenderFlag_ShadowMask  = 0x04,
-        RenderFlag_Edge        = 0x08,
+        RenderMode_Opaque = 0,
+        RenderMode_Translucent,
+        RenderMode_ShadowMask,
     };
 
 
     GLuint ClearShaderPlain {};
 
-    GLuint RenderShader[16] {};
+    GLuint RenderShader[2] {};
+    GLint RenderModeULoc = 0;
     GLuint CurShaderID = -1;
 
     GLuint FinalPassEdgeShader {};
