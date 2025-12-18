@@ -612,6 +612,14 @@ MainWindow::MainWindow(int id, EmuInstance* inst, QWidget* parent) :
             actShowOSD = menu->addAction("Show OSD");
             actShowOSD->setCheckable(true);
             connect(actShowOSD, &QAction::triggered, this, &MainWindow::onChangeShowOSD);
+
+            menu->addSeparator();  // Separate from existing items for clarity
+
+            actMenuBarToggle = menu->addAction(tr("Show &Menu Bar"));
+            actMenuBarToggle->setCheckable(true);
+            actMenuBarToggle->setChecked(true);  // Always start visible
+            actMenuBarToggle->setShortcut(QKeySequence(Qt::CTRL | Qt::Key_M));
+            connect(actMenuBarToggle, &QAction::toggled, this, &MainWindow::onToggleMenubar);
         }
         {
             QMenu * menu = menubar->addMenu("Config");
@@ -2225,6 +2233,11 @@ void MainWindow::toggleFullscreen()
 void MainWindow::onFullscreenToggled()
 {
     toggleFullscreen();
+}
+
+void MainWindow::onToggleMenubar(bool visible)
+{
+    menuBar()->setVisible(visible);
 }
 
 void MainWindow::onScreenEmphasisToggled()

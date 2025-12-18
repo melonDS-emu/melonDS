@@ -240,6 +240,7 @@ private slots:
 
     void onFullscreenToggled();
     void onScreenEmphasisToggled();
+    void onToggleMenubar(bool visible);
 
 private:
     virtual void closeEvent(QCloseEvent* event) override;
@@ -283,6 +284,7 @@ public:
 
     bool hasMenu;
 
+    QAction* actToggleMenubar;
     QAction* actOpenROM;
     QAction* actBootFirmware;
     QAction* actCurrentCart;
