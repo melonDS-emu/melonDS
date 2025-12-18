@@ -13,7 +13,8 @@
 <a href="https://github.com/melonDS-emu/melonDS/actions/workflows/build-bsd.yml?query=event%3Apush"><img src="https://github.com/melonDS-emu/melonDS/actions/workflows/build-bsd.yml/badge.svg" /></a>
 </p>
 
-MelonDs fork made to implement hotkey to hide menubar
+MelonDS fork made to implement hotkey to hide menubar
+I made it because I just got myself a Grip for switch that changes switch playability from horizontal to vertical which is great for ds games, but when using moonlight to stream pc melonds to my switch menubar was the last thing holding me back, so I wanted to make it work myself.
 As a disclosure I must say that I am shitty at programming and I made this while vibecoding(Ai Grok) so it isn't fully human but it does what it says so have fun :D.
 
 The goal is to do things right and fast, akin to blargSNES (but hopefully better). But also to, you know, have a fun challenge :)
