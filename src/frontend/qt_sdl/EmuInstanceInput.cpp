@@ -52,6 +52,7 @@ const char* EmuInstance::hotkeyNames[HK_MAX] =
     "HK_FastForward",
     "HK_FrameLimitToggle",
     "HK_FullscreenToggle",
+    "HK_MenuBarToggle"
     "HK_SwapScreens",
     "HK_SwapScreenEmphasis",
     "HK_SolarSensorDecrease",
@@ -452,6 +453,17 @@ void EmuInstance::inputProcess()
     hotkeyPress = hotkeyMask & ~lastHotkeyMask;
     hotkeyRelease = lastHotkeyMask & ~hotkeyMask;
     lastHotkeyMask = hotkeyMask;
+
+    if (hotkeyPress & (1 << HK_MenuBarToggle))
+    {
+        doOnAllWindows([](MainWindow* win)
+        {
+            bool visible = !win->menuBar()->isVisible();
+            win->menuBar()->setVisible(visible);
+            if (win->actToggleMenubar)
+                win->actToggleMenubar->setChecked(visible);
+        });
+    }
     SDL_UnlockMutex(joyMutex.get());
 }
 

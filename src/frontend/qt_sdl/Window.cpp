@@ -618,7 +618,6 @@ MainWindow::MainWindow(int id, EmuInstance* inst, QWidget* parent) :
             actMenuBarToggle = menu->addAction(tr("Show &Menu Bar"));
             actMenuBarToggle->setCheckable(true);
             actMenuBarToggle->setChecked(true);  // Always start visible
-            actMenuBarToggle->setShortcut(QKeySequence(Qt::CTRL | Qt::Key_M));
             connect(actMenuBarToggle, &QAction::toggled, this, &MainWindow::onToggleMenubar);
         }
         {
