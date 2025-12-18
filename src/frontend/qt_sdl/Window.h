@@ -284,7 +284,7 @@ public:
 
     bool hasMenu;
 
-    QAction* actToggleMenubar;
+    QAction* actMenuBarToggle;
     QAction* actOpenROM;
     QAction* actBootFirmware;
     QAction* actCurrentCart;
