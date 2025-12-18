@@ -12,7 +12,7 @@
 <a href="https://github.com/melonDS-emu/melonDS/actions/workflows/build-macos.yml?query=event%3Apush"><img src="https://github.com/melonDS-emu/melonDS/actions/workflows/build-macos.yml/badge.svg" /></a>
 <a href="https://github.com/melonDS-emu/melonDS/actions/workflows/build-bsd.yml?query=event%3Apush"><img src="https://github.com/melonDS-emu/melonDS/actions/workflows/build-bsd.yml/badge.svg" /></a>
 </p>
-DS emulator, sorta
+
 MelonDs fork made to implement hotkey to hide menubar
 As a disclosure I must say that I am shitty at programming and I made this while vibecoding(Ai Grok) so it isn't fully human but it does what it says so have fun :D.
 
