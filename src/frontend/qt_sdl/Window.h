@@ -105,6 +105,7 @@ class MainWindow : public QMainWindow
     Q_OBJECT
 
 public:
+    void onToggleMenubar(bool visible);
     explicit MainWindow(int id, EmuInstance* inst, QWidget* parent = nullptr);
     ~MainWindow();
 
@@ -240,7 +241,6 @@ private slots:
 
     void onFullscreenToggled();
     void onScreenEmphasisToggled();
-    void onToggleMenubar(bool visible);
 
 private:
     virtual void closeEvent(QCloseEvent* event) override;
