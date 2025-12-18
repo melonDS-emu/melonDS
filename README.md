@@ -13,6 +13,8 @@
 <a href="https://github.com/melonDS-emu/melonDS/actions/workflows/build-bsd.yml?query=event%3Apush"><img src="https://github.com/melonDS-emu/melonDS/actions/workflows/build-bsd.yml/badge.svg" /></a>
 </p>
 DS emulator, sorta
+MelonDs fork made to implement hotkey to hide menubar
+As a disclosure I must say that I am shitty at programming and I made this while vibecoding(Ai Grok) so it isn't fully human but it does what it says so have fun :D.
 
 The goal is to do things right and fast, akin to blargSNES (but hopefully better). But also to, you know, have a fun challenge :)
 <hr>
