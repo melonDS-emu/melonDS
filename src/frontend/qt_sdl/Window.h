@@ -105,7 +105,6 @@ class MainWindow : public QMainWindow
     Q_OBJECT
 
 public:
-    void onToggleMenubar(bool visible);
     explicit MainWindow(int id, EmuInstance* inst, QWidget* parent = nullptr);
     ~MainWindow();
 
@@ -284,7 +283,6 @@ public:
 
     bool hasMenu;
 
-    QAction* actMenuBarToggle;
     QAction* actOpenROM;
     QAction* actBootFirmware;
     QAction* actCurrentCart;
