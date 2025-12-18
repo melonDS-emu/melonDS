@@ -465,6 +465,9 @@ if (hotkeyPress & (1 << HK_MenuBarToggle))
     });
 }
 
+SDL_UnlockMutex(joyMutex.get());
+}
+
 void EmuInstance::touchScreen(int x, int y)
 {
     touchX = x;
