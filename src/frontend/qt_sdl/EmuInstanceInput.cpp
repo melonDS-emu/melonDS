@@ -457,15 +457,12 @@ void EmuInstance::inputProcess()
     lastHotkeyMask = hotkeyMask;
 
 if (hotkeyPress & (1 << HK_MenuBarToggle))
+{
+    doOnAllWindows([](MainWindow* win)
     {
-        doOnAllWindows([](MainWindow* win)
-        {
-            bool visible = !win->menuBar()->isVisible();
-            win->menuBar()->setVisible(visible);
-            win->onToggleMenubar(visible);
-        });
-    }
-    SDL_UnlockMutex(joyMutex.get());
+        bool visible = !win->menuBar()->isVisible();
+        win->menuBar()->setVisible(visible);
+    });
 }
 
 void EmuInstance::touchScreen(int x, int y)
