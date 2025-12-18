@@ -1,5 +1,5 @@
 <p align="center"><img src="https://raw.githubusercontent.com/melonDS-emu/melonDS/master/res/icon/melon_128x128.png"></p>
-<h2 align="center"><b>melonDS</b></h2>
+<h2 align="center"><b>melonDS-menubartoggle</b></h2>
 <p align="center">
 <a href="http://melonds.kuribo64.net/" alt="melonDS website"><img src="https://img.shields.io/badge/website-melonds.kuribo64.net-%2331352e.svg"></a>
 <a href="http://melonds.kuribo64.net/downloads.php" alt="Release: 1.1"><img src="https://img.shields.io/badge/release-1.1-%235c913b.svg"></a>
@@ -13,11 +13,12 @@
 <a href="https://github.com/melonDS-emu/melonDS/actions/workflows/build-bsd.yml?query=event%3Apush"><img src="https://github.com/melonDS-emu/melonDS/actions/workflows/build-bsd.yml/badge.svg" /></a>
 </p>
 
-MelonDS fork made to implement hotkey to hide menubar
-I made it because I just got myself a Grip for switch that changes switch playability from horizontal to vertical which is great for ds games, but when using moonlight to stream pc melonds to my switch menubar was the last thing holding me back, so I wanted to make it work myself.
-As a disclosure I must say that I am shitty at programming and I made this while vibecoding(Ai Grok) so it isn't fully human but it does what it says so have fun :D.
+</p></p>MelonDS fork made to implement hotkey to hide menubar</p>
+</p>I made it because I just got myself a Grip for switch that changes switch playability from horizontal to vertical which is great for ds games.</p>
+</p>But when using moonlight to stream pc melonds to my switch menubar was the last thing holding me back, so I wanted to make it work myself.</p>
+</p>As a disclosure I must say that I am shitty at programming and I made this while vibecoding(Ai Grok) so it isn't fully human but it does what it says so have fun :D.</p>
 
-The goal is to do things right and fast, akin to blargSNES (but hopefully better). But also to, you know, have a fun challenge :)
+
 <hr>
 
 ## How to use
