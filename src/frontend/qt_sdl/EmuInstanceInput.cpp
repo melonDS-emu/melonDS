@@ -19,7 +19,6 @@
 #include <QKeyEvent>
 #include <SDL2/SDL.h>
 #include <QMenuBar>
-#include <QAction>
 
 #include "Platform.h"
 #include "SDL_gamecontroller.h"
@@ -69,7 +68,7 @@ const char* EmuInstance::hotkeyNames[HK_MAX] =
     "HK_GuitarGripGreen",
     "HK_GuitarGripRed",
     "HK_GuitarGripYellow",
-    "HK_GuitarGripBlue",
+    "HK_GuitarGripBlue"
 };
 
 std::shared_ptr<SDL_mutex> EmuInstance::joyMutexGlobal = nullptr;
@@ -455,17 +454,16 @@ void EmuInstance::inputProcess()
     hotkeyPress = hotkeyMask & ~lastHotkeyMask;
     hotkeyRelease = lastHotkeyMask & ~hotkeyMask;
     lastHotkeyMask = hotkeyMask;
+    SDL_UnlockMutex(joyMutex.get());
 
 if (hotkeyPress & (1 << HK_MenuBarToggle))
-{
-    doOnAllWindows([](MainWindow* win)
     {
+    doOnAllWindows([](MainWindow* win)
+        {
         bool visible = !win->menuBar()->isVisible();
         win->menuBar()->setVisible(visible);
-    });
-}
-
-SDL_UnlockMutex(joyMutex.get());
+        });
+    }
 }
 
 void EmuInstance::touchScreen(int x, int y)
