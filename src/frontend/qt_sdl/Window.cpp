@@ -2227,11 +2227,6 @@ void MainWindow::onFullscreenToggled()
     toggleFullscreen();
 }
 
-void MainWindow::onToggleMenubar(bool visible)
-{
-    menuBar()->setVisible(visible);
-}
-
 void MainWindow::onScreenEmphasisToggled()
 {
     int currentSizing = windowCfg.GetInt("ScreenSizing");
