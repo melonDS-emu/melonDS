@@ -33,7 +33,6 @@
 
 using namespace std::string_literals;
 
-
 namespace Config
 {
 using namespace melonDS;
@@ -45,6 +44,12 @@ const char* kLegacyConfigFile = "melonDS.ini";
 const char* kLegacyUniqueConfigFile = "melonDS.%d.ini";
 
 toml::value RootTable;
+
+// --- Zmienne RetroAchievements ---
+bool RA_Enabled;
+bool RA_HardcoreMode;
+std::string RA_Username;
+std::string RA_Token;
 
 DefaultList<int> DefaultInts =
 {
@@ -155,47 +160,47 @@ LegacyEntry LegacyFile[] =
     {"Joy_X",      0, "Joystick.X", true},
     {"Joy_Y",      0, "Joystick.Y", true},
 
-    {"HKKey_Lid",                 0, "Keyboard.HK_Lid", true},
-    {"HKKey_Mic",                 0, "Keyboard.HK_Mic", true},
-    {"HKKey_Pause",               0, "Keyboard.HK_Pause", true},
-    {"HKKey_Reset",               0, "Keyboard.HK_Reset", true},
-    {"HKKey_FastForward",         0, "Keyboard.HK_FastForward", true},
-    {"HKKey_FastForwardToggle",   0, "Keyboard.HK_FrameLimitToggle", true},
-    {"HKKey_FullscreenToggle",    0, "Keyboard.HK_FullscreenToggle", true},
-    {"HKKey_MenuBarToggle",       0, "Keyboard.HK_MenuBarToggle", true},
-    {"HKKey_SwapScreens",         0, "Keyboard.HK_SwapScreens", true},
-    {"HKKey_SwapScreenEmphasis",  0, "Keyboard.HK_SwapScreenEmphasis", true},
+    {"HKKey_Lid",                  0, "Keyboard.HK_Lid", true},
+    {"HKKey_Mic",                  0, "Keyboard.HK_Mic", true},
+    {"HKKey_Pause",                0, "Keyboard.HK_Pause", true},
+    {"HKKey_Reset",                0, "Keyboard.HK_Reset", true},
+    {"HKKey_FastForward",          0, "Keyboard.HK_FastForward", true},
+    {"HKKey_FastForwardToggle",    0, "Keyboard.HK_FrameLimitToggle", true},
+    {"HKKey_FullscreenToggle",     0, "Keyboard.HK_FullscreenToggle", true},
+    {"HKKey_MenuBarToggle",        0, "Keyboard.HK_MenuBarToggle", true},
+    {"HKKey_SwapScreens",          0, "Keyboard.HK_SwapScreens", true},
+    {"HKKey_SwapScreenEmphasis",   0, "Keyboard.HK_SwapScreenEmphasis", true},
     {"HKKey_SolarSensorDecrease", 0, "Keyboard.HK_SolarSensorDecrease", true},
     {"HKKey_SolarSensorIncrease", 0, "Keyboard.HK_SolarSensorIncrease", true},
-    {"HKKey_FrameStep",           0, "Keyboard.HK_FrameStep", true},
-    {"HKKey_PowerButton",         0, "Keyboard.HK_PowerButton", true},
-    {"HKKey_VolumeUp",            0, "Keyboard.HK_VolumeUp", true},
-    {"HKKey_VolumeDown",          0, "Keyboard.HK_VolumeDown", true},
-    {"HKKey_GuitarGripGreen",     0, "Keyboard.HK_GuitarGripGreen", true},
-    {"HKKey_GuitarGripRed",       0, "Keyboard.HK_GuitarGripRed", true},
-    {"HKKey_GuitarGripYellow",    0, "Keyboard.HK_GuitarGripYellow", true},
-    {"HKKey_GuitarGripBlue",      0, "Keyboard.HK_GuitarGripBlue", true},
+    {"HKKey_FrameStep",            0, "Keyboard.HK_FrameStep", true},
+    {"HKKey_PowerButton",          0, "Keyboard.HK_PowerButton", true},
+    {"HKKey_VolumeUp",             0, "Keyboard.HK_VolumeUp", true},
+    {"HKKey_VolumeDown",           0, "Keyboard.HK_VolumeDown", true},
+    {"HKKey_GuitarGripGreen",      0, "Keyboard.HK_GuitarGripGreen", true},
+    {"HKKey_GuitarGripRed",        0, "Keyboard.HK_GuitarGripRed", true},
+    {"HKKey_GuitarGripYellow",     0, "Keyboard.HK_GuitarGripYellow", true},
+    {"HKKey_GuitarGripBlue",       0, "Keyboard.HK_GuitarGripBlue", true},
 
-    {"HKJoy_Lid",                 0, "Joystick.HK_Lid", true},
-    {"HKJoy_Mic",                 0, "Joystick.HK_Mic", true},
-    {"HKJoy_Pause",               0, "Joystick.HK_Pause", true},
-    {"HKJoy_Reset",               0, "Joystick.HK_Reset", true},
-    {"HKJoy_FastForward",         0, "Joystick.HK_FastForward", true},
-    {"HKJoy_FastForwardToggle",   0, "Joystick.HK_FrameLimitToggle", true},
-    {"HKJoy_FullscreenToggle",    0, "Joystick.HK_FullscreenToggle", true},
-    {"HKJoy_MenuBarToggle",       0, "Joystick.HK_MenuBarToggle", true},
-    {"HKJoy_SwapScreens",         0, "Joystick.HK_SwapScreens", true},
-    {"HKJoy_SwapScreenEmphasis",  0, "Joystick.HK_SwapScreenEmphasis", true},
+    {"HKJoy_Lid",                  0, "Joystick.HK_Lid", true},
+    {"HKJoy_Mic",                  0, "Joystick.HK_Mic", true},
+    {"HKJoy_Pause",                0, "Joystick.HK_Pause", true},
+    {"HKJoy_Reset",                0, "Joystick.HK_Reset", true},
+    {"HKJoy_FastForward",          0, "Joystick.HK_FastForward", true},
+    {"HKJoy_FastForwardToggle",    0, "Joystick.HK_FrameLimitToggle", true},
+    {"HKJoy_FullscreenToggle",     0, "Joystick.HK_FullscreenToggle", true},
+    {"HKJoy_MenuBarToggle",        0, "Joystick.HK_MenuBarToggle", true},
+    {"HKJoy_SwapScreens",          0, "Joystick.HK_SwapScreens", true},
+    {"HKJoy_SwapScreenEmphasis",   0, "Joystick.HK_SwapScreenEmphasis", true},
     {"HKJoy_SolarSensorDecrease", 0, "Joystick.HK_SolarSensorDecrease", true},
     {"HKJoy_SolarSensorIncrease", 0, "Joystick.HK_SolarSensorIncrease", true},
-    {"HKJoy_FrameStep",           0, "Joystick.HK_FrameStep", true},
-    {"HKJoy_PowerButton",         0, "Joystick.HK_PowerButton", true},
-    {"HKJoy_VolumeUp",            0, "Joystick.HK_VolumeUp", true},
-    {"HKJoy_VolumeDown",          0, "Joystick.HK_VolumeDown", true},
-    {"HKJoy_GuitarGripGreen",     0, "Joystick.HK_GuitarGripGreen", true},
-    {"HKJoy_GuitarGripRed",       0, "Joystick.HK_GuitarGripRed", true},
-    {"HKJoy_GuitarGripYellow",    0, "Joystick.HK_GuitarGripYellow", true},
-    {"HKJoy_GuitarGripBlue",      0, "Joystick.HK_GuitarGripBlue", true},
+    {"HKJoy_FrameStep",            0, "Joystick.HK_FrameStep", true},
+    {"HKJoy_PowerButton",          0, "Joystick.HK_PowerButton", true},
+    {"HKJoy_VolumeUp",             0, "Joystick.HK_VolumeUp", true},
+    {"HKJoy_VolumeDown",           0, "Joystick.HK_VolumeDown", true},
+    {"HKJoy_GuitarGripGreen",      0, "Joystick.HK_GuitarGripGreen", true},
+    {"HKJoy_GuitarGripRed",        0, "Joystick.HK_GuitarGripRed", true},
+    {"HKJoy_GuitarGripYellow",     0, "Joystick.HK_GuitarGripYellow", true},
+    {"HKJoy_GuitarGripBlue",       0, "Joystick.HK_GuitarGripBlue", true},
 
     {"JoystickID", 0, "JoystickID", true},
 
@@ -338,6 +343,27 @@ LegacyEntry LegacyFile[] =
 
     {"", -1, "", false}
 };
+
+// --- NOWE FUNKCJE RETROACHIEVEMENTS ---
+
+void SyncRAConfig()
+{
+    Table tbl = GetGlobalTable();
+    RA_Enabled = tbl.GetBool("RetroAchievements.Enabled");
+    RA_HardcoreMode = tbl.GetBool("RetroAchievements.HardcoreMode");
+    RA_Username = tbl.GetString("RetroAchievements.Username");
+    RA_Token = tbl.GetString("RetroAchievements.Token");
+}
+
+void SaveRAConfig()
+{
+    Table tbl = GetGlobalTable();
+    tbl.SetBool("RetroAchievements.Enabled", RA_Enabled);
+    tbl.SetBool("RetroAchievements.HardcoreMode", RA_HardcoreMode);
+    tbl.SetString("RetroAchievements.Username", RA_Username);
+    tbl.SetString("RetroAchievements.Token", RA_Token);
+    Save();
+}
 
 
 static std::string GetDefaultKey(std::string path)
@@ -794,11 +820,16 @@ bool Load()
     RootTable = toml::value();
 
     if (!Platform::FileExists(cfgpath))
-        return LoadLegacy();
+    {
+        bool ret = LoadLegacy();
+        SyncRAConfig();
+        return ret;
+    }
 
     try
     {
         RootTable = toml::parse(std::filesystem::u8path(cfgpath));
+        SyncRAConfig();
     }
     catch (toml::syntax_error& err)
     {
@@ -810,9 +841,15 @@ bool Load()
 
 void Save()
 {
+    Table tbl = GetGlobalTable();
+    tbl.SetBool("RetroAchievements.Enabled", RA_Enabled);
+    tbl.SetBool("RetroAchievements.HardcoreMode", RA_HardcoreMode);
+    tbl.SetString("RetroAchievements.Username", RA_Username);
+    tbl.SetString("RetroAchievements.Token", RA_Token);
+
     auto cfgpath = Platform::GetLocalFilePath(kConfigFile);
     if (!Platform::CheckFileWritable(cfgpath))
-        return;
+    return;
 
     std::ofstream file;
     file.open(std::filesystem::u8path(cfgpath), std::ofstream::out | std::ofstream::trunc);
@@ -834,4 +871,4 @@ Table GetLocalTable(int instance)
     return Table(tbl, key);
 }
 
-}
+} // namespace Config
