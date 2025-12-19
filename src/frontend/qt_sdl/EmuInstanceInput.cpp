@@ -18,7 +18,6 @@
 
 #include <QKeyEvent>
 #include <SDL2/SDL.h>
-#include <QMenuBar>
 
 #include "Platform.h"
 #include "SDL_gamecontroller.h"
@@ -455,15 +454,6 @@ void EmuInstance::inputProcess()
     hotkeyRelease = lastHotkeyMask & ~hotkeyMask;
     lastHotkeyMask = hotkeyMask;
     SDL_UnlockMutex(joyMutex.get());
-
-    if (hotkeyPress & (1 << HK_MenuBarToggle))
-    {
-    doOnAllWindows([](MainWindow* win)
-        {
-        bool visible = !win->menuBar()->isVisible();
-        win->menuBar()->setVisible(visible);
-        });
-    }
 }
 
 void EmuInstance::touchScreen(int x, int y)
