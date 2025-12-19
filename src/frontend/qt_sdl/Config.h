@@ -29,6 +29,15 @@
 
 namespace Config
 {
+extern bool RA_Enabled;
+    extern bool RA_HardcoreMode;
+    extern std::string RA_Username;
+    extern std::string RA_Token;
+
+    void SyncRAConfig();
+    void SaveRAConfig();
+
+    void Save(); // Upewnij się, że to tu jest
 
 struct LegacyEntry
 {
@@ -135,7 +144,5 @@ void Save();
 
 Table GetLocalTable(int instance);
 inline Table GetGlobalTable() { return GetLocalTable(-1); }
-
 }
-
 #endif // CONFIG_H
