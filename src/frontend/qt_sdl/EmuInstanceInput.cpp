@@ -456,7 +456,7 @@ void EmuInstance::inputProcess()
     lastHotkeyMask = hotkeyMask;
     SDL_UnlockMutex(joyMutex.get());
 
-if (hotkeyPress & (1 << HK_MenuBarToggle))
+    if (hotkeyPress & (1 << HK_MenuBarToggle))
     {
     doOnAllWindows([](MainWindow* win)
         {
