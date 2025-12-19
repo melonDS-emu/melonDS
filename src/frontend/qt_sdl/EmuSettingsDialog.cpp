@@ -16,6 +16,12 @@
     with melonDS. If not, see http://www.gnu.org/licenses/.
 */
 
+#include <QGroupBox>
+#include <QFormLayout>
+#include <QVBoxLayout>
+#include <QCheckBox>
+#include <QLineEdit>
+
 #include <QFileDialog>
 #include <QMessageBox>
 
@@ -160,6 +166,36 @@ EmuSettingsDialog::EmuSettingsDialog(QWidget* parent) : QDialog(parent), ui(new 
     SET_ORIGVAL(QComboBox, currentIndex);
     SET_ORIGVAL(QCheckBox, isChecked);
 
+    // --- Sekcja RetroAchievements ---
+    QWidget* raTab = new QWidget();
+    QVBoxLayout* tabLayout = new QVBoxLayout(raTab);
+
+    groupRA = new QGroupBox("RetroAchievements Settings", raTab);
+    QFormLayout* raForm = new QFormLayout(groupRA);
+
+    cbRAEnabled = new QCheckBox("Enable RetroAchievements");
+    cbRAHardcore = new QCheckBox("Hardcore Mode (No Savestates)");
+    leRAUsername = new QLineEdit();
+    leRAToken = new QLineEdit();
+    leRAToken->setEchoMode(QLineEdit::Password); // Ukrywa token
+    leRAToken->setPlaceholderText("Enter your API Token from RA website");
+
+    raForm->addRow(cbRAEnabled);
+    raForm->addRow(cbRAHardcore);
+    raForm->addRow("Username:", leRAUsername);
+    raForm->addRow("Login Token:", leRAToken);
+
+    tabLayout->addWidget(groupRA);
+    tabLayout->addStretch(); // Spycha formularz do góry
+
+    // Dodanie zakładki do głównego widgetu okna
+    ui->tabWidget->addTab(raTab, "RA");
+
+    // Wczytanie obecnych wartości z konfiguracji
+    cbRAEnabled->setChecked(Config::RA_Enabled);
+    cbRAHardcore->setChecked(Config::RA_HardcoreMode);
+    leRAUsername->setText(QString::fromStdString(Config::RA_Username));
+    leRAToken->setText(QString::fromStdString(Config::RA_Token));
 #undef SET_ORIGVAL
 }
 
@@ -224,6 +260,13 @@ void EmuSettingsDialog::done(int r)
 
     if (r == QDialog::Accepted)
     {
+        // Zapis ustawień RetroAchievements
+        Config::RA_Enabled = cbRAEnabled->isChecked();
+        Config::RA_HardcoreMode = cbRAHardcore->isChecked();
+        Config::RA_Username = leRAUsername->text().toStdString();
+        Config::RA_Token = leRAToken->text().toStdString();
+
+        Config::SaveRAConfig(); // Wywołanie Twojej funkcji zapisu z Config.cpp
         bool modified = false;
 
 #define CHECK_ORIGVAL(type, val) \
