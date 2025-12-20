@@ -1512,8 +1512,7 @@ const std::string FinalPass =
 
 layout (local_size_x = 32) in;
 
-layout (binding = 0, rgba8) writeonly uniform image2D FinalFB; 
-layout (binding = 1, rgba8ui) writeonly uniform uimage2D LowResFB; 
+layout (binding = 0, rgba8) writeonly uniform image2D FinalFB;
 
 uint BlendFog(uint color, uint depth)
 {
@@ -1672,20 +1671,6 @@ void main()
     vec4 result = vec4(color.x & 0x3FU, bitfieldExtract(color.x, 8, 8), bitfieldExtract(color.x, 16, 8), bitfieldExtract(color.x, 24, 8));
     result /= vec4(63.0, 63.0, 63.0, 31.0);
     imageStore(FinalFB, ivec2(gl_GlobalInvocationID.xy), result);
-
-    // It's a division by constant, so using the builtin division is fine
-    const int scale = ScreenWidth/256;
-    ivec2 lowresCoordinate = ivec2(gl_GlobalInvocationID.xy) / scale;
-    ivec2 lowresCoordinateRest = ivec2(gl_GlobalInvocationID.xy) % scale;
-    if (lowresCoordinateRest == ivec2(0, 0))
-    {
-        uvec4 color8;
-        color8.x = bitfieldExtract(color.x, 0, 8);
-        color8.y = bitfieldExtract(color.x, 8, 8);
-        color8.z = bitfieldExtract(color.x, 16, 8);
-        color8.w = bitfieldExtract(color.x, 24, 8);
-        imageStore(LowResFB, lowresCoordinate, color8);
-    }
 }
 
 )";

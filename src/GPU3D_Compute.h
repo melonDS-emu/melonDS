@@ -223,10 +223,6 @@ private:
     u8 ClearBitmapDirty;
 
     GLuint Framebuffer = 0;
-    GLuint LowResFramebuffer;
-    GLuint PixelBuffer;
-
-    u32 FramebufferCPU[256*192];
 
     int ScreenWidth, ScreenHeight;
     int TilesPerLine, TileLines;

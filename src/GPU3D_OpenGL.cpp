@@ -271,7 +271,6 @@ std::unique_ptr<GLRenderer> GLRenderer::New(GPU& gpu) noexcept
     glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(IndexBuffer), nullptr, GL_DYNAMIC_DRAW);
 
     glGenFramebuffers(1, &result->MainFramebuffer);
-    glGenFramebuffers(1, &result->DownscaleFramebuffer);
 
     // color buffers
     glGenTextures(1, &result->ColorBufferTex);
@@ -288,15 +287,8 @@ std::unique_ptr<GLRenderer> GLRenderer::New(GPU& gpu) noexcept
     glGenTextures(1, &result->AttrBufferTex);
     SetupDefaultTexParams(result->AttrBufferTex);
 
-    // downscale framebuffer for display capture (always 256x192)
-    glGenTextures(1, &result->DownScaleBufferTex);
-    SetupDefaultTexParams(result->DownScaleBufferTex);
-    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, 256, 192, 0, GL_RGBA, GL_UNSIGNED_BYTE, NULL);
-
     glEnable(GL_BLEND);
     glBlendEquationSeparate(GL_FUNC_ADD, GL_MAX);
-
-    glGenBuffers(1, &result->PixelbufferID);
 
     glBindFramebuffer(GL_FRAMEBUFFER, 0);
 
@@ -316,11 +308,9 @@ GLRenderer::~GLRenderer()
     Texcache.Reset();
 
     glDeleteFramebuffers(1, &MainFramebuffer);
-    glDeleteFramebuffers(1, &DownscaleFramebuffer);
     glDeleteTextures(1, &ColorBufferTex);
     glDeleteTextures(1, &DepthBufferTex);
     glDeleteTextures(1, &AttrBufferTex);
-    glDeleteTextures(1, &DownScaleBufferTex);
 
     glDeleteVertexArrays(1, &VertexArrayID);
     glDeleteBuffers(1, &VertexBufferID);
@@ -332,7 +322,7 @@ GLRenderer::~GLRenderer()
 
     glDeleteBuffers(1, &ShaderConfigUBO);
 
-    for (int i = 0; i < 16; i++)
+    for (int i = 0; i < 2; i++)
     {
         if (!RenderShader[i]) continue;
         glDeleteProgram(RenderShader[i]);
@@ -377,9 +367,6 @@ void GLRenderer::SetRenderSettings(bool betterpolygons, int scale) noexcept
     glBindTexture(GL_TEXTURE_2D, AttrBufferTex);
     glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, ScreenW, ScreenH, 0, GL_RGB, GL_UNSIGNED_BYTE, NULL);
 
-    glBindFramebuffer(GL_FRAMEBUFFER, DownscaleFramebuffer);
-    glFramebufferTexture(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, DownScaleBufferTex, 0);
-
     GLenum fbassign[2] = {GL_COLOR_ATTACHMENT0, GL_COLOR_ATTACHMENT1};
 
     glBindFramebuffer(GL_FRAMEBUFFER, MainFramebuffer);
@@ -387,9 +374,6 @@ void GLRenderer::SetRenderSettings(bool betterpolygons, int scale) noexcept
     glFramebufferTexture(GL_FRAMEBUFFER, GL_DEPTH_STENCIL_ATTACHMENT, DepthBufferTex, 0);
     glFramebufferTexture(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT1, AttrBufferTex, 0);
     glDrawBuffers(2, fbassign);
-
-    glBindBuffer(GL_PIXEL_PACK_BUFFER, PixelbufferID);
-    glBufferData(GL_PIXEL_PACK_BUFFER, 256*192*4, NULL, GL_DYNAMIC_READ);
 
     glBindFramebuffer(GL_FRAMEBUFFER, 0);
 
@@ -1529,26 +1513,7 @@ void GLRenderer::BindOutputTexture(int buffer)
 
 u32* GLRenderer::GetLine(int line)
 {
-    int stride = 256;
-
-    if (line == 0)
-    {
-        glBindBuffer(GL_PIXEL_PACK_BUFFER, PixelbufferID);
-        u8* data = (u8*)glMapBuffer(GL_PIXEL_PACK_BUFFER, GL_READ_ONLY);
-        if (data) memcpy(&Framebuffer[stride*0], data, 4*stride*192);
-        glUnmapBuffer(GL_PIXEL_PACK_BUFFER);
-    }
-
-    u64* ptr = (u64*)&Framebuffer[stride * line];
-    for (int i = 0; i < stride; i+=2)
-    {
-        u64 rgb = *ptr & 0x00FCFCFC00FCFCFC;
-        u64 a = *ptr & 0xF8000000F8000000;
-
-        *ptr++ = (rgb >> 2) | (a >> 3);
-    }
-
-    return &Framebuffer[stride * line];
+    return nullptr;
 }
 
 /*void GLRenderer::SetupAccelFrame()

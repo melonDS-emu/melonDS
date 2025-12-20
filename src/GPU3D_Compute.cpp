@@ -203,9 +203,6 @@ std::unique_ptr<ComputeRenderer> ComputeRenderer::New(GPU& gpu)
     glGenBuffers(1, &result->WorkDescMemory);
 
     glGenTextures(1, &result->YSpanIndicesTexture);
-    glGenTextures(1, &result->LowResFramebuffer);
-    glBindTexture(GL_TEXTURE_2D, result->LowResFramebuffer);
-    glTexStorage2D(GL_TEXTURE_2D, 1, GL_RGBA8UI, 256, 192);
 
     glGenBuffers(1, &result->MetaUniformMemory);
     glBindBuffer(GL_UNIFORM_BUFFER, result->MetaUniformMemory);
@@ -244,10 +241,6 @@ std::unique_ptr<ComputeRenderer> ComputeRenderer::New(GPU& gpu)
     result->ClearBitmap[0] = new u32[256*256];
     result->ClearBitmap[1] = new u32[256*256];
 
-    glGenBuffers(1, &result->PixelBuffer);
-    glBindBuffer(GL_PIXEL_PACK_BUFFER, result->PixelBuffer);
-    glBufferData(GL_PIXEL_PACK_BUFFER, 256*192*4, NULL, GL_DYNAMIC_READ);
-
     // init views on the 2D hi-res capture textures
     // TODO make sure this is done after 2D renderer init
     // all really ought to be made nicer!!
@@ -279,8 +272,6 @@ ComputeRenderer::~ComputeRenderer()
     glDeleteTextures(2, ClearBitmapTex);
     delete[] ClearBitmap[0];
     delete[] ClearBitmap[1];
-
-    glDeleteBuffers(1, &PixelBuffer);
 }
 
 void ComputeRenderer::DeleteShaders()
@@ -1176,7 +1167,6 @@ void ComputeRenderer::RenderFrame(GPU& gpu)
     glMemoryBarrier(GL_SHADER_STORAGE_BARRIER_BIT);
 
     glBindImageTexture(0, Framebuffer, 0, GL_FALSE, 0, GL_WRITE_ONLY, GL_RGBA8);
-    glBindImageTexture(1, LowResFramebuffer, 0, GL_FALSE, 0, GL_WRITE_ONLY, GL_RGBA8UI);
     u32 finalPassShader = 0;
     if (gpu.GPU3D.RenderDispCnt & (1<<4))
         finalPassShader |= 0x4;
@@ -1245,17 +1235,7 @@ void ComputeRenderer::RestartFrame(GPU& gpu)
 
 u32* ComputeRenderer::GetLine(int line)
 {
-    int stride = 256;
-
-    if (line == 0)
-    {
-        glBindBuffer(GL_PIXEL_PACK_BUFFER, PixelBuffer);
-        u8* data = (u8*)glMapBuffer(GL_PIXEL_PACK_BUFFER, GL_READ_ONLY);
-        if (data) memcpy(&FramebufferCPU[0], data, 4*stride*192);
-        glUnmapBuffer(GL_PIXEL_PACK_BUFFER);
-    }
-
-    return &FramebufferCPU[stride * line];
+    return nullptr;
 }
 
 /*void ComputeRenderer::SetupAccelFrame()

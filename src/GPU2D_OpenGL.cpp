@@ -1951,7 +1951,6 @@ void GLRenderer::SyncVRAMCapture(u32 bank, u32 start, u32 len, bool complete)
                           GL_COLOR_BUFFER_BIT, GL_NEAREST);
 
         glBindFramebuffer(GL_READ_FRAMEBUFFER, CaptureSyncFB);
-        glBindBuffer(GL_PIXEL_PACK_BUFFER, 0); // TODO remove me
 
         glReadPixels(0, 0, 128, 128,
                      GL_RGBA, GL_UNSIGNED_SHORT_1_5_5_5_REV, &vram[start * 64 * 512]);
@@ -1968,7 +1967,6 @@ void GLRenderer::SyncVRAMCapture(u32 bank, u32 start, u32 len, bool complete)
                           GL_COLOR_BUFFER_BIT, GL_NEAREST);
 
         glBindFramebuffer(GL_READ_FRAMEBUFFER, CaptureSyncFB);
-        glBindBuffer(GL_PIXEL_PACK_BUFFER, 0); // TODO remove me
 
         u32 pos = start;
         for (u32 i = 0; i < len;)
