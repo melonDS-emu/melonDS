@@ -49,7 +49,7 @@ vec4 FinalColor()
         }
     }
 
-    if (fPolygonAttr.y == -1)
+    if (fPolygonAttr.y == 0xFFFF)
     {
         // no texture
         col = vcol;
