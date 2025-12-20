@@ -70,10 +70,8 @@ bool GLRenderer::BuildRenderShader(bool wbuffer)
 
     glUseProgram(prog);
 
-    uni_id = glGetUniformLocation(prog, "TexMem");
+    uni_id = glGetUniformLocation(prog, "CurTexture");
     glUniform1i(uni_id, 0);
-    uni_id = glGetUniformLocation(prog, "TexPalMem");
-    glUniform1i(uni_id, 1);
 
     RenderShader[(int)wbuffer] = prog;
 
@@ -101,7 +99,7 @@ void SetupDefaultTexParams(GLuint tex)
 
 //GLRenderer::GLRenderer(GLCompositor&& compositor) noexcept :
 GLRenderer::GLRenderer() noexcept :
-    Renderer3D(true)
+    Renderer3D(true), Texcache(TexcacheOpenGLLoader())
     //CurGLCompositor(std::move(compositor))
 {
     // GLRenderer::New() will be used to actually initialize the renderer;
@@ -258,24 +256,6 @@ std::unique_ptr<GLRenderer> GLRenderer::New() noexcept
 
     glGenBuffers(1, &result->PixelbufferID);
 
-    glActiveTexture(GL_TEXTURE0);
-    glGenTextures(1, &result->TexMemID);
-    glBindTexture(GL_TEXTURE_2D, result->TexMemID);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
-    glTexImage2D(GL_TEXTURE_2D, 0, GL_R8UI, 1024, 512, 0, GL_RED_INTEGER, GL_UNSIGNED_BYTE, NULL);
-
-    glActiveTexture(GL_TEXTURE1);
-    glGenTextures(1, &result->TexPalMemID);
-    glBindTexture(GL_TEXTURE_2D, result->TexPalMemID);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
-    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB5_A1, 1024, 48, 0, GL_RGBA, GL_UNSIGNED_SHORT_1_5_5_5_REV, NULL);
-
     glBindFramebuffer(GL_FRAMEBUFFER, 0);
 
     return result;
@@ -285,8 +265,7 @@ GLRenderer::~GLRenderer()
 {
     assert(glDeleteTextures != nullptr);
 
-    glDeleteTextures(1, &TexMemID);
-    glDeleteTextures(1, &TexPalMemID);
+    Texcache.Reset();
 
     glDeleteFramebuffers(1, &MainFramebuffer);
     glDeleteFramebuffers(1, &DownscaleFramebuffer);
@@ -311,8 +290,7 @@ GLRenderer::~GLRenderer()
 
 void GLRenderer::Reset(GPU& gpu)
 {
-    // This is where the compositor's Reset() method would be called,
-    // except there's no such method right now.
+    Texcache.Reset();
 }
 
 void GLRenderer::SetBetterPolygons(bool betterpolygons) noexcept
@@ -412,9 +390,14 @@ void GLRenderer::SetupPolygon(GLRenderer::RendererPolygon* rp, Polygon* polygon)
     {
         rp->RenderKey |= 0x30000;
     }
+
+    u32 textype = (polygon->TexParam >> 26) & 0x7;
+    u32 texattr = (polygon->TexParam >> 16) & 0x3FF;
+    if (TexEnable && (textype != 0))
+        rp->RenderKey |= (0x80000 | (texattr << 20));
 }
 
-u32* GLRenderer::SetupVertex(const Polygon* poly, int vid, const Vertex* vtx, u32 vtxattr, u32* vptr) const
+u32* GLRenderer::SetupVertex(const Polygon* poly, int vid, const Vertex* vtx, u32 vtxattr, u32 texlayer, u32* vptr) const
 {
     u32 z = poly->FinalZ[vid];
     u32 w = poly->FinalW[vid];
@@ -469,19 +452,24 @@ u32* GLRenderer::SetupVertex(const Polygon* poly, int vid, const Vertex* vtx, u3
     *vptr++ = (u16)vtx->TexCoords[0] | ((u16)vtx->TexCoords[1] << 16);
 
     *vptr++ = vtxattr | (zshift << 16);
-    *vptr++ = poly->TexParam;
-    *vptr++ = poly->TexPalette;
+    *vptr++ = texlayer;
+    *vptr++ = TextureWidth(poly->TexParam) | (TextureHeight(poly->TexParam) << 16);
 
     return vptr;
 }
 
-void GLRenderer::BuildPolygons(GLRenderer::RendererPolygon* polygons, int npolys)
+void GLRenderer::BuildPolygons(GPU& gpu, GLRenderer::RendererPolygon* polygons, int npolys)
 {
     u32* vptr = &VertexBuffer[0];
     u32 vidx = 0;
 
     u32 iidx = 0;
     u32 eidx = EdgeIndicesOffset;
+
+    u32 curtexparam = 0;
+    u32 curtexpal = 0;
+    GLuint curtexid = 0;
+    u32 curtexlayer = (u32)-1;
 
     for (int i = 0; i < npolys; i++)
     {
@@ -494,12 +482,36 @@ void GLRenderer::BuildPolygons(GLRenderer::RendererPolygon* polygons, int npolys
         u32 vidx_first = vidx;
 
         u32 polyattr = poly->Attr;
+        u32 texparam = poly->TexParam & ~0xC00F0000;
+        u32 texpal = poly->TexPalette;
 
         u32 alpha = (polyattr >> 16) & 0x1F;
 
         u32 vtxattr = polyattr & 0x1F00C8F0;
         if (poly->FacingView) vtxattr |= (1<<8);
         if (poly->WBuffer)    vtxattr |= (1<<9);
+
+        if ((texparam != curtexparam) || (texpal != curtexpal))
+        {
+            if (TexEnable && (((texparam >> 26) & 0x7) != 0))
+            {
+                // figure out which texture this polygon is going to use
+                u32* halp;
+                Texcache.GetTexture(gpu, texparam, texpal, curtexid, curtexlayer, halp);
+            }
+            else
+            {
+                // no texture
+                curtexid = 0;
+                curtexlayer = (u32)-1;
+            }
+
+            curtexparam = texparam;
+            curtexpal = texpal;
+        }
+
+        rp->TexID = curtexid;
+        rp->TexRepeat = (poly->TexParam >> 16) & 0xF;
 
         // assemble vertices
         if (poly->Type == 1) // line
@@ -521,7 +533,7 @@ void GLRenderer::BuildPolygons(GLRenderer::RendererPolygon* polygons, int npolys
                 lastx = vtx->FinalPosition[0];
                 lasty = vtx->FinalPosition[1];
 
-                vptr = SetupVertex(poly, j, vtx, vtxattr, vptr);
+                vptr = SetupVertex(poly, j, vtx, vtxattr, curtexlayer, vptr);
 
                 IndexBuffer[iidx++] = vidx;
                 rp->NumIndices++;
@@ -539,7 +551,7 @@ void GLRenderer::BuildPolygons(GLRenderer::RendererPolygon* polygons, int npolys
             {
                 Vertex* vtx = poly->Vertices[j];
 
-                vptr = SetupVertex(poly, j, vtx, vtxattr, vptr);
+                vptr = SetupVertex(poly, j, vtx, vtxattr, curtexlayer, vptr);
                 vidx++;
             }
 
@@ -561,7 +573,7 @@ void GLRenderer::BuildPolygons(GLRenderer::RendererPolygon* polygons, int npolys
                 {
                     Vertex* vtx = poly->Vertices[j];
 
-                    vptr = SetupVertex(poly, j, vtx, vtxattr, vptr);
+                    vptr = SetupVertex(poly, j, vtx, vtxattr, curtexlayer, vptr);
 
                     if (j >= 2)
                     {
@@ -645,8 +657,8 @@ void GLRenderer::BuildPolygons(GLRenderer::RendererPolygon* polygons, int npolys
                 *vptr++ = (u16)cS | ((u16)cT << 16);
 
                 *vptr++ = vtxattr | (zshift << 16);
-                *vptr++ = poly->TexParam;
-                *vptr++ = poly->TexPalette;
+                *vptr++ = curtexlayer;
+                *vptr++ = TextureWidth(texparam) | (TextureHeight(texparam) << 16);
 
                 vidx++;
 
@@ -655,7 +667,7 @@ void GLRenderer::BuildPolygons(GLRenderer::RendererPolygon* polygons, int npolys
                 {
                     Vertex* vtx = poly->Vertices[j];
 
-                    vptr = SetupVertex(poly, j, vtx, vtxattr, vptr);
+                    vptr = SetupVertex(poly, j, vtx, vtxattr, curtexlayer, vptr);
 
                     if (j >= 1)
                     {
@@ -697,10 +709,31 @@ void GLRenderer::BuildPolygons(GLRenderer::RendererPolygon* polygons, int npolys
     NumEdgeIndices = eidx - EdgeIndicesOffset;
 }
 
+void GLRenderer::SetupPolygonTexture(const RendererPolygon* poly) const
+{
+    glBindTexture(GL_TEXTURE_2D_ARRAY, poly->TexID);
+
+    GLint repeatS, repeatT;
+
+    if (poly->TexRepeat & (1<<0))
+        repeatS = (poly->TexRepeat & (1<<2)) ? GL_MIRRORED_REPEAT : GL_REPEAT;
+    else
+        repeatS = GL_CLAMP_TO_EDGE;
+
+    if (poly->TexRepeat & (1<<1))
+        repeatT = (poly->TexRepeat & (1<<3)) ? GL_MIRRORED_REPEAT : GL_REPEAT;
+    else
+        repeatT = GL_CLAMP_TO_EDGE;
+
+    glTexParameteri(GL_TEXTURE_2D_ARRAY, GL_TEXTURE_WRAP_S, repeatS);
+    glTexParameteri(GL_TEXTURE_2D_ARRAY, GL_TEXTURE_WRAP_T, repeatT);
+}
+
 int GLRenderer::RenderSinglePolygon(int i) const
 {
     const RendererPolygon* rp = &PolygonList[i];
 
+    SetupPolygonTexture(rp);
     glDrawElements(rp->PrimType, rp->NumIndices, GL_UNSIGNED_SHORT, (void*)(uintptr_t)(rp->IndicesOffset * 2));
 
     return 1;
@@ -710,7 +743,9 @@ int GLRenderer::RenderPolygonBatch(int i) const
 {
     const RendererPolygon* rp = &PolygonList[i];
     GLuint primtype = rp->PrimType;
-    u32 key = rp->RenderKey;
+    u32 renderkey = rp->RenderKey;
+    GLuint texid = rp->TexID;
+    u32 texrepeat = rp->TexRepeat;
     int numpolys = 0;
     u32 numindices = 0;
 
@@ -718,12 +753,15 @@ int GLRenderer::RenderPolygonBatch(int i) const
     {
         const RendererPolygon* cur_rp = &PolygonList[iend];
         if (cur_rp->PrimType != primtype) break;
-        if (cur_rp->RenderKey != key) break;
+        if (cur_rp->RenderKey != renderkey) break;
+        if (cur_rp->TexID != texid) break;
+        if (cur_rp->TexRepeat != texrepeat) break;
 
         numpolys++;
         numindices += cur_rp->NumIndices;
     }
 
+    SetupPolygonTexture(rp);
     glDrawElements(primtype, numindices, GL_UNSIGNED_SHORT, (void*)(uintptr_t)(rp->IndicesOffset * 2));
     return numpolys;
 }
@@ -731,19 +769,24 @@ int GLRenderer::RenderPolygonBatch(int i) const
 int GLRenderer::RenderPolygonEdgeBatch(int i) const
 {
     const RendererPolygon* rp = &PolygonList[i];
-    u32 key = rp->RenderKey;
+    u32 renderkey = rp->RenderKey;
+    GLuint texid = rp->TexID;
+    u32 texrepeat = rp->TexRepeat;
     int numpolys = 0;
     u32 numindices = 0;
 
     for (int iend = i; iend < NumFinalPolys; iend++)
     {
         const RendererPolygon* cur_rp = &PolygonList[iend];
-        if (cur_rp->RenderKey != key) break;
+        if (cur_rp->RenderKey != renderkey) break;
+        if (cur_rp->TexID != texid) break;
+        if (cur_rp->TexRepeat != texrepeat) break;
 
         numpolys++;
         numindices += cur_rp->NumEdgeIndices;
     }
 
+    SetupPolygonTexture(rp);
     glDrawElements(GL_LINES, numindices, GL_UNSIGNED_SHORT, (void*)(uintptr_t)(rp->EdgeIndicesOffset * 2));
     return numpolys;
 }
@@ -753,7 +796,7 @@ void GLRenderer::RenderSceneChunk(const GPU3D& gpu3d, int y, int h)
     bool flags = gpu3d.RenderPolygonRAM[0]->WBuffer;
     UseRenderShader(flags);
 
-    if (h != 192) glScissor(0, y<<ScaleFactor, 256<<ScaleFactor, h<<ScaleFactor);
+    //if (h != 192) glScissor(0, y<<ScaleFactor, 256<<ScaleFactor, h<<ScaleFactor);
 
     GLboolean fogenable = (gpu3d.RenderDispCnt & (1<<7)) ? GL_TRUE : GL_FALSE;
 
@@ -786,6 +829,7 @@ void GLRenderer::RenderSceneChunk(const GPU3D& gpu3d, int y, int h)
     glDepthMask(GL_TRUE);
 
     glBindVertexArray(VertexArrayID);
+    glActiveTexture(GL_TEXTURE0);
 
     for (int i = 0; i < NumFinalPolys; )
     {
@@ -1145,6 +1189,14 @@ void GLRenderer::RenderSceneChunk(const GPU3D& gpu3d, int y, int h)
 
 void GLRenderer::RenderFrame(GPU& gpu)
 {
+    u8 clrBitmapDirty;
+    if (!Texcache.Update(gpu, clrBitmapDirty) && gpu.GPU3D.RenderFrameIdentical)
+    {
+        return;
+    }
+
+    TexEnable = !!(gpu.GPU3D.RenderDispCnt & (1<<0));
+
     CurShaderID = -1;
 
     glBindFramebuffer(GL_READ_FRAMEBUFFER, 0);
@@ -1204,38 +1256,6 @@ void GLRenderer::RenderFrame(GPU& gpu)
     void* unibuf = glMapBuffer(GL_UNIFORM_BUFFER, GL_WRITE_ONLY);
     if (unibuf) memcpy(unibuf, &ShaderConfig, sizeof(ShaderConfig));
     glUnmapBuffer(GL_UNIFORM_BUFFER);
-
-    // SUCKY!!!!!!!!!!!!!!!!!!
-    // TODO: detect when VRAM blocks are modified!
-    glActiveTexture(GL_TEXTURE0);
-    glBindTexture(GL_TEXTURE_2D, TexMemID);
-    for (int i = 0; i < 4; i++)
-    {
-        u32 mask = gpu.VRAMMap_Texture[i];
-        u8* vram;
-        if (!mask) continue;
-        else if (mask & (1<<0)) vram = gpu.VRAM_A;
-        else if (mask & (1<<1)) vram = gpu.VRAM_B;
-        else if (mask & (1<<2)) vram = gpu.VRAM_C;
-        else if (mask & (1<<3)) vram = gpu.VRAM_D;
-
-        glTexSubImage2D(GL_TEXTURE_2D, 0, 0, i*128, 1024, 128, GL_RED_INTEGER, GL_UNSIGNED_BYTE, vram);
-    }
-
-    glActiveTexture(GL_TEXTURE1);
-    glBindTexture(GL_TEXTURE_2D, TexPalMemID);
-    for (int i = 0; i < 6; i++)
-    {
-        // 6 x 16K chunks
-        u32 mask = gpu.VRAMMap_TexPal[i];
-        u8* vram;
-        if (!mask) continue;
-        else if (mask & (1<<4)) vram = &gpu.VRAM_E[(i&3)*0x4000];
-        else if (mask & (1<<5)) vram = gpu.VRAM_F;
-        else if (mask & (1<<6)) vram = gpu.VRAM_G;
-
-        glTexSubImage2D(GL_TEXTURE_2D, 0, 0, i*8, 1024, 8, GL_RGBA, GL_UNSIGNED_SHORT_1_5_5_5_REV, vram);
-    }
 
     glDisable(GL_SCISSOR_TEST);
     glEnable(GL_DEPTH_TEST);
@@ -1299,7 +1319,7 @@ void GLRenderer::RenderFrame(GPU& gpu)
         NumFinalPolys = npolys;
         NumOpaqueFinalPolys = firsttrans;
 
-        BuildPolygons(&PolygonList[0], npolys);
+        BuildPolygons(gpu, &PolygonList[0], npolys);
         glBindBuffer(GL_ARRAY_BUFFER, VertexBufferID);
         glBufferSubData(GL_ARRAY_BUFFER, 0, NumVertices*7*4, VertexBuffer);
 

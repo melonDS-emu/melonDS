@@ -21,6 +21,8 @@
 #ifdef OGLRENDERER_ENABLED
 #include "GPU3D.h"
 #include "OpenGLSupport.h"
+#include "GPU3D_TexcacheOpenGL.h"
+#include "NonStupidBitfield.h"
 
 namespace melonDS
 {
@@ -70,16 +72,23 @@ private:
         u32 EdgeIndicesOffset;
 
         u32 RenderKey;
+
+        GLuint TexID;
+        u32 TexRepeat;
     };
 
     //GLCompositor CurGLCompositor;
     RendererPolygon PolygonList[2048] {};
 
+    bool TexEnable;
+    TexcacheOpenGL Texcache;
+
     bool BuildRenderShader(bool wbuffer);
     void UseRenderShader(bool wbuffer);
     void SetupPolygon(RendererPolygon* rp, Polygon* polygon) const;
-    u32* SetupVertex(const Polygon* poly, int vid, const Vertex* vtx, u32 vtxattr, u32* vptr) const;
-    void BuildPolygons(RendererPolygon* polygons, int npolys);
+    u32* SetupVertex(const Polygon* poly, int vid, const Vertex* vtx, u32 vtxattr, u32 texlayer, u32* vptr) const;
+    void BuildPolygons(GPU& gpu, RendererPolygon* polygons, int npolys);
+    void SetupPolygonTexture(const RendererPolygon* poly) const;
     int RenderSinglePolygon(int i) const;
     int RenderPolygonBatch(int i) const;
     int RenderPolygonEdgeBatch(int i) const;
@@ -146,9 +155,6 @@ private:
     u32 NumIndices {}, NumEdgeIndices {};
 
     const u32 EdgeIndicesOffset = 2048 * 30;
-
-    GLuint TexMemID {};
-    GLuint TexPalMemID {};
 
     int ScaleFactor {};
     bool BetterPolygons {};

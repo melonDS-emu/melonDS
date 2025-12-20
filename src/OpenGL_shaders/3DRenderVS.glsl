@@ -41,8 +41,12 @@ void main()
     fpos.w = float(vPosition.w) / 65536.0f;
     fpos.xyz *= fpos.w;
 
+    int texwidth = vPolygonAttr.z & 0xFFFF;
+    int texheight = (vPolygonAttr.z >> 16) & 0xFFFF;
+    vec2 texfactor = 1.0 / (16 * vec2(texwidth, texheight));
+
     fColor = vec4(vColor) / vec4(255.0,255.0,255.0,31.0);
-    fTexcoord = vec2(vTexcoord) / 16.0;
+    fTexcoord = vec2(vTexcoord) * texfactor;
     fPolygonAttr = vPolygonAttr;
 
     gl_Position = fpos;
