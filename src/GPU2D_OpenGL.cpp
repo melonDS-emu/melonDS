@@ -517,17 +517,14 @@ bool GLRenderer::GLInit()
     glGenFramebuffers(1, &CaptureVRAMFB);
 
     //glGenTextures(FPOutputTex.size(), &FPOutputTex[0]);
+    glGenTextures(2, FPOutputTex);
     for (int i = 0; i < 2; i++)
     {
-        glGenTextures(2, FPOutputTex[i]);
-        for (GLuint tex: FPOutputTex[i])
-        {
-            glBindTexture(GL_TEXTURE_2D, tex);
-            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
-            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
-            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
-            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
-        }
+        glBindTexture(GL_TEXTURE_2D_ARRAY, FPOutputTex[i]);
+        glTexParameteri(GL_TEXTURE_2D_ARRAY, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+        glTexParameteri(GL_TEXTURE_2D_ARRAY, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+        glTexParameteri(GL_TEXTURE_2D_ARRAY, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+        glTexParameteri(GL_TEXTURE_2D_ARRAY, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
     }
 
     glBindFramebuffer(GL_FRAMEBUFFER, 0);
@@ -545,8 +542,7 @@ GLRenderer::~GLRenderer()
     //glDeleteTextures(1, &LineAttribTex);
     //glDeleteTextures(1, &BGOBJTex);
     //glDeleteTextures(FPOutputTex.size(), &FPOutputTex[0]);
-    for (int i = 0; i < 2; i++)
-        glDeleteTextures(2, FPOutputTex[i]);
+    glDeleteTextures(2, FPOutputTex);
     //glDeleteTextures(1, &test);
 
     glDeleteVertexArrays(1, &FPVertexArrayID);
@@ -666,21 +662,13 @@ void GLRenderer::SetScaleFactor(int scale)
 
     for (int i = 0; i < 2; i++)
     {
-        /*glBindTexture(GL_TEXTURE_2D, FPOutputTex[i]);
-        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, ScreenW, ScreenH, 0, GL_RGBA, GL_UNSIGNED_BYTE, NULL);
-        // fill the padding
-        u8* zeroPixels = (u8*) calloc(1, ScreenW*2*scale*4);
-        glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 192*scale, ScreenW, 2*scale, GL_RGBA, GL_UNSIGNED_BYTE, zeroPixels);*/
-        for (GLuint tex : FPOutputTex[i])
-        {
-            glBindTexture(GL_TEXTURE_2D, tex);
-            glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, ScreenW, ScreenH, 0, GL_RGBA, GL_UNSIGNED_BYTE, nullptr);
-        }
+        glBindTexture(GL_TEXTURE_2D_ARRAY, FPOutputTex[i]);
+        glTexImage3D(GL_TEXTURE_2D_ARRAY, 0, GL_RGBA, ScreenW, ScreenH, 2, 0, GL_RGBA, GL_UNSIGNED_BYTE, nullptr);
 
         //GLenum fbassign[] = {GL_COLOR_ATTACHMENT0, GL_COLOR_ATTACHMENT1, GL_COLOR_ATTACHMENT2};
         glBindFramebuffer(GL_FRAMEBUFFER, FPOutputFB[i]);
-        glFramebufferTexture(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, FPOutputTex[i][0], 0);
-        glFramebufferTexture(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT1, FPOutputTex[i][1], 0);
+        glFramebufferTextureLayer(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, FPOutputTex[i], 0, 0);
+        glFramebufferTextureLayer(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT1, FPOutputTex[i], 0, 1);
         //glFramebufferTexture(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT2, 0, 0);
         //glFramebufferTexture(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT2, test, 0);
         //glDrawBuffers(3, fbassign);
@@ -1993,9 +1981,7 @@ bool GLRenderer::GetFramebuffers(u32** top, u32** bottom)
 {
     int frontbuf = BackBuffer ^ 1;
     glActiveTexture(GL_TEXTURE0);
-    glBindTexture(GL_TEXTURE_2D, FPOutputTex[frontbuf][0]);
-    glActiveTexture(GL_TEXTURE1);
-    glBindTexture(GL_TEXTURE_2D, FPOutputTex[frontbuf][1]);
+    glBindTexture(GL_TEXTURE_2D_ARRAY, FPOutputTex[frontbuf]);
     return false;
 }
 

@@ -989,17 +989,12 @@ void ScreenPanelGL::initOpenGL()
 
     glGenTextures(1, &screenTexture);
     glActiveTexture(GL_TEXTURE0);
-    glBindTexture(GL_TEXTURE_2D, screenTexture);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
-    //glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, 256, paddedHeight, 0, GL_RGBA, GL_UNSIGNED_BYTE, NULL);
-    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, 256, 192*2, 0, GL_RGBA, GL_UNSIGNED_BYTE, NULL);
-    // fill the padding
-    u8 zeroData[256*4*4];
-    memset(zeroData, 0, sizeof(zeroData));
-    glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 192, 256, 2, GL_RGBA, GL_UNSIGNED_BYTE, zeroData);
+    glBindTexture(GL_TEXTURE_2D_ARRAY, screenTexture);
+    glTexParameteri(GL_TEXTURE_2D_ARRAY, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+    glTexParameteri(GL_TEXTURE_2D_ARRAY, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+    glTexParameteri(GL_TEXTURE_2D_ARRAY, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+    glTexParameteri(GL_TEXTURE_2D_ARRAY, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+    glTexImage3D(GL_TEXTURE_2D_ARRAY, 0, GL_BGRA, 256, 192, 2, 0, GL_BGRA, GL_UNSIGNED_BYTE, nullptr);
 
 
     OpenGL::CompileVertexFragmentProgram(osdShader,
@@ -1165,19 +1160,19 @@ void ScreenPanelGL::drawScreen()
             // otherwise, GetFramebuffers() will set up the required state
 
             glActiveTexture(GL_TEXTURE0);
-            glBindTexture(GL_TEXTURE_2D, screenTexture);
+            glBindTexture(GL_TEXTURE_2D_ARRAY, screenTexture);
 
-            glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, 256, 192, GL_RGBA,
+            glTexSubImage3D(GL_TEXTURE_2D_ARRAY, 0, 0, 0, 0, 256, 192, 1, GL_BGRA,
                             GL_UNSIGNED_BYTE, topbuf);
-            glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 192 + 2, 256, 192, GL_RGBA,
+            glTexSubImage3D(GL_TEXTURE_2D_ARRAY, 0, 0, 0, 1, 256, 192, 1, GL_BGRA,
                             GL_UNSIGNED_BYTE, bottombuf);
         }
 
         screenSettingsLock.lock();
 
         GLint filter = this->filter ? GL_LINEAR : GL_NEAREST;
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, filter);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, filter);
+        glTexParameteri(GL_TEXTURE_2D_ARRAY, GL_TEXTURE_MIN_FILTER, filter);
+        glTexParameteri(GL_TEXTURE_2D_ARRAY, GL_TEXTURE_MAG_FILTER, filter);
 
         glBindBuffer(GL_ARRAY_BUFFER, screenVertexBuffer);
         glBindVertexArray(screenVertexArray);

@@ -237,10 +237,7 @@ private:
 
     u16 CaptureUsageMask;
 
-    //
-    //std::array<GLuint, 2> FPOutputTex {};  // final output
-    //std::array<GLuint, 2> FPOutputFB {};
-    GLuint FPOutputTex[2][2];               // final output
+    GLuint FPOutputTex[2];               // final output
     GLuint FPOutputFB[2];
 
     struct sCaptureConfig

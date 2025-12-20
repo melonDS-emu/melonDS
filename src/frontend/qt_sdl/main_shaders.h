@@ -47,8 +47,7 @@ void main()
 
 const char* kScreenFS = R"(#version 140
 
-uniform sampler2D TopScreenTex;
-uniform sampler2D BottomScreenTex;
+uniform sampler2DArray ScreenTex;
 
 smooth in vec3 fTexcoord;
 
@@ -56,11 +55,7 @@ out vec4 oColor;
 
 void main()
 {
-    vec4 pixel;
-    if (fTexcoord.z > 0.5)
-        pixel = texture(BottomScreenTex, fTexcoord.xy);
-    else
-        pixel = texture(TopScreenTex, fTexcoord.xy);
+    vec4 pixel = texture(ScreenTex, fTexcoord);
 
     oColor = vec4(pixel.rgb, 1.0);
 }
