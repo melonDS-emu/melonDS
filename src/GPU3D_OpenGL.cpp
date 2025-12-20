@@ -16,6 +16,7 @@
     with melonDS. If not, see http://www.gnu.org/licenses/.
 */
 
+#include "GPU2D_OpenGL.h"
 #include "GPU3D_OpenGL.h"
 
 #include <assert.h>
@@ -72,6 +73,8 @@ bool GLRenderer::BuildRenderShader(bool wbuffer)
 
     uni_id = glGetUniformLocation(prog, "CurTexture");
     glUniform1i(uni_id, 0);
+    uni_id = glGetUniformLocation(prog, "CaptureTexture");
+    glUniform1i(uni_id, 0);
 
     RenderShader[(int)wbuffer] = prog;
 
@@ -107,7 +110,7 @@ GLRenderer::GLRenderer() noexcept :
     // so we can just let the destructor clean up a half-initialized renderer.
 }
 
-std::unique_ptr<GLRenderer> GLRenderer::New() noexcept
+std::unique_ptr<GLRenderer> GLRenderer::New(GPU& gpu) noexcept
 {
     assert(glEnable != nullptr);
 
@@ -257,6 +260,12 @@ std::unique_ptr<GLRenderer> GLRenderer::New() noexcept
     glGenBuffers(1, &result->PixelbufferID);
 
     glBindFramebuffer(GL_FRAMEBUFFER, 0);
+
+    // TODO make sure this is done after 2D renderer init
+    // all really ought to be made nicer!!
+    auto& gpu2D = (GPU2D::GLRenderer&)gpu.GetRenderer2D();
+    result->CaptureTexView128 = gpu2D.GetCaptureBuffer(128);
+    result->CaptureTexView256 = gpu2D.GetCaptureBuffer(256);
 
     return result;
 }
@@ -458,7 +467,7 @@ u32* GLRenderer::SetupVertex(const Polygon* poly, int vid, const Vertex* vtx, u3
     return vptr;
 }
 
-void GLRenderer::BuildPolygons(GPU& gpu, GLRenderer::RendererPolygon* polygons, int npolys)
+void GLRenderer::BuildPolygons(GPU& gpu, GLRenderer::RendererPolygon* polygons, int npolys, int captureinfo[16])
 {
     u32* vptr = &VertexBuffer[0];
     u32 vidx = 0;
@@ -493,11 +502,53 @@ void GLRenderer::BuildPolygons(GPU& gpu, GLRenderer::RendererPolygon* polygons, 
 
         if ((texparam != curtexparam) || (texpal != curtexpal))
         {
-            if (TexEnable && (((texparam >> 26) & 0x7) != 0))
+            u32 textype = (texparam >> 26) & 0x7;
+            if (TexEnable && (textype != 0))
             {
                 // figure out which texture this polygon is going to use
-                u32* halp;
-                Texcache.GetTexture(gpu, texparam, texpal, curtexid, curtexlayer, halp);
+
+                u32 texaddr = texparam & 0xFFFF;
+                u32 texwidth = TextureWidth(texparam);
+                u32 texheight = TextureHeight(texparam);
+                int capblock = -1;
+                if ((textype == 7) && ((texwidth == 128) || (texwidth == 256)))
+                {
+                    // if this is a direct color texture, and the width is 128 or 256
+                    // then it might be a display capture
+                    u32 startaddr = texaddr << 3;
+                    u32 endaddr = startaddr + (texheight * texwidth * 2);
+
+                    startaddr >>= 15;
+                    endaddr = (endaddr + 0x7FFF) >> 15;
+
+                    for (u32 b = startaddr; b < endaddr; b++)
+                    {
+                        int blk = captureinfo[b];
+                        if (blk == -1) continue;
+
+                        capblock = blk;
+                    }
+                }
+
+                if (capblock != -1)
+                {
+                    if (texwidth == 128)
+                    {
+                        curtexid = CaptureTexView128;
+                        curtexlayer = capblock | ((texaddr >> 5) & 0x7F);
+                    }
+                    else
+                    {
+                        curtexid = CaptureTexView256;
+                        curtexlayer = (capblock >> 2) | ((texaddr >> 6) & 0xFF);
+                    }
+                }
+                else
+                {
+                    u32* halp;
+                    Texcache.GetTexture(gpu, texparam, texpal, curtexid, curtexlayer, halp);
+                    curtexlayer |= 0xFFFF0000;
+                }
             }
             else
             {
@@ -1195,6 +1246,10 @@ void GLRenderer::RenderFrame(GPU& gpu)
         return;
     }
 
+    // figure out which chunks of texture memory contain display captures
+    int captureinfo[16];
+    gpu.GetCaptureInfo_Texture(captureinfo);
+
     TexEnable = !!(gpu.GPU3D.RenderDispCnt & (1<<0));
 
     CurShaderID = -1;
@@ -1319,7 +1374,7 @@ void GLRenderer::RenderFrame(GPU& gpu)
         NumFinalPolys = npolys;
         NumOpaqueFinalPolys = firsttrans;
 
-        BuildPolygons(gpu, &PolygonList[0], npolys);
+        BuildPolygons(gpu, &PolygonList[0], npolys, captureinfo);
         glBindBuffer(GL_ARRAY_BUFFER, VertexBufferID);
         glBufferSubData(GL_ARRAY_BUFFER, 0, NumVertices*7*4, VertexBuffer);
 

@@ -869,7 +869,7 @@ void EmuThread::updateRenderer()
                 break;
             case renderer3D_OpenGL:
                 gpu.SetRenderer2D(GPU2D::GLRenderer::New(gpu));
-                gpu.SetRenderer3D(GLRenderer::New());
+                gpu.SetRenderer3D(GLRenderer::New(gpu));
                 break;
             case renderer3D_OpenGLCompute:
                 gpu.SetRenderer2D(GPU2D::GLRenderer::New(gpu));

@@ -45,9 +45,15 @@ void main()
     int texheight = (vPolygonAttr.z >> 16) & 0xFFFF;
     vec2 texfactor = 1.0 / (16 * vec2(texwidth, texheight));
 
+    vec2 texcoord = vec2(vTexcoord);
+    int capyoffset = vPolygonAttr.y >> 16;
+    if (capyoffset != -1)
+        texcoord.y += capyoffset;
+
     fColor = vec4(vColor) / vec4(255.0,255.0,255.0,31.0);
-    fTexcoord = vec2(vTexcoord) * texfactor;
-    fPolygonAttr = vPolygonAttr;
+    fTexcoord = texcoord * texfactor;
+    fPolygonAttr = ivec3(vPolygonAttr.x, vPolygonAttr.y & 0xFFFF, capyoffset);
+    if (fPolygonAttr.z != -1)
 
     gl_Position = fpos;
 }

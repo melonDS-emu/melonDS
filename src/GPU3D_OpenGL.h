@@ -31,7 +31,7 @@ class GPU;
 class GLRenderer : public Renderer3D
 {
 public:
-    static std::unique_ptr<GLRenderer> New() noexcept;
+    static std::unique_ptr<GLRenderer> New(GPU& gpu) noexcept;
     ~GLRenderer() override;
     void Reset(GPU& gpu) override;
 
@@ -83,11 +83,14 @@ private:
     bool TexEnable;
     TexcacheOpenGL Texcache;
 
+    GLuint CaptureTexView128;
+    GLuint CaptureTexView256;
+
     bool BuildRenderShader(bool wbuffer);
     void UseRenderShader(bool wbuffer);
     void SetupPolygon(RendererPolygon* rp, Polygon* polygon) const;
     u32* SetupVertex(const Polygon* poly, int vid, const Vertex* vtx, u32 vtxattr, u32 texlayer, u32* vptr) const;
-    void BuildPolygons(GPU& gpu, RendererPolygon* polygons, int npolys);
+    void BuildPolygons(GPU& gpu, RendererPolygon* polygons, int npolys, int captureinfo[16]);
     void SetupPolygonTexture(const RendererPolygon* poly) const;
     int RenderSinglePolygon(int i) const;
     int RenderPolygonBatch(int i) const;

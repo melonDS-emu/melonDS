@@ -1,6 +1,7 @@
 #version 140
 
 uniform usampler2DArray CurTexture;
+uniform sampler2DArray CaptureTexture;
 
 layout(std140) uniform uConfig
 {
@@ -55,7 +56,12 @@ vec4 FinalColor()
     }
     else
     {
-        vec4 tcol = vec4(texture(CurTexture, vec3(fTexcoord, fPolygonAttr.y))) / vec4(63,63,63,31);
+        vec3 texcoord = vec3(fTexcoord, fPolygonAttr.y);
+        vec4 tcol;
+        if (fPolygonAttr.z == -1)
+            tcol = vec4(texture(CurTexture, texcoord)) / vec4(63,63,63,31);
+        else
+            tcol = texture(CaptureTexture, texcoord);
 
         if ((blendmode & 1) != 0)
         {
