@@ -30,6 +30,8 @@ namespace melonDS
 
 #include "OpenGL_shaders/3DClearVS.h"
 #include "OpenGL_shaders/3DClearFS.h"
+#include "OpenGL_shaders/3DClearBitmapVS.h"
+#include "OpenGL_shaders/3DClearBitmapFS.h"
 #include "OpenGL_shaders/3DRenderVS.h"
 #include "OpenGL_shaders/3DRenderFS.h"
 #include "OpenGL_shaders/3DFinalPassVS.h"
@@ -112,6 +114,7 @@ GLRenderer::GLRenderer() noexcept :
 
 std::unique_ptr<GLRenderer> GLRenderer::New(GPU& gpu) noexcept
 {
+    GLint uni_id;
     assert(glEnable != nullptr);
 
     /*std::optional<GLCompositor> compositor =  GLCompositor::New();
@@ -132,7 +135,7 @@ std::unique_ptr<GLRenderer> GLRenderer::New(GPU& gpu) noexcept
 
     if (!OpenGL::CompileVertexFragmentProgram(result->ClearShaderPlain,
             k3DClearVS, k3DClearFS,
-            "ClearShader",
+            "ClearShaderPlain",
             {{"vPosition", 0}},
             {{"oColor", 0}, {"oAttr", 1}}))
         return nullptr;
@@ -141,6 +144,22 @@ std::unique_ptr<GLRenderer> GLRenderer::New(GPU& gpu) noexcept
     result->ClearUniformLoc[1] = glGetUniformLocation(result->ClearShaderPlain, "uDepth");
     result->ClearUniformLoc[2] = glGetUniformLocation(result->ClearShaderPlain, "uOpaquePolyID");
     result->ClearUniformLoc[3] = glGetUniformLocation(result->ClearShaderPlain, "uFogFlag");
+
+    if (!OpenGL::CompileVertexFragmentProgram(result->ClearShaderBitmap,
+              k3DClearBitmapVS, k3DClearBitmapFS,
+              "ClearShaderBitmap",
+              {{"vPosition", 0}},
+              {{"oColor", 0}, {"oAttr", 1}}))
+        return nullptr;
+
+    result->ClearBitmapULoc[0] = glGetUniformLocation(result->ClearShaderBitmap, "uClearBitmapOffset");
+    result->ClearBitmapULoc[1] = glGetUniformLocation(result->ClearShaderBitmap, "uOpaquePolyID");
+
+    glUseProgram(result->ClearShaderBitmap);
+    uni_id = glGetUniformLocation(result->ClearShaderBitmap, "ClearBitmapColor");
+    glUniform1i(uni_id, 0);
+    uni_id = glGetUniformLocation(result->ClearShaderBitmap, "ClearBitmapDepth");
+    glUniform1i(uni_id, 1);
 
     memset(result->RenderShader, 0, sizeof(RenderShader));
 
@@ -163,7 +182,7 @@ std::unique_ptr<GLRenderer> GLRenderer::New(GPU& gpu) noexcept
             {{"oColor", 0}}))
         return nullptr;
 
-    GLuint uni_id = glGetUniformBlockIndex(result->FinalPassEdgeShader, "uConfig");
+    uni_id = glGetUniformBlockIndex(result->FinalPassEdgeShader, "uConfig");
     glUniformBlockBinding(result->FinalPassEdgeShader, uni_id, 0);
 
     glUseProgram(result->FinalPassEdgeShader);
@@ -210,6 +229,26 @@ std::unique_ptr<GLRenderer> GLRenderer::New(GPU& gpu) noexcept
     glBindVertexArray(result->ClearVertexArrayID);
     glEnableVertexAttribArray(0); // position
     glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, 0, (void*)(0));
+
+    // init textures for the clear bitmap
+    glGenTextures(2, result->ClearBitmapTex);
+
+    glBindTexture(GL_TEXTURE_2D, result->ClearBitmapTex[0]);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8UI, 256, 256, 0, GL_RGBA_INTEGER, GL_UNSIGNED_BYTE, nullptr);
+
+    glBindTexture(GL_TEXTURE_2D, result->ClearBitmapTex[1]);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_R32UI, 256, 256, 0, GL_RED_INTEGER, GL_UNSIGNED_INT, nullptr);
+
+    result->ClearBitmap[0] = new u32[256*256];
+    result->ClearBitmap[1] = new u32[256*256];
 
 
     glGenBuffers(1, &result->VertexBufferID);
@@ -287,6 +326,9 @@ GLRenderer::~GLRenderer()
     glDeleteBuffers(1, &VertexBufferID);
     glDeleteVertexArrays(1, &ClearVertexArrayID);
     glDeleteBuffers(1, &ClearVertexBufferID);
+    glDeleteTextures(2, ClearBitmapTex);
+    delete[] ClearBitmap[0];
+    delete[] ClearBitmap[1];
 
     glDeleteBuffers(1, &ShaderConfigUBO);
 
@@ -300,6 +342,7 @@ GLRenderer::~GLRenderer()
 void GLRenderer::Reset(GPU& gpu)
 {
     Texcache.Reset();
+    ClearBitmapDirty = 0x3;
 }
 
 void GLRenderer::SetBetterPolygons(bool betterpolygons) noexcept
@@ -1250,6 +1293,47 @@ void GLRenderer::RenderFrame(GPU& gpu)
     int captureinfo[16];
     gpu.GetCaptureInfo_Texture(captureinfo);
 
+    // if we're using a clear bitmap, set that up
+    ClearBitmapDirty |= clrBitmapDirty;
+    if (gpu.GPU3D.RenderDispCnt & (1<<14))
+    {
+        if (ClearBitmapDirty & (1<<0))
+        {
+            u16* vram = (u16*)&gpu.VRAMFlat_Texture[0x40000];
+            for (int i = 0; i < 256*256; i++)
+            {
+                u16 color = vram[i];
+                u32 r = (color << 1) & 0x3E; if (r) r++;
+                u32 g = (color >> 4) & 0x3E; if (g) g++;
+                u32 b = (color >> 9) & 0x3E; if (b) b++;
+                u32 a = (color & 0x8000) ? 31 : 0;
+
+                ClearBitmap[0][i] = r | (g << 8) | (b << 16) | (a << 24);
+            }
+
+            glBindTexture(GL_TEXTURE_2D, ClearBitmapTex[0]);
+            glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, 256, 256, GL_RGBA_INTEGER, GL_UNSIGNED_BYTE, ClearBitmap[0]);
+        }
+
+        if (ClearBitmapDirty & (1<<1))
+        {
+            u16* vram = (u16*)&gpu.VRAMFlat_Texture[0x60000];
+            for (int i = 0; i < 256*256; i++)
+            {
+                u16 val = vram[i];
+                u32 depth = ((val & 0x7FFF) * 0x200) + 0x1FF;
+                u32 fog = (val & 0x8000) << 9;
+
+                ClearBitmap[1][i] = depth | fog;
+            }
+
+            glBindTexture(GL_TEXTURE_2D, ClearBitmapTex[1]);
+            glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, 256, 256, GL_RED_INTEGER, GL_UNSIGNED_INT, ClearBitmap[1]);
+        }
+
+        ClearBitmapDirty = 0;
+    }
+
     TexEnable = !!(gpu.GPU3D.RenderDispCnt & (1<<0));
 
     CurShaderID = -1;
@@ -1324,13 +1408,38 @@ void GLRenderer::RenderFrame(GPU& gpu)
     glDepthMask(GL_TRUE);
     glStencilMask(0xFF);
 
+    glDepthFunc(GL_ALWAYS);
+    glStencilFunc(GL_ALWAYS, 0xFF, 0xFF);
+    glStencilOp(GL_REPLACE, GL_REPLACE, GL_REPLACE);
+
     // clear buffers
-    // TODO: clear bitmap
     // TODO: check whether 'clear polygon ID' affects translucent polyID
     // (for example when alpha is 1..30)
+    if (gpu.GPU3D.RenderDispCnt & (1<<14))
     {
+        // clear bitmap
+        glUseProgram(ClearShaderBitmap);
+
+        u32 polyid = (gpu.GPU3D.RenderClearAttr1 >> 24) & 0x3F;
+
+        float bitmapoffset[2];
+        u8 xoff = (gpu.GPU3D.RenderClearAttr2 >> 16) & 0xFF;
+        u8 yoff = (gpu.GPU3D.RenderClearAttr2 >> 24) & 0xFF;
+        bitmapoffset[0] = (float)xoff / 256.0;
+        bitmapoffset[1] = (float)yoff / 256.0;
+
+        glUniform2f(ClearBitmapULoc[0], bitmapoffset[0], bitmapoffset[1]);
+        glUniform1ui(ClearBitmapULoc[1], polyid);
+
+        glActiveTexture(GL_TEXTURE0);
+        glBindTexture(GL_TEXTURE_2D, ClearBitmapTex[0]);
+        glActiveTexture(GL_TEXTURE1);
+        glBindTexture(GL_TEXTURE_2D, ClearBitmapTex[1]);
+    }
+    else
+    {
+        // plain clear plane
         glUseProgram(ClearShaderPlain);
-        glDepthFunc(GL_ALWAYS);
 
         u32 r = gpu.GPU3D.RenderClearAttr1 & 0x1F;
         u32 g = (gpu.GPU3D.RenderClearAttr1 >> 5) & 0x1F;
@@ -1340,9 +1449,6 @@ void GLRenderer::RenderFrame(GPU& gpu)
         u32 polyid = (gpu.GPU3D.RenderClearAttr1 >> 24) & 0x3F;
         u32 z = ((gpu.GPU3D.RenderClearAttr2 & 0x7FFF) * 0x200) + 0x1FF;
 
-        glStencilFunc(GL_ALWAYS, 0xFF, 0xFF);
-        glStencilOp(GL_REPLACE, GL_REPLACE, GL_REPLACE);
-
         /*if (r) r = r*2 + 1;
         if (g) g = g*2 + 1;
         if (b) b = b*2 + 1;*/
@@ -1351,11 +1457,11 @@ void GLRenderer::RenderFrame(GPU& gpu)
         glUniform1ui(ClearUniformLoc[1], z);
         glUniform1ui(ClearUniformLoc[2], polyid);
         glUniform1ui(ClearUniformLoc[3], fog);
-
-        glBindBuffer(GL_ARRAY_BUFFER, ClearVertexBufferID);
-        glBindVertexArray(ClearVertexArrayID);
-        glDrawArrays(GL_TRIANGLES, 0, 2*3);
     }
+
+    glBindBuffer(GL_ARRAY_BUFFER, ClearVertexBufferID);
+    glBindVertexArray(ClearVertexArrayID);
+    glDrawArrays(GL_TRIANGLES, 0, 2*3);
 
     if (gpu.GPU3D.RenderNumPolygons)
     {

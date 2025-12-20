@@ -16,6 +16,8 @@ set(OPENGL_SHADER_FILES
 
     3DClearVS.glsl
     3DClearFS.glsl
+    3DClearBitmapVS.glsl
+    3DClearBitmapFS.glsl
     3DRenderVS.glsl
     3DRenderFS.glsl
     3DFinalPassVS.glsl

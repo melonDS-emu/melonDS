@@ -107,6 +107,7 @@ private:
 
 
     GLuint ClearShaderPlain {};
+    GLuint ClearShaderBitmap {};
 
     GLuint RenderShader[2] {};
     GLint RenderModeULoc = 0;
@@ -135,6 +136,11 @@ private:
 
     GLuint ClearVertexBufferID = 0, ClearVertexArrayID {};
     GLint ClearUniformLoc[4] {};
+
+    GLint ClearBitmapULoc[2] {};
+    GLuint ClearBitmapTex[2];
+    u32* ClearBitmap[2];
+    u8 ClearBitmapDirty;
 
     // vertex buffer
     // * XYZW: 4x16bit
