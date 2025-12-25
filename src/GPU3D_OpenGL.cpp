@@ -104,7 +104,7 @@ void SetupDefaultTexParams(GLuint tex)
 
 //GLRenderer::GLRenderer(GLCompositor&& compositor) noexcept :
 GLRenderer::GLRenderer() noexcept :
-    Renderer3D(true), Texcache(TexcacheOpenGLLoader())
+    Renderer3D(true), Texcache(TexcacheOpenGLLoader(false))
     //CurGLCompositor(std::move(compositor))
 {
     // GLRenderer::New() will be used to actually initialize the renderer;

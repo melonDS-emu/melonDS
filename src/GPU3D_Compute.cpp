@@ -30,7 +30,7 @@ namespace melonDS
 {
 
 ComputeRenderer::ComputeRenderer()//GLCompositor&& compositor)
-    : Renderer3D(true), Texcache(TexcacheOpenGLLoader())//, CurGLCompositor(std::move(compositor))
+    : Renderer3D(true), Texcache(TexcacheOpenGLLoader(true))//, CurGLCompositor(std::move(compositor))
 {}
 
 bool ComputeRenderer::CompileShader(GLuint& shader, const std::string& source, const std::initializer_list<const char*>& defines)
