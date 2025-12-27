@@ -89,7 +89,7 @@ static constexpr std::initializer_list<const char*> hk_general_labels =
     "DSi Power button",
     "DSi Volume up",
     "DSi Volume down",
-    "Toggle Audio Mute"
+    "Toggle audio mute"
 };
 
 static_assert(hk_general.size() == hk_general_labels.size());
