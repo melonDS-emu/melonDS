@@ -609,7 +609,7 @@ QString EmuInstance::verifyDSiFirmware()
     return "";
 }
 
-QString EmuInstance::verifyDSiNAND()
+QString EmuInstance::verifyDSiNAND(bool isoptional)
 {
     FileHandle* f;
     long len;
@@ -617,6 +617,7 @@ QString EmuInstance::verifyDSiNAND()
     std::string nandpath = globalCfg.GetString("DSi.NANDPath");
 
     f = Platform::OpenLocalFile(nandpath, FileMode::ReadWriteExisting);
+    if (!f && isoptional) return "";
     if (!f) return "DSi NAND was not found or could not be accessed. Check your emu settings.";
 
     if (!Platform::CheckFileWritable(nandpath))
@@ -635,6 +636,7 @@ QString EmuInstance::verifySetup()
     QString res;
 
     bool extbios = globalCfg.GetBool("Emu.ExternalBIOSEnable");
+    bool extbiostwl = globalCfg.GetBool("DSi.ExternalBIOSEnable");
     int console = globalCfg.GetInt("Emu.ConsoleType");
 
     if (extbios)
@@ -645,16 +647,16 @@ QString EmuInstance::verifySetup()
 
     if (console == 1)
     {
-        res = verifyDSiBIOS();
-        if (!res.isEmpty()) return res;
-
-        if (extbios)
+        if (extbiostwl)
         {
+            res = verifyDSiBIOS();
+            if (!res.isEmpty()) return res;
+
             res = verifyDSiFirmware();
             if (!res.isEmpty()) return res;
         }
 
-        res = verifyDSiNAND();
+        res = verifyDSiNAND(!extbiostwl);
         if (!res.isEmpty()) return res;
     }
     else
@@ -672,16 +674,16 @@ QString EmuInstance::verifySetup()
 
 std::string EmuInstance::getEffectiveFirmwareSavePath()
 {
-    if (!globalCfg.GetBool("Emu.ExternalBIOSEnable"))
-    {
-        return GetLocalFilePath(kWifiSettingsPath);
-    }
     if (consoleType == 1)
     {
+        if (!globalCfg.GetBool("DSi.ExternalBIOSEnable"))
+            return GetLocalFilePath(kWifiSettingsPath);
         return globalCfg.GetString("DSi.FirmwarePath");
     }
     else
     {
+        if (!globalCfg.GetBool("Emu.ExternalBIOSEnable"))
+            return GetLocalFilePath(kWifiSettingsPath);
         return globalCfg.GetString("DS.FirmwarePath");
     }
 }
@@ -869,7 +871,7 @@ std::unique_ptr<ARM9BIOSImage> EmuInstance::loadARM9BIOS() noexcept
 {
     if (!globalCfg.GetBool("Emu.ExternalBIOSEnable"))
     {
-        return std::make_unique<ARM9BIOSImage>(bios_arm9_bin);
+        return std::make_unique<ARM9BIOSImage>(FreeBIOSGetNtrArm9());
     }
 
     string path = globalCfg.GetString("DS.BIOS9Path");
@@ -892,7 +894,7 @@ std::unique_ptr<ARM7BIOSImage> EmuInstance::loadARM7BIOS() noexcept
 {
     if (!globalCfg.GetBool("Emu.ExternalBIOSEnable"))
     {
-        return std::make_unique<ARM7BIOSImage>(bios_arm7_bin);
+        return std::make_unique<ARM7BIOSImage>(FreeBIOSGetNtrArm7());
     }
 
     string path = globalCfg.GetString("DS.BIOS7Path");
@@ -912,6 +914,11 @@ std::unique_ptr<ARM7BIOSImage> EmuInstance::loadARM7BIOS() noexcept
 
 std::unique_ptr<DSiBIOSImage> EmuInstance::loadDSiARM9BIOS() noexcept
 {
+    if (!globalCfg.GetBool("DSi.ExternalBIOSEnable"))
+    {
+        return std::make_unique<DSiBIOSImage>(FreeBIOSGetTwlArm9());
+    }
+
     string path = globalCfg.GetString("DSi.BIOS9Path");
 
     if (FileHandle* f = OpenLocalFile(path, Read))
@@ -939,6 +946,11 @@ std::unique_ptr<DSiBIOSImage> EmuInstance::loadDSiARM9BIOS() noexcept
 
 std::unique_ptr<DSiBIOSImage> EmuInstance::loadDSiARM7BIOS() noexcept
 {
+    if (!globalCfg.GetBool("DSi.ExternalBIOSEnable"))
+    {
+        return std::make_unique<DSiBIOSImage>(FreeBIOSGetTwlArm7());
+    }
+
     string path = globalCfg.GetString("DSi.BIOS7Path");
 
     if (FileHandle* f = OpenLocalFile(path, Read))
@@ -1012,23 +1024,19 @@ Firmware EmuInstance::generateFirmware(int type) noexcept
 
 std::optional<Firmware> EmuInstance::loadFirmware(int type) noexcept
 {
-    if (!globalCfg.GetBool("Emu.ExternalBIOSEnable"))
-    { // If we're using built-in firmware...
-        if (type == 1)
-        {
-            // TODO: support generating a firmware for DSi mode
-        }
-        else
-        {
-            return generateFirmware(type);
-        }
-    }
-
     string firmwarepath;
     if (type == 1)
+    {
+        if (!globalCfg.GetBool("DSi.ExternalBIOSEnable"))
+            return generateFirmware(type);
         firmwarepath = globalCfg.GetString("DSi.FirmwarePath");
+    }
     else
+    {
+        if (!globalCfg.GetBool("Emu.ExternalBIOSEnable"))
+            return generateFirmware(type);
         firmwarepath = globalCfg.GetString("DS.FirmwarePath");
+    }
 
     string fwpath_inst = firmwarepath + instanceFileSuffix();
 
@@ -1336,16 +1344,13 @@ bool EmuInstance::updateConsole() noexcept
             return false;
 
         auto nand = loadNAND(*arm7ibios);
-        if (!nand)
-            return false;
-
         auto sdcard = loadSDCard("DSi.SD");
 
         DSiArgs _dsiargs {
                 std::move(ndsargs),
                 std::move(arm9ibios),
                 std::move(arm7ibios),
-                std::move(*nand),
+                std::move(nand),
                 std::move(sdcard),
                 globalCfg.GetBool("DSi.FullBIOSBoot"),
                 globalCfg.GetBool("DSi.DSP.HLE")
@@ -1446,7 +1451,7 @@ void EmuInstance::reset()
     {
         std::string oldsave = firmwareSave->GetPath();
         string newsave;
-        if (globalCfg.GetBool("Emu.ExternalBIOSEnable"))
+        if (globalCfg.GetBool(consoleType == 1 ? "DSi.ExternalBIOSEnable" : "Emu.ExternalBIOSEnable"))
         {
             if (consoleType == 1)
                 newsave = globalCfg.GetString("DSi.FirmwarePath") + instanceFileSuffix();

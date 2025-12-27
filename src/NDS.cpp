@@ -79,8 +79,8 @@ thread_local NDS* NDS::Current = nullptr;
 NDS::NDS() noexcept :
     NDS(
         NDSArgs {
-            std::make_unique<ARM9BIOSImage>(bios_arm9_bin),
-            std::make_unique<ARM7BIOSImage>(bios_arm7_bin),
+            std::make_unique<ARM9BIOSImage>(FreeBIOSGetNtrArm9()),
+            std::make_unique<ARM7BIOSImage>(FreeBIOSGetNtrArm7()),
             Firmware(0),
         }
     )
