@@ -29,15 +29,16 @@
 
 namespace Config
 {
-extern bool RA_Enabled;
+    extern bool RA_Enabled;
     extern bool RA_HardcoreMode;
     extern std::string RA_Username;
     extern std::string RA_Token;
+    extern std::string RA_Password;
 
     void SyncRAConfig();
     void SaveRAConfig();
 
-    void Save(); // Upewnij się, że to tu jest
+    void Save();
 
 struct LegacyEntry
 {

@@ -37,6 +37,11 @@ namespace Config
 {
 using namespace melonDS;
 
+std::string RA_Username = ""; 
+std::string RA_Token = "";
+std::string RA_Password = "";
+bool RA_Enabled;
+bool RA_HardcoreMode;
 
 const char* kConfigFile = "melonDS.toml";
 
@@ -45,11 +50,6 @@ const char* kLegacyUniqueConfigFile = "melonDS.%d.ini";
 
 toml::value RootTable;
 
-// --- Zmienne RetroAchievements ---
-bool RA_Enabled;
-bool RA_HardcoreMode;
-std::string RA_Username;
-std::string RA_Token;
 
 DefaultList<int> DefaultInts =
 {
@@ -344,7 +344,6 @@ LegacyEntry LegacyFile[] =
     {"", -1, "", false}
 };
 
-// --- NOWE FUNKCJE RETROACHIEVEMENTS ---
 
 void SyncRAConfig()
 {
@@ -352,6 +351,7 @@ void SyncRAConfig()
     RA_Enabled = tbl.GetBool("RetroAchievements.Enabled");
     RA_HardcoreMode = tbl.GetBool("RetroAchievements.HardcoreMode");
     RA_Username = tbl.GetString("RetroAchievements.Username");
+    RA_Password = tbl.GetString("RetroAchievements.Password");
     RA_Token = tbl.GetString("RetroAchievements.Token");
 }
 
@@ -361,6 +361,7 @@ void SaveRAConfig()
     tbl.SetBool("RetroAchievements.Enabled", RA_Enabled);
     tbl.SetBool("RetroAchievements.HardcoreMode", RA_HardcoreMode);
     tbl.SetString("RetroAchievements.Username", RA_Username);
+    tbl.SetString("RetroAchievements.Password", RA_Password);
     tbl.SetString("RetroAchievements.Token", RA_Token);
     Save();
 }

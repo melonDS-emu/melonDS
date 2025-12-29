@@ -44,9 +44,17 @@
 #include "DSi_DSP.h"
 #include "ARMJIT.h"
 #include "ARMJIT_Memory.h"
+#include "RetroAchievements/RAClient.h"
+#include <string>
 
 namespace melonDS
 {
+
+    namespace Config {
+        std::string RA_Username = "";
+        std::string RA_Token = "";
+    }
+
 using namespace Platform;
 
 const s32 kMaxIterationCycles = 64;
@@ -543,6 +551,9 @@ void NDS::Reset()
     SPI.Reset();
     RTC.Reset();
     Wifi.Reset();
+    memset(MainRAM, 0, MainRAMMask + 1);
+    memset(SharedWRAM, 0, 0x8000);
+    memset(ARM7WRAM, 0, 0x10000);
 }
 
 void NDS::Start()
@@ -755,6 +766,7 @@ bool NDS::DoSavestate(Savestate* file)
 
     if (!file->Saving)
     {
+        ::RAContext::Get().DisableHardcore("Load state");
         GPU.SetPowerCnt(PowerControl9);
 
         SPU.SetPowerCnt(PowerControl7 & 0x0001);
@@ -773,9 +785,21 @@ bool NDS::DoSavestate(Savestate* file)
 void NDS::SetNDSCart(std::unique_ptr<NDSCart::CartCommon>&& cart)
 {
     NDSCartSlot.SetCart(std::move(cart));
-    // The existing cart will always be ejected;
+        // The existing cart will always be ejected;
     // if cart is null, then that's equivalent to ejecting a cart
     // without inserting a new one.
+
+    if (NDSCartSlot.GetCart()) {
+    #ifdef RETROACHIEVEMENTS_ENABLED
+    auto cart = NDSCartSlot.GetCart();
+    if (cart)
+    {
+        const char* h = cart->GetRAHash();
+        if (h && h[0])
+            RAContext::Get().SetPendingGameHash(h);
+    }
+#endif
+    }
 }
 
 void NDS::SetNDSSave(const u8* savedata, u32 savelen)
@@ -922,6 +946,7 @@ void NDS::RunSystemSleep(u64 timestamp)
 template <CPUExecuteMode cpuMode>
 u32 NDS::RunFrame()
 {
+    RAContext::Get().DoFrame();
     Current = this;
 
     FrameStartTimestamp = SysTimestamp;
@@ -1597,6 +1622,7 @@ void NDS::MonitorARM9Jump(u32 addr)
         {
             Log(LogLevel::Info, "Game is now booting\n");
             RunningGame = true;
+            RAContext::Get().AttachNDS(this);
         }
     }
 }

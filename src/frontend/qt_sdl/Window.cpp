@@ -27,6 +27,12 @@
 #include <string>
 #include <algorithm>
 
+#include <QPropertyAnimation>
+#include <QEasingCurve>
+#include <QLabel>
+#include <QTimer>
+#include <QWidget>
+#include <QVBoxLayout>
 #include <QProcess>
 #include <QApplication>
 #include <QMessageBox>
@@ -81,6 +87,11 @@
 #include "CameraManager.h"
 #include "Window.h"
 #include "AboutDialog.h"
+#include "RetroAchievements/RAClient.h"
+#include "toast/ToastManager.h"
+#include "toast/BadgeCache.h"
+//#include "retroachievements/AchievementsDialog.h"
+//#include "../../RetroAchievements/RAClient.h"
 
 using namespace melonDS;
 
@@ -236,7 +247,8 @@ MainWindow::MainWindow(int id, EmuInstance* inst, QWidget* parent) :
     enabledSaved(false),
     focused(true)
 {
-#ifndef _WIN32
+    m_oldRAEnabled = Config::RA_Enabled;
+    #ifndef _WIN32
     if (!parent)
     {
         if (socketpair(AF_UNIX, SOCK_STREAM, 0, signalFd))
@@ -255,7 +267,7 @@ MainWindow::MainWindow(int id, EmuInstance* inst, QWidget* parent) :
         sa.sa_flags |= SA_RESTART;
         sigaction(SIGINT, &sa, 0);
     }
-#endif
+    #endif
 
     showOSD = windowCfg.GetBool("ShowOSD");
 
@@ -264,12 +276,12 @@ MainWindow::MainWindow(int id, EmuInstance* inst, QWidget* parent) :
     setAcceptDrops(true);
     setFocusPolicy(Qt::ClickFocus);
 
-#if QT_VERSION_MAJOR == 6 && WIN32
+    #if QT_VERSION_MAJOR == 6 && WIN32
     // The "windows11" theme has pretty massive padding around menubar items, this makes Config and Help not fit in a window at 1x screen sizing
     // So let's reduce the padding a bit.
     if (QApplication::style()->name() == "windows11")
         setStyleSheet("QMenuBar::item { padding: 4px 8px; }");
-#endif
+    #endif
 
     //hasMenu = (!parent);
     hasMenu = true;
@@ -619,11 +631,11 @@ MainWindow::MainWindow(int id, EmuInstance* inst, QWidget* parent) :
             actEmuSettings = menu->addAction("Emu settings");
             connect(actEmuSettings, &QAction::triggered, this, &MainWindow::onOpenEmuSettings);
 
-#ifdef __APPLE__
+    #ifdef __APPLE__
             actPreferences = menu->addAction("Preferences...");
             connect(actPreferences, &QAction::triggered, this, &MainWindow::onOpenEmuSettings);
             actPreferences->setMenuRole(QAction::PreferencesRole);
-#endif
+    #endif
 
             actInputConfig = menu->addAction("Input and hotkeys");
             connect(actInputConfig, &QAction::triggered, this, &MainWindow::onOpenInputConfig);
@@ -686,12 +698,12 @@ MainWindow::MainWindow(int id, EmuInstance* inst, QWidget* parent) :
             actMPNewInstance->setText("Fart");
     }
 
-#ifdef Q_OS_MAC
+    #ifdef Q_OS_MAC
     QPoint screenCenter = screen()->availableGeometry().center();
     QRect frameGeo = frameGeometry();
     frameGeo.moveCenter(screenCenter);
     move(frameGeo.topLeft());
-#endif
+    #endif
 
     std::string geom = windowCfg.GetString("Geometry");
     if (!geom.empty())
@@ -707,6 +719,7 @@ MainWindow::MainWindow(int id, EmuInstance* inst, QWidget* parent) :
 
     panel = nullptr;
     createScreenPanel();
+    ToastManager::Get().Init(this);
 
     if (hasMenu)
     {
@@ -789,10 +802,49 @@ MainWindow::MainWindow(int id, EmuInstance* inst, QWidget* parent) :
             actWifiSettings->setEnabled(false);
             actInterfaceSettings->setEnabled(false);
 
-#ifdef __APPLE__
+    #ifdef __APPLE__
             actPreferences->setEnabled(false);
-#endif // __APPLE__
+    #endif // __APPLE__
         }
+
+    RAContext::Get().SetOnGameLoadedCallback([this](){
+    ShowGameLoadToast();
+    });
+
+    RAContext::Get().onLoginResponse = [this](bool success, const std::string& message) {
+    ShowRALoginToast(success, message);
+    };
+
+    QTimer::singleShot(1000, this, []()
+    {
+    if (!Config::RA_Enabled)
+        return;
+
+    ToastManager::Get().ShowAchievement(
+            "RetroAchievements",
+            "Enabled",
+        QPixmap(":/ra/icons/ra-icon.png")
+    );
+    });
+
+    RAContext::Get().SetOnAchievementUnlocked(
+    [this](const char* title,
+           const char* desc,
+           const char* badgeUrl)
+    {
+        QMetaObject::invokeMethod(
+            this,
+            [this,
+             t = QString::fromUtf8(title),
+             d = QString::fromUtf8(desc),
+             b = QString::fromUtf8(badgeUrl)]()
+            {
+                OnAchievementUnlocked(t, d, b);
+            },
+            Qt::QueuedConnection
+        );
+    }
+    );
 
         if (emuThread->emuIsActive())
             onEmuStart();
@@ -1566,6 +1618,11 @@ void MainWindow::onEjectGBACart()
 
 void MainWindow::onSaveState()
 {
+    if (Config::RA_Enabled && Config::RA_HardcoreMode && RAContext::Get().IsLoggedIn())
+    {
+        emuInstance->osdAddMessage(0xFFA0A0, "Savestates states is disabled in Hardcore Mode");
+        return; 
+    }
     int slot = ((QAction*)sender())->data().toInt();
 
     QString filename;
@@ -1601,6 +1658,11 @@ void MainWindow::onSaveState()
 
 void MainWindow::onLoadState()
 {
+    if (Config::RA_Enabled && Config::RA_HardcoreMode && RAContext::Get().IsLoggedIn())
+    {
+        emuInstance->osdAddMessage(0xFFA0A0, "Savestates disabled in Hardcore Mode");
+        return; 
+    }
     int slot = ((QAction*)sender())->data().toInt();
 
     QString filename;
@@ -1613,9 +1675,9 @@ void MainWindow::onLoadState()
         // TODO: specific 'last directory' for savestate files?
         emuThread->emuPause();
         filename = QFileDialog::getOpenFileName(this,
-                                                         "Load state",
-                                                         globalCfg.GetQString("LastROMFolder"),
-                                                         "melonDS savestates (*.ml*);;Any file (*.*)");
+                                                "Load state",
+                                                globalCfg.GetQString("LastROMFolder"),
+                                                "melonDS savestates (*.ml*);;Any file (*.*)");
         emuThread->emuUnpause();
         if (filename.isEmpty())
             return;
@@ -1651,6 +1713,11 @@ void MainWindow::onUndoStateLoad()
 
 void MainWindow::onImportSavefile()
 {
+    if (Config::RA_Enabled && Config::RA_HardcoreMode && RAContext::Get().IsLoggedIn())
+    {
+        QMessageBox::critical(this, "melonDS", "Importing savefiles is disabled in Hardcore Mode.");
+        return; 
+    }
     QString path = QFileDialog::getOpenFileName(this,
                                             "Select savefile",
                                             globalCfg.GetQString("LastROMFolder"),
@@ -1742,6 +1809,12 @@ void MainWindow::onOpenPowerManagement()
 
 void MainWindow::onEnableCheats(bool checked)
 {
+    if (checked && Config::RA_Enabled && Config::RA_HardcoreMode && RAContext::Get().IsLoggedIn())
+    {
+        emuInstance->osdAddMessage(0xFFA0A0, "Cheats are disabled in Hardcore Mode");
+        actEnableCheats->setChecked(false);
+        return;
+    }-
     localCfg.SetBool("EnableCheats", checked);
     emuThread->enableCheats(checked);
 
@@ -1753,8 +1826,13 @@ void MainWindow::onEnableCheats(bool checked)
 
 void MainWindow::onSetupCheats()
 {
+    if (Config::RA_Enabled && Config::RA_HardcoreMode && RAContext::Get().IsLoggedIn())
+    {
+        emuInstance->osdAddMessage(0xFFA0A0, "Cheat menu is disabled in Hardcore Mode");
+        return; 
+    }
     emuThread->emuPause();
-
+    
     CheatsDialog* dlg = CheatsDialog::openDlg(this);
     connect(dlg, &CheatsDialog::finished, this, &MainWindow::onCheatsDialogFinished);
 }
@@ -1881,6 +1959,42 @@ void MainWindow::onEmuSettingsDialogFinished(int res)
 
     if (!emuThread->emuIsActive())
         actTitleManager->setEnabled(!globalCfg.GetString("DSi.NANDPath").empty());
+
+    const bool newRAEnabled = Config::RA_Enabled;
+
+    if (m_oldRAEnabled != newRAEnabled)
+    {
+        if (newRAEnabled)
+        {
+
+            std::string user = globalCfg.GetString("RetroAchievements.Username");
+            std::string pass = globalCfg.GetString("RetroAchievements.Password");
+            bool hardcore = globalCfg.GetBool("RetroAchievements.Hardcore");
+
+            RAContext::Get().SetCredentials(
+            user.c_str(),
+            pass.c_str(),
+            hardcore
+            );
+
+            RAContext::Get().Enable();
+            ToastManager::Get().ShowAchievement(
+                "RetroAchievements",
+                "Enabled",
+                QPixmap(":/ra/icons/ra-icon.png")
+            );
+        }
+        else
+        {
+            ToastManager::Get().ShowAchievement(
+            "RetroAchievements",
+            "Disabled",
+            QPixmap(":/ra/icons/ra-icon.png")
+            );
+            RAContext::Get().Disable();
+        }
+        m_oldRAEnabled = newRAEnabled;
+    }
 
     emuThread->emuUnpause();
 }
@@ -2316,6 +2430,120 @@ void MainWindow::onEmuReset()
     if (!hasMenu) return;
 
     actUndoStateLoad->setEnabled(false);
+}
+void MainWindow::OnAchievementUnlocked(
+    const QString& title,
+    const QString& desc,
+    const QString& badgeUrl)
+{
+    BadgeCache::Get().DownloadBadge(badgeUrl,
+        [title, desc](const QPixmap& pix)
+        {
+            ToastManager::Get().ShowAchievement(title, desc, pix);
+        });
+}
+
+void MainWindow::ShowRALoginToast(bool success, const std::string& message)
+{
+    QString title = "RetroAchievements";
+    QString toastMsg;
+    
+    if (success) {
+        toastMsg = "Logged In!";
+    } else {
+        toastMsg = QString("Login Error: %1").arg(QString::fromStdString(message));
+    }
+
+    QMetaObject::invokeMethod(QApplication::instance(), [title, toastMsg]() {
+        ToastManager::Get().ShowAchievement(
+            title, 
+            toastMsg, 
+            QPixmap(":/ra/icons/ra-icon.png")
+        );
+    });
+}
+
+void MainWindow::ShowGameLoadToast()
+{
+
+    if (RAContext::Get().pendingLoadFailed)
+    {
+        QString errorMsg = QString::fromStdString(RAContext::Get().pendingLoadError);
+        
+        QTimer::singleShot(100, this, [errorMsg]()
+        {
+            QMetaObject::invokeMethod(QApplication::instance(), [errorMsg]()
+            {
+                ToastManager::Get().ShowAchievement(
+                    "RetroAchievements", 
+                    QString("ERROR: %1").arg(errorMsg), 
+                    QPixmap(":/ra/icons/ra-icon.png")
+                );
+            });
+        });
+
+        return;
+    }
+
+    const rc_client_game_t* game = RAContext::Get().GetCurrentGameInfo();
+    if (!game)
+        return;
+
+    QString title = QString::fromUtf8(game->title);
+    QString badgeUrl = QString::fromUtf8(game->badge_url);
+
+    int totalAchievements = 0;
+    int unlockedAchievements = 0;
+
+    rc_client_achievement_list_t* achList =
+        rc_client_create_achievement_list(
+            RAContext::Get().client,
+            RC_CLIENT_ACHIEVEMENT_CATEGORY_CORE_AND_UNOFFICIAL,
+            RC_CLIENT_ACHIEVEMENT_LIST_GROUPING_LOCK_STATE);
+
+    if (achList)
+    {
+        for (uint32_t b = 0; b < achList->num_buckets; ++b)
+        {
+            const rc_client_achievement_bucket_t* bucket =
+                &achList->buckets[b];
+
+            for (uint32_t i = 0; i < bucket->num_achievements; ++i)
+            {
+                const rc_client_achievement_t* ach =
+                    bucket->achievements[i];
+
+                ++totalAchievements;
+
+                if (ach && ach->unlocked)
+                    ++unlockedAchievements;
+            }
+        }
+
+        rc_client_destroy_achievement_list(achList);
+    }
+
+    //stupid function to subtract 1 from achiv because they are showing up incorectly
+    if (totalAchievements > 0)  totalAchievements  -= 1;
+    if (unlockedAchievements > 0) unlockedAchievements -= 1;
+
+    QString desc = QString("Game loaded! (%1/%2 Achievements)")
+                       .arg(unlockedAchievements)
+                       .arg(totalAchievements);
+
+    QTimer::singleShot(100, this, [title, desc, badgeUrl]()
+    {
+        BadgeCache::Get().DownloadBadge(badgeUrl,
+            [title, desc](const QPixmap& pix)
+            {
+                QMetaObject::invokeMethod(
+                    QApplication::instance(),
+                    [title, desc, pix]()
+                    {
+                        ToastManager::Get().ShowAchievement(title, desc, pix);
+                    });
+            });
+    });
 }
 
 void MainWindow::onUpdateVideoSettings(bool glchange)

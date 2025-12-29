@@ -48,6 +48,9 @@
 // with this enabled, to make sure it doesn't desync
 //#define DEBUG_CHECK_DESYNC
 
+class RAContext;
+extern RAContext* g_RAContext;
+
 namespace melonDS
 {
 struct NDSArgs;
@@ -248,6 +251,8 @@ private:
 #endif
 
 public: // TODO: Encapsulate the rest of these members
+    bool IsGameRunning() const { return RunningGame; }
+    RAContext* ra = nullptr;
     void* UserData;
 
     int ConsoleType;

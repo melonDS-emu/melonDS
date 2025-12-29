@@ -22,6 +22,7 @@
 #include "glad/glad.h"
 #include "ScreenLayout.h"
 #include "duckstation/gl/context.h"
+#include "toast/ToastManager.h"
 
 #include <QWidget>
 #include <QWindow>
@@ -105,6 +106,9 @@ class MainWindow : public QMainWindow
     Q_OBJECT
 
 public:
+    void ShowRALoginToast(bool success, const std::string& message);
+    bool m_oldRAEnabled;
+    void showRALoginToast();
     explicit MainWindow(int id, EmuInstance* inst, QWidget* parent = nullptr);
     ~MainWindow();
 
@@ -243,6 +247,8 @@ private slots:
     void onScreenEmphasisToggled();
 
 private:
+    void ShowGameLoadToast();
+    void OnAchievementUnlocked(const QString& title, const QString& desc, const QString& badgeUrl);
     virtual void closeEvent(QCloseEvent* event) override;
 
     QStringList currentROM;
