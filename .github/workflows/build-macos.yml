@@ -71,7 +71,7 @@ jobs:
   universal-binary:
     name: Universal binary
     needs: [build-macos]
-    runs-on: macos-13
+    runs-on: macos-26
     continue-on-error: true
     steps:
       - name: Download x86_64
