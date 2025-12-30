@@ -1814,7 +1814,7 @@ void MainWindow::onEnableCheats(bool checked)
         emuInstance->osdAddMessage(0xFFA0A0, "Cheats are disabled in Hardcore Mode");
         actEnableCheats->setChecked(false);
         return;
-    }-
+    }
     localCfg.SetBool("EnableCheats", checked);
     emuThread->enableCheats(checked);
 
