@@ -1,0 +1,70 @@
+module rcheevos {
+    umbrella header "rcheevos.h"
+    
+    module rapi {
+        module rc_api_editor {
+            header "rc_api_editor.h"
+            export *
+        }
+        
+        module rc_api_info {
+            header "rc_api_info.h"
+            export *
+        }
+        
+        module rc_api_request {
+            header "rc_api_request.h"
+            export *
+        }
+        
+        module rc_api_runtime {
+            header "rc_api_runtime.h"
+            export *
+        }
+        
+        module rc_api_user {
+            header "rc_api_user.h"
+            export *
+        }
+
+        export *
+    }
+    
+    module rc_client {
+        header "rc_client.h"
+        export *
+    }
+    
+    explicit module rc_client_raintegration {
+        header "rc_client_raintegration.h"
+        export *
+    }
+    
+    module rc_consoles {
+        header "rc_consoles.h"
+        export *
+    }
+    
+    module rc_error {
+        header "rc_error.h"
+        export *
+    }
+    
+    module rc_runtime {
+        header "rc_runtime.h"
+        export *
+    }
+    
+    module rc_runtime_types {
+        header "rc_runtime_types.h"
+        export *
+    }
+    
+    module rc_hash {
+        header "rc_hash.h"
+        export *
+    }
+    
+    export *
+    module * { export * }
+}
