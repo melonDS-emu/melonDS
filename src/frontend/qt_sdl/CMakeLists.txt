@@ -7,6 +7,14 @@ set(SOURCES_QT_SDL
     main_shaders.h
     Screen.cpp
     Window.cpp
+    toast/ToastManager.cpp
+    toast/ToastManager.h
+    toast/AchievementToast.cpp
+    toast/AchievementToast.h
+    toast/ToastOverlay.cpp
+    toast/ToastOverlay.h
+    toast/BadgeCache.h
+    toast/BadgeCache.cpp
     EmuInstance.cpp
     EmuInstanceAudio.cpp
     EmuInstanceInput.cpp
@@ -18,6 +26,7 @@ set(SOURCES_QT_SDL
     EmuSettingsDialog.cpp
     PowerManagement/PowerManagementDialog.cpp
     PowerManagement/resources/battery.qrc
+    retroachievements/resources/ra.qrc
     InputConfig/InputConfigDialog.cpp
     InputConfig/MapButton.h
     InputConfig/resources/ds.qrc

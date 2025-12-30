@@ -32,6 +32,8 @@
 #include "EmuSettingsDialog.h"
 #include "ui_EmuSettingsDialog.h"
 #include "main.h"
+#include <QPushButton>
+#include "RetroAchievements/RAClient.h"
 
 using namespace melonDS::Platform;
 using namespace melonDS;
@@ -176,26 +178,89 @@ EmuSettingsDialog::EmuSettingsDialog(QWidget* parent) : QDialog(parent), ui(new 
     cbRAEnabled = new QCheckBox("Enable RetroAchievements");
     cbRAHardcore = new QCheckBox("Hardcore Mode (No Savestates)");
     leRAUsername = new QLineEdit();
-    leRAToken = new QLineEdit();
-    leRAToken->setEchoMode(QLineEdit::Password); // Ukrywa token
-    leRAToken->setPlaceholderText("Enter your API Token from RA website");
+    leRAPassword = new QLineEdit();
+    leRAPassword->setEchoMode(QLineEdit::Password);
+    leRAPassword->setPlaceholderText("Enter your RA password");
+
+    btnRALogin = new QPushButton();
+    lblRAStatus = new QLabel();
+    lblRAStatus->setStyleSheet("font-weight: bold; color: #2ecc71;");
 
     raForm->addRow(cbRAEnabled);
     raForm->addRow(cbRAHardcore);
     raForm->addRow("Username:", leRAUsername);
-    raForm->addRow("Login Token:", leRAToken);
+    raForm->addRow("Password:", leRAPassword);
+    raForm->addRow("", btnRALogin);
+    raForm->addRow("", lblRAStatus);
 
     tabLayout->addWidget(groupRA);
-    tabLayout->addStretch(); // Spycha formularz do góry
-
-    // Dodanie zakładki do głównego widgetu okna
+    tabLayout->addStretch();
+    
+    QLabel* trademarkLabel = new QLabel("Integration added by PanMenel™");
+    
+    trademarkLabel->setStyleSheet(
+        "QLabel {"
+        "   color: #3498db;"
+        "   font-weight: bold;"
+        "   font-family: 'Segoe UI', sans-serif;"
+        "   font-size: 11px;"
+        "   letter-spacing: 2px;"
+        "   padding: 10px;"
+        "   border-top: 1px solid #333;"
+        "}"
+    );
+    
+    trademarkLabel->setAlignment(Qt::AlignRight);
+    tabLayout->addWidget(trademarkLabel);
     ui->tabWidget->addTab(raTab, "RA");
 
-    // Wczytanie obecnych wartości z konfiguracji
+    auto UpdateRAUI = [this]() {
+        if (RAContext::Get().IsLoggedIn()) {
+            btnRALogin->setText("Logout");
+            const rc_client_user_t* user = rc_client_get_user_info(RAContext::Get().client);
+            if (user && user->display_name)
+                lblRAStatus->setText(QString("Logged in as: %1").arg(user->display_name));
+            else
+                lblRAStatus->setText("Logged in");
+        } else {
+            btnRALogin->setText("Login Now");
+            lblRAStatus->setText("Not logged in");
+            lblRAStatus->setStyleSheet("color: gray;");
+        }
+    };
+
+    UpdateRAUI();
+
+    connect(btnRALogin, &QPushButton::clicked, this, [this, UpdateRAUI]() {
+        if (RAContext::Get().IsLoggedIn()) {
+            // LOGOUT
+            RAContext::Get().SetLoggedIn(false);
+            RAContext::Get().SetToken("");
+            UpdateRAUI();
+        } else {
+            // LOGIN
+            std::string user = leRAUsername->text().toStdString();
+            std::string pass = leRAPassword->text().toStdString();
+            if (user.empty() || pass.empty()) return;
+            RAContext::Get().LoginWithPassword(user.c_str(), pass.c_str(), cbRAHardcore->isChecked());
+        }
+    });
+
+    MainWindow* mainWin = qobject_cast<MainWindow*>(this->parent());
+
+    RAContext::Get().onLoginResponse = [this, UpdateRAUI, mainWin](bool success, const std::string& msg) {
+        QMetaObject::invokeMethod(this, [this, UpdateRAUI, mainWin, success, msg]() {
+            UpdateRAUI();
+            if (mainWin) {
+                mainWin->ShowRALoginToast(success, msg);
+            }
+        });
+    };
+
     cbRAEnabled->setChecked(Config::RA_Enabled);
     cbRAHardcore->setChecked(Config::RA_HardcoreMode);
     leRAUsername->setText(QString::fromStdString(Config::RA_Username));
-    leRAToken->setText(QString::fromStdString(Config::RA_Token));
+    leRAPassword->setText(QString::fromStdString(Config::RA_Password));
 #undef SET_ORIGVAL
 }
 
@@ -260,13 +325,12 @@ void EmuSettingsDialog::done(int r)
 
     if (r == QDialog::Accepted)
     {
-        // Zapis ustawień RetroAchievements
         Config::RA_Enabled = cbRAEnabled->isChecked();
         Config::RA_HardcoreMode = cbRAHardcore->isChecked();
         Config::RA_Username = leRAUsername->text().toStdString();
-        Config::RA_Token = leRAToken->text().toStdString();
+        Config::RA_Password = leRAPassword->text().toStdString();
 
-        Config::SaveRAConfig(); // Wywołanie Twojej funkcji zapisu z Config.cpp
+        Config::SaveRAConfig();
         bool modified = false;
 
 #define CHECK_ORIGVAL(type, val) \

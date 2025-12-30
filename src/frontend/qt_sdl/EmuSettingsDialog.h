@@ -21,6 +21,11 @@
 
 #include <QDialog>
 
+class QPushButton;
+class QLabel;
+class QCheckBox;
+class QLineEdit;
+class QGroupBox;
 namespace Ui { class EmuSettingsDialog; }
 class EmuSettingsDialog;
 
@@ -82,12 +87,23 @@ private slots:
     void on_cbGdbEnabled_toggled();
 
 private:
+    class QPushButton* btnRALogin;
+    class QLabel* lblRAStatus;
+    class QLabel* lblStatusText;
+    void UpdateLoginUI();
     void verifyFirmware();
     void updateLastBIOSFolder(QString& filename);
 
     Ui::EmuSettingsDialog* ui;
     EmuInstance* emuInstance;
     QString lastBIOSFolder;
+
+    class QCheckBox* cbRAEnabled;
+    class QCheckBox* cbRAHardcore;
+    class QLineEdit* leRAUsername;
+    class QLineEdit* leRAToken;
+    class QLineEdit* leRAPassword;
+    class QGroupBox* groupRA;
 };
 
 #endif // EMUSETTINGSDIALOG_H
