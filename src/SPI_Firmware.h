@@ -368,7 +368,7 @@ public:
 
     union UserData
     {
-        UserData();
+        UserData(int consoletype);
         void UpdateChecksum();
         [[nodiscard]] bool ChecksumValid() const
         {
