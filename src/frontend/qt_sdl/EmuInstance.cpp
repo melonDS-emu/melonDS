@@ -637,6 +637,7 @@ QString EmuInstance::verifySetup()
 
     bool extbios = globalCfg.GetBool("Emu.ExternalBIOSEnable");
     bool extbiostwl = globalCfg.GetBool("DSi.ExternalBIOSEnable");
+    bool directboot = globalCfg.GetBool("Emu.DirectBoot");
     int console = globalCfg.GetInt("Emu.ConsoleType");
 
     if (extbios)
@@ -656,7 +657,7 @@ QString EmuInstance::verifySetup()
             if (!res.isEmpty()) return res;
         }
 
-        res = verifyDSiNAND(!extbiostwl);
+        res = verifyDSiNAND(!extbiostwl || directboot);
         if (!res.isEmpty()) return res;
     }
     else
