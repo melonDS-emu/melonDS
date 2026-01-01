@@ -276,23 +276,15 @@ void NDS::InitTimings()
 
 bool NDS::NeedsDirectBoot() const
 {
-    if (ConsoleType == 1)
-    {
-        // for now, DSi mode requires original BIOS/NAND
-        return false;
-    }
-    else
-    {
-        // DSi/3DS firmwares aren't bootable, neither is the generated firmware
-        if (!SPI.GetFirmware().IsBootable())
-            return true;
+    // DSi/3DS firmwares aren't bootable, neither is the generated firmware
+    if (!SPI.GetFirmware().IsBootable())
+        return true;
 
-        // FreeBIOS requires direct boot (it can't boot firmware)
-        if (!IsLoadedARM9BIOSKnownNative() || !IsLoadedARM7BIOSKnownNative())
-            return true;
+    // FreeBIOS requires direct boot (it can't boot firmware)
+    if (!IsLoadedARM9BIOSKnownNative() || !IsLoadedARM7BIOSKnownNative())
+        return true;
 
-        return false;
-    }
+    return false;
 }
 
 void NDS::SetupDirectBoot()

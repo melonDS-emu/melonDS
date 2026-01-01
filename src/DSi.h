@@ -89,6 +89,7 @@ public:
 
     void SetCartInserted(bool inserted);
 
+    bool NeedsDirectBoot() const override;
     void SetupDirectBoot() override;
     void SoftReset();
 
@@ -150,11 +151,6 @@ public:
     DSi& operator=(DSi&&) = delete;
     void SetNDSCart(std::unique_ptr<NDSCart::CartCommon>&& cart) override;
     std::unique_ptr<NDSCart::CartCommon> EjectCart() override;
-    bool NeedsDirectBoot() const override
-    {
-        // for now, DSi mode requires original BIOS/NAND
-        return false;
-    }
 
     [[nodiscard]] const DSi_NAND::NANDImage& GetNAND() const noexcept { return *SDMMC.GetNAND(); }
     [[nodiscard]] DSi_NAND::NANDImage& GetNAND() noexcept { return *SDMMC.GetNAND(); }
