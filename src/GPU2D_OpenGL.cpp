@@ -138,9 +138,20 @@ bool GLRenderer::GLInit()
 {
     GLint uniloc;
 
-    float rectvertices[2*2*3] = {
+    const float rectvertices[2*2*3] = {
         0, 1,   1, 0,   1, 1,
         0, 1,   0, 0,   1, 0
+    };
+
+    const u16 bgsizes[8][3] = {
+        {128, 128, 2},
+        {256, 256, 4},
+        {256, 512, 4},
+        {512, 256, 4},
+        {512, 512, 4},
+        {512, 1024, 1},
+        {1024, 512, 1},
+        {1024, 1024, 2}
     };
 
     glGenBuffers(1, &RectVtxBuffer);
@@ -202,6 +213,14 @@ bool GLRenderer::GLInit()
         auto& state = UnitState[i];
         memset(&state, 0, sizeof(state));
 
+        // generate UBOs
+
+        glGenBuffers(1, &state.SpriteConfigUBO);
+        glBindBuffer(GL_UNIFORM_BUFFER, state.SpriteConfigUBO);
+        static_assert((sizeof(sUnitState::sSpriteConfig) & 15) == 0);
+        glBufferData(GL_UNIFORM_BUFFER, sizeof(sUnitState::sSpriteConfig), nullptr, GL_STREAM_DRAW);
+        glBindBufferBase(GL_UNIFORM_BUFFER, 11 + (i*10), state.SpriteConfigUBO);
+
         // generate textures to hold raw BG and OBJ VRAM and palettes
 
         int bgheight = (i == 0) ? 512 : 128;
@@ -234,17 +253,30 @@ bool GLRenderer::GLInit()
 
         // generate texture to hold pre-rendered BG layers
 
-        glGenTextures(1, &state.BGLayerTex);
+        /*glGenTextures(1, &state.BGLayerTex);
         glBindTexture(GL_TEXTURE_2D_ARRAY, state.BGLayerTex);
         glDefaultTexParams(GL_TEXTURE_2D_ARRAY);
-        glTexImage3D(GL_TEXTURE_2D_ARRAY, 0, GL_RGBA, 1024, 1024, 4, 0, GL_RGBA, GL_UNSIGNED_BYTE, nullptr);
+        glTexImage3D(GL_TEXTURE_2D_ARRAY, 0, GL_RGBA, 1024, 1024, 4, 0, GL_RGBA, GL_UNSIGNED_BYTE, nullptr);*/
+        glGenTextures(22, state.AllBGLayerTex);
+        glGenFramebuffers(22, state.AllBGLayerFB);
 
-        glGenFramebuffers(4, state.BGLayerFB);
-        for (int j = 0; j < 4; j++)
+        int l = 0;
+        for (int j = 0; j < 8; j++)
         {
-            glBindFramebuffer(GL_FRAMEBUFFER, state.BGLayerFB[j]);
-            glFramebufferTextureLayer(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, state.BGLayerTex, 0, j);
-            glDrawBuffer(GL_COLOR_ATTACHMENT0);
+            const u16* sz = bgsizes[j];
+
+            for (int k = 0; k < sz[2]; k++)
+            {
+                glBindTexture(GL_TEXTURE_2D, state.AllBGLayerTex[l]);
+                glDefaultTexParams(GL_TEXTURE_2D);
+                glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, sz[0], sz[1], 0, GL_RGBA, GL_UNSIGNED_BYTE, nullptr);
+
+                glBindFramebuffer(GL_FRAMEBUFFER, state.AllBGLayerFB[l]);
+                glFramebufferTexture(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, state.AllBGLayerTex[l], 0);
+                glDrawBuffer(GL_COLOR_ATTACHMENT0);
+
+                l++;
+            }
         }
 
         // generate texture to hold pre-rendered sprites
@@ -318,11 +350,11 @@ bool GLRenderer::GLInit()
     glBufferData(GL_UNIFORM_BUFFER, sizeof(sUnitState::sLayerConfig), nullptr, GL_STREAM_DRAW);
     glBindBufferBase(GL_UNIFORM_BUFFER, 10, LayerConfigUBO);
 
-    glGenBuffers(1, &SpriteConfigUBO);
+    /*glGenBuffers(1, &SpriteConfigUBO);
     glBindBuffer(GL_UNIFORM_BUFFER, SpriteConfigUBO);
     static_assert((sizeof(sUnitState::sSpriteConfig) & 15) == 0);
     glBufferData(GL_UNIFORM_BUFFER, sizeof(sUnitState::sSpriteConfig), nullptr, GL_STREAM_DRAW);
-    glBindBufferBase(GL_UNIFORM_BUFFER, 11, SpriteConfigUBO);
+    glBindBufferBase(GL_UNIFORM_BUFFER, 11, SpriteConfigUBO);*/
 
     glGenBuffers(1, &ScanlineConfigUBO);
     glBindBuffer(GL_UNIFORM_BUFFER, ScanlineConfigUBO);
@@ -388,8 +420,9 @@ bool GLRenderer::GLInit()
     uniloc = glGetUniformLocation(SpritePreShader, "PalTex");
     glUniform1i(uniloc, 1);
 
-    uniloc = glGetUniformBlockIndex(SpritePreShader, "uConfig");
-    glUniformBlockBinding(SpritePreShader, uniloc, 11);
+    //uniloc = glGetUniformBlockIndex(SpritePreShader, "uConfig");
+    //glUniformBlockBinding(SpritePreShader, uniloc, 11);
+    SpritePreConfigULoc = glGetUniformBlockIndex(SpritePreShader, "uConfig");
 
 
     glUseProgram(SpriteShader);
@@ -401,14 +434,23 @@ bool GLRenderer::GLInit()
     uniloc = glGetUniformLocation(SpriteShader, "Capture256Tex");
     glUniform1i(uniloc, 2);
 
-    uniloc = glGetUniformBlockIndex(SpriteShader, "uConfig");
-    glUniformBlockBinding(SpriteShader, uniloc, 11);
+    //uniloc = glGetUniformBlockIndex(SpriteShader, "uConfig");
+    //glUniformBlockBinding(SpriteShader, uniloc, 11);
+    SpriteConfigULoc = glGetUniformBlockIndex(SpriteShader, "uConfig");
 
 
     glUseProgram(CompositorShader);
 
     uniloc = glGetUniformLocation(CompositorShader, "LayerTex");
     glUniform1i(uniloc, 0);
+    /*uniloc = glGetUniformLocation(CompositorShader, "LayerTex[0]");
+    glUniform1i(uniloc, 0);
+    uniloc = glGetUniformLocation(CompositorShader, "LayerTex[1]");
+    glUniform1i(uniloc, 1);
+    uniloc = glGetUniformLocation(CompositorShader, "LayerTex[2]");
+    glUniform1i(uniloc, 2);
+    uniloc = glGetUniformLocation(CompositorShader, "LayerTex[3]");
+    glUniform1i(uniloc, 3);*/
 
     uniloc = glGetUniformBlockIndex(CompositorShader, "uScanlineConfig");
     glUniformBlockBinding(CompositorShader, uniloc, 12);
@@ -562,7 +604,8 @@ GLRenderer::~GLRenderer()
         glDeleteTextures(1, &state.VRAMTex_OBJ);
         glDeleteTextures(1, &state.PalTex_BG);
         glDeleteTextures(1, &state.PalTex_OBJ);
-        glDeleteTextures(1, &state.BGLayerTex);
+        glDeleteFramebuffers(22, state.AllBGLayerFB);
+        glDeleteTextures(22, state.AllBGLayerTex);
         //glDeleteBuffers(1, &state.LayerConfigUBO);
     }
 
@@ -573,6 +616,9 @@ GLRenderer::~GLRenderer()
     delete[] AuxInputBuffer[0];
     delete[] AuxInputBuffer[1];
 }
+
+
+// TODO!!!! have a Reset() function!!
 
 
 void GLRenderer::SetScaleFactor(int scale)
@@ -680,6 +726,297 @@ void GLRenderer::SetScaleFactor(int scale)
 }
 
 
+void GLRenderer::UpdateAndRender(Unit* unit, int line)
+{
+    auto& state = UnitState[unit->Num];
+    u32 palmask = 1 << (unit->Num * 2);
+
+    // check if any 'critical' registers were modified
+
+    u32 dispcnt_diff;
+    u16 bgcnt_diff[4];
+
+    dispcnt_diff = unit->DispCnt ^ state.DispCnt;
+    for (int layer = 0; layer < 4; layer++)
+        bgcnt_diff[layer] = unit->BGCnt[layer] ^ state.BGCnt[layer];
+
+    u8 layer_pre_dirty = 0;
+    bool comp_dirty = false;
+
+    if (dispcnt_diff & 0x7)
+        layer_pre_dirty |= 0xC;
+    if (dispcnt_diff & 0x7F000000)
+        layer_pre_dirty |= 0xF;
+
+    if (dispcnt_diff & 0x000FFF88)
+        comp_dirty = true;
+
+    for (int layer = 0; layer < 4; layer++)
+    {
+        u16 mask = 0xDFBC;
+        if (layer < 2) mask |= (1 << 13);
+        if (bgcnt_diff[layer] & mask)
+            layer_pre_dirty |= (1 << layer);
+        if (bgcnt_diff[layer] & (~mask))
+            comp_dirty = true;
+    }
+
+    if ((unit->BlendCnt != state.BlendCnt) ||
+        (unit->EVA != state.EVA) ||
+        (unit->EVB != state.EVB) ||
+        (unit->EVY != state.EVY))
+        comp_dirty = true;
+
+    state.DispCnt = unit->DispCnt;
+    for (int layer = 0; layer < 4; layer++)
+        state.BGCnt[layer] = unit->BGCnt[layer];
+    state.BlendCnt = unit->BlendCnt;
+    state.EVA = unit->EVA;
+    state.EVB = unit->EVB;
+    state.EVY = unit->EVY;
+
+    // check if VRAM was modified, and flatten it as needed
+
+    static_assert(VRAMDirtyGranularity == 512);
+    NonStupidBitField<1024> bgDirty;
+    NonStupidBitField<64> bgExtPalDirty;
+    NonStupidBitField<16> objExtPalDirty;
+
+    if (unit->Num == 0)
+    {
+        bgDirty = GPU.VRAMDirty_ABG.DeriveState(GPU.VRAMMap_ABG, GPU);
+        GPU.MakeVRAMFlat_ABGCoherent(bgDirty);
+        bgExtPalDirty = GPU.VRAMDirty_ABGExtPal.DeriveState(GPU.VRAMMap_ABGExtPal, GPU);
+        GPU.MakeVRAMFlat_ABGExtPalCoherent(bgExtPalDirty);
+        objExtPalDirty = GPU.VRAMDirty_AOBJExtPal.DeriveState(&GPU.VRAMMap_AOBJExtPal, GPU);
+        GPU.MakeVRAMFlat_AOBJExtPalCoherent(objExtPalDirty);
+    }
+    else
+    {
+        auto _bgDirty = GPU.VRAMDirty_BBG.DeriveState(GPU.VRAMMap_BBG, GPU);
+        GPU.MakeVRAMFlat_BBGCoherent(_bgDirty);
+        for (int i = 0; i < 1024; i += 256)
+            memcpy(&bgDirty.Data[i>>6], _bgDirty.Data, 256>>3);
+
+        bgExtPalDirty = GPU.VRAMDirty_BBGExtPal.DeriveState(GPU.VRAMMap_BBGExtPal, GPU);
+        GPU.MakeVRAMFlat_BBGExtPalCoherent(bgExtPalDirty);
+        objExtPalDirty = GPU.VRAMDirty_BOBJExtPal.DeriveState(&GPU.VRAMMap_BOBJExtPal, GPU);
+        GPU.MakeVRAMFlat_BOBJExtPalCoherent(objExtPalDirty);
+    }
+
+    // for each layer, check if the VRAM and palettes involved are dirty
+
+    for (int layer = 0; layer < 4; layer++)
+    {
+        const u32* rangeinfo = state.BGVRAMRange[layer];
+
+        // to consider: only check the tileset range that is actually used
+        // (would require parsing the tilemap)
+        for (int r = 0; r < 4; r+=2)
+        {
+            if (rangeinfo[r] == 0xFFFFFFFF)
+                continue;
+
+            bool dirty = false;
+            u32 rstart = (rangeinfo[r] >> 9) & 0x3FF;
+            u32 rcount = (rangeinfo[r+1] >> 9);
+            if ((rstart + rcount) > 1024)
+            {
+                dirty = bgDirty.CheckRange(rstart, 1024-rstart) ||
+                        bgDirty.CheckRange(0, rcount-(1024-rstart));
+            }
+            else
+                dirty = bgDirty.CheckRange(rstart, rcount);
+
+            if (dirty)
+                layer_pre_dirty |= (1 << layer);
+        }
+
+        auto& cfg = state.LayerConfig.uBGConfig[layer];
+        if ((cfg.Type == 1 || cfg.Type == 3) && (cfg.PalOffset > 0))
+        {
+            u32 pal = cfg.PalOffset - 1;
+            if (bgExtPalDirty.CheckRange(pal, pal + 16))
+                layer_pre_dirty |= (1 << layer);
+        }
+        else if (cfg.Type != 5 && cfg.Type != 6)
+        {
+            if (GPU.PaletteDirty & palmask)
+                layer_pre_dirty |= (1 << layer);
+        }
+    }
+
+    GPU.PaletteDirty &= ~palmask;
+
+    if (unit->Num && layer_pre_dirty)
+        printf("layers dirty: %01X\n", layer_pre_dirty);
+
+    if (layer_pre_dirty)
+        comp_dirty = true;
+
+    // if needed, render sprites
+    // TODO: move to RenderScreen()?
+
+    //glScissor(0, ystart * ScaleFactor, ScreenW, (yend-ystart) * ScaleFactor);
+
+    if (state.SpriteDirty && (line > 0))
+    {
+#if 0
+        state.SpriteDirty = false;
+
+        // OAM and VRAM have already been updated prior
+        // palette needs to be updated here though
+
+        glActiveTexture(GL_TEXTURE0);
+        glBindTexture(GL_TEXTURE_2D, state.VRAMTex_OBJ);
+
+        memcpy(&TempPalBuffer[0], &GPU.Palette[unit->Num ? 0x600 : 0x200], 256*2);
+        {
+            u16* pal = unit->GetOBJExtPal();
+            memcpy(&TempPalBuffer[256], pal, 256*16*2);
+        }
+
+        glActiveTexture(GL_TEXTURE1);
+        glBindTexture(GL_TEXTURE_2D, state.PalTex_OBJ);
+        //glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, 256, 1+16, GL_RGBA, GL_UNSIGNED_SHORT_1_5_5_5_REV, TempPalBuffer);
+        glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, 256, 1+16, GL_RED_INTEGER, GL_UNSIGNED_SHORT, TempPalBuffer);
+
+        int ystart = state.LastSpriteLine;
+        int yend = line;
+        printf("render sprites %d %d->%d (line=%d last=%d)\n", unit->Num, ystart, yend, line, state.LastSpriteLine);
+        state.LastSpriteLine = line;
+
+        //PrerenderSprites(unit);
+
+        glEnable(GL_SCISSOR_TEST);
+        glScissor(0, ystart * ScaleFactor, ScreenW, (yend-ystart) * ScaleFactor);
+
+        //RenderSprites(unit, true, ystart, yend);
+        //RenderSprites(unit, false, ystart, yend);
+
+        glDisable(GL_SCISSOR_TEST);
+#endif
+        DoRenderSprites(unit, line);
+
+        //comp_dirty = true;
+    }
+
+    // if needed, composite the previous screen section
+
+    if (comp_dirty && (line > 0))
+    {
+        RenderScreen(unit, state.LastLine, line);
+        state.LastLine = line;
+    }
+
+    // update registers
+
+    if (layer_pre_dirty)
+        UpdateLayerConfig(unit);
+
+    UpdateScanlineConfig(unit, line);
+
+    if (line == 0) layer_pre_dirty = 0xF; // TODO REMOVE ME
+    // breaks 3D layer - ought to redo compositing
+    if (layer_pre_dirty)
+    {
+        // update VRAM and palettes
+        // TODO only update parts that are dirty
+
+        u8* vram; u32 vrammask;
+        unit->GetBGVRAM(vram, vrammask);
+        u32 vramheight = (vrammask+1) >> 10;
+
+        glActiveTexture(GL_TEXTURE0);
+        glBindTexture(GL_TEXTURE_2D, state.VRAMTex_BG);
+        glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, 1024, vramheight, GL_RED_INTEGER, GL_UNSIGNED_BYTE, vram);
+
+        memcpy(&TempPalBuffer[0], &GPU.Palette[unit->Num ? 0x400 : 0], 256*2);
+        for (int s = 0; s < 4; s++)
+        {
+            for (int p = 0; p < 16; p++)
+            {
+                u16* pal = unit->GetBGExtPal(s, p);
+                memcpy(&TempPalBuffer[(1+((s*16)+p)) * 256], pal, 256*2);
+            }
+        }
+
+        glActiveTexture(GL_TEXTURE1);
+        glBindTexture(GL_TEXTURE_2D, state.PalTex_BG);
+        //glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, 256, 1+(4*16), GL_RGBA, GL_UNSIGNED_SHORT_1_5_5_5_REV, TempPalBuffer);
+        glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, 256, 1+(4*16), GL_RED_INTEGER, GL_UNSIGNED_SHORT, TempPalBuffer);
+
+        // pre-render BG layers with the new settings
+
+        glUseProgram(LayerPreShader);
+
+        glBindBuffer(GL_UNIFORM_BUFFER, LayerConfigUBO);
+        glBufferSubData(GL_UNIFORM_BUFFER, 0, sizeof(state.LayerConfig), &state.LayerConfig);
+
+        for (int layer = 0; layer < 4; layer++)
+        {
+            if (!(layer_pre_dirty & (1 << layer)))
+                continue;
+
+            PrerenderLayer(unit, layer);
+        }
+
+#if 1
+        glUseProgram(LayerShader);
+
+        // TODO not set this all the time!!
+        glUniform1i(LayerScaleULoc, ScaleFactor);
+        glUniform1i(LayerCurUnitULoc, unit->Num);
+
+        // update scanline config buffer
+        // TODO MAKE BETTERER
+        glBindBuffer(GL_UNIFORM_BUFFER, ScanlineConfigUBO);
+        glBufferSubData(GL_UNIFORM_BUFFER, 0, sizeof(sUnitState::sScanlineConfig), &state.ScanlineConfig);
+
+        glColorMaski(0, GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
+
+        for (int layer = 0; layer < 4; layer++)
+        {
+            if (!(layer_pre_dirty & (1 << layer)))
+                continue;
+
+            RenderLayer(unit, layer, 0, 192);// TODO HAX
+        }
+#endif
+    }
+
+    if (state.SpriteDirty)
+    {
+        // OAM and VRAM have already been updated prior
+        // palette needs to be updated here though
+
+        // TODO make this only do it over the required subsection?
+        state.NumSprites = 0;
+        UpdateOAM(unit, 0, 192);
+
+        glActiveTexture(GL_TEXTURE0);
+        glBindTexture(GL_TEXTURE_2D, state.VRAMTex_OBJ);
+
+        memcpy(&TempPalBuffer[0], &GPU.Palette[unit->Num ? 0x600 : 0x200], 256*2);
+        {
+            u16* pal = unit->GetOBJExtPal();
+            memcpy(&TempPalBuffer[256], pal, 256*16*2);
+        }
+
+        glActiveTexture(GL_TEXTURE1);
+        glBindTexture(GL_TEXTURE_2D, state.PalTex_OBJ);
+        //glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, 256, 1+16, GL_RGBA, GL_UNSIGNED_SHORT_1_5_5_5_REV, TempPalBuffer);
+        glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, 256, 1+16, GL_RED_INTEGER, GL_UNSIGNED_SHORT, TempPalBuffer);
+//printf("unit%d line%d prerendering sprites\n", unit->Num, line);
+        PrerenderSprites(unit);
+
+        state.LastSpriteLine = line;
+    }
+
+    state.SpriteDirty = false;
+}
+
+
 void GLRenderer::DrawScanline(u32 line, Unit* unit)
 {
     CurUnit = unit;
@@ -697,41 +1034,10 @@ void GLRenderer::DrawScanline(u32 line, Unit* unit)
     u32* attrib = &LineAttribBuffer[3 * yoffset];
     u32* dst = &BGOBJBuffer[256 * 3 * yoffset];
 
+    // TODO account for this shit (in final pass shader?)
+    // as well as forced blank flag
     int lineout = line;
     line = GPU.VCount;
-
-    // TODO detect if VRAM was modified and do a partial render
-    bool vramdirty = false;
-
-    if (CurUnit->Num == 0)
-    {
-        auto bgDirty = GPU.VRAMDirty_ABG.DeriveState(GPU.VRAMMap_ABG, GPU);
-        GPU.MakeVRAMFlat_ABGCoherent(bgDirty);
-        auto bgExtPalDirty = GPU.VRAMDirty_ABGExtPal.DeriveState(GPU.VRAMMap_ABGExtPal, GPU);
-        GPU.MakeVRAMFlat_ABGExtPalCoherent(bgExtPalDirty);
-        auto objExtPalDirty = GPU.VRAMDirty_AOBJExtPal.DeriveState(&GPU.VRAMMap_AOBJExtPal, GPU);
-        GPU.MakeVRAMFlat_AOBJExtPalCoherent(objExtPalDirty);
-    }
-    else
-    {
-        auto bgDirty = GPU.VRAMDirty_BBG.DeriveState(GPU.VRAMMap_BBG, GPU);
-        GPU.MakeVRAMFlat_BBGCoherent(bgDirty);
-        auto bgExtPalDirty = GPU.VRAMDirty_BBGExtPal.DeriveState(GPU.VRAMMap_BBGExtPal, GPU);
-        GPU.MakeVRAMFlat_BBGExtPalCoherent(bgExtPalDirty);
-        auto objExtPalDirty = GPU.VRAMDirty_BOBJExtPal.DeriveState(&GPU.VRAMMap_BOBJExtPal, GPU);
-        GPU.MakeVRAMFlat_BOBJExtPalCoherent(objExtPalDirty);
-    }
-
-    if (CurUnit->Num == 0)
-    {
-        auto objDirty = GPU.VRAMDirty_AOBJ.DeriveState(GPU.VRAMMap_AOBJ, GPU);
-        GPU.MakeVRAMFlat_AOBJCoherent(objDirty);
-    }
-    else
-    {
-        auto objDirty = GPU.VRAMDirty_BOBJ.DeriveState(GPU.VRAMMap_BOBJ, GPU);
-        GPU.MakeVRAMFlat_BOBJCoherent(objDirty);
-    }
 
     bool forceblank = false;
 
@@ -748,19 +1054,21 @@ void GLRenderer::DrawScanline(u32 line, Unit* unit)
         CurUnit->CaptureLatch = true;
 
     // TODO: do partial rendering if any critical registers/VRAM were modified
-    UpdateScanlineConfig(unit, line);
+    //UpdateScanlineConfig(unit, line);
 
     if (unit->Num == 0)
         FinalPassConfig.uScreenSwap[line] = unit->ScreenPos;
 
-    if (forceblank)
+    /*if (forceblank)
     {
         // TODO signal blank differently.
         for (int i = 0; i < 256; i++)
             dst[i] = 0xFFFFFFFF;
 
         return;
-    }
+    }*/
+
+    UpdateAndRender(unit, line);
 
     /*attrib[0] = CurUnit->DispCnt;
     attrib[1] = CurUnit->BlendCnt | (CurUnit->EVA << 16) | (CurUnit->EVB << 24);
@@ -867,12 +1175,16 @@ void GLRenderer::VBlank(Unit* unitA, Unit* unitB)
     glGetIntegerv(GL_TEXTURE_BINDING_2D, (GLint*)&fart);
     _3DLayerTex = fart;
 
-    RenderScreen(unitA, 0, 192);
-    RenderScreen(unitB, 0, 192);
+    DoRenderSprites(unitA, 192);
+    RenderScreen(unitA, UnitState[0].LastLine, 192);
 
-    GPU.OAMDirty = 0;
+    DoRenderSprites(unitB, 192);
+    RenderScreen(unitB, UnitState[1].LastLine, 192);
+
     UnitState[0].LastSpriteLine = 0;
+    UnitState[0].LastLine = 0;
     UnitState[1].LastSpriteLine = 0;
+    UnitState[1].LastLine = 0;
 
 
     int backbuf = BackBuffer;
@@ -1169,7 +1481,8 @@ void GLRenderer::UpdateLayerConfig(Unit* unit)
         case 3: layertype[2] = 1; layertype[3] = 3; break;
         case 4: layertype[2] = 2; layertype[3] = 3; break;
         case 5: layertype[2] = 3; layertype[3] = 3; break;
-        case 6: layertype[2] = 4; layertype[3] = 0; break;
+        case 6: layertype[0] = 0; layertype[1] = 0;
+                layertype[2] = 4; layertype[3] = 0; break;
         case 7: layertype[2] = 0; layertype[3] = 0; break;
     }
 
@@ -1186,6 +1499,9 @@ void GLRenderer::UpdateLayerConfig(Unit* unit)
         cfg.MapOffset = mapbase + (((bgcnt >> 8) & 0x1F) << 11);
         cfg.PalOffset = 0;
 
+        state.BGVRAMRange[layer][0] = cfg.TileOffset;
+        state.BGVRAMRange[layer][2] = cfg.MapOffset;
+
         if ((layer == 0) && (unit->DispCnt & (1<<3)))
         {
             // 3D layer
@@ -1193,17 +1509,23 @@ void GLRenderer::UpdateLayerConfig(Unit* unit)
             cfg.Size[0] = 256; cfg.Size[1] = 192;
             cfg.Type = 6;
             cfg.Clamp = 1;
+
+            state.BGVRAMRange[layer][0] = 0xFFFFFFFF;
+            state.BGVRAMRange[layer][1] = 0xFFFFFFFF;
+            state.BGVRAMRange[layer][2] = 0xFFFFFFFF;
+            state.BGVRAMRange[layer][3] = 0xFFFFFFFF;
         }
         else if (type == 1)
         {
             // text layer
 
+            u32 tilesz, mapsz;
             switch (bgcnt >> 14)
             {
-                case 0: cfg.Size[0] = 256; cfg.Size[1] = 256; break;
-                case 1: cfg.Size[0] = 512; cfg.Size[1] = 256; break;
-                case 2: cfg.Size[0] = 256; cfg.Size[1] = 512; break;
-                case 3: cfg.Size[0] = 512; cfg.Size[1] = 512; break;
+                case 0: cfg.Size[0] = 256; cfg.Size[1] = 256; mapsz = 0x800; break;
+                case 1: cfg.Size[0] = 512; cfg.Size[1] = 256; mapsz = 0x1000; break;
+                case 2: cfg.Size[0] = 256; cfg.Size[1] = 512; mapsz = 0x1000; break;
+                case 3: cfg.Size[0] = 512; cfg.Size[1] = 512; mapsz = 0x2000; break;
             }
 
             if (bgcnt & (1<<7))
@@ -1218,29 +1540,48 @@ void GLRenderer::UpdateLayerConfig(Unit* unit)
                         paloff += 2;
                     cfg.PalOffset = 1 + (16 * paloff);
                 }
+
+                tilesz = 0x10000;
             }
             else
             {
                 // 16-color
                 cfg.Type = 0;
+
+                tilesz = 0x8000;
             }
 
             cfg.Clamp = 0;
+
+            int n = BGBaseIndex[0][bgcnt >> 14] + layer;
+            state.BGLayerTex[layer] = state.AllBGLayerTex[n];
+            state.BGLayerFB[layer] = state.AllBGLayerFB[n];
+
+            state.BGVRAMRange[layer][1] = tilesz;
+            state.BGVRAMRange[layer][3] = mapsz;
         }
         else if (type == 2)
         {
             // affine layer
 
+            u32 mapsz;
             switch (bgcnt >> 14)
             {
-                case 0: cfg.Size[0] = 128; cfg.Size[1] = 128; break;
-                case 1: cfg.Size[0] = 256; cfg.Size[1] = 256; break;
-                case 2: cfg.Size[0] = 512; cfg.Size[1] = 512; break;
-                case 3: cfg.Size[0] = 1024; cfg.Size[1] = 1024; break;
+                case 0: cfg.Size[0] = 128; cfg.Size[1] = 128; mapsz = 0x100; break;
+                case 1: cfg.Size[0] = 256; cfg.Size[1] = 256; mapsz = 0x400; break;
+                case 2: cfg.Size[0] = 512; cfg.Size[1] = 512; mapsz = 0x1000; break;
+                case 3: cfg.Size[0] = 1024; cfg.Size[1] = 1024; mapsz = 0x4000; break;
             }
 
             cfg.Type = 2;
             cfg.Clamp = !(bgcnt & (1<<13));
+
+            int n = BGBaseIndex[1][bgcnt >> 14] + layer - 2;
+            state.BGLayerTex[layer] = state.AllBGLayerTex[n];
+            state.BGLayerFB[layer] = state.AllBGLayerFB[n];
+
+            state.BGVRAMRange[layer][1] = 0x4000;
+            state.BGVRAMRange[layer][3] = mapsz;
         }
         else if (type == 3)
         {
@@ -1250,32 +1591,45 @@ void GLRenderer::UpdateLayerConfig(Unit* unit)
             {
                 // bitmap modes
 
+                u32 mapsz;
                 switch (bgcnt >> 14)
                 {
-                    case 0: cfg.Size[0] = 128; cfg.Size[1] = 128; break;
-                    case 1: cfg.Size[0] = 256; cfg.Size[1] = 256; break;
-                    case 2: cfg.Size[0] = 512; cfg.Size[1] = 256; break;
-                    case 3: cfg.Size[0] = 512; cfg.Size[1] = 512; break;
+                    case 0: cfg.Size[0] = 128; cfg.Size[1] = 128; mapsz = 0x4000; break;
+                    case 1: cfg.Size[0] = 256; cfg.Size[1] = 256; mapsz = 0x10000; break;
+                    case 2: cfg.Size[0] = 512; cfg.Size[1] = 256; mapsz = 0x20000; break;
+                    case 3: cfg.Size[0] = 512; cfg.Size[1] = 512; mapsz = 0x40000; break;
                 }
 
                 if (bgcnt & (1<<2))
+                {
                     cfg.Type = 5;
+                    mapsz <<= 1;
+                }
                 else
                     cfg.Type = 4;
 
                 cfg.TileOffset = 0;
                 cfg.MapOffset = ((bgcnt >> 8) & 0x1F) << 14;
+
+                int n = BGBaseIndex[2][bgcnt >> 14] + layer - 2;
+                state.BGLayerTex[layer] = state.AllBGLayerTex[n];
+                state.BGLayerFB[layer] = state.AllBGLayerFB[n];
+
+                state.BGVRAMRange[layer][0] = 0xFFFFFFFF;
+                state.BGVRAMRange[layer][1] = 0xFFFFFFFF;
+                state.BGVRAMRange[layer][3] = mapsz;
             }
             else
             {
                 // rotscale w/ tiles
 
+                u32 mapsz;
                 switch (bgcnt >> 14)
                 {
-                    case 0: cfg.Size[0] = 128; cfg.Size[1] = 128; break;
-                    case 1: cfg.Size[0] = 256; cfg.Size[1] = 256; break;
-                    case 2: cfg.Size[0] = 512; cfg.Size[1] = 512; break;
-                    case 3: cfg.Size[0] = 1024; cfg.Size[1] = 1024; break;
+                    case 0: cfg.Size[0] = 128; cfg.Size[1] = 128; mapsz = 0x200; break;
+                    case 1: cfg.Size[0] = 256; cfg.Size[1] = 256; mapsz = 0x800; break;
+                    case 2: cfg.Size[0] = 512; cfg.Size[1] = 512; mapsz = 0x2000; break;
+                    case 3: cfg.Size[0] = 1024; cfg.Size[1] = 1024; mapsz = 0x8000; break;
                 }
 
                 // this layer type is always 256-color
@@ -1288,6 +1642,13 @@ void GLRenderer::UpdateLayerConfig(Unit* unit)
                         paloff += 2;
                     cfg.PalOffset = 1 + (16 * paloff);
                 }
+
+                int n = BGBaseIndex[1][bgcnt >> 14] + layer - 2;
+                state.BGLayerTex[layer] = state.AllBGLayerTex[n];
+                state.BGLayerFB[layer] = state.AllBGLayerFB[n];
+
+                state.BGVRAMRange[layer][1] = 0x10000;
+                state.BGVRAMRange[layer][3] = mapsz;
             }
 
             cfg.Clamp = !(bgcnt & (1<<13));
@@ -1296,23 +1657,34 @@ void GLRenderer::UpdateLayerConfig(Unit* unit)
         {
             // large layer
 
+            u32 mapsz;
             switch (bgcnt >> 14)
             {
-                case 0: cfg.Size[0] = 512; cfg.Size[1] = 1024; break;
-                case 1: cfg.Size[0] = 1024; cfg.Size[1] = 512; break;
-                case 2: cfg.Size[0] = 512; cfg.Size[1] = 256; break;
-                case 3: cfg.Size[0] = 512; cfg.Size[1] = 512; break;
+                case 0: cfg.Size[0] = 512; cfg.Size[1] = 1024; mapsz = 0x80000; break;
+                case 1: cfg.Size[0] = 1024; cfg.Size[1] = 512; mapsz = 0x80000; break;
+                case 2: cfg.Size[0] = 512; cfg.Size[1] = 256; mapsz = 0x20000; break;
+                case 3: cfg.Size[0] = 512; cfg.Size[1] = 512; mapsz = 0x40000; break;
             }
 
             cfg.Type = 4;
             cfg.TileOffset = 0;
             cfg.MapOffset = 0;
             cfg.Clamp = !(bgcnt & (1<<13));
+
+            int n = BGBaseIndex[3][bgcnt >> 14];
+            state.BGLayerTex[layer] = state.AllBGLayerTex[n];
+            state.BGLayerFB[layer] = state.AllBGLayerFB[n];
+
+            state.BGVRAMRange[layer][0] = 0xFFFFFFFF;
+            state.BGVRAMRange[layer][1] = 0xFFFFFFFF;
+            state.BGVRAMRange[layer][3] = mapsz;
         }
     }
 
+#if 0
     glBindBuffer(GL_UNIFORM_BUFFER, LayerConfigUBO);
     glBufferSubData(GL_UNIFORM_BUFFER, 0, sizeof(state.LayerConfig), &state.LayerConfig);
+#endif
 }
 
 void GLRenderer::UpdateOAM(Unit* unit, int ystart, int yend)
@@ -1507,7 +1879,7 @@ void GLRenderer::UpdateOAM(Unit* unit, int ystart, int yend)
         }
     }
 
-    glBindBuffer(GL_UNIFORM_BUFFER, SpriteConfigUBO);
+    glBindBuffer(GL_UNIFORM_BUFFER, state.SpriteConfigUBO);
     glBufferSubData(GL_UNIFORM_BUFFER,
                     0,
                     offsetof(sUnitState::sSpriteConfig, uOAM) + (state.NumSprites * sizeof(cfg.uOAM[0])),
@@ -1574,7 +1946,7 @@ void GLRenderer::PrerenderSprites(Unit* unit)
     glBindFramebuffer(GL_DRAW_FRAMEBUFFER, state.SpriteFB);
     glViewport(0, 0, 1024, 512);
 
-    // TODO upload VRAM shit
+    glUniformBlockBinding(SpritePreShader, SpritePreConfigULoc, 11 + (unit->Num*10));
 
     glBindBuffer(GL_ARRAY_BUFFER, SpritePreVtxBuffer);
     glBufferSubData(GL_ARRAY_BUFFER, 0, vtxnum * 3 * sizeof(u16), SpritePreVtxData);
@@ -1605,6 +1977,21 @@ void GLRenderer::PrerenderLayer(Unit* unit, int layer)
 }
 
 
+void GLRenderer::DoRenderSprites(Unit* unit, int line)
+{
+    auto& state = UnitState[unit->Num];
+    int ystart = state.LastSpriteLine;
+    int yend = line;
+
+    glEnable(GL_SCISSOR_TEST);
+    glScissor(0, ystart * ScaleFactor, ScreenW, (yend-ystart) * ScaleFactor);
+
+    RenderSprites(unit, true, ystart, yend);
+    RenderSprites(unit, false, ystart, yend);
+
+    glDisable(GL_SCISSOR_TEST);
+}
+
 void GLRenderer::RenderSprites(Unit* unit, bool window, int ystart, int yend)
 {
     auto& state = UnitState[unit->Num];
@@ -1614,9 +2001,6 @@ void GLRenderer::RenderSprites(Unit* unit, bool window, int ystart, int yend)
     glBindFramebuffer(GL_READ_FRAMEBUFFER, 0);
     glBindFramebuffer(GL_DRAW_FRAMEBUFFER, state.FinalLayerFB[4]);
     glViewport(0, 0, ScreenW, ScreenH);
-
-    // TODO enable scissor test when needed
-    //glScissor(0, ystart * ScaleFactor, ScreenW, yend * ScaleFactor);
 
     if (window)
     {
@@ -1631,6 +2015,8 @@ void GLRenderer::RenderSprites(Unit* unit, bool window, int ystart, int yend)
 
     glClearColor(0, 0, 0, 0);
     glClear(GL_COLOR_BUFFER_BIT);
+
+    glUniformBlockBinding(SpriteShader, SpriteConfigULoc, 11 + (unit->Num*10));
 
     if (window)
     {
@@ -1725,7 +2111,7 @@ void GLRenderer::RenderLayer(Unit* unit, int layer, int ystart, int yend)
         glColorMaski(1, GL_FALSE, GL_FALSE, GL_FALSE, GL_FALSE);
 
     glActiveTexture(GL_TEXTURE0);
-    glBindTexture(GL_TEXTURE_2D_ARRAY, state.BGLayerTex);
+    glBindTexture(GL_TEXTURE_2D, state.BGLayerTex[layer]);
 
     glActiveTexture(GL_TEXTURE1);
     glBindTexture(GL_TEXTURE_2D, _3DLayerTex);
@@ -1747,7 +2133,7 @@ void GLRenderer::RenderLayer(Unit* unit, int layer, int ystart, int yend)
 void GLRenderer::RenderScreen(Unit* unit, int ystart, int yend)
 {
     auto& state = UnitState[unit->Num];
-
+#if 0
     glUseProgram(LayerPreShader);
 
     // update VRAM and palettes
@@ -1847,10 +2233,36 @@ void GLRenderer::RenderScreen(Unit* unit, int ystart, int yend)
     RenderLayer(unit, 2, ystart, yend);
     RenderLayer(unit, 3, ystart, yend);
 
+#endif
+
+    /*glUseProgram(LayerShader);
+
+    // TODO not set this all the time!!
+    glUniform1i(LayerScaleULoc, ScaleFactor);
+    glUniform1i(LayerCurUnitULoc, unit->Num);
+
+    // update scanline config buffer
+    // TODO MAKE BETTERER
+    glBindBuffer(GL_UNIFORM_BUFFER, ScanlineConfigUBO);
+    glBufferSubData(GL_UNIFORM_BUFFER, 0, sizeof(sUnitState::sScanlineConfig), &state.ScanlineConfig);
+
+    glColorMaski(0, GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
+
+    for (int layer = 0; layer < 4; layer++)
+    {
+        RenderLayer(unit, layer, ystart, yend);
+    }*/
 
     glUseProgram(CompositorShader);
 
+    glBindBuffer(GL_UNIFORM_BUFFER, ScanlineConfigUBO);
+    glBufferSubData(GL_UNIFORM_BUFFER,
+                    ystart * sizeof(sUnitState::sScanlineConfig::sScanline),
+                    (yend - ystart) * sizeof(sUnitState::sScanlineConfig::sScanline),
+                    &state.ScanlineConfig.uScanline[ystart]);
+
     // TODO not set this all the time?
+    // TODO set coords or scissor based on ystart and yend
     glUniform1i(CompositorScaleULoc, ScaleFactor);
 
     UpdateCompositorConfig(unit);
@@ -1871,6 +2283,11 @@ void GLRenderer::RenderScreen(Unit* unit, int ystart, int yend)
 
     glActiveTexture(GL_TEXTURE0);
     glBindTexture(GL_TEXTURE_2D_ARRAY, state.FinalLayerTex);
+    /*for (int i = 0; i < 4; i++)
+    {
+        glActiveTexture(GL_TEXTURE0 + i);
+        glBindTexture(GL_TEXTURE_2D, state.BGLayerTex[i]);
+    }*/
 
     glBindBuffer(GL_ARRAY_BUFFER, RectVtxBuffer);
     glBindVertexArray(RectVtxArray);
@@ -2163,6 +2580,93 @@ void GLRenderer::DoCapture(Unit* unit, int vramcap)
 void GLRenderer::DrawSprites(u32 line, Unit* unit)
 {
     auto& state = UnitState[unit->Num];
+    u32 oammask = 1 << unit->Num;
+    bool dirty = false;
+
+    u32 dispcnt_diff = unit->DispCnt ^ state.SpriteDispCnt;
+    state.SpriteDispCnt = unit->DispCnt;
+    if (dispcnt_diff & 0x80F000F0)
+        dirty = true;
+
+    static_assert(VRAMDirtyGranularity == 512);
+    NonStupidBitField<512> objDirty;
+
+    if (unit->Num == 0)
+    {
+        objDirty = GPU.VRAMDirty_AOBJ.DeriveState(GPU.VRAMMap_AOBJ, GPU);
+        GPU.MakeVRAMFlat_AOBJCoherent(objDirty);
+    }
+    else
+    {
+        auto _objDirty = GPU.VRAMDirty_BOBJ.DeriveState(GPU.VRAMMap_BOBJ, GPU);
+        GPU.MakeVRAMFlat_BOBJCoherent(_objDirty);
+        //for (int i = 0; i < 512; i += 256)
+        //   memcpy(&objDirty.Data[i>>6], _objDirty.Data, 256>>6);
+        memcpy(objDirty.Data, _objDirty.Data, 256>>3);
+    }
+
+    u8* vram; u32 vrammask;
+    unit->GetOBJVRAM(vram, vrammask);
+    u32 vramheight = (vrammask+1) >> 10;
+
+    glBindTexture(GL_TEXTURE_2D, state.VRAMTex_OBJ);
+
+    //glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, 1024, vramheight, GL_RED_INTEGER, GL_UNSIGNED_BYTE, vram);
+    // 64 bits of mask = 32*1024 of texture
+    int texlen = (unit->Num ? 256 : 512) >> 6;
+    for (int i = 0; i < texlen; )
+    {
+        if (!objDirty.Data[i])
+        {
+            i++;
+            continue;
+        }
+
+        int start = i * 32;
+        for (;;)
+        {
+            i++;
+            if (i >= texlen) break;
+            if (!objDirty.Data[i]) break;
+        }
+        int end = i * 32;
+
+        glTexSubImage2D(GL_TEXTURE_2D, 0,
+                        0, start,
+                        1024, end - start,
+                        GL_RED_INTEGER, GL_UNSIGNED_BYTE,
+                        &vram[start * 1024]);
+        dirty = true;
+    }
+    //if (dirty) for (int i = 0; i < texlen; i++) printf("dirty%d = %016llX\n", i, objDirty.Data[i]);
+    bool dirty2 = objDirty.CheckRange(0, texlen<<6);
+    if (dirty != dirty2)
+    {
+        printf("GRAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA %d %d\n", dirty, dirty2);
+        for (int i = 0; i < texlen; i++) printf("dirty%d = %016llX\n", i, objDirty.Data[i]);
+    }
+    //if (dirty)
+    //    glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, 1024, vramheight, GL_RED_INTEGER, GL_UNSIGNED_BYTE, vram);
+
+    int ystart = state.LastSpriteLine;
+    int yend = line;
+
+    if (GPU.OAMDirty & oammask)
+    {
+        //state.NumSprites = 0;
+        //UpdateOAM(unit, ystart, yend);
+        //UpdateOAM(unit, 0, 192); // TODO hack
+        memcpy(state.OAM, &GPU.OAM[unit->Num ? 0x400 : 0], 0x400);
+        GPU.OAMDirty &= ~oammask;
+        dirty = true;
+    }
+
+    // DrawScanline() for the next scanline will be called after this
+    // so it will be able to do the actual sprite rendering
+    if (dirty)
+        state.SpriteDirty = true;
+
+#if 0
     u32 dirtymask = (1 << unit->Num);
 
     if (line == 0)
@@ -2181,8 +2685,32 @@ void GLRenderer::DrawSprites(u32 line, Unit* unit)
 
     if (unit->DispCnt & (1<<12))
     {
+        static_assert(VRAMDirtyGranularity == 512);
+        NonStupidBitField<512> objDirty;
+        NonStupidBitField<16> objExtPalDirty;
+
+        if (CurUnit->Num == 0)
+        {
+            objDirty = GPU.VRAMDirty_AOBJ.DeriveState(GPU.VRAMMap_AOBJ, GPU);
+            GPU.MakeVRAMFlat_AOBJCoherent(objDirty);
+
+            objExtPalDirty = GPU.VRAMDirty_AOBJExtPal.DeriveState(&GPU.VRAMMap_AOBJExtPal, GPU);
+            GPU.MakeVRAMFlat_AOBJExtPalCoherent(objExtPalDirty);
+        }
+        else
+        {
+            auto _objDirty = GPU.VRAMDirty_BOBJ.DeriveState(GPU.VRAMMap_BOBJ, GPU);
+            GPU.MakeVRAMFlat_BOBJCoherent(_objDirty);
+            for (int i = 0; i < 512; i += 256)
+                memcpy(&objDirty.Data[i>>6], _objDirty.Data, 256>>6);
+
+            objExtPalDirty = GPU.VRAMDirty_BOBJExtPal.DeriveState(&GPU.VRAMMap_BOBJExtPal, GPU);
+            GPU.MakeVRAMFlat_BOBJExtPalCoherent(objExtPalDirty);
+        }
+
         // TODO only update parts that are dirty, too
         // TODO also check dirty flags up here
+        // TODO palette should be resolved one scanline later
 
         u8* vram; u32 vrammask;
         unit->GetOBJVRAM(vram, vrammask);
@@ -2206,7 +2734,7 @@ void GLRenderer::DrawSprites(u32 line, Unit* unit)
         state.NumSprites = 0;
         UpdateOAM(unit, ystart, yend);
         PrerenderSprites(unit);
-
+printf("render sprites %d %d->%d\n", unit->Num, ystart, yend);
         glEnable(GL_SCISSOR_TEST);
         glScissor(0, ystart * ScaleFactor, ScreenW, (yend-ystart) * ScaleFactor);
 
@@ -2219,6 +2747,7 @@ void GLRenderer::DrawSprites(u32 line, Unit* unit)
     state.LastSpriteLine = yend;
     memcpy(state.OAM, &GPU.OAM[unit->Num ? 0x400 : 0], 0x400);
     GPU.OAMDirty &= ~dirtymask;
+#endif
 }
 
 }

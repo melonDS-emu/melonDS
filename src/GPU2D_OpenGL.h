@@ -78,12 +78,14 @@ private:
     GLuint ScanlineConfigUBO;
 
     GLuint SpritePreShader;
-    GLuint SpriteConfigUBO;
+    //GLuint SpriteConfigUBO;
+    GLint SpritePreConfigULoc;
     GLuint SpritePreVtxBuffer;
     GLuint SpritePreVtxArray;
     u16* SpritePreVtxData;
 
     GLuint SpriteShader;
+    GLint SpriteConfigULoc;
     GLuint SpriteVtxBuffer;
     GLuint SpriteVtxArray;
     u16* SpriteVtxData;
@@ -92,15 +94,29 @@ private:
     GLuint CompositorConfigUBO;
     GLint CompositorScaleULoc;
 
+    // base index for a BG layer within the BG texture arrays
+    // based on BG type and size
+    const u8 BGBaseIndex[4][4] = {
+        {2, 10, 6, 14},     // text mode
+        {0, 4, 16, 20},     // rotscale
+        {0, 4, 12, 16},     // bitmap
+        {18, 19, 12, 16},   // large bitmap
+    };
+
     struct sUnitState
     {
+        GLuint SpriteConfigUBO;
+
         GLuint VRAMTex_BG;
         GLuint VRAMTex_OBJ;
         GLuint PalTex_BG;
         GLuint PalTex_OBJ;
 
+        GLuint AllBGLayerFB[22];
+        GLuint AllBGLayerTex[22];
+
         GLuint BGLayerFB[4];
-        GLuint BGLayerTex;
+        GLuint BGLayerTex[4];
 
         GLuint SpriteFB;
         GLuint SpriteTex;
@@ -179,9 +195,20 @@ private:
             u32 uBlendCoef[4];
         } CompositorConfig;
 
-        int LastSpriteLine;
+        int LastLine;
 
+        u32 DispCnt;
+        u16 BGCnt[4];
+        u16 BlendCnt;
+        u8 EVA, EVB, EVY;
+
+        u32 BGVRAMRange[4][4];
+
+        int LastSpriteLine;
         u16 OAM[512];
+
+        u32 SpriteDispCnt;
+        bool SpriteDirty;
 
     } UnitState[2];
 
@@ -295,6 +322,8 @@ private:
         return table;
     }();*/
 
+    void UpdateAndRender(Unit* unit, int line);
+
     void UpdateScanlineConfig(Unit* unit, int line);
     void UpdateLayerConfig(Unit* unit);
     void UpdateOAM(Unit* unit, int ystart, int yend);
@@ -303,6 +332,7 @@ private:
     void PrerenderSprites(Unit* unit);
     void PrerenderLayer(Unit* unit, int layer);
 
+    void DoRenderSprites(Unit* unit, int line);
     void RenderSprites(Unit* unit, bool window, int ystart, int yend);
     void RenderLayer(Unit* unit, int layer, int ystart, int yend);
 

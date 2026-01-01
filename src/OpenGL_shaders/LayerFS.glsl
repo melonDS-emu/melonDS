@@ -1,6 +1,6 @@
 #version 140
 
-uniform sampler2DArray BGLayerTex;
+uniform sampler2D BGLayerTex;
 uniform sampler2D _3DLayerTex;
 uniform sampler2DArray CaptureTex;
 
@@ -47,7 +47,7 @@ out vec4 oCaptureColor;
 
 vec4 GetBGLayerPixel(int layer, vec2 coord)
 {
-    return texelFetch(BGLayerTex, ivec3(ivec2(coord), layer), 0);
+    return texelFetch(BGLayerTex, ivec2(coord), 0);
 }
 
 void main()

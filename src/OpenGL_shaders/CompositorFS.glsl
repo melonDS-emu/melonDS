@@ -2,6 +2,7 @@
 
 uniform sampler2D _3DTex;
 uniform sampler2DArray LayerTex;
+//uniform sampler2D LayerTex[4];
 
 struct sScanline
 {
@@ -57,6 +58,10 @@ vec4 CompositeLayers()
     vec4 layercol[6];
     for (int bg = 0; bg < 6; bg++)
         layercol[bg] = texelFetch(LayerTex, ivec3(coord, bg), 0);
+    /*layercol[0] = texelFetch(LayerTex[0], coord, 0);
+    layercol[1] = texelFetch(LayerTex[1], coord, 0);
+    layercol[2] = texelFetch(LayerTex[2], coord, 0);
+    layercol[3] = texelFetch(LayerTex[3], coord, 0);*/
 
     ivec4 objflags = ivec4(layercol[5] * 255);
 
