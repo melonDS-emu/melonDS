@@ -434,6 +434,15 @@ void DSi::DecryptModcryptArea(u32 offset, u32 size, const u8* iv)
     }
 }
 
+bool DSi::NeedsDirectBoot() const
+{
+    // If no NAND is present, direct boot is required.
+    if (const DSi_NAND::NANDImage* image = SDMMC.GetNAND(); !(image && *image))
+        return true;
+
+    return false;
+}
+
 void DSi::SetupDirectBoot()
 {
     bool dsmode = false;
