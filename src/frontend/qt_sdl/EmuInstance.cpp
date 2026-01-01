@@ -1650,6 +1650,7 @@ void EmuInstance::customizeFirmware(Firmware& firmware, bool overridesettings) n
 {
     if (overridesettings)
     {
+        auto &currentHeader = firmware.GetHeader();
         auto &currentData = firmware.GetEffectiveUserData();
 
         auto firmcfg = localCfg.GetTable("Firmware");
@@ -1666,8 +1667,25 @@ void EmuInstance::customizeFirmware(Firmware& firmware, bool overridesettings) n
         auto language = static_cast<Firmware::Language>(firmcfg.GetInt("Language"));
         if (language != Firmware::Language::Reserved)
         { // If the frontend specifies a language (rather than using the existing value)...
-            currentData.Settings &= ~Firmware::Language::Reserved; // ..clear the existing language...
-            currentData.Settings |= language; // ...and set the new one.
+            bool extlang = language >= Firmware::Language::Chinese;
+
+            // ..clear the existing language...
+            currentData.Settings &= ~Firmware::Language::Reserved;
+
+            // ...and set the new one.
+            currentData.Settings |= extlang ? Firmware::Language::English : language;
+            currentData.ExtendedSettings.ExtendedLanguage = language;
+
+            if (extlang && !(currentHeader.ConsoleType & 0x40))
+            {
+                // enable the extended settings header if not present
+                if (currentHeader.ConsoleType == 0xFF)
+                    currentHeader.ConsoleType = 0x43;
+                else
+                    currentHeader.ConsoleType |= 0x43;
+                currentData.ExtendedSettings.Unknown0 = 0x01;
+                currentData.ExtendedSettings.SupportedLanguageMask = 0x7F;
+            }
         }
 
         // setting up color
