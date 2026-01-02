@@ -450,14 +450,16 @@ bool GLRenderer::GLInit()
 
     //uniloc = glGetUniformLocation(CompositorShader, "LayerTex");
     //glUniform1i(uniloc, 0);
-    uniloc = glGetUniformLocation(CompositorShader, "LayerTex[0]");
+    uniloc = glGetUniformLocation(CompositorShader, "BGLayerTex[0]");
     glUniform1i(uniloc, 0);
-    uniloc = glGetUniformLocation(CompositorShader, "LayerTex[1]");
+    uniloc = glGetUniformLocation(CompositorShader, "BGLayerTex[1]");
     glUniform1i(uniloc, 1);
-    uniloc = glGetUniformLocation(CompositorShader, "LayerTex[2]");
+    uniloc = glGetUniformLocation(CompositorShader, "BGLayerTex[2]");
     glUniform1i(uniloc, 2);
-    uniloc = glGetUniformLocation(CompositorShader, "LayerTex[3]");
+    uniloc = glGetUniformLocation(CompositorShader, "BGLayerTex[3]");
     glUniform1i(uniloc, 3);
+    uniloc = glGetUniformLocation(CompositorShader, "OBJLayerTex");
+    glUniform1i(uniloc, 4);
 
     //uniloc = glGetUniformBlockIndex(CompositorShader, "ubBGConfig");
     //glUniformBlockBinding(CompositorShader, uniloc, 10);
@@ -672,9 +674,10 @@ void GLRenderer::SetScaleFactor(int scale)
         state.SpriteConfig.uScaleFactor = ScaleFactor;
 
         glBindTexture(GL_TEXTURE_2D_ARRAY, state.FinalLayerTex);
-        glTexImage3D(GL_TEXTURE_2D_ARRAY, 0, GL_RGBA, ScreenW, ScreenH, 6, 0, GL_RGBA, GL_UNSIGNED_BYTE, nullptr);
+        //glTexImage3D(GL_TEXTURE_2D_ARRAY, 0, GL_RGBA, ScreenW, ScreenH, 6, 0, GL_RGBA, GL_UNSIGNED_BYTE, nullptr);
+        glTexImage3D(GL_TEXTURE_2D_ARRAY, 0, GL_RGBA, ScreenW, ScreenH, 2, 0, GL_RGBA, GL_UNSIGNED_BYTE, nullptr);
 
-        for (int i = 0; i < 4; i++)
+        /*for (int i = 0; i < 4; i++)
         {
             glBindFramebuffer(GL_FRAMEBUFFER, state.FinalLayerFB[i]);
             glFramebufferTextureLayer(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, state.FinalLayerTex, 0, i);
@@ -686,11 +689,13 @@ void GLRenderer::SetScaleFactor(int scale)
             }
             else
                 glDrawBuffer(GL_COLOR_ATTACHMENT0);
-        }
+        }*/
 
         glBindFramebuffer(GL_FRAMEBUFFER, state.FinalLayerFB[4]);
-        glFramebufferTextureLayer(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, state.FinalLayerTex, 0, 4);
-        glFramebufferTextureLayer(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT1, state.FinalLayerTex, 0, 5);
+        /*glFramebufferTextureLayer(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, state.FinalLayerTex, 0, 4);
+        glFramebufferTextureLayer(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT1, state.FinalLayerTex, 0, 5);*/
+        glFramebufferTextureLayer(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, state.FinalLayerTex, 0, 0);
+        glFramebufferTextureLayer(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT1, state.FinalLayerTex, 0, 1);
         glDrawBuffers(2, fbassign2);
 
         glBindTexture(GL_TEXTURE_2D, state.OutputTex);
@@ -2309,6 +2314,9 @@ void GLRenderer::RenderScreen(Unit* unit, int ystart, int yend)
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, wrapmode);
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, wrapmode);
     }
+
+    glActiveTexture(GL_TEXTURE4);
+    glBindTexture(GL_TEXTURE_2D_ARRAY, state.FinalLayerTex);
 
     glBindBuffer(GL_ARRAY_BUFFER, RectVtxBuffer);
     glBindVertexArray(RectVtxArray);

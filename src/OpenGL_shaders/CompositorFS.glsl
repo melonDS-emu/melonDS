@@ -2,7 +2,8 @@
 
 uniform sampler2D _3DTex;
 //uniform sampler2DArray LayerTex;
-uniform sampler2D LayerTex[4];
+uniform sampler2D BGLayerTex[4];
+uniform sampler2DArray OBJLayerTex;
 
 struct sBGConfig
 {
@@ -73,22 +74,22 @@ ImplBGFetch(3)*/
 
 vec4 BG0Fetch(vec2 coord)
 {
-    return texture(LayerTex[0], coord);
+    return texture(BGLayerTex[0], coord);
 }
 
 vec4 BG1Fetch(vec2 coord)
 {
-    return texture(LayerTex[1], coord);
+    return texture(BGLayerTex[1], coord);
 }
 
 vec4 BG2Fetch(vec2 coord)
 {
-    return texture(LayerTex[2], coord);
+    return texture(BGLayerTex[2], coord);
 }
 
 vec4 BG3Fetch(vec2 coord)
 {
-    return texture(LayerTex[3], coord);
+    return texture(BGLayerTex[3], coord);
 }
 
 vec4 BG0CalcAndFetch(vec2 coord, int line)
@@ -164,8 +165,8 @@ vec4 CompositeLayers()
     layercol[1] = BG1CalcAndFetch(fTexcoord.xy, line);
     layercol[2] = BG2CalcAndFetch(fTexcoord.xy, line);
     layercol[3] = BG3CalcAndFetch(fTexcoord.xy, line);
-    layercol[4] = vec4(0);
-    layercol[5] = vec4(0);
+    layercol[4] = texelFetch(OBJLayerTex, ivec3(coord, 0), 0);
+    layercol[5] = texelFetch(OBJLayerTex, ivec3(coord, 1), 0);
 
     ivec4 objflags = ivec4(layercol[5] * 255);
 
