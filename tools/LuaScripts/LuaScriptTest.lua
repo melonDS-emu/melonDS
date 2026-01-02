@@ -2,46 +2,46 @@
 -- Written by NPO197
 -- TODO: re-write to be more readable... 
 
-MelonClear()
+console.clear()
 print("This text Should be cleared")
-MelonClear()
+console.clear()
 
 print("Running Test...")
 
-u32Data = Readu32(0x00000000)
+u32Data = memory.read_u32_le(0x00000000)
 print(string.format("DataZero: %x",u32Data))
 
-canvas = MakeCanvas(0,0,500,500)
-SetCanvas(canvas)
-ClearOverlay()
+canvas = gui.MakeCanvas(0,0,500,500)
+gui.SetCanvas(canvas)
+gui.ClearOverlay()
 
-FillRect(0,0,55,11,0xffffffff)
-Text(0,9,"Test Message")
-Line(0,10,55,10,0x00ff00ff)
-Rect(0,0,55,11,0xff00ff00)
+gui.FillRect(0,0,55,11,0xffffffff)
+gui.drawText(0,9,"Test Message")
+gui.drawLine(0,10,55,10,0x00ff00ff)
+gui.Rect(0,0,55,11,0xff00ff00)
 
-DrawImage("Lua-Logo_128x128.png",0,60)
+gui.drawImage("Lua-Logo_128x128.png",0,60)
 
-Text(0,200,"WASD to move \"lua Stylus\", Q to tap screen.",0xffffff)
-Text(0,210,"T to create savestate, R to load savestate.",0xffffff)
+gui.drawText(0,200,"WASD to move \"lua Stylus\", Q to tap screen.",0xffffff)
+gui.drawText(0,210,"T to create savestate, R to load savestate.",0xffffff)
 
-Flip()
+gui.Flip()
 
 
 -------- Main Loop ----------
 
 updateFlags = {}
 Stylus = {x=0,y=0,}
-textCanvas = MakeCanvas(0,12,500,100)
-vstylusCanvas = MakeCanvas(0,0,256,192,1) -- bottom screen
+textCanvas = gui.MakeCanvas(0,12,500,100)
+vstylusCanvas = gui.MakeCanvas(0,0,256,192,1) -- bottom screen
 
 --Gets Called once every frame
 function _Update()
     updateFlags = {} -- Reset updateFlags at start of each frame
 
     --Text Functions
-    SetCanvas(textCanvas)
-    ClearOverlay()
+    gui.SetCanvas(textCanvas)
+    gui.ClearOverlay()
     local y = 0
     for _,tfunct in ipairs({
         MousePosText,
@@ -51,15 +51,15 @@ function _Update()
         JoyStickText,
     }) do
         y = y+10
-        Text(0,y,tfunct(),0xffffff)
+        gui.drawText(0,y,tfunct(),0xffffff)
     end
-    Flip()
+    gui.checkupdate()
 
     --SaveState stuff
     if KeyPress("T") then
-        StateSave("SaveState_Auto.mln")
+        savestate.save("SaveState_Auto.mln")
     elseif KeyPress("R") then
-        StateLoad("SaveState_Auto.mln")
+        savestate.load("SaveState_Auto.mln")
     end
 
     --StylusLoop
@@ -77,9 +77,9 @@ function _Update()
     end
 
     if KeyHeld("Q") then
-        NDSTapDown(Stylus.x,Stylus.y)
+        input.NDSTapDown(Stylus.x,Stylus.y)
     else
-        NDSTapUp()
+        input.NDSTapUp()
     end
     
     DrawStylus()
@@ -87,20 +87,20 @@ end
 
 --Text Functions
 
-function MousePosText()
-    mouse = GetMouse()
+function MousePosdrawText()
+    mouse = input.getmouse()
     return "MousePos:"..mouse.X..","..mouse.Y
 end
 
-function JoyStickText()
-    local x = GetJoyStick(0)
-    local y = GetJoyStick(1)
+function JoyStickdrawText()
+    local x = input.getjoystick(0)
+    local y = input.getjoystick(1)
     return "JoyStick:"..x..","..y
 end
 
-function MouseButtonText()
+function MouseButtondrawText()
     str = ""
-    for k,v in pairs(GetMouse()) do
+    for k,v in pairs(input.getmouse()) do
         if k~="X" and k~="Y" and v then
             str = str..k
         end
@@ -110,8 +110,8 @@ end
 
 typed = ""
 keys = {}
-function KeysText() 
-    keys = Keys()
+function KeysdrawText() 
+    keys = input.Keys()
     str = ""
     for _,i in pairs(keys) do
         if pcall(string.char,i) then
@@ -126,8 +126,8 @@ function KeysText()
 end
 
 joys = {}
-function JoyText()
-    joys = GetJoy()
+function JoydrawText()
+    joys = input.getjoy()
     str = ""
     for k,v in pairs(joys) do
         if v then
@@ -138,17 +138,17 @@ function JoyText()
 end
 
 function DrawStylus()
-    SetCanvas(vstylusCanvas)
-    ClearOverlay()
-    Ellipse(Stylus.x-5,Stylus.y-5,10,10,0xffffffff)
-    Ellipse(Stylus.x-2,Stylus.y-2,4,4,0x00000000)    
-    Flip()
+    gui.SetCanvas(vstylusCanvas)
+    gui.ClearOverlay()
+    gui.Ellipse(Stylus.x-5,Stylus.y-5,10,10,0xffffffff)
+    gui.Ellipse(Stylus.x-2,Stylus.y-2,4,4,0x00000000)    
+    gui.Flip()
 end
 
 function KeyHeld(keyStr)
     -- Only need to update mask once per frame
     if updateFlags.KeyboardCheck == nil then
-        mask = HeldKeys()
+        mask = input.HeldKeys()
         updateFlags.KeyboardCheck = true 
     end
     return mask[string.byte(keyStr:sub(1,1))]

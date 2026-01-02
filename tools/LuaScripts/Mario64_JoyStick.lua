@@ -1,29 +1,28 @@
 
+-- Joystick Axis for my XBOX controller...
+LeftStick = {x=0,y=1}
+RightSick = {x=2,y=3}
+Triggers = {x=4,y=5}
+
 --shocoman's hack uses RTCOM_DATA_OUTPUT register to send analog stick information from the 3ds
-LeftStickAddress = 0x0C7FFDF0 
+shocomanAddress = 0x0C7FFDF0 
 
 function _Update()
     local bytes = getPad(LeftStick,true)
     print(string.format("Stick:%x",bytes))
-    Writeu32(bytes,LeftStickAddress)
-    
+    memory.write_u32_le(bytes,shocomanAddress) --pass stick information to shocoman's hack
     bytes=0
-    if GetJoyStick(Triggers.y)>0 then bytes = 0x8000 end
-    if GetJoyStick(Triggers.x)>0 then bytes = bytes|0x7f00 end
-    Writeu32(bytes,LeftStickAddress+4) --turn camera left and right
+    if input.getjoystick(Triggers.y)>0 then bytes = 0x8000 end
+    if input.getjoystick(Triggers.x)>0 then bytes = bytes|0x7f00 end
+    memory.write_u32_le(bytes,shocomanAddress+4) --turns camera left and right
 end
-
--- Joystick Axis for XBOX controller joystick sticks...
-LeftStick = {x=0,y=1}
-RightSick = {x=2,y=3}
-Triggers = {x=4,y=5}
 
 -- Get axis values and pack into a single 16bit number
 function getPad(stick,flipy)
     
     --joy_x/y are in the range -32,768 to 32,767  (16bit percision)
-    local joy_x = GetJoyStick(stick.x)
-    local joy_y = GetJoyStick(stick.y) 
+    local joy_x = input.getjoystick(stick.x)
+    local joy_y = input.getjoystick(stick.y) 
     
     --flip y (adjust by 1 to prevent overflow!)
     if flipy then joy_y = -joy_y - 1 end
@@ -55,6 +54,7 @@ end
     I had to remove the arm 7 payload part of the shocoman's code since we are not running this on a 3ds
     (everything up to the first `D2000000 00000000` in the original code was removed) 
 
+Add the following cheatcode to enable shocoman's hack:
     
 ActionReplay Cheat code USA v1.0 (for melonDS): 
 5202B324 E7D01108

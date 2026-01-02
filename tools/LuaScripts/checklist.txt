@@ -1,0 +1,303 @@
+
+
+bit: NOT_PLANNED_FOR_SUPPORT 
+    "A library for performing standard bitwise operations."
+    - Not needed since 2011/pre lua5.2
+
+bizstring: NOT_PLANNED_FOR_SUPPORT 
+    "A library exposing standard .NET string methods"
+    - melonDS uses Qt6 for it's backend not .NET
+    - most of these functions can be replaced with lua's builtin 'string' library
+    - most scripts have little need for high performance string manipulation
+
+client: PARTIAL_SUPPORT_PLANNED
+    "A library for manipulating the EmuHawk client UI"
+    Planned to support:
+     - addcheat
+     - closerom
+     - displaymessages
+     - exit ?
+     - frameskip ?
+     - get_approx_framerate
+     - get_lua_engine ?
+     - getwindowsize ?
+     - ispaused
+     - isturbo ?
+     - openrom ?
+     - pause ?
+     - removecheat
+     - screenheight
+     - screenwidth
+     - SetSoundOn ?
+     - sleep ?
+     - speedmode ?
+     - togglepause ?
+     - transformPoint ?
+     - unpause ?
+     - xpos ?
+     - ypos ?
+
+    No plans for support:
+     - borderheight
+     - borderwidth
+     - bufferheight
+     - bufferwidth
+     - clearautohold
+     - createinstance
+     - enablerewind
+     - exactsleep
+     - exitCode
+     - getavailabletools
+     - getconfig
+     - GetSoundOn
+     - gettargetscanlineintensity
+     - gettool
+     - invisibleemulation
+     - isseeking
+     - opencheats
+     - openhexeditor
+     - openramsearch
+     - openramwatch
+     - opentasstudio
+     - opentoolbox
+     - opentracelogger
+     - pause_av
+     - reboot_core
+     - saveram
+     - screenshot
+     - screenshottoclipboard
+     - seekframe
+     - SetClientExtraPadding
+     - SetGameExtraPadding
+     - setscreenshotosd
+     - settargetscanlineintensity
+     - setwindowsize
+     - unpause_av
+
+    Currently implemented:
+     - getversion (returns melonDS version rather then bizhawk version)
+
+comm: NOT_PLANNED_FOR_SUPPORT*
+    - may add support for sockets
+
+console: PARTIAL_SUPPORT_PLANNED
+    Planned to Support:
+     - getluafunctionlist ?
+
+    No plans for support:
+     - log 
+     - write
+     - writeline
+
+    Currently implemented:
+     - clear
+
+emu: PARTIAL_SUPPORT_FINISHED / PLANNED
+ "A library for interacting with the currently loaded emulator core"
+ - currently lua calls _Update() once every frame rather then the script needing to call emu.frameadvance() to avoid freezing
+ - functionaly emu.frameadvance() can be simulated by calling a co-routine from _Update and using yeild() instead.
+ - not difficult to modify a script (usually only need to change one or two lines)
+ - but since nearly all bizhawk scripts use emu.frameadvance() might be worth consideration
+
+    Planned to Support:
+     - frameadvance*
+
+    No plans for support:
+     - disassemble
+     - displayvsync
+     - frameadvance*
+     - getboardname
+     - getdisplaytype
+     - getregister
+     - getregisters
+     - islagged
+     - lagcount
+     - limitframerate
+     - minimizeframeskip
+     - setislagged
+     - setlagcount
+     - setregister
+     - setrenderplanes
+     - totalexecutedcycles
+     - yield
+
+    Currently implemented:
+     - framecount
+     - getsystemid
+
+event: NOT_PLANNED_FOR_SUPPORT
+    "A library for registering lua functions to emulator events."
+
+forms: FULL_SUPPORT_PLANNED
+    Planned to Support:
+     - addclick
+     - checkbox
+     - clear
+     - clearclicks
+     - createcolor ?
+     - destroyall
+     - forms.draw* ? see: gui
+     - getMouseX ?
+     - getMouseY ?
+     - getproperty
+     - ischecked
+     - openfile
+     - pictureBox
+     - refresh ?
+     - setsize ?
+     - textbox
+
+    Currently implemented:
+     - setlocation
+     - dropdown
+     - setdropdownitems
+     - label
+     - destroy
+     - newform
+     - setproperty
+     - button
+     - gettext
+
+gameinfo: PARTIAL_SUPPORT_FINISHED
+    Planned to Support:
+     - none at this time
+
+    No plans for support:
+     - getboardtype
+     - getoptions
+     - getstatus
+     - indatabase
+     - isstatusbad
+    
+    Currently implemented:
+     - getromhash
+     - getromname
+
+genesis: nope_lol
+
+gui: FULL_SUPPORT_PLANNED
+    Planned to Support:
+     - addmessage
+     - clearGraphics
+     - cleartext
+     - createcanvas*
+     - defaultBackground
+     - defaultForeground
+     - defaultPixelFont
+     - defaultTextBackground
+     - drawAxis
+     - drawBezier
+     - drawBox
+     - drawEllipse
+     - DrawFinish?
+     - drawIcon
+     - drawImageRegion
+     - DrawNew?
+     - drawPie
+     - drawPolygon
+     - pixelText
+     - text
+     - use_surface
+
+    Currently implemented:
+     - drawRectangle
+     - drawString
+     - SetCanvas
+     - drawLine
+     - clearImageCache
+     - Flip
+     - drawPixel
+     - drawImage
+     - Ellipse
+     - MakeCanvas
+     - checkupdate
+     - Rect
+     - FillRect
+     - drawText
+     - ClearOverlay
+
+input: PARTIAL_SUPPORT_FINISHED
+    Planned to Support:
+     - none at this time
+    
+    No plans for support:
+     - get * see `getjoy`
+     - get_pressed_axes * see `getjoystick`
+    
+    Currently implemented:
+     - getmouse
+     - NDSTapDown
+     - NDSTapUp
+     - HeldKeys
+     - Keys
+     - getjoy
+     - getjoystick
+    
+joypad: PARTIAL_SUPPORT_PLANNED
+    Planned to Support:
+     - set
+
+    No plans for support:
+     - getimmediate ?
+     - getwithmovie
+     - setanalog
+     - setfrommnemonicstr
+    
+    Currently implemented:
+     - get * alias of input.getjoy
+    
+LuaCanvas: NOT_PLANNED_FOR_SUPPORT
+
+mainmemory: FULL_SUPPORT_PLANNED
+
+memory: FULL_SUPPORT_PLANNED
+    "These functions behavior identically to the mainmemory functions but the user can set the memory domain to read and write from.
+     The default domain is the system bus. Use getcurrentmemorydomain(), and usememorydomain() to control which domain is used. 
+     Each core has its own set of valid memory domains. 
+     Use getmemorydomainlist() to get a list of memory domains for the current core loaded."
+
+    Planned to Support:
+     - getname
+     - read_bytes_as_dict
+     - readfloat
+     - write_bytes_as_dict
+     - writefloat
+     - hash_region ?
+    Not Supported (depreciated in bizhawk):
+     - readwritebyterange
+     - writebyterange
+    Currently implemented:
+     - getcurrentmemorydomain
+     - getcurrentmemorydomainsize
+     - getmemorydomainlist
+     - getmemorydomainsize
+     - usememorydomain
+     - read_bytes_as_array
+     - write_bytes_as_array
+     - read_<int_type>
+     - write_<int_type>
+
+memorysavestate: NOT_PLANNED_FOR_SUPPORT
+
+movie: NOT_PLANNED_FOR_SUPPORT
+
+nds: PARTIAL_SUPPORT_PLANNED
+    "Functions specific to NDSHawk (functions may not run when an NDS game is not loaded) "
+
+nes: nope_lol
+
+savestate: FULL_SUPPORT_PLANNED
+    Planned for support:
+     - loadslot
+     - saveslot
+    Currently implemented:
+     - load
+     - save
+
+snes: nope_lol
+
+SQL: NOT_PLANNED_FOR_SUPPORT
+
+tastudio: NOT_PLANNED_FOR_SUPPORT
+
+userdata: NOT_PLANNED_FOR_SUPPORT
