@@ -30,6 +30,8 @@
 #include "ui_CheatsDialog.h"
 #include "CheatImportDialog.h"
 
+#include "ARCodeQDecl.h"
+
 using namespace melonDS;
 using Platform::Log;
 using Platform::LogLevel;
