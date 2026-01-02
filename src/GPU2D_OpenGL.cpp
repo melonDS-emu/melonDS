@@ -215,6 +215,12 @@ bool GLRenderer::GLInit()
 
         // generate UBOs
 
+        glGenBuffers(1, &state.LayerConfigUBO);
+        glBindBuffer(GL_UNIFORM_BUFFER, state.LayerConfigUBO);
+        static_assert((sizeof(sUnitState::sLayerConfig) & 15) == 0);
+        glBufferData(GL_UNIFORM_BUFFER, sizeof(sUnitState::sLayerConfig), nullptr, GL_STREAM_DRAW);
+        glBindBufferBase(GL_UNIFORM_BUFFER, 10 + (i*10), state.LayerConfigUBO);
+
         glGenBuffers(1, &state.SpriteConfigUBO);
         glBindBuffer(GL_UNIFORM_BUFFER, state.SpriteConfigUBO);
         static_assert((sizeof(sUnitState::sSpriteConfig) & 15) == 0);
@@ -344,11 +350,11 @@ bool GLRenderer::GLInit()
     glReadBuffer(GL_COLOR_ATTACHMENT0);
 
 
-    glGenBuffers(1, &LayerConfigUBO);
+    /*glGenBuffers(1, &LayerConfigUBO);
     glBindBuffer(GL_UNIFORM_BUFFER, LayerConfigUBO);
     static_assert((sizeof(sUnitState::sLayerConfig) & 15) == 0);
     glBufferData(GL_UNIFORM_BUFFER, sizeof(sUnitState::sLayerConfig), nullptr, GL_STREAM_DRAW);
-    glBindBufferBase(GL_UNIFORM_BUFFER, 10, LayerConfigUBO);
+    glBindBufferBase(GL_UNIFORM_BUFFER, 10, LayerConfigUBO);*/
 
     /*glGenBuffers(1, &SpriteConfigUBO);
     glBindBuffer(GL_UNIFORM_BUFFER, SpriteConfigUBO);
@@ -388,8 +394,9 @@ bool GLRenderer::GLInit()
     uniloc = glGetUniformLocation(LayerPreShader, "PalTex");
     glUniform1i(uniloc, 1);
 
-    uniloc = glGetUniformBlockIndex(LayerPreShader, "uConfig");
-    glUniformBlockBinding(LayerPreShader, uniloc, 10);
+    //uniloc = glGetUniformBlockIndex(LayerPreShader, "uConfig");
+    //glUniformBlockBinding(LayerPreShader, uniloc, 10);
+    LayerPreBGConfigULoc = glGetUniformBlockIndex(LayerPreShader, "uConfig");
 
     LayerPreCurBGULoc = glGetUniformLocation(LayerPreShader, "uCurBG");
 
@@ -441,20 +448,23 @@ bool GLRenderer::GLInit()
 
     glUseProgram(CompositorShader);
 
-    uniloc = glGetUniformLocation(CompositorShader, "LayerTex");
-    glUniform1i(uniloc, 0);
-    /*uniloc = glGetUniformLocation(CompositorShader, "LayerTex[0]");
+    //uniloc = glGetUniformLocation(CompositorShader, "LayerTex");
+    //glUniform1i(uniloc, 0);
+    uniloc = glGetUniformLocation(CompositorShader, "LayerTex[0]");
     glUniform1i(uniloc, 0);
     uniloc = glGetUniformLocation(CompositorShader, "LayerTex[1]");
     glUniform1i(uniloc, 1);
     uniloc = glGetUniformLocation(CompositorShader, "LayerTex[2]");
     glUniform1i(uniloc, 2);
     uniloc = glGetUniformLocation(CompositorShader, "LayerTex[3]");
-    glUniform1i(uniloc, 3);*/
+    glUniform1i(uniloc, 3);
 
-    uniloc = glGetUniformBlockIndex(CompositorShader, "uScanlineConfig");
+    //uniloc = glGetUniformBlockIndex(CompositorShader, "ubBGConfig");
+    //glUniformBlockBinding(CompositorShader, uniloc, 10);
+    CompositorBGConfigULoc = glGetUniformBlockIndex(CompositorShader, "ubBGConfig");
+    uniloc = glGetUniformBlockIndex(CompositorShader, "ubScanlineConfig");
     glUniformBlockBinding(CompositorShader, uniloc, 12);
-    uniloc = glGetUniformBlockIndex(CompositorShader, "uCompositorConfig");
+    uniloc = glGetUniformBlockIndex(CompositorShader, "ubCompositorConfig");
     glUniformBlockBinding(CompositorShader, uniloc, 13);
 
     CompositorScaleULoc = glGetUniformLocation(CompositorShader, "uScaleFactor");
@@ -609,7 +619,7 @@ GLRenderer::~GLRenderer()
         //glDeleteBuffers(1, &state.LayerConfigUBO);
     }
 
-    glDeleteBuffers(1, &LayerConfigUBO);
+    //glDeleteBuffers(1, &LayerConfigUBO);
 
     delete[] LineAttribBuffer;
     delete[] BGOBJBuffer;
@@ -767,14 +777,6 @@ void GLRenderer::UpdateAndRender(Unit* unit, int line)
         (unit->EVY != state.EVY))
         comp_dirty = true;
 
-    state.DispCnt = unit->DispCnt;
-    for (int layer = 0; layer < 4; layer++)
-        state.BGCnt[layer] = unit->BGCnt[layer];
-    state.BlendCnt = unit->BlendCnt;
-    state.EVA = unit->EVA;
-    state.EVB = unit->EVB;
-    state.EVY = unit->EVY;
-
     // check if VRAM was modified, and flatten it as needed
 
     static_assert(VRAMDirtyGranularity == 512);
@@ -911,6 +913,14 @@ void GLRenderer::UpdateAndRender(Unit* unit, int line)
 
     // update registers
 
+    state.DispCnt = unit->DispCnt;
+    for (int layer = 0; layer < 4; layer++)
+        state.BGCnt[layer] = unit->BGCnt[layer];
+    state.BlendCnt = unit->BlendCnt;
+    state.EVA = unit->EVA;
+    state.EVB = unit->EVB;
+    state.EVY = unit->EVY;
+
     if (layer_pre_dirty)
         UpdateLayerConfig(unit);
 
@@ -950,7 +960,9 @@ void GLRenderer::UpdateAndRender(Unit* unit, int line)
 
         glUseProgram(LayerPreShader);
 
-        glBindBuffer(GL_UNIFORM_BUFFER, LayerConfigUBO);
+        glUniformBlockBinding(LayerPreShader, LayerPreBGConfigULoc, 10 + (unit->Num*10));
+
+        glBindBuffer(GL_UNIFORM_BUFFER, state.LayerConfigUBO);
         glBufferSubData(GL_UNIFORM_BUFFER, 0, sizeof(state.LayerConfig), &state.LayerConfig);
 
         for (int layer = 0; layer < 4; layer++)
@@ -961,7 +973,7 @@ void GLRenderer::UpdateAndRender(Unit* unit, int line)
             PrerenderLayer(unit, layer);
         }
 
-#if 1
+#if 0
         glUseProgram(LayerShader);
 
         // TODO not set this all the time!!
@@ -1310,7 +1322,8 @@ void GLRenderer::UpdateScanlineConfig(Unit* unit, int line)
     if (unit->DispCnt & (1<<3))
     {
         // 3D layer
-        cfg.BGOffset[0][0] = GPU.GPU3D.GetRenderXPos();
+        int xpos = GPU.GPU3D.GetRenderXPos() & 0x1FF;
+        cfg.BGOffset[0][0] = xpos - ((xpos & 0x100) << 1);
         cfg.BGOffset[0][1] = 0;
     }
     else
@@ -1983,6 +1996,23 @@ void GLRenderer::DoRenderSprites(Unit* unit, int line)
     int ystart = state.LastSpriteLine;
     int yend = line;
 
+    glUseProgram(SpriteShader);
+
+    glUniformBlockBinding(SpriteShader, SpriteConfigULoc, 11 + (unit->Num*10));
+
+    glBindFramebuffer(GL_READ_FRAMEBUFFER, 0);
+    glBindFramebuffer(GL_DRAW_FRAMEBUFFER, state.FinalLayerFB[4]);
+    glViewport(0, 0, ScreenW, ScreenH);
+
+    glActiveTexture(GL_TEXTURE0);
+    glBindTexture(GL_TEXTURE_2D, state.SpriteTex);
+
+    glActiveTexture(GL_TEXTURE1);
+    glBindTexture(GL_TEXTURE_2D_ARRAY, CaptureOutput128Tex);
+
+    glActiveTexture(GL_TEXTURE2);
+    glBindTexture(GL_TEXTURE_2D_ARRAY, CaptureOutput256Tex);
+
     glEnable(GL_SCISSOR_TEST);
     glScissor(0, ystart * ScaleFactor, ScreenW, (yend-ystart) * ScaleFactor);
 
@@ -1995,12 +2025,6 @@ void GLRenderer::DoRenderSprites(Unit* unit, int line)
 void GLRenderer::RenderSprites(Unit* unit, bool window, int ystart, int yend)
 {
     auto& state = UnitState[unit->Num];
-
-    glUseProgram(SpriteShader);
-
-    glBindFramebuffer(GL_READ_FRAMEBUFFER, 0);
-    glBindFramebuffer(GL_DRAW_FRAMEBUFFER, state.FinalLayerFB[4]);
-    glViewport(0, 0, ScreenW, ScreenH);
 
     if (window)
     {
@@ -2015,8 +2039,6 @@ void GLRenderer::RenderSprites(Unit* unit, bool window, int ystart, int yend)
 
     glClearColor(0, 0, 0, 0);
     glClear(GL_COLOR_BUFFER_BIT);
-
-    glUniformBlockBinding(SpriteShader, SpriteConfigULoc, 11 + (unit->Num*10));
 
     if (window)
     {
@@ -2073,15 +2095,6 @@ void GLRenderer::RenderSprites(Unit* unit, bool window, int ystart, int yend)
     }
 
     if (vtxnum == 0) return;
-
-    glActiveTexture(GL_TEXTURE0);
-    glBindTexture(GL_TEXTURE_2D, state.SpriteTex);
-
-    glActiveTexture(GL_TEXTURE1);
-    glBindTexture(GL_TEXTURE_2D_ARRAY, CaptureOutput128Tex);
-
-    glActiveTexture(GL_TEXTURE2);
-    glBindTexture(GL_TEXTURE_2D_ARRAY, CaptureOutput256Tex);
 
     glBindBuffer(GL_ARRAY_BUFFER, SpriteVtxBuffer);
     glBufferSubData(GL_ARRAY_BUFFER, 0, vtxnum * 5 * sizeof(u16), SpriteVtxData);
@@ -2255,6 +2268,8 @@ void GLRenderer::RenderScreen(Unit* unit, int ystart, int yend)
 
     glUseProgram(CompositorShader);
 
+    glUniformBlockBinding(CompositorShader, CompositorBGConfigULoc, 10 + (unit->Num*10));
+
     glBindBuffer(GL_UNIFORM_BUFFER, ScanlineConfigUBO);
     glBufferSubData(GL_UNIFORM_BUFFER,
                     ystart * sizeof(sUnitState::sScanlineConfig::sScanline),
@@ -2281,13 +2296,19 @@ void GLRenderer::RenderScreen(Unit* unit, int ystart, int yend)
 
     glViewport(0, 0, ScreenW, ScreenH);
 
-    glActiveTexture(GL_TEXTURE0);
-    glBindTexture(GL_TEXTURE_2D_ARRAY, state.FinalLayerTex);
-    /*for (int i = 0; i < 4; i++)
+    for (int i = 0; i < 4; i++)
     {
         glActiveTexture(GL_TEXTURE0 + i);
-        glBindTexture(GL_TEXTURE_2D, state.BGLayerTex[i]);
-    }*/
+
+        if ((i == 0) && (state.DispCnt & (1<<3)))
+            glBindTexture(GL_TEXTURE_2D, _3DLayerTex);
+        else
+            glBindTexture(GL_TEXTURE_2D, state.BGLayerTex[i]);
+
+        GLint wrapmode = state.LayerConfig.uBGConfig[i].Clamp ? GL_CLAMP_TO_BORDER : GL_REPEAT;
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, wrapmode);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, wrapmode);
+    }
 
     glBindBuffer(GL_ARRAY_BUFFER, RectVtxBuffer);
     glBindVertexArray(RectVtxArray);

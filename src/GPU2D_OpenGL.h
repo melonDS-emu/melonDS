@@ -68,8 +68,9 @@ private:
     GLuint RectVtxArray;
 
     GLuint LayerPreShader;
+    GLint LayerPreBGConfigULoc;
     GLint LayerPreCurBGULoc;
-    GLuint LayerConfigUBO;
+    //GLuint LayerConfigUBO;
 
     GLuint LayerShader;
     GLint LayerScaleULoc;
@@ -92,6 +93,7 @@ private:
 
     GLuint CompositorShader;
     GLuint CompositorConfigUBO;
+    GLint CompositorBGConfigULoc;
     GLint CompositorScaleULoc;
 
     // base index for a BG layer within the BG texture arrays
@@ -105,6 +107,7 @@ private:
 
     struct sUnitState
     {
+        GLuint LayerConfigUBO;
         GLuint SpriteConfigUBO;
 
         GLuint VRAMTex_BG;
