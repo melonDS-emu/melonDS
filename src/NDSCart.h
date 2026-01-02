@@ -76,6 +76,8 @@ struct NDSCartArgs
 class CartCommon
 {
 public:
+    const char* GetRAHash() const { return ra_hash; }
+    char ra_hash[33] = {0};
     CartCommon(const u8* rom, u32 len, u32 chipid, bool badDSiDump, ROMListEntry romparams, CartType type, void* userdata);
     CartCommon(std::unique_ptr<u8[]>&& rom, u32 len, u32 chipid, bool badDSiDump, ROMListEntry romparams, CartType type, void* userdata);
     virtual ~CartCommon();

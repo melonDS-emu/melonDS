@@ -47,6 +47,7 @@
 #include "DSi_I2C.h"
 #include "FreeBIOS.h"
 #include "main.h"
+#include "../../RetroAchievements/RAClient.h"
 
 using std::make_unique;
 using std::pair;
@@ -158,6 +159,7 @@ EmuInstance::~EmuInstance()
 
     emuThread->emuExit();
     emuThread->wait();
+    RAContext::Get().Shutdown();
     delete emuThread;
 
     net.UnregisterInstance(instanceID);

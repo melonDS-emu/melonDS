@@ -1,0 +1,16 @@
+<RCC>
+    <qresource prefix="/ra">
+        <!-- Icons -->
+        <file>icons/placeholder.png</file>
+        <file>icons/ra-generic-user.png</file>
+        <file>icons/ra-icon.png</file>
+        <file>icons/trophy-icon.svg</file>
+        <file>icons/trophy-icon-gray.svg</file>
+        <file>icons/trophy-icon-star.svg</file>
+
+        <!-- Sounds -->
+        <file>sounds/unlock.wav</file>
+        <file>sounds/message.wav</file>
+        <file>sounds/lbsubmit.wav</file>
+    </qresource>
+</RCC>

@@ -225,6 +225,72 @@ if (ENABLE_JIT_PROFILING)
     target_link_libraries(core PRIVATE "${VTUNE_LIBRARY}")
 endif()
 
+# --- RetroAchievements ---
+message(STATUS "Adding RetroAchievements integration sources")
+
+target_sources(core PRIVATE
+    RetroAchievements/RAClient.cpp
+    RetroAchievements/RAClient.h
+    RetroAchievements/RAFunctions.h
+)
+
+target_include_directories(core PRIVATE
+    "${CMAKE_CURRENT_SOURCE_DIR}/RetroAchievements"
+    "${CMAKE_CURRENT_SOURCE_DIR}" 
+)
+
+message(STATUS "RetroAchievements support enabled")
+
+# --- CURL & SSL Configuration ---
+target_compile_definitions(core PRIVATE HAVE_CURL CURL_STATICLIB)
+
+if(DEFINED ENV{MSYSTEM_PREFIX})
+    set(CURL_LDIR "$ENV{MSYSTEM_PREFIX}/lib")
+else()
+    set(CURL_LDIR "C:/msys64/ucrt64/lib")
+endif()
+
+set(NGTCP2_CRYPTO "${CURL_LDIR}/libngtcp2_crypto_ossl.a")
+
+target_link_libraries(core PRIVATE 
+    "${CURL_LDIR}/libcurl.a"
+    "${CURL_LDIR}/libnghttp2.a"
+    "${CURL_LDIR}/libnghttp3.a"
+    "${CURL_LDIR}/libngtcp2.a"
+    "${NGTCP2_CRYPTO}"
+    "${CURL_LDIR}/libssh2.a"
+    "${CURL_LDIR}/libpsl.a"
+    "${CURL_LDIR}/libssl.a"
+    "${CURL_LDIR}/libcrypto.a"
+    "${CURL_LDIR}/libbrotlidec.a"
+    "${CURL_LDIR}/libbrotlicommon.a"
+    "${CURL_LDIR}/libbrotlienc.a"
+    "${CURL_LDIR}/libzstd.a"
+    "${CURL_LDIR}/libidn2.a"
+    "${CURL_LDIR}/libunistring.a"
+    "${CURL_LDIR}/libiconv.a"
+    "${CURL_LDIR}/libz.a"
+    ws2_32 wldap32 crypt32 normaliz advapi32 secur32 bcrypt
+)
+
+# --- rcheevos ---
+file(GLOB_RECURSE RCH_ALL
+    "${CMAKE_CURRENT_SOURCE_DIR}/rcheevos/src/*.c"
+)
+
+list(FILTER RCH_ALL EXCLUDE REGEX
+    "rc_libretro.c|rc_client_external.c|rhash/aes.c"
+)
+
+target_sources(core PRIVATE ${RCH_ALL})
+
+target_include_directories(core PRIVATE
+    "${CMAKE_CURRENT_SOURCE_DIR}/rcheevos/include"
+    "${CMAKE_CURRENT_SOURCE_DIR}/rcheevos/src"
+)
+
+target_compile_definitions(core PRIVATE RETROACHIEVEMENTS_ENABLED)
+
 #if(CMAKE_BUILD_TYPE MATCHES "Debug")
 #  set(
 #    CMAKE_C_FLAGS
