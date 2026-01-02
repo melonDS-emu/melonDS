@@ -25,6 +25,7 @@ int main(int argc, char **argv)
         g_print("%s...\n", name);
         for (j = 0; j < MIN_NUMBER_OF_RUNS; j++) {
             if (LLVMFuzzerTestOneInput((void *)buf, size) == EXIT_TEST_SKIP) {
+                g_free(buf);
                 return EXIT_TEST_SKIP;
             }
         }
