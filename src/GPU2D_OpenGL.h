@@ -215,8 +215,6 @@ private:
 
     } UnitState[2];
 
-    GLuint CaptureInputTex; // TODO REMOVE ME
-
     struct sFinalPassConfig
     {
         u32 uScreenSwap[192];
@@ -252,21 +250,6 @@ private:
     GLuint CaptureVRAMTex;
     GLuint CaptureVRAMFB;
 
-    // hi-res capture buffers
-    // since the DS can read from and capture to the same VRAM bank (VRAM display + capture),
-    // these need to be double-buffered
-    struct sCaptureBuffer
-    {
-        GLuint Texture;
-        u16 Width, Height;
-        //int Length;
-        bool Complete;
-    } CaptureBuffers[16][2];
-    int CaptureLastBuffer[16];
-    int ActiveCapture;
-
-    u16 CaptureUsageMask;
-
     GLuint FPOutputTex[2];               // final output
     GLuint FPOutputFB[2];
 
@@ -297,13 +280,8 @@ private:
     GLuint CaptureSyncFB;
     GLuint CaptureSyncTex;
 
-    //GLuint test;
-
-    u32* LineAttribBuffer;
-    u32* BGOBJBuffer;
     u16* AuxInputBuffer[2];
 
-    //u32* Framebuffer[2][2];
     int BackBuffer;
 
     u8 AuxUsageMask;

@@ -107,15 +107,8 @@ GLRenderer::GLRenderer(melonDS::GPU& gpu)
 {
     BackBuffer = 0;
 
-    LineAttribBuffer = new u32[3 * 192 * 2];
-    BGOBJBuffer = new u32[256 * 3 * 192 * 2];
     AuxInputBuffer[0] = new u16[256 * 256];
     AuxInputBuffer[1] = new u16[256 * 192];
-
-    // TODO those need to get reset upon emu reset
-    memset(CaptureBuffers, 0, sizeof(CaptureBuffers));
-    memset(CaptureLastBuffer, 0, sizeof(CaptureLastBuffer));
-    ActiveCapture = -1;
 }
 
 #define glDefaultTexParams(target) \
@@ -304,11 +297,6 @@ bool GLRenderer::GLInit()
 
         glGenFramebuffers(1, &state.OutputFB);
     }
-
-    // generate texture to hold display capture input (source A)
-    glGenTextures(1, &CaptureInputTex);
-    glBindTexture(GL_TEXTURE_2D, CaptureInputTex);
-    glDefaultTexParams(GL_TEXTURE_2D);
 
     // generate buffers to hold display capture output
 
@@ -598,8 +586,6 @@ GLRenderer::~GLRenderer()
 
     //glDeleteBuffers(1, &LayerConfigUBO);
 
-    delete[] LineAttribBuffer;
-    delete[] BGOBJBuffer;
     delete[] AuxInputBuffer[0];
     delete[] AuxInputBuffer[1];
 }
@@ -618,9 +604,6 @@ void GLRenderer::SetScaleFactor(int scale)
     ScreenH = 192 * scale;
 
     const GLenum fbassign2[] = {GL_COLOR_ATTACHMENT0, GL_COLOR_ATTACHMENT1};
-
-    glBindTexture(GL_TEXTURE_2D, CaptureInputTex);
-    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, ScreenW, ScreenH, 0, GL_RGBA, GL_UNSIGNED_BYTE, nullptr);
 
     glBindTexture(GL_TEXTURE_2D_ARRAY, CaptureOutput256Tex);
     glTexImage3D(GL_TEXTURE_2D_ARRAY, 0, GL_RGBA, 256*ScaleFactor, 256*ScaleFactor, 4, 0, GL_RGBA, GL_UNSIGNED_BYTE, nullptr);
@@ -959,9 +942,6 @@ void GLRenderer::DrawScanline(u32 line, Unit* unit)
     //int yoffset = (screen * 192) + line;
     int yoffset = (CurUnit->Num * 192) + line;
 
-    u32* attrib = &LineAttribBuffer[3 * yoffset];
-    u32* dst = &BGOBJBuffer[256 * 3 * yoffset];
-
     // TODO account for this shit (in final pass shader?)
     // as well as forced blank flag
     int lineout = line;
@@ -1042,43 +1022,35 @@ void GLRenderer::DrawScanline(u32 line, Unit* unit)
             AuxUsageMask |= (1<<0);
 
             u32 vrambank = (CurUnit->DispCnt >> 18) & 0x3;
+            u32 vramoffset = line * 256;
+            u32 outoffset = lineout * 256;
+            if (dispmode != 2)
+            {
+                u32 yoff = ((capcnt >> 26) & 0x3) << 14;
+                vramoffset += yoff;
+                outoffset += yoff;
+            }
+
+            vramoffset &= 0xFFFF;
+            outoffset &= 0xFFFF;
+
+            u16* adst = &AuxInputBuffer[0][outoffset];
+
             if (GPU.VRAMMap_LCDC & (1<<vrambank))
             {
-                u32 vramoffset = line * 256;
-                u32 outoffset = lineout * 256;
-                if (dispmode != 2)
-                {
-                    u32 yoff = ((capcnt >> 26) & 0x3) << 14;
-                    vramoffset += yoff;
-                    outoffset += yoff;
-                }
+                u16* vram = (u16*)GPU.VRAM[vrambank];
 
-                vramoffset &= 0xFFFF;
-                outoffset &= 0xFFFF;
-
-                /*int capblk = GPU.GetCaptureBlock_LCDC((vrambank << 17) | (vramoffset << 1));
-                if (capblk != -1)
+                for (int i = 0; i < 256; i++)
                 {
-                    // TODO inexact!
-                    CaptureUsageMask |= (1 << capblk);
-                }
-                else*/
-                {
-                    u16* vram = (u16*)GPU.VRAM[vrambank];
-                    u16* adst = &AuxInputBuffer[0][outoffset];
-
-                    for (int i = 0; i < 256; i++)
-                    {
-                        adst[i] = vram[vramoffset];
-                        vramoffset++;
-                    }
+                    adst[i] = vram[vramoffset];
+                    vramoffset++;
                 }
             }
             else
             {
                 for (int i = 0; i < 256; i++)
                 {
-                    dst[i] = 0;
+                    adst[i] = 0;
                 }
             }
         }
@@ -1198,32 +1170,10 @@ void GLRenderer::VBlank(Unit* unitA, Unit* unitB)
     {
         DoCapture(unitA, vramcap);
     }
-
-    if (ActiveCapture != -1)
-    {printf("we finished capturing to block %d\n", ActiveCapture);
-        int block = ActiveCapture;
-        int cur = CaptureLastBuffer[block] ^ 1;
-        auto& capbuf = CaptureBuffers[block][cur];
-
-        capbuf.Complete = true;
-        CaptureLastBuffer[block] = cur;
-        ActiveCapture = -1;
-    }
 }
 
 void GLRenderer::VBlankEnd(Unit* unitA, Unit* unitB)
 {
-/*#ifdef OGLRENDERER_ENABLED
-    if (Renderer3D& renderer3d = GPU.GPU3D.GetCurrentRenderer(); renderer3d.Accelerated)
-    {
-        if ((unitA->CaptureCnt & (1<<31)) && (((unitA->CaptureCnt >> 29) & 0x3) != 1))
-        {
-            renderer3d.PrepareCaptureFrame();
-        }
-    }
-#endif*/
-
-    CaptureUsageMask = 0;
     AuxUsageMask = 0;
 }
 
@@ -2173,45 +2123,8 @@ void GLRenderer::RenderScreen(Unit* unit, int ystart, int yend)
 
 void GLRenderer::AllocCapture(u32 bank, u32 start, u32 len)
 {
+    // TODO remove this function alltogether?
     printf("GL: alloc capture in bank %d, start=%d len=%d\n", bank, start, len);
-#if 0
-    int block = (bank << 2) | start;
-    int cur = CaptureLastBuffer[block] ^ 1;
-    auto& capbuf = CaptureBuffers[block][cur];
-
-    if (!capbuf.Texture)
-    {
-        printf("allocating new capture texture\n");
-        glGenTextures(1, &capbuf.Texture);
-
-        // TODO: textures should get reallocated if scale factor is changed?
-
-        glBindTexture(GL_TEXTURE_2D, capbuf.Texture);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
-        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, ScreenW, ScreenH, 0, GL_RGBA, GL_UNSIGNED_BYTE, nullptr);
-    }
-
-    if (len == 0)
-    {
-        capbuf.Width = 128;
-        capbuf.Height = 128;
-    }
-    else
-    {
-        capbuf.Width = 256;
-        capbuf.Height = 64 * len;
-    }
-
-    capbuf.Complete = false;
-    ActiveCapture = block;
-
-    // map it to the renderer, so it will get filled in
-    glBindFramebuffer(GL_FRAMEBUFFER, FPOutputFB[BackBuffer]);
-    glFramebufferTexture(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT2, capbuf.Texture, 0);
-#endif
 }
 
 void GLRenderer::SyncVRAMCapture(u32 bank, u32 start, u32 len, bool complete)
