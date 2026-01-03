@@ -26,8 +26,6 @@ namespace melonDS::GPU2D
 
 #include "OpenGL_shaders/LayerPreVS.h"
 #include "OpenGL_shaders/LayerPreFS.h"
-#include "OpenGL_shaders/LayerVS.h"
-#include "OpenGL_shaders/LayerFS.h"
 #include "OpenGL_shaders/SpritePreVS.h"
 #include "OpenGL_shaders/SpritePreFS.h"
 #include "OpenGL_shaders/SpriteVS.h"
@@ -55,13 +53,6 @@ std::unique_ptr<GLRenderer> GLRenderer::New(melonDS::GPU& gpu) noexcept
                                               "2DLayerPreShader",
                                               {{"vPosition", 0}},
                                               {{"oColor", 0}}))
-        return nullptr;
-
-    if (!OpenGL::CompileVertexFragmentProgram(shaderid[1],
-                                              kLayerVS, kLayerFS,
-                                              "2DLayerShader",
-                                              {{"vPosition", 0}},
-                                              {{"oColor", 0}, {"oCaptureColor", 1}}))
         return nullptr;
 
     if (!OpenGL::CompileVertexFragmentProgram(shaderid[2],
@@ -101,7 +92,6 @@ std::unique_ptr<GLRenderer> GLRenderer::New(melonDS::GPU& gpu) noexcept
 
     auto ret = std::unique_ptr<GLRenderer>(new GLRenderer(gpu));
     ret->LayerPreShader = shaderid[0];
-    ret->LayerShader = shaderid[1];
     ret->SpritePreShader = shaderid[2];
     ret->SpriteShader = shaderid[3];
     ret->CompositorShader = shaderid[4];
@@ -399,25 +389,6 @@ bool GLRenderer::GLInit()
     LayerPreBGConfigULoc = glGetUniformBlockIndex(LayerPreShader, "uConfig");
 
     LayerPreCurBGULoc = glGetUniformLocation(LayerPreShader, "uCurBG");
-
-
-    glUseProgram(LayerShader);
-
-    uniloc = glGetUniformLocation(LayerShader, "BGLayerTex");
-    glUniform1i(uniloc, 0);
-    uniloc = glGetUniformLocation(LayerShader, "_3DLayerTex");
-    glUniform1i(uniloc, 1);
-    uniloc = glGetUniformLocation(LayerShader, "CaptureTex");
-    glUniform1i(uniloc, 2);
-
-    uniloc = glGetUniformBlockIndex(LayerShader, "uScanlineConfig");
-    glUniformBlockBinding(LayerShader, uniloc, 12);
-    uniloc = glGetUniformBlockIndex(LayerShader, "uConfig");
-    glUniformBlockBinding(LayerShader, uniloc, 10);
-
-    LayerScaleULoc = glGetUniformLocation(LayerShader, "uScaleFactor");
-    LayerCurUnitULoc = glGetUniformLocation(LayerShader, "uCurUnit");
-    LayerCurBGULoc = glGetUniformLocation(LayerShader, "uCurBG");
 
 
     glUseProgram(SpritePreShader);

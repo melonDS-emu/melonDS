@@ -72,10 +72,10 @@ private:
     GLint LayerPreCurBGULoc;
     //GLuint LayerConfigUBO;
 
-    GLuint LayerShader;
-    GLint LayerScaleULoc;
-    GLint LayerCurUnitULoc;
-    GLint LayerCurBGULoc;
+    //GLuint LayerShader;
+    //GLint LayerScaleULoc;
+    //GLint LayerCurUnitULoc;
+    //GLint LayerCurBGULoc;
     GLuint ScanlineConfigUBO;
 
     GLuint SpritePreShader;
