@@ -124,8 +124,8 @@ private:
         GLuint SpriteFB;
         GLuint SpriteTex;
 
-        GLuint FinalLayerFB[5];
-        GLuint FinalLayerTex;
+        GLuint OBJLayerFB;
+        GLuint OBJLayerTex;
 
         GLuint OutputFB;
         GLuint OutputTex;
@@ -215,7 +215,7 @@ private:
 
     } UnitState[2];
 
-    GLuint CaptureInputTex;
+    GLuint CaptureInputTex; // TODO REMOVE ME
 
     struct sFinalPassConfig
     {
@@ -274,13 +274,13 @@ private:
     {
         u32 uCaptureSize[2];
         u32 uScaleFactor;
+        u32 uSrcAOffset;
         u32 uSrcBLayer;
         u32 uSrcBOffset;
         u32 uDstOffset;
         u32 uDstMode;
-        u32 __pad0[1];
         u32 uBlendFactors[2];
-        u32 __pad1[2];
+        u32 __pad0[2];
     } CaptureConfig;
 
     GLuint CaptureShader;
@@ -337,7 +337,6 @@ private:
 
     void DoRenderSprites(Unit* unit, int line);
     void RenderSprites(Unit* unit, bool window, int ystart, int yend);
-    void RenderLayer(Unit* unit, int layer, int ystart, int yend);
 
     void RenderScreen(Unit* unit, int ystart, int yend);
 

@@ -80,8 +80,8 @@ public:
     void GetBGVRAM(u8*& data, u32& mask) const;
     void GetOBJVRAM(u8*& data, u32& mask) const;
 
-    int GetCaptureBlock_BG(u32 offset) const;
-    int GetCaptureBlock_OBJ(u32 offset) const;
+    void GetCaptureInfo_BG(int* info) const;
+    void GetCaptureInfo_OBJ(int* info) const;
 
     void UpdateMosaicCounters(u32 line);
     void CalculateWindowMask(u32 line, u8* windowMask, const u8* objWindow);

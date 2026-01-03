@@ -82,7 +82,7 @@ std::unique_ptr<GLRenderer> GLRenderer::New(melonDS::GPU& gpu) noexcept
                                               kCompositorVS, kCompositorFS,
                                               "2DCompositorShader",
                                               {{"vPosition", 0}},
-                                              {{"oColor", 0}, {"oCaptureColor", 1}}))
+                                              {{"oColor", 0}}))
         return nullptr;
 
     if (!OpenGL::CompileVertexFragmentProgram(shaderid[5],
@@ -299,12 +299,12 @@ bool GLRenderer::GLInit()
 
         // generate texture to hold final (upscaled) layers (BG/OBJ)
 
-        glGenTextures(1, &state.FinalLayerTex);
-        glBindTexture(GL_TEXTURE_2D_ARRAY, state.FinalLayerTex);
+        glGenTextures(1, &state.OBJLayerTex);
+        glBindTexture(GL_TEXTURE_2D_ARRAY, state.OBJLayerTex);
         glDefaultTexParams(GL_TEXTURE_2D_ARRAY);
         //glTexImage3D(GL_TEXTURE_2D_ARRAY, 0, GL_RGBA, 1024, 1024, 4, 0, GL_RGBA, GL_UNSIGNED_BYTE, nullptr);
 
-        glGenFramebuffers(5, state.FinalLayerFB);
+        glGenFramebuffers(1, &state.OBJLayerFB);
 
         // generate texture for the compositor output
 
@@ -460,6 +460,10 @@ bool GLRenderer::GLInit()
     glUniform1i(uniloc, 3);
     uniloc = glGetUniformLocation(CompositorShader, "OBJLayerTex");
     glUniform1i(uniloc, 4);
+    uniloc = glGetUniformLocation(CompositorShader, "Capture128Tex");
+    glUniform1i(uniloc, 5);
+    uniloc = glGetUniformLocation(CompositorShader, "Capture256Tex");
+    glUniform1i(uniloc, 6);
 
     //uniloc = glGetUniformBlockIndex(CompositorShader, "ubBGConfig");
     //glUniformBlockBinding(CompositorShader, uniloc, 10);
@@ -673,29 +677,12 @@ void GLRenderer::SetScaleFactor(int scale)
 
         state.SpriteConfig.uScaleFactor = ScaleFactor;
 
-        glBindTexture(GL_TEXTURE_2D_ARRAY, state.FinalLayerTex);
-        //glTexImage3D(GL_TEXTURE_2D_ARRAY, 0, GL_RGBA, ScreenW, ScreenH, 6, 0, GL_RGBA, GL_UNSIGNED_BYTE, nullptr);
+        glBindTexture(GL_TEXTURE_2D_ARRAY, state.OBJLayerTex);
         glTexImage3D(GL_TEXTURE_2D_ARRAY, 0, GL_RGBA, ScreenW, ScreenH, 2, 0, GL_RGBA, GL_UNSIGNED_BYTE, nullptr);
 
-        /*for (int i = 0; i < 4; i++)
-        {
-            glBindFramebuffer(GL_FRAMEBUFFER, state.FinalLayerFB[i]);
-            glFramebufferTextureLayer(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, state.FinalLayerTex, 0, i);
-
-            if ((u == 0) && (i == 0))
-            {
-                glFramebufferTexture(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT1, CaptureInputTex, 0);
-                glDrawBuffers(2, fbassign2);
-            }
-            else
-                glDrawBuffer(GL_COLOR_ATTACHMENT0);
-        }*/
-
-        glBindFramebuffer(GL_FRAMEBUFFER, state.FinalLayerFB[4]);
-        /*glFramebufferTextureLayer(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, state.FinalLayerTex, 0, 4);
-        glFramebufferTextureLayer(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT1, state.FinalLayerTex, 0, 5);*/
-        glFramebufferTextureLayer(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, state.FinalLayerTex, 0, 0);
-        glFramebufferTextureLayer(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT1, state.FinalLayerTex, 0, 1);
+        glBindFramebuffer(GL_FRAMEBUFFER, state.OBJLayerFB);
+        glFramebufferTextureLayer(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, state.OBJLayerTex, 0, 0);
+        glFramebufferTextureLayer(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT1, state.OBJLayerTex, 0, 1);
         glDrawBuffers(2, fbassign2);
 
         glBindTexture(GL_TEXTURE_2D, state.OutputTex);
@@ -703,14 +690,7 @@ void GLRenderer::SetScaleFactor(int scale)
 
         glBindFramebuffer(GL_FRAMEBUFFER, state.OutputFB);
         glFramebufferTexture(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, state.OutputTex, 0);
-
-        if (u == 0)
-        {
-            glFramebufferTexture(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT1, CaptureInputTex, 0);
-            glDrawBuffers(2, fbassign2);
-        }
-        else
-            glDrawBuffer(GL_COLOR_ATTACHMENT0);
+        glDrawBuffer(GL_COLOR_ATTACHMENT0);
     }
 
     glBindTexture(GL_TEXTURE_2D_ARRAY, CaptureVRAMTex);
@@ -862,50 +842,10 @@ void GLRenderer::UpdateAndRender(Unit* unit, int line)
         comp_dirty = true;
 
     // if needed, render sprites
-    // TODO: move to RenderScreen()?
-
-    //glScissor(0, ystart * ScaleFactor, ScreenW, (yend-ystart) * ScaleFactor);
 
     if (state.SpriteDirty && (line > 0))
     {
-#if 0
-        state.SpriteDirty = false;
-
-        // OAM and VRAM have already been updated prior
-        // palette needs to be updated here though
-
-        glActiveTexture(GL_TEXTURE0);
-        glBindTexture(GL_TEXTURE_2D, state.VRAMTex_OBJ);
-
-        memcpy(&TempPalBuffer[0], &GPU.Palette[unit->Num ? 0x600 : 0x200], 256*2);
-        {
-            u16* pal = unit->GetOBJExtPal();
-            memcpy(&TempPalBuffer[256], pal, 256*16*2);
-        }
-
-        glActiveTexture(GL_TEXTURE1);
-        glBindTexture(GL_TEXTURE_2D, state.PalTex_OBJ);
-        //glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, 256, 1+16, GL_RGBA, GL_UNSIGNED_SHORT_1_5_5_5_REV, TempPalBuffer);
-        glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, 256, 1+16, GL_RED_INTEGER, GL_UNSIGNED_SHORT, TempPalBuffer);
-
-        int ystart = state.LastSpriteLine;
-        int yend = line;
-        printf("render sprites %d %d->%d (line=%d last=%d)\n", unit->Num, ystart, yend, line, state.LastSpriteLine);
-        state.LastSpriteLine = line;
-
-        //PrerenderSprites(unit);
-
-        glEnable(GL_SCISSOR_TEST);
-        glScissor(0, ystart * ScaleFactor, ScreenW, (yend-ystart) * ScaleFactor);
-
-        //RenderSprites(unit, true, ystart, yend);
-        //RenderSprites(unit, false, ystart, yend);
-
-        glDisable(GL_SCISSOR_TEST);
-#endif
         DoRenderSprites(unit, line);
-
-        //comp_dirty = true;
     }
 
     // if needed, composite the previous screen section
@@ -946,6 +886,33 @@ void GLRenderer::UpdateAndRender(Unit* unit, int line)
         glBindTexture(GL_TEXTURE_2D, state.VRAMTex_BG);
         glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, 1024, vramheight, GL_RED_INTEGER, GL_UNSIGNED_BYTE, vram);
 
+        // TODO figure out why this breaks graphics
+        // 1E6 / 621BCC0
+        /*int texlen = (unit->Num ? 256 : 1024) >> 6;
+        for (int i = 0; i < texlen; )
+        {
+            if (!bgDirty.Data[i])
+            {
+                i++;
+                continue;
+            }
+
+            int start = i * 32;
+            for (;;)
+            {
+                i++;
+                if (i >= texlen) break;
+                if (!bgDirty.Data[i]) break;
+            }
+            int end = i * 32;
+
+            glTexSubImage2D(GL_TEXTURE_2D, 0,
+                            0, start,
+                            1024, end - start,
+                            GL_RED_INTEGER, GL_UNSIGNED_BYTE,
+                            &vram[start * 1024]);
+        }*/
+
         memcpy(&TempPalBuffer[0], &GPU.Palette[unit->Num ? 0x400 : 0], 256*2);
         for (int s = 0; s < 4; s++)
         {
@@ -967,8 +934,8 @@ void GLRenderer::UpdateAndRender(Unit* unit, int line)
 
         glUniformBlockBinding(LayerPreShader, LayerPreBGConfigULoc, 10 + (unit->Num*10));
 
-        glBindBuffer(GL_UNIFORM_BUFFER, state.LayerConfigUBO);
-        glBufferSubData(GL_UNIFORM_BUFFER, 0, sizeof(state.LayerConfig), &state.LayerConfig);
+        //glBindBuffer(GL_UNIFORM_BUFFER, state.LayerConfigUBO);
+        //glBufferSubData(GL_UNIFORM_BUFFER, 0, sizeof(state.LayerConfig), &state.LayerConfig);
 
         for (int layer = 0; layer < 4; layer++)
         {
@@ -977,29 +944,6 @@ void GLRenderer::UpdateAndRender(Unit* unit, int line)
 
             PrerenderLayer(unit, layer);
         }
-
-#if 0
-        glUseProgram(LayerShader);
-
-        // TODO not set this all the time!!
-        glUniform1i(LayerScaleULoc, ScaleFactor);
-        glUniform1i(LayerCurUnitULoc, unit->Num);
-
-        // update scanline config buffer
-        // TODO MAKE BETTERER
-        glBindBuffer(GL_UNIFORM_BUFFER, ScanlineConfigUBO);
-        glBufferSubData(GL_UNIFORM_BUFFER, 0, sizeof(sUnitState::sScanlineConfig), &state.ScanlineConfig);
-
-        glColorMaski(0, GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
-
-        for (int layer = 0; layer < 4; layer++)
-        {
-            if (!(layer_pre_dirty & (1 << layer)))
-                continue;
-
-            RenderLayer(unit, layer, 0, 192);// TODO HAX
-        }
-#endif
     }
 
     if (state.SpriteDirty)
@@ -1024,7 +968,7 @@ void GLRenderer::UpdateAndRender(Unit* unit, int line)
         glBindTexture(GL_TEXTURE_2D, state.PalTex_OBJ);
         //glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, 256, 1+16, GL_RGBA, GL_UNSIGNED_SHORT_1_5_5_5_REV, TempPalBuffer);
         glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, 256, 1+16, GL_RED_INTEGER, GL_UNSIGNED_SHORT, TempPalBuffer);
-//printf("unit%d line%d prerendering sprites\n", unit->Num, line);
+
         PrerenderSprites(unit);
 
         state.LastSpriteLine = line;
@@ -1471,12 +1415,9 @@ void GLRenderer::UpdateLayerConfig(Unit* unit)
     u32 dispcnt = unit->DispCnt;
 
     // determine which parts of VRAM were used for captures
-    // TODO make this more efficient
-    for (u32 i = 0; i < (unit->Num ? 0x20000 : 0x80000); i += 0x4000)
-    {
-        int blk = unit->GetCaptureBlock_BG(i);
-        state.LayerConfig.uCaptureMask[i >> 14] = blk;
-    }
+    int capturemask = unit->Num ? 0x7 : 0x1F;
+    int captureinfo[32];
+    unit->GetCaptureInfo_BG(captureinfo);
 
     u32 tilebase, mapbase;
     if (!unit->Num)
@@ -1618,16 +1559,56 @@ void GLRenderer::UpdateLayerConfig(Unit* unit)
                     case 3: cfg.Size[0] = 512; cfg.Size[1] = 512; mapsz = 0x40000; break;
                 }
 
+                u32 tileoffset = 0;
+                u32 mapoffset = ((bgcnt >> 8) & 0x1F) << 14;
+
                 if (bgcnt & (1<<2))
                 {
-                    cfg.Type = 5;
                     mapsz <<= 1;
+
+                    int capblock = -1;
+                    if ((cfg.Size[0] == 128) || (cfg.Size[0] == 256))
+                    {
+                        // if this is a direct color bitmap, and the width is 128 or 256
+                        // then it might be a display capture
+                        u32 startaddr = mapoffset;
+                        u32 endaddr = startaddr + mapsz;
+
+                        startaddr >>= 14;
+                        endaddr = (endaddr + 0x3FFF) >> 14;
+
+                        for (u32 b = startaddr; b < endaddr; b++)
+                        {
+                            int blk = captureinfo[b & capturemask];
+                            if (blk == -1) continue;
+
+                            capblock = blk;
+                        }
+                    }
+
+                    if (capblock != -1)
+                    {
+                        if (cfg.Size[0] == 128)
+                        {
+                            cfg.Type = 7;
+                            tileoffset = capblock;
+                            mapoffset = (mapoffset >> 8) & 0x7F;
+                        }
+                        else
+                        {
+                            cfg.Type = 8;
+                            tileoffset = capblock >> 2;
+                            mapoffset = (mapoffset >> 9) & 0xFF;
+                        }
+                    }
+                    else
+                        cfg.Type = 5;
                 }
                 else
                     cfg.Type = 4;
 
-                cfg.TileOffset = 0;
-                cfg.MapOffset = ((bgcnt >> 8) & 0x1F) << 14;
+                cfg.TileOffset = tileoffset;
+                cfg.MapOffset = mapoffset;
 
                 int n = BGBaseIndex[2][bgcnt >> 14] + layer - 2;
                 state.BGLayerTex[layer] = state.AllBGLayerTex[n];
@@ -1699,26 +1680,20 @@ void GLRenderer::UpdateLayerConfig(Unit* unit)
         }
     }
 
-#if 0
-    glBindBuffer(GL_UNIFORM_BUFFER, LayerConfigUBO);
+    glBindBuffer(GL_UNIFORM_BUFFER, state.LayerConfigUBO);
     glBufferSubData(GL_UNIFORM_BUFFER, 0, sizeof(state.LayerConfig), &state.LayerConfig);
-#endif
 }
 
 void GLRenderer::UpdateOAM(Unit* unit, int ystart, int yend)
 {
     auto& state = UnitState[unit->Num];
     auto& cfg = state.SpriteConfig;
-    //u16* oam = (u16*)&GPU.OAM[unit->Num ? 0x400 : 0];
     u16* oam = state.OAM;
 
     // determine which parts of VRAM were used for captures
-    // TODO make this more efficient
-    for (u32 i = 0; i < (unit->Num ? 0x20000 : 0x40000); i += 0x4000)
-    {
-        int blk = unit->GetCaptureBlock_OBJ(i);
-        cfg.uCaptureMask[i >> 14] = blk;
-    }
+    int capturemask = unit->Num ? 0x7 : 0xF;
+    int captureinfo[16];
+    unit->GetCaptureInfo_OBJ(captureinfo);
 
     for (int i = 0; i < 32; i++)
     {
@@ -1837,26 +1812,69 @@ void GLRenderer::UpdateOAM(Unit* unit, int ystart, int yend)
             {
                 // bitmap sprite
 
+                sprcfg.Type = 2;
+
                 if (unit->DispCnt & (1<<6))
                 {
                     // 1D mapping
                     sprcfg.TileOffset = tilenum << (7 + ((CurUnit->DispCnt >> 22) & 0x1));
                     sprcfg.TileStride = width * 2;
                 }
-                else if (unit->DispCnt & (1<<5))
-                {
-                    // 2D mapping, 256 pixels
-                    sprcfg.TileOffset = ((tilenum & 0x01F) << 4) + ((tilenum & 0x3E0) << 7);
-                    sprcfg.TileStride = 256 * 2;
-                }
                 else
                 {
-                    // 2D mapping, 128 pixels
-                    sprcfg.TileOffset = ((tilenum & 0x00F) << 4) + ((tilenum & 0x3F0) << 7);
-                    sprcfg.TileStride = 128 * 2;
+                    bool is256 = !!(unit->DispCnt & (1<<5));
+                    int capblock = -1;
+
+                    u32 tileoffset, tilestride;
+                    if (is256)
+                    {
+                        // 2D mapping, 256 pixels
+                        tileoffset = ((tilenum & 0x01F) << 4) + ((tilenum & 0x3E0) << 7);
+                        tilestride = 256 * 2;
+                    }
+                    else
+                    {
+                        // 2D mapping, 128 pixels
+                        tileoffset = ((tilenum & 0x00F) << 4) + ((tilenum & 0x3F0) << 7);
+                        tilestride = 128 * 2;
+                    }
+
+                    // if this is a direct color bitmap, and the width is 128 or 256
+                    // then it might be a display capture
+                    u32 startaddr = tileoffset;
+                    u32 endaddr = startaddr + (height * tilestride);
+
+                    startaddr >>= 14;
+                    endaddr = (endaddr + 0x3FFF) >> 14;
+
+                    for (u32 b = startaddr; b < endaddr; b++)
+                    {
+                        int blk = captureinfo[b & capturemask];
+                        if (blk == -1) continue;
+
+                        capblock = blk;
+                    }
+
+                    if (capblock != -1)
+                    {
+                        if (!is256)
+                        {
+                            sprcfg.Type = 3;
+                            tilestride = capblock;
+                            tileoffset &= 0x7FFF;
+                        }
+                        else
+                        {
+                            sprcfg.Type = 4;
+                            tilestride = capblock >> 2;
+                            tileoffset &= 0x1FFFF;
+                        }
+                    }
+
+                    sprcfg.TileOffset = tileoffset;
+                    sprcfg.TileStride = tilestride;
                 }
 
-                sprcfg.Type = 2;
                 sprcfg.PalOffset = 1 + (attrib[2] >> 12); // alpha
             }
             else
@@ -1947,6 +1965,10 @@ void GLRenderer::PrerenderSprites(Unit* unit)
 
     for (int i = 0; i < state.NumSprites; i++)
     {
+        auto& sprite = state.SpriteConfig.uOAM[i];
+        if (sprite.Type >= 3)
+            continue;
+
         *vtxbuf++ = 0; *vtxbuf++ = 1; *vtxbuf++ = i;
         *vtxbuf++ = 1; *vtxbuf++ = 0; *vtxbuf++ = i;
         *vtxbuf++ = 1; *vtxbuf++ = 1; *vtxbuf++ = i;
@@ -1978,6 +2000,9 @@ void GLRenderer::PrerenderLayer(Unit* unit, int layer)
     auto& state = UnitState[unit->Num];
     auto& cfg = state.LayerConfig.uBGConfig[layer];
 
+    if (cfg.Type >= 6)
+        return;
+
     glBindFramebuffer(GL_READ_FRAMEBUFFER, 0);
     glBindFramebuffer(GL_DRAW_FRAMEBUFFER, state.BGLayerFB[layer]);
 
@@ -1985,9 +2010,6 @@ void GLRenderer::PrerenderLayer(Unit* unit, int layer)
 
     // set layer size
     glViewport(0, 0, cfg.Size[0], cfg.Size[1]);
-
-    // TODO: set other layer parameters
-    // maybe use uniform buffer/structure
 
     glBindBuffer(GL_ARRAY_BUFFER, RectVtxBuffer);
     glBindVertexArray(RectVtxArray);
@@ -2006,7 +2028,7 @@ void GLRenderer::DoRenderSprites(Unit* unit, int line)
     glUniformBlockBinding(SpriteShader, SpriteConfigULoc, 11 + (unit->Num*10));
 
     glBindFramebuffer(GL_READ_FRAMEBUFFER, 0);
-    glBindFramebuffer(GL_DRAW_FRAMEBUFFER, state.FinalLayerFB[4]);
+    glBindFramebuffer(GL_DRAW_FRAMEBUFFER, state.OBJLayerFB);
     glViewport(0, 0, ScreenW, ScreenH);
 
     glActiveTexture(GL_TEXTURE0);
@@ -2059,7 +2081,8 @@ void GLRenderer::RenderSprites(Unit* unit, bool window, int ystart, int yend)
         auto& sprite = state.SpriteConfig.uOAM[i];
 
         bool iswin = (sprite.OBJMode == 2);
-        if (iswin != window) continue;
+        if (iswin != window)
+            continue;
 
         s32 xpos = sprite.Position[0];
         s32 ypos = sprite.Position[1];
@@ -2108,168 +2131,9 @@ void GLRenderer::RenderSprites(Unit* unit, bool window, int ystart, int yend)
     glDrawArrays(GL_TRIANGLES, 0, vtxnum);
 }
 
-void GLRenderer::RenderLayer(Unit* unit, int layer, int ystart, int yend)
-{
-    auto& state = UnitState[unit->Num];
-    auto& cfg = state.LayerConfig.uBGConfig[layer];
-
-    glBindFramebuffer(GL_READ_FRAMEBUFFER, 0);
-    glBindFramebuffer(GL_DRAW_FRAMEBUFFER, state.FinalLayerFB[layer]);
-    glViewport(0, 0, ScreenW, ScreenH);
-
-    // TODO enable scissor test when needed
-    //glScissor(0, ystart * ScaleFactor, ScreenW, yend * ScaleFactor);
-
-    glUniform1i(LayerCurBGULoc, layer);
-
-    glColorMaski(0, GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
-    if ((unit->Num == 0) && (layer == 0) && unit->CaptureLatch && (unit->CaptureCnt & (1<<24)))
-        glColorMaski(1, GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
-    else
-        glColorMaski(1, GL_FALSE, GL_FALSE, GL_FALSE, GL_FALSE);
-
-    glActiveTexture(GL_TEXTURE0);
-    glBindTexture(GL_TEXTURE_2D, state.BGLayerTex[layer]);
-
-    glActiveTexture(GL_TEXTURE1);
-    glBindTexture(GL_TEXTURE_2D, _3DLayerTex);
-
-    if (cfg.Type == 5)
-    {
-        glActiveTexture(GL_TEXTURE2);
-        if (cfg.Size[0] == 128)
-            glBindTexture(GL_TEXTURE_2D_ARRAY, CaptureOutput128Tex);
-        else if (cfg.Size[0] == 256)
-            glBindTexture(GL_TEXTURE_2D_ARRAY, CaptureOutput256Tex);
-    }
-
-    glBindBuffer(GL_ARRAY_BUFFER, RectVtxBuffer);
-    glBindVertexArray(RectVtxArray);
-    glDrawArrays(GL_TRIANGLES, 0, 2*3);
-}
-
 void GLRenderer::RenderScreen(Unit* unit, int ystart, int yend)
 {
     auto& state = UnitState[unit->Num];
-#if 0
-    glUseProgram(LayerPreShader);
-
-    // update VRAM and palettes
-    // TODO only update parts that are dirty
-
-    u8* vram; u32 vrammask;
-    unit->GetBGVRAM(vram, vrammask);
-    u32 vramheight = (vrammask+1) >> 10;
-
-    glActiveTexture(GL_TEXTURE0);
-    glBindTexture(GL_TEXTURE_2D, state.VRAMTex_BG);
-    glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, 1024, vramheight, GL_RED_INTEGER, GL_UNSIGNED_BYTE, vram);
-
-    memcpy(&TempPalBuffer[0], &GPU.Palette[unit->Num ? 0x400 : 0], 256*2);
-    for (int s = 0; s < 4; s++)
-    {
-        for (int p = 0; p < 16; p++)
-        {
-            u16* pal = unit->GetBGExtPal(s, p);
-            memcpy(&TempPalBuffer[(1+((s*16)+p)) * 256], pal, 256*2);
-        }
-    }
-
-    glActiveTexture(GL_TEXTURE1);
-    glBindTexture(GL_TEXTURE_2D, state.PalTex_BG);
-    //glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, 256, 1+(4*16), GL_RGBA, GL_UNSIGNED_SHORT_1_5_5_5_REV, TempPalBuffer);
-    glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, 256, 1+(4*16), GL_RED_INTEGER, GL_UNSIGNED_SHORT, TempPalBuffer);
-
-    UpdateLayerConfig(unit);
-
-    glDisable(GL_SCISSOR_TEST);
-    glDisable(GL_DEPTH_TEST);
-    glDisable(GL_STENCIL_TEST);
-    glDisable(GL_BLEND);
-    glColorMaski(0, GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
-
-    PrerenderLayer(unit, 0);
-    PrerenderLayer(unit, 1);
-    PrerenderLayer(unit, 2);
-    PrerenderLayer(unit, 3);
-
-    if (unit->DispCnt & (1<<12))
-    {
-        // TODO only update parts that are dirty, too
-
-        //u8* vram; u32 vrammask;
-        unit->GetOBJVRAM(vram, vrammask);
-        vramheight = (vrammask+1) >> 10;
-
-        glActiveTexture(GL_TEXTURE0);
-        glBindTexture(GL_TEXTURE_2D, state.VRAMTex_OBJ);
-        glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, 1024, vramheight, GL_RED_INTEGER, GL_UNSIGNED_BYTE, vram);
-
-        memcpy(&TempPalBuffer[0], &GPU.Palette[unit->Num ? 0x600 : 0x200], 256*2);
-        {
-            u16* pal = unit->GetOBJExtPal();
-            memcpy(&TempPalBuffer[256], pal, 256*16*2);
-        }
-
-        glActiveTexture(GL_TEXTURE1);
-        glBindTexture(GL_TEXTURE_2D, state.PalTex_OBJ);
-        //glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, 256, 1+16, GL_RGBA, GL_UNSIGNED_SHORT_1_5_5_5_REV, TempPalBuffer);
-        glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, 256, 1+16, GL_RED_INTEGER, GL_UNSIGNED_SHORT, TempPalBuffer);
-
-        int spr_ystart = state.LastSpriteLine;
-
-        state.NumSprites = 0;
-        UpdateOAM(unit, spr_ystart, yend);
-        PrerenderSprites(unit);
-
-        if (spr_ystart != 0)
-        {
-            glEnable(GL_SCISSOR_TEST);
-            glScissor(0, spr_ystart * ScaleFactor, ScreenW, (yend-spr_ystart) * ScaleFactor);
-        }
-
-        RenderSprites(unit, true, spr_ystart, yend);
-        RenderSprites(unit, false, spr_ystart, yend);
-
-        glDisable(GL_SCISSOR_TEST);
-    }
-
-    glUseProgram(LayerShader);
-
-    // TODO not set this all the time!!
-    glUniform1i(LayerScaleULoc, ScaleFactor);
-    glUniform1i(LayerCurUnitULoc, unit->Num);
-
-    // update scanline config buffer
-    glBindBuffer(GL_UNIFORM_BUFFER, ScanlineConfigUBO);
-    glBufferSubData(GL_UNIFORM_BUFFER, 0, sizeof(sUnitState::sScanlineConfig), &state.ScanlineConfig);
-
-    glColorMaski(0, GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
-
-    RenderLayer(unit, 0, ystart, yend);
-    RenderLayer(unit, 1, ystart, yend);
-    RenderLayer(unit, 2, ystart, yend);
-    RenderLayer(unit, 3, ystart, yend);
-
-#endif
-
-    /*glUseProgram(LayerShader);
-
-    // TODO not set this all the time!!
-    glUniform1i(LayerScaleULoc, ScaleFactor);
-    glUniform1i(LayerCurUnitULoc, unit->Num);
-
-    // update scanline config buffer
-    // TODO MAKE BETTERER
-    glBindBuffer(GL_UNIFORM_BUFFER, ScanlineConfigUBO);
-    glBufferSubData(GL_UNIFORM_BUFFER, 0, sizeof(sUnitState::sScanlineConfig), &state.ScanlineConfig);
-
-    glColorMaski(0, GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
-
-    for (int layer = 0; layer < 4; layer++)
-    {
-        RenderLayer(unit, layer, ystart, yend);
-    }*/
 
     glUseProgram(CompositorShader);
 
@@ -2294,10 +2158,6 @@ void GLRenderer::RenderScreen(Unit* unit, int ystart, int yend)
     glDisable(GL_STENCIL_TEST);
     glDisable(GL_BLEND);
     glColorMaski(0, GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
-    if ((unit->Num == 0) && unit->CaptureLatch && (!(unit->CaptureCnt & (1<<24))))
-        glColorMaski(1, GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
-    else
-        glColorMaski(1, GL_FALSE, GL_FALSE, GL_FALSE, GL_FALSE);
 
     glViewport(0, 0, ScreenW, ScreenH);
 
@@ -2316,11 +2176,22 @@ void GLRenderer::RenderScreen(Unit* unit, int ystart, int yend)
     }
 
     glActiveTexture(GL_TEXTURE4);
-    glBindTexture(GL_TEXTURE_2D_ARRAY, state.FinalLayerTex);
+    glBindTexture(GL_TEXTURE_2D_ARRAY, state.OBJLayerTex);
+
+    glActiveTexture(GL_TEXTURE5);
+    glBindTexture(GL_TEXTURE_2D_ARRAY, CaptureOutput128Tex);
+
+    glActiveTexture(GL_TEXTURE6);
+    glBindTexture(GL_TEXTURE_2D_ARRAY, CaptureOutput256Tex);
+
+    glEnable(GL_SCISSOR_TEST);
+    glScissor(0, ystart * ScaleFactor, ScreenW, (yend-ystart) * ScaleFactor);
 
     glBindBuffer(GL_ARRAY_BUFFER, RectVtxBuffer);
     glBindVertexArray(RectVtxArray);
     glDrawArrays(GL_TRIANGLES, 0, 2*3);
+
+    glDisable(GL_SCISSOR_TEST);
 }
 
 
@@ -2444,6 +2315,7 @@ void GLRenderer::DoCapture(Unit* unit, int vramcap)
     u32 dispcnt = unit->DispCnt;
     u32 capcnt = unit->CaptureCnt;
     u32 dispmode = (dispcnt >> 16) & 0x3;
+    u32 srcA = (capcnt >> 24) & 0x1;
     u32 srcB = (capcnt >> 25) & 0x1;
     u32 srcBblock = (dispcnt >> 18) & 0x3;
     u32 srcBoffset = (dispmode == 2) ? 0 : ((capcnt >> 26) & 0x3);
@@ -2453,6 +2325,19 @@ void GLRenderer::DoCapture(Unit* unit, int vramcap)
     u32 dstmode = (capcnt >> 29) & 0x3;
     u32 eva = std::min(capcnt & 0x1F, 16u);
     u32 evb = std::min((capcnt >> 8) & 0x1F, 16u);
+
+    GLuint inputA;
+    if (srcA)
+    {
+        inputA = _3DLayerTex;
+        int xpos = GPU.GPU3D.GetRenderXPos() & 0x1FF;
+        CaptureConfig.uSrcAOffset = xpos - ((xpos & 0x100) << 1);
+    }
+    else
+    {
+        inputA = UnitState[unit->Num].OutputTex;
+        CaptureConfig.uSrcAOffset = 0;
+    }
 
     bool useSrcB = (dstmode == 1) || (dstmode == 2 && evb > 0);
 
@@ -2528,7 +2413,9 @@ void GLRenderer::DoCapture(Unit* unit, int vramcap)
     glColorMaski(0, GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
 
     glActiveTexture(GL_TEXTURE0);
-    glBindTexture(GL_TEXTURE_2D, CaptureInputTex);
+    glBindTexture(GL_TEXTURE_2D, inputA);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_BORDER);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_BORDER);
 
     glActiveTexture(GL_TEXTURE1);
     glBindTexture(GL_TEXTURE_2D_ARRAY, inputB);
@@ -2613,7 +2500,7 @@ void GLRenderer::DrawSprites(u32 line, Unit* unit)
     bool dirty = false;
 
     u32 dispcnt_diff = unit->DispCnt ^ state.SpriteDispCnt;
-    state.SpriteDispCnt = unit->DispCnt;
+    state.SpriteDispCnt = unit->DispCnt; // TODO CHECKME might not be right to do it here
     if (dispcnt_diff & 0x80F000F0)
         dirty = true;
 
@@ -2629,19 +2516,14 @@ void GLRenderer::DrawSprites(u32 line, Unit* unit)
     {
         auto _objDirty = GPU.VRAMDirty_BOBJ.DeriveState(GPU.VRAMMap_BOBJ, GPU);
         GPU.MakeVRAMFlat_BOBJCoherent(_objDirty);
-        //for (int i = 0; i < 512; i += 256)
-        //   memcpy(&objDirty.Data[i>>6], _objDirty.Data, 256>>6);
         memcpy(objDirty.Data, _objDirty.Data, 256>>3);
     }
 
     u8* vram; u32 vrammask;
     unit->GetOBJVRAM(vram, vrammask);
-    u32 vramheight = (vrammask+1) >> 10;
 
     glBindTexture(GL_TEXTURE_2D, state.VRAMTex_OBJ);
 
-    //glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, 1024, vramheight, GL_RED_INTEGER, GL_UNSIGNED_BYTE, vram);
-    // 64 bits of mask = 32*1024 of texture
     int texlen = (unit->Num ? 256 : 512) >> 6;
     for (int i = 0; i < texlen; )
     {
@@ -2667,24 +2549,9 @@ void GLRenderer::DrawSprites(u32 line, Unit* unit)
                         &vram[start * 1024]);
         dirty = true;
     }
-    //if (dirty) for (int i = 0; i < texlen; i++) printf("dirty%d = %016llX\n", i, objDirty.Data[i]);
-    bool dirty2 = objDirty.CheckRange(0, texlen<<6);
-    if (dirty != dirty2)
-    {
-        printf("GRAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA %d %d\n", dirty, dirty2);
-        for (int i = 0; i < texlen; i++) printf("dirty%d = %016llX\n", i, objDirty.Data[i]);
-    }
-    //if (dirty)
-    //    glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, 1024, vramheight, GL_RED_INTEGER, GL_UNSIGNED_BYTE, vram);
-
-    int ystart = state.LastSpriteLine;
-    int yend = line;
 
     if (GPU.OAMDirty & oammask)
     {
-        //state.NumSprites = 0;
-        //UpdateOAM(unit, ystart, yend);
-        //UpdateOAM(unit, 0, 192); // TODO hack
         memcpy(state.OAM, &GPU.OAM[unit->Num ? 0x400 : 0], 0x400);
         GPU.OAMDirty &= ~oammask;
         dirty = true;
@@ -2694,89 +2561,6 @@ void GLRenderer::DrawSprites(u32 line, Unit* unit)
     // so it will be able to do the actual sprite rendering
     if (dirty)
         state.SpriteDirty = true;
-
-#if 0
-    u32 dirtymask = (1 << unit->Num);
-
-    if (line == 0)
-    {
-        state.LastSpriteLine = 0;
-        memcpy(state.OAM, &GPU.OAM[unit->Num ? 0x400 : 0], 0x400);
-        GPU.OAMDirty &= ~dirtymask;
-        return;
-    }
-
-    if (!(GPU.OAMDirty & dirtymask)) return;
-
-    int ystart = state.LastSpriteLine;
-    int yend = line;
-    if (ystart == yend) return;
-
-    if (unit->DispCnt & (1<<12))
-    {
-        static_assert(VRAMDirtyGranularity == 512);
-        NonStupidBitField<512> objDirty;
-        NonStupidBitField<16> objExtPalDirty;
-
-        if (CurUnit->Num == 0)
-        {
-            objDirty = GPU.VRAMDirty_AOBJ.DeriveState(GPU.VRAMMap_AOBJ, GPU);
-            GPU.MakeVRAMFlat_AOBJCoherent(objDirty);
-
-            objExtPalDirty = GPU.VRAMDirty_AOBJExtPal.DeriveState(&GPU.VRAMMap_AOBJExtPal, GPU);
-            GPU.MakeVRAMFlat_AOBJExtPalCoherent(objExtPalDirty);
-        }
-        else
-        {
-            auto _objDirty = GPU.VRAMDirty_BOBJ.DeriveState(GPU.VRAMMap_BOBJ, GPU);
-            GPU.MakeVRAMFlat_BOBJCoherent(_objDirty);
-            for (int i = 0; i < 512; i += 256)
-                memcpy(&objDirty.Data[i>>6], _objDirty.Data, 256>>6);
-
-            objExtPalDirty = GPU.VRAMDirty_BOBJExtPal.DeriveState(&GPU.VRAMMap_BOBJExtPal, GPU);
-            GPU.MakeVRAMFlat_BOBJExtPalCoherent(objExtPalDirty);
-        }
-
-        // TODO only update parts that are dirty, too
-        // TODO also check dirty flags up here
-        // TODO palette should be resolved one scanline later
-
-        u8* vram; u32 vrammask;
-        unit->GetOBJVRAM(vram, vrammask);
-        u32 vramheight = (vrammask+1) >> 10;
-
-        glActiveTexture(GL_TEXTURE0);
-        glBindTexture(GL_TEXTURE_2D, state.VRAMTex_OBJ);
-        glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, 1024, vramheight, GL_RED_INTEGER, GL_UNSIGNED_BYTE, vram);
-
-        memcpy(&TempPalBuffer[0], &GPU.Palette[unit->Num ? 0x600 : 0x200], 256*2);
-        {
-            u16* pal = unit->GetOBJExtPal();
-            memcpy(&TempPalBuffer[256], pal, 256*16*2);
-        }
-
-        glActiveTexture(GL_TEXTURE1);
-        glBindTexture(GL_TEXTURE_2D, state.PalTex_OBJ);
-        //glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, 256, 1+16, GL_RGBA, GL_UNSIGNED_SHORT_1_5_5_5_REV, TempPalBuffer);
-        glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, 256, 1+16, GL_RED_INTEGER, GL_UNSIGNED_SHORT, TempPalBuffer);
-
-        state.NumSprites = 0;
-        UpdateOAM(unit, ystart, yend);
-        PrerenderSprites(unit);
-printf("render sprites %d %d->%d\n", unit->Num, ystart, yend);
-        glEnable(GL_SCISSOR_TEST);
-        glScissor(0, ystart * ScaleFactor, ScreenW, (yend-ystart) * ScaleFactor);
-
-        RenderSprites(unit, true, ystart, yend);
-        RenderSprites(unit, false, ystart, yend);
-
-        glDisable(GL_SCISSOR_TEST);
-    }
-
-    state.LastSpriteLine = yend;
-    memcpy(state.OAM, &GPU.OAM[unit->Num ? 0x400 : 0], 0x400);
-    GPU.OAMDirty &= ~dirtymask;
-#endif
 }
 
 }

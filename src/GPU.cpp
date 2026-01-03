@@ -1366,125 +1366,43 @@ int GPU::GetCaptureBlock_LCDC(u32 offset)
     return -1;
 }
 
-int GPU::GetCaptureBlock_ABG(u32 offset)
+void GPU::GetCaptureInfo(int* info, u16** cbf, int len)
 {
-    u16* cbf = VRAMCBF_ABG[(offset >> 14) & 0x1F];
-    if (!cbf) return -1;
+    for (int b = 0; b < len; b++)
+    {
+        u16* ptr = cbf[b];
+        if (!ptr)
+        {
+            info[b] = -1;
+            continue;
+        }
 
-    u16 flags = *cbf;
-    if (!(flags & CBFlag_IsCapture))
-        return -1;
-
-    return flags & 0xF;
-#if 0
-    u32 mask = VRAMMap_ABG[(offset >> 14) & 0x1F];
-    offset = (offset >> 15) & 0x3;
-    /*if ((mask & (1<<0)) && (VRAMCaptureBlockFlags[(0<<2) | offset] & CBFlag_IsCapture)) return true;
-    if ((mask & (1<<1)) && (VRAMCaptureBlockFlags[(1<<2) | offset] & CBFlag_IsCapture)) return true;
-    if ((mask & (1<<2)) && (VRAMCaptureBlockFlags[(2<<2) | offset] & CBFlag_IsCapture)) return true;
-    if ((mask & (1<<3)) && (VRAMCaptureBlockFlags[(3<<2) | offset] & CBFlag_IsCapture)) return true;*/
-    if (mask & (1<<0))
-    {
-        u8 flags = VRAMCaptureBlockFlags[(0<<2) | offset];
+        u16 flags = *ptr;
         if (flags & CBFlag_IsCapture)
-            return (0<<2) | ((flags>>4) & 0x3);
+            info[b] = flags & 0xF;
+        else
+            info[b] = -1;
     }
-    if (mask & (1<<1))
-    {
-        u8 flags = VRAMCaptureBlockFlags[(1<<2) | offset];
-        if (flags & CBFlag_IsCapture)
-            return (1<<2) | ((flags>>4) & 0x3);
-    }
-    if (mask & (1<<2))
-    {
-        u8 flags = VRAMCaptureBlockFlags[(2<<2) | offset];
-        if (flags & CBFlag_IsCapture)
-            return (2<<2) | ((flags>>4) & 0x3);
-    }
-    if (mask & (1<<3))
-    {
-        u8 flags = VRAMCaptureBlockFlags[(3<<2) | offset];
-        if (flags & CBFlag_IsCapture)
-            return (3<<2) | ((flags>>4) & 0x3);
-    }
-    return -1;
-#endif
 }
 
-int GPU::GetCaptureBlock_AOBJ(u32 offset)
+void GPU::GetCaptureInfo_ABG(int* info)
 {
-    u16* cbf = VRAMCBF_AOBJ[(offset >> 14) & 0xF];
-    if (!cbf) return -1;
-
-    u16 flags = *cbf;
-    if (!(flags & CBFlag_IsCapture))
-        return -1;
-
-    return flags & 0xF;
-#if 0
-    u32 mask = VRAMMap_AOBJ[(offset >> 14) & 0xF];
-    offset = (offset >> 15) & 0x3;
-    if (mask & (1<<0))
-    {
-        u8 flags = VRAMCaptureBlockFlags[(0<<2) | offset];
-        if (flags & CBFlag_IsCapture)
-            return (0<<2) | ((flags>>4) & 0x3);
-    }
-    if (mask & (1<<1))
-    {
-        u8 flags = VRAMCaptureBlockFlags[(1<<2) | offset];
-        if (flags & CBFlag_IsCapture)
-            return (1<<2) | ((flags>>4) & 0x3);
-    }
-    return -1;
-#endif
+    return GetCaptureInfo(info, VRAMCBF_ABG, 32);
 }
 
-int GPU::GetCaptureBlock_BBG(u32 offset)
+void GPU::GetCaptureInfo_AOBJ(int* info)
 {
-    u16* cbf = VRAMCBF_BBG[(offset >> 14) & 0x7];
-    if (!cbf) return -1;
-
-    u16 flags = *cbf;
-    if (!(flags & CBFlag_IsCapture))
-        return -1;
-
-    return flags & 0xF;
-#if 0
-    u32 mask = VRAMMap_BBG[(offset >> 14) & 0x7];
-    offset = (offset >> 15) & 0x3;
-    //if ((mask & (1<<2)) && (VRAMCaptureBlockFlags[(2<<2) | offset] & CBFlag_IsCapture)) return true;
-    if (mask & (1<<2))
-    {
-        u8 flags = VRAMCaptureBlockFlags[(2<<2) | offset];
-        if (flags & CBFlag_IsCapture)
-            return (2<<2) | ((flags>>4) & 0x3);
-    }
-    return -1;
-#endif
+    return GetCaptureInfo(info, VRAMCBF_AOBJ, 16);
 }
 
-int GPU::GetCaptureBlock_BOBJ(u32 offset)
+void GPU::GetCaptureInfo_BBG(int* info)
 {
-    u16* cbf = VRAMCBF_BOBJ[(offset >> 14) & 0x7];
-    if (!cbf) return -1;
+    return GetCaptureInfo(info, VRAMCBF_BBG, 8);
+}
 
-    u16 flags = *cbf;
-    if (!(flags & CBFlag_IsCapture))
-        return -1;
-
-    return flags & 0xF;
-#if 0
-    u32 mask = VRAMMap_BOBJ[(offset >> 14) & 0x7];
-    offset = (offset >> 15) & 0x3;
-    if (mask & (1<<3))
-    {
-        u8 flags = VRAMCaptureBlockFlags[(3<<2) | offset];
-        if (flags & CBFlag_IsCapture)
-            return (3<<2) | ((flags>>4) & 0x3);
-    }
-    return -1;
-#endif
+void GPU::GetCaptureInfo_BOBJ(int* info)
+{
+    return GetCaptureInfo(info, VRAMCBF_BOBJ, 8);
 }
 
 void GPU::GetCaptureInfo_Texture(int* info)

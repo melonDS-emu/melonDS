@@ -1,9 +1,9 @@
 #version 140
 
-uniform sampler2D _3DTex;
-//uniform sampler2DArray LayerTex;
 uniform sampler2D BGLayerTex[4];
 uniform sampler2DArray OBJLayerTex;
+uniform sampler2DArray Capture128Tex;
+uniform sampler2DArray Capture256Tex;
 
 struct sBGConfig
 {
@@ -50,7 +50,6 @@ layout(std140) uniform ubCompositorConfig
 smooth in vec4 fTexcoord;
 
 out vec4 oColor;
-out vec4 oCaptureColor;
 
 ivec3 ConvertColor(int col)
 {
@@ -60,17 +59,6 @@ ivec3 ConvertColor(int col)
     ret.b = (col & 0x7C00) >> 9;
     return ret;
 }
-/*
-#define ImplBGFetch(n) \
-vec4 BG##n##Fetch(vec2 coord) \
-{ \
-    return texture(derp[n], coord); \
-}
-
-ImplBGFetch(0)
-ImplBGFetch(1)
-ImplBGFetch(2)
-ImplBGFetch(3)*/
 
 vec4 BG0Fetch(vec2 coord)
 {
@@ -123,6 +111,26 @@ vec4 BG2CalcAndFetch(vec2 coord, int line)
         bgpos = vec2(uScanline[line].BGOffset[2]) + coord;
     }
 
+    if (uBGConfig[2].Type >= 7)
+    {
+        // hi-res capture
+        bgpos.y += uBGConfig[2].MapOffset;
+        vec3 capcoord = vec3(bgpos / vec2(uBGConfig[2].Size), uBGConfig[2].TileOffset);
+
+        // due to the possible weirdness of display capture buffers,
+        // we need to do custom wraparound handling
+        if (uBGConfig[2].Clamp)
+        {
+            if (any(lessThan(capcoord.xy, vec2(0))) || any(greaterThanEqual(capcoord.xy, vec2(1))))
+                return vec4(0);
+        }
+
+        if (uBGConfig[2].Type == 7)
+            return texture(Capture128Tex, capcoord);
+        else
+            return texture(Capture256Tex, capcoord);
+    }
+
     return BG2Fetch(bgpos / vec2(uBGConfig[2].Size));
 }
 
@@ -143,6 +151,26 @@ vec4 BG3CalcAndFetch(vec2 coord, int line)
         bgpos = vec2(uScanline[line].BGOffset[3]) + coord;
     }
 
+    if (uBGConfig[3].Type >= 7)
+    {
+        // hi-res capture
+        bgpos.y += uBGConfig[3].MapOffset;
+        vec3 capcoord = vec3(bgpos / vec2(uBGConfig[3].Size), uBGConfig[3].TileOffset);
+
+        // due to the possible weirdness of display capture buffers,
+        // we need to do custom wraparound handling
+        if (uBGConfig[3].Clamp)
+        {
+            if (any(lessThan(capcoord.xy, vec2(0))) || any(greaterThanEqual(capcoord.xy, vec2(1))))
+                return vec4(0);
+        }
+
+        if (uBGConfig[3].Type == 7)
+            return texture(Capture128Tex, capcoord);
+        else
+            return texture(Capture256Tex, capcoord);
+    }
+
     return BG3Fetch(bgpos / vec2(uBGConfig[3].Size));
 }
 
@@ -159,8 +187,6 @@ vec4 CompositeLayers()
     bool specialcase = false;
 
     vec4 layercol[6];
-    //for (int bg = 0; bg < 6; bg++)
-    //    layercol[bg] = texelFetch(LayerTex, ivec3(coord, bg), 0);
     layercol[0] = BG0CalcAndFetch(fTexcoord.xy, line);
     layercol[1] = BG1CalcAndFetch(fTexcoord.xy, line);
     layercol[2] = BG2CalcAndFetch(fTexcoord.xy, line);
@@ -290,5 +316,4 @@ vec4 CompositeLayers()
 void main()
 {
     oColor = CompositeLayers();
-    oCaptureColor = oColor;
 }

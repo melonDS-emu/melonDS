@@ -7,6 +7,7 @@ layout(std140) uniform uCaptureConfig
 {
     ivec2 uCaptureSize;
     int uScaleFactor;
+    int uSrcAOffset;
     int uSrcBLayer;
     int uSrcBOffset;
     int uDstOffset;
@@ -30,15 +31,14 @@ ivec4 ConvertColor(int col)
 
 void main()
 {
-    ivec2 coordA = ivec2(fTexcoord.zw);
-    vec3 coordB = vec3(fTexcoord.xy, uSrcBLayer);
-    coordB.y += (float(uSrcBOffset) / 256.0);
+    vec2 coordA = fTexcoord.xy;
+    vec3 coordB = vec3(fTexcoord.zw, uSrcBLayer);
     ivec4 cap_out;
 
     if (uDstMode == 0)
     {
         // source A only
-        cap_out = ivec4(texelFetch(InputTexA, coordA, 0) * vec4(63,63,63,31));
+        cap_out = ivec4(texture(InputTexA, coordA) * vec4(63,63,63,31));
     }
     else if (uDstMode == 1)
     {
@@ -48,7 +48,7 @@ void main()
     else
     {
         // sources A and B blended
-        ivec4 srcA = ivec4(texelFetch(InputTexA, coordA, 0) * vec4(63,63,63,31));
+        ivec4 srcA = ivec4(texture(InputTexA, coordA) * vec4(63,63,63,31));
         ivec4 srcB = ivec4(texture(InputTexB, coordB) * vec4(63,63,63,31));
 
         int eva = uBlendFactors[0];

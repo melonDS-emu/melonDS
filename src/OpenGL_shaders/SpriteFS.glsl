@@ -67,37 +67,19 @@ void main()
         if (any(greaterThanEqual(coord, sprsize))) discard;
     }
 
-    if ((uOAM[fSpriteIndex].Type == 2) && (uOAM[fSpriteIndex].TileStride >= 256))
+    if (uOAM[fSpriteIndex].Type == 3)
     {
-        // bitmap sprite
-        // check for a display capture
-
-        ivec2 icoord = ivec2(coord);
-        int tileoffset = uOAM[fSpriteIndex].TileOffset +
-            (icoord.x * 2) +
-            (icoord.y * uOAM[fSpriteIndex].TileStride);
-
-        int block = (tileoffset >> 14) & (uVRAMMask >> 4);
-        int cap = uCaptureMask[block >> 2][block & 0x3];
-        if (cap != -1)
-        {
-            if (uOAM[fSpriteIndex].TileStride == 256)
-            {
-                coord += (uOAM[fSpriteIndex].TileOffset / ivec2(2, 256));
-                coord = mod(coord, 128);
-                icoord = ivec2(coord * uScaleFactor);
-                col = texelFetch(Capture128Tex, ivec3(icoord, cap), 0);
-            }
-            else
-            {
-                coord += (uOAM[fSpriteIndex].TileOffset / ivec2(2, 512));
-                coord = mod(coord, 256);
-                icoord = ivec2(coord * uScaleFactor);
-                col = texelFetch(Capture256Tex, ivec3(icoord, cap>>2), 0);
-            }
-        }
-        else
-            col = GetSpritePixel(fSpriteIndex, coord);
+        coord += (uOAM[fSpriteIndex].TileOffset / ivec2(2, 256));
+        coord = mod(coord, 128);
+        ivec3 icoord = ivec3(coord * uScaleFactor, uOAM[fSpriteIndex].TileStride);
+        col = texelFetch(Capture128Tex, icoord, 0);
+    }
+    else if (uOAM[fSpriteIndex].Type == 4)
+    {
+        coord += (uOAM[fSpriteIndex].TileOffset / ivec2(2, 512));
+        coord = mod(coord, 256);
+        ivec3 icoord = ivec3(coord * uScaleFactor, uOAM[fSpriteIndex].TileStride);
+        col = texelFetch(Capture256Tex, icoord, 0);
     }
     else
     {

@@ -734,20 +734,20 @@ void Unit::GetOBJVRAM(u8*& data, u32& mask) const
     }
 }
 
-int Unit::GetCaptureBlock_BG(u32 offset) const
+void Unit::GetCaptureInfo_BG(int* info) const
 {
     if (Num == 0)
-        return GPU.GetCaptureBlock_ABG(offset);
+        return GPU.GetCaptureInfo_ABG(info);
     else
-        return GPU.GetCaptureBlock_BBG(offset);
+        return GPU.GetCaptureInfo_BBG(info);
 }
 
-int Unit::GetCaptureBlock_OBJ(u32 offset) const
+void Unit::GetCaptureInfo_OBJ(int* info) const
 {
     if (Num == 0)
-        return GPU.GetCaptureBlock_AOBJ(offset);
+        return GPU.GetCaptureInfo_AOBJ(info);
     else
-        return GPU.GetCaptureBlock_BOBJ(offset);
+        return GPU.GetCaptureInfo_BOBJ(info);
 }
 
 }

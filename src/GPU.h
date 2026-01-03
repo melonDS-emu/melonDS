@@ -143,11 +143,11 @@ public:
     }
 
     int GetCaptureBlock_LCDC(u32 offset);
-    int GetCaptureBlock_ABG(u32 offset);
-    int GetCaptureBlock_AOBJ(u32 offset);
-    int GetCaptureBlock_BBG(u32 offset);
-    int GetCaptureBlock_BOBJ(u32 offset);
 
+    void GetCaptureInfo_ABG(int* info);
+    void GetCaptureInfo_AOBJ(int* info);
+    void GetCaptureInfo_BBG(int* info);
+    void GetCaptureInfo_BOBJ(int* info);
     void GetCaptureInfo_Texture(int* info);
 
     template<typename T>
@@ -772,6 +772,7 @@ private:
     void CheckCaptureStart();
     void CheckCaptureEnd();
     void SyncVRAMCaptureBlock(u32 block, bool write);
+    void GetCaptureInfo(int* info, u16** cbf, int len);
 
     u32 NextVCount = 0;
 

@@ -562,12 +562,12 @@ void GLRenderer::BuildPolygons(GPU& gpu, GLRenderer::RendererPolygon* polygons, 
                     if (texwidth == 128)
                     {
                         curtexid = CaptureTexView128;
-                        curtexlayer = capblock | ((texaddr >> 5) & 0x7F);
+                        curtexlayer = capblock | (((texaddr >> 5) & 0x7F) << 16);
                     }
                     else
                     {
                         curtexid = CaptureTexView256;
-                        curtexlayer = (capblock >> 2) | ((texaddr >> 6) & 0xFF);
+                        curtexlayer = (capblock >> 2) | (((texaddr >> 6) & 0xFF) << 16);
                     }
                 }
                 else
