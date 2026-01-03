@@ -746,6 +746,7 @@ void GLRenderer::UpdateAndRender(Unit* unit, int line)
     {
         bgDirty = GPU.VRAMDirty_ABG.DeriveState(GPU.VRAMMap_ABG, GPU);
         GPU.MakeVRAMFlat_ABGCoherent(bgDirty);
+
         bgExtPalDirty = GPU.VRAMDirty_ABGExtPal.DeriveState(GPU.VRAMMap_ABGExtPal, GPU);
         GPU.MakeVRAMFlat_ABGExtPalCoherent(bgExtPalDirty);
         objExtPalDirty = GPU.VRAMDirty_AOBJExtPal.DeriveState(&GPU.VRAMMap_AOBJExtPal, GPU);
@@ -799,7 +800,7 @@ void GLRenderer::UpdateAndRender(Unit* unit, int line)
             if (bgExtPalDirty.CheckRange(pal, pal + 16))
                 layer_pre_dirty |= (1 << layer);
         }
-        else if (cfg.Type != 5 && cfg.Type != 6)
+        else if (cfg.Type <= 4)
         {
             if (GPU.PaletteDirty & palmask)
                 layer_pre_dirty |= (1 << layer);
@@ -808,7 +809,7 @@ void GLRenderer::UpdateAndRender(Unit* unit, int line)
 
     GPU.PaletteDirty &= ~palmask;
 
-    if (!unit->Num && layer_pre_dirty)
+    if (unit->Num && layer_pre_dirty)
         printf("layers dirty: %01X\n", layer_pre_dirty);
 
     if (layer_pre_dirty)
@@ -847,7 +848,6 @@ void GLRenderer::UpdateAndRender(Unit* unit, int line)
     if (layer_pre_dirty)
     {
         // update VRAM and palettes
-        // TODO only update parts that are dirty
 
         u8* vram; u32 vrammask;
         unit->GetBGVRAM(vram, vrammask);
@@ -1583,7 +1583,16 @@ void GLRenderer::UpdateLayerConfig(Unit* unit)
 
                 state.BGVRAMRange[layer][0] = 0xFFFFFFFF;
                 state.BGVRAMRange[layer][1] = 0xFFFFFFFF;
-                state.BGVRAMRange[layer][3] = mapsz;
+                if (cfg.Type >= 7)
+                {
+                    state.BGVRAMRange[layer][2] = 0xFFFFFFFF;
+                    state.BGVRAMRange[layer][3] = 0xFFFFFFFF;
+                }
+                else
+                {
+                    state.BGVRAMRange[layer][2] = mapoffset;
+                    state.BGVRAMRange[layer][3] = mapsz;
+                }
             }
             else
             {
