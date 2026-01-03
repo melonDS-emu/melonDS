@@ -551,40 +551,69 @@ bool GLRenderer::GLInit()
 
 GLRenderer::~GLRenderer()
 {
-    // TODO delete capture textures!!
-    // and a bunch of other shit I need to add here too
-
-    //glDeleteFramebuffers(FPOutputFB.size(), &FPOutputFB[0]);
-    glDeleteFramebuffers(2, &FPOutputFB[0]);
-    //glDeleteTextures(1, &LineAttribTex);
-    //glDeleteTextures(1, &BGOBJTex);
-    //glDeleteTextures(FPOutputTex.size(), &FPOutputTex[0]);
-    glDeleteTextures(2, FPOutputTex);
-    //glDeleteTextures(1, &test);
-
-    glDeleteVertexArrays(1, &FPVertexArrayID);
-    glDeleteBuffers(1, &FPVertexBufferID);
-
-    glDeleteVertexArrays(1, &RectVtxArray);
-    glDeleteBuffers(1, &RectVtxBuffer);
-
-    glDeleteProgram(FPShaderID);
+    // TODO shader objects also need to be deleted!
+    // ideally, programs should be entirely managed by a class
     glDeleteProgram(LayerPreShader);
+    glDeleteProgram(SpritePreShader);
+    glDeleteProgram(SpriteShader);
+    glDeleteProgram(CompositorShader);
+    glDeleteProgram(FPShaderID);
+    glDeleteProgram(CaptureShader);
+
+    glDeleteBuffers(1, &RectVtxBuffer);
+    glDeleteVertexArrays(1, &RectVtxArray);
+
+    glDeleteBuffers(1, &SpritePreVtxBuffer);
+    glDeleteVertexArrays(1, &SpritePreVtxArray);
+
+    glDeleteBuffers(1, &SpriteVtxBuffer);
+    glDeleteVertexArrays(1, &SpriteVtxArray);
+
+    glDeleteBuffers(1, &CaptureVtxBuffer);
+    glDeleteVertexArrays(1, &CaptureVtxArray);
 
     for (int i = 0; i < 2; i++)
     {
         auto& state = UnitState[i];
 
+        glDeleteBuffers(1, &state.LayerConfigUBO);
+        glDeleteBuffers(1, &state.SpriteConfigUBO);
+
         glDeleteTextures(1, &state.VRAMTex_BG);
         glDeleteTextures(1, &state.VRAMTex_OBJ);
         glDeleteTextures(1, &state.PalTex_BG);
         glDeleteTextures(1, &state.PalTex_OBJ);
-        glDeleteFramebuffers(22, state.AllBGLayerFB);
+
         glDeleteTextures(22, state.AllBGLayerTex);
-        //glDeleteBuffers(1, &state.LayerConfigUBO);
+        glDeleteFramebuffers(22, state.AllBGLayerFB);
+
+        glDeleteTextures(1, &state.SpriteTex);
+        glDeleteFramebuffers(1, &state.SpriteFB);
+
+        glDeleteTextures(1, &state.OBJLayerTex);
+        glDeleteFramebuffers(1, &state.OBJLayerFB);
+
+        glDeleteTextures(1, &state.OutputTex);
+        glDeleteFramebuffers(1, &state.OutputFB);
     }
 
-    //glDeleteBuffers(1, &LayerConfigUBO);
+    glDeleteTextures(1, &CaptureOutput256Tex);
+    glDeleteTextures(1, &CaptureOutput128Tex);
+    glDeleteTextures(1, &CaptureSyncTex);
+    glDeleteFramebuffers(1, &CaptureSyncFB);
+
+    glDeleteBuffers(1, &ScanlineConfigUBO);
+    glDeleteBuffers(1, &CompositorConfigUBO);
+    glDeleteBuffers(1, &FPConfigUBO);
+    glDeleteBuffers(1, &CaptureConfigUBO);
+
+    glDeleteBuffers(1, &FPVertexBufferID);
+    glDeleteVertexArrays(1, &FPVertexArrayID);
+
+    glDeleteFramebuffers(2, FPOutputFB);
+    glDeleteTextures(1, &AuxInputTex);
+    glDeleteTextures(1, &CaptureVRAMTex);
+    glDeleteTextures(2, FPOutputTex);
 
     delete[] AuxInputBuffer[0];
     delete[] AuxInputBuffer[1];
