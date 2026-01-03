@@ -709,6 +709,8 @@ void GLRenderer::UpdateAndRender(Unit* unit, int line)
     u8 layer_pre_dirty = 0;
     bool comp_dirty = false;
 
+    if (dispcnt_diff & 0x8)
+        layer_pre_dirty |= 0x1;
     if (dispcnt_diff & 0x7)
         layer_pre_dirty |= 0xC;
     if (dispcnt_diff & 0x7F000000)
