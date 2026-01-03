@@ -808,7 +808,7 @@ void GLRenderer::UpdateAndRender(Unit* unit, int line)
 
     GPU.PaletteDirty &= ~palmask;
 
-    if (unit->Num && layer_pre_dirty)
+    if (!unit->Num && layer_pre_dirty)
         printf("layers dirty: %01X\n", layer_pre_dirty);
 
     if (layer_pre_dirty)
@@ -844,8 +844,6 @@ void GLRenderer::UpdateAndRender(Unit* unit, int line)
 
     UpdateScanlineConfig(unit, line);
 
-    if (line == 0) layer_pre_dirty = 0xF; // TODO REMOVE ME
-    // breaks 3D layer - ought to redo compositing
     if (layer_pre_dirty)
     {
         // update VRAM and palettes
@@ -853,15 +851,11 @@ void GLRenderer::UpdateAndRender(Unit* unit, int line)
 
         u8* vram; u32 vrammask;
         unit->GetBGVRAM(vram, vrammask);
-        u32 vramheight = (vrammask+1) >> 10;
 
         glActiveTexture(GL_TEXTURE0);
         glBindTexture(GL_TEXTURE_2D, state.VRAMTex_BG);
-        glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, 1024, vramheight, GL_RED_INTEGER, GL_UNSIGNED_BYTE, vram);
 
-        // TODO figure out why this breaks graphics
-        // 1E6 / 621BCC0
-        /*int texlen = (unit->Num ? 256 : 1024) >> 6;
+        int texlen = (unit->Num ? 256 : 1024) >> 6;
         for (int i = 0; i < texlen; )
         {
             if (!bgDirty.Data[i])
@@ -884,7 +878,7 @@ void GLRenderer::UpdateAndRender(Unit* unit, int line)
                             1024, end - start,
                             GL_RED_INTEGER, GL_UNSIGNED_BYTE,
                             &vram[start * 1024]);
-        }*/
+        }
 
         memcpy(&TempPalBuffer[0], &GPU.Palette[unit->Num ? 0x400 : 0], 256*2);
         for (int s = 0; s < 4; s++)

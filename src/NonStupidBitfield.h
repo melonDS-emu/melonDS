@@ -215,7 +215,7 @@ struct NonStupidBitField
         }
         else
         {
-            Data[startEntry] |= ((1ULL << bitsCount) - 1) << (startBit & 0x3F);
+            Data[startEntry] |= (0xFFFFFFFFFFFFFFFF >> (64-bitsCount) << (startBit & 0x3F));
         }
     }
 
@@ -237,7 +237,7 @@ struct NonStupidBitField
         }
         else
         {
-            res = (Data[startEntry] & (((1ULL << bitsCount) - 1) << (startBit & 0x3F)));
+            res = (Data[startEntry] & (0xFFFFFFFFFFFFFFFF >> (64-bitsCount) << (startBit & 0x3F)));
         }
 
         return !!res;
