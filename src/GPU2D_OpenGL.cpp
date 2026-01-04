@@ -1022,6 +1022,7 @@ void GLRenderer::DrawScanline(u32 line, Unit* unit)
     // always render regular graphics
     //BGOBJLine = &BGOBJBuffer[256 * 3 * yoffset];
     //DrawScanline_BGOBJ(line);
+    CurUnit->UpdateRotscaleParams(line);
     CurUnit->UpdateMosaicCounters(line);
 
     /*for (int i = 0; i < 256; i++)
@@ -1031,12 +1032,6 @@ void GLRenderer::DrawScanline(u32 line, Unit* unit)
 
         //dst[i] = 0xFF3F003F | (line << 8);
     }*/
-
-    // TODO is it also done if forceblank is set?
-    unit->BGXRefInternal[0] += unit->BGRotB[0];
-    unit->BGYRefInternal[0] += unit->BGRotD[0];
-    unit->BGXRefInternal[1] += unit->BGRotB[1];
-    unit->BGYRefInternal[1] += unit->BGRotD[1];
 
     if (CurUnit->Num == 0)
     {

@@ -176,6 +176,7 @@ void SoftRenderer::DrawScanline(u32 line, Unit* unit)
 
     // always render regular graphics
     DrawScanline_BGOBJ(line);
+    CurUnit->UpdateRotscaleParams(line);
     CurUnit->UpdateMosaicCounters(line);
 
     switch (dispmode)
@@ -682,22 +683,6 @@ void SoftRenderer::DrawScanline_BGOBJ(u32 line)
 
         BGOBJLine[i] = ColorComposite(i, val1, val2);
     }
-
-    if (CurUnit->BGMosaicY >= CurUnit->BGMosaicYMax)
-    {
-        CurUnit->BGMosaicY = 0;
-        CurUnit->BGMosaicYMax = CurUnit->BGMosaicSize[1];
-    }
-    else
-        CurUnit->BGMosaicY++;
-
-    /*if (OBJMosaicY >= OBJMosaicYMax)
-    {
-        OBJMosaicY = 0;
-        OBJMosaicYMax = OBJMosaicSize[1];
-    }
-    else
-        OBJMosaicY++;*/
 }
 
 
@@ -990,9 +975,6 @@ void SoftRenderer::DrawBG_Affine(u32 line, u32 bgnum)
         rotX += rotA;
         rotY += rotC;
     }
-
-    CurUnit->BGXRefInternal[bgnum-2] += rotB;
-    CurUnit->BGYRefInternal[bgnum-2] += rotD;
 }
 
 template<bool mosaic>
@@ -1211,9 +1193,6 @@ void SoftRenderer::DrawBG_Extended(u32 line, u32 bgnum)
             rotY += rotC;
         }
     }
-
-    CurUnit->BGXRefInternal[bgnum-2] += rotB;
-    CurUnit->BGYRefInternal[bgnum-2] += rotD;
 }
 
 template<bool mosaic>
@@ -1305,9 +1284,6 @@ void SoftRenderer::DrawBG_Large(u32 line) // BG is always BG2
         rotX += rotA;
         rotY += rotC;
     }
-
-    CurUnit->BGXRefInternal[0] += rotB;
-    CurUnit->BGYRefInternal[0] += rotD;
 }
 
 // OBJ line buffer:

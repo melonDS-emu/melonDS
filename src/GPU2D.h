@@ -83,6 +83,7 @@ public:
     void GetCaptureInfo_BG(int* info) const;
     void GetCaptureInfo_OBJ(int* info) const;
 
+    void UpdateRotscaleParams(u32 line);
     void UpdateMosaicCounters(u32 line);
     void CalculateWindowMask(u32 line, u8* windowMask, const u8* objWindow);
 

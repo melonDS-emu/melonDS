@@ -578,10 +578,29 @@ void Unit::Write32(u32 addr, u32 val)
     Write16(addr+2, val>>16);
 }
 
+void Unit::UpdateRotscaleParams(u32 line)
+{
+    BGXRefInternal[0] += BGRotB[0];
+    BGYRefInternal[0] += BGRotD[0];
+    BGXRefInternal[1] += BGRotB[1];
+    BGYRefInternal[1] += BGRotD[1];
+}
+
 void Unit::UpdateMosaicCounters(u32 line)
 {
     // Y mosaic uses incrementing 4-bit counters
     // the transformed Y position is updated every time the counter matches the MOSAIC register
+
+    if (BGMosaicY == BGMosaicYMax)
+    {
+        BGMosaicYMax = BGMosaicSize[1];
+        BGMosaicY = 0;
+    }
+    else
+    {
+        BGMosaicY++;
+        BGMosaicY &= 0xF;
+    }
 
     if (OBJMosaicYCount == OBJMosaicSize[1])
     {
