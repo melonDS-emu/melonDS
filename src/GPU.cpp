@@ -1118,6 +1118,9 @@ void GPU::SetDispStat(u32 cpu, u16 val) noexcept
 
 void GPU::SetVCount(u16 val) noexcept
 {
+    // the VCount register is 9 bits wide
+    val &= 0x1FF;
+
     // VCount write is delayed until the next scanline
 
     // TODO: how does the 3D engine react to VCount writes while it's rendering?
