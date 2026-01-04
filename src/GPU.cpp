@@ -1007,6 +1007,28 @@ void GPU::BlankFrame() noexcept
 
 void GPU::StartScanline(u32 line) noexcept
 {
+    /* TODO:
+     * this isn't accurate to hardware, but there's also a lot of weirdness involved
+     *
+     * order of operations on hardware:
+     * 1. VCount is incremented
+     * 2. things are done based on the new value (ie. 261 is when the DISPSTAT VBlank flag is cleared)
+     * 3. if VCOUNT was written to, the new value is applied
+     * 4. VMatch is checked
+     *
+     * if VCount is set to 263 or more, it will count all the way to 511 and wrap around
+     * if the 261->262 transition is skipped, the VBlank flag remains set (until the end of the next frame)
+     * -> this suppresses the next VBlank IRQ
+     * likely, skipping 191->192 behaves similarly
+     *
+     * ultimately, messing with VCount can cause a lot of weird shit, seeing as VCount controls
+     * a lot of the renderer logic and even affects the LCD sync signals.
+     * certain VCount transitions can cause odd effects such as LCDs fading out.
+     *
+     * 262->0 seems to be a trigger point for the PPUs.
+     * it causes the internal rotscale reference registers and mosaic counters to be reset.
+     */
+
     if (line == 0)
         VCount = 0;
     else if (NextVCount != 0xFFFFFFFF)
