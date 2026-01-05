@@ -29,16 +29,6 @@
 
 namespace Config
 {
-    extern bool RA_Enabled;
-    extern bool RA_HardcoreMode;
-    extern std::string RA_Username;
-    extern std::string RA_Token;
-    extern std::string RA_Password;
-
-    void SyncRAConfig();
-    void SaveRAConfig();
-
-    void Save();
 
 struct LegacyEntry
 {
@@ -101,6 +91,13 @@ public:
     //Table();
     Table(toml::value& data, const std::string& path);
     ~Table() {}
+
+    #ifdef RETROACHIEVEMENTS_ENABLED
+    bool RA_Enabled = false;
+    bool RA_HardcoreMode = false;
+    std::string RA_Username;
+    std::string RA_Password;
+    #endif
 
     Table& operator=(const Table& b);
 

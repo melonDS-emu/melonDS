@@ -29,6 +29,10 @@
 #include "Config.h"
 #include "SaveManager.h"
 
+#ifdef RETROACHIEVEMENTS_ENABLED
+#include "../../RetroAchievements/RAClient.h"
+#endif
+
 const int kMaxWindows = 4;
 
 enum
@@ -84,9 +88,13 @@ int getEventKeyVal(QKeyEvent* event);
 class EmuInstance
 {
 public:
+    #ifdef RETROACHIEVEMENTS_ENABLED
+    RAContext* getRA() const { return ra.get(); }
+    std::unique_ptr<RAContext> ra;
+    void SyncRetroAchievementsFromConfig();
+    #endif
     EmuInstance(int inst);
     ~EmuInstance();
-
     int getInstanceID() { return instanceID; }
     int getConsoleType() { return consoleType; }
     EmuThread* getEmuThread() { return emuThread; }

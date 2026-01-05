@@ -51,7 +51,10 @@
 #include "GPU3D_Soft.h"
 #include "GPU3D_OpenGL.h"
 #include "GPU3D_Compute.h"
+
+#ifdef RETROACHIEVEMENTS_ENABLED
 #include "../../RetroAchievements/RAClient.h"
+#endif
 
 #include "Savestate.h"
 
@@ -345,35 +348,34 @@ void EmuThread::run()
                 winUpdateCount = 0;
             }
             
-            if (emuInstance->hotkeyPressed(HK_FastForwardToggle)) {
-                if (Config::RA_Enabled && Config::RA_HardcoreMode) {
+            #ifdef RETROACHIEVEMENTS_ENABLED
+            if (Config::GetGlobalTable().GetBool("RetroAchievements.Enabled") && 
+            Config::GetGlobalTable().GetBool("RetroAchievements.HardcoreMode")) {
+                if (emuInstance->hotkeyPressed(HK_FastForwardToggle) || emuInstance->hotkeyPressed(HK_FastForward)) {
                     emuInstance->osdAddMessage(0xFFA0A0, "HARDCORE: Fast Forward is blocked!");
-                } else {
-                    emuInstance->fastForwardToggled = !emuInstance->fastForwardToggled;
                 }
-            }
-
-            if (emuInstance->hotkeyPressed(HK_SlowMoToggle)) {
-                if (Config::RA_Enabled && Config::RA_HardcoreMode) {
+                if (emuInstance->hotkeyPressed(HK_SlowMoToggle) || emuInstance->hotkeyPressed(HK_SlowMo)) {
                     emuInstance->osdAddMessage(0xFFA0A0, "HARDCORE: Slow-mo is blocked!");
-                } else {
-                    emuInstance->slowmoToggled = !emuInstance->slowmoToggled;
-                    
                 }
             }
-            if (Config::RA_Enabled && Config::RA_HardcoreMode)
-            {
-                if (emuInstance->hotkeyPressed(HK_FastForward) || emuInstance->hotkeyPressed(HK_SlowMo))
-                {
-                    emuInstance->osdAddMessage(0xFFA0A0, "Speed manipulation is disabled in Hardcore Mode");
-                }
+            #endif
+
+            if (emuInstance->hotkeyPressed(HK_FastForwardToggle)) emuInstance->fastForwardToggled = !emuInstance->fastForwardToggled;
+            if (emuInstance->hotkeyPressed(HK_SlowMoToggle)) emuInstance->slowmoToggled = !emuInstance->slowmoToggled;
+
+            bool enablefastforward = emuInstance->hotkeyDown(HK_FastForward) | emuInstance->fastForwardToggled;
+            bool enableslowmo = emuInstance->hotkeyDown(HK_SlowMo) | emuInstance->slowmoToggled;
+
+            #ifdef RETROACHIEVEMENTS_ENABLED
+            if (Config::GetGlobalTable().GetBool("RetroAchievements.Enabled") && 
+            Config::GetGlobalTable().GetBool("RetroAchievements.HardcoreMode")) {
+                enablefastforward = false;
+                enableslowmo = false;
+                emuInstance->fastForwardToggled = false;
+                emuInstance->slowmoToggled = false;
             }
-            bool enablefastforward = (emuInstance->hotkeyDown(HK_FastForward) | emuInstance->fastForwardToggled) 
-                                    && !(Config::RA_Enabled && Config::RA_HardcoreMode);
-
-            bool enableslowmo = (emuInstance->hotkeyDown(HK_SlowMo) | emuInstance->slowmoToggled) 
-                                && !(Config::RA_Enabled && Config::RA_HardcoreMode);
-
+            #endif
+            
             if (useOpenGL)
             {
                 // when using OpenGL: when toggling fast-forward or slowmo, change the vsync interval
@@ -652,39 +654,52 @@ void EmuThread::handleMessages()
             break;
 
             case msg_SaveState:
-            if (Config::RA_Enabled && Config::RA_HardcoreMode)
+            #ifdef RETROACHIEVEMENTS_ENABLED
+            if (Config::GetGlobalTable().GetBool("RetroAchievements.Enabled") && 
+            Config::GetGlobalTable().GetBool("RetroAchievements.HardcoreMode"))
             {
                 emuInstance->osdAddMessage(0xFFA0A0, "Hardcore: Save states are disabled");
                 break;
             }
+            #endif
             msgResult = emuInstance->saveState(msg.param.value<QString>().toStdString());
             break;
+            
 
             case msg_LoadState:
-            if (Config::RA_Enabled && Config::RA_HardcoreMode)
+            #ifdef RETROACHIEVEMENTS_ENABLED
+            if (Config::GetGlobalTable().GetBool("RetroAchievements.Enabled") && 
+            Config::GetGlobalTable().GetBool("RetroAchievements.HardcoreMode"))
             {
                 emuInstance->osdAddMessage(0xFFA0A0, "Hardcore: Load states are disabled");
                 break;
             }
+            #endif
             msgResult = emuInstance->loadState(msg.param.value<QString>().toStdString());
             break;
 
             case msg_UndoStateLoad:
-            if (Config::RA_Enabled && Config::RA_HardcoreMode)
+            #ifdef RETROACHIEVEMENTS_ENABLED
+            if (Config::GetGlobalTable().GetBool("RetroAchievements.Enabled") && 
+            Config::GetGlobalTable().GetBool("RetroAchievements.HardcoreMode"))
             {
                 emuInstance->osdAddMessage(0xFFA0A0, "Hardcore: Undo load is disabled");
                 break;
             }
+            #endif
             emuInstance->undoStateLoad();
             msgResult = 1;
             break;
 
             case msg_ImportSavefile:
-            if (Config::RA_Enabled && Config::RA_HardcoreMode)
+            #ifdef RETROACHIEVEMENTS_ENABLED
+            if (Config::GetGlobalTable().GetBool("RetroAchievements.Enabled") && 
+            Config::GetGlobalTable().GetBool("RetroAchievements.HardcoreMode"))
             {
                 emuInstance->osdAddMessage(0xFFA0A0, "Hardcore: Importing savefiles is disabled");
                 break;
             }
+            #endif
             {
                 msgResult = 0;
                 auto f = Platform::OpenFile(msg.param.value<QString>().toStdString(), Platform::FileMode::Read);
@@ -705,11 +720,14 @@ void EmuThread::handleMessages()
             break;
 
             case msg_EnableCheats:
-            if (Config::RA_Enabled && Config::RA_HardcoreMode) 
+            #ifdef RETROACHIEVEMENTS_ENABLED
+            if (Config::GetGlobalTable().GetBool("RetroAchievements.Enabled") && 
+            Config::GetGlobalTable().GetBool("RetroAchievements.HardcoreMode"))
             {
                 emuInstance->osdAddMessage(0xFFA0A0, "HARDCORE: Cheats are forbidden!");
                 break;
             }
+            #endif
             emuInstance->enableCheats(msg.param.value<bool>());
             break;
         }
@@ -764,19 +782,26 @@ void EmuThread::emuRun()
 
 void EmuThread::emuPause(bool broadcast)
 {
-    if (Config::RA_Enabled && Config::RA_HardcoreMode)
+#ifdef RETROACHIEVEMENTS_ENABLED
+    RAContext* ra = emuInstance->getRA();
+    if (ra && ra->IsHardcoreEnabled())
     {
         uint32_t frames_left = 0;
-        if (!RAContext::Get().CanPause(&frames_left))
+        if (!ra->CanPause(&frames_left))
         {
             if (frames_left > 0)
             {
                 float seconds = frames_left / 60.0f;
-                emuInstance->osdAddMessage(0xFFA0A0, "Hardcore: Wait %.1f seconds to pause", seconds);
+                emuInstance->osdAddMessage(
+                    0xFFA0A0,
+                    "Hardcore: Wait %.1f seconds to pause",
+                    seconds
+                );
             }
             return;
         }
     }
+#endif
     sendMessage(msg_EmuPause);
     waitMessage();
 
@@ -815,11 +840,14 @@ void EmuThread::emuExit()
 
 void EmuThread::emuFrameStep()
 {
-    if (Config::RA_HardcoreMode)
+    #ifdef RETROACHIEVEMENTS_ENABLED
+    RAContext* ra = emuInstance->getRA();
+    if (ra->IsHardcoreEnabled())
     {
         emuInstance->osdAddMessage(0xFFA0A0, "Frame step is disabled in Hardcore Mode");
         return; 
     }
+    #endif
     if (emuPauseStack < emuPauseStackPauseThreshold)
         sendMessage(msg_EmuPause);
     sendMessage(msg_EmuFrameStep);

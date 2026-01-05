@@ -64,7 +64,10 @@
 
 #include "Net_PCap.h"
 #include "Net_Slirp.h"
+
+#ifdef RETROACHIEVEMENTS_ENABLED
 #include "RetroAchievements/RAClient.h"
+#endif
 
 using namespace melonDS;
 
@@ -266,24 +269,6 @@ bool MelonApplication::event(QEvent *event)
 
     return QApplication::event(event);
 }
-void MyFrontendLoginHandler()
-{
-    if (!Config::RA_Enabled)
-    return;
-
-    EmuInstance* inst = emuInstances[0];
-    if (!inst) return;
-
-    NDS* nds = inst->getNDS();
-    RAContext::Get().Init(nds); 
-    RAContext::Get().SetCredentials(
-        Config::RA_Username.c_str(),
-        Config::RA_Password.c_str(),
-        Config::RA_HardcoreMode
-    );
-    RAContext::Get().LoginNow();
-}
-
 int main(int argc, char** argv)
 {
     sysTimer.start();
@@ -383,7 +368,12 @@ int main(int argc, char** argv)
     NetInit();
 
     createEmuInstance();
-    MyFrontendLoginHandler();
+    #ifdef RETROACHIEVEMENTS_ENABLED
+    if (emuInstances[0])
+    {
+        emuInstances[0]->SyncRetroAchievementsFromConfig();
+    }
+    #endif
     
     {
         MainWindow* win = emuInstances[0]->getMainWindow();
@@ -428,9 +418,4 @@ int main(int argc, char** argv)
 
     SDL_Quit();
     return ret;
-}
-
-extern "C" {
-    void SSL_set_quic_tls_transport_params(void* a, void* b, size_t c) {}
-    void SSL_set_quic_tls_cbs(void* a, void* b) {}
 }
