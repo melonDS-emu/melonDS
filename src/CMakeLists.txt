@@ -226,70 +226,79 @@ if (ENABLE_JIT_PROFILING)
 endif()
 
 # --- RetroAchievements ---
-message(STATUS "Adding RetroAchievements integration sources")
+option(ENABLE_RETROACHIEVEMENTS "Enable RetroAchievements support" OFF)
 
-target_sources(core PRIVATE
-    RetroAchievements/RAClient.cpp
-    RetroAchievements/RAClient.h
-    RetroAchievements/RAFunctions.h
-)
+if (ENABLE_RETROACHIEVEMENTS)
+    message(STATUS "RetroAchievements: ENABLED")
 
-target_include_directories(core PRIVATE
-    "${CMAKE_CURRENT_SOURCE_DIR}/RetroAchievements"
-    "${CMAKE_CURRENT_SOURCE_DIR}" 
-)
+    target_compile_definitions(core PUBLIC RETROACHIEVEMENTS_ENABLED HAVE_CURL CURL_STATICLIB)
+    
+    set(CURL_DEPENDENCY_NAMES
+        curl
+        nghttp2
+        nghttp3
+        ngtcp2
+        ssh2
+        psl
+        ssl
+        crypto
+        brotlidec
+        brotlicommon
+        brotlienc
+        zstd
+        idn2
+        unistring
+        iconv
+        z
+    )
 
-message(STATUS "RetroAchievements support enabled")
+    set(CURL_FOUND_LIBS "")
+    
+    foreach(LIB_NAME ${CURL_DEPENDENCY_NAMES})
+        find_library(LIB_PATH_${LIB_NAME} NAMES ${LIB_NAME} REQUIRED)
+        
+        if(LIB_PATH_${LIB_NAME})
+            message(STATUS "Found ${LIB_NAME}: ${LIB_PATH_${LIB_NAME}}")
+            list(APPEND CURL_FOUND_LIBS ${LIB_PATH_${LIB_NAME}})
+        else()
+            message(FATAL_ERROR "Could not find library: ${LIB_NAME}")
+        endif()
+    endforeach()
 
-# --- CURL & SSL Configuration ---
-target_compile_definitions(core PRIVATE HAVE_CURL CURL_STATICLIB)
+    find_library(LIB_NGTCP2_CRYPTO NAMES ngtcp2_crypto_ossl ngtcp2_crypto_openssl)
+    if(LIB_NGTCP2_CRYPTO)
+         message(STATUS "Found ngtcp2 crypto: ${LIB_NGTCP2_CRYPTO}")
+         list(INSERT CURL_FOUND_LIBS 4 ${LIB_NGTCP2_CRYPTO})
+    else()
+         message(FATAL_ERROR "Could not find ngtcp2_crypto (checked ossl and openssl variants)")
+    endif()
 
-if(DEFINED ENV{MSYSTEM_PREFIX})
-    set(CURL_LDIR "$ENV{MSYSTEM_PREFIX}/lib")
+    target_link_libraries(core PRIVATE 
+        ${CURL_FOUND_LIBS}
+        ws2_32 wldap32 crypt32 normaliz advapi32 secur32 bcrypt
+    )
+
+    target_include_directories(core PRIVATE
+        "${CMAKE_CURRENT_SOURCE_DIR}/RetroAchievements"
+        "${CMAKE_CURRENT_SOURCE_DIR}" 
+    )
+
+    target_sources(core PRIVATE
+        RetroAchievements/RAClient.cpp
+        RetroAchievements/RAClient.h
+        RetroAchievements/RAFunctions.h
+    )
+
+    file(GLOB_RECURSE RCH_ALL "${CMAKE_CURRENT_SOURCE_DIR}/rcheevos/src/*.c")
+    list(FILTER RCH_ALL EXCLUDE REGEX "rc_libretro.c|rc_client_external.c|rhash/aes.c")
+    target_sources(core PRIVATE ${RCH_ALL})
+    target_include_directories(core PRIVATE 
+        "${CMAKE_CURRENT_SOURCE_DIR}/rcheevos/include" 
+        "${CMAKE_CURRENT_SOURCE_DIR}/rcheevos/src"
+    )
 else()
-    set(CURL_LDIR "C:/msys64/ucrt64/lib")
+    message(STATUS "RetroAchievements: DISABLED (default)")
 endif()
-
-set(NGTCP2_CRYPTO "${CURL_LDIR}/libngtcp2_crypto_ossl.a")
-
-target_link_libraries(core PRIVATE 
-    "${CURL_LDIR}/libcurl.a"
-    "${CURL_LDIR}/libnghttp2.a"
-    "${CURL_LDIR}/libnghttp3.a"
-    "${CURL_LDIR}/libngtcp2.a"
-    "${NGTCP2_CRYPTO}"
-    "${CURL_LDIR}/libssh2.a"
-    "${CURL_LDIR}/libpsl.a"
-    "${CURL_LDIR}/libssl.a"
-    "${CURL_LDIR}/libcrypto.a"
-    "${CURL_LDIR}/libbrotlidec.a"
-    "${CURL_LDIR}/libbrotlicommon.a"
-    "${CURL_LDIR}/libbrotlienc.a"
-    "${CURL_LDIR}/libzstd.a"
-    "${CURL_LDIR}/libidn2.a"
-    "${CURL_LDIR}/libunistring.a"
-    "${CURL_LDIR}/libiconv.a"
-    "${CURL_LDIR}/libz.a"
-    ws2_32 wldap32 crypt32 normaliz advapi32 secur32 bcrypt
-)
-
-# --- rcheevos ---
-file(GLOB_RECURSE RCH_ALL
-    "${CMAKE_CURRENT_SOURCE_DIR}/rcheevos/src/*.c"
-)
-
-list(FILTER RCH_ALL EXCLUDE REGEX
-    "rc_libretro.c|rc_client_external.c|rhash/aes.c"
-)
-
-target_sources(core PRIVATE ${RCH_ALL})
-
-target_include_directories(core PRIVATE
-    "${CMAKE_CURRENT_SOURCE_DIR}/rcheevos/include"
-    "${CMAKE_CURRENT_SOURCE_DIR}/rcheevos/src"
-)
-
-target_compile_definitions(core PRIVATE RETROACHIEVEMENTS_ENABLED)
 
 #if(CMAKE_BUILD_TYPE MATCHES "Debug")
 #  set(

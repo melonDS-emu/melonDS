@@ -30,6 +30,10 @@
 #include "FATStorage.h"
 #include "ROMList.h"
 
+#ifdef RETROACHIEVEMENTS_ENABLED
+#include "RetroAchievements/RAClient.h"
+#endif
+
 namespace melonDS
 {
 class NDS;
@@ -76,8 +80,11 @@ struct NDSCartArgs
 class CartCommon
 {
 public:
+    #ifdef RETROACHIEVEMENTS_ENABLED
+    RAContext* ra = nullptr;
     const char* GetRAHash() const { return ra_hash; }
     char ra_hash[33] = {0};
+    #endif
     CartCommon(const u8* rom, u32 len, u32 chipid, bool badDSiDump, ROMListEntry romparams, CartType type, void* userdata);
     CartCommon(std::unique_ptr<u8[]>&& rom, u32 len, u32 chipid, bool badDSiDump, ROMListEntry romparams, CartType type, void* userdata);
     virtual ~CartCommon();
