@@ -142,5 +142,7 @@ void Save();
 
 Table GetLocalTable(int instance);
 inline Table GetGlobalTable() { return GetLocalTable(-1); }
+
 }
+
 #endif // CONFIG_H

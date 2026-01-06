@@ -269,6 +269,7 @@ bool MelonApplication::event(QEvent *event)
 
     return QApplication::event(event);
 }
+
 int main(int argc, char** argv)
 {
     sysTimer.start();
@@ -368,6 +369,7 @@ int main(int argc, char** argv)
     NetInit();
 
     createEmuInstance();
+    
     #ifdef RETROACHIEVEMENTS_ENABLED
     if (emuInstances[0])
     {

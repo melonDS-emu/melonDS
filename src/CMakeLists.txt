@@ -286,7 +286,6 @@ if (ENABLE_RETROACHIEVEMENTS)
     target_sources(core PRIVATE
         RetroAchievements/RAClient.cpp
         RetroAchievements/RAClient.h
-        RetroAchievements/RAFunctions.h
     )
 
     file(GLOB_RECURSE RCH_ALL "${CMAKE_CURRENT_SOURCE_DIR}/rcheevos/src/*.c")

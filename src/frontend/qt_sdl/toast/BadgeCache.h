@@ -19,5 +19,5 @@ private:
     QNetworkAccessManager m_net;
     QHash<QString, QPixmap> m_cache;
 signals:
-    void BadgeReady(const QString& url, const QPixmap& pix); // <-- dodaj tu
+    void BadgeReady(const QString& url, const QPixmap& pix);
 };

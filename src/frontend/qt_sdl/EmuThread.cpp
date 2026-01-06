@@ -375,7 +375,7 @@ void EmuThread::run()
                 emuInstance->slowmoToggled = false;
             }
             #endif
-            
+
             if (useOpenGL)
             {
                 // when using OpenGL: when toggling fast-forward or slowmo, change the vsync interval
@@ -653,7 +653,7 @@ void EmuThread::handleMessages()
             emuInstance->ejectGBACart();
             break;
 
-            case msg_SaveState:
+        case msg_SaveState:
             #ifdef RETROACHIEVEMENTS_ENABLED
             if (Config::GetGlobalTable().GetBool("RetroAchievements.Enabled") && 
             Config::GetGlobalTable().GetBool("RetroAchievements.HardcoreMode"))
@@ -666,7 +666,7 @@ void EmuThread::handleMessages()
             break;
             
 
-            case msg_LoadState:
+        case msg_LoadState:
             #ifdef RETROACHIEVEMENTS_ENABLED
             if (Config::GetGlobalTable().GetBool("RetroAchievements.Enabled") && 
             Config::GetGlobalTable().GetBool("RetroAchievements.HardcoreMode"))
@@ -678,7 +678,7 @@ void EmuThread::handleMessages()
             msgResult = emuInstance->loadState(msg.param.value<QString>().toStdString());
             break;
 
-            case msg_UndoStateLoad:
+        case msg_UndoStateLoad:
             #ifdef RETROACHIEVEMENTS_ENABLED
             if (Config::GetGlobalTable().GetBool("RetroAchievements.Enabled") && 
             Config::GetGlobalTable().GetBool("RetroAchievements.HardcoreMode"))
@@ -691,7 +691,7 @@ void EmuThread::handleMessages()
             msgResult = 1;
             break;
 
-            case msg_ImportSavefile:
+        case msg_ImportSavefile:
             #ifdef RETROACHIEVEMENTS_ENABLED
             if (Config::GetGlobalTable().GetBool("RetroAchievements.Enabled") && 
             Config::GetGlobalTable().GetBool("RetroAchievements.HardcoreMode"))
@@ -719,7 +719,7 @@ void EmuThread::handleMessages()
             }
             break;
 
-            case msg_EnableCheats:
+        case msg_EnableCheats:
             #ifdef RETROACHIEVEMENTS_ENABLED
             if (Config::GetGlobalTable().GetBool("RetroAchievements.Enabled") && 
             Config::GetGlobalTable().GetBool("RetroAchievements.HardcoreMode"))

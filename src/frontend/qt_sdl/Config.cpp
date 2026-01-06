@@ -121,12 +121,12 @@ DefaultList<std::string> DefaultStrings =
 {
     {"DLDI.ImagePath",                  "dldi.bin"},
     {"DSi.SD.ImagePath",                "dsisd.bin"},
-    {"Instance*.Firmware.Username",     "melonDS"},
-#ifdef RETROACHIEVEMENTS_ENABLED
+    #ifdef RETROACHIEVEMENTS_ENABLED
     {"Instance*.RetroAchievements.Username", ""},
     {"Instance*.RetroAchievements.Password", ""},
     {"Instance*.RetroAchievements.Token", ""},
-#endif
+    #endif
+    {"Instance*.Firmware.Username",     "melonDS"}
 };
 
 DefaultList<double> DefaultDoubles =
@@ -347,6 +347,7 @@ LegacyEntry LegacyFile[] =
 
     {"", -1, "", false}
 };
+
 
 static std::string GetDefaultKey(std::string path)
 {
@@ -824,7 +825,7 @@ void Save()
 
     auto cfgpath = Platform::GetLocalFilePath(kConfigFile);
     if (!Platform::CheckFileWritable(cfgpath))
-    return;
+        return;
 
     std::ofstream file;
     file.open(std::filesystem::u8path(cfgpath), std::ofstream::out | std::ofstream::trunc);

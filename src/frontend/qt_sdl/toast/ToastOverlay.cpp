@@ -5,12 +5,9 @@
 #include <QEvent>
 #include <QResizeEvent>
 
-// --- IMPLEMENTACJA ToastWidget ---
-
 ToastWidget::ToastWidget(const QString& title, const QString& description, const QPixmap& icon, QWidget* parent)
     : QWidget(parent)
 {
-    // Prosty layout dla pojedynczego toasta
     auto* layout = new QHBoxLayout(this);
     layout->setContentsMargins(10, 10, 10, 10);
     
@@ -34,7 +31,6 @@ ToastWidget::ToastWidget(const QString& title, const QString& description, const
 
 QSize ToastWidget::sizeHint() const
 {
-    // Zwracamy sugerowany rozmiar
     return layout()->sizeHint();
 }
 
@@ -42,12 +38,10 @@ void ToastWidget::paintEvent(QPaintEvent*)
 {
     QPainter p(this);
     p.setRenderHint(QPainter::Antialiasing);
-    p.setBrush(QColor(40, 40, 40, 230)); // Ciemne tło
+    p.setBrush(QColor(40, 40, 40, 230));
     p.setPen(Qt::NoPen);
     p.drawRoundedRect(rect(), 8, 8);
 }
-
-// --- IMPLEMENTACJA ToastOverlay ---
 
 ToastOverlay::ToastOverlay(QWidget* parent)
     : QWidget(parent)
@@ -56,7 +50,7 @@ ToastOverlay::ToastOverlay(QWidget* parent)
     setAttribute(Qt::WA_TranslucentBackground);
 
     m_soundEffect.setSource(QUrl("qrc:/ra/sounds/unlock.wav"));
-    m_soundEffect.setVolume(0.7f); // 70% głośności
+    m_soundEffect.setVolume(0.7f);
 }
 
 void ToastOverlay::ShowToast(const QString& title, const QString& description, const QPixmap& icon)
@@ -69,7 +63,6 @@ void ToastOverlay::ShowToast(const QString& title, const QString& description, c
 
     RepositionToasts();
 
-    // Auto-usuwanie po 3 sekundach
     QTimer::singleShot(3000, toast, [this, toast]() {
         m_toasts.removeOne(toast);
         toast->deleteLater();
@@ -79,7 +72,6 @@ void ToastOverlay::ShowToast(const QString& title, const QString& description, c
 
 void ToastOverlay::resizeEvent(QResizeEvent* event)
 {
-    // Gdy okno zmienia rozmiar, overlay też musi
     if (parentWidget())
         setGeometry(parentWidget()->rect());
         
@@ -89,7 +81,6 @@ void ToastOverlay::resizeEvent(QResizeEvent* event)
 
 void ToastOverlay::paintEvent(QPaintEvent*)
 {
-    // Overlay jest przezroczysty, nic nie rysuje
 }
 
 void ToastOverlay::RepositionToasts()
@@ -98,7 +89,7 @@ void ToastOverlay::RepositionToasts()
         return;
 
     const int margin = 20;
-    const int topOffset = 60; // 👈 TO JEST KLUCZ (menu height buffer)
+    const int topOffset = 60;
 
     int y = topOffset;
     const int rightEdge = width() - margin;

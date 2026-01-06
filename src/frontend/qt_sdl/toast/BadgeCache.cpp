@@ -17,8 +17,7 @@ QPixmap BadgeCache::GetBadge(const QString& url)
     if (m_cache.contains(url))
         return m_cache[url];
 
-    // Jeśli nie ma w cache, pobierz asynchronicznie
-    DownloadBadge(url, [](const QPixmap&){ /* nic nie robimy tu */ });
+    DownloadBadge(url, [](const QPixmap&){});
 
     return QPixmap(":/ra/placeholder.png");
 }
