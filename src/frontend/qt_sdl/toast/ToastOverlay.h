@@ -1,10 +1,7 @@
 #pragma once
-#include <QWidget>
-#include <QList>
 #include <QTimer>
 #include <QLabel>
 #include <QHBoxLayout>
-#include <QVBoxLayout>
 #include <QSoundEffect>
 
 class ToastWidget : public QWidget

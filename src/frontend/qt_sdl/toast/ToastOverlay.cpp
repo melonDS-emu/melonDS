@@ -1,9 +1,6 @@
 #include "ToastOverlay.h"
 #include <QPainter>
-#include <QPropertyAnimation>
-#include <QTimer>
 #include <QEvent>
-#include <QResizeEvent>
 
 ToastWidget::ToastWidget(const QString& title, const QString& description, const QPixmap& icon, QWidget* parent)
     : QWidget(parent)

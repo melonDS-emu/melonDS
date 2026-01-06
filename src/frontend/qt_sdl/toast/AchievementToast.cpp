@@ -1,6 +1,5 @@
 #include "AchievementToast.h"
 #include <QHBoxLayout>
-#include <QVBoxLayout>
 #include <QTimer>
 
 AchievementToast::AchievementToast(const QString& title,
