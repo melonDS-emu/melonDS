@@ -95,7 +95,7 @@ public:
     #endif
     EmuInstance(int inst);
     ~EmuInstance();
-    
+
     int getInstanceID() { return instanceID; }
     int getConsoleType() { return consoleType; }
     EmuThread* getEmuThread() { return emuThread; }

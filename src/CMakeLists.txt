@@ -231,56 +231,41 @@ option(ENABLE_RETROACHIEVEMENTS "Enable RetroAchievements support" OFF)
 if (ENABLE_RETROACHIEVEMENTS)
     message(STATUS "RetroAchievements: ENABLED")
 
-    target_compile_definitions(core PUBLIC RETROACHIEVEMENTS_ENABLED HAVE_CURL CURL_STATICLIB)
-    
-    set(CURL_DEPENDENCY_NAMES
-        curl
-        nghttp2
-        nghttp3
-        ngtcp2
-        ssh2
-        psl
-        ssl
-        crypto
-        brotlidec
-        brotlicommon
-        brotlienc
-        zstd
-        idn2
-        unistring
-        iconv
-        z
-    )
-
-    set(CURL_FOUND_LIBS "")
-    
-    foreach(LIB_NAME ${CURL_DEPENDENCY_NAMES})
-        find_library(LIB_PATH_${LIB_NAME} NAMES ${LIB_NAME} REQUIRED)
+    if (WIN32)
+        target_compile_definitions(core PUBLIC RETROACHIEVEMENTS_ENABLED HAVE_CURL CURL_STATICLIB)
         
-        if(LIB_PATH_${LIB_NAME})
-            message(STATUS "Found ${LIB_NAME}: ${LIB_PATH_${LIB_NAME}}")
-            list(APPEND CURL_FOUND_LIBS ${LIB_PATH_${LIB_NAME}})
-        else()
-            message(FATAL_ERROR "Could not find library: ${LIB_NAME}")
+        set(CURL_DEPENDENCY_NAMES
+            curl nghttp2 nghttp3 ngtcp2 ssh2 psl ssl crypto brotlidec 
+            brotlicommon brotlienc zstd idn2 unistring iconv z
+        )
+
+        set(CURL_FOUND_LIBS "")
+        foreach(LIB_NAME ${CURL_DEPENDENCY_NAMES})
+            find_library(LIB_PATH_${LIB_NAME} NAMES ${LIB_NAME} REQUIRED)
+            if(LIB_PATH_${LIB_NAME})
+                list(APPEND CURL_FOUND_LIBS ${LIB_PATH_${LIB_NAME}})
+            endif()
+        endforeach()
+
+        find_library(LIB_NGTCP2_CRYPTO NAMES ngtcp2_crypto_ossl ngtcp2_crypto_openssl)
+        if(LIB_NGTCP2_CRYPTO)
+             list(INSERT CURL_FOUND_LIBS 4 ${LIB_NGTCP2_CRYPTO})
         endif()
-    endforeach()
 
-    find_library(LIB_NGTCP2_CRYPTO NAMES ngtcp2_crypto_ossl ngtcp2_crypto_openssl)
-    if(LIB_NGTCP2_CRYPTO)
-         message(STATUS "Found ngtcp2 crypto: ${LIB_NGTCP2_CRYPTO}")
-         list(INSERT CURL_FOUND_LIBS 4 ${LIB_NGTCP2_CRYPTO})
+        target_link_libraries(core PRIVATE 
+            ${CURL_FOUND_LIBS}
+            ws2_32 wldap32 crypt32 normaliz advapi32 secur32 bcrypt
+        )
     else()
-         message(FATAL_ERROR "Could not find ngtcp2_crypto (checked ossl and openssl variants)")
+        find_package(CURL REQUIRED)
+        target_compile_definitions(core PUBLIC RETROACHIEVEMENTS_ENABLED HAVE_CURL)
+        target_link_libraries(core PRIVATE ${CURL_LIBRARIES})
+        target_include_directories(core PRIVATE ${CURL_INCLUDE_DIRS})
     endif()
-
-    target_link_libraries(core PRIVATE 
-        ${CURL_FOUND_LIBS}
-        ws2_32 wldap32 crypt32 normaliz advapi32 secur32 bcrypt
-    )
 
     target_include_directories(core PRIVATE
         "${CMAKE_CURRENT_SOURCE_DIR}/RetroAchievements"
-        "${CMAKE_CURRENT_SOURCE_DIR}" 
+        "${CMAKE_CURRENT_SOURCE_DIR}"
     )
 
     target_sources(core PRIVATE

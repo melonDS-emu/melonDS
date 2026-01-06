@@ -803,9 +803,7 @@ bool Load()
     RootTable = toml::value();
 
     if (!Platform::FileExists(cfgpath))
-    {
         return LoadLegacy();
-    }
 
     try
     {
@@ -821,8 +819,6 @@ bool Load()
 
 void Save()
 {
-    Table tbl = GetGlobalTable();
-
     auto cfgpath = Platform::GetLocalFilePath(kConfigFile);
     if (!Platform::CheckFileWritable(cfgpath))
         return;

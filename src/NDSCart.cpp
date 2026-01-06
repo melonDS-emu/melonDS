@@ -32,7 +32,6 @@
 #include <rc_hash.h>
 #endif
 
-
 namespace melonDS
 {
 using Platform::Log;

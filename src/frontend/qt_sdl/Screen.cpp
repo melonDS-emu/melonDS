@@ -43,8 +43,6 @@
 #include "OSD_shaders.h"
 #include "font.h"
 #include "version.h"
-#include "RetroAchievements/RAClient.h"
-#include <QMessageBox>
 
 using namespace melonDS;
 
@@ -339,10 +337,10 @@ void ScreenPanel::tabletEvent(QTabletEvent* event)
 
 void ScreenPanel::touchEvent(QTouchEvent* event)
 {
-    #if QT_VERSION_MAJOR == 6
+#if QT_VERSION_MAJOR == 6
     if (event->device()->type() == QInputDevice::DeviceType::TouchPad)
         return;
-    #endif
+#endif
 
     event->accept();
     if (!emuInstance->emuIsActive()) { touching = false; return; }
@@ -351,15 +349,15 @@ void ScreenPanel::touchEvent(QTouchEvent* event)
     {
     case QEvent::TouchBegin:
     case QEvent::TouchUpdate:
-    #if QT_VERSION_MAJOR == 6
+#if QT_VERSION_MAJOR == 6
         if (event->points().length() > 0)
         {
             QPointF lastPosition = event->points().first().lastPosition();
-    #else
+#else
         if (event->touchPoints().length() > 0)
         {
             QPointF lastPosition = event->touchPoints().first().lastPos();
-    #endif
+#endif
             int x = (int)lastPosition.x();
             int y = (int)lastPosition.y();
 

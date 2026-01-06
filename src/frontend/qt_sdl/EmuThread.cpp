@@ -664,7 +664,6 @@ void EmuThread::handleMessages()
             #endif
             msgResult = emuInstance->saveState(msg.param.value<QString>().toStdString());
             break;
-            
 
         case msg_LoadState:
             #ifdef RETROACHIEVEMENTS_ENABLED

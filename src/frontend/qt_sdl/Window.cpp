@@ -246,7 +246,7 @@ MainWindow::MainWindow(int id, EmuInstance* inst, QWidget* parent) :
     #endif
     focused(true)
 {
-    #ifndef _WIN32
+#ifndef _WIN32
     if (!parent)
     {
         if (socketpair(AF_UNIX, SOCK_STREAM, 0, signalFd))
@@ -265,7 +265,7 @@ MainWindow::MainWindow(int id, EmuInstance* inst, QWidget* parent) :
         sa.sa_flags |= SA_RESTART;
         sigaction(SIGINT, &sa, 0);
     }
-    #endif
+#endif
 
     showOSD = windowCfg.GetBool("ShowOSD");
 
@@ -274,12 +274,12 @@ MainWindow::MainWindow(int id, EmuInstance* inst, QWidget* parent) :
     setAcceptDrops(true);
     setFocusPolicy(Qt::ClickFocus);
 
-    #if QT_VERSION_MAJOR == 6 && WIN32
+#if QT_VERSION_MAJOR == 6 && WIN32
     // The "windows11" theme has pretty massive padding around menubar items, this makes Config and Help not fit in a window at 1x screen sizing
     // So let's reduce the padding a bit.
     if (QApplication::style()->name() == "windows11")
         setStyleSheet("QMenuBar::item { padding: 4px 8px; }");
-    #endif
+#endif
 
     //hasMenu = (!parent);
     hasMenu = true;
@@ -629,11 +629,11 @@ MainWindow::MainWindow(int id, EmuInstance* inst, QWidget* parent) :
             actEmuSettings = menu->addAction("Emu settings");
             connect(actEmuSettings, &QAction::triggered, this, &MainWindow::onOpenEmuSettings);
 
-    #ifdef __APPLE__
+#ifdef __APPLE__
             actPreferences = menu->addAction("Preferences...");
             connect(actPreferences, &QAction::triggered, this, &MainWindow::onOpenEmuSettings);
             actPreferences->setMenuRole(QAction::PreferencesRole);
-    #endif
+#endif
 
             actInputConfig = menu->addAction("Input and hotkeys");
             connect(actInputConfig, &QAction::triggered, this, &MainWindow::onOpenInputConfig);
@@ -701,12 +701,12 @@ MainWindow::MainWindow(int id, EmuInstance* inst, QWidget* parent) :
             actMPNewInstance->setText("Fart");
     }
 
-    #ifdef Q_OS_MAC
+#ifdef Q_OS_MAC
     QPoint screenCenter = screen()->availableGeometry().center();
     QRect frameGeo = frameGeometry();
     frameGeo.moveCenter(screenCenter);
     move(frameGeo.topLeft());
-    #endif
+#endif
 
     std::string geom = windowCfg.GetString("Geometry");
     if (!geom.empty())
@@ -722,6 +722,7 @@ MainWindow::MainWindow(int id, EmuInstance* inst, QWidget* parent) :
 
     panel = nullptr;
     createScreenPanel();
+
     if (hasMenu)
     {
         actEjectCart->setEnabled(false);
@@ -803,10 +804,11 @@ MainWindow::MainWindow(int id, EmuInstance* inst, QWidget* parent) :
             actWifiSettings->setEnabled(false);
             actInterfaceSettings->setEnabled(false);
 
-    #ifdef __APPLE__
+#ifdef __APPLE__
             actPreferences->setEnabled(false);
-    #endif // __APPLE__
+#endif // __APPLE__
         }
+
         #ifdef RETROACHIEVEMENTS_ENABLED
         m_oldRAEnabled = Config::GetLocalTable(emuInstance->instanceID).GetBool("Instance*.RetroAchievements.Enabled");
         m_toastManager.Init(this);
@@ -842,7 +844,7 @@ MainWindow::MainWindow(int id, EmuInstance* inst, QWidget* parent) :
         if (emuThread->emuIsActive())
             onEmuStart();
     }
-    
+
     QObject::connect(qApp, &QApplication::applicationStateChanged, this, &MainWindow::onAppStateChanged);
     onUpdateInterfaceSettings();
 
@@ -1680,9 +1682,9 @@ void MainWindow::onLoadState()
         // TODO: specific 'last directory' for savestate files?
         emuThread->emuPause();
         filename = QFileDialog::getOpenFileName(this,
-                                                "Load state",
-                                                globalCfg.GetQString("LastROMFolder"),
-                                                "melonDS savestates (*.ml*);;Any file (*.*)");
+                                                         "Load state",
+                                                         globalCfg.GetQString("LastROMFolder"),
+                                                         "melonDS savestates (*.ml*);;Any file (*.*)");
         emuThread->emuUnpause();
         if (filename.isEmpty())
             return;
@@ -1855,7 +1857,7 @@ void MainWindow::onSetupCheats()
     }
     #endif
     emuThread->emuPause();
-    
+
     CheatsDialog* dlg = CheatsDialog::openDlg(this);
     connect(dlg, &CheatsDialog::finished, this, &MainWindow::onCheatsDialogFinished);
 }
@@ -1988,7 +1990,6 @@ if (auto* ra = emuInstance->getRA())
 {
     const bool newRAEnabled =
         localCfg.GetBool("Instance*.RetroAchievements.Enabled");
-
     if (m_oldRAEnabled != newRAEnabled)
     {
         if (newRAEnabled)
@@ -2029,7 +2030,8 @@ if (auto* ra = emuInstance->getRA())
     }
 }
 #endif
-emuThread->emuUnpause();
+
+    emuThread->emuUnpause();
 }
 
 void MainWindow::onOpenInputConfig()

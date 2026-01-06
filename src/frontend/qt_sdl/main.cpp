@@ -369,7 +369,7 @@ int main(int argc, char** argv)
     NetInit();
 
     createEmuInstance();
-    
+
     #ifdef RETROACHIEVEMENTS_ENABLED
     if (emuInstances[0])
     {
