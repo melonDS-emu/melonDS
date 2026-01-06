@@ -1,19 +1,34 @@
 #pragma once
-#include <QObject>
+#include <QTimer>
+#include <QLabel>
+#include <QHBoxLayout>
+#include <QSoundEffect>
 
-class ToastOverlay;
-
-class ToastManager : public QObject
+class ToastWidget : public QWidget
 {
     Q_OBJECT
 public:
-    static ToastManager& Get();
+    ToastWidget(const QString& title, const QString& description, const QPixmap& icon, QWidget* parent = nullptr);
+    QSize sizeHint() const override;
 
-    void Init(QWidget* screenWidget);
-    void ShowAchievement(const QString& title,
-                         const QString& desc,
-                         const QPixmap& icon);
+protected:
+    void paintEvent(QPaintEvent* event) override;
+};
+
+class ToastOverlay : public QWidget
+{
+    Q_OBJECT
+public:
+    explicit ToastOverlay(QWidget* parent = nullptr);
+    void ShowToast(const QString& title, const QString& description, const QPixmap& icon);
+
+protected:
+    bool eventFilter(QObject* obj, QEvent* event) override;
+    void resizeEvent(QResizeEvent* event) override;
+    void paintEvent(QPaintEvent* event) override;
 
 private:
-    ToastOverlay* m_overlay = nullptr;
+    QList<ToastWidget*> m_toasts;
+    void RepositionToasts();
+    QSoundEffect m_soundEffect;
 };

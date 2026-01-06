@@ -1,12 +1,5 @@
 #include "BadgeCache.h"
 #include <QNetworkReply>
-#include <QUrl>
-
-BadgeCache& BadgeCache::Get()
-{
-    static BadgeCache inst;
-    return inst;
-}
 
 BadgeCache::BadgeCache(QObject* parent)
     : QObject(parent)
