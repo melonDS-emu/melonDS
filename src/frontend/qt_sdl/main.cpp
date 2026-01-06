@@ -65,6 +65,10 @@
 #include "Net_PCap.h"
 #include "Net_Slirp.h"
 
+#ifdef RETROACHIEVEMENTS_ENABLED
+#include "RetroAchievements/RAClient.h"
+#endif
+
 using namespace melonDS;
 
 QString* systemThemeName;
@@ -366,6 +370,13 @@ int main(int argc, char** argv)
 
     createEmuInstance();
 
+    #ifdef RETROACHIEVEMENTS_ENABLED
+    if (emuInstances[0])
+    {
+        emuInstances[0]->SyncRetroAchievementsFromConfig();
+    }
+    #endif
+    
     {
         MainWindow* win = emuInstances[0]->getMainWindow();
         bool memberSyntaxUsed = false;

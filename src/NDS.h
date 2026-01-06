@@ -44,6 +44,9 @@
 #include "DMA.h"
 #include "FreeBIOS.h"
 
+#ifdef RETROACHIEVEMENTS_ENABLED
+#include "RetroAchievements/RAClient.h"
+#endif
 // when touching the main loop/timing code, pls test a lot of shit
 // with this enabled, to make sure it doesn't desync
 //#define DEBUG_CHECK_DESYNC
@@ -248,6 +251,11 @@ private:
 #endif
 
 public: // TODO: Encapsulate the rest of these members
+    #ifdef RETROACHIEVEMENTS_ENABLED
+    RAContext* ra = nullptr;
+    void SetRAContext(RAContext* ctx) noexcept { ra = ctx; }
+    bool IsGameRunning() const { return RunningGame; }
+    #endif
     void* UserData;
 
     int ConsoleType;

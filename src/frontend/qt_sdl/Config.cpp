@@ -103,6 +103,10 @@ DefaultList<bool> DefaultBools =
     {"Emu.DirectBoot", true},
     {"Instance*.DS.Battery.LevelOkay", true},
     {"Instance*.DSi.Battery.Charging", true},
+#ifdef RETROACHIEVEMENTS_ENABLED
+    {"Instance*.RetroAchievements.Enabled", false},
+    {"Instance*.RetroAchievements.HardcoreMode", false},
+#endif
 #ifdef JIT_ENABLED
     {"JIT.BranchOptimisations", true},
     {"JIT.LiteralOptimisations", true},
@@ -117,6 +121,11 @@ DefaultList<std::string> DefaultStrings =
 {
     {"DLDI.ImagePath",                  "dldi.bin"},
     {"DSi.SD.ImagePath",                "dsisd.bin"},
+    #ifdef RETROACHIEVEMENTS_ENABLED
+    {"Instance*.RetroAchievements.Username", ""},
+    {"Instance*.RetroAchievements.Password", ""},
+    {"Instance*.RetroAchievements.Token", ""},
+    #endif
     {"Instance*.Firmware.Username",     "melonDS"}
 };
 

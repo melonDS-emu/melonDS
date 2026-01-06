@@ -37,6 +37,12 @@
 #include "Config.h"
 #include "MPInterface.h"
 
+#ifdef RETROACHIEVEMENTS_ENABLED
+#include "../../RetroAchievements/RAClient.h"
+#include "toast/ToastManager.h"
+#include "toast/BadgeCache.h"
+#endif
+
 
 class EmuInstance;
 class EmuThread;
@@ -105,6 +111,16 @@ class MainWindow : public QMainWindow
     Q_OBJECT
 
 public:
+    #ifdef RETROACHIEVEMENTS_ENABLED
+    ToastManager m_toastManager;
+    BadgeCache   m_badgeCache;
+    void ShowRALoginToast(bool success, const std::string& message);
+    bool m_oldRAEnabled;
+    void showRALoginToast();
+    void ShowGameLoadToast();
+    void OnAchievementUnlocked(const QString& title, const QString& desc, const QString& badgeUrl);
+    #endif
+
     explicit MainWindow(int id, EmuInstance* inst, QWidget* parent = nullptr);
     ~MainWindow();
 
@@ -205,6 +221,10 @@ private slots:
     void onAudioSettingsFinished(int res);
     void onOpenMPSettings();
     void onMPSettingsFinished(int res);
+    #ifdef RETROACHIEVEMENTS_ENABLED
+    void onOpenRASettings();
+    void onRASettingsFinished(int res);
+    #endif
     void onOpenWifiSettings();
     void onWifiSettingsFinished(int res);
     void onOpenFirmwareSettings();
@@ -326,6 +346,9 @@ public:
     QAction* actCameraSettings;
     QAction* actAudioSettings;
     QAction* actMPSettings;
+    #ifdef RETROACHIEVEMENTS_ENABLED
+    QAction* actRASettings;
+    #endif
     QAction* actWifiSettings;
     QAction* actFirmwareSettings;
     QAction* actPathSettings;

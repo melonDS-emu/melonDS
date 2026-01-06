@@ -44,6 +44,11 @@
 #include "DSi_DSP.h"
 #include "ARMJIT.h"
 #include "ARMJIT_Memory.h"
+#include <string>
+
+#ifdef RETROACHIEVEMENTS_ENABLED
+#include "RetroAchievements/RAClient.h"
+#endif
 
 namespace melonDS
 {
@@ -543,6 +548,9 @@ void NDS::Reset()
     SPI.Reset();
     RTC.Reset();
     Wifi.Reset();
+    memset(MainRAM, 0, MainRAMMask + 1);
+    memset(SharedWRAM, 0, 0x8000);
+    memset(ARM7WRAM, 0, 0x10000);
 }
 
 void NDS::Start()
@@ -776,6 +784,16 @@ void NDS::SetNDSCart(std::unique_ptr<NDSCart::CartCommon>&& cart)
     // The existing cart will always be ejected;
     // if cart is null, then that's equivalent to ejecting a cart
     // without inserting a new one.
+    #ifdef RETROACHIEVEMENTS_ENABLED
+    if (ra) {
+        auto cart = NDSCartSlot.GetCart();
+        if (cart) {
+            const char* h = cart->GetRAHash();
+            if (h && h[0])
+                ra->SetPendingGameHash(h);
+        }
+    }
+    #endif
 }
 
 void NDS::SetNDSSave(const u8* savedata, u32 savelen)
@@ -922,6 +940,11 @@ void NDS::RunSystemSleep(u64 timestamp)
 template <CPUExecuteMode cpuMode>
 u32 NDS::RunFrame()
 {
+    #ifdef RETROACHIEVEMENTS_ENABLED
+    if (ra) {
+    ra->DoFrame();
+    }
+    #endif
     Current = this;
 
     FrameStartTimestamp = SysTimestamp;
@@ -1597,6 +1620,11 @@ void NDS::MonitorARM9Jump(u32 addr)
         {
             Log(LogLevel::Info, "Game is now booting\n");
             RunningGame = true;
+            #ifdef RETROACHIEVEMENTS_ENABLED
+            if (ra) {
+            ra->AttachNDS(this);
+            }
+            #endif
         }
     }
 }
