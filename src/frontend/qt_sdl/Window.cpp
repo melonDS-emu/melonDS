@@ -2405,20 +2405,6 @@ void MainWindow::onFullscreenToggled()
     toggleFullscreen();
 }
 
-void MainWindow::onMenuBarToggled()
-{
-    if (!hasMenu) return;
-    if (menuBar()->maximumHeight() != 0)
-    {
-        menuBar()->setFixedHeight(0);
-    }
-    else
-    {
-        int menuBarHeight = menuBar()->sizeHint().height();
-        menuBar()->setFixedHeight(menuBarHeight);
-    }
-}
-
 void MainWindow::onScreenEmphasisToggled()
 {
     int currentSizing = windowCfg.GetInt("ScreenSizing");

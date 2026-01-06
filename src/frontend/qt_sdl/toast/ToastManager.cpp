@@ -21,7 +21,6 @@ void ToastManager::Init(QWidget* widget)
 void ToastManager::ShowAchievement(const QString& title, const QString& description, const QPixmap& icon)
 {
     if (!m_overlay) {
-        printf("ToastManager: Próba pokazania toasta przed Init()!\n");
         return; 
     }
 
