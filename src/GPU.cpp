@@ -1012,7 +1012,7 @@ void GPU::StartScanline(u32 line) noexcept
      *
      * order of operations on hardware:
      * 1. VCount is incremented
-     * 2. things are done based on the new value (ie. 261 is when the DISPSTAT VBlank flag is cleared)
+     * 2. things are done based on the new value (ie. 262 is when the DISPSTAT VBlank flag is cleared)
      * 3. if VCOUNT was written to, the new value is applied
      * 4. VMatch is checked
      *
@@ -1022,7 +1022,7 @@ void GPU::StartScanline(u32 line) noexcept
      * likely, skipping 191->192 behaves similarly
      *
      * ultimately, messing with VCount can cause a lot of weird shit, seeing as VCount controls
-     * a lot of the renderer logic and even affects the LCD sync signals.
+     * a lot of the renderer logic and the LCD sync signals.
      * certain VCount transitions can cause odd effects such as LCDs fading out.
      *
      * 262->0 seems to be a trigger point for the PPUs.
