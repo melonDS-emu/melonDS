@@ -82,7 +82,7 @@ static constexpr std::initializer_list<const char*> hk_general_labels =
     "Toggle slow mo",
     "Toggle FPS limit",
     "Toggle fullscreen",
-    "Toggle Window border",
+    "Toggle window border",
     "Close/open lid",
     "Microphone",
     "Swap screens",
