@@ -239,7 +239,7 @@ private slots:
     void onUpdateVideoSettings(bool glchange);
 
     void onFullscreenToggled();
-    void onMenuBarToggled();
+    void onWindowBorderToggled();
     void onScreenEmphasisToggled();
 
 private:

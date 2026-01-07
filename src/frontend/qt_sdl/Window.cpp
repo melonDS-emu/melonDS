@@ -2227,18 +2227,22 @@ void MainWindow::onFullscreenToggled()
     toggleFullscreen();
 }
 
-void MainWindow::onMenuBarToggled()
+void MainWindow::onWindowBorderToggled()
 {
-    if (!hasMenu) return;
-    if (menuBar()->maximumHeight() != 0)
-    {
-        menuBar()->setFixedHeight(0);
+#ifdef _WIN32
+    HWND hwnd = (HWND)winId();
+    LONG style = GetWindowLong(hwnd, GWL_STYLE);
+
+    if (style & WS_CAPTION) {
+        style &= ~(WS_CAPTION | WS_THICKFRAME);
+    } else {
+        style |= WS_CAPTION | WS_THICKFRAME;
     }
-    else
-    {
-        int menuBarHeight = menuBar()->sizeHint().height();
-        menuBar()->setFixedHeight(menuBarHeight);
-    }
+
+    SetWindowLong(hwnd, GWL_STYLE, style);
+    SetWindowPos(hwnd, nullptr, 0, 0, 0, 0,
+                 SWP_NOMOVE | SWP_NOSIZE | SWP_NOZORDER | SWP_FRAMECHANGED);
+#endif
 }
 
 void MainWindow::onScreenEmphasisToggled()
