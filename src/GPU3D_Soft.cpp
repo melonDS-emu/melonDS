@@ -30,7 +30,7 @@ namespace melonDS
 void RenderThreadFunc();
 
 
-void SoftRenderer::StopRenderThread()
+void SoftRenderer3D::StopRenderThread()
 {
     if (RenderThreadRunning.load(std::memory_order_relaxed))
     {
@@ -45,7 +45,7 @@ void SoftRenderer::StopRenderThread()
     }
 }
 
-void SoftRenderer::SetupRenderThread(GPU& gpu)
+void SoftRenderer3D::SetupRenderThread(GPU& gpu)
 {
     if (Threaded)
     {
@@ -87,7 +87,7 @@ void SoftRenderer::SetupRenderThread(GPU& gpu)
     }
 }
 
-void SoftRenderer::EnableRenderThread()
+void SoftRenderer3D::EnableRenderThread()
 {
     if (Threaded && Sema_RenderStart)
     {
@@ -95,7 +95,7 @@ void SoftRenderer::EnableRenderThread()
     }
 }
 
-SoftRenderer::SoftRenderer() noexcept
+SoftRenderer3D::SoftRenderer3D() noexcept
     : Renderer3D(false)
 {
     Sema_RenderStart = Platform::Semaphore_Create();
@@ -107,7 +107,7 @@ SoftRenderer::SoftRenderer() noexcept
     RenderThread = nullptr;
 }
 
-SoftRenderer::~SoftRenderer()
+SoftRenderer3D::~SoftRenderer3D()
 {
     StopRenderThread();
 
@@ -116,7 +116,7 @@ SoftRenderer::~SoftRenderer()
     Platform::Semaphore_Free(Sema_ScanlineCount);
 }
 
-void SoftRenderer::Reset(GPU& gpu)
+void SoftRenderer3D::Reset(GPU& gpu)
 {
     memset(ColorBuffer, 0, BufferSize * 2 * 4);
     memset(DepthBuffer, 0, BufferSize * 2 * 4);
@@ -128,7 +128,7 @@ void SoftRenderer::Reset(GPU& gpu)
     EnableRenderThread();
 }
 
-void SoftRenderer::SetThreaded(bool threaded, GPU& gpu) noexcept
+void SoftRenderer3D::SetThreaded(bool threaded, GPU& gpu) noexcept
 {
     if (Threaded != threaded)
     {
@@ -138,7 +138,7 @@ void SoftRenderer::SetThreaded(bool threaded, GPU& gpu) noexcept
     }
 }
 
-void SoftRenderer::TextureLookup(const GPU& gpu, u32 texparam, u32 texpal, s16 s, s16 t, u16* color, u8* alpha) const
+void SoftRenderer3D::TextureLookup(const GPU& gpu, u32 texparam, u32 texpal, s16 s, s16 t, u16* color, u8* alpha) const
 {
     u32 vramaddr = (texparam & 0xFFFF) << 3;
 
@@ -421,7 +421,7 @@ bool DepthTest_LessThan_FrontFacing(s32 dstz, s32 z, u32 dstattr)
     return false;
 }
 
-u32 SoftRenderer::AlphaBlend(const GPU3D& gpu3d, u32 srccolor, u32 dstcolor, u32 alpha) const noexcept
+u32 SoftRenderer3D::AlphaBlend(const GPU3D& gpu3d, u32 srccolor, u32 dstcolor, u32 alpha) const noexcept
 {
     u32 dstalpha = dstcolor >> 24;
 
@@ -451,7 +451,7 @@ u32 SoftRenderer::AlphaBlend(const GPU3D& gpu3d, u32 srccolor, u32 dstcolor, u32
     return srcR | (srcG << 8) | (srcB << 16) | (dstalpha << 24);
 }
 
-u32 SoftRenderer::RenderPixel(const GPU& gpu, const Polygon* polygon, u8 vr, u8 vg, u8 vb, s16 s, s16 t) const
+u32 SoftRenderer3D::RenderPixel(const GPU& gpu, const Polygon* polygon, u8 vr, u8 vg, u8 vb, s16 s, s16 t) const
 {
     u8 r, g, b, a;
 
@@ -559,7 +559,7 @@ u32 SoftRenderer::RenderPixel(const GPU& gpu, const Polygon* polygon, u8 vr, u8 
     return r | (g << 8) | (b << 16) | (a << 24);
 }
 
-void SoftRenderer::PlotTranslucentPixel(const GPU3D& gpu3d, u32 pixeladdr, u32 color, u32 z, u32 polyattr, u32 shadow)
+void SoftRenderer3D::PlotTranslucentPixel(const GPU3D& gpu3d, u32 pixeladdr, u32 color, u32 z, u32 polyattr, u32 shadow)
 {
     u32 dstattr = AttrBuffer[pixeladdr];
     u32 attr = (polyattr & 0xE0F0) | ((polyattr >> 8) & 0xFF0000) | (1<<22) | (dstattr & 0xFF001F0F);
@@ -598,7 +598,7 @@ void SoftRenderer::PlotTranslucentPixel(const GPU3D& gpu3d, u32 pixeladdr, u32 c
     AttrBuffer[pixeladdr] = attr;
 }
 
-void SoftRenderer::SetupPolygonLeftEdge(SoftRenderer::RendererPolygon* rp, s32 y) const
+void SoftRenderer3D::SetupPolygonLeftEdge(SoftRenderer3D::RendererPolygon* rp, s32 y) const
 {
     Polygon* polygon = rp->PolyData;
 
@@ -625,7 +625,7 @@ void SoftRenderer::SetupPolygonLeftEdge(SoftRenderer::RendererPolygon* rp, s32 y
                               polygon->FinalW[rp->CurVL], polygon->FinalW[rp->NextVL], y, polygon->WBuffer);
 }
 
-void SoftRenderer::SetupPolygonRightEdge(SoftRenderer::RendererPolygon* rp, s32 y) const
+void SoftRenderer3D::SetupPolygonRightEdge(SoftRenderer3D::RendererPolygon* rp, s32 y) const
 {
     Polygon* polygon = rp->PolyData;
 
@@ -652,7 +652,7 @@ void SoftRenderer::SetupPolygonRightEdge(SoftRenderer::RendererPolygon* rp, s32 
                               polygon->FinalW[rp->CurVR], polygon->FinalW[rp->NextVR], y, polygon->WBuffer);
 }
 
-void SoftRenderer::SetupPolygon(SoftRenderer::RendererPolygon* rp, Polygon* polygon) const
+void SoftRenderer3D::SetupPolygon(SoftRenderer3D::RendererPolygon* rp, Polygon* polygon) const
 {
     u32 nverts = polygon->NumVertices;
 
@@ -705,7 +705,7 @@ void SoftRenderer::SetupPolygon(SoftRenderer::RendererPolygon* rp, Polygon* poly
     }
 }
 
-void SoftRenderer::RenderShadowMaskScanline(const GPU3D& gpu3d, RendererPolygon* rp, s32 y)
+void SoftRenderer3D::RenderShadowMaskScanline(const GPU3D& gpu3d, RendererPolygon* rp, s32 y)
 {
     Polygon* polygon = rp->PolyData;
 
@@ -933,7 +933,7 @@ void SoftRenderer::RenderShadowMaskScanline(const GPU3D& gpu3d, RendererPolygon*
     rp->XR = rp->SlopeR.Step();
 }
 
-void SoftRenderer::RenderPolygonScanline(const GPU& gpu, RendererPolygon* rp, s32 y)
+void SoftRenderer3D::RenderPolygonScanline(const GPU& gpu, RendererPolygon* rp, s32 y)
 {
     Polygon* polygon = rp->PolyData;
 
@@ -1391,7 +1391,7 @@ void SoftRenderer::RenderPolygonScanline(const GPU& gpu, RendererPolygon* rp, s3
     rp->XR = rp->SlopeR.Step();
 }
 
-void SoftRenderer::RenderScanline(const GPU& gpu, s32 y, int npolys)
+void SoftRenderer3D::RenderScanline(const GPU& gpu, s32 y, int npolys)
 {
     for (int i = 0; i < npolys; i++)
     {
@@ -1408,7 +1408,7 @@ void SoftRenderer::RenderScanline(const GPU& gpu, s32 y, int npolys)
     }
 }
 
-u32 SoftRenderer::CalculateFogDensity(const GPU3D& gpu3d, u32 pixeladdr) const
+u32 SoftRenderer3D::CalculateFogDensity(const GPU3D& gpu3d, u32 pixeladdr) const
 {
     u32 z = DepthBuffer[pixeladdr];
     u32 densityid, densityfrac;
@@ -1447,7 +1447,7 @@ u32 SoftRenderer::CalculateFogDensity(const GPU3D& gpu3d, u32 pixeladdr) const
     return density;
 }
 
-void SoftRenderer::ScanlineFinalPass(const GPU3D& gpu3d, s32 y)
+void SoftRenderer3D::ScanlineFinalPass(const GPU3D& gpu3d, s32 y)
 {
     // to consider:
     // clearing all polygon fog flags if the master flag isn't set?
@@ -1617,7 +1617,7 @@ void SoftRenderer::ScanlineFinalPass(const GPU3D& gpu3d, s32 y)
     }
 }
 
-void SoftRenderer::ClearBuffers(const GPU& gpu)
+void SoftRenderer3D::ClearBuffers(const GPU& gpu)
 {
     u32 clearz = ((gpu.GPU3D.RenderClearAttr2 & 0x7FFF) * 0x200) + 0x1FF;
     u32 polyid = gpu.GPU3D.RenderClearAttr1 & 0x3F000000; // this sets the opaque polygonID
@@ -1706,7 +1706,7 @@ void SoftRenderer::ClearBuffers(const GPU& gpu)
     }
 }
 
-void SoftRenderer::RenderPolygons(const GPU& gpu, bool threaded, Polygon** polygons, int npolys)
+void SoftRenderer3D::RenderPolygons(const GPU& gpu, bool threaded, Polygon** polygons, int npolys)
 {
     int j = 0;
     for (int i = 0; i < npolys; i++)
@@ -1734,13 +1734,13 @@ void SoftRenderer::RenderPolygons(const GPU& gpu, bool threaded, Polygon** polyg
         Platform::Semaphore_Post(Sema_ScanlineCount);
 }
 
-void SoftRenderer::VCount144(GPU& gpu)
+void SoftRenderer3D::VCount144(GPU& gpu)
 {
     if (RenderThreadRunning.load(std::memory_order_relaxed) && !gpu.GPU3D.AbortFrame)
         Platform::Semaphore_Wait(Sema_RenderDone);
 }
 
-void SoftRenderer::RenderFrame(GPU& gpu)
+void SoftRenderer3D::RenderFrame(GPU& gpu)
 {
     auto textureDirty = gpu.VRAMDirty_Texture.DeriveState(gpu.VRAMMap_Texture, gpu);
     auto texPalDirty = gpu.VRAMDirty_TexPal.DeriveState(gpu.VRAMMap_TexPal, gpu);
@@ -1762,13 +1762,13 @@ void SoftRenderer::RenderFrame(GPU& gpu)
     }
 }
 
-void SoftRenderer::RestartFrame(GPU& gpu)
+void SoftRenderer3D::RestartFrame(GPU& gpu)
 {
     SetupRenderThread(gpu);
     EnableRenderThread();
 }
 
-void SoftRenderer::RenderThreadFunc(GPU& gpu)
+void SoftRenderer3D::RenderThreadFunc(GPU& gpu)
 {
     for (;;)
     {
@@ -1801,7 +1801,7 @@ void SoftRenderer::RenderThreadFunc(GPU& gpu)
     }
 }
 
-u32* SoftRenderer::GetLine(int line)
+u32* SoftRenderer3D::GetLine(int line)
 {
     if (RenderThreadRunning.load(std::memory_order_relaxed))
     {

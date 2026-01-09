@@ -20,13 +20,47 @@
 #define GPU_SOFT_H
 
 #include "GPU.h"
+#include "GPU2D_Soft.h"
+#include "GPU3D_Soft.h"
 
 namespace melonDS
 {
 
 class SoftRenderer : public Renderer
 {
+public:
+    SoftRenderer(melonDS::GPU& gpu);
+    ~SoftRenderer() override;
+    void Reset() override;
 
+    void DrawScanline(u32 line) override;
+    void DrawSprites(u32 line) override;
+
+    void VBlank() override;
+    void VBlankEnd() override;
+
+    void AllocCapture(u32 bank, u32 start, u32 len) override;
+    void SyncVRAMCapture(u32 bank, u32 start, u32 len, bool complete) override;
+
+    bool GetFramebuffers(u32** top, u32** bottom) override;
+    void SwapBuffers() override;
+
+private:
+    GPU2D::SoftRenderer2D Rend2D_A;
+    GPU2D::SoftRenderer2D Rend2D_B;
+    SoftRenderer3D Rend3D;
+
+    u32* Framebuffer[2][2];
+    int BackBuffer;
+
+    u16 DispFIFOBuffer[256];
+
+    u32 Output3D[256];
+    u32 Output2D_A[256];
+    u32 Output2D_B[256];
+
+    void DrawScanlineA(u32 line, u32* dst);
+    void DrawScanlineB(u32 line, u32* dst);
 };
 
 }

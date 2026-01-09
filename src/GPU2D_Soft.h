@@ -27,11 +27,11 @@ class GPU;
 namespace GPU2D
 {
 
-class SoftRenderer : public Renderer2D
+class SoftRenderer2D : public Renderer2D
 {
 public:
-    SoftRenderer(melonDS::GPU& gpu);
-    ~SoftRenderer() override;
+    SoftRenderer2D(melonDS::GPU& gpu);
+    ~SoftRenderer2D() override;
 
     void DrawScanline(u32 line, Unit* unit) override;
     void DrawSprites(u32 line, Unit* unit) override;

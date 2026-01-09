@@ -128,6 +128,9 @@ void GPU::ResetVRAMCache() noexcept
 
 void GPU::Reset() noexcept
 {
+    PowerCnt = 0;
+    ScreensEnabled = false;
+
     VCount = 0;
     NextVCount = -1;
     TotalScanlines = 0;
@@ -234,6 +237,9 @@ void GPU::Stop() noexcept
 void GPU::DoSavestate(Savestate* file) noexcept
 {
     file->Section("GPUG");
+
+    // TODO check this (make it different?)
+    file->Var16(&PowerCnt);
 
     file->Var16(&VCount);
     file->Var32(&NextVCount);
@@ -884,7 +890,7 @@ void GPU::SetPowerCnt(u32 val) noexcept
     // * bit9: disables engine B palette, OAM and rendering (screen turns white)
     // * bit15: screen swap
 
-    if (!(val & (1<<0))) Log(LogLevel::Warn, "!!! CLEARING POWCNT BIT0. DANGER\n");
+    PowerCnt = val;
 
     GPU2D_A.SetEnabled(val & (1<<1), val & (1<<15));
     GPU2D_B.SetEnabled(val & (1<<9), val & (1<<15));
@@ -917,6 +923,8 @@ void GPU::DisplayFIFO(u32 x) noexcept
 
 void GPU::StartFrame() noexcept
 {
+    ScreensEnabled = !!(PowerCnt & (1<<0));
+
     // only run the display FIFO if needed:
     // * if it is used for display or capture
     // * if we have display FIFO DMA

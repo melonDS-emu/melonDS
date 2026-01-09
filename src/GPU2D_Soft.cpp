@@ -23,7 +23,7 @@
 namespace melonDS::GPU2D
 {
 
-SoftRenderer::SoftRenderer(melonDS::GPU& gpu)
+SoftRenderer2D::SoftRenderer2D(melonDS::GPU& gpu)
     : Renderer2D(), GPU(gpu)
 {
     // mosaic table is initialized at compile-time
@@ -36,7 +36,7 @@ SoftRenderer::SoftRenderer(melonDS::GPU& gpu)
     BackBuffer = 0;
 }
 
-SoftRenderer::~SoftRenderer()
+SoftRenderer2D::~SoftRenderer2D()
 {
     delete[] Framebuffer[0][0];
     delete[] Framebuffer[0][1];
@@ -44,7 +44,7 @@ SoftRenderer::~SoftRenderer()
     delete[] Framebuffer[1][1];
 }
 
-u32 SoftRenderer::ColorComposite(int i, u32 val1, u32 val2) const
+u32 SoftRenderer2D::ColorComposite(int i, u32 val1, u32 val2) const
 {
     u32 coloreffect = 0;
     u32 eva, evb;
@@ -116,7 +116,7 @@ u32 SoftRenderer::ColorComposite(int i, u32 val1, u32 val2) const
     return val1;
 }
 
-void SoftRenderer::DrawScanline(u32 line, Unit* unit)
+void SoftRenderer2D::DrawScanline(u32 line, Unit* unit)
 {
     CurUnit = unit;
 
@@ -300,12 +300,12 @@ void SoftRenderer::DrawScanline(u32 line, Unit* unit)
     }
 }
 
-void SoftRenderer::VBlankEnd(Unit* unitA, Unit* unitB)
+void SoftRenderer2D::VBlankEnd(Unit* unitA, Unit* unitB)
 {
 }
 
 
-bool SoftRenderer::GetFramebuffers(u32** top, u32** bottom)
+bool SoftRenderer2D::GetFramebuffers(u32** top, u32** bottom)
 {
     int frontbuf = BackBuffer ^ 1;
     *top = Framebuffer[frontbuf][0];
@@ -313,13 +313,13 @@ bool SoftRenderer::GetFramebuffers(u32** top, u32** bottom)
     return true;
 }
 
-void SoftRenderer::SwapBuffers()
+void SoftRenderer2D::SwapBuffers()
 {
     BackBuffer ^= 1;
 }
 
 
-void SoftRenderer::DoCapture(u32 line, u32 width)
+void SoftRenderer2D::DoCapture(u32 line, u32 width)
 {
     u32 captureCnt = CurUnit->CaptureCnt;
     u32 dstvram = (captureCnt >> 16) & 0x3;
@@ -507,7 +507,7 @@ void SoftRenderer::DoCapture(u32 line, u32 width)
     } while (false)
 
 template<u32 bgmode>
-void SoftRenderer::DrawScanlineBGMode(u32 line)
+void SoftRenderer2D::DrawScanlineBGMode(u32 line)
 {
     u32 dispCnt = CurUnit->DispCnt;
     u16* bgCnt = CurUnit->BGCnt;
@@ -562,7 +562,7 @@ void SoftRenderer::DrawScanlineBGMode(u32 line)
     }
 }
 
-void SoftRenderer::DrawScanlineBGMode6(u32 line)
+void SoftRenderer2D::DrawScanlineBGMode6(u32 line)
 {
     u32 dispCnt = CurUnit->DispCnt;
     u16* bgCnt = CurUnit->BGCnt;
@@ -590,7 +590,7 @@ void SoftRenderer::DrawScanlineBGMode6(u32 line)
     }
 }
 
-void SoftRenderer::DrawScanlineBGMode7(u32 line)
+void SoftRenderer2D::DrawScanlineBGMode7(u32 line)
 {
     u32 dispCnt = CurUnit->DispCnt;
     u16* bgCnt = CurUnit->BGCnt;
@@ -622,7 +622,7 @@ void SoftRenderer::DrawScanlineBGMode7(u32 line)
     }
 }
 
-void SoftRenderer::DrawScanline_BGOBJ(u32 line)
+void SoftRenderer2D::DrawScanline_BGOBJ(u32 line)
 {
     // forced blank disables BG/OBJ compositing
     if (CurUnit->DispCnt & (1<<7))
@@ -686,7 +686,7 @@ void SoftRenderer::DrawScanline_BGOBJ(u32 line)
 }
 
 
-void SoftRenderer::DrawPixel(u32* dst, u16 color, u32 flag)
+void SoftRenderer2D::DrawPixel(u32* dst, u16 color, u32 flag)
 {
     u8 r = (color & 0x001F) << 1;
     u8 g = ((color & 0x03E0) >> 4) | ((color & 0x8000) >> 15);
@@ -696,7 +696,7 @@ void SoftRenderer::DrawPixel(u32* dst, u16 color, u32 flag)
     *dst = r | (g << 8) | (b << 16) | flag;
 }
 
-void SoftRenderer::DrawBG_3D()
+void SoftRenderer2D::DrawBG_3D()
 {
     int i = 0;
 
@@ -713,7 +713,7 @@ void SoftRenderer::DrawBG_3D()
 }
 
 template<bool mosaic>
-void SoftRenderer::DrawBG_Text(u32 line, u32 bgnum)
+void SoftRenderer2D::DrawBG_Text(u32 line, u32 bgnum)
 {
     // workaround for backgrounds missing on aarch64 with lto build
     asm volatile ("" : : : "memory");
@@ -880,7 +880,7 @@ void SoftRenderer::DrawBG_Text(u32 line, u32 bgnum)
 }
 
 template<bool mosaic>
-void SoftRenderer::DrawBG_Affine(u32 line, u32 bgnum)
+void SoftRenderer2D::DrawBG_Affine(u32 line, u32 bgnum)
 {
     u16 bgcnt = CurUnit->BGCnt[bgnum];
 
@@ -978,7 +978,7 @@ void SoftRenderer::DrawBG_Affine(u32 line, u32 bgnum)
 }
 
 template<bool mosaic>
-void SoftRenderer::DrawBG_Extended(u32 line, u32 bgnum)
+void SoftRenderer2D::DrawBG_Extended(u32 line, u32 bgnum)
 {
     u16 bgcnt = CurUnit->BGCnt[bgnum];
 
@@ -1196,7 +1196,7 @@ void SoftRenderer::DrawBG_Extended(u32 line, u32 bgnum)
 }
 
 template<bool mosaic>
-void SoftRenderer::DrawBG_Large(u32 line) // BG is always BG2
+void SoftRenderer2D::DrawBG_Large(u32 line) // BG is always BG2
 {
     u16 bgcnt = CurUnit->BGCnt[2];
 
@@ -1293,7 +1293,7 @@ void SoftRenderer::DrawBG_Large(u32 line) // BG is always BG2
 // * bit19: X mosaic should be applied here
 // * bit24-31: compositor flags
 
-void SoftRenderer::ApplySpriteMosaicX()
+void SoftRenderer2D::ApplySpriteMosaicX()
 {
     // apply X mosaic if needed
     // X mosaic for sprites is applied after all sprites are rendered
@@ -1317,7 +1317,7 @@ void SoftRenderer::ApplySpriteMosaicX()
     }
 }
 
-void SoftRenderer::InterleaveSprites(u32 prio)
+void SoftRenderer2D::InterleaveSprites(u32 prio)
 {
     u32* objLine = OBJLine[CurUnit->Num];
     u16* pal = (u16*)&GPU.Palette[CurUnit->Num ? 0x600 : 0x200];
@@ -1376,7 +1376,7 @@ void SoftRenderer::InterleaveSprites(u32 prio)
         DrawSprite_##type<false>(__VA_ARGS__); \
     }
 
-void SoftRenderer::DrawSprites(u32 line, Unit* unit)
+void SoftRenderer2D::DrawSprites(u32 line, Unit* unit)
 {
     CurUnit = unit;
 
@@ -1499,7 +1499,7 @@ void SoftRenderer::DrawSprites(u32 line, Unit* unit)
 }
 
 template<bool window>
-void SoftRenderer::DrawSprite_Rotscale(u32 num, u32 boundwidth, u32 boundheight, u32 width, u32 height, s32 xpos, s32 ypos)
+void SoftRenderer2D::DrawSprite_Rotscale(u32 num, u32 boundwidth, u32 boundheight, u32 width, u32 height, s32 xpos, s32 ypos)
 {
     u16* oam = (u16*)&GPU.OAM[CurUnit->Num ? 0x400 : 0];
     u16* attrib = &oam[num * 4];
@@ -1711,7 +1711,7 @@ void SoftRenderer::DrawSprite_Rotscale(u32 num, u32 boundwidth, u32 boundheight,
 }
 
 template<bool window>
-void SoftRenderer::DrawSprite_Normal(u32 num, u32 width, u32 height, s32 xpos, s32 ypos)
+void SoftRenderer2D::DrawSprite_Normal(u32 num, u32 width, u32 height, s32 xpos, s32 ypos)
 {
     u16* oam = (u16*)&GPU.OAM[CurUnit->Num ? 0x400 : 0];
     u16* attrib = &oam[num * 4];

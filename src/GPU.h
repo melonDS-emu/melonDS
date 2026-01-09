@@ -608,6 +608,10 @@ public:
     void SyncDirtyFlags() noexcept;
 
     melonDS::NDS& NDS;
+
+    u16 PowerCnt = 0;
+    bool ScreensEnabled = false;
+
     u16 VCount = 0;
     u16 TotalScanlines = 0;
     u16 DispStat[2] {};
