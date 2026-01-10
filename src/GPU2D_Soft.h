@@ -37,29 +37,19 @@ public:
     void DrawScanline(u32 line, u32* dst) override;
     void DrawSprites(u32 line) override;
     void VBlank() override {}
-    void VBlankEnd() override;
-
-    void AllocCapture(u32 bank, u32 start, u32 len) override {}
-    void SyncVRAMCapture(u32 bank, u32 start, u32 len, bool complete) override {}
-
-    bool GetFramebuffers(u32** top, u32** bottom) override;
-    void SwapBuffers() override;
+    void VBlankEnd() override {};
 
 private:
     SoftRenderer& Parent;
 
-    //u32* Framebuffer[2][2];
-    //int BackBuffer;
-
     alignas(8) u32 BGOBJLine[256*2];
-    u32* _3DLine;
 
     alignas(8) u8 WindowMask[256];
 
     alignas(8) u32 OBJLine[2][256];
     alignas(8) u8 OBJWindow[2][256];
 
-    u32 NumSprites[2];
+    u32 NumSprites;
 
     u8* CurBGXMosaicTable;
     array2d<u8, 16, 256> MosaicTable = []() constexpr
@@ -83,7 +73,7 @@ private:
     template<u32 bgmode> void DrawScanlineBGMode(u32 line);
     void DrawScanlineBGMode6(u32 line);
     void DrawScanlineBGMode7(u32 line);
-    void DrawScanline_BGOBJ(u32 line);
+    void DrawScanline_BGOBJ(u32 line, u32* dst);
 
     static void DrawPixel(u32* dst, u16 color, u32 flag);
 
@@ -97,8 +87,6 @@ private:
     void InterleaveSprites(u32 prio);
     template<bool window> void DrawSprite_Rotscale(u32 num, u32 boundwidth, u32 boundheight, u32 width, u32 height, s32 xpos, s32 ypos);
     template<bool window> void DrawSprite_Normal(u32 num, u32 width, u32 height, s32 xpos, s32 ypos);
-
-    //void DoCapture(u32 line, u32 width);
 };
 
 }
