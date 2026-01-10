@@ -618,6 +618,9 @@ public:
     u8 VRAMCNT[9] {};
     u8 VRAMSTAT = 0;
 
+    u32 CaptureCnt;
+    bool CaptureEnable;
+
     alignas(u64) u8 Palette[2*1024] {};
     alignas(u64) u8 OAM[2*1024] {};
 

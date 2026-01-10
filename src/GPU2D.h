@@ -134,38 +134,29 @@ public:
     u16 MasterBrightness;
 
 private:
+    friend class Renderer2D;
+
     melonDS::GPU& GPU;
 };
 
 class Renderer2D
 {
 public:
+    explicit Renderer2D(melonDS::GPU2D::Unit& gpu2D) : GPU(gpu2D.GPU), GPU2D(gpu2D) {}
     virtual ~Renderer2D() {}
 
-    virtual void DrawScanline(u32 line, Unit* unit) = 0;
-    virtual void DrawSprites(u32 line, Unit* unit) = 0;
+    virtual void DrawScanline(u32 line, u32* dst) = 0;
+    virtual void DrawSprites(u32 line) = 0;
 
-    virtual void VBlank(Unit* unitA, Unit* unitB) = 0;
-    virtual void VBlankEnd(Unit* unitA, Unit* unitB) = 0;
+    virtual void VBlank() = 0;
+    virtual void VBlankEnd() = 0;
 
     virtual void AllocCapture(u32 bank, u32 start, u32 len) = 0;
     virtual void SyncVRAMCapture(u32 bank, u32 start, u32 len, bool complete) = 0;
 
-    // a 2D renderer may render to RAM buffers, or to something else (ie. OpenGL)
-    // if the renderer uses RAM buffers, they should be 32-bit BGRA, 256x192 for each screen
-    virtual bool GetFramebuffers(u32** top, u32** bottom) = 0;
-    virtual void SwapBuffers() = 0;
-
-    /*void SetFramebuffer(u32* unitA, u32* unitB)
-    {
-        Framebuffer[0] = unitA;
-        Framebuffer[1] = unitB;
-    }*/
-
 protected:
-    //u32* Framebuffer[2];
-
-    Unit* CurUnit;
+    melonDS::GPU& GPU;
+    melonDS::GPU2D::Unit& GPU2D;
 };
 
 }

@@ -46,6 +46,9 @@ public:
     void SwapBuffers() override;
 
 private:
+    friend class GPU2D::SoftRenderer2D;
+    friend class SoftRenderer3D;
+
     GPU2D::SoftRenderer2D Rend2D_A;
     GPU2D::SoftRenderer2D Rend2D_B;
     SoftRenderer3D Rend3D;
@@ -53,14 +56,22 @@ private:
     u32* Framebuffer[2][2];
     int BackBuffer;
 
-    u16 DispFIFOBuffer[256];
+    alignas(8) u16 DispFIFOBuffer[256];
 
-    u32 Output3D[256];
-    u32 Output2D_A[256];
-    u32 Output2D_B[256];
+    u16 MasterBrightnessA;
+    u16 MasterBrightnessB;
+
+    u32* Output3D;
+    alignas(8) u32 Output2D_A[256];
+    alignas(8) u32 Output2D_B[256];
 
     void DrawScanlineA(u32 line, u32* dst);
     void DrawScanlineB(u32 line, u32* dst);
+
+    void DoCapture(u32 line);
+
+    void ApplyMasterBrightness(u16 regval, u32* dst);
+    void ExpandColor(u32* dst);
 };
 
 }
