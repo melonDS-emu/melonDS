@@ -141,9 +141,9 @@ const u8 CmdNumParams[256] =
 
 void MatrixLoadIdentity(s32* m);
 
-GPU3D::GPU3D(melonDS::NDS& nds, std::unique_ptr<Renderer3D>&& renderer) noexcept :
-    NDS(nds),
-    CurrentRenderer(renderer ? std::move(renderer) : std::make_unique<SoftRenderer>())
+GPU3D::GPU3D(melonDS::GPU& gpu) noexcept :
+    NDS(gpu.NDS),
+    GPU(gpu)
 {
 }
 
@@ -160,11 +160,11 @@ void Vertex::DoSavestate(Savestate* file) noexcept
     file->VarArray(HiresPosition, sizeof(HiresPosition));
 }
 
-void GPU3D::SetCurrentRenderer(std::unique_ptr<Renderer3D>&& renderer) noexcept
+/*void GPU3D::SetCurrentRenderer(std::unique_ptr<Renderer3D>&& renderer) noexcept
 {
     CurrentRenderer = std::move(renderer);
     CurrentRenderer->Reset(NDS.GPU);
-}
+}*/
 
 void GPU3D::ResetRenderingState() noexcept
 {
@@ -2426,11 +2426,11 @@ void GPU3D::CheckFIFODMA() noexcept
     if (CmdFIFO.Level() < 128)
         NDS.CheckDMAs(0, 0x07);
 }
-
+/*
 void GPU3D::VCount144(GPU& gpu) noexcept
 {
     CurrentRenderer->VCount144(gpu);
-}
+}*/
 
 void GPU3D::RestartFrame(GPU& gpu) noexcept
 {
@@ -2532,17 +2532,17 @@ void GPU3D::VBlank() noexcept
         }
     }
 }
-
+/*
 void GPU3D::VCount215(GPU& gpu) noexcept
 {
     CurrentRenderer->RenderFrame(gpu);
-}
+}*/
 
-void GPU3D::SetRenderXPos(u16 xpos) noexcept
+void GPU3D::SetRenderXPos(u16 xpos, u16 mask) noexcept
 {
     if (!RenderingEnabled) return;
 
-    RenderXPos = xpos & 0x01FF;
+    RenderXPos = (RenderXPos & ~mask) | (xpos & mask & 0x01FF);
 }
 
 
@@ -2581,10 +2581,10 @@ u32* GPU3D::GetLine(int line) noexcept
     return ScrolledLine;
 }
 
-bool GPU3D::IsRendererAccelerated() const noexcept
+/*bool GPU3D::IsRendererAccelerated() const noexcept
 {
     return CurrentRenderer && CurrentRenderer->Accelerated;
-}
+}*/
 
 void GPU3D::WriteToGXFIFO(u32 val) noexcept
 {

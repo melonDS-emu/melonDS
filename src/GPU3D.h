@@ -88,7 +88,7 @@ class NDS;
 class GPU3D
 {
 public:
-    GPU3D(melonDS::NDS& nds, std::unique_ptr<Renderer3D>&& renderer = nullptr) noexcept;
+    GPU3D(melonDS::GPU& gpu) noexcept;
     ~GPU3D() noexcept = default;
     void Reset() noexcept;
 
@@ -103,23 +103,23 @@ public:
     void CheckFIFOIRQ() noexcept;
     void CheckFIFODMA() noexcept;
 
-    void VCount144(GPU& gpu) noexcept;
+    //void VCount144(GPU& gpu) noexcept;
     void VBlank() noexcept;
-    void VCount215(GPU& gpu) noexcept;
+    //void VCount215(GPU& gpu) noexcept;
 
     void RestartFrame(GPU& gpu) noexcept;
     void Stop(const GPU& gpu) noexcept;
 
-    void SetRenderXPos(u16 xpos) noexcept;
+    void SetRenderXPos(u16 xpos, u16 mask) noexcept;
     [[nodiscard]] u16 GetRenderXPos() const noexcept { return RenderXPos; }
     u32* GetLine(int line) noexcept;
 
     void WriteToGXFIFO(u32 val) noexcept;
 
-    [[nodiscard]] bool IsRendererAccelerated() const noexcept;
-    [[nodiscard]] Renderer3D& GetCurrentRenderer() noexcept { return *CurrentRenderer; }
+    //[[nodiscard]] bool IsRendererAccelerated() const noexcept;
+    /*[[nodiscard]] Renderer3D& GetCurrentRenderer() noexcept { return *CurrentRenderer; }
     [[nodiscard]] const Renderer3D& GetCurrentRenderer() const noexcept { return *CurrentRenderer; }
-    void SetCurrentRenderer(std::unique_ptr<Renderer3D>&& renderer) noexcept;
+    void SetCurrentRenderer(std::unique_ptr<Renderer3D>&& renderer) noexcept;*/
 
     u8 Read8(u32 addr) noexcept;
     u16 Read16(u32 addr) noexcept;
@@ -128,8 +128,11 @@ public:
     void Write16(u32 addr, u16 val) noexcept;
     void Write32(u32 addr, u32 val) noexcept;
     //void Blit(const GPU& gpu) noexcept;
+
 private:
     melonDS::NDS& NDS;
+    melonDS::GPU& GPU;
+
     typedef union
     {
         u64 _contents;
@@ -187,7 +190,7 @@ private:
         NormalPipeline = 0;
     }
 
-    std::unique_ptr<Renderer3D> CurrentRenderer = nullptr;
+    //std::unique_ptr<Renderer3D> CurrentRenderer = nullptr;
 
     u16 RenderXPos = 0;
 
@@ -327,27 +330,32 @@ public:
     u32 FlushRequest = 0;
     u32 FlushAttributes = 0;
     u32 ScrolledLine[256]; // not part of the hardware state, don't serialize
+
+private:
+    friend class Renderer3D;
 };
 
 class Renderer3D
 {
 public:
+    explicit Renderer3D(melonDS::GPU3D& gpu3D) : GPU(gpu3D.GPU), GPU3D(gpu3D) {}
     virtual ~Renderer3D() = default;
 
     Renderer3D(const Renderer3D&) = delete;
     Renderer3D& operator=(const Renderer3D&) = delete;
 
-    virtual void Reset(GPU& gpu) = 0;
+    virtual void Reset() = 0;
 
     // This "Accelerated" flag currently communicates if the framebuffer should
     // be allocated differently and other little misc handlers. Ideally there
     // are more detailed "traits" that we can ask of the Renderer3D type
-    const bool Accelerated;
+    //const bool Accelerated;
 
-    virtual void VCount144(GPU& gpu) {};
-    virtual void Stop(const GPU& gpu) {}
-    virtual void RenderFrame(GPU& gpu) = 0;
-    virtual void RestartFrame(GPU& gpu) {};
+    ///virtual void VCount144(GPU& gpu) {};
+    virtual void Stop() {}
+    virtual void RenderFrame() = 0;
+    //virtual void FinishRendering() {};
+    virtual void RestartFrame() {};
     virtual u32* GetLine(int line) = 0;
     /*virtual void Blit(const GPU& gpu) {};
 
@@ -359,7 +367,10 @@ public:
     virtual void ShaderCompileStep(int& current, int& count) {}
 
 protected:
-    Renderer3D(bool Accelerated);
+    melonDS::GPU& GPU;
+    melonDS::GPU3D& GPU3D;
+
+    //Renderer3D();
 };
 
 }

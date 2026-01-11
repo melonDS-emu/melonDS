@@ -43,12 +43,7 @@ public:
 
     void DoSavestate(Savestate* file);
 
-    void SetEnabled(bool enable, bool swap)
-    {
-        Enabled = enable;
-        if (swap) ScreenPos = Num;
-        else      ScreenPos = Num ^ 1;
-    }
+    void SetEnabled(bool enable) { Enabled = enable; }
 
     u8 Read8(u32 addr);
     u16 Read16(u32 addr);
@@ -86,11 +81,11 @@ public:
 
     //void UpdateRotscaleParams(u32 line);
     //void UpdateMosaicCounters(u32 line);
-    void CalculateWindowMask(u32 line, u8* windowMask, const u8* objWindow);
+    void CalculateWindowMask(u8* windowMask, const u8* objWindow);
 
     u32 Num;
     bool Enabled;
-    u32 ScreenPos;
+    //u32 ScreenPos;
 
     /*u16 DispFIFO[16];
     u32 DispFIFOReadPtr;
@@ -116,8 +111,8 @@ public:
     u8 Win0Coords[4];
     u8 Win1Coords[4];
     u8 WinCnt[4];
-    u32 Win0Active;
-    u32 Win1Active;
+    u8 Win0Active;
+    u8 Win1Active;
 
     u8 BGMosaicSize[2];
     u8 OBJMosaicSize[2];

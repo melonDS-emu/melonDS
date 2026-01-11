@@ -57,12 +57,22 @@ void SoftRenderer::Reset()
     //Rend3D.Reset();
 }
 
+void SoftRenderer::Stop()
+{
+    // clear framebuffers to black
+    const size_t len = 256 * 192 * sizeof(u32);
+    memset(Framebuffer[0][0], 0, len);
+    memset(Framebuffer[0][1], 0, len);
+    memset(Framebuffer[1][0], 0, len);
+    memset(Framebuffer[1][1], 0, len);
+}
+
 
 void SoftRenderer::DrawScanline(u32 line)
 {
     u32 *dstA, *dstB;
     u32 dstoffset = 256 * line;
-    if (GPU.PowerCnt & (1<<15)) // TODO: maybe we don't need all of PowerCnt there
+    if (GPU.ScreenSwap)
     {
         dstA = &Framebuffer[BackBuffer][0][dstoffset];
         dstB = &Framebuffer[BackBuffer][1][dstoffset];
@@ -101,8 +111,8 @@ void SoftRenderer::DrawScanline(u32 line)
 
         for (int i = 0; i < 256; i++)
         {
-            dstA[i] = 0xFF3F3F3F;
-            dstB[i] = 0xFF3F3F3F;
+            dstA[i] = 0x3F3F3F;
+            dstB[i] = 0x3F3F3F;
         }
     }
 
@@ -123,6 +133,15 @@ void SoftRenderer::DrawScanline(u32 line)
     }
 }
 
+void SoftRenderer::DrawSprites(u32 line)
+{
+    if (line >= 192)
+        return;
+
+    Rend2D_A.DrawSprites(line);
+    Rend2D_B.DrawSprites(line);
+}
+
 void SoftRenderer::DrawScanlineA(u32 line, u32* dst)
 {
     u32 dispcnt = GPU.GPU2D_A.DispCnt;
@@ -131,7 +150,7 @@ void SoftRenderer::DrawScanlineA(u32 line, u32* dst)
     case 0: // screen off
         {
             for (int i = 0; i < 256; i++)
-                dst[i] = 0xFF3F3F3F;
+                dst[i] = 0x3F3F3F;
         }
         return;
 
@@ -401,6 +420,17 @@ void SoftRenderer::ExpandColor(u32* dst)
 
         *(u64*)&dst[i] = c | ((c & 0x00C0C0C000C0C0C0) >> 6) | 0xFF000000FF000000;
     }
+}
+
+
+void SoftRenderer::Start3DRendering()
+{
+    Rend3D.RenderFrame();
+}
+
+void SoftRenderer::Finish3DRendering()
+{
+    Rend3D.VCount144();
 }
 
 }

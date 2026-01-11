@@ -122,7 +122,7 @@ void SoftRenderer2D::DrawScanline(u32 line, u32* dst)
     {
         // if this 2D unit is disabled in POWCNT, the output is a fixed color
         // (black for unit A, white for unit B)
-        u32 fillcolor = (GPU2D.Num == 0) ? 0xFF000000 : 0xFF3F3F3F;
+        u32 fillcolor = (GPU2D.Num == 0) ? 0x000000 : 0x3F3F3F;
         for (int i = 0; i < 256; i++)
             dst[i] = fillcolor;
 
@@ -133,7 +133,7 @@ void SoftRenderer2D::DrawScanline(u32 line, u32* dst)
     {
         // forced blank
         for (int i = 0; i < 256; i++)
-            dst[i] = 0xFF3F3F3F;
+            dst[i] = 0x3F3F3F;
 
         return;
     }
@@ -157,19 +157,22 @@ void SoftRenderer2D::DrawScanline(u32 line, u32* dst)
         GPU.MakeVRAMFlat_BOBJExtPalCoherent(objExtPalDirty);
     }
 
+    // swap OBJ buffers if needed
+    if (NumSprites)
+    {
+        if (GPU2D.OBJMosaicLatch)
+            OBJLineBack ^= 1;
+        OBJWindowBack ^= 1;
+    }
+
     // render BG layers and sprites
     DrawScanline_BGOBJ(line, dst);
-
-    // TODO this goes in GPU2D!! and when beginning a scanline
-    // TODO also do OBJ double buffering
-    GPU2D.UpdateRotscaleParams(line);
-    GPU2D.UpdateMosaicCounters(line);
 }
 
 #define DoDrawBG(type, line, num) \
     do \
     { \
-        if ((bgCnt[num] & 0x0040) && (GPU2D.BGMosaicSize[0] > 0)) \
+        if ((bgCnt[num] & (1<<6)) && (GPU2D.BGMosaicSize[0] > 0)) \
         { \
             DrawBG_##type<true>(line, num); \
         } \
@@ -182,7 +185,7 @@ void SoftRenderer2D::DrawScanline(u32 line, u32* dst)
 #define DoDrawBG_Large(line) \
     do \
     { \
-        if ((bgCnt[2] & 0x0040) && (GPU2D.BGMosaicSize[0] > 0)) \
+        if ((bgCnt[2] & (1<<6)) && (GPU2D.BGMosaicSize[0] > 0)) \
         { \
             DrawBG_Large<true>(line); \
         } \
@@ -331,7 +334,7 @@ void SoftRenderer2D::DrawScanline_BGOBJ(u32 line, u32* dst)
     }
 
     if (GPU2D.DispCnt & 0xE000)
-        GPU2D.CalculateWindowMask(line, WindowMask, OBJWindow[OBJWindowBack ^ 1]);
+        GPU2D.CalculateWindowMask(WindowMask, OBJWindow[OBJWindowBack ^ 1]);
     else
         memset(WindowMask, 0xFF, 256);
 
@@ -1028,18 +1031,6 @@ void SoftRenderer2D::InterleaveSprites(u32 prio)
 
 void SoftRenderer2D::DrawSprites(u32 line)
 {
-    if (line == 0)
-    {
-        // reset those counters here
-        // TODO: find out when those are supposed to be reset
-        // it would make sense to reset them at the end of VBlank
-        // however, sprites are rendered one scanline in advance
-        // so they need to be reset a bit earlier
-
-        GPU2D.OBJMosaicY = 0;
-        GPU2D.OBJMosaicYCount = 0;
-    }
-
     if (GPU2D.Num == 0)
     {
         auto objDirty = GPU.VRAMDirty_AOBJ.DeriveState(GPU.VRAMMap_AOBJ, GPU);

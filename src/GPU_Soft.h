@@ -32,9 +32,13 @@ public:
     SoftRenderer(melonDS::GPU& gpu);
     ~SoftRenderer() override;
     void Reset() override;
+    void Stop() override;
 
     void DrawScanline(u32 line) override;
     void DrawSprites(u32 line) override;
+
+    void Start3DRendering() override;
+    void Finish3DRendering() override;
 
     void VBlank() override;
     void VBlankEnd() override;

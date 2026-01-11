@@ -128,8 +128,8 @@ void GPU::ResetVRAMCache() noexcept
 
 void GPU::Reset() noexcept
 {
-    PowerCnt = 0;
     ScreensEnabled = false;
+    ScreenSwap = false;
 
     VCount = 0;
     VCountOverride = false;
@@ -187,30 +187,11 @@ void GPU::Reset() noexcept
     memset(VRAMCBF_BBG, 0, sizeof(VRAMCBF_BBG));
     memset(VRAMCBF_BOBJ, 0, sizeof(VRAMCBF_BOBJ));
 
-    /*size_t fbsize;
-    if (GPU3D.IsRendererAccelerated())
-        fbsize = (256*3 + 1) * 192;
-    else
-        fbsize = 256 * 192;
-
-    for (size_t i = 0; i < fbsize; i++)
-    {
-        Framebuffer[0][0][i] = 0xFFFFFFFF;
-        Framebuffer[1][0][i] = 0xFFFFFFFF;
-    }
-    for (size_t i = 0; i < fbsize; i++)
-    {
-        Framebuffer[0][1][i] = 0xFFFFFFFF;
-        Framebuffer[1][1][i] = 0xFFFFFFFF;
-    }*/
-    // TODO reset the buffer!!
-
     GPU2D_A.Reset();
     GPU2D_B.Reset();
     GPU3D.Reset();
 
-    //int backbuf = FrontBuffer ? 0 : 1;
-    //GPU2D_Renderer->SetFramebuffer(Framebuffer[backbuf][1].get(), Framebuffer[backbuf][0].get());
+    Rend->Reset();
 
     ResetVRAMCache();
 
@@ -220,18 +201,9 @@ void GPU::Reset() noexcept
 
 void GPU::Stop() noexcept
 {
-    int fbsize;
-    if (GPU3D.IsRendererAccelerated())
-        fbsize = (256*3 + 1) * 192;
-    else
-        fbsize = 256 * 192;
+    Rend->Stop();
 
-    /*memset(Framebuffer[0][0].get(), 0, fbsize*4);
-    memset(Framebuffer[0][1].get(), 0, fbsize*4);
-    memset(Framebuffer[1][0].get(), 0, fbsize*4);
-    memset(Framebuffer[1][1].get(), 0, fbsize*4);*/
-    // TODO stop on the GPU2D!!
-
+    // TODO: do we need this?
     GPU3D.Stop(*this);
 }
 
@@ -239,11 +211,13 @@ void GPU::DoSavestate(Savestate* file) noexcept
 {
     file->Section("GPUG");
 
-    // TODO check this (make it different?)
-    file->Var16(&PowerCnt);
+    // TODO check that all the shit is in here
+
+    file->VarBool(&ScreensEnabled);
+    file->VarBool(&ScreenSwap);
 
     file->Var16(&VCount);
-    file->Bool32(&VCountOverride);
+    file->VarBool(&VCountOverride);
     file->Var16(&NextVCount);
     file->Var16(&TotalScanlines);
 
@@ -318,7 +292,7 @@ void GPU::DoSavestate(Savestate* file) noexcept
         GPU2D_Renderer->SetFramebuffer(Framebuffer[backbuf][1].get(), Framebuffer[backbuf][0].get());
     }
 }*/
-
+#if 0
 void GPU::SetRenderer3D(std::unique_ptr<Renderer3D>&& renderer) noexcept
 {
     if (renderer == nullptr)
@@ -328,7 +302,7 @@ void GPU::SetRenderer3D(std::unique_ptr<Renderer3D>&& renderer) noexcept
 
     //InitFramebuffers();
 }
-
+#endif
 /*void GPU::InitFramebuffers() noexcept
 {
     int fbsize;
@@ -371,6 +345,11 @@ u8 GPU::Read8(u32 addr)
         case 0x04000006: return VCount & 0xFF;
         case 0x04000007: return VCount >> 8;
     }
+
+    if (addr >= 0x04000000 && addr < 0x04000070)
+        return GPU2D_A.Read8(addr);
+    if (addr >= 0x04001000 && addr < 0x04001070)
+        return GPU2D_B.Read8(addr);
 
     Log(LogLevel::Debug, "unknown GPU read8 %08X\n", addr);
     return 0;
@@ -1093,11 +1072,11 @@ void GPU::SetPowerCnt(u32 val) noexcept
     // * bit9: disables engine B palette, OAM and rendering (screen turns white)
     // * bit15: screen swap
 
-    PowerCnt = val;
-
-    GPU2D_A.SetEnabled(val & (1<<1), val & (1<<15));
-    GPU2D_B.SetEnabled(val & (1<<9), val & (1<<15));
+    GPU2D_A.SetEnabled(val & (1<<1));
+    GPU2D_B.SetEnabled(val & (1<<9));
     GPU3D.SetEnabled(val & (1<<3), val & (1<<2));
+
+    ScreenSwap = !!(val & (1<<15));
 }
 
 
@@ -1162,9 +1141,10 @@ void GPU::DisplayFIFO(u32 x) noexcept
         SampleDisplayFIFO(253, 3); // sample the remaining pixels
 }
 
+
 void GPU::StartFrame() noexcept
 {
-    ScreensEnabled = !!(PowerCnt & (1<<0));
+    ScreensEnabled = !!(NDS.PowerControl9 & (1<<0));
 
     // only run the display FIFO if needed:
     // * if it is used for display or capture
@@ -1184,29 +1164,19 @@ void GPU::StartHBlank(u32 line) noexcept
     {
         // draw
         // note: this should start 48 cycles after the scanline start
-        if (line < 192)
-        {
-            GPU2D_Renderer->DrawScanline(line, &GPU2D_A);
-            GPU2D_Renderer->DrawScanline(line, &GPU2D_B);
-        }
-
-        // sprites are pre-rendered one scanline in advance
-        if (line < 191)
-        {
-            GPU2D_Renderer->DrawSprites(line+1, &GPU2D_A);
-            GPU2D_Renderer->DrawSprites(line+1, &GPU2D_B);
-        }
+        Rend->DrawScanline(line);
+        Rend->DrawSprites(line+1);
 
         NDS.CheckDMAs(0, 0x02);
     }
     else if (VCount == 215)
     {
-        GPU3D.VCount215(*this);
+        Rend->Start3DRendering();
     }
     else if (VCount == 262)
     {
-        GPU2D_Renderer->DrawSprites(0, &GPU2D_A);
-        GPU2D_Renderer->DrawSprites(0, &GPU2D_B);
+        // sprites are pre-rendered one scanline in advance
+        Rend->DrawSprites(0);
     }
 
     if (DispStat[0] & (1<<4)) NDS.SetIRQ(0, IRQ_HBlank);
@@ -1220,9 +1190,7 @@ void GPU::StartHBlank(u32 line) noexcept
 
 void GPU::FinishFrame(u32 lines) noexcept
 {
-    //FrontBuffer = FrontBuffer ? 0 : 1;
-    //AssignFramebuffers();
-    GPU2D_Renderer->SwapBuffers();
+    Rend->SwapBuffers();
 
     TotalScanlines = lines;
 
@@ -1321,15 +1289,17 @@ void GPU::StartScanline(u32 line) noexcept
         CaptureCnt &= ~(1<<31);
         CaptureEnable = false;
 
+        DispFIFOReadPtr = 0;
+        DispFIFOWritePtr = 0;
+
         // in reality rendering already finishes at line 144
         // and games might already start to modify texture memory.
         // That doesn't matter for us because we cache the entire
         // texture memory anyway and only update it before the start
         // of the next frame.
         // So we can give the rasteriser a bit more headroom
-        GPU3D.VCount144(*this);
+        Rend->Finish3DRendering();
 
-        // VBlank
         DispStat[0] |= (1<<0);
         DispStat[1] |= (1<<0);
 
@@ -1342,11 +1312,7 @@ void GPU::StartScanline(u32 line) noexcept
         GPU2D_B.VBlank();
         GPU3D.VBlank();
 
-        // Need a better way to identify the openGL renderer in particular
-        //if (GPU3D.IsRendererAccelerated())
-        //GPU3D.Blit(*this);
-        GPU2D_Renderer->VBlank(&GPU2D_A, &GPU2D_B);
-        GPU2D_A.CaptureLatch = false;
+        Rend->VBlank();
     }
     else if (VCount == 262)
     {
@@ -1704,15 +1670,15 @@ void GPU::VRAMCBFlagsOr(u32 bank, u32 block, u16 val)
 
 void GPU::CheckCaptureStart()
 {
-    if (!(GPU2D_A.CaptureCnt & (1<<31)))
+    if (!(CaptureCnt & (1<<31)))
         return;
 
-    u32 dstbank = (GPU2D_A.CaptureCnt >> 16) & 0x3;
+    u32 dstbank = (CaptureCnt >> 16) & 0x3;
     if (!(VRAMMap_LCDC & (1<<dstbank)))
         return;
 
-    u32 dstoff = (GPU2D_A.CaptureCnt >> 18) & 0x3;
-    u32 size = (GPU2D_A.CaptureCnt >> 20) & 0x3;
+    u32 dstoff = (CaptureCnt >> 18) & 0x3;
+    u32 size = (CaptureCnt >> 20) & 0x3;
     u32 len = (size == 0) ? 1 : size;
 
     // if needed, invalidate old capture
@@ -1727,15 +1693,15 @@ void GPU::CheckCaptureStart()
     // mark involved VRAM blocks as being a new capture
     u16 newval = CBFlag_IsCapture | dstoff | (dstbank << 2) | (len << 4) | (size << 6);
     VRAMCBFlagsSet(dstbank, dstoff, newval);
-    //GPU2D_Renderer->AllocCapture(dstbank, dstoff, size);
+    //Rend->AllocCapture(dstbank, dstoff, size);
 }
 
 void GPU::CheckCaptureEnd()
 {
     // mark this capture as complete
     // TODO should be done before VBlank for smaller capture sizes?
-    u32 dstbank = (GPU2D_A.CaptureCnt >> 16) & 0x3;
-    u32 dstoff = (GPU2D_A.CaptureCnt >> 18) & 0x3;
+    u32 dstbank = (CaptureCnt >> 16) & 0x3;
+    u32 dstoff = (CaptureCnt >> 18) & 0x3;
     VRAMCBFlagsOr(dstbank, dstoff, CBFlag_Complete);
 }
 
@@ -1749,7 +1715,7 @@ void GPU::SyncVRAMCaptureBlock(u32 block, bool write)
     u32 bank = block >> 2;
     u32 start = flags & 0x3;
     u32 len = (flags >> 6) & 0x3;
-    GPU2D_Renderer->SyncVRAMCapture(bank, start, len, (flags & CBFlag_Complete));
+    Rend->SyncVRAMCapture(bank, start, len, (flags & CBFlag_Complete));
 
     //u16* cbflags = &VRAMCaptureBlockFlags[bank << 2];
     if (write)

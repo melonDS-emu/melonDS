@@ -52,6 +52,8 @@ struct VRAMTrackingSet
     NonStupidBitField<Size/VRAMDirtyGranularity> DeriveState(const u32* currentMappings, GPU& gpu);
 };
 
+class Renderer;
+
 class GPU
 {
 public:
@@ -67,6 +69,7 @@ public:
     // false -> this renderer doesn't use RAM framebuffers
     bool GetFramebuffers(u32** top, u32** bottom);
 
+#if 0
     /// Sets the active renderer to the renderer given in the provided pointer.
     /// The pointer is moved-from, so it will be \c nullptr after this method is called.
     /// If the pointer is \c nullptr, the renderer is reset to the default renderer.
@@ -80,6 +83,10 @@ public:
     void SetRenderer2D(std::unique_ptr<GPU2D::Renderer2D>&& renderer) noexcept { GPU2D_Renderer = std::move(renderer); }
     [[nodiscard]] const GPU2D::Renderer2D& GetRenderer2D() const noexcept { return *GPU2D_Renderer; }
     [[nodiscard]] GPU2D::Renderer2D& GetRenderer2D() noexcept { return *GPU2D_Renderer; }
+#endif
+
+    u8* GetUniqueBankPtr(u32 mask, u32 offset) noexcept;
+    const u8* GetUniqueBankPtr(u32 mask, u32 offset) const noexcept;
 
     u8 Read8(u32 addr);
     u16 Read16(u32 addr);
@@ -618,8 +625,8 @@ public:
 
     melonDS::NDS& NDS;
 
-    u16 PowerCnt = 0;
     bool ScreensEnabled = false;
+    bool ScreenSwap = false;
 
     u16 VCount = 0;
     u16 TotalScanlines = 0;
@@ -810,7 +817,8 @@ private:
 
     u16 VMatch[2] {};
 
-    std::unique_ptr<GPU2D::Renderer2D> GPU2D_Renderer = nullptr;
+    //std::unique_ptr<GPU2D::Renderer2D> GPU2D_Renderer = nullptr;
+    std::unique_ptr<Renderer> Rend = nullptr;
 
     u16 VRAMCaptureBlockFlags[16];
     /*u8 VRAMBlockCaptureFlags[4 * 128*1024/VRAMCaptureGranularity] {};
@@ -832,9 +840,13 @@ public:
     Renderer(GPU& gpu) : GPU(gpu) {}
     virtual ~Renderer() {}
     virtual void Reset() = 0;
+    virtual void Stop() = 0;
 
     virtual void DrawScanline(u32 line) = 0;
     virtual void DrawSprites(u32 line) = 0;
+
+    virtual void Start3DRendering() = 0;
+    virtual void Finish3DRendering() = 0;
 
     virtual void VBlank() = 0;
     virtual void VBlankEnd() = 0;
