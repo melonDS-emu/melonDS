@@ -81,6 +81,13 @@ public:
     [[nodiscard]] const GPU2D::Renderer2D& GetRenderer2D() const noexcept { return *GPU2D_Renderer; }
     [[nodiscard]] GPU2D::Renderer2D& GetRenderer2D() noexcept { return *GPU2D_Renderer; }
 
+    u8 Read8(u32 addr);
+    u16 Read16(u32 addr);
+    u32 Read32(u32 addr);
+    void Write8(u32 addr, u8 val);
+    void Write16(u32 addr, u16 val);
+    void Write32(u32 addr, u32 val);
+
     void MapVRAM_AB(u32 bank, u8 cnt) noexcept;
     void MapVRAM_CD(u32 bank, u8 cnt) noexcept;
     void MapVRAM_E(u32 bank, u8 cnt) noexcept;
@@ -587,9 +594,9 @@ public:
 
     void DisplayFIFO(u32 x) noexcept;
 
-    void SetDispStat(u32 cpu, u16 val) noexcept;
+    void SetDispStat(u32 cpu, u16 val, u16 mask) noexcept;
+    void SetVCount(u16 val, u16 mask) noexcept;
 
-    void SetVCount(u16 val) noexcept;
     bool MakeVRAMFlat_ABGCoherent(NonStupidBitField<512*1024/VRAMDirtyGranularity>& dirty) noexcept;
     bool MakeVRAMFlat_BBGCoherent(NonStupidBitField<128*1024/VRAMDirtyGranularity>& dirty) noexcept;
 
@@ -607,6 +614,8 @@ public:
 
     void SyncDirtyFlags() noexcept;
 
+    //void UpdateRegisters(u32 line);
+
     melonDS::NDS& NDS;
 
     u16 PowerCnt = 0;
@@ -617,6 +626,14 @@ public:
     u16 DispStat[2] {};
     u8 VRAMCNT[9] {};
     u8 VRAMSTAT = 0;
+
+    u16 MasterBrightnessA;
+    u16 MasterBrightnessB;
+
+    u16 DispFIFO[16];
+    u32 DispFIFOReadPtr;
+    u32 DispFIFOWritePtr;
+    alignas(8) u16 DispFIFOBuffer[256];
 
     u32 CaptureCnt;
     bool CaptureEnable;
@@ -781,7 +798,13 @@ private:
     void SyncVRAMCaptureBlock(u32 block, bool write);
     void GetCaptureInfo(int* info, u16** cbf, int len);
 
-    u32 NextVCount = 0;
+    void SetDispStatIRQ(int cpu, int num);
+
+    bool UsesDisplayFIFO();
+    void SampleDisplayFIFO(u32 offset, u32 num);
+
+    bool VCountOverride = false;
+    u16 NextVCount = 0;
 
     bool RunFIFO = false;
 

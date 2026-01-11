@@ -56,11 +56,6 @@ private:
     u32* Framebuffer[2][2];
     int BackBuffer;
 
-    alignas(8) u16 DispFIFOBuffer[256];
-
-    u16 MasterBrightnessA;
-    u16 MasterBrightnessB;
-
     u32* Output3D;
     alignas(8) u32 Output2D_A[256];
     alignas(8) u32 Output2D_B[256];

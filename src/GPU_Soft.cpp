@@ -51,6 +51,10 @@ void SoftRenderer::Reset()
     memset(Framebuffer[0][1], 0, len);
     memset(Framebuffer[1][0], 0, len);
     memset(Framebuffer[1][1], 0, len);
+
+    Rend2D_A.Reset();
+    Rend2D_B.Reset();
+    //Rend3D.Reset();
 }
 
 
@@ -168,7 +172,7 @@ void SoftRenderer::DrawScanlineA(u32 line, u32* dst)
         {
             for (int i = 0; i < 256; i++)
             {
-                u16 color = DispFIFOBuffer[i];
+                u16 color = GPU.DispFIFOBuffer[i];
                 u8 r = (color & 0x001F) << 1;
                 u8 g = (color & 0x03E0) >> 4;
                 u8 b = (color & 0x7C00) >> 9;
@@ -179,7 +183,7 @@ void SoftRenderer::DrawScanlineA(u32 line, u32* dst)
         break;
     }
 
-    ApplyMasterBrightness(MasterBrightnessA, dst);
+    ApplyMasterBrightness(GPU.MasterBrightnessA, dst);
 }
 
 void SoftRenderer::DrawScanlineB(u32 line, u32* dst)
@@ -202,7 +206,7 @@ void SoftRenderer::DrawScanlineB(u32 line, u32* dst)
         break;
     }
 
-    ApplyMasterBrightness(MasterBrightnessB, dst);
+    ApplyMasterBrightness(GPU.MasterBrightnessB, dst);
 }
 
 void SoftRenderer::DoCapture(u32 line)
@@ -241,7 +245,7 @@ void SoftRenderer::DoCapture(u32 line)
 
     u16* srcB = nullptr;
     if (captureCnt & (1<<25))
-        srcB = DispFIFOBuffer;
+        srcB = GPU.DispFIFOBuffer;
     else
     {
         u32 dispcnt = GPU.GPU2D_A.DispCnt;

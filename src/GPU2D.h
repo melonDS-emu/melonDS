@@ -57,7 +57,7 @@ public:
     void Write16(u32 addr, u16 val);
     void Write32(u32 addr, u32 val);
 
-    bool UsesFIFO() const
+    /*bool UsesFIFO() const
     {
         if (((DispCnt >> 16) & 0x3) == 3)
             return true;
@@ -65,14 +65,15 @@ public:
             return true;
 
         return false;
-    }
+    }*/
 
-    void SampleFIFO(u32 offset, u32 num);
+    //void SampleFIFO(u32 offset, u32 num);
 
     void VBlank();
     virtual void VBlankEnd();
 
-    void CheckWindows(u32 line);
+    //void CheckWindows(u32 line);
+    void UpdateRegisters(u32 line);
 
     u16* GetBGExtPal(u32 slot, u32 pal);
     u16* GetOBJExtPal();
@@ -83,19 +84,19 @@ public:
     void GetCaptureInfo_BG(int* info) const;
     void GetCaptureInfo_OBJ(int* info) const;
 
-    void UpdateRotscaleParams(u32 line);
-    void UpdateMosaicCounters(u32 line);
+    //void UpdateRotscaleParams(u32 line);
+    //void UpdateMosaicCounters(u32 line);
     void CalculateWindowMask(u32 line, u8* windowMask, const u8* objWindow);
 
     u32 Num;
     bool Enabled;
     u32 ScreenPos;
 
-    u16 DispFIFO[16];
+    /*u16 DispFIFO[16];
     u32 DispFIFOReadPtr;
     u32 DispFIFOWritePtr;
 
-    u16 DispFIFOBuffer[256];
+    u16 DispFIFOBuffer[256];*/
 
     u32 DispCnt;
     u16 BGCnt[4];
@@ -121,17 +122,19 @@ public:
     u8 BGMosaicSize[2];
     u8 OBJMosaicSize[2];
     u8 BGMosaicY, BGMosaicYMax;
-    u8 OBJMosaicYCount, OBJMosaicY, OBJMosaicYMax;
+    u8 OBJMosaicY;
+    bool BGMosaicLatch;
+    bool OBJMosaicLatch;
 
     u16 BlendCnt;
     u16 BlendAlpha;
     u8 EVA, EVB;
     u8 EVY;
 
-    bool CaptureLatch;
-    u32 CaptureCnt;
+    //bool CaptureLatch;
+    //u32 CaptureCnt;
 
-    u16 MasterBrightness;
+    //u16 MasterBrightness;
 
 private:
     friend class Renderer2D;
@@ -144,15 +147,13 @@ class Renderer2D
 public:
     explicit Renderer2D(melonDS::GPU2D::Unit& gpu2D) : GPU(gpu2D.GPU), GPU2D(gpu2D) {}
     virtual ~Renderer2D() {}
+    virtual void Reset() = 0;
 
     virtual void DrawScanline(u32 line, u32* dst) = 0;
     virtual void DrawSprites(u32 line) = 0;
 
     virtual void VBlank() = 0;
     virtual void VBlankEnd() = 0;
-
-    virtual void AllocCapture(u32 bank, u32 start, u32 len) = 0;
-    virtual void SyncVRAMCapture(u32 bank, u32 start, u32 len, bool complete) = 0;
 
 protected:
     melonDS::GPU& GPU;

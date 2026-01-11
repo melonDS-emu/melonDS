@@ -132,7 +132,7 @@ void Unit::Reset()
     EVB = 0;
     EVY = 0;
 
-    memset(DispFIFO, 0, 16*2);
+    /*memset(DispFIFO, 0, 16*2);
     DispFIFOReadPtr = 0;
     DispFIFOWritePtr = 0;
 
@@ -141,7 +141,7 @@ void Unit::Reset()
     CaptureCnt = 0;
     CaptureLatch = false;
 
-    MasterBrightness = 0;
+    MasterBrightness = 0;*/
 }
 
 void Unit::DoSavestate(Savestate* file)
@@ -178,9 +178,9 @@ void Unit::DoSavestate(Savestate* file)
     file->Var8(&EVB);
     file->Var8(&EVY);
 
-    file->Var16(&MasterBrightness);
+    //file->Var16(&MasterBrightness);
 
-    if (!Num)
+    /*if (!Num)
     {
         file->VarArray(DispFIFO, 16*2);
         file->Var32(&DispFIFOReadPtr);
@@ -189,7 +189,7 @@ void Unit::DoSavestate(Savestate* file)
         file->VarArray(DispFIFOBuffer, 256*2);
 
         file->Var32(&CaptureCnt);
-    }
+    }*/
 
     file->Var32(&Win0Active);
     file->Var32(&Win1Active);
@@ -224,7 +224,7 @@ u8 Unit::Read8(u32 addr)
     case 0x04D: return 0;
     }
 
-    Log(LogLevel::Debug, "unknown GPU read8 %08X\n", addr);
+    Log(LogLevel::Debug, "unknown GPU2D read8 %08X\n", addr);
     return 0;
 }
 
@@ -247,13 +247,13 @@ u16 Unit::Read16(u32 addr)
     case 0x052: return BlendAlpha;
     // BLDY is write-only
 
-    case 0x064: return CaptureCnt & 0xFFFF;
+    /*case 0x064: return CaptureCnt & 0xFFFF;
     case 0x066: return CaptureCnt >> 16;
 
-    case 0x06C: return MasterBrightness;
+    case 0x06C: return MasterBrightness;*/
     }
 
-    Log(LogLevel::Debug, "unknown GPU read16 %08X\n", addr);
+    Log(LogLevel::Debug, "unknown GPU2D read16 %08X\n", addr);
     return 0;
 }
 
@@ -263,7 +263,7 @@ u32 Unit::Read32(u32 addr)
     {
     case 0x000: return DispCnt;
 
-    case 0x064: return CaptureCnt;
+    //case 0x064: return CaptureCnt;
     }
 
     return Read16(addr) | (Read16(addr+2) << 16);
@@ -370,7 +370,7 @@ void Unit::Write8(u32 addr, u8 val)
         return;
     }
 
-    Log(LogLevel::Debug, "unknown GPU write8 %08X %02X\n", addr, val);
+    Log(LogLevel::Debug, "unknown GPU2D write8 %08X %02X\n", addr, val);
 }
 
 void Unit::Write16(u32 addr, u16 val)
@@ -390,7 +390,7 @@ void Unit::Write16(u32 addr, u16 val)
         if (!Num) GPU.GPU3D.SetRenderXPos(val);
         break;
 
-    case 0x064:
+    /*case 0x064:
         CaptureCnt = (CaptureCnt & 0xFFFF0000) | (val & 0xEF3F1F1F);
         return;
 
@@ -407,7 +407,7 @@ void Unit::Write16(u32 addr, u16 val)
         DispFIFOWritePtr &= 0xF;
         return;
 
-    case 0x06C: MasterBrightness = val; return;
+    case 0x06C: MasterBrightness = val; return;*/
     }
 
     if (!Enabled) return;
@@ -522,7 +522,7 @@ void Unit::Write16(u32 addr, u16 val)
         return;
     }
 
-    //printf("unknown GPU write16 %08X %04X\n", addr, val);
+    //printf("unknown GPU2D write16 %08X %04X\n", addr, val);
 }
 
 void Unit::Write32(u32 addr, u32 val)
@@ -534,7 +534,7 @@ void Unit::Write32(u32 addr, u32 val)
         if (Num) DispCnt &= 0xC0B1FFF7;
         return;
 
-    case 0x064:
+    /*case 0x064:
         CaptureCnt = val & 0xEF3F1F1F;
         return;
 
@@ -543,7 +543,7 @@ void Unit::Write32(u32 addr, u32 val)
         DispFIFO[DispFIFOWritePtr+1] = val >> 16;
         DispFIFOWritePtr += 2;
         DispFIFOWritePtr &= 0xF;
-        return;
+        return;*/
     }
 
     if (Enabled)
@@ -577,7 +577,7 @@ void Unit::Write32(u32 addr, u32 val)
     Write16(addr, val&0xFFFF);
     Write16(addr+2, val>>16);
 }
-
+/*
 void Unit::UpdateRotscaleParams(u32 line)
 {
     BGXRefInternal[0] += BGRotB[0];
@@ -612,36 +612,36 @@ void Unit::UpdateMosaicCounters(u32 line)
         OBJMosaicYCount++;
         OBJMosaicYCount &= 0xF;
     }
-}
+}*/
 
 void Unit::VBlank()
 {
-    if (CaptureLatch)
+    /*if (CaptureLatch)
     {
         CaptureCnt &= ~(1<<31);
         //CaptureLatch = false;
     }
 
     DispFIFOReadPtr = 0;
-    DispFIFOWritePtr = 0;
+    DispFIFOWritePtr = 0;*/
 }
 
 void Unit::VBlankEnd()
 {
     // TODO: find out the exact time this happens
-    BGXRefInternal[0] = BGXRef[0];
+    /*BGXRefInternal[0] = BGXRef[0];
     BGXRefInternal[1] = BGXRef[1];
     BGYRefInternal[0] = BGYRef[0];
     BGYRefInternal[1] = BGYRef[1];
 
     BGMosaicY = 0;
-    BGMosaicYMax = BGMosaicSize[1];
+    BGMosaicYMax = BGMosaicSize[1];*/
     //OBJMosaicY = 0;
     //OBJMosaicYMax = OBJMosaicSize[1];
     //OBJMosaicY = 0;
     //OBJMosaicYCount = 0;
 }
-
+/*
 void Unit::SampleFIFO(u32 offset, u32 num)
 {
     for (u32 i = 0; i < num; i++)
@@ -652,7 +652,7 @@ void Unit::SampleFIFO(u32 offset, u32 num)
 
         DispFIFOBuffer[offset+i] = val;
     }
-}
+}*/
 
 u16* Unit::GetBGExtPal(u32 slot, u32 pal)
 {
@@ -670,13 +670,74 @@ u16* Unit::GetOBJExtPal()
          : (u16*)GPU.VRAMFlat_BOBJExtPal;
 }
 
-void Unit::CheckWindows(u32 line)
+/*void Unit::CheckWindows(u32 line)
 {
     line &= 0xFF;
     if (line == Win0Coords[3])      Win0Active &= ~0x1;
     else if (line == Win0Coords[2]) Win0Active |=  0x1;
     if (line == Win1Coords[3])      Win1Active &= ~0x1;
     else if (line == Win1Coords[2]) Win1Active |=  0x1;
+}*/
+
+void Unit::UpdateRegisters(u32 line)
+{
+    if (line == 0)
+    {
+        BGXRefInternal[0] = BGXRef[0];
+        BGXRefInternal[1] = BGXRef[1];
+        BGYRefInternal[0] = BGYRef[0];
+        BGYRefInternal[1] = BGYRef[1];
+
+        BGMosaicYMax = BGMosaicSize[1];
+        BGMosaicY = 0;
+        BGMosaicLatch = true;
+
+        OBJMosaicY = 0;
+        OBJMosaicLatch = true;
+    }
+    else
+    {
+        BGXRefInternal[0] += BGRotB[0];
+        BGYRefInternal[0] += BGRotD[0];
+        BGXRefInternal[1] += BGRotB[1];
+        BGYRefInternal[1] += BGRotD[1];
+
+        // for BG mosaic, the size in MOSAIC is copied to an internal register
+        // on the other hand, OBJ mosaic directly checks against the size in MOSAIC
+        // this makes the OBJ mosaic counter prone to overflowing if MOSAIC is modified midframe
+
+        if (BGMosaicY == BGMosaicYMax)
+        {
+            BGMosaicYMax = BGMosaicSize[1];
+            BGMosaicY = 0;
+            BGMosaicLatch = true;
+        }
+        else
+        {
+            BGMosaicY++;
+            BGMosaicY &= 0xF;
+            BGMosaicLatch = false;
+        }
+
+        if (OBJMosaicY == OBJMosaicSize[1])
+        {
+            OBJMosaicY = 0;
+            OBJMosaicLatch = true;
+        }
+        else
+        {
+            OBJMosaicY++;
+            OBJMosaicY &= 0xF;
+            OBJMosaicLatch = false;
+        }
+    }
+
+    // TODO: confirm exact position/behavior on hardware
+    u32 winline = line & 0xFF;
+    if (winline == Win0Coords[3])      Win0Active &= ~0x1;
+    else if (winline == Win0Coords[2]) Win0Active |=  0x1;
+    if (winline == Win1Coords[3])      Win1Active &= ~0x1;
+    else if (winline == Win1Coords[2]) Win1Active |=  0x1;
 }
 
 void Unit::CalculateWindowMask(u32 line, u8* windowMask, const u8* objWindow)

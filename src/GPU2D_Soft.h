@@ -33,6 +33,7 @@ class SoftRenderer2D : public Renderer2D
 public:
     SoftRenderer2D(melonDS::GPU2D::Unit& gpu2D, SoftRenderer& parent);
     ~SoftRenderer2D() override;
+    void Reset() override;
 
     void DrawScanline(u32 line, u32* dst) override;
     void DrawSprites(u32 line) override;
@@ -48,6 +49,8 @@ private:
 
     alignas(8) u32 OBJLine[2][256];
     alignas(8) u8 OBJWindow[2][256];
+    int OBJLineBack;
+    int OBJWindowBack;
 
     u32 NumSprites;
 
