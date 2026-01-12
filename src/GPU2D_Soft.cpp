@@ -39,8 +39,6 @@ void SoftRenderer2D::Reset()
     memset(OBJLine, 0, sizeof(OBJLine));
     memset(OBJWindow, 0, sizeof(OBJWindow));
 
-    OBJLineBack = 0;
-    OBJWindowBack = 0;
     NumSprites = 0;
 }
 
@@ -157,15 +155,6 @@ void SoftRenderer2D::DrawScanline(u32 line)
         GPU.MakeVRAMFlat_BBGExtPalCoherent(bgExtPalDirty);
         auto objExtPalDirty = GPU.VRAMDirty_BOBJExtPal.DeriveState(&GPU.VRAMMap_BOBJExtPal, GPU);
         GPU.MakeVRAMFlat_BOBJExtPalCoherent(objExtPalDirty);
-    }
-
-    // swap OBJ buffers if needed
-    // TODO this isn't right!
-    if (NumSprites)
-    {
-        if (GPU2D.OBJMosaicLatch)
-            OBJLineBack ^= 1;
-        OBJWindowBack ^= 1;
     }
 
     // render BG layers and sprites
@@ -337,7 +326,7 @@ void SoftRenderer2D::DrawScanline_BGOBJ(u32 line, u32* dst)
     }
 
     if (GPU2D.DispCnt & 0xE000)
-        GPU2D.CalculateWindowMask(WindowMask, OBJWindow[OBJWindowBack ^ 1]);
+        GPU2D.CalculateWindowMask(WindowMask, OBJWindow);
     else
         memset(WindowMask, 0xFF, 256);
 
@@ -980,36 +969,33 @@ void SoftRenderer2D::ApplySpriteMosaicX()
 
     if (GPU2D.OBJMosaicSize[0] == 0) return;
 
-    u32* objLine = OBJLine[GPU2D.Num];
-
     u8* curOBJXMosaicTable = MosaicTable[GPU2D.OBJMosaicSize[0]].data();
 
-    u32 lastcolor = objLine[0];
+    u32 lastcolor = OBJLine[0];
 
     for (u32 i = 1; i < 256; i++)
     {
-        u32 currentcolor = objLine[i];
+        u32 currentcolor = OBJLine[i];
 
         if (!(lastcolor & currentcolor & 0x100000) || curOBJXMosaicTable[i] == 0)
             lastcolor = currentcolor;
         else
-            objLine[i] = lastcolor;
+            OBJLine[i] = lastcolor;
     }
 }
 
 void SoftRenderer2D::InterleaveSprites(u32 prio)
 {
-    u32* objLine = OBJLine[OBJLineBack ^ 1];
     u16* pal = (u16*)&GPU.Palette[GPU2D.Num ? 0x600 : 0x200];
     u16* extpal = GPU2D.GetOBJExtPal();
 
     for (u32 i = 0; i < 256; i++)
     {
-        if ((objLine[i] & 0x70000) != prio) continue;
+        if ((OBJLine[i] & 0x70000) != prio) continue;
         if (!(WindowMask[i] & 0x10))        continue;
 
         u16 color;
-        u32 pixel = objLine[i];
+        u32 pixel = OBJLine[i];
 
         if (pixel & 0x8000)
             color = pixel & 0x7FFF;
@@ -1046,8 +1032,8 @@ void SoftRenderer2D::DrawSprites(u32 line)
     }
 
     NumSprites = 0;
-    memset(OBJLine[OBJLineBack], 0, 256*4);
-    memset(OBJWindow[OBJWindowBack], 0, 256);
+    memset(OBJLine, 0, sizeof(OBJLine));
+    memset(OBJWindow, 0, sizeof(OBJWindow));
     if (!(GPU2D.DispCnt & (1<<12))) return;
 
     u16* oam = (u16*)&GPU.OAM[GPU2D.Num ? 0x400 : 0];
@@ -1157,8 +1143,8 @@ void SoftRenderer2D::DrawSprite_Rotscale(u32 num, u32 boundwidth, u32 boundheigh
     u32 objvrammask;
     GPU2D.GetOBJVRAM(objvram, objvrammask);
 
-    u32* objLine = OBJLine[OBJLineBack];
-    u8* objWindow = OBJWindow[OBJWindowBack];
+    u32* objLine = OBJLine;
+    u8* objWindow = OBJWindow;
 
     s32 centerX = boundwidth >> 1;
     s32 centerY = boundheight >> 1;
@@ -1374,8 +1360,8 @@ void SoftRenderer2D::DrawSprite_Normal(u32 num, u32 width, u32 height, s32 xpos,
     u32 objvrammask;
     GPU2D.GetOBJVRAM(objvram, objvrammask);
 
-    u32* objLine = OBJLine[OBJLineBack];
-    u8* objWindow = OBJWindow[OBJWindowBack];
+    u32* objLine = OBJLine;
+    u8* objWindow = OBJWindow;
 
     // yflip
     if (attrib[1] & (1<<13))
