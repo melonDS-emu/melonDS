@@ -35,6 +35,9 @@ public:
     void Reset() override;
     void Stop() override;
 
+    void PreSavestate() override;
+    void PostSavestate() override;
+
     void SetRenderSettings(RendererSettings& settings) override;
 
     void DrawScanline(u32 line) override;

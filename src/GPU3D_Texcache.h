@@ -44,7 +44,7 @@ template <typename TexLoaderT, typename TexHandleT>
 class Texcache
 {
 public:
-    Texcache(GPU& gpu, const TexLoaderT& texloader)
+    Texcache(melonDS::GPU& gpu, const TexLoaderT& texloader)
         : GPU(gpu), TexLoader(texloader) // probably better if this would be a move constructor???
     {}
 

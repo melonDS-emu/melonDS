@@ -206,7 +206,10 @@ void GPU::DoSavestate(Savestate* file) noexcept
 {
     file->Section("GPUG");
 
+    Rend->PreSavestate();
+
     // TODO check that all the shit is in here
+    // TODO all the shit is infact not in there
 
     file->VarBool(&ScreensEnabled);
     file->VarBool(&ScreenSwap);
@@ -273,6 +276,8 @@ void GPU::DoSavestate(Savestate* file) noexcept
 
     if (!file->Saving)
         ResetVRAMCache();
+
+    Rend->PostSavestate();
 }
 
 
@@ -281,7 +286,7 @@ void GPU::SetRenderer(std::unique_ptr<Renderer>&& renderer) noexcept
     if (renderer)
         Rend = std::move(renderer);
     else
-        Rend = std::make_unique<SoftRenderer>(*this);
+        Rend = std::make_unique<SoftRenderer>(NDS);
 }
 
 
@@ -1117,7 +1122,7 @@ void GPU::FinishFrame(u32 lines) noexcept
 
     if (GPU3D.AbortFrame)
     {
-        GPU3D.RestartFrame(*this);
+        Rend->Restart3DRendering();
         GPU3D.AbortFrame = false;
     }
 }
@@ -1375,6 +1380,12 @@ void GPU::StartScanline(u32 line) noexcept
     }
 #endif
     NDS.ScheduleEvent(Event_LCD, true, HBLANK_CYCLES, LCD_StartHBlank, line);
+}
+
+
+void GPU::Restart3DFrame() noexcept
+{
+    Rend->Restart3DRendering();
 }
 
 

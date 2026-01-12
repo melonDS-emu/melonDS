@@ -65,6 +65,7 @@ public:
     void DoSavestate(Savestate* file) noexcept;
 
     void SetRenderer(std::unique_ptr<Renderer>&& renderer) noexcept;
+    const Renderer& GetRenderer() const noexcept { return *Rend; }
     Renderer& GetRenderer() noexcept { return *Rend; }
 
     // return value for GetFramebuffers:
@@ -587,6 +588,8 @@ public:
     void StartScanline(u32 line) noexcept;
     void StartHBlank(u32 line) noexcept;
 
+    void Restart3DFrame() noexcept;
+
     void DisplayFIFO(u32 x) noexcept;
 
     void SetDispStat(u32 cpu, u16 val, u16 mask) noexcept;
@@ -844,6 +847,9 @@ public:
     virtual void Reset() = 0;
     virtual void Stop() = 0;
 
+    virtual void PreSavestate() {}
+    virtual void PostSavestate() {}
+
     virtual void SetRenderSettings(RendererSettings& settings) = 0;
 
     virtual void DrawScanline(u32 line) = 0;
@@ -851,6 +857,7 @@ public:
 
     virtual void Start3DRendering() { Rend3D->RenderFrame(); }
     virtual void Finish3DRendering() { Rend3D->FinishRendering(); }
+    virtual void Restart3DRendering() { Rend3D->RestartFrame(); }
 
     virtual void VBlank() = 0;
     virtual void VBlankEnd() = 0;

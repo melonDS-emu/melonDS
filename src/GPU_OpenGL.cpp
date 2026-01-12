@@ -410,18 +410,6 @@ void GLRenderer::DrawSprites(u32 line)
 }
 
 
-void GLRenderer::Finish3DRendering()
-{
-    Renderer::Finish3DRendering();
-
-    // 3D layer scrolling should be implemented in the 3D rendering engine
-    // for convenience's sake we will do it here
-
-    // TODO: actually do it
-    // or not?
-}
-
-
 void GLRenderer::VBlank()
 {
     Rend2D_A->VBlank();

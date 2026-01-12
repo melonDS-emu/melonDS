@@ -314,12 +314,6 @@ void GPU3D::DoSavestate(Savestate* file) noexcept
 {
     file->Section("GP3D");
 
-    SoftRenderer* softRenderer = dynamic_cast<SoftRenderer*>(CurrentRenderer.get());
-    if (softRenderer && softRenderer->IsThreaded())
-    {
-        softRenderer->SetupRenderThread(NDS.GPU);
-    }
-
     CmdFIFO.DoSavestate(file);
     CmdPIPE.DoSavestate(file);
 
@@ -558,12 +552,6 @@ void GPU3D::DoSavestate(Savestate* file) noexcept
     file->Var32(&TexPalette);
 
     RenderFrameIdentical = false;
-
-    // TODO: do something better with this shit
-    if (softRenderer && softRenderer->IsThreaded())
-    {
-        softRenderer->EnableRenderThread();
-    }
 }
 
 

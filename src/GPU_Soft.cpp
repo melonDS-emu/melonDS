@@ -70,6 +70,21 @@ void SoftRenderer::Stop()
 }
 
 
+void SoftRenderer::PreSavestate()
+{
+    auto rend3d = dynamic_cast<SoftRenderer3D*>(Rend3D.get());
+    if (rend3d->IsThreaded())
+        rend3d->SetupRenderThread();
+}
+
+void SoftRenderer::PostSavestate()
+{
+    auto rend3d = dynamic_cast<SoftRenderer3D*>(Rend3D.get());
+    if (rend3d->IsThreaded())
+        rend3d->EnableRenderThread();
+}
+
+
 void SoftRenderer::SetRenderSettings(RendererSettings& settings)
 {
     auto rend3d = dynamic_cast<SoftRenderer3D*>(Rend3D.get());
