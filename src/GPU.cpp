@@ -284,9 +284,14 @@ void GPU::DoSavestate(Savestate* file) noexcept
 void GPU::SetRenderer(std::unique_ptr<Renderer>&& renderer) noexcept
 {
     if (renderer)
+    {
         Rend = std::move(renderer);
-    else
-        Rend = std::make_unique<SoftRenderer>(NDS);
+        if (Rend->Init())
+            return;
+    }
+
+    Rend = std::make_unique<SoftRenderer>(NDS);
+    Rend->Init();
 }
 
 
