@@ -79,11 +79,11 @@ void main()
     if (uDispModeB != 0)
         output_sub = MasterBrightness(output_sub, uBrightModeB, uBrightFactorB);
 
-    int scry = int(fTexcoord.y);
-    bvec4 swap = uScreenSwap[scry >> 3];
-    bool swapbit = swap[scry & 0x3];
+    int line = int(fTexcoord.y);
+    bvec4 swap = uScreenSwap[line >> 3];
+    bool swapbit = swap[line & 0x3];
 
-    if (swapbit)
+    if (!swapbit)
     {
         oTopColor = vec4(vec3(output_sub) / 63.0, 1.0);
         oBottomColor = vec4(vec3(output_main) / 63.0, 1.0);

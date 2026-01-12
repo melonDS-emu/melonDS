@@ -32,6 +32,9 @@ namespace melonDS
 GLRenderer::GLRenderer(melonDS::NDS& nds, bool compute)
     : Renderer(nds.GPU)
 {
+    AuxInputBuffer[0] = new u16[256 * 256];
+    AuxInputBuffer[1] = new u16[256 * 192];
+
     Rend2D_A = std::make_unique<GLRenderer2D>(GPU.GPU2D_A, *this);
     Rend2D_B = std::make_unique<GLRenderer2D>(GPU.GPU2D_B, *this);
 
@@ -194,9 +197,6 @@ bool GLRenderer::Init()
     uniloc = glGetUniformBlockIndex(CaptureShader, "uCaptureConfig");
     glUniformBlockBinding(CaptureShader, uniloc, 31);
 
-    // TODO
-    // init OutputTex2D and the other shit
-
     if (!Rend2D_A->Init()) return false;
     if (!Rend2D_B->Init()) return false;
     if (!Rend3D->Init()) return false;
@@ -338,6 +338,9 @@ void GLRenderer::SetScaleFactor(int scale)
 
 void GLRenderer::DrawScanline(u32 line)
 {
+    if (line >= 192)
+        return;
+
     // TODO: forced blank
 
     Rend2D_A->DrawScanline(line);
@@ -351,7 +354,6 @@ void GLRenderer::DrawScanline(u32 line)
     u32 capsel = (capcnt >> 29) & 0x3;
     u32 capB = (capcnt >> 25) & 0x1;
     bool checkcap = GPU.CaptureEnable && (capsel != 0);
-    line &= 0xFF;
 
     if ((dispmode == 2) || (checkcap && (capB == 0)))
     {
@@ -405,6 +407,9 @@ void GLRenderer::DrawScanline(u32 line)
 
 void GLRenderer::DrawSprites(u32 line)
 {
+    if (line >= 192)
+        return;
+
     Rend2D_A->DrawSprites(line);
     Rend2D_B->DrawSprites(line);
 }

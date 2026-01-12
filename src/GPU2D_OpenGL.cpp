@@ -35,6 +35,13 @@ namespace melonDS
 #include "OpenGL_shaders/CompositorFS.h"
 
 
+int GLRenderer2D::ShaderCount = 0;
+GLuint GLRenderer2D::LayerPreShader = 0;
+GLuint GLRenderer2D::SpritePreShader = 0;
+GLuint GLRenderer2D::SpriteShader = 0;
+GLuint GLRenderer2D::CompositorShader = 0;
+
+
 GLRenderer2D::GLRenderer2D(melonDS::GPU2D& gpu2D, GLRenderer& parent)
     : Renderer2D(gpu2D), Parent(parent)
 {
@@ -50,35 +57,38 @@ bool GLRenderer2D::Init()
 {
     GLint uniloc;
 
-    // compile shaders
+    if (ShaderCount++ == 0)
+    {
+        // compile shaders
 
-    if (!OpenGL::CompileVertexFragmentProgram(LayerPreShader,
-                                              kLayerPreVS, kLayerPreFS,
-                                              "2DLayerPreShader",
-                                              {{"vPosition", 0}},
-                                              {{"oColor", 0}}))
-        return false;
+        if (!OpenGL::CompileVertexFragmentProgram(LayerPreShader,
+                                                  kLayerPreVS, kLayerPreFS,
+                                                  "2DLayerPreShader",
+                                                  {{"vPosition", 0}},
+                                                  {{"oColor", 0}}))
+            return false;
 
-    if (!OpenGL::CompileVertexFragmentProgram(SpritePreShader,
-                                              kSpritePreVS, kSpritePreFS,
-                                              "2DSpritePreShader",
-                                              {{"vPosition", 0}, {"vSpriteIndex", 1}},
-                                              {{"oColor", 0}}))
-        return false;
+        if (!OpenGL::CompileVertexFragmentProgram(SpritePreShader,
+                                                  kSpritePreVS, kSpritePreFS,
+                                                  "2DSpritePreShader",
+                                                  {{"vPosition", 0}, {"vSpriteIndex", 1}},
+                                                  {{"oColor", 0}}))
+            return false;
 
-    if (!OpenGL::CompileVertexFragmentProgram(SpriteShader,
-                                              kSpriteVS, kSpriteFS,
-                                              "2DSpriteShader",
-                                              {{"vPosition", 0}, {"vTexcoord", 1}, {"vSpriteIndex", 2}},
-                                              {{"oColor", 0}, {"oFlags", 1}}))
-        return false;
+        if (!OpenGL::CompileVertexFragmentProgram(SpriteShader,
+                                                  kSpriteVS, kSpriteFS,
+                                                  "2DSpriteShader",
+                                                  {{"vPosition", 0}, {"vTexcoord", 1}, {"vSpriteIndex", 2}},
+                                                  {{"oColor", 0}, {"oFlags", 1}}))
+            return false;
 
-    if (!OpenGL::CompileVertexFragmentProgram(CompositorShader,
-                                              kCompositorVS, kCompositorFS,
-                                              "2DCompositorShader",
-                                              {{"vPosition", 0}},
-                                              {{"oColor", 0}}))
-        return false;
+        if (!OpenGL::CompileVertexFragmentProgram(CompositorShader,
+                                                  kCompositorVS, kCompositorFS,
+                                                  "2DCompositorShader",
+                                                  {{"vPosition", 0}},
+                                                  {{"oColor", 0}}))
+            return false;
+    }
 
     const float rectvertices[2*2*3] = {
         0, 1,   1, 0,   1, 1,
@@ -130,22 +140,6 @@ bool GLRenderer2D::Init()
     //auto& state = UnitState[i];
     //memset(&state, 0, sizeof(state));
     // TODO reset all the state shit
-
-    // generate UBOs
-
-    UBOBaseID = (GPU2D.Num == 0) ? 10 : 20;
-
-    glGenBuffers(1, &LayerConfigUBO);
-    glBindBuffer(GL_UNIFORM_BUFFER, LayerConfigUBO);
-    static_assert((sizeof(sLayerConfig) & 15) == 0);
-    glBufferData(GL_UNIFORM_BUFFER, sizeof(sLayerConfig), nullptr, GL_STREAM_DRAW);
-    glBindBufferBase(GL_UNIFORM_BUFFER, UBOBaseID+0, LayerConfigUBO);
-
-    glGenBuffers(1, &SpriteConfigUBO);
-    glBindBuffer(GL_UNIFORM_BUFFER, SpriteConfigUBO);
-    static_assert((sizeof(sSpriteConfig) & 15) == 0);
-    glBufferData(GL_UNIFORM_BUFFER, sizeof(sSpriteConfig), nullptr, GL_STREAM_DRAW);
-    glBindBufferBase(GL_UNIFORM_BUFFER, UBOBaseID+1, SpriteConfigUBO);
 
     // generate textures to hold raw BG and OBJ VRAM and palettes
 
@@ -277,29 +271,33 @@ bool GLRenderer2D::Init()
     glReadBuffer(GL_COLOR_ATTACHMENT0);
 #endif
 
-    /*glGenBuffers(1, &LayerConfigUBO);
+    // generate UBOs
+
+    UBOBaseID = (GPU2D.Num == 0) ? 10 : 20;
+
+    glGenBuffers(1, &LayerConfigUBO);
     glBindBuffer(GL_UNIFORM_BUFFER, LayerConfigUBO);
     static_assert((sizeof(sLayerConfig) & 15) == 0);
     glBufferData(GL_UNIFORM_BUFFER, sizeof(sLayerConfig), nullptr, GL_STREAM_DRAW);
-    glBindBufferBase(GL_UNIFORM_BUFFER, 10, LayerConfigUBO);*/
+    glBindBufferBase(GL_UNIFORM_BUFFER, UBOBaseID+0, LayerConfigUBO);
 
-    /*glGenBuffers(1, &SpriteConfigUBO);
+    glGenBuffers(1, &SpriteConfigUBO);
     glBindBuffer(GL_UNIFORM_BUFFER, SpriteConfigUBO);
     static_assert((sizeof(sSpriteConfig) & 15) == 0);
     glBufferData(GL_UNIFORM_BUFFER, sizeof(sSpriteConfig), nullptr, GL_STREAM_DRAW);
-    glBindBufferBase(GL_UNIFORM_BUFFER, 11, SpriteConfigUBO);*/
+    glBindBufferBase(GL_UNIFORM_BUFFER, UBOBaseID+1, SpriteConfigUBO);
 
     glGenBuffers(1, &ScanlineConfigUBO);
     glBindBuffer(GL_UNIFORM_BUFFER, ScanlineConfigUBO);
     static_assert((sizeof(sScanlineConfig) & 15) == 0);
     glBufferData(GL_UNIFORM_BUFFER, sizeof(sScanlineConfig), nullptr, GL_STREAM_DRAW);
-    glBindBufferBase(GL_UNIFORM_BUFFER, 12, ScanlineConfigUBO);
+    glBindBufferBase(GL_UNIFORM_BUFFER, UBOBaseID+2, ScanlineConfigUBO);
 
     glGenBuffers(1, &CompositorConfigUBO);
     glBindBuffer(GL_UNIFORM_BUFFER, CompositorConfigUBO);
     static_assert((sizeof(sCompositorConfig) & 15) == 0);
     glBufferData(GL_UNIFORM_BUFFER, sizeof(sCompositorConfig), nullptr, GL_STREAM_DRAW);
-    glBindBufferBase(GL_UNIFORM_BUFFER, 13, CompositorConfigUBO);
+    glBindBufferBase(GL_UNIFORM_BUFFER, UBOBaseID+3, CompositorConfigUBO);
 #if 0
     glGenBuffers(1, &FPConfigUBO);
     glBindBuffer(GL_UNIFORM_BUFFER, FPConfigUBO);
@@ -321,9 +319,9 @@ bool GLRenderer2D::Init()
     uniloc = glGetUniformLocation(LayerPreShader, "PalTex");
     glUniform1i(uniloc, 1);
 
-    uniloc = glGetUniformBlockIndex(LayerPreShader, "uConfig");
-    glUniformBlockBinding(LayerPreShader, uniloc, UBOBaseID+0);
-    //LayerPreBGConfigULoc = glGetUniformBlockIndex(LayerPreShader, "uConfig");
+    //uniloc = glGetUniformBlockIndex(LayerPreShader, "uConfig");
+    //glUniformBlockBinding(LayerPreShader, uniloc, UBOBaseID+0);
+    LayerPreBGConfigULoc = glGetUniformBlockIndex(LayerPreShader, "uConfig");
 
     LayerPreCurBGULoc = glGetUniformLocation(LayerPreShader, "uCurBG");
 
@@ -335,9 +333,9 @@ bool GLRenderer2D::Init()
     uniloc = glGetUniformLocation(SpritePreShader, "PalTex");
     glUniform1i(uniloc, 1);
 
-    uniloc = glGetUniformBlockIndex(SpritePreShader, "uConfig");
-    glUniformBlockBinding(SpritePreShader, uniloc, UBOBaseID+1);
-    //SpritePreConfigULoc = glGetUniformBlockIndex(SpritePreShader, "uConfig");
+    //uniloc = glGetUniformBlockIndex(SpritePreShader, "uConfig");
+    //glUniformBlockBinding(SpritePreShader, uniloc, UBOBaseID+1);
+    SpritePreConfigULoc = glGetUniformBlockIndex(SpritePreShader, "uConfig");
 
 
     glUseProgram(SpriteShader);
@@ -350,7 +348,7 @@ bool GLRenderer2D::Init()
     glUniform1i(uniloc, 2);
 
     //uniloc = glGetUniformBlockIndex(SpriteShader, "uConfig");
-    //glUniformBlockBinding(SpriteShader, uniloc, 11);
+    //glUniformBlockBinding(SpriteShader, uniloc, UBOBaseID+1);
     SpriteConfigULoc = glGetUniformBlockIndex(SpriteShader, "uConfig");
 
 
@@ -373,13 +371,15 @@ bool GLRenderer2D::Init()
     uniloc = glGetUniformLocation(CompositorShader, "Capture256Tex");
     glUniform1i(uniloc, 6);
 
-    //uniloc = glGetUniformBlockIndex(CompositorShader, "ubBGConfig");
-    //glUniformBlockBinding(CompositorShader, uniloc, 10);
-    CompositorBGConfigULoc = glGetUniformBlockIndex(CompositorShader, "ubBGConfig");
+    /*uniloc = glGetUniformBlockIndex(CompositorShader, "ubBGConfig");
+    glUniformBlockBinding(CompositorShader, uniloc, UBOBaseID+0);
     uniloc = glGetUniformBlockIndex(CompositorShader, "ubScanlineConfig");
-    glUniformBlockBinding(CompositorShader, uniloc, 12);
+    glUniformBlockBinding(CompositorShader, uniloc, UBOBaseID+2);
     uniloc = glGetUniformBlockIndex(CompositorShader, "ubCompositorConfig");
-    glUniformBlockBinding(CompositorShader, uniloc, 13);
+    glUniformBlockBinding(CompositorShader, uniloc, UBOBaseID+3);*/
+    CompositorBGConfigULoc = glGetUniformBlockIndex(CompositorShader, "ubBGConfig");
+    CompositorScanlineConfigULoc = glGetUniformBlockIndex(CompositorShader, "ubScanlineConfig");
+    CompositorConfigULoc = glGetUniformBlockIndex(CompositorShader, "ubCompositorConfig");
 
     CompositorScaleULoc = glGetUniformLocation(CompositorShader, "uScaleFactor");
 
@@ -502,12 +502,13 @@ GLRenderer2D::~GLRenderer2D()
 {
     // TODO shader objects also need to be deleted!
     // ideally, programs should be entirely managed by a class
-    glDeleteProgram(LayerPreShader);
-    glDeleteProgram(SpritePreShader);
-    glDeleteProgram(SpriteShader);
-    glDeleteProgram(CompositorShader);
-    //glDeleteProgram(FPShaderID);
-    //glDeleteProgram(CaptureShader);
+    if (--ShaderCount == 0)
+    {
+        glDeleteProgram(LayerPreShader);
+        glDeleteProgram(SpritePreShader);
+        glDeleteProgram(SpriteShader);
+        glDeleteProgram(CompositorShader);
+    }
 
     glDeleteBuffers(1, &RectVtxBuffer);
     glDeleteVertexArrays(1, &RectVtxArray);
@@ -878,6 +879,8 @@ void GLRenderer2D::UpdateAndRender(int line)
         // pre-render BG layers with the new settings
 
         glUseProgram(LayerPreShader);
+
+        glUniformBlockBinding(LayerPreShader, LayerPreBGConfigULoc, UBOBaseID+0);
 
         //glBindBuffer(GL_UNIFORM_BUFFER, LayerConfigUBO);
         //glBufferSubData(GL_UNIFORM_BUFFER, 0, sizeof(LayerConfig), &LayerConfig);
@@ -1664,6 +1667,8 @@ void GLRenderer2D::PrerenderSprites()
 
     glUseProgram(SpritePreShader);
 
+    glUniformBlockBinding(SpritePreShader, SpritePreConfigULoc, UBOBaseID+1);
+
     glBindFramebuffer(GL_READ_FRAMEBUFFER, 0);
     glBindFramebuffer(GL_DRAW_FRAMEBUFFER, SpriteFB);
     glViewport(0, 0, 1024, 512);
@@ -1702,6 +1707,8 @@ void GLRenderer2D::DoRenderSprites(int line)
     int yend = line;
 
     glUseProgram(SpriteShader);
+
+    glUniformBlockBinding(SpriteShader, SpriteConfigULoc, UBOBaseID+1);
 
     glBindFramebuffer(GL_READ_FRAMEBUFFER, 0);
     glBindFramebuffer(GL_DRAW_FRAMEBUFFER, OBJLayerFB);
@@ -1808,6 +1815,10 @@ void GLRenderer2D::RenderSprites(bool window, int ystart, int yend)
 void GLRenderer2D::RenderScreen(int ystart, int yend)
 {
     glUseProgram(CompositorShader);
+
+    glUniformBlockBinding(CompositorShader, CompositorBGConfigULoc, UBOBaseID+0);
+    glUniformBlockBinding(CompositorShader, CompositorScanlineConfigULoc, UBOBaseID+2);
+    glUniformBlockBinding(CompositorShader, CompositorConfigULoc, UBOBaseID+3);
 
     glBindBuffer(GL_UNIFORM_BUFFER, ScanlineConfigUBO);
     glBufferSubData(GL_UNIFORM_BUFFER,

@@ -275,6 +275,8 @@ bool GLRenderer3D::Init()
     glGenTextures(1, &AttrBufferTex);
     SetupDefaultTexParams(AttrBufferTex);
 
+    Parent.OutputTex3D = ColorBufferTex;
+
     glEnable(GL_BLEND);
     glBlendEquationSeparate(GL_FUNC_ADD, GL_MAX);
 

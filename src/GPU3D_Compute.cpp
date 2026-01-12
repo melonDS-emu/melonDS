@@ -353,6 +353,8 @@ void ComputeRenderer3D::SetRenderSettings(int scale, bool highResolutionCoordina
     glBindTexture(GL_TEXTURE_2D, Framebuffer);
     glTexStorage2D(GL_TEXTURE_2D, 1, GL_RGBA8, ScreenWidth, ScreenHeight);
 
+    Parent.OutputTex3D = Framebuffer;
+
     // eh those are pretty bad guesses
     // though real hw shouldn't be eable to render all 2048 polygons on every line either
     int maxYSpanIndices = 64*2048 * ScaleFactor;
