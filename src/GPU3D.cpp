@@ -305,8 +305,9 @@ void GPU3D::Reset() noexcept
 
     RenderXPos = 0;
 
-    if (CurrentRenderer)
-        CurrentRenderer->Reset(NDS.GPU);
+    // TODO make sure the renderer's Reset func gets called in GPU
+    //if (CurrentRenderer)
+    //    CurrentRenderer->Reset(NDS.GPU);
 }
 
 void GPU3D::DoSavestate(Savestate* file) noexcept
@@ -555,7 +556,10 @@ void GPU3D::DoSavestate(Savestate* file) noexcept
     file->Var32(&CurPolygonAttr);
     file->Var32(&TexParam);
     file->Var32(&TexPalette);
+
     RenderFrameIdentical = false;
+
+    // TODO: do something better with this shit
     if (softRenderer && softRenderer->IsThreaded())
     {
         softRenderer->EnableRenderThread();
@@ -2431,7 +2435,7 @@ void GPU3D::VCount144(GPU& gpu) noexcept
 {
     CurrentRenderer->VCount144(gpu);
 }*/
-
+/*
 void GPU3D::RestartFrame(GPU& gpu) noexcept
 {
     CurrentRenderer->RestartFrame(gpu);
@@ -2441,7 +2445,7 @@ void GPU3D::Stop(const GPU& gpu) noexcept
 {
     if (CurrentRenderer)
         CurrentRenderer->Stop(gpu);
-}
+}*/
 
 
 bool YSort(Polygon* a, Polygon* b)
@@ -2545,7 +2549,7 @@ void GPU3D::SetRenderXPos(u16 xpos, u16 mask) noexcept
     RenderXPos = (RenderXPos & ~mask) | (xpos & mask & 0x01FF);
 }
 
-
+#if 0
 u32* GPU3D::GetLine(int line) noexcept
 {
     if (!AbortFrame)
@@ -2580,7 +2584,7 @@ u32* GPU3D::GetLine(int line) noexcept
 
     return ScrolledLine;
 }
-
+#endif
 /*bool GPU3D::IsRendererAccelerated() const noexcept
 {
     return CurrentRenderer && CurrentRenderer->Accelerated;
@@ -3000,10 +3004,10 @@ void GPU3D::Write32(u32 addr, u32 val) noexcept
     if (CurrentRenderer)
         CurrentRenderer->Blit(gpu);
 }*/
-
+/*
 Renderer3D::Renderer3D(bool Accelerated)
 : Accelerated(Accelerated)
-{ }
+{ }*/
 
 }
 

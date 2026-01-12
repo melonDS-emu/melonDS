@@ -32,8 +32,8 @@ SoftRenderer::SoftRenderer(melonDS::GPU& gpu)
     Framebuffer[1][1] = new u32[len];
     BackBuffer = 0;
 
-    Rend2D_A = std::make_unique<GPU2D::SoftRenderer2D>(GPU.GPU2D_A, *this);
-    Rend2D_B = std::make_unique<GPU2D::SoftRenderer2D>(GPU.GPU2D_B, *this);
+    Rend2D_A = std::make_unique<SoftRenderer2D>(GPU.GPU2D_A, *this);
+    Rend2D_B = std::make_unique<SoftRenderer2D>(GPU.GPU2D_B, *this);
     Rend3D = std::make_unique<SoftRenderer3D>(GPU.GPU3D, *this);
 }
 
@@ -422,9 +422,6 @@ void SoftRenderer::ExpandColor(u32* dst)
         *(u64*)&dst[i] = c | ((c & 0x00C0C0C000C0C0C0) >> 6) | 0xFF000000FF000000;
     }
 }
-
-
-//
 
 
 bool SoftRenderer::GetFramebuffers(u32** top, u32** bottom)

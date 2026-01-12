@@ -1806,6 +1806,13 @@ void SoftRenderer3D::RenderThreadFunc()
 
 u32* SoftRenderer3D::GetLine(int line)
 {
+    if (GPU3D.AbortFrame)
+    {
+        // TODO this isn't accurate
+        memset(ScrolledLine, 0, sizeof(ScrolledLine));
+        return ScrolledLine;
+    }
+
     if (RenderThreadRunning.load(std::memory_order_relaxed))
     {
         if (line < 192)
@@ -1815,7 +1822,31 @@ u32* SoftRenderer3D::GetLine(int line)
             Platform::Semaphore_Wait(Sema_ScanlineCount);
     }
 
-    return &ColorBuffer[(line * ScanlineWidth) + FirstPixelOffset];
+    u32* rawline = &ColorBuffer[(line * ScanlineWidth) + FirstPixelOffset];
+    u16 xpos = GPU3D.RenderXPos;
+    if (xpos == 0)
+        return rawline;
+
+    // apply X scroll
+
+    if (xpos & 0x100)
+    {
+        int i = 0, j = xpos;
+        for (; j < 512; i++, j++)
+            ScrolledLine[i] = 0;
+        for (j = 0; i < 256; i++, j++)
+            ScrolledLine[i] = rawline[j];
+    }
+    else
+    {
+        int i = 0, j = xpos;
+        for (; j < 256; i++, j++)
+            ScrolledLine[i] = rawline[j];
+        for (; i < 256; i++)
+            ScrolledLine[i] = 0;
+    }
+
+    return ScrolledLine;
 }
 
 }

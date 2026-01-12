@@ -107,12 +107,12 @@ public:
     void VBlank() noexcept;
     //void VCount215(GPU& gpu) noexcept;
 
-    void RestartFrame(GPU& gpu) noexcept;
-    void Stop(const GPU& gpu) noexcept;
+    //void RestartFrame(GPU& gpu) noexcept;
+    //void Stop(const GPU& gpu) noexcept;
 
     void SetRenderXPos(u16 xpos, u16 mask) noexcept;
     [[nodiscard]] u16 GetRenderXPos() const noexcept { return RenderXPos; }
-    u32* GetLine(int line) noexcept;
+    //u32* GetLine(int line) noexcept;
 
     void WriteToGXFIFO(u32 val) noexcept;
 
@@ -191,8 +191,6 @@ private:
     }
 
     //std::unique_ptr<Renderer3D> CurrentRenderer = nullptr;
-
-    u16 RenderXPos = 0;
 
 public:
     FIFO<CmdFIFOEntry, 256> CmdFIFO {};
@@ -276,6 +274,8 @@ public:
 
     bool RenderFrameIdentical = false; // not part of the hardware state, don't serialize
 
+    u16 RenderXPos = 0;
+
     bool AbortFrame = false;
 
     u64 Timestamp = 0;
@@ -329,10 +329,10 @@ public:
 
     u32 FlushRequest = 0;
     u32 FlushAttributes = 0;
-    u32 ScrolledLine[256]; // not part of the hardware state, don't serialize
+    //u32 ScrolledLine[256]; // not part of the hardware state, don't serialize
 
 private:
-    friend class Renderer3D;
+    friend class Renderer3D; // TODO: FUCK PISS SHIT THIS DOES NOT WORK.
 };
 
 class Renderer3D
@@ -343,25 +343,21 @@ public:
 
     Renderer3D(const Renderer3D&) = delete;
     Renderer3D& operator=(const Renderer3D&) = delete;
-    virtual bool Init() = 0;
+    virtual bool Init() { return true; }
     virtual void Reset() = 0;
-
-    // This "Accelerated" flag currently communicates if the framebuffer should
-    // be allocated differently and other little misc handlers. Ideally there
-    // are more detailed "traits" that we can ask of the Renderer3D type
-    //const bool Accelerated;
-
-    ///virtual void VCount144(GPU& gpu) {};
     virtual void Stop() {}
-    virtual void RenderFrame() = 0;
-    virtual void FinishRendering() = 0;
-    virtual void RestartFrame() {};
-    virtual u32* GetLine(int line) = 0;
-    /*virtual void Blit(const GPU& gpu) {};
 
-    virtual void SetupAccelFrame() {}
-    virtual void PrepareCaptureFrame() {}
-    virtual void BindOutputTexture(int buffer) {}*/
+    virtual void RenderFrame() = 0;
+    virtual void FinishRendering() {}
+    virtual void RestartFrame() {};
+
+    // return raw framebuffer
+    // this is used in hardware renderers (ie. to return the 3D framebuffer handle)
+    virtual void* GetFramebuffer() { return nullptr; }
+
+    // return one scanline of the framebuffer, with X scroll applied
+    // this is used in software renderers
+    virtual u32* GetLine(int line) = 0;
 
     virtual bool NeedsShaderCompile() { return false; }
     virtual void ShaderCompileStep(int& current, int& count) {}
@@ -369,8 +365,6 @@ public:
 protected:
     melonDS::GPU& GPU;
     melonDS::GPU3D& GPU3D;
-
-    //Renderer3D();
 };
 
 }
