@@ -22,8 +22,7 @@
 
 #include "ARMJIT.h"
 
-#include "GPU2D_Soft.h"
-#include "GPU3D.h"
+#include "GPU_Soft.h"
 
 namespace melonDS
 {
@@ -72,22 +71,21 @@ enum
                 VRAMDirty need to be reset for the respective VRAM bank.
 */
 
-GPU::GPU(melonDS::NDS& nds, std::unique_ptr<Renderer3D>&& renderer3d, std::unique_ptr<GPU2D::Renderer2D>&& renderer2d) noexcept :
+GPU::GPU(melonDS::NDS& nds, std::unique_ptr<Renderer>&& renderer) noexcept :
     NDS(nds),
     GPU2D_A(0, *this),
     GPU2D_B(1, *this),
-    GPU3D(nds, renderer3d ? std::move(renderer3d) : std::make_unique<SoftRenderer>()),
-    GPU2D_Renderer(renderer2d ? std::move(renderer2d) : std::make_unique<GPU2D::SoftRenderer>(*this))
+    GPU3D(*this)
 {
     NDS.RegisterEventFuncs(Event_LCD, this,
     {
-            MakeEventThunk(GPU, StartHBlank),
-            MakeEventThunk(GPU, StartScanline),
-            MakeEventThunk(GPU, FinishFrame)
+        MakeEventThunk(GPU, StartHBlank),
+        MakeEventThunk(GPU, StartScanline),
+        MakeEventThunk(GPU, FinishFrame)
     });
     NDS.RegisterEventFuncs(Event_DisplayFIFO, this, {MakeEventThunk(GPU, DisplayFIFO)});
 
-    //InitFramebuffers();
+    SetRenderer(std::move(renderer));
 }
 
 GPU::~GPU() noexcept
@@ -202,9 +200,6 @@ void GPU::Reset() noexcept
 void GPU::Stop() noexcept
 {
     Rend->Stop();
-
-    // TODO: do we need this?
-    GPU3D.Stop(*this);
 }
 
 void GPU::DoSavestate(Savestate* file) noexcept
@@ -280,54 +275,19 @@ void GPU::DoSavestate(Savestate* file) noexcept
         ResetVRAMCache();
 }
 
-/*void GPU::AssignFramebuffers() noexcept
-{
-    int backbuf = FrontBuffer ? 0 : 1;
-    if (NDS.PowerControl9 & (1<<15))
-    {
-        GPU2D_Renderer->SetFramebuffer(Framebuffer[backbuf][0].get(), Framebuffer[backbuf][1].get());
-    }
-    else
-    {
-        GPU2D_Renderer->SetFramebuffer(Framebuffer[backbuf][1].get(), Framebuffer[backbuf][0].get());
-    }
-}*/
-#if 0
-void GPU::SetRenderer3D(std::unique_ptr<Renderer3D>&& renderer) noexcept
-{
-    if (renderer == nullptr)
-        GPU3D.SetCurrentRenderer(std::make_unique<SoftRenderer>());
-    else
-        GPU3D.SetCurrentRenderer(std::move(renderer));
 
-    //InitFramebuffers();
+void GPU::SetRenderer(std::unique_ptr<Renderer>&& renderer) noexcept
+{
+    if (renderer)
+        Rend = std::move(renderer);
+    else
+        Rend = std::make_unique<SoftRenderer>(*this);
 }
-#endif
-/*void GPU::InitFramebuffers() noexcept
+
+
+bool GPU::GetFramebuffers(void** top, void** bottom)
 {
-    int fbsize;
-    if (GPU3D.IsRendererAccelerated())
-        fbsize = (256*3 + 1) * 192;
-    else
-        fbsize = 256 * 192;
-
-    Framebuffer[0][0] = std::make_unique<u32[]>(fbsize);
-    Framebuffer[1][0] = std::make_unique<u32[]>(fbsize);
-    Framebuffer[0][1] = std::make_unique<u32[]>(fbsize);
-    Framebuffer[1][1] = std::make_unique<u32[]>(fbsize);
-
-    memset(Framebuffer[0][0].get(), 0, fbsize*4);
-    memset(Framebuffer[1][0].get(), 0, fbsize*4);
-    memset(Framebuffer[0][1].get(), 0, fbsize*4);
-    memset(Framebuffer[1][1].get(), 0, fbsize*4);
-
-    AssignFramebuffers();
-}*/
-
-
-bool GPU::GetFramebuffers(u32** top, u32** bottom)
-{
-    return GPU2D_Renderer->GetFramebuffers(top, bottom);
+    return Rend->GetFramebuffers(top, bottom);
 }
 
 

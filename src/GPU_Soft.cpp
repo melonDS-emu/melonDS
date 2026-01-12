@@ -424,7 +424,7 @@ void SoftRenderer::ExpandColor(u32* dst)
 }
 
 
-bool SoftRenderer::GetFramebuffers(u32** top, u32** bottom)
+bool SoftRenderer::GetFramebuffers(void** top, void** bottom)
 {
     int frontbuf = BackBuffer ^ 1;
     *top = Framebuffer[frontbuf][0];

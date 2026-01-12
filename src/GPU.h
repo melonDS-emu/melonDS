@@ -57,33 +57,21 @@ class Renderer;
 class GPU
 {
 public:
-    explicit GPU(melonDS::NDS& nds, std::unique_ptr<Renderer3D>&& renderer3d = nullptr, std::unique_ptr<GPU2D::Renderer2D>&& renderer2d = nullptr) noexcept;
+    explicit GPU(melonDS::NDS& nds, std::unique_ptr<Renderer>&& renderer = nullptr) noexcept;
     ~GPU() noexcept;
     void Reset() noexcept;
     void Stop() noexcept;
 
     void DoSavestate(Savestate* file) noexcept;
 
+    void SetRenderer(std::unique_ptr<Renderer>&& renderer) noexcept;
+    Renderer& GetRenderer() noexcept { return *Rend; }
+
     // return value for GetFramebuffers:
-    // true -> pointers to finished framebuffers are returned via the parameters
+    // true -> pointers to RAM framebuffers are returned via the parameters
     // false -> this renderer doesn't use RAM framebuffers
-    bool GetFramebuffers(u32** top, u32** bottom);
-
-#if 0
-    /// Sets the active renderer to the renderer given in the provided pointer.
-    /// The pointer is moved-from, so it will be \c nullptr after this method is called.
-    /// If the pointer is \c nullptr, the renderer is reset to the default renderer.
-    void SetRenderer3D(std::unique_ptr<Renderer3D>&& renderer) noexcept;
-    [[nodiscard]] const Renderer3D& GetRenderer3D() const noexcept { return GPU3D.GetCurrentRenderer(); }
-    [[nodiscard]] Renderer3D& GetRenderer3D() noexcept { return GPU3D.GetCurrentRenderer(); }
-
-    u8* GetUniqueBankPtr(u32 mask, u32 offset) noexcept;
-    const u8* GetUniqueBankPtr(u32 mask, u32 offset) const noexcept;
-
-    void SetRenderer2D(std::unique_ptr<GPU2D::Renderer2D>&& renderer) noexcept { GPU2D_Renderer = std::move(renderer); }
-    [[nodiscard]] const GPU2D::Renderer2D& GetRenderer2D() const noexcept { return *GPU2D_Renderer; }
-    [[nodiscard]] GPU2D::Renderer2D& GetRenderer2D() noexcept { return *GPU2D_Renderer; }
-#endif
+    //          - values are renderer-specific (ie. OpenGL texture handle)
+    bool GetFramebuffers(void** top, void** bottom);
 
     u8* GetUniqueBankPtr(u32 mask, u32 offset) noexcept;
     const u8* GetUniqueBankPtr(u32 mask, u32 offset) const noexcept;
@@ -834,7 +822,7 @@ private:
 class Renderer
 {
 public:
-    Renderer(GPU& gpu) : GPU(gpu), BackBuffer(0) {}
+    explicit Renderer(melonDS::GPU& gpu) : GPU(gpu), BackBuffer(0) {}
     virtual ~Renderer() {}
     virtual bool Init() = 0;
     virtual void Reset() = 0;
@@ -855,7 +843,7 @@ public:
 
     // a renderer may render to RAM buffers, or to something else (ie. OpenGL)
     // if the renderer uses RAM buffers, they should be 32-bit BGRA, 256x192 for each screen
-    virtual bool GetFramebuffers(u32** top, u32** bottom) = 0;
+    virtual bool GetFramebuffers(void** top, void** bottom) = 0;
     virtual void SwapBuffers() { BackBuffer ^= 1; }
 
 protected:

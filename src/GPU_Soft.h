@@ -44,7 +44,7 @@ public:
     void AllocCapture(u32 bank, u32 start, u32 len) override {};
     void SyncVRAMCapture(u32 bank, u32 start, u32 len, bool complete) override {};
 
-    bool GetFramebuffers(u32** top, u32** bottom) override;
+    bool GetFramebuffers(void** top, void** bottom) override;
 
 private:
     friend class SoftRenderer2D;

@@ -130,8 +130,6 @@ public:
     //void Blit(const GPU& gpu) noexcept;
 
 private:
-    melonDS::NDS& NDS;
-    melonDS::GPU& GPU;
 
     typedef union
     {
@@ -193,6 +191,9 @@ private:
     //std::unique_ptr<Renderer3D> CurrentRenderer = nullptr;
 
 public:
+    melonDS::NDS& NDS;
+    melonDS::GPU& GPU;
+
     FIFO<CmdFIFOEntry, 256> CmdFIFO {};
     FIFO<CmdFIFOEntry, 4> CmdPIPE {};
 
@@ -330,9 +331,6 @@ public:
     u32 FlushRequest = 0;
     u32 FlushAttributes = 0;
     //u32 ScrolledLine[256]; // not part of the hardware state, don't serialize
-
-private:
-    friend class Renderer3D; // TODO: FUCK PISS SHIT THIS DOES NOT WORK.
 };
 
 class Renderer3D
@@ -345,7 +343,6 @@ public:
     Renderer3D& operator=(const Renderer3D&) = delete;
     virtual bool Init() { return true; }
     virtual void Reset() = 0;
-    virtual void Stop() {}
 
     virtual void RenderFrame() = 0;
     virtual void FinishRendering() {}

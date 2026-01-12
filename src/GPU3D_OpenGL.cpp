@@ -1464,11 +1464,11 @@ void GLRenderer3D::VCount144()
     glActiveTexture(GL_TEXTURE0);
     glBindTexture(GL_TEXTURE_2D, ColorBufferTex);
 }*/
-
+/*
 void GLRenderer3D::Stop()
 {
     //CurGLCompositor.Stop(gpu);
-}
+}*/
 
 /*void GLRenderer3D::PrepareCaptureFrame()
 {

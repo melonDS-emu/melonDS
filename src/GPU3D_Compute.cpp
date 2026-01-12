@@ -367,12 +367,12 @@ void ComputeRenderer3D::SetRenderSettings(int scale, bool highResolutionCoordina
     glBindTexture(GL_TEXTURE_BUFFER, YSpanIndicesTexture);
     glTexBuffer(GL_TEXTURE_BUFFER, GL_RGBA16UI, YSpanIndicesTextureMemory);
 }
-
+/*
 void ComputeRenderer3D::VCount144()
 {
     glActiveTexture(GL_TEXTURE0);
     glBindTexture(GL_TEXTURE_2D, Framebuffer);
-}
+}*/
 
 void ComputeRenderer3D::SetupAttrs(SpanSetupY* span, Polygon* poly, int from, int to)
 {
@@ -1243,10 +1243,10 @@ void ComputeRenderer3D::Blit(const GPU &gpu)
 {
     CurGLCompositor.RenderFrame(gpu, *this);
 }*/
-
+/*
 void ComputeRenderer3D::Stop()
 {
     //CurGLCompositor.Stop(gpu);
-}
+}*/
 
 }

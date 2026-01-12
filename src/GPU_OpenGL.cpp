@@ -240,12 +240,15 @@ void GLRenderer::Reset()
 
     AuxUsageMask = 0;
 
-    // TODO reset the other ones
+    Rend2D_A->Reset();
+    Rend2D_B->Reset();
+    Rend3D->Reset();
 }
 
 void GLRenderer::Stop()
 {
     // TODO clear buffers
+    // TODO: do we even need this anymore?
 }
 
 
@@ -729,12 +732,12 @@ void GLRenderer::SyncVRAMCapture(u32 bank, u32 start, u32 len, bool complete)
 }
 
 
-bool GLRenderer::GetFramebuffers(u32** top, u32** bottom)
+bool GLRenderer::GetFramebuffers(void** top, void** bottom)
 {
+    // since we use an array texture, we only need one of the pointer fields
     int frontbuf = BackBuffer ^ 1;
-    glActiveTexture(GL_TEXTURE0);
-    glBindTexture(GL_TEXTURE_2D_ARRAY, FPOutputTex[frontbuf]);
-    // TODO return the texture ID in *top or something?
+    *top = &FPOutputTex[frontbuf];
+    *bottom = nullptr;
     return false;
 }
 

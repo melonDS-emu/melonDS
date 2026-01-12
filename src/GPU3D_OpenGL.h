@@ -35,7 +35,6 @@ public:
     ~GLRenderer3D() override;
     bool Init() override;
     void Reset() override;
-    void Stop() override;
 
     void SetRenderSettings(bool betterpolygons, int scale) noexcept;
     void SetBetterPolygons(bool betterpolygons) noexcept;

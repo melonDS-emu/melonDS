@@ -42,11 +42,10 @@ public:
     ~ComputeRenderer3D() override;
     bool Init() override;
     void Reset() override;
-    void Stop() override;
 
     void SetRenderSettings(int scale, bool highResolutionCoordinates);
 
-    void VCount144() override;
+    //void VCount144() override;
 
     void RenderFrame() override;
     void RestartFrame() override;

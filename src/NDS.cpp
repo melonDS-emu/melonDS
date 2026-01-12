@@ -97,7 +97,7 @@ NDS::NDS(NDSArgs&& args, int type, void* userdata) noexcept :
     JIT(*this, args.JIT),
     SPU(*this, args.BitDepth, args.Interpolation, args.OutputSampleRate),
     Mic(*this),
-    GPU(*this, std::move(args.Renderer3D)),
+    GPU(*this, std::move(args.Renderer)),
     SPI(*this, std::move(args.Firmware)),
     RTC(*this),
     Wifi(*this),
@@ -2771,7 +2771,7 @@ u8 NDS::ARM9IORead8(u32 addr)
     case 0x04000005: return GPU.DispStat[0] >> 8;
     case 0x04000006: return GPU.VCount & 0xFF;
     case 0x04000007: return GPU.VCount >> 8;
-    
+
     case 0x04000064:
     case 0x04000065:
     case 0x04000066:
