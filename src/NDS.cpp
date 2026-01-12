@@ -2767,6 +2767,20 @@ u8 NDS::ARM9IORead8(u32 addr)
 {
     switch (addr)
     {
+    case 0x04000004: return GPU.DispStat[0] & 0xFF;
+    case 0x04000005: return GPU.DispStat[0] >> 8;
+    case 0x04000006: return GPU.VCount & 0xFF;
+    case 0x04000007: return GPU.VCount >> 8;
+
+    case 0x04000064:
+    case 0x04000065:
+    case 0x04000066:
+    case 0x04000067:
+    case 0x0400006C:
+    case 0x0400006D:
+    case 0x0400106C:
+    case 0x0400106D: return GPU.Read8(addr);
+
     case 0x04000130: LagFrameFlag = false; return KeyInput & 0xFF;
     case 0x04000131: LagFrameFlag = false; return (KeyInput >> 8) & 0xFF;
     case 0x04000132: return KeyCnt[0] & 0xFF;
@@ -2905,7 +2919,9 @@ u16 NDS::ARM9IORead16(u32 addr)
 
     case 0x04000060: return GPU.GPU3D.Read16(addr);
     case 0x04000064:
-    case 0x04000066: return GPU.GPU2D_A.Read16(addr);
+    case 0x04000066:
+    case 0x0400006C:
+    case 0x0400106C: return GPU.Read16(addr);
 
     case 0x040000B8: return DMAs[0].Cnt & 0xFFFF;
     case 0x040000BA: return DMAs[0].Cnt >> 16;
@@ -3061,7 +3077,9 @@ u32 NDS::ARM9IORead32(u32 addr)
     case 0x04000004: return GPU.DispStat[0] | (GPU.VCount << 16);
 
     case 0x04000060: return GPU.GPU3D.Read32(addr);
-    case 0x04000064: return GPU.GPU2D_A.Read32(addr);
+    case 0x04000064:
+    case 0x0400006C:
+    case 0x0400106C: return GPU.Read32(addr);
 
     case 0x040000B0: return DMAs[0].SrcAddr;
     case 0x040000B4: return DMAs[0].DstAddr;
@@ -3202,10 +3220,25 @@ void NDS::ARM9IOWrite8(u32 addr, u8 val)
 {
     switch (addr)
     {
+    case 0x04000004: GPU.SetDispStat(0, val, 0x00FF); return;
+    case 0x04000005: GPU.SetDispStat(0, val << 8, 0xFF00); return;
+    case 0x04000006: GPU.SetVCount(val, 0x00FF); return;
+    case 0x04000007: GPU.SetVCount(val << 8, 0xFF00); return;
+
+    case 0x04000060:
+    case 0x04000061: GPU.GPU3D.Write8(addr, val); return;
+    case 0x04000064:
+    case 0x04000065:
+    case 0x04000066:
+    case 0x04000067:
+    case 0x04000068:
+    case 0x04000069:
+    case 0x0400006A:
+    case 0x0400006B:
     case 0x0400006C:
-    case 0x0400006D: GPU.GPU2D_A.Write8(addr, val); return;
+    case 0x0400006D:
     case 0x0400106C:
-    case 0x0400106D: GPU.GPU2D_B.Write8(addr, val); return;
+    case 0x0400106D: GPU.Write8(addr, val); return;
 
     case 0x04000132:
         KeyCnt[0] = (KeyCnt[0] & 0xFF00) | val;
@@ -3313,19 +3346,16 @@ void NDS::ARM9IOWrite16(u32 addr, u16 val)
 {
     switch (addr)
     {
-    case 0x04000004: GPU.SetDispStat(0, val); return;
-    case 0x04000006: GPU.SetVCount(val); return;
+    case 0x04000004: GPU.SetDispStat(0, val, 0xFFFF); return;
+    case 0x04000006: GPU.SetVCount(val, 0xFFFF); return;
 
     case 0x04000060: GPU.GPU3D.Write16(addr, val); return;
-
     case 0x04000064:
-    case 0x04000066: GPU.GPU2D_A.Write16(addr, val); return;
-
+    case 0x04000066:
     case 0x04000068:
-    case 0x0400006A: GPU.GPU2D_A.Write16(addr, val); return;
-
-    case 0x0400006C: GPU.GPU2D_A.Write16(addr, val); return;
-    case 0x0400106C: GPU.GPU2D_B.Write16(addr, val); return;
+    case 0x0400006A:
+    case 0x0400006C:
+    case 0x0400106C: GPU.Write16(addr, val); return;
 
     case 0x040000B8: DMAs[0].WriteCnt((DMAs[0].Cnt & 0xFFFF0000) | val); return;
     case 0x040000BA: DMAs[0].WriteCnt((DMAs[0].Cnt & 0x0000FFFF) | (val << 16)); return;
@@ -3512,16 +3542,15 @@ void NDS::ARM9IOWrite32(u32 addr, u32 val)
     switch (addr)
     {
     case 0x04000004:
-        GPU.SetDispStat(0, val & 0xFFFF);
-        GPU.SetVCount(val >> 16);
+        GPU.SetDispStat(0, val & 0xFFFF, 0xFFFF);
+        GPU.SetVCount(val >> 16, 0xFFFF);
         return;
 
     case 0x04000060: GPU.GPU3D.Write32(addr, val); return;
     case 0x04000064:
-    case 0x04000068: GPU.GPU2D_A.Write32(addr, val); return;
-
-    case 0x0400006C: GPU.GPU2D_A.Write16(addr, val&0xFFFF); return;
-    case 0x0400106C: GPU.GPU2D_B.Write16(addr, val&0xFFFF); return;
+    case 0x04000068:
+    case 0x0400006C:
+    case 0x0400106C: GPU.Write32(addr, val); return;
 
     case 0x040000B0: DMAs[0].SrcAddr = val; return;
     case 0x040000B4: DMAs[0].DstAddr = val; return;
@@ -3708,6 +3737,11 @@ u8 NDS::ARM7IORead8(u32 addr)
 {
     switch (addr)
     {
+    case 0x04000004: return GPU.DispStat[1] & 0xFF;
+    case 0x04000005: return GPU.DispStat[1] >> 8;
+    case 0x04000006: return GPU.VCount & 0xFF;
+    case 0x04000007: return GPU.VCount >> 8;
+
     case 0x04000130: return KeyInput & 0xFF;
     case 0x04000131: return (KeyInput >> 8) & 0xFF;
     case 0x04000132: return KeyCnt[1] & 0xFF;
@@ -4015,6 +4049,11 @@ void NDS::ARM7IOWrite8(u32 addr, u8 val)
 {
     switch (addr)
     {
+    case 0x04000004: GPU.SetDispStat(1, val, 0x00FF); return;
+    case 0x04000005: GPU.SetDispStat(1, val << 8, 0xFF00); return;
+    case 0x04000006: GPU.SetVCount(val, 0x00FF); return;
+    case 0x04000007: GPU.SetVCount(val << 8, 0xFF00); return;
+
     case 0x04000132:
         KeyCnt[1] = (KeyCnt[1] & 0xFF00) | val;
         return;
@@ -4120,8 +4159,8 @@ void NDS::ARM7IOWrite16(u32 addr, u16 val)
 {
     switch (addr)
     {
-    case 0x04000004: GPU.SetDispStat(1, val); return;
-    case 0x04000006: GPU.SetVCount(val); return;
+    case 0x04000004: GPU.SetDispStat(1, val, 0xFFFF); return;
+    case 0x04000006: GPU.SetVCount(val, 0xFFFF); return;
 
     case 0x040000B8: DMAs[4].WriteCnt((DMAs[4].Cnt & 0xFFFF0000) | val); return;
     case 0x040000BA: DMAs[4].WriteCnt((DMAs[4].Cnt & 0x0000FFFF) | (val << 16)); return;
@@ -4285,8 +4324,8 @@ void NDS::ARM7IOWrite32(u32 addr, u32 val)
     switch (addr)
     {
     case 0x04000004:
-        GPU.SetDispStat(1, val & 0xFFFF);
-        GPU.SetVCount(val >> 16);
+        GPU.SetDispStat(1, val & 0xFFFF, 0xFFFF);
+        GPU.SetVCount(val >> 16, 0xFFFF);
         return;
 
     case 0x040000B0: DMAs[4].SrcAddr = val; return;

@@ -333,39 +333,22 @@ bool GPU::GetFramebuffers(u32** top, u32** bottom)
 
 u8 GPU::Read8(u32 addr)
 {
-    // 04000000..0400006F -> GPU A, dispstat/vcount, disp3Dcnt
-    // 04000240..04000249 -> VRAM
-    // 04000320..040006A3 -> 3D
-    // 04001000..0400106F -> GPU B
-    // ARM7: DISPSTAT, VCOUNT
-    switch (addr)
-    {
-        case 0x04000004: return DispStat[0] & 0xFF;
-        case 0x04000005: return DispStat[0] >> 8;
-        case 0x04000006: return VCount & 0xFF;
-        case 0x04000007: return VCount >> 8;
-    }
-
-    if (addr >= 0x04000000 && addr < 0x04000070)
-        return GPU2D_A.Read8(addr);
-    if (addr >= 0x04001000 && addr < 0x04001070)
-        return GPU2D_B.Read8(addr);
-
-    Log(LogLevel::Debug, "unknown GPU read8 %08X\n", addr);
-    return 0;
+    u16 ret = Read16(addr & ~0x1);
+    if (addr & 0x1)
+        return ret >> 8;
+    else
+        return ret & 0xFF;
 }
 
 u16 GPU::Read16(u32 addr)
 {
     switch (addr)
     {
-        case 0x04000004: return DispStat[0];
-        case 0x04000006: return VCount;
-
         case 0x04000064: return CaptureCnt & 0xFFFF;
         case 0x04000066: return CaptureCnt >> 16;
 
         case 0x0400006C: return MasterBrightnessA;
+        case 0x0400106C: return MasterBrightnessB;
     }
 
     Log(LogLevel::Debug, "unknown GPU read16 %08X\n", addr);
@@ -376,10 +359,10 @@ u32 GPU::Read32(u32 addr)
 {
     switch (addr)
     {
-        case 0x04000004: return DispStat[0] | (VCount << 16);
-
         case 0x04000064: return CaptureCnt;
+
         case 0x0400006C: return MasterBrightnessA;
+        case 0x0400106C: return MasterBrightnessB;
     }
 
     Log(LogLevel::Debug, "unknown GPU read32 %08X\n", addr);
@@ -402,13 +385,6 @@ void GPU::Write8(u32 addr, u8 val)
         case 0x04000007:
             SetVCount(val << 8, 0xFF00);
             return;
-
-        case 0x04000010:
-            GPU3D.SetRenderXPos((GPU3D.GetRenderXPos() & 0xFF00) | val);
-            break;
-        case 0x04000011:
-            GPU3D.SetRenderXPos((GPU3D.GetRenderXPos() & 0x00FF) | (val << 8));
-            break;
 
         case 0x04000064:
             CaptureCnt = (CaptureCnt & 0xFFFFFF00) | (val & 0x1F);
@@ -450,8 +426,6 @@ void GPU::Write8(u32 addr, u8 val)
             return;
     }
 
-    // TODO
-
     Log(LogLevel::Debug, "unknown GPU write8 %08X %02X\n", addr, val);
 }
 
@@ -465,10 +439,6 @@ void GPU::Write16(u32 addr, u16 val)
         case 0x04000006:
             SetVCount(val, 0xFFFF);
             return;
-
-        case 0x04000010:
-            GPU3D.SetRenderXPos(val);
-            break;
 
         case 0x04000064:
             CaptureCnt = (CaptureCnt & 0xFFFF0000) | (val & 0x1F1F);
@@ -493,9 +463,6 @@ void GPU::Write16(u32 addr, u16 val)
             MasterBrightnessB = val & 0xC01F;
             return;
     }
-
-    // TODO
-
     printf("unknown GPU write16 %08X %04X\n", addr, val);
 }
 
@@ -507,10 +474,6 @@ void GPU::Write32(u32 addr, u32 val)
             SetDispStat(0, val & 0xFFFF, 0xFFFF);
             SetVCount(val >> 16, 0xFFFF);
             return;
-
-        case 0x04000010:
-            GPU3D.SetRenderXPos(val & 0xFFFF);
-            break;
 
         case 0x04000064:
             CaptureCnt = val & 0xEF3F1F1F;
@@ -530,8 +493,6 @@ void GPU::Write32(u32 addr, u32 val)
             MasterBrightnessB = val & 0xC01F;
             return;
     }
-
-    // TODO
 
     printf("unknown GPU write32 %08X %04X\n", addr, val);
 }
