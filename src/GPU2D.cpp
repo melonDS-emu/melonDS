@@ -193,6 +193,11 @@ u8 GPU2D::Read8(u32 addr)
     case 0x04A: return WinCnt[2];
     case 0x04B: return WinCnt[3];
 
+    case 0x050: return BlendCnt & 0xFF;
+    case 0x051: return BlendCnt >> 8;
+    case 0x052: return BlendAlpha & 0xFF;
+    case 0x053: return BlendAlpha >> 8;
+
     // there are games accidentally trying to read those
     // those are write-only
     case 0x04C:
