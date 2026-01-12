@@ -28,14 +28,11 @@ namespace melonDS
 class GPU;
 class GLRenderer;
 
-namespace GPU2D
-{
-
 class GLRenderer2D : public Renderer2D
 {
 public:
     //static std::unique_ptr<GLRenderer> New(melonDS::GPU& gpu) noexcept;
-    GLRenderer2D(melonDS::GPU2D::Unit& gpu2D, GLRenderer& parent);
+    GLRenderer2D(melonDS::GPU2D& gpu2D, GLRenderer& parent);
     ~GLRenderer2D() override;
     bool Init() override;
     void Reset() override;
@@ -326,5 +323,4 @@ private:
     void DoCapture(Unit* unit, int vramcap);
 };
 
-}
 }

@@ -19,10 +19,10 @@
 #include "GPU_Soft.h"
 #include "GPU_ColorOp.h"
 
-namespace melonDS::GPU2D
+namespace melonDS
 {
 
-SoftRenderer2D::SoftRenderer2D(melonDS::GPU2D::Unit& gpu2D, SoftRenderer& parent)
+SoftRenderer2D::SoftRenderer2D(melonDS::GPU2D& gpu2D, SoftRenderer& parent)
     : Renderer2D(gpu2D), Parent(parent)
 {
     // mosaic table is initialized at compile-time

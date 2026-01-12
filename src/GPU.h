@@ -679,11 +679,8 @@ public:
     u8* VRAMPtr_BBG[0x8] {};
     u8* VRAMPtr_BOBJ[0x8] {};
 
-    //int FrontBuffer = 0;
-    //std::unique_ptr<u32[]> Framebuffer[2][2] {};
-
-    GPU2D::Unit GPU2D_A;
-    GPU2D::Unit GPU2D_B;
+    melonDS::GPU2D GPU2D_A;
+    melonDS::GPU2D GPU2D_B;
     melonDS::GPU3D GPU3D;
 
     NonStupidBitField<128*1024/VRAMDirtyGranularity> VRAMDirty[9] {};
@@ -866,8 +863,8 @@ protected:
 
     int BackBuffer;
 
-    std::unique_ptr<GPU2D::Renderer2D> Rend2D_A;
-    std::unique_ptr<GPU2D::Renderer2D> Rend2D_B;
+    std::unique_ptr<Renderer2D> Rend2D_A;
+    std::unique_ptr<Renderer2D> Rend2D_B;
     std::unique_ptr<Renderer3D> Rend3D;
 };
 

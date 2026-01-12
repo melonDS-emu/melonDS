@@ -26,18 +26,15 @@ namespace melonDS
 {
 class GPU;
 
-namespace GPU2D
-{
-
-class Unit
+class GPU2D
 {
 public:
     // take a reference to the GPU so we can access its state
     // and ensure that it's not null
-    Unit(u32 num, melonDS::GPU& gpu);
-    virtual ~Unit() = default;
-    Unit(const Unit&) = delete;
-    Unit& operator=(const Unit&) = delete;
+    GPU2D(u32 num, melonDS::GPU& gpu);
+    virtual ~GPU2D() = default;
+    GPU2D(const GPU2D&) = delete;
+    GPU2D& operator=(const GPU2D&) = delete;
 
     void Reset();
 
@@ -140,7 +137,7 @@ private:
 class Renderer2D
 {
 public:
-    explicit Renderer2D(melonDS::GPU2D::Unit& gpu2D) : GPU(gpu2D.GPU), GPU2D(gpu2D) {}
+    explicit Renderer2D(melonDS::GPU2D& gpu2D) : GPU(gpu2D.GPU), GPU2D(gpu2D) {}
     virtual ~Renderer2D() {}
     virtual bool Init() = 0;
     virtual void Reset() = 0;
@@ -153,10 +150,9 @@ public:
 
 protected:
     melonDS::GPU& GPU;
-    melonDS::GPU2D::Unit& GPU2D;
+    melonDS::GPU2D& GPU2D;
 };
 
 }
 
-}
 #endif

@@ -21,7 +21,7 @@
 #include "GPU.h"
 #include "GPU3D.h"
 
-namespace melonDS::GPU2D
+namespace melonDS
 {
 
 #include "OpenGL_shaders/LayerPreVS.h"
@@ -102,7 +102,7 @@ std::unique_ptr<GLRenderer> GLRenderer2D::New(melonDS::GPU& gpu) noexcept
     return ret;
 }
 
-GLRenderer2D::GLRenderer2D(melonDS::GPU2D::Unit& gpu2D, GLRenderer& parent)
+GLRenderer2D::GLRenderer2D(melonDS::GPU2D& gpu2D, GLRenderer& parent)
     : Renderer2D(gpu2D), Parent(parent)
 {
     BackBuffer = 0;

@@ -47,12 +47,8 @@ public:
     bool GetFramebuffers(u32** top, u32** bottom) override;
 
 private:
-    friend class GPU2D::SoftRenderer2D;
+    friend class SoftRenderer2D;
     friend class SoftRenderer3D;
-
-    /*GPU2D::SoftRenderer2D Rend2D_A;
-    GPU2D::SoftRenderer2D Rend2D_B;
-    SoftRenderer3D Rend3D;*/
 
     u32* Framebuffer[2][2];
 

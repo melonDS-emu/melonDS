@@ -86,13 +86,12 @@ using Platform::LogLevel;
 // for example these aren't affected by POWCNT GPU-disable bits.
 // to model the hardware more accurately, the relevant logic should be moved to GPU.cpp.
 
-namespace GPU2D
-{
-Unit::Unit(u32 num, melonDS::GPU& gpu) : Num(num), GPU(gpu)
+
+GPU2D::GPU2D(u32 num, melonDS::GPU& gpu) : Num(num), GPU(gpu)
 {
 }
 
-void Unit::Reset()
+void GPU2D::Reset()
 {
     Enabled = false;
 
@@ -132,7 +131,7 @@ void Unit::Reset()
     EVY = 0;
 }
 
-void Unit::DoSavestate(Savestate* file)
+void GPU2D::DoSavestate(Savestate* file)
 {
     file->Section((char*)(Num ? "GP2B" : "GP2A"));
 
@@ -171,7 +170,7 @@ void Unit::DoSavestate(Savestate* file)
     file->Var8(&Win1Active);
 }
 
-u8 Unit::Read8(u32 addr)
+u8 GPU2D::Read8(u32 addr)
 {
     switch (addr & 0x00000FFF)
     {
@@ -204,7 +203,7 @@ u8 Unit::Read8(u32 addr)
     return 0;
 }
 
-u16 Unit::Read16(u32 addr)
+u16 GPU2D::Read16(u32 addr)
 {
     switch (addr & 0x00000FFF)
     {
@@ -228,7 +227,7 @@ u16 Unit::Read16(u32 addr)
     return 0;
 }
 
-u32 Unit::Read32(u32 addr)
+u32 GPU2D::Read32(u32 addr)
 {
     switch (addr & 0x00000FFF)
     {
@@ -238,7 +237,7 @@ u32 Unit::Read32(u32 addr)
     return Read16(addr) | (Read16(addr+2) << 16);
 }
 
-void Unit::Write8(u32 addr, u8 val)
+void GPU2D::Write8(u32 addr, u8 val)
 {
     switch (addr & 0x00000FFF)
     {
@@ -342,7 +341,7 @@ void Unit::Write8(u32 addr, u8 val)
     Log(LogLevel::Debug, "unknown GPU2D write8 %08X %02X\n", addr, val);
 }
 
-void Unit::Write16(u32 addr, u16 val)
+void GPU2D::Write16(u32 addr, u16 val)
 {
     switch (addr & 0x00000FFF)
     {
@@ -475,7 +474,7 @@ void Unit::Write16(u32 addr, u16 val)
     //printf("unknown GPU2D write16 %08X %04X\n", addr, val);
 }
 
-void Unit::Write32(u32 addr, u32 val)
+void GPU2D::Write32(u32 addr, u32 val)
 {
     switch (addr & 0x00000FFF)
     {
@@ -521,7 +520,7 @@ void Unit::Write32(u32 addr, u32 val)
     Write16(addr+2, val>>16);
 }
 /*
-void Unit::UpdateRotscaleParams(u32 line)
+void GPU2D::UpdateRotscaleParams(u32 line)
 {
     BGXRefInternal[0] += BGRotB[0];
     BGYRefInternal[0] += BGRotD[0];
@@ -529,7 +528,7 @@ void Unit::UpdateRotscaleParams(u32 line)
     BGYRefInternal[1] += BGRotD[1];
 }
 
-void Unit::UpdateMosaicCounters(u32 line)
+void GPU2D::UpdateMosaicCounters(u32 line)
 {
     // Y mosaic uses incrementing 4-bit counters
     // the transformed Y position is updated every time the counter matches the MOSAIC register
@@ -557,7 +556,7 @@ void Unit::UpdateMosaicCounters(u32 line)
     }
 }*/
 
-void Unit::VBlank()
+void GPU2D::VBlank()
 {
     /*if (CaptureLatch)
     {
@@ -569,7 +568,7 @@ void Unit::VBlank()
     DispFIFOWritePtr = 0;*/
 }
 
-void Unit::VBlankEnd()
+void GPU2D::VBlankEnd()
 {
     // TODO: find out the exact time this happens
     /*BGXRefInternal[0] = BGXRef[0];
@@ -585,7 +584,7 @@ void Unit::VBlankEnd()
     //OBJMosaicYCount = 0;
 }
 /*
-void Unit::SampleFIFO(u32 offset, u32 num)
+void GPU2D::SampleFIFO(u32 offset, u32 num)
 {
     for (u32 i = 0; i < num; i++)
     {
@@ -597,7 +596,7 @@ void Unit::SampleFIFO(u32 offset, u32 num)
     }
 }*/
 
-u16* Unit::GetBGExtPal(u32 slot, u32 pal)
+u16* GPU2D::GetBGExtPal(u32 slot, u32 pal)
 {
     const u32 PaletteSize = 256 * 2;
     const u32 SlotSize = PaletteSize * 16;
@@ -606,14 +605,14 @@ u16* Unit::GetBGExtPal(u32 slot, u32 pal)
          : GPU.VRAMFlat_BBGExtPal)[slot * SlotSize + pal * PaletteSize];
 }
 
-u16* Unit::GetOBJExtPal()
+u16* GPU2D::GetOBJExtPal()
 {
     return Num == 0
          ? (u16*)GPU.VRAMFlat_AOBJExtPal
          : (u16*)GPU.VRAMFlat_BOBJExtPal;
 }
 
-/*void Unit::CheckWindows(u32 line)
+/*void GPU2D::CheckWindows(u32 line)
 {
     line &= 0xFF;
     if (line == Win0Coords[3])      Win0Active &= ~0x1;
@@ -622,7 +621,7 @@ u16* Unit::GetOBJExtPal()
     else if (line == Win1Coords[2]) Win1Active |=  0x1;
 }*/
 
-void Unit::UpdateRegisters(u32 line)
+void GPU2D::UpdateRegisters(u32 line)
 {
     if (line == 0)
     {
@@ -683,7 +682,7 @@ void Unit::UpdateRegisters(u32 line)
     else if (winline == Win1Coords[2]) Win1Active |=  0x1;
 }
 
-void Unit::CalculateWindowMask(u8* windowMask, const u8* objWindow)
+void GPU2D::CalculateWindowMask(u8* windowMask, const u8* objWindow)
 {
     for (u32 i = 0; i < 256; i++)
         windowMask[i] = WinCnt[2]; // window outside
@@ -729,7 +728,7 @@ void Unit::CalculateWindowMask(u8* windowMask, const u8* objWindow)
     }
 }
 
-void Unit::GetBGVRAM(u8*& data, u32& mask) const
+void GPU2D::GetBGVRAM(u8*& data, u32& mask) const
 {
     if (Num == 0)
     {
@@ -743,7 +742,7 @@ void Unit::GetBGVRAM(u8*& data, u32& mask) const
     }
 }
 
-void Unit::GetOBJVRAM(u8*& data, u32& mask) const
+void GPU2D::GetOBJVRAM(u8*& data, u32& mask) const
 {
     if (Num == 0)
     {
@@ -757,7 +756,7 @@ void Unit::GetOBJVRAM(u8*& data, u32& mask) const
     }
 }
 
-void Unit::GetCaptureInfo_BG(int* info) const
+void GPU2D::GetCaptureInfo_BG(int* info) const
 {
     if (Num == 0)
         return GPU.GetCaptureInfo_ABG(info);
@@ -765,7 +764,7 @@ void Unit::GetCaptureInfo_BG(int* info) const
         return GPU.GetCaptureInfo_BBG(info);
 }
 
-void Unit::GetCaptureInfo_OBJ(int* info) const
+void GPU2D::GetCaptureInfo_OBJ(int* info) const
 {
     if (Num == 0)
         return GPU.GetCaptureInfo_AOBJ(info);
@@ -773,5 +772,4 @@ void Unit::GetCaptureInfo_OBJ(int* info) const
         return GPU.GetCaptureInfo_BOBJ(info);
 }
 
-}
 }

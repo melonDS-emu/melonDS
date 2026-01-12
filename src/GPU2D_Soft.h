@@ -25,13 +25,10 @@ namespace melonDS
 class GPU;
 class SoftRenderer;
 
-namespace GPU2D
-{
-
 class SoftRenderer2D : public Renderer2D
 {
 public:
-    SoftRenderer2D(melonDS::GPU2D::Unit& gpu2D, SoftRenderer& parent);
+    SoftRenderer2D(melonDS::GPU2D& gpu2D, SoftRenderer& parent);
     ~SoftRenderer2D() override;
     bool Init() override { return true; }
     void Reset() override;
@@ -92,7 +89,5 @@ private:
     template<bool window> void DrawSprite_Rotscale(u32 num, u32 boundwidth, u32 boundheight, u32 width, u32 height, s32 xpos, s32 ypos);
     template<bool window> void DrawSprite_Normal(u32 num, u32 width, u32 height, s32 xpos, s32 ypos);
 };
-
-}
 
 }
