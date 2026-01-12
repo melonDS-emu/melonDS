@@ -843,8 +843,8 @@ public:
     virtual void DrawScanline(u32 line) = 0;
     virtual void DrawSprites(u32 line) = 0;
 
-    void Start3DRendering() { Rend3D->RenderFrame(); }
-    void Finish3DRendering() { Rend3D->FinishRendering(); }
+    virtual void Start3DRendering() { Rend3D->RenderFrame(); }
+    virtual void Finish3DRendering() { Rend3D->FinishRendering(); }
 
     virtual void VBlank() = 0;
     virtual void VBlankEnd() = 0;
@@ -856,7 +856,7 @@ public:
     // a renderer may render to RAM buffers, or to something else (ie. OpenGL)
     // if the renderer uses RAM buffers, they should be 32-bit BGRA, 256x192 for each screen
     virtual bool GetFramebuffers(u32** top, u32** bottom) = 0;
-    void SwapBuffers() { BackBuffer ^= 1; }
+    virtual void SwapBuffers() { BackBuffer ^= 1; }
 
 protected:
     melonDS::GPU& GPU;

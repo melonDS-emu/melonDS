@@ -16,6 +16,7 @@
     with melonDS. If not, see http://www.gnu.org/licenses/.
 */
 
+#include <string.h>
 #include "GPU_OpenGL.h"
 
 namespace melonDS
@@ -25,6 +26,7 @@ namespace melonDS
 #include "OpenGL_shaders/FinalPassFS.h"
 #include "OpenGL_shaders/CaptureVS.h"
 #include "OpenGL_shaders/CaptureFS.h"
+
 
 GLRenderer::GLRenderer(melonDS::GPU& gpu, bool compute)
     : Renderer(gpu)
@@ -49,6 +51,8 @@ GLRenderer::GLRenderer(melonDS::GPU& gpu, bool compute)
 
 bool GLRenderer::Init()
 {
+    assert(glEnable != nullptr);
+
     GLint uniloc;
 
     // compile shaders
@@ -232,12 +236,17 @@ GLRenderer::~GLRenderer()
 
 void GLRenderer::Reset()
 {
-    //
+    memset(&FinalPassConfig, 0, sizeof(FinalPassConfig));
+    memset(&CaptureConfig, 0, sizeof(CaptureConfig));
+
+    AuxUsageMask = 0;
+
+    // TODO reset the other ones
 }
 
 void GLRenderer::Stop()
 {
-    //
+    // TODO clear buffers
 }
 
 
@@ -371,24 +380,18 @@ void GLRenderer::DrawSprites(u32 line)
 }
 
 
+void GLRenderer::Finish3DRendering()
+{
+    // 3D layer scrolling should be implemented in the 3D rendering engine
+    // for convenience's sake we will do it here
+
+    // TODO: actually do it
+}
+
+
 void GLRenderer::VBlank()
 {
-    // TODO!!! do this more nicely!!!
-    GLuint fart;
-    glGetIntegerv(GL_TEXTURE_BINDING_2D, (GLint*)&fart);
-    _3DLayerTex = fart;
-
-    DoRenderSprites(unitA, 192);
-    RenderScreen(unitA, UnitState[0].LastLine, 192);
-
-    DoRenderSprites(unitB, 192);
-    RenderScreen(unitB, UnitState[1].LastLine, 192);
-
-    UnitState[0].LastSpriteLine = 0;
-    UnitState[0].LastLine = 0;
-    UnitState[1].LastSpriteLine = 0;
-    UnitState[1].LastLine = 0;
-
+    // TODO call the 2D renderers
 
     int backbuf = BackBuffer;
     glBindFramebuffer(GL_READ_FRAMEBUFFER, 0);

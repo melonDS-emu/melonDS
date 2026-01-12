@@ -42,6 +42,8 @@ public:
     void DrawScanline(u32 line) override;
     void DrawSprites(u32 line) override;
 
+    void Finish3DRendering() override;
+
     void VBlank() override;
     void VBlankEnd() override;
 
@@ -119,9 +121,6 @@ private:
     GLuint CaptureSyncTex;
 
     u16* AuxInputBuffer[2];
-
-    int BackBuffer;
-
     u8 AuxUsageMask;
 
     void DoCapture(int vramcap);

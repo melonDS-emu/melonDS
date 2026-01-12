@@ -34,70 +34,6 @@ namespace melonDS
 #include "OpenGL_shaders/CompositorVS.h"
 #include "OpenGL_shaders/CompositorFS.h"
 
-// NOTE
-// for now, this is largely a reimplementation of the software 2D renderer
-// in the future, the rendering may be refined to involve more hardware processing
-// and include features such as filtering/upscaling for 2D layers
-
-std::unique_ptr<GLRenderer> GLRenderer2D::New(melonDS::GPU& gpu) noexcept
-{
-    assert(glBindAttribLocation != nullptr);
-    GLuint shaderid[7];
-
-    // TODO move those to GLInit()
-    if (!OpenGL::CompileVertexFragmentProgram(shaderid[0],
-                                              kLayerPreVS, kLayerPreFS,
-                                              "2DLayerPreShader",
-                                              {{"vPosition", 0}},
-                                              {{"oColor", 0}}))
-        return nullptr;
-
-    if (!OpenGL::CompileVertexFragmentProgram(shaderid[2],
-                                              kSpritePreVS, kSpritePreFS,
-                                              "2DSpritePreShader",
-                                              {{"vPosition", 0}, {"vSpriteIndex", 1}},
-                                              {{"oColor", 0}}))
-        return nullptr;
-
-    if (!OpenGL::CompileVertexFragmentProgram(shaderid[3],
-                                              kSpriteVS, kSpriteFS,
-                                              "2DSpriteShader",
-                                              {{"vPosition", 0}, {"vTexcoord", 1}, {"vSpriteIndex", 2}},
-                                              {{"oColor", 0}, {"oFlags", 1}}))
-        return nullptr;
-
-    if (!OpenGL::CompileVertexFragmentProgram(shaderid[4],
-                                              kCompositorVS, kCompositorFS,
-                                              "2DCompositorShader",
-                                              {{"vPosition", 0}},
-                                              {{"oColor", 0}}))
-        return nullptr;
-
-    /*if (!OpenGL::CompileVertexFragmentProgram(shaderid[5],
-                                              kFinalPassVS, kFinalPassFS,
-                                              "2DFinalPassShader",
-                                              {{"vPosition", 0}, {"vTexcoord", 1}},
-                                              {{"oTopColor", 0}, {"oBottomColor", 1}}))
-        return nullptr;
-
-    if (!OpenGL::CompileVertexFragmentProgram(shaderid[6],
-                                              kCaptureVS, kCaptureFS,
-                                              "2DCaptureShader",
-                                              {{"vPosition", 0}, {"vTexcoord", 1}},
-                                              {{"oColor", 0}}))
-        return nullptr;*/
-
-    auto ret = std::unique_ptr<GLRenderer>(new GLRenderer(gpu));
-    ret->LayerPreShader = shaderid[0];
-    ret->SpritePreShader = shaderid[2];
-    ret->SpriteShader = shaderid[3];
-    ret->CompositorShader = shaderid[4];
-    //ret->FPShaderID = shaderid[5];
-    //ret->CaptureShader = shaderid[6];
-    if (!ret->GLInit())
-        return nullptr;
-    return ret;
-}
 
 GLRenderer2D::GLRenderer2D(melonDS::GPU2D& gpu2D, GLRenderer& parent)
     : Renderer2D(gpu2D), Parent(parent)
@@ -114,7 +50,35 @@ bool GLRenderer2D::Init()
 {
     GLint uniloc;
 
-    // TODO add shader compile here
+    // compile shaders
+
+    if (!OpenGL::CompileVertexFragmentProgram(LayerPreShader,
+                                              kLayerPreVS, kLayerPreFS,
+                                              "2DLayerPreShader",
+                                              {{"vPosition", 0}},
+                                              {{"oColor", 0}}))
+        return false;
+
+    if (!OpenGL::CompileVertexFragmentProgram(SpritePreShader,
+                                              kSpritePreVS, kSpritePreFS,
+                                              "2DSpritePreShader",
+                                              {{"vPosition", 0}, {"vSpriteIndex", 1}},
+                                              {{"oColor", 0}}))
+        return false;
+
+    if (!OpenGL::CompileVertexFragmentProgram(SpriteShader,
+                                              kSpriteVS, kSpriteFS,
+                                              "2DSpriteShader",
+                                              {{"vPosition", 0}, {"vTexcoord", 1}, {"vSpriteIndex", 2}},
+                                              {{"oColor", 0}, {"oFlags", 1}}))
+        return false;
+
+    if (!OpenGL::CompileVertexFragmentProgram(CompositorShader,
+                                              kCompositorVS, kCompositorFS,
+                                              "2DCompositorShader",
+                                              {{"vPosition", 0}},
+                                              {{"oColor", 0}}))
+        return false;
 
     const float rectvertices[2*2*3] = {
         0, 1,   1, 0,   1, 1,
@@ -601,6 +565,31 @@ GLRenderer2D::~GLRenderer2D()
 
 void GLRenderer2D::Reset()
 {
+    memset(BGLayerFB, 0, sizeof(BGLayerFB));
+    memset(BGLayerTex, 0, sizeof(BGLayerTex));
+
+    memset(&LayerConfig, 0, sizeof(LayerConfig));
+    memset(&SpriteConfig, 0, sizeof(SpriteConfig));
+    memset(&ScanlineConfig, 0, sizeof(ScanlineConfig));
+    memset(&CompositorConfig, 0, sizeof(CompositorConfig));
+
+    LastLine = 0;
+
+    DispCnt = 0;
+    memset(BGCnt, 0, sizeof(BGCnt));
+    BlendCnt = 0;
+    EVA = 0; EVB = 0; EVY = 0;
+
+    memset(BGVRAMRange, 0xFF, sizeof(BGVRAMRange));
+
+    LastSpriteLine = 0;
+    memset(OAM, 0, sizeof(OAM));
+
+    SpriteDispCnt = 0;
+    SpriteDirty = true;
+
+    memset(TempPalBuffer, 0, sizeof(TempPalBuffer));
+
     // TODO clear buffers and shit
 }
 
@@ -934,18 +923,14 @@ void GLRenderer2D::UpdateAndRender(int line)
 }
 
 
-void GLRenderer2D::DrawScanline(u32 line)
+void GLRenderer2D::DrawScanline(u32 line, u32* dst)
 {
+    // TODO change this? not have a useless dst param
     UpdateAndRender(line);
 }
 
 void GLRenderer2D::VBlank()
 {
-    // TODO!!! do this more nicely!!!
-    GLuint fart;
-    glGetIntegerv(GL_TEXTURE_BINDING_2D, (GLint*)&fart);
-    _3DLayerTex = fart;
-
     DoRenderSprites(192);
     RenderScreen(LastLine, 192);
 
@@ -1832,7 +1817,6 @@ void GLRenderer2D::RenderScreen(int ystart, int yend)
                     &ScanlineConfig.uScanline[ystart]);
 
     // TODO not set this all the time?
-    // TODO set coords or scissor based on ystart and yend
     glUniform1i(CompositorScaleULoc, ScaleFactor);
 
     UpdateCompositorConfig();
@@ -1852,7 +1836,7 @@ void GLRenderer2D::RenderScreen(int ystart, int yend)
         glActiveTexture(GL_TEXTURE0 + i);
 
         if ((i == 0) && (DispCnt & (1<<3)))
-            glBindTexture(GL_TEXTURE_2D, _3DLayerTex);
+            glBindTexture(GL_TEXTURE_2D, Parent.OutputTex3D);
         else
             glBindTexture(GL_TEXTURE_2D, BGLayerTex[i]);
 

@@ -39,28 +39,12 @@ public:
 
     void SetScaleFactor(int scale);
 
-    void DrawScanline(u32 line) override;
+    void DrawScanline(u32 line, u32* dst) override;
     void DrawSprites(u32 line) override;
     void VBlank() override;
     void VBlankEnd() override;
 
-    //void AllocCapture(u32 bank, u32 start, u32 len) override;
-    //void SyncVRAMCapture(u32 bank, u32 start, u32 len, bool complete) override;
-
-    //bool GetFramebuffers(u32** top, u32** bottom) override;
-    //void SwapBuffers() override;
-
-    /*GLuint GetCaptureBuffer(int width)
-    {
-        if (width == 128) return CaptureOutput128Tex;
-        if (width == 256) return CaptureOutput256Tex;
-        return 0;
-    }*/
-
 private:
-    //GLRenderer(melonDS::GPU& gpu);
-    //bool GLInit();
-    //melonDS::GPU& GPU;
     GLRenderer& Parent;
 
     int ScaleFactor;
@@ -230,7 +214,7 @@ private:
 
     u16 TempPalBuffer[256 * (1 + (4*16))];
 
-    GLuint _3DLayerTex;
+    //GLuint _3DLayerTex;
 
     //GLuint FPShaderID = 0;
     /*GLint FPScaleULoc = 0;
