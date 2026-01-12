@@ -63,14 +63,16 @@ private:
     //melonDS::GPU& GPU;
     GLRenderer& Parent;
 
-    //int ScaleFactor;
-    //int ScreenW, ScreenH;
+    int ScaleFactor;
+    int ScreenW, ScreenH;
+
+    GLuint UBOBaseID;
 
     GLuint RectVtxBuffer;
     GLuint RectVtxArray;
 
     GLuint LayerPreShader;
-    GLint LayerPreBGConfigULoc;
+    //GLint LayerPreBGConfigULoc;
     GLint LayerPreCurBGULoc;
     //GLuint LayerConfigUBO;
 
@@ -82,7 +84,7 @@ private:
 
     GLuint SpritePreShader;
     //GLuint SpriteConfigUBO;
-    GLint SpritePreConfigULoc;
+    //GLint SpritePreConfigULoc;
     GLuint SpritePreVtxBuffer;
     GLuint SpritePreVtxArray;
     u16* SpritePreVtxData;
@@ -107,115 +109,111 @@ private:
         {18, 19, 12, 16},   // large bitmap
     };
 
-    struct sUnitState
+    GLuint LayerConfigUBO;
+    GLuint SpriteConfigUBO;
+
+    GLuint VRAMTex_BG;
+    GLuint VRAMTex_OBJ;
+    GLuint PalTex_BG;
+    GLuint PalTex_OBJ;
+
+    GLuint AllBGLayerFB[22];
+    GLuint AllBGLayerTex[22];
+
+    GLuint BGLayerFB[4];
+    GLuint BGLayerTex[4];
+
+    GLuint SpriteFB;
+    GLuint SpriteTex;
+
+    GLuint OBJLayerFB;
+    GLuint OBJLayerTex;
+
+    GLuint OutputFB;
+    GLuint OutputTex;
+
+    // std140 compliant config struct for the layer shader
+    struct sLayerConfig
     {
-        GLuint LayerConfigUBO;
-        GLuint SpriteConfigUBO;
-
-        GLuint VRAMTex_BG;
-        GLuint VRAMTex_OBJ;
-        GLuint PalTex_BG;
-        GLuint PalTex_OBJ;
-
-        GLuint AllBGLayerFB[22];
-        GLuint AllBGLayerTex[22];
-
-        GLuint BGLayerFB[4];
-        GLuint BGLayerTex[4];
-
-        GLuint SpriteFB;
-        GLuint SpriteTex;
-
-        GLuint OBJLayerFB;
-        GLuint OBJLayerTex;
-
-        GLuint OutputFB;
-        GLuint OutputTex;
-
-        // std140 compliant config struct for the layer shader
-        struct sLayerConfig
+        u32 uVRAMMask;
+        u32 __pad0[3];
+        u32 uCaptureMask[32];
+        struct sBGConfig
         {
-            u32 uVRAMMask;
-            u32 __pad0[3];
-            u32 uCaptureMask[32];
-            struct sBGConfig
-            {
-                u32 Size[2];
-                u32 Type;
-                u32 PalOffset;
-                u32 TileOffset;
-                u32 MapOffset;
-                u32 Clamp;
-                u32 __pad0[1];
-            } uBGConfig[4];
-        } LayerConfig;
-        //GLuint LayerConfigUBO;
+            u32 Size[2];
+            u32 Type;
+            u32 PalOffset;
+            u32 TileOffset;
+            u32 MapOffset;
+            u32 Clamp;
+            u32 __pad0[1];
+        } uBGConfig[4];
+    } LayerConfig;
+    //GLuint LayerConfigUBO;
 
-        struct sSpriteConfig
+    struct sSpriteConfig
+    {
+        u32 uScaleFactor;
+        u32 uVRAMMask;
+        u32 __pad0[2];
+        u32 uCaptureMask[32];
+        s32 uRotscale[32][4];
+        struct sOAM
         {
-            u32 uScaleFactor;
-            u32 uVRAMMask;
-            u32 __pad0[2];
-            u32 uCaptureMask[32];
-            s32 uRotscale[32][4];
-            struct sOAM
-            {
-                s32 Position[2];
-                s32 Flip[2];
-                s32 Size[2];
-                s32 BoundSize[2];
-                u32 OBJMode;
-                u32 Type;
-                u32 PalOffset;
-                u32 TileOffset;
-                u32 TileStride;
-                u32 Rotscale;
-                u32 BGPrio;
-                u32 Mosaic;
-            } uOAM[128];
-        } SpriteConfig;
-        int NumSprites;
+            s32 Position[2];
+            s32 Flip[2];
+            s32 Size[2];
+            s32 BoundSize[2];
+            u32 OBJMode;
+            u32 Type;
+            u32 PalOffset;
+            u32 TileOffset;
+            u32 TileStride;
+            u32 Rotscale;
+            u32 BGPrio;
+            u32 Mosaic;
+        } uOAM[128];
+    } SpriteConfig;
+    int NumSprites;
 
-        struct sScanlineConfig
+    struct sScanlineConfig
+    {
+        struct sScanline
         {
-            struct sScanline
-            {
-                s32 BGOffset[4][4];     // really [4][2]
-                s32 BGRotscale[2][4];
-                u32 BackColor;          // 96
-                u32 WinRegs;            // 100
-                u32 WinMask;            // 104
-                u32 __pad0[1];
-                s32 WinPos[4];
-            } uScanline[192];
-        } ScanlineConfig;
+            s32 BGOffset[4][4];     // really [4][2]
+            s32 BGRotscale[2][4];
+            u32 BackColor;          // 96
+            u32 WinRegs;            // 100
+            u32 WinMask;            // 104
+            u32 __pad0[1];
+            s32 WinPos[4];
+        } uScanline[192];
+    } ScanlineConfig;
 
-        struct sCompositorConfig
-        {
-            u32 uBGPrio[4];
-            u32 uEnableOBJ;
-            u32 uEnable3D;
-            u32 uBlendCnt;
-            u32 uBlendEffect;
-            u32 uBlendCoef[4];
-        } CompositorConfig;
+    struct sCompositorConfig
+    {
+        u32 uBGPrio[4];
+        u32 uEnableOBJ;
+        u32 uEnable3D;
+        u32 uBlendCnt;
+        u32 uBlendEffect;
+        u32 uBlendCoef[4];
+    } CompositorConfig;
 
-        int LastLine;
+    int LastLine;
 
-        u32 DispCnt;
-        u16 BGCnt[4];
-        u16 BlendCnt;
-        u8 EVA, EVB, EVY;
+    u32 DispCnt;
+    u16 BGCnt[4];
+    u16 BlendCnt;
+    u8 EVA, EVB, EVY;
 
-        u32 BGVRAMRange[4][4];
+    u32 BGVRAMRange[4][4];
 
-        int LastSpriteLine;
-        u16 OAM[512];
+    int LastSpriteLine;
+    u16 OAM[512];
 
-        u32 SpriteDispCnt;
-        bool SpriteDirty;
-
-    } UnitState[2];
+    u32 SpriteDispCnt;
+    bool SpriteDirty;
 
     /*struct sFinalPassConfig
     {
@@ -305,22 +303,22 @@ private:
         return table;
     }();*/
 
-    void UpdateAndRender(Unit* unit, int line);
+    void UpdateAndRender(int line);
 
-    void UpdateScanlineConfig(Unit* unit, int line);
-    void UpdateLayerConfig(Unit* unit);
-    void UpdateOAM(Unit* unit, int ystart, int yend);
-    void UpdateCompositorConfig(Unit* unit);
+    void UpdateScanlineConfig(int line);
+    void UpdateLayerConfig();
+    void UpdateOAM(int ystart, int yend);
+    void UpdateCompositorConfig();
 
-    void PrerenderSprites(Unit* unit);
-    void PrerenderLayer(Unit* unit, int layer);
+    void PrerenderSprites();
+    void PrerenderLayer(int layer);
 
-    void DoRenderSprites(Unit* unit, int line);
-    void RenderSprites(Unit* unit, bool window, int ystart, int yend);
+    void DoRenderSprites(int line);
+    void RenderSprites(bool window, int ystart, int yend);
 
-    void RenderScreen(Unit* unit, int ystart, int yend);
+    void RenderScreen(int ystart, int yend);
 
-    void DoCapture(Unit* unit, int vramcap);
+    void DoCapture(int vramcap);
 };
 
 }

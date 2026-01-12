@@ -51,7 +51,7 @@ public:
     bool GetFramebuffers(u32** top, u32** bottom) override;
 
 private:
-    friend class GPU2D::GLRenderer2D;
+    friend class GLRenderer2D;
     friend class GLRenderer3D;
     friend class ComputeRenderer;
 
@@ -60,6 +60,7 @@ private:
     int ScaleFactor;
     int ScreenW, ScreenH;
 
+    GLuint OutputTex3D;
     GLuint OutputTex2D[2];
 
     struct sFinalPassConfig
@@ -75,7 +76,7 @@ private:
         u32 uBrightFactorB;
     } FinalPassConfig;
 
-    GLuint FPShaderID;
+    GLuint FPShader;
     GLuint FPConfigUBO;
 
     GLuint FPVertexBufferID;

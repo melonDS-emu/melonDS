@@ -21,13 +21,18 @@
 namespace melonDS
 {
 
+#include "OpenGL_shaders/FinalPassVS.h"
+#include "OpenGL_shaders/FinalPassFS.h"
+#include "OpenGL_shaders/CaptureVS.h"
+#include "OpenGL_shaders/CaptureFS.h"
+
 GLRenderer::GLRenderer(melonDS::GPU& gpu, bool compute)
     : Renderer(gpu)
 {
     // TODO init GL shit here
 
-    Rend2D_A = std::make_unique<GPU2D::GLRenderer2D>(GPU.GPU2D_A, *this);
-    Rend2D_B = std::make_unique<GPU2D::GLRenderer2D>(GPU.GPU2D_B, *this);
+    Rend2D_A = std::make_unique<GLRenderer2D>(GPU.GPU2D_A, *this);
+    Rend2D_B = std::make_unique<GLRenderer2D>(GPU.GPU2D_B, *this);
 
     IsCompute = compute;
     if (IsCompute)
@@ -36,20 +41,193 @@ GLRenderer::GLRenderer(melonDS::GPU& gpu, bool compute)
         Rend3D = std::make_unique<GLRenderer3D>(GPU.GPU3D, *this);
 }
 
-GLRenderer::~GLRenderer()
-{
-    //
-}
+#define glTexParams(target, wrap) \
+    glTexParameteri(target, GL_TEXTURE_WRAP_S, wrap); \
+    glTexParameteri(target, GL_TEXTURE_WRAP_T, wrap); \
+    glTexParameteri(target, GL_TEXTURE_MIN_FILTER, GL_NEAREST); \
+    glTexParameteri(target, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
 
 bool GLRenderer::Init()
 {
+    GLint uniloc;
+
+    // compile shaders
+
+    if (!OpenGL::CompileVertexFragmentProgram(FPShader,
+                                              kFinalPassVS, kFinalPassFS,
+                                              "2DFinalPassShader",
+                                              {{"vPosition", 0}, {"vTexcoord", 1}},
+                                              {{"oTopColor", 0}, {"oBottomColor", 1}}))
+        return false;
+
+    if (!OpenGL::CompileVertexFragmentProgram(CaptureShader,
+                                              kCaptureVS, kCaptureFS,
+                                              "2DCaptureShader",
+                                              {{"vPosition", 0}, {"vTexcoord", 1}},
+                                              {{"oColor", 0}}))
+        return false;
+
+    // vertex buffers
+
+    float vertices[12][4];
+#define SETVERTEX(i, x, y) \
+    vertices[i][0] = x; \
+    vertices[i][1] = y; \
+    vertices[i][2] = (x + 1.f) * (256.f / 2.f); \
+    vertices[i][3] = (y + 1.f) * (192.f / 2.f); \
+
+    SETVERTEX(0, -1, 1);
+    SETVERTEX(1, 1, -1);
+    SETVERTEX(2, 1, 1);
+    SETVERTEX(3, -1, 1);
+    SETVERTEX(4, -1, -1);
+    SETVERTEX(5, 1, -1);
+
+#undef SETVERTEX
+
+    // final pass vertex data: 2x position, 2x texcoord
+    glGenBuffers(1, &FPVertexBufferID);
+    glBindBuffer(GL_ARRAY_BUFFER, FPVertexBufferID);
+    glBufferData(GL_ARRAY_BUFFER, sizeof(vertices), &vertices[0], GL_STATIC_DRAW);
+
+    glGenVertexArrays(1, &FPVertexArrayID);
+    glBindVertexArray(FPVertexArrayID);
+    glEnableVertexAttribArray(0); // position
+    glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, 4 * sizeof(float), (void*)0);
+    glEnableVertexAttribArray(1); // texcoord
+    glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 4 * sizeof(float), (void*)(2 * sizeof(float)));
+
+    glGenFramebuffers(2, &FPOutputFB[0]);
+
+    // capture vertex data: 2x position, 2x texcoord
+    glGenBuffers(1, &CaptureVtxBuffer);
+    glBindBuffer(GL_ARRAY_BUFFER, CaptureVtxBuffer);
+    glBufferData(GL_ARRAY_BUFFER, 2 * 6 * 4 * sizeof(u16), nullptr, GL_STREAM_DRAW);
+
+    glGenVertexArrays(1, &CaptureVtxArray);
+    glBindVertexArray(CaptureVtxArray);
+    glEnableVertexAttribArray(0); // position
+    glVertexAttribIPointer(0, 2, GL_SHORT, 4 * sizeof(u16), (void*)0);
+    glEnableVertexAttribArray(1); // texcoord
+    glVertexAttribIPointer(1, 2, GL_SHORT, 4 * sizeof(u16), (void*)(2 * sizeof(u16)));
+
+    // textures / framebuffers
+
+    glGenTextures(1, &AuxInputTex);
+    glBindTexture(GL_TEXTURE_2D_ARRAY, AuxInputTex);
+    glTexParams(GL_TEXTURE_2D_ARRAY, GL_REPEAT);
+    glTexImage3D(GL_TEXTURE_2D_ARRAY, 0, GL_RGB5_A1, 256, 256, 2, 0, GL_RGBA, GL_UNSIGNED_SHORT_1_5_5_5_REV, nullptr);
+
+    glGenTextures(1, &CaptureVRAMTex);
+    glBindTexture(GL_TEXTURE_2D_ARRAY, CaptureVRAMTex);
+    glTexParams(GL_TEXTURE_2D_ARRAY, GL_REPEAT);
+    glGenFramebuffers(1, &CaptureVRAMFB);
+
+    glGenTextures(2, FPOutputTex);
+    for (int i = 0; i < 2; i++)
+    {
+        glBindTexture(GL_TEXTURE_2D_ARRAY, FPOutputTex[i]);
+        glTexParams(GL_TEXTURE_2D_ARRAY, GL_CLAMP_TO_EDGE);
+    }
+
+    glGenTextures(1, &CaptureOutput256Tex);
+    glBindTexture(GL_TEXTURE_2D_ARRAY, CaptureOutput256Tex);
+    glTexParams(GL_TEXTURE_2D_ARRAY, GL_REPEAT);
+    glGenFramebuffers(4, CaptureOutput256FB);
+
+    glGenTextures(1, &CaptureOutput128Tex);
+    glBindTexture(GL_TEXTURE_2D_ARRAY, CaptureOutput128Tex);
+    glTexParams(GL_TEXTURE_2D_ARRAY, GL_REPEAT);
+    glGenFramebuffers(16, CaptureOutput128FB);
+
+    glGenTextures(1, &CaptureSyncTex);
+    glBindTexture(GL_TEXTURE_2D, CaptureSyncTex);
+    glTexParams(GL_TEXTURE_2D, GL_CLAMP_TO_EDGE);
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB5_A1, 256, 256, 0, GL_RGBA, GL_UNSIGNED_SHORT_1_5_5_5_REV, nullptr);
+
+    glGenFramebuffers(1, &CaptureSyncFB);
+    glBindFramebuffer(GL_FRAMEBUFFER, CaptureSyncFB);
+    glFramebufferTexture(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, CaptureSyncTex, 0);
+    glDrawBuffer(GL_COLOR_ATTACHMENT0);
+    glReadBuffer(GL_COLOR_ATTACHMENT0);
+
+    // UBOs
+
+    glGenBuffers(1, &FPConfigUBO);
+    glBindBuffer(GL_UNIFORM_BUFFER, FPConfigUBO);
+    static_assert((sizeof(sFinalPassConfig) & 15) == 0);
+    glBufferData(GL_UNIFORM_BUFFER, sizeof(sFinalPassConfig), nullptr, GL_STREAM_DRAW);
+    glBindBufferBase(GL_UNIFORM_BUFFER, 30, FPConfigUBO);
+
+    glGenBuffers(1, &CaptureConfigUBO);
+    glBindBuffer(GL_UNIFORM_BUFFER, CaptureConfigUBO);
+    static_assert((sizeof(sCaptureConfig) & 15) == 0);
+    glBufferData(GL_UNIFORM_BUFFER, sizeof(sCaptureConfig), nullptr, GL_STREAM_DRAW);
+    glBindBufferBase(GL_UNIFORM_BUFFER, 31, CaptureConfigUBO);
+
+    // shader config
+
+    glUseProgram(FPShader);
+
+    uniloc = glGetUniformLocation(FPShader, "MainInputTexA");
+    glUniform1i(uniloc, 0);
+    uniloc = glGetUniformLocation(FPShader, "MainInputTexB");
+    glUniform1i(uniloc, 1);
+    uniloc = glGetUniformLocation(FPShader, "AuxInputTex");
+    glUniform1i(uniloc, 2);
+
+    uniloc = glGetUniformBlockIndex(FPShader, "uFinalPassConfig");
+    glUniformBlockBinding(FPShader, uniloc, 30);
+
+
+    glUseProgram(CaptureShader);
+
+    uniloc = glGetUniformLocation(CaptureShader, "InputTexA");
+    glUniform1i(uniloc, 0);
+    uniloc = glGetUniformLocation(CaptureShader, "InputTexB");
+    glUniform1i(uniloc, 1);
+
+    uniloc = glGetUniformBlockIndex(CaptureShader, "uCaptureConfig");
+    glUniformBlockBinding(CaptureShader, uniloc, 31);
+
     // TODO
     // init OutputTex2D and the other shit
 
     if (!Rend2D_A->Init()) return false;
     if (!Rend2D_B->Init()) return false;
     if (!Rend3D->Init()) return false;
+
+    glBindFramebuffer(GL_FRAMEBUFFER, 0);
     return true;
+}
+
+GLRenderer::~GLRenderer()
+{
+    // TODO need to delete all shader objects!!
+    glDeleteProgram(FPShader);
+    glDeleteProgram(CaptureShader);
+
+    glDeleteBuffers(1, &FPVertexBufferID);
+    glDeleteVertexArrays(1, &FPVertexArrayID);
+
+    glDeleteBuffers(1, &CaptureVtxBuffer);
+    glDeleteVertexArrays(1, &CaptureVtxArray);
+
+    glDeleteFramebuffers(2, FPOutputFB);
+    glDeleteTextures(1, &AuxInputTex);
+    glDeleteTextures(1, &CaptureVRAMTex);
+    glDeleteTextures(2, FPOutputTex);
+
+    delete[] AuxInputBuffer[0];
+    delete[] AuxInputBuffer[1];
+
+    glDeleteTextures(1, &CaptureOutput256Tex);
+    glDeleteTextures(1, &CaptureOutput128Tex);
+    glDeleteTextures(1, &CaptureSyncTex);
+    glDeleteFramebuffers(1, &CaptureSyncFB);
+
+    glDeleteBuffers(1, &FPConfigUBO);
+    glDeleteBuffers(1, &CaptureConfigUBO);
 }
 
 void GLRenderer::Reset()
@@ -65,13 +243,126 @@ void GLRenderer::Stop()
 
 void GLRenderer::SetScaleFactor(int scale)
 {
-    // todo
+    if (scale == ScaleFactor)
+        return;
+
+    ScaleFactor = scale;
+    ScreenW = 256 * scale;
+    ScreenH = 192 * scale;
+
+    const GLenum fbassign2[] = {GL_COLOR_ATTACHMENT0, GL_COLOR_ATTACHMENT1};
+
+    glBindTexture(GL_TEXTURE_2D_ARRAY, CaptureOutput256Tex);
+    glTexImage3D(GL_TEXTURE_2D_ARRAY, 0, GL_RGBA, 256*ScaleFactor, 256*ScaleFactor, 4, 0, GL_RGBA, GL_UNSIGNED_BYTE, nullptr);
+
+    for (int i = 0; i < 4; i++)
+    {
+        glBindFramebuffer(GL_FRAMEBUFFER, CaptureOutput256FB[i]);
+        glFramebufferTextureLayer(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, CaptureOutput256Tex, 0, i);
+        glDrawBuffer(GL_COLOR_ATTACHMENT0);
+    }
+
+    glBindTexture(GL_TEXTURE_2D_ARRAY, CaptureOutput128Tex);
+    glTexImage3D(GL_TEXTURE_2D_ARRAY, 0, GL_RGBA, 128*ScaleFactor, 128*ScaleFactor, 16, 0, GL_RGBA, GL_UNSIGNED_BYTE, nullptr);
+
+    for (int i = 0; i < 16; i++)
+    {
+        glBindFramebuffer(GL_FRAMEBUFFER, CaptureOutput128FB[i]);
+        glFramebufferTextureLayer(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, CaptureOutput128Tex, 0, i);
+        glDrawBuffer(GL_COLOR_ATTACHMENT0);
+    }
+
+    glBindTexture(GL_TEXTURE_2D_ARRAY, CaptureVRAMTex);
+    glTexImage3D(GL_TEXTURE_2D_ARRAY, 0, GL_RGBA, 256*ScaleFactor, 256*ScaleFactor, 1, 0, GL_RGBA, GL_UNSIGNED_BYTE, nullptr);
+
+    glBindFramebuffer(GL_FRAMEBUFFER, CaptureVRAMFB);
+    glFramebufferTextureLayer(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, CaptureVRAMTex, 0, 0);
+    glReadBuffer(GL_COLOR_ATTACHMENT0);
+    glDrawBuffer(GL_COLOR_ATTACHMENT0);
+
+    for (int i = 0; i < 2; i++)
+    {
+        glBindTexture(GL_TEXTURE_2D_ARRAY, FPOutputTex[i]);
+        glTexImage3D(GL_TEXTURE_2D_ARRAY, 0, GL_RGBA, ScreenW, ScreenH, 2, 0, GL_RGBA, GL_UNSIGNED_BYTE, nullptr);
+
+        glBindFramebuffer(GL_FRAMEBUFFER, FPOutputFB[i]);
+        glFramebufferTextureLayer(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, FPOutputTex[i], 0, 0);
+        glFramebufferTextureLayer(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT1, FPOutputTex[i], 0, 1);
+        glDrawBuffers(2, fbassign2);
+    }
+
+    // TODO!!
+    // renderer2D needs to handle its own outputtex/FB
+    /*Rend2D_A->SetScaleFactor(scale);
+    Rend2D_B->SetScaleFactor(scale);
+    Rend3D->SetScaleFactor(scale);*/
+
+    glBindFramebuffer(GL_FRAMEBUFFER, 0);
 }
 
 
 void GLRenderer::DrawScanline(u32 line)
 {
-    //
+    // TODO: forced blank
+
+    FinalPassConfig.uScreenSwap[line] = GPU.ScreenSwap;
+
+    u32 dispcnt = GPU.GPU2D_A.DispCnt;
+    u32 dispmode = (dispcnt >> 16) & 0x3;
+    u32 capcnt = GPU.CaptureCnt;
+    u32 capsel = (capcnt >> 29) & 0x3;
+    u32 capB = (capcnt >> 25) & 0x1;
+    bool checkcap = GPU.CaptureEnable && (capsel != 0);
+    line &= 0xFF;
+
+    if ((dispmode == 2) || (checkcap && (capB == 0)))
+    {
+        AuxUsageMask |= (1<<0);
+
+        u32 vrambank = (dispcnt >> 18) & 0x3;
+        u32 vramoffset = line * 256;
+        u32 outoffset = line * 256;
+        if (dispmode != 2)
+        {
+            u32 yoff = ((capcnt >> 26) & 0x3) << 14;
+            vramoffset += yoff;
+            outoffset += yoff;
+        }
+
+        vramoffset &= 0xFFFF;
+        outoffset &= 0xFFFF;
+
+        u16* adst = &AuxInputBuffer[0][outoffset];
+
+        if (GPU.VRAMMap_LCDC & (1<<vrambank))
+        {
+            u16* vram = (u16*)GPU.VRAM[vrambank];
+
+            for (int i = 0; i < 256; i++)
+            {
+                adst[i] = vram[vramoffset];
+                vramoffset++;
+            }
+        }
+        else
+        {
+            for (int i = 0; i < 256; i++)
+            {
+                adst[i] = 0;
+            }
+        }
+    }
+
+    if ((dispmode == 3) || (checkcap && (capB == 1)))
+    {
+        AuxUsageMask |= (1<<1);
+
+        u16* adst = &AuxInputBuffer[1][line * 256];
+        for (int i = 0; i < 256; i++)
+        {
+            adst[i] = GPU.DispFIFOBuffer[i];
+        }
+    }
 }
 
 void GLRenderer::DrawSprites(u32 line)
@@ -111,7 +402,7 @@ void GLRenderer::VBlank()
 
     glViewport(0, 0, ScreenW, ScreenH);
 
-    glUseProgram(FPShaderID);
+    glUseProgram(FPShader);
 
     FinalPassConfig.uScaleFactor = ScaleFactor;
     FinalPassConfig.uDispModeA = (GPU.GPU2D_A.DispCnt >> 16) & 0x3;
@@ -176,7 +467,7 @@ void GLRenderer::VBlank()
 
 void GLRenderer::VBlankEnd()
 {
-    //
+    AuxUsageMask = 0;
 }
 
 
@@ -201,13 +492,14 @@ void GLRenderer::DoCapture(int vramcap)
     GLuint inputA;
     if (srcA)
     {
-        inputA = _3DLayerTex;
+        // TODO: hope they don't change the scroll pos midframe (maybe do scroll elsewhere?)
+        inputA = OutputTex3D;
         int xpos = GPU.GPU3D.GetRenderXPos() & 0x1FF;
         CaptureConfig.uSrcAOffset = xpos - ((xpos & 0x100) << 1);
     }
     else
     {
-        inputA = UnitState[unit->Num].OutputTex;
+        inputA = OutputTex2D[0];
         CaptureConfig.uSrcAOffset = 0;
     }
 
@@ -367,12 +659,63 @@ void GLRenderer::DoCapture(int vramcap)
 
 void GLRenderer::AllocCapture(u32 bank, u32 start, u32 len)
 {
-    //
+    // TODO remove this function alltogether?
+    printf("GL: alloc capture in bank %d, start=%d len=%d\n", bank, start, len);
 }
 
 void GLRenderer::SyncVRAMCapture(u32 bank, u32 start, u32 len, bool complete)
 {
-    //
+    printf("SYNC VRAM CAPTURE: %d %d %d %d\n", bank, start, len, complete);
+
+    if (!complete)
+        printf("!!! READING VRAM AS IT IS BEING CAPTURED TO\n");
+
+    u8* vram = GPU.VRAM[bank];
+
+    if (len == 0) // 128x128
+    {
+        glBindFramebuffer(GL_READ_FRAMEBUFFER, CaptureOutput128FB[(bank<<2) | start]);
+        glBindFramebuffer(GL_DRAW_FRAMEBUFFER, CaptureSyncFB);
+        glBlitFramebuffer(0, 0, 128 * ScaleFactor, 128 * ScaleFactor,
+                          0, 0, 128, 128,
+                          GL_COLOR_BUFFER_BIT, GL_NEAREST);
+
+        glBindFramebuffer(GL_READ_FRAMEBUFFER, CaptureSyncFB);
+
+        glReadPixels(0, 0, 128, 128,
+                     GL_RGBA, GL_UNSIGNED_SHORT_1_5_5_5_REV, &vram[start * 64 * 512]);
+
+        for (u32 j = start * 64; j < (start+1) * 64; j++)
+            GPU.VRAMDirty[bank][j] = true;
+    }
+    else
+    {
+        glBindFramebuffer(GL_READ_FRAMEBUFFER, CaptureOutput256FB[bank]);
+        glBindFramebuffer(GL_DRAW_FRAMEBUFFER, CaptureSyncFB);
+        glBlitFramebuffer(0, 0, 256 * ScaleFactor, 256 * ScaleFactor,
+                          0, 0, 256, 256,
+                          GL_COLOR_BUFFER_BIT, GL_NEAREST);
+
+        glBindFramebuffer(GL_READ_FRAMEBUFFER, CaptureSyncFB);
+
+        u32 pos = start;
+        for (u32 i = 0; i < len;)
+        {
+            u32 end = pos + len;
+            if (end > 4)
+                end = 4;
+
+            glReadPixels(0, pos * 64, 256, (end - pos) * 64,
+                         GL_RGBA, GL_UNSIGNED_SHORT_1_5_5_5_REV, &vram[pos * 64 * 512]);
+
+            for (u32 j = pos * 64; j < end * 64; j++)
+                GPU.VRAMDirty[bank][j] = true;
+
+            i += (end - pos);
+            pos += (end - pos);
+            pos &= 3;
+        }
+    }
 }
 
 
