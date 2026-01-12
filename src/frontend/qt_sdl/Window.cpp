@@ -1492,6 +1492,31 @@ void MainWindow::onClickRecentFile()
     updateCartInserted(false);
 }
 
+void MainWindow::onReloadMostRecentROM()
+{
+    QString filename = globalCfg.GetArray("RecentROM").GetQString(0);
+
+    if (!verifySetup())
+        return;
+
+    const QStringList file = splitArchivePath(filename, true);
+    if (file.isEmpty())
+        return;
+
+    QString errorstr;
+    if (!emuThread->bootROM(file, errorstr))
+    {
+        QMessageBox::critical(this, "melonDS", errorstr);
+        return;
+    }
+
+    recentFileList.removeAll(filename);
+    recentFileList.prepend(filename);
+    updateRecentFilesMenu();
+
+    updateCartInserted(false);
+}
+
 void MainWindow::onBootFirmware()
 {
     if (!verifySetup())
