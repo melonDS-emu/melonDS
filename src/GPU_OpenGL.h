@@ -55,7 +55,7 @@ public:
 private:
     friend class GLRenderer2D;
     friend class GLRenderer3D;
-    friend class ComputeRenderer;
+    friend class ComputeRenderer3D;
 
     bool IsCompute;
 

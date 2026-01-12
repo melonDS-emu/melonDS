@@ -16,9 +16,7 @@
     with melonDS. If not, see http://www.gnu.org/licenses/.
 */
 
-#include "GPU2D_OpenGL.h"
-
-#include "GPU3D_Compute.h"
+#include "GPU_OpenGL.h"
 
 #include <assert.h>
 
@@ -29,11 +27,11 @@
 namespace melonDS
 {
 
-ComputeRenderer::ComputeRenderer()//GLCompositor&& compositor)
-    : Renderer3D(true), Texcache(TexcacheOpenGLLoader(true))//, CurGLCompositor(std::move(compositor))
+ComputeRenderer3D::ComputeRenderer3D(melonDS::GPU3D& gpu3D, GLRenderer& parent)
+    : Renderer3D(gpu3D), Parent(parent), Texcache(gpu3D.GPU, TexcacheOpenGLLoader(true))
 {}
 
-bool ComputeRenderer::CompileShader(GLuint& shader, const std::string& source, const std::initializer_list<const char*>& defines)
+bool ComputeRenderer3D::CompileShader(GLuint& shader, const std::string& source, const std::initializer_list<const char*>& defines)
 {
     std::string shaderName;
     std::string shaderSource;
@@ -59,7 +57,7 @@ bool ComputeRenderer::CompileShader(GLuint& shader, const std::string& source, c
     return OpenGL::CompileComputeProgram(shader, shaderSource.c_str(), shaderName.c_str());
 }
 
-void ComputeRenderer::ShaderCompileStep(int& current, int& count)
+void ComputeRenderer3D::ShaderCompileStep(int& current, int& count)
 {
     current = ShaderStepIdx;
     ShaderStepIdx++;
@@ -176,82 +174,68 @@ void blah(GLenum source, GLenum type, GLuint id, GLenum severity, GLsizei length
     printf("%s\n", message);
 }
 
-std::unique_ptr<ComputeRenderer> ComputeRenderer::New(GPU& gpu)
+bool ComputeRenderer3D::Init()
 {
-    /*std::optional<GLCompositor> compositor =  GLCompositor::New();
-    if (!compositor)
-        return nullptr;*/
-
-    //std::unique_ptr<ComputeRenderer> result = std::unique_ptr<ComputeRenderer>(new ComputeRenderer(std::move(*compositor)));
-    std::unique_ptr<ComputeRenderer> result = std::unique_ptr<ComputeRenderer>(new ComputeRenderer());
-
     //glDebugMessageCallback(blah, NULL);
     //glEnable(GL_DEBUG_OUTPUT);
-    glGenBuffers(1, &result->YSpanSetupMemory);
-    glBindBuffer(GL_SHADER_STORAGE_BUFFER, result->YSpanSetupMemory);
+    glGenBuffers(1, &YSpanSetupMemory);
+    glBindBuffer(GL_SHADER_STORAGE_BUFFER, YSpanSetupMemory);
     glBufferData(GL_SHADER_STORAGE_BUFFER, sizeof(SpanSetupY)*MaxYSpanSetups, nullptr, GL_DYNAMIC_DRAW);
     
-    glGenBuffers(1, &result->RenderPolygonMemory);
-    glBindBuffer(GL_SHADER_STORAGE_BUFFER, result->RenderPolygonMemory);
+    glGenBuffers(1, &RenderPolygonMemory);
+    glBindBuffer(GL_SHADER_STORAGE_BUFFER, RenderPolygonMemory);
     glBufferData(GL_SHADER_STORAGE_BUFFER, sizeof(RenderPolygon)*2048, nullptr, GL_DYNAMIC_DRAW);
 
-    glGenBuffers(1, &result->XSpanSetupMemory);
-    glGenBuffers(1, &result->BinResultMemory);
-    glGenBuffers(1, &result->FinalTileMemory);
-    glGenBuffers(1, &result->YSpanIndicesTextureMemory);
-    glGenBuffers(tilememoryLayer_Num, result->TileMemory);
-    glGenBuffers(1, &result->WorkDescMemory);
+    glGenBuffers(1, &XSpanSetupMemory);
+    glGenBuffers(1, &BinResultMemory);
+    glGenBuffers(1, &FinalTileMemory);
+    glGenBuffers(1, &YSpanIndicesTextureMemory);
+    glGenBuffers(tilememoryLayer_Num, TileMemory);
+    glGenBuffers(1, &WorkDescMemory);
 
-    glGenTextures(1, &result->YSpanIndicesTexture);
+    glGenTextures(1, &YSpanIndicesTexture);
 
-    glGenBuffers(1, &result->MetaUniformMemory);
-    glBindBuffer(GL_UNIFORM_BUFFER, result->MetaUniformMemory);
+    glGenBuffers(1, &MetaUniformMemory);
+    glBindBuffer(GL_UNIFORM_BUFFER, MetaUniformMemory);
     glBufferData(GL_UNIFORM_BUFFER, sizeof(MetaUniform), nullptr, GL_DYNAMIC_DRAW);
 
-    glGenSamplers(9, result->Samplers);
+    glGenSamplers(9, Samplers);
     for (u32 j = 0; j < 3; j++)
     {
         for (u32 i = 0; i < 3; i++)
         {
             const GLenum translateWrapMode[3] = {GL_CLAMP_TO_EDGE, GL_REPEAT, GL_MIRRORED_REPEAT};
-            glSamplerParameteri(result->Samplers[i+j*3], GL_TEXTURE_WRAP_S, translateWrapMode[i]);
-            glSamplerParameteri(result->Samplers[i+j*3], GL_TEXTURE_WRAP_T, translateWrapMode[j]);
-            glSamplerParameteri(result->Samplers[i+j*3], GL_TEXTURE_MIN_FILTER, GL_NEAREST);
-            glSamplerParameterf(result->Samplers[i+j*3], GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+            glSamplerParameteri(Samplers[i+j*3], GL_TEXTURE_WRAP_S, translateWrapMode[i]);
+            glSamplerParameteri(Samplers[i+j*3], GL_TEXTURE_WRAP_T, translateWrapMode[j]);
+            glSamplerParameteri(Samplers[i+j*3], GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+            glSamplerParameterf(Samplers[i+j*3], GL_TEXTURE_MAG_FILTER, GL_NEAREST);
         }
     }
 
     // init textures for the clear bitmap
-    glGenTextures(2, result->ClearBitmapTex);
+    glGenTextures(2, ClearBitmapTex);
 
-    glBindTexture(GL_TEXTURE_2D, result->ClearBitmapTex[0]);
+    glBindTexture(GL_TEXTURE_2D, ClearBitmapTex[0]);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
     glTexImage2D(GL_TEXTURE_2D, 0, GL_R32UI, 256, 256, 0, GL_RED_INTEGER, GL_UNSIGNED_INT, nullptr);
 
-    glBindTexture(GL_TEXTURE_2D, result->ClearBitmapTex[1]);
+    glBindTexture(GL_TEXTURE_2D, ClearBitmapTex[1]);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
     glTexImage2D(GL_TEXTURE_2D, 0, GL_R32UI, 256, 256, 0, GL_RED_INTEGER, GL_UNSIGNED_INT, nullptr);
 
-    result->ClearBitmap[0] = new u32[256*256];
-    result->ClearBitmap[1] = new u32[256*256];
+    ClearBitmap[0] = new u32[256*256];
+    ClearBitmap[1] = new u32[256*256];
 
-    // init views on the 2D hi-res capture textures
-    // TODO make sure this is done after 2D renderer init
-    // all really ought to be made nicer!!
-    auto& gpu2D = (GPU2D::GLRenderer&)gpu.GetRenderer2D();
-    result->CaptureTexView128 = gpu2D.GetCaptureBuffer(128);
-    result->CaptureTexView256 = gpu2D.GetCaptureBuffer(256);
-
-    return result;
+    return true;
 }
 
-ComputeRenderer::~ComputeRenderer()
+ComputeRenderer3D::~ComputeRenderer3D()
 {
     Texcache.Reset();
 
@@ -274,7 +258,7 @@ ComputeRenderer::~ComputeRenderer()
     delete[] ClearBitmap[1];
 }
 
-void ComputeRenderer::DeleteShaders()
+void ComputeRenderer3D::DeleteShaders()
 {
     std::initializer_list<GLuint> allPrograms =
     {
@@ -316,13 +300,13 @@ void ComputeRenderer::DeleteShaders()
         glDeleteProgram(program);
 }
 
-void ComputeRenderer::Reset(GPU& gpu)
+void ComputeRenderer3D::Reset()
 {
     Texcache.Reset();
     ClearBitmapDirty = 0x3;
 }
 
-void ComputeRenderer::SetRenderSettings(int scale, bool highResolutionCoordinates)
+void ComputeRenderer3D::SetRenderSettings(int scale, bool highResolutionCoordinates)
 {
     //CurGLCompositor.SetScaleFactor(scale);
 
@@ -384,13 +368,13 @@ void ComputeRenderer::SetRenderSettings(int scale, bool highResolutionCoordinate
     glTexBuffer(GL_TEXTURE_BUFFER, GL_RGBA16UI, YSpanIndicesTextureMemory);
 }
 
-void ComputeRenderer::VCount144(GPU& gpu)
+void ComputeRenderer3D::VCount144()
 {
     glActiveTexture(GL_TEXTURE0);
     glBindTexture(GL_TEXTURE_2D, Framebuffer);
 }
 
-void ComputeRenderer::SetupAttrs(SpanSetupY* span, Polygon* poly, int from, int to)
+void ComputeRenderer3D::SetupAttrs(SpanSetupY* span, Polygon* poly, int from, int to)
 {
     span->Z0 = poly->FinalZ[from];
     span->W0 = poly->FinalW[from];
@@ -408,7 +392,7 @@ void ComputeRenderer::SetupAttrs(SpanSetupY* span, Polygon* poly, int from, int 
     span->TexcoordV1 = poly->Vertices[to]->TexCoords[1];
 }
 
-void ComputeRenderer::SetupYSpanDummy(RenderPolygon* rp, SpanSetupY* span, Polygon* poly, int vertex, int side, s32 positions[10][2])
+void ComputeRenderer3D::SetupYSpanDummy(RenderPolygon* rp, SpanSetupY* span, Polygon* poly, int vertex, int side, s32 positions[10][2])
 {
     s32 x0 = positions[vertex][0];
     if (side)
@@ -449,7 +433,7 @@ void ComputeRenderer::SetupYSpanDummy(RenderPolygon* rp, SpanSetupY* span, Polyg
     SetupAttrs(span, poly, vertex, vertex);
 }
 
-void ComputeRenderer::SetupYSpan(RenderPolygon* rp, SpanSetupY* span, Polygon* poly, int from, int to, int side, s32 positions[10][2])
+void ComputeRenderer3D::SetupYSpan(RenderPolygon* rp, SpanSetupY* span, Polygon* poly, int from, int to, int side, s32 positions[10][2])
 {
     span->X0 = positions[from][0];
     span->X1 = positions[to][0];
@@ -619,26 +603,26 @@ struct Variant
     => 20 Shader + 1x Shadow Mask
 */
 
-void ComputeRenderer::RenderFrame(GPU& gpu)
+void ComputeRenderer3D::RenderFrame()
 {
     assert(!NeedsShaderCompile());
     u8 clrBitmapDirty;
-    if (!Texcache.Update(gpu, clrBitmapDirty) && gpu.GPU3D.RenderFrameIdentical)
+    if (!Texcache.Update(clrBitmapDirty) && GPU3D.RenderFrameIdentical)
     {
         return;
     }
 
     // figure out which chunks of texture memory contain display captures
     int captureinfo[16];
-    gpu.GetCaptureInfo_Texture(captureinfo);
+    GPU.GetCaptureInfo_Texture(captureinfo);
 
     // if we're using a clear bitmap, set that up
     ClearBitmapDirty |= clrBitmapDirty;
-    if (gpu.GPU3D.RenderDispCnt & (1<<14))
+    if (GPU3D.RenderDispCnt & (1<<14))
     {
         if (ClearBitmapDirty & (1<<0))
         {
-            u16* vram = (u16*)&gpu.VRAMFlat_Texture[0x40000];
+            u16* vram = (u16*)&GPU.VRAMFlat_Texture[0x40000];
             for (int i = 0; i < 256*256; i++)
             {
                 u16 color = vram[i];
@@ -656,7 +640,7 @@ void ComputeRenderer::RenderFrame(GPU& gpu)
 
         if (ClearBitmapDirty & (1<<1))
         {
-            u16* vram = (u16*)&gpu.VRAMFlat_Texture[0x60000];
+            u16* vram = (u16*)&GPU.VRAMFlat_Texture[0x60000];
             for (int i = 0; i < 256*256; i++)
             {
                 u16 val = vram[i];
@@ -692,11 +676,11 @@ void ComputeRenderer::RenderFrame(GPU& gpu)
     Variant variants[MaxVariants];
     u32 capLastVariant[16] = {0};
 
-    bool enableTextureMaps = gpu.GPU3D.RenderDispCnt & (1<<0);
+    bool enableTextureMaps = GPU3D.RenderDispCnt & (1<<0);
 
-    for (int i = 0; i < gpu.GPU3D.RenderNumPolygons; i++)
+    for (int i = 0; i < GPU3D.RenderNumPolygons; i++)
     {
-        Polygon* polygon = gpu.GPU3D.RenderPolygonRAM[i];
+        Polygon* polygon = GPU3D.RenderPolygonRAM[i];
 
         u32 nverts = polygon->NumVertices;
         u32 vtop = polygon->VTop, vbot = polygon->VBottom;
@@ -712,7 +696,7 @@ void ComputeRenderer::RenderFrame(GPU& gpu)
         {
             // if the whole texture attribute matches
             // the texture layer will also match
-            Polygon* prevPolygon = gpu.GPU3D.RenderPolygonRAM[i - 1];
+            Polygon* prevPolygon = GPU3D.RenderPolygonRAM[i - 1];
             foundVariant = prevPolygon->TexParam == polygon->TexParam
                 && prevPolygon->TexPalette == polygon->TexPalette
                 && (prevPolygon->Attr & 0x30) == (polygon->Attr & 0x30)
@@ -757,13 +741,13 @@ void ComputeRenderer::RenderFrame(GPU& gpu)
                 {
                     if (texwidth == 128)
                     {
-                        variant.Texture = CaptureTexView128;
+                        variant.Texture = Parent.CaptureOutput128Tex;
                         variant.CaptureYOffset = (int)((texaddr >> 5) & 0x7F);
                         prevTexLayer = capblock;
                     }
                     else
                     {
-                        variant.Texture = CaptureTexView256;
+                        variant.Texture = Parent.CaptureOutput256Tex;
                         variant.CaptureYOffset = (int)((texaddr >> 6) & 0xFF);
                         prevTexLayer = capblock >> 2;
                     }
@@ -772,7 +756,7 @@ void ComputeRenderer::RenderFrame(GPU& gpu)
                 }
                 else
                 {
-                    Texcache.GetTexture(gpu, polygon->TexParam, polygon->TexPalette, variant.Texture, prevTexLayer, textureLastVariant);
+                    Texcache.GetTexture(polygon->TexParam, polygon->TexPalette, variant.Texture, prevTexLayer, textureLastVariant);
                     variant.CaptureYOffset = -1;
                 }
 
@@ -968,7 +952,7 @@ void ComputeRenderer::RenderFrame(GPU& gpu)
         glBufferSubData(GL_TEXTURE_BUFFER, 0, numSetupIndices*4*2, YSpanIndices.data());
 
         glBindBuffer(GL_SHADER_STORAGE_BUFFER, RenderPolygonMemory);
-        glBufferSubData(GL_SHADER_STORAGE_BUFFER, 0, gpu.GPU3D.RenderNumPolygons*sizeof(RenderPolygon), RenderPolygons);
+        glBufferSubData(GL_SHADER_STORAGE_BUFFER, 0, GPU3D.RenderNumPolygons*sizeof(RenderPolygon), RenderPolygons);
         // we haven't accessed image data yet, so we don't need to invalidate anything
     }
 
@@ -985,27 +969,27 @@ void ComputeRenderer::RenderFrame(GPU& gpu)
     glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 7, WorkDescMemory);
 
     MetaUniform meta;
-    meta.DispCnt = gpu.GPU3D.RenderDispCnt;
-    meta.NumPolygons = gpu.GPU3D.RenderNumPolygons;
+    meta.DispCnt = GPU3D.RenderDispCnt;
+    meta.NumPolygons = GPU3D.RenderNumPolygons;
     meta.NumVariants = numVariants;
-    meta.AlphaRef = gpu.GPU3D.RenderAlphaRef;
+    meta.AlphaRef = GPU3D.RenderAlphaRef;
     {
-        u32 r = (gpu.GPU3D.RenderClearAttr1 << 1) & 0x3E; if (r) r++;
-        u32 g = (gpu.GPU3D.RenderClearAttr1 >> 4) & 0x3E; if (g) g++;
-        u32 b = (gpu.GPU3D.RenderClearAttr1 >> 9) & 0x3E; if (b) b++;
-        u32 a = (gpu.GPU3D.RenderClearAttr1 >> 16) & 0x1F;
+        u32 r = (GPU3D.RenderClearAttr1 << 1) & 0x3E; if (r) r++;
+        u32 g = (GPU3D.RenderClearAttr1 >> 4) & 0x3E; if (g) g++;
+        u32 b = (GPU3D.RenderClearAttr1 >> 9) & 0x3E; if (b) b++;
+        u32 a = (GPU3D.RenderClearAttr1 >> 16) & 0x1F;
         meta.ClearColor = r | (g << 8) | (b << 16) | (a << 24);
-        meta.ClearDepth = ((gpu.GPU3D.RenderClearAttr2 & 0x7FFF) * 0x200) + 0x1FF;
-        meta.ClearAttr = gpu.GPU3D.RenderClearAttr1 & 0x3F008000;
+        meta.ClearDepth = ((GPU3D.RenderClearAttr2 & 0x7FFF) * 0x200) + 0x1FF;
+        meta.ClearAttr = GPU3D.RenderClearAttr1 & 0x3F008000;
 
-        u8 xoff = (gpu.GPU3D.RenderClearAttr2 >> 16) & 0xFF;
-        u8 yoff = (gpu.GPU3D.RenderClearAttr2 >> 24) & 0xFF;
+        u8 xoff = (GPU3D.RenderClearAttr2 >> 16) & 0xFF;
+        u8 yoff = (GPU3D.RenderClearAttr2 >> 24) & 0xFF;
         meta.ClearBitmapOffset[0] = (float)xoff / 256.0;
         meta.ClearBitmapOffset[1] = (float)yoff / 256.0;
     }
     for (u32 i = 0; i < 32; i++)
     {
-        u32 color = gpu.GPU3D.RenderToonTable[i];
+        u32 color = GPU3D.RenderToonTable[i];
         u32 r = (color << 1) & 0x3E;
         u32 g = (color >> 4) & 0x3E;
         u32 b = (color >> 9) & 0x3E;
@@ -1017,11 +1001,11 @@ void ComputeRenderer::RenderFrame(GPU& gpu)
     }
     for (u32 i = 0; i < 34; i++)
     {
-        meta.ToonTable[i*4+1] = gpu.GPU3D.RenderFogDensityTable[i];
+        meta.ToonTable[i*4+1] = GPU3D.RenderFogDensityTable[i];
     }
     for (u32 i = 0; i < 8; i++)
     {
-        u32 color = gpu.GPU3D.RenderEdgeTable[i];
+        u32 color = GPU3D.RenderEdgeTable[i];
         u32 r = (color << 1) & 0x3E;
         u32 g = (color >> 4) & 0x3E;
         u32 b = (color >> 9) & 0x3E;
@@ -1031,13 +1015,13 @@ void ComputeRenderer::RenderFrame(GPU& gpu)
 
         meta.ToonTable[i*4+2] = r | (g << 8) | (b << 16);
     }
-    meta.FogOffset = gpu.GPU3D.RenderFogOffset;
-    meta.FogShift = gpu.GPU3D.RenderFogShift;
+    meta.FogOffset = GPU3D.RenderFogOffset;
+    meta.FogShift = GPU3D.RenderFogShift;
     {
-        u32 fogR = (gpu.GPU3D.RenderFogColor << 1) & 0x3E; if (fogR) fogR++;
-        u32 fogG = (gpu.GPU3D.RenderFogColor >> 4) & 0x3E; if (fogG) fogG++;
-        u32 fogB = (gpu.GPU3D.RenderFogColor >> 9) & 0x3E; if (fogB) fogB++;
-        u32 fogA = (gpu.GPU3D.RenderFogColor >> 16) & 0x1F;
+        u32 fogR = (GPU3D.RenderFogColor << 1) & 0x3E; if (fogR) fogR++;
+        u32 fogG = (GPU3D.RenderFogColor >> 4) & 0x3E; if (fogG) fogG++;
+        u32 fogB = (GPU3D.RenderFogColor >> 9) & 0x3E; if (fogB) fogB++;
+        u32 fogA = (GPU3D.RenderFogColor >> 16) & 0x1F;
         meta.FogColor = fogR | (fogG << 8) | (fogB << 16) | (fogA << 24);
     }
 
@@ -1051,7 +1035,7 @@ void ComputeRenderer::RenderFrame(GPU& gpu)
     bool wbuffer = false;
     if (numYSpans > 0)
     {
-        wbuffer = gpu.GPU3D.RenderPolygonRAM[0]->WBuffer;
+        wbuffer = GPU3D.RenderPolygonRAM[0]->WBuffer;
 
         glUseProgram(ShaderClearIndirectWorkCount);
         glDispatchCompute((numVariants+31)/32, 1, 1);
@@ -1064,7 +1048,7 @@ void ComputeRenderer::RenderFrame(GPU& gpu)
 
         // bin polygons
         glUseProgram(ShaderBinCombined);
-        glDispatchCompute(((gpu.GPU3D.RenderNumPolygons + 31) / 32), ScreenWidth/CoarseTileW, ScreenHeight/CoarseTileH);
+        glDispatchCompute(((GPU3D.RenderNumPolygons + 31) / 32), ScreenWidth/CoarseTileW, ScreenHeight/CoarseTileH);
         glMemoryBarrier(GL_SHADER_STORAGE_BUFFER);
 
         // calculate list offsets
@@ -1085,7 +1069,7 @@ void ComputeRenderer::RenderFrame(GPU& gpu)
 
         // rasterise
         {
-            bool highLightMode = gpu.GPU3D.RenderDispCnt & (1<<1);
+            bool highLightMode = GPU3D.RenderDispCnt & (1<<1);
 
             GLuint shadersNoTexture[] =
             {
@@ -1168,11 +1152,11 @@ void ComputeRenderer::RenderFrame(GPU& gpu)
 
     glBindImageTexture(0, Framebuffer, 0, GL_FALSE, 0, GL_WRITE_ONLY, GL_RGBA8);
     u32 finalPassShader = 0;
-    if (gpu.GPU3D.RenderDispCnt & (1<<4))
+    if (GPU3D.RenderDispCnt & (1<<4))
         finalPassShader |= 0x4;
-    if (gpu.GPU3D.RenderDispCnt & (1<<7))
+    if (GPU3D.RenderDispCnt & (1<<7))
         finalPassShader |= 0x2;
-    if (gpu.GPU3D.RenderDispCnt & (1<<5))
+    if (GPU3D.RenderDispCnt & (1<<5))
         finalPassShader |= 0x1;
     
     glUseProgram(ShaderFinalPass[finalPassShader]);
@@ -1228,39 +1212,39 @@ void ComputeRenderer::RenderFrame(GPU& gpu)
     }*/
 }
 
-void ComputeRenderer::RestartFrame(GPU& gpu)
+void ComputeRenderer3D::RestartFrame()
 {
 
 }
 
-u32* ComputeRenderer::GetLine(int line)
+u32* ComputeRenderer3D::GetLine(int line)
 {
     return nullptr;
 }
 
-/*void ComputeRenderer::SetupAccelFrame()
+/*void ComputeRenderer3D::SetupAccelFrame()
 {
     glBindTexture(GL_TEXTURE_2D, Framebuffer);
 }
 
-void ComputeRenderer::PrepareCaptureFrame()
+void ComputeRenderer3D::PrepareCaptureFrame()
 {
     glBindBuffer(GL_PIXEL_PACK_BUFFER, PixelBuffer);
     glBindTexture(GL_TEXTURE_2D, LowResFramebuffer);
     glGetTexImage(GL_TEXTURE_2D, 0, GL_RGBA_INTEGER, GL_UNSIGNED_BYTE, nullptr);
 }
 
-void ComputeRenderer::BindOutputTexture(int buffer)
+void ComputeRenderer3D::BindOutputTexture(int buffer)
 {
     CurGLCompositor.BindOutputTexture(buffer);
 }
 
-void ComputeRenderer::Blit(const GPU &gpu)
+void ComputeRenderer3D::Blit(const GPU &gpu)
 {
     CurGLCompositor.RenderFrame(gpu, *this);
 }*/
 
-void ComputeRenderer::Stop(const GPU &gpu)
+void ComputeRenderer3D::Stop()
 {
     //CurGLCompositor.Stop(gpu);
 }

@@ -33,21 +33,23 @@
 
 namespace melonDS
 {
+class GLRenderer;
 
-class ComputeRenderer : public Renderer3D
+class ComputeRenderer3D : public Renderer3D
 {
 public:
-    static std::unique_ptr<ComputeRenderer> New(GPU& gpu);
-    ~ComputeRenderer() override;
-
-    void Reset(GPU& gpu) override;
+    ComputeRenderer3D(melonDS::GPU3D& gpu3D, GLRenderer& parent);
+    ~ComputeRenderer3D() override;
+    bool Init() override;
+    void Reset() override;
+    void Stop() override;
 
     void SetRenderSettings(int scale, bool highResolutionCoordinates);
 
-    void VCount144(GPU& gpu) override;
+    void VCount144() override;
 
-    void RenderFrame(GPU& gpu) override;
-    void RestartFrame(GPU& gpu) override;
+    void RenderFrame() override;
+    void RestartFrame() override;
     u32* GetLine(int line) override;
 
     //void SetupAccelFrame() override;
@@ -55,13 +57,13 @@ public:
 
     //void BindOutputTexture(int buffer) override;
 
-    //void Blit(const GPU& gpu) override;
-    void Stop(const GPU& gpu) override;
+    //void Blit(const ) override;
 
     bool NeedsShaderCompile() override { return ShaderStepIdx != 33; }
     void ShaderCompileStep(int& current, int& count) override;
+
 private:
-    ComputeRenderer();//GLCompositor&& compositor);
+    GLRenderer& Parent;
 
     GLuint ShaderInterpXSpans[2];
     GLuint ShaderBinCombined;
@@ -98,8 +100,6 @@ private:
 
     GLuint TileMemory[tilememoryLayer_Num];
     GLuint FinalTileMemory;
-
-    u32 DummyLine[256] = {};
 
     struct SpanSetupY
     {
@@ -161,9 +161,6 @@ private:
 
         float TextureLayer;
     };
-
-    GLuint CaptureTexView128;
-    GLuint CaptureTexView256;
 
     static constexpr int TileSize = 8;
     static constexpr int CoarseTileCountX = 8;

@@ -31,14 +31,13 @@ namespace melonDS
 GLRenderer::GLRenderer(melonDS::GPU& gpu, bool compute)
     : Renderer(gpu)
 {
-    // TODO init GL shit here
-
     Rend2D_A = std::make_unique<GLRenderer2D>(GPU.GPU2D_A, *this);
     Rend2D_B = std::make_unique<GLRenderer2D>(GPU.GPU2D_B, *this);
 
+    // TODO, eventually: figure out a nicer way to support different 3D renderers?
     IsCompute = compute;
     if (IsCompute)
-        Rend3D = std::make_unique<ComputeRenderer>();
+        Rend3D = std::make_unique<ComputeRenderer3D>(GPU.GPU3D, *this);
     else
         Rend3D = std::make_unique<GLRenderer3D>(GPU.GPU3D, *this);
 }

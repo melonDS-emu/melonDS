@@ -26,15 +26,16 @@
 
 namespace melonDS
 {
-class GPU;
 class GLRenderer;
 
 class GLRenderer3D : public Renderer3D
 {
 public:
-    static std::unique_ptr<GLRenderer3D> New() noexcept;
+    GLRenderer3D(melonDS::GPU3D& gpu3D, GLRenderer& parent) noexcept;
     ~GLRenderer3D() override;
+    bool Init() override;
     void Reset() override;
+    void Stop() override;
 
     void SetRenderSettings(bool betterpolygons, int scale) noexcept;
     void SetBetterPolygons(bool betterpolygons) noexcept;
@@ -44,7 +45,6 @@ public:
 
     //void VCount144() override;
     void RenderFrame() override;
-    void Stop() override;
     u32* GetLine(int line) override;
 
     //void SetupAccelFrame() override;
@@ -55,9 +55,6 @@ public:
 
 private:
     GLRenderer& Parent;
-
-    // Used by New()
-    GLRenderer3D(melonDS::GPU3D& gpu3D, GLRenderer& parent) noexcept;//GLCompositor&& compositor) noexcept;
 
     // GL version requirements
     // * texelFetch: 3.0 (GLSL 1.30)     (3.2/1.50 for MS)
@@ -85,9 +82,6 @@ private:
 
     bool TexEnable;
     TexcacheOpenGL Texcache;
-
-    GLuint CaptureTexView128;
-    GLuint CaptureTexView256;
 
     bool BuildRenderShader(bool wbuffer);
     void UseRenderShader(bool wbuffer);

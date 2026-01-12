@@ -25,7 +25,6 @@
 
 namespace melonDS
 {
-class GPU;
 class GLRenderer;
 
 class GLRenderer2D : public Renderer2D
