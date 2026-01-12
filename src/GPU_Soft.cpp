@@ -16,14 +16,15 @@
     with melonDS. If not, see http://www.gnu.org/licenses/.
 */
 
+#include "NDS.h"
 #include "GPU_Soft.h"
 #include "GPU_ColorOp.h"
 
 namespace melonDS
 {
 
-SoftRenderer::SoftRenderer(melonDS::GPU& gpu)
-    : Renderer(gpu)
+SoftRenderer::SoftRenderer(melonDS::NDS& nds)
+    : Renderer(nds.GPU)
 {
     const size_t len = 256 * 192;
     Framebuffer[0][0] = new u32[len];
@@ -66,6 +67,13 @@ void SoftRenderer::Stop()
     memset(Framebuffer[0][1], 0, len);
     memset(Framebuffer[1][0], 0, len);
     memset(Framebuffer[1][1], 0, len);
+}
+
+
+void SoftRenderer::SetRenderSettings(RendererSettings& settings)
+{
+    auto rend3d = dynamic_cast<SoftRenderer3D*>(Rend3D.get());
+    rend3d->SetThreaded(settings.Threaded);
 }
 
 

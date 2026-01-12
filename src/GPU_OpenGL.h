@@ -31,13 +31,13 @@ namespace melonDS
 class GLRenderer : public Renderer
 {
 public:
-    GLRenderer(melonDS::GPU& gpu, bool compute);
+    GLRenderer(melonDS::NDS& nds, bool compute);
     ~GLRenderer() override;
     bool Init() override;
     void Reset() override;
     void Stop() override;
 
-    void SetScaleFactor(int scale);
+    void SetRenderSettings(RendererSettings& settings) override;
 
     void DrawScanline(u32 line) override;
     void DrawSprites(u32 line) override;
@@ -51,6 +51,9 @@ public:
     void SyncVRAMCapture(u32 bank, u32 start, u32 len, bool complete) override;
 
     bool GetFramebuffers(void** top, void** bottom) override;
+
+    bool NeedsShaderCompile() override;
+    void ShaderCompileStep(int& current, int& count) override;
 
 private:
     friend class GLRenderer2D;
@@ -122,6 +125,8 @@ private:
 
     u16* AuxInputBuffer[2];
     u8 AuxUsageMask;
+
+    void SetScaleFactor(int scale);
 
     void DoCapture(int vramcap);
 };

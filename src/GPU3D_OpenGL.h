@@ -36,7 +36,7 @@ public:
     bool Init() override;
     void Reset() override;
 
-    void SetRenderSettings(bool betterpolygons, int scale) noexcept;
+    void SetRenderSettings(int scale, bool betterpolygons) noexcept;
     void SetBetterPolygons(bool betterpolygons) noexcept;
     void SetScaleFactor(int scale) noexcept;
     [[nodiscard]] bool GetBetterPolygons() const noexcept { return BetterPolygons; }

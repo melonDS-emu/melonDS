@@ -819,6 +819,22 @@ private:
     u16* VRAMCBF_BOBJ[0x8] {};
 };
 
+
+struct RendererSettings
+{
+    // scale factor, for renderers that support upscaling
+    int ScaleFactor;
+
+    // whether to use separate threads for rendering
+    bool Threaded;
+
+    // whether to use hi-res vertex coordinates when applying upscaling
+    bool HiresCoordinates;
+
+    // "improved polygon splitting" (regular OpenGL renderer)
+    bool BetterPolygons;
+};
+
 class Renderer
 {
 public:
@@ -827,6 +843,8 @@ public:
     virtual bool Init() = 0;
     virtual void Reset() = 0;
     virtual void Stop() = 0;
+
+    virtual void SetRenderSettings(RendererSettings& settings) = 0;
 
     virtual void DrawScanline(u32 line) = 0;
     virtual void DrawSprites(u32 line) = 0;
@@ -845,6 +863,9 @@ public:
     // if the renderer uses RAM buffers, they should be 32-bit BGRA, 256x192 for each screen
     virtual bool GetFramebuffers(void** top, void** bottom) = 0;
     virtual void SwapBuffers() { BackBuffer ^= 1; }
+
+    virtual bool NeedsShaderCompile() { return false; }
+    virtual void ShaderCompileStep(int& current, int& count) {}
 
 protected:
     melonDS::GPU& GPU;

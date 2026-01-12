@@ -1153,7 +1153,7 @@ void ScreenPanelGL::drawScreen()
         glUseProgram(screenShaderProgram);
         glUniform2f(screenShaderScreenSizeULoc, w / factor, h / factor);
 
-        u32* topbuf; u32* bottombuf;
+        void* topbuf; void* bottombuf;
         if (nds->GPU.GetFramebuffers(&topbuf, &bottombuf))
         {
             // if we're doing a regular render, use the provided framebuffers
@@ -1166,6 +1166,13 @@ void ScreenPanelGL::drawScreen()
                             GL_UNSIGNED_BYTE, topbuf);
             glTexSubImage3D(GL_TEXTURE_2D_ARRAY, 0, 0, 0, 1, 256, 192, 1, GL_BGRA,
                             GL_UNSIGNED_BYTE, bottombuf);
+        }
+        else
+        {
+            GLuint texid = *(GLuint*)topbuf;
+
+            glActiveTexture(GL_TEXTURE0);
+            glBindTexture(GL_TEXTURE_2D_ARRAY, texid);
         }
 
         screenSettingsLock.lock();

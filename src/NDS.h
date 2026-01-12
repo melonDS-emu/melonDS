@@ -369,7 +369,7 @@ public: // TODO: Encapsulate the rest of these members
     void SetFirmware(Firmware&& firmware) { SPI.GetFirmwareMem()->SetFirmware(std::move(firmware)); }
 
     const Renderer& GetRenderer() const noexcept { return GPU.GetRenderer(); }
-    Renderer3D& GetRenderer() noexcept { return GPU.GetRenderer(); }
+    Renderer& GetRenderer() noexcept { return GPU.GetRenderer(); }
     void SetRenderer(std::unique_ptr<Renderer>&& renderer) noexcept
     {
         if (renderer != nullptr)

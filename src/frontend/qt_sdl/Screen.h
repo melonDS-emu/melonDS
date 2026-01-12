@@ -173,8 +173,8 @@ private:
 
     QMutex bufferLock;
     bool hasBuffers;
-    melonDS::u32* topBuffer;
-    melonDS::u32* bottomBuffer;
+    void* topBuffer;
+    void* bottomBuffer;
 
     QImage screen[2];
     QTransform screenTrans[kMaxScreenTransforms];

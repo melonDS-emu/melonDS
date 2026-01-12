@@ -148,6 +148,9 @@ public:
     virtual void VBlank() = 0;
     virtual void VBlankEnd() = 0;
 
+    virtual bool NeedsShaderCompile() { return false; }
+    virtual void ShaderCompileStep(int& current, int& count) {}
+
 protected:
     melonDS::GPU& GPU;
     melonDS::GPU2D& GPU2D;

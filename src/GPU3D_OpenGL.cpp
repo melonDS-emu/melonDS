@@ -319,16 +319,16 @@ void GLRenderer3D::Reset()
 
 void GLRenderer3D::SetBetterPolygons(bool betterpolygons) noexcept
 {
-    SetRenderSettings(betterpolygons, ScaleFactor);
+    SetRenderSettings(ScaleFactor, betterpolygons);
 }
 
 void GLRenderer3D::SetScaleFactor(int scale) noexcept
 {
-    SetRenderSettings(BetterPolygons, scale);
+    SetRenderSettings(scale, BetterPolygons);
 }
 
 
-void GLRenderer3D::SetRenderSettings(bool betterpolygons, int scale) noexcept
+void GLRenderer3D::SetRenderSettings(int scale, bool betterpolygons) noexcept
 {
     if (betterpolygons == BetterPolygons && scale == ScaleFactor)
         return;

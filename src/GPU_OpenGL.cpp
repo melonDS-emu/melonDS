@@ -17,6 +17,7 @@
 */
 
 #include <string.h>
+#include "NDS.h"
 #include "GPU_OpenGL.h"
 
 namespace melonDS
@@ -28,8 +29,8 @@ namespace melonDS
 #include "OpenGL_shaders/CaptureFS.h"
 
 
-GLRenderer::GLRenderer(melonDS::GPU& gpu, bool compute)
-    : Renderer(gpu)
+GLRenderer::GLRenderer(melonDS::NDS& nds, bool compute)
+    : Renderer(nds.GPU)
 {
     Rend2D_A = std::make_unique<GLRenderer2D>(GPU.GPU2D_A, *this);
     Rend2D_B = std::make_unique<GLRenderer2D>(GPU.GPU2D_B, *this);
@@ -249,6 +250,29 @@ void GLRenderer::Stop()
 {
     // TODO clear buffers
     // TODO: do we even need this anymore?
+}
+
+
+void GLRenderer::SetRenderSettings(RendererSettings& settings)
+{
+    SetScaleFactor(settings.ScaleFactor);
+
+    auto rend2d = dynamic_cast<GLRenderer2D*>(Rend2D_A.get());
+    rend2d->SetScaleFactor(settings.ScaleFactor);
+
+    rend2d = dynamic_cast<GLRenderer2D*>(Rend2D_B.get());
+    rend2d->SetScaleFactor(settings.ScaleFactor);
+
+    if (IsCompute)
+    {
+        auto rend3d = dynamic_cast<ComputeRenderer3D *>(Rend3D.get());
+        rend3d->SetRenderSettings(settings.ScaleFactor, settings.HiresCoordinates);
+    }
+    else
+    {
+        auto rend3d = dynamic_cast<GLRenderer3D *>(Rend3D.get());
+        rend3d->SetRenderSettings(settings.ScaleFactor, settings.BetterPolygons);
+    }
 }
 
 
@@ -739,6 +763,17 @@ bool GLRenderer::GetFramebuffers(void** top, void** bottom)
     *top = &FPOutputTex[frontbuf];
     *bottom = nullptr;
     return false;
+}
+
+
+bool GLRenderer::NeedsShaderCompile()
+{
+    return Rend3D->NeedsShaderCompile();
+}
+
+void GLRenderer::ShaderCompileStep(int& current, int& count)
+{
+    return Rend3D->ShaderCompileStep(current, count);
 }
 
 }

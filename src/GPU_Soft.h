@@ -29,11 +29,13 @@ namespace melonDS
 class SoftRenderer : public Renderer
 {
 public:
-    explicit SoftRenderer(melonDS::GPU& gpu);
+    explicit SoftRenderer(melonDS::NDS& nds);
     ~SoftRenderer() override;
     bool Init() override { return true; }
     void Reset() override;
     void Stop() override;
+
+    void SetRenderSettings(RendererSettings& settings) override;
 
     void DrawScanline(u32 line) override;
     void DrawSprites(u32 line) override;

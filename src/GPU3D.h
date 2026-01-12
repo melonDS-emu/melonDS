@@ -348,10 +348,6 @@ public:
     virtual void FinishRendering() {}
     virtual void RestartFrame() {};
 
-    // return raw framebuffer
-    // this is used in hardware renderers (ie. to return the 3D framebuffer handle)
-    virtual void* GetFramebuffer() { return nullptr; }
-
     // return one scanline of the framebuffer, with X scroll applied
     // this is used in software renderers
     virtual u32* GetLine(int line) = 0;
