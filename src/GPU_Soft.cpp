@@ -92,8 +92,8 @@ void SoftRenderer::DrawScanline(u32 line)
         Output3D = Rend3D->GetLine(line);
 
         // draw BG/OBJ layers
-        Rend2D_A->DrawScanline(line, Output2D_A);
-        Rend2D_B->DrawScanline(line, Output2D_B);
+        Rend2D_A->DrawScanline(line);
+        Rend2D_B->DrawScanline(line);
 
         // draw the final screen output
         DrawScanlineA(line, dstA);
@@ -158,7 +158,7 @@ void SoftRenderer::DrawScanlineA(u32 line, u32* dst)
     case 1: // regular display
         {
             for (int i = 0; i < 256; i+=2)
-                *(u64*)&dst[i] = *(u64*)&Output2D_A[i];
+                *(u64*)&dst[i] = *(u64*)&Output2D[0][i];
         }
         break;
 
@@ -221,7 +221,7 @@ void SoftRenderer::DrawScanlineB(u32 line, u32* dst)
     case 1: // regular display
         {
             for (int i = 0; i < 256; i+=2)
-                *(u64*)&dst[i] = *(u64*)&Output2D_B[i];
+                *(u64*)&dst[i] = *(u64*)&Output2D[1][i];
         }
         break;
     }
@@ -261,7 +261,7 @@ void SoftRenderer::DoCapture(u32 line)
     if (captureCnt & (1<<24))
         srcA = Output3D;
     else
-        srcA = Output2D_A;
+        srcA = Output2D[0];
 
     u16* srcB = nullptr;
     if (captureCnt & (1<<25))

@@ -314,6 +314,9 @@ void GLRenderer::DrawScanline(u32 line)
 {
     // TODO: forced blank
 
+    Rend2D_A->DrawScanline(line);
+    Rend2D_B->DrawScanline(line);
+
     FinalPassConfig.uScreenSwap[line] = GPU.ScreenSwap;
 
     u32 dispcnt = GPU.GPU2D_A.DispCnt;
@@ -376,22 +379,27 @@ void GLRenderer::DrawScanline(u32 line)
 
 void GLRenderer::DrawSprites(u32 line)
 {
-    //
+    Rend2D_A->DrawSprites(line);
+    Rend2D_B->DrawSprites(line);
 }
 
 
 void GLRenderer::Finish3DRendering()
 {
+    Renderer::Finish3DRendering();
+
     // 3D layer scrolling should be implemented in the 3D rendering engine
     // for convenience's sake we will do it here
 
     // TODO: actually do it
+    // or not?
 }
 
 
 void GLRenderer::VBlank()
 {
-    // TODO call the 2D renderers
+    Rend2D_A->VBlank();
+    Rend2D_B->VBlank();
 
     int backbuf = BackBuffer;
     glBindFramebuffer(GL_READ_FRAMEBUFFER, 0);

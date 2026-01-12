@@ -116,8 +116,10 @@ u32 SoftRenderer2D::ColorComposite(int i, u32 val1, u32 val2) const
     return val1;
 }
 
-void SoftRenderer2D::DrawScanline(u32 line, u32* dst)
+void SoftRenderer2D::DrawScanline(u32 line)
 {
+    u32* dst = Parent.Output2D[GPU2D.Num];
+
     if (!GPU2D.Enabled)
     {
         // if this 2D unit is disabled in POWCNT, the output is a fixed color

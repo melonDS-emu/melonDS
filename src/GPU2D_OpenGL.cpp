@@ -923,9 +923,8 @@ void GLRenderer2D::UpdateAndRender(int line)
 }
 
 
-void GLRenderer2D::DrawScanline(u32 line, u32* dst)
+void GLRenderer2D::DrawScanline(u32 line)
 {
-    // TODO change this? not have a useless dst param
     UpdateAndRender(line);
 }
 

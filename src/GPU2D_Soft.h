@@ -33,7 +33,7 @@ public:
     bool Init() override { return true; }
     void Reset() override;
 
-    void DrawScanline(u32 line, u32* dst) override;
+    void DrawScanline(u32 line) override;
     void DrawSprites(u32 line) override;
     void VBlank() override {}
     void VBlankEnd() override {};

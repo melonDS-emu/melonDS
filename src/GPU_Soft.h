@@ -53,8 +53,7 @@ private:
     u32* Framebuffer[2][2];
 
     u32* Output3D;
-    alignas(8) u32 Output2D_A[256];
-    alignas(8) u32 Output2D_B[256];
+    alignas(8) u32 Output2D[2][256];
 
     void DrawScanlineA(u32 line, u32* dst);
     void DrawScanlineB(u32 line, u32* dst);

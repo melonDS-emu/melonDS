@@ -142,7 +142,7 @@ public:
     virtual bool Init() = 0;
     virtual void Reset() = 0;
 
-    virtual void DrawScanline(u32 line, u32* dst) = 0;
+    virtual void DrawScanline(u32 line) = 0;
     virtual void DrawSprites(u32 line) = 0;
 
     virtual void VBlank() = 0;
