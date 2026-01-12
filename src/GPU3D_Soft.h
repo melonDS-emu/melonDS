@@ -33,13 +33,14 @@ class SoftRenderer3D : public Renderer3D
 public:
     SoftRenderer3D(melonDS::GPU3D& gpu3D, SoftRenderer& parent) noexcept;
     ~SoftRenderer3D() override;
+    bool Init() override { return true; }
     void Reset() override;
 
     void SetThreaded(bool threaded) noexcept;
     [[nodiscard]] bool IsThreaded() const noexcept { return Threaded; }
 
-    void VCount144();
     void RenderFrame() override;
+    void FinishRendering() override;
     void RestartFrame() override;
     u32* GetLine(int line) override;
 

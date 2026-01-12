@@ -23,10 +23,7 @@ namespace melonDS
 {
 
 SoftRenderer::SoftRenderer(melonDS::GPU& gpu)
-    : Renderer(gpu),
-    Rend2D_A(gpu.GPU2D_A, *this),
-    Rend2D_B(gpu.GPU2D_B, *this),
-    Rend3D()
+    : Renderer(gpu)
 {
     const size_t len = 256 * 192;
     Framebuffer[0][0] = new u32[len];
@@ -34,6 +31,10 @@ SoftRenderer::SoftRenderer(melonDS::GPU& gpu)
     Framebuffer[1][0] = new u32[len];
     Framebuffer[1][1] = new u32[len];
     BackBuffer = 0;
+
+    Rend2D_A = std::make_unique<GPU2D::SoftRenderer2D>(GPU.GPU2D_A, *this);
+    Rend2D_B = std::make_unique<GPU2D::SoftRenderer2D>(GPU.GPU2D_B, *this);
+    Rend3D = std::make_unique<SoftRenderer3D>(GPU.GPU3D, *this);
 }
 
 SoftRenderer::~SoftRenderer()
@@ -52,9 +53,9 @@ void SoftRenderer::Reset()
     memset(Framebuffer[1][0], 0, len);
     memset(Framebuffer[1][1], 0, len);
 
-    Rend2D_A.Reset();
-    Rend2D_B.Reset();
-    //Rend3D.Reset();
+    Rend2D_A->Reset();
+    Rend2D_B->Reset();
+    Rend3D->Reset();
 }
 
 void SoftRenderer::Stop()
@@ -88,11 +89,11 @@ void SoftRenderer::DrawScanline(u32 line)
     if (line < 192)
     {
         // retrieve 3D output
-        Output3D = Rend3D.GetLine(line);
+        Output3D = Rend3D->GetLine(line);
 
         // draw BG/OBJ layers
-        Rend2D_A.DrawScanline(line, Output2D_A);
-        Rend2D_B.DrawScanline(line, Output2D_B);
+        Rend2D_A->DrawScanline(line, Output2D_A);
+        Rend2D_B->DrawScanline(line, Output2D_B);
 
         // draw the final screen output
         DrawScanlineA(line, dstA);
@@ -138,8 +139,8 @@ void SoftRenderer::DrawSprites(u32 line)
     if (line >= 192)
         return;
 
-    Rend2D_A.DrawSprites(line);
-    Rend2D_B.DrawSprites(line);
+    Rend2D_A->DrawSprites(line);
+    Rend2D_B->DrawSprites(line);
 }
 
 void SoftRenderer::DrawScanlineA(u32 line, u32* dst)
@@ -423,14 +424,15 @@ void SoftRenderer::ExpandColor(u32* dst)
 }
 
 
-void SoftRenderer::Start3DRendering()
-{
-    Rend3D.RenderFrame();
-}
+//
 
-void SoftRenderer::Finish3DRendering()
+
+bool SoftRenderer::GetFramebuffers(u32** top, u32** bottom)
 {
-    Rend3D.VCount144();
+    int frontbuf = BackBuffer ^ 1;
+    *top = Framebuffer[frontbuf][0];
+    *bottom = Framebuffer[frontbuf][1];
+    return true;
 }
 
 }

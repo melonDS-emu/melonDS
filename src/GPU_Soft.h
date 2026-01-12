@@ -29,36 +29,32 @@ namespace melonDS
 class SoftRenderer : public Renderer
 {
 public:
-    SoftRenderer(melonDS::GPU& gpu);
+    explicit SoftRenderer(melonDS::GPU& gpu);
     ~SoftRenderer() override;
+    bool Init() override { return true; }
     void Reset() override;
     void Stop() override;
 
     void DrawScanline(u32 line) override;
     void DrawSprites(u32 line) override;
 
-    void Start3DRendering() override;
-    void Finish3DRendering() override;
+    void VBlank() override {};
+    void VBlankEnd() override {};
 
-    void VBlank() override;
-    void VBlankEnd() override;
-
-    void AllocCapture(u32 bank, u32 start, u32 len) override;
-    void SyncVRAMCapture(u32 bank, u32 start, u32 len, bool complete) override;
+    void AllocCapture(u32 bank, u32 start, u32 len) override {};
+    void SyncVRAMCapture(u32 bank, u32 start, u32 len, bool complete) override {};
 
     bool GetFramebuffers(u32** top, u32** bottom) override;
-    void SwapBuffers() override;
 
 private:
     friend class GPU2D::SoftRenderer2D;
     friend class SoftRenderer3D;
 
-    GPU2D::SoftRenderer2D Rend2D_A;
+    /*GPU2D::SoftRenderer2D Rend2D_A;
     GPU2D::SoftRenderer2D Rend2D_B;
-    SoftRenderer3D Rend3D;
+    SoftRenderer3D Rend3D;*/
 
     u32* Framebuffer[2][2];
-    int BackBuffer;
 
     u32* Output3D;
     alignas(8) u32 Output2D_A[256];

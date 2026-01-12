@@ -142,6 +142,7 @@ class Renderer2D
 public:
     explicit Renderer2D(melonDS::GPU2D::Unit& gpu2D) : GPU(gpu2D.GPU), GPU2D(gpu2D) {}
     virtual ~Renderer2D() {}
+    virtual bool Init() = 0;
     virtual void Reset() = 0;
 
     virtual void DrawScanline(u32 line, u32* dst) = 0;

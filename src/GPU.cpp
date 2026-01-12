@@ -1237,9 +1237,6 @@ void GPU::StartScanline(u32 line) noexcept
      * ultimately, messing with VCount can cause a lot of weird shit, seeing as VCount controls
      * a lot of the renderer logic and the LCD sync signals.
      * certain VCount transitions can cause odd effects such as LCDs fading out.
-     *
-     * 262->0 seems to be a trigger point for the PPUs.
-     * it causes the internal rotscale reference registers and mosaic counters to be reset.
      */
 
     // clear HBlank flags
@@ -1257,8 +1254,10 @@ void GPU::StartScanline(u32 line) noexcept
         VCount &= 0x1FF;
     }
 
-    GPU2D_A.UpdateRegisters(VCount);
-    GPU2D_B.UpdateRegisters(VCount);
+    // TODO: not right
+    // should be done during HBlank (or when starting a scanline for OBJ mos counters)
+    //GPU2D_A.UpdateRegisters(VCount);
+    //GPU2D_B.UpdateRegisters(VCount);
 
     if (VCount >= 2 && VCount < 194)
         NDS.CheckDMAs(0, 0x03);
@@ -1286,9 +1285,6 @@ void GPU::StartScanline(u32 line) noexcept
         if (CaptureEnable)
             CheckCaptureEnd();
 
-        CaptureCnt &= ~(1<<31);
-        CaptureEnable = false;
-
         DispFIFOReadPtr = 0;
         DispFIFOWritePtr = 0;
 
@@ -1313,6 +1309,9 @@ void GPU::StartScanline(u32 line) noexcept
         GPU3D.VBlank();
 
         Rend->VBlank();
+
+        CaptureCnt &= ~(1<<31);
+        CaptureEnable = false;
     }
     else if (VCount == 262)
     {

@@ -158,6 +158,7 @@ void SoftRenderer2D::DrawScanline(u32 line, u32* dst)
     }
 
     // swap OBJ buffers if needed
+    // TODO this isn't right!
     if (NumSprites)
     {
         if (GPU2D.OBJMosaicLatch)

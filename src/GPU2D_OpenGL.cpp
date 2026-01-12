@@ -42,7 +42,7 @@ namespace melonDS::GPU2D
 // in the future, the rendering may be refined to involve more hardware processing
 // and include features such as filtering/upscaling for 2D layers
 
-std::unique_ptr<GLRenderer> GLRenderer::New(melonDS::GPU& gpu) noexcept
+std::unique_ptr<GLRenderer> GLRenderer2D::New(melonDS::GPU& gpu) noexcept
 {
     assert(glBindAttribLocation != nullptr);
     GLuint shaderid[7];
@@ -102,8 +102,8 @@ std::unique_ptr<GLRenderer> GLRenderer::New(melonDS::GPU& gpu) noexcept
     return ret;
 }
 
-GLRenderer::GLRenderer(melonDS::GPU& gpu)
-        : Renderer2D(), GPU(gpu)
+GLRenderer2D::GLRenderer2D(melonDS::GPU2D::Unit& gpu2D, GLRenderer& parent)
+    : Renderer2D(gpu2D), Parent(parent)
 {
     BackBuffer = 0;
 
@@ -117,9 +117,11 @@ GLRenderer::GLRenderer(melonDS::GPU& gpu)
     glTexParameteri(target, GL_TEXTURE_MIN_FILTER, GL_NEAREST); \
     glTexParameteri(target, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
 
-bool GLRenderer::GLInit()
+bool GLRenderer2D::Init()
 {
     GLint uniloc;
+
+    // TODO add shader compile here
 
     const float rectvertices[2*2*3] = {
         0, 1,   1, 0,   1, 1,
@@ -549,7 +551,7 @@ bool GLRenderer::GLInit()
     return true;
 }
 
-GLRenderer::~GLRenderer()
+GLRenderer2D::~GLRenderer2D()
 {
     // TODO shader objects also need to be deleted!
     // ideally, programs should be entirely managed by a class
@@ -619,11 +621,13 @@ GLRenderer::~GLRenderer()
     delete[] AuxInputBuffer[1];
 }
 
+void GLRenderer2D::Reset()
+{
+    // TODO clear buffers and shit
+}
 
-// TODO!!!! have a Reset() function!!
 
-
-void GLRenderer::SetScaleFactor(int scale)
+void GLRenderer2D::SetScaleFactor(int scale)
 {
     if (scale == ScaleFactor)
         return;
@@ -704,7 +708,7 @@ void GLRenderer::SetScaleFactor(int scale)
 }
 
 
-void GLRenderer::UpdateAndRender(Unit* unit, int line)
+void GLRenderer2D::UpdateAndRender(Unit* unit, int line)
 {
     auto& state = UnitState[unit->Num];
     u32 palmask = 1 << (unit->Num * 2);
@@ -957,7 +961,7 @@ void GLRenderer::UpdateAndRender(Unit* unit, int line)
 }
 
 
-void GLRenderer::DrawScanline(u32 line, Unit* unit)
+void GLRenderer2D::DrawScanline(u32 line, Unit* unit)
 {
     CurUnit = unit;
 
@@ -1092,7 +1096,7 @@ void GLRenderer::DrawScanline(u32 line, Unit* unit)
     }
 }
 
-void GLRenderer::VBlank(Unit* unitA, Unit* unitB)
+void GLRenderer2D::VBlank()
 {
     // TODO!!! do this more nicely!!!
     GLuint fart;
@@ -1196,13 +1200,13 @@ void GLRenderer::VBlank(Unit* unitA, Unit* unitB)
     }
 }
 
-void GLRenderer::VBlankEnd(Unit* unitA, Unit* unitB)
+void GLRenderer2D::VBlankEnd(Unit* unitA, Unit* unitB)
 {
     AuxUsageMask = 0;
 }
 
 
-void GLRenderer::UpdateScanlineConfig(Unit* unit, int line)
+void GLRenderer2D::UpdateScanlineConfig(Unit* unit, int line)
 {
     auto& state = UnitState[unit->Num];
     auto& cfg = state.ScanlineConfig.uScanline[line];
@@ -1350,7 +1354,7 @@ void GLRenderer::UpdateScanlineConfig(Unit* unit, int line)
     }
 };
 
-void GLRenderer::UpdateLayerConfig(Unit* unit)
+void GLRenderer2D::UpdateLayerConfig(Unit* unit)
 {
     auto& state = UnitState[unit->Num];
     u32 dispcnt = unit->DispCnt;
@@ -1634,7 +1638,7 @@ void GLRenderer::UpdateLayerConfig(Unit* unit)
     glBufferSubData(GL_UNIFORM_BUFFER, 0, sizeof(state.LayerConfig), &state.LayerConfig);
 }
 
-void GLRenderer::UpdateOAM(Unit* unit, int ystart, int yend)
+void GLRenderer2D::UpdateOAM(Unit* unit, int ystart, int yend)
 {
     auto& state = UnitState[unit->Num];
     auto& cfg = state.SpriteConfig;
@@ -1872,7 +1876,7 @@ void GLRenderer::UpdateOAM(Unit* unit, int ystart, int yend)
                     &cfg);
 }
 
-void GLRenderer::UpdateCompositorConfig(Unit* unit)
+void GLRenderer2D::UpdateCompositorConfig(Unit* unit)
 {
     auto& state = UnitState[unit->Num];
 
@@ -1906,7 +1910,7 @@ void GLRenderer::UpdateCompositorConfig(Unit* unit)
 }
 
 
-void GLRenderer::PrerenderSprites(Unit* unit)
+void GLRenderer2D::PrerenderSprites(Unit* unit)
 {
     auto& state = UnitState[unit->Num];
 
@@ -1945,7 +1949,7 @@ void GLRenderer::PrerenderSprites(Unit* unit)
     glDrawArrays(GL_TRIANGLES, 0, vtxnum);
 }
 
-void GLRenderer::PrerenderLayer(Unit* unit, int layer)
+void GLRenderer2D::PrerenderLayer(Unit* unit, int layer)
 {
     auto& state = UnitState[unit->Num];
     auto& cfg = state.LayerConfig.uBGConfig[layer];
@@ -1967,7 +1971,7 @@ void GLRenderer::PrerenderLayer(Unit* unit, int layer)
 }
 
 
-void GLRenderer::DoRenderSprites(Unit* unit, int line)
+void GLRenderer2D::DoRenderSprites(Unit* unit, int line)
 {
     auto& state = UnitState[unit->Num];
     int ystart = state.LastSpriteLine;
@@ -1999,7 +2003,7 @@ void GLRenderer::DoRenderSprites(Unit* unit, int line)
     glDisable(GL_SCISSOR_TEST);
 }
 
-void GLRenderer::RenderSprites(Unit* unit, bool window, int ystart, int yend)
+void GLRenderer2D::RenderSprites(Unit* unit, bool window, int ystart, int yend)
 {
     auto& state = UnitState[unit->Num];
 
@@ -2081,7 +2085,7 @@ void GLRenderer::RenderSprites(Unit* unit, bool window, int ystart, int yend)
     glDrawArrays(GL_TRIANGLES, 0, vtxnum);
 }
 
-void GLRenderer::RenderScreen(Unit* unit, int ystart, int yend)
+void GLRenderer2D::RenderScreen(Unit* unit, int ystart, int yend)
 {
     auto& state = UnitState[unit->Num];
 
@@ -2145,13 +2149,13 @@ void GLRenderer::RenderScreen(Unit* unit, int ystart, int yend)
 }
 
 
-void GLRenderer::AllocCapture(u32 bank, u32 start, u32 len)
+void GLRenderer2D::AllocCapture(u32 bank, u32 start, u32 len)
 {
     // TODO remove this function alltogether?
     printf("GL: alloc capture in bank %d, start=%d len=%d\n", bank, start, len);
 }
 
-void GLRenderer::SyncVRAMCapture(u32 bank, u32 start, u32 len, bool complete)
+void GLRenderer2D::SyncVRAMCapture(u32 bank, u32 start, u32 len, bool complete)
 {
     printf("SYNC VRAM CAPTURE: %d %d %d %d\n", bank, start, len, complete);
 
@@ -2207,7 +2211,7 @@ void GLRenderer::SyncVRAMCapture(u32 bank, u32 start, u32 len, bool complete)
 }
 
 
-bool GLRenderer::GetFramebuffers(u32** top, u32** bottom)
+bool GLRenderer2D::GetFramebuffers(u32** top, u32** bottom)
 {
     int frontbuf = BackBuffer ^ 1;
     glActiveTexture(GL_TEXTURE0);
@@ -2215,13 +2219,13 @@ bool GLRenderer::GetFramebuffers(u32** top, u32** bottom)
     return false;
 }
 
-void GLRenderer::SwapBuffers()
+void GLRenderer2D::SwapBuffers()
 {
     BackBuffer ^= 1;
 }
 
-
-void GLRenderer::DoCapture(Unit* unit, int vramcap)
+#if 0
+void GLRenderer2D::DoCapture(Unit* unit, int vramcap)
 {
     glUseProgram(CaptureShader);
 
@@ -2404,9 +2408,9 @@ void GLRenderer::DoCapture(Unit* unit, int vramcap)
     glBindVertexArray(CaptureVtxArray);
     glDrawArrays(GL_TRIANGLES, 0, numvtx);
 }
+#endif
 
-
-void GLRenderer::DrawSprites(u32 line, Unit* unit)
+void GLRenderer2D::DrawSprites(u32 line, Unit* unit)
 {
     auto& state = UnitState[unit->Num];
     u32 oammask = 1 << unit->Num;

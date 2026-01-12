@@ -26,43 +26,48 @@
 namespace melonDS
 {
 class GPU;
+class GLRenderer;
 
 namespace GPU2D
 {
 
-class GLRenderer : public Renderer2D
+class GLRenderer2D : public Renderer2D
 {
 public:
-    static std::unique_ptr<GLRenderer> New(melonDS::GPU& gpu) noexcept;
-    ~GLRenderer() override;
+    //static std::unique_ptr<GLRenderer> New(melonDS::GPU& gpu) noexcept;
+    GLRenderer2D(melonDS::GPU2D::Unit& gpu2D, GLRenderer& parent);
+    ~GLRenderer2D() override;
+    bool Init() override;
+    void Reset() override;
 
     void SetScaleFactor(int scale);
 
-    void DrawScanline(u32 line, Unit* unit) override;
-    void DrawSprites(u32 line, Unit* unit) override;
-    void VBlank(Unit* unitA, Unit* unitB) override;
-    void VBlankEnd(Unit* unitA, Unit* unitB) override;
+    void DrawScanline(u32 line) override;
+    void DrawSprites(u32 line) override;
+    void VBlank() override;
+    void VBlankEnd() override;
 
-    void AllocCapture(u32 bank, u32 start, u32 len) override;
-    void SyncVRAMCapture(u32 bank, u32 start, u32 len, bool complete) override;
+    //void AllocCapture(u32 bank, u32 start, u32 len) override;
+    //void SyncVRAMCapture(u32 bank, u32 start, u32 len, bool complete) override;
 
-    bool GetFramebuffers(u32** top, u32** bottom) override;
-    void SwapBuffers() override;
+    //bool GetFramebuffers(u32** top, u32** bottom) override;
+    //void SwapBuffers() override;
 
-    GLuint GetCaptureBuffer(int width)
+    /*GLuint GetCaptureBuffer(int width)
     {
         if (width == 128) return CaptureOutput128Tex;
         if (width == 256) return CaptureOutput256Tex;
         return 0;
-    }
+    }*/
 
 private:
-    GLRenderer(melonDS::GPU& gpu);
-    bool GLInit();
-    melonDS::GPU& GPU;
+    //GLRenderer(melonDS::GPU& gpu);
+    //bool GLInit();
+    //melonDS::GPU& GPU;
+    GLRenderer& Parent;
 
-    int ScaleFactor;
-    int ScreenW, ScreenH;
+    //int ScaleFactor;
+    //int ScreenW, ScreenH;
 
     GLuint RectVtxBuffer;
     GLuint RectVtxArray;
@@ -215,7 +220,7 @@ private:
 
     } UnitState[2];
 
-    struct sFinalPassConfig
+    /*struct sFinalPassConfig
     {
         u32 uScreenSwap[192];
         u32 uScaleFactor;
@@ -226,28 +231,28 @@ private:
         u32 uBrightModeB;
         u32 uBrightFactorA;
         u32 uBrightFactorB;
-    } FinalPassConfig;
+    } FinalPassConfig;*/
 
     u16 TempPalBuffer[256 * (1 + (4*16))];
 
     GLuint _3DLayerTex;
 
-    GLuint FPShaderID = 0;
+    //GLuint FPShaderID = 0;
     /*GLint FPScaleULoc = 0;
     GLint FPCaptureRegULoc = 0;
     GLint FPCaptureMaskULoc = 0;
     GLint FPCaptureTexLoc[16] {};*/
-    GLuint FPConfigUBO;
+    //GLuint FPConfigUBO;
 
-    GLuint FPVertexBufferID = 0;
-    GLuint FPVertexArrayID = 0;
+    //GLuint FPVertexBufferID = 0;
+    //GLuint FPVertexArrayID = 0;
 
     //GLuint LineAttribTex = 0;               // per-scanline attribute texture
     //GLuint BGOBJTex = 0;                    // prerender of BG/OBJ layers
-    GLuint AuxInputTex = 0;                 // aux input (VRAM and mainmem FIFO)
+    //GLuint AuxInputTex = 0;                 // aux input (VRAM and mainmem FIFO)
 
     // texture/fb for display capture VRAM input
-    GLuint CaptureVRAMTex;
+    /*GLuint CaptureVRAMTex;
     GLuint CaptureVRAMFB;
 
     GLuint FPOutputTex[2];               // final output
@@ -284,7 +289,7 @@ private:
 
     int BackBuffer;
 
-    u8 AuxUsageMask;
+    u8 AuxUsageMask;*/
 
     /*u8* CurBGXMosaicTable;
     array2d<u8, 16, 256> MosaicTable = []() constexpr

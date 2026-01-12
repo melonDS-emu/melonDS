@@ -27,13 +27,14 @@
 namespace melonDS
 {
 class GPU;
+class GLRenderer;
 
-class GLRenderer : public Renderer3D
+class GLRenderer3D : public Renderer3D
 {
 public:
-    static std::unique_ptr<GLRenderer> New(GPU& gpu) noexcept;
-    ~GLRenderer() override;
-    void Reset(GPU& gpu) override;
+    static std::unique_ptr<GLRenderer3D> New() noexcept;
+    ~GLRenderer3D() override;
+    void Reset() override;
 
     void SetRenderSettings(bool betterpolygons, int scale) noexcept;
     void SetBetterPolygons(bool betterpolygons) noexcept;
@@ -41,9 +42,9 @@ public:
     [[nodiscard]] bool GetBetterPolygons() const noexcept { return BetterPolygons; }
     [[nodiscard]] int GetScaleFactor() const noexcept { return ScaleFactor; }
 
-    void VCount144(GPU& gpu) override;
-    void RenderFrame(GPU& gpu) override;
-    void Stop(const GPU& gpu) override;
+    //void VCount144() override;
+    void RenderFrame() override;
+    void Stop() override;
     u32* GetLine(int line) override;
 
     //void SetupAccelFrame() override;
@@ -53,8 +54,10 @@ public:
     //void BindOutputTexture(int buffer) override;
 
 private:
+    GLRenderer& Parent;
+
     // Used by New()
-    GLRenderer() noexcept;//GLCompositor&& compositor) noexcept;
+    GLRenderer3D(melonDS::GPU3D& gpu3D, GLRenderer& parent) noexcept;//GLCompositor&& compositor) noexcept;
 
     // GL version requirements
     // * texelFetch: 3.0 (GLSL 1.30)     (3.2/1.50 for MS)
@@ -90,12 +93,12 @@ private:
     void UseRenderShader(bool wbuffer);
     void SetupPolygon(RendererPolygon* rp, Polygon* polygon) const;
     u32* SetupVertex(const Polygon* poly, int vid, const Vertex* vtx, u32 vtxattr, u32 texlayer, u32* vptr) const;
-    void BuildPolygons(GPU& gpu, RendererPolygon* polygons, int npolys, int captureinfo[16]);
+    void BuildPolygons(RendererPolygon* polygons, int npolys, int captureinfo[16]);
     void SetupPolygonTexture(const RendererPolygon* poly) const;
     int RenderSinglePolygon(int i) const;
     int RenderPolygonBatch(int i) const;
     int RenderPolygonEdgeBatch(int i) const;
-    void RenderSceneChunk(const GPU3D& gpu3d, int y, int h);
+    void RenderSceneChunk(int y, int h);
 
 
     enum

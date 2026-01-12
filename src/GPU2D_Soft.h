@@ -33,6 +33,7 @@ class SoftRenderer2D : public Renderer2D
 public:
     SoftRenderer2D(melonDS::GPU2D::Unit& gpu2D, SoftRenderer& parent);
     ~SoftRenderer2D() override;
+    bool Init() override { return true; }
     void Reset() override;
 
     void DrawScanline(u32 line, u32* dst) override;
