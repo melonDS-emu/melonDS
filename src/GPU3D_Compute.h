@@ -45,18 +45,9 @@ public:
 
     void SetRenderSettings(int scale, bool highResolutionCoordinates);
 
-    //void VCount144() override;
-
     void RenderFrame() override;
     void RestartFrame() override;
     u32* GetLine(int line) override;
-
-    //void SetupAccelFrame() override;
-    //void PrepareCaptureFrame() override;
-
-    //void BindOutputTexture(int buffer) override;
-
-    //void Blit(const ) override;
 
     bool NeedsShaderCompile() override { return ShaderStepIdx != 33; }
     void ShaderCompileStep(int& current, int& count) override;
@@ -225,8 +216,6 @@ private:
     int ScaleFactor = -1;
     int MaxWorkTiles;
     bool HiresCoordinates;
-
-    //GLCompositor CurGLCompositor;
 
     int ShaderStepIdx = 0;
 

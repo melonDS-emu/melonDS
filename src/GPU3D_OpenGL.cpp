@@ -101,10 +101,8 @@ void SetupDefaultTexParams(GLuint tex)
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
 }
 
-//GLRenderer3D::GLRenderer(GLCompositor&& compositor) noexcept :
 GLRenderer3D::GLRenderer3D(melonDS::GPU3D& gpu3D, GLRenderer& parent) noexcept :
     Renderer3D(gpu3D), Parent(parent), Texcache(gpu3D.GPU, TexcacheOpenGLLoader(false))
-    //CurGLCompositor(std::move(compositor))
 {
     ClearBitmap[0] = new u32[256*256];
     ClearBitmap[1] = new u32[256*256];
@@ -1460,49 +1458,10 @@ void GLRenderer3D::RenderFrame()
         RenderSceneChunk(0, 192);
     }
 }
-/*
-void GLRenderer3D::VCount144()
-{
-    glActiveTexture(GL_TEXTURE0);
-    glBindTexture(GL_TEXTURE_2D, ColorBufferTex);
-}*/
-/*
-void GLRenderer3D::Stop()
-{
-    //CurGLCompositor.Stop(gpu);
-}*/
-
-/*void GLRenderer3D::PrepareCaptureFrame()
-{
-    glBindFramebuffer(GL_READ_FRAMEBUFFER, MainFramebuffer);
-    glReadBuffer(GL_COLOR_ATTACHMENT0);
-    glBindFramebuffer(GL_DRAW_FRAMEBUFFER, DownscaleFramebuffer);
-    glDrawBuffer(GL_COLOR_ATTACHMENT0);
-    glBlitFramebuffer(0, 0, ScreenW, ScreenH, 0, 0, 256, 192, GL_COLOR_BUFFER_BIT, GL_NEAREST);
-
-    glBindBuffer(GL_PIXEL_PACK_BUFFER, PixelbufferID);
-    glBindFramebuffer(GL_READ_FRAMEBUFFER, DownscaleFramebuffer);
-    glReadPixels(0, 0, 256, 192, GL_BGRA, GL_UNSIGNED_BYTE, NULL);
-}*/
-
-/*void GLRenderer3D::Blit(const GPU& gpu)
-{
-    CurGLCompositor.RenderFrame(gpu, *this);
-}
-
-void GLRenderer3D::BindOutputTexture(int buffer)
-{
-    CurGLCompositor.BindOutputTexture(buffer);
-}*/
 
 u32* GLRenderer3D::GetLine(int line)
 {
     return nullptr;
 }
-
-/*void GLRenderer3D::SetupAccelFrame()
-{
-    glBindTexture(GL_TEXTURE_2D, ColorBufferTex);
-}*/
 
 }

@@ -1103,6 +1103,9 @@ void GPU::StartHBlank(u32 line) noexcept
         Rend->DrawScanline(line);
         Rend->DrawSprites(line+1);
 
+        GPU2D_A.UpdateRegisters(VCount+1);
+        GPU2D_B.UpdateRegisters(VCount+1);
+
         NDS.CheckDMAs(0, 0x02);
     }
     else if (VCount == 215)
@@ -1113,6 +1116,9 @@ void GPU::StartHBlank(u32 line) noexcept
     {
         // sprites are pre-rendered one scanline in advance
         Rend->DrawSprites(0);
+
+        GPU2D_A.UpdateRegisters(0);
+        GPU2D_B.UpdateRegisters(0);
     }
 
     if (DispStat[0] & (1<<4)) NDS.SetIRQ(0, IRQ_HBlank);

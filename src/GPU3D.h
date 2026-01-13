@@ -103,23 +103,12 @@ public:
     void CheckFIFOIRQ() noexcept;
     void CheckFIFODMA() noexcept;
 
-    //void VCount144(GPU& gpu) noexcept;
     void VBlank() noexcept;
-    //void VCount215(GPU& gpu) noexcept;
-
-    //void RestartFrame(GPU& gpu) noexcept;
-    //void Stop(const GPU& gpu) noexcept;
 
     void SetRenderXPos(u16 xpos, u16 mask) noexcept;
     [[nodiscard]] u16 GetRenderXPos() const noexcept { return RenderXPos; }
-    //u32* GetLine(int line) noexcept;
 
     void WriteToGXFIFO(u32 val) noexcept;
-
-    //[[nodiscard]] bool IsRendererAccelerated() const noexcept;
-    /*[[nodiscard]] Renderer3D& GetCurrentRenderer() noexcept { return *CurrentRenderer; }
-    [[nodiscard]] const Renderer3D& GetCurrentRenderer() const noexcept { return *CurrentRenderer; }
-    void SetCurrentRenderer(std::unique_ptr<Renderer3D>&& renderer) noexcept;*/
 
     u8 Read8(u32 addr) noexcept;
     u16 Read16(u32 addr) noexcept;
@@ -127,7 +116,6 @@ public:
     void Write8(u32 addr, u8 val) noexcept;
     void Write16(u32 addr, u16 val) noexcept;
     void Write32(u32 addr, u32 val) noexcept;
-    //void Blit(const GPU& gpu) noexcept;
 
 private:
 
@@ -187,8 +175,6 @@ private:
         AddCycles(NormalPipeline + 1);
         NormalPipeline = 0;
     }
-
-    //std::unique_ptr<Renderer3D> CurrentRenderer = nullptr;
 
 public:
     melonDS::NDS& NDS;
@@ -330,7 +316,6 @@ public:
 
     u32 FlushRequest = 0;
     u32 FlushAttributes = 0;
-    //u32 ScrolledLine[256]; // not part of the hardware state, don't serialize
 };
 
 class Renderer3D

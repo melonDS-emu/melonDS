@@ -42,15 +42,8 @@ public:
     [[nodiscard]] bool GetBetterPolygons() const noexcept { return BetterPolygons; }
     [[nodiscard]] int GetScaleFactor() const noexcept { return ScaleFactor; }
 
-    //void VCount144() override;
     void RenderFrame() override;
     u32* GetLine(int line) override;
-
-    //void SetupAccelFrame() override;
-    //void PrepareCaptureFrame() override;
-    //void Blit(const GPU& gpu) override;
-
-    //void BindOutputTexture(int buffer) override;
 
 private:
     GLRenderer& Parent;
