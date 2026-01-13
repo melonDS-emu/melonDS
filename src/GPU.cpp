@@ -287,11 +287,15 @@ void GPU::SetRenderer(std::unique_ptr<Renderer>&& renderer) noexcept
     {
         Rend = std::move(renderer);
         if (Rend->Init())
+        {
+            Rend->Reset();
             return;
+        }
     }
 
     Rend = std::make_unique<SoftRenderer>(NDS);
     Rend->Init();
+    Rend->Reset();
 }
 
 
@@ -433,12 +437,13 @@ void GPU::Write16(u32 addr, u16 val)
             MasterBrightnessB = val & 0xC01F;
             return;
     }
-    printf("unknown GPU write16 %08X %04X\n", addr, val);
+
+    Log(LogLevel::Debug, "unknown GPU write16 %08X %04X\n", addr, val);
 }
 
 void GPU::Write32(u32 addr, u32 val)
 {
-    switch (addr & 0x00000FFF)
+    switch (addr)
     {
         case 0x04000004:
             SetDispStat(0, val & 0xFFFF, 0xFFFF);
@@ -464,7 +469,7 @@ void GPU::Write32(u32 addr, u32 val)
             return;
     }
 
-    printf("unknown GPU write32 %08X %04X\n", addr, val);
+    Log(LogLevel::Debug, "unknown GPU write32 %08X %08X\n", addr, val);
 }
 
 

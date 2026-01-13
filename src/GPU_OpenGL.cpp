@@ -326,12 +326,6 @@ void GLRenderer::SetScaleFactor(int scale)
         glDrawBuffers(2, fbassign2);
     }
 
-    // TODO!!
-    // renderer2D needs to handle its own outputtex/FB
-    /*Rend2D_A->SetScaleFactor(scale);
-    Rend2D_B->SetScaleFactor(scale);
-    Rend3D->SetScaleFactor(scale);*/
-
     glBindFramebuffer(GL_FRAMEBUFFER, 0);
 }
 

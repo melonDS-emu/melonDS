@@ -146,9 +146,6 @@ bool GLRenderer2D::Init()
     int bgheight = (GPU2D.Num == 0) ? 512 : 128;
     int objheight = (GPU2D.Num == 0) ? 256 : 128;
 
-    LayerConfig.uVRAMMask = bgheight - 1;
-    SpriteConfig.uVRAMMask = objheight - 1;
-
     glGenTextures(1, &VRAMTex_BG);
     glBindTexture(GL_TEXTURE_2D, VRAMTex_BG);
     glDefaultTexParams(GL_TEXTURE_2D);
@@ -574,6 +571,11 @@ void GLRenderer2D::Reset()
     memset(&ScanlineConfig, 0, sizeof(ScanlineConfig));
     memset(&CompositorConfig, 0, sizeof(CompositorConfig));
 
+    int bgheight = (GPU2D.Num == 0) ? 512 : 128;
+    int objheight = (GPU2D.Num == 0) ? 256 : 128;
+    LayerConfig.uVRAMMask = bgheight - 1;
+    SpriteConfig.uVRAMMask = objheight - 1;
+
     LastLine = 0;
 
     DispCnt = 0;
@@ -585,6 +587,7 @@ void GLRenderer2D::Reset()
 
     LastSpriteLine = 0;
     memset(OAM, 0, sizeof(OAM));
+    NumSprites = 0;
 
     SpriteDispCnt = 0;
     SpriteDirty = true;
@@ -1103,8 +1106,8 @@ void GLRenderer2D::UpdateLayerConfig()
     u32 tilebase, mapbase;
     if (!GPU2D.Num)
     {
-        tilebase = ((DispCnt >> 24) & 0x7) << 16;
-        mapbase = ((DispCnt >> 27) & 0x7) << 16;
+        tilebase = ((GPU2D.DispCnt >> 24) & 0x7) << 16;
+        mapbase = ((GPU2D.DispCnt >> 27) & 0x7) << 16;
     }
     else
     {
@@ -1113,7 +1116,7 @@ void GLRenderer2D::UpdateLayerConfig()
     }
 
     int layertype[4] = {1, 1, 0, 0};
-    switch (DispCnt & 0x7)
+    switch (GPU2D.DispCnt & 0x7)
     {
         case 0: layertype[2] = 1; layertype[3] = 1; break;
         case 1: layertype[2] = 1; layertype[3] = 2; break;
@@ -1132,7 +1135,7 @@ void GLRenderer2D::UpdateLayerConfig()
         if (!type)
             continue;
 
-        u16 bgcnt = BGCnt[layer];
+        u16 bgcnt = GPU2D.BGCnt[layer];
         auto& cfg = LayerConfig.uBGConfig[layer];
 
         cfg.TileOffset = tilebase + (((bgcnt >> 2) & 0xF) << 14);
@@ -1142,7 +1145,7 @@ void GLRenderer2D::UpdateLayerConfig()
         BGVRAMRange[layer][0] = cfg.TileOffset;
         BGVRAMRange[layer][2] = cfg.MapOffset;
 
-        if ((layer == 0) && (DispCnt & (1<<3)))
+        if ((layer == 0) && (GPU2D.DispCnt & (1<<3)))
         {
             // 3D layer
 
@@ -1454,7 +1457,7 @@ void GLRenderer2D::UpdateOAM(int ystart, int yend)
             u32 sprmode = (attrib[0] >> 10) & 0x3;
             if (sprmode == 3)
             {
-                if ((DispCnt & 0x60) == 0x60)
+                if ((GPU2D.DispCnt & 0x60) == 0x60)
                     continue;
                 if ((attrib[2] >> 12) == 0)
                     continue;
@@ -1503,15 +1506,15 @@ void GLRenderer2D::UpdateOAM(int ystart, int yend)
 
                 sprcfg.Type = 2;
 
-                if (DispCnt & (1<<6))
+                if (GPU2D.DispCnt & (1<<6))
                 {
                     // 1D mapping
-                    sprcfg.TileOffset = tilenum << (7 + ((DispCnt >> 22) & 0x1));
+                    sprcfg.TileOffset = tilenum << (7 + ((GPU2D.DispCnt >> 22) & 0x1));
                     sprcfg.TileStride = width * 2;
                 }
                 else
                 {
-                    bool is256 = !!(DispCnt & (1<<5));
+                    bool is256 = !!(GPU2D.DispCnt & (1<<5));
                     int capblock = -1;
 
                     u32 tileoffset, tilestride;
@@ -1568,10 +1571,10 @@ void GLRenderer2D::UpdateOAM(int ystart, int yend)
             }
             else
             {
-                if (DispCnt & (1<<4))
+                if (GPU2D.DispCnt & (1<<4))
                 {
                     // 1D mapping
-                    sprcfg.TileOffset = tilenum << (5 + ((DispCnt >> 20) & 0x3));
+                    sprcfg.TileOffset = tilenum << (5 + ((GPU2D.DispCnt >> 20) & 0x3));
                     sprcfg.TileStride = (width >> 3) * 32;
                     if (attrib[0] & (1<<13))
                         sprcfg.TileStride <<= 1;
@@ -1587,7 +1590,7 @@ void GLRenderer2D::UpdateOAM(int ystart, int yend)
                 {
                     // 256-color sprite
                     sprcfg.Type = 1;
-                    if (DispCnt & (1<<31))
+                    if (GPU2D.DispCnt & (1<<31))
                         sprcfg.PalOffset = 1 + (attrib[2] >> 12);
                     else
                         sprcfg.PalOffset = 0;
@@ -1750,7 +1753,7 @@ void GLRenderer2D::RenderSprites(bool window, int ystart, int yend)
 
     if (window)
     {
-        if (!(DispCnt & (1<<15)))
+        if (!(GPU2D.DispCnt & (1<<15)))
             return;
     }
 
@@ -1879,8 +1882,8 @@ void GLRenderer2D::DrawSprites(u32 line)
     u32 oammask = 1 << GPU2D.Num;
     bool dirty = false;
 
-    u32 dispcnt_diff = DispCnt ^ SpriteDispCnt;
-    SpriteDispCnt = DispCnt; // TODO CHECKME might not be right to do it here
+    u32 dispcnt_diff = GPU2D.DispCnt ^ SpriteDispCnt;
+    SpriteDispCnt = GPU2D.DispCnt; // TODO CHECKME might not be right to do it here
     if (dispcnt_diff & 0x80F000F0)
         dirty = true;
 
