@@ -17,7 +17,7 @@ if (USE_VCPKG)
 endif()
 
 project(melonDS
-    VERSION 1.0
+    VERSION 1.1
     DESCRIPTION "DS emulator, sorta"
     HOMEPAGE_URL "https://melonds.kuribo64.net"
     LANGUAGES C CXX)
@@ -63,7 +63,7 @@ detect_architecture("__arm__" ARM)
 detect_architecture("__aarch64__" ARM64)
 
 cmake_dependent_option(ENABLE_JIT "Enable JIT recompiler" ON
-    "ARCHITECTURE STREQUAL x86_64 OR ARCHITECTURE STREQUAL ARM64" OFF)
+    "ARCHITECTURE STREQUAL x86_64 OR ARCHITECTURE STREQUAL ARM64;NOT ARCHITECTURE STREQUAL x86_64 OR NOT APPLE" OFF)
 cmake_dependent_option(ENABLE_JIT_PROFILING "Enable JIT profiling with VTune" OFF "ENABLE_JIT" OFF)
 option(ENABLE_OGLRENDERER "Enable OpenGL renderer" ON)
 
@@ -85,10 +85,15 @@ endif()
 
 if (WIN32)
     option(BUILD_STATIC "Statically link dependencies" OFF)
-endif()
-
-if (BUILD_STATIC AND WIN32)
-    set(CMAKE_FIND_LIBRARY_SUFFIXES .a)
+    add_definitions(-DWIN32_LEAN_AND_MEAN -DNOMINMAX)
+    if (NOT MINGW)
+        add_definitions(-D__WIN32__ -D_CRT_SECURE_NO_WARNINGS -D_USE_MATH_DEFINES)
+        if (BUILD_STATIC)
+            set(CMAKE_MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>")
+        endif()
+    elseif (BUILD_STATIC AND MINGW)
+        set(CMAKE_FIND_LIBRARY_SUFFIXES .a)
+    endif()
 endif()
 
 set(CMAKE_POSITION_INDEPENDENT_CODE ON)

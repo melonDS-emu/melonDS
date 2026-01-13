@@ -99,6 +99,7 @@ EmuInstance::EmuInstance(int inst) : deleting(false),
         targetFPS = 60.0;
     }
     else targetFPS = val;
+    curFPS = targetFPS;
 
     val = globalCfg.GetDouble("FastForwardFPS");
     if (val == 0.0)
