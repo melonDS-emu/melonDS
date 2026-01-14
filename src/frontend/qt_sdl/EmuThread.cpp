@@ -55,6 +55,10 @@
 
 #include "EmuInstance.h"
 
+#ifdef DEVTOOLS_ENABLED
+#include "MelonCap.h"
+#endif
+
 using namespace melonDS;
 
 
@@ -319,9 +323,9 @@ void EmuThread::run()
 
             emuInstance->drawScreen();
 
-#ifdef MELONCAP
-            MelonCap::Update();
-#endif // MELONCAP
+#ifdef DEVTOOLS_ENABLED
+            MelonCapWindow::update();
+#endif
 
             winUpdateCount++;
             if (winUpdateCount >= winUpdateFreq && !useOpenGL)

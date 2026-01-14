@@ -82,6 +82,10 @@
 #include "Window.h"
 #include "AboutDialog.h"
 
+#ifdef DEVTOOLS_ENABLED
+#include "MelonCap.h"
+#endif
+
 using namespace melonDS;
 
 
@@ -670,6 +674,14 @@ MainWindow::MainWindow(int id, EmuInstance* inst, QWidget* parent) :
             actAudioSync->setCheckable(true);
             connect(actAudioSync, &QAction::triggered, this, &MainWindow::onChangeAudioSync);
         }
+#ifdef DEVTOOLS_ENABLED
+        {
+            QMenu* menu = menubar->addMenu("Tools");
+
+            actOpenMelonCap = menu->addAction("melonCap");
+            connect(actOpenMelonCap, &QAction::triggered, this, &MainWindow::onOpenMelonCap);
+        }
+#endif
         {
             QMenu * menu = menubar->addMenu("Help");
             actAbout = menu->addAction("About...");
@@ -2361,3 +2373,10 @@ void MainWindow::onUpdateVideoSettings(bool glchange)
         emuThread->emuUnpause();
     }
 }
+
+#ifdef DEVTOOLS_ENABLED
+void MainWindow::onOpenMelonCap()
+{
+    MelonCapWindow::openWin(this);
+}
+#endif

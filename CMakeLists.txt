@@ -105,6 +105,11 @@ endif()
 
 option(BUILD_QT_SDL "Build Qt/SDL frontend" ON)
 
+option(ENABLE_DEVTOOLS "Enable developer tools" OFF)
+if (ENABLE_DEVTOOLS)
+    add_definitions(-DDEVTOOLS_ENABLED)
+endif()
+
 add_subdirectory(src)
 
 if (BUILD_QT_SDL)
