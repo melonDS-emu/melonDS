@@ -96,12 +96,6 @@ add_executable(melonDS ${SOURCES_QT_SDL})
 add_subdirectory("../../net"
     ${CMAKE_BINARY_DIR}/net)
 
-if (ENABLE_DEVTOOLS)
-    target_sources(melonDS PRIVATE
-        MelonCap.cpp
-    )
-endif()
-
 target_link_libraries(melonDS PRIVATE net-utils)
 
 if (WIN32)
@@ -156,10 +150,6 @@ else()
         target_sources(melonDS PRIVATE
             ../duckstation/gl/context_egl_wayland.cpp
         )
-    endif()
-
-    if (ENABLE_DEVTOOLS)
-        target_link_libraries(melonDS PRIVATE usb-1.0)
     endif()
 
     target_sources(melonDS PRIVATE
