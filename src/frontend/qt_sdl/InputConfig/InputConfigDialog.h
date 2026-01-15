@@ -67,7 +67,9 @@ static constexpr std::initializer_list<int> hk_general =
     HK_SwapScreenEmphasis,
     HK_PowerButton,
     HK_VolumeUp,
-    HK_VolumeDown
+    HK_VolumeDown,
+    HK_QuickSaveState,
+    HK_QuickLoadState
 };
 
 static constexpr std::initializer_list<const char*> hk_general_labels =
@@ -87,7 +89,9 @@ static constexpr std::initializer_list<const char*> hk_general_labels =
     "Swap screen emphasis",
     "DSi Power button",
     "DSi Volume up",
-    "DSi Volume down"
+    "DSi Volume down",
+    "Quicksave state (slot 1)",
+    "Quickload state (slot 1)"
 };
 
 static_assert(hk_general.size() == hk_general_labels.size());
