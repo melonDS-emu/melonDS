@@ -2238,6 +2238,11 @@ void MainWindow::onScreenEmphasisToggled()
     {
         currentSizing = screenSizing_EmphTop;
     }
+    else
+    {
+        // For any other sizing mode, switch to EmphTop as a sensible default
+        currentSizing = screenSizing_EmphTop;
+    }
     windowCfg.SetInt("ScreenSizing", currentSizing);
 
     emit screenLayoutChange();
