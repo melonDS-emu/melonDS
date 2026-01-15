@@ -158,6 +158,9 @@ signals:
 
     void windowFullscreenToggle();
 
+    void windowQuickSaveState();
+    void windowQuickLoadState();
+
     void swapScreensToggle();
     void screenEmphasisToggle();
 
