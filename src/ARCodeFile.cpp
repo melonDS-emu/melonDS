@@ -136,13 +136,13 @@ bool ARCodeFile::Load()
             isincode = false;
             isincat = true;
 
-            ARCodeCat cat = {
-                .Parent = &RootCat,
-                .Name = catname,
-                .Description = "",
-                .OnlyOneCodeEnabled = onlyone!=0,
-                .Children = {}
-            };
+            ARCodeCat cat{};
+            cat.Parent = &RootCat;
+            cat.Name = catname;
+            cat.Description = "";
+            cat.OnlyOneCodeEnabled = onlyone != 0;
+            // cat.Children is empty due to value-initialization
+
             RootCat.Children.emplace_back(cat);
             curcat = &std::get<ARCodeCat>(RootCat.Children.back());
 
