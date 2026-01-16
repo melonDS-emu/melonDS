@@ -163,6 +163,8 @@ signals:
 
     void syncVolumeLevel();
 
+    void windowToggleAudioMute();
+
 private:
     void handleMessages();
 
