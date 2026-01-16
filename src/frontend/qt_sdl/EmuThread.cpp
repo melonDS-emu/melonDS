@@ -175,8 +175,7 @@ void EmuThread::run()
         if (emuInstance->hotkeyPressed(HK_FrameStep)) emuFrameStep();
 
         if (emuInstance->hotkeyPressed(HK_FullscreenToggle)) emit windowFullscreenToggle();
-        
-        
+
         #ifdef RETROACHIEVEMENTS_ENABLED
         if (emuInstance->hotkeyPressed(HK_RAOverlayToggle)) emit RAOverlayToggle();
         #endif
