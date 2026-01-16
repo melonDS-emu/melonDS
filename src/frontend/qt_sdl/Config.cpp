@@ -55,7 +55,7 @@ DefaultList<int> DefaultInts =
     {"Screen.VSyncInterval", 1},
     {"3D.Renderer", renderer3D_Software},
     {"3D.GL.ScaleFactor", 1},
-    {"Instance*.Audio.LastNonZeroVolume", 256}
+    {"Instance*.Audio.LastNonZeroVolume", 256},
 #ifdef JIT_ENABLED
     {"JIT.MaxBlockSize", 32},
 #endif
