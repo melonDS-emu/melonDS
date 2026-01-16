@@ -66,8 +66,6 @@ if (ENABLE_RETROACHIEVEMENTS)
     list(APPEND SOURCES_QT_SDL
         toast/ToastManager.cpp
         toast/ToastManager.h
-        toast/AchievementToast.cpp
-        toast/AchievementToast.h
         toast/ToastOverlay.cpp
         toast/ToastOverlay.h
         toast/BadgeCache.h

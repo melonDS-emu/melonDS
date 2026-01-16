@@ -1,6 +1,5 @@
 #include "ToastManager.h"
 #include "toast/ToastOverlay.h"
-#include "toast/AchievementToast.h"
 
 ToastManager::ToastManager(QObject* parent)
     : QObject(parent)
@@ -23,6 +22,24 @@ void ToastManager::ShowAchievement(const QString& title, const QString& descript
     if (!m_overlay) {
         return; 
     }
-
     m_overlay->ShowToast(title, description, icon);
+}
+void ToastManager::ShowChallengeIndicator(const QPixmap& icon)
+{
+    if (m_overlay) {
+        m_overlay->ShowChallenge(icon);
+    }
+}
+
+void ToastManager::HideChallengeIndicator()
+{
+    if (m_overlay) {
+        m_overlay->HideChallenge();
+    }
+}
+void ToastManager::ClearAll()
+{
+    if (m_overlay) {
+        m_overlay->HideChallenge();
+    }
 }
