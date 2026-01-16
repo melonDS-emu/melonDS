@@ -55,6 +55,7 @@ DefaultList<int> DefaultInts =
     {"Screen.VSyncInterval", 1},
     {"3D.Renderer", renderer3D_Software},
     {"3D.GL.ScaleFactor", 1},
+    {"Instance*.Audio.LastNonZeroVolume", 256}
 #ifdef JIT_ENABLED
     {"JIT.MaxBlockSize", 32},
 #endif
@@ -91,6 +92,7 @@ RangeList IntRanges =
     {"Instance*.Window*.ScreenAspectBot", {0, AspectRatiosNum-1}},
     {"MP.AudioMode", {0, 2}},
     {"LAN.HostNumPlayers", {2, 16}},
+    {"Instance*.Audio.LastNonZeroVolume", {0, 256}}
 };
 
 DefaultList<bool> DefaultBools =
