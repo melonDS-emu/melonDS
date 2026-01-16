@@ -157,7 +157,7 @@ signals:
     void autoScreenSizingChange(int sizing);
 
     void windowFullscreenToggle();
-    
+
     #ifdef RETROACHIEVEMENTS_ENABLED
     void RAOverlayToggle();
     #endif
