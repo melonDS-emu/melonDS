@@ -61,6 +61,9 @@ static constexpr std::initializer_list<int> hk_general =
     HK_SlowMoToggle,
     HK_FrameLimitToggle,
     HK_FullscreenToggle,
+    #ifdef RETROACHIEVEMENTS_ENABLED
+    HK_RAOverlayToggle,
+    #endif
     HK_Lid,
     HK_Mic,
     HK_SwapScreens,
@@ -81,6 +84,9 @@ static constexpr std::initializer_list<const char*> hk_general_labels =
     "Toggle slow mo",
     "Toggle FPS limit",
     "Toggle fullscreen",
+    #ifdef RETROACHIEVEMENTS_ENABLED
+    "Toggle RA overlay",
+    #endif
     "Close/open lid",
     "Microphone",
     "Swap screens",

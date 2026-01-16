@@ -86,6 +86,7 @@
 #include "RASettingsDialog.h"
 #include "RetroAchievements/RAClient.h"
 #include "toast/BadgeCache.h"
+#include "RAOverlayWidget.h"
 #endif
 
 using namespace melonDS;
@@ -839,7 +840,58 @@ MainWindow::MainWindow(int id, EmuInstance* inst, QWidget* parent) :
                     Qt::QueuedConnection
                 );
             });
+            ra->SetOnAchievementProgress(
+            [this](const char* title,
+                const char* progress,
+                const char* badgeUrl)
+            {
+                QMetaObject::invokeMethod(
+                    this,
+                    [this,
+                    t = QString::fromUtf8(title),
+                    p = QString::fromUtf8(progress),
+                    b = QString::fromUtf8(badgeUrl)]()
+                    {
+                        OnAchievementProgress(t, p, b);
+                    },
+                    Qt::QueuedConnection
+                );
+            });
+            ra->SetOnChallenge([this](const char* badgeUrl) {
+                if (!badgeUrl) return;
+                QString b = QString::fromUtf8(badgeUrl);
+                
+                QMetaObject::invokeMethod(this, [this, b]() {
+                    OnChallengeShow(b);
+                }, Qt::QueuedConnection);
+            });
+
+            ra->SetOnChallengeHide([this]() {
+                QMetaObject::invokeMethod(this, [this]() {
+                    m_toastManager.HideChallengeIndicator();
+                }, Qt::QueuedConnection);
+            });
+
+            ra->SetOnGameMastered(
+            [this, ra](const std::string& title, const std::string& /*rp_text*/)
+            {
+                QString gameBadgeUrl;
+                const rc_client_game_t* gameInfo = ra->GetCurrentGameInfo();
+                if (gameInfo && gameInfo->badge_url) {
+                    gameBadgeUrl = QString::fromUtf8(gameInfo->badge_url);
+                }
+
+                QMetaObject::invokeMethod(this, [this, 
+                    t = QString::fromStdString(title), 
+                    b = gameBadgeUrl]()
+                {
+                    OnGameMastered(t, b);
+                }, Qt::QueuedConnection);
+            });
         }
+        raOverlay = new RAOverlayWidget(emuInstance, this);
+        raOverlay->setGeometry(rect());
+        emuInstance->setRAOverlay(raOverlay);
         #endif
         if (emuThread->emuIsActive())
             onEmuStart();
@@ -2405,6 +2457,38 @@ void MainWindow::onFullscreenToggled()
     toggleFullscreen();
 }
 
+#ifdef RETROACHIEVEMENTS_ENABLED
+void MainWindow::onRAOverlayToggled()
+{
+    if (!emuInstance || !this->isActiveWindow()) 
+        return;
+
+    RAOverlayWidget* currentOverlay = emuInstance->getRAOverlay();
+
+    if (!currentOverlay) {
+        currentOverlay = new RAOverlayWidget(emuInstance, this->centralWidget());
+        emuInstance->setRAOverlay(currentOverlay);
+        raOverlay = currentOverlay;
+    }
+
+    if (currentOverlay->isOpen()) {
+        currentOverlay->toggle();
+        emuThread->emuUnpause();
+        this->centralWidget()->setFocus();
+    } else {
+        if (currentOverlay->parentWidget() != this->centralWidget()) {
+            currentOverlay->setParent(this->centralWidget());
+        }
+        
+        currentOverlay->setGeometry(this->centralWidget()->rect());
+        currentOverlay->toggle();
+        
+        emuThread->emuPause();
+        currentOverlay->setFocus();
+    }
+}
+#endif
+
 void MainWindow::onScreenEmphasisToggled()
 {
     int currentSizing = windowCfg.GetInt("ScreenSizing");
@@ -2483,6 +2567,51 @@ void MainWindow::onEmuReset()
 }
 
 #ifdef RETROACHIEVEMENTS_ENABLED
+void MainWindow::OnChallengeShow(const QString& badgeName)
+{
+    QString fullUrl = QString("https://media.retroachievements.org/Badge/%1.png").arg(badgeName);
+
+    m_badgeCache.DownloadBadge(fullUrl, [this](const QPixmap& pix) {
+        if (pix.isNull()) return;
+
+        QMetaObject::invokeMethod(this, [this, pix]() {
+            m_toastManager.ShowChallengeIndicator(pix);
+        });
+    });
+}
+
+void MainWindow::OnChallengeHide()
+{
+    QMetaObject::invokeMethod(this, [this]() {
+        m_toastManager.HideChallengeIndicator();
+    });
+}
+
+void MainWindow::OnGameMastered(const QString& title, const QString& gameBadge)
+{
+    m_badgeCache.DownloadBadge(gameBadge, [this, title](const QPixmap& pix)
+    {
+        QString msg = QString("Mastered %1!").arg(title);
+        
+        m_toastManager.ShowAchievement("MASTERED!", msg, pix);
+    });
+}
+
+void MainWindow::OnAchievementProgress(
+    const QString& title,
+    const QString& progress,
+    const QString& badgeUrl)
+{
+    m_badgeCache.DownloadBadge(badgeUrl,
+        [this, title, progress](const QPixmap& pix)
+        {
+            m_toastManager.ShowAchievement(
+                title,
+                progress,
+                pix);
+        });
+}
+
 void MainWindow::OnAchievementUnlocked(
     const QString& title,
     const QString& desc,
@@ -2601,7 +2730,7 @@ void MainWindow::ShowGameLoadToast()
         rc_client_destroy_achievement_list(achList);
     }
 
-    //stupid function to subtract 1 from achiv because they are showing up incorectly
+    //stupid function to subtract 1 from achiv because they are showing up incorectly because of hardcore achievement
     if (totalAchievements > 0)  totalAchievements  -= 1;
     if (unlockedAchievements > 0) unlockedAchievements -= 1;
 

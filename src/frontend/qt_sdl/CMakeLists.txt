@@ -74,6 +74,8 @@ if (ENABLE_RETROACHIEVEMENTS)
         toast/BadgeCache.cpp
         retroachievements/resources/ra.qrc
         RASettingsDialog.cpp
+        RAOverlayWidget.cpp
+        AchievementItemWidget.cpp
     )
     add_compile_definitions(RETROACHIEVEMENTS_ENABLED) 
 endif()

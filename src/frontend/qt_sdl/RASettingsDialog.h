@@ -8,7 +8,6 @@
 #include <QLabel>
 #include <QPushButton>
 #include <QGroupBox>
-#include <QTabWidget>
 #include <QFormLayout>
 
 class EmuInstance;

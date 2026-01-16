@@ -131,6 +131,11 @@ RASettingsDialog::RASettingsDialog(EmuInstance* inst, QWidget* parent)
 
 RASettingsDialog::~RASettingsDialog()
 {
+    if (emuInstance) {
+        if (auto* ra = emuInstance->getRA()) {
+            ra->onLoginResponse = nullptr;
+        }
+    }
     delete ui;
 }
 

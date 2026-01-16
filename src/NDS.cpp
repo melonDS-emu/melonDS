@@ -773,6 +773,16 @@ bool NDS::DoSavestate(Savestate* file)
 #endif
     }
 
+#ifdef RETROACHIEVEMENTS_ENABLED
+    if (ra) 
+    {
+        if (file->Saving)
+            ra->SaveSavestate(file);
+        else
+            ra->LoadSavestate(file);
+    }
+#endif
+
     file->Finish();
 
     return true;

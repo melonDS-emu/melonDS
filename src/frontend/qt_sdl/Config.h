@@ -141,6 +141,9 @@ bool Load();
 void Save();
 
 Table GetLocalTable(int instance);
+#ifdef RETROACHIEVEMENTS_ENABLED
+Table GetRAPlaytimeTable();
+#endif
 inline Table GetGlobalTable() { return GetLocalTable(-1); }
 
 }
