@@ -94,10 +94,6 @@ void SoftRenderer::SetRenderSettings(RendererSettings& settings)
 
 void SoftRenderer::DrawScanline(u32 line)
 {
-    // TODO: make this nicer! (do this check in GPU?)
-    if (line >= 192)
-        return;
-
     u32 *dstA, *dstB;
     u32 dstoffset = 256 * line;
     if (GPU.ScreenSwap)
@@ -163,9 +159,6 @@ void SoftRenderer::DrawScanline(u32 line)
 
 void SoftRenderer::DrawSprites(u32 line)
 {
-    if (line >= 192)
-        return;
-
     Rend2D_A->DrawSprites(line);
     Rend2D_B->DrawSprites(line);
 }

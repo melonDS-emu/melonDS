@@ -332,9 +332,6 @@ void GLRenderer::SetScaleFactor(int scale)
 
 void GLRenderer::DrawScanline(u32 line)
 {
-    if (line >= 192)
-        return;
-
     // TODO: forced blank
 
     Rend2D_A->DrawScanline(line);
@@ -401,9 +398,6 @@ void GLRenderer::DrawScanline(u32 line)
 
 void GLRenderer::DrawSprites(u32 line)
 {
-    if (line >= 192)
-        return;
-
     Rend2D_A->DrawSprites(line);
     Rend2D_B->DrawSprites(line);
 }

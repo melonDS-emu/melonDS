@@ -1106,8 +1106,10 @@ void GPU::StartHBlank(u32 line) noexcept
     {
         // draw
         // note: this should start 48 cycles after the scanline start
-        Rend->DrawScanline(line);
-        Rend->DrawSprites(line+1);
+        if (line < 192)
+            Rend->DrawScanline(line);
+        if (line < 191)
+            Rend->DrawSprites(line+1);
 
         NDS.CheckDMAs(0, 0x02);
     }
