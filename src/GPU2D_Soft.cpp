@@ -987,7 +987,7 @@ void SoftRenderer2D::ApplySpriteMosaicX()
             latch = true;
         else if (!(curcolor & OBJ_Mosaic))
             latch = true;
-        else if ((latchcolor ^ curcolor) & OBJ_Mosaic)
+        else if (!(latchcolor & OBJ_Mosaic))
             latch = true;
         else if ((curcolor & OBJ_BGPrioMask) < (latchcolor & OBJ_BGPrioMask))
             latch = true;
