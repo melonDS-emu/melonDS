@@ -96,6 +96,10 @@ void GPU2D::Reset()
     Enabled = false;
 
     DispCnt = 0;
+    memset(DispCntLatch, 0, sizeof(DispCntLatch));
+    LayerEnable = 0;
+    OBJEnable = 0;
+    ForcedBlank = 0;
     memset(BGCnt, 0, 4*2);
     memset(BGXPos, 0, 4*2);
     memset(BGYPos, 0, 4*2);
@@ -136,6 +140,10 @@ void GPU2D::DoSavestate(Savestate* file)
     file->Section((char*)(Num ? "GP2B" : "GP2A"));
 
     file->Var32(&DispCnt);
+    file->VarArray(DispCntLatch, sizeof(DispCntLatch));
+    file->Var8(&LayerEnable);
+    file->Var8(&OBJEnable);
+    file->Var8(&ForcedBlank);
     file->VarArray(BGCnt, 4*2);
     file->VarArray(BGXPos, 4*2);
     file->VarArray(BGYPos, 4*2);

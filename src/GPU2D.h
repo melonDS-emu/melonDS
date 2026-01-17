@@ -49,18 +49,6 @@ public:
     void Write16(u32 addr, u16 val);
     void Write32(u32 addr, u32 val);
 
-    /*bool UsesFIFO() const
-    {
-        if (((DispCnt >> 16) & 0x3) == 3)
-            return true;
-        if ((CaptureCnt & (1<<25)) && ((CaptureCnt >> 29) & 0x3) != 0)
-            return true;
-
-        return false;
-    }*/
-
-    //void SampleFIFO(u32 offset, u32 num);
-
     void VBlank();
     virtual void VBlankEnd();
 
