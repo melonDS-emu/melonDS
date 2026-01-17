@@ -64,9 +64,8 @@ public:
     void VBlank();
     virtual void VBlankEnd();
 
-    //void CheckWindows(u32 line);
-    void UpdateRegisters(u32 line);
-    void UpdateOBJRegisters(u32 line);
+    void UpdateRegistersPreDraw(u32 line);
+    void UpdateRegistersPostDraw(u32 line);
 
     u16* GetBGExtPal(u32 slot, u32 pal);
     u16* GetOBJExtPal();
@@ -77,21 +76,16 @@ public:
     void GetCaptureInfo_BG(int* info) const;
     void GetCaptureInfo_OBJ(int* info) const;
 
-    //void UpdateRotscaleParams(u32 line);
-    //void UpdateMosaicCounters(u32 line);
     void CalculateWindowMask(u8* windowMask, const u8* objWindow);
 
     u32 Num;
     bool Enabled;
-    //u32 ScreenPos;
-
-    /*u16 DispFIFO[16];
-    u32 DispFIFOReadPtr;
-    u32 DispFIFOWritePtr;
-
-    u16 DispFIFOBuffer[256];*/
 
     u32 DispCnt;
+    u32 DispCntLatch[3];
+    u8 LayerEnable;         // layer enable - enable delayed by 2 scanlines
+    u8 OBJEnable;           // OBJ enable (for OBJ rendering) - enable delayed by 1 scanline
+    u8 ForcedBlank;         // forced blank - disable delayed by 2 scanlines
     u16 BGCnt[4];
 
     u16 BGXPos[4];
@@ -123,11 +117,6 @@ public:
     u16 BlendAlpha;
     u8 EVA, EVB;
     u8 EVY;
-
-    //bool CaptureLatch;
-    //u32 CaptureCnt;
-
-    //u16 MasterBrightness;
 
 private:
     friend class Renderer2D;

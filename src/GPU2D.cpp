@@ -617,16 +617,39 @@ u16* GPU2D::GetOBJExtPal()
          : (u16*)GPU.VRAMFlat_BOBJExtPal;
 }
 
-/*void GPU2D::CheckWindows(u32 line)
-{
-    line &= 0xFF;
-    if (line == Win0Coords[3])      Win0Active &= ~0x1;
-    else if (line == Win0Coords[2]) Win0Active |=  0x1;
-    if (line == Win1Coords[3])      Win1Active &= ~0x1;
-    else if (line == Win1Coords[2]) Win1Active |=  0x1;
-}*/
 
-void GPU2D::UpdateRegisters(u32 line)
+void GPU2D::UpdateRegistersPreDraw(u32 line)
+{
+    if (!Enabled) return;
+
+    // enabling BG/OBJ layers or disabling forced blank takes two scanlines to apply
+    // however, disabling layers or enabling forced blank applies immediately
+    DispCntLatch[2] = DispCntLatch[1];
+    DispCntLatch[1] = DispCntLatch[0];
+    DispCntLatch[0] = DispCnt;
+    LayerEnable = ((DispCntLatch[2] & DispCnt) >> 8) & 0x1F;
+    OBJEnable = ((DispCntLatch[1] & DispCnt) >> 12) & 0x1;
+    ForcedBlank = ((DispCntLatch[2] | DispCnt) >> 7) & 0x1;
+
+    if (DispCnt & (1<<12))
+    {
+        // update OBJ mosaic counter
+
+        if ((line == 0) || (OBJMosaicY == OBJMosaicSize[1]))
+        {
+            OBJMosaicY = 0;
+            OBJMosaicLatch = true;
+        }
+        else
+        {
+            OBJMosaicY++;
+            OBJMosaicY &= 0xF;
+            OBJMosaicLatch = false;
+        }
+    }
+}
+
+void GPU2D::UpdateRegistersPostDraw(u32 line)
 {
     if (!Enabled) return;
 
@@ -652,6 +675,7 @@ void GPU2D::UpdateRegisters(u32 line)
         // on the other hand, OBJ mosaic directly checks against the size in MOSAIC
         // this makes the OBJ mosaic counter prone to overflowing if MOSAIC is modified midframe
         // TODO: do we need the latch for BG stuff?
+        // TODO: internal ref points don't get updated if the layer is disabled
 
         if (BGMosaicY == BGMosaicYMax)
         {
@@ -673,25 +697,6 @@ void GPU2D::UpdateRegisters(u32 line)
     else if (winline == Win0Coords[2]) Win0Active |=  0x1;
     if (winline == Win1Coords[3])      Win1Active &= ~0x1;
     else if (winline == Win1Coords[2]) Win1Active |=  0x1;
-}
-
-void GPU2D::UpdateOBJRegisters(u32 line)
-{
-    if (!Enabled) return;
-
-    // update OBJ mosaic counter
-
-    if ((line == 0) || (OBJMosaicY == OBJMosaicSize[1]))
-    {
-        OBJMosaicY = 0;
-        OBJMosaicLatch = true;
-    }
-    else
-    {
-        OBJMosaicY++;
-        OBJMosaicY &= 0xF;
-        OBJMosaicLatch = false;
-    }
 }
 
 void GPU2D::CalculateWindowMask(u8* windowMask, const u8* objWindow)
