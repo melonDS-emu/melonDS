@@ -627,6 +627,8 @@ void GPU2D::UpdateRegistersPostDraw(bool reset)
 
 void GPU2D::UpdateWindows(u32 line)
 {
+    if (!Enabled) return;
+
     // this seems to be done at the very beginning of each scanline
     // this also seems to be done always, even if windows are disabled
     line &= 0xFF;
