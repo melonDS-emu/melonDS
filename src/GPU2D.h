@@ -49,11 +49,9 @@ public:
     void Write16(u32 addr, u16 val);
     void Write32(u32 addr, u32 val);
 
-    void VBlank();
-    virtual void VBlankEnd();
-
     void UpdateRegistersPreDraw(u32 line);
     void UpdateRegistersPostDraw(u32 line);
+    void UpdateWindows(u32 line);
 
     u16* GetBGExtPal(u32 slot, u32 pal);
     u16* GetOBJExtPal();

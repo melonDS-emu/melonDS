@@ -532,82 +532,7 @@ void GPU2D::Write32(u32 addr, u32 val)
     Write16(addr, val&0xFFFF);
     Write16(addr+2, val>>16);
 }
-/*
-void GPU2D::UpdateRotscaleParams(u32 line)
-{
-    BGXRefInternal[0] += BGRotB[0];
-    BGYRefInternal[0] += BGRotD[0];
-    BGXRefInternal[1] += BGRotB[1];
-    BGYRefInternal[1] += BGRotD[1];
-}
 
-void GPU2D::UpdateMosaicCounters(u32 line)
-{
-    // Y mosaic uses incrementing 4-bit counters
-    // the transformed Y position is updated every time the counter matches the MOSAIC register
-
-    if (BGMosaicY == BGMosaicYMax)
-    {
-        BGMosaicYMax = BGMosaicSize[1];
-        BGMosaicY = 0;
-    }
-    else
-    {
-        BGMosaicY++;
-        BGMosaicY &= 0xF;
-    }
-
-    if (OBJMosaicYCount == OBJMosaicSize[1])
-    {
-        OBJMosaicYCount = 0;
-        OBJMosaicY = line + 1;
-    }
-    else
-    {
-        OBJMosaicYCount++;
-        OBJMosaicYCount &= 0xF;
-    }
-}*/
-
-void GPU2D::VBlank()
-{
-    /*if (CaptureLatch)
-    {
-        CaptureCnt &= ~(1<<31);
-        //CaptureLatch = false;
-    }
-
-    DispFIFOReadPtr = 0;
-    DispFIFOWritePtr = 0;*/
-}
-
-void GPU2D::VBlankEnd()
-{
-    // TODO: find out the exact time this happens
-    /*BGXRefInternal[0] = BGXRef[0];
-    BGXRefInternal[1] = BGXRef[1];
-    BGYRefInternal[0] = BGYRef[0];
-    BGYRefInternal[1] = BGYRef[1];
-
-    BGMosaicY = 0;
-    BGMosaicYMax = BGMosaicSize[1];*/
-    //OBJMosaicY = 0;
-    //OBJMosaicYMax = OBJMosaicSize[1];
-    //OBJMosaicY = 0;
-    //OBJMosaicYCount = 0;
-}
-/*
-void GPU2D::SampleFIFO(u32 offset, u32 num)
-{
-    for (u32 i = 0; i < num; i++)
-    {
-        u16 val = DispFIFO[DispFIFOReadPtr];
-        DispFIFOReadPtr++;
-        DispFIFOReadPtr &= 0xF;
-
-        DispFIFOBuffer[offset+i] = val;
-    }
-}*/
 
 u16* GPU2D::GetBGExtPal(u32 slot, u32 pal)
 {
@@ -698,13 +623,17 @@ void GPU2D::UpdateRegistersPostDraw(u32 line)
             BGMosaicLatch = false;
         }
     }
+}
 
-    // TODO: confirm exact position/behavior on hardware
-    u32 winline = line & 0xFF;
-    if (winline == Win0Coords[3])      Win0Active &= ~0x1;
-    else if (winline == Win0Coords[2]) Win0Active |=  0x1;
-    if (winline == Win1Coords[3])      Win1Active &= ~0x1;
-    else if (winline == Win1Coords[2]) Win1Active |=  0x1;
+void GPU2D::UpdateWindows(u32 line)
+{
+    // this seems to be done at the very beginning of each scanline
+    // this also seems to be done always, even if windows are disabled
+    line &= 0xFF;
+    if (line == Win0Coords[3])      Win0Active &= ~0x1;
+    else if (line == Win0Coords[2]) Win0Active |=  0x1;
+    if (line == Win1Coords[3])      Win1Active &= ~0x1;
+    else if (line == Win1Coords[2]) Win1Active |=  0x1;
 }
 
 void GPU2D::CalculateWindowMask(u8* windowMask, const u8* objWindow)

@@ -1202,10 +1202,8 @@ void GPU::StartScanline(u32 line) noexcept
         VCount &= 0x1FF;
     }
 
-    // TODO: not right
-    // should be done during HBlank (or when starting a scanline for OBJ mos counters)
-    //GPU2D_A.UpdateRegisters(VCount);
-    //GPU2D_B.UpdateRegisters(VCount);
+    GPU2D_A.UpdateWindows(VCount);
+    GPU2D_B.UpdateWindows(VCount);
 
     if (VCount >= 2 && VCount < 194)
         NDS.CheckDMAs(0, 0x03);
@@ -1252,8 +1250,6 @@ void GPU::StartScanline(u32 line) noexcept
         NDS.CheckDMAs(0, 0x01);
         NDS.CheckDMAs(1, 0x11);
 
-        GPU2D_A.VBlank();
-        GPU2D_B.VBlank();
         GPU3D.VBlank();
 
         Rend->VBlank();
@@ -1289,118 +1285,6 @@ void GPU::StartScanline(u32 line) noexcept
     else
         DispStat[1] &= ~(1<<2);
 
-#if 0
-    if (line == 0)
-        VCount = 0;
-    else if (NextVCount != 0xFFFFFFFF)
-        VCount = NextVCount;
-    else
-        VCount++;
-
-    NextVCount = -1;
-
-    DispStat[0] &= ~(1<<1);
-    DispStat[1] &= ~(1<<1);
-
-    if (VCount == VMatch[0])
-    {
-        DispStat[0] |= (1<<2);
-
-        if (DispStat[0] & (1<<5)) NDS.SetIRQ(0, IRQ_VCount);
-    }
-    else
-        DispStat[0] &= ~(1<<2);
-
-    if (VCount == VMatch[1])
-    {
-        DispStat[1] |= (1<<2);
-
-        if (DispStat[1] & (1<<5)) NDS.SetIRQ(1, IRQ_VCount);
-    }
-    else
-        DispStat[1] &= ~(1<<2);
-
-    //GPU2D_A.CheckWindows(VCount);
-    //GPU2D_B.CheckWindows(VCount);
-    //UpdateRegisters(VCount);
-
-    if (VCount == 0)
-    {
-        if (CaptureCnt & (1<<31))
-            CaptureEnable = true;
-    }
-    else if (VCount == 192)
-    {
-        CaptureCnt &= ~(1<<31);
-        CaptureEnable = false;
-    }
-
-    GPU2D_A.UpdateRegisters(VCount);
-    GPU2D_B.UpdateRegisters(VCount);
-
-    if (VCount >= 2 && VCount < 194)
-        NDS.CheckDMAs(0, 0x03);
-    else if (VCount == 194)
-        NDS.StopDMAs(0, 0x03);
-
-    if (line < 192)
-    {
-        if (line == 0)
-        {
-            GPU2D_Renderer->VBlankEnd(&GPU2D_A, &GPU2D_B);
-            GPU2D_A.VBlankEnd();
-            GPU2D_B.VBlankEnd();
-        }
-
-        if (RunFIFO)
-            NDS.ScheduleEvent(Event_DisplayFIFO, false, 32, 0, 0);
-    }
-
-    if (VCount == 262)
-    {
-        // frame end
-
-        DispStat[0] &= ~(1<<0);
-        DispStat[1] &= ~(1<<0);
-    }
-    else
-    {
-        if (VCount == 192)
-        {
-            // in reality rendering already finishes at line 144
-            // and games might already start to modify texture memory.
-            // That doesn't matter for us because we cache the entire
-            // texture memory anyway and only update it before the start
-            // of the next frame.
-            // So we can give the rasteriser a bit more headroom
-            GPU3D.VCount144(*this);
-
-            // VBlank
-            DispStat[0] |= (1<<0);
-            DispStat[1] |= (1<<0);
-
-            NDS.StopDMAs(0, 0x04);
-
-            NDS.CheckDMAs(0, 0x01);
-            NDS.CheckDMAs(1, 0x11);
-
-            if (DispStat[0] & (1<<3)) NDS.SetIRQ(0, IRQ_VBlank);
-            if (DispStat[1] & (1<<3)) NDS.SetIRQ(1, IRQ_VBlank);
-
-            CheckCaptureEnd();
-
-            GPU2D_A.VBlank();
-            GPU2D_B.VBlank();
-            GPU3D.VBlank();
-
-            // Need a better way to identify the openGL renderer in particular
-            //if (GPU3D.IsRendererAccelerated())
-                //GPU3D.Blit(*this);
-            GPU2D_Renderer->VBlank(&GPU2D_A, &GPU2D_B);
-            GPU2D_A.CaptureLatch = false;
-        }
-    }
-#endif
     NDS.ScheduleEvent(Event_LCD, true, HBLANK_CYCLES, LCD_StartHBlank, line);
 }
 
