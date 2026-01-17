@@ -240,6 +240,8 @@ LegacyEntry LegacyFile[] =
     {"BIOS7Path", 2, "DS.BIOS7Path", false},
     {"FirmwarePath", 2, "DS.FirmwarePath", false},
 
+    {"DSiExternalBIOSEnable", 1, "DSi.ExternalBIOSEnable", false},
+
     {"DSiBIOS9Path", 2, "DSi.BIOS9Path", false},
     {"DSiBIOS7Path", 2, "DSi.BIOS7Path", false},
     {"DSiFirmwarePath", 2, "DSi.FirmwarePath", false},
