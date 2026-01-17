@@ -84,6 +84,7 @@ private slots:
     //void onUpdateVideoSettings(bool glchange);
 
     void onFullscreenToggled();
+    void onScreenLayoutToggled();
     void onScreenEmphasisToggled();
 
 private:
@@ -239,6 +240,7 @@ private slots:
     void onUpdateVideoSettings(bool glchange);
 
     void onFullscreenToggled();
+    void onScreenLayoutToggled();
     void onScreenEmphasisToggled();
 
 private:
