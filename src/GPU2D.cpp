@@ -551,7 +551,7 @@ u16* GPU2D::GetOBJExtPal()
 }
 
 
-void GPU2D::UpdateRegistersPreDraw(u32 line)
+void GPU2D::UpdateRegistersPreDraw(bool reset)
 {
     if (!Enabled) return;
 
@@ -564,11 +564,12 @@ void GPU2D::UpdateRegistersPreDraw(u32 line)
     OBJEnable = ((DispCntLatch[1] & DispCnt) >> 12) & 0x1;
     ForcedBlank = ((DispCntLatch[2] | DispCnt) >> 7) & 0x1;
 
+    // TODO: check whether the counter still gets reset even when the OBJ layer is disabled
     if (DispCnt & (1<<12))
     {
         // update OBJ mosaic counter
 
-        if ((line == 0) || (OBJMosaicY == OBJMosaicSize[1]))
+        if (reset || (OBJMosaicY == OBJMosaicSize[1]))
         {
             OBJMosaicY = 0;
             OBJMosaicLatch = true;
@@ -582,11 +583,11 @@ void GPU2D::UpdateRegistersPreDraw(u32 line)
     }
 }
 
-void GPU2D::UpdateRegistersPostDraw(u32 line)
+void GPU2D::UpdateRegistersPostDraw(bool reset)
 {
     if (!Enabled) return;
 
-    if (line == 0)
+    if (reset)
     {
         BGXRefInternal[0] = BGXRef[0];
         BGXRefInternal[1] = BGXRef[1];

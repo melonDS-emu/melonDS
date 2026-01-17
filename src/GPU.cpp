@@ -1096,18 +1096,18 @@ void GPU::StartHBlank(u32 line) noexcept
     DispStat[0] |= (1<<1);
     DispStat[1] |= (1<<1);
 
+    bool resetregs = (VCount == 262);
+
+    // note: this should be done around 48 cycles after the scanline start
+    GPU2D_A.UpdateRegistersPreDraw(resetregs);
+    GPU2D_B.UpdateRegistersPreDraw(resetregs);
+
     if (VCount < 192)
     {
-        GPU2D_A.UpdateRegistersPreDraw(VCount+1);
-        GPU2D_B.UpdateRegistersPreDraw(VCount+1);
-
         // draw
         // note: this should start 48 cycles after the scanline start
         Rend->DrawScanline(line);
         Rend->DrawSprites(line+1);
-
-        GPU2D_A.UpdateRegistersPostDraw(VCount+1);
-        GPU2D_B.UpdateRegistersPostDraw(VCount+1);
 
         NDS.CheckDMAs(0, 0x02);
     }
@@ -1117,15 +1117,12 @@ void GPU::StartHBlank(u32 line) noexcept
     }
     else if (VCount == 262)
     {
-        GPU2D_A.UpdateRegistersPreDraw(0);
-        GPU2D_B.UpdateRegistersPreDraw(0);
-
         // sprites are pre-rendered one scanline in advance
         Rend->DrawSprites(0);
-
-        GPU2D_A.UpdateRegistersPostDraw(0);
-        GPU2D_B.UpdateRegistersPostDraw(0);
     }
+
+    GPU2D_A.UpdateRegistersPostDraw(resetregs);
+    GPU2D_B.UpdateRegistersPostDraw(resetregs);
 
     if (DispStat[0] & (1<<4)) NDS.SetIRQ(0, IRQ_HBlank);
     if (DispStat[1] & (1<<4)) NDS.SetIRQ(1, IRQ_HBlank);

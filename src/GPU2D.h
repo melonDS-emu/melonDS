@@ -49,8 +49,8 @@ public:
     void Write16(u32 addr, u16 val);
     void Write32(u32 addr, u32 val);
 
-    void UpdateRegistersPreDraw(u32 line);
-    void UpdateRegistersPostDraw(u32 line);
+    void UpdateRegistersPreDraw(bool reset);
+    void UpdateRegistersPostDraw(bool reset);
     void UpdateWindows(u32 line);
 
     u16* GetBGExtPal(u32 slot, u32 pal);
