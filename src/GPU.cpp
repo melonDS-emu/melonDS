@@ -1251,8 +1251,11 @@ void GPU::StartScanline(u32 line) noexcept
 
         Rend->VBlank();
 
-        CaptureCnt &= ~(1<<31);
-        CaptureEnable = false;
+        if (CaptureEnable)
+        {
+            CaptureCnt &= ~(1<<31);
+            CaptureEnable = false;
+        }
     }
     else if (VCount == 262)
     {
