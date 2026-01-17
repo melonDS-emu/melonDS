@@ -40,6 +40,17 @@ public:
 private:
     SoftRenderer& Parent;
 
+    enum
+    {
+        OBJ_StandardPal = (1<<12),
+        OBJ_DirectColor = (1<<15),
+        OBJ_BGPrioMask = (0x3<<16),
+        OBJ_IsOpaque = (1<<18),
+        OBJ_OpaPrioMask = (OBJ_BGPrioMask | OBJ_IsOpaque),
+        OBJ_IsSprite = (1<<19),
+        OBJ_Mosaic = (1<<20),
+    };
+
     alignas(8) u32 BGOBJLine[256*2];
 
     alignas(8) u8 WindowMask[256];
@@ -48,6 +59,8 @@ private:
     alignas(8) u8 OBJWindow[256];
 
     u32 NumSprites;
+
+    u32 OBJMosaicLine;
 
     u8* CurBGXMosaicTable;
     array2d<u8, 16, 256> MosaicTable = []() constexpr
@@ -83,6 +96,7 @@ private:
 
     void ApplySpriteMosaicX();
     void InterleaveSprites(u32 prio);
+    template<bool window> void DrawSpritePixel(int color, u32 pixelattr, s32 xpos);
     template<bool window> void DrawSprite_Rotscale(u32 num, u32 boundwidth, u32 boundheight, u32 width, u32 height, s32 xpos, s32 ypos);
     template<bool window> void DrawSprite_Normal(u32 num, u32 width, u32 height, s32 xpos, s32 ypos);
 };

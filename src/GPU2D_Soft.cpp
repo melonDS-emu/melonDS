@@ -40,6 +40,8 @@ void SoftRenderer2D::Reset()
     memset(OBJWindow, 0, sizeof(OBJWindow));
 
     NumSprites = 0;
+
+    OBJMosaicLine = 0;
 }
 
 u32 SoftRenderer2D::ColorComposite(int i, u32 val1, u32 val2) const
@@ -122,7 +124,7 @@ void SoftRenderer2D::DrawScanline(u32 line)
     {
         // if this 2D unit is disabled in POWCNT, the output is a fixed color
         // (black for unit A, white for unit B)
-        u32 fillcolor = (GPU2D.Num == 0) ? 0x000000 : 0x3F3F3F;
+        u32 fillcolor = (GPU2D.Num == 0) ? 0xFF000000 : 0xFF3F3F3F;
         for (int i = 0; i < 256; i++)
             dst[i] = fillcolor;
 
@@ -133,7 +135,7 @@ void SoftRenderer2D::DrawScanline(u32 line)
     {
         // forced blank
         for (int i = 0; i < 256; i++)
-            dst[i] = 0x3F3F3F;
+            dst[i] = 0xFF3F3F3F;
 
         return;
     }
@@ -237,7 +239,7 @@ void SoftRenderer2D::DrawScanlineBGMode(u32 line)
         }
         if ((dispCnt & 0x1000) && NumSprites)
         {
-            InterleaveSprites(0x40000 | (i<<16));
+            InterleaveSprites(i);
         }
 
     }
@@ -266,7 +268,7 @@ void SoftRenderer2D::DrawScanlineBGMode6(u32 line)
         }
         if ((dispCnt & 0x1000) && NumSprites)
         {
-            InterleaveSprites(0x40000 | (i<<16));
+            InterleaveSprites(i);
         }
     }
 }
@@ -298,7 +300,7 @@ void SoftRenderer2D::DrawScanlineBGMode7(u32 line)
         }
         if ((dispCnt & 0x1000) && NumSprites)
         {
-            InterleaveSprites(0x40000 | (i<<16));
+            InterleaveSprites(i);
         }
     }
 }
@@ -955,51 +957,72 @@ void SoftRenderer2D::DrawBG_Large(u32 line) // BG is always BG2
     }
 }
 
-// OBJ line buffer:
-// * bit0-15: color (bit15=1: direct color, bit15=0: palette index, bit12=0 to indicate extpal)
-// * bit16-17: BG-relative priority
-// * bit18: non-transparent sprite pixel exists here
-// * bit19: X mosaic should be applied here
-// * bit24-31: compositor flags
 
 void SoftRenderer2D::ApplySpriteMosaicX()
 {
-    // apply X mosaic if needed
-    // X mosaic for sprites is applied after all sprites are rendered
+    /*
+     * apply X mosaic if needed
+     * X mosaic for sprites is applied after all sprites are rendered
+     *
+     * rules:
+     * pixels are processed from left to right
+     * current pixel value is latched if:
+     * - the X mosaic counter is 0
+     * - the current pixel doesn't receive sprite mosaic
+     * - the current pixel receives sprite mosaic and the previous one didn't, or vice versa
+     * - the current BG-relative priority value is lower than the previous one
+     */
 
-    if (GPU2D.OBJMosaicSize[0] == 0) return;
+    u8 mosw = GPU2D.OBJMosaicSize[0];
+    if (mosw == 0) return;
 
-    u8* curOBJXMosaicTable = MosaicTable[GPU2D.OBJMosaicSize[0]].data();
-
-    u32 lastcolor = OBJLine[0];
-
-    for (u32 i = 1; i < 256; i++)
+    u8 mosx = 0;
+    u32 latchcolor;
+    for (int i = 0; i < 256; i++)
     {
-        u32 currentcolor = OBJLine[i];
+        u32 curcolor = OBJLine[i];
+        bool latch = false;
 
-        if (!(lastcolor & currentcolor & 0x100000) || curOBJXMosaicTable[i] == 0)
-            lastcolor = currentcolor;
+        if (mosx == 0)
+            latch = true;
+        else if (!(curcolor & OBJ_Mosaic))
+            latch = true;
+        else if ((latchcolor ^ curcolor) & OBJ_Mosaic)
+            latch = true;
+        else if ((curcolor & OBJ_BGPrioMask) < (latchcolor & OBJ_BGPrioMask))
+            latch = true;
+
+        if (latch)
+            latchcolor = curcolor;
+
+        OBJLine[i] = latchcolor;
+
+        if (mosx == mosw)
+            mosx = 0;
         else
-            OBJLine[i] = lastcolor;
+            mosx++;
     }
 }
 
 void SoftRenderer2D::InterleaveSprites(u32 prio)
 {
+    u32 attrmask = (prio << 16) | OBJ_IsOpaque;
     u16* pal = (u16*)&GPU.Palette[GPU2D.Num ? 0x600 : 0x200];
     u16* extpal = GPU2D.GetOBJExtPal();
 
     for (u32 i = 0; i < 256; i++)
     {
-        if ((OBJLine[i] & 0x70000) != prio) continue;
-        if (!(WindowMask[i] & 0x10))        continue;
+        if ((OBJLine[i] & OBJ_OpaPrioMask) != attrmask)
+            continue;
+        if (!(WindowMask[i] & 0x10))
+            continue;
 
         u16 color;
         u32 pixel = OBJLine[i];
 
-        if (pixel & 0x8000)
+        if (pixel & OBJ_DirectColor)
             color = pixel & 0x7FFF;
-        else if (pixel & 0x1000)
+        else if (pixel & OBJ_StandardPal)
             color = pal[pixel & 0xFF];
         else
             color = extpal[pixel & 0xFFF];
@@ -1009,17 +1032,24 @@ void SoftRenderer2D::InterleaveSprites(u32 prio)
 }
 
 #define DoDrawSprite(type, ...) \
-    if (iswin) \
+    do \
     { \
-        DrawSprite_##type<true>(__VA_ARGS__); \
-    } \
-    else \
-    { \
-        DrawSprite_##type<false>(__VA_ARGS__); \
-    }
+        if (iswin) \
+        { \
+            DrawSprite_##type<true>(__VA_ARGS__); \
+        } \
+        else \
+        { \
+            DrawSprite_##type<false>(__VA_ARGS__); \
+        } \
+    } while (0)
 
 void SoftRenderer2D::DrawSprites(u32 line)
 {
+    // the OBJ buffers don't get updated at all if the 2D engine is disabled
+    if (!GPU2D.Enabled)
+        return;
+
     if (GPU2D.Num == 0)
     {
         auto objDirty = GPU.VRAMDirty_AOBJ.DeriveState(GPU.VRAMMap_AOBJ, GPU);
@@ -1034,7 +1064,12 @@ void SoftRenderer2D::DrawSprites(u32 line)
     NumSprites = 0;
     memset(OBJLine, 0, sizeof(OBJLine));
     memset(OBJWindow, 0, sizeof(OBJWindow));
-    if (!(GPU2D.DispCnt & (1<<12))) return;
+
+    if (GPU2D.OBJMosaicLatch)
+        OBJMosaicLine = line;
+
+    if (!(GPU2D.DispCnt & (1<<12)))
+        return;
 
     u16* oam = (u16*)&GPU.OAM[GPU2D.Num ? 0x400 : 0];
 
@@ -1053,75 +1088,81 @@ void SoftRenderer2D::DrawSprites(u32 line)
         64, 32, 64, 8
     };
 
-    for (int bgnum = 0x0C00; bgnum >= 0x0000; bgnum -= 0x0400)
+    for (int sprnum = 0; sprnum < 128; sprnum++)
     {
-        for (int sprnum = 127; sprnum >= 0; sprnum--)
+        u16* attrib = &oam[sprnum*4];
+
+        u16 sprtype = (attrib[0] >> 8) & 0x3;
+        if (sprtype == 2) // disabled
+            continue;
+
+        bool iswin = (((attrib[0] >> 10) & 0x3) == 2);
+
+        u32 sizeparam = (attrib[0] >> 14) | ((attrib[1] & 0xC000) >> 12);
+        s32 width = spritewidth[sizeparam];
+        s32 height = spriteheight[sizeparam];
+        s32 boundwidth = width;
+        s32 boundheight = height;
+
+        if (sprtype == 3) // double-size rotscale sprite
         {
-            u16* attrib = &oam[sprnum*4];
+            boundwidth <<= 1;
+            boundheight <<= 1;
+        }
 
-            if ((attrib[2] & 0x0C00) != bgnum)
-                continue;
+        // TODO checkme (128-tall sprite overflow thing)
+        s32 ypos = attrib[0] & 0xFF;
+        if (((line - ypos) & 0xFF) >= boundheight)
+            continue;
 
-            bool iswin = (((attrib[0] >> 10) & 0x3) == 2);
+        s32 xpos = (s32)(attrib[1] << 23) >> 23;
+        if (xpos <= -boundwidth)
+            continue;
 
-            u32 sprline;
-            if ((attrib[0] & (1<<12)) && !iswin)
-            {
-                // apply Y mosaic
-                sprline = GPU2D.OBJMosaicY;
-            }
-            else
-                sprline = line;
+        if ((attrib[0] & (1<<12)) && (!iswin))
+        {
+            // adjust Y position for sprite mosaic
+            // (sprite mosaic does not apply to OBJ-window sprites)
+            // a ypos greater than the sprite height means we underflowed, due to OBJMosaicLine being
+            // latched before the sprite's top, so we clamp it to 0
+            ypos = (OBJMosaicLine - ypos) & 0xFF;
+            if (ypos >= boundheight) ypos = 0;
+        }
+        else
+            ypos = (line - ypos) & 0xFF;
 
-            if (attrib[0] & (1<<8))
-            {
-                u32 sizeparam = (attrib[0] >> 14) | ((attrib[1] & 0xC000) >> 12);
-                s32 width = spritewidth[sizeparam];
-                s32 height = spriteheight[sizeparam];
-                s32 boundwidth = width;
-                s32 boundheight = height;
+        if (sprtype & 1)
+            DoDrawSprite(Rotscale, sprnum, boundwidth, boundheight, width, height, xpos, ypos);
+        else
+            DoDrawSprite(Normal, sprnum, width, height, xpos, ypos);
 
-                if (attrib[0] & (1<<9))
-                {
-                    boundwidth <<= 1;
-                    boundheight <<= 1;
-                }
+        NumSprites++;
+    }
+}
 
-                u32 ypos = attrib[0] & 0xFF;
-                if (((line - ypos) & 0xFF) >= (u32)boundheight)
-                    continue;
-                ypos = (sprline - ypos) & 0xFF;
+template<bool window>
+void SoftRenderer2D::DrawSpritePixel(int color, u32 pixelattr, s32 xpos)
+{
+    if (window)
+    {
+        if (color != -1)
+            OBJWindow[xpos] = 1;
+    }
+    else
+    {
+        u32 oldpixel = OBJLine[xpos];
+        bool oldisopaque = !!(oldpixel & OBJ_IsOpaque);
+        bool newisopaque = (color != -1);
+        bool priocheck = (pixelattr & OBJ_BGPrioMask) < (oldpixel & OBJ_BGPrioMask);
 
-                s32 xpos = (s32)(attrib[1] << 23) >> 23;
-                if (xpos <= -boundwidth)
-                    continue;
-
-                DoDrawSprite(Rotscale, sprnum, boundwidth, boundheight, width, height, xpos, ypos);
-
-                NumSprites++;
-            }
-            else
-            {
-                if (attrib[0] & (1<<9))
-                    continue;
-
-                u32 sizeparam = (attrib[0] >> 14) | ((attrib[1] & 0xC000) >> 12);
-                s32 width = spritewidth[sizeparam];
-                s32 height = spriteheight[sizeparam];
-
-                u32 ypos = attrib[0] & 0xFF;
-                if (((line - ypos) & 0xFF) >= (u32)height)
-                    continue;
-                ypos = (sprline - ypos) & 0xFF;
-
-                s32 xpos = (s32)(attrib[1] << 23) >> 23;
-                if (xpos <= -width)
-                    continue;
-
-                DoDrawSprite(Normal, sprnum, width, height, xpos, ypos);
-
-                NumSprites++;
-            }
+        if (newisopaque && (!oldisopaque || priocheck))
+        {
+            OBJLine[xpos] = color | pixelattr;
+        }
+        else if (!newisopaque && !oldisopaque)
+        {
+            OBJLine[xpos] &= ~(OBJ_Mosaic | OBJ_BGPrioMask);
+            OBJLine[xpos] |= (pixelattr & (OBJ_IsSprite | OBJ_Mosaic | OBJ_BGPrioMask));
         }
     }
 }
@@ -1132,8 +1173,8 @@ void SoftRenderer2D::DrawSprite_Rotscale(u32 num, u32 boundwidth, u32 boundheigh
     u16* oam = (u16*)&GPU.OAM[GPU2D.Num ? 0x400 : 0];
     u16* attrib = &oam[num * 4];
     u16* rotparams = &oam[(((attrib[1] >> 9) & 0x1F) * 16) + 3];
-
-    u32 pixelattr = ((attrib[2] & 0x0C00) << 6) | 0xC0000;
+    
+    u32 pixelattr = ((attrib[2] & 0x0C00) << 6) | OBJ_IsSprite | OBJ_IsOpaque;
     u32 tilenum = attrib[2] & 0x03FF;
     u32 spritemode = window ? 0 : ((attrib[0] >> 10) & 0x3);
 
@@ -1143,16 +1184,13 @@ void SoftRenderer2D::DrawSprite_Rotscale(u32 num, u32 boundwidth, u32 boundheigh
     u32 objvrammask;
     GPU2D.GetOBJVRAM(objvram, objvrammask);
 
-    u32* objLine = OBJLine;
-    u8* objWindow = OBJWindow;
-
     s32 centerX = boundwidth >> 1;
     s32 centerY = boundheight >> 1;
 
     if ((attrib[0] & (1<<12)) && !window)
     {
         // apply Y mosaic
-        pixelattr |= 0x100000;
+        pixelattr |= OBJ_Mosaic;
     }
 
     u32 xoff;
@@ -1225,16 +1263,7 @@ void SoftRenderer2D::DrawSprite_Rotscale(u32 num, u32 boundwidth, u32 boundheigh
             {
                 color = *(u16*)&objvram[(pixelsaddr + ((rotY >> 8) * ytilefactor) + ((rotX >> 8) << 1)) & objvrammask];
 
-                if (color & 0x8000)
-                {
-                    if (window) objWindow[xpos] = 1;
-                    else        objLine[xpos] = color | pixelattr;
-                }
-                else if (!window)
-                {
-                    if (objLine[xpos] == 0)
-                        objLine[xpos] = pixelattr & 0x180000;
-                }
+                DrawSpritePixel<window>((color&0x8000) ? color : -1, pixelattr, xpos);
             }
 
             rotX += rotA;
@@ -1269,7 +1298,7 @@ void SoftRenderer2D::DrawSprite_Rotscale(u32 num, u32 boundwidth, u32 boundheigh
             if (!window)
             {
                 if (!(GPU2D.DispCnt & (1<<31)))
-                    pixelattr |= 0x1000;
+                    pixelattr |= OBJ_StandardPal;
                 else
                     pixelattr |= ((attrib[2] & 0xF000) >> 4);
             }
@@ -1280,16 +1309,7 @@ void SoftRenderer2D::DrawSprite_Rotscale(u32 num, u32 boundwidth, u32 boundheigh
                 {
                     color = objvram[(pixelsaddr + ((rotY>>11)*ytilefactor) + ((rotY&0x700)>>5) + ((rotX>>11)*64) + ((rotX&0x700)>>8)) & objvrammask];
 
-                    if (color)
-                    {
-                        if (window) objWindow[xpos] = 1;
-                        else        objLine[xpos] = color | pixelattr;
-                    }
-                    else if (!window)
-                    {
-                        if (objLine[xpos] == 0)
-                            objLine[xpos] = pixelattr & 0x180000;
-                    }
+                    DrawSpritePixel<window>(color ? color : -1, pixelattr, xpos);
                 }
 
                 rotX += rotA;
@@ -1303,7 +1323,7 @@ void SoftRenderer2D::DrawSprite_Rotscale(u32 num, u32 boundwidth, u32 boundheigh
             // 16-color
             if (!window)
             {
-                pixelattr |= 0x1000;
+                pixelattr |= OBJ_StandardPal;
                 pixelattr |= ((attrib[2] & 0xF000) >> 8);
             }
 
@@ -1317,16 +1337,7 @@ void SoftRenderer2D::DrawSprite_Rotscale(u32 num, u32 boundwidth, u32 boundheigh
                     else
                         color &= 0x0F;
 
-                    if (color)
-                    {
-                        if (window) objWindow[xpos] = 1;
-                        else        objLine[xpos] = color | pixelattr;
-                    }
-                    else if (!window)
-                    {
-                        if (objLine[xpos] == 0)
-                            objLine[xpos] = pixelattr & 0x180000;
-                    }
+                    DrawSpritePixel<window>(color ? color : -1, pixelattr, xpos);
                 }
 
                 rotX += rotA;
@@ -1344,7 +1355,7 @@ void SoftRenderer2D::DrawSprite_Normal(u32 num, u32 width, u32 height, s32 xpos,
     u16* oam = (u16*)&GPU.OAM[GPU2D.Num ? 0x400 : 0];
     u16* attrib = &oam[num * 4];
 
-    u32 pixelattr = ((attrib[2] & 0x0C00) << 6) | 0xC0000;
+    u32 pixelattr = ((attrib[2] & 0x0C00) << 6) | OBJ_IsSprite | OBJ_IsOpaque;
     u32 tilenum = attrib[2] & 0x03FF;
     u32 spritemode = window ? 0 : ((attrib[0] >> 10) & 0x3);
 
@@ -1353,15 +1364,12 @@ void SoftRenderer2D::DrawSprite_Normal(u32 num, u32 width, u32 height, s32 xpos,
     if ((attrib[0] & (1<<12)) && !window)
     {
         // apply Y mosaic
-        pixelattr |= 0x100000;
+        pixelattr |= OBJ_Mosaic;
     }
 
     u8* objvram;
     u32 objvrammask;
     GPU2D.GetOBJVRAM(objvram, objvrammask);
-
-    u32* objLine = OBJLine;
-    u8* objWindow = OBJWindow;
 
     // yflip
     if (attrib[1] & (1<<13))
@@ -1443,16 +1451,7 @@ void SoftRenderer2D::DrawSprite_Normal(u32 num, u32 width, u32 height, s32 xpos,
 
             pixelsaddr += pixelstride;
 
-            if (color & 0x8000)
-            {
-                if (window) objWindow[xpos] = 1;
-                else        objLine[xpos] = color | pixelattr;
-            }
-            else if (!window)
-            {
-                if (objLine[xpos] == 0)
-                    objLine[xpos] = pixelattr & 0x180000;
-            }
+            DrawSpritePixel<window>((color&0x8000) ? color : -1, pixelattr, xpos);
 
             xoff++;
             xpos++;
@@ -1484,7 +1483,7 @@ void SoftRenderer2D::DrawSprite_Normal(u32 num, u32 width, u32 height, s32 xpos,
             if (!window)
             {
                 if (!(GPU2D.DispCnt & (1<<31)))
-                    pixelattr |= 0x1000;
+                    pixelattr |= OBJ_StandardPal;
                 else
                     pixelattr |= ((attrib[2] & 0xF000) >> 4);
             }
@@ -1510,16 +1509,7 @@ void SoftRenderer2D::DrawSprite_Normal(u32 num, u32 width, u32 height, s32 xpos,
 
                 pixelsaddr += pixelstride;
 
-                if (color)
-                {
-                    if (window) objWindow[xpos] = 1;
-                    else        objLine[xpos] = color | pixelattr;
-                }
-                else if (!window)
-                {
-                    if (objLine[xpos] == 0)
-                        objLine[xpos] = pixelattr & 0x180000;
-                }
+                DrawSpritePixel<window>(color ? color : -1, pixelattr, xpos);
 
                 xoff++;
                 xpos++;
@@ -1535,7 +1525,7 @@ void SoftRenderer2D::DrawSprite_Normal(u32 num, u32 width, u32 height, s32 xpos,
 
             if (!window)
             {
-                pixelattr |= 0x1000;
+                pixelattr |= OBJ_StandardPal;
                 pixelattr |= ((attrib[2] & 0xF000) >> 8);
             }
 
@@ -1570,16 +1560,7 @@ void SoftRenderer2D::DrawSprite_Normal(u32 num, u32 width, u32 height, s32 xpos,
                     else              color = objvram[pixelsaddr & objvrammask] & 0x0F;
                 }
 
-                if (color)
-                {
-                    if (window) objWindow[xpos] = 1;
-                    else        objLine[xpos] = color | pixelattr;
-                }
-                else if (!window)
-                {
-                    if (objLine[xpos] == 0)
-                        objLine[xpos] = pixelattr & 0x180000;
-                }
+                DrawSpritePixel<window>(color ? color : -1, pixelattr, xpos);
 
                 xoff++;
                 xpos++;

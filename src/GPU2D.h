@@ -66,6 +66,7 @@ public:
 
     //void CheckWindows(u32 line);
     void UpdateRegisters(u32 line);
+    void UpdateOBJRegisters(u32 line);
 
     u16* GetBGExtPal(u32 slot, u32 pal);
     u16* GetOBJExtPal();

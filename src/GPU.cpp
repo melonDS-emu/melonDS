@@ -1098,6 +1098,9 @@ void GPU::StartHBlank(u32 line) noexcept
 
     if (VCount < 192)
     {
+        GPU2D_A.UpdateOBJRegisters(VCount+1);
+        GPU2D_B.UpdateOBJRegisters(VCount+1);
+
         // draw
         // note: this should start 48 cycles after the scanline start
         Rend->DrawScanline(line);
@@ -1114,6 +1117,9 @@ void GPU::StartHBlank(u32 line) noexcept
     }
     else if (VCount == 262)
     {
+        GPU2D_A.UpdateOBJRegisters(0);
+        GPU2D_B.UpdateOBJRegisters(0);
+
         // sprites are pre-rendered one scanline in advance
         Rend->DrawSprites(0);
 

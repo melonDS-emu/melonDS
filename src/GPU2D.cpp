@@ -628,6 +628,8 @@ u16* GPU2D::GetOBJExtPal()
 
 void GPU2D::UpdateRegisters(u32 line)
 {
+    if (!Enabled) return;
+
     if (line == 0)
     {
         BGXRefInternal[0] = BGXRef[0];
@@ -638,9 +640,6 @@ void GPU2D::UpdateRegisters(u32 line)
         BGMosaicYMax = BGMosaicSize[1];
         BGMosaicY = 0;
         BGMosaicLatch = true;
-
-        OBJMosaicY = 0;
-        OBJMosaicLatch = true;
     }
     else
     {
@@ -652,6 +651,7 @@ void GPU2D::UpdateRegisters(u32 line)
         // for BG mosaic, the size in MOSAIC is copied to an internal register
         // on the other hand, OBJ mosaic directly checks against the size in MOSAIC
         // this makes the OBJ mosaic counter prone to overflowing if MOSAIC is modified midframe
+        // TODO: do we need the latch for BG stuff?
 
         if (BGMosaicY == BGMosaicYMax)
         {
@@ -665,18 +665,6 @@ void GPU2D::UpdateRegisters(u32 line)
             BGMosaicY &= 0xF;
             BGMosaicLatch = false;
         }
-
-        if (OBJMosaicY == OBJMosaicSize[1])
-        {
-            OBJMosaicY = 0;
-            OBJMosaicLatch = true;
-        }
-        else
-        {
-            OBJMosaicY++;
-            OBJMosaicY &= 0xF;
-            OBJMosaicLatch = false;
-        }
     }
 
     // TODO: confirm exact position/behavior on hardware
@@ -685,6 +673,25 @@ void GPU2D::UpdateRegisters(u32 line)
     else if (winline == Win0Coords[2]) Win0Active |=  0x1;
     if (winline == Win1Coords[3])      Win1Active &= ~0x1;
     else if (winline == Win1Coords[2]) Win1Active |=  0x1;
+}
+
+void GPU2D::UpdateOBJRegisters(u32 line)
+{
+    if (!Enabled) return;
+
+    // update OBJ mosaic counter
+
+    if ((line == 0) || (OBJMosaicY == OBJMosaicSize[1]))
+    {
+        OBJMosaicY = 0;
+        OBJMosaicLatch = true;
+    }
+    else
+    {
+        OBJMosaicY++;
+        OBJMosaicY &= 0xF;
+        OBJMosaicLatch = false;
+    }
 }
 
 void GPU2D::CalculateWindowMask(u8* windowMask, const u8* objWindow)
