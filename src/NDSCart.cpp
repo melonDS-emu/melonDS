@@ -27,6 +27,11 @@
 #include "FATStorage.h"
 #include "Utils.h"
 
+#ifdef RETROACHIEVEMENTS_ENABLED
+#include "RetroAchievements/RAClient.h"
+#include <rc_hash.h>
+#endif
+
 namespace melonDS
 {
 using Platform::Log;
@@ -202,6 +207,25 @@ CartCommon::CartCommon(std::unique_ptr<u8[]>&& rom, u32 len, u32 chipid, bool ba
     CartType(type),
     UserData(userdata)
 {
+    #ifdef RETROACHIEVEMENTS_ENABLED
+        if (ROM && ROMLength > 0)
+        {
+            const bool ok = rc_hash_generate_from_buffer(
+                this->ra_hash,
+                RC_CONSOLE_NINTENDO_DS,
+                ROM.get(),
+                ROMLength
+            );
+
+            if (ok)
+            {
+                if (ra)
+                {
+                    ra->SetPendingGameHash(this->ra_hash);
+                }
+            }
+        }
+    #endif
     memcpy(&Header, ROM.get(), sizeof(Header));
     IsDSi = Header.IsDSi() && !badDSiDump;
     DSiBase = Header.DSiRegionStart << 19;
