@@ -60,6 +60,14 @@ set(SOURCES_QT_SDL
 
     LANDialog.cpp
     NetplayDialog.cpp
+
+    lua/LuaMain.cpp
+    lua/libs/LuaForms.cpp
+    lua/libs/LuaGui.cpp
+    lua/libs/LuaInput.cpp
+    lua/libs/LuaMemory.cpp
+    lua/libs/LuaSavestate.cpp
+    lua/libs/LuaMisc.cpp
 )
 
 option(USE_QT6 "Use Qt 6 instead of Qt 5" ON)
@@ -78,6 +86,7 @@ set(CMAKE_AUTORCC ON)
 
 find_package(Threads REQUIRED)
 find_package(PkgConfig REQUIRED)
+find_package(Lua REQUIRED)
 
 if (BUILD_STATIC)
     list(APPEND PKG_CONFIG_EXECUTABLE "--static")
@@ -87,7 +96,7 @@ pkg_check_modules(SDL2 REQUIRED IMPORTED_TARGET sdl2)
 pkg_check_modules(LibArchive REQUIRED IMPORTED_TARGET libarchive)
 pkg_check_modules(Zstd REQUIRED IMPORTED_TARGET libzstd)
 pkg_check_modules(Faad REQUIRED IMPORTED_TARGET faad2)
-
+## pkg_check_modules(Lua REQUIRED IMPORTED_TARGET lua)
 fix_interface_includes(PkgConfig::SDL2 PkgConfig::LibArchive)
 
 add_compile_definitions(ARCHIVE_SUPPORT_ENABLED)
@@ -190,8 +199,11 @@ if (USE_QT6)
 else()
     target_include_directories(melonDS PUBLIC ${Qt5Gui_PRIVATE_INCLUDE_DIRS})
 endif()
+
+target_include_directories(melonDS PRIVATE ${LUA_INCLUDE_DIR})
+
 target_link_libraries(melonDS PRIVATE core)
-target_link_libraries(melonDS PRIVATE PkgConfig::SDL2 PkgConfig::LibArchive PkgConfig::Zstd PkgConfig::Faad)
+target_link_libraries(melonDS PRIVATE PkgConfig::SDL2 PkgConfig::LibArchive PkgConfig::Zstd PkgConfig::Faad ${LUA_LIBRARIES})
 target_link_libraries(melonDS PRIVATE ${QT_LINK_LIBS} ${CMAKE_DL_LIBS})
 
 if (WIN32)
