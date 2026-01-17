@@ -564,7 +564,6 @@ void GPU2D::UpdateRegistersPreDraw(bool reset)
     OBJEnable = ((DispCntLatch[1] & DispCnt) >> 12) & 0x1;
     ForcedBlank = ((DispCntLatch[2] | DispCnt) >> 7) & 0x1;
 
-    // TODO: check whether the counter still gets reset even when the OBJ layer is disabled
     if (DispCnt & (1<<12))
     {
         // update OBJ mosaic counter
