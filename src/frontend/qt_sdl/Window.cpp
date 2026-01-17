@@ -1993,6 +1993,33 @@ void MainWindow::onAudioSettingsFinished(int res)
     emuInstance->audioUpdateSettings();
 }
 
+void MainWindow::onToggleAudioMute()
+{
+    Config::Table& instcfg = emuInstance->getLocalConfig();
+
+    int vol = instcfg.GetInt("Audio.Volume");
+    int last = instcfg.GetInt("Audio.LastNonZeroVolume");
+
+    if (vol > 0)
+    {
+        instcfg.SetInt("Audio.LastNonZeroVolume", vol);
+        instcfg.SetInt("Audio.Volume", 0);
+
+        emuInstance->audioVolume = 0;
+        emuInstance->osdAddMessage(0, "Audio muted");
+    }
+    else
+    {
+        if (last <= 0) last = 256;
+
+        instcfg.SetInt("Audio.Volume", last);
+        emuInstance->audioVolume = last;
+        emuInstance->osdAddMessage(0, "Audio unmuted");
+    }
+
+    Config::Save();
+}
+
 void MainWindow::onOpenMPSettings()
 {
     emuThread->emuPause();

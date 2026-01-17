@@ -224,6 +224,12 @@ void AudioSettingsDialog::on_slVolume_valueChanged(int val)
 
     volume = val;
     cfg.SetInt("Audio.Volume", val);
+    
+    if (val > 0)
+    {
+        cfg.SetInt("Audio.LastNonZeroVolume", val);
+    }
+    
     emit updateAudioVolume(val, dsiSync);
 }
 

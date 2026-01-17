@@ -241,6 +241,8 @@ private slots:
     void onFullscreenToggled();
     void onScreenEmphasisToggled();
 
+    void onToggleAudioMute();
+
 private:
     virtual void closeEvent(QCloseEvent* event) override;
 
