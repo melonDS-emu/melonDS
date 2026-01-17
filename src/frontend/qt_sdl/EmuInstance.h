@@ -55,6 +55,8 @@ enum
     HK_GuitarGripRed,
     HK_GuitarGripYellow,
     HK_GuitarGripBlue,
+    HK_QuickSaveState,
+    HK_QuickLoadState,
     HK_MAX
 };
 
