@@ -44,6 +44,8 @@ GLRenderer::GLRenderer(melonDS::NDS& nds, bool compute)
         Rend3D = std::make_unique<ComputeRenderer3D>(GPU.GPU3D, *this);
     else
         Rend3D = std::make_unique<GLRenderer3D>(GPU.GPU3D, *this);
+
+    ScaleFactor = 0;
 }
 
 #define glTexParams(target, wrap) \

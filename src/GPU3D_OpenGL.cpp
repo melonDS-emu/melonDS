@@ -109,6 +109,9 @@ GLRenderer3D::GLRenderer3D(melonDS::GPU3D& gpu3D, GLRenderer& parent) noexcept :
     ClearBitmap[0] = new u32[256*256];
     ClearBitmap[1] = new u32[256*256];
 
+    ScaleFactor = 0;
+    BetterPolygons = false;
+
     // GLRenderer3D::Init() will be used to actually initialize the renderer;
     // The various glDelete* functions silently ignore invalid IDs,
     // so we can just let the destructor clean up a half-initialized renderer.

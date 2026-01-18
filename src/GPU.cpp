@@ -283,19 +283,27 @@ void GPU::DoSavestate(Savestate* file) noexcept
 
 void GPU::SetRenderer(std::unique_ptr<Renderer>&& renderer) noexcept
 {
+    bool good = false;
     if (renderer)
     {
         Rend = std::move(renderer);
         if (Rend->Init())
         {
             Rend->Reset();
-            return;
+            good = true;
         }
     }
 
-    Rend = std::make_unique<SoftRenderer>(NDS);
-    Rend->Init();
-    Rend->Reset();
+    if (!good)
+    {
+        Rend = std::make_unique<SoftRenderer>(NDS);
+        Rend->Init();
+        Rend->Reset();
+    }
+
+    ResetVRAMCache();
+    OAMDirty = 0x3;
+    PaletteDirty = 0xF;
 }
 
 

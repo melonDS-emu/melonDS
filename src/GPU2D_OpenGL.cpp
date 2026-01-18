@@ -45,6 +45,7 @@ GLuint GLRenderer2D::CompositorShader = 0;
 GLRenderer2D::GLRenderer2D(melonDS::GPU2D& gpu2D, GLRenderer& parent)
     : Renderer2D(gpu2D), Parent(parent)
 {
+    ScaleFactor = 0;
 }
 
 #define glDefaultTexParams(target) \
@@ -238,36 +239,6 @@ bool GLRenderer2D::Init()
 
     Parent.OutputTex2D[GPU2D.Num] = OutputTex;
 
-    // generate buffers to hold display capture output
-#if 0
-    glGenTextures(1, &CaptureOutput256Tex);
-    glBindTexture(GL_TEXTURE_2D_ARRAY, CaptureOutput256Tex);
-    glTexParameteri(GL_TEXTURE_2D_ARRAY, GL_TEXTURE_WRAP_S, GL_REPEAT);
-    glTexParameteri(GL_TEXTURE_2D_ARRAY, GL_TEXTURE_WRAP_T, GL_REPEAT);
-    glTexParameteri(GL_TEXTURE_2D_ARRAY, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
-    glTexParameteri(GL_TEXTURE_2D_ARRAY, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
-    glGenFramebuffers(4, CaptureOutput256FB);
-
-    glGenTextures(1, &CaptureOutput128Tex);
-    glBindTexture(GL_TEXTURE_2D_ARRAY, CaptureOutput128Tex);
-    glTexParameteri(GL_TEXTURE_2D_ARRAY, GL_TEXTURE_WRAP_S, GL_REPEAT);
-    glTexParameteri(GL_TEXTURE_2D_ARRAY, GL_TEXTURE_WRAP_T, GL_REPEAT);
-    glTexParameteri(GL_TEXTURE_2D_ARRAY, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
-    glTexParameteri(GL_TEXTURE_2D_ARRAY, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
-    glGenFramebuffers(16, CaptureOutput128FB);
-
-    glGenTextures(1, &CaptureSyncTex);
-    glBindTexture(GL_TEXTURE_2D, CaptureSyncTex);
-    glDefaultTexParams(GL_TEXTURE_2D);
-    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB5_A1, 256, 256, 0, GL_RGBA, GL_UNSIGNED_SHORT_1_5_5_5_REV, nullptr);
-
-    glGenFramebuffers(1, &CaptureSyncFB);
-    glBindFramebuffer(GL_FRAMEBUFFER, CaptureSyncFB);
-    glFramebufferTexture(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, CaptureSyncTex, 0);
-    glDrawBuffer(GL_COLOR_ATTACHMENT0);
-    glReadBuffer(GL_COLOR_ATTACHMENT0);
-#endif
-
     // generate UBOs
 
     UBOBaseID = (GPU2D.Num == 0) ? 10 : 20;
@@ -295,19 +266,7 @@ bool GLRenderer2D::Init()
     static_assert((sizeof(sCompositorConfig) & 15) == 0);
     glBufferData(GL_UNIFORM_BUFFER, sizeof(sCompositorConfig), nullptr, GL_STREAM_DRAW);
     glBindBufferBase(GL_UNIFORM_BUFFER, UBOBaseID+3, CompositorConfigUBO);
-#if 0
-    glGenBuffers(1, &FPConfigUBO);
-    glBindBuffer(GL_UNIFORM_BUFFER, FPConfigUBO);
-    static_assert((sizeof(sFinalPassConfig) & 15) == 0);
-    glBufferData(GL_UNIFORM_BUFFER, sizeof(sFinalPassConfig), nullptr, GL_STREAM_DRAW);
-    glBindBufferBase(GL_UNIFORM_BUFFER, 14, FPConfigUBO);
 
-    glGenBuffers(1, &CaptureConfigUBO);
-    glBindBuffer(GL_UNIFORM_BUFFER, CaptureConfigUBO);
-    static_assert((sizeof(sCaptureConfig) & 15) == 0);
-    glBufferData(GL_UNIFORM_BUFFER, sizeof(sCaptureConfig), nullptr, GL_STREAM_DRAW);
-    glBindBufferBase(GL_UNIFORM_BUFFER, 15, CaptureConfigUBO);
-#endif
 
     glUseProgram(LayerPreShader);
 
@@ -380,118 +339,6 @@ bool GLRenderer2D::Init()
 
     CompositorScaleULoc = glGetUniformLocation(CompositorShader, "uScaleFactor");
 
-#if 0
-    glUseProgram(FPShaderID);
-
-    /*FPScaleULoc = glGetUniformLocation(FPShaderID, "u3DScale");
-    FPCaptureRegULoc = glGetUniformLocation(FPShaderID, "uCaptureReg");
-    FPCaptureMaskULoc = glGetUniformLocation(FPShaderID, "uCaptureVRAMMask");
-
-    for (int i = 0; i < 16; i++)
-    {
-        char var[32];
-        sprintf(var, "CaptureOutput256Tex[%d]", i);
-        FPCaptureTexLoc[i] = glGetUniformLocation(FPShaderID, var);
-    }*/
-
-    uniloc = glGetUniformLocation(FPShaderID, "MainInputTexA");
-    glUniform1i(uniloc, 0);
-    uniloc = glGetUniformLocation(FPShaderID, "MainInputTexB");
-    glUniform1i(uniloc, 1);
-    uniloc = glGetUniformLocation(FPShaderID, "AuxInputTex");
-    glUniform1i(uniloc, 2);
-
-    uniloc = glGetUniformBlockIndex(FPShaderID, "uFinalPassConfig");
-    glUniformBlockBinding(FPShaderID, uniloc, 14);
-
-
-    glUseProgram(CaptureShader);
-
-    uniloc = glGetUniformLocation(CaptureShader, "InputTexA");
-    glUniform1i(uniloc, 0);
-    uniloc = glGetUniformLocation(CaptureShader, "InputTexB");
-    glUniform1i(uniloc, 1);
-
-    uniloc = glGetUniformBlockIndex(CaptureShader, "uCaptureConfig");
-    glUniformBlockBinding(CaptureShader, uniloc, 15);
-
-
-    float vertices[12][4];
-#define SETVERTEX(i, x, y) \
-    vertices[i][0] = x; \
-    vertices[i][1] = y; \
-    vertices[i][2] = (x + 1.f) * (256.f / 2.f); \
-    vertices[i][3] = (y + 1.f) * (192.f / 2.f); \
-
-    SETVERTEX(0, -1, 1);
-    SETVERTEX(1, 1, -1);
-    SETVERTEX(2, 1, 1);
-    SETVERTEX(3, -1, 1);
-    SETVERTEX(4, -1, -1);
-    SETVERTEX(5, 1, -1);
-
-#undef SETVERTEX
-
-    glGenBuffers(1, &FPVertexBufferID);
-    glBindBuffer(GL_ARRAY_BUFFER, FPVertexBufferID);
-    glBufferData(GL_ARRAY_BUFFER, sizeof(vertices), &vertices[0], GL_STATIC_DRAW);
-
-    glGenVertexArrays(1, &FPVertexArrayID);
-    glBindVertexArray(FPVertexArrayID);
-    glEnableVertexAttribArray(0); // position
-    glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, 4 * sizeof(float), (void*)0);
-    glEnableVertexAttribArray(1); // texcoord
-    glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 4 * sizeof(float), (void*)(2 * sizeof(float)));
-
-    //glGenFramebuffers(FPOutputFB.size(), &FPOutputFB[0]);
-    glGenFramebuffers(2, &FPOutputFB[0]);
-#endif
-    /*glGenTextures(1, &LineAttribTex);
-    glActiveTexture(GL_TEXTURE1);
-    glBindTexture(GL_TEXTURE_1D, LineAttribTex);
-    glTexParameteri(GL_TEXTURE_1D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
-    glTexParameteri(GL_TEXTURE_1D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
-    glTexParameteri(GL_TEXTURE_1D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
-    glTexImage1D(GL_TEXTURE_1D, 0, GL_RGB32UI, 192*2, 0, GL_RGB_INTEGER, GL_UNSIGNED_INT, nullptr);
-
-    glGenTextures(1, &BGOBJTex);
-    glActiveTexture(GL_TEXTURE2);
-    glBindTexture(GL_TEXTURE_2D, BGOBJTex);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
-    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8UI, 256*3, 192*2, 0, GL_RGBA_INTEGER, GL_UNSIGNED_BYTE, nullptr);*/
-#if 0
-    glGenTextures(1, &AuxInputTex);
-    glBindTexture(GL_TEXTURE_2D_ARRAY, AuxInputTex);
-    glTexParameteri(GL_TEXTURE_2D_ARRAY, GL_TEXTURE_WRAP_S, GL_REPEAT);
-    glTexParameteri(GL_TEXTURE_2D_ARRAY, GL_TEXTURE_WRAP_T, GL_REPEAT);
-    glTexParameteri(GL_TEXTURE_2D_ARRAY, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
-    glTexParameteri(GL_TEXTURE_2D_ARRAY, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
-    glTexImage3D(GL_TEXTURE_2D_ARRAY, 0, GL_RGB5_A1, 256, 256, 2, 0, GL_RGBA, GL_UNSIGNED_SHORT_1_5_5_5_REV, nullptr);
-
-    glGenTextures(1, &CaptureVRAMTex);
-    glBindTexture(GL_TEXTURE_2D_ARRAY, CaptureVRAMTex);
-    glTexParameteri(GL_TEXTURE_2D_ARRAY, GL_TEXTURE_WRAP_S, GL_REPEAT);
-    glTexParameteri(GL_TEXTURE_2D_ARRAY, GL_TEXTURE_WRAP_T, GL_REPEAT);
-    glTexParameteri(GL_TEXTURE_2D_ARRAY, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
-    glTexParameteri(GL_TEXTURE_2D_ARRAY, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
-    glGenFramebuffers(1, &CaptureVRAMFB);
-
-    //glGenTextures(FPOutputTex.size(), &FPOutputTex[0]);
-    glGenTextures(2, FPOutputTex);
-    for (int i = 0; i < 2; i++)
-    {
-        glBindTexture(GL_TEXTURE_2D_ARRAY, FPOutputTex[i]);
-        glTexParameteri(GL_TEXTURE_2D_ARRAY, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
-        glTexParameteri(GL_TEXTURE_2D_ARRAY, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
-        glTexParameteri(GL_TEXTURE_2D_ARRAY, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
-        glTexParameteri(GL_TEXTURE_2D_ARRAY, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
-    }
-
-    glBindFramebuffer(GL_FRAMEBUFFER, 0);
-#endif
     return true;
 }
 
