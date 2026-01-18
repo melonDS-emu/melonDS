@@ -245,7 +245,7 @@ public:
     void SetApplyBias(bool enable);
 
     void Mix(u32 spucycles);
-    void EndFrame();
+    void BufferAudio();
 
     void TrimOutput();
     void DrainOutput();

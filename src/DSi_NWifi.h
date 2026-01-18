@@ -35,8 +35,8 @@ public:
 
     void DoSavestate(Savestate* file);
 
-    void SendCMD(u8 cmd, u32 param);
-    void SendACMD(u8 cmd, u32 param);
+    void SendCMD(MMCCommand cmd, u32 param);
+    void SendACMD(MMCAppCommand cmd, u32 param);
 
     void ContinueTransfer();
 

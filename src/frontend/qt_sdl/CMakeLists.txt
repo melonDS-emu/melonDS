@@ -42,6 +42,7 @@ set(SOURCES_QT_SDL
     AboutDialog.cpp
     AboutDialog.h
     AboutDialog.ui
+    ARCodeQDecl.h
 
     ArchiveUtil.h
     ArchiveUtil.cpp
@@ -175,7 +176,7 @@ if (BUILD_STATIC)
     if (USE_VCPKG AND UNIX AND NOT APPLE)
         pkg_check_modules(ALSA REQUIRED IMPORTED_TARGET alsa)
         target_link_libraries(melonDS PRIVATE PkgConfig::ALSA)
-    else()
+    elseif (NOT APPLE)
         target_link_options(melonDS PRIVATE -static)
     endif()
 endif()

@@ -1326,6 +1326,7 @@ std::optional<WindowInfo> ScreenPanelGL::getWindowInfo()
         wi.display_connection = x11->display();
         wi.window_handle = reinterpret_cast<void*>(winId());
     }
+    #if defined(WAYLAND_ENABLED)
     else if (platform_name == QStringLiteral("wayland"))
     {
         wi.type = WindowInfo::Type::Wayland;
@@ -1333,6 +1334,7 @@ std::optional<WindowInfo> ScreenPanelGL::getWindowInfo()
         wi.display_connection = wl->display();
         wi.window_handle = reinterpret_cast<void*>(winId());
     }
+    #endif
     #else
     QPlatformNativeInterface* pni = QGuiApplication::platformNativeInterface();
     if (platform_name == QStringLiteral("xcb"))
