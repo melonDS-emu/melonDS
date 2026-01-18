@@ -1328,7 +1328,7 @@ void GPU::SetDispStat(u32 cpu, u16 val, u16 mask) noexcept
     const u16 ro_mask = 0x0047;
 
     val &= (mask & ~ro_mask);
-    DispStat[cpu] &= (~mask & ro_mask);
+    DispStat[cpu] &= (~mask | ro_mask);
     DispStat[cpu] |= val;
 
     VMatch[cpu] = (DispStat[cpu] >> 8) | ((DispStat[cpu] & 0x80) << 1);
