@@ -858,8 +858,9 @@ void MainWindow::closeEvent(QCloseEvent* event)
 
 void MainWindow::createScreenPanel()
 {
-    if (panel) delete panel;
+    auto oldpanel = panel;
     panel = nullptr;
+    if (oldpanel) delete oldpanel;
 
     hasOGL = globalCfg.GetBool("Screen.UseGL") ||
             (globalCfg.GetInt("3D.Renderer") != renderer3D_Software);
@@ -964,6 +965,7 @@ void MainWindow::releaseGL()
 
 void MainWindow::drawScreen()
 {
+    if (!panel) return;
     return panel->drawScreen();
 }
 
