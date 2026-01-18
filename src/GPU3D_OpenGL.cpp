@@ -74,8 +74,10 @@ bool GLRenderer3D::BuildRenderShader(bool wbuffer)
 
     uni_id = glGetUniformLocation(prog, "CurTexture");
     glUniform1i(uni_id, 0);
-    uni_id = glGetUniformLocation(prog, "CaptureTexture");
-    glUniform1i(uni_id, 0);
+    uni_id = glGetUniformLocation(prog, "Capture128Texture");
+    glUniform1i(uni_id, 1);
+    uni_id = glGetUniformLocation(prog, "Capture256Texture");
+    glUniform1i(uni_id, 2);
 
     RenderShader[(int)wbuffer] = prog;
 
@@ -543,12 +545,12 @@ void GLRenderer3D::BuildPolygons(GLRenderer3D::RendererPolygon* polygons, int np
                 {
                     if (texwidth == 128)
                     {
-                        curtexid = Parent.CaptureOutput128Tex;
+                        curtexid = -1;
                         curtexlayer = capblock | (((texaddr >> 5) & 0x7F) << 16);
                     }
                     else
                     {
-                        curtexid = Parent.CaptureOutput256Tex;
+                        curtexid = -2;
                         curtexlayer = (capblock >> 2) | (((texaddr >> 6) & 0xFF) << 16);
                     }
                 }
@@ -771,7 +773,20 @@ void GLRenderer3D::BuildPolygons(GLRenderer3D::RendererPolygon* polygons, int np
 
 void GLRenderer3D::SetupPolygonTexture(const RendererPolygon* poly) const
 {
-    glBindTexture(GL_TEXTURE_2D_ARRAY, poly->TexID);
+    bool iscap = (poly->TexID == (GLuint)-1 || poly->TexID == (GLuint)-2);
+
+    if (iscap)
+    {
+        if (poly->TexID == (GLuint)-1)
+            glActiveTexture(GL_TEXTURE1);
+        else
+            glActiveTexture(GL_TEXTURE2);
+    }
+    else
+    {
+        glActiveTexture(GL_TEXTURE0);
+        glBindTexture(GL_TEXTURE_2D_ARRAY, poly->TexID);
+    }
 
     GLint repeatS, repeatT;
 
@@ -889,6 +904,12 @@ void GLRenderer3D::RenderSceneChunk(int y, int h)
     glDepthMask(GL_TRUE);
 
     glBindVertexArray(VertexArrayID);
+
+    glActiveTexture(GL_TEXTURE1);
+    glBindTexture(GL_TEXTURE_2D_ARRAY, Parent.CaptureOutput128Tex);
+    glActiveTexture(GL_TEXTURE2);
+    glBindTexture(GL_TEXTURE_2D_ARRAY, Parent.CaptureOutput256Tex);
+
     glActiveTexture(GL_TEXTURE0);
 
     for (int i = 0; i < NumFinalPolys; )

@@ -1063,11 +1063,12 @@ const std::string Rasterise =
 layout (local_size_x = TileSize, local_size_y = TileSize) in;
 
 layout (binding = 0) uniform usampler2DArray CurrentTexture;
-layout (binding = 0) uniform sampler2DArray CaptureTexture;
+layout (binding = 1) uniform sampler2DArray Capture128Texture;
+layout (binding = 2) uniform sampler2DArray Capture256Texture;
 
 layout (location = 0) uniform uint CurVariant;
 layout (location = 1) uniform vec2 InvTextureSize;
-layout (location = 2) uniform bool TexIsCapture;
+layout (location = 2) uniform int TexIsCapture;
 layout (location = 3) uniform float CaptureYOffset;
 
 void main()
@@ -1200,10 +1201,13 @@ void main()
             // TODO: if they use a capture as a texture and make it repeat, or use a nonstandard height,
             // it may require custom handling of texcoord wraparound
             uvec4 texcolor;
-            if (TexIsCapture)
+            if (TexIsCapture != 0)
             {
                 uvf.y += CaptureYOffset;
-                texcolor = uvec4(texture(CaptureTexture, vec3(uvf, polygon.TextureLayer)) * vec4(63,63,63,31));
+                if (TexIsCapture == 1)
+                    texcolor = uvec4(texture(Capture128Texture, vec3(uvf, polygon.TextureLayer)) * vec4(63,63,63,31));
+                else
+                    texcolor = uvec4(texture(Capture256Texture, vec3(uvf, polygon.TextureLayer)) * vec4(63,63,63,31));
             }
             else
                 texcolor = texture(CurrentTexture, vec3(uvf, polygon.TextureLayer));

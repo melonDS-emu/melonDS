@@ -47,12 +47,19 @@ void main()
 
     vec2 texcoord = vec2(vTexcoord);
     int capyoffset = vPolygonAttr.y >> 16;
+    int attrz = 0;
     if (capyoffset != -1)
+    {
         texcoord.y += capyoffset;
+        if (texwidth == 128)
+            attrz = 1;
+        else
+            attrz = 2;
+    }
 
     fColor = vec4(vColor) / vec4(255.0,255.0,255.0,31.0);
     fTexcoord = texcoord * texfactor;
-    fPolygonAttr = ivec3(vPolygonAttr.x, vPolygonAttr.y & 0xFFFF, capyoffset);
+    fPolygonAttr = ivec3(vPolygonAttr.x, vPolygonAttr.y & 0xFFFF, attrz);
 
     gl_Position = fpos;
 }

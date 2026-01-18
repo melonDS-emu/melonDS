@@ -765,13 +765,13 @@ void ComputeRenderer3D::RenderFrame()
                 {
                     if (texwidth == 128)
                     {
-                        variant.Texture = Parent.CaptureOutput128Tex;
+                        variant.Texture = -1;
                         variant.CaptureYOffset = (int)((texaddr >> 5) & 0x7F);
                         prevTexLayer = capblock;
                     }
                     else
                     {
-                        variant.Texture = Parent.CaptureOutput256Tex;
+                        variant.Texture = -2;
                         variant.CaptureYOffset = (int)((texaddr >> 6) & 0xFF);
                         prevTexLayer = capblock >> 2;
                     }
@@ -1086,6 +1086,11 @@ void ComputeRenderer3D::RenderFrame()
         glDispatchComputeIndirect(offsetof(BinResultHeader, SortWorkWorkCount));
         glMemoryBarrier(GL_SHADER_STORAGE_BARRIER_BIT | GL_COMMAND_BARRIER_BIT);
 
+        glActiveTexture(GL_TEXTURE1);
+        glBindTexture(GL_TEXTURE_2D_ARRAY, Parent.CaptureOutput128Tex);
+        glActiveTexture(GL_TEXTURE2);
+        glBindTexture(GL_TEXTURE_2D_ARRAY, Parent.CaptureOutput256Tex);
+
         glActiveTexture(GL_TEXTURE0);
 
         for (int i = 0; i < tilememoryLayer_Num; i++)
@@ -1128,14 +1133,29 @@ void ComputeRenderer3D::RenderFrame()
                 else
                 {
                     shader = shadersUseTexture[variants[i].BlendMode];
+
+                    GLuint texunit = 0;
+                    bool unitchange = false;
                     if (variants[i].Texture != prevTexture)
                     {
-                        glBindTexture(GL_TEXTURE_2D_ARRAY, variants[i].Texture);
+                        bool iscap = (variants[i].Texture == (GLuint)-1 || variants[i].Texture == (GLuint)-2);
+                        bool previscap = (prevTexture == (GLuint)-1 || prevTexture == (GLuint)-2);
+                        if (iscap || previscap)
+                        {
+                            unitchange = true;
+                            if (variants[i].Texture == (GLuint)-1)
+                                texunit = 1;
+                            else
+                                texunit = 2;
+                        }
+
+                        if (texunit == 0)
+                            glBindTexture(GL_TEXTURE_2D_ARRAY, variants[i].Texture);
                         prevTexture = variants[i].Texture;
                     }
-                    if (variants[i].Sampler != prevSampler)
+                    if ((variants[i].Sampler != prevSampler) || unitchange)
                     {
-                        glBindSampler(0, variants[i].Sampler);
+                        glBindSampler(texunit, variants[i].Sampler);
                         prevSampler = variants[i].Sampler;
                     }
                 }
@@ -1150,7 +1170,10 @@ void ComputeRenderer3D::RenderFrame()
                 glUniform2f(UniformIdxTextureSize, 1.f / variants[i].Width, 1.f / variants[i].Height);
                 if (variants[i].CaptureYOffset != -1)
                 {
-                    glUniform1i(UniformIdxTexIsCapture, 1);
+                    if (variants[i].Width == 128)
+                        glUniform1i(UniformIdxTexIsCapture, 1);
+                    else
+                        glUniform1i(UniformIdxTexIsCapture, 2);
                     glUniform1f(UniformIdxCaptureYOffset, (float)variants[i].CaptureYOffset / (float)variants[i].Height);
                 }
                 else
