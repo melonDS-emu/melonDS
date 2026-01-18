@@ -106,7 +106,7 @@ bool GLRenderer2D::Init()
     glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, 2 * sizeof(float), (void*)0);
 
     // sprite prerender vertex data: 2x position, 1x sprite index
-    int sprdatasize = (3 * 6) * 128;
+    int sprdatasize = (4 * 6) * 128;
     SpritePreVtxData = new u16[sprdatasize];
 
     glGenBuffers(1, &SpritePreVtxBuffer);
@@ -116,13 +116,13 @@ bool GLRenderer2D::Init()
     glGenVertexArrays(1, &SpritePreVtxArray);
     glBindVertexArray(SpritePreVtxArray);
     glEnableVertexAttribArray(0); // position
-    glVertexAttribIPointer(0, 2, GL_SHORT, 3 * sizeof(u16), (void*)0);
+    glVertexAttribIPointer(0, 2, GL_SHORT, 4 * sizeof(u16), (void*)0);
     glEnableVertexAttribArray(1); // sprite index
-    glVertexAttribIPointer(1, 1, GL_SHORT, 3 * sizeof(u16), (void*)(2 * sizeof(u16)));
+    glVertexAttribIPointer(1, 1, GL_SHORT, 4 * sizeof(u16), (void*)(2 * sizeof(u16)));
 
     // sprite vertex data: 2x position, 2x texcoord, 1x index
     // TODO might change
-    sprdatasize = (5 * 6) * 256;
+    sprdatasize = (6 * 6) * 256;
     SpriteVtxData = new u16[sprdatasize];
 
     glGenBuffers(1, &SpriteVtxBuffer);
@@ -132,11 +132,11 @@ bool GLRenderer2D::Init()
     glGenVertexArrays(1, &SpriteVtxArray);
     glBindVertexArray(SpriteVtxArray);
     glEnableVertexAttribArray(0); // position
-    glVertexAttribIPointer(0, 2, GL_SHORT, 5 * sizeof(u16), (void*)0);
+    glVertexAttribIPointer(0, 2, GL_SHORT, 6 * sizeof(u16), (void*)0);
     glEnableVertexAttribArray(1); // texcoord
-    glVertexAttribIPointer(1, 2, GL_SHORT, 5 * sizeof(u16), (void*)(2 * sizeof(u16)));
+    glVertexAttribIPointer(1, 2, GL_SHORT, 6 * sizeof(u16), (void*)(2 * sizeof(u16)));
     glEnableVertexAttribArray(2); // sprite index
-    glVertexAttribIPointer(2, 1, GL_SHORT, 5 * sizeof(u16), (void*)(4 * sizeof(u16)));
+    glVertexAttribIPointer(2, 1, GL_SHORT, 6 * sizeof(u16), (void*)(4 * sizeof(u16)));
 
     //auto& state = UnitState[i];
     //memset(&state, 0, sizeof(state));
@@ -1504,12 +1504,12 @@ void GLRenderer2D::PrerenderSprites()
         if (sprite.Type >= 3)
             continue;
 
-        *vtxbuf++ = 0; *vtxbuf++ = 1; *vtxbuf++ = i;
-        *vtxbuf++ = 1; *vtxbuf++ = 0; *vtxbuf++ = i;
-        *vtxbuf++ = 1; *vtxbuf++ = 1; *vtxbuf++ = i;
-        *vtxbuf++ = 0; *vtxbuf++ = 1; *vtxbuf++ = i;
-        *vtxbuf++ = 0; *vtxbuf++ = 0; *vtxbuf++ = i;
-        *vtxbuf++ = 1; *vtxbuf++ = 0; *vtxbuf++ = i;
+        *vtxbuf++ = 0; *vtxbuf++ = 1; *vtxbuf++ = i; vtxbuf++;
+        *vtxbuf++ = 1; *vtxbuf++ = 0; *vtxbuf++ = i; vtxbuf++;
+        *vtxbuf++ = 1; *vtxbuf++ = 1; *vtxbuf++ = i; vtxbuf++;
+        *vtxbuf++ = 0; *vtxbuf++ = 1; *vtxbuf++ = i; vtxbuf++;
+        *vtxbuf++ = 0; *vtxbuf++ = 0; *vtxbuf++ = i; vtxbuf++;
+        *vtxbuf++ = 1; *vtxbuf++ = 0; *vtxbuf++ = i; vtxbuf++;
         vtxnum += 6;
     }
 
@@ -1524,7 +1524,7 @@ void GLRenderer2D::PrerenderSprites()
     glViewport(0, 0, 1024, 512);
 
     glBindBuffer(GL_ARRAY_BUFFER, SpritePreVtxBuffer);
-    glBufferSubData(GL_ARRAY_BUFFER, 0, vtxnum * 3 * sizeof(u16), SpritePreVtxData);
+    glBufferSubData(GL_ARRAY_BUFFER, 0, vtxnum * 4 * sizeof(u16), SpritePreVtxData);
 
     glBindVertexArray(SpritePreVtxArray);
     glDrawArrays(GL_TRIANGLES, 0, vtxnum);
@@ -1628,12 +1628,12 @@ void GLRenderer2D::RenderSprites(bool window, int ystart, int yend)
             s32 x0 = xpos, x1 = xpos + boundwidth;
             s32 y0 = ypos, y1 = ypos + boundheight;
 
-            *vtxbuf++ = x0; *vtxbuf++ = y1; *vtxbuf++ = 0; *vtxbuf++ = 1; *vtxbuf++ = i;
-            *vtxbuf++ = x1; *vtxbuf++ = y0; *vtxbuf++ = 1; *vtxbuf++ = 0; *vtxbuf++ = i;
-            *vtxbuf++ = x1; *vtxbuf++ = y1; *vtxbuf++ = 1; *vtxbuf++ = 1; *vtxbuf++ = i;
-            *vtxbuf++ = x0; *vtxbuf++ = y1; *vtxbuf++ = 0; *vtxbuf++ = 1; *vtxbuf++ = i;
-            *vtxbuf++ = x0; *vtxbuf++ = y0; *vtxbuf++ = 0; *vtxbuf++ = 0; *vtxbuf++ = i;
-            *vtxbuf++ = x1; *vtxbuf++ = y0; *vtxbuf++ = 1; *vtxbuf++ = 0; *vtxbuf++ = i;
+            *vtxbuf++ = x0; *vtxbuf++ = y1; *vtxbuf++ = 0; *vtxbuf++ = 1; *vtxbuf++ = i; vtxbuf++;
+            *vtxbuf++ = x1; *vtxbuf++ = y0; *vtxbuf++ = 1; *vtxbuf++ = 0; *vtxbuf++ = i; vtxbuf++;
+            *vtxbuf++ = x1; *vtxbuf++ = y1; *vtxbuf++ = 1; *vtxbuf++ = 1; *vtxbuf++ = i; vtxbuf++;
+            *vtxbuf++ = x0; *vtxbuf++ = y1; *vtxbuf++ = 0; *vtxbuf++ = 1; *vtxbuf++ = i; vtxbuf++;
+            *vtxbuf++ = x0; *vtxbuf++ = y0; *vtxbuf++ = 0; *vtxbuf++ = 0; *vtxbuf++ = i; vtxbuf++;
+            *vtxbuf++ = x1; *vtxbuf++ = y0; *vtxbuf++ = 1; *vtxbuf++ = 0; *vtxbuf++ = i; vtxbuf++;
             vtxnum += 6;
         }
 
@@ -1643,12 +1643,12 @@ void GLRenderer2D::RenderSprites(bool window, int ystart, int yend)
             s32 x0 = xpos, x1 = xpos + boundwidth;
             s32 y0 = ypos, y1 = ypos + boundheight;
 
-            *vtxbuf++ = x0; *vtxbuf++ = y1; *vtxbuf++ = 0; *vtxbuf++ = 1; *vtxbuf++ = i;
-            *vtxbuf++ = x1; *vtxbuf++ = y0; *vtxbuf++ = 1; *vtxbuf++ = 0; *vtxbuf++ = i;
-            *vtxbuf++ = x1; *vtxbuf++ = y1; *vtxbuf++ = 1; *vtxbuf++ = 1; *vtxbuf++ = i;
-            *vtxbuf++ = x0; *vtxbuf++ = y1; *vtxbuf++ = 0; *vtxbuf++ = 1; *vtxbuf++ = i;
-            *vtxbuf++ = x0; *vtxbuf++ = y0; *vtxbuf++ = 0; *vtxbuf++ = 0; *vtxbuf++ = i;
-            *vtxbuf++ = x1; *vtxbuf++ = y0; *vtxbuf++ = 1; *vtxbuf++ = 0; *vtxbuf++ = i;
+            *vtxbuf++ = x0; *vtxbuf++ = y1; *vtxbuf++ = 0; *vtxbuf++ = 1; *vtxbuf++ = i; vtxbuf++;
+            *vtxbuf++ = x1; *vtxbuf++ = y0; *vtxbuf++ = 1; *vtxbuf++ = 0; *vtxbuf++ = i; vtxbuf++;
+            *vtxbuf++ = x1; *vtxbuf++ = y1; *vtxbuf++ = 1; *vtxbuf++ = 1; *vtxbuf++ = i; vtxbuf++;
+            *vtxbuf++ = x0; *vtxbuf++ = y1; *vtxbuf++ = 0; *vtxbuf++ = 1; *vtxbuf++ = i; vtxbuf++;
+            *vtxbuf++ = x0; *vtxbuf++ = y0; *vtxbuf++ = 0; *vtxbuf++ = 0; *vtxbuf++ = i; vtxbuf++;
+            *vtxbuf++ = x1; *vtxbuf++ = y0; *vtxbuf++ = 1; *vtxbuf++ = 0; *vtxbuf++ = i; vtxbuf++;
             vtxnum += 6;
         }
     }
@@ -1656,7 +1656,7 @@ void GLRenderer2D::RenderSprites(bool window, int ystart, int yend)
     if (vtxnum == 0) return;
 
     glBindBuffer(GL_ARRAY_BUFFER, SpriteVtxBuffer);
-    glBufferSubData(GL_ARRAY_BUFFER, 0, vtxnum * 5 * sizeof(u16), SpriteVtxData);
+    glBufferSubData(GL_ARRAY_BUFFER, 0, vtxnum * 6 * sizeof(u16), SpriteVtxData);
 
     glBindVertexArray(SpriteVtxArray);
     glDrawArrays(GL_TRIANGLES, 0, vtxnum);
