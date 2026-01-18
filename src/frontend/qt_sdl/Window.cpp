@@ -2239,6 +2239,7 @@ void MainWindow::onScreenEmphasisToggled()
         currentSizing = screenSizing_EmphTop;
     }
     windowCfg.SetInt("ScreenSizing", currentSizing);
+    actScreenSizing[currentSizing]->setChecked(true);
 
     emit screenLayoutChange();
 }
