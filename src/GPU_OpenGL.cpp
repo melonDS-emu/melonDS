@@ -419,6 +419,7 @@ void GLRenderer::VBlank()
     glDisable(GL_BLEND);
     glColorMaski(0, GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
     glColorMaski(1, GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
+    glDepthMask(GL_FALSE);
 
     glViewport(0, 0, ScreenW, ScreenH);
 

@@ -730,6 +730,12 @@ void GLRenderer2D::UpdateAndRender(int line)
 
         glUseProgram(LayerPreShader);
 
+        glDisable(GL_DEPTH_TEST);
+        glDisable(GL_STENCIL_TEST);
+        glDisable(GL_BLEND);
+        glColorMaski(1, GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
+        glDepthMask(GL_FALSE);
+
         glUniformBlockBinding(LayerPreShader, LayerPreBGConfigULoc, UBOBaseID+0);
 
         //glBindBuffer(GL_UNIFORM_BUFFER, LayerConfigUBO);
@@ -1517,6 +1523,12 @@ void GLRenderer2D::PrerenderSprites()
 
     glUseProgram(SpritePreShader);
 
+    glDisable(GL_DEPTH_TEST);
+    glDisable(GL_STENCIL_TEST);
+    glDisable(GL_BLEND);
+    glColorMaski(1, GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
+    glDepthMask(GL_FALSE);
+
     glUniformBlockBinding(SpritePreShader, SpritePreConfigULoc, UBOBaseID+1);
 
     glBindFramebuffer(GL_READ_FRAMEBUFFER, 0);
@@ -1557,6 +1569,11 @@ void GLRenderer2D::DoRenderSprites(int line)
     int yend = line;
 
     glUseProgram(SpriteShader);
+
+    glDisable(GL_DEPTH_TEST);
+    glDisable(GL_STENCIL_TEST);
+    glDisable(GL_BLEND);
+    glDepthMask(GL_FALSE);
 
     glUniformBlockBinding(SpriteShader, SpriteConfigULoc, UBOBaseID+1);
 
@@ -1688,6 +1705,7 @@ void GLRenderer2D::RenderScreen(int ystart, int yend)
     glDisable(GL_STENCIL_TEST);
     glDisable(GL_BLEND);
     glColorMaski(0, GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
+    glDepthMask(GL_FALSE);
 
     glViewport(0, 0, ScreenW, ScreenH);
 

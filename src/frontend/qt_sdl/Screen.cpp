@@ -1138,7 +1138,7 @@ void ScreenPanelGL::drawScreen()
 
     glBindFramebuffer(GL_FRAMEBUFFER, 0);
     glDisable(GL_DEPTH_TEST);
-    glDepthMask(false);
+    glDepthMask(GL_FALSE);
     glDisable(GL_BLEND);
     glDisable(GL_SCISSOR_TEST);
     glDisable(GL_STENCIL_TEST);
