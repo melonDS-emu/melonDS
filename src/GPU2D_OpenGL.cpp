@@ -515,6 +515,21 @@ void GLRenderer2D::SetScaleFactor(int scale)
 }
 
 
+bool GLRenderer2D::IsScreenOn()
+{
+    if (!GPU.ScreensEnabled) return false;
+    if (GPU2D.ForcedBlank) return false;
+
+    u16 masterbright = GPU2D.Num ? GPU.MasterBrightnessB : GPU.MasterBrightnessA;
+    u16 brightmode = masterbright >> 14;
+    u16 brightness = masterbright & 0x1F;
+    if ((brightmode == 1 || brightmode == 2) && brightness >= 16)
+        return false;
+
+    return true;
+}
+
+
 void GLRenderer2D::UpdateAndRender(int line)
 {
     u32 palmask = 1 << (GPU2D.Num * 2);
@@ -530,6 +545,7 @@ void GLRenderer2D::UpdateAndRender(int line)
 
     u8 layer_pre_dirty = 0;
     bool comp_dirty = false;
+    bool screenon = IsScreenOn();
 
     if (dispcnt_diff & 0x8)
         layer_pre_dirty |= 0x1;
@@ -564,27 +580,30 @@ void GLRenderer2D::UpdateAndRender(int line)
     NonStupidBitField<64> bgExtPalDirty;
     NonStupidBitField<16> objExtPalDirty;
 
-    if (GPU2D.Num == 0)
+    if (screenon)
     {
-        bgDirty = GPU.VRAMDirty_ABG.DeriveState(GPU.VRAMMap_ABG, GPU);
-        GPU.MakeVRAMFlat_ABGCoherent(bgDirty);
+        if (GPU2D.Num == 0)
+        {
+            bgDirty = GPU.VRAMDirty_ABG.DeriveState(GPU.VRAMMap_ABG, GPU);
+            GPU.MakeVRAMFlat_ABGCoherent(bgDirty);
 
-        bgExtPalDirty = GPU.VRAMDirty_ABGExtPal.DeriveState(GPU.VRAMMap_ABGExtPal, GPU);
-        GPU.MakeVRAMFlat_ABGExtPalCoherent(bgExtPalDirty);
-        objExtPalDirty = GPU.VRAMDirty_AOBJExtPal.DeriveState(&GPU.VRAMMap_AOBJExtPal, GPU);
-        GPU.MakeVRAMFlat_AOBJExtPalCoherent(objExtPalDirty);
-    }
-    else
-    {
-        auto _bgDirty = GPU.VRAMDirty_BBG.DeriveState(GPU.VRAMMap_BBG, GPU);
-        GPU.MakeVRAMFlat_BBGCoherent(_bgDirty);
-        for (int i = 0; i < 1024; i += 256)
-            memcpy(&bgDirty.Data[i>>6], _bgDirty.Data, 256>>3);
+            bgExtPalDirty = GPU.VRAMDirty_ABGExtPal.DeriveState(GPU.VRAMMap_ABGExtPal, GPU);
+            GPU.MakeVRAMFlat_ABGExtPalCoherent(bgExtPalDirty);
+            objExtPalDirty = GPU.VRAMDirty_AOBJExtPal.DeriveState(&GPU.VRAMMap_AOBJExtPal, GPU);
+            GPU.MakeVRAMFlat_AOBJExtPalCoherent(objExtPalDirty);
+        }
+        else
+        {
+            auto _bgDirty = GPU.VRAMDirty_BBG.DeriveState(GPU.VRAMMap_BBG, GPU);
+            GPU.MakeVRAMFlat_BBGCoherent(_bgDirty);
+            for (int i = 0; i < 1024; i += 256)
+                memcpy(&bgDirty.Data[i>>6], _bgDirty.Data, 256>>3);
 
-        bgExtPalDirty = GPU.VRAMDirty_BBGExtPal.DeriveState(GPU.VRAMMap_BBGExtPal, GPU);
-        GPU.MakeVRAMFlat_BBGExtPalCoherent(bgExtPalDirty);
-        objExtPalDirty = GPU.VRAMDirty_BOBJExtPal.DeriveState(&GPU.VRAMMap_BOBJExtPal, GPU);
-        GPU.MakeVRAMFlat_BOBJExtPalCoherent(objExtPalDirty);
+            bgExtPalDirty = GPU.VRAMDirty_BBGExtPal.DeriveState(GPU.VRAMMap_BBGExtPal, GPU);
+            GPU.MakeVRAMFlat_BBGExtPalCoherent(bgExtPalDirty);
+            objExtPalDirty = GPU.VRAMDirty_BOBJExtPal.DeriveState(&GPU.VRAMMap_BOBJExtPal, GPU);
+            GPU.MakeVRAMFlat_BOBJExtPalCoherent(objExtPalDirty);
+        }
     }
 
     // for each layer, check if the VRAM and palettes involved are dirty
@@ -1734,6 +1753,7 @@ void GLRenderer2D::DrawSprites(u32 line)
 {
     u32 oammask = 1 << GPU2D.Num;
     bool dirty = false;
+    bool screenon = IsScreenOn();
 
     u32 dispcnt_diff = GPU2D.DispCnt ^ SpriteDispCnt;
     SpriteDispCnt = GPU2D.DispCnt; // TODO CHECKME might not be right to do it here
@@ -1743,16 +1763,19 @@ void GLRenderer2D::DrawSprites(u32 line)
     static_assert(VRAMDirtyGranularity == 512);
     NonStupidBitField<512> objDirty;
 
-    if (GPU2D.Num == 0)
+    if (screenon)
     {
-        objDirty = GPU.VRAMDirty_AOBJ.DeriveState(GPU.VRAMMap_AOBJ, GPU);
-        GPU.MakeVRAMFlat_AOBJCoherent(objDirty);
-    }
-    else
-    {
-        auto _objDirty = GPU.VRAMDirty_BOBJ.DeriveState(GPU.VRAMMap_BOBJ, GPU);
-        GPU.MakeVRAMFlat_BOBJCoherent(_objDirty);
-        memcpy(objDirty.Data, _objDirty.Data, 256>>3);
+        if (GPU2D.Num == 0)
+        {
+            objDirty = GPU.VRAMDirty_AOBJ.DeriveState(GPU.VRAMMap_AOBJ, GPU);
+            GPU.MakeVRAMFlat_AOBJCoherent(objDirty);
+        }
+        else
+        {
+            auto _objDirty = GPU.VRAMDirty_BOBJ.DeriveState(GPU.VRAMMap_BOBJ, GPU);
+            GPU.MakeVRAMFlat_BOBJCoherent(_objDirty);
+            memcpy(objDirty.Data, _objDirty.Data, 256>>3);
+        }
     }
 
     u8* vram; u32 vrammask;

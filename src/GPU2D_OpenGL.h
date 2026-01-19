@@ -276,6 +276,8 @@ private:
         return table;
     }();*/
 
+    bool IsScreenOn();
+
     void UpdateAndRender(int line);
 
     void UpdateScanlineConfig(int line);
