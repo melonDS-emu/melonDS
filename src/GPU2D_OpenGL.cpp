@@ -518,6 +518,7 @@ void GLRenderer2D::SetScaleFactor(int scale)
 bool GLRenderer2D::IsScreenOn()
 {
     if (!GPU.ScreensEnabled) return false;
+    if (!GPU2D.Enabled) return false;
     if (GPU2D.ForcedBlank) return false;
 
     u16 masterbright = GPU2D.Num ? GPU.MasterBrightnessB : GPU.MasterBrightnessA;
