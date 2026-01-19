@@ -50,41 +50,28 @@ private:
     int ScreenW, ScreenH;
 
     static int ShaderCount;
-    GLuint UBOBaseID;
 
     GLuint RectVtxBuffer;
     GLuint RectVtxArray;
 
     static GLuint LayerPreShader;
-    GLint LayerPreBGConfigULoc;
-    GLint LayerPreCurBGULoc;
-    //GLuint LayerConfigUBO;
+    static GLint LayerPreCurBGULoc;
 
-    //GLuint LayerShader;
-    //GLint LayerScaleULoc;
-    //GLint LayerCurUnitULoc;
-    //GLint LayerCurBGULoc;
     GLuint ScanlineConfigUBO;
 
     static GLuint SpritePreShader;
-    //GLuint SpriteConfigUBO;
-    GLint SpritePreConfigULoc;
     GLuint SpritePreVtxBuffer;
     GLuint SpritePreVtxArray;
     u16* SpritePreVtxData;
 
     static GLuint SpriteShader;
-    GLint SpriteConfigULoc;
     GLuint SpriteVtxBuffer;
     GLuint SpriteVtxArray;
     u16* SpriteVtxData;
 
     static GLuint CompositorShader;
     GLuint CompositorConfigUBO;
-    GLint CompositorBGConfigULoc;
-    GLint CompositorScanlineConfigULoc;
-    GLint CompositorConfigULoc;
-    GLint CompositorScaleULoc;
+    static GLint CompositorScaleULoc;
 
     // base index for a BG layer within the BG texture arrays
     // based on BG type and size

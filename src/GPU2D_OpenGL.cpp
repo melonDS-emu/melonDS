@@ -37,9 +37,11 @@ namespace melonDS
 
 int GLRenderer2D::ShaderCount = 0;
 GLuint GLRenderer2D::LayerPreShader = 0;
+GLint GLRenderer2D::LayerPreCurBGULoc = 0;
 GLuint GLRenderer2D::SpritePreShader = 0;
 GLuint GLRenderer2D::SpriteShader = 0;
 GLuint GLRenderer2D::CompositorShader = 0;
+GLint GLRenderer2D::CompositorScaleULoc = 0;
 
 
 GLRenderer2D::GLRenderer2D(melonDS::GPU2D& gpu2D, GLRenderer& parent)
@@ -89,6 +91,73 @@ bool GLRenderer2D::Init()
                                                   {{"vPosition", 0}},
                                                   {{"oColor", 0}}))
             return false;
+
+        // set up uniforms
+
+        glUseProgram(LayerPreShader);
+
+        uniloc = glGetUniformLocation(LayerPreShader, "VRAMTex");
+        glUniform1i(uniloc, 0);
+        uniloc = glGetUniformLocation(LayerPreShader, "PalTex");
+        glUniform1i(uniloc, 1);
+
+        uniloc = glGetUniformBlockIndex(LayerPreShader, "uConfig");
+        glUniformBlockBinding(LayerPreShader, uniloc, 20);
+
+        LayerPreCurBGULoc = glGetUniformLocation(LayerPreShader, "uCurBG");
+
+
+        glUseProgram(SpritePreShader);
+
+        uniloc = glGetUniformLocation(SpritePreShader, "VRAMTex");
+        glUniform1i(uniloc, 0);
+        uniloc = glGetUniformLocation(SpritePreShader, "PalTex");
+        glUniform1i(uniloc, 1);
+
+        uniloc = glGetUniformBlockIndex(SpritePreShader, "uConfig");
+        glUniformBlockBinding(SpritePreShader, uniloc, 21);
+
+
+        glUseProgram(SpriteShader);
+
+        uniloc = glGetUniformLocation(SpriteShader, "SpriteTex");
+        glUniform1i(uniloc, 0);
+        uniloc = glGetUniformLocation(SpriteShader, "Capture128Tex");
+        glUniform1i(uniloc, 1);
+        uniloc = glGetUniformLocation(SpriteShader, "Capture256Tex");
+        glUniform1i(uniloc, 2);
+
+        uniloc = glGetUniformBlockIndex(SpriteShader, "uConfig");
+        glUniformBlockBinding(SpriteShader, uniloc, 21);
+
+
+        glUseProgram(CompositorShader);
+
+        //uniloc = glGetUniformLocation(CompositorShader, "LayerTex");
+        //glUniform1i(uniloc, 0);
+        uniloc = glGetUniformLocation(CompositorShader, "BGLayerTex[0]");
+        glUniform1i(uniloc, 0);
+        uniloc = glGetUniformLocation(CompositorShader, "BGLayerTex[1]");
+        glUniform1i(uniloc, 1);
+        uniloc = glGetUniformLocation(CompositorShader, "BGLayerTex[2]");
+        glUniform1i(uniloc, 2);
+        uniloc = glGetUniformLocation(CompositorShader, "BGLayerTex[3]");
+        glUniform1i(uniloc, 3);
+        uniloc = glGetUniformLocation(CompositorShader, "OBJLayerTex");
+        glUniform1i(uniloc, 4);
+        uniloc = glGetUniformLocation(CompositorShader, "Capture128Tex");
+        glUniform1i(uniloc, 5);
+        uniloc = glGetUniformLocation(CompositorShader, "Capture256Tex");
+        glUniform1i(uniloc, 6);
+
+        uniloc = glGetUniformBlockIndex(CompositorShader, "ubBGConfig");
+        glUniformBlockBinding(CompositorShader, uniloc, 20);
+        uniloc = glGetUniformBlockIndex(CompositorShader, "ubScanlineConfig");
+        glUniformBlockBinding(CompositorShader, uniloc, 22);
+        uniloc = glGetUniformBlockIndex(CompositorShader, "ubCompositorConfig");
+        glUniformBlockBinding(CompositorShader, uniloc, 23);
+
+        CompositorScaleULoc = glGetUniformLocation(CompositorShader, "uScaleFactor");
     }
 
     const float rectvertices[2*2*3] = {
@@ -241,103 +310,25 @@ bool GLRenderer2D::Init()
 
     // generate UBOs
 
-    UBOBaseID = (GPU2D.Num == 0) ? 10 : 20;
-
     glGenBuffers(1, &LayerConfigUBO);
     glBindBuffer(GL_UNIFORM_BUFFER, LayerConfigUBO);
     static_assert((sizeof(sLayerConfig) & 15) == 0);
     glBufferData(GL_UNIFORM_BUFFER, sizeof(sLayerConfig), nullptr, GL_STREAM_DRAW);
-    glBindBufferBase(GL_UNIFORM_BUFFER, UBOBaseID+0, LayerConfigUBO);
 
     glGenBuffers(1, &SpriteConfigUBO);
     glBindBuffer(GL_UNIFORM_BUFFER, SpriteConfigUBO);
     static_assert((sizeof(sSpriteConfig) & 15) == 0);
     glBufferData(GL_UNIFORM_BUFFER, sizeof(sSpriteConfig), nullptr, GL_STREAM_DRAW);
-    glBindBufferBase(GL_UNIFORM_BUFFER, UBOBaseID+1, SpriteConfigUBO);
 
     glGenBuffers(1, &ScanlineConfigUBO);
     glBindBuffer(GL_UNIFORM_BUFFER, ScanlineConfigUBO);
     static_assert((sizeof(sScanlineConfig) & 15) == 0);
     glBufferData(GL_UNIFORM_BUFFER, sizeof(sScanlineConfig), nullptr, GL_STREAM_DRAW);
-    glBindBufferBase(GL_UNIFORM_BUFFER, UBOBaseID+2, ScanlineConfigUBO);
 
     glGenBuffers(1, &CompositorConfigUBO);
     glBindBuffer(GL_UNIFORM_BUFFER, CompositorConfigUBO);
     static_assert((sizeof(sCompositorConfig) & 15) == 0);
     glBufferData(GL_UNIFORM_BUFFER, sizeof(sCompositorConfig), nullptr, GL_STREAM_DRAW);
-    glBindBufferBase(GL_UNIFORM_BUFFER, UBOBaseID+3, CompositorConfigUBO);
-
-
-    glUseProgram(LayerPreShader);
-
-    uniloc = glGetUniformLocation(LayerPreShader, "VRAMTex");
-    glUniform1i(uniloc, 0);
-    uniloc = glGetUniformLocation(LayerPreShader, "PalTex");
-    glUniform1i(uniloc, 1);
-
-    //uniloc = glGetUniformBlockIndex(LayerPreShader, "uConfig");
-    //glUniformBlockBinding(LayerPreShader, uniloc, UBOBaseID+0);
-    LayerPreBGConfigULoc = glGetUniformBlockIndex(LayerPreShader, "uConfig");
-
-    LayerPreCurBGULoc = glGetUniformLocation(LayerPreShader, "uCurBG");
-
-
-    glUseProgram(SpritePreShader);
-
-    uniloc = glGetUniformLocation(SpritePreShader, "VRAMTex");
-    glUniform1i(uniloc, 0);
-    uniloc = glGetUniformLocation(SpritePreShader, "PalTex");
-    glUniform1i(uniloc, 1);
-
-    //uniloc = glGetUniformBlockIndex(SpritePreShader, "uConfig");
-    //glUniformBlockBinding(SpritePreShader, uniloc, UBOBaseID+1);
-    SpritePreConfigULoc = glGetUniformBlockIndex(SpritePreShader, "uConfig");
-
-
-    glUseProgram(SpriteShader);
-
-    uniloc = glGetUniformLocation(SpriteShader, "SpriteTex");
-    glUniform1i(uniloc, 0);
-    uniloc = glGetUniformLocation(SpriteShader, "Capture128Tex");
-    glUniform1i(uniloc, 1);
-    uniloc = glGetUniformLocation(SpriteShader, "Capture256Tex");
-    glUniform1i(uniloc, 2);
-
-    //uniloc = glGetUniformBlockIndex(SpriteShader, "uConfig");
-    //glUniformBlockBinding(SpriteShader, uniloc, UBOBaseID+1);
-    SpriteConfigULoc = glGetUniformBlockIndex(SpriteShader, "uConfig");
-
-
-    glUseProgram(CompositorShader);
-
-    //uniloc = glGetUniformLocation(CompositorShader, "LayerTex");
-    //glUniform1i(uniloc, 0);
-    uniloc = glGetUniformLocation(CompositorShader, "BGLayerTex[0]");
-    glUniform1i(uniloc, 0);
-    uniloc = glGetUniformLocation(CompositorShader, "BGLayerTex[1]");
-    glUniform1i(uniloc, 1);
-    uniloc = glGetUniformLocation(CompositorShader, "BGLayerTex[2]");
-    glUniform1i(uniloc, 2);
-    uniloc = glGetUniformLocation(CompositorShader, "BGLayerTex[3]");
-    glUniform1i(uniloc, 3);
-    uniloc = glGetUniformLocation(CompositorShader, "OBJLayerTex");
-    glUniform1i(uniloc, 4);
-    uniloc = glGetUniformLocation(CompositorShader, "Capture128Tex");
-    glUniform1i(uniloc, 5);
-    uniloc = glGetUniformLocation(CompositorShader, "Capture256Tex");
-    glUniform1i(uniloc, 6);
-
-    /*uniloc = glGetUniformBlockIndex(CompositorShader, "ubBGConfig");
-    glUniformBlockBinding(CompositorShader, uniloc, UBOBaseID+0);
-    uniloc = glGetUniformBlockIndex(CompositorShader, "ubScanlineConfig");
-    glUniformBlockBinding(CompositorShader, uniloc, UBOBaseID+2);
-    uniloc = glGetUniformBlockIndex(CompositorShader, "ubCompositorConfig");
-    glUniformBlockBinding(CompositorShader, uniloc, UBOBaseID+3);*/
-    CompositorBGConfigULoc = glGetUniformBlockIndex(CompositorShader, "ubBGConfig");
-    CompositorScanlineConfigULoc = glGetUniformBlockIndex(CompositorShader, "ubScanlineConfig");
-    CompositorConfigULoc = glGetUniformBlockIndex(CompositorShader, "ubCompositorConfig");
-
-    CompositorScaleULoc = glGetUniformLocation(CompositorShader, "uScaleFactor");
 
     return true;
 }
@@ -733,13 +724,10 @@ void GLRenderer2D::UpdateAndRender(int line)
         glDisable(GL_DEPTH_TEST);
         glDisable(GL_STENCIL_TEST);
         glDisable(GL_BLEND);
-        glColorMaski(1, GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
+        glColorMaski(0, GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
         glDepthMask(GL_FALSE);
 
-        glUniformBlockBinding(LayerPreShader, LayerPreBGConfigULoc, UBOBaseID+0);
-
-        //glBindBuffer(GL_UNIFORM_BUFFER, LayerConfigUBO);
-        //glBufferSubData(GL_UNIFORM_BUFFER, 0, sizeof(LayerConfig), &LayerConfig);
+        glBindBufferBase(GL_UNIFORM_BUFFER, 20, LayerConfigUBO);
 
         for (int layer = 0; layer < 4; layer++)
         {
@@ -1526,10 +1514,10 @@ void GLRenderer2D::PrerenderSprites()
     glDisable(GL_DEPTH_TEST);
     glDisable(GL_STENCIL_TEST);
     glDisable(GL_BLEND);
-    glColorMaski(1, GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
+    glColorMaski(0, GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
     glDepthMask(GL_FALSE);
 
-    glUniformBlockBinding(SpritePreShader, SpritePreConfigULoc, UBOBaseID+1);
+    glBindBufferBase(GL_UNIFORM_BUFFER, 21, SpriteConfigUBO);
 
     glBindFramebuffer(GL_READ_FRAMEBUFFER, 0);
     glBindFramebuffer(GL_DRAW_FRAMEBUFFER, SpriteFB);
@@ -1575,7 +1563,7 @@ void GLRenderer2D::DoRenderSprites(int line)
     glDisable(GL_BLEND);
     glDepthMask(GL_FALSE);
 
-    glUniformBlockBinding(SpriteShader, SpriteConfigULoc, UBOBaseID+1);
+    glBindBufferBase(GL_UNIFORM_BUFFER, 21, SpriteConfigUBO);
 
     glBindFramebuffer(GL_READ_FRAMEBUFFER, 0);
     glBindFramebuffer(GL_DRAW_FRAMEBUFFER, OBJLayerFB);
@@ -1683,9 +1671,9 @@ void GLRenderer2D::RenderScreen(int ystart, int yend)
 {
     glUseProgram(CompositorShader);
 
-    glUniformBlockBinding(CompositorShader, CompositorBGConfigULoc, UBOBaseID+0);
-    glUniformBlockBinding(CompositorShader, CompositorScanlineConfigULoc, UBOBaseID+2);
-    glUniformBlockBinding(CompositorShader, CompositorConfigULoc, UBOBaseID+3);
+    glBindBufferBase(GL_UNIFORM_BUFFER, 20, LayerConfigUBO);
+    glBindBufferBase(GL_UNIFORM_BUFFER, 22, ScanlineConfigUBO);
+    glBindBufferBase(GL_UNIFORM_BUFFER, 23, CompositorConfigUBO);
 
     glBindBuffer(GL_UNIFORM_BUFFER, ScanlineConfigUBO);
     glBufferSubData(GL_UNIFORM_BUFFER,
