@@ -138,7 +138,15 @@ void SoftRenderer::SetThreaded(bool threaded, GPU& gpu) noexcept
     }
 }
 
-void SoftRenderer::TextureLookup(const GPU& gpu, u32 texparam, u32 texpal, s16 s, s16 t, u16* color, u8* alpha) const
+template <bool colorcorrect>
+inline void SoftRenderer::ColorConv(const u16 color, u8* r, u8* g, u8* b) const
+{
+    *r = (color << 1) & 0x3E; if (colorcorrect && *r) ++*r;
+    *g = (color >> 4) & 0x3E; if (colorcorrect && *g) ++*g;
+    *b = (color >> 9) & 0x3E; if (colorcorrect && *b) ++*b;
+}
+
+void SoftRenderer::TextureLookup(const GPU& gpu, u32 texparam, u32 texpal, s16 s, s16 t, u8* tr, u8* tg, u8* tb, u8* alpha) const
 {
     u32 vramaddr = (texparam & 0xFFFF) << 3;
 
@@ -196,8 +204,10 @@ void SoftRenderer::TextureLookup(const GPU& gpu, u32 texparam, u32 texpal, s16 s
             u8 pixel = gpu.ReadVRAMFlat_Texture<u8>(vramaddr);
 
             texpal <<= 4;
-            *color = gpu.ReadVRAMFlat_TexPal<u16>(texpal + ((pixel&0x1F)<<1));
+            u16 color = gpu.ReadVRAMFlat_TexPal<u16>(texpal + ((pixel&0x1F)<<1));
             *alpha = ((pixel >> 3) & 0x1C) + (pixel >> 6);
+
+            ColorConv<true>(color, tr, tg, tb);
         }
         break;
 
@@ -209,8 +219,10 @@ void SoftRenderer::TextureLookup(const GPU& gpu, u32 texparam, u32 texpal, s16 s
             pixel &= 0x3;
 
             texpal <<= 3;
-            *color = gpu.ReadVRAMFlat_TexPal<u16>(texpal + (pixel<<1));
+            u16 color = gpu.ReadVRAMFlat_TexPal<u16>(texpal + (pixel<<1));
             *alpha = (pixel==0) ? alpha0 : 31;
+
+            ColorConv<true>(color, tr, tg, tb);
         }
         break;
 
@@ -222,8 +234,10 @@ void SoftRenderer::TextureLookup(const GPU& gpu, u32 texparam, u32 texpal, s16 s
             else         pixel &= 0xF;
 
             texpal <<= 4;
-            *color = gpu.ReadVRAMFlat_TexPal<u16>(texpal + (pixel<<1));
+            u16 color = gpu.ReadVRAMFlat_TexPal<u16>(texpal + (pixel<<1));
             *alpha = (pixel==0) ? alpha0 : 31;
+
+            ColorConv<true>(color, tr, tg, tb);
         }
         break;
 
@@ -233,13 +247,19 @@ void SoftRenderer::TextureLookup(const GPU& gpu, u32 texparam, u32 texpal, s16 s
             u8 pixel = gpu.ReadVRAMFlat_Texture<u8>(vramaddr);
 
             texpal <<= 4;
-            *color = gpu.ReadVRAMFlat_TexPal<u16>(texpal + (pixel<<1));
+            u16 color = gpu.ReadVRAMFlat_TexPal<u16>(texpal + (pixel<<1));
             *alpha = (pixel==0) ? alpha0 : 31;
+
+            ColorConv<true>(color, tr, tg, tb);
         }
         break;
 
     case 5: // compressed
         {
+            // NOTE: compressed textures have a bug where the wont add +1 to their texture color when increasing bit depth
+            // This only happens in modes 1 and 3, but this *is* fixed by the revised rasterizer circuit
+            // ...except they forgot to fix it for the interpolated colors so uh... partial credit
+            // Interpolated colors are unique in being 6 bit colors; they dont discard their least significant bit.
             vramaddr += ((t & 0x3FC) * (width>>2)) + (s & 0x3FC);
             vramaddr += (t & 0x3);
             vramaddr &= 0x7FFFF; // address used for all calcs wraps around after slot 3
@@ -264,14 +284,26 @@ void SoftRenderer::TextureLookup(const GPU& gpu, u32 texparam, u32 texpal, s16 s
             switch (val & 0x3)
             {
             case 0:
-                *color = gpu.ReadVRAMFlat_TexPal<u16>(texpal + paloffset);
+            {
+                u16 color = gpu.ReadVRAMFlat_TexPal<u16>(texpal + paloffset);
                 *alpha = 31;
-                break;
+                if (!((palinfo >> 14) & 0x1))
+                    ColorConv<true>(color, tr, tg, tb);
+                else
+                    ColorConv<false>(color, tr, tg, tb);
+            }
+            break;
 
             case 1:
-                *color = gpu.ReadVRAMFlat_TexPal<u16>(texpal + paloffset + 2);
+            {
+                u16 color = gpu.ReadVRAMFlat_TexPal<u16>(texpal + paloffset + 2);
                 *alpha = 31;
-                break;
+                if (!((palinfo >> 14) & 0x1))
+                    ColorConv<true>(color, tr, tg, tb);
+                else
+                    ColorConv<false>(color, tr, tg, tb);
+            }
+            break;
 
             case 2:
                 if ((palinfo >> 14) == 1)
@@ -286,11 +318,9 @@ void SoftRenderer::TextureLookup(const GPU& gpu, u32 texparam, u32 texpal, s16 s
                     u32 g1 = color1 & 0x03E0;
                     u32 b1 = color1 & 0x7C00;
 
-                    u32 r = (r0 + r1) >> 1;
-                    u32 g = ((g0 + g1) >> 1) & 0x03E0;
-                    u32 b = ((b0 + b1) >> 1) & 0x7C00;
-
-                    *color = r | g | b;
+                    *tr = (r0 + r1);
+                    *tg = ((g0 + g1) >> 5);
+                    *tb = ((b0 + b1) >> 10);
                 }
                 else if ((palinfo >> 14) == 3)
                 {
@@ -304,21 +334,23 @@ void SoftRenderer::TextureLookup(const GPU& gpu, u32 texparam, u32 texpal, s16 s
                     u32 g1 = color1 & 0x03E0;
                     u32 b1 = color1 & 0x7C00;
 
-                    u32 r = (r0*5 + r1*3) >> 3;
-                    u32 g = ((g0*5 + g1*3) >> 3) & 0x03E0;
-                    u32 b = ((b0*5 + b1*3) >> 3) & 0x7C00;
-
-                    *color = r | g | b;
+                    *tr = ((r0*5 + r1*3) >> 2);
+                    *tg = ((g0*5 + g1*3) >> 7);
+                    *tb = ((b0*5 + b1*3) >> 12);
                 }
                 else
-                    *color = gpu.ReadVRAMFlat_TexPal<u16>(texpal + paloffset + 4);
+                {
+                    u16 color = gpu.ReadVRAMFlat_TexPal<u16>(texpal + paloffset + 4);
+                    ColorConv<true>(color, tr, tg, tb);
+                }
                 *alpha = 31;
                 break;
 
             case 3:
                 if ((palinfo >> 14) == 2)
                 {
-                    *color = gpu.ReadVRAMFlat_TexPal<u16>(texpal + paloffset + 6);
+                    u16 color = gpu.ReadVRAMFlat_TexPal<u16>(texpal + paloffset + 6);
+                    ColorConv<true>(color, tr, tg, tb);
                     *alpha = 31;
                 }
                 else if ((palinfo >> 14) == 3)
@@ -333,16 +365,17 @@ void SoftRenderer::TextureLookup(const GPU& gpu, u32 texparam, u32 texpal, s16 s
                     u32 g1 = color1 & 0x03E0;
                     u32 b1 = color1 & 0x7C00;
 
-                    u32 r = (r0*3 + r1*5) >> 3;
-                    u32 g = ((g0*3 + g1*5) >> 3) & 0x03E0;
-                    u32 b = ((b0*3 + b1*5) >> 3) & 0x7C00;
+                    *tr = ((r0*3 + r1*5) >> 2);
+                    *tg = ((g0*3 + g1*5) >> 7);
+                    *tb = ((b0*3 + b1*5) >> 12);
 
-                    *color = r | g | b;
                     *alpha = 31;
                 }
                 else
                 {
-                    *color = 0;
+                    *tr = 0;
+                    *tg = 0;
+                    *tb = 0;
                     *alpha = 0;
                 }
                 break;
@@ -356,7 +389,8 @@ void SoftRenderer::TextureLookup(const GPU& gpu, u32 texparam, u32 texpal, s16 s
             u8 pixel = gpu.ReadVRAMFlat_Texture<u8>(vramaddr);
 
             texpal <<= 4;
-            *color = gpu.ReadVRAMFlat_TexPal<u16>(texpal + ((pixel&0x7)<<1));
+            u16 color = gpu.ReadVRAMFlat_TexPal<u16>(texpal + ((pixel&0x7)<<1));
+            ColorConv<true>(color, tr, tg, tb);
             *alpha = (pixel >> 3);
         }
         break;
@@ -364,8 +398,9 @@ void SoftRenderer::TextureLookup(const GPU& gpu, u32 texparam, u32 texpal, s16 s
     case 7: // direct color
         {
             vramaddr += (((t * width) + s) << 1);
-            *color = gpu.ReadVRAMFlat_Texture<u16>(vramaddr);
-            *alpha = (*color & 0x8000) ? 31 : 0;
+            u16 color = gpu.ReadVRAMFlat_Texture<u16>(vramaddr);
+            ColorConv<true>(color, tr, tg, tb);
+            *alpha = (color & 0x8000) ? 31 : 0;
         }
         break;
     }
@@ -487,12 +522,8 @@ u32 SoftRenderer::RenderPixel(const GPU& gpu, const Polygon* polygon, u8 vr, u8 
     {
         u8 tr, tg, tb;
 
-        u16 tcolor; u8 talpha;
-        TextureLookup(gpu, polygon->TexParam, polygon->TexPalette, s, t, &tcolor, &talpha);
-
-        tr = (tcolor << 1) & 0x3E; if (tr) tr++;
-        tg = (tcolor >> 4) & 0x3E; if (tg) tg++;
-        tb = (tcolor >> 9) & 0x3E; if (tb) tb++;
+        u8 talpha;
+        TextureLookup(gpu, polygon->TexParam, polygon->TexPalette, s, t, &tr, &tg, &tb, &talpha);
 
         if (blendmode & 0x1)
         {
