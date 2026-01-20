@@ -125,11 +125,11 @@ static void guest_error(const char *msg, void *opaque)
 {
 }
 
-static void register_poll_fd(int fd, void *opaque)
+static void register_poll_socket(slirp_os_socket fd, void *opaque)
 {
 }
 
-static void unregister_poll_fd(int fd, void *opaque)
+static void unregister_poll_socket(slirp_os_socket fd, void *opaque)
 {
 }
 
@@ -144,15 +144,15 @@ static const SlirpCb slirp_cb = {
     .timer_new = timer_new,
     .timer_mod = timer_mod,
     .timer_free = timer_free,
-    .register_poll_fd = register_poll_fd,
-    .unregister_poll_fd = unregister_poll_fd,
+    .register_poll_socket = register_poll_socket,
+    .unregister_poll_socket = unregister_poll_socket,
     .notify = notify,
 };
 
 #define MAX_EVID 1024
 static int fake_events[MAX_EVID];
 
-static int add_poll_cb(int fd, int events, void *opaque)
+static int add_poll_cb(slirp_os_socket fd, int events, void *opaque)
 {
     g_assert(fd < G_N_ELEMENTS(fake_events));
     fake_events[fd] = events;
@@ -181,13 +181,7 @@ int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size)
     struct in_addr dhcp = { .s_addr = htonl(0x0a00020f) }; /* 10.0.2.15 */
     struct in_addr dns = { .s_addr = htonl(0x0a000203) }; /* 10.0.2.3 */
     struct in6_addr ip6_prefix;
-    int ret, vprefix6_len = 64;
-    const char *vhostname = NULL;
-    const char *tftp_server_name = NULL;
-    const char *tftp_export = "fuzzing/tftp";
-    const char *bootfile = NULL;
-    const char **dnssearch = NULL;
-    const char *vdomainname = NULL;
+    int ret, vprefix6_len;
     const pcap_hdr_t *hdr = (const void *)data;
     const pcaprec_hdr_t *rec = NULL;
     uint32_t timeout = 0;
@@ -211,6 +205,7 @@ int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size)
     fuzz_set_logging_func();
 
     ret = inet_pton(AF_INET6, "fec0::", &ip6_prefix);
+    vprefix6_len = 64;
     g_assert_cmpint(ret, ==, 1);
 
     ip6_host = ip6_prefix;
@@ -218,10 +213,23 @@ int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size)
     ip6_dns = ip6_prefix;
     ip6_dns.s6_addr[15] |= 3;
 
-    slirp =
-        slirp_init(false, true, net, mask, host, true, ip6_prefix, vprefix6_len,
-                   ip6_host, vhostname, tftp_server_name, tftp_export, bootfile,
-                   dhcp, dns, ip6_dns, dnssearch, vdomainname, &slirp_cb, NULL);
+    SlirpConfig cfg = {
+        .version = 6,
+        .restricted = false,
+        .in_enabled = true,
+        .vnetwork = net,
+        .vnetmask = mask,
+        .vhost = host,
+        .in6_enabled = true,
+        .vprefix_addr6 = ip6_prefix,
+        .vprefix_len = vprefix6_len,
+        .vhost6 = ip6_host,
+        .tftp_path = "fuzzing/tftp",
+        .vdhcp_start = dhcp,
+        .vnameserver = dns,
+        .vnameserver6 = ip6_dns,
+    };
+    slirp = slirp_new(&cfg, &slirp_cb, NULL);
 
     slirp_add_exec(slirp, "cat", &fwd, 1234);
 
@@ -261,7 +269,7 @@ int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size)
         }
 
         slirp_input(slirp, data, rec->incl_len);
-        slirp_pollfds_fill(slirp, &timeout, add_poll_cb, NULL);
+        slirp_pollfds_fill_socket(slirp, &timeout, add_poll_cb, NULL);
         slirp_pollfds_poll(slirp, 0, get_revents_cb, NULL);
     }
 
