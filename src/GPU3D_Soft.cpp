@@ -598,6 +598,20 @@ void SoftRenderer::PlotTranslucentPixel(const GPU3D& gpu3d, u32 pixeladdr, u32 c
     AttrBuffer[pixeladdr] = attr;
 }
 
+void SoftRenderer::CheckForLine(RendererPolygon* rp) const
+{
+    Polygon* polygon = rp->PolyData;
+
+    // check for line polygons
+    if (polygon->Vertices[rp->CurVL]->FinalPosition[0] == polygon->Vertices[rp->CurVR]->FinalPosition[0]
+        && polygon->Vertices[rp->CurVL]->FinalPosition[1] == polygon->Vertices[rp->CurVR]->FinalPosition[1]
+        && polygon->Vertices[rp->NextVL]->FinalPosition[0] == polygon->Vertices[rp->NextVR]->FinalPosition[0]
+        && polygon->Vertices[rp->NextVL]->FinalPosition[1] == polygon->Vertices[rp->NextVR]->FinalPosition[1])
+        rp->Line = true;
+    else
+        rp->Line = false;
+}
+
 void SoftRenderer::SetupPolygonLeftEdge(SoftRenderer::RendererPolygon* rp, s32 y) const
 {
     Polygon* polygon = rp->PolyData;
@@ -702,6 +716,7 @@ void SoftRenderer::SetupPolygon(SoftRenderer::RendererPolygon* rp, Polygon* poly
     {
         SetupPolygonLeftEdge(rp, ytop);
         SetupPolygonRightEdge(rp, ytop);
+        CheckForLine(rp);
     }
 }
 
@@ -730,14 +745,22 @@ void SoftRenderer::RenderShadowMaskScanline(const GPU3D& gpu3d, RendererPolygon*
 
     if (polygon->YTop != polygon->YBottom)
     {
-        if (y >= polygon->Vertices[rp->NextVL]->FinalPosition[1] && rp->CurVL != polygon->VBottom)
+        bool updateLeftSlope = (y >= polygon->Vertices[rp->NextVL]->FinalPosition[1] && rp->CurVL != polygon->VBottom);
+        bool updateRightSlope = (y >= polygon->Vertices[rp->NextVR]->FinalPosition[1] && rp->CurVR != polygon->VBottom);
+
+        if (updateLeftSlope)
         {
             SetupPolygonLeftEdge(rp, y);
         }
 
-        if (y >= polygon->Vertices[rp->NextVR]->FinalPosition[1] && rp->CurVR != polygon->VBottom)
+        if (updateRightSlope)
         {
             SetupPolygonRightEdge(rp, y);
+        }
+
+        if (updateLeftSlope || updateRightSlope)
+        {
+            CheckForLine(rp);
         }
     }
 
@@ -819,7 +842,7 @@ void SoftRenderer::RenderShadowMaskScanline(const GPU3D& gpu3d, RendererPolygon*
         {
             l_filledge = ((rp->SlopeL.Negative || !rp->SlopeL.XMajor)
                 || (y == polygon->YBottom-1) && rp->SlopeL.XMajor && (vlnext->FinalPosition[0] != vrnext->FinalPosition[0]))
-                || (rp->SlopeL.Increment == rp->SlopeR.Increment) && (xstart+l_edgelen == xend+1);
+                || rp->Line;
             r_filledge = (!rp->SlopeR.Negative && rp->SlopeR.XMajor) || (rp->SlopeR.Increment==0)
                 || (y == polygon->YBottom-1) && rp->SlopeR.XMajor && (vlnext->FinalPosition[0] != vrnext->FinalPosition[0]);
         }
@@ -955,14 +978,22 @@ void SoftRenderer::RenderPolygonScanline(const GPU& gpu, RendererPolygon* rp, s3
 
     if (polygon->YTop != polygon->YBottom)
     {
-        if (y >= polygon->Vertices[rp->NextVL]->FinalPosition[1] && rp->CurVL != polygon->VBottom)
+        bool updateLeftSlope = (y >= polygon->Vertices[rp->NextVL]->FinalPosition[1] && rp->CurVL != polygon->VBottom);
+        bool updateRightSlope = (y >= polygon->Vertices[rp->NextVR]->FinalPosition[1] && rp->CurVR != polygon->VBottom);
+
+        if (updateLeftSlope)
         {
             SetupPolygonLeftEdge(rp, y);
         }
 
-        if (y >= polygon->Vertices[rp->NextVR]->FinalPosition[1] && rp->CurVR != polygon->VBottom)
+        if (updateRightSlope)
         {
             SetupPolygonRightEdge(rp, y);
+        }
+
+        if (updateLeftSlope || updateRightSlope)
+        {
+            CheckForLine(rp);
         }
     }
 
@@ -1016,7 +1047,7 @@ void SoftRenderer::RenderPolygonScanline(const GPU& gpu, RendererPolygon* rp, s3
         // * the bottom-most pixel of negative x-major slopes are filled if they are next to a flat bottom edge
         // edges are always filled if antialiasing/edgemarking are enabled,
         // if the pixels are translucent and alpha blending is enabled, or if the polygon is wireframe
-        // checkme: do swapped line polygons exist?
+        // checkme: do swapped line polygons exist? if they do then they likely should also be filled
         if ((gpu.GPU3D.RenderDispCnt & ((1<<4)|(1<<5))) || ((polyalpha < 31) && (gpu.GPU3D.RenderDispCnt & (1<<3))) || wireframe)
         {
             l_filledge = true;
@@ -1061,7 +1092,7 @@ void SoftRenderer::RenderPolygonScanline(const GPU& gpu, RendererPolygon* rp, s3
         {
             l_filledge = ((rp->SlopeL.Negative || !rp->SlopeL.XMajor)
                 || (y == polygon->YBottom-1) && rp->SlopeL.XMajor && (vlnext->FinalPosition[0] != vrnext->FinalPosition[0]))
-                || (rp->SlopeL.Increment == rp->SlopeR.Increment) && (xstart+l_edgelen == xend+1);
+                || rp->Line;
             r_filledge = (!rp->SlopeR.Negative && rp->SlopeR.XMajor) || (rp->SlopeR.Increment==0)
                 || (y == polygon->YBottom-1) && rp->SlopeR.XMajor && (vlnext->FinalPosition[0] != vrnext->FinalPosition[0]);
         }
