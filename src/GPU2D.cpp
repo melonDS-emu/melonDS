@@ -586,29 +586,46 @@ void GPU2D::UpdateRegistersPostDraw(bool reset)
 {
     if (!Enabled) return;
 
+    if (LayerEnable & (1<<2))
+    {
+        if (reset)
+        {
+            BGXRefInternal[0] = BGXRef[0];
+            BGYRefInternal[0] = BGYRef[0];
+        }
+        else
+        {
+            BGXRefInternal[0] += BGRotB[0];
+            BGYRefInternal[0] += BGRotD[0];
+        }
+    }
+
+    if (LayerEnable & (1<<3))
+    {
+        if (reset)
+        {
+            BGXRefInternal[1] = BGXRef[1];
+            BGYRefInternal[1] = BGYRef[1];
+        }
+        else
+        {
+            BGXRefInternal[1] += BGRotB[1];
+            BGYRefInternal[1] += BGRotD[1];
+        }
+    }
+
     if (reset)
     {
-        BGXRefInternal[0] = BGXRef[0];
-        BGXRefInternal[1] = BGXRef[1];
-        BGYRefInternal[0] = BGYRef[0];
-        BGYRefInternal[1] = BGYRef[1];
-
         BGMosaicYMax = BGMosaicSize[1];
         BGMosaicY = 0;
         BGMosaicLatch = true;
     }
     else
     {
-        BGXRefInternal[0] += BGRotB[0];
-        BGYRefInternal[0] += BGRotD[0];
-        BGXRefInternal[1] += BGRotB[1];
-        BGYRefInternal[1] += BGRotD[1];
-
         // for BG mosaic, the size in MOSAIC is copied to an internal register
         // on the other hand, OBJ mosaic directly checks against the size in MOSAIC
         // this makes the OBJ mosaic counter prone to overflowing if MOSAIC is modified midframe
         // TODO: do we need the latch for BG stuff?
-        // TODO: internal ref points don't get updated if the layer is disabled
 
         if (BGMosaicY == BGMosaicYMax)
         {
