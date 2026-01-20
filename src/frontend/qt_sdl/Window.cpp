@@ -1073,7 +1073,7 @@ void MainWindow::onFocusIn()
 {
     focused = true;
     if (emuInstance)
-        emuInstance->audioMute();
+        emuInstance->updateAudioMuteByWindowFocus();
 }
 
 void MainWindow::onFocusOut()
@@ -1082,7 +1082,7 @@ void MainWindow::onFocusOut()
     // prevent use after free
     focused = false;
     if (emuInstance)
-        emuInstance->audioMute();
+        emuInstance->updateAudioMuteByWindowFocus();
 }
 
 void MainWindow::onAppStateChanged(Qt::ApplicationState state)
@@ -2032,7 +2032,7 @@ void MainWindow::onOpenMPSettings()
 void MainWindow::onMPSettingsFinished(int res)
 {
     emuInstance->mpAudioMode = globalCfg.GetInt("MP.AudioMode");
-    emuInstance->audioMute();
+    emuInstance->updateAudioMuteByWindowFocus();
     MPInterface::Get().SetRecvTimeout(globalCfg.GetInt("MP.RecvTimeout"));
 
     emuThread->emuUnpause();
@@ -2264,6 +2264,11 @@ void MainWindow::onScreenEmphasisToggled()
     }
     else if (currentSizing == screenSizing_EmphBot)
     {
+        currentSizing = screenSizing_EmphTop;
+    }
+    else
+    {
+        // For any other sizing mode, switch to EmphTop as a sensible default
         currentSizing = screenSizing_EmphTop;
     }
     windowCfg.SetInt("ScreenSizing", currentSizing);
