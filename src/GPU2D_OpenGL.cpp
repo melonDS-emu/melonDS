@@ -383,9 +383,6 @@ GLRenderer2D::~GLRenderer2D()
     glDeleteBuffers(1, &SpriteVtxBuffer);
     glDeleteVertexArrays(1, &SpriteVtxArray);
 
-    //glDeleteBuffers(1, &CaptureVtxBuffer);
-    //glDeleteVertexArrays(1, &CaptureVtxArray);
-
     glDeleteBuffers(1, &LayerConfigUBO);
     glDeleteBuffers(1, &SpriteConfigUBO);
 
@@ -406,26 +403,8 @@ GLRenderer2D::~GLRenderer2D()
     glDeleteTextures(1, &OutputTex);
     glDeleteFramebuffers(1, &OutputFB);
 
-    /*glDeleteTextures(1, &CaptureOutput256Tex);
-    glDeleteTextures(1, &CaptureOutput128Tex);
-    glDeleteTextures(1, &CaptureSyncTex);
-    glDeleteFramebuffers(1, &CaptureSyncFB);*/
-
     glDeleteBuffers(1, &ScanlineConfigUBO);
     glDeleteBuffers(1, &CompositorConfigUBO);
-    //glDeleteBuffers(1, &FPConfigUBO);
-    //glDeleteBuffers(1, &CaptureConfigUBO);
-
-    //glDeleteBuffers(1, &FPVertexBufferID);
-    //glDeleteVertexArrays(1, &FPVertexArrayID);
-
-    /*glDeleteFramebuffers(2, FPOutputFB);
-    glDeleteTextures(1, &AuxInputTex);
-    glDeleteTextures(1, &CaptureVRAMTex);
-    glDeleteTextures(2, FPOutputTex);
-
-    delete[] AuxInputBuffer[0];
-    delete[] AuxInputBuffer[1];*/
 }
 
 void GLRenderer2D::Reset()
