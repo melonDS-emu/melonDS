@@ -656,8 +656,7 @@ void GLRenderer2D::UpdateAndRender(int line)
 
     if (layer_pre_dirty)
         comp_dirty = true;
-if (comp_dirty) printf("blarg: unit%d line%d layer=%x comp=%d pal=%x\n",
-                       GPU2D.Num, line, layer_pre_dirty, comp_dirty, GPU.PaletteDirty);
+
     // if needed, render sprites
 
     if (SpriteDirty && (line > 0))

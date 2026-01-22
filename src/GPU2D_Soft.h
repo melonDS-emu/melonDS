@@ -60,8 +60,6 @@ private:
 
     u32 NumSprites;
 
-    //u32 OBJMosaicLine;
-
     u8* CurBGXMosaicTable;
     array2d<u8, 16, 256> MosaicTable = []() constexpr
     {
