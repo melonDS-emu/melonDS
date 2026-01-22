@@ -40,8 +40,6 @@ void SoftRenderer2D::Reset()
     memset(OBJWindow, 0, sizeof(OBJWindow));
 
     NumSprites = 0;
-
-    OBJMosaicLine = 0;
 }
 
 u32 SoftRenderer2D::ColorComposite(int i, u32 val1, u32 val2) const
@@ -397,13 +395,19 @@ void SoftRenderer2D::DrawBG_Text(u32 line, u32 bgnum)
     u32 extpal, extpalslot;
 
     u16 xoff = GPU2D.BGXPos[bgnum];
-    u16 yoff = GPU2D.BGYPos[bgnum] + line;
+    u16 yoff = GPU2D.BGYPos[bgnum];
+
+    if (bgcnt & (1<<6))
+        yoff += GPU2D.BGMosaicLine;
+    else
+        yoff += line;
+    /*u16 yoff = GPU2D.BGYPos[bgnum] + line;
 
     if (bgcnt & (1<<6))
     {
         // vertical mosaic
         yoff -= GPU2D.BGMosaicY;
-    }
+    }*/
 
     u32 widexmask = (bgcnt & (1<<14)) ? 0x100 : 0;
 
@@ -574,19 +578,10 @@ void SoftRenderer2D::DrawBG_Affine(u32 line, u32 bgnum)
     else                 overflowmask = ~(coordmask | 0x7FF);
 
     s16 rotA = GPU2D.BGRotA[bgnum-2];
-    s16 rotB = GPU2D.BGRotB[bgnum-2];
     s16 rotC = GPU2D.BGRotC[bgnum-2];
-    s16 rotD = GPU2D.BGRotD[bgnum-2];
 
     s32 rotX = GPU2D.BGXRefInternal[bgnum-2];
     s32 rotY = GPU2D.BGYRefInternal[bgnum-2];
-
-    if (bgcnt & (1<<6))
-    {
-        // vertical mosaic
-        rotX -= (GPU2D.BGMosaicY * rotB);
-        rotY -= (GPU2D.BGMosaicY * rotD);
-    }
 
     u8* bgvram;
     u32 bgvrammask;
@@ -665,19 +660,10 @@ void SoftRenderer2D::DrawBG_Extended(u32 line, u32 bgnum)
     extpal = (GPU2D.DispCnt & (1<<30));
 
     s16 rotA = GPU2D.BGRotA[bgnum-2];
-    s16 rotB = GPU2D.BGRotB[bgnum-2];
     s16 rotC = GPU2D.BGRotC[bgnum-2];
-    s16 rotD = GPU2D.BGRotD[bgnum-2];
 
     s32 rotX = GPU2D.BGXRefInternal[bgnum-2];
     s32 rotY = GPU2D.BGYRefInternal[bgnum-2];
-
-    if (bgcnt & (1<<6))
-    {
-        // vertical mosaic
-        rotX -= (GPU2D.BGMosaicY * rotB);
-        rotY -= (GPU2D.BGMosaicY * rotD);
-    }
 
     if (bgcnt & (1<<7))
     {
@@ -901,19 +887,10 @@ void SoftRenderer2D::DrawBG_Large(u32 line) // BG is always BG2
     }
 
     s16 rotA = GPU2D.BGRotA[0];
-    s16 rotB = GPU2D.BGRotB[0];
     s16 rotC = GPU2D.BGRotC[0];
-    s16 rotD = GPU2D.BGRotD[0];
 
     s32 rotX = GPU2D.BGXRefInternal[0];
     s32 rotY = GPU2D.BGYRefInternal[0];
-
-    if (bgcnt & (1<<6))
-    {
-        // vertical mosaic
-        rotX -= (GPU2D.BGMosaicY * rotB);
-        rotY -= (GPU2D.BGMosaicY * rotD);
-    }
 
     u8* bgvram;
     u32 bgvrammask;
@@ -1065,9 +1042,6 @@ void SoftRenderer2D::DrawSprites(u32 line)
     memset(OBJLine, 0, sizeof(OBJLine));
     memset(OBJWindow, 0, sizeof(OBJWindow));
 
-    if (GPU2D.OBJMosaicLatch)
-        OBJMosaicLine = line;
-
     if (!GPU2D.OBJEnable)
         return;
 
@@ -1125,7 +1099,7 @@ void SoftRenderer2D::DrawSprites(u32 line)
             // (sprite mosaic does not apply to OBJ-window sprites)
             // a ypos greater than the sprite height means we underflowed, due to OBJMosaicLine being
             // latched before the sprite's top, so we clamp it to 0
-            ypos = (OBJMosaicLine - ypos) & 0xFF;
+            ypos = (GPU2D.OBJMosaicLine - ypos) & 0xFF;
             if (ypos >= boundheight) ypos = 0;
         }
         else
@@ -1173,7 +1147,7 @@ void SoftRenderer2D::DrawSprite_Rotscale(u32 num, u32 boundwidth, u32 boundheigh
     u16* oam = (u16*)&GPU.OAM[GPU2D.Num ? 0x400 : 0];
     u16* attrib = &oam[num * 4];
     u16* rotparams = &oam[(((attrib[1] >> 9) & 0x1F) * 16) + 3];
-    
+
     u32 pixelattr = ((attrib[2] & 0x0C00) << 6) | OBJ_IsSprite | OBJ_IsOpaque;
     u32 tilenum = attrib[2] & 0x03FF;
     u32 spritemode = window ? 0 : ((attrib[0] >> 10) & 0x3);

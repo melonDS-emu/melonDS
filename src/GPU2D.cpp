@@ -128,6 +128,8 @@ void GPU2D::Reset()
     OBJMosaicY = 0;
     BGMosaicLatch = true;
     OBJMosaicLatch = true;
+    BGMosaicLine = 0;
+    OBJMosaicLine = 0;
 
     BlendCnt = 0;
     EVA = 16;
@@ -151,6 +153,8 @@ void GPU2D::DoSavestate(Savestate* file)
     file->VarArray(BGYRef, 2*4);
     file->VarArray(BGXRefInternal, 2*4);
     file->VarArray(BGYRefInternal, 2*4);
+    file->VarArray(BGYRefReload, 2*4);
+    file->VarArray(BGYRefReload, 2*4);
     file->VarArray(BGRotA, 2*2);
     file->VarArray(BGRotB, 2*2);
     file->VarArray(BGRotC, 2*2);
@@ -167,6 +171,8 @@ void GPU2D::DoSavestate(Savestate* file)
     file->Var8(&OBJMosaicY);
     file->VarBool(&BGMosaicLatch);
     file->VarBool(&OBJMosaicLatch);
+    file->Var32(&BGMosaicLine);
+    file->Var32(&OBJMosaicLine);
 
     file->Var16(&BlendCnt);
     file->Var16(&BlendAlpha);
@@ -396,21 +402,21 @@ void GPU2D::Write16(u32 addr, u16 val)
     case 0x026: BGRotD[0] = val; return;
     case 0x028:
         BGXRef[0] = (BGXRef[0] & 0xFFFF0000) | val;
-        BGXRefInternal[0] = BGXRef[0];
+        BGXRefReload[0] = BGXRef[0];
         return;
     case 0x02A:
         if (val & 0x0800) val |= 0xF000;
         BGXRef[0] = (BGXRef[0] & 0xFFFF) | (val << 16);
-        BGXRefInternal[0] = BGXRef[0];
+        BGXRefReload[0] = BGXRef[0];
         return;
     case 0x02C:
         BGYRef[0] = (BGYRef[0] & 0xFFFF0000) | val;
-        BGYRefInternal[0] = BGYRef[0];
+        BGYRefReload[0] = BGYRef[0];
         return;
     case 0x02E:
         if (val & 0x0800) val |= 0xF000;
         BGYRef[0] = (BGYRef[0] & 0xFFFF) | (val << 16);
-        BGYRefInternal[0] = BGYRef[0];
+        BGYRefReload[0] = BGYRef[0];
         return;
 
     case 0x030: BGRotA[1] = val; return;
@@ -419,21 +425,21 @@ void GPU2D::Write16(u32 addr, u16 val)
     case 0x036: BGRotD[1] = val; return;
     case 0x038:
         BGXRef[1] = (BGXRef[1] & 0xFFFF0000) | val;
-        BGXRefInternal[1] = BGXRef[1];
+        BGXRefReload[1] = BGXRef[1];
         return;
     case 0x03A:
         if (val & 0x0800) val |= 0xF000;
         BGXRef[1] = (BGXRef[1] & 0xFFFF) | (val << 16);
-        BGXRefInternal[1] = BGXRef[1];
+        BGXRefReload[1] = BGXRef[1];
         return;
     case 0x03C:
         BGYRef[1] = (BGYRef[1] & 0xFFFF0000) | val;
-        BGYRefInternal[1] = BGYRef[1];
+        BGYRefReload[1] = BGYRef[1];
         return;
     case 0x03E:
         if (val & 0x0800) val |= 0xF000;
         BGYRef[1] = (BGYRef[1] & 0xFFFF) | (val << 16);
-        BGYRefInternal[1] = BGYRef[1];
+        BGYRefReload[1] = BGYRef[1];
         return;
 
     case 0x040:
@@ -509,23 +515,23 @@ void GPU2D::Write32(u32 addr, u32 val)
     case 0x028:
         if (val & 0x08000000) val |= 0xF0000000;
         BGXRef[0] = val;
-        BGXRefInternal[0] = BGXRef[0];
+        BGXRefReload[0] = BGXRef[0];
         return;
     case 0x02C:
         if (val & 0x08000000) val |= 0xF0000000;
         BGYRef[0] = val;
-        BGYRefInternal[0] = BGYRef[0];
+        BGYRefReload[0] = BGYRef[0];
         return;
 
     case 0x038:
         if (val & 0x08000000) val |= 0xF0000000;
         BGXRef[1] = val;
-        BGXRefInternal[1] = BGXRef[1];
+        BGXRefReload[1] = BGXRef[1];
         return;
     case 0x03C:
         if (val & 0x08000000) val |= 0xF0000000;
         BGYRef[1] = val;
-        BGYRefInternal[1] = BGYRef[1];
+        BGYRefReload[1] = BGYRef[1];
         return;
     }
 
@@ -564,6 +570,18 @@ void GPU2D::UpdateRegistersPreDraw(bool reset)
     OBJEnable = ((DispCntLatch[1] & DispCnt) >> 12) & 0x1;
     ForcedBlank = ((DispCntLatch[2] | DispCnt) >> 7) & 0x1;
 
+    if (BGMosaicLatch)
+        BGMosaicLine = GPU.VCount;
+
+    for (int i = 0; i < 2; i++)
+    {
+        if (!(BGCnt[2+i] & (1<<6)) || BGMosaicLatch)
+        {
+            BGXRefInternal[i] = BGXRef[i];
+            BGYRefInternal[i] = BGYRef[i];
+        }
+    }
+
     if (DispCnt & (1<<12))
     {
         // update OBJ mosaic counter
@@ -580,39 +598,14 @@ void GPU2D::UpdateRegistersPreDraw(bool reset)
             OBJMosaicLatch = false;
         }
     }
+
+    if (OBJMosaicLatch)
+        OBJMosaicLine = reset ? 0 : (GPU.VCount+1);
 }
 
 void GPU2D::UpdateRegistersPostDraw(bool reset)
 {
     if (!Enabled) return;
-
-    if (LayerEnable & (1<<2))
-    {
-        if (reset)
-        {
-            BGXRefInternal[0] = BGXRef[0];
-            BGYRefInternal[0] = BGYRef[0];
-        }
-        else
-        {
-            BGXRefInternal[0] += BGRotB[0];
-            BGYRefInternal[0] += BGRotD[0];
-        }
-    }
-
-    if (LayerEnable & (1<<3))
-    {
-        if (reset)
-        {
-            BGXRefInternal[1] = BGXRef[1];
-            BGYRefInternal[1] = BGYRef[1];
-        }
-        else
-        {
-            BGXRefInternal[1] += BGRotB[1];
-            BGYRefInternal[1] += BGRotD[1];
-        }
-    }
 
     if (reset)
     {
@@ -625,7 +618,6 @@ void GPU2D::UpdateRegistersPostDraw(bool reset)
         // for BG mosaic, the size in MOSAIC is copied to an internal register
         // on the other hand, OBJ mosaic directly checks against the size in MOSAIC
         // this makes the OBJ mosaic counter prone to overflowing if MOSAIC is modified midframe
-        // TODO: do we need the latch for BG stuff?
 
         if (BGMosaicY == BGMosaicYMax)
         {
@@ -638,6 +630,25 @@ void GPU2D::UpdateRegistersPostDraw(bool reset)
             BGMosaicY++;
             BGMosaicY &= 0xF;
             BGMosaicLatch = false;
+        }
+    }
+
+    for (int i = 0; i < 2; i++)
+    {
+        // reference points for rotscale layers are only updated if the layer is enabled
+        // TODO do they get updated if the layer isn't a rotscale layer?
+        if (!(LayerEnable & (4<<i)))
+            continue;
+
+        if (reset)
+        {
+            BGXRef[i] = BGXRefReload[i];
+            BGYRef[i] = BGYRefReload[i];
+        }
+        else
+        {
+            BGXRef[i] += BGRotB[i];
+            BGYRef[i] += BGRotD[i];
         }
     }
 }

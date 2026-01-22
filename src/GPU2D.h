@@ -81,6 +81,8 @@ public:
     s32 BGYRef[2];
     s32 BGXRefInternal[2];
     s32 BGYRefInternal[2];
+    s32 BGXRefReload[2];
+    s32 BGYRefReload[2];
     s16 BGRotA[2];
     s16 BGRotB[2];
     s16 BGRotC[2];
@@ -98,6 +100,8 @@ public:
     u8 OBJMosaicY;
     bool BGMosaicLatch;
     bool OBJMosaicLatch;
+    u32 BGMosaicLine;
+    u32 OBJMosaicLine;
 
     u16 BlendCnt;
     u16 BlendAlpha;
