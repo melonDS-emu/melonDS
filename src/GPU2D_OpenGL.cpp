@@ -42,6 +42,7 @@ GLuint GLRenderer2D::SpritePreShader = 0;
 GLuint GLRenderer2D::SpriteShader = 0;
 GLuint GLRenderer2D::CompositorShader = 0;
 GLint GLRenderer2D::CompositorScaleULoc = 0;
+GLuint GLRenderer2D::MosaicTex = 0;
 
 
 GLRenderer2D::GLRenderer2D(melonDS::GPU2D& gpu2D, GLRenderer& parent)
@@ -149,6 +150,8 @@ bool GLRenderer2D::Init()
         glUniform1i(uniloc, 5);
         uniloc = glGetUniformLocation(CompositorShader, "Capture256Tex");
         glUniform1i(uniloc, 6);
+        uniloc = glGetUniformLocation(CompositorShader, "MosaicTex");
+        glUniform1i(uniloc, 7);
 
         uniloc = glGetUniformBlockIndex(CompositorShader, "ubBGConfig");
         glUniformBlockBinding(CompositorShader, uniloc, 20);
@@ -158,6 +161,30 @@ bool GLRenderer2D::Init()
         glUniformBlockBinding(CompositorShader, uniloc, 23);
 
         CompositorScaleULoc = glGetUniformLocation(CompositorShader, "uScaleFactor");
+
+        // generate mosaic lookup texture
+
+        u8* mosaic_tex = new u8[256 * 16];
+        for (int m = 0; m < 16; m++)
+        {
+            int mosx = 0;
+            for (int x = 0; x < 256; x++)
+            {
+                mosaic_tex[(m * 256) + x] = mosx;
+
+                if (mosx == m)
+                    mosx = 0;
+                else
+                    mosx++;
+            }
+        }
+
+        glGenTextures(1, &MosaicTex);
+        glBindTexture(GL_TEXTURE_2D, MosaicTex);
+        glDefaultTexParams(GL_TEXTURE_2D);
+        glTexImage2D(GL_TEXTURE_2D, 0, GL_R8I, 256, 16, 0, GL_RED_INTEGER, GL_BYTE, mosaic_tex);
+
+        delete[] mosaic_tex;
     }
 
     const float rectvertices[2*2*3] = {
@@ -343,6 +370,8 @@ GLRenderer2D::~GLRenderer2D()
         glDeleteProgram(SpritePreShader);
         glDeleteProgram(SpriteShader);
         glDeleteProgram(CompositorShader);
+
+        glDeleteTextures(1, &MosaicTex);
     }
 
     glDeleteBuffers(1, &RectVtxBuffer);
@@ -814,6 +843,10 @@ void GLRenderer2D::UpdateScanlineConfig(int line)
 {
     auto& cfg = ScanlineConfig.uScanline[line];
 
+    // update BG layer coordinates
+    // Y coordinates are adjusted to account for vertical mosaic
+    // horizontal mosaic will be done during compositing
+
     u32 bgmode = DispCnt & 0x7;
 
     if (DispCnt & (1<<3))
@@ -821,18 +854,45 @@ void GLRenderer2D::UpdateScanlineConfig(int line)
         // 3D layer
         int xpos = GPU.GPU3D.GetRenderXPos() & 0x1FF;
         cfg.BGOffset[0][0] = xpos - ((xpos & 0x100) << 1);
-        cfg.BGOffset[0][1] = 0;
+        cfg.BGOffset[0][1] = line;
+        cfg.BGMosaicEnable[0] = false;
     }
     else
     {
         // text layer
         cfg.BGOffset[0][0] = GPU2D.BGXPos[0];
-        cfg.BGOffset[0][1] = GPU2D.BGYPos[0];
+        if (GPU2D.BGCnt[0] & (1<<6))
+        {
+            cfg.BGOffset[0][1] = GPU2D.BGYPos[0] + GPU2D.BGMosaicLine;
+            //cfg.BGOffset[0][2] = GPU2D.BGMosaicSize[0];
+            //cfg.BGOffset[0][3] = GPU2D.BGMosaicSize[1];
+            cfg.BGMosaicEnable[0] = true;
+        }
+        else
+        {
+            cfg.BGOffset[0][1] = GPU2D.BGYPos[0] + line;
+            //cfg.BGOffset[0][2] = 0;
+            //cfg.BGOffset[0][3] = 0;
+            cfg.BGMosaicEnable[0] = false;
+        }
     }
 
     // always a text layer
     cfg.BGOffset[1][0] = GPU2D.BGXPos[1];
-    cfg.BGOffset[1][1] = GPU2D.BGYPos[1];
+    if (GPU2D.BGCnt[1] & (1<<6))
+    {
+        cfg.BGOffset[1][1] = GPU2D.BGYPos[1] + GPU2D.BGMosaicLine;
+        //cfg.BGOffset[1][2] = GPU2D.BGMosaicSize[0];
+        //cfg.BGOffset[1][3] = GPU2D.BGMosaicSize[1];
+        cfg.BGMosaicEnable[1] = true;
+    }
+    else
+    {
+        cfg.BGOffset[1][1] = GPU2D.BGYPos[1] + line;
+        //cfg.BGOffset[1][2] = 0;
+        //cfg.BGOffset[1][3] = 0;
+        cfg.BGMosaicEnable[1] = false;
+    }
 
     if ((bgmode == 2) || (bgmode >= 4 && bgmode <= 6))
     {
@@ -848,7 +908,23 @@ void GLRenderer2D::UpdateScanlineConfig(int line)
     {
         // text layer
         cfg.BGOffset[2][0] = GPU2D.BGXPos[2];
-        cfg.BGOffset[2][1] = GPU2D.BGYPos[2];
+        if (GPU2D.BGCnt[2] & (1<<6))
+            cfg.BGOffset[2][1] = GPU2D.BGYPos[2] + GPU2D.BGMosaicLine;
+        else
+            cfg.BGOffset[2][1] = GPU2D.BGYPos[2] + line;
+    }
+
+    if (GPU2D.BGCnt[2] & (1<<6))
+    {
+        //cfg.BGOffset[2][2] = GPU2D.BGMosaicSize[0];
+        //cfg.BGOffset[2][3] = GPU2D.BGMosaicSize[1];
+        cfg.BGMosaicEnable[2] = true;
+    }
+    else
+    {
+        //cfg.BGOffset[2][2] = 0;
+        //cfg.BGOffset[2][3] = 0;
+        cfg.BGMosaicEnable[2] = false;
     }
 
     if (bgmode >= 1 && bgmode <= 5)
@@ -865,11 +941,35 @@ void GLRenderer2D::UpdateScanlineConfig(int line)
     {
         // text layer
         cfg.BGOffset[3][0] = GPU2D.BGXPos[3];
-        cfg.BGOffset[3][1] = GPU2D.BGYPos[3];
+        if (GPU2D.BGCnt[3] & (1<<6))
+            cfg.BGOffset[3][1] = GPU2D.BGYPos[3] + GPU2D.BGMosaicLine;
+        else
+            cfg.BGOffset[3][1] = GPU2D.BGYPos[3] + line;
     }
 
+    if (GPU2D.BGCnt[3] & (1<<6))
+    {
+        //cfg.BGOffset[3][2] = GPU2D.BGMosaicSize[0];
+        //cfg.BGOffset[3][3] = GPU2D.BGMosaicSize[1];
+        cfg.BGMosaicEnable[3] = true;
+    }
+    else
+    {
+        //cfg.BGOffset[3][2] = 0;
+        //cfg.BGOffset[3][3] = 0;
+        cfg.BGMosaicEnable[3] = false;
+    }
+
+    // TODO do differently
     u16* pal = (u16*)&GPU.Palette[GPU2D.Num ? 0x400 : 0];
     cfg.BackColor = pal[0];
+
+    // mosaic
+
+    cfg.MosaicSize[0] = GPU2D.BGMosaicSize[0];
+    cfg.MosaicSize[1] = GPU2D.BGMosaicSize[1];
+    cfg.MosaicSize[2] = GPU2D.OBJMosaicSize[0];
+    cfg.MosaicSize[3] = GPU2D.OBJMosaicSize[1];
 
     // windows
 
@@ -1739,6 +1839,9 @@ void GLRenderer2D::RenderScreen(int ystart, int yend)
 
     glActiveTexture(GL_TEXTURE6);
     glBindTexture(GL_TEXTURE_2D_ARRAY, Parent.CaptureOutput256Tex);
+
+    glActiveTexture(GL_TEXTURE7);
+    glBindTexture(GL_TEXTURE_2D, MosaicTex);
 
     glEnable(GL_SCISSOR_TEST);
     glScissor(0, ystart * ScaleFactor, ScreenW, (yend-ystart) * ScaleFactor);

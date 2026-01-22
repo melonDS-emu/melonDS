@@ -4,6 +4,7 @@ uniform sampler2D BGLayerTex[4];
 uniform sampler2DArray OBJLayerTex;
 uniform sampler2DArray Capture128Tex;
 uniform sampler2DArray Capture256Tex;
+uniform isampler2D MosaicTex;
 
 struct sBGConfig
 {
@@ -30,6 +31,8 @@ struct sScanline
     uint WinRegs;
     int WinMask;
     ivec4 WinPos;
+    bvec4 BGMosaicEnable;
+    ivec4 MosaicSize;
 };
 
 layout(std140) uniform ubScanlineConfig
@@ -50,6 +53,8 @@ layout(std140) uniform ubCompositorConfig
 smooth in vec4 fTexcoord;
 
 out vec4 oColor;
+
+int MosaicX = 0;
 
 ivec3 ConvertColor(int col)
 {
@@ -82,33 +87,51 @@ vec4 BG3Fetch(vec2 coord)
 
 vec4 BG0CalcAndFetch(vec2 coord, int line)
 {
-    vec2 bgpos = vec2(uScanline[line].BGOffset[0]) + coord;
+    ivec2 bgoffset = uScanline[line].BGOffset[0];
+    vec2 bgpos = vec2(bgoffset.xy) + coord;
+
+    if (uScanline[line].BGMosaicEnable[0])
+    {
+        bgpos = floor(bgpos) - vec2(MosaicX, 0);
+    }
 
     return BG0Fetch(bgpos / vec2(uBGConfig[0].Size));
 }
 
 vec4 BG1CalcAndFetch(vec2 coord, int line)
 {
-    vec2 bgpos = vec2(uScanline[line].BGOffset[1]) + coord;
+    ivec2 bgoffset = uScanline[line].BGOffset[1];
+    vec2 bgpos = vec2(bgoffset.xy) + coord;
+
+    if (uScanline[line].BGMosaicEnable[1])
+    {
+        bgpos = floor(bgpos) - vec2(MosaicX, 0);
+    }
 
     return BG1Fetch(bgpos / vec2(uBGConfig[1].Size));
 }
 
 vec4 BG2CalcAndFetch(vec2 coord, int line)
 {
+    ivec2 bgoffset = uScanline[line].BGOffset[2];
     vec2 bgpos;
     if (uBGConfig[2].Type >= 2)
     {
         // rotscale BG
-        bgpos = vec2(uScanline[line].BGOffset[2]) / 256;
+        bgpos = vec2(bgoffset.xy) / 256;
         vec4 rotscale = vec4(uScanline[line].BGRotscale[0]) / 256;
         mat2 rsmatrix = mat2(rotscale.xy, rotscale.zw);
-        bgpos = bgpos + (vec2(coord.x, fract(coord.y)) * rsmatrix);
+        bgpos = bgpos + (coord * rsmatrix);
     }
     else
     {
         // text-mode BG
-        bgpos = vec2(uScanline[line].BGOffset[2]) + coord;
+        bgpos = vec2(bgoffset.xy) + coord;
+    }
+
+    if (uScanline[line].BGMosaicEnable[2])
+    {
+        bgpos = floor(bgpos) - vec2(MosaicX, 0);
     }
 
     if (uBGConfig[2].Type >= 7)
@@ -136,19 +159,25 @@ vec4 BG2CalcAndFetch(vec2 coord, int line)
 
 vec4 BG3CalcAndFetch(vec2 coord, int line)
 {
+    ivec2 bgoffset = uScanline[line].BGOffset[3];
     vec2 bgpos;
     if (uBGConfig[3].Type >= 2)
     {
         // rotscale BG
-        bgpos = vec2(uScanline[line].BGOffset[3]) / 256;
+        bgpos = vec2(bgoffset.xy) / 256;
         vec4 rotscale = vec4(uScanline[line].BGRotscale[1]) / 256;
         mat2 rsmatrix = mat2(rotscale.xy, rotscale.zw);
-        bgpos = bgpos + (vec2(coord.x, fract(coord.y)) * rsmatrix);
+        bgpos = bgpos + (coord * rsmatrix);
     }
     else
     {
         // text-mode BG
-        bgpos = vec2(uScanline[line].BGOffset[3]) + coord;
+        bgpos = vec2(bgoffset.xy) + coord;
+    }
+
+    if (uScanline[line].BGMosaicEnable[3])
+    {
+        bgpos = floor(bgpos) - vec2(MosaicX, 0);
     }
 
     if (uBGConfig[3].Type >= 7)
@@ -177,8 +206,11 @@ vec4 BG3CalcAndFetch(vec2 coord, int line)
 vec4 CompositeLayers()
 {
     ivec2 coord = ivec2(fTexcoord.zw);
+    vec2 bgcoord = vec2(fTexcoord.x, fract(fTexcoord.y));
     int xpos = int(fTexcoord.x);
     int line = int(fTexcoord.y);
+
+    MosaicX = texelFetch(MosaicTex, ivec2(bgcoord.x, uScanline[line].MosaicSize.x), 0).r;
 
     ivec4 col1 = ivec4(ConvertColor(uScanline[line].BackColor), 0x20);
     int mask1 = 0x20;
@@ -187,10 +219,10 @@ vec4 CompositeLayers()
     bool specialcase = false;
 
     vec4 layercol[6];
-    layercol[0] = BG0CalcAndFetch(fTexcoord.xy, line);
-    layercol[1] = BG1CalcAndFetch(fTexcoord.xy, line);
-    layercol[2] = BG2CalcAndFetch(fTexcoord.xy, line);
-    layercol[3] = BG3CalcAndFetch(fTexcoord.xy, line);
+    layercol[0] = BG0CalcAndFetch(bgcoord, line);
+    layercol[1] = BG1CalcAndFetch(bgcoord, line);
+    layercol[2] = BG2CalcAndFetch(bgcoord, line);
+    layercol[3] = BG3CalcAndFetch(bgcoord, line);
     layercol[4] = texelFetch(OBJLayerTex, ivec3(coord, 0), 0);
     layercol[5] = texelFetch(OBJLayerTex, ivec3(coord, 1), 0);
 

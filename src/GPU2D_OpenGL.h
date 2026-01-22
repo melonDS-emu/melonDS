@@ -90,6 +90,8 @@ private:
     GLuint PalTex_BG;
     GLuint PalTex_OBJ;
 
+    static GLuint MosaicTex;
+
     GLuint AllBGLayerFB[22];
     GLuint AllBGLayerTex[22];
 
@@ -160,6 +162,8 @@ private:
             u32 WinMask;            // 104
             u32 __pad0[1];
             s32 WinPos[4];
+            u32 BGMosaicEnable[4];
+            s32 MosaicSize[4];
         } uScanline[192];
     } ScanlineConfig;
 
@@ -188,93 +192,7 @@ private:
     u32 SpriteDispCnt;
     bool SpriteDirty;
 
-    /*struct sFinalPassConfig
-    {
-        u32 uScreenSwap[192];
-        u32 uScaleFactor;
-        u32 uAuxLayer;
-        u32 uDispModeA;
-        u32 uDispModeB;
-        u32 uBrightModeA;
-        u32 uBrightModeB;
-        u32 uBrightFactorA;
-        u32 uBrightFactorB;
-    } FinalPassConfig;*/
-
     u16 TempPalBuffer[256 * (1 + (4*16))];
-
-    //GLuint _3DLayerTex;
-
-    //GLuint FPShaderID = 0;
-    /*GLint FPScaleULoc = 0;
-    GLint FPCaptureRegULoc = 0;
-    GLint FPCaptureMaskULoc = 0;
-    GLint FPCaptureTexLoc[16] {};*/
-    //GLuint FPConfigUBO;
-
-    //GLuint FPVertexBufferID = 0;
-    //GLuint FPVertexArrayID = 0;
-
-    //GLuint LineAttribTex = 0;               // per-scanline attribute texture
-    //GLuint BGOBJTex = 0;                    // prerender of BG/OBJ layers
-    //GLuint AuxInputTex = 0;                 // aux input (VRAM and mainmem FIFO)
-
-    // texture/fb for display capture VRAM input
-    /*GLuint CaptureVRAMTex;
-    GLuint CaptureVRAMFB;
-
-    GLuint FPOutputTex[2];               // final output
-    GLuint FPOutputFB[2];
-
-    struct sCaptureConfig
-    {
-        u32 uCaptureSize[2];
-        u32 uScaleFactor;
-        u32 uSrcAOffset;
-        u32 uSrcBLayer;
-        u32 uSrcBOffset;
-        u32 uDstOffset;
-        u32 uDstMode;
-        u32 uBlendFactors[2];
-        u32 __pad0[2];
-    } CaptureConfig;
-
-    GLuint CaptureShader;
-    GLuint CaptureConfigUBO;
-
-    GLuint CaptureVtxBuffer;
-    GLuint CaptureVtxArray;
-
-    GLuint CaptureOutput256FB[4];
-    GLuint CaptureOutput256Tex;
-    GLuint CaptureOutput128FB[16];
-    GLuint CaptureOutput128Tex;
-
-    GLuint CaptureSyncFB;
-    GLuint CaptureSyncTex;
-
-    u16* AuxInputBuffer[2];
-
-    int BackBuffer;
-
-    u8 AuxUsageMask;*/
-
-    /*u8* CurBGXMosaicTable;
-    array2d<u8, 16, 256> MosaicTable = []() constexpr
-    {
-        array2d<u8, 16, 256> table {};
-        // initialize mosaic table
-        for (int m = 0; m < 16; m++)
-        {
-            for (int x = 0; x < 256; x++)
-            {
-                int offset = x % (m+1);
-                table[m][x] = offset;
-            }
-        }
-
-        return table;
-    }();*/
 
     bool IsScreenOn();
 
@@ -292,8 +210,6 @@ private:
     void RenderSprites(bool window, int ystart, int yend);
 
     void RenderScreen(int ystart, int yend);
-
-    void DoCapture(int vramcap);
 };
 
 }
