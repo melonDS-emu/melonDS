@@ -20,7 +20,7 @@ layout(std140) uniform uConfig
 {
     int uScaleFactor;
     int uVRAMMask;
-    ivec4 uCaptureMask[8];
+    ivec4 uMosaicLine[48];
     ivec4 uRotscale[32];
     sOAM uOAM[128];
 };
@@ -30,6 +30,7 @@ in ivec2 vTexcoord;
 in int vSpriteIndex;
 
 flat out int fSpriteIndex;
+smooth out vec2 fPosition;
 smooth out vec2 fTexcoord;
 
 void main()
@@ -37,7 +38,10 @@ void main()
     vec2 sprsize = vec2(uOAM[vSpriteIndex].BoundSize);
     vec2 fbsize = vec2(256, 192);
 
-    gl_Position = vec4(((vec2(vPosition) * 2) / fbsize) - 1, 0, 1);
+    int totalprio = (uOAM[vSpriteIndex].BGPrio * 128) + vSpriteIndex;
+    float z = float(totalprio) / 512.0;
+    gl_Position = vec4(((vec2(vPosition) * 2) / fbsize) - 1, z, 1);
+    fPosition = vPosition;
     fSpriteIndex = vSpriteIndex;
 
     if (uOAM[vSpriteIndex].Rotscale == -1)

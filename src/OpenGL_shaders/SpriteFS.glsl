@@ -24,12 +24,15 @@ layout(std140) uniform uConfig
 {
     int uScaleFactor;
     int uVRAMMask;
-    ivec4 uCaptureMask[8];
+    ivec4 uMosaicLine[48];
     ivec4 uRotscale[32];
     sOAM uOAM[128];
 };
 
+uniform bool uRenderTransparent;
+
 flat in int fSpriteIndex;
+smooth in vec2 fPosition;
 smooth in vec2 fTexcoord;
 
 out vec4 oColor;
@@ -45,16 +48,23 @@ vec4 GetSpritePixel(int sprite, vec2 coord)
 void main()
 {
     vec4 col, flags = vec4(0);
-    vec2 coord;
+    vec2 coord = fTexcoord;
 
-    if (uOAM[fSpriteIndex].Rotscale == -1)
+    if (uOAM[fSpriteIndex].Mosaic)
     {
-        // regular sprite
-        // fTexcoord is the position within the sprite bitmap
+        int line = int(fPosition.y);
+        int mosline = uMosaicLine[line>>2][line&0x3];
 
-        coord = fTexcoord;
+        float ymin = 0;
+        if (uOAM[fSpriteIndex].Rotscale != -1)
+            ymin = -float(uOAM[fSpriteIndex].Size.y) / 2.0;
+
+        float mosy = coord.y - (line - mosline);
+        if (coord.y >= ymin)
+            coord.y = max(mosy, ymin);
     }
-    else
+
+    if (uOAM[fSpriteIndex].Rotscale != -1)
     {
         // rotscale sprite
         // fTexcoord is based on the sprite center
@@ -62,9 +72,23 @@ void main()
         vec2 sprsize = vec2(uOAM[fSpriteIndex].Size);
         vec4 rotscale = vec4(uRotscale[uOAM[fSpriteIndex].Rotscale]) / 256;
         mat2 rsmatrix = mat2(rotscale.xy, rotscale.zw);
-        coord = (fTexcoord * rsmatrix) + (sprsize / 2);
+        coord = (coord * rsmatrix) + (sprsize / 2);
         if (any(lessThan(coord, vec2(0)))) discard;
         if (any(greaterThanEqual(coord, sprsize))) discard;
+    }
+
+    if (uRenderTransparent)
+    {
+        // set BG priority and mosaic flags for transparent pixels
+
+        if (uOAM[fSpriteIndex].Mosaic)
+            flags.g = 1;
+
+        flags.a = float(uOAM[fSpriteIndex].BGPrio) / 255;
+
+        oColor = vec4(0);
+        oFlags = flags;
+        return;
     }
 
     if (uOAM[fSpriteIndex].Type == 3)
@@ -98,7 +122,6 @@ void main()
     {
         // OBJ window
         // OBJ mosaic doesn't apply to "OBJ window" sprites
-        // TODO set appropriate color mask so the color buffer isn't updated
         flags.b = 1;
     }
     else

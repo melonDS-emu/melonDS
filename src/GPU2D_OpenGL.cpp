@@ -40,6 +40,7 @@ GLuint GLRenderer2D::LayerPreShader = 0;
 GLint GLRenderer2D::LayerPreCurBGULoc = 0;
 GLuint GLRenderer2D::SpritePreShader = 0;
 GLuint GLRenderer2D::SpriteShader = 0;
+GLint GLRenderer2D::SpriteRenderTransULoc = 0;
 GLuint GLRenderer2D::CompositorShader = 0;
 GLint GLRenderer2D::CompositorScaleULoc = 0;
 GLuint GLRenderer2D::MosaicTex = 0;
@@ -130,6 +131,8 @@ bool GLRenderer2D::Init()
 
         uniloc = glGetUniformBlockIndex(SpriteShader, "uConfig");
         glUniformBlockBinding(SpriteShader, uniloc, 21);
+
+        SpriteRenderTransULoc = glGetUniformLocation(SpriteShader, "uRenderTransparent");
 
 
         glUseProgram(CompositorShader);
@@ -300,12 +303,15 @@ bool GLRenderer2D::Init()
     glFramebufferTexture(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, SpriteTex, 0);
     glDrawBuffer(GL_COLOR_ATTACHMENT0);
 
-    // generate texture to hold final (upscaled) layers (BG/OBJ)
+    // generate texture to hold final (upscaled) sprites
 
     glGenTextures(1, &OBJLayerTex);
     glBindTexture(GL_TEXTURE_2D_ARRAY, OBJLayerTex);
     glDefaultTexParams(GL_TEXTURE_2D_ARRAY);
-    //glTexImage3D(GL_TEXTURE_2D_ARRAY, 0, GL_RGBA, 1024, 1024, 4, 0, GL_RGBA, GL_UNSIGNED_BYTE, nullptr);
+
+    glGenTextures(1, &OBJDepthTex);
+    glBindTexture(GL_TEXTURE_2D, OBJDepthTex);
+    glDefaultTexParams(GL_TEXTURE_2D);
 
     glGenFramebuffers(1, &OBJLayerFB);
 
@@ -379,6 +385,7 @@ GLRenderer2D::~GLRenderer2D()
     glDeleteFramebuffers(1, &SpriteFB);
 
     glDeleteTextures(1, &OBJLayerTex);
+    glDeleteTextures(1, &OBJDepthTex);
     glDeleteFramebuffers(1, &OBJLayerFB);
 
     glDeleteTextures(1, &OutputTex);
@@ -415,6 +422,7 @@ void GLRenderer2D::Reset()
     LastSpriteLine = 0;
     memset(OAM, 0, sizeof(OAM));
     NumSprites = 0;
+    SpriteUseMosaic = false;
 
     SpriteDispCnt = 0;
     SpriteDirty = true;
@@ -435,36 +443,19 @@ void GLRenderer2D::SetScaleFactor(int scale)
     ScreenH = 192 * scale;
 
     const GLenum fbassign2[] = {GL_COLOR_ATTACHMENT0, GL_COLOR_ATTACHMENT1};
-#if 0
-    glBindTexture(GL_TEXTURE_2D_ARRAY, CaptureOutput256Tex);
-    glTexImage3D(GL_TEXTURE_2D_ARRAY, 0, GL_RGBA, 256*ScaleFactor, 256*ScaleFactor, 4, 0, GL_RGBA, GL_UNSIGNED_BYTE, nullptr);
-
-    for (int i = 0; i < 4; i++)
-    {
-        glBindFramebuffer(GL_FRAMEBUFFER, CaptureOutput256FB[i]);
-        glFramebufferTextureLayer(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, CaptureOutput256Tex, 0, i);
-        glDrawBuffer(GL_COLOR_ATTACHMENT0);
-    }
-
-    glBindTexture(GL_TEXTURE_2D_ARRAY, CaptureOutput128Tex);
-    glTexImage3D(GL_TEXTURE_2D_ARRAY, 0, GL_RGBA, 128*ScaleFactor, 128*ScaleFactor, 16, 0, GL_RGBA, GL_UNSIGNED_BYTE, nullptr);
-
-    for (int i = 0; i < 16; i++)
-    {
-        glBindFramebuffer(GL_FRAMEBUFFER, CaptureOutput128FB[i]);
-        glFramebufferTextureLayer(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, CaptureOutput128Tex, 0, i);
-        glDrawBuffer(GL_COLOR_ATTACHMENT0);
-    }
-#endif
 
     SpriteConfig.uScaleFactor = ScaleFactor;
 
     glBindTexture(GL_TEXTURE_2D_ARRAY, OBJLayerTex);
     glTexImage3D(GL_TEXTURE_2D_ARRAY, 0, GL_RGBA, ScreenW, ScreenH, 2, 0, GL_RGBA, GL_UNSIGNED_BYTE, nullptr);
 
+    glBindTexture(GL_TEXTURE_2D, OBJDepthTex);
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_DEPTH_COMPONENT16, ScreenW, ScreenH, 0, GL_DEPTH_COMPONENT, GL_UNSIGNED_SHORT, nullptr);
+
     glBindFramebuffer(GL_FRAMEBUFFER, OBJLayerFB);
     glFramebufferTextureLayer(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, OBJLayerTex, 0, 0);
     glFramebufferTextureLayer(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT1, OBJLayerTex, 0, 1);
+    glFramebufferTexture(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, OBJDepthTex, 0);
     glDrawBuffers(2, fbassign2);
 
     glBindTexture(GL_TEXTURE_2D, OutputTex);
@@ -473,34 +464,6 @@ void GLRenderer2D::SetScaleFactor(int scale)
     glBindFramebuffer(GL_FRAMEBUFFER, OutputFB);
     glFramebufferTexture(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, OutputTex, 0);
     glDrawBuffer(GL_COLOR_ATTACHMENT0);
-
-#if 0
-    glBindTexture(GL_TEXTURE_2D_ARRAY, CaptureVRAMTex);
-    glTexImage3D(GL_TEXTURE_2D_ARRAY, 0, GL_RGBA, 256*ScaleFactor, 256*ScaleFactor, 1, 0, GL_RGBA, GL_UNSIGNED_BYTE, nullptr);
-
-    glBindFramebuffer(GL_FRAMEBUFFER, CaptureVRAMFB);
-    glFramebufferTextureLayer(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, CaptureVRAMTex, 0, 0);
-    glReadBuffer(GL_COLOR_ATTACHMENT0);
-    glDrawBuffer(GL_COLOR_ATTACHMENT0);
-
-    for (int i = 0; i < 2; i++)
-    {
-        glBindTexture(GL_TEXTURE_2D_ARRAY, FPOutputTex[i]);
-        glTexImage3D(GL_TEXTURE_2D_ARRAY, 0, GL_RGBA, ScreenW, ScreenH, 2, 0, GL_RGBA, GL_UNSIGNED_BYTE, nullptr);
-
-        //GLenum fbassign[] = {GL_COLOR_ATTACHMENT0, GL_COLOR_ATTACHMENT1, GL_COLOR_ATTACHMENT2};
-        glBindFramebuffer(GL_FRAMEBUFFER, FPOutputFB[i]);
-        glFramebufferTextureLayer(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, FPOutputTex[i], 0, 0);
-        glFramebufferTextureLayer(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT1, FPOutputTex[i], 0, 1);
-        //glFramebufferTexture(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT2, 0, 0);
-        //glFramebufferTexture(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT2, test, 0);
-        //glDrawBuffers(3, fbassign);
-        glDrawBuffers(2, fbassign2);
-        //free(zeroPixels);
-    }
-
-    glBindFramebuffer(GL_FRAMEBUFFER, 0);
-#endif
 }
 
 
@@ -753,6 +716,7 @@ void GLRenderer2D::UpdateAndRender(int line)
 
         // TODO make this only do it over the required subsection?
         NumSprites = 0;
+        SpriteUseMosaic = false;
         UpdateOAM(0, 192);
 
         glActiveTexture(GL_TEXTURE0);
@@ -806,6 +770,7 @@ void GLRenderer2D::UpdateScanlineConfig(int line)
     // horizontal mosaic will be done during compositing
 
     u32 bgmode = DispCnt & 0x7;
+    bool xmosaic = (GPU2D.BGMosaicSize[0] > 0);
 
     if (DispCnt & (1<<3))
     {
@@ -822,15 +787,11 @@ void GLRenderer2D::UpdateScanlineConfig(int line)
         if (GPU2D.BGCnt[0] & (1<<6))
         {
             cfg.BGOffset[0][1] = GPU2D.BGYPos[0] + GPU2D.BGMosaicLine;
-            //cfg.BGOffset[0][2] = GPU2D.BGMosaicSize[0];
-            //cfg.BGOffset[0][3] = GPU2D.BGMosaicSize[1];
-            cfg.BGMosaicEnable[0] = true;
+            cfg.BGMosaicEnable[0] = xmosaic;
         }
         else
         {
             cfg.BGOffset[0][1] = GPU2D.BGYPos[0] + line;
-            //cfg.BGOffset[0][2] = 0;
-            //cfg.BGOffset[0][3] = 0;
             cfg.BGMosaicEnable[0] = false;
         }
     }
@@ -840,15 +801,11 @@ void GLRenderer2D::UpdateScanlineConfig(int line)
     if (GPU2D.BGCnt[1] & (1<<6))
     {
         cfg.BGOffset[1][1] = GPU2D.BGYPos[1] + GPU2D.BGMosaicLine;
-        //cfg.BGOffset[1][2] = GPU2D.BGMosaicSize[0];
-        //cfg.BGOffset[1][3] = GPU2D.BGMosaicSize[1];
-        cfg.BGMosaicEnable[1] = true;
+        cfg.BGMosaicEnable[1] = xmosaic;
     }
     else
     {
         cfg.BGOffset[1][1] = GPU2D.BGYPos[1] + line;
-        //cfg.BGOffset[1][2] = 0;
-        //cfg.BGOffset[1][3] = 0;
         cfg.BGMosaicEnable[1] = false;
     }
 
@@ -873,17 +830,9 @@ void GLRenderer2D::UpdateScanlineConfig(int line)
     }
 
     if (GPU2D.BGCnt[2] & (1<<6))
-    {
-        //cfg.BGOffset[2][2] = GPU2D.BGMosaicSize[0];
-        //cfg.BGOffset[2][3] = GPU2D.BGMosaicSize[1];
-        cfg.BGMosaicEnable[2] = true;
-    }
+        cfg.BGMosaicEnable[2] = xmosaic;
     else
-    {
-        //cfg.BGOffset[2][2] = 0;
-        //cfg.BGOffset[2][3] = 0;
         cfg.BGMosaicEnable[2] = false;
-    }
 
     if (bgmode >= 1 && bgmode <= 5)
     {
@@ -906,17 +855,9 @@ void GLRenderer2D::UpdateScanlineConfig(int line)
     }
 
     if (GPU2D.BGCnt[3] & (1<<6))
-    {
-        //cfg.BGOffset[3][2] = GPU2D.BGMosaicSize[0];
-        //cfg.BGOffset[3][3] = GPU2D.BGMosaicSize[1];
-        cfg.BGMosaicEnable[3] = true;
-    }
+        cfg.BGMosaicEnable[3] = xmosaic;
     else
-    {
-        //cfg.BGOffset[3][2] = 0;
-        //cfg.BGOffset[3][3] = 0;
         cfg.BGMosaicEnable[3] = false;
-    }
 
     // TODO do differently
     u16* pal = (u16*)&GPU.Palette[GPU2D.Num ? 0x400 : 0];
@@ -1332,198 +1273,195 @@ void GLRenderer2D::UpdateOAM(int ystart, int yend)
         64, 32, 64, 8
     };
 
-    for (int bgnum = 0x0C00; bgnum >= 0x0000; bgnum-=0x0400)
+    for (int sprnum = 0; sprnum < 128; sprnum++)
     {
-        for (int sprnum = 127; sprnum >= 0; sprnum--)
+        u16* attrib = &oam[sprnum * 4];
+
+        u32 sprtype = (attrib[0] >> 8) & 0x3;
+        if (sprtype == 2) // sprite disabled
+            continue;
+
+        // note on sprite position:
+        // X > 255 is interpreted as negative (-256..-1)
+        // Y > 127 is interpreted as both positive (128..255) and negative (-128..-1)
+
+        s32 xpos = (s32)(attrib[1] << 23) >> 23;
+        s32 ypos = (s32)(attrib[0] << 24) >> 24;
+
+        u32 sizeparam = (attrib[0] >> 14) | ((attrib[1] & 0xC000) >> 12);
+        s32 width = spritewidth[sizeparam];
+        s32 height = spriteheight[sizeparam];
+        s32 boundwidth = width;
+        s32 boundheight = height;
+
+        if (sprtype == 3)
         {
-            u16* attrib = &oam[sprnum * 4];
-
-            if ((attrib[2] & 0x0C00) != bgnum)
-                continue;
-
-            u32 sprtype = (attrib[0] >> 8) & 0x3;
-            if (sprtype == 2) // sprite disabled
-                continue;
-
-            // note on sprite position:
-            // X > 255 is interpreted as negative (-256..-1)
-            // Y > 127 is interpreted as both positive (128..255) and negative (-128..-1)
-
-            s32 xpos = (s32)(attrib[1] << 23) >> 23;
-            s32 ypos = (s32)(attrib[0] << 24) >> 24;
-
-            u32 sizeparam = (attrib[0] >> 14) | ((attrib[1] & 0xC000) >> 12);
-            s32 width = spritewidth[sizeparam];
-            s32 height = spriteheight[sizeparam];
-            s32 boundwidth = width;
-            s32 boundheight = height;
-
-            if (sprtype == 3)
-            {
-                // double-size rotscale sprite
-                boundwidth <<= 1;
-                boundheight <<= 1;
-            }
-
-            if (xpos <= -boundwidth)
-                continue;
-
-            bool yc0 = ((ypos + boundheight) > ystart) && (ypos < yend);
-            bool yc1 = (((ypos&0xFF) + boundheight) > ystart) && ((ypos&0xFF) < yend);
-            if (!(yc0 || yc1))
-                continue;
-
-            u32 sprmode = (attrib[0] >> 10) & 0x3;
-            if (sprmode == 3)
-            {
-                if ((GPU2D.DispCnt & 0x60) == 0x60)
-                    continue;
-                if ((attrib[2] >> 12) == 0)
-                    continue;
-            }
-
-            if (NumSprites >= 128)
-            {
-                printf("GPU2D_OpenGL: SPRITE BUFFER IS FULL!!!!!\n");
-                break;
-            }
-
-            // add this sprite to the OAM array
-            // TODO: if we do partial rendering, we need to check whether it was already in the array
-
-            auto& sprcfg = cfg.uOAM[NumSprites];
-
-            sprcfg.Position[0] = (u32)xpos;
-            sprcfg.Position[1] = (u32)ypos;
-            sprcfg.Size[0] = width;
-            sprcfg.Size[1] = height;
-            sprcfg.BoundSize[0] = boundwidth;
-            sprcfg.BoundSize[1] = boundheight;
-
-            if (sprtype & 1)
-            {
-                sprcfg.Flip[0] = 0;
-                sprcfg.Flip[1] = 0;
-                sprcfg.Rotscale = (attrib[1] >> 9) & 0x1F;
-            }
-            else
-            {
-                sprcfg.Flip[0] = !!(attrib[1] & (1<<12));
-                sprcfg.Flip[1] = !!(attrib[1] & (1<<13));
-                sprcfg.Rotscale = (u32)-1;
-            }
-
-            sprcfg.OBJMode = sprmode;
-            sprcfg.Mosaic = !!(attrib[0] & (1<<12));
-            sprcfg.BGPrio = (attrib[2] >> 10) & 0x3;
-
-            u32 tilenum = attrib[2] & 0x3FF;
-
-            if (sprmode == 3)
-            {
-                // bitmap sprite
-
-                sprcfg.Type = 2;
-
-                if (GPU2D.DispCnt & (1<<6))
-                {
-                    // 1D mapping
-                    sprcfg.TileOffset = tilenum << (7 + ((GPU2D.DispCnt >> 22) & 0x1));
-                    sprcfg.TileStride = width * 2;
-                }
-                else
-                {
-                    bool is256 = !!(GPU2D.DispCnt & (1<<5));
-                    int capblock = -1;
-
-                    u32 tileoffset, tilestride;
-                    if (is256)
-                    {
-                        // 2D mapping, 256 pixels
-                        tileoffset = ((tilenum & 0x01F) << 4) + ((tilenum & 0x3E0) << 7);
-                        tilestride = 256 * 2;
-                    }
-                    else
-                    {
-                        // 2D mapping, 128 pixels
-                        tileoffset = ((tilenum & 0x00F) << 4) + ((tilenum & 0x3F0) << 7);
-                        tilestride = 128 * 2;
-                    }
-
-                    // if this is a direct color bitmap, and the width is 128 or 256
-                    // then it might be a display capture
-                    u32 startaddr = tileoffset;
-                    u32 endaddr = startaddr + (height * tilestride);
-
-                    startaddr >>= 14;
-                    endaddr = (endaddr + 0x3FFF) >> 14;
-
-                    for (u32 b = startaddr; b < endaddr; b++)
-                    {
-                        int blk = captureinfo[b & capturemask];
-                        if (blk == -1) continue;
-
-                        capblock = blk;
-                    }
-
-                    if (capblock != -1)
-                    {
-                        if (!is256)
-                        {
-                            sprcfg.Type = 3;
-                            tilestride = capblock;
-                            tileoffset &= 0x7FFF;
-                        }
-                        else
-                        {
-                            sprcfg.Type = 4;
-                            tilestride = capblock >> 2;
-                            tileoffset &= 0x1FFFF;
-                        }
-                    }
-
-                    sprcfg.TileOffset = tileoffset;
-                    sprcfg.TileStride = tilestride;
-                }
-
-                sprcfg.PalOffset = 1 + (attrib[2] >> 12); // alpha
-            }
-            else
-            {
-                if (GPU2D.DispCnt & (1<<4))
-                {
-                    // 1D mapping
-                    sprcfg.TileOffset = tilenum << (5 + ((GPU2D.DispCnt >> 20) & 0x3));
-                    sprcfg.TileStride = (width >> 3) * 32;
-                    if (attrib[0] & (1<<13))
-                        sprcfg.TileStride <<= 1;
-                }
-                else
-                {
-                    // 2D mapping
-                    sprcfg.TileOffset = tilenum << 5;
-                    sprcfg.TileStride = 32 * 32;
-                }
-
-                if (attrib[0] & (1<<13))
-                {
-                    // 256-color sprite
-                    sprcfg.Type = 1;
-                    if (GPU2D.DispCnt & (1<<31))
-                        sprcfg.PalOffset = 1 + (attrib[2] >> 12);
-                    else
-                        sprcfg.PalOffset = 0;
-                }
-                else
-                {
-                    // 16-color sprite
-                    sprcfg.Type = 0;
-                    sprcfg.PalOffset = (attrib[2] >> 12) << 4;
-                }
-            }
-
-            NumSprites++;
+            // double-size rotscale sprite
+            boundwidth <<= 1;
+            boundheight <<= 1;
         }
+
+        if (xpos <= -boundwidth)
+            continue;
+
+        bool yc0 = ((ypos + boundheight) > ystart) && (ypos < yend);
+        bool yc1 = (((ypos&0xFF) + boundheight) > ystart) && ((ypos&0xFF) < yend);
+        if (!(yc0 || yc1))
+            continue;
+
+        u32 sprmode = (attrib[0] >> 10) & 0x3;
+        if (sprmode == 3)
+        {
+            if ((GPU2D.DispCnt & 0x60) == 0x60)
+                continue;
+            if ((attrib[2] >> 12) == 0)
+                continue;
+        }
+
+        if (NumSprites >= 128)
+        {
+            printf("GPU2D_OpenGL: SPRITE BUFFER IS FULL!!!!!\n");
+            break;
+        }
+
+        // add this sprite to the OAM array
+        // TODO: if we do partial rendering, we need to check whether it was already in the array
+
+        auto& sprcfg = cfg.uOAM[NumSprites];
+
+        sprcfg.Position[0] = (u32)xpos;
+        sprcfg.Position[1] = (u32)ypos;
+        sprcfg.Size[0] = width;
+        sprcfg.Size[1] = height;
+        sprcfg.BoundSize[0] = boundwidth;
+        sprcfg.BoundSize[1] = boundheight;
+
+        if (sprtype & 1)
+        {
+            sprcfg.Flip[0] = 0;
+            sprcfg.Flip[1] = 0;
+            sprcfg.Rotscale = (attrib[1] >> 9) & 0x1F;
+        }
+        else
+        {
+            sprcfg.Flip[0] = !!(attrib[1] & (1<<12));
+            sprcfg.Flip[1] = !!(attrib[1] & (1<<13));
+            sprcfg.Rotscale = (u32)-1;
+        }
+
+        sprcfg.OBJMode = sprmode;
+        sprcfg.Mosaic = !!(attrib[0] & (1<<12)) && (sprmode != 2);
+        sprcfg.BGPrio = (attrib[2] >> 10) & 0x3;
+
+        u32 tilenum = attrib[2] & 0x3FF;
+
+        if (sprmode == 3)
+        {
+            // bitmap sprite
+
+            sprcfg.Type = 2;
+
+            if (GPU2D.DispCnt & (1<<6))
+            {
+                // 1D mapping
+                sprcfg.TileOffset = tilenum << (7 + ((GPU2D.DispCnt >> 22) & 0x1));
+                sprcfg.TileStride = width * 2;
+            }
+            else
+            {
+                bool is256 = !!(GPU2D.DispCnt & (1<<5));
+                int capblock = -1;
+
+                u32 tileoffset, tilestride;
+                if (is256)
+                {
+                    // 2D mapping, 256 pixels
+                    tileoffset = ((tilenum & 0x01F) << 4) + ((tilenum & 0x3E0) << 7);
+                    tilestride = 256 * 2;
+                }
+                else
+                {
+                    // 2D mapping, 128 pixels
+                    tileoffset = ((tilenum & 0x00F) << 4) + ((tilenum & 0x3F0) << 7);
+                    tilestride = 128 * 2;
+                }
+
+                // if this is a direct color bitmap, and the width is 128 or 256
+                // then it might be a display capture
+                u32 startaddr = tileoffset;
+                u32 endaddr = startaddr + (height * tilestride);
+
+                startaddr >>= 14;
+                endaddr = (endaddr + 0x3FFF) >> 14;
+
+                for (u32 b = startaddr; b < endaddr; b++)
+                {
+                    int blk = captureinfo[b & capturemask];
+                    if (blk == -1) continue;
+
+                    capblock = blk;
+                }
+
+                if (capblock != -1)
+                {
+                    if (!is256)
+                    {
+                        sprcfg.Type = 3;
+                        tilestride = capblock;
+                        tileoffset &= 0x7FFF;
+                    }
+                    else
+                    {
+                        sprcfg.Type = 4;
+                        tilestride = capblock >> 2;
+                        tileoffset &= 0x1FFFF;
+                    }
+                }
+
+                sprcfg.TileOffset = tileoffset;
+                sprcfg.TileStride = tilestride;
+            }
+
+            sprcfg.PalOffset = 1 + (attrib[2] >> 12); // alpha
+        }
+        else
+        {
+            if (GPU2D.DispCnt & (1<<4))
+            {
+                // 1D mapping
+                sprcfg.TileOffset = tilenum << (5 + ((GPU2D.DispCnt >> 20) & 0x3));
+                sprcfg.TileStride = (width >> 3) * 32;
+                if (attrib[0] & (1<<13))
+                    sprcfg.TileStride <<= 1;
+            }
+            else
+            {
+                // 2D mapping
+                sprcfg.TileOffset = tilenum << 5;
+                sprcfg.TileStride = 32 * 32;
+            }
+
+            if (attrib[0] & (1<<13))
+            {
+                // 256-color sprite
+                sprcfg.Type = 1;
+                if (GPU2D.DispCnt & (1<<31))
+                    sprcfg.PalOffset = 1 + (attrib[2] >> 12);
+                else
+                    sprcfg.PalOffset = 0;
+            }
+            else
+            {
+                // 16-color sprite
+                sprcfg.Type = 0;
+                sprcfg.PalOffset = (attrib[2] >> 12) << 4;
+            }
+        }
+
+        NumSprites++;
+
+        if (sprcfg.Mosaic && (GPU2D.OBJMosaicSize[0] > 0))
+            SpriteUseMosaic = true;
     }
 
     glBindBuffer(GL_UNIFORM_BUFFER, SpriteConfigUBO);
@@ -1639,7 +1577,6 @@ void GLRenderer2D::DoRenderSprites(int line)
     glDisable(GL_DEPTH_TEST);
     glDisable(GL_STENCIL_TEST);
     glDisable(GL_BLEND);
-    glDepthMask(GL_FALSE);
 
     glBindBufferBase(GL_UNIFORM_BUFFER, 21, SpriteConfigUBO);
 
@@ -1659,7 +1596,35 @@ void GLRenderer2D::DoRenderSprites(int line)
     glEnable(GL_SCISSOR_TEST);
     glScissor(0, ystart * ScaleFactor, ScreenW, (yend-ystart) * ScaleFactor);
 
+    // NOTE
+    // this requires two passes for mosaic emulation, because mosaic flags get set for
+    // transparent pixels too, and priority is only checked against opaque pixels
+
+    glClearColor(0, 0, 0, 0);
+    glClearDepth(1);
+    glColorMaski(0, GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
+    glColorMaski(1, GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
+    glDepthMask(GL_TRUE);
+    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+
+    glUniform1i(SpriteRenderTransULoc, 1);
+    glColorMaski(0, GL_FALSE, GL_FALSE, GL_FALSE, GL_FALSE);
+    glColorMaski(1, GL_FALSE, GL_TRUE, GL_FALSE, GL_TRUE);
+    glDepthMask(GL_FALSE);
+
+    RenderSprites(false, ystart, yend);
+
+    glUniform1i(SpriteRenderTransULoc, 0);
+    glColorMaski(1, GL_FALSE, GL_FALSE, GL_TRUE, GL_FALSE);
+
     RenderSprites(true, ystart, yend);
+
+    glEnable(GL_DEPTH_TEST);
+    glDepthFunc(GL_LESS);
+    glDepthMask(GL_TRUE);
+    glColorMaski(0, GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
+    glColorMaski(1, GL_TRUE, GL_TRUE, GL_FALSE, GL_TRUE);
+
     RenderSprites(false, ystart, yend);
 
     glDisable(GL_SCISSOR_TEST);
@@ -1667,20 +1632,6 @@ void GLRenderer2D::DoRenderSprites(int line)
 
 void GLRenderer2D::RenderSprites(bool window, int ystart, int yend)
 {
-    if (window)
-    {
-        glColorMaski(0, GL_FALSE, GL_FALSE, GL_FALSE, GL_FALSE);
-        glColorMaski(1, GL_FALSE, GL_FALSE, GL_TRUE, GL_FALSE);
-    }
-    else
-    {
-        glColorMaski(0, GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
-        glColorMaski(1, GL_TRUE, GL_TRUE, GL_FALSE, GL_TRUE);
-    }
-
-    glClearColor(0, 0, 0, 0);
-    glClear(GL_COLOR_BUFFER_BIT);
-
     if (window)
     {
         if (!(GPU2D.DispCnt & (1<<15)))
@@ -1816,6 +1767,8 @@ void GLRenderer2D::DrawSprites(u32 line)
     u32 oammask = 1 << GPU2D.Num;
     bool dirty = false;
     bool screenon = IsScreenOn();
+
+    SpriteConfig.uMosaicLine[line] = GPU2D.OBJMosaicLine;
 
     u32 dispcnt_diff = GPU2D.DispCnt ^ SpriteDispCnt;
     SpriteDispCnt = GPU2D.DispCnt; // TODO CHECKME might not be right to do it here

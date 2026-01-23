@@ -62,6 +62,7 @@ private:
     u16* SpritePreVtxData;
 
     static GLuint SpriteShader;
+    static GLint SpriteRenderTransULoc;
     GLuint SpriteVtxBuffer;
     GLuint SpriteVtxArray;
     u16* SpriteVtxData;
@@ -100,6 +101,7 @@ private:
 
     GLuint OBJLayerFB;
     GLuint OBJLayerTex;
+    GLuint OBJDepthTex;
 
     GLuint OutputFB;
     GLuint OutputTex;
@@ -128,7 +130,7 @@ private:
         u32 uScaleFactor;
         u32 uVRAMMask;
         u32 __pad0[2];
-        u32 uCaptureMask[32];
+        s32 uMosaicLine[192];
         s32 uRotscale[32][4];
         struct sOAM
         {
@@ -147,6 +149,7 @@ private:
         } uOAM[128];
     } SpriteConfig;
     int NumSprites;
+    bool SpriteUseMosaic;
 
     struct sScanlineConfig
     {
