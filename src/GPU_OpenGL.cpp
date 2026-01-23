@@ -459,16 +459,6 @@ void GLRenderer::VBlank()
 
     glViewport(0, 0, ScreenW, ScreenH);
 
-    glUseProgram(FPShader);
-
-    FinalPassConfig.uScaleFactor = ScaleFactor;
-    FinalPassConfig.uDispModeA = (GPU.GPU2D_A.DispCnt >> 16) & 0x3;
-    FinalPassConfig.uDispModeB = (GPU.GPU2D_B.DispCnt >> 16) & 0x1;
-    FinalPassConfig.uBrightModeA = (GPU.MasterBrightnessA >> 14) & 0x3;
-    FinalPassConfig.uBrightModeB = (GPU.MasterBrightnessB >> 14) & 0x3;
-    FinalPassConfig.uBrightFactorA = std::min(GPU.MasterBrightnessA & 0x1F, 16);
-    FinalPassConfig.uBrightFactorB = std::min(GPU.MasterBrightnessB & 0x1F, 16);
-
     int vramcap = -1;
     if (AuxUsageMask & (1<<0))
     {
@@ -477,46 +467,64 @@ void GLRenderer::VBlank()
             vramcap = GPU.GetCaptureBlock_LCDC(vrambank << 17);
     }
 
-    if (AuxUsageMask)
+    if (!GPU.ScreensEnabled)
     {
-        glBindTexture(GL_TEXTURE_2D_ARRAY, AuxInputTex);
-        if ((AuxUsageMask & (1<<0)) && (vramcap == -1))
+        glClearColor(0, 0, 0, 1);
+        glClear(GL_COLOR_BUFFER_BIT);
+    }
+    else
+    {
+        glUseProgram(FPShader);
+
+        FinalPassConfig.uScaleFactor = ScaleFactor;
+        FinalPassConfig.uDispModeA = (GPU.GPU2D_A.DispCnt >> 16) & 0x3;
+        FinalPassConfig.uDispModeB = (GPU.GPU2D_B.DispCnt >> 16) & 0x1;
+        FinalPassConfig.uBrightModeA = (GPU.MasterBrightnessA >> 14) & 0x3;
+        FinalPassConfig.uBrightModeB = (GPU.MasterBrightnessB >> 14) & 0x3;
+        FinalPassConfig.uBrightFactorA = std::min(GPU.MasterBrightnessA & 0x1F, 16);
+        FinalPassConfig.uBrightFactorB = std::min(GPU.MasterBrightnessB & 0x1F, 16);
+
+        if (AuxUsageMask)
         {
-            glTexSubImage3D(GL_TEXTURE_2D_ARRAY, 0, 0, 0, 0, 256, 256, 1, GL_RGBA,
-                            GL_UNSIGNED_SHORT_1_5_5_5_REV, AuxInputBuffer[0]);
+            glBindTexture(GL_TEXTURE_2D_ARRAY, AuxInputTex);
+            if ((AuxUsageMask & (1<<0)) && (vramcap == -1))
+            {
+                glTexSubImage3D(GL_TEXTURE_2D_ARRAY, 0, 0, 0, 0, 256, 256, 1, GL_RGBA,
+                                GL_UNSIGNED_SHORT_1_5_5_5_REV, AuxInputBuffer[0]);
+            }
+            if (AuxUsageMask & (1<<1))
+            {
+                glTexSubImage3D(GL_TEXTURE_2D_ARRAY, 0, 0, 0, 1, 256, 192, 1, GL_RGBA,
+                                GL_UNSIGNED_SHORT_1_5_5_5_REV, AuxInputBuffer[1]);
+            }
         }
-        if (AuxUsageMask & (1<<1))
+
+        glActiveTexture(GL_TEXTURE0);
+        glBindTexture(GL_TEXTURE_2D, OutputTex2D[0]);
+
+        glActiveTexture(GL_TEXTURE1);
+        glBindTexture(GL_TEXTURE_2D, OutputTex2D[1]);
+
+        glActiveTexture(GL_TEXTURE2);
+        u32 modeA = (GPU.GPU2D_A.DispCnt >> 16) & 0x3;
+        if ((modeA == 2) && (vramcap != -1))
         {
-            glTexSubImage3D(GL_TEXTURE_2D_ARRAY, 0, 0, 0, 1, 256, 192, 1, GL_RGBA,
-                            GL_UNSIGNED_SHORT_1_5_5_5_REV, AuxInputBuffer[1]);
+            glBindTexture(GL_TEXTURE_2D_ARRAY, CaptureOutput256Tex);
+            FinalPassConfig.uAuxLayer = vramcap >> 2;
         }
+        else if (modeA >= 2)
+        {
+            glBindTexture(GL_TEXTURE_2D_ARRAY, AuxInputTex);
+            FinalPassConfig.uAuxLayer = (modeA - 2);
+        }
+
+        glBindBuffer(GL_UNIFORM_BUFFER, FPConfigUBO);
+        glBufferSubData(GL_UNIFORM_BUFFER, 0, sizeof(FinalPassConfig), &FinalPassConfig);
+
+        glBindBuffer(GL_ARRAY_BUFFER, FPVertexBufferID);
+        glBindVertexArray(FPVertexArrayID);
+        glDrawArrays(GL_TRIANGLES, 0, 2*3);
     }
-
-    glActiveTexture(GL_TEXTURE0);
-    glBindTexture(GL_TEXTURE_2D, OutputTex2D[0]);
-
-    glActiveTexture(GL_TEXTURE1);
-    glBindTexture(GL_TEXTURE_2D, OutputTex2D[1]);
-
-    glActiveTexture(GL_TEXTURE2);
-    u32 modeA = (GPU.GPU2D_A.DispCnt >> 16) & 0x3;
-    if ((modeA == 2) && (vramcap != -1))
-    {
-        glBindTexture(GL_TEXTURE_2D_ARRAY, CaptureOutput256Tex);
-        FinalPassConfig.uAuxLayer = vramcap >> 2;
-    }
-    else if (modeA >= 2)
-    {
-        glBindTexture(GL_TEXTURE_2D_ARRAY, AuxInputTex);
-        FinalPassConfig.uAuxLayer = (modeA - 2);
-    }
-
-    glBindBuffer(GL_UNIFORM_BUFFER, FPConfigUBO);
-    glBufferSubData(GL_UNIFORM_BUFFER, 0, sizeof(FinalPassConfig), &FinalPassConfig);
-
-    glBindBuffer(GL_ARRAY_BUFFER, FPVertexBufferID);
-    glBindVertexArray(FPVertexArrayID);
-    glDrawArrays(GL_TRIANGLES, 0, 2*3);
 
     if (GPU.CaptureEnable)
         DoCapture(vramcap);

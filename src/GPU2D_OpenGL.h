@@ -179,7 +179,12 @@ private:
 
     int LastLine;
 
+    bool UnitEnabled;
+
     u32 DispCnt;
+    u8 LayerEnable;
+    u8 OBJEnable;
+    u8 ForcedBlank;
     u16 BGCnt[4];
     u16 BlendCnt;
     u8 EVA, EVB, EVY;

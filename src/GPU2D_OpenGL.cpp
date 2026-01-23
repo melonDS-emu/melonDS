@@ -412,7 +412,12 @@ void GLRenderer2D::Reset()
 
     LastLine = 0;
 
+    UnitEnabled = false;
+
     DispCnt = 0;
+    LayerEnable = 0;
+    OBJEnable = 0;
+    ForcedBlank = 0;
     memset(BGCnt, 0, sizeof(BGCnt));
     BlendCnt = 0;
     EVA = 0; EVB = 0; EVY = 0;
@@ -490,9 +495,11 @@ void GLRenderer2D::UpdateAndRender(int line)
     // check if any 'critical' registers were modified
 
     u32 dispcnt_diff;
+    u8 layer_diff;
     u16 bgcnt_diff[4];
 
     dispcnt_diff = GPU2D.DispCnt ^ DispCnt;
+    layer_diff = GPU2D.LayerEnable ^ LayerEnable;
     for (int layer = 0; layer < 4; layer++)
         bgcnt_diff[layer] = GPU2D.BGCnt[layer] ^ BGCnt[layer];
 
@@ -507,7 +514,13 @@ void GLRenderer2D::UpdateAndRender(int line)
     if (dispcnt_diff & 0x7F000000)
         layer_pre_dirty |= 0xF;
 
-    if (dispcnt_diff & 0x000FFF88)
+    if (dispcnt_diff & 0x000FE008)
+        comp_dirty = true;
+    if (layer_diff & 0x1F)
+        comp_dirty = true;
+    if (UnitEnabled != GPU2D.Enabled)
+        comp_dirty = true;
+    if (ForcedBlank != GPU2D.ForcedBlank)
         comp_dirty = true;
 
     for (int layer = 0; layer < 4; layer++)
@@ -626,7 +639,11 @@ void GLRenderer2D::UpdateAndRender(int line)
 
     // update registers
 
+    UnitEnabled = GPU2D.Enabled;
     DispCnt = GPU2D.DispCnt;
+    LayerEnable = GPU2D.LayerEnable;
+    OBJEnable = GPU2D.OBJEnable;
+    ForcedBlank = GPU2D.ForcedBlank;
     for (int layer = 0; layer < 4; layer++)
         BGCnt[layer] = GPU2D.BGCnt[layer];
     BlendCnt = GPU2D.BlendCnt;
@@ -1480,15 +1497,14 @@ void GLRenderer2D::UpdateCompositorConfig()
 
     for (int layer = 0; layer < 4; layer++)
     {
-        if (!(DispCnt & (0x100 << layer)))
+        if (!(LayerEnable & (1 << layer)))
             continue;
 
         int prio = BGCnt[layer] & 0x3;
         CompositorConfig.uBGPrio[layer] = prio;
     }
 
-    // TODO should it account for the other bits?
-    CompositorConfig.uEnableOBJ = !!(DispCnt & (1<<12));
+    CompositorConfig.uEnableOBJ = !!(LayerEnable & (1<<4));
 
     CompositorConfig.uEnable3D = !!(DispCnt & (1<<3));
 
@@ -1698,6 +1714,38 @@ void GLRenderer2D::RenderSprites(bool window, int ystart, int yend)
 
 void GLRenderer2D::RenderScreen(int ystart, int yend)
 {
+    glBindFramebuffer(GL_READ_FRAMEBUFFER, 0);
+    glBindFramebuffer(GL_DRAW_FRAMEBUFFER, OutputFB);
+
+    glDisable(GL_DEPTH_TEST);
+    glDisable(GL_STENCIL_TEST);
+    glDisable(GL_BLEND);
+    glColorMaski(0, GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
+    glDepthMask(GL_FALSE);
+
+    glViewport(0, 0, ScreenW, ScreenH);
+
+    glEnable(GL_SCISSOR_TEST);
+    glScissor(0, ystart * ScaleFactor, ScreenW, (yend-ystart) * ScaleFactor);
+
+    if (ForcedBlank || !UnitEnabled)
+    {
+        if (!UnitEnabled)
+        {
+            if (GPU2D.Num)
+                glClearColor(1, 1, 1, 1);
+            else
+                glClearColor(0, 0, 0, 1);
+        }
+        else
+            glClearColor(1, 1, 1, 1);
+
+        glClear(GL_COLOR_BUFFER_BIT);
+
+        glDisable(GL_SCISSOR_TEST);
+        return;
+    }
+
     glUseProgram(CompositorShader);
 
     glBindBufferBase(GL_UNIFORM_BUFFER, 20, LayerConfigUBO);
@@ -1714,17 +1762,6 @@ void GLRenderer2D::RenderScreen(int ystart, int yend)
     glUniform1i(CompositorScaleULoc, ScaleFactor);
 
     UpdateCompositorConfig();
-
-    glBindFramebuffer(GL_READ_FRAMEBUFFER, 0);
-    glBindFramebuffer(GL_DRAW_FRAMEBUFFER, OutputFB);
-
-    glDisable(GL_DEPTH_TEST);
-    glDisable(GL_STENCIL_TEST);
-    glDisable(GL_BLEND);
-    glColorMaski(0, GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
-    glDepthMask(GL_FALSE);
-
-    glViewport(0, 0, ScreenW, ScreenH);
 
     for (int i = 0; i < 4; i++)
     {
@@ -1751,9 +1788,6 @@ void GLRenderer2D::RenderScreen(int ystart, int yend)
 
     glActiveTexture(GL_TEXTURE7);
     glBindTexture(GL_TEXTURE_2D, MosaicTex);
-
-    glEnable(GL_SCISSOR_TEST);
-    glScissor(0, ystart * ScaleFactor, ScreenW, (yend-ystart) * ScaleFactor);
 
     glBindBuffer(GL_ARRAY_BUFFER, Parent.RectVtxBuffer);
     glBindVertexArray(Parent.RectVtxArray);
