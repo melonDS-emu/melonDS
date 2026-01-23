@@ -11,6 +11,8 @@ set(OPENGL_SHADER_FILES
     FinalPassFS.glsl
     CaptureVS.glsl
     CaptureFS.glsl
+    CaptureDownscaleVS.glsl
+    CaptureDownscaleFS.glsl
 
     3DClearVS.glsl
     3DClearFS.glsl

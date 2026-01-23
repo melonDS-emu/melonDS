@@ -1,7 +1,7 @@
 #version 140
 
 uniform usampler2D VRAMTex;
-uniform usampler2D PalTex;
+uniform sampler2D PalTex;
 
 struct sOAM
 {
@@ -36,14 +36,10 @@ out vec4 oColor;
 vec4 GetOBJPalEntry(int pal, int id)
 {
     ivec2 coord = ivec2(id, pal);
-    //return texelFetch(PalTex, coord, 0);
-    int col = int(texelFetch(PalTex, coord, 0).r);
-    ivec4 ret;
-    ret.r = (col & 0x1F) << 1;
-    ret.g = ((col & 0x3E0) >> 4) | (col >> 15);
-    ret.b = (col & 0x7C00) >> 9;
-    ret.a = 0xFF;
-    return vec4(ret) / vec4(63,63,63,255);
+    vec4 col = texelFetch(PalTex, coord, 0);
+    col.rgb *= (62.0/63.0);
+    col.g += (col.a * 1.0/63.0);
+    return col;
 }
 
 int VRAMRead8(int addr)

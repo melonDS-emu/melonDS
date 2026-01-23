@@ -27,6 +27,8 @@ namespace melonDS
 #include "OpenGL_shaders/FinalPassFS.h"
 #include "OpenGL_shaders/CaptureVS.h"
 #include "OpenGL_shaders/CaptureFS.h"
+#include "OpenGL_shaders/CaptureDownscaleVS.h"
+#include "OpenGL_shaders/CaptureDownscaleFS.h"
 
 
 GLRenderer::GLRenderer(melonDS::NDS& nds, bool compute)
@@ -76,7 +78,28 @@ bool GLRenderer::Init()
                                               {{"oColor", 0}}))
         return false;
 
+    if (!OpenGL::CompileVertexFragmentProgram(CapDownShader,
+                                              kCaptureDownscaleVS, kCaptureDownscaleFS,
+                                              "2DCaptureDownscaleShader",
+                                              {{"vPosition", 0}},
+                                              {{"oColor", 0}}))
+        return false;
+
     // vertex buffers
+
+    const float rectvertices[2*2*3] = {
+            0, 1,   1, 0,   1, 1,
+            0, 1,   0, 0,   1, 0
+    };
+
+    glGenBuffers(1, &RectVtxBuffer);
+    glBindBuffer(GL_ARRAY_BUFFER, RectVtxBuffer);
+    glBufferData(GL_ARRAY_BUFFER, sizeof(rectvertices), rectvertices, GL_STATIC_DRAW);
+
+    glGenVertexArrays(1, &RectVtxArray);
+    glBindVertexArray(RectVtxArray);
+    glEnableVertexAttribArray(0); // position
+    glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, 2 * sizeof(float), (void*)0);
 
     float vertices[12][4];
 #define SETVERTEX(i, x, y) \
@@ -199,6 +222,15 @@ bool GLRenderer::Init()
     uniloc = glGetUniformBlockIndex(CaptureShader, "uCaptureConfig");
     glUniformBlockBinding(CaptureShader, uniloc, 31);
 
+
+    glUseProgram(CapDownShader);
+
+    uniloc = glGetUniformLocation(CapDownShader, "InputTex");
+    glUniform1i(uniloc, 0);
+
+    CapDownInputLayerULoc = glGetUniformLocation(CapDownShader, "uInputLayer");
+
+
     if (!Rend2D_A->Init()) return false;
     if (!Rend2D_B->Init()) return false;
     if (!Rend3D->Init()) return false;
@@ -212,6 +244,10 @@ GLRenderer::~GLRenderer()
     // TODO need to delete all shader objects!!
     glDeleteProgram(FPShader);
     glDeleteProgram(CaptureShader);
+    glDeleteProgram(CapDownShader);
+
+    glDeleteBuffers(1, &RectVtxBuffer);
+    glDeleteVertexArrays(1, &RectVtxArray);
 
     glDeleteBuffers(1, &FPVertexBufferID);
     glDeleteVertexArrays(1, &FPVertexArrayID);
@@ -684,6 +720,30 @@ void GLRenderer::AllocCapture(u32 bank, u32 start, u32 len)
     printf("GL: alloc capture in bank %d, start=%d len=%d\n", bank, start, len);
 }
 
+void GLRenderer::DownscaleCapture(int width, int height, int layer)
+{
+    // downscale a hi-res capture buffer to 1x IR, and convert to RGBA5551
+    // we need to do this with a shader so we can accurately downscale color components
+
+    glUseProgram(CapDownShader);
+
+    glBindFramebuffer(GL_READ_FRAMEBUFFER, 0);
+    glBindFramebuffer(GL_DRAW_FRAMEBUFFER, CaptureSyncFB);
+
+    glViewport(0, 0, width, height);
+
+    glActiveTexture(GL_TEXTURE0);
+    if (width == 128)
+        glBindTexture(GL_TEXTURE_2D_ARRAY, CaptureOutput128Tex);
+    else
+        glBindTexture(GL_TEXTURE_2D_ARRAY, CaptureOutput256Tex);
+    glUniform1i(CapDownInputLayerULoc, layer);
+
+    glBindBuffer(GL_ARRAY_BUFFER, RectVtxBuffer);
+    glBindVertexArray(RectVtxArray);
+    glDrawArrays(GL_TRIANGLES, 0, 2*3);
+}
+
 void GLRenderer::SyncVRAMCapture(u32 bank, u32 start, u32 len, bool complete)
 {
     printf("SYNC VRAM CAPTURE: %d %d %d %d\n", bank, start, len, complete);
@@ -693,13 +753,11 @@ void GLRenderer::SyncVRAMCapture(u32 bank, u32 start, u32 len, bool complete)
 
     u8* vram = GPU.VRAM[bank];
 
+    glDisable(GL_DITHER);
+
     if (len == 0) // 128x128
     {
-        glBindFramebuffer(GL_READ_FRAMEBUFFER, CaptureOutput128FB[(bank<<2) | start]);
-        glBindFramebuffer(GL_DRAW_FRAMEBUFFER, CaptureSyncFB);
-        glBlitFramebuffer(0, 0, 128 * ScaleFactor, 128 * ScaleFactor,
-                          0, 0, 128, 128,
-                          GL_COLOR_BUFFER_BIT, GL_NEAREST);
+        DownscaleCapture(128, 128, (bank<<2) | start);
 
         glBindFramebuffer(GL_READ_FRAMEBUFFER, CaptureSyncFB);
 
@@ -711,11 +769,7 @@ void GLRenderer::SyncVRAMCapture(u32 bank, u32 start, u32 len, bool complete)
     }
     else
     {
-        glBindFramebuffer(GL_READ_FRAMEBUFFER, CaptureOutput256FB[bank]);
-        glBindFramebuffer(GL_DRAW_FRAMEBUFFER, CaptureSyncFB);
-        glBlitFramebuffer(0, 0, 256 * ScaleFactor, 256 * ScaleFactor,
-                          0, 0, 256, 256,
-                          GL_COLOR_BUFFER_BIT, GL_NEAREST);
+        DownscaleCapture(256, 256, bank);
 
         glBindFramebuffer(GL_READ_FRAMEBUFFER, CaptureSyncFB);
 

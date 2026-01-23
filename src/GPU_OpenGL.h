@@ -63,6 +63,9 @@ private:
     int ScaleFactor;
     int ScreenW, ScreenH;
 
+    GLuint RectVtxBuffer;
+    GLuint RectVtxArray;
+
     GLuint OutputTex3D;
     GLuint OutputTex2D[2];
 
@@ -118,6 +121,9 @@ private:
     GLuint CaptureOutput128FB[16];
     GLuint CaptureOutput128Tex;
 
+    GLuint CapDownShader;
+    GLint CapDownInputLayerULoc;
+
     GLuint CaptureSyncFB;
     GLuint CaptureSyncTex;
 
@@ -127,6 +133,7 @@ private:
     void SetScaleFactor(int scale);
 
     void DoCapture(int vramcap);
+    void DownscaleCapture(int width, int height, int layer);
 };
 
 }

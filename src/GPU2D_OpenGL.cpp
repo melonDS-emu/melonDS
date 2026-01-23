@@ -187,20 +187,6 @@ bool GLRenderer2D::Init()
         delete[] mosaic_tex;
     }
 
-    const float rectvertices[2*2*3] = {
-        0, 1,   1, 0,   1, 1,
-        0, 1,   0, 0,   1, 0
-    };
-
-    glGenBuffers(1, &RectVtxBuffer);
-    glBindBuffer(GL_ARRAY_BUFFER, RectVtxBuffer);
-    glBufferData(GL_ARRAY_BUFFER, sizeof(rectvertices), rectvertices, GL_STATIC_DRAW);
-
-    glGenVertexArrays(1, &RectVtxArray);
-    glBindVertexArray(RectVtxArray);
-    glEnableVertexAttribArray(0); // position
-    glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, 2 * sizeof(float), (void*)0);
-
     // sprite prerender vertex data: 2x position, 1x sprite index
     int sprdatasize = (4 * 6) * 128;
     SpritePreVtxData = new u16[sprdatasize];
@@ -256,14 +242,12 @@ bool GLRenderer2D::Init()
     glGenTextures(1, &PalTex_BG);
     glBindTexture(GL_TEXTURE_2D, PalTex_BG);
     glDefaultTexParams(GL_TEXTURE_2D);
-    //glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB5_A1, 256, 1+(4*16), 0, GL_RGBA, GL_UNSIGNED_SHORT_1_5_5_5_REV, nullptr);
-    glTexImage2D(GL_TEXTURE_2D, 0, GL_R16UI, 256, 1+(4*16), 0, GL_RED_INTEGER, GL_UNSIGNED_SHORT, nullptr);
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB5_A1, 256, 1+(4*16), 0, GL_RGBA, GL_UNSIGNED_SHORT_1_5_5_5_REV, nullptr);
 
     glGenTextures(1, &PalTex_OBJ);
     glBindTexture(GL_TEXTURE_2D, PalTex_OBJ);
     glDefaultTexParams(GL_TEXTURE_2D);
-    //glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB5_A1, 256, 1+16, 0, GL_RGBA, GL_UNSIGNED_SHORT_1_5_5_5_REV, nullptr);
-    glTexImage2D(GL_TEXTURE_2D, 0, GL_R16UI, 256, 1+16, 0, GL_RED_INTEGER, GL_UNSIGNED_SHORT, nullptr);
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB5_A1, 256, 1+16, 0, GL_RGBA, GL_UNSIGNED_SHORT_1_5_5_5_REV, nullptr);
 
     // generate texture to hold pre-rendered BG layers
 
@@ -373,9 +357,6 @@ GLRenderer2D::~GLRenderer2D()
 
         glDeleteTextures(1, &MosaicTex);
     }
-
-    glDeleteBuffers(1, &RectVtxBuffer);
-    glDeleteVertexArrays(1, &RectVtxArray);
 
     glDeleteBuffers(1, &SpritePreVtxBuffer);
     glDeleteVertexArrays(1, &SpritePreVtxArray);
@@ -742,8 +723,7 @@ void GLRenderer2D::UpdateAndRender(int line)
 
         glActiveTexture(GL_TEXTURE1);
         glBindTexture(GL_TEXTURE_2D, PalTex_BG);
-        //glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, 256, 1+(4*16), GL_RGBA, GL_UNSIGNED_SHORT_1_5_5_5_REV, TempPalBuffer);
-        glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, 256, 1+(4*16), GL_RED_INTEGER, GL_UNSIGNED_SHORT, TempPalBuffer);
+        glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, 256, 1+(4*16), GL_RGBA, GL_UNSIGNED_SHORT_1_5_5_5_REV, TempPalBuffer);
 
         // pre-render BG layers with the new settings
 
@@ -786,8 +766,7 @@ void GLRenderer2D::UpdateAndRender(int line)
 
         glActiveTexture(GL_TEXTURE1);
         glBindTexture(GL_TEXTURE_2D, PalTex_OBJ);
-        //glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, 256, 1+16, GL_RGBA, GL_UNSIGNED_SHORT_1_5_5_5_REV, TempPalBuffer);
-        glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, 256, 1+16, GL_RED_INTEGER, GL_UNSIGNED_SHORT, TempPalBuffer);
+        glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, 256, 1+16, GL_RGBA, GL_UNSIGNED_SHORT_1_5_5_5_REV, TempPalBuffer);
 
         PrerenderSprites();
 
@@ -1644,8 +1623,8 @@ void GLRenderer2D::PrerenderLayer(int layer)
     // set layer size
     glViewport(0, 0, cfg.Size[0], cfg.Size[1]);
 
-    glBindBuffer(GL_ARRAY_BUFFER, RectVtxBuffer);
-    glBindVertexArray(RectVtxArray);
+    glBindBuffer(GL_ARRAY_BUFFER, Parent.RectVtxBuffer);
+    glBindVertexArray(Parent.RectVtxArray);
     glDrawArrays(GL_TRIANGLES, 0, 2*3);
 }
 
@@ -1825,8 +1804,8 @@ void GLRenderer2D::RenderScreen(int ystart, int yend)
     glEnable(GL_SCISSOR_TEST);
     glScissor(0, ystart * ScaleFactor, ScreenW, (yend-ystart) * ScaleFactor);
 
-    glBindBuffer(GL_ARRAY_BUFFER, RectVtxBuffer);
-    glBindVertexArray(RectVtxArray);
+    glBindBuffer(GL_ARRAY_BUFFER, Parent.RectVtxBuffer);
+    glBindVertexArray(Parent.RectVtxArray);
     glDrawArrays(GL_TRIANGLES, 0, 2*3);
 
     glDisable(GL_SCISSOR_TEST);

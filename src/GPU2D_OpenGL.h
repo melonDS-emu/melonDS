@@ -51,9 +51,6 @@ private:
 
     static int ShaderCount;
 
-    GLuint RectVtxBuffer;
-    GLuint RectVtxArray;
-
     static GLuint LayerPreShader;
     static GLint LayerPreCurBGULoc;
 
