@@ -484,6 +484,20 @@ bool GLRenderer2D::IsScreenOn()
     if ((brightmode == 1 || brightmode == 2) && brightness >= 16)
         return false;
 
+    u16 layers = GPU2D.LayerEnable | 0x20;
+    u16 bldeffect = (GPU2D.BlendCnt >> 6) & 0x3;
+    u16 bldlayers = GPU2D.BlendCnt & layers & 0x3F;
+    if ((bldeffect == 2 || bldeffect == 3) && bldlayers == layers && GPU2D.EVY >= 16 &&
+        !(GPU2D.DispCnt & 0xE000))
+        return false;
+
+    u32 dispmode = (GPU2D.DispCnt >> 16) & 0x3;
+    if (dispmode != 1)
+    {
+        if (GPU2D.Num) return false;
+        if (!GPU.CaptureEnable) return false;
+    }
+
     return true;
 }
 
@@ -514,7 +528,7 @@ void GLRenderer2D::UpdateAndRender(int line)
     if (dispcnt_diff & 0x7F000000)
         layer_pre_dirty |= 0xF;
 
-    if (dispcnt_diff & 0x000FE008)
+    if (dispcnt_diff & 0x0000E008)
         comp_dirty = true;
     if (layer_diff & 0x1F)
         comp_dirty = true;
