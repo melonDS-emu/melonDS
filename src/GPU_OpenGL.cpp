@@ -241,7 +241,6 @@ bool GLRenderer::Init()
 
 GLRenderer::~GLRenderer()
 {
-    // TODO need to delete all shader objects!!
     glDeleteProgram(FPShader);
     glDeleteProgram(CaptureShader);
     glDeleteProgram(CapDownShader);
@@ -370,8 +369,6 @@ void GLRenderer::SetScaleFactor(int scale)
 
 void GLRenderer::DrawScanline(u32 line)
 {
-    // TODO: forced blank
-
     Rend2D_A->DrawScanline(line);
     Rend2D_B->DrawScanline(line);
 

@@ -292,6 +292,10 @@ void GPU::SetRenderer(std::unique_ptr<Renderer>&& renderer) noexcept
             Rend->Reset();
             good = true;
         }
+        else
+        {
+            // TODO: report error to platform
+        }
     }
 
     if (!good)
