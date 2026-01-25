@@ -278,6 +278,17 @@ void GLRenderer::Reset()
 
     AuxUsageMask = 0;
 
+    DispCntA = 0;
+    DispCntB = 0;
+    MasterBrightnessA = 0;
+    MasterBrightnessB = 0;
+    CaptureCnt = 0;
+
+    NeedPartialRender = false;
+    LastLine = 0;
+    LastCapLine = 0;
+    Aux0VRAMCap = -1;
+
     Rend2D_A->Reset();
     Rend2D_B->Reset();
     Rend3D->Reset();
@@ -369,8 +380,48 @@ void GLRenderer::SetScaleFactor(int scale)
 
 void GLRenderer::DrawScanline(u32 line)
 {
+    u32 dispcnt_a_diff = DispCntA ^ GPU.GPU2D_A.DispCnt;
+    u32 dispcnt_b_diff = DispCntB ^ GPU.GPU2D_B.DispCnt;
+    u32 capturecnt_diff = CaptureCnt ^ GPU.CaptureCnt;
+
+    bool need_render = false;
+    bool need_capture = false;
+
+    if (dispcnt_a_diff & 0xF0000)
+        need_render = true;
+    else if (dispcnt_b_diff & 0x10000)
+        need_render = true;
+    else if (MasterBrightnessA != GPU.MasterBrightnessA ||
+             MasterBrightnessB != GPU.MasterBrightnessB)
+        need_render = true;
+
+    if (GPU.CaptureEnable && (capturecnt_diff & 0x7FFFFFFF))
+    {
+        need_render = true;
+        need_capture = true;
+    }
+
+    NeedPartialRender = need_render;
     Rend2D_A->DrawScanline(line);
     Rend2D_B->DrawScanline(line);
+
+    if (need_render && (line > 0))
+    {
+        RenderScreen(LastLine, line);
+        LastLine = line;
+    }
+
+    if (need_capture && (line > 0))
+    {
+        DoCapture(LastCapLine, line);
+        LastCapLine = line;
+    }
+
+    DispCntA = GPU.GPU2D_A.DispCnt;
+    DispCntB = GPU.GPU2D_B.DispCnt;
+    MasterBrightnessA = GPU.MasterBrightnessA;
+    MasterBrightnessB = GPU.MasterBrightnessB;
+    CaptureCnt = GPU.CaptureCnt;
 
     FinalPassConfig.uScreenSwap[line] = GPU.ScreenSwap;
 
@@ -438,11 +489,8 @@ void GLRenderer::DrawSprites(u32 line)
 }
 
 
-void GLRenderer::VBlank()
+void GLRenderer::RenderScreen(int ystart, int yend)
 {
-    Rend2D_A->VBlank();
-    Rend2D_B->VBlank();
-
     int backbuf = BackBuffer;
     glBindFramebuffer(GL_READ_FRAMEBUFFER, 0);
     glBindFramebuffer(GL_DRAW_FRAMEBUFFER, FPOutputFB[backbuf]);
@@ -456,6 +504,10 @@ void GLRenderer::VBlank()
 
     glViewport(0, 0, ScreenW, ScreenH);
 
+    // TODO: adjust incoming vertices instead of doing this?
+    glEnable(GL_SCISSOR_TEST);
+    glScissor(0, ystart * ScaleFactor, ScreenW, (yend-ystart) * ScaleFactor);
+
     int vramcap = -1;
     if (AuxUsageMask & (1<<0))
     {
@@ -463,6 +515,7 @@ void GLRenderer::VBlank()
         if (GPU.VRAMMap_LCDC & (1<<vrambank))
             vramcap = GPU.GetCaptureBlock_LCDC(vrambank << 17);
     }
+    Aux0VRAMCap = vramcap;
 
     if (!GPU.ScreensEnabled)
     {
@@ -474,12 +527,12 @@ void GLRenderer::VBlank()
         glUseProgram(FPShader);
 
         FinalPassConfig.uScaleFactor = ScaleFactor;
-        FinalPassConfig.uDispModeA = (GPU.GPU2D_A.DispCnt >> 16) & 0x3;
-        FinalPassConfig.uDispModeB = (GPU.GPU2D_B.DispCnt >> 16) & 0x1;
-        FinalPassConfig.uBrightModeA = (GPU.MasterBrightnessA >> 14) & 0x3;
-        FinalPassConfig.uBrightModeB = (GPU.MasterBrightnessB >> 14) & 0x3;
-        FinalPassConfig.uBrightFactorA = std::min(GPU.MasterBrightnessA & 0x1F, 16);
-        FinalPassConfig.uBrightFactorB = std::min(GPU.MasterBrightnessB & 0x1F, 16);
+        FinalPassConfig.uDispModeA = (DispCntA >> 16) & 0x3;
+        FinalPassConfig.uDispModeB = (DispCntB >> 16) & 0x1;
+        FinalPassConfig.uBrightModeA = (MasterBrightnessA >> 14) & 0x3;
+        FinalPassConfig.uBrightModeB = (MasterBrightnessB >> 14) & 0x3;
+        FinalPassConfig.uBrightFactorA = std::min(MasterBrightnessA & 0x1F, 16);
+        FinalPassConfig.uBrightFactorB = std::min(MasterBrightnessB & 0x1F, 16);
 
         if (AuxUsageMask)
         {
@@ -523,8 +576,21 @@ void GLRenderer::VBlank()
         glDrawArrays(GL_TRIANGLES, 0, 2*3);
     }
 
+    glDisable(GL_SCISSOR_TEST);
+}
+
+void GLRenderer::VBlank()
+{
+    Rend2D_A->VBlank();
+    Rend2D_B->VBlank();
+
+    RenderScreen(LastLine, 192);
+
     if (GPU.CaptureEnable)
-        DoCapture(vramcap);
+        DoCapture(LastCapLine, 192);
+
+    LastLine = 0;
+    LastCapLine = 0;
 }
 
 void GLRenderer::VBlankEnd()
@@ -533,10 +599,8 @@ void GLRenderer::VBlankEnd()
 }
 
 
-void GLRenderer::DoCapture(int vramcap)
+void GLRenderer::DoCapture(int ystart, int yend)
 {
-    glUseProgram(CaptureShader);
-
     u32 dispcnt = GPU.GPU2D_A.DispCnt;
     u32 capcnt = GPU.CaptureCnt;
     u32 dispmode = (dispcnt >> 16) & 0x3;
@@ -550,6 +614,28 @@ void GLRenderer::DoCapture(int vramcap)
     u32 dstmode = (capcnt >> 29) & 0x3;
     u32 eva = std::min(capcnt & 0x1F, 16u);
     u32 evb = std::min((capcnt >> 8) & 0x1F, 16u);
+
+    // determine the region we're going to capture to
+
+    int dstwidth, dstheight;
+
+    if (capsize == 0)
+    {
+        dstwidth = 128;
+        dstheight = 128;
+    }
+    else
+    {
+        dstwidth = 256;
+        dstheight = 64 * capsize;
+    }
+
+    if (ystart >= dstheight)
+        return;
+    if (yend > dstheight)
+        yend = dstheight;
+
+    glUseProgram(CaptureShader);
 
     GLuint inputA;
     if (srcA)
@@ -570,7 +656,7 @@ void GLRenderer::DoCapture(int vramcap)
     GLuint inputB = AuxInputTex;
     u32 layerB = srcB;
 
-    if (useSrcB && (vramcap != -1))
+    if (useSrcB && (Aux0VRAMCap != -1))
     {
         // hi-res VRAM
         if (dstblock == srcBblock)
@@ -580,15 +666,33 @@ void GLRenderer::DoCapture(int vramcap)
             // but we can't do that with OpenGL
             // so we need to blit it to a temporary framebuffer
 
+            int blitY0 = (srcBoffset * 64) + ystart;
+            int blitY1 = (srcBoffset * 64) + yend;
+
             if (dstoffset != srcBoffset)
                 printf("GPU2D_OpenGL: MISMATCHED VRAM OFFSETS ON SAME BANK!!! bank=%d src=%d dst=%d\n",
                        dstblock, srcBoffset, dstoffset);
 
             glBindFramebuffer(GL_READ_FRAMEBUFFER, CaptureOutput256FB[srcBblock]);
             glBindFramebuffer(GL_DRAW_FRAMEBUFFER, CaptureVRAMFB);
-            glBlitFramebuffer(0, 0, 256 * ScaleFactor, 256 * ScaleFactor,
-                              0, 0, 256 * ScaleFactor, 256 * ScaleFactor,
-                              GL_COLOR_BUFFER_BIT, GL_NEAREST);
+
+            if (blitY1 > 256)
+            {
+                // wraparound
+                glBlitFramebuffer(0, blitY0*ScaleFactor, 256*ScaleFactor, 256*ScaleFactor,
+                                  0, blitY0*ScaleFactor, 256*ScaleFactor, 256*ScaleFactor,
+                                  GL_COLOR_BUFFER_BIT, GL_NEAREST);
+                glBlitFramebuffer(0, 0, 256*ScaleFactor, (blitY1-256)*ScaleFactor,
+                                  0, 0, 256*ScaleFactor, (blitY1-256)*ScaleFactor,
+                                  GL_COLOR_BUFFER_BIT, GL_NEAREST);
+            }
+            else
+            {
+                // straightforward
+                glBlitFramebuffer(0, blitY0*ScaleFactor, 256*ScaleFactor, blitY1*ScaleFactor,
+                                  0, blitY0*ScaleFactor, 256*ScaleFactor, blitY1*ScaleFactor,
+                                  GL_COLOR_BUFFER_BIT, GL_NEAREST);
+            }
 
             inputB = CaptureVRAMTex;
             layerB = 0;
@@ -606,19 +710,15 @@ void GLRenderer::DoCapture(int vramcap)
     {
         glBindFramebuffer(GL_DRAW_FRAMEBUFFER, CaptureOutput128FB[(dstblock << 2) | dstoffset]);
         glViewport(0, 0, 128*ScaleFactor, 128*ScaleFactor);
-
-        CaptureConfig.uCaptureSize[0] = 128;
-        CaptureConfig.uCaptureSize[1] = 128;
     }
     else
     {
         glBindFramebuffer(GL_DRAW_FRAMEBUFFER, CaptureOutput256FB[dstblock]);
         glViewport(0, 0, 256*ScaleFactor, 256*ScaleFactor);
-
-        CaptureConfig.uCaptureSize[0] = 256;
-        CaptureConfig.uCaptureSize[1] = 64 * capsize;
     }
 
+    CaptureConfig.uCaptureSize[0] = dstwidth;
+    CaptureConfig.uCaptureSize[1] = dstheight;
     CaptureConfig.uScaleFactor = ScaleFactor;
 
     if (srcB == 0)
@@ -628,7 +728,7 @@ void GLRenderer::DoCapture(int vramcap)
 
     CaptureConfig.uSrcBLayer = layerB;
 
-    CaptureConfig.uDstOffset = 64 * dstoffset;
+    CaptureConfig.uDstOffset = 64 * dstoffset; // TODO: not needed
     CaptureConfig.uDstMode = dstmode;
     CaptureConfig.uBlendFactors[0] = eva;
     CaptureConfig.uBlendFactors[1] = evb;
@@ -650,63 +750,46 @@ void GLRenderer::DoCapture(int vramcap)
     u16* vptr = vtxbuf;
     int numvtx;
 
-    if (capsize == 0)
+    // y0/y1 = coordinates in destination buffer
+    // t0/t1 = coordinates in source buffers
+    if (capsize == 0) dstoffset = 0;
+    int y0 = (dstoffset * 64) + ystart;
+    int y1 = (dstoffset * 64) + yend;
+    int t0 = ystart;
+    int t1 = yend;
+
+    int bufferheight = (capsize == 0) ? 128 : 256;
+    if (y1 > bufferheight)
     {
-        // 128x128
-        *vptr++ = 0;   *vptr++ = 128; *vptr++ = 0;   *vptr++ = 128;
-        *vptr++ = 128; *vptr++ = 0;   *vptr++ = 128; *vptr++ = 0;
-        *vptr++ = 128; *vptr++ = 128; *vptr++ = 128; *vptr++ = 128;
-        *vptr++ = 0;   *vptr++ = 128; *vptr++ = 0;   *vptr++ = 128;
-        *vptr++ = 0;   *vptr++ = 0;   *vptr++ = 0;   *vptr++ = 0;
-        *vptr++ = 128; *vptr++ = 0;   *vptr++ = 128; *vptr++ = 0;
+        // wraparound
+        int y2 = bufferheight;
+        int t2 = t0 + (y2 - y0);
+        *vptr++ = 0;        *vptr++ = y2; *vptr++ = 0;         *vptr++ = t2;
+        *vptr++ = dstwidth; *vptr++ = y0; *vptr++ = dstwidth;  *vptr++ = t0;
+        *vptr++ = dstwidth; *vptr++ = y2; *vptr++ = dstwidth;  *vptr++ = t2;
+        *vptr++ = 0;        *vptr++ = y2; *vptr++ = 0;         *vptr++ = t2;
+        *vptr++ = 0;        *vptr++ = y0; *vptr++ = 0;         *vptr++ = t0;
+        *vptr++ = dstwidth; *vptr++ = y0; *vptr++ = dstwidth;  *vptr++ = t0;
 
-        numvtx = 6;
-    }
-    else if ((dstoffset + capsize) > 4)
-    {
-        // 256xN, wraparound
-        u16 y0, y1, t0, t1;
-        u32 h0 = 4 - dstoffset;
-
-        y0 = dstoffset * 64;
-        y1 = 256;
-        t0 = 0;
-        t1 = h0 * 64;
-        *vptr++ = 0;   *vptr++ = y1; *vptr++ = 0;   *vptr++ = t1;
-        *vptr++ = 256; *vptr++ = y0; *vptr++ = 256; *vptr++ = t0;
-        *vptr++ = 256; *vptr++ = y1; *vptr++ = 256; *vptr++ = t1;
-        *vptr++ = 0;   *vptr++ = y1; *vptr++ = 0;   *vptr++ = t1;
-        *vptr++ = 0;   *vptr++ = y0; *vptr++ = 0;   *vptr++ = t0;
-        *vptr++ = 256; *vptr++ = y0; *vptr++ = 256; *vptr++ = t0;
-
-        y0 = 0;
-        y1 = (capsize - h0) * 64;
-        t0 = h0 * 64;
-        t1 = capsize * 64;
-        *vptr++ = 0;   *vptr++ = y1; *vptr++ = 0;   *vptr++ = t1;
-        *vptr++ = 256; *vptr++ = y0; *vptr++ = 256; *vptr++ = t0;
-        *vptr++ = 256; *vptr++ = y1; *vptr++ = 256; *vptr++ = t1;
-        *vptr++ = 0;   *vptr++ = y1; *vptr++ = 0;   *vptr++ = t1;
-        *vptr++ = 0;   *vptr++ = y0; *vptr++ = 0;   *vptr++ = t0;
-        *vptr++ = 256; *vptr++ = y0; *vptr++ = 256; *vptr++ = t0;
+        y2 = y1 - bufferheight;
+        *vptr++ = 0;        *vptr++ = y2; *vptr++ = 0;         *vptr++ = t1;
+        *vptr++ = dstwidth; *vptr++ = 0;  *vptr++ = dstwidth;  *vptr++ = t2;
+        *vptr++ = dstwidth; *vptr++ = y2; *vptr++ = dstwidth;  *vptr++ = t1;
+        *vptr++ = 0;        *vptr++ = y2; *vptr++ = 0;         *vptr++ = t1;
+        *vptr++ = 0;        *vptr++ = 0;  *vptr++ = 0;         *vptr++ = t2;
+        *vptr++ = dstwidth; *vptr++ = 0;  *vptr++ = dstwidth;  *vptr++ = t2;
 
         numvtx = 12;
     }
     else
     {
-        // 256xN, no wraparound
-        u16 y0, y1, t0, t1;
-
-        y0 = dstoffset * 64;
-        y1 = (dstoffset + capsize) * 64;
-        t0 = 0;
-        t1 = capsize * 64;
-        *vptr++ = 0;   *vptr++ = y1; *vptr++ = 0;   *vptr++ = t1;
-        *vptr++ = 256; *vptr++ = y0; *vptr++ = 256; *vptr++ = t0;
-        *vptr++ = 256; *vptr++ = y1; *vptr++ = 256; *vptr++ = t1;
-        *vptr++ = 0;   *vptr++ = y1; *vptr++ = 0;   *vptr++ = t1;
-        *vptr++ = 0;   *vptr++ = y0; *vptr++ = 0;   *vptr++ = t0;
-        *vptr++ = 256; *vptr++ = y0; *vptr++ = 256; *vptr++ = t0;
+        // straightforward
+        *vptr++ = 0;        *vptr++ = y1; *vptr++ = 0;         *vptr++ = t1;
+        *vptr++ = dstwidth; *vptr++ = y0; *vptr++ = dstwidth;  *vptr++ = t0;
+        *vptr++ = dstwidth; *vptr++ = y1; *vptr++ = dstwidth;  *vptr++ = t1;
+        *vptr++ = 0;        *vptr++ = y1; *vptr++ = 0;         *vptr++ = t1;
+        *vptr++ = 0;        *vptr++ = y0; *vptr++ = 0;         *vptr++ = t0;
+        *vptr++ = dstwidth; *vptr++ = y0; *vptr++ = dstwidth;  *vptr++ = t0;
 
         numvtx = 6;
     }

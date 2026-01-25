@@ -130,9 +130,19 @@ private:
     u16* AuxInputBuffer[2];
     u8 AuxUsageMask;
 
+    u32 DispCntA, DispCntB;
+    u16 MasterBrightnessA, MasterBrightnessB;
+    u32 CaptureCnt;
+
+    bool NeedPartialRender;
+    int LastLine;
+    int LastCapLine;
+    int Aux0VRAMCap;
+
     void SetScaleFactor(int scale);
 
-    void DoCapture(int vramcap);
+    void RenderScreen(int ystart, int yend);
+    void DoCapture(int ystart, int yend);
     void DownscaleCapture(int width, int height, int layer);
 };
 

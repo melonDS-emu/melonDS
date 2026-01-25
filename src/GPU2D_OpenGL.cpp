@@ -530,11 +530,11 @@ void GLRenderer2D::UpdateAndRender(int line)
 
     if (dispcnt_diff & 0x0000E008)
         comp_dirty = true;
-    if (layer_diff & 0x1F)
+    else if (layer_diff & 0x1F)
         comp_dirty = true;
-    if (UnitEnabled != GPU2D.Enabled)
+    else if (UnitEnabled != GPU2D.Enabled)
         comp_dirty = true;
-    if (ForcedBlank != GPU2D.ForcedBlank)
+    else if (ForcedBlank != GPU2D.ForcedBlank)
         comp_dirty = true;
 
     for (int layer = 0; layer < 4; layer++)
@@ -635,6 +635,12 @@ void GLRenderer2D::UpdateAndRender(int line)
 
     if (layer_pre_dirty)
         comp_dirty = true;
+
+    if (Parent.NeedPartialRender)
+    {
+        comp_dirty = true;
+        SpriteDirty = true;
+    }
 
     // if needed, render sprites
 

@@ -33,13 +33,13 @@ void main()
     else if (uDstMode == 1)
     {
         // source B only
-        cap_out = ivec4(texture(InputTexB, coordB) * 248.0);
+        cap_out = ivec4(texture(InputTexB, coordB) * 255.0);
     }
     else
     {
         // sources A and B blended
         ivec4 srcA = ivec4(texture(InputTexA, coordA) * 255.0) >> 3;
-        ivec4 srcB = ivec4(texture(InputTexB, coordB) * 31.0);
+        ivec4 srcB = ivec4(texture(InputTexB, coordB) * 255.0) >> 3;
 
         int eva = uBlendFactors[0];
         int evb = uBlendFactors[1];

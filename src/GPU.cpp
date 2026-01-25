@@ -556,7 +556,7 @@ void GPU::MapVRAM_AB(u32 bank, u8 cnt) noexcept
     VRAMCNT[bank] = cnt;
 
     if (oldcnt == cnt) return;
-printf("MapVRAM %c: %02X -> %02X\n", 'A'+bank, oldcnt, cnt);
+
     u8 oldofs = (oldcnt >> 3) & 0x3;
     u8 ofs = (cnt >> 3) & 0x3;
     u32 bankmask = 1 << bank;
@@ -622,7 +622,7 @@ void GPU::MapVRAM_CD(u32 bank, u8 cnt) noexcept
     VRAMSTAT &= ~(1 << (bank-2));
 
     if (oldcnt == cnt) return;
-    printf("MapVRAM %c: %02X -> %02X\n", 'A'+bank, oldcnt, cnt);
+
     u8 oldofs = (oldcnt >> 3) & 0x7;
     u8 ofs = (cnt >> 3) & 0x7;
     u32 bankmask = 1 << bank;
@@ -715,7 +715,7 @@ void GPU::MapVRAM_E(u32 bank, u8 cnt) noexcept
     VRAMCNT[bank] = cnt;
 
     if (oldcnt == cnt) return;
-    printf("MapVRAM %c: %02X -> %02X\n", 'A'+bank, oldcnt, cnt);
+
     u32 bankmask = 1 << bank;
 
     if (oldcnt & (1<<7))
@@ -783,7 +783,7 @@ void GPU::MapVRAM_FG(u32 bank, u8 cnt) noexcept
     VRAMCNT[bank] = cnt;
 
     if (oldcnt == cnt) return;
-    printf("MapVRAM %c: %02X -> %02X\n", 'A'+bank, oldcnt, cnt);
+
     u8 oldofs = (oldcnt >> 3) & 0x7;
     u8 ofs = (cnt >> 3) & 0x7;
     u32 bankmask = 1 << bank;
@@ -891,7 +891,7 @@ void GPU::MapVRAM_H(u32 bank, u8 cnt) noexcept
     VRAMCNT[bank] = cnt;
 
     if (oldcnt == cnt) return;
-    printf("MapVRAM %c: %02X -> %02X\n", 'A'+bank, oldcnt, cnt);
+
     u32 bankmask = 1 << bank;
 
     if (oldcnt & (1<<7))
@@ -949,7 +949,7 @@ void GPU::MapVRAM_I(u32 bank, u8 cnt) noexcept
     VRAMCNT[bank] = cnt;
 
     if (oldcnt == cnt) return;
-    printf("MapVRAM %c: %02X -> %02X\n", 'A'+bank, oldcnt, cnt);
+
     u32 bankmask = 1 << bank;
 
     if (oldcnt & (1<<7))
