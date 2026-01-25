@@ -5,8 +5,8 @@ uniform sampler2DArray InputTexB;
 
 layout(std140) uniform uCaptureConfig
 {
-    ivec2 uCaptureSize;
-    int uScaleFactor;
+    vec2 uInvCaptureSize;
+    int uSrcALayer;
     int uSrcBLayer;
     int uSrcBOffset;
     int uDstMode;
@@ -18,6 +18,15 @@ smooth in vec4 fTexcoord;
 
 out vec4 oColor;
 
+float GetSrcAPos(float line)
+{
+    int iline = int(line);
+    float a = uSrcAOffset[iline>>2][iline&0x3];
+    iline++;
+    float b = uSrcAOffset[iline>>2][iline&0x3];
+    return mix(a, b, fract(line));
+}
+
 void main()
 {
     vec2 coordA = fTexcoord.xy;
@@ -25,8 +34,12 @@ void main()
     ivec4 cap_out;
 
     // apply scroll for 3D layer, if we're capturing that
-    int line = int(fTexcoord.z);
-    coordA.x += uSrcAOffset[line>>2][line&0x3];
+    if (uSrcALayer == 1)
+    {
+        int line = int(fTexcoord.z);
+        coordA.x += uSrcAOffset[line>>2][line&0x3];
+        //coordA.x += GetSrcAPos(fTexcoord.z);
+    }
 
     if (uDstMode == 0)
     {

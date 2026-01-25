@@ -722,9 +722,10 @@ void GLRenderer::DoCapture(int ystart, int yend)
         glViewport(0, 0, 256*ScaleFactor, 256*ScaleFactor);
     }
 
-    CaptureConfig.uCaptureSize[0] = dstwidth;
-    CaptureConfig.uCaptureSize[1] = dstheight;
-    CaptureConfig.uScaleFactor = ScaleFactor;
+    CaptureConfig.uInvCaptureSize[0] = 1.f / (float)dstwidth;
+    CaptureConfig.uInvCaptureSize[1] = 1.f / (float)dstheight;
+
+    CaptureConfig.uSrcALayer = srcA;
 
     if (srcB == 0)
         CaptureConfig.uSrcBOffset = 64 * srcBoffset;

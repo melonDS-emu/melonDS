@@ -99,8 +99,8 @@ private:
 
     struct sCaptureConfig
     {
-        u32 uCaptureSize[2];
-        u32 uScaleFactor;
+        float uInvCaptureSize[2];
+        u32 uSrcALayer;
         u32 uSrcBLayer;
         u32 uSrcBOffset;
         u32 uDstMode;
