@@ -24,9 +24,13 @@ layout(std140) uniform uConfig
 {
     int uScaleFactor;
     int uVRAMMask;
-    ivec4 uMosaicLine[48];
     ivec4 uRotscale[32];
     sOAM uOAM[128];
+};
+
+layout(std140) uniform ubSpriteScanlineConfig
+{
+    ivec4 uMosaicLine[48];
 };
 
 uniform bool uRenderTransparent;

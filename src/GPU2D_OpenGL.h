@@ -55,6 +55,7 @@ private:
     static GLint LayerPreCurBGULoc;
 
     GLuint ScanlineConfigUBO;
+    GLuint SpriteScanlineConfigUBO;
 
     static GLuint SpritePreShader;
     GLuint SpritePreVtxBuffer;
@@ -130,7 +131,6 @@ private:
         u32 uScaleFactor;
         u32 uVRAMMask;
         u32 __pad0[2];
-        s32 uMosaicLine[192];
         s32 uRotscale[32][4];
         struct sOAM
         {
@@ -166,6 +166,11 @@ private:
             s32 MosaicSize[4];
         } uScanline[192];
     } ScanlineConfig;
+
+    struct sSpriteScanlineConfig
+    {
+        s32 uMosaicLine[192];
+    } SpriteScanlineConfig;
 
     struct sCompositorConfig
     {

@@ -131,6 +131,8 @@ bool GLRenderer2D::Init()
 
         uniloc = glGetUniformBlockIndex(SpriteShader, "uConfig");
         glUniformBlockBinding(SpriteShader, uniloc, 21);
+        uniloc = glGetUniformBlockIndex(SpriteShader, "ubSpriteScanlineConfig");
+        glUniformBlockBinding(SpriteShader, uniloc, 24);
 
         SpriteRenderTransULoc = glGetUniformLocation(SpriteShader, "uRenderTransparent");
 
@@ -342,6 +344,11 @@ bool GLRenderer2D::Init()
     static_assert((sizeof(sScanlineConfig) & 15) == 0);
     glBufferData(GL_UNIFORM_BUFFER, sizeof(sScanlineConfig), nullptr, GL_STREAM_DRAW);
 
+    glGenBuffers(1, &SpriteScanlineConfigUBO);
+    glBindBuffer(GL_UNIFORM_BUFFER, SpriteScanlineConfigUBO);
+    static_assert((sizeof(sSpriteScanlineConfig) & 15) == 0);
+    glBufferData(GL_UNIFORM_BUFFER, sizeof(sSpriteScanlineConfig), nullptr, GL_STREAM_DRAW);
+
     glGenBuffers(1, &CompositorConfigUBO);
     glBindBuffer(GL_UNIFORM_BUFFER, CompositorConfigUBO);
     static_assert((sizeof(sCompositorConfig) & 15) == 0);
@@ -392,6 +399,7 @@ GLRenderer2D::~GLRenderer2D()
     glDeleteFramebuffers(1, &OutputFB);
 
     glDeleteBuffers(1, &ScanlineConfigUBO);
+    glDeleteBuffers(1, &SpriteScanlineConfigUBO);
     glDeleteBuffers(1, &CompositorConfigUBO);
 }
 
@@ -403,6 +411,7 @@ void GLRenderer2D::Reset()
     memset(&LayerConfig, 0, sizeof(LayerConfig));
     memset(&SpriteConfig, 0, sizeof(SpriteConfig));
     memset(&ScanlineConfig, 0, sizeof(ScanlineConfig));
+    memset(&SpriteScanlineConfig, 0, sizeof(SpriteScanlineConfig));
     memset(&CompositorConfig, 0, sizeof(CompositorConfig));
 
     int bgheight = (GPU2D.Num == 0) ? 512 : 128;
@@ -639,10 +648,10 @@ void GLRenderer2D::UpdateAndRender(int line)
         comp_dirty = true;
 
     if (Parent.NeedPartialRender)
-    {
         comp_dirty = true;
+
+    if (comp_dirty)
         SpriteDirty = true;
-    }
 
     // if needed, render sprites
 
@@ -1617,6 +1626,13 @@ void GLRenderer2D::DoRenderSprites(int line)
     glDisable(GL_BLEND);
 
     glBindBufferBase(GL_UNIFORM_BUFFER, 21, SpriteConfigUBO);
+    glBindBufferBase(GL_UNIFORM_BUFFER, 24, SpriteScanlineConfigUBO);
+
+    glBindBuffer(GL_UNIFORM_BUFFER, SpriteScanlineConfigUBO);
+    glBufferSubData(GL_UNIFORM_BUFFER,
+                    ystart * sizeof(s32),
+                    (yend - ystart) * sizeof(s32),
+                    &SpriteScanlineConfig.uMosaicLine[ystart]);
 
     glBindFramebuffer(GL_READ_FRAMEBUFFER, 0);
     glBindFramebuffer(GL_DRAW_FRAMEBUFFER, OBJLayerFB);
@@ -1824,7 +1840,7 @@ void GLRenderer2D::DrawSprites(u32 line)
     bool dirty = false;
     bool screenon = IsScreenOn();
 
-    SpriteConfig.uMosaicLine[line] = GPU2D.OBJMosaicLine;
+    SpriteScanlineConfig.uMosaicLine[line] = GPU2D.OBJMosaicLine;
 
     u32 dispcnt_diff = GPU2D.DispCnt ^ SpriteDispCnt;
     SpriteDispCnt = GPU2D.DispCnt; // TODO CHECKME might not be right to do it here
