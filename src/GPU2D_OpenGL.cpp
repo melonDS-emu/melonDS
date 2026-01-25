@@ -410,6 +410,8 @@ void GLRenderer2D::Reset()
     LayerConfig.uVRAMMask = bgheight - 1;
     SpriteConfig.uVRAMMask = objheight - 1;
 
+    SpriteConfig.uScaleFactor = ScaleFactor;
+
     LastLine = 0;
 
     UnitEnabled = false;
