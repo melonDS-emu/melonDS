@@ -650,12 +650,9 @@ void GLRenderer2D::UpdateAndRender(int line)
     if (Parent.NeedPartialRender)
         comp_dirty = true;
 
-    if (comp_dirty)
-        SpriteDirty = true;
-
     // if needed, render sprites
 
-    if (SpriteDirty && (line > 0))
+    if ((comp_dirty || SpriteDirty) && (line > 0))
     {
         DoRenderSprites(line);
     }
