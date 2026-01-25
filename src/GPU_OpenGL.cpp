@@ -429,8 +429,21 @@ void GLRenderer::DrawScanline(u32 line)
     u32 dispmode = (dispcnt >> 16) & 0x3;
     u32 capcnt = GPU.CaptureCnt;
     u32 capsel = (capcnt >> 29) & 0x3;
+    u32 capA = (capcnt >> 24) & 0x1;
     u32 capB = (capcnt >> 25) & 0x1;
     bool checkcap = GPU.CaptureEnable && (capsel != 0);
+
+    if (GPU.CaptureEnable && (capsel != 1))
+    {
+        if (capA == 0)
+            CaptureConfig.uSrcAOffset[line] = 0;
+        else
+        {
+            int xpos = GPU.GPU3D.GetRenderXPos() & 0x1FF;
+            xpos -= ((xpos & 0x100) << 1);
+            CaptureConfig.uSrcAOffset[line] = (float)xpos / 256.f;
+        }
+    }
 
     if ((dispmode == 2) || (checkcap && (capB == 0)))
     {
@@ -639,17 +652,9 @@ void GLRenderer::DoCapture(int ystart, int yend)
 
     GLuint inputA;
     if (srcA)
-    {
-        // TODO: hope they don't change the scroll pos midframe (maybe do scroll elsewhere?)
         inputA = OutputTex3D;
-        int xpos = GPU.GPU3D.GetRenderXPos() & 0x1FF;
-        CaptureConfig.uSrcAOffset = xpos - ((xpos & 0x100) << 1);
-    }
     else
-    {
         inputA = OutputTex2D[0];
-        CaptureConfig.uSrcAOffset = 0;
-    }
 
     bool useSrcB = (dstmode == 1) || (dstmode == 2 && evb > 0);
 
@@ -728,7 +733,6 @@ void GLRenderer::DoCapture(int ystart, int yend)
 
     CaptureConfig.uSrcBLayer = layerB;
 
-    CaptureConfig.uDstOffset = 64 * dstoffset; // TODO: not needed
     CaptureConfig.uDstMode = dstmode;
     CaptureConfig.uBlendFactors[0] = eva;
     CaptureConfig.uBlendFactors[1] = evb;

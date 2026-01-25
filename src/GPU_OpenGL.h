@@ -101,13 +101,11 @@ private:
     {
         u32 uCaptureSize[2];
         u32 uScaleFactor;
-        u32 uSrcAOffset;
         u32 uSrcBLayer;
         u32 uSrcBOffset;
-        u32 uDstOffset;
         u32 uDstMode;
         u32 uBlendFactors[2];
-        u32 __pad0[2];
+        float uSrcAOffset[192];
     } CaptureConfig;
 
     GLuint CaptureShader;
