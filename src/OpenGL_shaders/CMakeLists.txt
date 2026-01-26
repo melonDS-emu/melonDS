@@ -1,12 +1,13 @@
 set(OPENGL_SHADER_FILES
-    LayerPreVS.glsl
-    LayerPreFS.glsl
-    SpritePreVS.glsl
-    SpritePreFS.glsl
-    SpriteVS.glsl
-    SpriteFS.glsl
-    CompositorVS.glsl
-    CompositorFS.glsl
+    2DLayerPreVS.glsl
+    2DLayerPreFS.glsl
+    2DSpritePreVS.glsl
+    2DSpritePreFS.glsl
+    2DSpriteVS.glsl
+    2DSpriteFS.glsl
+    2DCompositorVS.glsl
+    2DCompositorFS.glsl
+
     FinalPassVS.glsl
     FinalPassFS.glsl
     CaptureVS.glsl

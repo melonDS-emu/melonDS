@@ -25,14 +25,14 @@
 namespace melonDS
 {
 
-#include "OpenGL_shaders/LayerPreVS.h"
-#include "OpenGL_shaders/LayerPreFS.h"
-#include "OpenGL_shaders/SpritePreVS.h"
-#include "OpenGL_shaders/SpritePreFS.h"
-#include "OpenGL_shaders/SpriteVS.h"
-#include "OpenGL_shaders/SpriteFS.h"
-#include "OpenGL_shaders/CompositorVS.h"
-#include "OpenGL_shaders/CompositorFS.h"
+#include "OpenGL_shaders/2DLayerPreVS.h"
+#include "OpenGL_shaders/2DLayerPreFS.h"
+#include "OpenGL_shaders/2DSpritePreVS.h"
+#include "OpenGL_shaders/2DSpritePreFS.h"
+#include "OpenGL_shaders/2DSpriteVS.h"
+#include "OpenGL_shaders/2DSpriteFS.h"
+#include "OpenGL_shaders/2DCompositorVS.h"
+#include "OpenGL_shaders/2DCompositorFS.h"
 
 
 int GLRenderer2D::ShaderCount = 0;
@@ -67,28 +67,28 @@ bool GLRenderer2D::Init()
         // compile shaders
 
         if (!OpenGL::CompileVertexFragmentProgram(LayerPreShader,
-                                                  kLayerPreVS, kLayerPreFS,
+                                                  k2DLayerPreVS, k2DLayerPreFS,
                                                   "2DLayerPreShader",
                                                   {{"vPosition", 0}},
                                                   {{"oColor", 0}}))
             return false;
 
         if (!OpenGL::CompileVertexFragmentProgram(SpritePreShader,
-                                                  kSpritePreVS, kSpritePreFS,
+                                                  k2DSpritePreVS, k2DSpritePreFS,
                                                   "2DSpritePreShader",
                                                   {{"vPosition", 0}, {"vSpriteIndex", 1}},
                                                   {{"oColor", 0}}))
             return false;
 
         if (!OpenGL::CompileVertexFragmentProgram(SpriteShader,
-                                                  kSpriteVS, kSpriteFS,
+                                                  k2DSpriteVS, k2DSpriteFS,
                                                   "2DSpriteShader",
                                                   {{"vPosition", 0}, {"vTexcoord", 1}, {"vSpriteIndex", 2}},
                                                   {{"oColor", 0}, {"oFlags", 1}}))
             return false;
 
         if (!OpenGL::CompileVertexFragmentProgram(CompositorShader,
-                                                  kCompositorVS, kCompositorFS,
+                                                  k2DCompositorVS, k2DCompositorFS,
                                                   "2DCompositorShader",
                                                   {{"vPosition", 0}},
                                                   {{"oColor", 0}}))
@@ -225,10 +225,6 @@ bool GLRenderer2D::Init()
     glEnableVertexAttribArray(2); // sprite index
     glVertexAttribIPointer(2, 1, GL_SHORT, 6 * sizeof(u16), (void*)(4 * sizeof(u16)));
 
-    //auto& state = UnitState[i];
-    //memset(&state, 0, sizeof(state));
-    // TODO reset all the state shit
-
     // generate textures to hold raw BG and OBJ VRAM and palettes
 
     int bgheight = (GPU2D.Num == 0) ? 512 : 128;
@@ -359,8 +355,6 @@ bool GLRenderer2D::Init()
 
 GLRenderer2D::~GLRenderer2D()
 {
-    // TODO shader objects also need to be deleted!
-    // ideally, programs should be entirely managed by a class
     if (--ShaderCount == 0)
     {
         glDeleteProgram(LayerPreShader);
@@ -444,8 +438,6 @@ void GLRenderer2D::Reset()
     SpriteDirty = true;
 
     memset(TempPalBuffer, 0, sizeof(TempPalBuffer));
-
-    // TODO clear buffers and shit
 }
 
 
@@ -461,6 +453,9 @@ void GLRenderer2D::SetScaleFactor(int scale)
     const GLenum fbassign2[] = {GL_COLOR_ATTACHMENT0, GL_COLOR_ATTACHMENT1};
 
     SpriteConfig.uScaleFactor = ScaleFactor;
+
+    glUseProgram(CompositorShader);
+    glUniform1i(CompositorScaleULoc, ScaleFactor);
 
     glBindTexture(GL_TEXTURE_2D_ARRAY, OBJLayerTex);
     glTexImage3D(GL_TEXTURE_2D_ARRAY, 0, GL_RGBA, ScreenW, ScreenH, 2, 0, GL_RGBA, GL_UNSIGNED_BYTE, nullptr);
@@ -904,7 +899,6 @@ void GLRenderer2D::UpdateScanlineConfig(int line)
     else
         cfg.BGMosaicEnable[3] = false;
 
-    // TODO do differently
     u16* pal = (u16*)&GPU.Palette[GPU2D.Num ? 0x400 : 0];
     cfg.BackColor = pal[0];
 
@@ -1370,7 +1364,6 @@ void GLRenderer2D::UpdateOAM(int ystart, int yend)
         }
 
         // add this sprite to the OAM array
-        // TODO: if we do partial rendering, we need to check whether it was already in the array
 
         auto& sprcfg = cfg.uOAM[NumSprites];
 
@@ -1519,7 +1512,6 @@ void GLRenderer2D::UpdateOAM(int ystart, int yend)
 void GLRenderer2D::UpdateCompositorConfig()
 {
     // compositor info buffer
-    // TODO this could go with another buffer? optimize later
     for (int i = 0; i < 4; i++)
         CompositorConfig.uBGPrio[i] = -1;
 
@@ -1792,9 +1784,6 @@ void GLRenderer2D::RenderScreen(int ystart, int yend)
                     ystart * sizeof(sScanlineConfig::sScanline),
                     (yend - ystart) * sizeof(sScanlineConfig::sScanline),
                     &ScanlineConfig.uScanline[ystart]);
-
-    // TODO not set this all the time?
-    glUniform1i(CompositorScaleULoc, ScaleFactor);
 
     UpdateCompositorConfig();
 
