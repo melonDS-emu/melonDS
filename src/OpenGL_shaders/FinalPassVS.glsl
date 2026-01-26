@@ -1,6 +1,6 @@
 #version 140
 
-layout(std140) uniform uFinalPassConfig
+layout(std140) uniform ubFinalPassConfig
 {
     bvec4 uScreenSwap[48]; // one bool per scanline
     int uScaleFactor;

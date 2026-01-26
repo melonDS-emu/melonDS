@@ -1644,12 +1644,16 @@ void GLRenderer2D::DoRenderSprites(int line)
     glDepthMask(GL_TRUE);
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
-    glUniform1i(SpriteRenderTransULoc, 1);
     glColorMaski(0, GL_FALSE, GL_FALSE, GL_FALSE, GL_FALSE);
-    glColorMaski(1, GL_FALSE, GL_TRUE, GL_FALSE, GL_TRUE);
     glDepthMask(GL_FALSE);
 
-    RenderSprites(false, ystart, yend);
+    if (SpriteUseMosaic)
+    {
+        glUniform1i(SpriteRenderTransULoc, 1);
+        glColorMaski(1, GL_FALSE, GL_TRUE, GL_FALSE, GL_TRUE);
+
+        RenderSprites(false, ystart, yend);
+    }
 
     glUniform1i(SpriteRenderTransULoc, 0);
     glColorMaski(1, GL_FALSE, GL_FALSE, GL_TRUE, GL_FALSE);

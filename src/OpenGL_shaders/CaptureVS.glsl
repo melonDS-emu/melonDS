@@ -1,6 +1,6 @@
 #version 140
 
-layout(std140) uniform uCaptureConfig
+layout(std140) uniform ubCaptureConfig
 {
     vec2 uInvCaptureSize;
     int uSrcALayer;

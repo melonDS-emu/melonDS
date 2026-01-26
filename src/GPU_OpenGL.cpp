@@ -208,7 +208,7 @@ bool GLRenderer::Init()
     uniloc = glGetUniformLocation(FPShader, "AuxInputTex");
     glUniform1i(uniloc, 2);
 
-    uniloc = glGetUniformBlockIndex(FPShader, "uFinalPassConfig");
+    uniloc = glGetUniformBlockIndex(FPShader, "ubFinalPassConfig");
     glUniformBlockBinding(FPShader, uniloc, 30);
 
 
@@ -219,7 +219,7 @@ bool GLRenderer::Init()
     uniloc = glGetUniformLocation(CaptureShader, "InputTexB");
     glUniform1i(uniloc, 1);
 
-    uniloc = glGetUniformBlockIndex(CaptureShader, "uCaptureConfig");
+    uniloc = glGetUniformBlockIndex(CaptureShader, "ubCaptureConfig");
     glUniformBlockBinding(CaptureShader, uniloc, 31);
 
 

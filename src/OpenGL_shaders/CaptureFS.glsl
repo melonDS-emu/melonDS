@@ -3,7 +3,7 @@
 uniform sampler2D InputTexA;
 uniform sampler2DArray InputTexB;
 
-layout(std140) uniform uCaptureConfig
+layout(std140) uniform ubCaptureConfig
 {
     vec2 uInvCaptureSize;
     int uSrcALayer;

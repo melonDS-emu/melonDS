@@ -4,7 +4,7 @@ uniform sampler2D MainInputTexA;
 uniform sampler2D MainInputTexB;
 uniform sampler2DArray AuxInputTex;
 
-layout(std140) uniform uFinalPassConfig
+layout(std140) uniform ubFinalPassConfig
 {
     bvec4 uScreenSwap[48]; // one bool per scanline
     int uScaleFactor;
