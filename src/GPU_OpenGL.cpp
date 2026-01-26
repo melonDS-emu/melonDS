@@ -302,6 +302,14 @@ void GLRenderer::Stop()
     // TODO: do we even need this anymore?
 }
 
+void GLRenderer::PostSavestate()
+{
+    auto rend2D = dynamic_cast<GLRenderer2D*>(Rend2D_A.get());
+    rend2D->PostSavestate();
+    rend2D = dynamic_cast<GLRenderer2D*>(Rend2D_B.get());
+    rend2D->PostSavestate();
+}
+
 
 void GLRenderer::SetRenderSettings(RendererSettings& settings)
 {

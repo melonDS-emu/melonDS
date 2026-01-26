@@ -294,7 +294,11 @@ void GPU::DoSavestate(Savestate* file) noexcept
     GPU3D.DoSavestate(file);
 
     if (!file->Saving)
+    {
         ResetVRAMCache();
+        OAMDirty = 0x3;
+        PaletteDirty = 0x5F;
+    }
 
     Rend->PostSavestate();
 }

@@ -433,6 +433,11 @@ void GLRenderer2D::Reset()
     memset(TempPalBuffer, 0, sizeof(TempPalBuffer));
 }
 
+void GLRenderer2D::PostSavestate()
+{
+    Reset();
+}
+
 
 void GLRenderer2D::SetScaleFactor(int scale)
 {
