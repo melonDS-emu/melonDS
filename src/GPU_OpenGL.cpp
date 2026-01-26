@@ -526,7 +526,7 @@ void GLRenderer::RenderScreen(int ystart, int yend)
     int vramcap = -1;
     if (AuxUsageMask & (1<<0))
     {
-        u32 vrambank = (GPU.GPU2D_A.DispCnt >> 18) & 0x3;
+        u32 vrambank = (DispCntA >> 18) & 0x3;
         if (GPU.VRAMMap_LCDC & (1<<vrambank))
             vramcap = GPU.GetCaptureBlock_LCDC(vrambank << 17);
     }
@@ -571,7 +571,7 @@ void GLRenderer::RenderScreen(int ystart, int yend)
         glBindTexture(GL_TEXTURE_2D, OutputTex2D[1]);
 
         glActiveTexture(GL_TEXTURE2);
-        u32 modeA = (GPU.GPU2D_A.DispCnt >> 16) & 0x3;
+        u32 modeA = (DispCntA >> 16) & 0x3;
         if ((modeA == 2) && (vramcap != -1))
         {
             glBindTexture(GL_TEXTURE_2D_ARRAY, CaptureOutput256Tex);
@@ -616,8 +616,8 @@ void GLRenderer::VBlankEnd()
 
 void GLRenderer::DoCapture(int ystart, int yend)
 {
-    u32 dispcnt = GPU.GPU2D_A.DispCnt;
-    u32 capcnt = GPU.CaptureCnt;
+    u32 dispcnt = DispCntA;
+    u32 capcnt = CaptureCnt;
     u32 dispmode = (dispcnt >> 16) & 0x3;
     u32 srcA = (capcnt >> 24) & 0x1;
     u32 srcB = (capcnt >> 25) & 0x1;
