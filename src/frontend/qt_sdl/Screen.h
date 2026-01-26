@@ -29,6 +29,7 @@
 #include <QScreen>
 #include <QCloseEvent>
 #include <QTimer>
+#include <QPainter>
 
 #include "glad/glad.h"
 #include "ScreenLayout.h"
@@ -70,6 +71,8 @@ public:
     void osdSetEnabled(bool enabled);
     void osdAddMessage(unsigned int color, const char* msg);
 
+    int getMouseWheel() {return mouseWheel;}
+
 private slots:
     void onScreenLayoutChanged();
     void onAutoScreenSizingChanged(int sizing);
@@ -99,6 +102,7 @@ protected:
 
     bool mouseHide;
     int mouseHideDelay;
+    int mouseWheel = 0;
 
     struct OSDItem
     {
@@ -133,6 +137,7 @@ protected:
     void mousePressEvent(QMouseEvent* event) override;
     void mouseReleaseEvent(QMouseEvent* event) override;
     void mouseMoveEvent(QMouseEvent* event) override;
+    void wheelEvent(QWheelEvent* event) override;
 
     void tabletEvent(QTabletEvent* event) override;
     void touchEvent(QTouchEvent* event);
@@ -166,6 +171,7 @@ protected:
 
 private:
     void setupScreenLayout() override;
+    void drawOverlays(QPainter* painter,int type);
 
     QImage screen[2];
     QTransform screenTrans[kMaxScreenTransforms];
@@ -205,6 +211,7 @@ protected:
 
 private:
     void setupScreenLayout() override;
+    void drawOverlays(int type,int screen);
 
     std::unique_ptr<GL::Context> glContext;
     bool glInited;
@@ -231,6 +238,10 @@ private:
 
     void osdRenderItem(OSDItem* item) override;
     void osdDeleteItem(OSDItem* item) override;
+
+    GLuint overlayShader;
+    GLuint overlayScreenSizeULoc, overlayTransformULoc;
+    GLuint overlayPosULoc, overlaySizeULoc, overlayScreenTypeULoc;
 };
 
 #endif // SCREEN_H
