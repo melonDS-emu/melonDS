@@ -1372,7 +1372,7 @@ bool EmuInstance::updateConsole() noexcept
 
         nds->Reset();
         loadRTCData();
-        //emuThread->updateVideoRenderer(); // not actually needed?
+        emuThread->updateVideoRenderer();
     }
     else
     {
