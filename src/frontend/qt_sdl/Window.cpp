@@ -2227,6 +2227,34 @@ void MainWindow::onFullscreenToggled()
     toggleFullscreen();
 }
 
+void MainWindow::onScreenLayoutToggled()
+{
+    int layout = windowCfg.GetInt("ScreenLayout");
+    int rotation = windowCfg.GetInt("ScreenRotation");
+    bool horizontal = rotation == screenRot_0Deg || rotation == screenRot_180Deg;
+
+    switch (layout)
+    {
+        case screenLayout_Natural:
+            layout = horizontal ? screenLayout_Horizontal : screenLayout_Vertical;
+            break;
+        case screenLayout_Vertical:
+            layout = horizontal ? screenLayout_Horizontal : screenLayout_Natural;
+            break;
+        case screenLayout_Horizontal:
+            layout = horizontal ? screenLayout_Natural : screenLayout_Vertical;
+            break;
+        case screenLayout_Hybrid:
+            layout = screenLayout_Natural;
+            break;
+    }
+
+    windowCfg.SetInt("ScreenLayout", layout);
+    actScreenLayout[layout]->setChecked(true);
+
+    emit screenLayoutChange();
+}
+
 void MainWindow::onScreenEmphasisToggled()
 {
     int currentSizing = windowCfg.GetInt("ScreenSizing");
