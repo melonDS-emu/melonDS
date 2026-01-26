@@ -1133,6 +1133,11 @@ void GLRenderer2D::UpdateLayerConfig()
                 u32 tileoffset = 0;
                 u32 mapoffset = ((bgcnt >> 8) & 0x1F) << 14;
 
+                BGVRAMRange[layer][0] = 0xFFFFFFFF;
+                BGVRAMRange[layer][1] = 0xFFFFFFFF;
+                BGVRAMRange[layer][2] = mapoffset;
+                BGVRAMRange[layer][3] = mapsz;
+
                 if (bgcnt & (1<<2))
                 {
                     mapsz <<= 1;
@@ -1184,19 +1189,6 @@ void GLRenderer2D::UpdateLayerConfig()
                 int n = BGBaseIndex[2][bgcnt >> 14] + layer - 2;
                 BGLayerTex[layer] = AllBGLayerTex[n];
                 BGLayerFB[layer] = AllBGLayerFB[n];
-
-                BGVRAMRange[layer][0] = 0xFFFFFFFF;
-                BGVRAMRange[layer][1] = 0xFFFFFFFF;
-                if (cfg.Type >= 7)
-                {
-                    BGVRAMRange[layer][2] = 0xFFFFFFFF;
-                    BGVRAMRange[layer][3] = 0xFFFFFFFF;
-                }
-                else
-                {
-                    BGVRAMRange[layer][2] = mapoffset;
-                    BGVRAMRange[layer][3] = mapsz;
-                }
             }
             else
             {

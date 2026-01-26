@@ -263,6 +263,8 @@ void GPU::DoSavestate(Savestate* file) noexcept
     file->Var32(&VRAMMap_ARM7[0]);
     file->Var32(&VRAMMap_ARM7[1]);
 
+    file->VarArray(VRAMCaptureBlockFlags, sizeof(VRAMCaptureBlockFlags));
+
     if (!file->Saving)
     {
         for (int i = 0; i < 0x20; i++)
@@ -551,6 +553,7 @@ u16* GPU::GetUniqueBankCBF(u32 mask, u32 offset)
     //mask &= 0xF;
     if (!mask || (mask & (mask - 1)) != 0) return nullptr;
     int num = __builtin_ctz(mask);
+    offset = (offset >> 1) & 0x3;
     return &VRAMCaptureBlockFlags[(num << 2) | (offset >> 1)];
 }
 
