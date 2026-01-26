@@ -63,6 +63,7 @@ const char* EmuInstance::hotkeyNames[HK_MAX] =
     "HK_PowerButton",
     "HK_VolumeUp",
     "HK_VolumeDown",
+    "HK_AudioMuteToggle",
     "HK_SlowMo",
     "HK_FastForwardToggle",
     "HK_SlowMoToggle",
