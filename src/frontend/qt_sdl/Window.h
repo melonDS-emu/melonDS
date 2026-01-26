@@ -169,6 +169,8 @@ private slots:
     void onEjectGBACart();
     void onSaveState();
     void onLoadState();
+    void onQuickSaveState();
+    void onQuickLoadState();
     void onUndoStateLoad();
     void onImportSavefile();
     void onQuit();
@@ -249,6 +251,9 @@ private:
     QList<QString> recentFileList;
     QMenu *recentMenu;
     void updateRecentFilesMenu();
+
+    void saveStateSlot(int slot);
+    void loadStateSlot(int slot);
 
     bool verifySetup();
     QString pickFileFromArchive(QString archiveFileName);
