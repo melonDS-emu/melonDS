@@ -24,6 +24,8 @@
 
 namespace melonDS
 {
+using Platform::Log;
+using Platform::LogLevel;
 
 #include "OpenGL_shaders/2DLayerPreVS.h"
 #include "OpenGL_shaders/2DLayerPreFS.h"
@@ -249,10 +251,6 @@ bool GLRenderer2D::Init()
 
     // generate texture to hold pre-rendered BG layers
 
-    /*glGenTextures(1, &BGLayerTex);
-    glBindTexture(GL_TEXTURE_2D_ARRAY, BGLayerTex);
-    glDefaultTexParams(GL_TEXTURE_2D_ARRAY);
-    glTexImage3D(GL_TEXTURE_2D_ARRAY, 0, GL_RGBA, 1024, 1024, 4, 0, GL_RGBA, GL_UNSIGNED_BYTE, nullptr);*/
     glGenTextures(22, AllBGLayerTex);
     glGenFramebuffers(22, AllBGLayerFB);
 
@@ -628,9 +626,6 @@ void GLRenderer2D::UpdateAndRender(int line)
     }
 
     GPU.PaletteDirty &= ~palmask;
-
-    if (GPU2D.Num && layer_pre_dirty)
-        printf("layers dirty: %01X\n", layer_pre_dirty);
 
     if (layer_pre_dirty)
         comp_dirty = true;
@@ -1352,7 +1347,7 @@ void GLRenderer2D::UpdateOAM(int ystart, int yend)
 
         if (NumSprites >= 128)
         {
-            printf("GPU2D_OpenGL: SPRITE BUFFER IS FULL!!!!!\n");
+            Log(LogLevel::Error, "GPU2D_OpenGL: SPRITE BUFFER IS FULL!!!!!\n");
             break;
         }
 

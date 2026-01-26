@@ -613,10 +613,6 @@ public:
     bool MakeVRAMFlat_TextureCoherent(NonStupidBitField<512*1024/VRAMDirtyGranularity>& dirty) noexcept;
     bool MakeVRAMFlat_TexPalCoherent(NonStupidBitField<128*1024/VRAMDirtyGranularity>& dirty) noexcept;
 
-    void SyncDirtyFlags() noexcept;
-
-    //void UpdateRegisters(u32 line);
-
     melonDS::NDS& NDS;
 
     bool ScreensEnabled = false;
@@ -632,8 +628,8 @@ public:
     u16 MasterBrightnessB;
 
     u16 DispFIFO[16];
-    u32 DispFIFOReadPtr;
-    u32 DispFIFOWritePtr;
+    u8 DispFIFOReadPtr;
+    u8 DispFIFOWritePtr;
     alignas(8) u16 DispFIFOBuffer[256];
 
     u32 CaptureCnt;
@@ -710,8 +706,7 @@ public:
 
 private:
     void ResetVRAMCache() noexcept;
-    //void AssignFramebuffers() noexcept;
-    //void InitFramebuffers() noexcept;
+
     template<typename T>
     T ReadVRAM_ABGExtPal(u32 addr) const noexcept
     {
@@ -808,16 +803,9 @@ private:
 
     u16 VMatch[2] {};
 
-    //std::unique_ptr<GPU2D::Renderer2D> GPU2D_Renderer = nullptr;
     std::unique_ptr<Renderer> Rend = nullptr;
 
     u16 VRAMCaptureBlockFlags[16];
-    /*u8 VRAMBlockCaptureFlags[4 * 128*1024/VRAMCaptureGranularity] {};
-    NonStupidBitField<1024*1024/VRAMCaptureGranularity> VRAMCaptureFlags_LCDC {};
-    NonStupidBitField<512*1024/VRAMCaptureGranularity> VRAMCaptureFlags_ABG {};
-    NonStupidBitField<256*1024/VRAMCaptureGranularity> VRAMCaptureFlags_AOBJ {};
-    NonStupidBitField<128*1024/VRAMCaptureGranularity> VRAMCaptureFlags_BBG {};
-    NonStupidBitField<128*1024/VRAMCaptureGranularity> VRAMCaptureFlags_BOBJ {};*/
 
     u16* VRAMCBF_ABG[0x20] {};
     u16* VRAMCBF_AOBJ[0x10] {};
@@ -865,7 +853,6 @@ public:
     virtual void VBlank() = 0;
     virtual void VBlankEnd() = 0;
 
-    // TODO: is AllocCapture() needed?
     virtual void AllocCapture(u32 bank, u32 start, u32 len) = 0;
     virtual void SyncVRAMCapture(u32 bank, u32 start, u32 len, bool complete) = 0;
 

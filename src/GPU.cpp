@@ -208,9 +208,6 @@ void GPU::DoSavestate(Savestate* file) noexcept
 
     Rend->PreSavestate();
 
-    // TODO check that all the shit is in here
-    // TODO all the shit is infact not in there
-
     file->VarBool(&ScreensEnabled);
     file->VarBool(&ScreenSwap);
 
@@ -223,6 +220,14 @@ void GPU::DoSavestate(Savestate* file) noexcept
     file->Var16(&DispStat[1]);
     file->Var16(&VMatch[0]);
     file->Var16(&VMatch[1]);
+
+    file->VarArray(DispFIFO, sizeof(DispFIFO));
+    file->Var8(&DispFIFOReadPtr);
+    file->Var8(&DispFIFOWritePtr);
+    file->VarArray(DispFIFOBuffer, sizeof(DispFIFOBuffer));
+
+    file->Var32(&CaptureCnt);
+    file->VarBool(&CaptureEnable);
 
     file->VarArray(Palette, 2*1024);
     file->VarArray(OAM, 2*1024);
@@ -261,13 +266,25 @@ void GPU::DoSavestate(Savestate* file) noexcept
     if (!file->Saving)
     {
         for (int i = 0; i < 0x20; i++)
+        {
             VRAMPtr_ABG[i] = GetUniqueBankPtr(VRAMMap_ABG[i], i << 14);
+            VRAMCBF_ABG[i] = GetUniqueBankCBF(VRAMMap_ABG[i], i << 14);
+        }
         for (int i = 0; i < 0x10; i++)
+        {
             VRAMPtr_AOBJ[i] = GetUniqueBankPtr(VRAMMap_AOBJ[i], i << 14);
+            VRAMCBF_AOBJ[i] = GetUniqueBankCBF(VRAMMap_AOBJ[i], i << 14);
+        }
         for (int i = 0; i < 0x8; i++)
+        {
             VRAMPtr_BBG[i] = GetUniqueBankPtr(VRAMMap_BBG[i], i << 14);
+            VRAMCBF_BBG[i] = GetUniqueBankCBF(VRAMMap_BBG[i], i << 14);
+        }
         for (int i = 0; i < 0x8; i++)
+        {
             VRAMPtr_BOBJ[i] = GetUniqueBankPtr(VRAMMap_BOBJ[i], i << 14);
+            VRAMCBF_BOBJ[i] = GetUniqueBankCBF(VRAMMap_BOBJ[i], i << 14);
+        }
     }
 
     GPU2D_A.DoSavestate(file);

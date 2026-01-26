@@ -22,6 +22,8 @@
 
 namespace melonDS
 {
+using Platform::Log;
+using Platform::LogLevel;
 
 #include "OpenGL_shaders/FinalPassVS.h"
 #include "OpenGL_shaders/FinalPassFS.h"
@@ -675,7 +677,7 @@ void GLRenderer::DoCapture(int ystart, int yend)
             int blitY1 = (srcBoffset * 64) + yend;
 
             if (dstoffset != srcBoffset)
-                printf("GPU2D_OpenGL: MISMATCHED VRAM OFFSETS ON SAME BANK!!! bank=%d src=%d dst=%d\n",
+                Log(LogLevel::Error, "GPU_OpenGL: MISMATCHED VRAM OFFSETS ON SAME BANK!!! bank=%d src=%d dst=%d\n",
                        dstblock, srcBoffset, dstoffset);
 
             glBindFramebuffer(GL_READ_FRAMEBUFFER, CaptureOutput256FB[srcBblock]);
@@ -809,8 +811,6 @@ void GLRenderer::DoCapture(int ystart, int yend)
 
 void GLRenderer::AllocCapture(u32 bank, u32 start, u32 len)
 {
-    // TODO remove this function alltogether?
-    printf("GL: alloc capture in bank %d, start=%d len=%d\n", bank, start, len);
 }
 
 void GLRenderer::DownscaleCapture(int width, int height, int layer)
@@ -839,10 +839,8 @@ void GLRenderer::DownscaleCapture(int width, int height, int layer)
 
 void GLRenderer::SyncVRAMCapture(u32 bank, u32 start, u32 len, bool complete)
 {
-    printf("SYNC VRAM CAPTURE: %d %d %d %d\n", bank, start, len, complete);
-
     if (!complete)
-        printf("!!! READING VRAM AS IT IS BEING CAPTURED TO\n");
+        Log(LogLevel::Error, "GPU_OpenGL: !!! READING VRAM AS IT IS BEING CAPTURED TO\n");
 
     u8* vram = GPU.VRAM[bank];
 
