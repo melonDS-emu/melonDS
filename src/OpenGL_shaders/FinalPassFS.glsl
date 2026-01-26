@@ -17,7 +17,7 @@ layout(std140) uniform ubFinalPassConfig
     int uBrightFactorB;
 };
 
-smooth in vec4 fTexcoord;
+smooth in vec3 fTexcoord;
 
 out vec4 oTopColor;
 out vec4 oBottomColor;
@@ -40,10 +40,8 @@ ivec3 MasterBrightness(ivec3 color, int brightmode, int evy)
 
 void main()
 {
-    ivec2 coord = ivec2(fTexcoord.zw);
-
-    ivec4 col_main = ivec4(texelFetch(MainInputTexA, coord, 0) * 255.0) >> 2;
-    ivec4 col_sub = ivec4(texelFetch(MainInputTexB, coord, 0) * 255.0) >> 2;
+    ivec4 col_main = ivec4(texture(MainInputTexA, fTexcoord.xy, 0) * 255.0) >> 2;
+    ivec4 col_sub = ivec4(texture(MainInputTexB, fTexcoord.xy, 0) * 255.0) >> 2;
 
     ivec3 output_main, output_sub;
 
@@ -60,7 +58,7 @@ void main()
     else
     {
         // VRAM display / mainmem FIFO
-        output_main = ivec3(texture(AuxInputTex, vec3(fTexcoord.xy, uAuxLayer)).rgb * 62.0);
+        output_main = ivec3(texture(AuxInputTex, vec3(fTexcoord.xz, uAuxLayer)).rgb * 62.0);
     }
 
     if (uDispModeB == 0)
@@ -82,9 +80,8 @@ void main()
     output_main = (output_main << 2) | (output_main >> 6);
     output_sub = (output_sub << 2) | (output_sub >> 6);
 
-    int line = int(fTexcoord.y);
-    bvec4 swap = uScreenSwap[line >> 3];
-    bool swapbit = swap[line & 0x3];
+    int line = int(fTexcoord.y * 192);
+    bool swapbit = uScreenSwap[line>>2][line&0x3];
 
     if (!swapbit)
     {

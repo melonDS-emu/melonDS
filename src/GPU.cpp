@@ -226,6 +226,9 @@ void GPU::DoSavestate(Savestate* file) noexcept
     file->Var8(&DispFIFOWritePtr);
     file->VarArray(DispFIFOBuffer, sizeof(DispFIFOBuffer));
 
+    file->Var16(&MasterBrightnessA);
+    file->Var16(&MasterBrightnessB);
+
     file->Var32(&CaptureCnt);
     file->VarBool(&CaptureEnable);
 

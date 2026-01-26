@@ -69,7 +69,7 @@ bool GLRenderer::Init()
     if (!OpenGL::CompileVertexFragmentProgram(FPShader,
                                               kFinalPassVS, kFinalPassFS,
                                               "2DFinalPassShader",
-                                              {{"vPosition", 0}, {"vTexcoord", 1}},
+                                              {{"vPosition", 0}},
                                               {{"oTopColor", 0}, {"oBottomColor", 1}}))
         return false;
 
@@ -103,12 +103,10 @@ bool GLRenderer::Init()
     glEnableVertexAttribArray(0); // position
     glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, 2 * sizeof(float), (void*)0);
 
-    float vertices[12][4];
+    float vertices[12][2];
 #define SETVERTEX(i, x, y) \
     vertices[i][0] = x; \
-    vertices[i][1] = y; \
-    vertices[i][2] = (x + 1.f) * (256.f / 2.f); \
-    vertices[i][3] = (y + 1.f) * (192.f / 2.f); \
+    vertices[i][1] = y;
 
     SETVERTEX(0, -1, 1);
     SETVERTEX(1, 1, -1);
@@ -127,9 +125,7 @@ bool GLRenderer::Init()
     glGenVertexArrays(1, &FPVertexArrayID);
     glBindVertexArray(FPVertexArrayID);
     glEnableVertexAttribArray(0); // position
-    glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, 4 * sizeof(float), (void*)0);
-    glEnableVertexAttribArray(1); // texcoord
-    glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 4 * sizeof(float), (void*)(2 * sizeof(float)));
+    glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, 2 * sizeof(float), (void*)0);
 
     glGenFramebuffers(2, &FPOutputFB[0]);
 
@@ -304,6 +300,8 @@ void GLRenderer::Stop()
 
 void GLRenderer::PostSavestate()
 {
+    Reset();
+
     auto rend2D = dynamic_cast<GLRenderer2D*>(Rend2D_A.get());
     rend2D->PostSavestate();
     rend2D = dynamic_cast<GLRenderer2D*>(Rend2D_B.get());

@@ -14,18 +14,11 @@ layout(std140) uniform ubFinalPassConfig
 };
 
 in vec2 vPosition;
-in vec2 vTexcoord;
 
-smooth out vec4 fTexcoord;
+smooth out vec3 fTexcoord;
 
 void main()
 {
-    vec4 fpos;
-    fpos.xy = vPosition;
-    fpos.z = 0.0;
-    fpos.w = 1.0;
-
-    gl_Position = fpos;
-    fTexcoord.xy = vTexcoord / 256;
-    fTexcoord.zw = vTexcoord * uScaleFactor;
+    gl_Position = vec4(vPosition, 0, 1);
+    fTexcoord = (vPosition.xyy + 1) * vec3(0.5, 0.5, 0.375);
 }
