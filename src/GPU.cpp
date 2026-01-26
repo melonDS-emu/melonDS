@@ -270,22 +270,22 @@ void GPU::DoSavestate(Savestate* file) noexcept
         for (int i = 0; i < 0x20; i++)
         {
             VRAMPtr_ABG[i] = GetUniqueBankPtr(VRAMMap_ABG[i], i << 14);
-            VRAMCBF_ABG[i] = GetUniqueBankCBF(VRAMMap_ABG[i], i << 14);
+            VRAMCBF_ABG[i] = GetUniqueBankCBF(VRAMMap_ABG[i], i);
         }
         for (int i = 0; i < 0x10; i++)
         {
             VRAMPtr_AOBJ[i] = GetUniqueBankPtr(VRAMMap_AOBJ[i], i << 14);
-            VRAMCBF_AOBJ[i] = GetUniqueBankCBF(VRAMMap_AOBJ[i], i << 14);
+            VRAMCBF_AOBJ[i] = GetUniqueBankCBF(VRAMMap_AOBJ[i], i);
         }
         for (int i = 0; i < 0x8; i++)
         {
             VRAMPtr_BBG[i] = GetUniqueBankPtr(VRAMMap_BBG[i], i << 14);
-            VRAMCBF_BBG[i] = GetUniqueBankCBF(VRAMMap_BBG[i], i << 14);
+            VRAMCBF_BBG[i] = GetUniqueBankCBF(VRAMMap_BBG[i], i);
         }
         for (int i = 0; i < 0x8; i++)
         {
             VRAMPtr_BOBJ[i] = GetUniqueBankPtr(VRAMMap_BOBJ[i], i << 14);
-            VRAMCBF_BOBJ[i] = GetUniqueBankCBF(VRAMMap_BOBJ[i], i << 14);
+            VRAMCBF_BOBJ[i] = GetUniqueBankCBF(VRAMMap_BOBJ[i], i);
         }
     }
 
@@ -558,7 +558,7 @@ u16* GPU::GetUniqueBankCBF(u32 mask, u32 offset)
     if (!mask || (mask & (mask - 1)) != 0) return nullptr;
     int num = __builtin_ctz(mask);
     offset = (offset >> 1) & 0x3;
-    return &VRAMCaptureBlockFlags[(num << 2) | (offset >> 1)];
+    return &VRAMCaptureBlockFlags[(num << 2) | offset];
 }
 
 #define MAP_RANGE(map, base, n)    for (int i = 0; i < n; i++) VRAMMap_##map[(base)+i] |= bankmask;
@@ -1545,9 +1545,6 @@ void GPU::VRAMCBFlagsOr(u32 bank, u32 block, u16 val)
 
 void GPU::CheckCaptureStart()
 {
-    if (!(CaptureCnt & (1<<31)))
-        return;
-
     u32 dstbank = (CaptureCnt >> 16) & 0x3;
     if (!(VRAMMap_LCDC & (1<<dstbank)))
         return;
@@ -1568,7 +1565,7 @@ void GPU::CheckCaptureStart()
     // mark involved VRAM blocks as being a new capture
     u16 newval = CBFlag_IsCapture | dstoff | (dstbank << 2) | (len << 4) | (size << 6);
     VRAMCBFlagsSet(dstbank, dstoff, newval);
-    //Rend->AllocCapture(dstbank, dstoff, size);
+    Rend->AllocCapture(dstbank, dstoff, size);
 }
 
 void GPU::CheckCaptureEnd()
