@@ -24,18 +24,14 @@
 #include <enet/enet.h>
 
 #include <QStandardItemModel>
-#include <QProcess>
+#include <QPushButton>
+#include <QInputDialog>
+#include <QMessageBox>
 
-#include "NDS.h"
-#include "NDSCart.h"
-#include "main.h"
-//#include "IPC.h"
 #include "NetplayDialog.h"
-//#include "Input.h"
-//#include "ROMManager.h"
 #include "Config.h"
-#include "Savestate.h"
-#include "Platform.h"
+#include "main.h"
+#include "Netplay.h"
 
 #include "ui_NetplayStartHostDialog.h"
 #include "ui_NetplayStartClientDialog.h"
@@ -44,8 +40,9 @@
 using namespace melonDS;
 
 
-extern EmuThread* emuThread;
-NetplayDialog* netplayDlg;
+NetplayDialog* netplayDlg = nullptr;
+
+#define netplay() ((Netplay&)MPInterface::Get())
 
 
 NetplayStartHostDialog::NetplayStartHostDialog(QWidget* parent) : QDialog(parent), ui(new Ui::NetplayStartHostDialog)
@@ -53,7 +50,11 @@ NetplayStartHostDialog::NetplayStartHostDialog(QWidget* parent) : QDialog(parent
     ui->setupUi(this);
     setAttribute(Qt::WA_DeleteOnClose);
 
+    setMPInterface(MPInterface_Netplay);
+
     ui->txtPort->setText("8064");
+
+    ui->txtPlayerName->setText("eye");
 }
 
 NetplayStartHostDialog::~NetplayStartHostDialog()
@@ -76,9 +77,12 @@ void NetplayStartHostDialog::done(int r)
 
         // TODO validate input!!
 
+        netplay().StartHost(player.c_str(), port);
         netplayDlg = NetplayDialog::openDlg(parentWidget());
-
-        Netplay::StartHost(player.c_str(), port);
+    }
+    else
+    {
+        setMPInterface(MPInterface_Local);
     }
 
     QDialog::done(r);
@@ -90,7 +94,11 @@ NetplayStartClientDialog::NetplayStartClientDialog(QWidget* parent) : QDialog(pa
     ui->setupUi(this);
     setAttribute(Qt::WA_DeleteOnClose);
 
+    setMPInterface(MPInterface_Netplay);
+
     ui->txtPort->setText("8064");
+    ui->txtPlayerName->setText("guest");
+    ui->txtIPAddress->setText("localhost");
 }
 
 NetplayStartClientDialog::~NetplayStartClientDialog()
@@ -114,14 +122,21 @@ void NetplayStartClientDialog::done(int r)
 
         // TODO validate input!!
 
+        netplay().StartClient(player.c_str(), host.c_str(), port);
         netplayDlg = NetplayDialog::openDlg(parentWidget());
-
-        Netplay::StartClient(player.c_str(), host.c_str(), port);
+    }
+    else
+    {
+        setMPInterface(MPInterface_Local);
     }
 
     QDialog::done(r);
 }
 
+void NetplayDialog::on_spnInputBufferSize_valueChanged(int value)
+{
+    netplay().SetInputBufferSize(value);
+}
 
 NetplayDialog::NetplayDialog(QWidget* parent) : QDialog(parent), ui(new Ui::NetplayDialog)
 {
@@ -131,63 +146,117 @@ NetplayDialog::NetplayDialog(QWidget* parent) : QDialog(parent), ui(new Ui::Netp
     QStandardItemModel* model = new QStandardItemModel();
     ui->tvPlayerList->setModel(model);
 
-    connect(this, &NetplayDialog::sgUpdatePlayerList, this, &NetplayDialog::doUpdatePlayerList);
+    bool isHost = netplay().GetHostStatus();
+    ui->btnStartGame->setVisible(isHost);
+    ui->lblInputBufferSize->setVisible(isHost);
+    ui->spnInputBufferSize->setVisible(isHost);
+
+    EmuInstance *emuInstance = ((MainWindow*)parent)->getEmuInstance();
+    netplay().nds = emuInstance->getNDS();
+
+    timerID = startTimer(1000);
 }
 
 NetplayDialog::~NetplayDialog()
 {
+    killTimer(timerID);
+
     delete ui;
+}
+
+void NetplayDialog::on_btnStartGame_clicked()
+{
+    netplay().StartGame();
+}
+
+void NetplayDialog::on_btnLeaveGame_clicked()
+{
+    done(QDialog::Accepted);
 }
 
 void NetplayDialog::done(int r)
 {
-    // ???
+    /*bool showwarning = true;
+    if (netplay().GetNumPlayers() < 2)
+        showwarning = false;
+
+    if (showwarning)
+    {
+        if (QMessageBox::warning(this, "melonDS", "Really leave this Netplay game?",
+                                 QMessageBox::Yes | QMessageBox::No, QMessageBox::No) == QMessageBox::No)
+            return;
+    }*/
+
+    netplay().EndSession();
+    setMPInterface(MPInterface_Local);
 
     QDialog::done(r);
 }
 
-void NetplayDialog::updatePlayerList(Netplay::Player* players, int num)
+void NetplayDialog::timerEvent(QTimerEvent *event)
 {
-    emit sgUpdatePlayerList(players, num);
+    doUpdatePlayerList();
 }
 
-void NetplayDialog::doUpdatePlayerList(Netplay::Player* players, int num)
+void NetplayDialog::doUpdatePlayerList()
 {
+    auto playerlist = netplay().GetPlayerList();
+    int numplayers = playerlist.size();
+    auto maxplayers = netplay().GetMaxPlayers();
+
     QStandardItemModel* model = (QStandardItemModel*)ui->tvPlayerList->model();
 
     model->clear();
-    model->setRowCount(num);
+    model->setRowCount(numplayers);
 
     // TODO: remove IP column in final product
 
     const QStringList header = {"#", "Player", "Status", "Ping", "IP"};
     model->setHorizontalHeaderLabels(header);
 
-    for (int i = 0; i < num; i++)
+    int i = 0;
+    for (const auto& player : playerlist)
     {
-        Netplay::Player* player = &players[i];
-
-        QString id = QString("%0").arg(player->ID+1);
+        QString id = QString("%0").arg(player.ID+1);
         model->setItem(i, 0, new QStandardItem(id));
 
-        QString name = player->Name;
+        QString name = player.Name;
         model->setItem(i, 1, new QStandardItem(name));
 
         QString status;
-        switch (player->Status)
+        switch (player.Status)
         {
-            case 1: status = ""; break;
-            case 2: status = "Host"; break;
+            case Netplay::Player_Client:     status = "Connected"; break;
+            case Netplay::Player_Host:       status = "Host"; break;
+            case Netplay::Player_Connecting: status = "Connecting"; break;
             default: status = "ded"; break;
         }
         model->setItem(i, 2, new QStandardItem(status));
 
-        // TODO: ping
-        model->setItem(i, 3, new QStandardItem("x"));
+        if (player.IsLocalPlayer)
+        {
+            model->setItem(i, 3, new QStandardItem("-"));
+            model->setItem(i, 4, new QStandardItem("(local)"));
+        }
+        else
+        {
+            if (player.Status == Netplay::Player_Client ||
+                player.Status == Netplay::Player_Host)
+            {
+                QString ping = QString("%0 ms").arg(player.Ping);
+                model->setItem(i, 3, new QStandardItem(ping));
+            }
+            else
+            {
+                model->setItem(i, 3, new QStandardItem("-"));
+            }
 
-        char ip[32];
-        u32 addr = player->Address;
-        snprintf(ip, sizeof(ip), "%d.%d.%d.%d", addr&0xFF, (addr>>8)&0xFF, (addr>>16)&0xFF, addr>>24);
-        model->setItem(i, 4, new QStandardItem(ip));
+            char ip[32];
+            u32 addr = player.Address;
+            sprintf(ip, "%d.%d.%d.%d", addr&0xFF, (addr>>8)&0xFF, (addr>>16)&0xFF, addr>>24);
+            model->setItem(i, 4, new QStandardItem(ip));
+        }
+
+        i++;
     }
 }

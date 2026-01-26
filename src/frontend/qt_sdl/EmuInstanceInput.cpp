@@ -75,6 +75,8 @@ std::shared_ptr<SDL_mutex> EmuInstance::joyMutexGlobal = nullptr;
 
 void EmuInstance::inputInit()
 {
+    if (IsHeadless()) return;
+
     if (!joyMutexGlobal)
     {
         SDL_mutex* mutex = SDL_CreateMutex();
@@ -415,6 +417,8 @@ bool EmuInstance::joystickButtonDown(int val)
 
 void EmuInstance::inputProcess()
 {
+    if (IsHeadless()) return;
+
     SDL_LockMutex(joyMutex.get());
     SDL_JoystickUpdate();
 

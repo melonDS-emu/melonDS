@@ -73,6 +73,7 @@
 #include "Savestate.h"
 #include "MPInterface.h"
 #include "LANDialog.h"
+#include "NetplayDialog.h"
 
 //#include "main_shaders.h"
 
@@ -462,16 +463,13 @@ MainWindow::MainWindow(int id, EmuInstance* inst, QWidget* parent) :
                 actLANStartClient = submenu->addAction("Join LAN game");
                 connect(actLANStartClient, &QAction::triggered, this, &MainWindow::onLANStartClient);
 
-                /*submenu->addSeparator();
+                submenu->addSeparator();
 
-                actNPStartHost = submenu->addAction("NETPLAY HOST");
+                actNPStartHost = submenu->addAction("Host Netplay game");
                 connect(actNPStartHost, &QAction::triggered, this, &MainWindow::onNPStartHost);
 
-                actNPStartClient = submenu->addAction("NETPLAY CLIENT");
+                actNPStartClient = submenu->addAction("Join Netplay game");
                 connect(actNPStartClient, &QAction::triggered, this, &MainWindow::onNPStartClient);
-
-                actNPTest = submenu->addAction("NETPLAY GO");
-                connect(actNPTest, &QAction::triggered, this, &MainWindow::onNPTest);*/
             }
         }
         {
@@ -1155,7 +1153,7 @@ bool MainWindow::preloadROMs(QStringList file, QStringList gbafile, bool boot)
                 return false;
             }
         }
-        
+
         recentFileList.removeAll(file.join("|"));
         recentFileList.prepend(file.join("|"));
         updateRecentFilesMenu();
@@ -1800,20 +1798,14 @@ void MainWindow::onLANStartClient()
 
 void MainWindow::onNPStartHost()
 {
-    //Netplay::StartHost();
-    //NetplayStartHostDialog::openDlg(this);
+    if (!netplayWarning(true)) return;
+    NetplayStartHostDialog::openDlg(this);
 }
 
 void MainWindow::onNPStartClient()
 {
-    //Netplay::StartClient();
-    //NetplayStartClientDialog::openDlg(this);
-}
-
-void MainWindow::onNPTest()
-{
-    // HAX
-    //Netplay::StartGame();
+    if (!netplayWarning(false)) return;
+    NetplayStartClientDialog::openDlg(this);
 }
 
 void MainWindow::updateMPInterface(MPInterfaceType type)
@@ -1826,9 +1818,8 @@ void MainWindow::updateMPInterface(MPInterfaceType type)
     actMPNewInstance->setEnabled(enable);
     actLANStartHost->setEnabled(enable);
     actLANStartClient->setEnabled(enable);
-    /*actNPStartHost->setEnabled(enable);
+    actNPStartHost->setEnabled(enable);
     actNPStartClient->setEnabled(enable);
-    actNPTest->setEnabled(enable);*/
 }
 
 bool MainWindow::lanWarning(bool host)
@@ -1846,6 +1837,58 @@ bool MainWindow::lanWarning(bool host)
         return false;
 
     deleteAllEmuInstances(1);
+    return true;
+}
+
+bool MainWindow::netplayWarning(bool host)
+{
+    QString verb = host ? "host" : "join";
+
+    bool doDelInstances = false;
+
+    if (numEmuInstances() >= 2)
+    {
+        QString msg = "Multiple emulator instances are currently open.\n"
+                      "If you "+verb+" a netplay game now, all secondary instances will be closed.\n\n"
+                                         "Do you wish to continue?";
+
+        auto res = QMessageBox::warning(this, "melonDS", msg, QMessageBox::Yes | QMessageBox::No, QMessageBox::No);
+        if (res == QMessageBox::No)
+            return false;
+
+        doDelInstances = true;
+    }
+
+    if (doDelInstances) deleteAllEmuInstances(1);
+
+    // hack: create function to allow interaction with frontend
+    OnStartEmulatorThread = [this]()
+    {
+        deleteAllEmuInstances(1);
+
+        auto &netplay = (Netplay&)MPInterface::Get();
+
+        // start local ds
+        EmuInstance *localEmuInstance = ((MainWindow*)this)->getEmuInstance();
+        localEmuInstance->RegisterNetplayDS(0); // register the local ds
+        if (!localEmuInstance->nds) localEmuInstance->updateConsole();
+        localEmuInstance->nds->Start();
+        localEmuInstance->getEmuThread()->emuRun();
+
+        netplay.nds = localEmuInstance->nds; // so many hacks just to get access to this pointer!
+        return; // todo DEV just to test with 1 ds, since it's so far more stable
+
+        // create and start the new ds'
+        for (int i = 1; i < netplay.GetNumPlayers(); ++i)
+        {
+            EmuInstance *emuInstance = new EmuInstance(i, true);
+            emuInstance->RegisterNetplayDS(i);
+            emuInstance->updateConsole();
+            emuInstance->nds->Start();
+            emuInstance->getEmuThread()->emuRun();
+        }
+    };
+
     return true;
 }
 
@@ -2355,7 +2398,7 @@ void MainWindow::onUpdateVideoSettings(bool glchange)
 
     if (glchange)
     {
-        if (hasOGL) 
+        if (hasOGL)
         {
             emuThread->initContext(windowID);
             for (auto child: childwins)
