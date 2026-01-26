@@ -103,7 +103,7 @@ bool GLRenderer2D::Init()
         uniloc = glGetUniformLocation(LayerPreShader, "PalTex");
         glUniform1i(uniloc, 1);
 
-        uniloc = glGetUniformBlockIndex(LayerPreShader, "uConfig");
+        uniloc = glGetUniformBlockIndex(LayerPreShader, "ubBGConfig");
         glUniformBlockBinding(LayerPreShader, uniloc, 20);
 
         LayerPreCurBGULoc = glGetUniformLocation(LayerPreShader, "uCurBG");
@@ -116,7 +116,7 @@ bool GLRenderer2D::Init()
         uniloc = glGetUniformLocation(SpritePreShader, "PalTex");
         glUniform1i(uniloc, 1);
 
-        uniloc = glGetUniformBlockIndex(SpritePreShader, "uConfig");
+        uniloc = glGetUniformBlockIndex(SpritePreShader, "ubSpriteConfig");
         glUniformBlockBinding(SpritePreShader, uniloc, 21);
 
 
@@ -129,7 +129,7 @@ bool GLRenderer2D::Init()
         uniloc = glGetUniformLocation(SpriteShader, "Capture256Tex");
         glUniform1i(uniloc, 2);
 
-        uniloc = glGetUniformBlockIndex(SpriteShader, "uConfig");
+        uniloc = glGetUniformBlockIndex(SpriteShader, "ubSpriteConfig");
         glUniformBlockBinding(SpriteShader, uniloc, 21);
         uniloc = glGetUniformBlockIndex(SpriteShader, "ubSpriteScanlineConfig");
         glUniformBlockBinding(SpriteShader, uniloc, 24);
@@ -139,8 +139,6 @@ bool GLRenderer2D::Init()
 
         glUseProgram(CompositorShader);
 
-        //uniloc = glGetUniformLocation(CompositorShader, "LayerTex");
-        //glUniform1i(uniloc, 0);
         uniloc = glGetUniformLocation(CompositorShader, "BGLayerTex[0]");
         glUniform1i(uniloc, 0);
         uniloc = glGetUniformLocation(CompositorShader, "BGLayerTex[1]");
@@ -413,8 +411,6 @@ void GLRenderer2D::Reset()
     LayerConfig.uVRAMMask = bgheight - 1;
     SpriteConfig.uVRAMMask = objheight - 1;
 
-    SpriteConfig.uScaleFactor = ScaleFactor;
-
     LastLine = 0;
 
     UnitEnabled = false;
@@ -451,8 +447,6 @@ void GLRenderer2D::SetScaleFactor(int scale)
     ScreenH = 192 * scale;
 
     const GLenum fbassign2[] = {GL_COLOR_ATTACHMENT0, GL_COLOR_ATTACHMENT1};
-
-    SpriteConfig.uScaleFactor = ScaleFactor;
 
     glUseProgram(CompositorShader);
     glUniform1i(CompositorScaleULoc, ScaleFactor);

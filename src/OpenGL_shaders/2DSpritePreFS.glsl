@@ -19,9 +19,8 @@ struct sOAM
     bool Mosaic;
 };
 
-layout(std140) uniform uConfig
+layout(std140) uniform ubSpriteConfig
 {
-    int uScaleFactor;
     int uVRAMMask;
     ivec4 uRotscale[32];
     sOAM uOAM[128];

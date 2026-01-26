@@ -112,7 +112,6 @@ private:
     {
         u32 uVRAMMask;
         u32 __pad0[3];
-        u32 uCaptureMask[32];
         struct sBGConfig
         {
             u32 Size[2];
@@ -124,13 +123,11 @@ private:
             u32 __pad0[1];
         } uBGConfig[4];
     } LayerConfig;
-    //GLuint LayerConfigUBO;
 
     struct sSpriteConfig
     {
-        u32 uScaleFactor;
         u32 uVRAMMask;
-        u32 __pad0[2];
+        u32 __pad0[3];
         s32 uRotscale[32][4];
         struct sOAM
         {

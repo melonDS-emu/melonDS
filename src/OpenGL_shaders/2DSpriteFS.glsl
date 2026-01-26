@@ -20,9 +20,8 @@ struct sOAM
     bool Mosaic;
 };
 
-layout(std140) uniform uConfig
+layout(std140) uniform ubSpriteConfig
 {
-    int uScaleFactor;
     int uVRAMMask;
     ivec4 uRotscale[32];
     sOAM uOAM[128];
@@ -97,17 +96,15 @@ void main()
 
     if (uOAM[fSpriteIndex].Type == 3)
     {
-        coord += (uOAM[fSpriteIndex].TileOffset / ivec2(2, 256));
-        coord = mod(coord, 128);
-        ivec3 icoord = ivec3(coord * uScaleFactor, uOAM[fSpriteIndex].TileStride);
-        col = texelFetch(Capture128Tex, icoord, 0);
+        coord += (ivec2(uOAM[fSpriteIndex].TileOffset) >> ivec2(1, 8));
+        coord *= (1.0/128.0);
+        col = texture(Capture256Tex, vec3(fract(coord), uOAM[fSpriteIndex].TileStride));
     }
     else if (uOAM[fSpriteIndex].Type == 4)
     {
-        coord += (uOAM[fSpriteIndex].TileOffset / ivec2(2, 512));
-        coord = mod(coord, 256);
-        ivec3 icoord = ivec3(coord * uScaleFactor, uOAM[fSpriteIndex].TileStride);
-        col = texelFetch(Capture256Tex, icoord, 0);
+        coord += (ivec2(uOAM[fSpriteIndex].TileOffset) >> ivec2(1, 9));
+        coord *= (1.0/256.0);
+        col = texture(Capture256Tex, vec3(fract(coord), uOAM[fSpriteIndex].TileStride));
     }
     else
     {

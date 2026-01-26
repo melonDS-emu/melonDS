@@ -10,10 +10,9 @@ struct sBGConfig
     bool Clamp;
 };
 
-layout(std140) uniform uConfig
+layout(std140) uniform ubBGConfig
 {
     int uVRAMMask;
-    ivec4 uCaptureMask[8];
     sBGConfig uBGConfig[4];
 };
 
