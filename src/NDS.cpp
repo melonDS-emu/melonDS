@@ -420,6 +420,10 @@ void NDS::SetupDirectBoot(const std::string& romname)
     PowerControl9 = 0x820F;
     GPU.SetPowerCnt(PowerControl9);
 
+    PowerControl7 = 0x0001;
+    SPU.SetPowerCnt(PowerControl7 & 0x0001);
+    Wifi.SetPowerCnt(PowerControl7 & 0x0002);
+
     // checkme
     RCnt = 0x8000;
 
