@@ -551,7 +551,10 @@ public:
         addr &= 0x7FF;
 
         *(T*)&Palette[addr] = val;
-        PaletteDirty |= 1 << (addr / VRAMDirtyGranularity);
+        if (addr & 0x3FF)
+            PaletteDirty |= 1 << (addr / VRAMDirtyGranularity);
+        else
+            PaletteDirty |= 0x10 << (addr / VRAMDirtyGranularity);
     }
 
     template<typename T>

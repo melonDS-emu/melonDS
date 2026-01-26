@@ -194,7 +194,7 @@ void GPU::Reset() noexcept
     ResetVRAMCache();
 
     OAMDirty = 0x3;
-    PaletteDirty = 0xF;
+    PaletteDirty = 0x5F;
 }
 
 void GPU::Stop() noexcept
@@ -307,7 +307,7 @@ void GPU::SetRenderer(std::unique_ptr<Renderer>&& renderer) noexcept
 
     ResetVRAMCache();
     OAMDirty = 0x3;
-    PaletteDirty = 0xF;
+    PaletteDirty = 0x5F;
 }
 
 
