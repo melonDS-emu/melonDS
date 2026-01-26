@@ -36,7 +36,7 @@ jobs:
       run: |
         sudo apt update
         sudo apt install --allow-downgrades cmake ninja-build extra-cmake-modules libpcap0.8-dev libsdl2-dev libenet-dev \
-          qt6-{base,base-private,multimedia}-dev libqt6svg6-dev libarchive-dev libzstd-dev libfuse2 libfaad-dev
+          qt6-{base,base-private,multimedia}-dev qt6-wayland libqt6svg6-dev libarchive-dev libzstd-dev libfuse2 libfaad-dev
     - name: Configure
       run: cmake -B build -G Ninja -DCMAKE_INSTALL_PREFIX=/usr -DMELONDS_EMBED_BUILD_INFO=ON
     - name: Build
@@ -54,6 +54,8 @@ jobs:
         chmod a+x linuxdeploy-*.AppImage
     - name: Build the AppImage
       env:
+        EXTRA_PLATFORM_PLUGINS: libqwayland-egl.so;libqwayland-generic.so
+        EXTRA_QT_PLUGINS: waylandcompositor
         QMAKE: /usr/lib/qt6/bin/qmake
       run: |
         ./linuxdeploy-${{ matrix.arch.name }}.AppImage --appdir AppDir --plugin qt --output appimage
