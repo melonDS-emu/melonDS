@@ -936,29 +936,6 @@ void ScreenPanelGL::initOpenGL()
     screenShaderScreenSizeULoc = glGetUniformLocation(screenShaderProgram, "uScreenSize");
     screenShaderTransformULoc = glGetUniformLocation(screenShaderProgram, "uTransform");
 
-    // to prevent bleeding between both parts of the screen
-    // with bilinear filtering enabled
-#if 0
-    const int paddedHeight = 192*2+2;
-    const float padPixels = 1.f / paddedHeight;
-
-    const float vertices[] =
-    {
-        0.f,   0.f,    0.f, 0.f,
-        0.f,   192.f,  0.f, 0.5f - padPixels,
-        256.f, 192.f,  1.f, 0.5f - padPixels,
-        0.f,   0.f,    0.f, 0.f,
-        256.f, 192.f,  1.f, 0.5f - padPixels,
-        256.f, 0.f,    1.f, 0.f,
-
-        0.f,   0.f,    0.f, 0.5f + padPixels,
-        0.f,   192.f,  0.f, 1.f,
-        256.f, 192.f,  1.f, 1.f,
-        0.f,   0.f,    0.f, 0.5f + padPixels,
-        256.f, 192.f,  1.f, 1.f,
-        256.f, 0.f,    1.f, 0.5f + padPixels
-    };
-#endif
     const float vertices[] =
     {
         0.f,   0.f,    0.f, 0.f, 0.f,
