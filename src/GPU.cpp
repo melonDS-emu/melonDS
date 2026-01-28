@@ -1584,15 +1584,21 @@ void GPU::SyncVRAMCaptureBlock(u32 block, bool write)
 {
     u16 flags = VRAMCaptureBlockFlags[block];
     if (!(flags & CBFlag_IsCapture)) return;
-    if (flags & CBFlag_Synced) return;
 
     // sync the capture which contains this block
     u32 bank = block >> 2;
     u32 start = flags & 0x3;
     u32 len = (flags >> 6) & 0x3;
+
+    if (flags & CBFlag_Synced)
+    {
+        if (write)
+            VRAMCBFlagsClear(bank, start);
+        return;
+    }
+
     Rend->SyncVRAMCapture(bank, start, len, (flags & CBFlag_Complete));
 
-    //u16* cbflags = &VRAMCaptureBlockFlags[bank << 2];
     if (write)
     {
         // if this block was written to by the CPU, invalidate the entire capture
