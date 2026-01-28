@@ -1119,6 +1119,7 @@ void ScreenPanelGL::drawScreen()
     glDisable(GL_BLEND);
     glDisable(GL_SCISSOR_TEST);
     glDisable(GL_STENCIL_TEST);
+    glClearColor(0, 0, 0, 1);
     glClear(GL_COLOR_BUFFER_BIT);
 
     glViewport(0, 0, w, h);
