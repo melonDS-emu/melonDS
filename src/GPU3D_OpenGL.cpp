@@ -549,12 +549,12 @@ void GLRenderer3D::BuildPolygons(GLRenderer3D::RendererPolygon* polygons, int np
                     if (texwidth == 128)
                     {
                         curtexid = -1;
-                        curtexlayer = capblock | (((texaddr >> 5) & 0x7F) << 16);
+                        curtexlayer = capblock | (((texaddr >> 5) & 0x7F) << 20);
                     }
                     else
                     {
                         curtexid = -2;
-                        curtexlayer = (capblock >> 2) | (((texaddr >> 6) & 0xFF) << 16);
+                        curtexlayer = (capblock >> 2) | (((texaddr >> 6) & 0xFF) << 20);
                     }
                 }
                 else
