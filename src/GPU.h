@@ -551,7 +551,7 @@ public:
         addr &= 0x7FF;
 
         *(T*)&Palette[addr] = val;
-        if (addr & 0x3FF)
+        if (addr & 0x3FE)
             PaletteDirty |= 1 << (addr / VRAMDirtyGranularity);
         else
             PaletteDirty |= 0x10 << (addr / VRAMDirtyGranularity);

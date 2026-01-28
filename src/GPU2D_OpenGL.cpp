@@ -630,8 +630,6 @@ void GLRenderer2D::UpdateAndRender(int line)
         }
     }
 
-    GPU.PaletteDirty &= ~palmask;
-
     if (layer_pre_dirty)
         comp_dirty = true;
 
@@ -672,17 +670,22 @@ void GLRenderer2D::UpdateAndRender(int line)
 
     UpdateScanlineConfig(line);
 
-    if (layer_pre_dirty)
-    {
-        // update VRAM and palettes
+    // update VRAM and palettes
 
-        u8* vram; u32 vrammask;
+    int dirtybits = GPU2D.Num ? 256 : 1024;
+    if (bgDirty.CheckRange(0, dirtybits))
+    {
+        // TODO: only do it for active layers?
+        // this would require keeping track of the dirty state for areas not included in any layer
+
+        u8 *vram;
+        u32 vrammask;
         GPU2D.GetBGVRAM(vram, vrammask);
 
-        glActiveTexture(GL_TEXTURE0);
+
         glBindTexture(GL_TEXTURE_2D, VRAMTex_BG);
 
-        int texlen = (GPU2D.Num ? 256 : 1024) >> 6;
+        int texlen = dirtybits >> 6;
         for (int i = 0; i < texlen; )
         {
             if (!bgDirty.Data[i])
@@ -706,21 +709,29 @@ void GLRenderer2D::UpdateAndRender(int line)
                             GL_RED_INTEGER, GL_UNSIGNED_BYTE,
                             &vram[start * 1024]);
         }
+    }
 
+    if ((GPU.PaletteDirty & palmask) || bgExtPalDirty.CheckRange(0, 64))
+    {
         memcpy(&TempPalBuffer[0], &GPU.Palette[GPU2D.Num ? 0x400 : 0], 256*2);
         for (int s = 0; s < 4; s++)
         {
             for (int p = 0; p < 16; p++)
             {
-                u16* pal = GPU2D.GetBGExtPal(s, p);
-                memcpy(&TempPalBuffer[(1+((s*16)+p)) * 256], pal, 256*2);
+                u16 *pal = GPU2D.GetBGExtPal(s, p);
+                memcpy(&TempPalBuffer[(1 + ((s*16)+p)) * 256], pal, 256*2);
             }
         }
 
-        glActiveTexture(GL_TEXTURE1);
         glBindTexture(GL_TEXTURE_2D, PalTex_BG);
-        glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, 256, 1+(4*16), GL_RGBA, GL_UNSIGNED_SHORT_1_5_5_5_REV, TempPalBuffer);
+        glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, 256, 1+(4*16), GL_RGBA, GL_UNSIGNED_SHORT_1_5_5_5_REV,
+                        TempPalBuffer);
+    }
 
+    GPU.PaletteDirty &= ~palmask;
+
+    if (layer_pre_dirty)
+    {
         // pre-render BG layers with the new settings
 
         glUseProgram(LayerPreShader);
@@ -732,6 +743,11 @@ void GLRenderer2D::UpdateAndRender(int line)
         glDepthMask(GL_FALSE);
 
         glBindBufferBase(GL_UNIFORM_BUFFER, 20, LayerConfigUBO);
+
+        glActiveTexture(GL_TEXTURE0);
+        glBindTexture(GL_TEXTURE_2D, VRAMTex_BG);
+        glActiveTexture(GL_TEXTURE1);
+        glBindTexture(GL_TEXTURE_2D, PalTex_BG);
 
         for (int layer = 0; layer < 4; layer++)
         {
