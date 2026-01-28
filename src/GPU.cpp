@@ -559,6 +559,7 @@ u16* GPU::GetUniqueBankCBF(u32 mask, u32 offset)
 {
     //mask &= 0xF;
     if (!mask || (mask & (mask - 1)) != 0) return nullptr;
+    if (mask & 0x1F0) return nullptr;
     int num = __builtin_ctz(mask);
     offset = (offset >> 1) & 0x3;
     return &VRAMCaptureBlockFlags[(num << 2) | offset];
