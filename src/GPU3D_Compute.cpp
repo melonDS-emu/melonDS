@@ -1214,6 +1214,8 @@ void ComputeRenderer3D::RenderFrame()
     glMemoryBarrier(GL_SHADER_IMAGE_ACCESS_BARRIER_BIT);
 
     glBindSampler(0, 0);
+    glBindSampler(1, 0);
+    glBindSampler(2, 0);
 
     /*u64 starttime = armGetSystemTick();
     EmuQueue.waitIdle();
