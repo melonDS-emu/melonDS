@@ -682,7 +682,6 @@ void GLRenderer2D::UpdateAndRender(int line)
         u32 vrammask;
         GPU2D.GetBGVRAM(vram, vrammask);
 
-
         glBindTexture(GL_TEXTURE_2D, VRAMTex_BG);
 
         int texlen = dirtybits >> 6;

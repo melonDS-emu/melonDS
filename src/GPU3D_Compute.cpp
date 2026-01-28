@@ -222,7 +222,7 @@ bool ComputeRenderer3D::Init()
             glSamplerParameteri(Samplers[i+j*3], GL_TEXTURE_WRAP_S, translateWrapMode[i]);
             glSamplerParameteri(Samplers[i+j*3], GL_TEXTURE_WRAP_T, translateWrapMode[j]);
             glSamplerParameteri(Samplers[i+j*3], GL_TEXTURE_MIN_FILTER, GL_NEAREST);
-            glSamplerParameterf(Samplers[i+j*3], GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+            glSamplerParameteri(Samplers[i+j*3], GL_TEXTURE_MAG_FILTER, GL_NEAREST);
         }
     }
 
@@ -1143,7 +1143,7 @@ void ComputeRenderer3D::RenderFrame()
                     {
                         bool iscap = (variants[i].Texture == (GLuint)-1 || variants[i].Texture == (GLuint)-2);
                         bool previscap = (prevTexture == (GLuint)-1 || prevTexture == (GLuint)-2);
-                        if (iscap || previscap)
+                        if (iscap)
                         {
                             unitchange = true;
                             if (variants[i].Texture == (GLuint)-1)
@@ -1151,6 +1151,8 @@ void ComputeRenderer3D::RenderFrame()
                             else
                                 texunit = 2;
                         }
+                        else if (previscap)
+                            unitchange = true;
 
                         if (texunit == 0)
                             glBindTexture(GL_TEXTURE_2D_ARRAY, variants[i].Texture);
