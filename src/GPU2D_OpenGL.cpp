@@ -805,7 +805,6 @@ void GLRenderer2D::VBlank()
 
 void GLRenderer2D::VBlankEnd()
 {
-    //AuxUsageMask = 0;
 }
 
 

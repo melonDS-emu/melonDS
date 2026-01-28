@@ -107,6 +107,8 @@ void GPU2D::Reset()
     memset(BGYRef, 0, 2*4);
     memset(BGXRefInternal, 0, 2*4);
     memset(BGYRefInternal, 0, 2*4);
+    memset(BGXRefReload, 0, 2*4);
+    memset(BGYRefReload, 0, 2*4);
     memset(BGRotA, 0, 2*2);
     memset(BGRotB, 0, 2*2);
     memset(BGRotC, 0, 2*2);
@@ -153,7 +155,7 @@ void GPU2D::DoSavestate(Savestate* file)
     file->VarArray(BGYRef, 2*4);
     file->VarArray(BGXRefInternal, 2*4);
     file->VarArray(BGYRefInternal, 2*4);
-    file->VarArray(BGYRefReload, 2*4);
+    file->VarArray(BGXRefReload, 2*4);
     file->VarArray(BGYRefReload, 2*4);
     file->VarArray(BGRotA, 2*2);
     file->VarArray(BGRotB, 2*2);
