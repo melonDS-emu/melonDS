@@ -122,7 +122,8 @@ public:
     void setVSyncGL(bool vsync);
     void makeCurrentGL();
     void releaseGL();
-    void drawScreenGL();
+
+    void drawScreen();
 
     // return: empty string = setup OK, non-empty = error message
     QString verifySetup();

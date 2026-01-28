@@ -191,6 +191,21 @@ void Savestate::Section(const char* magic)
     }
 }
 
+void Savestate::VarBool(bool* var)
+{
+    if (Saving)
+    {
+        u8 val = (u8)*var;
+        Var8(&val);
+    }
+    else
+    {
+        u8 val;
+        Var8(&val);
+        *var = val != 0;
+    }
+}
+
 void Savestate::Bool32(bool* var)
 {
     // for compatibility
