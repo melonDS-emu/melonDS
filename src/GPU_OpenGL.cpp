@@ -582,7 +582,7 @@ void GLRenderer::RenderScreen(int ystart, int yend)
         {
             glBindTexture(GL_TEXTURE_2D_ARRAY, CaptureOutput256Tex);
             FinalPassConfig.uAuxLayer = vramcap >> 2;
-            FinalPassConfig.uAuxColorFactor = 63.f;
+            FinalPassConfig.uAuxColorFactor = 63.75f;
         }
         else if (modeA >= 2)
         {
