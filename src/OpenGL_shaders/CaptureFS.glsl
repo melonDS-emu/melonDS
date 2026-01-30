@@ -12,6 +12,7 @@ layout(std140) uniform ubCaptureConfig
     int uDstMode;
     ivec2 uBlendFactors;
     vec4 uSrcAOffset[48];
+    float uSrcBColorFactor;
 };
 
 smooth in vec4 fTexcoord;
@@ -49,13 +50,13 @@ void main()
     else if (uDstMode == 1)
     {
         // source B only
-        cap_out = ivec4(texture(InputTexB, coordB) * 255.0);
+        cap_out = ivec4(texture(InputTexB, coordB) * uSrcBColorFactor);
     }
     else
     {
         // sources A and B blended
         ivec4 srcA = ivec4(texture(InputTexA, coordA) * 255.0) >> 3;
-        ivec4 srcB = ivec4(texture(InputTexB, coordB) * 255.0) >> 3;
+        ivec4 srcB = ivec4(texture(InputTexB, coordB) * uSrcBColorFactor) >> 3;
 
         int eva = uBlendFactors[0];
         int evb = uBlendFactors[1];

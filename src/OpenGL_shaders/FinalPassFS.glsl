@@ -15,6 +15,7 @@ layout(std140) uniform ubFinalPassConfig
     int uBrightModeB;
     int uBrightFactorA;
     int uBrightFactorB;
+    float uAuxColorFactor;
 };
 
 smooth in vec3 fTexcoord;
@@ -58,7 +59,7 @@ void main()
     else
     {
         // VRAM display / mainmem FIFO
-        output_main = ivec3(texture(AuxInputTex, vec3(fTexcoord.xz, uAuxLayer)).rgb * 62.0);
+        output_main = ivec3(texture(AuxInputTex, vec3(fTexcoord.xz, uAuxLayer)).rgb * uAuxColorFactor);
     }
 
     if (uDispModeB == 0)

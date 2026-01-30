@@ -9,6 +9,7 @@ layout(std140) uniform ubCaptureConfig
     int uDstMode;
     ivec2 uBlendFactors;
     vec4 uSrcAOffset[48];
+    float uSrcBColorFactor;
 };
 
 in ivec2 vPosition;

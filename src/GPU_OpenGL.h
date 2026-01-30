@@ -82,6 +82,8 @@ private:
         u32 uBrightModeB;
         u32 uBrightFactorA;
         u32 uBrightFactorB;
+        float uAuxColorFactor;
+        u32 __pad0[3];
     } FinalPassConfig;
 
     GLuint FPShader;
@@ -108,6 +110,8 @@ private:
         u32 uDstMode;
         u32 uBlendFactors[2];
         float uSrcAOffset[192];
+        float uSrcBColorFactor;
+        u32 __pad0[3];
     } CaptureConfig;
 
     GLuint CaptureShader;

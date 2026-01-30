@@ -11,6 +11,7 @@ layout(std140) uniform ubFinalPassConfig
     int uBrightModeB;
     int uBrightFactorA;
     int uBrightFactorB;
+    float uAuxColorFactor;
 };
 
 in vec2 vPosition;

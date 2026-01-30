@@ -582,11 +582,13 @@ void GLRenderer::RenderScreen(int ystart, int yend)
         {
             glBindTexture(GL_TEXTURE_2D_ARRAY, CaptureOutput256Tex);
             FinalPassConfig.uAuxLayer = vramcap >> 2;
+            FinalPassConfig.uAuxColorFactor = 63.f;
         }
         else if (modeA >= 2)
         {
             glBindTexture(GL_TEXTURE_2D_ARRAY, AuxInputTex);
             FinalPassConfig.uAuxLayer = (modeA - 2);
+            FinalPassConfig.uAuxColorFactor = 62.f;
         }
 
         glBindBuffer(GL_UNIFORM_BUFFER, FPConfigUBO);
@@ -668,6 +670,7 @@ void GLRenderer::DoCapture(int ystart, int yend)
 
     GLuint inputB = AuxInputTex;
     u32 layerB = srcB;
+    CaptureConfig.uSrcBColorFactor = 248.f;
 
     if (useSrcB && (Aux0VRAMCap != -1))
     {
@@ -716,6 +719,8 @@ void GLRenderer::DoCapture(int ystart, int yend)
             inputB = CaptureOutput256Tex;
             layerB = srcBblock;
         }
+
+        CaptureConfig.uSrcBColorFactor = 255.f;
     }
 
     glBindFramebuffer(GL_READ_FRAMEBUFFER, 0);
