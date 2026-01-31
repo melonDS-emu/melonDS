@@ -210,21 +210,7 @@ void GPU::DoSavestate(Savestate* file) noexcept
 
     if (file->Saving)
     {
-        for (u32 b = 0; b < 16; b++)
-        {
-            u16 flags = VRAMCaptureBlockFlags[b];
-            if (!(flags & CBFlag_IsCapture))
-                continue;
-            if (flags & CBFlag_Synced)
-                continue;
-
-            u32 bank = b >> 2;
-            u32 start = flags & 0x3;
-            u32 len = (flags >> 6) & 0x3;
-
-            Rend->SyncVRAMCapture(bank, start, len, (flags & CBFlag_Complete));
-            VRAMCBFlagsClear(bank, start);
-        }
+        SyncAllVRAMCaptures();
     }
 
     memset(VRAMCaptureBlockFlags, 0, sizeof(VRAMCaptureBlockFlags));
@@ -328,6 +314,8 @@ void GPU::DoSavestate(Savestate* file) noexcept
 
 void GPU::SetRenderer(std::unique_ptr<Renderer>&& renderer) noexcept
 {
+    SyncAllVRAMCaptures();
+
     bool good = false;
     if (renderer)
     {
@@ -1611,6 +1599,17 @@ void GPU::CheckCaptureEnd()
     // TODO this will break if they change CaptureCnt during a capture
     u32 dstbank = (CaptureCnt >> 16) & 0x3;
     u32 dstoff = (CaptureCnt >> 18) & 0x3;
+    u32 size = (CaptureCnt >> 20) & 0x3;
+
+    u16 flags = VRAMCaptureBlockFlags[(dstbank << 2) | dstoff];
+    if (!(flags & CBFlag_IsCapture))
+        return;
+
+    u32 oldstart = flags & 0x3;
+    u32 oldsize = (flags >> 6) & 0x3;
+    if (dstoff != oldstart || size != oldsize)
+        return;
+
     VRAMCBFlagsOr(dstbank, dstoff, CBFlag_Complete);
 }
 
@@ -1643,6 +1642,25 @@ void GPU::SyncVRAMCaptureBlock(u32 block, bool write)
     {
         // if this block was simply read by the CPU, we just need to mark it as synced
         VRAMCBFlagsOr(bank, start, CBFlag_Synced);
+    }
+}
+
+void GPU::SyncAllVRAMCaptures()
+{
+    for (u32 b = 0; b < 16; b++)
+    {
+        u16 flags = VRAMCaptureBlockFlags[b];
+        if (!(flags & CBFlag_IsCapture))
+            continue;
+        if (flags & CBFlag_Synced)
+            continue;
+
+        u32 bank = b >> 2;
+        u32 start = flags & 0x3;
+        u32 len = (flags >> 6) & 0x3;
+
+        Rend->SyncVRAMCapture(bank, start, len, (flags & CBFlag_Complete));
+        VRAMCBFlagsClear(bank, start);
     }
 }
 

@@ -822,6 +822,12 @@ void GLRenderer::DoCapture(int ystart, int yend)
 
 void GLRenderer::AllocCapture(u32 bank, u32 start, u32 len)
 {
+    auto rend2D = dynamic_cast<GLRenderer2D*>(Rend2D_A.get());
+    rend2D->LayerConfigDirty = true;
+    rend2D->SpriteConfigDirty = true;
+    rend2D = dynamic_cast<GLRenderer2D*>(Rend2D_B.get());
+    rend2D->LayerConfigDirty = true;
+    rend2D->SpriteConfigDirty = true;
 }
 
 void GLRenderer::DownscaleCapture(int width, int height, int layer)

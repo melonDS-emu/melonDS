@@ -422,12 +422,15 @@ void GLRenderer2D::Reset()
 
     memset(BGVRAMRange, 0xFF, sizeof(BGVRAMRange));
 
+    LayerConfigDirty = true;
+
     LastSpriteLine = 0;
     memset(OAM, 0, sizeof(OAM));
     NumSprites = 0;
     SpriteUseMosaic = false;
 
     SpriteDispCnt = 0;
+    SpriteConfigDirty = true;
     SpriteDirty = true;
 
     memset(TempPalBuffer, 0, sizeof(TempPalBuffer));
@@ -665,7 +668,7 @@ void GLRenderer2D::UpdateAndRender(int line)
     EVB = GPU2D.EVB;
     EVY = GPU2D.EVY;
 
-    if (layer_pre_dirty)
+    if (layer_pre_dirty || LayerConfigDirty)
         UpdateLayerConfig();
 
     UpdateScanlineConfig(line);
@@ -785,6 +788,7 @@ void GLRenderer2D::UpdateAndRender(int line)
         LastSpriteLine = line;
     }
 
+    LayerConfigDirty = false;
     SpriteDirty = false;
 }
 
@@ -1885,10 +1889,11 @@ void GLRenderer2D::DrawSprites(u32 line)
         dirty = true;
     }
 
-    if (GPU.OAMDirty & oammask)
+    if ((GPU.OAMDirty & oammask) || SpriteConfigDirty)
     {
         memcpy(OAM, &GPU.OAM[GPU2D.Num ? 0x400 : 0], 0x400);
         GPU.OAMDirty &= ~oammask;
+        SpriteConfigDirty = false;
         dirty = true;
     }
 

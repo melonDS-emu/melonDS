@@ -45,6 +45,7 @@ public:
     void VBlankEnd() override;
 
 private:
+    friend class GLRenderer;
     GLRenderer& Parent;
 
     int ScaleFactor;
@@ -194,10 +195,13 @@ private:
 
     u32 BGVRAMRange[4][4];
 
+    bool LayerConfigDirty;
+
     int LastSpriteLine;
     u16 OAM[512];
 
     u32 SpriteDispCnt;
+    bool SpriteConfigDirty;
     bool SpriteDirty;
 
     u16 TempPalBuffer[256 * (1 + (4*16))];
