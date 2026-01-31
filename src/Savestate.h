@@ -24,7 +24,7 @@
 #include <stdio.h>
 #include "types.h"
 
-#define SAVESTATE_MAJOR 13
+#define SAVESTATE_MAJOR 14
 #define SAVESTATE_MINOR 0
 
 // bitmask for the savestate config word
@@ -73,7 +73,8 @@ public:
         VarArray(var, sizeof(*var));
     }
 
-    void Bool32(bool* var);
+    void VarBool(bool* var);
+    void Bool32(bool* var); // backwards compatibility (TODO remove)
 
     void VarArray(void* data, u32 len);
 
