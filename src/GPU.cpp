@@ -1557,13 +1557,27 @@ void GPU::CheckCaptureStart()
     u32 size = (CaptureCnt >> 20) & 0x3;
     u32 len = (size == 0) ? 1 : size;
 
-    // if needed, invalidate old capture
-    u16 oldflags = VRAMCaptureBlockFlags[(dstbank<<2) | dstoff];
-    if (oldflags & CBFlag_IsCapture)
+    // if needed, invalidate old captures
+    u16* cbflags = &VRAMCaptureBlockFlags[dstbank << 2];
+    u32 b = dstoff;
+    for (u32 i = 0; i < len; i++)
     {
-        // TODO sync VRAM if this is a different block?
+        u16 oldflags = cbflags[b];
+        b = (b + 1) & 0x3;
 
-        VRAMCBFlagsClear(dstbank, dstoff);
+        if (!(oldflags & CBFlag_IsCapture))
+            continue;
+
+        u32 oldstart = oldflags & 0x3;
+        u32 oldsize = (oldflags >> 6) & 0x3;
+        if (oldstart == dstoff && oldsize == size)
+            continue;
+
+        // we have an old capture here, and it was at a different offset/size
+        // sync it and invalidate it
+
+        Rend->SyncVRAMCapture(dstbank, oldstart, oldsize, (oldflags & CBFlag_Complete));
+        VRAMCBFlagsClear(dstbank, oldstart);
     }
 
     // mark involved VRAM blocks as being a new capture
@@ -1575,7 +1589,7 @@ void GPU::CheckCaptureStart()
 void GPU::CheckCaptureEnd()
 {
     // mark this capture as complete
-    // TODO should be done before VBlank for smaller capture sizes?
+    // TODO this will break if they change CaptureCnt during a capture
     u32 dstbank = (CaptureCnt >> 16) & 0x3;
     u32 dstoff = (CaptureCnt >> 18) & 0x3;
     VRAMCBFlagsOr(dstbank, dstoff, CBFlag_Complete);
