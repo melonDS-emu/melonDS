@@ -208,6 +208,27 @@ void GPU::DoSavestate(Savestate* file) noexcept
 
     Rend->PreSavestate();
 
+    if (file->Saving)
+    {
+        for (u32 b = 0; b < 16; b++)
+        {
+            u16 flags = VRAMCaptureBlockFlags[b];
+            if (!(flags & CBFlag_IsCapture))
+                continue;
+            if (flags & CBFlag_Synced)
+                continue;
+
+            u32 bank = b >> 2;
+            u32 start = flags & 0x3;
+            u32 len = (flags >> 6) & 0x3;
+
+            Rend->SyncVRAMCapture(bank, start, len, (flags & CBFlag_Complete));
+            VRAMCBFlagsClear(bank, start);
+        }
+    }
+
+    memset(VRAMCaptureBlockFlags, 0, sizeof(VRAMCaptureBlockFlags));
+
     file->VarBool(&ScreensEnabled);
     file->VarBool(&ScreenSwap);
 
@@ -265,8 +286,6 @@ void GPU::DoSavestate(Savestate* file) noexcept
 
     file->Var32(&VRAMMap_ARM7[0]);
     file->Var32(&VRAMMap_ARM7[1]);
-
-    file->VarArray(VRAMCaptureBlockFlags, sizeof(VRAMCaptureBlockFlags));
 
     if (!file->Saving)
     {
