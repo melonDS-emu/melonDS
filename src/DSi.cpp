@@ -158,10 +158,12 @@ void DSi::Reset()
     if (FullBIOSBoot)
     {
         SCFG_BIOS = 0x0000;
+        ARM7BIOSProt = 0;
     }
     else
     {
         SCFG_BIOS = 0x0101;
+        ARM7BIOSProt = 0x20;
     }
     SCFG_Clock9 = 0x0187; // CHECKME
     SCFG_Clock7 = 0x0187;
