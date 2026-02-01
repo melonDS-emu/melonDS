@@ -1114,7 +1114,7 @@ bool MainWindow::preloadROMs(QStringList file, QStringList gbafile, bool boot)
 {
     QString errorstr;
 
-    if (file.isEmpty() && gbafile.isEmpty())
+    if (file.isEmpty() && gbafile.isEmpty() && !boot)
         return false;
 
     if (!verifySetup())
@@ -1153,7 +1153,7 @@ bool MainWindow::preloadROMs(QStringList file, QStringList gbafile, bool boot)
                 return false;
             }
         }
-        
+
         recentFileList.removeAll(file.join("|"));
         recentFileList.prepend(file.join("|"));
         updateRecentFilesMenu();
