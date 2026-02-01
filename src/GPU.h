@@ -52,29 +52,37 @@ struct VRAMTrackingSet
     NonStupidBitField<Size/VRAMDirtyGranularity> DeriveState(const u32* currentMappings, GPU& gpu);
 };
 
+class Renderer;
+
 class GPU
 {
 public:
-    explicit GPU(melonDS::NDS& nds, std::unique_ptr<Renderer3D>&& renderer3d = nullptr, std::unique_ptr<GPU2D::Renderer2D>&& renderer2d = nullptr) noexcept;
+    explicit GPU(melonDS::NDS& nds, std::unique_ptr<Renderer>&& renderer = nullptr) noexcept;
     ~GPU() noexcept;
     void Reset() noexcept;
     void Stop() noexcept;
 
     void DoSavestate(Savestate* file) noexcept;
 
-    /// Sets the active renderer to the renderer given in the provided pointer.
-    /// The pointer is moved-from, so it will be \c nullptr after this method is called.
-    /// If the pointer is \c nullptr, the renderer is reset to the default renderer.
-    void SetRenderer3D(std::unique_ptr<Renderer3D>&& renderer) noexcept;
-    [[nodiscard]] const Renderer3D& GetRenderer3D() const noexcept { return GPU3D.GetCurrentRenderer(); }
-    [[nodiscard]] Renderer3D& GetRenderer3D() noexcept { return GPU3D.GetCurrentRenderer(); }
+    void SetRenderer(std::unique_ptr<Renderer>&& renderer) noexcept;
+    const Renderer& GetRenderer() const noexcept { return *Rend; }
+    Renderer& GetRenderer() noexcept { return *Rend; }
+
+    // return value for GetFramebuffers:
+    // true -> pointers to RAM framebuffers are returned via the parameters
+    // false -> this renderer doesn't use RAM framebuffers
+    //          - values are renderer-specific (ie. OpenGL texture handle)
+    bool GetFramebuffers(void** top, void** bottom);
 
     u8* GetUniqueBankPtr(u32 mask, u32 offset) noexcept;
     const u8* GetUniqueBankPtr(u32 mask, u32 offset) const noexcept;
 
-    void SetRenderer2D(std::unique_ptr<GPU2D::Renderer2D>&& renderer) noexcept { GPU2D_Renderer = std::move(renderer); }
-    [[nodiscard]] const GPU2D::Renderer2D& GetRenderer2D() const noexcept { return *GPU2D_Renderer; }
-    [[nodiscard]] GPU2D::Renderer2D& GetRenderer2D() noexcept { return *GPU2D_Renderer; }
+    u8 Read8(u32 addr);
+    u16 Read16(u32 addr);
+    u32 Read32(u32 addr);
+    void Write8(u32 addr, u8 val);
+    void Write16(u32 addr, u16 val);
+    void Write32(u32 addr, u32 val);
 
     void MapVRAM_AB(u32 bank, u8 cnt) noexcept;
     void MapVRAM_CD(u32 bank, u8 cnt) noexcept;
@@ -82,6 +90,68 @@ public:
     void MapVRAM_FG(u32 bank, u8 cnt) noexcept;
     void MapVRAM_H(u32 bank, u8 cnt) noexcept;
     void MapVRAM_I(u32 bank, u8 cnt) noexcept;
+
+    /*
+        VRAM syncing code for display capture blocks
+
+        The software renderer will write display captures straight to VRAM, making this unnecessary.
+        However, hardware-accelerated renderers may want to keep display captures in GPU memory unless
+        it is necessary to read them back. This syncing system assists with that.
+
+        Those checks are limited to banks A..D, since those are the only ones that can be used for
+        display capture.
+
+        TODO: make checks more efficient
+    */
+
+    void SyncVRAM_LCDC(u32 addr, bool write)
+    {
+        u32 bank = (addr >> 17) & 0x7;
+        if (bank >= 4) return;
+
+        if (VRAMMap_LCDC & (1<<bank))
+            SyncVRAMCaptureBlock((addr >> 15) & 0xF, write);
+    }
+
+    void SyncVRAM_ABG(u32 addr, bool write)
+    {
+        u32 mask = VRAMMap_ABG[(addr >> 14) & 0x1F];
+        addr = (addr >> 15) & 0x3;
+        if (mask & (1<<0)) SyncVRAMCaptureBlock((0<<2) | addr, write);
+        if (mask & (1<<1)) SyncVRAMCaptureBlock((1<<2) | addr, write);
+        if (mask & (1<<2)) SyncVRAMCaptureBlock((2<<2) | addr, write);
+        if (mask & (1<<3)) SyncVRAMCaptureBlock((3<<2) | addr, write);
+    }
+
+    void SyncVRAM_AOBJ(u32 addr, bool write)
+    {
+        u32 mask = VRAMMap_AOBJ[(addr >> 14) & 0xF];
+        addr = (addr >> 15) & 0x3;
+        if (mask & (1<<0)) SyncVRAMCaptureBlock((0<<2) | addr, write);
+        if (mask & (1<<1)) SyncVRAMCaptureBlock((1<<2) | addr, write);
+    }
+
+    void SyncVRAM_BBG(u32 addr, bool write)
+    {
+        u32 mask = VRAMMap_BBG[(addr >> 14) & 0x7];
+        addr = (addr >> 15) & 0x3;
+        if (mask & (1<<2)) SyncVRAMCaptureBlock((2<<2) | addr, write);
+    }
+
+    void SyncVRAM_BOBJ(u32 addr, bool write)
+    {
+        u32 mask = VRAMMap_BOBJ[(addr >> 14) & 0x7];
+        addr = (addr >> 15) & 0x3;
+        if (mask & (1<<3)) SyncVRAMCaptureBlock((3<<2) | addr, write);
+    }
+
+    int GetCaptureBlock_LCDC(u32 offset);
+
+    void GetCaptureInfo_ABG(int* info);
+    void GetCaptureInfo_AOBJ(int* info);
+    void GetCaptureInfo_BBG(int* info);
+    void GetCaptureInfo_BOBJ(int* info);
+    void GetCaptureInfo_Texture(int* info);
 
     template<typename T>
     T ReadVRAM_LCDC(u32 addr) const noexcept
@@ -481,7 +551,10 @@ public:
         addr &= 0x7FF;
 
         *(T*)&Palette[addr] = val;
-        PaletteDirty |= 1 << (addr / VRAMDirtyGranularity);
+        if (addr & 0x3FE)
+            PaletteDirty |= 1 << (addr / VRAMDirtyGranularity);
+        else
+            PaletteDirty |= 0x10 << (addr / VRAMDirtyGranularity);
     }
 
     template<typename T>
@@ -518,11 +591,13 @@ public:
     void StartScanline(u32 line) noexcept;
     void StartHBlank(u32 line) noexcept;
 
+    void Restart3DFrame() noexcept;
+
     void DisplayFIFO(u32 x) noexcept;
 
-    void SetDispStat(u32 cpu, u16 val) noexcept;
+    void SetDispStat(u32 cpu, u16 val, u16 mask) noexcept;
+    void SetVCount(u16 val, u16 mask) noexcept;
 
-    void SetVCount(u16 val) noexcept;
     bool MakeVRAMFlat_ABGCoherent(NonStupidBitField<512*1024/VRAMDirtyGranularity>& dirty) noexcept;
     bool MakeVRAMFlat_BBGCoherent(NonStupidBitField<128*1024/VRAMDirtyGranularity>& dirty) noexcept;
 
@@ -538,14 +613,27 @@ public:
     bool MakeVRAMFlat_TextureCoherent(NonStupidBitField<512*1024/VRAMDirtyGranularity>& dirty) noexcept;
     bool MakeVRAMFlat_TexPalCoherent(NonStupidBitField<128*1024/VRAMDirtyGranularity>& dirty) noexcept;
 
-    void SyncDirtyFlags() noexcept;
-
     melonDS::NDS& NDS;
+
+    bool ScreensEnabled = false;
+    bool ScreenSwap = false;
+
     u16 VCount = 0;
     u16 TotalScanlines = 0;
     u16 DispStat[2] {};
     u8 VRAMCNT[9] {};
     u8 VRAMSTAT = 0;
+
+    u16 MasterBrightnessA;
+    u16 MasterBrightnessB;
+
+    u16 DispFIFO[16];
+    u8 DispFIFOReadPtr;
+    u8 DispFIFOWritePtr;
+    alignas(8) u16 DispFIFOBuffer[256];
+
+    u32 CaptureCnt;
+    bool CaptureEnable;
 
     alignas(u64) u8 Palette[2*1024] {};
     alignas(u64) u8 OAM[2*1024] {};
@@ -581,11 +669,8 @@ public:
     u8* VRAMPtr_BBG[0x8] {};
     u8* VRAMPtr_BOBJ[0x8] {};
 
-    int FrontBuffer = 0;
-    std::unique_ptr<u32[]> Framebuffer[2][2] {};
-
-    GPU2D::Unit GPU2D_A;
-    GPU2D::Unit GPU2D_B;
+    melonDS::GPU2D GPU2D_A;
+    melonDS::GPU2D GPU2D_B;
     melonDS::GPU3D GPU3D;
 
     NonStupidBitField<128*1024/VRAMDirtyGranularity> VRAMDirty[9] {};
@@ -615,10 +700,13 @@ public:
 
     alignas(u64) u8 VRAMFlat_Texture[512*1024] {};
     alignas(u64) u8 VRAMFlat_TexPal[128*1024] {};
+
+    u32 OAMDirty = 0;
+    u32 PaletteDirty = 0;
+
 private:
     void ResetVRAMCache() noexcept;
-    void AssignFramebuffers() noexcept;
-    void InitFramebuffers() noexcept;
+
     template<typename T>
     T ReadVRAM_ABGExtPal(u32 addr) const noexcept
     {
@@ -694,17 +782,99 @@ private:
         return change;
     }
 
-    u32 NextVCount = 0;
+    u16* GetUniqueBankCBF(u32 mask, u32 offset);
+    void VRAMCBFlagsSet(u32 bank, u32 block, u16 val);
+    void VRAMCBFlagsClear(u32 bank, u32 block);
+    void VRAMCBFlagsOr(u32 bank, u32 block, u16 val);
+    void CheckCaptureStart();
+    void CheckCaptureEnd();
+    void SyncVRAMCaptureBlock(u32 block, bool write);
+    void SyncAllVRAMCaptures();
+    void GetCaptureInfo(int* info, u16** cbf, int len);
+
+    void SetDispStatIRQ(int cpu, int num);
+
+    bool UsesDisplayFIFO();
+    void SampleDisplayFIFO(u32 offset, u32 num);
+
+    bool VCountOverride = false;
+    u16 NextVCount = 0;
 
     bool RunFIFO = false;
 
     u16 VMatch[2] {};
 
-    std::unique_ptr<GPU2D::Renderer2D> GPU2D_Renderer = nullptr;
+    std::unique_ptr<Renderer> Rend = nullptr;
 
-    u32 OAMDirty = 0;
-    u32 PaletteDirty = 0;
+    u16 VRAMCaptureBlockFlags[16];
+
+    u16* VRAMCBF_ABG[0x20] {};
+    u16* VRAMCBF_AOBJ[0x10] {};
+    u16* VRAMCBF_BBG[0x8] {};
+    u16* VRAMCBF_BOBJ[0x8] {};
 };
+
+
+struct RendererSettings
+{
+    // scale factor, for renderers that support upscaling
+    int ScaleFactor;
+
+    // whether to use separate threads for rendering
+    bool Threaded;
+
+    // whether to use hi-res vertex coordinates when applying upscaling
+    bool HiresCoordinates;
+
+    // "improved polygon splitting" (regular OpenGL renderer)
+    bool BetterPolygons;
+};
+
+class Renderer
+{
+public:
+    explicit Renderer(melonDS::GPU& gpu) : GPU(gpu), BackBuffer(0) {}
+    virtual ~Renderer() {}
+    virtual bool Init() = 0;
+    virtual void Reset() = 0;
+    virtual void Stop() = 0;
+
+    virtual void PreSavestate() {}
+    virtual void PostSavestate() {}
+
+    virtual void SetRenderSettings(RendererSettings& settings) = 0;
+
+    virtual void DrawScanline(u32 line) = 0;
+    virtual void DrawSprites(u32 line) = 0;
+
+    virtual void Start3DRendering() { Rend3D->RenderFrame(); }
+    virtual void Finish3DRendering() { Rend3D->FinishRendering(); }
+    virtual void Restart3DRendering() { Rend3D->RestartFrame(); }
+
+    virtual void VBlank() = 0;
+    virtual void VBlankEnd() = 0;
+
+    virtual void AllocCapture(u32 bank, u32 start, u32 len) = 0;
+    virtual void SyncVRAMCapture(u32 bank, u32 start, u32 len, bool complete) = 0;
+
+    // a renderer may render to RAM buffers, or to something else (ie. OpenGL)
+    // if the renderer uses RAM buffers, they should be 32-bit BGRA, 256x192 for each screen
+    virtual bool GetFramebuffers(void** top, void** bottom) = 0;
+    virtual void SwapBuffers() { BackBuffer ^= 1; }
+
+    virtual bool NeedsShaderCompile() { return false; }
+    virtual void ShaderCompileStep(int& current, int& count) {}
+
+protected:
+    melonDS::GPU& GPU;
+
+    int BackBuffer;
+
+    std::unique_ptr<Renderer2D> Rend2D_A;
+    std::unique_ptr<Renderer2D> Rend2D_B;
+    std::unique_ptr<Renderer3D> Rend3D;
+};
+
 }
 
 #endif

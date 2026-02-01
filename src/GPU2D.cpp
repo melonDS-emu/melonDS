@@ -37,8 +37,9 @@ using Platform::LogLevel;
 // * VRAM/FIFO display modes convert colors the same way
 // * 3D engine converts colors differently (18bit = 15bit * 2 + 1, except 0 = 0)
 // * 'screen disabled' white is 63,63,63
-// * [Gericom] bit15 is used as bottom green bit for palettes. TODO: check where this applies.
-//   tested on the normal BG palette and applies there
+// * [Gericom] bit15 is used as bottom green bit for palettes.
+//   applies to any BG/OBJ graphics except direct color
+//   does not apply to VRAM display or mainmem FIFO
 //
 // for VRAM display mode, VRAM must be mapped to LCDC
 //
@@ -85,16 +86,20 @@ using Platform::LogLevel;
 // for example these aren't affected by POWCNT GPU-disable bits.
 // to model the hardware more accurately, the relevant logic should be moved to GPU.cpp.
 
-namespace GPU2D
-{
-Unit::Unit(u32 num, melonDS::GPU& gpu) : Num(num), GPU(gpu)
+
+GPU2D::GPU2D(u32 num, melonDS::GPU& gpu) : Num(num), GPU(gpu)
 {
 }
 
-void Unit::Reset()
+void GPU2D::Reset()
 {
     Enabled = false;
+
     DispCnt = 0;
+    memset(DispCntLatch, 0, sizeof(DispCntLatch));
+    LayerEnable = 0;
+    OBJEnable = 0;
+    ForcedBlank = 0;
     memset(BGCnt, 0, 4*2);
     memset(BGXPos, 0, 4*2);
     memset(BGYPos, 0, 4*2);
@@ -102,6 +107,8 @@ void Unit::Reset()
     memset(BGYRef, 0, 2*4);
     memset(BGXRefInternal, 0, 2*4);
     memset(BGYRefInternal, 0, 2*4);
+    memset(BGXRefReload, 0, 2*4);
+    memset(BGYRefReload, 0, 2*4);
     memset(BGRotA, 0, 2*2);
     memset(BGRotB, 0, 2*2);
     memset(BGRotC, 0, 2*2);
@@ -121,31 +128,26 @@ void Unit::Reset()
     BGMosaicY = 0;
     BGMosaicYMax = 0;
     OBJMosaicY = 0;
-    OBJMosaicYMax = 0;
-    OBJMosaicYCount = 0;
+    BGMosaicLatch = true;
+    OBJMosaicLatch = true;
+    BGMosaicLine = 0;
+    OBJMosaicLine = 0;
 
     BlendCnt = 0;
     EVA = 16;
     EVB = 0;
     EVY = 0;
-
-    memset(DispFIFO, 0, 16*2);
-    DispFIFOReadPtr = 0;
-    DispFIFOWritePtr = 0;
-
-    memset(DispFIFOBuffer, 0, 256*2);
-
-    CaptureCnt = 0;
-    CaptureLatch = false;
-
-    MasterBrightness = 0;
 }
 
-void Unit::DoSavestate(Savestate* file)
+void GPU2D::DoSavestate(Savestate* file)
 {
     file->Section((char*)(Num ? "GP2B" : "GP2A"));
 
     file->Var32(&DispCnt);
+    file->VarArray(DispCntLatch, sizeof(DispCntLatch));
+    file->Var8(&LayerEnable);
+    file->Var8(&OBJEnable);
+    file->Var8(&ForcedBlank);
     file->VarArray(BGCnt, 4*2);
     file->VarArray(BGXPos, 4*2);
     file->VarArray(BGYPos, 4*2);
@@ -153,6 +155,8 @@ void Unit::DoSavestate(Savestate* file)
     file->VarArray(BGYRef, 2*4);
     file->VarArray(BGXRefInternal, 2*4);
     file->VarArray(BGYRefInternal, 2*4);
+    file->VarArray(BGXRefReload, 2*4);
+    file->VarArray(BGYRefReload, 2*4);
     file->VarArray(BGRotA, 2*2);
     file->VarArray(BGRotB, 2*2);
     file->VarArray(BGRotC, 2*2);
@@ -167,7 +171,10 @@ void Unit::DoSavestate(Savestate* file)
     file->Var8(&BGMosaicY);
     file->Var8(&BGMosaicYMax);
     file->Var8(&OBJMosaicY);
-    file->Var8(&OBJMosaicYMax);
+    file->VarBool(&BGMosaicLatch);
+    file->VarBool(&OBJMosaicLatch);
+    file->Var32(&BGMosaicLine);
+    file->Var32(&OBJMosaicLine);
 
     file->Var16(&BlendCnt);
     file->Var16(&BlendAlpha);
@@ -175,24 +182,11 @@ void Unit::DoSavestate(Savestate* file)
     file->Var8(&EVB);
     file->Var8(&EVY);
 
-    file->Var16(&MasterBrightness);
-
-    if (!Num)
-    {
-        file->VarArray(DispFIFO, 16*2);
-        file->Var32(&DispFIFOReadPtr);
-        file->Var32(&DispFIFOWritePtr);
-
-        file->VarArray(DispFIFOBuffer, 256*2);
-
-        file->Var32(&CaptureCnt);
-    }
-
-    file->Var32(&Win0Active);
-    file->Var32(&Win1Active);
+    file->Var8(&Win0Active);
+    file->Var8(&Win1Active);
 }
 
-u8 Unit::Read8(u32 addr)
+u8 GPU2D::Read8(u32 addr)
 {
     switch (addr & 0x00000FFF)
     {
@@ -215,17 +209,22 @@ u8 Unit::Read8(u32 addr)
     case 0x04A: return WinCnt[2];
     case 0x04B: return WinCnt[3];
 
+    case 0x050: return BlendCnt & 0xFF;
+    case 0x051: return BlendCnt >> 8;
+    case 0x052: return BlendAlpha & 0xFF;
+    case 0x053: return BlendAlpha >> 8;
+
     // there are games accidentally trying to read those
     // those are write-only
     case 0x04C:
     case 0x04D: return 0;
     }
 
-    Log(LogLevel::Debug, "unknown GPU read8 %08X\n", addr);
+    Log(LogLevel::Debug, "unknown GPU2D read8 %08X\n", addr);
     return 0;
 }
 
-u16 Unit::Read16(u32 addr)
+u16 GPU2D::Read16(u32 addr)
 {
     switch (addr & 0x00000FFF)
     {
@@ -243,30 +242,23 @@ u16 Unit::Read16(u32 addr)
     case 0x050: return BlendCnt;
     case 0x052: return BlendAlpha;
     // BLDY is write-only
-
-    case 0x064: return CaptureCnt & 0xFFFF;
-    case 0x066: return CaptureCnt >> 16;
-
-    case 0x06C: return MasterBrightness;
     }
 
-    Log(LogLevel::Debug, "unknown GPU read16 %08X\n", addr);
+    Log(LogLevel::Debug, "unknown GPU2D read16 %08X\n", addr);
     return 0;
 }
 
-u32 Unit::Read32(u32 addr)
+u32 GPU2D::Read32(u32 addr)
 {
     switch (addr & 0x00000FFF)
     {
     case 0x000: return DispCnt;
-
-    case 0x064: return CaptureCnt;
     }
 
     return Read16(addr) | (Read16(addr+2) << 16);
 }
 
-void Unit::Write8(u32 addr, u8 val)
+void GPU2D::Write8(u32 addr, u8 val)
 {
     switch (addr & 0x00000FFF)
     {
@@ -287,11 +279,11 @@ void Unit::Write8(u32 addr, u8 val)
         if (Num) DispCnt &= 0xC0B1FFF7;
         return;
 
-    case 0x10:
-        if (!Num) GPU.GPU3D.SetRenderXPos((GPU.GPU3D.GetRenderXPos() & 0xFF00) | val);
+    case 0x010:
+        if (!Num) GPU.GPU3D.SetRenderXPos(val, 0x00FF);
         break;
-    case 0x11:
-        if (!Num) GPU.GPU3D.SetRenderXPos((GPU.GPU3D.GetRenderXPos() & 0x00FF) | (val << 8));
+    case 0x011:
+        if (!Num) GPU.GPU3D.SetRenderXPos(val << 8, 0xFF00);
         break;
     }
 
@@ -367,10 +359,10 @@ void Unit::Write8(u32 addr, u8 val)
         return;
     }
 
-    Log(LogLevel::Debug, "unknown GPU write8 %08X %02X\n", addr, val);
+    Log(LogLevel::Debug, "unknown GPU2D write8 %08X %02X\n", addr, val);
 }
 
-void Unit::Write16(u32 addr, u16 val)
+void GPU2D::Write16(u32 addr, u16 val)
 {
     switch (addr & 0x00000FFF)
     {
@@ -384,27 +376,8 @@ void Unit::Write16(u32 addr, u16 val)
         return;
 
     case 0x010:
-        if (!Num) GPU.GPU3D.SetRenderXPos(val);
+        if (!Num) GPU.GPU3D.SetRenderXPos(val, 0xFFFF);
         break;
-
-    case 0x064:
-        CaptureCnt = (CaptureCnt & 0xFFFF0000) | (val & 0xEF3F1F1F);
-        return;
-
-    case 0x066:
-        CaptureCnt = (CaptureCnt & 0xFFFF) | ((val << 16) & 0xEF3F1F1F);
-        return;
-
-    case 0x068:
-        DispFIFO[DispFIFOWritePtr] = val;
-        return;
-    case 0x06A:
-        DispFIFO[DispFIFOWritePtr+1] = val;
-        DispFIFOWritePtr += 2;
-        DispFIFOWritePtr &= 0xF;
-        return;
-
-    case 0x06C: MasterBrightness = val; return;
     }
 
     if (!Enabled) return;
@@ -431,21 +404,21 @@ void Unit::Write16(u32 addr, u16 val)
     case 0x026: BGRotD[0] = val; return;
     case 0x028:
         BGXRef[0] = (BGXRef[0] & 0xFFFF0000) | val;
-        if (GPU.VCount < 192) BGXRefInternal[0] = BGXRef[0];
+        BGXRefReload[0] = BGXRef[0];
         return;
     case 0x02A:
         if (val & 0x0800) val |= 0xF000;
         BGXRef[0] = (BGXRef[0] & 0xFFFF) | (val << 16);
-        if (GPU.VCount < 192) BGXRefInternal[0] = BGXRef[0];
+        BGXRefReload[0] = BGXRef[0];
         return;
     case 0x02C:
         BGYRef[0] = (BGYRef[0] & 0xFFFF0000) | val;
-        if (GPU.VCount < 192) BGYRefInternal[0] = BGYRef[0];
+        BGYRefReload[0] = BGYRef[0];
         return;
     case 0x02E:
         if (val & 0x0800) val |= 0xF000;
         BGYRef[0] = (BGYRef[0] & 0xFFFF) | (val << 16);
-        if (GPU.VCount < 192) BGYRefInternal[0] = BGYRef[0];
+        BGYRefReload[0] = BGYRef[0];
         return;
 
     case 0x030: BGRotA[1] = val; return;
@@ -454,21 +427,21 @@ void Unit::Write16(u32 addr, u16 val)
     case 0x036: BGRotD[1] = val; return;
     case 0x038:
         BGXRef[1] = (BGXRef[1] & 0xFFFF0000) | val;
-        if (GPU.VCount < 192) BGXRefInternal[1] = BGXRef[1];
+        BGXRefReload[1] = BGXRef[1];
         return;
     case 0x03A:
         if (val & 0x0800) val |= 0xF000;
         BGXRef[1] = (BGXRef[1] & 0xFFFF) | (val << 16);
-        if (GPU.VCount < 192) BGXRefInternal[1] = BGXRef[1];
+        BGXRefReload[1] = BGXRef[1];
         return;
     case 0x03C:
         BGYRef[1] = (BGYRef[1] & 0xFFFF0000) | val;
-        if (GPU.VCount < 192) BGYRefInternal[1] = BGYRef[1];
+        BGYRefReload[1] = BGYRef[1];
         return;
     case 0x03E:
         if (val & 0x0800) val |= 0xF000;
         BGYRef[1] = (BGYRef[1] & 0xFFFF) | (val << 16);
-        if (GPU.VCount < 192) BGYRefInternal[1] = BGYRef[1];
+        BGYRefReload[1] = BGYRef[1];
         return;
 
     case 0x040:
@@ -519,10 +492,10 @@ void Unit::Write16(u32 addr, u16 val)
         return;
     }
 
-    //printf("unknown GPU write16 %08X %04X\n", addr, val);
+    //printf("unknown GPU2D write16 %08X %04X\n", addr, val);
 }
 
-void Unit::Write32(u32 addr, u32 val)
+void GPU2D::Write32(u32 addr, u32 val)
 {
     switch (addr & 0x00000FFF)
     {
@@ -530,109 +503,46 @@ void Unit::Write32(u32 addr, u32 val)
         DispCnt = val;
         if (Num) DispCnt &= 0xC0B1FFF7;
         return;
+    }
 
-    case 0x064:
-        CaptureCnt = val & 0xEF3F1F1F;
-        return;
-
-    case 0x068:
-        DispFIFO[DispFIFOWritePtr] = val & 0xFFFF;
-        DispFIFO[DispFIFOWritePtr+1] = val >> 16;
-        DispFIFOWritePtr += 2;
-        DispFIFOWritePtr &= 0xF;
+    if (!Enabled)
+    {
+        Write16(addr, val&0xFFFF);
+        Write16(addr+2, val>>16);
         return;
     }
 
-    if (Enabled)
+    switch (addr & 0x00000FFF)
     {
-        switch (addr & 0x00000FFF)
-        {
-        case 0x028:
-            if (val & 0x08000000) val |= 0xF0000000;
-            BGXRef[0] = val;
-            if (GPU.VCount < 192) BGXRefInternal[0] = BGXRef[0];
-            return;
-        case 0x02C:
-            if (val & 0x08000000) val |= 0xF0000000;
-            BGYRef[0] = val;
-            if (GPU.VCount < 192) BGYRefInternal[0] = BGYRef[0];
-            return;
+    case 0x028:
+        if (val & 0x08000000) val |= 0xF0000000;
+        BGXRef[0] = val;
+        BGXRefReload[0] = BGXRef[0];
+        return;
+    case 0x02C:
+        if (val & 0x08000000) val |= 0xF0000000;
+        BGYRef[0] = val;
+        BGYRefReload[0] = BGYRef[0];
+        return;
 
-        case 0x038:
-            if (val & 0x08000000) val |= 0xF0000000;
-            BGXRef[1] = val;
-            if (GPU.VCount < 192) BGXRefInternal[1] = BGXRef[1];
-            return;
-        case 0x03C:
-            if (val & 0x08000000) val |= 0xF0000000;
-            BGYRef[1] = val;
-            if (GPU.VCount < 192) BGYRefInternal[1] = BGYRef[1];
-            return;
-        }
+    case 0x038:
+        if (val & 0x08000000) val |= 0xF0000000;
+        BGXRef[1] = val;
+        BGXRefReload[1] = BGXRef[1];
+        return;
+    case 0x03C:
+        if (val & 0x08000000) val |= 0xF0000000;
+        BGYRef[1] = val;
+        BGYRefReload[1] = BGYRef[1];
+        return;
     }
 
     Write16(addr, val&0xFFFF);
     Write16(addr+2, val>>16);
 }
 
-void Unit::UpdateMosaicCounters(u32 line)
-{
-    // Y mosaic uses incrementing 4-bit counters
-    // the transformed Y position is updated every time the counter matches the MOSAIC register
 
-    if (OBJMosaicYCount == OBJMosaicSize[1])
-    {
-        OBJMosaicYCount = 0;
-        OBJMosaicY = line + 1;
-    }
-    else
-    {
-        OBJMosaicYCount++;
-        OBJMosaicYCount &= 0xF;
-    }
-}
-
-void Unit::VBlank()
-{
-    if (CaptureLatch)
-    {
-        CaptureCnt &= ~(1<<31);
-        CaptureLatch = false;
-    }
-
-    DispFIFOReadPtr = 0;
-    DispFIFOWritePtr = 0;
-}
-
-void Unit::VBlankEnd()
-{
-    // TODO: find out the exact time this happens
-    BGXRefInternal[0] = BGXRef[0];
-    BGXRefInternal[1] = BGXRef[1];
-    BGYRefInternal[0] = BGYRef[0];
-    BGYRefInternal[1] = BGYRef[1];
-
-    BGMosaicY = 0;
-    BGMosaicYMax = BGMosaicSize[1];
-    //OBJMosaicY = 0;
-    //OBJMosaicYMax = OBJMosaicSize[1];
-    //OBJMosaicY = 0;
-    //OBJMosaicYCount = 0;
-}
-
-void Unit::SampleFIFO(u32 offset, u32 num)
-{
-    for (u32 i = 0; i < num; i++)
-    {
-        u16 val = DispFIFO[DispFIFOReadPtr];
-        DispFIFOReadPtr++;
-        DispFIFOReadPtr &= 0xF;
-
-        DispFIFOBuffer[offset+i] = val;
-    }
-}
-
-u16* Unit::GetBGExtPal(u32 slot, u32 pal)
+u16* GPU2D::GetBGExtPal(u32 slot, u32 pal)
 {
     const u32 PaletteSize = 256 * 2;
     const u32 SlotSize = PaletteSize * 16;
@@ -641,15 +551,116 @@ u16* Unit::GetBGExtPal(u32 slot, u32 pal)
          : GPU.VRAMFlat_BBGExtPal)[slot * SlotSize + pal * PaletteSize];
 }
 
-u16* Unit::GetOBJExtPal()
+u16* GPU2D::GetOBJExtPal()
 {
     return Num == 0
          ? (u16*)GPU.VRAMFlat_AOBJExtPal
          : (u16*)GPU.VRAMFlat_BOBJExtPal;
 }
 
-void Unit::CheckWindows(u32 line)
+
+void GPU2D::UpdateRegistersPreDraw(bool reset)
 {
+    if (!Enabled) return;
+
+    // enabling BG/OBJ layers or disabling forced blank takes two scanlines to apply
+    // however, disabling layers or enabling forced blank applies immediately
+    DispCntLatch[2] = DispCntLatch[1];
+    DispCntLatch[1] = DispCntLatch[0];
+    DispCntLatch[0] = DispCnt;
+    LayerEnable = ((DispCntLatch[2] & DispCnt) >> 8) & 0x1F;
+    OBJEnable = ((DispCntLatch[1] & DispCnt) >> 12) & 0x1;
+    ForcedBlank = ((DispCntLatch[2] | DispCnt) >> 7) & 0x1;
+
+    if (BGMosaicLatch)
+        BGMosaicLine = GPU.VCount;
+
+    for (int i = 0; i < 2; i++)
+    {
+        if (!(BGCnt[2+i] & (1<<6)) || BGMosaicLatch)
+        {
+            BGXRefInternal[i] = BGXRef[i];
+            BGYRefInternal[i] = BGYRef[i];
+        }
+    }
+
+    if (DispCnt & (1<<12))
+    {
+        // update OBJ mosaic counter
+
+        if (reset || (OBJMosaicY == OBJMosaicSize[1]))
+        {
+            OBJMosaicY = 0;
+            OBJMosaicLatch = true;
+        }
+        else
+        {
+            OBJMosaicY++;
+            OBJMosaicY &= 0xF;
+            OBJMosaicLatch = false;
+        }
+    }
+
+    if (OBJMosaicLatch)
+        OBJMosaicLine = reset ? 0 : (GPU.VCount+1);
+}
+
+void GPU2D::UpdateRegistersPostDraw(bool reset)
+{
+    if (!Enabled) return;
+
+    if (reset)
+    {
+        BGMosaicYMax = BGMosaicSize[1];
+        BGMosaicY = 0;
+        BGMosaicLatch = true;
+    }
+    else
+    {
+        // for BG mosaic, the size in MOSAIC is copied to an internal register
+        // on the other hand, OBJ mosaic directly checks against the size in MOSAIC
+        // this makes the OBJ mosaic counter prone to overflowing if MOSAIC is modified midframe
+
+        if (BGMosaicY == BGMosaicYMax)
+        {
+            BGMosaicYMax = BGMosaicSize[1];
+            BGMosaicY = 0;
+            BGMosaicLatch = true;
+        }
+        else
+        {
+            BGMosaicY++;
+            BGMosaicY &= 0xF;
+            BGMosaicLatch = false;
+        }
+    }
+
+    for (int i = 0; i < 2; i++)
+    {
+        // reference points for rotscale layers are only updated if the layer is enabled
+        // TODO do they get updated if the layer isn't a rotscale layer?
+        if (!(LayerEnable & (4<<i)))
+            continue;
+
+        if (reset)
+        {
+            BGXRef[i] = BGXRefReload[i];
+            BGYRef[i] = BGYRefReload[i];
+        }
+        else
+        {
+            BGXRef[i] += BGRotB[i];
+            BGYRef[i] += BGRotD[i];
+        }
+    }
+}
+
+void GPU2D::UpdateWindows(u32 line)
+{
+    if (!Enabled) return;
+
+    // this seems to be done at the very beginning of each scanline
+    // this also seems to be done always, even if windows are disabled
     line &= 0xFF;
     if (line == Win0Coords[3])      Win0Active &= ~0x1;
     else if (line == Win0Coords[2]) Win0Active |=  0x1;
@@ -657,7 +668,7 @@ void Unit::CheckWindows(u32 line)
     else if (line == Win1Coords[2]) Win1Active |=  0x1;
 }
 
-void Unit::CalculateWindowMask(u32 line, u8* windowMask, const u8* objWindow)
+void GPU2D::CalculateWindowMask(u8* windowMask, const u8* objWindow)
 {
     for (u32 i = 0; i < 256; i++)
         windowMask[i] = WinCnt[2]; // window outside
@@ -703,7 +714,7 @@ void Unit::CalculateWindowMask(u32 line, u8* windowMask, const u8* objWindow)
     }
 }
 
-void Unit::GetBGVRAM(u8*& data, u32& mask) const
+void GPU2D::GetBGVRAM(u8*& data, u32& mask) const
 {
     if (Num == 0)
     {
@@ -717,7 +728,7 @@ void Unit::GetBGVRAM(u8*& data, u32& mask) const
     }
 }
 
-void Unit::GetOBJVRAM(u8*& data, u32& mask) const
+void GPU2D::GetOBJVRAM(u8*& data, u32& mask) const
 {
     if (Num == 0)
     {
@@ -731,5 +742,20 @@ void Unit::GetOBJVRAM(u8*& data, u32& mask) const
     }
 }
 
+void GPU2D::GetCaptureInfo_BG(int* info) const
+{
+    if (Num == 0)
+        return GPU.GetCaptureInfo_ABG(info);
+    else
+        return GPU.GetCaptureInfo_BBG(info);
 }
+
+void GPU2D::GetCaptureInfo_OBJ(int* info) const
+{
+    if (Num == 0)
+        return GPU.GetCaptureInfo_AOBJ(info);
+    else
+        return GPU.GetCaptureInfo_BOBJ(info);
+}
+
 }

@@ -1,5 +1,5 @@
 /*
-    Copyright 2016-2025 melonDS team
+    Copyright 2016-2026 melonDS team
 
     This file is part of melonDS.
 
@@ -24,6 +24,7 @@
 #include <QPixmap>
 #include <QImage>
 
+#include "NDS_Header.h"
 #include "types.h"
 
 namespace Ui { class ROMInfoDialog; }
@@ -74,6 +75,9 @@ private:
     melonDS::u32 animatedIconData[64][32*32] = {0};
     std::vector<QPixmap> animatedIconImages;
     std::vector<int> animatedSequence;
+
+    void populateBannerInfo(const melonDS::NDSBanner* banner);
+    void populateHeaderInfo(const melonDS::NDSHeader& header);
 };
 
 #endif // ROMINFODIALOG_H
