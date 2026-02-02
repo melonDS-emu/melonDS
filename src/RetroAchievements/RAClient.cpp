@@ -11,7 +11,53 @@
 #include "RetroAchievements/cacert.c"
 #include "version.h"
 #include "Savestate.h"
+#include <chrono>
+#include <algorithm>
+#include <functional>
+#include <atomic>
+#include <set>
+#include <queue>
+#include <condition_variable>
+#include <mutex>
+#include <thread>
 
+struct RAHttpJob {
+    std::string url;
+    std::string post_data;
+    rc_client_server_callback_t callback;
+    void* userdata;
+};
+
+struct RAPendingCallback {
+    rc_client_server_callback_t callback;
+    rc_api_server_response_t resp;
+    std::string body;
+    void* userdata;
+};
+
+static void PerformServerCall(const RAHttpJob& job);
+static void EnsureHTTPThread();
+
+static std::mutex s_httpMutex;
+static std::condition_variable s_httpCV;
+static std::queue<RAHttpJob> s_httpJobs;
+
+static std::mutex s_cbMutex;
+static std::queue<RAPendingCallback> s_pendingCallbacks;
+
+static std::thread s_httpThread;
+static std::atomic<bool> s_httpRunning{false};  
+
+static std::once_flag s_curlInitOnce;
+static thread_local CURL* s_curl = nullptr;
+static void EnsureCurlInit()
+{
+    std::call_once(s_curlInitOnce, [] {
+        curl_global_init(CURL_GLOBAL_DEFAULT);
+    });
+}
+static bool s_raOffline = false;
+static int s_pendingCount = 0;
 extern const unsigned char _accacert[];
 extern const size_t _accacert_len;
 void RAContext::SetDisplayName(const char* name)
@@ -51,6 +97,7 @@ RAContext::~RAContext()
 
 void RAContext::Init(melonDS::NDS* nds_)
 {
+    EnsureCurlInit();
     nds = nds_;
     client = rc_client_create(
         &RAContext::ReadMemory,
@@ -87,10 +134,14 @@ void RAContext::Init(melonDS::NDS* nds_)
                     ach->description,
                     ach->badge_url
                 );
+            ctx->m_progressThrottle.erase(ach->id);
             break;
         }
         case RC_CLIENT_EVENT_LEADERBOARD_STARTED:
         {
+            printf("[RA][LB] START id=%u title=%s\n",
+                event->leaderboard->id,
+                event->leaderboard->title);
             auto* ctx = static_cast<RAContext*>(rc_client_get_userdata(client));
             if (ctx && ctx->onLeaderboardStarted)
                 ctx->onLeaderboardStarted(event->leaderboard);
@@ -99,19 +150,34 @@ void RAContext::Init(melonDS::NDS* nds_)
 
         case RC_CLIENT_EVENT_LEADERBOARD_FAILED:
         {
+            printf("[RA][LB] FAILED id=%u\n",
+                event->leaderboard->id);
             auto* ctx = static_cast<RAContext*>(rc_client_get_userdata(client));
             if (ctx && ctx->onLeaderboardFailed)
                 ctx->onLeaderboardFailed(event->leaderboard);
             break;
         }
 
-        case RC_CLIENT_EVENT_LEADERBOARD_SUBMITTED:
+        case RC_CLIENT_EVENT_LEADERBOARD_SCOREBOARD:
         {
             auto* ctx = static_cast<RAContext*>(rc_client_get_userdata(client));
-            if (ctx && ctx->onLeaderboardSubmitted)
-                ctx->onLeaderboardSubmitted(event->leaderboard);
+            if (ctx && ctx->m_onLeaderboardSubmitted && event->leaderboard_scoreboard) {
+                bool isNewRecord = (strcmp(event->leaderboard_scoreboard->submitted_score, 
+                                        event->leaderboard_scoreboard->best_score) == 0);
+
+                const char* title = isNewRecord ? "New Personal Best!" : "Score Submitted";
+                
+                ctx->m_onLeaderboardSubmitted(
+                    title, 
+                    event->leaderboard_scoreboard->submitted_score, 
+                    event->leaderboard_scoreboard->new_rank
+                );
+            }
             break;
         }
+
+        case RC_CLIENT_EVENT_LEADERBOARD_SUBMITTED:
+            break;
         case RC_CLIENT_EVENT_LEADERBOARD_TRACKER_SHOW:
         {
             if (event->leaderboard_tracker) {
@@ -156,7 +222,7 @@ void RAContext::Init(melonDS::NDS* nds_)
         case RC_CLIENT_EVENT_GAME_COMPLETED:
         {
         RAContext* ctx = static_cast<RAContext*>(rc_client_get_userdata(client));
-            if (ctx && ctx->m_OnGameMastered)
+            if (ctx && ctx->m_onGameMastered)
             {
                 const rc_client_game_t* game = rc_client_get_game_info(client);
                 std::string gameTitle = (game && game->title) ? game->title : "Unknown Game";
@@ -164,7 +230,7 @@ void RAContext::Init(melonDS::NDS* nds_)
                 char rp_buffer[256];
                 rc_client_get_rich_presence_message(client, rp_buffer, sizeof(rp_buffer));
 
-                ctx->m_OnGameMastered(
+                ctx->m_onGameMastered(
                     gameTitle,
                     rp_buffer
                 );
@@ -174,12 +240,11 @@ void RAContext::Init(melonDS::NDS* nds_)
 
         case RC_CLIENT_EVENT_ACHIEVEMENT_PROGRESS_INDICATOR_SHOW:
         {
-            if (ctx->m_suppressProgressFrames > 0) {
-            break; 
-            }
+            if (ctx->m_suppressProgressFrames > 0) break;
+
             const rc_client_achievement_t* ach = (const rc_client_achievement_t*)event->achievement;
             
-            if (ctx->m_onAchievementProgress) {
+            if (ctx->m_onAchievementProgress && ctx->ShouldShowProgress(ach->id, (unsigned)ach->measured_percent, 100)) {
                 ctx->m_onAchievementProgress(
                     ach->title,
                     ach->measured_progress, 
@@ -191,12 +256,11 @@ void RAContext::Init(melonDS::NDS* nds_)
 
         case RC_CLIENT_EVENT_ACHIEVEMENT_PROGRESS_INDICATOR_UPDATE:
         {
-            if (ctx->m_suppressProgressFrames > 0) {
-            break; 
-            }
+            if (ctx->m_suppressProgressFrames > 0) break;
+
             const rc_client_achievement_t* ach = (const rc_client_achievement_t*)event->achievement;
             
-            if (ctx->m_onAchievementProgress) {
+            if (ctx->m_onAchievementProgress && ctx->ShouldShowProgress(ach->id, (unsigned)ach->measured_percent, 100)) {
                 ctx->m_onAchievementProgress(
                     ach->title,
                     ach->measured_progress,
@@ -220,6 +284,23 @@ void RAContext::Init(melonDS::NDS* nds_)
 
 void RAContext::Shutdown()
 {
+    s_httpRunning = false;
+    s_httpCV.notify_all();
+    if (s_httpThread.joinable())
+    s_httpThread.join();
+    m_onRADisconnected = nullptr;
+    m_onRAReconnected  = nullptr;
+    m_onRAPendingSent  = nullptr;
+    m_onLeaderboardSubmitted = nullptr;
+    m_onLeaderboardTrackerUpdate = nullptr;
+    m_onAchievementUnlocked = nullptr;
+    m_onAchievementProgress = nullptr;
+    m_onMeasuredProgress = nullptr;
+    m_onChallenge = nullptr;
+    m_onChallengeHide = nullptr;
+    m_onGameMastered = nullptr;
+    m_onLogin = nullptr;
+    onGameLoaded = nullptr;
     SavePlaytime();
     if (client) {
         rc_client_destroy(client);
@@ -246,8 +327,28 @@ uint32_t RC_CCONV RuntimePeek(uint32_t address, uint32_t num_bytes, void* ud)
 
 void RAContext::DoFrame()
 {
+    {
+        std::queue<RAPendingCallback> local;
+
+        {
+            std::lock_guard<std::mutex> lock(s_cbMutex);
+            std::swap(local, s_pendingCallbacks);
+        }
+
+        while (!local.empty()) {
+            auto& cb = local.front();
+            if (cb.callback) {
+                cb.callback(
+                    cb.resp.body ? &cb.resp : nullptr,
+                    cb.userdata
+                );
+            }
+            local.pop();
+        }
+    }
     if (!nds || !client || m_IsPaused)
         return;
+
     std::string currentHash = pendingGameHash.value_or("");
     if (currentHash != m_lastHash) {
         gameLoaded = false;
@@ -255,7 +356,9 @@ void RAContext::DoFrame()
         pendingLoadFailed = false;
         isLoading = false;
     }
+
     if (pendingLoadFailed || isLoading) return;
+
     if (!gameLoaded &&
         pendingGameHash.has_value() &&
         nds->IsGameRunning())
@@ -264,12 +367,16 @@ void RAContext::DoFrame()
         LoadGame(pendingGameHash->c_str());
         return;
     }
+
     if (!gameLoaded) return;
+
     if (rc_client_is_processing_required(client) == 0) {
         return;
     }
+
     if (m_suppressProgressFrames > 0) 
         m_suppressProgressFrames--;
+
     rc_runtime_do_frame(
         &m_runtime,
         nullptr,
@@ -278,11 +385,30 @@ void RAContext::DoFrame()
         nullptr
     );
 
+    auto f0 = std::chrono::steady_clock::now();
+
     rc_client_do_frame(client);
 
-    UpdateMeasuredAchievements();
+    auto f1 = std::chrono::steady_clock::now();
+    auto fms = std::chrono::duration_cast<std::chrono::milliseconds>(f1 - f0).count();
 
-    
+    if (fms > 20) {
+        printf("[RA][FRAME] rc_client_do_frame blocked %lld ms\n", fms);
+    }
+
+    if (m_onLeaderboardTrackerUpdate) {
+        if (activeTrackers.empty()) {
+            m_onLeaderboardTrackerUpdate("");
+        } else {
+            std::string combinedDisplay = "";
+            for (auto const& [id, tracker] : activeTrackers) {
+                if (!combinedDisplay.empty()) combinedDisplay += "\n";
+                combinedDisplay += tracker.display;
+            }
+            m_onLeaderboardTrackerUpdate(combinedDisplay.c_str());
+        }
+    }
+
     static int playtimeSaveCounter = 0;
     if (gameLoaded && ++playtimeSaveCounter >= 3600) {
         SavePlaytime();
@@ -310,21 +436,23 @@ void RAContext::UpdateMeasuredAchievements()
         rc_runtime_format_achievement_measured(&m_runtime, ach.id, formatted, sizeof(formatted));
         
         bool valueChanged = (value != ach.prev_value);
-        ach.prev_value = value;
 
-        if (valueChanged && m_onMeasuredProgress) {
-             m_onMeasuredProgress(ach.id, value, target, formatted);
+        if (valueChanged) {
+            ach.prev_value = value;
+            if (m_onMeasuredProgress && ShouldShowProgress(ach.id, value, target)) {
+                m_onMeasuredProgress(ach.id, value, target, formatted);
+            }
         }
         for (auto& full : allAchievements)
         {
             if (full.id == ach.id)
             {
-                if (!full.measured || full.value != value || valueChanged) 
+                if (!full.measured || full.value != value || full.target != target) 
                 {
                     full.measured = true;
                     full.value = value;
                     full.target = target;
-                    full.progressText = std::string(formatted);
+                    full.progressText = formatted;
                     full.measured_percent = (target > 0) 
                         ? (static_cast<float>(value) / static_cast<float>(target) * 100.0f) 
                         : 0.0f;
@@ -343,6 +471,20 @@ void RAContext::SetLoggedIn(bool v)
     
     if (m_onLogin)
         m_onLogin();
+}
+
+void RAContext::SetEncoreMode(bool enabled)
+{
+    if (client) {
+        rc_client_set_encore_mode_enabled(client, enabled ? 1 : 0);
+    }
+}
+
+void RAContext::SetUnofficialEnabled(bool enabled)
+{
+    if (client) {
+        rc_client_set_unofficial_enabled(client, enabled ? 1 : 0);
+    }
 }
 
 static void LoginPasswordCallback(int result, const char* err, rc_client_t* client, void* userdata)
@@ -560,114 +702,33 @@ uint32_t RAContext::ReadMemory(uint32_t address, uint8_t* buffer, uint32_t size,
     return 0;
 }
 
-static std::string WriteCACertToTempFile() {
-#ifdef _WIN32
-    char tempPath[MAX_PATH];
-    if (!GetTempPathA(MAX_PATH, tempPath)) {
-        return "";
-    }
-    char tempFile[MAX_PATH];
-    if (!GetTempFileNameA(tempPath, "ra", 0, tempFile)) {
-        return "";
-    }
+static curl_blob s_cacertBlob = {
+    (void*)_accacert,
+    _accacert_len,
+    CURL_BLOB_COPY
+};
 
-    FILE* f = fopen(tempFile, "wb");
-    if (!f) return "";
-    fwrite(_accacert, 1, _accacert_len, f);
-    fclose(f);
-
-    return std::string(tempFile);
-#else
-    char tmpName[] = "/tmp/ra_cacertXXXXXX";
-    int fd = mkstemp(tmpName);
-    if (fd < 0) return "";
-
-    FILE* f = fdopen(fd, "wb");
-    if (!f) return "";
-
-    fwrite(_accacert, 1, _accacert_len, f);
-    fclose(f);
-
-    return std::string(tmpName);
-#endif
-}
-
-static void RemoveTempFile(const std::string& path) {
-    if (!path.empty()) {
-#ifdef _WIN32
-        DeleteFileA(path.c_str());
-#else
-        unlink(path.c_str());
-#endif
-    }
-}
+static std::set<uint32_t> s_pendingAchiIDs;
 
 void RAContext::ServerCall(const rc_api_request_t* request,
                            rc_client_server_callback_t callback,
                            void* userdata,
-                           rc_client_t*) 
+                           rc_client_t*)
 {
-    CURL* curl = curl_easy_init();
-    if (!curl) {
-        callback(nullptr, userdata);
-        return;
+    EnsureHTTPThread();
+
+    RAHttpJob job;
+    job.url = request->url;
+    job.post_data = request->post_data ? request->post_data : "";
+    job.callback = callback;
+    job.userdata = userdata;
+
+    {
+        std::lock_guard<std::mutex> lock(s_httpMutex);
+        s_httpJobs.push(std::move(job));
     }
 
-    std::string cacertPath = WriteCACertToTempFile();
-    if (cacertPath.empty()) {
-        callback(nullptr, userdata);
-        curl_easy_cleanup(curl);
-        return;
-    }
-
-    curl_easy_setopt(curl, CURLOPT_CAINFO, cacertPath.c_str());
-
-    std::string response_body;
-    std::string rcheevosVer =
-    std::to_string(RCHEEVOS_VERSION_MAJOR) + "." +
-    std::to_string(RCHEEVOS_VERSION_MINOR) + "." +
-    std::to_string(RCHEEVOS_VERSION_PATCH);
-
-    std::string ua =
-        std::string("melonDS-Menel-RA/") + MELONDS_VERSION +
-    #if defined(_WIN32)
-        " (Windows)"
-    #elif defined(__APPLE__)
-        " (macOS)"
-    #elif defined(__linux__)
-        " (Linux)"
-    #else
-        " (UnknownOS)"
-    #endif
-        + " rcheevos/" + rcheevosVer;
-
-    curl_easy_setopt(curl, CURLOPT_USERAGENT, ua.c_str());
-    curl_easy_setopt(curl, CURLOPT_URL, request->url);
-
-    if (request->post_data) {
-        curl_easy_setopt(curl, CURLOPT_POSTFIELDS, request->post_data);
-    }
-
-    curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, CurlWrite);
-    curl_easy_setopt(curl, CURLOPT_WRITEDATA, &response_body);
-    curl_easy_setopt(curl, CURLOPT_TIMEOUT, 15L);
-
-    CURLcode res = curl_easy_perform(curl);
-    long http_code = 0;
-    curl_easy_getinfo(curl, CURLINFO_RESPONSE_CODE, &http_code);
-
-    if (res == CURLE_OK) {
-        rc_api_server_response_t api_resp;
-        api_resp.body = response_body.c_str();
-        api_resp.body_length = static_cast<uint32_t>(response_body.length());
-        api_resp.http_status_code = static_cast<int>(http_code);
-        callback(&api_resp, userdata);
-    } else {
-        callback(nullptr, userdata);
-    }
-
-    curl_easy_cleanup(curl);
-    RemoveTempFile(cacertPath);
+    s_httpCV.notify_one();
 }
 void RAContext::Reset() {
     if (client)
@@ -847,7 +908,7 @@ void RAContext::SetOnChallengeHide(ChallengeHideCallback cb)
 
 void RAContext::SetOnGameMastered(GameMasteredCallback cb)
 {
-    m_OnGameMastered = cb;
+    m_onGameMastered = cb;
 }
 const std::vector<RAContext::FullAchievement>& RAContext::GetAllAchievements()
 {
@@ -885,5 +946,172 @@ void RAContext::SavePlaytime() {
 
     if (m_playtimeSaver) {
         m_playtimeSaver(m_currentGameId, totalMinutes);
+    }
+}
+bool RAContext::ShouldShowProgress(uint32_t id, unsigned value, unsigned target) {
+    if (target == 0) return false;
+
+    auto nowObj = std::chrono::steady_clock::now();
+    uint64_t now = std::chrono::duration_cast<std::chrono::milliseconds>(nowObj.time_since_epoch()).count();
+    
+    auto& s = m_progressThrottle[id];
+    float percent = (static_cast<float>(value) / static_cast<float>(target));
+
+    if (now - s.rapidWindowStart > 3000) {
+        s.rapidWindowStart = now;
+        s.rapidChanges = 0;
+    }
+    if (value != s.lastValue) s.rapidChanges++;
+
+    if (s.rapidChanges > 5) {
+        s.lastValue = value;
+        return false;
+    }
+
+    float milestone = 0.0f;
+    if (percent >= 0.95f)      milestone = 0.95f;
+    else if (percent >= 0.90f) milestone = 0.90f;
+    else if (percent >= 0.75f) milestone = 0.75f;
+    else if (percent >= 0.50f) milestone = 0.50f;
+    else if (percent >= 0.25f) milestone = 0.25f;
+
+    if (milestone > s.lastPercent) {
+        s.lastPercent = milestone;
+        s.lastValue = value;
+        s.lastShownMs = now;
+        return true; 
+    }
+
+    return false;
+}
+std::vector<std::string> RAContext::GetActiveTrackerTexts() {
+    std::vector<std::string> texts;
+    for (auto const& [id, tracker] : activeTrackers) {
+        texts.push_back(tracker.display);
+    }
+    return texts;
+}
+void RAContext::SetOnLeaderboardTrackerUpdate(LeaderboardTrackerUpdateCallback cb) {
+    m_onLeaderboardTrackerUpdate = std::move(cb);
+}
+
+void RAContext::SetOnLeaderboardSubmitted(LeaderboardSubmittedCallback cb) {
+    m_onLeaderboardSubmitted = std::move(cb);
+}
+void RAContext::SetOnRADisconnected(std::function<void()> cb)
+{
+    m_onRADisconnected = std::move(cb);
+}
+
+void RAContext::SetOnRAReconnected(std::function<void()> cb)
+{
+    m_onRAReconnected = std::move(cb);
+}
+
+void RAContext::SetOnRAPendingSent(RAPendingSentCallback cb)
+{
+    m_onRAPendingSent = std::move(cb);
+}
+
+static void PerformServerCall(const RAHttpJob& job)
+{
+    EnsureCurlInit();
+
+    CURL* curl = curl_easy_init();
+    if (!curl) {
+        return;
+    }
+
+    curl_easy_setopt(curl, CURLOPT_CAINFO_BLOB, &s_cacertBlob);
+    curl_easy_setopt(curl, CURLOPT_URL, job.url.c_str());
+
+    if (!job.post_data.empty()) {
+        curl_easy_setopt(curl, CURLOPT_POSTFIELDS, job.post_data.c_str());
+    }
+
+    std::string response_body;
+    curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, CurlWrite);
+    curl_easy_setopt(curl, CURLOPT_WRITEDATA, &response_body);
+
+    curl_easy_setopt(curl, CURLOPT_TIMEOUT, 15L);
+    curl_easy_setopt(curl, CURLOPT_CONNECTTIMEOUT, 5L);
+
+    CURLcode res = curl_easy_perform(curl);
+
+    if (res == CURLE_OK) {
+        long http_code = 0;
+        curl_easy_getinfo(curl, CURLINFO_RESPONSE_CODE, &http_code);
+
+        RAPendingCallback cb;
+        cb.callback = job.callback;
+        cb.userdata = job.userdata;
+        cb.body = std::move(response_body);
+        cb.resp.body = cb.body.c_str();
+        cb.resp.body_length = (uint32_t)cb.body.size();
+        cb.resp.http_status_code = (int)http_code;
+
+        {
+            std::lock_guard<std::mutex> lock(s_cbMutex);
+            s_pendingCallbacks.push(std::move(cb));
+        }
+    }
+    else {
+        RAPendingCallback cb;
+        cb.callback = job.callback;
+        cb.userdata = job.userdata;
+        cb.resp = {};
+        {
+            std::lock_guard<std::mutex> lock(s_cbMutex);
+            s_pendingCallbacks.push(std::move(cb));
+        }
+    }
+
+    curl_easy_cleanup(curl);
+}
+
+static void EnsureHTTPThread()
+{
+    if (s_httpRunning)
+        return;
+
+    s_httpRunning = true;
+    s_httpThread = std::thread([] {
+        while (s_httpRunning) {
+            RAHttpJob job;
+
+            {
+                std::unique_lock<std::mutex> lock(s_httpMutex);
+                s_httpCV.wait(lock, [] {
+                    return !s_httpJobs.empty() || !s_httpRunning;
+                });
+
+                if (!s_httpRunning)
+                    return;
+
+                job = std::move(s_httpJobs.front());
+                s_httpJobs.pop();
+            }
+
+            PerformServerCall(job);
+        }
+    });
+}
+
+void RAContext::ProcessAsyncCallbacks()
+{
+    std::lock_guard<std::mutex> lock(s_cbMutex);
+    while (!s_pendingCallbacks.empty())
+    {
+        RAPendingCallback cb = std::move(s_pendingCallbacks.front());
+        s_pendingCallbacks.pop();
+
+        if (!cb.body.empty()) {
+            cb.resp.body = cb.body.c_str();
+            cb.resp.body_length = (uint32_t)cb.body.size();
+        }
+
+        if (cb.callback) {
+            cb.callback(&cb.resp, cb.userdata);
+        }
     }
 }

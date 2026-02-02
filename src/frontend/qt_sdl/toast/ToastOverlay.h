@@ -15,7 +15,12 @@ class ToastWidget : public QWidget
 {
     Q_OBJECT
 public:
-    ToastWidget(const QString& title, const QString& description, const QPixmap& icon, QWidget* parent = nullptr);
+    ToastWidget(const QString& title,
+                const QString& description,
+                const QPixmap& icon,
+                float scale,
+                int maxWidth,
+                QWidget* parent = nullptr);
     QSize sizeHint() const override;
 
 protected:
@@ -27,9 +32,10 @@ class ToastOverlay : public QGraphicsView
     Q_OBJECT
 public:
     explicit ToastOverlay(QWidget* parent = nullptr);
-    void ShowToast(const QString& title, const QString& description, const QPixmap& icon);
-    void ShowChallenge(const QPixmap& icon);
-    void HideChallenge();
+    void ShowToast(const QString& title, const QString& description, const QPixmap& icon, bool playSound = true);
+    void ShowLeaderboardToast(const QString& title, const QString& description, const QPixmap& icon, bool playSound = true);
+    void ShowChallenge(const QPixmap& icon, const QString& badgeName);
+    void HideChallenge(const QString& badgeName = "");
 
 protected:
     bool eventFilter(QObject* obj, QEvent* event) override;
@@ -40,6 +46,6 @@ private:
     void RepositionChallenge();
     QGraphicsScene* m_scene = nullptr;
     QList<QGraphicsProxyWidget*> m_toastProxies;
-    QGraphicsProxyWidget* m_challengeProxy = nullptr;
+    QList<QGraphicsProxyWidget*> m_challengeProxies;
     QSoundEffect m_soundEffect;
 };

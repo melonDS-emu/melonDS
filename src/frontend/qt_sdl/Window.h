@@ -56,6 +56,8 @@ class MainWindow : public QMainWindow
 
 public:
     #ifdef RETROACHIEVEMENTS_ENABLED
+    void OnLeaderboardTrackerUpdate(const QString& display);
+    void OnLeaderboardSubmitted(const QString& title, const QString& score, unsigned rank);
     RAOverlayWidget* raOverlay = nullptr;
     ToastManager m_toastManager;
     BadgeCache   m_badgeCache;
@@ -65,9 +67,12 @@ public:
     void ShowGameLoadToast();
     void OnAchievementUnlocked(const QString& title, const QString& desc, const QString& badgeUrl);
     void OnAchievementProgress(const QString& title, const QString& progress, const QString& badge);
-    void OnChallengeShow(const QString& badgeUrl);
-    void OnChallengeHide();
+    void OnChallengeShow(const QString& badgeName);
+    void OnChallengeHide(const QString& badgeName);
     void OnGameMastered(const QString& title, const QString& gameBadge);
+    void OnRADisconnected();
+    void OnRAReconnected();
+    void OnRAPendingSent(int count);
     #endif
 
     explicit MainWindow(int id, EmuInstance* inst, QWidget* parent = nullptr);

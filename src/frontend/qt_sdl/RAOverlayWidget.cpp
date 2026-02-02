@@ -150,8 +150,34 @@ RAOverlayWidget::RAOverlayWidget(EmuInstance* emu, QWidget* parent)
     
     QScrollArea* scroll = new QScrollArea;
     scroll->setWidgetResizable(true);
+    scroll->setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
     scroll->setFrameShape(QFrame::NoFrame);
-    scroll->setStyleSheet("QScrollArea { background: transparent; border: none; } QScrollBar:vertical { background: #2d2d2d; width: 8px; border-radius: 4px; } QScrollBar::handle:vertical { background: #555; border-radius: 4px; }");
+
+    float scale = 1.0f;
+    if (parent && parent->window()) {
+        constexpr float refShortSide = 384.0f;
+        float shortSide = std::min(parent->window()->width(), parent->window()->height());
+        scale = std::clamp(shortSide / refShortSide, 0.65f, 1.25f);
+    }
+
+    int scrollWidth = std::clamp(int(10 * scale), 8, 14);
+    int radius = scrollWidth / 2;
+
+    scroll->setStyleSheet(QString(
+        "QScrollArea { background: transparent; border: none; }"
+        "QScrollBar:vertical {"
+        "    background: #2d2d2d;"
+        "    width: %1px;"
+        "    border-radius: %2px;"
+        "    margin: 0px;"
+        "}"
+        "QScrollBar::handle:vertical {"
+        "    background: #555;"
+        "    border-radius: %2px;"
+        "    min-height: 25px;" 
+        "}"
+        "QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical { height: 0px; }"
+    ).arg(scrollWidth).arg(radius));
 
     listContainer = new QWidget;
     listLayout = new QVBoxLayout(listContainer);
@@ -210,6 +236,7 @@ void RAOverlayWidget::toggle() {
                 if (rotMode == 2) { proxy->setRotation(180); proxy->setPos(pRect.width(), pRect.height()); }
             }
         }
+        ApplyRotationAndResize();
         refresh();
         show();
         raise();
@@ -221,6 +248,12 @@ void RAOverlayWidget::toggle() {
 void RAOverlayWidget::refresh() {
     RAContext* ra = emuInstance->getRA();
     if (!ra) return;
+
+    QRect r = contentWidget->rect();
+    int shortSide = std::min(r.width(), r.height());
+
+    float uiScale = shortSide / 600.0f;
+    uiScale = std::clamp(uiScale, 0.65f, 1.0f);
     
     if (ra->IsLoggedIn()) {
         usernameLabel->setText(QString::fromStdString(ra->GetUser()));
@@ -302,7 +335,7 @@ void RAOverlayWidget::refresh() {
             QVBoxLayout* uLayout = nullptr;
             CreateCollapsibleSection("Unlocked", unlockedList.size(), &uLayout);
             for (const auto* ach : unlockedList) {
-                auto* item = new AchievementItemWidget(QString::fromUtf8(ach->title.c_str()), QString::fromUtf8(ach->description.c_str()), true, false, "", 0.0f, listContainer);
+                auto* item = new AchievementItemWidget(QString::fromUtf8(ach->title.c_str()), QString::fromUtf8(ach->description.c_str()), true, false, "", 0.0f, uiScale, listContainer);
                 uLayout->addWidget(item);
                 if (ach->badge_url && ach->badge_url[0] != '\0') SetBadgeImage(item, ach->badge_url);
             }
@@ -312,7 +345,7 @@ void RAOverlayWidget::refresh() {
             QVBoxLayout* pLayout = nullptr;
             CreateCollapsibleSection("In Progress", inProgressList.size(), &pLayout);
             for (const auto* ach : inProgressList) {
-                auto* item = new AchievementItemWidget(QString::fromUtf8(ach->title.c_str()), QString::fromUtf8(ach->description.c_str()), false, true, QString::fromStdString(ach->progressText), ach->measured_percent, listContainer);
+                auto* item = new AchievementItemWidget(QString::fromUtf8(ach->title.c_str()), QString::fromUtf8(ach->description.c_str()), false, true, QString::fromStdString(ach->progressText), ach->measured_percent, uiScale, listContainer);
                 pLayout->addWidget(item);
                 if (ach->badge_locked_url && ach->badge_locked_url[0] != '\0') SetBadgeImage(item, ach->badge_locked_url);
             }
@@ -322,7 +355,7 @@ void RAOverlayWidget::refresh() {
             QVBoxLayout* lLayout = nullptr;
             CreateCollapsibleSection("Locked", lockedList.size(), &lLayout);
             for (const auto* ach : lockedList) {
-                auto* item = new AchievementItemWidget(QString::fromUtf8(ach->title.c_str()), QString::fromUtf8(ach->description.c_str()), false, false, "", 0.0f, listContainer);
+                auto* item = new AchievementItemWidget(QString::fromUtf8(ach->title.c_str()), QString::fromUtf8(ach->description.c_str()), false, false, "", 0.0f, uiScale, listContainer);
                 lLayout->addWidget(item);
                 if (ach->badge_locked_url && ach->badge_locked_url[0] != '\0') SetBadgeImage(item, ach->badge_locked_url);
                 }
@@ -507,17 +540,31 @@ void RAOverlayWidget::ApplyRotationAndResize()
     if (rotMode == 1 || rotMode == 3) {
         contentWidget->setFixedSize(pRect.height(), pRect.width());
         proxy->setRotation(m_currentRotation);
-
-        if (rotMode == 1)
-            proxy->setPos(pRect.width(), 0);
-        else
-            proxy->setPos(0, pRect.height());
+        if (rotMode == 1) proxy->setPos(pRect.width(), 0);
+        else proxy->setPos(0, pRect.height());
     } else {
         contentWidget->setFixedSize(pRect.size());
-
         if (rotMode == 2) {
             proxy->setRotation(180);
             proxy->setPos(pRect.width(), pRect.height());
+        }
+    }
+
+    int shortSide = std::min(contentWidget->width(), contentWidget->height());
+    bool mini = (shortSide < 420); 
+
+    avatarLabel->setVisible(!mini);
+    usernameLabel->setVisible(!mini);
+    timeLabel->setVisible(!mini);
+    gameTitleLabel->setVisible(!mini);
+
+    if (auto* root = qobject_cast<QVBoxLayout*>(contentWidget->layout())) {
+        if (mini) {
+            root->setContentsMargins(10, 5, 10, 10);
+            root->setSpacing(5);
+        } else {
+            root->setContentsMargins(20, 20, 20, 20);
+            root->setSpacing(15);
         }
     }
 }

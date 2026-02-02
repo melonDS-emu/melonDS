@@ -2320,6 +2320,9 @@ void EmuInstance::SyncRetroAchievementsFromConfig()
         cfg.GetBool("RetroAchievements.HardcoreMode")
     );
 
+    ra->SetEncoreMode(cfg.GetBool("RetroAchievements.EncoreMode"));
+    ra->SetUnofficialEnabled(cfg.GetBool("RetroAchievements.Unofficial"));
+
     ra->Enable();
 }
 #endif

@@ -16,15 +16,15 @@
   <layout class="QVBoxLayout" name="verticalLayout">
    <item>
     <widget class="QTabWidget" name="tabWidget">
-      <widget class="QWidget" name="tabRA">
+      <widget class="QWidget" name="tabLogin">
         <attribute name="title">
-          <string>RA</string>
+          <string>Login</string>
         </attribute>
         <layout class="QVBoxLayout" name="verticalLayoutRA">
           <item>
             <widget class="QGroupBox" name="groupRA">
               <property name="title">
-                <string>RetroAchievements Settings</string>
+                <string>RetroAchievements – Login</string>
               </property>
               <layout class="QFormLayout" name="formLayoutRA">
                 <item row="0" column="0" colspan="2">
@@ -97,6 +97,77 @@
             </item>
         </layout>
       </widget>
+    <widget class="QWidget" name="tabOptions">
+  <attribute name="title">
+<string>Options</string>
+  </attribute>
+  <layout class="QVBoxLayout" name="verticalLayoutOptions">
+    <item>
+      <widget class="QGroupBox" name="groupRAUIOptions">
+        <property name="title">
+          <string>RetroAchievements – Options</string>
+        </property>
+        <layout class="QVBoxLayout" name="layoutRAUIOptions">
+          <item>
+            <widget class="QCheckBox" name="cbRAAchievementToasts">
+              <property name="text">
+                <string>Disable achievement toasts</string>
+              </property>
+            </widget>
+          </item>
+          <item>
+            <widget class="QCheckBox" name="cbRAChallengeIndicators">
+              <property name="text">
+                <string>Hide challenge indicators</string>
+              </property>
+            </widget>
+          </item>
+          <item>
+            <widget class="QCheckBox" name="cbRAEncoreMode">
+              <property name="text">
+                <string>Enable Encore Mode</string>
+              </property>
+            </widget>
+          </item>
+          <item>
+            <widget class="QCheckBox" name="cbRAUnofficialMode">
+              <property name="text">
+                <string>Allow unofficial achievements</string>
+              </property>
+            </widget>
+          </item>
+            <item>
+            <widget class="QCheckBox" name="cbRALeaderboardCounter">
+              <property name="text">
+                <string>Hide leaderboard counter</string>
+              </property>
+            </widget>
+          </item>
+          <item>
+            <widget class="QCheckBox" name="cbRALeaderboardToasts">
+              <property name="text">
+                <string>Disable leaderboard toasts</string>
+              </property>
+            </widget>
+          </item>
+        </layout>
+      </widget>
+    </item>
+    <item>
+      <spacer name="verticalSpacerOptions">
+        <property name="orientation">
+          <enum>Qt::Vertical</enum>
+        </property>
+        <property name="sizeHint">
+          <size>
+            <width>20</width>
+            <height>40</height>
+          </size>
+        </property>
+      </spacer>
+    </item>
+  </layout>
+</widget>
     </widget>
    </item>
    <item>

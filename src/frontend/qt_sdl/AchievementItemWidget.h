@@ -18,6 +18,7 @@ public:
         bool measured,
         const QString& progressText,
         float progressPercent,
+        float uiScale,
         QWidget* parent = nullptr
     );
 
@@ -25,6 +26,7 @@ protected:
     void paintEvent(QPaintEvent* event) override;
 
 private:
+    int iconSize = 64;
     QLabel* titleLabel;
     QLabel* descLabel;
     QLabel* iconLabel;

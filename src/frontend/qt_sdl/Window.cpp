@@ -87,6 +87,7 @@
 #include "RetroAchievements/RAClient.h"
 #include "toast/BadgeCache.h"
 #include "RAOverlayWidget.h"
+#include <QPointer>
 #endif
 
 using namespace melonDS;
@@ -868,7 +869,48 @@ MainWindow::MainWindow(int id, EmuInstance* inst, QWidget* parent) :
 
             ra->SetOnChallengeHide([this]() {
                 QMetaObject::invokeMethod(this, [this]() {
-                    m_toastManager.HideChallengeIndicator();
+                    m_toastManager.HideChallengeIndicator("");
+                }, Qt::QueuedConnection);
+            });
+
+            ra->SetOnLeaderboardTrackerUpdate([this](const char* display) {
+                QString d = QString::fromUtf8(display);
+                QMetaObject::invokeMethod(this, [this, d]() {
+                    this->OnLeaderboardTrackerUpdate(d); // Dodaj this-> dla jasności
+                }, Qt::QueuedConnection);
+            });
+
+            ra->SetOnLeaderboardSubmitted([this](const char* title, const char* score, unsigned rank) {
+                QString t = QString::fromUtf8(title);
+                QString s = QString::fromUtf8(score);
+                QMetaObject::invokeMethod(this, [this, t, s, rank]() {
+                    OnLeaderboardSubmitted(t, s, rank);
+                }, Qt::QueuedConnection);
+            });
+
+            QPointer<MainWindow> self(this);
+
+            ra->SetOnRADisconnected([self]() {
+                if (!self) return;
+                QMetaObject::invokeMethod(self, [self]() {
+                    if (!self) return;
+                    self->OnRADisconnected();
+                }, Qt::QueuedConnection);
+            });
+
+            ra->SetOnRAReconnected([self]() {
+                if (!self) return;
+                QMetaObject::invokeMethod(self, [self]() {
+                    if (!self) return;
+                    self->OnRAReconnected();
+                }, Qt::QueuedConnection);
+            });
+
+            ra->SetOnRAPendingSent([self](int count) { 
+                if (!self) return;
+                QMetaObject::invokeMethod(self, [self, count]() { 
+                    if (!self) return;
+                    self->OnRAPendingSent(count); 
                 }, Qt::QueuedConnection);
             });
 
@@ -1252,7 +1294,7 @@ bool MainWindow::preloadROMs(QStringList file, QStringList gbafile, bool boot)
                 return false;
             }
         }
-
+        
         recentFileList.removeAll(file.join("|"));
         recentFileList.prepend(file.join("|"));
         updateRecentFilesMenu();
@@ -1841,6 +1883,9 @@ void MainWindow::onPause(bool checked)
 
 void MainWindow::onReset()
 {
+    #ifdef RETROACHIEVEMENTS_ENABLED
+    m_toastManager.HideChallengeIndicator("");
+    #endif
     if (!emuThread->emuIsActive()) return;
 
     emuThread->emuReset();
@@ -1848,6 +1893,9 @@ void MainWindow::onReset()
 
 void MainWindow::onStop()
 {
+    #ifdef RETROACHIEVEMENTS_ENABLED
+    m_toastManager.HideChallengeIndicator("");
+    #endif
     if (!emuThread->emuIsActive()) return;
 
     emuThread->emuStop(true);
@@ -2405,6 +2453,13 @@ void MainWindow::onChangeAudioSync(bool checked)
 
 void MainWindow::onTitleUpdate(QString title)
 {
+    #ifdef RETROACHIEVEMENTS_ENABLED
+    if (emuInstance) {
+        if (RAContext* ra = emuInstance->getRA()) {
+            ra->ProcessAsyncCallbacks();
+        }
+    }
+    #endif
     if (!emuInstance) return;
 
     int numinst = numEmuInstances();
@@ -2575,20 +2630,65 @@ void MainWindow::OnChallengeShow(const QString& badgeName)
 {
     QString fullUrl = QString("https://media.retroachievements.org/Badge/%1.png").arg(badgeName);
 
-    m_badgeCache.DownloadBadge(fullUrl, [this](const QPixmap& pix) {
+    m_badgeCache.DownloadBadge(fullUrl, [this, badgeName](const QPixmap& pix) {
         if (pix.isNull()) return;
 
-        QMetaObject::invokeMethod(this, [this, pix]() {
-            m_toastManager.ShowChallengeIndicator(pix);
+        QMetaObject::invokeMethod(this, [this, pix, badgeName]() {
+            m_toastManager.ShowChallengeIndicator(pix, badgeName);
         });
     });
 }
 
-void MainWindow::OnChallengeHide()
+void MainWindow::OnChallengeHide(const QString& badgeName)
 {
-    QMetaObject::invokeMethod(this, [this]() {
-        m_toastManager.HideChallengeIndicator();
+    QMetaObject::invokeMethod(this, [this, badgeName]() {
+        m_toastManager.HideChallengeIndicator(badgeName);
     });
+}
+
+void MainWindow::OnLeaderboardTrackerUpdate(const QString& display)
+{
+    m_toastManager.UpdateLeaderboardTracker(display);
+}
+
+void MainWindow::OnLeaderboardSubmitted(const QString& title, const QString& score, unsigned rank)
+{
+    QString msg = QString("Wynik: %1 (Miejsce: %2)").arg(score).arg(rank);
+    m_toastManager.ShowLeaderboardToast(title, msg, QPixmap(":/ra/icons/ra-icon.png"));
+}
+
+void MainWindow::OnRADisconnected()
+{
+    m_toastManager.ShowAchievement(
+        tr("RetroAchievements"),
+        tr("There is no connection with the internet"),
+        QPixmap(":/ra/icons/ra-icon.png")
+    );
+    m_toastManager.UpdateNetworkStatus("~RA~");
+}
+
+void MainWindow::OnRAReconnected()
+{
+    m_toastManager.ShowAchievement(
+        tr("RetroAchievements"),
+        tr("Connection restored"),
+        QPixmap(":/ra/icons/ra-icon.png")
+    );
+    m_toastManager.UpdateNetworkStatus("");
+}
+
+void MainWindow::OnRAPendingSent(int count) // Upewnij się, że jest tu "int count"
+{
+    if (count <= 0) return;
+
+    // Tutaj Twoja logika wyświetlania tosta
+    QString message = tr("Sent %1 pending achievements").arg(count);
+    
+    m_toastManager.ShowAchievement(
+        tr("RetroAchievements"),
+        message,
+        QPixmap(":/ra/icons/ra-icon.png")
+    );
 }
 
 void MainWindow::OnGameMastered(const QString& title, const QString& gameBadge)
@@ -2609,7 +2709,7 @@ void MainWindow::OnAchievementProgress(
     m_badgeCache.DownloadBadge(badgeUrl,
         [this, title, progress](const QPixmap& pix)
         {
-            m_toastManager.ShowAchievement(
+            m_toastManager.ShowProgress(
                 title,
                 progress,
                 pix);

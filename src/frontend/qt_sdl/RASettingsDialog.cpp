@@ -29,6 +29,12 @@ RASettingsDialog::RASettingsDialog(EmuInstance* inst, QWidget* parent)
     ui->cbRAHardcore->setChecked(instcfg.GetBool("RetroAchievements.HardcoreMode"));
     ui->leRAUsername->setText(QString::fromStdString(instcfg.GetString("RetroAchievements.Username")));
     ui->leRAPassword->setText(QString::fromStdString(instcfg.GetString("RetroAchievements.Password")));
+    ui->cbRAAchievementToasts->setChecked(instcfg.GetBool("RetroAchievements.HideToasts"));
+    ui->cbRAChallengeIndicators->setChecked(instcfg.GetBool("RetroAchievements.HideChallengeIndicators"));
+    ui->cbRAEncoreMode->setChecked(instcfg.GetBool("RetroAchievements.EncoreMode"));
+    ui->cbRAUnofficialMode->setChecked(instcfg.GetBool("RetroAchievements.Unofficial"));
+    ui->cbRALeaderboardCounter->setChecked(instcfg.GetBool("RetroAchievements.HideLeaderboardCounter"));
+    ui->cbRALeaderboardToasts->setChecked(instcfg.GetBool("RetroAchievements.HideLeaderboardToasts"));
 
     auto UpdateRAUI = [this]() {
         RAContext* ra = emuInstance->getRA();
@@ -189,6 +195,12 @@ void RASettingsDialog::done(int r)
             instcfg.SetBool("RetroAchievements.HardcoreMode", ui->cbRAHardcore->isChecked());
             instcfg.SetString("RetroAchievements.Username", ui->leRAUsername->text().toStdString());
             instcfg.SetString("RetroAchievements.Password", ui->leRAPassword->text().toStdString());
+            instcfg.SetBool("RetroAchievements.HideToasts", ui->cbRAAchievementToasts->isChecked());
+            instcfg.SetBool("RetroAchievements.HideChallengeIndicators", ui->cbRAChallengeIndicators->isChecked());
+            instcfg.SetBool("RetroAchievements.EncoreMode", ui->cbRAEncoreMode->isChecked());
+            instcfg.SetBool("RetroAchievements.Unofficial", ui->cbRAUnofficialMode->isChecked());
+            instcfg.SetBool("RetroAchievements.HideLeaderboardCounter", ui->cbRALeaderboardCounter->isChecked());
+            instcfg.SetBool("RetroAchievements.HideLeaderboardToasts", ui->cbRALeaderboardToasts->isChecked());
 
             emuInstance->SyncRetroAchievementsFromConfig();
             Config::Save();

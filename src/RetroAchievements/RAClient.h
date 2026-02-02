@@ -8,6 +8,7 @@
 #include <vector>
 #include <rcheevos/include/rc_runtime.h>
 #include <ctime>
+#include <unordered_map>
 
 
 using AchievementUnlockedCallback =
@@ -27,9 +28,18 @@ using ChallengeShowCallback =
     std::function<void(const char* badgeUrl)>;
 using ChallengeHideCallback = 
     std::function<void()>;
+using LeaderboardTrackerUpdateCallback = 
+    std::function<void(const char* display)>;
+using LeaderboardSubmittedCallback = 
+    std::function<void(const char* title, const char* score, unsigned rank)>;
 using GameMasteredCallback =
     std::function<void(const std::string& title,
                        const char* gameBadge)>;
+using RADisconnectedCallback = std::function<void()>;
+using RAReconnectedCallback = std::function<void()>;
+using RAPendingSentCallback = std::function<void(int)>;
+using LoginCallback = std::function<void()>;
+using LeaderboardCallback = std::function<void(const rc_client_leaderboard_t*)>;
 
 struct TrackedAchievement
 {
@@ -42,6 +52,7 @@ namespace melonDS {
 }
 class RAContext {
 public:
+    void ProcessAsyncCallbacks();
     using PlaytimeLoadHandler = std::function<uint32_t(uint32_t gameId)>;
     using PlaytimeSaveHandler = std::function<void(uint32_t gameId, uint32_t totalMinutes)>;
 
@@ -61,10 +72,6 @@ public:
         std::string display;
     };
     std::unordered_map<uint32_t, LeaderboardTracker> activeTrackers;
-    using LeaderboardCallback = std::function<void(const rc_client_leaderboard_t*)>;
-    LeaderboardCallback onLeaderboardStarted;
-    LeaderboardCallback onLeaderboardFailed;
-    LeaderboardCallback onLeaderboardSubmitted;
     friend uint32_t RC_CCONV RuntimePeek(uint32_t, uint32_t, void*);
     struct FullAchievement
     {
@@ -123,19 +130,22 @@ public:
     void SetOnAchievementProgress(AchievementProgressCallback cb);
     void SetOnChallenge(ChallengeShowCallback cb);
     void SetOnChallengeHide(ChallengeHideCallback cb);
+    void SetOnLeaderboardTrackerUpdate(LeaderboardTrackerUpdateCallback cb);
+    void SetOnLeaderboardSubmitted(LeaderboardSubmittedCallback cb);
+    void SetOnRADisconnected(RADisconnectedCallback cb);
+    void SetOnRAReconnected(RAReconnectedCallback cb);
+    void SetOnRAPendingSent(RAPendingSentCallback cb);
     void SetOnGameMastered(GameMasteredCallback cb);
     void SetOnMeasuredProgress(MeasuredProgressCallback cb);
+    void SetOnLogin(LoginCallback cb);
     void UpdateMeasuredAchievements();
     void LoginNow();
     void Enable();
     void Disable();
     bool IsEnabled() const { return m_enabled; }
     bool IsHardcoreEnabled() const { return m_hardcore; }
-    using LoginCallback = std::function<void()>;
-    void SetOnLogin(LoginCallback cb)
-    {
-        m_onLogin = std::move(cb);
-    }
+    void SetEncoreMode(bool enabled);
+    void SetUnofficialEnabled(bool enabled);
     void AttachNDS(melonDS::NDS* nds_);
     void SetPendingGameHash(const char* hash);
     void SetToken(const std::string& token) { m_token = token; }
@@ -178,7 +188,19 @@ public:
         uint32_t sessionMinutes = (uint32_t)((time(nullptr) - m_sessionStart) / 60);
         return m_accumulatedTime + sessionMinutes;
     }
+    std::vector<std::string> GetActiveTrackerTexts();
 private:
+    void InitHTTPThread();
+    struct ProgressThrottleState {
+        unsigned lastValue = 0;
+        float lastPercent = 0.0f;
+        uint64_t lastShownMs = 0;
+        int rapidChanges = 0;
+        uint64_t rapidWindowStart = 0;
+    };
+
+    std::unordered_map<uint32_t, ProgressThrottleState> m_progressThrottle;
+    bool ShouldShowProgress(uint32_t id, unsigned value, unsigned target);
     PlaytimeLoadHandler m_playtimeLoader;
     PlaytimeSaveHandler m_playtimeSaver;
     void SavePlaytime();
@@ -189,16 +211,24 @@ private:
     std::vector<TrackedAchievement> trackedAchievements;
     std::vector<FullAchievement> allAchievements;
     void SetDisplayName(const char* name);
+    LeaderboardCallback onLeaderboardStarted;
+    LeaderboardCallback onLeaderboardFailed;
+    LeaderboardCallback onLeaderboardSubmitted;
     AchievementUnlockedCallback m_onAchievementUnlocked;
     MeasuredProgressCallback m_onMeasuredProgress;
     AchievementProgressCallback m_onAchievementProgress;
     ChallengeShowCallback m_onChallenge;
     ChallengeHideCallback m_onChallengeHide;
-    GameMasteredCallback m_OnGameMastered;
+    LeaderboardTrackerUpdateCallback m_onLeaderboardTrackerUpdate;
+    LeaderboardSubmittedCallback m_onLeaderboardSubmitted;
+    GameMasteredCallback m_onGameMastered;
+    RADisconnectedCallback m_onRADisconnected;
+    RAReconnectedCallback m_onRAReconnected;
+    RAPendingSentCallback m_onRAPendingSent;
+    LoginCallback m_onLogin;
     std::string m_displayName;
     const rc_client_game_t* currentGameInfo = nullptr;
     bool m_enabled = false;
-    LoginCallback m_onLogin;
     std::optional<std::string> pendingGameHash;
     bool gameLoaded = false;
     std::string m_user;
