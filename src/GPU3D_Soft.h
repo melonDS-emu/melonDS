@@ -26,26 +26,33 @@
 
 namespace melonDS
 {
-class SoftRenderer : public Renderer3D
+class SoftRenderer;
+
+class SoftRenderer3D : public Renderer3D
 {
 public:
-    SoftRenderer() noexcept;
-    ~SoftRenderer() override;
-    void Reset(GPU& gpu) override;
+    SoftRenderer3D(melonDS::GPU3D& gpu3D, SoftRenderer& parent) noexcept;
+    ~SoftRenderer3D() override;
+    void Reset() override;
 
-    void SetThreaded(bool threaded, GPU& gpu) noexcept;
+    void SetThreaded(bool threaded) noexcept;
     [[nodiscard]] bool IsThreaded() const noexcept { return Threaded; }
 
-    void VCount144(GPU& gpu) override;
-    void RenderFrame(GPU& gpu) override;
-    void RestartFrame(GPU& gpu) override;
+    void RenderFrame() override;
+    void FinishRendering() override;
+    void RestartFrame() override;
+
     u32* GetLine(int line) override;
 
-    void SetupRenderThread(GPU& gpu);
+    void SetupRenderThread();
     void EnableRenderThread();
     void StopRenderThread();
+
 private:
+    SoftRenderer& Parent;
+
     friend void GPU3D::DoSavestate(Savestate* file) noexcept;
+
     // Notes on the interpolator:
     //
     // This is a theory on how the DS hardware interpolates values. It matches hardware output
@@ -423,7 +430,7 @@ private:
         s32 ycoverage, ycov_incr;
     };
 
-    u32 AlphaBlend(const GPU3D& gpu3d, u32 srccolor, u32 dstcolor, u32 alpha) const noexcept;
+    u32 AlphaBlend(u32 srccolor, u32 dstcolor, u32 alpha) const noexcept;
 
     struct RendererPolygon
     {
@@ -438,21 +445,21 @@ private:
     };
 
     RendererPolygon PolygonList[2048];
-    void TextureLookup(const GPU& gpu, u32 texparam, u32 texpal, s16 s, s16 t, u16* color, u8* alpha) const;
-    u32 RenderPixel(const GPU& gpu, const Polygon* polygon, u8 vr, u8 vg, u8 vb, s16 s, s16 t) const;
-    void PlotTranslucentPixel(const GPU3D& gpu3d, u32 pixeladdr, u32 color, u32 z, u32 polyattr, u32 shadow);
+    void TextureLookup(u32 texparam, u32 texpal, s16 s, s16 t, u16* color, u8* alpha) const;
+    u32 RenderPixel(const Polygon* polygon, u8 vr, u8 vg, u8 vb, s16 s, s16 t) const;
+    void PlotTranslucentPixel(u32 pixeladdr, u32 color, u32 z, u32 polyattr, u32 shadow);
     void SetupPolygonLeftEdge(RendererPolygon* rp, s32 y) const;
     void SetupPolygonRightEdge(RendererPolygon* rp, s32 y) const;
     void SetupPolygon(RendererPolygon* rp, Polygon* polygon) const;
-    void RenderShadowMaskScanline(const GPU3D& gpu3d, RendererPolygon* rp, s32 y);
-    void RenderPolygonScanline(const GPU& gpu, RendererPolygon* rp, s32 y);
-    void RenderScanline(const GPU& gpu, s32 y, int npolys);
-    u32 CalculateFogDensity(const GPU3D& gpu3d, u32 pixeladdr) const;
-    void ScanlineFinalPass(const GPU3D& gpu3d, s32 y);
-    void ClearBuffers(const GPU& gpu);
-    void RenderPolygons(const GPU& gpu, bool threaded, Polygon** polygons, int npolys);
+    void RenderShadowMaskScanline(RendererPolygon* rp, s32 y);
+    void RenderPolygonScanline(RendererPolygon* rp, s32 y);
+    void RenderScanline(s32 y, int npolys);
+    u32 CalculateFogDensity(u32 pixeladdr) const;
+    void ScanlineFinalPass(s32 y);
+    void ClearBuffers();
+    void RenderPolygons(bool threaded, Polygon** polygons, int npolys);
 
-    void RenderThreadFunc(GPU& gpu);
+    void RenderThreadFunc();
 
     // buffer dimensions are 258x194 to add a offscreen 1px border
     // which simplifies edge marking tests
@@ -484,6 +491,8 @@ private:
     bool Enabled;
 
     bool FrameIdentical;
+
+    u32 ScrolledLine[256];
 
     // threading
 

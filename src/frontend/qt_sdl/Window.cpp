@@ -957,8 +957,9 @@ void MainWindow::closeEvent(QCloseEvent* event)
 
 void MainWindow::createScreenPanel()
 {
-    if (panel) delete panel;
+    auto oldpanel = panel;
     panel = nullptr;
+    if (oldpanel) delete oldpanel;
 
     hasOGL = globalCfg.GetBool("Screen.UseGL") ||
             (globalCfg.GetInt("3D.Renderer") != renderer3D_Software);
@@ -1061,13 +1062,10 @@ void MainWindow::releaseGL()
     return glpanel->releaseGL();
 }
 
-void MainWindow::drawScreenGL()
+void MainWindow::drawScreen()
 {
-    if (!hasOGL) return;
-
-    ScreenPanelGL* glpanel = static_cast<ScreenPanelGL*>(panel);
-    if (!glpanel) return;
-    return glpanel->drawScreenGL();
+    if (!panel) return;
+    return panel->drawScreen();
 }
 
 void MainWindow::keyPressEvent(QKeyEvent* event)
@@ -1215,7 +1213,7 @@ bool MainWindow::preloadROMs(QStringList file, QStringList gbafile, bool boot)
 {
     QString errorstr;
 
-    if (file.isEmpty() && gbafile.isEmpty())
+    if (file.isEmpty() && gbafile.isEmpty() && !boot)
         return false;
 
     if (!verifySetup())
@@ -1254,7 +1252,7 @@ bool MainWindow::preloadROMs(QStringList file, QStringList gbafile, bool boot)
                 return false;
             }
         }
-        
+
         recentFileList.removeAll(file.join("|"));
         recentFileList.prepend(file.join("|"));
         updateRecentFilesMenu();
