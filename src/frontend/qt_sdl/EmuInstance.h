@@ -184,7 +184,7 @@ private:
     std::string getSavestateName(int slot);
     bool savestateExists(int slot);
     bool loadState(const std::string& filename);
-    bool saveState(const std::string& filename);
+    bool saveState(std::string& buffer);
     void undoStateLoad();
     void unloadCheats();
     void loadCheats();

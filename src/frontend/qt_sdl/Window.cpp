@@ -25,6 +25,7 @@
 #include <optional>
 #include <vector>
 #include <string>
+#include <fstream>
 #include <algorithm>
 
 #include <QProcess>
@@ -1564,37 +1565,53 @@ void MainWindow::onEjectGBACart()
 
 void MainWindow::onSaveState()
 {
-    int slot = ((QAction*)sender())->data().toInt();
+    const int slot = ((QAction*)sender())->data().toInt();
 
-    QString filename;
-    if (slot > 0)
-    {
-        filename = QString::fromStdString(emuInstance->getSavestateName(slot));
+    std::string filename;
+    if (slot > 0) {
+        filename = emuInstance->getSavestateName(slot);
     }
-    else
-    {
+    else {
         // TODO: specific 'last directory' for savestate files?
         emuThread->emuPause();
         filename = QFileDialog::getSaveFileName(this,
                                                          "Save state",
                                                          globalCfg.GetQString("LastROMFolder"),
-                                                         "melonDS savestates (*.mln);;Any file (*.*)");
+                                                         "melonDS savestates (*.mln);;Any file (*.*)").toStdString();
         emuThread->emuUnpause();
-        if (filename.isEmpty())
-            return;
     }
 
-    if (emuThread->saveState(filename))
-    {
-        if (slot > 0) emuInstance->osdAddMessage(0, "State saved to slot %d", slot);
-        else          emuInstance->osdAddMessage(0, "State saved to file");
-
-        actLoadState[slot]->setEnabled(true);
+    if (filename.empty()) {
+        emuInstance->osdAddMessage(0xFFA0A0, "State save failed- no filename for slot");
     }
-    else
-    {
+
+    emuInstance->osdAddMessage(0, "Starting save...");
+
+    std::string save_buffer;
+
+    if (!emuThread->saveState(save_buffer)) {
         emuInstance->osdAddMessage(0xFFA0A0, "State save failed");
+        return;
     }
+
+    {
+        std::ofstream out(filename.c_str(), std::ios::trunc | std::ios::out);
+        out << save_buffer;
+    }
+
+
+    if (globalCfg.GetBool("Savestate.RelocSRAM") && emuInstance->ndsSave)
+    {
+        std::string savefile = filename.substr(EmuInstance::lastSep(filename)+1);
+        savefile = emuInstance->getAssetPath(false, localCfg.GetString("SaveFilePath"), ".sav", savefile);
+        savefile += emuInstance->instanceFileSuffix();
+        emuInstance->ndsSave->SetPath(savefile, false);
+    }
+
+    actLoadState[slot]->setEnabled(true);
+
+    if (slot > 0) emuInstance->osdAddMessage(0, "State saved to slot %d", slot);
+    else          emuInstance->osdAddMessage(0, "State saved to file");
 }
 
 void MainWindow::onLoadState()
