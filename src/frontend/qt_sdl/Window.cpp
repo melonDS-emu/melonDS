@@ -546,8 +546,8 @@ MainWindow::MainWindow(int id, EmuInstance* inst, QWidget* parent) :
                 QMenu * submenu = menu->addMenu("Screen sizing");
                 grpScreenSizing = new QActionGroup(submenu);
 
-                const char *screensizing[] = {"Even", "Emphasize top", "Emphasize bottom", "Auto", "Top only",
-                                              "Bottom only"};
+                const char *screensizing[] = {"Even", "Weighted", "Emphasize top", "Emphasize bottom", "Auto", 
+                                              "Top only", "Bottom only"};
 
                 for (int i = 0; i < screenSizing_MAX; i++)
                 {
@@ -564,6 +564,38 @@ MainWindow::MainWindow(int id, EmuInstance* inst, QWidget* parent) :
                 actIntegerScaling = submenu->addAction("Force integer scaling");
                 actIntegerScaling->setCheckable(true);
                 connect(actIntegerScaling, &QAction::triggered, this, &MainWindow::onChangeIntegerScaling);
+            }
+            {
+                QMenu * submenu = menu->addMenu("Screen weight");
+                grpScreenWeightTop = new QActionGroup(submenu);
+                grpScreenWeightBot = new QActionGroup(submenu);
+                actScreenWeightTop = new QAction *[ScreenWeightsNum];
+                actScreenWeightBot = new QAction *[ScreenWeightsNum];
+
+                for (int i = 0; i < 2; i++)
+                {
+                    QActionGroup * group = grpScreenWeightTop;
+                    QAction **actions = actScreenWeightTop;
+
+                    if (i == 1)
+                    {
+                        group = grpScreenWeightBot;
+                        submenu->addSeparator();
+                        actions = actScreenWeightBot;
+                    }
+
+                    for (int j = 0; j < ScreenWeightsNum; j++)
+                    {
+                        int weight = j + 1;
+                        QString label = QString("%1 ×%2").arg(i ? "Bottom" : "Top").arg(weight);
+                        actions[j] = submenu->addAction(label);
+                        actions[j]->setActionGroup(group);
+                        actions[j]->setData(QVariant(weight));
+                        actions[j]->setCheckable(true);
+                    }
+
+                    connect(group, &QActionGroup::triggered, this, &MainWindow::onChangeScreenWeight);
+                }
             }
             {
                 QMenu * submenu = menu->addMenu("Aspect ratio");
@@ -764,6 +796,9 @@ MainWindow::MainWindow(int id, EmuInstance* inst, QWidget* parent) :
         actIntegerScaling->setChecked(windowCfg.GetBool("IntegerScaling"));
 
         actScreenSwap->setChecked(windowCfg.GetBool("ScreenSwap"));
+
+        actScreenWeightTop[windowCfg.GetInt("ScreenWeightTop")-1]->setChecked(true);
+        actScreenWeightBot[windowCfg.GetInt("ScreenWeightBot")-1]->setChecked(true);
 
         int aspectTop = windowCfg.GetInt("ScreenAspectTop");
         int aspectBot = windowCfg.GetInt("ScreenAspectBot");
@@ -2116,6 +2151,23 @@ void MainWindow::onChangeScreenSizing(QAction* act)
     emit screenLayoutChange();
 }
 
+void MainWindow::onChangeScreenWeight(QAction* act)
+{
+    int weight = act->data().toInt();
+    QActionGroup* group = act->actionGroup();
+
+    if (group == grpScreenWeightTop)
+    {
+        windowCfg.SetInt("ScreenWeightTop", weight);
+    }
+    else
+    {
+        windowCfg.SetInt("ScreenWeightBot", weight);
+    }
+
+    emit screenLayoutChange();
+}
+
 void MainWindow::onChangeScreenAspect(QAction* act)
 {
     int aspect = act->data().toInt();
@@ -2235,6 +2287,17 @@ void MainWindow::onScreenEmphasisToggled()
     else if (currentSizing == screenSizing_EmphBot)
     {
         currentSizing = screenSizing_EmphTop;
+    }
+    else if (currentSizing == screenSizing_Weighted)
+    {
+        // Swap weights
+        int currentWeightTop = windowCfg.GetInt("ScreenWeightTop");
+        int currentWeightBot = windowCfg.GetInt("ScreenWeightBot");
+        std::swap(currentWeightTop, currentWeightBot);
+        windowCfg.SetInt("ScreenWeightTop", currentWeightTop);
+        actScreenWeightTop[currentWeightTop - 1]->setChecked(true);
+        windowCfg.SetInt("ScreenWeightBot", currentWeightBot);
+        actScreenWeightBot[currentWeightBot - 1]->setChecked(true);
     }
     else
     {
