@@ -177,7 +177,7 @@ private:
     QString verifyDSiBIOS();
     QString verifyDSFirmware();
     QString verifyDSiFirmware();
-    QString verifyDSiNAND();
+    QString verifyDSiNAND(bool isoptional);
 
     std::string getEffectiveFirmwareSavePath();
     void initFirmwareSaveManager() noexcept;
