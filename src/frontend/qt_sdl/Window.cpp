@@ -365,6 +365,11 @@ MainWindow::MainWindow(int id, EmuInstance* inst, QWidget* parent) :
                 actSaveState[0]->setShortcut(QKeySequence(Qt::ShiftModifier | Qt::Key_F9));
                 actSaveState[0]->setData(QVariant(0));
                 connect(actSaveState[0], &QAction::triggered, this, &MainWindow::onSaveState);
+                
+                actSaveState[9] = submenu->addAction("Auto Slot");
+                actSaveState[9]->setShortcut(QKeySequence(Qt::ShiftModifier | Qt::Key_F10));
+                actSaveState[9]->setData(QVariant(9));
+                connect(actSaveState[9], &QAction::triggered, this, &MainWindow::onSaveState);
             }
             {
                 QMenu * submenu = menu->addMenu("Load state");
@@ -381,6 +386,11 @@ MainWindow::MainWindow(int id, EmuInstance* inst, QWidget* parent) :
                 actLoadState[0]->setShortcut(QKeySequence(Qt::Key_F9));
                 actLoadState[0]->setData(QVariant(0));
                 connect(actLoadState[0], &QAction::triggered, this, &MainWindow::onLoadState);
+
+                actLoadState[9] = submenu->addAction("Auto slot");
+                actLoadState[9]->setShortcut(QKeySequence(Qt::Key_F10));
+                actLoadState[9]->setData(QVariant(9));
+                connect(actLoadState[9], &QAction::triggered, this, &MainWindow::onLoadState);
             }
 
             actUndoStateLoad = menu->addAction("Undo state load");
@@ -658,6 +668,12 @@ MainWindow::MainWindow(int id, EmuInstance* inst, QWidget* parent) :
                 actSavestateSRAMReloc = submenu->addAction("Separate savefiles");
                 actSavestateSRAMReloc->setCheckable(true);
                 connect(actSavestateSRAMReloc, &QAction::triggered, this, &MainWindow::onChangeSavestateSRAMReloc);
+
+                actSavestateAutoSave = submenu->addAction("Save state every 5 minutes");
+                actSavestateAutoSave->setCheckable(true);
+                actSavestateAutoSave->setEnabled(false);
+                connect(actSavestateAutoSave, &QAction::triggered, this,
+                        &MainWindow::onAutoSaveState);
             }
 
             menu->addSeparator();
@@ -720,7 +736,7 @@ MainWindow::MainWindow(int id, EmuInstance* inst, QWidget* parent) :
                 act->setEnabled(false);
         }
 
-        for (int i = 0; i < 9; i++)
+        for (int i = 0; i < 10; i++)
         {
             actSaveState[i]->setEnabled(false);
             actLoadState[i]->setEnabled(false);
@@ -1597,10 +1613,37 @@ void MainWindow::onSaveState()
     }
 }
 
+void MainWindow::autoSave() {
+
+  // static QAction* actSaveState = (QAction *)args;
+  actSaveState[9]->trigger();
+
+  return;
+}
+
+void MainWindow::onAutoSaveState() {
+
+  bool autosave = ((QAction *)sender())->isChecked();
+  if (autosave) {
+
+    autoSaveTimer = new QTimer(this);
+    connect(autoSaveTimer, &QTimer::timeout, this, &MainWindow::autoSave);
+
+    autoSaveTimer->start(5 * 60 * 1000); // 5 min, should be configurable
+    emuInstance->osdAddMessage(0xFFA0A0,
+                               "State autosave started every 5 minutes");
+
+  } else {
+    autoSaveTimer->stop();
+    emuInstance->osdAddMessage(0xFFA0A0, "State autosave stopped");
+  }
+  globalCfg.SetBool("Savestate.AutoSave", autosave);
+}
+
 void MainWindow::onLoadState()
 {
     int slot = ((QAction*)sender())->data().toInt();
-
+    
     QString filename;
     if (slot > 0)
     {
@@ -2247,36 +2290,42 @@ void MainWindow::onScreenEmphasisToggled()
     emit screenLayoutChange();
 }
 
-void MainWindow::onEmuStart()
-{
-    if (!hasMenu) return;
+void MainWindow::onEmuStart() {
+  if (!hasMenu)
+    return;
 
-    for (int i = 1; i < 9; i++)
-    {
-        actSaveState[i]->setEnabled(true);
-        actLoadState[i]->setEnabled(emuInstance->savestateExists(i));
-    }
-    actSaveState[0]->setEnabled(true);
-    actLoadState[0]->setEnabled(true);
-    actUndoStateLoad->setEnabled(false);
+  for (int i = 1; i < 10; i++) {
+    actSaveState[i]->setEnabled(true);
+    actLoadState[i]->setEnabled(emuInstance->savestateExists(i));
+  }
+  actSaveState[0]->setEnabled(true);
+  actLoadState[0]->setEnabled(true);
+  actUndoStateLoad->setEnabled(false);
 
-    actPause->setEnabled(true);
-    actPause->setChecked(false);
-    actReset->setEnabled(true);
-    actStop->setEnabled(true);
-    actFrameStep->setEnabled(true);
+  actPause->setEnabled(true);
+  actPause->setChecked(false);
+  actReset->setEnabled(true);
+  actStop->setEnabled(true);
+  actFrameStep->setEnabled(true);
 
-    actDateTime->setEnabled(false);
-    actPowerManagement->setEnabled(true);
+  actDateTime->setEnabled(false);
+  actPowerManagement->setEnabled(true);
 
-    actTitleManager->setEnabled(false);
+  actTitleManager->setEnabled(false);
+  actSavestateAutoSave->setEnabled(true);
+
+  bool autosave = globalCfg.GetBool("Savestate.AutoSave");
+
+  if (autosave) {
+    actSavestateAutoSave->trigger();
+  }
 }
 
 void MainWindow::onEmuStop()
 {
     if (!hasMenu) return;
 
-    for (int i = 0; i < 9; i++)
+    for (int i = 0; i < 10; i++)
     {
         actSaveState[i]->setEnabled(false);
         actLoadState[i]->setEnabled(false);
