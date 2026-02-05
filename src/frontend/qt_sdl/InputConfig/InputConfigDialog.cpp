@@ -256,8 +256,59 @@ void InputConfigDialog::on_cbxJoystick_currentIndexChanged(int id)
     // prevent a spurious change
     if (ui->cbxJoystick->count() < 2) return;
 
+    Config::Table& instcfg = emuInstance->getLocalConfig();
+
+    // saving mapping from current controller
+    Config::Table oldJoycfg = instcfg.GetTable("Joystick." + std::to_string(joystickUniqueID));
+
+    for (int i = 0; i < keypad_num; i++)
+    {
+        oldJoycfg.SetInt(EmuInstance::buttonNames[dskeyorder[i]], keypadJoyMap[i]);
+    }
+
+    int i = 0;
+    for (int hotkey : hk_addons)
+    {
+        oldJoycfg.SetInt(EmuInstance::hotkeyNames[hotkey], addonsJoyMap[i]);
+        i++;
+    }
+
+    i = 0;
+    for (int hotkey : hk_general)
+    {
+        oldJoycfg.SetInt(EmuInstance::hotkeyNames[hotkey], hkGeneralJoyMap[i]);
+        i++;
+    }
+
+    Config::Save();
+
+    // loading mapping from selected controller
     joystickID = id;
+    joystickUniqueID = emuInstance->getJoystickUniqueIdById(id);
     emuInstance->setJoystick(id);
+
+    Config::Table joycfg = instcfg.GetTable("Joystick." + std::to_string(joystickUniqueID));
+
+    for (int i = 0; i < keypad_num; i++)
+    {
+        keypadJoyMap[i] = joycfg.GetInt(EmuInstance::buttonNames[dskeyorder[i]]);
+    }
+
+    int i = 0;
+    for (int hotkey : hk_addons)
+    {
+        addonsJoyMap[i] = joycfg.GetInt(EmuInstance::hotkeyNames[hotkey]);
+        i++;
+    }
+
+    i = 0;
+    for (int hotkey : hk_general)
+    {
+        hkGeneralJoyMap[i] = joycfg.GetInt(EmuInstance::hotkeyNames[hotkey]);
+        i++;
+    }
+
+    emuInstance->inputLoadConfig();
 }
 
 SDL_Joystick* InputConfigDialog::getJoystick()
