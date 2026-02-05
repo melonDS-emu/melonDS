@@ -45,8 +45,23 @@ InputConfigDialog::InputConfigDialog(QWidget* parent) : QDialog(parent), ui(new 
     emuInstance = ((MainWindow*)parent)->getEmuInstance();
 
     Config::Table& instcfg = emuInstance->getLocalConfig();
+
+    int njoy = SDL_NumJoysticks();
+
+    joystickUniqueID = instcfg.GetInt("JoystickUniqueID");
+    joystickID = emuInstance->getJoystickIdByUniqueId(joystickUniqueID);
+    if (joystickID == -1)
+    {
+        joystickID = 0;
+
+        if (njoy > 0)
+        {
+            joystickUniqueID = emuInstance->getJoystickUniqueIdById(joystickID);
+        }
+    }
+
     Config::Table keycfg = instcfg.GetTable("Keyboard");
-    Config::Table joycfg = instcfg.GetTable("Joystick");
+    Config::Table joycfg = instcfg.GetTable("Joystick." + std::to_string(joystickUniqueID));
 
     for (int i = 0; i < keypad_num; i++)
     {
@@ -76,9 +91,6 @@ InputConfigDialog::InputConfigDialog(QWidget* parent) : QDialog(parent), ui(new 
     populatePage(ui->tabAddons, hk_addons_labels, addonsKeyMap, addonsJoyMap);
     populatePage(ui->tabHotkeysGeneral, hk_general_labels, hkGeneralKeyMap, hkGeneralJoyMap);
 
-    joystickID = instcfg.GetInt("JoystickID");
-
-    int njoy = SDL_NumJoysticks();
     if (njoy > 0)
     {
         for (int i = 0; i < njoy; i++)
@@ -186,7 +198,7 @@ void InputConfigDialog::on_InputConfigDialog_accepted()
 {
     Config::Table& instcfg = emuInstance->getLocalConfig();
     Config::Table keycfg = instcfg.GetTable("Keyboard");
-    Config::Table joycfg = instcfg.GetTable("Joystick");
+    Config::Table joycfg = instcfg.GetTable("Joystick." + std::to_string(joystickUniqueID));
 
     for (int i = 0; i < keypad_num; i++)
     {
@@ -213,7 +225,7 @@ void InputConfigDialog::on_InputConfigDialog_accepted()
         i++;
     }
 
-    instcfg.SetInt("JoystickID", joystickID);
+    instcfg.SetInt("JoystickUniqueID", joystickUniqueID);
     Config::Save();
 
     emuInstance->inputLoadConfig();
@@ -224,7 +236,7 @@ void InputConfigDialog::on_InputConfigDialog_accepted()
 void InputConfigDialog::on_InputConfigDialog_rejected()
 {
     Config::Table& instcfg = emuInstance->getLocalConfig();
-    emuInstance->setJoystick(instcfg.GetInt("JoystickID"));
+    emuInstance->setJoystickByUniqueId(instcfg.GetInt("JoystickUniqueID"));
 
     closeDlg();
 }
