@@ -294,7 +294,7 @@ void InputConfigDialog::on_cbxJoystick_currentIndexChanged(int id)
         keypadJoyMap[i] = joycfg.GetInt(EmuInstance::buttonNames[dskeyorder[i]]);
     }
 
-    int i = 0;
+    i = 0;
     for (int hotkey : hk_addons)
     {
         addonsJoyMap[i] = joycfg.GetInt(EmuInstance::hotkeyNames[hotkey]);
