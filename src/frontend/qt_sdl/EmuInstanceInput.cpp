@@ -240,13 +240,13 @@ void EmuInstance::setJoystickByUniqueId(int uniqueId)
 }
 
 int EmuInstance::getJoystickUniqueIdById(int id) {
-    u16 JoystickVendorID = SDL_JoystickGetDeviceVendor(id);
-    u16 JoystickDeviceID = SDL_JoystickGetDeviceProduct(id);
-    if (JoystickVendorID == 0 || JoystickDeviceID == 0)
+    u16 joystickVendorID = SDL_JoystickGetDeviceVendor(id);
+    u16 joystickDeviceID = SDL_JoystickGetDeviceProduct(id);
+    if (joystickVendorID == 0 || joystickDeviceID == 0)
     {
         return -1;
     }
-    return (int)((JoystickVendorID << 16) | JoystickDeviceID);
+    return (int)((joystickVendorID << 16) | joystickDeviceID);
 }
 
 int EmuInstance::getJoystickIdByUniqueId(int uniqueId)
