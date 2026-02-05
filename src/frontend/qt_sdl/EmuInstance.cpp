@@ -181,6 +181,16 @@ std::string EmuInstance::instanceFileSuffix()
     snprintf(suffix, 15, ".%d", instanceID+1);
     return suffix;
 }
+// get game id
+std::string EmuInstance::getGameID() {
+    // Check if the NDS core and a cartridge are loaded
+    if (nds && nds->NDSCartSlot.GetCart()) {
+        // Access the header directly to get the 4-character game code
+        return std::string(nds->NDSCartSlot.GetCart()->GetHeader().GameCode, 4);
+    }
+    // Return a default name if no game is loaded
+    return "NO_GAME";
+}
 
 void EmuInstance::createWindow(int id)
 {
