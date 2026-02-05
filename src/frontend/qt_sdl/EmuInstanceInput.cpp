@@ -239,7 +239,8 @@ void EmuInstance::setJoystickByUniqueId(int uniqueId)
     SDL_UnlockMutex(joyMutex.get());
 }
 
-int EmuInstance::getJoystickUniqueIdById(int id) {
+int EmuInstance::getJoystickUniqueIdById(int id)
+{
     u16 joystickVendorID = SDL_JoystickGetDeviceVendor(id);
     u16 joystickDeviceID = SDL_JoystickGetDeviceProduct(id);
     if (joystickVendorID == 0 || joystickDeviceID == 0)
@@ -279,7 +280,8 @@ void EmuInstance::openJoystick()
         return;
     }
 
-    if (joystickID >= num) {
+    if (joystickID >= num)
+    {
         joystickID = 0;
         joystickUniqueID = getJoystickUniqueIdById(joystickID);
     }
