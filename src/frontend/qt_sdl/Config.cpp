@@ -316,8 +316,6 @@ LegacyEntry LegacyFile[] =
     {"DSiBatteryLevel",    0, "DSi.Battery.Level", true},
     {"DSiBatteryCharging", 1, "DSi.Battery.Charging", true},
 
-    {"DSiFullBIOSBoot", 1, "DSi.FullBIOSBoot", true},
-
 #ifdef GDBSTUB_ENABLED
     {"GdbEnabled", 1, "Gdb.Enabled", false},
     {"GdbPortARM7", 0, "Gdb.ARM7.Port", true},

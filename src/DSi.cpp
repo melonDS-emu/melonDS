@@ -116,7 +116,6 @@ DSi::DSi(DSiArgs&& args, void* userdata) noexcept :
     NWRAM_B = JIT.Memory.GetNWRAM_B();
     NWRAM_C = JIT.Memory.GetNWRAM_C();
 
-    SetFullBIOSBoot(args.FullBIOSBoot);
     SetDSPHLE(args.DSPHLE);
 }
 
@@ -130,6 +129,20 @@ DSi::~DSi() noexcept
 
 void DSi::Reset()
 {
+    // determine if we can do a full BIOS boot
+    // if we have incomplete BIOS dumps, we need to manually load boot2 from NAND
+
+    u32 crc_low[2], crc_full[2];
+    crc_low[0] = CRC32(ARM9iBIOS.data(), 0x8000);
+    crc_low[1] = CRC32(ARM7iBIOS.data(), 0x8000);
+    crc_full[0] = CRC32(ARM9iBIOS.data(), 0x10000);
+    crc_full[1] = CRC32(ARM7iBIOS.data(), 0x10000);
+
+    bool bios9full = (crc_low[0] != ARM9iBIOSLowCRC32) || (crc_full[0] == ARM9iBIOSCRC32);
+    bool bios7full = (crc_low[1] != ARM7iBIOSLowCRC32) || (crc_full[1] == ARM7iBIOSCRC32);
+    FullBIOSBoot = bios9full && bios7full;
+    Log(LogLevel::Debug, "DSi: full BIOS boot = %d\n", FullBIOSBoot);
+
     //ARM9.CP15Write(0x910, 0x0D00000A);
     //ARM9.CP15Write(0x911, 0x00000020);
     //ARM9.CP15Write(0x100, ARM9.CP15Read(0x100) | 0x00050000);
@@ -165,6 +178,7 @@ void DSi::Reset()
         SCFG_BIOS = 0x0101;
         ARM7BIOSProt = 0x20;
     }
+
     SCFG_Clock9 = 0x0187; // CHECKME
     SCFG_Clock7 = 0x0187;
     SCFG_EXT[0] = 0x8307F100;
@@ -739,6 +753,7 @@ void DSi::SoftReset()
     {
         SCFG_BIOS = 0x0101;
     }
+
     SCFG_Clock9 = 0x0187; // CHECKME
     SCFG_Clock7 = 0x0187;
     SCFG_EXT[0] = 0x8307F100;
