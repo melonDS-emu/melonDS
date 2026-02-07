@@ -492,7 +492,7 @@ void NDS::Reset()
 
     PostFlag9 = 0x00;
     PostFlag7 = 0x00;
-    PowerControl9 = 0x0001;
+    PowerControl9 = 0x0000;
     PowerControl7 = 0x0000;
 
     WifiWaitCnt = 0xFFFF; // temp
