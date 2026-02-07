@@ -65,6 +65,11 @@
 #include "Net_PCap.h"
 #include "Net_Slirp.h"
 
+#ifdef RETROACHIEVEMENTS_ENABLED
+#include "RetroAchievements/RAClient.h"
+#include <QTimer>
+#endif
+
 using namespace melonDS;
 
 QString* systemThemeName;
@@ -266,6 +271,38 @@ bool MelonApplication::event(QEvent *event)
     return QApplication::event(event);
 }
 
+#ifdef RETROACHIEVEMENTS_ENABLED
+u32 currentRASeconds = 0;
+QTimer* raPlaytimeTimer = nullptr;
+
+
+void updateRAPlaytime()
+{
+    if (emuInstances[0])
+    {
+        auto& raCtx = emuInstances[0]->ra; 
+        
+        if (raCtx && raCtx->IsGameLoaded()) 
+        {
+            auto* gameInfo = raCtx->GetCurrentGameInfo();
+            uint32_t gameID = gameInfo ? gameInfo->id : 0;
+            
+            if (gameID != 0)
+            {
+                currentRASeconds++;
+                if (currentRASeconds % 60 == 0)
+                {
+                    std::string gameKey = std::to_string(gameID);
+                    int totalTime = Config::GetRAPlaytimeTable().GetInt(gameKey);
+                    Config::GetRAPlaytimeTable().SetInt(gameKey, totalTime + 60);
+                    Config::Save();
+                }
+            }
+        }
+    }
+}
+#endif
+
 int main(int argc, char** argv)
 {
     sysTimer.start();
@@ -366,6 +403,13 @@ int main(int argc, char** argv)
 
     createEmuInstance();
 
+    #ifdef RETROACHIEVEMENTS_ENABLED
+    if (emuInstances[0])
+    {
+        emuInstances[0]->SyncRetroAchievementsFromConfig();
+    }
+    #endif
+    
     {
         MainWindow* win = emuInstances[0]->getMainWindow();
         bool memberSyntaxUsed = false;
@@ -393,6 +437,14 @@ int main(int argc, char** argv)
         if (options->fullscreen)
             win->toggleFullscreen();
     }
+
+    #ifdef RETROACHIEVEMENTS_ENABLED
+    raPlaytimeTimer = new QTimer(&melon);
+    QObject::connect(raPlaytimeTimer, &QTimer::timeout, []() {
+        updateRAPlaytime();
+    });
+    raPlaytimeTimer->start(1000);
+    #endif
 
     int ret = melon.exec();
 
