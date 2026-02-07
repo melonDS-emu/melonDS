@@ -198,6 +198,9 @@ void DSi::Reset()
     GPU.DispStat[0] |= (1<<6);
     GPU.DispStat[1] |= (1<<6);
 
+    // On DSi the LCDs are already powered on at boot time
+    PowerControl9 = 0x0001;
+
     UpdateVRAMTimings();
 }
 
