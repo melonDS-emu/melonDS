@@ -141,10 +141,17 @@ ARMv5::ARMv5(melonDS::NDS& nds, std::optional<GDBArgs> gdb, bool jit) : ARM(0, j
 }
 
 template <CPUExecuteMode mode>
+#ifdef JIT_ENABLED
 ARMv5Impl<mode>::ARMv5Impl(melonDS::NDS& nds, std::optional<GDBArgs> gdb) : ARMv5(nds, gdb, mode == CPUExecuteMode::JIT)
 {
     //
 }
+#elif
+ARMv5Impl<mode>::ARMv5Impl(melonDS::NDS& nds, std::optional<GDBArgs> gdb) : ARMv5(nds, gdb, false)
+{
+    //
+}
+#endif
 
 ARMv4::ARMv4(melonDS::NDS& nds, std::optional<GDBArgs> gdb, bool jit) : ARM(1, jit, gdb, nds)
 {
@@ -152,10 +159,17 @@ ARMv4::ARMv4(melonDS::NDS& nds, std::optional<GDBArgs> gdb, bool jit) : ARM(1, j
 }
 
 template <CPUExecuteMode mode>
+#ifdef JIT_ENABLED
 ARMv4Impl<mode>::ARMv4Impl(melonDS::NDS& nds, std::optional<GDBArgs> gdb) : ARMv4(nds, gdb, mode == CPUExecuteMode::JIT)
 {
     //
 }
+#elif
+ARMv4Impl<mode>::ARMv4Impl(melonDS::NDS& nds, std::optional<GDBArgs> gdb) : ARMv4(nds, gdb, false)
+{
+    //
+}
+#endif
 
 ARMv5::~ARMv5()
 {
