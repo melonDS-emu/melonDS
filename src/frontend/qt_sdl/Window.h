@@ -165,6 +165,7 @@ private slots:
     void onChangeScreenLayout(QAction* act);
     void onChangeScreenSwap(bool checked);
     void onChangeScreenSizing(QAction* act);
+    void onChangeScreenWeight(QAction* act);
     void onChangeScreenAspect(QAction* act);
     void onChangeIntegerScaling(bool checked);
     void onOpenNewWindow();
@@ -286,6 +287,10 @@ public:
     QActionGroup* grpScreenSizing;
     QAction* actScreenSizing[screenSizing_MAX];
     QAction* actIntegerScaling;
+    QActionGroup* grpScreenWeightTop;
+    QAction** actScreenWeightTop;
+    QActionGroup* grpScreenWeightBot;
+    QAction** actScreenWeightBot;
     QActionGroup* grpScreenAspectTop;
     QAction** actScreenAspectTop;
     QActionGroup* grpScreenAspectBot;

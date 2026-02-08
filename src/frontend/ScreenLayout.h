@@ -40,6 +40,7 @@ enum ScreenRotation
 enum ScreenSizing
 {
     screenSizing_Even, // both screens get same size
+    screenSizing_Weighted,
     screenSizing_EmphTop, // make top screen as big as possible, fit bottom screen in remaining space
     screenSizing_EmphBot,
     screenSizing_Auto, // not applied in SetupScreenLayout
@@ -48,6 +49,7 @@ enum ScreenSizing
     screenSizing_MAX,
 };
 
+const int ScreenWeightsNum = 3;
 const int kMaxScreenTransforms = 3;
 
 class ScreenLayout
@@ -72,6 +74,7 @@ public:
                int screenGap,
                bool integerScale,
                bool swapScreens,
+               int topWeight, int botWeight,
                float topAspect, float botAspect);
 
     // get a 2x3 transform matrix for each screen and whether it's a top or bottom screen
