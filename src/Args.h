@@ -135,7 +135,6 @@ struct DSiArgs final : public NDSArgs
     /// Defaults to std::nullopt, which means no SD card.
     std::optional<FATStorage> DSiSDCard;
 
-    bool FullBIOSBoot = false;
     bool DSPHLE = false;
 };
 }

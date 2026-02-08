@@ -417,6 +417,7 @@ public:
     [[nodiscard]] u32 GetROMCnt() const noexcept { return ROMCnt; }
     [[nodiscard]] u16 GetSPICnt() const noexcept { return SPICnt; }
     void SetSPICnt(u16 val) noexcept { SPICnt = val; }
+
 private:
     friend class CartCommon;
     melonDS::NDS& NDS;

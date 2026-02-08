@@ -921,15 +921,6 @@ std::unique_ptr<DSiBIOSImage> EmuInstance::loadDSiARM9BIOS() noexcept
         FileRead(bios->data(), bios->size(), 1, f);
         CloseFile(f);
 
-        if (!globalCfg.GetBool("DSi.FullBIOSBoot"))
-        {
-            // herp
-            *(u32*)bios->data() = 0xEAFFFFFE; // overwrites the reset vector
-
-            // TODO!!!!
-            // hax the upper 32K out of the goddamn DSi
-            // done that :)  -pcy
-        }
         Log(Info, "ARM9i BIOS loaded from %s\n", path.c_str());
         return bios;
     }
@@ -948,15 +939,6 @@ std::unique_ptr<DSiBIOSImage> EmuInstance::loadDSiARM7BIOS() noexcept
         FileRead(bios->data(), bios->size(), 1, f);
         CloseFile(f);
 
-        if (!globalCfg.GetBool("DSi.FullBIOSBoot"))
-        {
-            // herp
-            *(u32*)bios->data() = 0xEAFFFFFE; // overwrites the reset vector
-
-            // TODO!!!!
-            // hax the upper 32K out of the goddamn DSi
-            // done that :)  -pcy
-        }
         Log(Info, "ARM7i BIOS loaded from %s\n", path.c_str());
         return bios;
     }
@@ -1348,7 +1330,6 @@ bool EmuInstance::updateConsole() noexcept
                 std::move(arm7ibios),
                 std::move(*nand),
                 std::move(sdcard),
-                globalCfg.GetBool("DSi.FullBIOSBoot"),
                 globalCfg.GetBool("DSi.DSP.HLE")
         };
 
@@ -1389,7 +1370,6 @@ bool EmuInstance::updateConsole() noexcept
             DSi* dsi = (DSi*)nds;
             DSiArgs& _dsiargs = *dsiargs;
 
-            dsi->SetFullBIOSBoot(_dsiargs.FullBIOSBoot);
             dsi->SetDSPHLE(_dsiargs.DSPHLE);
             dsi->ARM7iBIOS = *_dsiargs.ARM7iBIOS;
             dsi->ARM9iBIOS = *_dsiargs.ARM9iBIOS;

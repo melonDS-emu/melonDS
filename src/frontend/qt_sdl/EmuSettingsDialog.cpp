@@ -140,7 +140,6 @@ EmuSettingsDialog::EmuSettingsDialog(QWidget* parent) : QDialog(parent), ui(new 
     ui->txtDLDIFolder->setText(cfg.GetQString("DLDI.FolderPath"));
     on_cbDLDIEnable_toggled();
 
-    ui->cbDSiFullBIOSBoot->setChecked(cfg.GetBool("DSi.FullBIOSBoot"));
     ui->cbDSPHLE->setChecked(cfg.GetBool("DSi.DSP.HLE"));
 
     ui->cbDSiSDEnable->setChecked(cfg.GetBool("DSi.SD.Enable"));
@@ -275,7 +274,6 @@ void EmuSettingsDialog::done(int r)
             cfg.SetQString("DSi.FirmwarePath", ui->txtDSiFirmwarePath->text());
             cfg.SetQString("DSi.NANDPath", ui->txtDSiNANDPath->text());
 
-            cfg.SetBool("DSi.FullBIOSBoot", ui->cbDSiFullBIOSBoot->isChecked());
             cfg.SetBool("DSi.DSP.HLE", ui->cbDSPHLE->isChecked());
 
             cfg.SetBool("DSi.SD.Enable", ui->cbDSiSDEnable->isChecked());
