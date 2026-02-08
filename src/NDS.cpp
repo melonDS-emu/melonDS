@@ -112,9 +112,9 @@ NDS::NDS(NDSArgs&& args, int type, void* userdata) noexcept :
         : (args.GDB.has_value() ? (ARMv4*)new ARMv4Impl<CPUExecuteMode::InterpreterGDB>(*this, args.GDB)
             : (ARMv4*)new ARMv4Impl<CPUExecuteMode::Interpreter>(*this, args.GDB))),
 #else
-    ARM9(args. args.GDB.has_value() ? (ARMv5*)new ARMv5Impl<CPUExecuteMode::InterpreterGDB>(*this, args.GDB)
+    ARM9(args.GDB.has_value() ? (ARMv5*)new ARMv5Impl<CPUExecuteMode::InterpreterGDB>(*this, args.GDB)
         : (ARMv5*)new ARMv5Impl<CPUExecuteMode::Interpreter>(*this, args.GDB)),
-    ARM7(args. args.GDB.has_value() ? (ARMv4*)new ARMv4Impl<CPUExecuteMode::InterpreterGDB>(*this, args.GDB)
+    ARM7(args.GDB.has_value() ? (ARMv4*)new ARMv4Impl<CPUExecuteMode::InterpreterGDB>(*this, args.GDB)
         : (ARMv4*)new ARMv4Impl<CPUExecuteMode::Interpreter>(*this, args.GDB)),
 #endif
 #ifdef GDBSTUB_ENABLED
