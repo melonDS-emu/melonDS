@@ -146,7 +146,7 @@ ARMv5Impl<mode>::ARMv5Impl(melonDS::NDS& nds, std::optional<GDBArgs> gdb) : ARMv
 {
     //
 }
-#elif
+#else
 ARMv5Impl<mode>::ARMv5Impl(melonDS::NDS& nds, std::optional<GDBArgs> gdb) : ARMv5(nds, gdb, false)
 {
     //
@@ -164,7 +164,7 @@ ARMv4Impl<mode>::ARMv4Impl(melonDS::NDS& nds, std::optional<GDBArgs> gdb) : ARMv
 {
     //
 }
-#elif
+#else
 ARMv4Impl<mode>::ARMv4Impl(melonDS::NDS& nds, std::optional<GDBArgs> gdb) : ARMv4(nds, gdb, false)
 {
     //
