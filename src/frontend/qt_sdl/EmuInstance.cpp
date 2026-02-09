@@ -759,16 +759,6 @@ bool EmuInstance::loadState(const std::string& filename)
     backupState = std::move(backup); // This will clean up any existing backup
     assert(backup == nullptr);
 
-    if (globalCfg.GetBool("Savestate.RelocSRAM") && ndsSave)
-    {
-        previousSaveFile = ndsSave->GetPath();
-
-        std::string savefile = filename.substr(lastSep(filename)+1);
-        savefile = getAssetPath(false, localCfg.GetString("SaveFilePath"), ".sav", savefile);
-        savefile += instanceFileSuffix();
-        ndsSave->SetPath(savefile, true);
-    }
-
     savestateLoaded = true;
 
     return true;
@@ -812,14 +802,6 @@ bool EmuInstance::saveState(const std::string& filename)
 
     Platform::CloseFile(file);
 
-    if (globalCfg.GetBool("Savestate.RelocSRAM") && ndsSave)
-    {
-        std::string savefile = filename.substr(lastSep(filename)+1);
-        savefile = getAssetPath(false, localCfg.GetString("SaveFilePath"), ".sav", savefile);
-        savefile += instanceFileSuffix();
-        ndsSave->SetPath(savefile, false);
-    }
-
     return true;
 }
 
@@ -829,15 +811,11 @@ void EmuInstance::undoStateLoad()
 
     // Rewind the backup state and put it in load mode
     backupState->Rewind(false);
+
     // pray that this works
     // what do we do if it doesn't???
     // but it should work.
     nds->DoSavestate(backupState.get());
-
-    if (ndsSave && (!previousSaveFile.empty()))
-    {
-        ndsSave->SetPath(previousSaveFile, true);
-    }
 }
 
 

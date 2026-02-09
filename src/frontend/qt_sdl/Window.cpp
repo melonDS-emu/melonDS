@@ -652,14 +652,6 @@ MainWindow::MainWindow(int id, EmuInstance* inst, QWidget* parent) :
             actPathSettings = menu->addAction("Path settings");
             connect(actPathSettings, &QAction::triggered, this, &MainWindow::onOpenPathSettings);
 
-            {
-                QMenu * submenu = menu->addMenu("Savestate settings");
-
-                actSavestateSRAMReloc = submenu->addAction("Separate savefiles");
-                actSavestateSRAMReloc->setCheckable(true);
-                connect(actSavestateSRAMReloc, &QAction::triggered, this, &MainWindow::onChangeSavestateSRAMReloc);
-            }
-
             menu->addSeparator();
 
             actLimitFramerate = menu->addAction("Limit framerate");
@@ -744,8 +736,6 @@ MainWindow::MainWindow(int id, EmuInstance* inst, QWidget* parent) :
 
         actROMInfo->setEnabled(false);
         actRAMInfo->setEnabled(false);
-
-        actSavestateSRAMReloc->setChecked(globalCfg.GetBool("Savestate.RelocSRAM"));
 
         actScreenRotation[windowCfg.GetInt("ScreenRotation")]->setChecked(true);
 
@@ -2045,11 +2035,6 @@ void MainWindow::onUpdateInterfaceSettings()
 void MainWindow::onInterfaceSettingsFinished(int res)
 {
     emuThread->emuUnpause();
-}
-
-void MainWindow::onChangeSavestateSRAMReloc(bool checked)
-{
-    globalCfg.SetBool("Savestate.RelocSRAM", checked);
 }
 
 void MainWindow::onChangeScreenSize()
