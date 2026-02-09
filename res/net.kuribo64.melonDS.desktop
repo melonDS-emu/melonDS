@@ -9,3 +9,4 @@ Terminal=false
 Icon=net.kuribo64.melonDS
 MimeType=application/x-nintendo-ds-rom;
 Keywords=emulator;Nintendo;DS;NDS;Nintendo DS;
+StartupWMClass=net.kuribo64.melonDS
