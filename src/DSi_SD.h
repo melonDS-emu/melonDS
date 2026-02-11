@@ -76,7 +76,7 @@ class DSi_SDHost
 {
 public:
     /// Creates an SDMMC host.
-    DSi_SDHost(melonDS::DSi& dsi, DSi_NAND::NANDImage&& nand, std::optional<FATStorage>&& sdcard = std::nullopt) noexcept;
+    DSi_SDHost(melonDS::DSi& dsi, std::optional<DSi_NAND::NANDImage>&& nand, std::optional<FATStorage>&& sdcard = std::nullopt) noexcept;
 
     /// Creates an SDIO host
     explicit DSi_SDHost(melonDS::DSi& dsi) noexcept;
@@ -106,7 +106,7 @@ public:
 
     void SetSDCard(FATStorage&& sdcard) noexcept;
     void SetSDCard(std::optional<FATStorage>&& sdcard) noexcept;
-    void SetNAND(DSi_NAND::NANDImage&& nand) noexcept;
+    void SetNAND(std::optional<DSi_NAND::NANDImage>&& nand) noexcept;
 
     u16 Read(u32 addr);
     void Write(u32 addr, u16 val);

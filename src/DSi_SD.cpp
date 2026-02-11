@@ -62,7 +62,7 @@ enum
 };
 
 
-DSi_SDHost::DSi_SDHost(melonDS::DSi& dsi, DSi_NAND::NANDImage&& nand, std::optional<FATStorage>&& sdcard) noexcept : DSi(dsi), Num(0)
+DSi_SDHost::DSi_SDHost(melonDS::DSi& dsi, std::optional<DSi_NAND::NANDImage>&& nand, std::optional<FATStorage>&& sdcard) noexcept : DSi(dsi), Num(0)
 {
     DSi.RegisterEventFuncs(Event_DSi_SDMMCTransfer, this,
                            {MakeEventThunk(DSi_SDHost, FinishTX),
@@ -70,7 +70,8 @@ DSi_SDHost::DSi_SDHost(melonDS::DSi& dsi, DSi_NAND::NANDImage&& nand, std::optio
 
     Ports[0] = sdcard ? std::make_unique<DSi_MMCStorage>(DSi, this, std::move(*sdcard)) : nullptr;
     sdcard = std::nullopt; // to ensure that sdcard isn't left with a moved-from object
-    Ports[1] = std::make_unique<DSi_MMCStorage>(DSi, this, std::move(nand));
+    Ports[1] = nand ? std::make_unique<DSi_MMCStorage>(DSi, this, std::move(*nand)): nullptr;
+    nand = std::nullopt; // to ensure that nand isn't left with a moved-from object
 }
 
 // Creates an SDIO host
@@ -137,25 +138,25 @@ void DSi_SDHost::Reset()
 
 FATStorage* DSi_SDHost::GetSDCard() noexcept
 {
-    if (Num != 0) return nullptr;
+    if (Num != 0 || !Ports[0]) return nullptr;
     return static_cast<DSi_MMCStorage*>(Ports[0].get())->GetSDCard();
 }
 
 const FATStorage* DSi_SDHost::GetSDCard() const noexcept
 {
-    if (Num != 0) return nullptr;
+    if (Num != 0 || !Ports[0]) return nullptr;
     return static_cast<const DSi_MMCStorage*>(Ports[0].get())->GetSDCard();
 }
 
 DSi_NAND::NANDImage* DSi_SDHost::GetNAND() noexcept
 {
-    if (Num != 0) return nullptr;
+    if (Num != 0 || !Ports[1]) return nullptr;
     return static_cast<DSi_MMCStorage*>(Ports[1].get())->GetNAND();
 }
 
 const DSi_NAND::NANDImage* DSi_SDHost::GetNAND() const noexcept
 {
-    if (Num != 0) return nullptr;
+    if (Num != 0 || !Ports[1]) return nullptr;
     return static_cast<const DSi_MMCStorage*>(Ports[1].get())->GetNAND();
 }
 
@@ -163,7 +164,14 @@ void DSi_SDHost::SetSDCard(FATStorage&& sdcard) noexcept
 {
     if (Num != 0) return;
 
-    static_cast<DSi_MMCStorage*>(Ports[0].get())->SetSDCard(std::move(sdcard));
+    if (!Ports[0])
+    {
+        Ports[0] = std::make_unique<DSi_MMCStorage>(DSi, this, std::move(sdcard));
+    }
+    else
+    {
+        static_cast<DSi_MMCStorage*>(Ports[0].get())->SetSDCard(std::move(sdcard));
+    }
 }
 
 void DSi_SDHost::SetSDCard(std::optional<FATStorage>&& sdcard) noexcept
@@ -190,11 +198,28 @@ void DSi_SDHost::SetSDCard(std::optional<FATStorage>&& sdcard) noexcept
     // a moved-from optional isn't empty, it contains a moved-from object
 }
 
-void DSi_SDHost::SetNAND(DSi_NAND::NANDImage&& nand) noexcept
+void DSi_SDHost::SetNAND(std::optional<DSi_NAND::NANDImage>&& nand) noexcept
 {
     if (Num != 0) return;
 
-    static_cast<DSi_MMCStorage*>(Ports[1].get())->SetNAND(std::move(nand));
+    if (nand)
+    {
+        if (!Ports[1])
+        {
+            Ports[1] = std::make_unique<DSi_MMCStorage>(DSi, this, std::move(*nand));
+        }
+        else
+        {
+            static_cast<DSi_MMCStorage*>(Ports[1].get())->SetNAND(std::move(*nand));
+        }
+    }
+    else
+    {
+        Ports[1] = nullptr;
+    }
+
+    nand = std::nullopt;
+    // a moved-from optional isn't empty, it contains a moved-from object
 }
 
 void DSi_SDHost::DoSavestate(Savestate* file)

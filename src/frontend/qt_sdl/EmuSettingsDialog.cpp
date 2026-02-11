@@ -66,6 +66,7 @@ EmuSettingsDialog::EmuSettingsDialog(QWidget* parent) : QDialog(parent), ui(new 
     ui->txtBIOS7Path->setText(cfg.GetQString("DS.BIOS7Path"));
     ui->txtFirmwarePath->setText(cfg.GetQString("DS.FirmwarePath"));
 
+    ui->chkDSiExternalBIOS->setChecked(cfg.GetBool("DSi.ExternalBIOSEnable"));
     ui->txtDSiBIOS9Path->setText(cfg.GetQString("DSi.BIOS9Path"));
     ui->txtDSiBIOS7Path->setText(cfg.GetQString("DSi.BIOS7Path"));
     ui->txtDSiFirmwarePath->setText(cfg.GetQString("DSi.FirmwarePath"));
@@ -108,6 +109,7 @@ EmuSettingsDialog::EmuSettingsDialog(QWidget* parent) : QDialog(parent), ui(new 
     on_chkEnableJIT_toggled();
     on_cbGdbEnabled_toggled();
     on_chkExternalBIOS_toggled();
+    on_chkDSiExternalBIOS_toggled();
 
     const int imgsizes[] = {256, 512, 1024, 2048, 4096, 0};
 
@@ -269,6 +271,7 @@ void EmuSettingsDialog::done(int r)
             cfg.SetBool("DLDI.FolderSync", ui->cbDLDIFolder->isChecked());
             cfg.SetQString("DLDI.FolderPath", ui->txtDLDIFolder->text());
 
+            cfg.SetBool("DSi.ExternalBIOSEnable", ui->chkDSiExternalBIOS->isChecked());
             cfg.SetQString("DSi.BIOS9Path", ui->txtDSiBIOS9Path->text());
             cfg.SetQString("DSi.BIOS7Path", ui->txtDSiBIOS7Path->text());
             cfg.SetQString("DSi.FirmwarePath", ui->txtDSiFirmwarePath->text());
@@ -582,4 +585,15 @@ void EmuSettingsDialog::on_chkExternalBIOS_toggled()
     ui->btnBIOS7Browse->setDisabled(disabled);
     ui->txtFirmwarePath->setDisabled(disabled);
     ui->btnFirmwareBrowse->setDisabled(disabled);
+}
+
+void EmuSettingsDialog::on_chkDSiExternalBIOS_toggled()
+{
+    bool disabled = !ui->chkDSiExternalBIOS->isChecked();
+    ui->txtDSiBIOS9Path->setDisabled(disabled);
+    ui->btnDSiBIOS9Browse->setDisabled(disabled);
+    ui->txtDSiBIOS7Path->setDisabled(disabled);
+    ui->btnDSiBIOS7Browse->setDisabled(disabled);
+    ui->txtDSiFirmwarePath->setDisabled(disabled);
+    ui->btnDSiFirmwareBrowse->setDisabled(disabled);
 }
