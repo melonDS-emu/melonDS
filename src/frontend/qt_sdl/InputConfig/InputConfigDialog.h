@@ -149,6 +149,7 @@ private:
     int addonsKeyMap[hk_addons.size()], addonsJoyMap[hk_addons.size()];
     int hkGeneralKeyMap[hk_general.size()], hkGeneralJoyMap[hk_general.size()];
     int joystickID;
+    int joystickUniqueID;
 };
 
 
