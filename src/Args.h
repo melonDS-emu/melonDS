@@ -87,11 +87,11 @@ struct NDSArgs
 {
     /// NDS ARM9 BIOS to install.
     /// Defaults to FreeBIOS, which is not compatible with DSi mode.
-    std::unique_ptr<ARM9BIOSImage> ARM9BIOS = std::make_unique<ARM9BIOSImage>(bios_arm9_bin);
+    std::unique_ptr<ARM9BIOSImage> ARM9BIOS = std::make_unique<ARM9BIOSImage>(FreeBIOSGetNtrArm9());
 
     /// NDS ARM7 BIOS to install.
     /// Defaults to FreeBIOS, which is not compatible with DSi mode.
-    std::unique_ptr<ARM7BIOSImage> ARM7BIOS = std::make_unique<ARM7BIOSImage>(bios_arm7_bin);
+    std::unique_ptr<ARM7BIOSImage> ARM7BIOS = std::make_unique<ARM7BIOSImage>(FreeBIOSGetNtrArm7());
 
     /// Firmware image to install.
     /// Defaults to generated NDS firmware.
@@ -128,8 +128,8 @@ struct DSiArgs final : public NDSArgs
     std::unique_ptr<DSiBIOSImage> ARM7iBIOS = std::make_unique<DSiBIOSImage>(BrokenBIOS<DSiBIOSSize>);
 
     /// NAND image to install.
-    /// Required, there is no default value.
-    DSi_NAND::NANDImage NANDImage;
+    /// Defaults to std::nullopt, which means no NAND.
+    std::optional<DSi_NAND::NANDImage> NANDImage;
 
     /// SD card to install.
     /// Defaults to std::nullopt, which means no SD card.

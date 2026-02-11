@@ -89,6 +89,7 @@ public:
 
     void SetCartInserted(bool inserted);
 
+    bool NeedsDirectBoot() const override;
     void SetupDirectBoot() override;
     void SoftReset();
 
@@ -150,16 +151,11 @@ public:
     DSi& operator=(DSi&&) = delete;
     void SetNDSCart(std::unique_ptr<NDSCart::CartCommon>&& cart) override;
     std::unique_ptr<NDSCart::CartCommon> EjectCart() override;
-    bool NeedsDirectBoot() const override
-    {
-        // for now, DSi mode requires original BIOS/NAND
-        return false;
-    }
 
     [[nodiscard]] const DSi_NAND::NANDImage& GetNAND() const noexcept { return *SDMMC.GetNAND(); }
     [[nodiscard]] DSi_NAND::NANDImage& GetNAND() noexcept { return *SDMMC.GetNAND(); }
-    void SetNAND(DSi_NAND::NANDImage&& nand) noexcept { SDMMC.SetNAND(std::move(nand)); }
-    u64 GetConsoleID() const noexcept { return SDMMC.GetNAND()->GetConsoleID(); }
+    void SetNAND(std::optional<DSi_NAND::NANDImage>&& nand) noexcept { SDMMC.SetNAND(std::move(nand)); }
+    u64 GetConsoleID() const noexcept;
 
     [[nodiscard]] const FATStorage* GetSDCard() const noexcept { return SDMMC.GetSDCard(); }
     void SetSDCard(FATStorage&& sdcard) noexcept { SDMMC.SetSDCard(std::move(sdcard)); }

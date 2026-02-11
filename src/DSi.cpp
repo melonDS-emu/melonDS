@@ -330,6 +330,11 @@ void DSi::SetCartInserted(bool inserted)
         SCFG_MC |= 1;
 }
 
+u64 DSi::GetConsoleID() const noexcept {
+    auto nand = SDMMC.GetNAND();
+    return nand != nullptr ? nand->GetConsoleID() : 0;
+}
+
 void DSi::DecryptModcryptArea(u32 offset, u32 size, const u8* iv)
 {
     AES_ctx ctx;
@@ -427,6 +432,15 @@ void DSi::DecryptModcryptArea(u32 offset, u32 size, const u8* iv)
         ARM9Write32(binaryaddr+i+8,  data[2]);
         ARM9Write32(binaryaddr+i+12, data[3]);
     }
+}
+
+bool DSi::NeedsDirectBoot() const
+{
+    // If no NAND is present, direct boot is required.
+    if (const DSi_NAND::NANDImage* image = SDMMC.GetNAND(); !(image && *image))
+        return true;
+
+    return false;
 }
 
 void DSi::SetupDirectBoot()
@@ -2792,14 +2806,14 @@ u8 DSi::ARM7IORead8(u32 addr)
     case 0x04004500: return I2C.ReadData();
     case 0x04004501: return I2C.ReadCnt();
 
-    case 0x04004D00: if (SCFG_BIOS & (1<<10)) return 0; return SDMMC.GetNAND()->GetConsoleID() & 0xFF;
-    case 0x04004D01: if (SCFG_BIOS & (1<<10)) return 0; return (SDMMC.GetNAND()->GetConsoleID() >> 8) & 0xFF;
-    case 0x04004D02: if (SCFG_BIOS & (1<<10)) return 0; return (SDMMC.GetNAND()->GetConsoleID() >> 16) & 0xFF;
-    case 0x04004D03: if (SCFG_BIOS & (1<<10)) return 0; return (SDMMC.GetNAND()->GetConsoleID() >> 24) & 0xFF;
-    case 0x04004D04: if (SCFG_BIOS & (1<<10)) return 0; return (SDMMC.GetNAND()->GetConsoleID() >> 32) & 0xFF;
-    case 0x04004D05: if (SCFG_BIOS & (1<<10)) return 0; return (SDMMC.GetNAND()->GetConsoleID() >> 40) & 0xFF;
-    case 0x04004D06: if (SCFG_BIOS & (1<<10)) return 0; return (SDMMC.GetNAND()->GetConsoleID() >> 48) & 0xFF;
-    case 0x04004D07: if (SCFG_BIOS & (1<<10)) return 0; return SDMMC.GetNAND()->GetConsoleID() >> 56;
+    case 0x04004D00: if (SCFG_BIOS & (1<<10)) return 0; return GetConsoleID() & 0xFF;
+    case 0x04004D01: if (SCFG_BIOS & (1<<10)) return 0; return (GetConsoleID() >> 8) & 0xFF;
+    case 0x04004D02: if (SCFG_BIOS & (1<<10)) return 0; return (GetConsoleID() >> 16) & 0xFF;
+    case 0x04004D03: if (SCFG_BIOS & (1<<10)) return 0; return (GetConsoleID() >> 24) & 0xFF;
+    case 0x04004D04: if (SCFG_BIOS & (1<<10)) return 0; return (GetConsoleID() >> 32) & 0xFF;
+    case 0x04004D05: if (SCFG_BIOS & (1<<10)) return 0; return (GetConsoleID() >> 40) & 0xFF;
+    case 0x04004D06: if (SCFG_BIOS & (1<<10)) return 0; return (GetConsoleID() >> 48) & 0xFF;
+    case 0x04004D07: if (SCFG_BIOS & (1<<10)) return 0; return GetConsoleID() >> 56;
     case 0x04004D08: return 0;
 
     case 0x4004600: if (!(SCFG_EXT[1] & (1 << 20))) return 0; return I2S.ReadMicCnt() & 0xFF;
@@ -2848,10 +2862,10 @@ u16 DSi::ARM7IORead16(u32 addr)
     CASE_READ16_32BIT(0x0400405C, MBK[1][7])
     CASE_READ16_32BIT(0x04004060, MBK[1][8])
 
-    case 0x04004D00: if (SCFG_BIOS & (1<<10)) return 0; return SDMMC.GetNAND()->GetConsoleID() & 0xFFFF;
-    case 0x04004D02: if (SCFG_BIOS & (1<<10)) return 0; return (SDMMC.GetNAND()->GetConsoleID() >> 16) & 0xFFFF;
-    case 0x04004D04: if (SCFG_BIOS & (1<<10)) return 0; return (SDMMC.GetNAND()->GetConsoleID() >> 32) & 0xFFFF;
-    case 0x04004D06: if (SCFG_BIOS & (1<<10)) return 0; return SDMMC.GetNAND()->GetConsoleID() >> 48;
+    case 0x04004D00: if (SCFG_BIOS & (1<<10)) return 0; return GetConsoleID() & 0xFFFF;
+    case 0x04004D02: if (SCFG_BIOS & (1<<10)) return 0; return (GetConsoleID() >> 16) & 0xFFFF;
+    case 0x04004D04: if (SCFG_BIOS & (1<<10)) return 0; return (GetConsoleID() >> 32) & 0xFFFF;
+    case 0x04004D06: if (SCFG_BIOS & (1<<10)) return 0; return GetConsoleID() >> 48;
     case 0x04004D08: return 0;
 
     case 0x4004600: if (!(SCFG_EXT[1] & (1 << 20))) return 0; return I2S.ReadMicCnt();
@@ -2932,8 +2946,8 @@ u32 DSi::ARM7IORead32(u32 addr)
     case 0x04004400: return AES.ReadCnt();
     case 0x0400440C: return AES.ReadOutputFIFO();
 
-    case 0x04004D00: if (SCFG_BIOS & (1<<10)) return 0; return SDMMC.GetNAND()->GetConsoleID() & 0xFFFFFFFF;
-    case 0x04004D04: if (SCFG_BIOS & (1<<10)) return 0; return SDMMC.GetNAND()->GetConsoleID() >> 32;
+    case 0x04004D00: if (SCFG_BIOS & (1<<10)) return 0; return GetConsoleID() & 0xFFFFFFFF;
+    case 0x04004D04: if (SCFG_BIOS & (1<<10)) return 0; return GetConsoleID() >> 32;
     case 0x04004D08: return 0;
 
     case 0x4004600: if (!(SCFG_EXT[1] & (1 << 20))) return 0; return I2S.ReadMicCnt();

@@ -79,7 +79,8 @@ public:
         "French",
         "German",
         "Italian",
-        "Spanish"
+        "Spanish",
+        "Chinese"
     };
 
     const QStringList months
