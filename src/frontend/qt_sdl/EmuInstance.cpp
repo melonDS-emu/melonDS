@@ -48,6 +48,10 @@
 #include "FreeBIOS.h"
 #include "main.h"
 
+#ifdef RETROACHIEVEMENTS_ENABLED
+#include "../../RetroAchievements/RAClient.h"
+#endif
+
 using std::make_unique;
 using std::pair;
 using std::string;
@@ -136,6 +140,10 @@ EmuInstance::EmuInstance(int inst) : deleting(false),
     for (int i = 0; i < kMaxWindows; i++)
         windowList[i] = nullptr;
 
+    #ifdef RETROACHIEVEMENTS_ENABLED
+    ra = std::make_unique<RAContext>();
+    #endif
+
     if (inst == 0) topWindow = nullptr;
     createWindow();
 
@@ -158,6 +166,10 @@ EmuInstance::~EmuInstance()
 
     emuThread->emuExit();
     emuThread->wait();
+    #ifdef RETROACHIEVEMENTS_ENABLED
+    RAContext* ra = getRA();
+    ra->Shutdown();
+    #endif
     delete emuThread;
 
     net.UnregisterInstance(instanceID);
@@ -222,6 +234,12 @@ void EmuInstance::createWindow(int id)
     {
         win->actNewWindow->setEnabled(enable);
     });
+    if (id == 0) 
+    {
+        #ifdef RETROACHIEVEMENTS_ENABLED
+        SyncRetroAchievementsFromConfig();
+        #endif
+    }
 }
 
 void EmuInstance::deleteWindow(int id, bool close)
@@ -1335,6 +1353,13 @@ bool EmuInstance::updateConsole() noexcept
         else
             nds = new NDS(std::move(ndsargs), this);
 
+        #ifdef RETROACHIEVEMENTS_ENABLED
+            if (ra)
+            {
+                nds->SetRAContext(ra.get());
+            }
+        #endif
+
         nds->Reset();
         loadRTCData();
         emuThread->updateVideoRenderer();
@@ -2256,3 +2281,30 @@ void EmuInstance::animatedROMIcon(const u8 (&data)[8][512], const u16 (&palette)
             animatedSequenceRef.push_back(i);
     }
 }
+#ifdef RETROACHIEVEMENTS_ENABLED
+
+void EmuInstance::SyncRetroAchievementsFromConfig()
+{
+    auto& cfg = getLocalConfig();
+
+    if (!ra)
+        return;
+
+    if (!cfg.GetBool("RetroAchievements.Enabled"))
+    {
+        ra->Disable();
+        return;
+    }
+
+    ra->SetCredentials(
+        cfg.GetString("RetroAchievements.Username").c_str(),
+        cfg.GetString("RetroAchievements.Password").c_str(),
+        cfg.GetBool("RetroAchievements.HardcoreMode")
+    );
+
+    ra->SetEncoreMode(cfg.GetBool("RetroAchievements.EncoreMode"));
+    ra->SetUnofficialEnabled(cfg.GetBool("RetroAchievements.Unofficial"));
+
+    ra->Enable();
+}
+#endif
