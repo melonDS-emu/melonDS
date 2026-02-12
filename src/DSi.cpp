@@ -143,9 +143,9 @@ void DSi::Reset()
     FullBIOSBoot = bios9full && bios7full;
     Log(LogLevel::Debug, "DSi: full BIOS boot = %d\n", FullBIOSBoot);
 
-    //ARM9.CP15Write(0x910, 0x0D00000A);
-    //ARM9.CP15Write(0x911, 0x00000020);
-    //ARM9.CP15Write(0x100, ARM9.CP15Read(0x100) | 0x00050000);
+    //ARM9->CP15Write(0x910, 0x0D00000A);
+    //ARM9->CP15Write(0x911, 0x00000020);
+    //ARM9->CP15Write(0x100, ARM9->CP15Read(0x100) | 0x00050000);
     NDS::Reset();
 
     // The SOUNDBIAS register does nothing on DSi
@@ -696,30 +696,30 @@ void DSi::SetupDirectBoot()
 
     I2S.WriteSndExCnt(0x8008, 0xFFFF);
 
-    ARM9.CP15Write(0x100, 0x00056078);
-    ARM9.CP15Write(0x200, 0x0000004A);
-    ARM9.CP15Write(0x201, 0x0000004A);
-    ARM9.CP15Write(0x300, 0x0000000A);
-    ARM9.CP15Write(0x502, 0x15111011);
-    ARM9.CP15Write(0x503, 0x05101011);
-    ARM9.CP15Write(0x600, 0x04000033);
-    ARM9.CP15Write(0x601, 0x04000033);
-    ARM9.CP15Write(0x610, 0x02000031);
-    ARM9.CP15Write(0x611, 0x02000031);
-    ARM9.CP15Write(0x620, 0x00000000);
-    ARM9.CP15Write(0x621, 0x00000000);
-    ARM9.CP15Write(0x630, 0x08000033);
-    ARM9.CP15Write(0x631, 0x08000033);
-    ARM9.CP15Write(0x640, 0x0E00001B);
-    ARM9.CP15Write(0x641, 0x0E00001B);
-    ARM9.CP15Write(0x650, 0x00000000);
-    ARM9.CP15Write(0x651, 0x00000000);
-    ARM9.CP15Write(0x660, 0xFFFF001D);
-    ARM9.CP15Write(0x661, 0xFFFF001D);
-    ARM9.CP15Write(0x670, 0x02FFC01B);
-    ARM9.CP15Write(0x671, 0x02FFC01B);
-    ARM9.CP15Write(0x910, 0x0E00000A);
-    ARM9.CP15Write(0x911, 0x00000020);
+    ARM9->CP15Write(0x100, 0x00056078);
+    ARM9->CP15Write(0x200, 0x0000004A);
+    ARM9->CP15Write(0x201, 0x0000004A);
+    ARM9->CP15Write(0x300, 0x0000000A);
+    ARM9->CP15Write(0x502, 0x15111011);
+    ARM9->CP15Write(0x503, 0x05101011);
+    ARM9->CP15Write(0x600, 0x04000033);
+    ARM9->CP15Write(0x601, 0x04000033);
+    ARM9->CP15Write(0x610, 0x02000031);
+    ARM9->CP15Write(0x611, 0x02000031);
+    ARM9->CP15Write(0x620, 0x00000000);
+    ARM9->CP15Write(0x621, 0x00000000);
+    ARM9->CP15Write(0x630, 0x08000033);
+    ARM9->CP15Write(0x631, 0x08000033);
+    ARM9->CP15Write(0x640, 0x0E00001B);
+    ARM9->CP15Write(0x641, 0x0E00001B);
+    ARM9->CP15Write(0x650, 0x00000000);
+    ARM9->CP15Write(0x651, 0x00000000);
+    ARM9->CP15Write(0x660, 0xFFFF001D);
+    ARM9->CP15Write(0x661, 0xFFFF001D);
+    ARM9->CP15Write(0x670, 0x02FFC01B);
+    ARM9->CP15Write(0x671, 0x02FFC01B);
+    ARM9->CP15Write(0x910, 0x0E00000A);
+    ARM9->CP15Write(0x911, 0x00000020);
 
     UpdateVRAMTimings();
 }
@@ -737,10 +737,10 @@ void DSi::SoftReset()
     JIT.Reset();
     JIT.CheckAndInvalidateITCM();
 
-    ARM9.Reset();
-    ARM7.Reset();
+    ARM9->Reset();
+    ARM7->Reset();
 
-    ARM9.CP15Reset();
+    ARM9->CP15Reset();
 
     NDS::MapSharedWRAM(3);
 
@@ -964,8 +964,8 @@ bool DSi::LoadNAND()
     if (FullBIOSBoot)
     {
         // point CPUs to boot ROM reset vectors
-        ARM9.JumpTo(0xFFFF0000);
-        ARM7.JumpTo(0x00000000);
+        ARM9->JumpTo(0xFFFF0000);
+        ARM7->JumpTo(0x00000000);
     }
     else
     {
@@ -980,10 +980,10 @@ bool DSi::LoadNAND()
         ARM7Write16(eaddr+0x3E, 0x40E0);
         ARM7Write16(eaddr+0x42, 0x0001);
 
-        memcpy(&ARM9.ITCM[0x4400], &ARM9iBIOS[0x87F4], 0x400);
-        memcpy(&ARM9.ITCM[0x4800], &ARM9iBIOS[0x9920], 0x80);
-        memcpy(&ARM9.ITCM[0x4894], &ARM9iBIOS[0x99A0], 0x1048);
-        memcpy(&ARM9.ITCM[0x58DC], &ARM9iBIOS[0xA9E8], 0x1048);
+        memcpy(&ARM9->ITCM[0x4400], &ARM9iBIOS[0x87F4], 0x400);
+        memcpy(&ARM9->ITCM[0x4800], &ARM9iBIOS[0x9920], 0x80);
+        memcpy(&ARM9->ITCM[0x4894], &ARM9iBIOS[0x99A0], 0x1048);
+        memcpy(&ARM9->ITCM[0x58DC], &ARM9iBIOS[0xA9E8], 0x1048);
 
         u8 ARM7Init[0x3C00];
         memset(ARM7Init, 0, 0x3C00);
@@ -996,8 +996,8 @@ bool DSi::LoadNAND()
             ARM7Write32(0x03FFC400+i, *(u32*)&ARM7Init[i]);
 
         // repoint the CPUs to the boot2 binaries
-        ARM9.JumpTo(bootparams[2]);
-        ARM7.JumpTo(bootparams[6]);
+        ARM9->JumpTo(bootparams[2]);
+        ARM7->JumpTo(bootparams[6]);
     }
 
     // user data is now expected to be patched by the frontend
@@ -1371,7 +1371,7 @@ void DSi::Set_SCFG_Clock9(u16 val)
 
     ARM9Timestamp <<= ARM9ClockShift;
     ARM9Target    <<= ARM9ClockShift;
-    ARM9.UpdateRegionTimings(0x00000, 0x100000);
+    ARM9->UpdateRegionTimings(0x00000, 0x100000);
 }
 
 void DSi::Set_SCFG_MC(u32 val)
@@ -1856,9 +1856,9 @@ u8 DSi::ARM7Read8(u32 addr)
     {
         if ((addr >= 0x00008000) && (SCFG_BIOS & (1<<8)))
             return 0xFF;
-        if (ARM7.R[15] >= 0x00010000)
+        if (ARM7->R[15] >= 0x00010000)
             return 0xFF;
-        if (addr < ARM7BIOSProt && ARM7.R[15] >= ARM7BIOSProt)
+        if (addr < ARM7BIOSProt && ARM7->R[15] >= ARM7BIOSProt)
             return 0xFF;
 
         return *(u8*)&ARM7iBIOS[addr & 0xFFFF];
@@ -1916,9 +1916,9 @@ u16 DSi::ARM7Read16(u32 addr)
     {
         if ((addr >= 0x00008000) && (SCFG_BIOS & (1<<8)))
             return 0xFFFF;
-        if (ARM7.R[15] >= 0x00010000)
+        if (ARM7->R[15] >= 0x00010000)
             return 0xFFFF;
-        if (addr < ARM7BIOSProt && ARM7.R[15] >= ARM7BIOSProt)
+        if (addr < ARM7BIOSProt && ARM7->R[15] >= ARM7BIOSProt)
             return 0xFFFF;
 
         return *(u16*)&ARM7iBIOS[addr & 0xFFFF];
@@ -1975,9 +1975,9 @@ u32 DSi::ARM7Read32(u32 addr)
     {
         if ((addr >= 0x00008000) && (SCFG_BIOS & (1<<8)))
             return 0xFFFFFFFF;
-        if (ARM7.R[15] >= 0x00010000)
+        if (ARM7->R[15] >= 0x00010000)
             return 0xFFFFFFFF;
-        if (addr < ARM7BIOSProt && ARM7.R[15] >= ARM7BIOSProt)
+        if (addr < ARM7BIOSProt && ARM7->R[15] >= ARM7BIOSProt)
             return 0xFFFFFFFF;
 
         return *(u32*)&ARM7iBIOS[addr & 0xFFFF];
@@ -2635,7 +2635,7 @@ void DSi::ARM9IOWrite32(u32 addr, u32 val)
             
             if (newram != oldram)
             {
-                bool isDSiLoader = (ARM9.R[15] == 0x023FEED0) && (IPCSync9 == 0x0505);
+                bool isDSiLoader = (ARM9->R[15] == 0x023FEED0) && (IPCSync9 == 0x0505);
                 if (isDSiLoader)
                 {
                     /*
