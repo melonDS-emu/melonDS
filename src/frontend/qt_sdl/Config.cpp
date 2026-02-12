@@ -87,6 +87,8 @@ RangeList IntRanges =
     {"Instance*.Window*.ScreenGap", {0, 500}},
     {"Instance*.Window*.ScreenLayout", {0, screenLayout_MAX-1}},
     {"Instance*.Window*.ScreenSizing", {0, screenSizing_MAX-1}},
+    {"Instance*.Window*.ScreenWeightTop", {1, ScreenWeightsNum}},
+    {"Instance*.Window*.ScreenWeightBot", {1, ScreenWeightsNum}},
     {"Instance*.Window*.ScreenAspectTop", {0, AspectRatiosNum-1}},
     {"Instance*.Window*.ScreenAspectBot", {0, AspectRatiosNum-1}},
     {"MP.AudioMode", {0, 2}},
