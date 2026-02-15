@@ -20,6 +20,8 @@
 #define NETPLAY_H
 
 #include <queue>
+#include <map>
+#include <unordered_map>
 
 #include <enet/enet.h>
 
@@ -95,6 +97,8 @@ public:
 
     void ProcessInput(int netplayID, NDS *nds, u32 inputMask, bool isTouching, u16 touchX, u16 touchY);
     void ApplyInput(int netplayID, NDS *nds);
+
+    void RegisterInstance(int id, NDS* nds) { if (id >= 0 && id < 16) nds_instances[id] = nds; }
 
 private:
     bool Inited;

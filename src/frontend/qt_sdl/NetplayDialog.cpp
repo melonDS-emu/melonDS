@@ -152,7 +152,7 @@ NetplayDialog::NetplayDialog(QWidget* parent) : QDialog(parent), ui(new Ui::Netp
     ui->spnInputBufferSize->setVisible(isHost);
 
     EmuInstance *emuInstance = ((MainWindow*)parent)->getEmuInstance();
-    netplay().nds = emuInstance->getNDS();
+    netplay().RegisterInstance(emuInstance->getInstanceID(), emuInstance->getNDS());
 
     timerID = startTimer(1000);
 }

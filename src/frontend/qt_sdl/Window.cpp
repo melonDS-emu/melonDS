@@ -1871,6 +1871,7 @@ bool MainWindow::netplayWarning(bool host)
         EmuInstance *localEmuInstance = ((MainWindow*)this)->getEmuInstance();
         localEmuInstance->RegisterNetplayDS(netplay.GetMyPlayer().ID); // register the local ds
         if (!localEmuInstance->nds) localEmuInstance->updateConsole();
+        netplay.RegisterInstance(netplay.GetMyPlayer().ID, localEmuInstance->nds);
         localEmuInstance->nds->Start();
         localEmuInstance->getEmuThread()->emuRun();
 
@@ -1883,6 +1884,7 @@ bool MainWindow::netplayWarning(bool host)
             EmuInstance *emuInstance = new EmuInstance(i, true);
             emuInstance->RegisterNetplayDS(i);
             emuInstance->updateConsole();
+            netplay.RegisterInstance(i, emuInstance->nds);
 
             auto newCart = std::make_unique<NDSCart::CartCommon>(
                 cart->GetROM(),
