@@ -1884,12 +1884,11 @@ bool MainWindow::netplayWarning(bool host)
 
         // start local ds
         EmuInstance *localEmuInstance = ((MainWindow*)this)->getEmuInstance();
-        localEmuInstance->RegisterNetplayDS(0); // register the local ds
+        localEmuInstance->RegisterNetplayDS(netplay.GetMyPlayer().ID); // register the local ds
         if (!localEmuInstance->nds) localEmuInstance->updateConsole();
         localEmuInstance->nds->Start();
         localEmuInstance->getEmuThread()->emuRun();
 
-        netplay.nds = localEmuInstance->nds; // so many hacks just to get access to this pointer!
         return; // todo DEV just to test with 1 ds, since it's so far more stable
         auto cart = localEmuInstance->nds->GetNDSCart();
 

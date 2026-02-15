@@ -76,7 +76,6 @@ public:
     InputDelayMode NetworkMode = InputDelayMode_Fair;
     int GolfModePlayerID;
     bool StallFrame;
-    NDS *nds;
 
     bool StartHost(const char* player, int port);
     bool StartClient(const char* player, const char* host, int port);
@@ -144,22 +143,26 @@ private:
         u32 seq;
         u32 frameIndex;
         u32 lastCompleteFrame; // The last frame index that we have everyone's inputs for
+        u32 stateHash;         // Hash of the core state for desync detection
     };
 #pragma pack(pop)
 
     std::map<u32, InputFrame> InputHistory[16];
 
-    struct WaitingFrame
+    struct InstanceState
     {
         bool Active;
         u32 FrameNum;
-        Savestate SavestateBuffer[16];
+        std::unique_ptr<Savestate> SavestateBuffer;
     };
-    WaitingFrame PendingFrame;
+    InstanceState PendingFrames[16];
 
     Platform::Mutex* InstanceMutex;
     Platform::Mutex* NetworkMutex;
     u32 PacketSequenceCounter;
+
+    // Array of NDS pointers for each local instance
+    NDS* nds_instances[16];
 
     enum
     {
@@ -185,18 +188,17 @@ private:
     void SendNetworkSettings();
 
     void StartLocal();
-    void ProcessHost();
-    void ProcessClient();
+    void ProcessHost(int inst);
+    void ProcessClient(int inst);
     void ProcessFrame(int inst);
 
     int GetPlayerIndexFromEndpoint(u32 host, u16 port);
     InputFrame *GetInputFrame(u16 playerID, u32 frameNum);
 
-
-    void ReceiveInputs(ENetEvent &event);
+    void ReceiveInputs(ENetEvent &event, int inst);
 
     bool SendBlob(int type, u32 len, u8* data);
-    void RecvBlob(ENetPeer* peer, ENetPacket* pkt);
+    void RecvBlob(ENetPeer* peer, ENetPacket* pkt, int inst);
 };
 
 }
