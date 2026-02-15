@@ -164,7 +164,7 @@ public:
     static_assert(sizeof(ExtendedWifiAccessPoint) == 512, "WifiAccessPoint should be 512 bytes");
 
 
-    enum class FirmwareConsoleType : u8
+    enum FirmwareConsoleType : u8
     {
         DS = 0xFF,
         DSLite = 0x20,
@@ -266,7 +266,7 @@ public:
             u8 BuildMonth;
             u8 BuildYear;
 
-            FirmwareConsoleType ConsoleType;
+            u8 ConsoleType;
 
             u8 Unused0[2];
 
@@ -368,7 +368,7 @@ public:
 
     union UserData
     {
-        UserData();
+        UserData(int consoletype);
         void UpdateChecksum();
         [[nodiscard]] bool ChecksumValid() const
         {

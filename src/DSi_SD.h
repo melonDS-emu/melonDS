@@ -34,11 +34,49 @@ class DSi;
 using Nothing = std::monostate;
 using DSiStorage = std::variant<std::monostate, FATStorage, DSi_NAND::NANDImage>;
 
+constexpr unsigned MMC_DEFAULT_BLOCK_SIZE = 512;
+constexpr unsigned MMC_MAXIMUM_BLOCK_SIZE = 512;
+
+enum class MMCCommand : u32
+{
+	Reset = 0,
+	GetOCR = 1,
+	AllGetCID = 2,
+	GetRCA = 3,
+	Switch = 6,
+	Select = 7,
+	SetVoltage = 8,
+	GetCSD = 9,
+	GetCID = 10,
+	StopTransmission = 12,
+	GetCSR = 13,
+	SetBlockLength = 16,
+	ReadSingleBlock = 17,
+	ReadMultipleBlocks = 18,
+	WriteSingleBlock = 24,
+	WriteMultipleBlocks = 25,
+	IORWDirect = 52,
+	IORWExtended = 53,
+	AppCommand = 55,
+	DataBlock = 56
+};
+
+enum class MMCAppCommand : u32
+{
+	SetBusWidth = 6,
+	GetSSR = 13,
+	GetWriteBlockCount = 22,
+	SetWriteBlockCount = 23,
+	SetOCR = 41,
+	SetCardDetect = 42,
+	GetSCR = 51
+};
+
 class DSi_SDHost
 {
 public:
     /// Creates an SDMMC host.
-    DSi_SDHost(melonDS::DSi& dsi, DSi_NAND::NANDImage&& nand, std::optional<FATStorage>&& sdcard = std::nullopt) noexcept;
+    DSi_SDHost(melonDS::DSi& dsi, std::optional<DSi_NAND::NANDImage>&& nand, std::optional<FATStorage>&& sdcard = std::nullopt) noexcept;
 
     /// Creates an SDIO host
     explicit DSi_SDHost(melonDS::DSi& dsi) noexcept;
@@ -68,7 +106,7 @@ public:
 
     void SetSDCard(FATStorage&& sdcard) noexcept;
     void SetSDCard(std::optional<FATStorage>&& sdcard) noexcept;
-    void SetNAND(DSi_NAND::NANDImage&& nand) noexcept;
+    void SetNAND(std::optional<DSi_NAND::NANDImage>&& nand) noexcept;
 
     u16 Read(u32 addr);
     void Write(u32 addr, u16 val);
@@ -131,7 +169,7 @@ public:
 
     virtual void DoSavestate(Savestate* file) = 0;
 
-    virtual void SendCMD(u8 cmd, u32 param) = 0;
+    virtual void SendCMD(MMCCommand cmd, u32 param) = 0;
     virtual void ContinueTransfer() = 0;
 
     bool IRQ;
@@ -140,7 +178,6 @@ public:
 protected:
     DSi_SDHost* Host;
 };
-
 
 class DSi_MMCStorage : public DSi_SDDevice
 {
@@ -183,8 +220,8 @@ public:
 
     void SetCID(const u8* cid) { memcpy(CID, cid, sizeof(CID)); }
 
-    void SendCMD(u8 cmd, u32 param) override;
-    void SendACMD(u8 cmd, u32 param);
+    void SendCMD(MMCCommand cmd, u32 param) override;
+    void SendACMD(MMCAppCommand cmd, u32 param);
 
     void ContinueTransfer() override;
 
@@ -204,7 +241,7 @@ private:
 
     u32 BlockSize;
     u64 RWAddress;
-    u32 RWCommand;
+    MMCCommand RWCommand;
 
     void SetState(u32 state) { CSR &= ~(0xF << 9); CSR |= (state << 9); }
 

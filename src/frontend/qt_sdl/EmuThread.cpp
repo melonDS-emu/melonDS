@@ -48,9 +48,8 @@
 #include "RTC.h"
 #include "DSi.h"
 #include "DSi_I2C.h"
-#include "GPU3D_Soft.h"
-#include "GPU3D_OpenGL.h"
-#include "GPU3D_Compute.h"
+#include "GPU_Soft.h"
+#include "GPU_OpenGL.h"
 
 #include "Savestate.h"
 
@@ -334,7 +333,7 @@ void EmuThread::run()
 
             // emulate
             u32 nlines;
-            if (emuInstance->nds->GPU.GetRenderer3D().NeedsShaderCompile())
+            if (emuInstance->nds->GPU.GetRenderer().NeedsShaderCompile())
             {
                 compileShaders();
                 nlines = 1;
@@ -353,17 +352,7 @@ void EmuThread::run()
             if (emuInstance->firmwareSave)
                 emuInstance->firmwareSave->CheckFlush();
 
-            if (!useOpenGL)
-            {
-                frontBufferLock.lock();
-                frontBuffer = emuInstance->nds->GPU.FrontBuffer;
-                frontBufferLock.unlock();
-            }
-            else
-            {
-                frontBuffer = emuInstance->nds->GPU.FrontBuffer;
-                emuInstance->drawScreenGL();
-            }
+            emuInstance->drawScreen();
 
 #ifdef MELONCAP
             MelonCap::Update();
@@ -378,6 +367,8 @@ void EmuThread::run()
 
             if (emuInstance->hotkeyPressed(HK_FastForwardToggle)) emuInstance->fastForwardToggled = !emuInstance->fastForwardToggled;
             if (emuInstance->hotkeyPressed(HK_SlowMoToggle)) emuInstance->slowmoToggled = !emuInstance->slowmoToggled;
+
+            if (emuInstance->hotkeyPressed(HK_AudioMuteToggle)) emuInstance->toggleAudioMute();
 
             bool enablefastforward = emuInstance->hotkeyDown(HK_FastForward) | emuInstance->fastForwardToggled;
             bool enableslowmo = emuInstance->hotkeyDown(HK_SlowMo) | emuInstance->slowmoToggled;
@@ -397,6 +388,7 @@ void EmuThread::run()
 
             fastforward = enablefastforward;
             slowmo = enableslowmo;
+            emuInstance->updateFastForwardMute(fastforward);
 
             if (slowmo) emuInstance->curFPS = emuInstance->slowmoFPS;
             else if (fastforward) emuInstance->curFPS = emuInstance->fastForwardFPS;
@@ -479,10 +471,7 @@ void EmuThread::run()
 
             SDL_Delay(75);
 
-            if (useOpenGL)
-            {
-                emuInstance->drawScreenGL();
-            }
+            emuInstance->drawScreen();
         }
 
         handleMessages();
@@ -901,19 +890,20 @@ void EmuThread::enableCheats(bool enable)
 void EmuThread::updateRenderer()
 {
     if (emuInstance->IsHeadless()) return;
+    auto nds = emuInstance->nds;
 
     if (videoRenderer != lastVideoRenderer)
     {
         switch (videoRenderer)
         {
             case renderer3D_Software:
-                emuInstance->nds->GPU.SetRenderer3D(std::make_unique<SoftRenderer>());
+                nds->SetRenderer(std::make_unique<SoftRenderer>(*nds));
                 break;
             case renderer3D_OpenGL:
-                emuInstance->nds->GPU.SetRenderer3D(GLRenderer::New());
+                nds->SetRenderer(std::make_unique<GLRenderer>(*nds, false));
                 break;
             case renderer3D_OpenGLCompute:
-                emuInstance->nds->GPU.SetRenderer3D(ComputeRenderer::New());
+                nds->SetRenderer(std::make_unique<GLRenderer>(*nds, true));
                 break;
             default: __builtin_unreachable();
         }
@@ -921,37 +911,28 @@ void EmuThread::updateRenderer()
     lastVideoRenderer = videoRenderer;
 
     auto& cfg = emuInstance->getGlobalConfig();
-    switch (videoRenderer)
-    {
-        case renderer3D_Software:
-            static_cast<SoftRenderer&>(emuInstance->nds->GPU.GetRenderer3D()).SetThreaded(
-                    cfg.GetBool("3D.Soft.Threaded"),
-                    emuInstance->nds->GPU);
-            break;
-        case renderer3D_OpenGL:
-            static_cast<GLRenderer&>(emuInstance->nds->GPU.GetRenderer3D()).SetRenderSettings(
-                    cfg.GetBool("3D.GL.BetterPolygons"),
-                    cfg.GetInt("3D.GL.ScaleFactor"));
-            break;
-        case renderer3D_OpenGLCompute:
-            static_cast<ComputeRenderer&>(emuInstance->nds->GPU.GetRenderer3D()).SetRenderSettings(
-                    cfg.GetInt("3D.GL.ScaleFactor"),
-                    cfg.GetBool("3D.GL.HiresCoordinates"));
-            break;
-        default: __builtin_unreachable();
-    }
+    melonDS::RendererSettings settings = {
+        .ScaleFactor = cfg.GetInt("3D.GL.ScaleFactor"),
+        .Threaded = cfg.GetBool("3D.Soft.Threaded"),
+        .HiresCoordinates = cfg.GetBool("3D.GL.HiresCoordinates"),
+        .BetterPolygons = cfg.GetBool("3D.GL.BetterPolygons")
+    };
+
+    nds->GetRenderer().SetRenderSettings(settings);
 }
 
 void EmuThread::compileShaders()
 {
+    auto& renderer = emuInstance->nds->GPU.GetRenderer();
     int currentShader, shadersCount;
     u64 startTime = SDL_GetPerformanceCounter();
     // kind of hacky to look at the wallclock, though it is easier than
     // than disabling vsync
     do
     {
-        emuInstance->nds->GPU.GetRenderer3D().ShaderCompileStep(currentShader, shadersCount);
-    } while (emuInstance->nds->GPU.GetRenderer3D().NeedsShaderCompile() &&
+        renderer.ShaderCompileStep(currentShader, shadersCount);
+    }
+    while (renderer.NeedsShaderCompile() &&
              (SDL_GetPerformanceCounter() - startTime) * perfCountsSec < 1.0 / 6.0);
     emuInstance->osdAddMessage(0, "Compiling shader %d/%d", currentShader+1, shadersCount);
 }

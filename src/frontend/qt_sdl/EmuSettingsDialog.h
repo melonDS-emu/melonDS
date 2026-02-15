@@ -78,6 +78,7 @@ private slots:
 
     void on_chkEnableJIT_toggled();
     void on_chkExternalBIOS_toggled();
+    void on_chkDSiExternalBIOS_toggled();
 
     void on_cbGdbEnabled_toggled();
 

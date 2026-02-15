@@ -32,8 +32,17 @@ constexpr u32 ARM7BIOSSize = 0x4000;
 constexpr u32 DSiBIOSSize = 0x10000;
 constexpr u32 ITCMPhysicalSize = 0x8000;
 constexpr u32 DTCMPhysicalSize = 0x4000;
+
 constexpr u32 ARM7BIOSCRC32 = 0x1280f0d5;
 constexpr u32 ARM9BIOSCRC32 = 0x2ab23573;
+
+// CRC's for the low 32K BIOS regions
+constexpr u32 ARM7iBIOSLowCRC32 = 0x5434691D;
+constexpr u32 ARM9iBIOSLowCRC32 = 0x11E7C1EA;
+
+// CRC's for the full BIOS
+constexpr u32 ARM7iBIOSCRC32 = 0x4316CC42;
+constexpr u32 ARM9iBIOSCRC32 = 0xBAE84F6C;
 }
 
 #endif // MELONDS_MEMCONSTANTS_H

@@ -36,12 +36,14 @@ void EmuInstance::audioInit()
     audioVolume = localCfg.GetInt("Audio.Volume");
     audioDSiVolumeSync = localCfg.GetBool("Audio.DSiVolumeSync");
 
-    audioMuted = false;
+    audioMutedToggle = false;
+    audioMutedByFastForward = false;
+    audioMutedByWindowFocus = false;
     audioSyncCond = SDL_CreateCond();
     audioSyncLock = SDL_CreateMutex();
 
     audioFreq = 48000; // TODO: make both of these configurable?
-    audioBufSize = 1024;
+    audioBufSize = 512;
 
     SDL_AudioSpec whatIwant, whatIget;
     memset(&whatIwant, 0, sizeof(SDL_AudioSpec));
@@ -97,25 +99,25 @@ void EmuInstance::audioDeInit()
     micLock = nullptr;
 }
 
-void EmuInstance::audioMute()
+void EmuInstance::updateAudioMuteByWindowFocus()
 {
-    audioMuted = false;
+    audioMutedByWindowFocus = false;
     if (numEmuInstances() < 2) return;
 
     switch (mpAudioMode)
     {
         case 1: // only instance 1
-            if (instanceID > 0) audioMuted = true;
+            if (instanceID > 0) audioMutedByWindowFocus = true;
             break;
 
         case 2: // only currently focused instance
-            audioMuted = true;
+            audioMutedByWindowFocus = true;
             for (int i = 0; i < kMaxWindows; i++)
             {
                 if (!windowList[i]) continue;
                 if (windowList[i]->isFocused())
                 {
-                    audioMuted = false;
+                    audioMutedByWindowFocus = false;
                     break;
                 }
             }
@@ -123,12 +125,22 @@ void EmuInstance::audioMute()
     }
 }
 
+void EmuInstance::toggleAudioMute()
+{
+    audioMutedToggle = !audioMutedToggle;
+}
+
+void EmuInstance::updateFastForwardMute(bool fastForward)
+{
+    audioMutedByFastForward = fastForward && globalCfg.GetBool("MuteFastForward");
+}
+
 void EmuInstance::audioSync()
 {
     if (audioDevice)
     {
         SDL_LockMutex(audioSyncLock);
-        while (nds->SPU.GetOutputSize() > audioBufSize)
+        while (nds->SPU.GetOutputSize() >= audioBufSize)
         {
             int ret = SDL_CondWaitTimeout(audioSyncCond, audioSyncLock, 500);
             if (ret == SDL_MUTEX_TIMEDOUT) break;
@@ -164,7 +176,7 @@ void EmuInstance::audioCallback(void* data, Uint8* stream, int len)
     SDL_CondSignal(inst->audioSyncCond);
     SDL_UnlockMutex(inst->audioSyncLock);
 
-    if ((num_in < 1) || inst->audioMuted)
+    if ((num_in < 1) || inst->audioMutedByWindowFocus || inst->audioMutedToggle || inst->audioMutedByFastForward)
     {
         memset(stream, 0, len*sizeof(s16)*2);
         return;

@@ -1590,6 +1590,22 @@ void NDSCartSlot::DecryptSecureArea(u8* out) noexcept
     }
 }
 
+bool ValidateROM(u32 romlen, NDSHeader& header)
+{
+    // basic sanity checks to ensure we have a workable ROM file
+
+    if (header.ARM9ROMOffset < 0x200)
+        return false;
+    if ((header.ARM9ROMOffset + header.ARM9Size) > romlen)
+        return false;
+    if (header.ARM7ROMOffset < 0x200)
+        return false;
+    if ((header.ARM7ROMOffset + header.ARM7Size) > romlen)
+        return false;
+
+    return true;
+}
+
 std::unique_ptr<CartCommon> ParseROM(const u8* romdata, u32 romlen, void* userdata, std::optional<NDSCartArgs>&& args)
 {
     return ParseROM(CopyToUnique(romdata, romlen), romlen, userdata, std::move(args));
@@ -1609,10 +1625,22 @@ std::unique_ptr<CartCommon> ParseROM(std::unique_ptr<u8[]>&& romdata, u32 romlen
         return nullptr;
     }
 
+    if (romlen > 512*1024*1024)
+    {
+        Log(LogLevel::Error, "NDSCart: ROM is too large\n");
+        return nullptr;
+    }
+
     auto [cartrom, cartromsize] = PadToPowerOf2(std::move(romdata), romlen);
 
     NDSHeader header {};
     memcpy(&header, cartrom.get(), sizeof(header));
+
+    if (!ValidateROM(cartromsize, header))
+    {
+        Log(LogLevel::Error, "NDSCart: ROM header verification failed\n");
+        return nullptr;
+    }
 
     bool dsi = header.IsDSi();
     bool badDSiDump = false;
@@ -1627,7 +1655,6 @@ std::unique_ptr<CartCommon> ParseROM(std::unique_ptr<u8[]>&& romdata, u32 romlen
     const char *gametitle = header.GameTitle;
     u32 gamecode = header.GameCodeAsU32();
 
-    u32 arm9base = header.ARM9ROMOffset;
     bool homebrew = header.IsHomebrew();
 
     ROMListEntry romparams {};
