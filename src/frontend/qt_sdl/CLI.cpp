@@ -30,6 +30,9 @@
 using melonDS::Platform::Log;
 using melonDS::Platform::LogLevel;
 
+bool forceServer = false;
+bool forceClient = false;
+
 namespace CLI
 {
 
@@ -49,11 +52,16 @@ CommandLineOptions* ManageArgs(QApplication& melon)
     parser.addOption(QCommandLineOption({"A", "archive-file-gba"}, "Specify file to load inside an archive given (GBA)", "rom"));
 #endif
 
+    parser.addOption(QCommandLineOption({"s", "server"}, "dev mode server netplay"));
+    parser.addOption(QCommandLineOption({"c", "client"}, "dev mode client netplay"));
+
     parser.process(melon);
 
     CommandLineOptions* options = new CommandLineOptions;
 
     options->fullscreen = parser.isSet("fullscreen");
+    forceServer = parser.isSet("server");
+    forceClient = parser.isSet("client");
 
     QStringList posargs = parser.positionalArguments();
     switch (posargs.size())

@@ -29,6 +29,7 @@
 #include "Netplay.h"
 #include "Savestate.h"
 #include "Platform.h"
+#include <chrono>
 
 
 namespace melonDS
@@ -87,6 +88,14 @@ Netplay::Netplay() noexcept : LocalMP(), Inited(false)
 
     memset(PlayerToInstance, 0, sizeof(PlayerToInstance));
     memset(InstanceToPlayer, 0, sizeof(InstanceToPlayer));
+
+    MirrorMode = true;
+    NumMirrorClients = 0;
+    for (int i = 0; i < 16; ++i) ReceivedInputThisFrame[i] = false;
+    // initialize pending frame
+    PendingFrame.Active = false;
+    PendingFrame.FrameNum = 0;
+    PacketSequenceCounter = 1;
 
     // TODO make this somewhat nicer
     if (enet_initialize() != 0)
@@ -159,13 +168,20 @@ std::vector<Netplay::Player> Netplay::GetPlayerList()
     return ret;
 }
 
-int Netplay::GetPlayerIndexFromPort(u16 port)
+// Gets the local index of the player with that port
+// helper: make a 64-bit key from host and port
+static inline u64 MakeEndpointKey(u32 host, u16 port)
 {
-    auto it = PortToPlayerIndex.find(port);
+    return (static_cast<u64>(host) << 32) | port;
+}
+
+int Netplay::GetPlayerIndexFromEndpoint(u32 host, u16 port)
+{
+    u64 key = MakeEndpointKey(host, port);
+    auto it = PortToPlayerIndex.find(key);
     if (it != PortToPlayerIndex.end()) {
         return it->second;
     }
-    printf("what? %d\n", port);
     return -1;
 }
 
@@ -306,7 +322,9 @@ bool Netplay::StartClient(const char* playername, const char* host, int port)
 
     HostAddress = addr.host;
     RemotePeers[0] = peer;
-    PortToPlayerIndex[port] = 0;
+    // register the mapping from remote port to our local player index
+    PortToPlayerIndex[MakeEndpointKey(peer->address.host, peer->address.port)] = 0;
+    printf("StartClient: mapping endpoint %08X:%u -> local index %d\n", peer->address.host, peer->address.port, 0);
 
     Active = true;
     IsHost = false;
@@ -507,9 +525,11 @@ void Netplay::RecvBlob(ENetPeer* peer, ENetPacket* pkt)
 
         // load initial state
         // todo can you do this on the stack?
-        Savestate* state = new Savestate(Blobs[Blob_InitState], BlobLens[Blob_InitState], false);
-        bool success = nds->DoSavestate(state);
-        delete state;
+    Savestate* state = new Savestate(Blobs[Blob_InitState], BlobLens[Blob_InitState], false);
+    u32 loadStart = Platform::GetMSCount();
+    bool success = nds->DoSavestate(state);
+    u32 loadEnd = Platform::GetMSCount();
+    delete state;
 
         for (int i = 0; i < Blob_MAX; i++)
         {
@@ -519,9 +539,9 @@ void Netplay::RecvBlob(ENetPeer* peer, ENetPacket* pkt)
         }
 
         if (success) {
-            printf("[MC] state loaded, PC=%08X/%08X\n", nds->GetPC(0), nds->GetPC(1));
+            printf("[MC] state loaded, frame: %d, PC=%08X/%08X, load_ms=%u\n", nds->NumFrames, nds->GetPC(0), nds->GetPC(1), (unsigned)(loadEnd - loadStart));
         } else {
-            printf("[MC] couldn't load state\n");
+            printf("[MC] couldn't load state, load_ms=%u\n", (unsigned)(loadEnd - loadStart));
         }
         ENetPacket* resp = enet_packet_create(buf, 1, ENET_PACKET_FLAG_RELIABLE);
         enet_peer_send(peer, Chan_Blob, resp);
@@ -683,7 +703,8 @@ void Netplay::ProcessHost()
 
                     SendNetworkSettings();
 
-                    PortToPlayerIndex[event.peer->address.port] = id;
+                    PortToPlayerIndex[MakeEndpointKey(event.peer->address.host, event.peer->address.port)] = id;
+                    printf("ProcessHost: mapping endpoint %08X:%u -> id %d\n", event.peer->address.host, event.peer->address.port, id);
                     RemotePeers[id] = event.peer;
                 }
                 else
@@ -717,7 +738,7 @@ void Netplay::ProcessHost()
             {
                 if (event.packet->dataLength < 1) break;
 
-                if (event.channelID > Chan_Input0 && event.channelID < Chan_Cmd)
+                if (event.channelID >= Chan_Input0 && event.channelID < Chan_Cmd)
                 {
                     ReceiveInputs(event);
                     break;
@@ -805,31 +826,33 @@ void Netplay::ProcessClient()
             {
                 // another client is establishing a direct connection to us
 
-                int playerid = -1;
+                int localId = -1;
                 for (int i = 0; i < 16; i++)
                 {
                     Player* player = &Players[i];
                     if (i == MyPlayer.ID) continue;
                     if (player->Status != Player_Client) continue;
 
-                    if (player->Address == event.peer->address.host)
+                    if (player->Address == event.peer->address.host &&
+                        player->Port    == event.peer->address.port)
                     {
-                        playerid = i;
+                        localId = i;
                         break;
                     }
                 }
 
-                if (playerid < 0)
+                if (localId < 0)
                 {
                     enet_peer_disconnect(event.peer, 0);
                     break;
                 }
 
-                PortToPlayerIndex[event.peer->address.port] = playerid;
-                RemotePeers[playerid] = event.peer;
-                event.peer->data = &Players[playerid];
+                PortToPlayerIndex[MakeEndpointKey(event.peer->address.host, event.peer->address.port)] = localId;
+                printf("ProcessClient: mapping endpoint %08X:%u -> localId %d\n", event.peer->address.host, event.peer->address.port, localId);
+                RemotePeers[localId] = event.peer;
+                event.peer->data = &Players[localId];
 
-                printf("connected to peer %d, from %08X, port %d, event.data: %d\n", playerid, event.peer->address.host, event.peer->address.port, event.data);
+                printf("ProcessClient: connected to peer %d from %08X:%u, event.data: %d\n", localId, event.peer->address.host, event.peer->address.port, event.data);
             }
             break;
 
@@ -844,7 +867,7 @@ void Netplay::ProcessClient()
             {
                 if (event.packet->dataLength < 1) break;
 
-                if (event.channelID > Chan_Input0 && event.channelID < Chan_Cmd)
+                if (event.channelID >= Chan_Input0 && event.channelID < Chan_Cmd)
                 {
                     ReceiveInputs(event);
                     break;
@@ -941,10 +964,12 @@ Netplay::InputFrame *Netplay::GetInputFrame(u16 playerID, u32 frameNum)
 
 void Netplay::ReceiveInputs(ENetEvent &event)
 {
-    Platform::Mutex_Lock(InstanceMutex);
-
-    int index = GetPlayerIndexFromPort(event.peer->address.port);
+    Platform::Mutex_Lock(PlayersMutex);
+    int index = GetPlayerIndexFromEndpoint(event.peer->address.host, event.peer->address.port);
+    Platform::Mutex_Unlock(PlayersMutex);
     if (index == -1) return;
+    // debug: show which endpoint maps to which index
+    if (MirrorMode) index = 1; // legacy prototype behaviour
 
     u8* data = (u8*)event.packet->data;
     size_t dataSize = event.packet->dataLength;
@@ -952,8 +977,13 @@ void Netplay::ReceiveInputs(ENetEvent &event)
     const InputReport* report = reinterpret_cast<const InputReport*>(data);
 
     u8 stallFrame = report->stallFrame;
+    u32 seq = ntohl(report->seq);
     u32 latestFrame = ntohl(report->frameIndex);
     u32 lastCompleteFrame = ntohl(report->lastCompleteFrame);
+
+    // debug: show which endpoint maps to which index and report fields
+    printf("ReceiveInputs: peer %08X:%u -> index %d (mirror=%d), packetSize=%zu, seq=%u report.latest=%u lastComplete=%u stall=%u\n",
+        event.peer->address.host, event.peer->address.port, index, MirrorMode, dataSize, seq, latestFrame, lastCompleteFrame, stallFrame);
 
     // register the last frame this player has completed
     Platform::Mutex_Lock(PlayersMutex);
@@ -965,7 +995,8 @@ void Netplay::ReceiveInputs(ENetEvent &event)
     size_t remaining = dataSize - sizeof(InputReport);
     size_t entryCount = remaining / sizeof(InputFrame);
 
-    auto &playerHistory = InputHistory[1];
+    Platform::Mutex_Lock(InstanceMutex);
+    auto &playerHistory = InputHistory[index];
     playerHistory.clear();
     for (size_t i = 0; i < entryCount; ++i) {
         const InputFrame* netFrame = reinterpret_cast<const InputFrame*>(ptr);
@@ -981,15 +1012,37 @@ void Netplay::ReceiveInputs(ENetEvent &event)
 
         ptr += sizeof(InputFrame);
     }
+    // debug: compute min/max frame in this update
+    if (!playerHistory.empty()) {
+        u32 minFrame = 0xFFFFFFFFu;
+        u32 maxFrame = 0;
+        for (auto &p : playerHistory) {
+            if (p.first < minFrame) minFrame = p.first;
+            if (p.first > maxFrame) maxFrame = p.first;
+        }
+        printf("received input update for player %d: frames %u..%u (count=%zu) latest=%u lastComplete=%u\n", index, minFrame, maxFrame, playerHistory.size(), latestFrame, lastCompleteFrame);
+    } else {
+        printf("received empty input update for player %d\n", index);
+    }
     if (playerHistory.find(PendingFrame.FrameNum) == playerHistory.end())
     {
-        printf("got an update frame from the other player, but it didn't have the frame we wanted!\n");
+        printf("got an update frame for player %d, but it didn't have the frame we wanted! (%u)\n", index, PendingFrame.FrameNum);
+        // print a small sample of frames we did receive (first up to 8)
+        int printed = 0;
+        printf("received frames sample:");
+        for (auto &p : playerHistory) {
+            if (printed >= 8) break;
+            printf(" %u", p.first);
+            printed++;
+        }
+        if (printed == 0) printf(" <none>");
+        printf("\n");
     }
 
-    // check if we have the frames we were missing before
     if (PendingFrame.Active)
     {
-        auto &playerHistory = InputHistory[1];
+        // check if we have the frames we were missing before
+        auto &playerHistory = InputHistory[index];
         auto it = playerHistory.find(PendingFrame.FrameNum);
         if (it != playerHistory.end())
         {
@@ -997,8 +1050,11 @@ void Netplay::ReceiveInputs(ENetEvent &event)
             u32 currFrame = nds->NumFrames;
             PendingFrame.Active = false;
 
-            // load the save state
+            // load the save state (time it)
+            u32 loadStartMS = Platform::GetMSCount();
             nds->DoSavestate(&PendingFrame.SavestateBuffer[0]);
+            u32 loadEndMS = Platform::GetMSCount();
+
             nds->NumFrames = PendingFrame.FrameNum;
             u32 startF = nds->NumFrames;
 
@@ -1007,6 +1063,8 @@ void Netplay::ReceiveInputs(ENetEvent &event)
             std::clock_t start = std::clock();
             std::clock_t loopStart = std::clock();
             std::clock_t end;
+
+            printf("Replay: starting from saved frame %u to %u, iterations=%u, saveload_ms=%u\n", nds->NumFrames, currFrame, iterations, (unsigned)(loadEndMS - loadStartMS));
 
             // iterate over the frames until we reach the point we were at before
             for (u32 i = nds->NumFrames; i < currFrame; ++i)
@@ -1047,8 +1105,16 @@ void Netplay::ReceiveInputs(ENetEvent &event)
             double elapsed_seconds = double(end - start) / CLOCKS_PER_SEC;
             double loop_elapsed_seconds = double(end - loopStart) / CLOCKS_PER_SEC;
 
-            printf("managed to catch up %d frames. still missing %d, seconds: %lf, loop sec: %1f the size is %d, iterations %d\n",
-PendingFrame.FrameNum - prevWaitFrame, nds->NumFrames - PendingFrame.FrameNum, elapsed_seconds, loop_elapsed_seconds, playerHistory.size(), iterations);
+            int caught = int(nds->NumFrames - prevWaitFrame);
+            int stillMissing = int(PendingFrame.FrameNum - nds->NumFrames);
+            printf("managed to catch up %d frames. still missing %d, seconds: %lf, loop sec: %1f, received_frames=%d, iterations=%d\n",
+                caught, stillMissing, elapsed_seconds, loop_elapsed_seconds, (int)playerHistory.size(), (int)iterations);
+
+            if (!PendingFrame.Active) {
+                printf("PendingFrame cleared (was %u).\n", prevWaitFrame);
+            } else {
+                printf("PendingFrame remains active, waiting for frame %u.\n", PendingFrame.FrameNum);
+            }
         }
     }
 
@@ -1062,15 +1128,26 @@ void Netplay::ProcessInput(int netplayID, NDS *nds, u32 inputMask, bool isTouchi
 {
     StallFrame = false;
 
-    InputFrame frame;
-    frame.FrameNum = nds->NumFrames + Settings.Delay;
-    frame.KeyMask = inputMask;
-    frame.Touching = isTouching;
-    frame.TouchX = touchX;
-    frame.TouchY = touchY;
+    // Record both the immediate frame (current nds->NumFrames) and the delayed frame
+    InputFrame immediateFrame;
+    immediateFrame.FrameNum = nds->NumFrames;
+    immediateFrame.KeyMask = inputMask;
+    immediateFrame.Touching = isTouching;
+    immediateFrame.TouchX = touchX;
+    immediateFrame.TouchY = touchY;
+
+    InputFrame delayedFrame;
+    delayedFrame.FrameNum = nds->NumFrames + Settings.Delay;
+    delayedFrame.KeyMask = inputMask;
+    delayedFrame.Touching = isTouching;
+    delayedFrame.TouchX = touchX;
+    delayedFrame.TouchY = touchY;
 
     Platform::Mutex_Lock(InstanceMutex);
-    InputHistory[0][frame.FrameNum] = frame;
+    // insert immediate frame if not present (or overwrite with latest), so host can receive the exact frame
+    InputHistory[0][immediateFrame.FrameNum] = immediateFrame;
+    // insert delayed frame as before
+    InputHistory[0][delayedFrame.FrameNum] = delayedFrame;
     Platform::Mutex_Unlock(InstanceMutex);
 
     // Send the inputs to other players
@@ -1082,9 +1159,41 @@ void Netplay::ProcessInput(int netplayID, NDS *nds, u32 inputMask, bool isTouchi
 
         InputReport report = {
             .stallFrame = false,
+            .seq = htonl(PacketSequenceCounter),
             .frameIndex = htonl(nds->NumFrames),
-            .lastCompleteFrame = htonl(PendingFrame.FrameNum - 1),
+            .lastCompleteFrame = htonl(std::max(int(PendingFrame.FrameNum - 1), 0)),
         };
+        // bump sequence counter for next packet
+        PacketSequenceCounter++;
+
+            // debug: print what we're about to send
+            {
+                Platform::Mutex_Lock(InstanceMutex);
+                u32 minF = 0xFFFFFFFFu, maxF = 0; int cnt = 0;
+                for (auto &p : InputHistory[0]) { if (p.first < minF) minF = p.first; if (p.first > maxF) maxF = p.first; ++cnt; }
+                        if (cnt == 0) {
+                            printf("ProcessInput: sending empty history, index=%d frame=%u lastComplete=%d seq=%u\n", MyPlayer.ID, nds->NumFrames, PendingFrame.FrameNum - 1, PacketSequenceCounter-1);
+                        } else {
+                            printf("ProcessInput: sending history for index=%d frame=%u lastComplete=%d frames=%u..%u (count=%d) seq=%u\n", MyPlayer.ID, nds->NumFrames, PendingFrame.FrameNum - 1, minF, maxF, cnt, PacketSequenceCounter-1);
+
+                            // additional touch/key debug: if small packet, print every frame; otherwise print first and last
+                            if (cnt <= 8) {
+                                printf("ProcessInput: detailed frames (frame: Touching, TouchX, TouchY, KeyMask):\n");
+                                for (auto &p : InputHistory[0]) {
+                                    InputFrame &f = (InputFrame&)p.second;
+                                    printf("  %u: %d, %u, %u, %03X\n", p.first, f.Touching, f.TouchX, f.TouchY, f.KeyMask);
+                                }
+                            } else {
+                                auto it = InputHistory[0].begin();
+                                InputFrame &f1 = (InputFrame&)it->second;
+                                printf("  first: %u: %d, %u, %u, %03X\n", it->first, f1.Touching, f1.TouchX, f1.TouchY, f1.KeyMask);
+                                auto it2 = InputHistory[0].rbegin();
+                                InputFrame &f2 = (InputFrame&)it2->second;
+                                printf("  last: %u: %d, %u, %u, %03X\n", it2->first, f2.Touching, f2.TouchX, f2.TouchY, f2.KeyMask);
+                            }
+                        }
+                Platform::Mutex_Unlock(InstanceMutex);
+            }
 
         std::memcpy(ptr, &report, sizeof(report));
         ptr += sizeof(report);
@@ -1104,7 +1213,7 @@ void Netplay::ProcessInput(int netplayID, NDS *nds, u32 inputMask, bool isTouchi
         Platform::Mutex_Unlock(InstanceMutex);
 
         ENetPacket* pkt = enet_packet_create(buffer.data(), buffer.size(), ENET_PACKET_FLAG_UNSEQUENCED);
-        enet_host_broadcast(Host, 2, pkt);
+        enet_host_broadcast(Host, Chan_Input0 + MyPlayer.ID, pkt);
     }
 
     // if we have no inputs, or the only inputs we have are for frames behind us
@@ -1112,6 +1221,7 @@ void Netplay::ProcessInput(int netplayID, NDS *nds, u32 inputMask, bool isTouchi
     // later when we know what the inputs were and replay this frame.
     // also find the last completed frame of all players
     // in other words, the most recent frame that everyone has everyone's inputs for
+    Platform::Mutex_Lock(PlayersMutex);
     int lastCompletedFrame = -1;
     for (int i = 0; i < NumPlayers; ++i)
     {
@@ -1121,22 +1231,37 @@ void Netplay::ProcessInput(int netplayID, NDS *nds, u32 inputMask, bool isTouchi
 
         if (!ReceivedInputThisFrame[i])
         {
-            StallFrame = true;
+            // StallFrame = true; // this is old behaviour, new system doesn't stall
         }
         if (lastCompletedFrame == -1 || player.LastCompletedFrame < lastCompletedFrame)
         {
             lastCompletedFrame = player.LastCompletedFrame;
         }
     }
+    Platform::Mutex_Unlock(PlayersMutex);
 
-    // delete all the frames that everyone already have
+    // delete all the frames that everyone already has
     // to save memory and keep packet sizes down
     if (lastCompletedFrame != -1)
     {
         Platform::Mutex_Lock(InstanceMutex);
         auto& playerHistory = InputHistory[0];
-        auto cutoff = playerHistory.lower_bound(static_cast<unsigned>(lastCompletedFrame));
+        size_t oldSize = playerHistory.size();
+        u32 oldMin = 0, oldMax = 0;
+        if (oldSize) {
+            oldMin = playerHistory.begin()->first;
+            oldMax = playerHistory.rbegin()->first;
+        }
+        printf("ProcessInput: trimming history up to %d (before size=%zu range=%u..%u)\n", lastCompletedFrame, oldSize, oldMin, oldMax);
+        auto cutoff = playerHistory.upper_bound(static_cast<unsigned>(lastCompletedFrame));
         playerHistory.erase(playerHistory.begin(), cutoff);
+        size_t newSize = playerHistory.size();
+        u32 newMin = 0, newMax = 0;
+        if (newSize) {
+            newMin = playerHistory.begin()->first;
+            newMax = playerHistory.rbegin()->first;
+        }
+        printf("ProcessInput: after trim size=%zu range=%u..%u\n", newSize, newMin, newMax);
         Platform::Mutex_Unlock(InstanceMutex);
     }
 
@@ -1146,10 +1271,19 @@ void Netplay::ProcessInput(int netplayID, NDS *nds, u32 inputMask, bool isTouchi
     {
         Platform::Mutex_Lock(InstanceMutex);
         printf("missing inputs! saving state... inputs: %d, stall: %d\n", !tempFrame, StallFrame);
+        // save the frame number we're waiting for
+        PendingFrame.FrameNum = nds->NumFrames;
+        printf("PendingFrame set to frame %u\n", PendingFrame.FrameNum);
         PendingFrame.Active = true;
+
+        // time the savestate creation so we can see how long it takes
+        u32 saveStart = Platform::GetMSCount();
         PendingFrame.SavestateBuffer[0].~Savestate();
         new (&PendingFrame.SavestateBuffer[0]) Savestate();
         nds->DoSavestate(&PendingFrame.SavestateBuffer[0]);
+        u32 saveEnd = Platform::GetMSCount();
+        printf("PendingFrame: saved savestate for frame %u, size: %zu, save_ms=%u\n", PendingFrame.FrameNum, (size_t)PendingFrame.SavestateBuffer[0].Length(), (unsigned)(saveEnd - saveStart));
+
         StallFrame = false;
         Platform::Mutex_Unlock(InstanceMutex);
     }
@@ -1157,12 +1291,14 @@ void Netplay::ProcessInput(int netplayID, NDS *nds, u32 inputMask, bool isTouchi
 
 void Netplay::ApplyInput(int netplayID, NDS *nds)
 {
+    if (MirrorMode) netplayID = 1; // legacy prototype behaviour
+
     // clear inputs in case we return
     nds->SetKeyMask(0xFFF);
     nds->ReleaseScreen();
 
     Platform::Mutex_Lock(InstanceMutex);
-    InputFrame *frame = GetInputFrame(1, nds->NumFrames);
+    InputFrame *frame = GetInputFrame(netplayID, nds->NumFrames);
     if (!frame)
     {
         // This isn't an error, apply our own inputs now, we can use save states
@@ -1198,8 +1334,8 @@ void Netplay::ApplyInput(int netplayID, NDS *nds)
     }
     Platform::Mutex_Unlock(InstanceMutex);
 
-    printf("applying client inputs %d, size of inputs: %d, frame num %d, nds num %d, delay %d, touching %d, keymask %03X, merged %d\n",
-        netplayID, InputHistory[1].size(), frame->FrameNum, nds->NumFrames, Settings.Delay, frame->Touching, frame->KeyMask, personalFrame);
+    printf("applying client inputs %d, size of inputs: %d, frame num %d, nds frame num %d, delay %d, touching %d, keymask %03X, merged %d\n",
+        netplayID, InputHistory[netplayID].size(), frame->FrameNum, nds->NumFrames, Settings.Delay, frame->Touching, frame->KeyMask, personalFrame);
 
     PendingFrame.FrameNum = nds->NumFrames;
 

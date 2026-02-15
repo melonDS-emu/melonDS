@@ -1811,6 +1811,15 @@ void MainWindow::onNPStartClient()
     NetplayStartClientDialog::openDlg(this);
 }
 
+void MainWindow::devhackNp(bool client)
+{
+    if (client) {
+        onNPStartClient();
+    } else {
+        onNPStartHost();
+    }
+}
+
 void MainWindow::updateMPInterface(MPInterfaceType type)
 {
     if (!hasMenu) return;
@@ -1867,6 +1876,8 @@ bool MainWindow::netplayWarning(bool host)
     // hack: create function to allow interaction with frontend
     OnStartEmulatorThread = [this]()
     {
+        printf("OnStartEmulatorThread called\n");
+
         deleteAllEmuInstances(1);
 
         auto &netplay = (Netplay&)MPInterface::Get();
@@ -1880,13 +1891,25 @@ bool MainWindow::netplayWarning(bool host)
 
         netplay.nds = localEmuInstance->nds; // so many hacks just to get access to this pointer!
         return; // todo DEV just to test with 1 ds, since it's so far more stable
+        auto cart = localEmuInstance->nds->GetNDSCart();
 
         // create and start the new ds'
-        for (int i = 1; i < netplay.GetNumPlayers(); ++i)
+        for (int i = 1; i < std::max(netplay.GetNumPlayers(), 2); ++i)
         {
             EmuInstance *emuInstance = new EmuInstance(i, true);
             emuInstance->RegisterNetplayDS(i);
             emuInstance->updateConsole();
+
+            auto newCart = std::make_unique<NDSCart::CartCommon>(
+                cart->GetROM(),
+                cart->GetROMLength(),
+                cart->ID(),
+                false, // assumes it's not a bad dump
+                cart->GetROMParams(),
+                (const melonDS::NDSCart::CartType) cart->Type(),
+                nullptr
+            );
+            emuInstance->nds->SetNDSCart(std::move(newCart));
             emuInstance->nds->Start();
             emuInstance->getEmuThread()->emuRun();
         }

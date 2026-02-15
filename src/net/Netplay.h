@@ -115,11 +115,13 @@ private:
     bool ReceivedInputThisFrame[16];
 
     int NumMirrorClients;
+    bool MirrorMode = false; // when true, use the prototype "mirror" behavior (hacky)
 
     // maps to convert between player IDs and local instance IDs
     int PlayerToInstance[16];
     int InstanceToPlayer[16];
-    std::unordered_map<u16, u8> PortToPlayerIndex;
+    // map remote endpoint (host<<32 | port) to player index
+    std::unordered_map<u64, u8> PortToPlayerIndex;
 
     struct NetworkSettings
     {
@@ -139,6 +141,7 @@ private:
 #pragma pack(push, 1)
     struct InputReport {
         u8 stallFrame;
+        u32 seq;
         u32 frameIndex;
         u32 lastCompleteFrame; // The last frame index that we have everyone's inputs for
     };
@@ -156,6 +159,7 @@ private:
 
     Platform::Mutex* InstanceMutex;
     Platform::Mutex* NetworkMutex;
+    u32 PacketSequenceCounter;
 
     enum
     {
@@ -185,7 +189,7 @@ private:
     void ProcessClient();
     void ProcessFrame(int inst);
 
-    int GetPlayerIndexFromPort(u16 port);
+    int GetPlayerIndexFromEndpoint(u32 host, u16 port);
     InputFrame *GetInputFrame(u16 playerID, u32 frameNum);
 
 

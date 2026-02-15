@@ -143,6 +143,7 @@ public:
 
     void loadRecentFilesMenu(bool loadcfg);
     //void updateVideoSettings(bool glchange);
+    void devhackNp(bool client);
 
 protected:
     void keyPressEvent(QKeyEvent* event) override;
