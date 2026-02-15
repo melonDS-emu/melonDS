@@ -38,6 +38,20 @@ std::pair<std::unique_ptr<u8[]>, u32> PadToPowerOf2(const u8* data, u32 len) noe
 
 std::unique_ptr<u8[]> CopyToUnique(const u8* data, u32 len) noexcept;
 
+template <typename T>
+T GetMSBit(T val)
+{
+    val |= (val >>  1);
+    val |= (val >>  2);
+    val |= (val >>  4);
+
+    if constexpr(sizeof(val) > 1) val |= (val >>  8);
+    if constexpr(sizeof(val) > 2) val |= (val >> 16);
+    if constexpr(sizeof(val) > 4) val |= (val >> 32);
+    
+    return val - (val >> 1);
+}
+
 }
 
 #endif // MELONDS_UTILS_H

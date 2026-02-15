@@ -78,7 +78,7 @@ void DSi_AES::Reset()
     OutputMACDue = false;
 
     // initialize keys
-    u64 consoleid = DSi.SDMMC.GetNAND()->GetConsoleID();
+    u64 consoleid = DSi.GetConsoleID();
 
     // slot 0: modcrypt
     *(u32*)&KeyX[0][0] = 0x746E694E;

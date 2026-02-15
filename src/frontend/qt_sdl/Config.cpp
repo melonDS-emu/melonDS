@@ -240,6 +240,8 @@ LegacyEntry LegacyFile[] =
     {"BIOS7Path", 2, "DS.BIOS7Path", false},
     {"FirmwarePath", 2, "DS.FirmwarePath", false},
 
+    {"DSiExternalBIOSEnable", 1, "DSi.ExternalBIOSEnable", false},
+
     {"DSiBIOS9Path", 2, "DSi.BIOS9Path", false},
     {"DSiBIOS7Path", 2, "DSi.BIOS7Path", false},
     {"DSiFirmwarePath", 2, "DSi.FirmwarePath", false},
@@ -274,8 +276,6 @@ LegacyEntry LegacyFile[] =
     {"LANDevice", 2, "LAN.Device", false},
     {"DirectLAN", 1, "LAN.DirectMode", false},
 
-    {"SavStaRelocSRAM", 1, "Savestate.RelocSRAM", false},
-
     {"AudioInterp", 0, "Audio.Interpolation", false},
     {"AudioBitDepth", 0, "Audio.BitDepth", false},
     {"AudioVolume", 0, "Audio.Volume", true},
@@ -307,6 +307,7 @@ LegacyEntry LegacyFile[] =
     {"MouseHide",        1, "Mouse.Hide", false},
     {"MouseHideSeconds", 0, "Mouse.HideSeconds", false},
     {"PauseLostFocus",   1, "PauseLostFocus", false},
+    {"MuteFastForward",   1, "MuteFastForward", false},
     {"UITheme",          2, "UITheme", false},
 
     {"RTCOffset",       3, "RTC.Offset", true},
@@ -314,8 +315,6 @@ LegacyEntry LegacyFile[] =
     {"DSBatteryLevelOkay",   1, "DS.Battery.LevelOkay", true},
     {"DSiBatteryLevel",    0, "DSi.Battery.Level", true},
     {"DSiBatteryCharging", 1, "DSi.Battery.Charging", true},
-
-    {"DSiFullBIOSBoot", 1, "DSi.FullBIOSBoot", true},
 
 #ifdef GDBSTUB_ENABLED
     {"GdbEnabled", 1, "Gdb.Enabled", false},

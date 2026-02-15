@@ -213,6 +213,9 @@ bool IsEndOfFile(FileHandle* file);
 /// @see fgets
 bool FileReadLine(char* str, int count, FileHandle* file);
 
+/// @see ftell
+u64 FilePosition(FileHandle* file);
+
 /// @see fseek
 bool FileSeek(FileHandle* file, s64 offset, FileSeekOrigin origin);
 
