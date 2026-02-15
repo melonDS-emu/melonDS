@@ -1,5 +1,5 @@
 /*
-    Copyright 2016-2025 melonDS team
+    Copyright 2016-2026 melonDS team
 
     This file is part of melonDS.
 
@@ -120,7 +120,7 @@ private:
     GLuint CaptureVtxBuffer;
     GLuint CaptureVtxArray;
 
-    GLuint CaptureOutput256FB[4];
+    GLuint CaptureOutput256FB[5];
     GLuint CaptureOutput256Tex;
     GLuint CaptureOutput128FB[16];
     GLuint CaptureOutput128Tex;
