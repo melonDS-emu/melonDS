@@ -860,17 +860,6 @@ void GLRenderer2D::UpdateScanlineConfig(int line)
         cfg.BGMosaicEnable[1] = false;
     }
 
-    if (GPU2D.Num == 1)
-    {
-        // hack
-        cfg.BGOffset[2][0] = 0;
-        cfg.BGOffset[2][1] = line << 8;
-        cfg.BGRotscale[0][0] = 0x100;
-        cfg.BGRotscale[0][1] = 0;
-        cfg.BGRotscale[0][2] = 0;
-        cfg.BGRotscale[0][3] = 0x100;
-    }
-    else
     if ((bgmode == 2) || (bgmode >= 4 && bgmode <= 6))
     {
         // rotscale layer
@@ -1194,13 +1183,6 @@ void GLRenderer2D::UpdateLayerConfig()
 
                             capblock = blk;
                         }
-                    }
-
-                    if (GPU2D.Num == 1 && mapoffset == 0x4000)
-                    {
-                        // HACK
-                        capblock = 4<<2;
-                        mapoffset = 0;
                     }
 
                     if (capblock != -1)

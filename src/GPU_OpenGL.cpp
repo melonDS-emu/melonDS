@@ -163,7 +163,7 @@ bool GLRenderer::Init()
     glGenTextures(1, &CaptureOutput256Tex);
     glBindTexture(GL_TEXTURE_2D_ARRAY, CaptureOutput256Tex);
     glTexParams(GL_TEXTURE_2D_ARRAY, GL_REPEAT);
-    glGenFramebuffers(5, CaptureOutput256FB);
+    glGenFramebuffers(4, CaptureOutput256FB);
 
     glGenTextures(1, &CaptureOutput128Tex);
     glBindTexture(GL_TEXTURE_2D_ARRAY, CaptureOutput128Tex);
@@ -261,7 +261,9 @@ GLRenderer::~GLRenderer()
     delete[] AuxInputBuffer[1];
 
     glDeleteTextures(1, &CaptureOutput256Tex);
+    glDeleteFramebuffers(4, CaptureOutput256FB);
     glDeleteTextures(1, &CaptureOutput128Tex);
+    glDeleteFramebuffers(16, CaptureOutput128FB);
     glDeleteTextures(1, &CaptureSyncTex);
     glDeleteFramebuffers(1, &CaptureSyncFB);
 
@@ -344,9 +346,9 @@ void GLRenderer::SetScaleFactor(int scale)
     const GLenum fbassign2[] = {GL_COLOR_ATTACHMENT0, GL_COLOR_ATTACHMENT1};
 
     glBindTexture(GL_TEXTURE_2D_ARRAY, CaptureOutput256Tex);
-    glTexImage3D(GL_TEXTURE_2D_ARRAY, 0, GL_RGBA, 256*ScaleFactor, 256*ScaleFactor, 5, 0, GL_RGBA, GL_UNSIGNED_BYTE, nullptr);
+    glTexImage3D(GL_TEXTURE_2D_ARRAY, 0, GL_RGBA, 256*ScaleFactor, 256*ScaleFactor, 4, 0, GL_RGBA, GL_UNSIGNED_BYTE, nullptr);
 
-    for (int i = 0; i < 5; i++)
+    for (int i = 0; i < 4; i++)
     {
         glBindFramebuffer(GL_FRAMEBUFFER, CaptureOutput256FB[i]);
         glFramebufferTextureLayer(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, CaptureOutput256Tex, 0, i);
@@ -721,15 +723,6 @@ void GLRenderer::DoCapture(int ystart, int yend)
         }
 
         CaptureConfig.uSrcBColorFactor = 255.f;
-    }
-
-    {
-        // HACK
-        glBindFramebuffer(GL_READ_FRAMEBUFFER, CaptureOutput256FB[srcBblock]);
-        glBindFramebuffer(GL_DRAW_FRAMEBUFFER, CaptureOutput256FB[4]);
-        glBlitFramebuffer(0, 0, 256*ScaleFactor, 256*ScaleFactor,
-                          0, 0, 256*ScaleFactor, 256*ScaleFactor,
-                          GL_COLOR_BUFFER_BIT, GL_NEAREST);
     }
 
     glBindFramebuffer(GL_READ_FRAMEBUFFER, 0);
