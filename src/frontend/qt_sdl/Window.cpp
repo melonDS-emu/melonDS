@@ -96,6 +96,13 @@ QStringList NdsRomExtensions { ".nds", ".srl", ".dsi", ".ids" };
 
 QString GbaRomMimeType = "application/x-gba-rom";
 QStringList GbaRomExtensions { ".gba", ".agb" };
+// Utility to format a timestamp for display in the savestate menu
+QString MainWindow::formatTimestamp(time_t t)
+{
+    if (t == 0) return "empty";
+    QDateTime dt = QDateTime::fromSecsSinceEpoch(t);
+    return dt.toString("yyyy-MM-dd hh:mm:ss");
+}
 
 
 // This list of supported archive formats is based on libarchive(3) version 3.6.2 (2022-12-09).
@@ -273,6 +280,22 @@ MainWindow::MainWindow(int id, EmuInstance* inst, QWidget* parent) :
 
     //hasMenu = (!parent);
     hasMenu = true;
+    // Initialize savestate timestamps
+    for (int i = 1; i <= 8; ++i) {
+
+        int stored = windowCfg.GetInt("SavestateTimestamp" + std::to_string(i));
+
+
+
+        if (stored > 0) {
+            savestateTimestamps[i] = (time_t)stored;
+
+        }
+        else {
+            savestateTimestamps[i] = 0;  // mark as empty
+        }
+    }
+
 
     if (hasMenu)
     {
@@ -355,7 +378,8 @@ MainWindow::MainWindow(int id, EmuInstance* inst, QWidget* parent) :
 
                 for (int i = 1; i < 9; i++)
                 {
-                    actSaveState[i] = submenu->addAction(QString("%1").arg(i));
+                    //added timestamps of save in menu
+                    actSaveState[i] = submenu->addAction(QString("%1 (%2)").arg(i).arg(formatTimestamp(savestateTimestamps[i])));
                     actSaveState[i]->setShortcut(QKeySequence(Qt::ShiftModifier | (Qt::Key_F1 + i - 1)));
                     actSaveState[i]->setData(QVariant(i));
                     connect(actSaveState[i], &QAction::triggered, this, &MainWindow::onSaveState);
@@ -365,13 +389,19 @@ MainWindow::MainWindow(int id, EmuInstance* inst, QWidget* parent) :
                 actSaveState[0]->setShortcut(QKeySequence(Qt::ShiftModifier | Qt::Key_F9));
                 actSaveState[0]->setData(QVariant(0));
                 connect(actSaveState[0], &QAction::triggered, this, &MainWindow::onSaveState);
+                 // least recent save
+                QAction* actRollingSave = submenu->addAction("Least Recently Saved");
+                actRollingSave->setShortcut(QKeySequence(Qt::CTRL | Qt::Key_S));
+                actRollingSave->setData(QVariant(-1)); // use -1 to distinguish rolling save
+                connect(actRollingSave, &QAction::triggered, this, &MainWindow::onRollingSaveState);
             }
             {
                 QMenu * submenu = menu->addMenu("Load state");
 
                 for (int i = 1; i < 9; i++)
                 {
-                    actLoadState[i] = submenu->addAction(QString("%1").arg(i));
+                    //added timestamps of save in menu
+                    actLoadState[i] = submenu->addAction(QString("%1 (%2)").arg(i).arg(formatTimestamp(savestateTimestamps[i])));
                     actLoadState[i]->setShortcut(QKeySequence(Qt::Key_F1 + i - 1));
                     actLoadState[i]->setData(QVariant(i));
                     connect(actLoadState[i], &QAction::triggered, this, &MainWindow::onLoadState);
@@ -381,6 +411,11 @@ MainWindow::MainWindow(int id, EmuInstance* inst, QWidget* parent) :
                 actLoadState[0]->setShortcut(QKeySequence(Qt::Key_F9));
                 actLoadState[0]->setData(QVariant(0));
                 connect(actLoadState[0], &QAction::triggered, this, &MainWindow::onLoadState);
+                //Rolling load
+                QAction* actRollingLoad = submenu->addAction("Most Recent");
+                actRollingLoad->setShortcut(QKeySequence(Qt::CTRL | Qt::Key_L));
+                actRollingLoad->setData(QVariant(-1)); // use -1 to distinguish rolling save
+                connect(actRollingLoad, &QAction::triggered, this, &MainWindow::onRollingLoadState);
             }
 
             actUndoStateLoad = menu->addAction("Undo state load");
@@ -1629,6 +1664,115 @@ void MainWindow::onLoadState()
         emuInstance->osdAddMessage(0xFFA0A0, "State load failed");
     }
 }
+void MainWindow::onRollingSaveState()
+{
+    // Rolling savestate slots: automatically use the oldest (for save) or newest (for load) slot
+    int slot = 1;
+    time_t oldest = savestateTimestamps[1];
+    for (int i = 2; i <= 8; ++i)
+    {
+        if (savestateTimestamps[i] < oldest)
+        {
+            oldest = savestateTimestamps[i];
+            slot = i;
+        }
+    }
+
+    QString filename;
+    if (slot > 0)
+    {
+        filename = QString::fromStdString(emuInstance->getSavestateName(slot));
+    }
+    else
+    {
+        // TODO: specific 'last directory' for savestate files?
+        emuThread->emuPause();
+        filename = QFileDialog::getSaveFileName(this,
+            "Save state",
+            globalCfg.GetQString("LastROMFolder"),
+            "melonDS savestates (*.mln);;Any file (*.*)");
+        emuThread->emuUnpause();
+        if (filename.isEmpty())
+            return;
+    }
+
+    if (emuThread->saveState(filename))
+    {
+        if (slot > 0) emuInstance->osdAddMessage(0, "State saved to slot %d", slot);
+        else          emuInstance->osdAddMessage(0, "State saved to file");
+
+        time_t now = time(nullptr);
+        savestateTimestamps[slot] = now;
+        std::string gameID = emuInstance->getGameID();
+        std::string key = gameID + "_SavestateTimestamp" + std::to_string(slot);
+        windowCfg.SetInt(key, (int)now);
+        actLoadState[slot]->setEnabled(true);
+
+        actSaveState[slot]->setText(QString("%1 (%2)")
+            .arg(slot)
+            .arg(formatTimestamp(now)));
+        actLoadState[slot]->setText(QString("%1 (%2)")
+            .arg(slot)
+            .arg(formatTimestamp(now)));
+    }
+    else
+    {
+        emuInstance->osdAddMessage(0xFFA0A0, "State save failed");
+    }
+
+}
+
+void MainWindow::onRollingLoadState()
+{
+    int slot = 1;
+    time_t newest = savestateTimestamps[1];
+    for (int i = 2; i <= 8; ++i)
+    {
+        if (savestateTimestamps[i] > newest)
+        {
+            newest = savestateTimestamps[i];
+            slot = i;
+        }
+    }
+
+    QString filename;
+    if (slot > 0)
+    {
+        filename = QString::fromStdString(emuInstance->getSavestateName(slot));
+    }
+    else
+    {
+        // TODO: specific 'last directory' for savestate files?
+        emuThread->emuPause();
+        filename = QFileDialog::getOpenFileName(this,
+            "Load state",
+            globalCfg.GetQString("LastROMFolder"),
+            "melonDS savestates (*.ml*);;Any file (*.*)");
+        emuThread->emuUnpause();
+        if (filename.isEmpty())
+            return;
+    }
+
+    if (!Platform::FileExists(filename.toStdString()))
+    {
+        if (slot > 0) emuInstance->osdAddMessage(0xFFA0A0, "State slot %d is empty", slot);
+        else          emuInstance->osdAddMessage(0xFFA0A0, "State file does not exist");
+
+        return;
+    }
+
+    if (emuThread->loadState(filename))
+    {
+        if (slot > 0) emuInstance->osdAddMessage(0, "State loaded from slot %d", slot);
+        else          emuInstance->osdAddMessage(0, "State loaded from file");
+        actUndoStateLoad->setEnabled(true);
+    }
+    else
+    {
+        emuInstance->osdAddMessage(0xFFA0A0, "State load failed");
+    }
+
+    }
 
 void MainWindow::onUndoStateLoad()
 {
@@ -1636,6 +1780,27 @@ void MainWindow::onUndoStateLoad()
 
     emuInstance->osdAddMessage(0, "State load undone");
 }
+    void MainWindow::loadGameSpecificSettings() {
+        std::string gameID = emuInstance->getGameID();
+
+        for (int i = 1; i <= 8; ++i) {
+            // Create the game-specific key (e.g., "ADAE_SavestateTimestamp1")
+            std::string key = gameID + "_SavestateTimestamp" + std::to_string(i);
+
+            // Read the timestamp from the config using the specific key
+            int stored = windowCfg.GetInt(key);
+
+            savestateTimestamps[i] = (stored > 0) ? (time_t)stored : 0;
+
+            // Update the menu text to show either the timestamp or "empty"
+            if (hasMenu) {
+                QString timestampText = QString("%1 (%2)").arg(i).arg(formatTimestamp(savestateTimestamps[i]));
+                if (actSaveState[i]) actSaveState[i]->setText(timestampText);
+                if (actLoadState[i]) actLoadState[i]->setText(timestampText);
+                actLoadState[i]->setEnabled(savestateTimestamps[i] > 0);
+            }
+        }
+    }
 
 void MainWindow::onImportSavefile()
 {
@@ -2255,6 +2420,8 @@ void MainWindow::onEmuStart()
     actPowerManagement->setEnabled(true);
 
     actTitleManager->setEnabled(false);
+    //savestate timestamps
+    loadGameSpecificSettings();
 }
 
 void MainWindow::onEmuStop()
@@ -2277,6 +2444,8 @@ void MainWindow::onEmuStop()
     actPowerManagement->setEnabled(false);
 
     actTitleManager->setEnabled(!globalCfg.GetString("DSi.NANDPath").empty());
+    //clear savestate timestamps for game
+    loadGameSpecificSettings();
 }
 
 void MainWindow::onEmuPause(bool pause)
