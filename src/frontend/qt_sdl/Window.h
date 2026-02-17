@@ -32,6 +32,8 @@
 #include <QMutex>
 #include <QScreen>
 #include <QCloseEvent>
+#include <QWidgetAction>
+#include <QLineEdit>
 
 #include "Screen.h"
 #include "Config.h"
@@ -277,7 +279,8 @@ public:
     QActionGroup* grpScreenRotation;
     QAction* actScreenRotation[screenRot_MAX];
     QActionGroup* grpScreenGap;
-    QAction* actScreenGap[6];
+    QAction* actScreenGap[7];
+    QLineEdit* actScreenGapTextbox;
     QActionGroup* grpScreenLayout;
     QAction* actScreenLayout[screenLayout_MAX];
     QAction* actScreenSwap;
