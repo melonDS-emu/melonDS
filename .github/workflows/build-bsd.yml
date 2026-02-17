@@ -85,6 +85,7 @@ jobs:
             "prepare": ${{ toJSON(matrix.prepare_vm) }},
             "sync": "nfs",
             "usesh": "true",
+            "mem": 10240
           }
 
     - name: Install dependencies
