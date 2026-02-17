@@ -641,9 +641,13 @@ StubState GdbStub::CheckWatchpt(u32 addr, int kind, bool enter, bool stay)
 	{
 		if (search->addr > addr) break;
 
-		if (addr >= search->addr && addr < search->addr + search->len && search->kind == kind)
+		if (addr >= search->addr && addr < search->addr + search->len && (search->kind == (int)WatchptKind::Access || search->kind == kind))
 		{
-			if (enter) return Enter(stay, TgtStatus::Watchpt, addr);
+			if (enter)
+			{
+				StubState r = Enter(stay, TgtStatus::Watchpt, addr);
+				return r;
+			}
 			else
 			{
 				SignalStatus(TgtStatus::Watchpt, addr);

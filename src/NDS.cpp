@@ -104,8 +104,19 @@ NDS::NDS(NDSArgs&& args, int type, void* userdata) noexcept :
     NDSCartSlot(*this, nullptr),
     GBACartSlot(*this, nullptr),
     AREngine(*this),
-    ARM9(*this, args.GDB, args.JIT.has_value()),
-    ARM7(*this, args.GDB, args.JIT.has_value()),
+#ifdef JIT_ENABLED
+    ARM9(args.JIT.has_value() ? (ARMv5*)new ARMv5Impl<CPUExecuteMode::JIT>(*this, args.GDB)
+        : (args.GDB.has_value() ? (ARMv5*)new ARMv5Impl<CPUExecuteMode::InterpreterGDB>(*this, args.GDB)
+            : (ARMv5*)new ARMv5Impl<CPUExecuteMode::Interpreter>(*this, args.GDB))),
+    ARM7(args.JIT.has_value() ? (ARMv4*)new ARMv4Impl<CPUExecuteMode::JIT>(*this, args.GDB)
+        : (args.GDB.has_value() ? (ARMv4*)new ARMv4Impl<CPUExecuteMode::InterpreterGDB>(*this, args.GDB)
+            : (ARMv4*)new ARMv4Impl<CPUExecuteMode::Interpreter>(*this, args.GDB))),
+#else
+    ARM9(args.GDB.has_value() ? (ARMv5*)new ARMv5Impl<CPUExecuteMode::InterpreterGDB>(*this, args.GDB)
+        : (ARMv5*)new ARMv5Impl<CPUExecuteMode::Interpreter>(*this, args.GDB)),
+    ARM7(args.GDB.has_value() ? (ARMv4*)new ARMv4Impl<CPUExecuteMode::InterpreterGDB>(*this, args.GDB)
+        : (ARMv4*)new ARMv4Impl<CPUExecuteMode::Interpreter>(*this, args.GDB)),
+#endif
 #ifdef GDBSTUB_ENABLED
     EnableGDBStub(args.GDB.has_value()),
 #endif
@@ -135,6 +146,8 @@ NDS::~NDS() noexcept
 {
     UnregisterEventFuncs(Event_Div);
     UnregisterEventFuncs(Event_Sqrt);
+    delete ARM9;
+    delete ARM7;
     // The destructor for each component is automatically called by the compiler
 }
 
@@ -178,7 +191,7 @@ void NDS::SetARM9RegionTimings(u32 addrstart, u32 addrend, u32 region, int buswi
         ARM9Regions[i] = region;
     }
 
-    ARM9.UpdateRegionTimings(addrstart<<2, addrend<<2);
+    ARM9->UpdateRegionTimings(addrstart<<2, addrend<<2);
 }
 
 void NDS::SetARM7RegionTimings(u32 addrstart, u32 addrend, u32 region, int buswidth, int nonseq, int seq)
@@ -231,8 +244,8 @@ void NDS::SetJITArgs(std::optional<JITArgs> args) noexcept
 #ifdef GDBSTUB_ENABLED
 void NDS::SetGdbArgs(std::optional<GDBArgs> args) noexcept
 {
-    ARM9.SetGdbArgs(args);
-    ARM7.SetGdbArgs(args);
+    ARM9->SetGdbArgs(args);
+    ARM7->SetGdbArgs(args);
     EnableGDBStub = args.has_value();
 }
 #endif
@@ -358,30 +371,30 @@ void NDS::SetupDirectBoot()
 
     SPI.GetFirmwareMem()->SetupDirectBoot();
 
-    ARM9.CP15Write(0x100, 0x00052078);
-    ARM9.CP15Write(0x200, 0x00000042);
-    ARM9.CP15Write(0x201, 0x00000042);
-    ARM9.CP15Write(0x300, 0x00000002);
-    ARM9.CP15Write(0x502, 0x15111011);
-    ARM9.CP15Write(0x503, 0x05100011);
-    ARM9.CP15Write(0x600, 0x04000033);
-    ARM9.CP15Write(0x601, 0x04000033);
-    ARM9.CP15Write(0x610, 0x0200002B);
-    ARM9.CP15Write(0x611, 0x0200002B);
-    ARM9.CP15Write(0x620, 0x00000000);
-    ARM9.CP15Write(0x621, 0x00000000);
-    ARM9.CP15Write(0x630, 0x08000035);
-    ARM9.CP15Write(0x631, 0x08000035);
-    ARM9.CP15Write(0x640, 0x0300001B);
-    ARM9.CP15Write(0x641, 0x0300001B);
-    ARM9.CP15Write(0x650, 0x00000000);
-    ARM9.CP15Write(0x651, 0x00000000);
-    ARM9.CP15Write(0x660, 0xFFFF001D);
-    ARM9.CP15Write(0x661, 0xFFFF001D);
-    ARM9.CP15Write(0x670, 0x027FF017);
-    ARM9.CP15Write(0x671, 0x027FF017);
-    ARM9.CP15Write(0x910, 0x0300000A);
-    ARM9.CP15Write(0x911, 0x00000020);
+    ARM9->CP15Write(0x100, 0x00052078);
+    ARM9->CP15Write(0x200, 0x00000042);
+    ARM9->CP15Write(0x201, 0x00000042);
+    ARM9->CP15Write(0x300, 0x00000002);
+    ARM9->CP15Write(0x502, 0x15111011);
+    ARM9->CP15Write(0x503, 0x05100011);
+    ARM9->CP15Write(0x600, 0x04000033);
+    ARM9->CP15Write(0x601, 0x04000033);
+    ARM9->CP15Write(0x610, 0x0200002B);
+    ARM9->CP15Write(0x611, 0x0200002B);
+    ARM9->CP15Write(0x620, 0x00000000);
+    ARM9->CP15Write(0x621, 0x00000000);
+    ARM9->CP15Write(0x630, 0x08000035);
+    ARM9->CP15Write(0x631, 0x08000035);
+    ARM9->CP15Write(0x640, 0x0300001B);
+    ARM9->CP15Write(0x641, 0x0300001B);
+    ARM9->CP15Write(0x650, 0x00000000);
+    ARM9->CP15Write(0x651, 0x00000000);
+    ARM9->CP15Write(0x660, 0xFFFF001D);
+    ARM9->CP15Write(0x661, 0xFFFF001D);
+    ARM9->CP15Write(0x670, 0x027FF017);
+    ARM9->CP15Write(0x671, 0x027FF017);
+    ARM9->CP15Write(0x910, 0x0300000A);
+    ARM9->CP15Write(0x911, 0x00000020);
 }
 
 void NDS::SetupDirectBoot(const std::string& romname)
@@ -391,20 +404,20 @@ void NDS::SetupDirectBoot(const std::string& romname)
 
     NDSCartSlot.SetupDirectBoot(romname);
 
-    ARM9.R[12] = header.ARM9EntryAddress;
-    ARM9.R[13] = 0x03002F7C;
-    ARM9.R[14] = header.ARM9EntryAddress;
-    ARM9.R_IRQ[0] = 0x03003F80;
-    ARM9.R_SVC[0] = 0x03003FC0;
+    ARM9->R[12] = header.ARM9EntryAddress;
+    ARM9->R[13] = 0x03002F7C;
+    ARM9->R[14] = header.ARM9EntryAddress;
+    ARM9->R_IRQ[0] = 0x03003F80;
+    ARM9->R_SVC[0] = 0x03003FC0;
 
-    ARM7.R[12] = header.ARM7EntryAddress;
-    ARM7.R[13] = 0x0380FD80;
-    ARM7.R[14] = header.ARM7EntryAddress;
-    ARM7.R_IRQ[0] = 0x0380FF80;
-    ARM7.R_SVC[0] = 0x0380FFC0;
+    ARM7->R[12] = header.ARM7EntryAddress;
+    ARM7->R[13] = 0x0380FD80;
+    ARM7->R[14] = header.ARM7EntryAddress;
+    ARM7->R_IRQ[0] = 0x0380FF80;
+    ARM7->R_SVC[0] = 0x0380FFC0;
 
-    ARM9.JumpTo(header.ARM9EntryAddress);
-    ARM7.JumpTo(header.ARM7EntryAddress);
+    ARM9->JumpTo(header.ARM9EntryAddress);
+    ARM7->JumpTo(header.ARM7EntryAddress);
 
     PostFlag9 = 0x01;
     PostFlag7 = 0x01;
@@ -453,7 +466,7 @@ void NDS::Reset()
     // has to be called before InitTimings
     // otherwise some PU settings are completely
     // unitialised on the first run
-    ARM9.CP15Reset();
+    ARM9->CP15Reset();
 
     ARM9Timestamp = 0; ARM9Target = 0;
     ARM7Timestamp = 0; ARM7Target = 0;
@@ -502,8 +515,8 @@ void NDS::Reset()
     DivCnt = 0;
     SqrtCnt = 0;
 
-    ARM9.Reset();
-    ARM7.Reset();
+    ARM9->Reset();
+    ARM7->Reset();
 
     CPUStop = 0;
 
@@ -734,8 +747,8 @@ bool NDS::DoSavestate(Savestate* file)
     for (int i = 0; i < 8; i++)
         DMAs[i].DoSavestate(file);
 
-    ARM9.DoSavestate(file);
-    ARM7.DoSavestate(file);
+    ARM9->DoSavestate(file);
+    ARM7->DoSavestate(file);
 
     NDSCartSlot.DoSavestate(file);
     if (ConsoleType == 0)
@@ -960,8 +973,8 @@ u32 NDS::RunFrame()
         {
             if (cpuMode == CPUExecuteMode::InterpreterGDB)
             {
-                ARM9.CheckGdbIncoming();
-                ARM7.CheckGdbIncoming();
+                ARM9->CheckGdbIncoming();
+                ARM7->CheckGdbIncoming();
             }
 
             if (!(CPUStop & CPUStop_Wakeup))
@@ -997,7 +1010,7 @@ u32 NDS::RunFrame()
                 }
                 else
                 {
-                    ARM9.Execute<cpuMode>();
+                    ARM9->Execute();
                 }
 
                 RunTimers(0);
@@ -1024,7 +1037,7 @@ u32 NDS::RunFrame()
                     }
                     else
                     {
-                        ARM7.Execute<cpuMode>();
+                        ARM7->Execute();
                     }
 
                     RunTimers(1);
@@ -1349,7 +1362,7 @@ void NDS::SetGBASlotTimings()
 
 void NDS::UpdateIRQ(u32 cpu)
 {
-    ARM& arm = cpu ? (ARM&)ARM7 : (ARM&)ARM9;
+    ARM& arm = cpu ? (ARM&)*ARM7 : (ARM&)*ARM9;
 
     if (IME[cpu] & 0x1)
     {
@@ -1419,12 +1432,12 @@ void NDS::StopCPU(u32 cpu, u32 mask)
     if (cpu)
     {
         CPUStop |= (mask << 16);
-        ARM7.Halt(2);
+        ARM7->Halt(2);
     }
     else
     {
         CPUStop |= mask;
-        ARM9.Halt(2);
+        ARM9->Halt(2);
     }
 }
 
@@ -1440,7 +1453,7 @@ void NDS::GXFIFOStall()
 
     CPUStop |= CPUStop_GXStall;
 
-    if (CurCPU == 1) ARM9.Halt(2);
+    if (CurCPU == 1) ARM9->Halt(2);
     else
     {
         DMAs[0].StallIfRunning();
@@ -1465,12 +1478,12 @@ void NDS::EnterSleepMode()
     if (CPUStop & CPUStop_Sleep) return;
 
     CPUStop |= CPUStop_Sleep;
-    ARM7.Halt(2);
+    ARM7->Halt(2);
 }
 
 u32 NDS::GetPC(u32 cpu) const
 {
-    return cpu ? ARM7.R[15] : ARM9.R[15];
+    return cpu ? ARM7->R[15] : ARM9->R[15];
 }
 
 u64 NDS::GetSysClockCycles(int num)
@@ -1504,7 +1517,7 @@ void NDS::NocashPrint(u32 ncpu, u32 addr, bool appendNewline)
 {
     // addr: debug string
 
-    ARM* cpu = ncpu ? (ARM*)&ARM7 : (ARM*)&ARM9;
+    ARM* cpu = ncpu ? (ARM*)ARM7 : (ARM*)ARM9;
     u8 (NDS::*readfn)(u32) = ncpu ? &NDS::ARM7Read8 : &NDS::ARM9Read8;
 
     char output[1024];
@@ -1875,8 +1888,8 @@ void NDS::StartSqrt()
 
 void NDS::debug(u32 param)
 {
-    Log(LogLevel::Debug, "ARM9 PC=%08X LR=%08X %08X\n", ARM9.R[15], ARM9.R[14], ARM9.R_IRQ[1]);
-    Log(LogLevel::Debug, "ARM7 PC=%08X LR=%08X %08X\n", ARM7.R[15], ARM7.R[14], ARM7.R_IRQ[1]);
+    Log(LogLevel::Debug, "ARM9 PC=%08X LR=%08X %08X\n", ARM9->R[15], ARM9->R[14], ARM9->R_IRQ[1]);
+    Log(LogLevel::Debug, "ARM7 PC=%08X LR=%08X %08X\n", ARM7->R[15], ARM7->R[14], ARM7->R_IRQ[1]);
 
     Log(LogLevel::Debug, "ARM9 IME=%08X IE=%08X IF=%08X\n", IME[0], IE[0], IF[0]);
     Log(LogLevel::Debug, "ARM7 IME=%08X IE=%08X IF=%08X IE2=%04X IF2=%04X\n", IME[1], IE[1], IF[1], IE2, IF2);
@@ -1885,7 +1898,7 @@ void NDS::debug(u32 param)
     //    printf("VRAM %c: %02X\n", 'A'+i, GPU->VRAMCNT[i]);
 
     /*Platform::FileHandle* shit = Platform::OpenFile("debug/pokeplat.bin", FileMode::Write);
-    Platform::FileWrite(ARM9.ITCM, 0x8000, 1, shit);
+    Platform::FileWrite(ARM9->ITCM, 0x8000, 1, shit);
     for (u32 i = 0x02000000; i < 0x02400000; i+=4)
     {
         u32 val = NDS::ARM7Read32(i);
@@ -1905,7 +1918,7 @@ void NDS::debug(u32 param)
 
     FILE*
     shit = fopen("debug/castle9.bin", "wb");
-    fwrite(ARM9.ITCM, 0x8000, 1, shit);
+    fwrite(ARM9->ITCM, 0x8000, 1, shit);
     for (u32 i = 0x02000000; i < 0x04000000; i+=4)
     {
         u32 val = ARM9Read32(i);
@@ -2038,7 +2051,7 @@ u16 NDS::ARM9Read16(u32 addr)
               (GBACartSlot.SRAMRead(addr+1) << 8);
     }
 
-    //if (addr) Log(LogLevel::Warn, "unknown arm9 read16 %08X %08X\n", addr, ARM9.R[15]);
+    //if (addr) Log(LogLevel::Warn, "unknown arm9 read16 %08X %08X\n", addr, ARM9->R[15]);
     return 0;
 }
 
@@ -2101,7 +2114,7 @@ u32 NDS::ARM9Read32(u32 addr)
               (GBACartSlot.SRAMRead(addr+3) << 24);
     }
 
-    //Log(LogLevel::Warn, "unknown arm9 read32 %08X | %08X %08X\n", addr, ARM9.R[15], ARM9.R[12]);
+    //Log(LogLevel::Warn, "unknown arm9 read32 %08X | %08X %08X\n", addr, ARM9->R[15], ARM9->R[12]);
     return 0;
 }
 
@@ -2264,7 +2277,7 @@ void NDS::ARM9Write32(u32 addr, u32 val)
         return;
     }
 
-    //Log(LogLevel::Warn, "unknown arm9 write32 %08X %08X | %08X\n", addr, val, ARM9.R[15]);
+    //Log(LogLevel::Warn, "unknown arm9 write32 %08X %08X | %08X\n", addr, val, ARM9->R[15]);
 }
 
 bool NDS::ARM9GetMemRegion(u32 addr, bool write, MemRegion* region)
@@ -2304,9 +2317,9 @@ u8 NDS::ARM7Read8(u32 addr)
     if (addr < 0x00004000)
     {
         // TODO: check the boundary? is it 4000 or higher on regular DS?
-        if (ARM7.R[15] >= 0x00004000)
+        if (ARM7->R[15] >= 0x00004000)
             return 0xFF;
-        if (addr < ARM7BIOSProt && ARM7.R[15] >= ARM7BIOSProt)
+        if (addr < ARM7BIOSProt && ARM7->R[15] >= ARM7BIOSProt)
             return 0xFF;
 
         return *(u8*)&ARM7BIOS[addr];
@@ -2361,7 +2374,7 @@ u8 NDS::ARM7Read8(u32 addr)
         return GBACartSlot.SRAMRead(addr);
     }
 
-    Log(LogLevel::Debug, "unknown arm7 read8 %08X %08X %08X/%08X\n", addr, ARM7.R[15], ARM7.R[0], ARM7.R[1]);
+    Log(LogLevel::Debug, "unknown arm7 read8 %08X %08X %08X/%08X\n", addr, ARM7->R[15], ARM7->R[0], ARM7->R[1]);
     return 0;
 }
 
@@ -2371,9 +2384,9 @@ u16 NDS::ARM7Read16(u32 addr)
 
     if (addr < 0x00004000)
     {
-        if (ARM7.R[15] >= 0x00004000)
+        if (ARM7->R[15] >= 0x00004000)
             return 0xFFFF;
-        if (addr < ARM7BIOSProt && ARM7.R[15] >= ARM7BIOSProt)
+        if (addr < ARM7BIOSProt && ARM7->R[15] >= ARM7BIOSProt)
             return 0xFFFF;
 
         return *(u16*)&ARM7BIOS[addr];
@@ -2427,7 +2440,7 @@ u16 NDS::ARM7Read16(u32 addr)
               (GBACartSlot.SRAMRead(addr+1) << 8);
     }
 
-    Log(LogLevel::Debug, "unknown arm7 read16 %08X %08X\n", addr, ARM7.R[15]);
+    Log(LogLevel::Debug, "unknown arm7 read16 %08X %08X\n", addr, ARM7->R[15]);
     return 0;
 }
 
@@ -2437,9 +2450,9 @@ u32 NDS::ARM7Read32(u32 addr)
 
     if (addr < 0x00004000)
     {
-        if (ARM7.R[15] >= 0x00004000)
+        if (ARM7->R[15] >= 0x00004000)
             return 0xFFFFFFFF;
-        if (addr < ARM7BIOSProt && ARM7.R[15] >= ARM7BIOSProt)
+        if (addr < ARM7BIOSProt && ARM7->R[15] >= ARM7BIOSProt)
             return 0xFFFFFFFF;
 
         return *(u32*)&ARM7BIOS[addr];
@@ -2496,7 +2509,7 @@ u32 NDS::ARM7Read32(u32 addr)
               (GBACartSlot.SRAMRead(addr+3) << 24);
     }
 
-    //Log(LogLevel::Warn, "unknown arm7 read32 %08X | %08X\n", addr, ARM7.R[15]);
+    //Log(LogLevel::Warn, "unknown arm7 read32 %08X | %08X\n", addr, ARM7->R[15]);
     return 0;
 }
 
@@ -2552,9 +2565,9 @@ void NDS::ARM7Write8(u32 addr, u8 val)
         return;
     }
 
-    //if (ARM7.R[15] > 0x00002F30) // ARM7 BIOS bug
+    //if (ARM7->R[15] > 0x00002F30) // ARM7 BIOS bug
     if (addr >= 0x01000000)
-        Log(LogLevel::Debug, "unknown arm7 write8 %08X %02X @ %08X\n", addr, val, ARM7.R[15]);
+        Log(LogLevel::Debug, "unknown arm7 write8 %08X %02X @ %08X\n", addr, val, ARM7->R[15]);
 }
 
 void NDS::ARM7Write16(u32 addr, u16 val)
@@ -2624,7 +2637,7 @@ void NDS::ARM7Write16(u32 addr, u16 val)
     }
 
     if (addr >= 0x01000000)
-        Log(LogLevel::Debug, "unknown arm7 write16 %08X %04X @ %08X\n", addr, val, ARM7.R[15]);
+        Log(LogLevel::Debug, "unknown arm7 write16 %08X %04X @ %08X\n", addr, val, ARM7->R[15]);
 }
 
 void NDS::ARM7Write32(u32 addr, u32 val)
@@ -2698,7 +2711,7 @@ void NDS::ARM7Write32(u32 addr, u32 val)
     }
 
     if (addr >= 0x01000000)
-        Log(LogLevel::Debug, "unknown arm7 write32 %08X %08X @ %08X\n", addr, val, ARM7.R[15]);
+        Log(LogLevel::Debug, "unknown arm7 write32 %08X %08X @ %08X\n", addr, val, ARM7->R[15]);
 }
 
 bool NDS::ARM7GetMemRegion(u32 addr, bool write, MemRegion* region)
@@ -2734,7 +2747,7 @@ bool NDS::ARM7GetMemRegion(u32 addr, bool write, MemRegion* region)
     // BIOS. ARM7 PC has to be within range.
     if (addr < 0x00004000 && !write)
     {
-        if (ARM7.R[15] < 0x4000 && (addr >= ARM7BIOSProt || ARM7.R[15] < ARM7BIOSProt))
+        if (ARM7->R[15] < 0x4000 && (addr >= ARM7BIOSProt || ARM7->R[15] < ARM7BIOSProt))
         {
             region->Mem = &ARM7BIOS[0];
             region->Mask = 0x3FFF;
@@ -2902,7 +2915,7 @@ u8 NDS::ARM9IORead8(u32 addr)
     }
 
     if ((addr & 0xFFFFF000) != 0x04004000)
-        Log(LogLevel::Debug, "unknown ARM9 IO read8 %08X %08X\n", addr, ARM9.R[15]);
+        Log(LogLevel::Debug, "unknown ARM9 IO read8 %08X %08X\n", addr, ARM9->R[15]);
     return 0;
 }
 
@@ -3062,7 +3075,7 @@ u16 NDS::ARM9IORead16(u32 addr)
     }
 
     if ((addr & 0xFFFFF000) != 0x04004000)
-        Log(LogLevel::Debug, "unknown ARM9 IO read16 %08X %08X\n", addr, ARM9.R[15]);
+        Log(LogLevel::Debug, "unknown ARM9 IO read16 %08X %08X\n", addr, ARM9->R[15]);
     return 0;
 }
 
@@ -3208,7 +3221,7 @@ u32 NDS::ARM9IORead32(u32 addr)
     }
 
     if ((addr & 0xFFFFF000) != 0x04004000)
-        Log(LogLevel::Debug, "unknown ARM9 IO read32 %08X %08X\n", addr, ARM9.R[15]);
+        Log(LogLevel::Debug, "unknown ARM9 IO read32 %08X %08X\n", addr, ARM9->R[15]);
     return 0;
 }
 
@@ -3335,7 +3348,7 @@ void NDS::ARM9IOWrite8(u32 addr, u8 val)
         return;
     }
 
-    Log(LogLevel::Debug, "unknown ARM9 IO write8 %08X %02X %08X\n", addr, val, ARM9.R[15]);
+    Log(LogLevel::Debug, "unknown ARM9 IO write8 %08X %02X %08X\n", addr, val, ARM9->R[15]);
 }
 
 void NDS::ARM9IOWrite16(u32 addr, u16 val)
@@ -3530,7 +3543,7 @@ void NDS::ARM9IOWrite16(u32 addr, u16 val)
         return;
     }
 
-    Log(LogLevel::Debug, "unknown ARM9 IO write16 %08X %04X %08X\n", addr, val, ARM9.R[15]);
+    Log(LogLevel::Debug, "unknown ARM9 IO write16 %08X %04X %08X\n", addr, val, ARM9->R[15]);
 }
 
 void NDS::ARM9IOWrite32(u32 addr, u32 val)
@@ -3725,7 +3738,7 @@ void NDS::ARM9IOWrite32(u32 addr, u32 val)
         return;
     }
 
-    Log(LogLevel::Debug, "unknown ARM9 IO write32 %08X %08X %08X\n", addr, val, ARM9.R[15]);
+    Log(LogLevel::Debug, "unknown ARM9 IO write32 %08X %08X %08X\n", addr, val, ARM9->R[15]);
 }
 
 
@@ -3833,7 +3846,7 @@ u8 NDS::ARM7IORead8(u32 addr)
     }
 
     if ((addr & 0xFFFFF000) != 0x04004000)
-        Log(LogLevel::Debug, "unknown ARM7 IO read8 %08X %08X\n", addr, ARM7.R[15]);
+        Log(LogLevel::Debug, "unknown ARM7 IO read8 %08X %08X\n", addr, ARM7->R[15]);
     return 0;
 }
 
@@ -3936,7 +3949,7 @@ u16 NDS::ARM7IORead16(u32 addr)
     }
 
     if ((addr & 0xFFFFF000) != 0x04004000)
-        Log(LogLevel::Debug, "unknown ARM7 IO read16 %08X %08X\n", addr, ARM7.R[15]);
+        Log(LogLevel::Debug, "unknown ARM7 IO read16 %08X %08X\n", addr, ARM7->R[15]);
     return 0;
 }
 
@@ -4037,7 +4050,7 @@ u32 NDS::ARM7IORead32(u32 addr)
     }
 
     if ((addr & 0xFFFFF000) != 0x04004000)
-        Log(LogLevel::Debug, "unknown ARM7 IO read32 %08X %08X\n", addr, ARM7.R[15]);
+        Log(LogLevel::Debug, "unknown ARM7 IO read32 %08X %08X\n", addr, ARM7->R[15]);
     return 0;
 }
 
@@ -4128,7 +4141,7 @@ void NDS::ARM7IOWrite8(u32 addr, u8 val)
     case 0x04000208: IME[1] = val & 0x1; UpdateIRQ(1); return;
 
     case 0x04000300:
-        if (ARM7.R[15] >= 0x4000)
+        if (ARM7->R[15] >= 0x4000)
             return;
         if (!(PostFlag7 & 0x01))
             PostFlag7 = val & 0x01;
@@ -4137,7 +4150,7 @@ void NDS::ARM7IOWrite8(u32 addr, u8 val)
     case 0x04000301:
         val &= 0xC0;
         if      (val == 0x40) Stop(StopReason::GBAModeNotSupported);
-        else if (val == 0x80) ARM7.Halt(1);
+        else if (val == 0x80) ARM7->Halt(1);
         else if (val == 0xC0) EnterSleepMode();
         return;
     }
@@ -4148,7 +4161,7 @@ void NDS::ARM7IOWrite8(u32 addr, u8 val)
         return;
     }
 
-    Log(LogLevel::Debug, "unknown ARM7 IO write8 %08X %02X %08X\n", addr, val, ARM7.R[15]);
+    Log(LogLevel::Debug, "unknown ARM7 IO write8 %08X %02X %08X\n", addr, val, ARM7->R[15]);
 }
 
 void NDS::ARM7IOWrite16(u32 addr, u16 val)
@@ -4284,7 +4297,7 @@ void NDS::ARM7IOWrite16(u32 addr, u16 val)
     // TODO: what happens when writing to IF this way??
 
     case 0x04000300:
-        if (ARM7.R[15] >= 0x4000)
+        if (ARM7->R[15] >= 0x4000)
             return;
         if (!(PostFlag7 & 0x01))
             PostFlag7 = val & 0x01;
@@ -4312,7 +4325,7 @@ void NDS::ARM7IOWrite16(u32 addr, u16 val)
         return;
     }
 
-    Log(LogLevel::Debug, "unknown ARM7 IO write16 %08X %04X %08X\n", addr, val, ARM7.R[15]);
+    Log(LogLevel::Debug, "unknown ARM7 IO write16 %08X %04X %08X\n", addr, val, ARM7->R[15]);
 }
 
 void NDS::ARM7IOWrite32(u32 addr, u32 val)
@@ -4446,7 +4459,7 @@ void NDS::ARM7IOWrite32(u32 addr, u32 val)
         return;
     }
 
-    Log(LogLevel::Debug, "unknown ARM7 IO write32 %08X %08X %08X\n", addr, val, ARM7.R[15]);
+    Log(LogLevel::Debug, "unknown ARM7 IO write32 %08X %08X %08X\n", addr, val, ARM7->R[15]);
 }
 
 }
