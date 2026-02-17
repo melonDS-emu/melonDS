@@ -728,13 +728,14 @@ bool CheatListModel::dropMimeData(const QMimeData* mime, Qt::DropAction action, 
         }
 
         // create new category
-        ARCodeCat newcat = {
-            .Parent = newparent,
-            .Name = cat->Name,
-            .Description = cat->Description,
-            .OnlyOneCodeEnabled = cat->OnlyOneCodeEnabled,
-            .Children = cat->Children
-        };
+        
+        ARCodeCat newcat{};
+        newcat.Parent = newparent;
+        newcat.Name = cat->Name;
+        newcat.Description = cat->Description;
+        newcat.OnlyOneCodeEnabled = cat->OnlyOneCodeEnabled;
+        newcat.Children = cat->Children;
+        // newcat.Children is empty due to value-initialization
 
         // delete category from old parent
         for (auto it = oldparent->Children.begin(); it != oldparent->Children.end(); it++)
@@ -793,13 +794,14 @@ bool CheatListModel::dropMimeData(const QMimeData* mime, Qt::DropAction action, 
         }
 
         // create new code
-        ARCode newcode = {
-            .Parent = newparent,
-            .Name = code->Name,
-            .Description = code->Description,
-            .Enabled = code->Enabled,
-            .Code = code->Code
-        };
+        
+        ARCode newcode{};
+        newcode.Parent = newparent;
+        newcode.Name = code->Name;
+        newcode.Description = code->Description;
+        newcode.Enabled = code->Enabled;
+        newcode.Code = code->Code;
+        // newcode.Children is empty due to value-initialization
 
         // delete code from old parent
         for (auto it = oldparent->Children.begin(); it != oldparent->Children.end(); it++)

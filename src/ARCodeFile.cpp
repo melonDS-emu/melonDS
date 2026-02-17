@@ -129,20 +129,20 @@ bool ARCodeFile::Load()
             if (ret < retchk)
             {
                 Log(LogLevel::Error, "AR: malformed CAT line: %s\n", start);
-                CloseFile(f);
+                Platform::CloseFile(f);
                 return false;
             }
 
             isincode = false;
             isincat = true;
 
-            ARCodeCat cat = {
-                .Parent = &RootCat,
-                .Name = catname,
-                .Description = "",
-                .OnlyOneCodeEnabled = onlyone!=0,
-                .Children = {}
-            };
+            ARCodeCat cat{};
+            cat.Parent = &RootCat;
+            cat.Name = catname;
+            cat.Description = "";
+            cat.OnlyOneCodeEnabled = onlyone != 0;
+            // cat.Children is empty due to value-initialization
+
             RootCat.Children.emplace_back(cat);
             curcat = &std::get<ARCodeCat>(RootCat.Children.back());
 
@@ -158,26 +158,26 @@ bool ARCodeFile::Load()
             if (ret < 2)
             {
                 Log(LogLevel::Error, "AR: malformed CODE line: %s\n", start);
-                CloseFile(f);
+                Platform::CloseFile(f);
                 return false;
             }
 
             if (!isincat)
             {
                 Log(LogLevel::Error, "AR: encountered CODE line with no category started\n");
-                CloseFile(f);
+                Platform::CloseFile(f);
                 return false;
             }
 
             isincode = true;
 
-            ARCode code = {
-                .Parent = curcat,
-                .Name = codename,
-                .Description = "",
-                .Enabled = enable!=0,
-                .Code = {}
-            };
+            ARCode code{};
+            code.Parent = curcat;
+            code.Name = codename;
+            code.Description = "";
+            code.Enabled = (enable != 0);
+            // code.Code is empty due to value-initialization
+
             curcat->Children.emplace_back(code);
             curcode = &std::get<ARCode>(curcat->Children.back());
 
@@ -199,7 +199,7 @@ bool ARCodeFile::Load()
             else
             {
                 Log(LogLevel::Error, "AR: encountered DESC line not part of anything\n");
-                CloseFile(f);
+                Platform::CloseFile(f);
                 return false;
             }
         }
@@ -211,14 +211,14 @@ bool ARCodeFile::Load()
             if (ret < 2)
             {
                 Log(LogLevel::Error, "AR: malformed data line: %s\n", start);
-                CloseFile(f);
+                Platform::CloseFile(f);
                 return false;
             }
 
             if (!isincode)
             {
                 Log(LogLevel::Error, "AR: encountered data line with no code started\n");
-                CloseFile(f);
+                Platform::CloseFile(f);
                 return false;
             }
 
@@ -229,7 +229,7 @@ bool ARCodeFile::Load()
 
     FinalizeList();
 
-    CloseFile(f);
+    Platform::CloseFile(f);
     return true;
 }
 
@@ -288,7 +288,7 @@ bool ARCodeFile::Save()
         }
     }
 
-    CloseFile(f);
+    Platform::CloseFile(f);
     return true;
 }
 
@@ -324,13 +324,13 @@ void ARCodeFile::Import(ARDatabaseEntry& dbentry, ARCodeEnableMap& enablemap, bo
             if (!shouldimport)
                 continue;
 
-            ARCodeCat newcat = {
-                .Parent = &RootCat,
-                .Name = cat.Name,
-                .Description = cat.Description,
-                .OnlyOneCodeEnabled = cat.OnlyOneCodeEnabled,
-                .Children = {}
-            };
+            ARCodeCat newcat{};
+            newcat.Parent = &RootCat;
+            newcat.Name = cat.Name;
+            newcat.Description = cat.Description;
+            newcat.OnlyOneCodeEnabled = cat.OnlyOneCodeEnabled;
+            // newcat.Children is empty due to value-initialization
+            
             RootCat.Children.emplace_back(newcat);
             ARCodeCat* parentptr = &std::get<ARCodeCat>(RootCat.Children.back());
 
@@ -340,13 +340,14 @@ void ARCodeFile::Import(ARDatabaseEntry& dbentry, ARCodeEnableMap& enablemap, bo
                 if (hasenablemap && (!enablemap[&code]))
                     continue;
 
-                ARCode newcode = {
-                    .Parent = parentptr,
-                    .Name = code.Name,
-                    .Description = code.Description,
-                    .Enabled = code.Enabled,
-                    .Code = code.Code
-                };
+                ARCode newcode{};
+                newcode.Parent = parentptr;
+                newcode.Name = code.Name;
+                newcode.Description = code.Description;
+                newcode.Enabled = code.Enabled;
+                newcode.Code = code.Code;
+                // newcode.Code is empty due to value-initialization
+
                 parentptr->Children.emplace_back(newcode);
             }
         }
@@ -356,13 +357,14 @@ void ARCodeFile::Import(ARDatabaseEntry& dbentry, ARCodeEnableMap& enablemap, bo
             if (hasenablemap && (!enablemap[&code]))
                 continue;
 
-            ARCode newcode = {
-                .Parent = &RootCat,
-                .Name = code.Name,
-                .Description = code.Description,
-                .Enabled = code.Enabled,
-                .Code = code.Code
-            };
+            ARCode newcode{};
+            newcode.Parent = &RootCat;
+            newcode.Name = code.Name;
+            newcode.Description = code.Description;
+            newcode.Enabled = code.Enabled;
+            newcode.Code = code.Code;
+            // newcode.Code is empty due to value-initialization
+
             RootCat.Children.emplace_back(newcode);
         }
     }
