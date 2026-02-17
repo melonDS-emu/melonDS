@@ -116,8 +116,9 @@ void EmuInstance::inputLoadConfig()
 {
     SDL_LockMutex(joyMutex.get());
 
+    int curJoystickUniqueID = localCfg.GetInt("JoystickUniqueID");
     Config::Table keycfg = localCfg.GetTable("Keyboard");
-    Config::Table joycfg = localCfg.GetTable("Joystick");
+    Config::Table joycfg = localCfg.GetTable("Joystick." + std::to_string(curJoystickUniqueID));
 
     for (int i = 0; i < 12; i++)
     {
@@ -131,7 +132,7 @@ void EmuInstance::inputLoadConfig()
         hkJoyMapping[i] = joycfg.GetInt(hotkeyNames[i]);
     }
 
-    setJoystick(localCfg.GetInt("JoystickID"));
+    setJoystickByUniqueId(curJoystickUniqueID);
     SDL_UnlockMutex(joyMutex.get());
 }
 
@@ -214,10 +215,53 @@ float EmuInstance::inputMotionQuery(melonDS::Platform::MotionQueryType type)
 
 void EmuInstance::setJoystick(int id)
 {
+    int uniqueId = getJoystickUniqueIdById(id);
+
     SDL_LockMutex(joyMutex.get());
     joystickID = id;
+    joystickUniqueID = uniqueId;
     openJoystick();
     SDL_UnlockMutex(joyMutex.get());
+}
+
+void EmuInstance::setJoystickByUniqueId(int uniqueId)
+{
+    int id = getJoystickIdByUniqueId(uniqueId);
+    if (id == -1)
+    {
+        setJoystick(0);
+        return;
+    }
+
+    SDL_LockMutex(joyMutex.get());
+    joystickID = id;
+    joystickUniqueID = uniqueId;
+    openJoystick();
+    SDL_UnlockMutex(joyMutex.get());
+}
+
+int EmuInstance::getJoystickUniqueIdById(int id)
+{
+    u16 joystickVendorID = SDL_JoystickGetDeviceVendor(id);
+    u16 joystickDeviceID = SDL_JoystickGetDeviceProduct(id);
+    if (joystickVendorID == 0 || joystickDeviceID == 0)
+    {
+        return -1;
+    }
+    return (int)((joystickVendorID << 16) | joystickDeviceID);
+}
+
+int EmuInstance::getJoystickIdByUniqueId(int uniqueId)
+{
+    int njoy = SDL_NumJoysticks();
+    for (int i = 0; i < njoy; i++)
+    {
+        if (getJoystickUniqueIdById(i) == uniqueId)
+        {
+            return i;
+        }
+    }
+    return -1;
 }
 
 void EmuInstance::openJoystick()
@@ -238,7 +282,10 @@ void EmuInstance::openJoystick()
     }
 
     if (joystickID >= num)
+    {
         joystickID = 0;
+        joystickUniqueID = getJoystickUniqueIdById(joystickID);
+    }
 
     joystick = SDL_JoystickOpen(joystickID);
 
