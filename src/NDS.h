@@ -1,5 +1,5 @@
 /*
-    Copyright 2016-2025 melonDS team
+    Copyright 2016-2026 melonDS team
 
     This file is part of melonDS.
 
@@ -368,12 +368,12 @@ public: // TODO: Encapsulate the rest of these members
     Firmware& GetFirmware() { return SPI.GetFirmwareMem()->GetFirmware(); }
     void SetFirmware(Firmware&& firmware) { SPI.GetFirmwareMem()->SetFirmware(std::move(firmware)); }
 
-    const Renderer3D& GetRenderer3D() const noexcept { return GPU.GetRenderer3D(); }
-    Renderer3D& GetRenderer3D() noexcept { return GPU.GetRenderer3D(); }
-    void SetRenderer3D(std::unique_ptr<Renderer3D>&& renderer) noexcept
+    const Renderer& GetRenderer() const noexcept { return GPU.GetRenderer(); }
+    Renderer& GetRenderer() noexcept { return GPU.GetRenderer(); }
+    void SetRenderer(std::unique_ptr<Renderer>&& renderer) noexcept
     {
         if (renderer != nullptr)
-            GPU.SetRenderer3D(std::move(renderer));
+            GPU.SetRenderer(std::move(renderer));
     }
 
     virtual bool NeedsDirectBoot() const;

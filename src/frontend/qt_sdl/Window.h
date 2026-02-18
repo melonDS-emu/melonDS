@@ -1,5 +1,5 @@
 /*
-    Copyright 2016-2025 melonDS team
+    Copyright 2016-2026 melonDS team
 
     This file is part of melonDS.
 
@@ -44,63 +44,6 @@ class LuaConsoleDialog;
 
 const int kMaxRecentROMs = 10;
 
-/*
-class WindowBase : public QMainWindow
-{
-    Q_OBJECT
-
-public:
-    explicit WindowBase(QWidget* parent = nullptr);
-    ~WindowBase();
-
-    bool hasOGL;
-    GL::Context* getOGLContext();
-
-    //void onAppStateChanged(Qt::ApplicationState state);
-
-protected:
-    void resizeEvent(QResizeEvent* event) override;
-    void changeEvent(QEvent* event) override;
-
-    void keyPressEvent(QKeyEvent* event) override;
-    void keyReleaseEvent(QKeyEvent* event) override;
-
-    void dragEnterEvent(QDragEnterEvent* event) override;
-    void dropEvent(QDropEvent* event) override;
-
-    void focusInEvent(QFocusEvent* event) override;
-    void focusOutEvent(QFocusEvent* event) override;
-
-signals:
-    void screenLayoutChange();
-
-private slots:
-    //void onQuit();
-
-    //void onTitleUpdate(QString title);
-
-    //void onEmuStart();
-    //void onEmuStop();
-
-    //void onUpdateVideoSettings(bool glchange);
-
-    void onFullscreenToggled();
-    void onScreenEmphasisToggled();
-
-private:
-    virtual void closeEvent(QCloseEvent* event) override;
-
-    void createScreenPanel();
-
-    //bool pausedManually = false;
-
-    int oldW, oldH;
-    bool oldMax;
-
-public:
-    ScreenPanel* panel;
-};*/
-
 class MainWindow : public QMainWindow
 {
     Q_OBJECT
@@ -129,7 +72,8 @@ public:
     void setGLSwapInterval(int intv);
     void makeCurrentGL();
     void releaseGL();
-    void drawScreenGL();
+
+    void drawScreen();
 
     bool preloadROMs(QStringList file, QStringList gbafile, bool boot);
     QStringList splitArchivePath(const QString& filename, bool useMemberSyntax);
@@ -221,7 +165,6 @@ private slots:
     void onOpenInterfaceSettings();
     void onInterfaceSettingsFinished(int res);
     void onUpdateInterfaceSettings();
-    void onChangeSavestateSRAMReloc(bool checked);
     void onChangeScreenSize();
     void onChangeScreenRotation(QAction* act);
     void onChangeScreenGap(QAction* act);
@@ -339,7 +282,6 @@ public:
     QAction* actFirmwareSettings;
     QAction* actPathSettings;
     QAction* actInterfaceSettings;
-    QAction* actSavestateSRAMReloc;
     QAction* actScreenSize[4];
     QActionGroup* grpScreenRotation;
     QAction* actScreenRotation[screenRot_MAX];

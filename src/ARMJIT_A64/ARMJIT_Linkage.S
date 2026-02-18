@@ -1,5 +1,5 @@
 /*
-    Copyright 2016-2025 melonDS team, RSDuck
+    Copyright 2016-2026 melonDS team, RSDuck
 
     This file is part of melonDS.
 

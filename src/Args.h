@@ -1,5 +1,5 @@
 /*
-    Copyright 2016-2025 melonDS team
+    Copyright 2016-2026 melonDS team
 
     This file is part of melonDS.
 
@@ -30,7 +30,7 @@
 #include "DSi_NAND.h"
 #include "FATStorage.h"
 #include "FreeBIOS.h"
-#include "GPU3D_Soft.h"
+#include "GPU.h"
 #include "SPI_Firmware.h"
 #include "SPU.h"
 
@@ -87,11 +87,11 @@ struct NDSArgs
 {
     /// NDS ARM9 BIOS to install.
     /// Defaults to FreeBIOS, which is not compatible with DSi mode.
-    std::unique_ptr<ARM9BIOSImage> ARM9BIOS = std::make_unique<ARM9BIOSImage>(bios_arm9_bin);
+    std::unique_ptr<ARM9BIOSImage> ARM9BIOS = std::make_unique<ARM9BIOSImage>(FreeBIOSGetNtrArm9());
 
     /// NDS ARM7 BIOS to install.
     /// Defaults to FreeBIOS, which is not compatible with DSi mode.
-    std::unique_ptr<ARM7BIOSImage> ARM7BIOS = std::make_unique<ARM7BIOSImage>(bios_arm7_bin);
+    std::unique_ptr<ARM7BIOSImage> ARM7BIOS = std::make_unique<ARM7BIOSImage>(FreeBIOSGetNtrArm7());
 
     /// Firmware image to install.
     /// Defaults to generated NDS firmware.
@@ -116,7 +116,7 @@ struct NDSArgs
     /// The 3D renderer to initialize the DS with.
     /// Defaults to the software renderer.
     /// Can be changed later at any time.
-    std::unique_ptr<melonDS::Renderer3D> Renderer3D = std::make_unique<SoftRenderer>();
+    std::unique_ptr<melonDS::Renderer> Renderer = nullptr;
 };
 
 /// Arguments to pass into the DSi constructor.
@@ -128,14 +128,13 @@ struct DSiArgs final : public NDSArgs
     std::unique_ptr<DSiBIOSImage> ARM7iBIOS = std::make_unique<DSiBIOSImage>(BrokenBIOS<DSiBIOSSize>);
 
     /// NAND image to install.
-    /// Required, there is no default value.
-    DSi_NAND::NANDImage NANDImage;
+    /// Defaults to std::nullopt, which means no NAND.
+    std::optional<DSi_NAND::NANDImage> NANDImage;
 
     /// SD card to install.
     /// Defaults to std::nullopt, which means no SD card.
     std::optional<FATStorage> DSiSDCard;
 
-    bool FullBIOSBoot = false;
     bool DSPHLE = false;
 };
 }

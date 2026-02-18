@@ -3,8 +3,7 @@
 /* (C)ChaN, 2018                                                          */
 /*------------------------------------------------------------------------*/
 
-#define _POSIX_SOURCE
-#define _POSIX_THREAD_SAFE_FUNCTIONS
+#define _POSIX_C_SOURCE 200809L
 #include <time.h>
 
 #include "ff.h"

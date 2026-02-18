@@ -1,5 +1,5 @@
 /*
-    Copyright 2016-2025 melonDS team
+    Copyright 2016-2026 melonDS team
 
     This file is part of melonDS.
 
@@ -188,6 +188,21 @@ void Savestate::Section(const char* magic)
             Log(LogLevel::Error, "savestate: section %s not found. blarg\n", magic);
             Error = true;
         }
+    }
+}
+
+void Savestate::VarBool(bool* var)
+{
+    if (Saving)
+    {
+        u8 val = (u8)*var;
+        Var8(&val);
+    }
+    else
+    {
+        u8 val;
+        Var8(&val);
+        *var = val != 0;
     }
 }
 
