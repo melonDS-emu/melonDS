@@ -209,9 +209,8 @@ ExternalProject_Add(lua
     INSTALL_COMMAND ""
 )
 add_library(liblua STATIC IMPORTED)
-ExternalProject_Get_property(lua SOURCE_DIR)
-set_target_properties(liblua PROPERTIES IMPORTED_LOCATION ${SOURCE_DIR}/src/liblua.a)
-target_include_directories(melonDS PRIVATE ${SOURCE_DIR}/src)
+set_target_properties(liblua PROPERTIES IMPORTED_LOCATION ${CMAKE_CURRENT_BINARY_DIR}/lua-prefix/src/lua/src/liblua.a)
+target_include_directories(melonDS PRIVATE ${CMAKE_CURRENT_BINARY_DIR}/lua-prefix/src/lua/src)
 
 target_link_libraries(melonDS PRIVATE core)
 target_link_libraries(melonDS PRIVATE PkgConfig::SDL2 PkgConfig::LibArchive PkgConfig::Zstd PkgConfig::Faad liblua)
