@@ -1,5 +1,5 @@
 /*
-    Copyright 2016-2025 melonDS team
+    Copyright 2016-2026 melonDS team
 
     This file is part of melonDS.
 
@@ -83,6 +83,8 @@
         #define CONTEXT_PC uc_mcontext.mc_rip
     #elif defined(__NetBSD__)
         #define CONTEXT_PC uc_mcontext.__gregs[_REG_RIP]
+    #elif defined(__OpenBSD__)
+        #define CONTEXT_PC sc_rip
     #endif
 #elif defined(__aarch64__)
     #if defined(_WIN32)
@@ -95,6 +97,8 @@
         #define CONTEXT_PC uc_mcontext.mc_gpregs.gp_elr
     #elif defined(__NetBSD__)
         #define CONTEXT_PC uc_mcontext.__gregs[_REG_PC]
+    #elif defined(__OpenBSD__)
+        #define CONTEXT_PC sc_elr
     #endif
 #endif
 
@@ -739,7 +743,7 @@ u32 ARMJIT_Memory::PageShift = 0;
 
 bool ARMJIT_Memory::IsFastMemSupported()
 {
-#ifdef __APPLE__
+#if defined(__APPLE__) || defined(__OpenBSD__)
     return false;
 #else
     static bool initialised = false;
@@ -826,7 +830,11 @@ bool ARMJIT_Memory::FaultHandler(FaultDescription& faultDesc, melonDS::NDS& nds)
             rewriteToSlowPath = !nds.JIT.Memory.MapAtAddress(faultDesc.EmulatedFaultAddr);
 
         if (rewriteToSlowPath)
+        {
+            nds.JIT.JitEnableWrite();
             faultDesc.FaultPC = nds.JIT.JITCompiler.RewriteMemAccess(faultDesc.FaultPC);
+            nds.JIT.JitEnableExecute();
+        }
 
         return true;
     }
@@ -1363,11 +1371,11 @@ void VRAMWrite(u32 addr, T val)
 {
     switch (addr & 0x00E00000)
     {
-    case 0x00000000: NDS::Current->GPU.WriteVRAM_ABG<T>(addr, val); return;
-    case 0x00200000: NDS::Current->GPU.WriteVRAM_BBG<T>(addr, val); return;
-    case 0x00400000: NDS::Current->GPU.WriteVRAM_AOBJ<T>(addr, val); return;
-    case 0x00600000: NDS::Current->GPU.WriteVRAM_BOBJ<T>(addr, val); return;
-    default: NDS::Current->GPU.WriteVRAM_LCDC<T>(addr, val); return;
+    case 0x00000000: NDS::Current->GPU.SyncVRAM_ABG(addr, true); NDS::Current->GPU.WriteVRAM_ABG<T>(addr, val); return;
+    case 0x00200000: NDS::Current->GPU.SyncVRAM_BBG(addr, true); NDS::Current->GPU.WriteVRAM_BBG<T>(addr, val); return;
+    case 0x00400000: NDS::Current->GPU.SyncVRAM_AOBJ(addr, true); NDS::Current->GPU.WriteVRAM_AOBJ<T>(addr, val); return;
+    case 0x00600000: NDS::Current->GPU.SyncVRAM_BOBJ(addr, true); NDS::Current->GPU.WriteVRAM_BOBJ<T>(addr, val); return;
+    default: NDS::Current->GPU.SyncVRAM_LCDC(addr, true); NDS::Current->GPU.WriteVRAM_LCDC<T>(addr, val); return;
     }
 }
 template <typename T>
@@ -1375,11 +1383,11 @@ T VRAMRead(u32 addr)
 {
     switch (addr & 0x00E00000)
     {
-    case 0x00000000: return NDS::Current->GPU.ReadVRAM_ABG<T>(addr);
-    case 0x00200000: return NDS::Current->GPU.ReadVRAM_BBG<T>(addr);
-    case 0x00400000: return NDS::Current->GPU.ReadVRAM_AOBJ<T>(addr);
-    case 0x00600000: return NDS::Current->GPU.ReadVRAM_BOBJ<T>(addr);
-    default: return NDS::Current->GPU.ReadVRAM_LCDC<T>(addr);
+    case 0x00000000: NDS::Current->GPU.SyncVRAM_ABG(addr, false); return NDS::Current->GPU.ReadVRAM_ABG<T>(addr);
+    case 0x00200000: NDS::Current->GPU.SyncVRAM_BBG(addr, false); return NDS::Current->GPU.ReadVRAM_BBG<T>(addr);
+    case 0x00400000: NDS::Current->GPU.SyncVRAM_AOBJ(addr, false); return NDS::Current->GPU.ReadVRAM_AOBJ<T>(addr);
+    case 0x00600000: NDS::Current->GPU.SyncVRAM_BOBJ(addr, false); return NDS::Current->GPU.ReadVRAM_BOBJ<T>(addr);
+    default: NDS::Current->GPU.SyncVRAM_LCDC(addr, false); return NDS::Current->GPU.ReadVRAM_LCDC<T>(addr);
     }
 }
 

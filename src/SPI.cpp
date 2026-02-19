@@ -1,5 +1,5 @@
 /*
-    Copyright 2016-2025 melonDS team
+    Copyright 2016-2026 melonDS team
 
     This file is part of melonDS.
 
@@ -25,6 +25,7 @@
 #include "DSi.h"
 #include "SPI.h"
 #include "DSi_SPI_TSC.h"
+#include "Mic.h"
 #include "Platform.h"
 
 namespace melonDS
@@ -129,6 +130,7 @@ void FirmwareMem::SetupDirectBoot()
 {
     const auto& header = FirmwareData.GetHeader();
     const auto& userdata = FirmwareData.GetEffectiveUserData();
+
     if (NDS.ConsoleType == 1)
     {
         // The ARMWrite methods are virtual, they'll delegate to DSi if necessary
@@ -368,8 +370,6 @@ void TSC::Reset()
     Data = 0;
 
     ConvResult = 0;
-
-    MicBufferLen = 0;
 }
 
 void TSC::DoSavestate(Savestate* file)
@@ -404,23 +404,10 @@ void TSC::SetTouchCoords(u16 x, u16 y)
     NDS.KeyInput &= ~(1 << (16+6));
 }
 
-void TSC::MicInputFrame(const s16* data, int samples)
-{
-    if (!data)
-    {
-        MicBufferLen = 0;
-        return;
-    }
-
-    if (samples > 1024) samples = 1024;
-    memcpy(MicBuffer, data, samples*sizeof(s16));
-    MicBufferLen = samples;
-}
-
 void TSC::Write(u8 val)
 {
     if (DataPos == 1)
-        Data = (ConvResult >> 5) & 0xFF;
+        Data = (ConvResult >> 5) & 0x7F;
     else if (DataPos == 2)
         Data = (ConvResult << 3) & 0xFF;
     else
@@ -438,25 +425,15 @@ void TSC::Write(u8 val)
 
         case 0x60:
             {
-                if (MicBufferLen == 0)
-                    ConvResult = 0x800;
-                else
-                {
-                    // 560190 cycles per frame
-                    u32 cyclepos = (u32)NDS.GetSysClockCycles(2);
-                    u32 samplepos = (cyclepos * MicBufferLen) / 560190;
-                    if (samplepos >= MicBufferLen) samplepos = MicBufferLen-1;
-                    s16 sample = MicBuffer[samplepos];
+                // if mic input was already started, this will keep it alive
+                // after a certain time of no mic sampling, it will be stopped
+                NDS.Mic.Start(Mic_NDS);
 
-                    // make it louder
-                    //if (sample > 0x3FFF) sample = 0x7FFF;
-                    //else if (sample < -0x4000) sample = -0x8000;
-                    //else sample <<= 1;
+                u16 sample = (u16)NDS.Mic.ReadSample();
 
-                    // make it unsigned 12-bit
-                    sample ^= 0x8000;
-                    ConvResult = sample >> 4;
-                }
+                // make it unsigned 12-bit
+                sample ^= 0x8000;
+                ConvResult = sample >> 4;
             }
             break;
 

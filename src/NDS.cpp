@@ -1,5 +1,5 @@
 /*
-    Copyright 2016-2025 melonDS team
+    Copyright 2016-2026 melonDS team
 
     This file is part of melonDS.
 
@@ -79,8 +79,8 @@ thread_local NDS* NDS::Current = nullptr;
 NDS::NDS() noexcept :
     NDS(
         NDSArgs {
-            std::make_unique<ARM9BIOSImage>(bios_arm9_bin),
-            std::make_unique<ARM7BIOSImage>(bios_arm7_bin),
+            std::make_unique<ARM9BIOSImage>(FreeBIOSGetNtrArm9()),
+            std::make_unique<ARM7BIOSImage>(FreeBIOSGetNtrArm7()),
             Firmware(0),
         }
     )
@@ -95,8 +95,9 @@ NDS::NDS(NDSArgs&& args, int type, void* userdata) noexcept :
     ARM7BIOSNative(CRC32(ARM7BIOS.data(), ARM7BIOS.size()) == ARM7BIOSCRC32),
     ARM9BIOSNative(CRC32(ARM9BIOS.data(), ARM9BIOS.size()) == ARM9BIOSCRC32),
     JIT(*this, args.JIT),
-    SPU(*this, args.BitDepth, args.Interpolation),
-    GPU(*this, std::move(args.Renderer3D)),
+    SPU(*this, args.BitDepth, args.Interpolation, args.OutputSampleRate),
+    Mic(*this),
+    GPU(*this, std::move(args.Renderer)),
     SPI(*this, std::move(args.Firmware)),
     RTC(*this),
     Wifi(*this),
@@ -220,7 +221,7 @@ void NDS::SetJITArgs(std::optional<JITArgs> args) noexcept
     }
     else if (args.has_value() != EnableJIT)
     { // Else if we want to turn the JIT off, and it wasn't already off...
-        JIT.ResetBlockCache();
+        JIT.Reset();
     }
 
     EnableJIT = args.has_value();
@@ -275,23 +276,15 @@ void NDS::InitTimings()
 
 bool NDS::NeedsDirectBoot() const
 {
-    if (ConsoleType == 1)
-    {
-        // for now, DSi mode requires original BIOS/NAND
-        return false;
-    }
-    else
-    {
-        // DSi/3DS firmwares aren't bootable, neither is the generated firmware
-        if (!SPI.GetFirmware().IsBootable())
-            return true;
+    // DSi/3DS firmwares aren't bootable, neither is the generated firmware
+    if (!SPI.GetFirmware().IsBootable())
+        return true;
 
-        // FreeBIOS requires direct boot (it can't boot firmware)
-        if (!IsLoadedARM9BIOSKnownNative() || !IsLoadedARM7BIOSKnownNative())
-            return true;
+    // FreeBIOS requires direct boot (it can't boot firmware)
+    if (!IsLoadedARM9BIOSKnownNative() || !IsLoadedARM7BIOSKnownNative())
+        return true;
 
-        return false;
-    }
+    return false;
 }
 
 void NDS::SetupDirectBoot()
@@ -365,7 +358,7 @@ void NDS::SetupDirectBoot()
 
     SPI.GetFirmwareMem()->SetupDirectBoot();
 
-    ARM9.CP15Write(0x100, 0x00012078);
+    ARM9.CP15Write(0x100, 0x00052078);
     ARM9.CP15Write(0x200, 0x00000042);
     ARM9.CP15Write(0x201, 0x00000042);
     ARM9.CP15Write(0x300, 0x00000002);
@@ -418,6 +411,10 @@ void NDS::SetupDirectBoot(const std::string& romname)
 
     PowerControl9 = 0x820F;
     GPU.SetPowerCnt(PowerControl9);
+
+    PowerControl7 = 0x0001;
+    SPU.SetPowerCnt(PowerControl7 & 0x0001);
+    Wifi.SetPowerCnt(PowerControl7 & 0x0002);
 
     // checkme
     RCnt = 0x8000;
@@ -487,8 +484,8 @@ void NDS::Reset()
 
     PostFlag9 = 0x00;
     PostFlag7 = 0x00;
-    PowerControl9 = 0x0001;
-    PowerControl7 = 0x0001;
+    PowerControl9 = 0x0000;
+    PowerControl7 = 0x0000;
 
     WifiWaitCnt = 0xFFFF; // temp
     SetWifiWaitCnt(0);
@@ -538,6 +535,7 @@ void NDS::Reset()
     NDSCartSlot.Reset();
     GBACartSlot.Reset();
     SPU.Reset();
+    Mic.Reset();
     SPI.Reset();
     RTC.Reset();
     Wifi.Reset();
@@ -608,24 +606,35 @@ void NDS::Stop(Platform::StopReason reason)
     Platform::SignalStop(reason, UserData);
     GPU.Stop();
     SPU.Stop();
+    Mic.StopAll();
+}
+
+u32 NDS::GetSavestateConfig()
+{
+    u32 ret = 0;
+
+    if (ConsoleType == 1)
+        ret |= SC_Console_DSi;
+
+    return ret;
 }
 
 bool NDS::DoSavestate(Savestate* file)
 {
     file->Section("NDSG");
 
+    u32 config = GetSavestateConfig();
     if (file->Saving)
     {
-        u32 console = ConsoleType;
-        file->Var32(&console);
+        file->Var32(&config);
     }
     else
     {
-        u32 console;
-        file->Var32(&console);
-        if (console != ConsoleType)
+        u32 config_chk;
+        file->Var32(&config_chk);
+        if (config_chk != config)
         {
-            Log(LogLevel::Error, "savestate: Expected console type %d, got console type %d. cannot load.\n", ConsoleType, console);
+            Log(LogLevel::Error, "savestate: Expected config word %08X, got %08X. cannot load.\n", config, config_chk);
             return false;
         }
     }
@@ -733,6 +742,7 @@ bool NDS::DoSavestate(Savestate* file)
         GBACartSlot.DoSavestate(file);
     GPU.DoSavestate(file);
     SPU.DoSavestate(file);
+    Mic.DoSavestate(file);
     SPI.DoSavestate(file);
     RTC.DoSavestate(file);
     Wifi.DoSavestate(file);
@@ -878,7 +888,7 @@ void NDS::RunSystemSleep(u64 timestamp)
     for (int i = 0; i < Event_MAX; i++)
     {
         if (!mask) break;
-        if (i == Event_SPU || i == Event_RTC)
+        if (i == Event_RTC)
         {
             if (mask & 0x1)
             {
@@ -888,14 +898,8 @@ void NDS::RunSystemSleep(u64 timestamp)
                 {
                     SchedListMask &= ~(1<<i);
 
-                    u32 param;
-                    if (i == Event_SPU)
-                        param = 1;
-                    else
-                        param = evt.Param;
-
                     EventFunc func = evt.Funcs[evt.FuncID];
-                    func(evt.That, param);
+                    func(evt.That, evt.Param);
                 }
             }
         }
@@ -1047,6 +1051,9 @@ u32 NDS::RunFrame()
 #endif
         break;
     }
+
+    // Ensure the last audio samples produced for this frame are available to the frontend immediately
+    SPU.BufferAudio();
 
     // In the context of TASes, frame count is traditionally the primary measure of emulated time,
     // so it needs to be tracked even if NDS is powered off.
@@ -1221,11 +1228,6 @@ void NDS::SetLidClosed(bool closed)
     }
 }
 
-void NDS::MicInputFrame(s16* data, int samples)
-{
-    return SPI.GetTSC()->MicInputFrame(data, samples);
-}
-
 /*int ImportSRAM(u8* data, u32 length)
 {
     return NDSCart::ImportSRAM(data, length);
@@ -1372,7 +1374,7 @@ void NDS::SetIRQ(u32 cpu, u32 irq)
         {
             CPUStop &= ~CPUStop_Sleep;
             CPUStop |= CPUStop_Wakeup;
-            GPU.GPU3D.RestartFrame(GPU);
+            GPU.Restart3DFrame();
         }
     }
 }
@@ -1901,8 +1903,8 @@ void NDS::debug(u32 param)
     }
     Platform::CloseFile(shit);*/
 
-    /*FILE*
-    shit = fopen("debug/camera9.bin", "wb");
+    FILE*
+    shit = fopen("debug/castle9.bin", "wb");
     fwrite(ARM9.ITCM, 0x8000, 1, shit);
     for (u32 i = 0x02000000; i < 0x04000000; i+=4)
     {
@@ -1910,13 +1912,13 @@ void NDS::debug(u32 param)
         fwrite(&val, 4, 1, shit);
     }
     fclose(shit);
-    shit = fopen("debug/camera7.bin", "wb");
+    shit = fopen("debug/castle7.bin", "wb");
     for (u32 i = 0x02000000; i < 0x04000000; i+=4)
     {
         u32 val = ARM7Read32(i);
         fwrite(&val, 4, 1, shit);
     }
-    fclose(shit);*/
+    fclose(shit);
 }
 
 
@@ -1954,11 +1956,11 @@ u8 NDS::ARM9Read8(u32 addr)
     case 0x06000000:
         switch (addr & 0x00E00000)
         {
-        case 0x00000000: return GPU.ReadVRAM_ABG<u8>(addr);
-        case 0x00200000: return GPU.ReadVRAM_BBG<u8>(addr);
-        case 0x00400000: return GPU.ReadVRAM_AOBJ<u8>(addr);
-        case 0x00600000: return GPU.ReadVRAM_BOBJ<u8>(addr);
-        default:         return GPU.ReadVRAM_LCDC<u8>(addr);
+        case 0x00000000: GPU.SyncVRAM_ABG(addr, false); return GPU.ReadVRAM_ABG<u8>(addr);
+        case 0x00200000: GPU.SyncVRAM_BBG(addr, false); return GPU.ReadVRAM_BBG<u8>(addr);
+        case 0x00400000: GPU.SyncVRAM_AOBJ(addr, false); return GPU.ReadVRAM_AOBJ<u8>(addr);
+        case 0x00600000: GPU.SyncVRAM_BOBJ(addr, false); return GPU.ReadVRAM_BOBJ<u8>(addr);
+        default:         GPU.SyncVRAM_LCDC(addr, false); return GPU.ReadVRAM_LCDC<u8>(addr);
         }
 
     case 0x07000000:
@@ -2014,11 +2016,11 @@ u16 NDS::ARM9Read16(u32 addr)
     case 0x06000000:
         switch (addr & 0x00E00000)
         {
-        case 0x00000000: return GPU.ReadVRAM_ABG<u16>(addr);
-        case 0x00200000: return GPU.ReadVRAM_BBG<u16>(addr);
-        case 0x00400000: return GPU.ReadVRAM_AOBJ<u16>(addr);
-        case 0x00600000: return GPU.ReadVRAM_BOBJ<u16>(addr);
-        default:         return GPU.ReadVRAM_LCDC<u16>(addr);
+        case 0x00000000: GPU.SyncVRAM_ABG(addr, false); return GPU.ReadVRAM_ABG<u16>(addr);
+        case 0x00200000: GPU.SyncVRAM_BBG(addr, false); return GPU.ReadVRAM_BBG<u16>(addr);
+        case 0x00400000: GPU.SyncVRAM_AOBJ(addr, false); return GPU.ReadVRAM_AOBJ<u16>(addr);
+        case 0x00600000: GPU.SyncVRAM_BOBJ(addr, false); return GPU.ReadVRAM_BOBJ<u16>(addr);
+        default:         GPU.SyncVRAM_LCDC(addr, false); return GPU.ReadVRAM_LCDC<u16>(addr);
         }
 
     case 0x07000000:
@@ -2074,11 +2076,11 @@ u32 NDS::ARM9Read32(u32 addr)
     case 0x06000000:
         switch (addr & 0x00E00000)
         {
-        case 0x00000000: return GPU.ReadVRAM_ABG<u32>(addr);
-        case 0x00200000: return GPU.ReadVRAM_BBG<u32>(addr);
-        case 0x00400000: return GPU.ReadVRAM_AOBJ<u32>(addr);
-        case 0x00600000: return GPU.ReadVRAM_BOBJ<u32>(addr);
-        default:         return GPU.ReadVRAM_LCDC<u32>(addr);
+        case 0x00000000: GPU.SyncVRAM_ABG(addr, false); return GPU.ReadVRAM_ABG<u32>(addr);
+        case 0x00200000: GPU.SyncVRAM_BBG(addr, false); return GPU.ReadVRAM_BBG<u32>(addr);
+        case 0x00400000: GPU.SyncVRAM_AOBJ(addr, false); return GPU.ReadVRAM_AOBJ<u32>(addr);
+        case 0x00600000: GPU.SyncVRAM_BOBJ(addr, false); return GPU.ReadVRAM_BOBJ<u32>(addr);
+        default:         GPU.SyncVRAM_LCDC(addr, false); return GPU.ReadVRAM_LCDC<u32>(addr);
         }
 
     case 0x07000000:
@@ -2174,11 +2176,11 @@ void NDS::ARM9Write16(u32 addr, u16 val)
         JIT.CheckAndInvalidate<0, ARMJIT_Memory::memregion_VRAM>(addr);
         switch (addr & 0x00E00000)
         {
-        case 0x00000000: GPU.WriteVRAM_ABG<u16>(addr, val); return;
-        case 0x00200000: GPU.WriteVRAM_BBG<u16>(addr, val); return;
-        case 0x00400000: GPU.WriteVRAM_AOBJ<u16>(addr, val); return;
-        case 0x00600000: GPU.WriteVRAM_BOBJ<u16>(addr, val); return;
-        default: GPU.WriteVRAM_LCDC<u16>(addr, val); return;
+        case 0x00000000: GPU.SyncVRAM_ABG(addr, true); GPU.WriteVRAM_ABG<u16>(addr, val); return;
+        case 0x00200000: GPU.SyncVRAM_BBG(addr, true); GPU.WriteVRAM_BBG<u16>(addr, val); return;
+        case 0x00400000: GPU.SyncVRAM_AOBJ(addr, true); GPU.WriteVRAM_AOBJ<u16>(addr, val); return;
+        case 0x00600000: GPU.SyncVRAM_BOBJ(addr, true); GPU.WriteVRAM_BOBJ<u16>(addr, val); return;
+        default: GPU.SyncVRAM_LCDC(addr, true); GPU.WriteVRAM_LCDC<u16>(addr, val); return;
         }
 
     case 0x07000000:
@@ -2234,11 +2236,11 @@ void NDS::ARM9Write32(u32 addr, u32 val)
         JIT.CheckAndInvalidate<0, ARMJIT_Memory::memregion_VRAM>(addr);
         switch (addr & 0x00E00000)
         {
-        case 0x00000000: GPU.WriteVRAM_ABG<u32>(addr, val); return;
-        case 0x00200000: GPU.WriteVRAM_BBG<u32>(addr, val); return;
-        case 0x00400000: GPU.WriteVRAM_AOBJ<u32>(addr, val); return;
-        case 0x00600000: GPU.WriteVRAM_BOBJ<u32>(addr, val); return;
-        default: GPU.WriteVRAM_LCDC<u32>(addr, val); return;
+        case 0x00000000: GPU.SyncVRAM_ABG(addr, true); GPU.WriteVRAM_ABG<u32>(addr, val); return;
+        case 0x00200000: GPU.SyncVRAM_BBG(addr, true); GPU.WriteVRAM_BBG<u32>(addr, val); return;
+        case 0x00400000: GPU.SyncVRAM_AOBJ(addr, true); GPU.WriteVRAM_AOBJ<u32>(addr, val); return;
+        case 0x00600000: GPU.SyncVRAM_BOBJ(addr, true); GPU.WriteVRAM_BOBJ<u32>(addr, val); return;
+        default: GPU.SyncVRAM_LCDC(addr, true); GPU.WriteVRAM_LCDC<u32>(addr, val); return;
         }
 
     case 0x07000000:
@@ -2761,6 +2763,20 @@ u8 NDS::ARM9IORead8(u32 addr)
 {
     switch (addr)
     {
+    case 0x04000004: return GPU.DispStat[0] & 0xFF;
+    case 0x04000005: return GPU.DispStat[0] >> 8;
+    case 0x04000006: return GPU.VCount & 0xFF;
+    case 0x04000007: return GPU.VCount >> 8;
+
+    case 0x04000064:
+    case 0x04000065:
+    case 0x04000066:
+    case 0x04000067:
+    case 0x0400006C:
+    case 0x0400006D:
+    case 0x0400106C:
+    case 0x0400106D: return GPU.Read8(addr);
+
     case 0x04000130: LagFrameFlag = false; return KeyInput & 0xFF;
     case 0x04000131: LagFrameFlag = false; return (KeyInput >> 8) & 0xFF;
     case 0x04000132: return KeyCnt[0] & 0xFF;
@@ -2899,7 +2915,9 @@ u16 NDS::ARM9IORead16(u32 addr)
 
     case 0x04000060: return GPU.GPU3D.Read16(addr);
     case 0x04000064:
-    case 0x04000066: return GPU.GPU2D_A.Read16(addr);
+    case 0x04000066:
+    case 0x0400006C:
+    case 0x0400106C: return GPU.Read16(addr);
 
     case 0x040000B8: return DMAs[0].Cnt & 0xFFFF;
     case 0x040000BA: return DMAs[0].Cnt >> 16;
@@ -3055,7 +3073,9 @@ u32 NDS::ARM9IORead32(u32 addr)
     case 0x04000004: return GPU.DispStat[0] | (GPU.VCount << 16);
 
     case 0x04000060: return GPU.GPU3D.Read32(addr);
-    case 0x04000064: return GPU.GPU2D_A.Read32(addr);
+    case 0x04000064:
+    case 0x0400006C:
+    case 0x0400106C: return GPU.Read32(addr);
 
     case 0x040000B0: return DMAs[0].SrcAddr;
     case 0x040000B4: return DMAs[0].DstAddr;
@@ -3196,10 +3216,25 @@ void NDS::ARM9IOWrite8(u32 addr, u8 val)
 {
     switch (addr)
     {
+    case 0x04000004: GPU.SetDispStat(0, val, 0x00FF); return;
+    case 0x04000005: GPU.SetDispStat(0, val << 8, 0xFF00); return;
+    case 0x04000006: GPU.SetVCount(val, 0x00FF); return;
+    case 0x04000007: GPU.SetVCount(val << 8, 0xFF00); return;
+
+    case 0x04000060:
+    case 0x04000061: GPU.GPU3D.Write8(addr, val); return;
+    case 0x04000064:
+    case 0x04000065:
+    case 0x04000066:
+    case 0x04000067:
+    case 0x04000068:
+    case 0x04000069:
+    case 0x0400006A:
+    case 0x0400006B:
     case 0x0400006C:
-    case 0x0400006D: GPU.GPU2D_A.Write8(addr, val); return;
+    case 0x0400006D:
     case 0x0400106C:
-    case 0x0400106D: GPU.GPU2D_B.Write8(addr, val); return;
+    case 0x0400106D: GPU.Write8(addr, val); return;
 
     case 0x04000132:
         KeyCnt[0] = (KeyCnt[0] & 0xFF00) | val;
@@ -3279,6 +3314,9 @@ void NDS::ARM9IOWrite8(u32 addr, u8 val)
         if (PostFlag9 & 0x01) val |= 0x01;
         PostFlag9 = val & 0x03;
         return;
+
+    // NO$GBA debug register "Char Out"
+        case 0x04FFFA1C: Log(LogLevel::Debug, "%c", char(val)); return;
     }
 
     if (addr >= 0x04000000 && addr < 0x04000060)
@@ -3304,19 +3342,16 @@ void NDS::ARM9IOWrite16(u32 addr, u16 val)
 {
     switch (addr)
     {
-    case 0x04000004: GPU.SetDispStat(0, val); return;
-    case 0x04000006: GPU.SetVCount(val); return;
+    case 0x04000004: GPU.SetDispStat(0, val, 0xFFFF); return;
+    case 0x04000006: GPU.SetVCount(val, 0xFFFF); return;
 
     case 0x04000060: GPU.GPU3D.Write16(addr, val); return;
-
     case 0x04000064:
-    case 0x04000066: GPU.GPU2D_A.Write16(addr, val); return;
-
+    case 0x04000066:
     case 0x04000068:
-    case 0x0400006A: GPU.GPU2D_A.Write16(addr, val); return;
-
-    case 0x0400006C: GPU.GPU2D_A.Write16(addr, val); return;
-    case 0x0400106C: GPU.GPU2D_B.Write16(addr, val); return;
+    case 0x0400006A:
+    case 0x0400006C:
+    case 0x0400106C: GPU.Write16(addr, val); return;
 
     case 0x040000B8: DMAs[0].WriteCnt((DMAs[0].Cnt & 0xFFFF0000) | val); return;
     case 0x040000BA: DMAs[0].WriteCnt((DMAs[0].Cnt & 0x0000FFFF) | (val << 16)); return;
@@ -3503,16 +3538,15 @@ void NDS::ARM9IOWrite32(u32 addr, u32 val)
     switch (addr)
     {
     case 0x04000004:
-        GPU.SetDispStat(0, val & 0xFFFF);
-        GPU.SetVCount(val >> 16);
+        GPU.SetDispStat(0, val & 0xFFFF, 0xFFFF);
+        GPU.SetVCount(val >> 16, 0xFFFF);
         return;
 
     case 0x04000060: GPU.GPU3D.Write32(addr, val); return;
     case 0x04000064:
-    case 0x04000068: GPU.GPU2D_A.Write32(addr, val); return;
-
-    case 0x0400006C: GPU.GPU2D_A.Write16(addr, val&0xFFFF); return;
-    case 0x0400106C: GPU.GPU2D_B.Write16(addr, val&0xFFFF); return;
+    case 0x04000068:
+    case 0x0400006C:
+    case 0x0400106C: GPU.Write32(addr, val); return;
 
     case 0x040000B0: DMAs[0].SrcAddr = val; return;
     case 0x040000B4: DMAs[0].DstAddr = val; return;
@@ -3699,6 +3733,11 @@ u8 NDS::ARM7IORead8(u32 addr)
 {
     switch (addr)
     {
+    case 0x04000004: return GPU.DispStat[1] & 0xFF;
+    case 0x04000005: return GPU.DispStat[1] >> 8;
+    case 0x04000006: return GPU.VCount & 0xFF;
+    case 0x04000007: return GPU.VCount >> 8;
+
     case 0x04000130: return KeyInput & 0xFF;
     case 0x04000131: return (KeyInput >> 8) & 0xFF;
     case 0x04000132: return KeyCnt[1] & 0xFF;
@@ -4006,6 +4045,11 @@ void NDS::ARM7IOWrite8(u32 addr, u8 val)
 {
     switch (addr)
     {
+    case 0x04000004: GPU.SetDispStat(1, val, 0x00FF); return;
+    case 0x04000005: GPU.SetDispStat(1, val << 8, 0xFF00); return;
+    case 0x04000006: GPU.SetVCount(val, 0x00FF); return;
+    case 0x04000007: GPU.SetVCount(val << 8, 0xFF00); return;
+
     case 0x04000132:
         KeyCnt[1] = (KeyCnt[1] & 0xFF00) | val;
         return;
@@ -4111,8 +4155,8 @@ void NDS::ARM7IOWrite16(u32 addr, u16 val)
 {
     switch (addr)
     {
-    case 0x04000004: GPU.SetDispStat(1, val); return;
-    case 0x04000006: GPU.SetVCount(val); return;
+    case 0x04000004: GPU.SetDispStat(1, val, 0xFFFF); return;
+    case 0x04000006: GPU.SetVCount(val, 0xFFFF); return;
 
     case 0x040000B8: DMAs[4].WriteCnt((DMAs[4].Cnt & 0xFFFF0000) | val); return;
     case 0x040000BA: DMAs[4].WriteCnt((DMAs[4].Cnt & 0x0000FFFF) | (val << 16)); return;
@@ -4276,8 +4320,8 @@ void NDS::ARM7IOWrite32(u32 addr, u32 val)
     switch (addr)
     {
     case 0x04000004:
-        GPU.SetDispStat(1, val & 0xFFFF);
-        GPU.SetVCount(val >> 16);
+        GPU.SetDispStat(1, val & 0xFFFF, 0xFFFF);
+        GPU.SetVCount(val >> 16, 0xFFFF);
         return;
 
     case 0x040000B0: DMAs[4].SrcAddr = val; return;

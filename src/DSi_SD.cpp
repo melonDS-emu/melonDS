@@ -1,5 +1,5 @@
 /*
-    Copyright 2016-2025 melonDS team
+    Copyright 2016-2026 melonDS team
 
     This file is part of melonDS.
 
@@ -62,7 +62,7 @@ enum
 };
 
 
-DSi_SDHost::DSi_SDHost(melonDS::DSi& dsi, DSi_NAND::NANDImage&& nand, std::optional<FATStorage>&& sdcard) noexcept : DSi(dsi), Num(0)
+DSi_SDHost::DSi_SDHost(melonDS::DSi& dsi, std::optional<DSi_NAND::NANDImage>&& nand, std::optional<FATStorage>&& sdcard) noexcept : DSi(dsi), Num(0)
 {
     DSi.RegisterEventFuncs(Event_DSi_SDMMCTransfer, this,
                            {MakeEventThunk(DSi_SDHost, FinishTX),
@@ -70,7 +70,8 @@ DSi_SDHost::DSi_SDHost(melonDS::DSi& dsi, DSi_NAND::NANDImage&& nand, std::optio
 
     Ports[0] = sdcard ? std::make_unique<DSi_MMCStorage>(DSi, this, std::move(*sdcard)) : nullptr;
     sdcard = std::nullopt; // to ensure that sdcard isn't left with a moved-from object
-    Ports[1] = std::make_unique<DSi_MMCStorage>(DSi, this, std::move(nand));
+    Ports[1] = nand ? std::make_unique<DSi_MMCStorage>(DSi, this, std::move(*nand)): nullptr;
+    nand = std::nullopt; // to ensure that nand isn't left with a moved-from object
 }
 
 // Creates an SDIO host
@@ -137,25 +138,25 @@ void DSi_SDHost::Reset()
 
 FATStorage* DSi_SDHost::GetSDCard() noexcept
 {
-    if (Num != 0) return nullptr;
+    if (Num != 0 || !Ports[0]) return nullptr;
     return static_cast<DSi_MMCStorage*>(Ports[0].get())->GetSDCard();
 }
 
 const FATStorage* DSi_SDHost::GetSDCard() const noexcept
 {
-    if (Num != 0) return nullptr;
+    if (Num != 0 || !Ports[0]) return nullptr;
     return static_cast<const DSi_MMCStorage*>(Ports[0].get())->GetSDCard();
 }
 
 DSi_NAND::NANDImage* DSi_SDHost::GetNAND() noexcept
 {
-    if (Num != 0) return nullptr;
+    if (Num != 0 || !Ports[1]) return nullptr;
     return static_cast<DSi_MMCStorage*>(Ports[1].get())->GetNAND();
 }
 
 const DSi_NAND::NANDImage* DSi_SDHost::GetNAND() const noexcept
 {
-    if (Num != 0) return nullptr;
+    if (Num != 0 || !Ports[1]) return nullptr;
     return static_cast<const DSi_MMCStorage*>(Ports[1].get())->GetNAND();
 }
 
@@ -163,7 +164,14 @@ void DSi_SDHost::SetSDCard(FATStorage&& sdcard) noexcept
 {
     if (Num != 0) return;
 
-    static_cast<DSi_MMCStorage*>(Ports[0].get())->SetSDCard(std::move(sdcard));
+    if (!Ports[0])
+    {
+        Ports[0] = std::make_unique<DSi_MMCStorage>(DSi, this, std::move(sdcard));
+    }
+    else
+    {
+        static_cast<DSi_MMCStorage*>(Ports[0].get())->SetSDCard(std::move(sdcard));
+    }
 }
 
 void DSi_SDHost::SetSDCard(std::optional<FATStorage>&& sdcard) noexcept
@@ -190,11 +198,28 @@ void DSi_SDHost::SetSDCard(std::optional<FATStorage>&& sdcard) noexcept
     // a moved-from optional isn't empty, it contains a moved-from object
 }
 
-void DSi_SDHost::SetNAND(DSi_NAND::NANDImage&& nand) noexcept
+void DSi_SDHost::SetNAND(std::optional<DSi_NAND::NANDImage>&& nand) noexcept
 {
     if (Num != 0) return;
 
-    static_cast<DSi_MMCStorage*>(Ports[1].get())->SetNAND(std::move(nand));
+    if (nand)
+    {
+        if (!Ports[1])
+        {
+            Ports[1] = std::make_unique<DSi_MMCStorage>(DSi, this, std::move(*nand));
+        }
+        else
+        {
+            static_cast<DSi_MMCStorage*>(Ports[1].get())->SetNAND(std::move(*nand));
+        }
+    }
+    else
+    {
+        Ports[1] = nullptr;
+    }
+
+    nand = std::nullopt;
+    // a moved-from optional isn't empty, it contains a moved-from object
 }
 
 void DSi_SDHost::DoSavestate(Savestate* file)
@@ -287,8 +312,10 @@ void DSi_SDHost::SetCardIRQ()
     u16 oldflags = CardIRQStatus & ~CardIRQMask;
     DSi_SDDevice* dev = Ports[PortSelect & 0x1].get();
 
-    if (dev->IRQ) CardIRQStatus |=  (1<<0);
-    else          CardIRQStatus &= ~(1<<0);
+    if (dev && dev->IRQ)
+        CardIRQStatus |=  (1<<0);
+    else
+        CardIRQStatus &= ~(1<<0);
 
     u16 newflags = CardIRQStatus & ~CardIRQMask;
 
@@ -362,7 +389,7 @@ void DSi_SDHost::FinishTX(u32 param)
     {
         if (StopAction & (1<<8))
         {
-            if (dev) dev->SendCMD(12, 0);
+            if (dev) dev->SendCMD(MMCCommand::StopTransmission, 0);
         }
 
         // CHECKME: presumably IRQ2 should not trigger here, but rather
@@ -451,7 +478,7 @@ void DSi_SDHost::CheckRX()
     {
         if (StopAction & (1<<8))
         {
-            if (dev) dev->SendCMD(12, 0);
+            if (dev) dev->SendCMD(MMCCommand::StopTransmission, 0);
         }
 
         // CHECKME: presumably IRQ2 should not trigger here, but rather
@@ -623,8 +650,8 @@ void DSi_SDHost::Write(u32 addr, u16 val)
                 // except DSi boot2 manually sends an APP_CMD prefix AND sets the next command to be ACMD
                 switch ((Command >> 6) & 0x3)
                 {
-                case 0: dev->SendCMD(cmd, Param); break;
-                case 1: /*dev->SendCMD(55, 0);*/ dev->SendCMD(cmd, Param); break;
+                case 0: dev->SendCMD((MMCCommand) cmd, Param); break;
+                case 1: /*dev->SendCMD(55, 0);*/ dev->SendCMD((MMCCommand) cmd, Param); break;
                 default:
                     Log(LogLevel::Warn, "%s: unknown command type %d, %02X %08X\n", SD_DESC, (Command>>6)&0x3, cmd, Param);
                     break;
@@ -663,7 +690,7 @@ void DSi_SDHost::Write(u32 addr, u16 val)
     case 0x024: SDClock = val & 0x03FF; return;
     case 0x026:
         BlockLen16 = val & 0x03FF;
-        if (BlockLen16 > 0x200) BlockLen16 = 0x200;
+        if (BlockLen16 > MMC_MAXIMUM_BLOCK_SIZE) BlockLen16 = MMC_MAXIMUM_BLOCK_SIZE;
         return;
     case 0x028: SDOption = val & 0xC1FF; return;
 
@@ -839,9 +866,9 @@ void DSi_MMCStorage::Reset()
 
     memset(SSR, 0, 64);
 
-    BlockSize = 0;
+    BlockSize = MMC_DEFAULT_BLOCK_SIZE;
     RWAddress = 0;
-    RWCommand = 0;
+    RWCommand = MMCCommand::Reset;
 }
 
 void DSi_MMCStorage::DoSavestate(Savestate* file)
@@ -859,26 +886,27 @@ void DSi_MMCStorage::DoSavestate(Savestate* file)
 
     file->Var32(&BlockSize);
     file->Var64(&RWAddress);
-    file->Var32(&RWCommand);
+
+    file->Var32((u32*) &RWCommand);
 
     // TODO: what about the file contents?
 }
 
-void DSi_MMCStorage::SendCMD(u8 cmd, u32 param)
+void DSi_MMCStorage::SendCMD(MMCCommand cmd, u32 param)
 {
     if (CSR & (1<<5))
     {
         CSR &= ~(1<<5);
-        return SendACMD(cmd, param);
+        return SendACMD((MMCAppCommand) cmd, param);
     }
 
     switch (cmd)
     {
-    case 0: // reset/etc
+    case MMCCommand::Reset:
         Host->SendResponse(CSR, true);
         return;
 
-    case 1: // SEND_OP_COND
+    case MMCCommand::GetOCR:
         // CHECKME!!
         // also TODO: it's different for the SD card
         if (std::holds_alternative<DSi_NAND::NANDImage>(Storage))
@@ -895,16 +923,16 @@ void DSi_MMCStorage::SendCMD(u8 cmd, u32 param)
         }
         return;
 
-    case 2:
-    case 10: // get CID
+    case MMCCommand::AllGetCID:
+    case MMCCommand::GetCID:
         Host->SendResponse(*(u32*)&CID[12], false);
         Host->SendResponse(*(u32*)&CID[8], false);
         Host->SendResponse(*(u32*)&CID[4], false);
         Host->SendResponse(*(u32*)&CID[0], true);
-        if (cmd == 2) SetState(0x02);
+        if (cmd == MMCCommand::AllGetCID) SetState(0x02);
         return;
 
-    case 3: // get/set RCA
+    case MMCCommand::GetRCA:
         if (holds_alternative<DSi_NAND::NANDImage>(Storage))
         {
             RCA = param >> 16;
@@ -918,83 +946,81 @@ void DSi_MMCStorage::SendCMD(u8 cmd, u32 param)
         }
         return;
 
-    case 6: // MMC: 'SWITCH'
+    case MMCCommand::Switch:
         // TODO!
         Host->SendResponse(CSR, true);
         return;
 
-    case 7: // select card (by RCA)
+    case MMCCommand::Select:
         Host->SendResponse(CSR, true);
         return;
 
-    case 8: // set voltage
+    case MMCCommand::SetVoltage:
         Host->SendResponse(param, true);
         return;
 
-    case 9: // get CSD
+    case MMCCommand::GetCSD:
         Host->SendResponse(*(u32*)&CSD[12], false);
         Host->SendResponse(*(u32*)&CSD[8], false);
         Host->SendResponse(*(u32*)&CSD[4], false);
         Host->SendResponse(*(u32*)&CSD[0], true);
         return;
 
-    case 12: // stop operation
+    case MMCCommand::StopTransmission:
         SetState(0x04);
         if (auto* nand = get_if<DSi_NAND::NANDImage>(&Storage))
             FileFlush(nand->GetFile());
-        RWCommand = 0;
+        RWCommand = MMCCommand::Reset;
         Host->SendResponse(CSR, true);
         return;
 
-    case 13: // get status
+    case MMCCommand::GetCSR:
         Host->SendResponse(CSR, true);
         return;
 
-    case 16: // set block size
+    case MMCCommand::SetBlockLength:
         BlockSize = param;
-        if (BlockSize > 0x200)
+        if (BlockSize > MMC_MAXIMUM_BLOCK_SIZE)
         {
             // TODO! raise error
             Log(LogLevel::Warn, "!! SD/MMC: BAD BLOCK LEN %d\n", BlockSize);
-            BlockSize = 0x200;
+            BlockSize = MMC_DEFAULT_BLOCK_SIZE;
         }
         SetState(0x04); // CHECKME
         Host->SendResponse(CSR, true);
         return;
 
-    case 17: // read single block
-    case 18: // read multiple blocks
+    case MMCCommand::ReadSingleBlock:
+    case MMCCommand::ReadMultipleBlocks:
         //printf("READ_MULTIPLE_BLOCKS addr=%08X size=%08X\n", param, BlockSize);
         RWAddress = param;
         if (OCR & (1<<30))
         {
             RWAddress <<= 9;
-            BlockSize = 512;
+            BlockSize = MMC_DEFAULT_BLOCK_SIZE;
         }
-        if (cmd == 18)
-            RWCommand = 18;
+        RWCommand = cmd;
         Host->SendResponse(CSR, true);
         RWAddress += ReadBlock(RWAddress);
         SetState(0x05);
         return;
 
-    case 24: // write single block
-    case 25: // write multiple blocks
+    case MMCCommand::WriteSingleBlock:
+    case MMCCommand::WriteMultipleBlocks:
         //printf("WRITE_MULTIPLE_BLOCKS addr=%08X size=%08X\n", param, BlockSize);
         RWAddress = param;
         if (OCR & (1<<30))
         {
             RWAddress <<= 9;
-            BlockSize = 512;
+            BlockSize = MMC_DEFAULT_BLOCK_SIZE;
         }
-        if (cmd == 25)
-            RWCommand = 25;
+        RWCommand = cmd;
         Host->SendResponse(CSR, true);
         RWAddress += WriteBlock(RWAddress);
         SetState(0x04);
         return;
 
-    case 55: // appcmd prefix
+    case MMCCommand::AppCommand:
         CSR |= (1<<5);
         Host->SendResponse(CSR, true);
         return;
@@ -1003,21 +1029,21 @@ void DSi_MMCStorage::SendCMD(u8 cmd, u32 param)
     Log(LogLevel::Warn, "MMC: unknown CMD %d %08X\n", cmd, param);
 }
 
-void DSi_MMCStorage::SendACMD(u8 cmd, u32 param)
+void DSi_MMCStorage::SendACMD(MMCAppCommand cmd, u32 param)
 {
     switch (cmd)
     {
-    case 6: // set bus width (TODO?)
+    case MMCAppCommand::SetBusWidth:
         //printf("SET BUS WIDTH %08X\n", param);
         Host->SendResponse(CSR, true);
         return;
 
-    case 13: // get SSR
+    case MMCAppCommand::GetSSR:
         Host->SendResponse(CSR, true);
         Host->DataRX(SSR, 64);
         return;
 
-    case 41: // set operating conditions
+    case MMCAppCommand::SetOCR:
         // CHECKME:
         // DSi boot2 sets this to 0x40100000 (hardcoded)
         // then has two codepaths depending on whether bit30 did get set
@@ -1029,11 +1055,11 @@ void DSi_MMCStorage::SendACMD(u8 cmd, u32 param)
         SetState(0x01);
         return;
 
-    case 42: // ???
+    case MMCAppCommand::SetCardDetect: // ???
         Host->SendResponse(CSR, true);
         return;
 
-    case 51: // get SCR
+    case MMCAppCommand::GetSCR:
         Host->SendResponse(CSR, true);
         Host->DataRX(SCR, 8);
         return;
@@ -1044,17 +1070,21 @@ void DSi_MMCStorage::SendACMD(u8 cmd, u32 param)
 
 void DSi_MMCStorage::ContinueTransfer()
 {
-    if (RWCommand == 0) return;
+    if (RWCommand == MMCCommand::Reset) return;
 
     u32 len = 0;
 
     switch (RWCommand)
     {
-    case 18:
+    case MMCCommand::ReadSingleBlock:
+        RWCommand = MMCCommand::Reset;
+    case MMCCommand::ReadMultipleBlocks:
         len = ReadBlock(RWAddress);
         break;
 
-    case 25:
+    case MMCCommand::WriteSingleBlock:
+        RWCommand = MMCCommand::Reset;
+    case MMCCommand::WriteMultipleBlocks:
         len = WriteBlock(RWAddress);
         break;
     }
@@ -1067,7 +1097,7 @@ u32 DSi_MMCStorage::ReadBlock(u64 addr)
     u32 len = BlockSize;
     len = Host->GetTransferrableLen(len);
 
-    u8 data[0x200];
+    u8 data[MMC_MAXIMUM_BLOCK_SIZE];
     if (auto* sd = std::get_if<FATStorage>(&Storage))
     {
         sd->ReadSectors((u32)(addr >> 9), 1, data);
@@ -1086,8 +1116,8 @@ u32 DSi_MMCStorage::WriteBlock(u64 addr)
     u32 len = BlockSize;
     len = Host->GetTransferrableLen(len);
 
-    u8 data[0x200];
-    if (len < 0x200)
+    u8 data[MMC_MAXIMUM_BLOCK_SIZE];
+    if (len < MMC_DEFAULT_BLOCK_SIZE)
     {
         if (auto* sd = get_if<FATStorage>(&Storage))
         {

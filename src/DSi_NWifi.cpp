@@ -1,5 +1,5 @@
 /*
-    Copyright 2016-2025 melonDS team
+    Copyright 2016-2026 melonDS team
 
     This file is part of melonDS.
 
@@ -619,17 +619,17 @@ void DSi_NWifi::SDIO_Write(u32 func, u32 addr, u8 val)
 }
 
 
-void DSi_NWifi::SendCMD(u8 cmd, u32 param)
+void DSi_NWifi::SendCMD(MMCCommand cmd, u32 param)
 {
     switch (cmd)
     {
-    case 12:
+    case MMCCommand::StopTransmission:
         // stop command
         // CHECKME: does the SDIO controller actually send those??
         // DSi firmware sets it to send them
         return;
 
-    case 52: // IO_RW_DIRECT
+    case MMCCommand::IORWDirect:
         {
             u32 func = (param >> 28) & 0x7;
             u32 addr = (param >> 9) & 0x1FFFF;
@@ -654,7 +654,7 @@ void DSi_NWifi::SendCMD(u8 cmd, u32 param)
         }
         return;
 
-    case 53: // IO_RW_EXTENDED
+    case MMCCommand::IORWExtended:
         {
             u32 addr = (param >> 9) & 0x1FFFF;
 
@@ -691,7 +691,7 @@ void DSi_NWifi::SendCMD(u8 cmd, u32 param)
     Log(LogLevel::Warn, "NWIFI: unknown CMD %d %08X\n", cmd, param);
 }
 
-void DSi_NWifi::SendACMD(u8 cmd, u32 param)
+void DSi_NWifi::SendACMD(MMCAppCommand cmd, u32 param)
 {
     Log(LogLevel::Warn, "NWIFI: unknown ACMD %d %08X\n", cmd, param);
 }

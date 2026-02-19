@@ -1,5 +1,5 @@
 /*
-    Copyright 2016-2025 melonDS team
+    Copyright 2016-2026 melonDS team
 
     This file is part of melonDS.
 
@@ -83,7 +83,12 @@ void DateTimeDialog::done(int r)
 
 void DateTimeDialog::on_chkChangeTime_clicked(bool checked)
 {
-    if (checked) ui->chkResetTime->setChecked(false);
+    if (checked)
+	{
+		ui->chkResetTime->setChecked(false);
+		ui->txtNewCustomTime->setDateTime(customTime);
+	}
+	
     ui->txtNewCustomTime->setEnabled(checked);
 }
 

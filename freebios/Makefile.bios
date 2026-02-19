@@ -1,0 +1,119 @@
+# SPDX-License-Identifier: CC0-1.0
+#
+# SPDX-FileContributor: Antonio Niño Díaz, 2023
+# SPDX-FileContributor: Adrian "asie" Siekierka, 2025
+
+SOURCEDIRS	:= src src/$(TARGET)
+
+DEFINES		:= \
+	-DPLATFORM_$(shell echo $(PLATFORM) | tr a-z A-Z) \
+	-DTARGET_$(shell echo $(TARGET) | tr a-z A-Z)
+
+HEADER_OUTPUT	:= $(patsubst %.bin,%.h,$(OUTPUT))
+NAME		:= bios_$(PLATFORM)_$(TARGET)
+BUILDDIR	:= build/$(NAME)
+ELF		:= build/$(NAME).elf
+DUMP		:= build/$(NAME).dump
+MAP		:= build/$(NAME).map
+
+# Tools
+# -----
+
+PREFIX		:= arm-none-eabi-
+CC		:= $(PREFIX)gcc
+LD		:= $(PREFIX)gcc
+OBJCOPY		:= $(PREFIX)objcopy
+OBJDUMP		:= $(PREFIX)objdump
+
+# Verbose flag
+# ------------
+
+ifeq ($(VERBOSE),1)
+V		:=
+else
+V		:= @
+endif
+
+# Source files
+# ------------
+
+SOURCES_S	:= $(shell find -L $(SOURCEDIRS) -maxdepth 1 -name "*.s")
+SOURCES_C	:= $(shell find -L $(SOURCEDIRS) -maxdepth 1 -name "*.c")
+
+# Compiler and linker flags
+# -------------------------
+
+ifeq ($(TARGET),arm9)
+ARCH		:= -mthumb -mcpu=arm946e-s+nofp -Wl,--use-blx
+else
+ARCH		:= -mthumb -mcpu=arm7tdmi
+endif
+
+INCLUDEFLAGS	:= $(foreach path,$(INCLUDEDIRS),-I$(path))
+
+ASFLAGS		:= -x assembler-with-cpp $(DEFINES) $(INCLUDEFLAGS) \
+		   $(ARCH) -ffunction-sections -fdata-sections
+
+CFLAGS		:= $(WARNFLAGS) $(DEFINES) $(INCLUDEFLAGS) \
+		   $(ARCH) -ffunction-sections -fdata-sections -Os
+
+LDFLAGS		:= $(ARCH) -Wl,-Map,$(MAP) $(DEFINES) -nostdlib \
+		   -Wl,--gc-sections -Wl,--no-warn-rwx-segments
+
+LDFLAGS		+= -Wl,-Ttext 0x00000000 -Wl,-e 0x00000000
+
+# Intermediate build files
+# ------------------------
+
+OBJS		:= $(addsuffix .o,$(addprefix $(BUILDDIR)/,$(SOURCES_S))) \
+		   $(addsuffix .o,$(addprefix $(BUILDDIR)/,$(SOURCES_C)))
+
+DEPS		:= $(OBJS:.o=.d)
+
+# Targets
+# -------
+
+.PHONY: all dump
+
+all: $(OUTPUT) $(HEADER_OUTPUT)
+
+$(HEADER_OUTPUT): $(OUTPUT)
+	@echo "  XXD     $@"
+	$(V)xxd -i -n $(patsubst %.bin,%,$(OUTPUT)) -c 16 $(OUTPUT) $(HEADER_OUTPUT)
+
+$(OUTPUT): $(ELF)
+	@echo "  OBJCOPY $@"
+	$(V)$(OBJCOPY) -O binary $< $@
+
+$(ELF): $(OBJS)
+	@echo "  LD      $@"
+	$(V)$(LD) -o $@ $(OBJS) $(LDFLAGS)
+
+$(DUMP): $(ELF)
+	@echo "  OBJDUMP $@"
+	$(V)$(OBJDUMP) -h -C -S $< > $@
+
+dump: $(DUMP)
+
+# Rules
+# -----
+
+$(BUILDDIR)/%.s.o : %.s
+	@echo "  AS      $<"
+	@mkdir -p $(@D)
+	$(V)$(CC) $(ASFLAGS) -MMD -MP -c -o $@ $<
+
+$(BUILDDIR)/%.c.o : %.c
+	@echo "  CC      $<"
+	@mkdir -p $(@D)
+	$(V)$(CC) $(CFLAGS) -MMD -MP -c -o $@ $<
+
+$(BUILDDIR)/%.arm.c.o : %.arm.c
+	@echo "  CC      $<"
+	@mkdir -p $(@D)
+	$(V)$(CC) $(CFLAGS) -MMD -MP -marm -mlong-calls -c -o $@ $<
+
+# Include dependency files if they exist
+# --------------------------------------
+
+-include $(DEPS)

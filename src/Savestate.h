@@ -1,5 +1,5 @@
 /*
-    Copyright 2016-2025 melonDS team
+    Copyright 2016-2026 melonDS team
 
     This file is part of melonDS.
 
@@ -24,8 +24,15 @@
 #include <stdio.h>
 #include "types.h"
 
-#define SAVESTATE_MAJOR 12
-#define SAVESTATE_MINOR 1
+#define SAVESTATE_MAJOR 14
+#define SAVESTATE_MINOR 0
+
+// bitmask for the savestate config word
+enum
+{
+    SC_Console_DSi      = (1<<0),
+    SC_DSi_DSPHLE       = (1<<16),
+};
 
 namespace melonDS
 {
@@ -66,7 +73,8 @@ public:
         VarArray(var, sizeof(*var));
     }
 
-    void Bool32(bool* var);
+    void VarBool(bool* var);
+    void Bool32(bool* var); // backwards compatibility (TODO remove)
 
     void VarArray(void* data, u32 len);
 

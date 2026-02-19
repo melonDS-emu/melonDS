@@ -4,6 +4,7 @@ include(FixInterfaceIncludes)
 
 add_library(core STATIC
     ARCodeFile.cpp
+    ARDatabaseDAT.cpp
     AREngine.cpp
     ARM.cpp
     ARM_InstrTable.h
@@ -21,6 +22,7 @@ add_library(core STATIC
     DSi_Camera.cpp
     DSi_DSP.cpp
     DSi_I2C.cpp
+    DSi_I2S.cpp
     DSi_NAND.cpp
     DSi_NDMA.cpp
     DSi_NWifi.cpp
@@ -32,6 +34,7 @@ add_library(core STATIC
     GBACart.cpp
     GBACartMotionPak.cpp
     GPU.cpp
+    GPU_Soft.cpp
     GPU2D.cpp
     GPU2D_Soft.cpp
     GPU3D.cpp
@@ -39,6 +42,7 @@ add_library(core STATIC
     GPU3D_Texcache.cpp
     GPU3D_Texcache.h
     melonDLDI.h
+    Mic.cpp
     NDS.cpp
     NDSCart.cpp
     NDSCartR4.cpp
@@ -58,6 +62,11 @@ add_library(core STATIC
     Wifi.cpp
     WifiAP.cpp
 
+    DSP_HLE/UcodeBase.cpp
+    DSP_HLE/AACUcode.cpp
+    DSP_HLE/G711Ucode.cpp
+    DSP_HLE/GraphicsUcode.cpp
+
     fatfs/ff.c
     fatfs/ffsystem.c
     fatfs/ffunicode.c
@@ -65,7 +74,9 @@ add_library(core STATIC
 
     sha1/sha1.c
     tiny-AES-c/aes.c
-    xxhash/xxhash.c)
+    xxhash/xxhash.c
+
+    blip-buf/blip_buf.c)
 
 if (ENABLE_GDBSTUB)
     message(NOTICE "Enabling GDB stub")
@@ -77,14 +88,14 @@ if (ENABLE_GDBSTUB)
 endif()
 
 if (ENABLE_OGLRENDERER)
+    add_subdirectory(OpenGL_shaders)
     target_sources(core PRIVATE
         GPU_OpenGL.cpp
-        GPU_OpenGL_shaders.h
+        GPU2D_OpenGL.cpp
         GPU3D_OpenGL.cpp
         GPU3D_Compute.cpp
         GPU3D_TexcacheOpenGL.cpp
         GPU3D_TexcacheOpenGL.h
-        GPU3D_OpenGL_shaders.h
         OpenGLSupport.cpp)
 
     target_compile_definitions(core PUBLIC OGLRENDERER_ENABLED)
@@ -106,6 +117,10 @@ if (ENABLE_JIT)
         # Required for memory mapping-related functions introduced in Windows 8
         target_compile_definitions(core PRIVATE -D_WIN32_WINNT=_WIN32_WINNT_WIN8)
         target_link_libraries(core PRIVATE onecore)
+    endif()
+
+    if (CMAKE_SYSTEM_NAME STREQUAL "OpenBSD")
+        target_link_options(core PUBLIC -Wl,-z,wxneeded)
     endif()
 
     if (ARCHITECTURE STREQUAL x86_64)
@@ -171,6 +186,10 @@ if (NOT MSVC)
     # (which is fundamentally non-portable, so this is fine)
 endif()
 
+# Fix xxhash compile errors when using -Og
+# See https://github.com/Cyan4973/xxHash/blob/136cc1f8fe4d5ea62a7c16c8424d4fa5158f6d68/README.md?plain=1#L159-L163
+target_compile_definitions(core PRIVATE $<$<CONFIG:DEBUG>:XXH_NO_INLINE_HINTS=1>)
+
 find_library(m MATH_LIBRARY)
 
 if (MATH_LIBRARY)
@@ -188,7 +207,11 @@ endif()
 
 if (WIN32)
     target_link_libraries(core PRIVATE ole32 comctl32 wsock32 ws2_32)
-    target_compile_definitions(core PUBLIC WIN32_LEAN_AND_MEAN NOMINMAX)
+
+    if (NOT MINGW)
+        find_path(DIRENT_INCLUDE_DIRS "dirent.h")
+        target_include_directories(core PUBLIC ${DIRENT_INCLUDE_DIRS})
+    endif()
 elseif(NOT APPLE AND NOT HAIKU)
     check_library_exists(rt shm_open "" NEED_LIBRT)
     if (NEED_LIBRT)

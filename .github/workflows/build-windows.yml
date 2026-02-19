@@ -10,7 +10,6 @@ on:
       - master
 
 env:
-  VCPKG_COMMIT: 2ad004460f5db4d3b66f62f5799ff66c265c4b5d
   MELONDS_GIT_BRANCH: ${{ github.ref }}
   MELONDS_GIT_HASH: ${{ github.sha }}
   MELONDS_BUILD_PROVIDER: GitHub Actions
@@ -18,10 +17,12 @@ env:
 
 jobs:
   build:
-    runs-on: windows-latest
+    runs-on: windows-2025
     defaults:
       run:
         shell: msys2 {0}
+    env:
+      VCPKG_BINARY_SOURCES: clear;files,${{ github.workspace }}/vcpkg_cache,readwrite
     steps:
     - name: Check out sources
       uses: actions/checkout@v3
@@ -31,10 +32,16 @@ jobs:
         msystem: ucrt64
         update: true
         pacboy: gcc:p cmake:p ninja:p make:p
+    - name: Restore vcpkg cache
+      uses: actions/cache/restore@v4
+      with:
+        path: ${{ github.workspace }}/vcpkg_cache
+        key: vcpkg-x86_64-mingw-${{ hashFiles('vcpkg.json') }}
+        restore-keys: vcpkg-x86_64-mingw-
     - name: Set up vcpkg
       uses: lukka/run-vcpkg@v11
       with:
-        vcpkgGitCommitId: ${{ env.VCPKG_COMMIT }}
+        vcpkgJsonGlob: vcpkg.json
     - name: Configure
       run: cmake --preset=release-mingw-x86_64 -DMELONDS_EMBED_BUILD_INFO=ON
     - name: Build
@@ -43,3 +50,8 @@ jobs:
       with:
         name: melonDS-windows-x86_64
         path: .\build\release-mingw-x86_64\melonDS.exe
+    - name: Save vcpkg cache
+      uses: actions/cache/save@v4
+      with:
+        path: ${{ github.workspace }}/vcpkg_cache
+        key: vcpkg-x86_64-mingw-${{ hashFiles('vcpkg.json') }}

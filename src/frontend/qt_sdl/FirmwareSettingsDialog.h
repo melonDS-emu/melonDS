@@ -1,5 +1,5 @@
 /*
-    Copyright 2016-2025 melonDS team
+    Copyright 2016-2026 melonDS team
 
     This file is part of melonDS.
 
@@ -79,7 +79,8 @@ public:
         "French",
         "German",
         "Italian",
-        "Spanish"
+        "Spanish",
+        "Chinese"
     };
 
     const QStringList months

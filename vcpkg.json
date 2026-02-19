@@ -1,4 +1,14 @@
 {
+	"vcpkg-configuration": {
+		"default-registry": {
+			"kind": "git",
+			"repository": "https://github.com/Microsoft/vcpkg",
+			"baseline": "55fab67aea1027f7179ae6b5c54a5ba9091c16aa",
+			"reference": "55fab67aea1027f7179ae6b5c54a5ba9091c16aa"
+		},
+		"overlay-ports": [ "./cmake/overlay-ports" ],
+		"overlay-triplets": [ "./cmake/overlay-triplets" ]
+	},
 	"default-features": ["qt6"],
 	"dependencies": [
 		"sdl2",
@@ -17,7 +27,11 @@
 		{
 			"name": "libslirp",
 			"platform": "linux"
-		}
+		},
+		"faad2",
+		"pkgconf",
+		{ "name": "pkgconf", "host": true },
+		{ "name": "dirent", "platform": "windows" }
 	],
 	"features": {
 		"qt6": {

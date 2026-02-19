@@ -1,5 +1,5 @@
 /*
-    Copyright 2016-2025 melonDS team
+    Copyright 2016-2026 melonDS team
 
     This file is part of melonDS.
 
@@ -48,6 +48,7 @@ enum
     HK_PowerButton,
     HK_VolumeUp,
     HK_VolumeDown,
+    HK_AudioMuteToggle,
     HK_SlowMo,
     HK_FastForwardToggle,
     HK_SlowMoToggle,
@@ -121,7 +122,8 @@ public:
     void setVSyncGL(bool vsync);
     void makeCurrentGL();
     void releaseGL();
-    void drawScreenGL();
+
+    void drawScreen();
 
     // return: empty string = setup OK, non-empty = error message
     QString verifySetup();
@@ -155,9 +157,15 @@ public:
     void setJoystick(int id);
     int getJoystickID() { return joystickID; }
     SDL_Joystick* getJoystick() { return joystick; }
+    std::shared_ptr<SDL_mutex> getJoyMutex() { return joyMutex; }
 
     void touchScreen(int x, int y);
     void releaseScreen();
+
+    // mic start/stop control from core
+    void micStart();
+    void micStop();
+    int micReadInput(melonDS::s16* data, int maxlength);
 
     QMutex renderLock;
 
@@ -169,7 +177,7 @@ private:
     QString verifyDSiBIOS();
     QString verifyDSFirmware();
     QString verifyDSiFirmware();
-    QString verifyDSiNAND();
+    QString verifyDSiNAND(bool isoptional);
 
     std::string getEffectiveFirmwareSavePath();
     void initFirmwareSaveManager() noexcept;
@@ -216,20 +224,22 @@ private:
     void audioDeInit();
     void audioEnable();
     void audioDisable();
-    void audioMute();
+    void updateAudioMuteByWindowFocus();
+    void toggleAudioMute();
+    void updateFastForwardMute(bool fastForward);
     void audioSync();
     void audioUpdateSettings();
 
     void micOpen();
     void micClose();
     void micLoadWav(const std::string& name);
-    void micProcess();
     void setupMicInputData();
 
     int audioGetNumSamplesOut(int outlen);
-    void audioResample(melonDS::s16* inbuf, int inlen, melonDS::s16* outbuf, int outlen, int volume);
-
     static void audioCallback(void* data, Uint8* stream, int len);
+
+    int micGetNumSamplesIn(int inlen);
+    void micResample(melonDS::s16* inbuf, int inlen);
     static void micCallback(void* data, Uint8* stream, int len);
 
     void onKeyPress(QKeyEvent* event);
@@ -298,7 +308,6 @@ private:
 
     std::unique_ptr<melonDS::Savestate> backupState;
     bool savestateLoaded;
-    std::string previousSaveFile;
 
     std::unique_ptr<melonDS::ARCodeFile> cheatFile;
     bool cheatsOn;
@@ -307,13 +316,21 @@ private:
     int audioFreq;
     int audioBufSize;
     float audioSampleFrac;
-    bool audioMuted;
+    bool audioMutedToggle;
+    bool audioMutedByFastForward;
+    bool audioMutedByWindowFocus;
     SDL_cond* audioSyncCond;
     SDL_mutex* audioSyncLock;
 
     int mpAudioMode;
 
+    bool micStarted;
+
     SDL_AudioDeviceID micDevice;
+    int micFreq;
+    int micBufSize;
+    float micSampleFrac;
+
     melonDS::s16 micExtBuffer[4096];
     melonDS::u32 micExtBufferWritePos;
     melonDS::u32 micExtBufferCount;
@@ -346,6 +363,9 @@ private:
     bool hasGyroscope = false;
     bool hasRumble = false;
     bool isRumbling = false;
+
+    static std::shared_ptr<SDL_mutex> joyMutexGlobal;
+    std::shared_ptr<SDL_mutex> joyMutex;
 
     melonDS::u32 keyInputMask, joyInputMask;
     melonDS::u32 keyHotkeyMask, joyHotkeyMask;

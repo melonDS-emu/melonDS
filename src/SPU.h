@@ -1,5 +1,5 @@
 /*
-    Copyright 2016-2025 melonDS team
+    Copyright 2016-2026 melonDS team
 
     This file is part of melonDS.
 
@@ -22,10 +22,19 @@
 #include "Savestate.h"
 #include "Platform.h"
 
+struct blip_t;
+
 namespace melonDS
 {
+
 class NDS;
 class SPU;
+
+enum class AudioSampleRate
+{
+    _32KHz = 0,
+    _47KHz
+};
 
 enum class AudioBitDepth
 {
@@ -125,24 +134,24 @@ public:
     void NextSample_PSG();
     void NextSample_Noise();
 
-    template<u32 type> s32 Run();
+    template<u32 type> s32 Run(u32 cycles);
 
-    s32 DoRun()
+    s32 DoRun(u32 cycles)
     {
         switch ((Cnt >> 29) & 0x3)
         {
-        case 0: return Run<0>(); break;
-        case 1: return Run<1>(); break;
-        case 2: return Run<2>(); break;
+        case 0: return Run<0>(cycles); break;
+        case 1: return Run<1>(cycles); break;
+        case 2: return Run<2>(cycles); break;
         case 3:
             if (Num >= 14)
             {
-                return Run<4>();
+                return Run<4>(cycles);
                 break;
             }
             else if (Num >= 8)
             {
-                return Run<3>();
+                return Run<3>(cycles);
                 break;
             }
             [[fallthrough]];
@@ -207,7 +216,7 @@ public:
         FIFOLevel = 0;
     }
 
-    void Run(s32 sample);
+    void Run(u32 cycles, s32 sample);
 
 private:
     melonDS::NDS& NDS;
@@ -216,7 +225,7 @@ private:
 class SPU
 {
 public:
-    explicit SPU(melonDS::NDS& nds, AudioBitDepth bitdepth, AudioInterpolation interpolation);
+    explicit SPU(melonDS::NDS& nds, AudioBitDepth bitdepth, AudioInterpolation interpolation, double outputSampleRate);
     ~SPU();
     void Reset();
     void DoSavestate(Savestate* file);
@@ -224,6 +233,8 @@ public:
     void Stop();
 
     void SetPowerCnt(u32 val);
+
+    void SetSampleRate(AudioSampleRate rate);
 
     // 0=none 1=linear 2=cosine 3=cubic
     void SetInterpolation(AudioInterpolation type);
@@ -233,7 +244,8 @@ public:
     void SetDegrade10Bit(AudioBitDepth depth);
     void SetApplyBias(bool enable);
 
-    void Mix(u32 dummy);
+    void Mix(u32 spucycles);
+    void BufferAudio();
 
     void TrimOutput();
     void DrainOutput();
@@ -241,6 +253,8 @@ public:
     int GetOutputSize() const;
     void Sync(bool wait);
     int ReadOutput(s16* data, int samples);
+    void SetOutputSampleRate(double rate);
+    void SetOutputSkew(double skew);
 
     u8 Read8(u32 addr);
     u16 Read16(u32 addr);
@@ -250,11 +264,21 @@ public:
     void Write32(u32 addr, u32 val);
 
 private:
-    static const u32 OutputBufferSize = 2*1024;  // TODO: configurable audio buffer sizes?
+    u32 OutputBufferSize = 0;
+    double OutputSampleRate;
+    double OutputSkew = 1.0;
     melonDS::NDS& NDS;
-    s16 OutputBuffer[2 * OutputBufferSize] {};
+
+    blip_t* BlipLeft;
+    blip_t* BlipRight;
+    int BlipTimer = 0;
+
+    s16* OutputBuffer;
     u32 OutputBufferWritePos = 0;
     u32 OutputBufferReadPos = 0;
+    s16 OutputLastSamples[2];
+
+    u32 MixInterval;
 
     Platform::Mutex* AudioLock;
 
@@ -263,6 +287,7 @@ private:
     u16 Bias = 0;
     bool ApplyBias = true;
     bool Degrade10Bit = false;
+    bool Mute;
 
     std::array<SPUChannel, 16> Channels;
     std::array<SPUCaptureUnit, 2> Capture;

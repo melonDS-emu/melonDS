@@ -1,5 +1,5 @@
 /*
-    Copyright 2016-2025 melonDS team
+    Copyright 2016-2026 melonDS team
 
     This file is part of melonDS.
 
@@ -37,6 +37,20 @@ std::pair<std::unique_ptr<u8[]>, u32> PadToPowerOf2(std::unique_ptr<u8[]>&& data
 std::pair<std::unique_ptr<u8[]>, u32> PadToPowerOf2(const u8* data, u32 len) noexcept;
 
 std::unique_ptr<u8[]> CopyToUnique(const u8* data, u32 len) noexcept;
+
+template <typename T>
+T GetMSBit(T val)
+{
+    val |= (val >>  1);
+    val |= (val >>  2);
+    val |= (val >>  4);
+
+    if constexpr(sizeof(val) > 1) val |= (val >>  8);
+    if constexpr(sizeof(val) > 2) val |= (val >> 16);
+    if constexpr(sizeof(val) > 4) val |= (val >> 32);
+    
+    return val - (val >> 1);
+}
 
 }
 

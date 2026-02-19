@@ -23,9 +23,7 @@
 #  ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 #  POSSIBILITY OF SUCH DAMAGE.
 
-.section .text
-
-.org 0x00000000
+.section .text, "axR"
 
 // Vector table
 
@@ -38,14 +36,14 @@ b unhandled_exception                 // 0x14 Reserved
 b interrupt_handler                   // 0x18 IRQ
 b unhandled_exception                 // 0x1C FIQ
 
-#ifdef BIOS_ARM9
+#ifdef TARGET_ARM9
 // ARM9 BIOS has a logo here (0x9C bytes), we don't want to include the logo
 // but we'll leave a space for it.
 
 .fill 0xe0, 0x1, 0x0
 #endif
 
-#ifdef BIOS_ARM7
+#ifdef TARGET_ARM7
 // ARM7 BIOS has encryption stuff at 0x30, we don't want to include it but we'll
 // leave a space for it.
 
@@ -64,14 +62,14 @@ unhandled_exception:
   b 0b
 
 
-#ifdef BIOS_ARM7
+#ifdef TARGET_ARM7
   #define swi_label(function) .word function
   #define swi_label_arm7_only(function) swi_label(function)
 #else
   #define swi_label_arm7_only(function) swi_label(swi_invalid)
 #endif
 
-#ifdef BIOS_ARM9
+#ifdef TARGET_ARM9
   #define swi_label(function) .word (function + 0xFFFF0000)
   #define swi_label_arm9_only(function) swi_label(function)
 #else
@@ -111,7 +109,11 @@ swi_handler:
   // Not sure if this should be here or not, but it probably doesn't
   // hurt, and is better than flooding the table with 256 entries..
   // This will move in the known entry of an invalid SWI.
+#ifdef PLATFORM_TWL
+  cmp swi_comment, #0x2A
+#else
   cmp swi_comment, #0x20
+#endif
   movge swi_comment, #0x01
 
   // Branch to SWI handler
@@ -122,7 +124,11 @@ swi_handler:
   // If there's no entry just go straight to swi_complete
   swi_label(swi_soft_reset)                                  // 00
   swi_label(swi_invalid)                                     // 01
+#ifdef PLATFORM_TWL
+  swi_label(swi_lz77_decompress_vram)                        // 02
+#else
   swi_label(swi_invalid)                                     // 02
+#endif
   swi_label(swi_wait_by_loop)                                // 03
   swi_label(swi_interrupt_wait)                              // 04
   swi_label(swi_vblank_interrupt_wait)                       // 05
@@ -135,22 +141,46 @@ swi_handler:
   swi_label(swi_cpu_fast_set)                                // 0C
   swi_label(swi_sqrt)                                        // 0D
   swi_label(swi_get_crc16)                                   // 0E
+#ifdef PLATFORM_TWL
+  swi_label(swi_invalid)                                     // 0F
+#else
   swi_label(swi_is_debugger)                                 // 0F
+#endif
   swi_label(swi_bit_unpack)                                  // 10
   swi_label(swi_lz77_decompress_wram)                        // 11
+#ifdef PLATFORM_TWL
+  swi_label(swi_invalid)                                     // 12
+#else
   swi_label(swi_lz77_decompress_vram)                        // 12
+#endif
   swi_label(swi_huffman_decompress)                          // 13
   swi_label(swi_runlength_decompress_wram)                   // 14
   swi_label(swi_runlength_decompress_vram)                   // 15
   swi_label_arm9_only(swi_diff_8bit_unfilter_wram)           // 16
   swi_label(swi_invalid)                                     // 17
   swi_label_arm9_only(swi_diff_16bit_unfilter)               // 18
+#ifdef PLATFORM_TWL
+  swi_label(swi_lz77_decompress_vram)                        // 19
+#else
   swi_label(swi_invalid)                                     // 19
+#endif
   swi_label_arm7_only(swi_get_sine_table)                    // 1A
   swi_label_arm7_only(swi_get_pitch_table)                   // 1B
   swi_label_arm7_only(swi_get_volume_table)                  // 1C
   swi_label_arm7_only(swi_get_boot_procs)                    // 1D
   swi_label(swi_custom_halt_post)                            // 1F
+#ifdef PLATFORM_TWL
+  swi_label(swi_invalid)                                     // 20
+  swi_label(swi_invalid)                                     // 21
+  swi_label(swi_invalid)                                     // 22
+  swi_label(swi_invalid)                                     // 23
+  swi_label(swi_invalid)                                     // 24
+  swi_label(swi_invalid)                                     // 25
+  swi_label(swi_invalid)                                     // 26
+  swi_label(swi_invalid)                                     // 27
+  swi_label(swi_invalid)                                     // 28
+  swi_label(swi_invalid)                                     // 29
+#endif
 
 swi_invalid:
   // This just passes through to completion.
@@ -179,7 +209,7 @@ padding_a:
   .word 0x0
 
 swi_halt:
-#ifdef BIOS_ARM7
+#ifdef TARGET_ARM7
   mov r0, #0x04000000
   mov r2, #0x80
   strb r2, [ r0, #0x301 ]
@@ -199,7 +229,10 @@ swi_wait_by_loop:
 #define check_immediately r0
 #define irq_wait_mask     r1
 
-#ifdef BIOS_ARM7
+#ifdef TARGET_ARM7
+  #ifdef PLATFORM_TWL
+    #define irq_wait_aux_mask r2
+  #endif
   #define irq_flag_base   r3
 #else
   #define irq_flag_base   r2
@@ -211,7 +244,7 @@ swi_wait_by_loop:
 #define irq_flags         r0
 
 interrupt_check:
-#ifdef BIOS_ARM9
+#ifdef TARGET_ARM9
   // Get DTCM base
   mrc p15, 0, irq_flag_base, cr9, cr1, 0
   bic irq_flag_base, irq_flag_base, #0xFF
@@ -238,6 +271,26 @@ interrupt_check:
   str const_0x1, [ io_base, #0x208 ]
   bx lr
 
+#if defined(TARGET_ARM7) && defined(PLATFORM_TWL)
+interrupt_check_aux:
+  // Load software IRQ flag
+  ldr irq_flags, [ irq_flag_base, #-64 ]
+
+  // Set IME (0x04000208) to 0
+  str io_base, [ io_base, #0x208 ]
+
+  // Check if IRQs were risen, to see if the loop can exit
+  tst irq_wait_aux_mask, irq_flags
+
+  // Clear IRQs that were risen and write back
+  bic irq_flags, irq_flags, irq_wait_aux_mask
+  str irq_flags, [ irq_flag_base, #-64 ]
+
+  mov const_0x1, #0x1
+  // Set IME (0x04000208) to 1 and return
+  str const_0x1, [ io_base, #0x208 ]
+  bx lr
+#endif
 
 #define halt_value        r0
 
@@ -245,6 +298,9 @@ swi_vblank_interrupt_wait:
   // Check immediately for VBLANK interrupt
   mov check_immediately, #1
   mov irq_wait_mask, #1
+#if defined(TARGET_ARM7) && defined(PLATFORM_TWL)
+  mov irq_wait_aux_mask, #0
+#endif
 
   // Fall through
 
@@ -253,11 +309,11 @@ swi_interrupt_wait:
 
   // See if we should return immediately or halt
   cmp check_immediately, #0
-  blne interrupt_check
+  blne swi_interrupt_check_first
   
   // Perform this loop until the interrupt is risen
  0:
-#ifdef BIOS_ARM9
+#ifdef TARGET_ARM9
   // Halt ARM9 via coprocessor instruction
   mov halt_value, #0
   mcr p15, 0, halt_value, cr7, cr0, 4
@@ -270,6 +326,11 @@ swi_interrupt_wait:
   bl interrupt_check
   beq 0b
 
+#if defined(TARGET_ARM7) && defined(PLATFORM_TWL)
+  bl interrupt_check_aux
+  beq 0b
+#endif
+
   b swi_complete
 
 swi_interrupt_check_first:
@@ -278,11 +339,16 @@ swi_interrupt_check_first:
   // If set exit.
   bne swi_complete
 
+#if defined(TARGET_ARM7) && defined(PLATFORM_TWL)
+  bl interrupt_check_aux
+  bne swi_complete
+#endif
+
   // If not wait for interrupt.
   b 0b
 
 
-#ifdef BIOS_ARM7
+#ifdef TARGET_ARM7
 
 swi_stop:
   mov r0, #0x04000000
@@ -816,7 +882,7 @@ swi_runlength_decompress_wram:
   b 0b
   
 
-#ifdef BIOS_ARM9
+#ifdef TARGET_ARM9
 
 #undef accumulator
 #undef length
@@ -871,7 +937,7 @@ swi_diff_16bit_unfilter:
 #endif
 
 
-#ifdef BIOS_ARM7
+#ifdef TARGET_ARM7
 sine_table:
   .hword 0x0000, 0x0324, 0x0648, 0x096A, 0x0C8C, 0x0FAB, 0x12C8, 0x15E2
   .hword 0x18F9, 0x1C0B, 0x1F1A, 0x2223, 0x2528, 0x2826, 0x2B1F, 0x2E11
@@ -1108,7 +1174,7 @@ swi_get_boot_procs:
 swi_custom_halt_post:
   mov r1, #0x4000000
 
-#ifdef BIOS_ARM7
+#ifdef TARGET_ARM7
   strb r0, [ r1, #0x301 ]
 #else
   strb r0, [ r1, #0x300 ]
@@ -1122,7 +1188,7 @@ interrupt_handler:
   // saving.
   stmdb sp!, { r0 - r3, r12, lr }
 
-#ifdef BIOS_ARM9
+#ifdef TARGET_ARM9
   // Get DTCM base
   mrc p15, 0, r0, cr9, cr1, 0
   bic r0, r0, #0xFF
@@ -1142,7 +1208,7 @@ interrupt_handler:
   ldmia sp!, { r0 - r3, r12, lr }
   subs pc, lr, #4
 
-#ifdef BIOS_ARM7
+#ifdef TARGET_ARM7
 swi_get_volume_table:
   adr r1, volume_table
   // Should some protection be here?
@@ -1193,14 +1259,3 @@ swi_soft_reset:
   // Set r0-r12 to 0, r0 still points to initialized stack space
   ldmia r0, { r0 - r12 }
   movs pc, lr
-
-// Pad out
-
-#ifdef BIOS_ARM7
-.org 16384
-#endif
-
-#ifdef BIOS_ARM9
-.org 4096
-#endif
-

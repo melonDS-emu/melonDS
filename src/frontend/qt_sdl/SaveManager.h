@@ -1,5 +1,5 @@
 /*
-    Copyright 2016-2025 melonDS team
+    Copyright 2016-2026 melonDS team
 
     This file is part of melonDS.
 
@@ -20,7 +20,9 @@
 #define SAVEMANAGER_H
 
 #include <string>
+#ifndef _MSC_VER
 #include <unistd.h>
+#endif
 #include <time.h>
 #include <atomic>
 #include <memory>

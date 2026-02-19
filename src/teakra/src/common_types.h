@@ -40,3 +40,5 @@ inline constexpr u16 BitReverse(u16 value) {
     }
     return result;
 }
+
+namespace melonDS { class Savestate; }

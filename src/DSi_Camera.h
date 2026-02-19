@@ -1,5 +1,5 @@
 /*
-    Copyright 2016-2025 melonDS team
+    Copyright 2016-2026 melonDS team
 
     This file is part of melonDS.
 
@@ -37,6 +37,7 @@ public:
     void DoSavestate(Savestate* file) override;
 
     void Reset() override;
+    void ReleaseReset();
     void Stop();
     bool IsActivated() const;
 
@@ -55,6 +56,8 @@ public:
     u32 Num;
 
 private:
+    bool ResetHeld;
+
     u32 DataPos;
     u32 RegAddr;
     u16 RegData;

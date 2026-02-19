@@ -1,5 +1,5 @@
 /*
-    Copyright 2016-2025 melonDS team
+    Copyright 2016-2026 melonDS team
 
     This file is part of melonDS.
 
@@ -30,6 +30,7 @@
 #include "NDSCart.h"
 #include "GBACart.h"
 #include "SPU.h"
+#include "Mic.h"
 #include "SPI.h"
 #include "RTC.h"
 #include "Wifi.h"
@@ -72,6 +73,7 @@ enum
     Event_DSi_CamIRQ,
     Event_DSi_CamTransfer,
     Event_DSi_DSP,
+    Event_DSi_DSPHLE, // TODO use same event for both flavors of DSP?
 
     Event_MAX
 };
@@ -313,6 +315,7 @@ public: // TODO: Encapsulate the rest of these members
     ARMv5 ARM9;
     ARMv4 ARM7;
     melonDS::SPU SPU;
+    melonDS::Mic Mic;
     SPIHost SPI;
     melonDS::RTC RTC;
     melonDS::Wifi Wifi;
@@ -365,12 +368,12 @@ public: // TODO: Encapsulate the rest of these members
     Firmware& GetFirmware() { return SPI.GetFirmwareMem()->GetFirmware(); }
     void SetFirmware(Firmware&& firmware) { SPI.GetFirmwareMem()->SetFirmware(std::move(firmware)); }
 
-    const Renderer3D& GetRenderer3D() const noexcept { return GPU.GetRenderer3D(); }
-    Renderer3D& GetRenderer3D() noexcept { return GPU.GetRenderer3D(); }
-    void SetRenderer3D(std::unique_ptr<Renderer3D>&& renderer) noexcept
+    const Renderer& GetRenderer() const noexcept { return GPU.GetRenderer(); }
+    Renderer& GetRenderer() noexcept { return GPU.GetRenderer(); }
+    void SetRenderer(std::unique_ptr<Renderer>&& renderer) noexcept
     {
         if (renderer != nullptr)
-            GPU.SetRenderer3D(std::move(renderer));
+            GPU.SetRenderer(std::move(renderer));
     }
 
     virtual bool NeedsDirectBoot() const;
@@ -410,9 +413,6 @@ public: // TODO: Encapsulate the rest of these members
 
     bool IsLidClosed() const;
     void SetLidClosed(bool closed);
-
-    virtual void CamInputFrame(int cam, const u32* data, int width, int height, bool rgb) {}
-    void MicInputFrame(s16* data, int samples);
 
     void RegisterEventFuncs(u32 id, void* that, const std::initializer_list<EventFunc>& funcs);
     void UnregisterEventFuncs(u32 id);
@@ -495,7 +495,7 @@ public: // TODO: Encapsulate the rest of these members
     void SetGdbArgs(std::optional<GDBArgs> args) noexcept {}
 #endif
 
-private:
+protected:
     void InitTimings();
     u32 SchedListMask;
     u64 SysTimestamp;
@@ -558,6 +558,7 @@ public:
     static thread_local NDS* Current;
 protected:
     explicit NDS(NDSArgs&& args, int type, void* userdata) noexcept;
+    virtual u32 GetSavestateConfig();
     virtual void DoSavestateExtra(Savestate* file) {}
 };
 
