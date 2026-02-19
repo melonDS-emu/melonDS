@@ -200,10 +200,22 @@ else()
     target_include_directories(melonDS PUBLIC ${Qt5Gui_PRIVATE_INCLUDE_DIRS})
 endif()
 
-target_include_directories(melonDS PRIVATE ${LUA_INCLUDE_DIR})
+include(ExternalProject)
+ExternalProject_Add(lua
+    URL "https://www.lua.org/ftp/lua-5.5.0.tar.gz"
+    CONFIGURE_COMMAND ""
+    BUILD_COMMAND make generic
+    BUILD_ALWAYS true
+    BUILD_IN_SOURCE true
+    INSTALL_COMMAND ""
+)
+add_library(liblua STATIC IMPORTED)
+ExternalProject_Get_property(lua SOURCE_DIR)
+set_target_properties(liblua PROPERTIES IMPORTED_LOCATION ${SOURCE_DIR}/src/liblua.a)
+target_include_directories(melonDS PRIVATE ${SOURCE_DIR}/src)
 
 target_link_libraries(melonDS PRIVATE core)
-target_link_libraries(melonDS PRIVATE PkgConfig::SDL2 PkgConfig::LibArchive PkgConfig::Zstd PkgConfig::Faad ${LUA_LIBRARIES})
+target_link_libraries(melonDS PRIVATE PkgConfig::SDL2 PkgConfig::LibArchive PkgConfig::Zstd PkgConfig::Faad liblua)
 target_link_libraries(melonDS PRIVATE ${QT_LINK_LIBS} ${CMAKE_DL_LIBS})
 
 if (WIN32)
