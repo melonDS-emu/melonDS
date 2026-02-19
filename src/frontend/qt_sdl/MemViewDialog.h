@@ -226,11 +226,9 @@ public:
 
     static MemViewDialog* currentDlg;
     static MemViewDialog* openDlg(QWidget* parent)
-   
-   {
+    {
         if (currentDlg)
-       
-       {
+        {
             currentDlg->activateWindow();
             return currentDlg;
         }
@@ -239,9 +237,9 @@ public:
         currentDlg->show();
         return currentDlg;
     }
+
     static void closeDlg()
-   
-   {
+    {
         currentDlg = nullptr;
     }
 
@@ -340,6 +338,7 @@ private slots:
     void onMemRegionIndexChanged(int index);
     void onGoBtnPressed();
     void onUpdateSceneSignal();
+    void onDumpBtnPressed();
 
 public:
     uint32_t ARM9AddrStart;
@@ -358,6 +357,7 @@ private:
     CustomLineEdit* SearchLineEdit;
     QSpinBox* UpdateRate;
     QComboBox* MemRegionBox;
+    QPushButton* DumpBtn;
 
     // value setter group
     QGroupBox* SetValGroup;

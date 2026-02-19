@@ -17,11 +17,14 @@
 */
 
 #include "MemViewDialog.h"
+#include "Platform.h"
 #include <QPainter>
 #include <QGraphicsTextItem>
 #include <QTextCursor>
 #include <QStyleOptionGraphicsItem>
 #include <QStyle>
+#include <QFileDialog>
+#include <string.h>
 
 #include "main.h"
 
@@ -312,7 +315,7 @@ MemViewDialog::MemViewDialog(QWidget* parent) : QDialog(parent)
 {
     // set the Dialog's basic properties
     this->setObjectName("MemViewDialog");
-    this->setFixedSize(730, 300);
+    this->setFixedSize(730, 340);
     this->setEnabled(true);
     this->setModal(false);
     this->setWindowTitle("Memory Viewer - melonDS");
@@ -339,6 +342,7 @@ MemViewDialog::MemViewDialog(QWidget* parent) : QDialog(parent)
     this->SetValBtn = new QPushButton(this->SetValGroup);
     this->SetValNumber = new QLineEdit(this->SetValGroup);
     this->SetValAddr = new QLineEdit(this->SetValGroup);
+    this->DumpBtn = new QPushButton(this);
 
     this->GoBtn->setText("Go");
     this->GoBtn->setGeometry(102, 19, 50, 34);
@@ -362,15 +366,19 @@ MemViewDialog::MemViewDialog(QWidget* parent) : QDialog(parent)
     this->SetValIsHex->setObjectName("checkbox_setval_ishex");
 
     this->UpdateRateLabel->setText("Update:");
-    this->UpdateRateLabel->setGeometry(7, 264, 58, 18);
+    this->UpdateRateLabel->setGeometry(568, 300, 58, 18);
     this->UpdateRateLabel->setObjectName("label_update_rate");
 
-    this->UpdateRate->setGeometry(61, 257, 90, 32);
+    this->UpdateRate->setGeometry(621, 293, 90, 32);
     this->UpdateRate->setMinimum(5); // below 5 ms it's causing slowdowns
     this->UpdateRate->setMaximum(10000);
     this->UpdateRate->setValue(20);
     this->UpdateRate->setSuffix(" ms");
     this->UpdateRate->setObjectName("spinbox_update_rate");
+
+    this->DumpBtn->setText("Dump Default");
+    this->DumpBtn->setGeometry(7, 259, 145, 32);
+    this->DumpBtn->setObjectName("pushbutton_dump");
 
     this->GfxView->setScene(this->GfxScene);
     this->GfxView->setGeometry(160, 10, 550, 280);
@@ -567,6 +575,7 @@ MemViewDialog::MemViewDialog(QWidget* parent) : QDialog(parent)
     connect(this->GfxScene, &QGraphicsScene::focusItemChanged, this->GfxScene, &CustomGraphicsScene::onFocusItemChanged);
     connect(this->ScrollBar, &QScrollBar::valueChanged, this, &MemViewDialog::onScrollBarValueChanged);
     connect(this->MemRegionBox, &QComboBox::currentIndexChanged, this, &MemViewDialog::onMemRegionIndexChanged);
+    connect(this->DumpBtn, &QPushButton::pressed, this, &MemViewDialog::onDumpBtnPressed);
     this->UpdateThread->Start();
 
     qRegisterMetaType<QVector<int>>("QVector<int>");
@@ -1090,7 +1099,7 @@ void MemViewDialog::onMemRegionIndexChanged(int index) {
                 break;
             case memRegionType_Main:
                 newStart = 0x02000000;
-                newEnd = nds->ARM9.DTCMBase;
+                newEnd = newStart + nds->MainRAMMask + 1;
                 break;
             case memRegionType_DTCM:
                 newStart = nds->ARM9.DTCMBase;
@@ -1102,11 +1111,11 @@ void MemViewDialog::onMemRegionIndexChanged(int index) {
                 break;
             case memRegionType_Palettes:
                 newStart = 0x05000000;
-                newEnd = 0x06000000;
+                newEnd = newStart + sizeof(nds->GPU.Palette);
                 break;
             case memRegionType_OAM:
                 newStart = 0x07000000;
-                newEnd = 0x08000000;
+                newEnd = newStart + sizeof(nds->GPU.OAM);
                 break;
             case memRegionType_BIOS:
                 newStart = 0xFFFF0000;
@@ -1117,6 +1126,10 @@ void MemViewDialog::onMemRegionIndexChanged(int index) {
         }
 
         this->UpdateViewRegion(newStart, newEnd);
+
+        QString text = "Dump ";
+        text.append(this->MemRegionBox->currentText());
+        this->DumpBtn->setText(text);
     }
 }
 
@@ -1130,6 +1143,80 @@ void MemViewDialog::onUpdateSceneSignal()
     this->Highlight = true;
     this->UpdateScene();
     this->Highlight = false;
+}
+
+void MemViewDialog::onDumpBtnPressed()
+{
+    // get region to save
+    uint8_t* pRAM = (uint8_t*)this->GetRAM(this->ARM9AddrStart);
+    size_t size = this->ARM9AddrEnd - this->ARM9AddrStart;
+
+    if (pRAM == nullptr)
+    {
+        return;
+    }
+
+    // get file path
+    QString path = QFileDialog::getSaveFileName(this, "Save RAM Dump to... - melonDS", QDir::currentPath(), "Binary files (*.bin)");
+
+    if (path.isEmpty())
+    {
+        return;
+    }
+
+    if (!path.endsWith(".bin"))
+    {
+        path.append(".bin");
+    }
+
+    std::string filename = path.toStdString();
+
+    // execute the save
+    Platform::FileHandle* file = Platform::OpenFile(filename, Platform::FileMode::Write);
+
+    if (file == nullptr)
+    {
+        // If the file couldn't be opened...
+        return;
+    }
+
+    melonDS::u64 result;
+
+    if (this->MemRegionBox->currentIndex() == memRegionType_Default)
+    {
+        // special case where we want to save both main ram and dtcm in the same file
+        //! TODO: is there a better way to achieve that?
+        melonDS::NDS* nds = this->GetNDS();
+
+        if (nds != nullptr)
+        {
+            // create temp buffer to avoid overwriting the actual data
+            uint8_t* pBuffer = new uint8_t[size];
+
+            // copy main ram
+            memcpy(pBuffer, pRAM, 0x400000);
+
+            // copy dtcm
+            memcpy(pBuffer + (nds->ARM9.DTCMBase & 0x00FFFFFF), nds->ARM9.DTCM, DTCMPhysicalSize);
+
+            // write file and free previous alloc
+            result = Platform::FileWrite(pBuffer, size, 1, file);
+            delete pBuffer;
+        }
+    }
+    else
+    {
+        result = Platform::FileWrite(pRAM, size, 1, file);
+    }
+
+    Platform::CloseFile(file);
+
+    if (result == 0)
+    {
+        Platform::Log(Platform::Error, "Failed to write ram dump to %s\n", filename.c_str());
+    } else {
+        Platform::Log(Platform::Info, "File saved successfully to %s!\n", filename.c_str());
+    }
 }
 
 // --- MemViewThread ---
