@@ -10,6 +10,7 @@ on:
       - master
 
 env:
+  LUA_DIR: ./lua
   MELONDS_GIT_BRANCH: ${{ github.ref }}
   MELONDS_GIT_HASH: ${{ github.sha }}
   MELONDS_BUILD_PROVIDER: GitHub Actions
