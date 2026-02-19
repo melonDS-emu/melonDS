@@ -35,7 +35,6 @@
           qt6.qtbase
           qt6.qtmultimedia
           SDL2
-          lua
           zstd
           libarchive
           libGL
