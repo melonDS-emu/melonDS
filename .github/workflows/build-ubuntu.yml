@@ -43,7 +43,7 @@ jobs:
           qt6-{base,base-private,multimedia}-dev qt6-wayland libqt6svg6-dev libarchive-dev libzstd-dev libfuse2 libfaad-dev
 
     - name: Configure
-      run: cmake -B build -G Ninja -DCMAKE_INSTALL_PREFIX=/usr -DMELONDS_EMBED_BUILD_INFO=ON -DCMAKE_PREFIX_PATH="./.lua/"
+      run: cmake -B build -G Ninja -DCMAKE_INSTALL_PREFIX=/usr -DMELONDS_EMBED_BUILD_INFO=ON -DCMAKE_PREFIX_PATH="/home/runner/work/melonDS-lua/melonDS-lua/.lua/"
     - name: Build
       run: |
         cmake --build build
