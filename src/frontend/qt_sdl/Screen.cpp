@@ -42,7 +42,10 @@
 #include "main_shaders.h"
 #include "OSD_shaders.h"
 #include "font.h"
+
 #include "version.h"
+
+#include "lua/LuaMain.h"
 
 using namespace melonDS;
 
@@ -296,6 +299,11 @@ void ScreenPanel::mouseMoveEvent(QMouseEvent* event)
     {
         emuInstance->touchScreen(x, y);
     }
+}
+
+void ScreenPanel::wheelEvent(QWheelEvent* event)
+{
+    mouseWheel += event->angleDelta().y();
 }
 
 void ScreenPanel::tabletEvent(QTabletEvent* event)
@@ -778,6 +786,22 @@ void ScreenPanelNative::setupScreenLayout()
     }
 }
 
+// From ScreenLayout::GetScreenTransforms
+// TopScreen = 0
+// BottomScreen = 1
+// OSD / non-screen target = 2 (used by Lua stuff)
+void ScreenPanelNative::drawOverlays(QPainter* painter,int type)
+{
+    LuaConsoleDialog* dialog = mainWindow->getLuaDialog();
+    if (!dialog)
+        return;
+    LuaBundle* lua = dialog->getLuaBundle();
+
+    for (OverlayCanvas& overlay : *lua->overlays)
+        if ((overlay.target == type) && overlay.isActive)
+            painter->drawImage(overlay.rectangle,*overlay.displayBuffer);
+}
+
 void ScreenPanelNative::drawScreen()
 {
     auto emuThread = emuInstance->getEmuThread();
@@ -801,7 +825,7 @@ void ScreenPanelNative::paintEvent(QPaintEvent* event)
 
     // fill background
     painter.fillRect(event->rect(), QColor::fromRgb(0, 0, 0));
-
+    painter.setCompositionMode(QPainter::CompositionMode_SourceOver);
     auto emuThread = emuInstance->getEmuThread();
     
     if (emuThread->emuIsActive())
@@ -816,12 +840,15 @@ void ScreenPanelNative::paintEvent(QPaintEvent* event)
         }
         bufferLock.unlock();
 
+        painter.setCompositionMode(QPainter::CompositionMode_SourceOver);
         QRect screenrc(0, 0, 256, 192);
 
         for (int i = 0; i < numScreens; i++)
         {
             painter.setTransform(screenTrans[i]);
             painter.drawImage(screenrc, screen[screenKind[i]]);
+            if (osdEnabled)
+                drawOverlays(&painter,screenKind[i]);
         }
         emuInstance->renderLock.unlock();
     }
@@ -848,6 +875,8 @@ void ScreenPanelNative::paintEvent(QPaintEvent* event)
         u32 y = kOSDMargin;
 
         painter.resetTransform();
+
+        drawOverlays(&painter,canvasTarget_OSD);
 
         for (auto it = osdItems.begin(); it != osdItems.end(); )
         {
@@ -1021,7 +1050,23 @@ void ScreenPanelGL::initOpenGL()
     logoTexture = tex;
 
     transferLayout();
+
+    OpenGL::CompileVertexFragmentProgram(overlayShader,
+                                        kScreenVS,kScreenFS_overlay,
+                                        "OverlayShader",
+                                         {{"vPosition", 0}, {"vTexcoord", 1}},
+                                         {{"oColor", 0}});
+
+    glUseProgram(overlayShader);
+
+    overlayScreenSizeULoc = glGetUniformLocation(overlayShader, "uScreenSize");
+    overlayTransformULoc = glGetUniformLocation(overlayShader, "uTransform");
+    overlayPosULoc = glGetUniformLocation(overlayShader, "uOverlayPos");
+    overlaySizeULoc = glGetUniformLocation(overlayShader, "uOverlaySize");
+    overlayScreenTypeULoc = glGetUniformLocation(overlayShader, "uOverlayScreenType");
+  
     glInited = true;
+
 }
 
 void ScreenPanelGL::deinitOpenGL()
@@ -1052,7 +1097,20 @@ void ScreenPanelGL::deinitOpenGL()
 
     glDeleteProgram(osdShader);
 
-
+    glDeleteProgram(overlayShader);
+    
+    if (mainWindow->getLuaDialog())
+    {
+        std::vector<OverlayCanvas>* overlays = mainWindow->getLuaDialog()->getLuaBundle()->overlays;
+        for (OverlayCanvas& overlay : *overlays)
+        {
+            if (overlay.GLTextureLoaded)
+            {
+                glDeleteTextures(1,&overlay.GLTexture);
+                overlay.GLTextureLoaded=false;
+            }
+        }
+    }
     glContext->DoneCurrent();
 
     lastScreenWidth = lastScreenHeight = -1;
@@ -1099,6 +1157,51 @@ void ScreenPanelGL::osdDeleteItem(OSDItem* item)
     }
 
     ScreenPanel::osdDeleteItem(item);
+}
+
+void ScreenPanelGL::drawOverlays(int screenType,int screen)
+{
+    if (!mainWindow->getLuaDialog())
+        return;
+    
+    std::vector<OverlayCanvas>* overlays = mainWindow->getLuaDialog()->getLuaBundle()->overlays;
+    for (OverlayCanvas& overlay : *overlays)
+    {
+        if (!overlay.isActive || overlay.target != screenType)
+            continue;
+        if (!overlay.GLTextureLoaded)//Load texture if none loaded
+        {
+            glGenTextures(1,&overlay.GLTexture);
+            glBindTexture(GL_TEXTURE_2D, overlay.GLTexture);
+            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+            glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, overlay.rectangle.width(), overlay.rectangle.height(), 0, GL_RGBA, GL_UNSIGNED_BYTE, overlay.displayBuffer->bits());
+            overlay.GLTextureLoaded = true;
+        }
+        if (overlay.flipped) //Only update texture if needed
+        {
+            glBindTexture(GL_TEXTURE_2D, overlay.GLTexture);
+            glTexSubImage2D(GL_TEXTURE_2D,0,0,0,overlay.rectangle.width(),overlay.rectangle.height(),GL_RGBA,GL_UNSIGNED_BYTE,overlay.displayBuffer->bits());
+            overlay.flipped = false;
+        }
+        
+        glBindTexture(GL_TEXTURE_2D, overlay.GLTexture);
+        
+        if(screenType == canvasTarget_OSD) // OSD gets drawn differently then top or bottom screen target
+        {
+            glUniform2i(osdPosULoc,overlay.rectangle.left(),overlay.rectangle.top());
+            glUniform2i(osdSizeULoc,overlay.rectangle.width(),overlay.rectangle.height());
+            glDrawArrays(GL_TRIANGLES, 0, 2*3);
+            continue;
+        }
+        glUniform2f(overlayPosULoc,overlay.rectangle.left(),overlay.rectangle.top());
+        glUniform2f(overlaySizeULoc,overlay.rectangle.width(),overlay.rectangle.height());
+        glUniform1i(overlayScreenTypeULoc, screenType);
+        glUniformMatrix2x3fv(overlayTransformULoc, 1, GL_TRUE,screenMatrix[screen]);
+        glDrawArrays(GL_TRIANGLES,screenType == 0 ? 0 : 2*3, 2*3);
+    }
 }
 
 void ScreenPanelGL::drawScreen()
@@ -1220,6 +1323,29 @@ void ScreenPanelGL::drawScreen()
 
     if (osdEnabled)
     {
+        
+        glUseProgram(overlayShader);
+    
+        //Need to blend this layer onto the screen layer!
+        glEnable(GL_BLEND);
+        glBlendFunc(GL_ONE, GL_ONE_MINUS_SRC_ALPHA);
+
+        glUniform2f(overlayScreenSizeULoc, w / factor, h / factor);
+
+        screenSettingsLock.lock();
+
+        glBindBuffer(GL_ARRAY_BUFFER, screenVertexBuffer);
+        glBindVertexArray(screenVertexArray);
+
+        for(int i = 0;i<numScreens;i++){
+            drawOverlays(screenKind[i],i);
+        }
+
+
+        screenSettingsLock.unlock();
+        
+        
+        
         osdMutex.lock();
 
         u32 y = kOSDMargin;
@@ -1237,6 +1363,8 @@ void ScreenPanelGL::drawScreen()
 
         glEnable(GL_BLEND);
         glBlendFunc(GL_ONE, GL_ONE_MINUS_SRC_ALPHA);
+
+        drawOverlays(canvasTarget_OSD,0);
 
         for (auto it = osdItems.begin(); it != osdItems.end(); )
         {

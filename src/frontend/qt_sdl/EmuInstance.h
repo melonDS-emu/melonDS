@@ -158,7 +158,11 @@ public:
     int getJoystickID() { return joystickID; }
     SDL_Joystick* getJoystick() { return joystick; }
     std::shared_ptr<SDL_mutex> getJoyMutex() { return joyMutex; }
+    std::vector<int> heldKeys;
+    std::vector<int> keyStrokes;
 
+    Sint16 getJoyStickAxis(int axisNum);
+    
     void touchScreen(int x, int y);
     void releaseScreen();
 
@@ -304,6 +308,12 @@ public:
     bool fastForwardToggled;
     bool slowmoToggled;
     bool doAudioSync;
+
+    melonDS::u32 getInputMask(){return inputMask;}
+    int getCartType(){return cartType;}
+    std::string getbaseROMDir(){return baseROMDir;}
+    std::string getbaseROMName(){return baseROMName;}
+
 private:
 
     std::unique_ptr<melonDS::Savestate> backupState;
