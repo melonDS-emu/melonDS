@@ -26,7 +26,7 @@ DS firmwares dumped from a DSi or 3DS aren't bootable and only contain configura
 
  * 128KB: DSi/3DS DS-mode firmware (reduced size due to lacking bootcode)
  * 256KB: regular DS firmware
- * 512KB: iQue DS firmware
+ * 512KB: iQue/Korean DS firmware
 
 DS BIOS dumps from a DSi or 3DS can be used with no compatibility issues. DSi BIOS dumps (in DSi mode) are not compatible. Or maybe they are. I don't know.
 
