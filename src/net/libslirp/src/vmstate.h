@@ -216,10 +216,16 @@ extern const VMStateInfo slirp_vmstate_info_nullptr;
 extern const VMStateInfo slirp_vmstate_info_buffer;
 extern const VMStateInfo slirp_vmstate_info_tmp;
 
-#ifdef __GNUC__
+/* __typeof__ is recommended for better portability over typeof.
+ *
+ * __typeof__ is available in GCC, Clang, Clang masquerading as gcc on macOS,
+ * as well as MSVC version 19.39.33428+. It's also part of C23.
+ */
+#if defined(__GNUC__) || defined(__clang__) || (_MSC_FULL_VER >= 193933428) || \
+    (__STDC_VERSION__ >= 202301L)
 #define type_check_array(t1, t2, n) ((t1(*)[n])0 - (t2 *)0)
 #define type_check_pointer(t1, t2) ((t1 **)0 - (t2 *)0)
-#define typeof_field(type, field) typeof(((type *)0)->field)
+#define typeof_field(type, field) __typeof__(((type *)0)->field)
 #define type_check(t1, t2) ((t1 *)0 - (t2 *)0)
 #else
 #define type_check_array(t1, t2, n) 0
