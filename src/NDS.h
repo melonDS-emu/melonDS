@@ -62,6 +62,8 @@ enum
     Event_DisplayFIFO,
     Event_ROMTransfer,
     Event_ROMSPITransfer,
+    //Event_CartTransfer9,
+    //Event_CartTransfer7,
     Event_SPITransfer,
     Event_Div,
     Event_Sqrt,
@@ -74,6 +76,10 @@ enum
     Event_DSi_CamTransfer,
     Event_DSi_DSP,
     Event_DSi_DSPHLE, // TODO use same event for both flavors of DSP?
+    /*Event_DSi_Cart2Transfer9,
+    Event_DSi_Cart2Transfer7,*/
+    Event_DSi_CartSlot1Power,
+    Event_DSi_CartSlot2Power,
 
     Event_MAX
 };

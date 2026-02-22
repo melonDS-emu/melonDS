@@ -111,6 +111,9 @@ DSi::DSi(DSiArgs&& args, void* userdata) noexcept :
     CamModule(*this),
     AES(*this)
 {
+    RegisterEventFuncs(Event_DSi_CartSlot1Power, this, MakeEventThunk(DSi, CartSlotEvent));
+    RegisterEventFuncs(Event_DSi_CartSlot2Power, this, MakeEventThunk(DSi, CartSlotEvent));
+
     // Memory is owned by ARMJIT_Memory, don't free it
     NWRAM_A = JIT.Memory.GetNWRAM_A();
     NWRAM_B = JIT.Memory.GetNWRAM_B();
@@ -121,6 +124,9 @@ DSi::DSi(DSiArgs&& args, void* userdata) noexcept :
 
 DSi::~DSi() noexcept
 {
+    UnregisterEventFuncs(Event_DSi_CartSlot1Power);
+    UnregisterEventFuncs(Event_DSi_CartSlot2Power);
+
     // Memory is owned externally
     NWRAM_A = nullptr;
     NWRAM_B = nullptr;
@@ -183,7 +189,9 @@ void DSi::Reset()
     SCFG_Clock7 = 0x0187;
     SCFG_EXT[0] = 0x8307F100;
     SCFG_EXT[1] = 0x93FFFB06;
-    SCFG_MC = 0x0010 | (~((u32)(NDSCartSlot.GetCart() != nullptr))&1);//0x0011;
+    SCFG_MC = 0x0010 | (~((u32)(NDSCartSlot.GetCart() != nullptr))&1);//0x0011; // FIXME!!
+    SCFG_CartInsertDelay = 0xFFFF;
+    SCFG_CartPowerOffDelay = 0xFFFF;
     SCFG_RST = 0;
 
     DSP.SetRstLine(false);
@@ -249,7 +257,9 @@ void DSi::DoSavestateExtra(Savestate* file)
     file->Var16(&SCFG_Clock9);
     file->Var16(&SCFG_Clock7);
     file->VarArray(&SCFG_EXT[0], sizeof(u32)*2);
-    file->Var32(&SCFG_MC);
+    file->Var16(&SCFG_MC);
+    file->Var16(&SCFG_CartInsertDelay);
+    file->Var16(&SCFG_CartPowerOffDelay);
     file->Var16(&SCFG_RST);
 
     //file->VarArray(ARM9iBIOS, 0x10000);
@@ -1374,10 +1384,10 @@ void DSi::Set_SCFG_Clock9(u16 val)
     ARM9.UpdateRegionTimings(0x00000, 0x100000);
 }
 
-void DSi::Set_SCFG_MC(u32 val)
+void DSi::Set_SCFG_MC(u16 val)
 {
     u32 oldslotstatus = SCFG_MC & 0xC;
-
+printf("Set SCFG MC = %08X\n", val);
     val &= 0xFFFF800C;
     if ((val & 0xC) == 0xC) val &= ~0xC; // hax
     if (val & 0x8000) Log(LogLevel::Warn, "SCFG_MC: weird NDS slot swap\n");
@@ -1387,6 +1397,11 @@ void DSi::Set_SCFG_MC(u32 val)
     {
         NDSCartSlot.ResetCart();
     }
+}
+
+void DSi::CartSlotEvent(u32 param)
+{
+    // TODO
 }
 
 
@@ -3109,8 +3124,20 @@ void DSi::ARM7IOWrite16(u32 addr, u16 val)
         case 0x04004010:
             if (!(SCFG_EXT[1] & (1 << 31))) /* no access to SCFG Registers if disabled*/
                 return;
-            Set_SCFG_MC((SCFG_MC & 0xFFFF0000) | val);
+            Set_SCFG_MC(val);
             return;
+        case 0x04004012:
+            if (!(SCFG_EXT[1] & (1 << 31))) /* no access to SCFG Registers if disabled*/
+                return;
+            SCFG_CartInsertDelay = val;
+            return;
+        case 0x04004014:
+            if (!(SCFG_EXT[1] & (1 << 31))) /* no access to SCFG Registers if disabled*/
+                return;
+            // TODO: reschedule if this changes during the power-off phase?
+            SCFG_CartPowerOffDelay = val;
+            return;
+
         case 0x04004060:
         case 0x04004062:
             if (!(SCFG_EXT[1] & (1 << 31))) /* no access to SCFG Registers if disabled*/
@@ -3230,7 +3257,14 @@ void DSi::ARM7IOWrite32(u32 addr, u32 val)
     case 0x04004010:
         if (!(SCFG_EXT[1] & (1 << 31))) /* no access to SCFG Registers if disabled*/
             return;
-        Set_SCFG_MC(val);
+        SCFG_CartInsertDelay = val >> 16;
+        Set_SCFG_MC(val & 0xFFFF);
+        return;
+    case 0x04004014:
+        if (!(SCFG_EXT[1] & (1 << 31))) /* no access to SCFG Registers if disabled*/
+            return;
+        // TODO: reschedule if this changes during the power-off phase?
+        SCFG_CartPowerOffDelay = val & 0xFFFF;
         return;
 
     case 0x04004054:

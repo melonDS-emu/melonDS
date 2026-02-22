@@ -364,6 +364,7 @@ public:
     void Reset() noexcept;
     void ResetCart() noexcept;
     void DoSavestate(Savestate* file) noexcept;
+
     void DecryptSecureArea(u8* out) noexcept;
 
     /// Loads a Nintendo DS cart object into the cart slot.
@@ -448,7 +449,9 @@ private:
     void Key1_ApplyKeycode(u32* keycode, u32 mod) noexcept;
     void Key1_LoadKeyBuf(bool dsi) noexcept;
     void Key1_InitKeycode(bool dsi, u32 idcode, u32 level, u32 mod) noexcept;
+
     void Key2_Encrypt(const u8* data, u32 len) noexcept;
+
     void ROMEndTransfer(u32 param) noexcept;
     void ROMPrepareData(u32 param) noexcept;
     void AdvanceROMTransfer() noexcept;

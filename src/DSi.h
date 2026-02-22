@@ -165,9 +165,15 @@ public:
     bool DMAsRunning(u32 cpu) const override;
     void StopDMAs(u32 cpu, u32 mode) override;
     void CheckDMAs(u32 cpu, u32 mode) override;
+
     u16 SCFG_Clock7;
-    u32 SCFG_MC;
+
+    u16 SCFG_MC;
+    u16 SCFG_CartInsertDelay;
+    u16 SCFG_CartPowerOffDelay;
+
     u16 SCFG_RST;
+
     u32 MBK[2][9];
     u32 NDMACnt[2];
     std::array<DSi_NDMA, 8> NDMAs;
@@ -185,7 +191,10 @@ private:
     bool FullBIOSBoot;
 
     void Set_SCFG_Clock9(u16 val);
-    void Set_SCFG_MC(u32 val);
+    void Set_SCFG_MC(u16 val);
+
+    void CartSlotEvent(u32 param);
+
     void DecryptModcryptArea(u32 offset, u32 size, const u8* iv);
     void ApplyNewRAMSize(u32 size);
     void CheckDSiLoaderHack();
