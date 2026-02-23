@@ -92,7 +92,10 @@ public:
     virtual int ROMCommandStart(NDS& nds, NDSCart::NDSCartSlot& cartslot, const u8* cmd, u8* data, u32 len);
     virtual void ROMCommandFinish(const u8* cmd, u8* data, u32 len);
 
-    virtual u8 SPIWrite(u8 val, u32 pos, bool last);
+    //virtual u8 SPIWrite(u8 val, u32 pos, bool last);
+    virtual void SPISelect() { SPISelected = true; }
+    virtual void SPIRelease() { SPISelected = false; };
+    virtual u8 SPITransmit(u8 val) { return 0xFF; }
 
     virtual u8* GetSaveMemory() { return nullptr; }
     virtual const u8* GetSaveMemory() const { return nullptr; }
@@ -108,6 +111,7 @@ public:
     [[nodiscard]] u32 ID() const { return ChipID; }
     [[nodiscard]] const u8* GetROM() const { return ROM.get(); }
     [[nodiscard]] u32 GetROMLength() const { return ROMLength; }
+
 protected:
     void ReadROM(u32 addr, u32 len, u8* data, u32 offset) const;
 
@@ -122,6 +126,9 @@ protected:
 
     u32 CmdEncMode = 0;
     u32 DataEncMode = 0;
+
+    bool SPISelected = false;
+
     // Kept separate from the ROM data so we can decrypt the modcrypt area
     // without touching the overall ROM data
     NDSHeader Header {};
@@ -164,7 +171,10 @@ public:
 
     int ROMCommandStart(NDS& nds, NDSCart::NDSCartSlot& cartslot, const u8* cmd, u8* data, u32 len) override;
 
-    u8 SPIWrite(u8 val, u32 pos, bool last) override;
+    //u8 SPIWrite(u8 val, u32 pos, bool last) override;
+    void SPISelect() override;
+    void SPIRelease() override;
+    u8 SPITransmit(u8 val) override;
 
     u8* GetSaveMemory() override { return SRAM.get(); }
     const u8* GetSaveMemory() const override { return SRAM.get(); }
@@ -173,18 +183,23 @@ public:
 protected:
     void ReadROM_B7(u32 addr, u32 len, u8* data, u32 offset) const;
 
-    u8 SRAMWrite_EEPROMTiny(u8 val, u32 pos, bool last);
-    u8 SRAMWrite_EEPROM(u8 val, u32 pos, bool last);
-    u8 SRAMWrite_FLASH(u8 val, u32 pos, bool last);
+    u8 SRAMWrite_EEPROMTiny(u8 val);
+    u8 SRAMWrite_EEPROM(u8 val);
+    u8 SRAMWrite_FLASH(u8 val);
 
     std::unique_ptr<u8[]> SRAM = nullptr;
     u32 SRAMLength = 0;
     u32 SRAMType = 0;
 
+    u32 SRAMPos = 0;
     u8 SRAMCmd = 0;
     u32 SRAMAddr = 0;
-    u32 SRAMFirstAddr = 0;
+    //u32 SRAMFirstAddr = 0;
     u8 SRAMStatus = 0;
+
+    //bool SRAMNeedsSaving = false;
+    u32 SRAMSaveAddr = 0;
+    u32 SRAMSaveLen = 0;
 };
 
 // CartRetailNAND -- retail cart with NAND SRAM (WarioWare DIY, Jam with the Band, ...)
@@ -204,7 +219,10 @@ public:
     int ROMCommandStart(NDS& nds, NDSCart::NDSCartSlot& cartslot, const u8* cmd, u8* data, u32 len) override;
     void ROMCommandFinish(const u8* cmd, u8* data, u32 len) override;
 
-    u8 SPIWrite(u8 val, u32 pos, bool last) override;
+    // NAND cartridges have no SPI interface
+    void SPISelect() override {}
+    void SPIRelease() override {}
+    u8 SPITransmit(u8 val) override { return 0xFF; }
 
 private:
     void BuildSRAMID();
@@ -228,11 +246,15 @@ public:
 
     void DoSavestate(Savestate* file) override;
 
-    u8 SPIWrite(u8 val, u32 pos, bool last) override;
+    //u8 SPIWrite(u8 val, u32 pos, bool last) override;
+    void SPISelect() override;
+    //void SPIRelease() override;
+    u8 SPITransmit(u8 val) override;
 
 private:
     u32 IRVersion = 0;
     u8 IRCmd = 0;
+    u32 IRPos = 0;
 };
 
 // CartRetailBT - Pok�mon Typing Adventure (SPI BT controller)
@@ -243,7 +265,7 @@ public:
     CartRetailBT(std::unique_ptr<u8[]>&& rom, u32 len, u32 chipid, ROMListEntry romparams, std::unique_ptr<u8[]>&& sram, u32 sramlen, void* userdata);
     ~CartRetailBT() override;
 
-    u8 SPIWrite(u8 val, u32 pos, bool last) override;
+    u8 SPITransmit(u8 val) override;
 };
 
 // CartSD -- any 'cart' with an SD card slot
@@ -426,8 +448,9 @@ private:
     u32 ROMCnt = 0;
     std::array<u8, 8> ROMCommand {};
     u8 SPIData = 0;
-    u32 SPIDataPos = 0;
-    bool SPIHold = false;
+    //u32 SPIDataPos = 0;
+    //bool SPIHold = false;
+    bool SPISelected = false;
 
     u32 ROMData = 0;
 

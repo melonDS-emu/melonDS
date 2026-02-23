@@ -111,8 +111,8 @@ DSi::DSi(DSiArgs&& args, void* userdata) noexcept :
     CamModule(*this),
     AES(*this)
 {
-    RegisterEventFuncs(Event_DSi_CartSlot1Power, this, MakeEventThunk(DSi, CartSlotEvent));
-    RegisterEventFuncs(Event_DSi_CartSlot2Power, this, MakeEventThunk(DSi, CartSlotEvent));
+    RegisterEventFuncs(Event_DSi_CartSlot1Power, this, {MakeEventThunk(DSi, CartSlotEvent)});
+    RegisterEventFuncs(Event_DSi_CartSlot2Power, this, {MakeEventThunk(DSi, CartSlotEvent)});
 
     // Memory is owned by ARMJIT_Memory, don't free it
     NWRAM_A = JIT.Memory.GetNWRAM_A();
