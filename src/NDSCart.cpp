@@ -586,7 +586,7 @@ void CartRetail::SPISelect()
 
 void CartRetail::SPIRelease()
 {
-    if (SRAMStatus & (1<<1))
+    if ((SRAMStatus & (1<<1)) && (SRAMSaveLen > 0))
     {
         Platform::WriteNDSSave(SRAM.get(), SRAMLength,
                                SRAMSaveAddr & (SRAMLength-1),
