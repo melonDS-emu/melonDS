@@ -88,14 +88,17 @@ public:
 
     virtual void DoSavestate(Savestate* file);
 
-
-    virtual int ROMCommandStart(NDS& nds, NDSCart::NDSCartSlot& cartslot, const u8* cmd, u8* data, u32 len);
-    virtual void ROMCommandFinish(const u8* cmd, u8* data, u32 len);
+    //virtual int ROMCommandStart(NDS& nds, NDSCart::NDSCartSlot& cartslot, const u8* cmd, u8* data, u32 len);
+    //virtual void ROMCommandFinish(const u8* cmd, u8* data, u32 len);
+    virtual void ROMCommandStart(NDS& nds, NDSCart::NDSCartSlot& cartslot, const u8* cmd);
+    virtual u32 ROMCommandReceive();
+    virtual void ROMCommandTransmit(u32 val) {}
+    virtual void ROMCommandFinish() {}
 
     //virtual u8 SPIWrite(u8 val, u32 pos, bool last);
     virtual void SPISelect() { SPISelected = true; }
     virtual void SPIRelease() { SPISelected = false; };
-    virtual u8 SPITransmit(u8 val) { return 0xFF; }
+    virtual u8 SPITransmitReceive(u8 val) { return 0xFF; }
 
     virtual u8* GetSaveMemory() { return nullptr; }
     virtual const u8* GetSaveMemory() const { return nullptr; }
@@ -113,19 +116,33 @@ public:
     [[nodiscard]] u32 GetROMLength() const { return ROMLength; }
 
 protected:
-    void ReadROM(u32 addr, u32 len, u8* data, u32 offset) const;
+    //void ReadROM(u32 addr, u32 len, u8* data, u32 offset) const;
+    u32 ROMRead32();
+    /*void IncrementROMAddr(u32 amount, u32 mask)
+    {
+        ROMAddr = (ROMAddr & ~mask) | ((ROMAddr + amount) & mask);
+    }*/
 
     void* UserData;
 
     std::unique_ptr<u8[]> ROM = nullptr;
     u32 ROMLength = 0;
+    u32 ROMMask = 0;
     u32 ChipID = 0;
     bool IsDSi = false;
     bool DSiMode = false;
     u32 DSiBase = 0;
 
+    // lenient addressing: do not redirect ROM accesses below 0x8000 etc
+    bool LenientAddressing = false;
+
     u32 CmdEncMode = 0;
     u32 DataEncMode = 0;
+
+    //u8 TransferData[0x4000];
+    //std::array<u8, 0x4000> TransferData {};
+    u8 ROMCmd[8] {};
+    u32 ROMAddr = 0;
 
     bool SPISelected = false;
 
@@ -169,12 +186,12 @@ public:
 
     void SetSaveMemory(const u8* savedata, u32 savelen) override;
 
-    int ROMCommandStart(NDS& nds, NDSCart::NDSCartSlot& cartslot, const u8* cmd, u8* data, u32 len) override;
+    //int ROMCommandStart(NDS& nds, NDSCart::NDSCartSlot& cartslot, const u8* cmd, u8* data, u32 len) override;
 
     //u8 SPIWrite(u8 val, u32 pos, bool last) override;
     void SPISelect() override;
     void SPIRelease() override;
-    u8 SPITransmit(u8 val) override;
+    u8 SPITransmitReceive(u8 val) override;
 
     u8* GetSaveMemory() override { return SRAM.get(); }
     const u8* GetSaveMemory() const override { return SRAM.get(); }
@@ -216,22 +233,29 @@ public:
 
     void SetSaveMemory(const u8* savedata, u32 savelen) override;
 
-    int ROMCommandStart(NDS& nds, NDSCart::NDSCartSlot& cartslot, const u8* cmd, u8* data, u32 len) override;
-    void ROMCommandFinish(const u8* cmd, u8* data, u32 len) override;
+    //int ROMCommandStart(NDS& nds, NDSCart::NDSCartSlot& cartslot, const u8* cmd, u8* data, u32 len) override;
+    //void ROMCommandFinish(const u8* cmd, u8* data, u32 len) override;
+    void ROMCommandStart(NDS& nds, NDSCart::NDSCartSlot& cartslot, const u8* cmd) override;
+    u32 ROMCommandReceive() override;
+    void ROMCommandTransmit(u32 val) override;
 
     // NAND cartridges have no SPI interface
     void SPISelect() override {}
     void SPIRelease() override {}
-    u8 SPITransmit(u8 val) override { return 0xFF; }
+    u8 SPITransmitReceive(u8 val) override { return 0xFF; }
 
 private:
     void BuildSRAMID();
+    u32 SRAMRead32();
 
     u32 SRAMBase = 0;
     u32 SRAMWindow = 0;
 
     u8 SRAMWriteBuffer[0x800] {};
     u32 SRAMWritePos = 0;
+    u32 SRAMWriteLen = 0;
+
+    u8 SRAMID[0x30];
 };
 
 // CartRetailIR -- SPI IR device and SRAM
@@ -249,7 +273,7 @@ public:
     //u8 SPIWrite(u8 val, u32 pos, bool last) override;
     void SPISelect() override;
     //void SPIRelease() override;
-    u8 SPITransmit(u8 val) override;
+    u8 SPITransmitReceive(u8 val) override;
 
 private:
     u32 IRVersion = 0;
@@ -265,7 +289,7 @@ public:
     CartRetailBT(std::unique_ptr<u8[]>&& rom, u32 len, u32 chipid, ROMListEntry romparams, std::unique_ptr<u8[]>&& sram, u32 sramlen, void* userdata);
     ~CartRetailBT() override;
 
-    u8 SPITransmit(u8 val) override;
+    u8 SPITransmitReceive(u8 val) override;
 };
 
 // CartSD -- any 'cart' with an SD card slot
@@ -308,6 +332,10 @@ protected:
     void ReadROM_B7(u32 addr, u32 len, u8* data, u32 offset) const;
 
     std::optional<FATStorage> SD {};
+
+    u32 SectorAddr = 0;
+    u32 SectorPos = 0;
+    u8 SectorBuffer[512] {};
 };
 
 // CartHomebrew -- homebrew 'cart' (no SRAM, DLDI)
@@ -321,8 +349,12 @@ public:
     void Reset() override;
     void SetupDirectBoot(const std::string& romname, NDS& nds) override;
 
-    int ROMCommandStart(NDS& nds, NDSCart::NDSCartSlot& cartslot, const u8* cmd, u8* data, u32 len) override;
-    void ROMCommandFinish(const u8* cmd, u8* data, u32 len) override;
+    //int ROMCommandStart(NDS& nds, NDSCart::NDSCartSlot& cartslot, const u8* cmd, u8* data, u32 len) override;
+    //void ROMCommandFinish(const u8* cmd, u8* data, u32 len) override;
+    void ROMCommandStart(NDS& nds, NDSCart::NDSCartSlot& cartslot, const u8* cmd) override;
+    u32 ROMCommandReceive() override;
+    void ROMCommandTransmit(u32 val) override;
+    void ROMCommandFinish() override;
 };
 
 // CartR4 -- unlicensed R4 'cart' (NDSCartR4.cpp)
@@ -356,8 +388,12 @@ public:
 
     void DoSavestate(Savestate* file) override;
 
-    int ROMCommandStart(NDS& nds, NDSCart::NDSCartSlot& cartslot, const u8* cmd, u8* data, u32 len) override;
-    void ROMCommandFinish(const u8* cmd, u8* data, u32 len) override;
+    //int ROMCommandStart(NDS& nds, NDSCart::NDSCartSlot& cartslot, const u8* cmd, u8* data, u32 len) override;
+    //void ROMCommandFinish(const u8* cmd, u8* data, u32 len) override;
+    void ROMCommandStart(NDS& nds, NDSCart::NDSCartSlot& cartslot, const u8* cmd) override;
+    u32 ROMCommandReceive() override;
+    void ROMCommandTransmit(u32 val) override;
+    void ROMCommandFinish() override;
 
 private:
     inline u32 GetAdjustedSector(u32 sector) const
@@ -372,6 +408,7 @@ private:
     s32 EncryptionKey;
     u32 FATEntryOffset[2];
     u8 Buffer[512];
+    u32 BufferPos;
     u8 InitStatus;
     CartR4Type R4CartType;
     CartR4Language CartLanguage;
@@ -454,10 +491,10 @@ private:
 
     u32 ROMData = 0;
 
-    std::array<u8, 0x4000> TransferData {};
+    //std::array<u8, 0x4000> TransferData {};
     u32 TransferPos = 0;
     u32 TransferLen = 0;
-    u32 TransferDir = 0;
+    u32 TransferDir = 0; // TODO remove me?
     std::array<u8, 8> TransferCmd {};
 
     std::unique_ptr<CartCommon> Cart = nullptr;

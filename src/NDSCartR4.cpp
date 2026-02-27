@@ -111,24 +111,19 @@ void CartR4::DoSavestate(Savestate* file)
 }
 
 // FIXME: Ace3DS/clone behavior is only partially verified.
-int CartR4::ROMCommandStart(NDS& nds, NDSCart::NDSCartSlot& cartslot, const u8* cmd, u8* data, u32 len)
+void CartR4::ROMCommandStart(NDS& nds, NDSCart::NDSCartSlot& cartslot, const u8* cmd)
 {
     if (CmdEncMode != 2)
-        return CartCommon::ROMCommandStart(nds, cartslot, cmd, data, len);
+        return CartSD::ROMCommandStart(nds, cartslot, cmd);
 
-    switch (cmd[0])
+    memcpy(ROMCmd, cmd, 8);
+
+    switch (ROMCmd[0])
     {
-    case 0xB0: /* Get card information */
-        {
-            u32 info = 0x75A00000 | (((R4CartType >= 1 ? 4 : 0) | CartLanguage) << 3) | InitStatus;
-            for (u32 pos = 0; pos < len; pos += 4)
-                *(u32*)&data[pos] = info;
-            return 0;
-        }
     case 0xB4: /* FAT entry */
         {
             u8 entryBuffer[512];
-            u32 sector = ((cmd[1]<<24) | (cmd[2]<<16) | (cmd[3]<<8) | cmd[4]) & (~0x1F);
+            u32 sector = ((ROMCmd[1]<<24) | (ROMCmd[2]<<16) | (ROMCmd[3]<<8) | ROMCmd[4]) & (~0x1F);
             // set FAT entry offset to the starting cluster, to gain a bit of speed
             SD->ReadSectors(sector >> 9, 1, entryBuffer);
             u16 fileEntryOffset = sector & 0x1FF;
@@ -136,38 +131,26 @@ int CartR4::ROMCommandStart(NDS& nds, NDSCart::NDSCartSlot& cartslot, const u8* 
                 | entryBuffer[fileEntryOffset + 26]
                 | (entryBuffer[fileEntryOffset + 21] << 24)
                 | (entryBuffer[fileEntryOffset + 20] << 16);
-            FATEntryOffset[cmd[4] & 0x01] = clusterStart;
-            for (u32 pos = 0; pos < len; pos += 4)
-                *(u32*)&data[pos] = 0;
-            return 0;
-        }
-    case 0xB8: /* ? Get chip ID ? */
-        {
-            for (u32 pos = 0; pos < len; pos += 4)
-                *(u32*)&data[pos] = ChipID;
-            return 0;
+            FATEntryOffset[ROMCmd[4] & 0x01] = clusterStart;
+            return;
         }
     case 0xB2: /* Save read request */
     case 0xB6: /* ROM read request */
         {
-            u32 sector = ((cmd[1]<<24) | (cmd[2]<<16) | (cmd[3]<<8) | cmd[4]);
+            u32 sector = ((ROMCmd[1]<<24) | (ROMCmd[2]<<16) | (ROMCmd[3]<<8) | ROMCmd[4]);
             ReadSDToBuffer(sector, cmd[0] == 0xB6);
-            for (u32 pos = 0; pos < len; pos += 4)
-                *(u32*)&data[pos] = 0;
-            return 0;
+            return;
         }
     case 0xB9: /* SD read request */
         {
-            u32 sector = (cmd[1]<<24) | (cmd[2]<<16) | (cmd[3]<<8) | cmd[4];
+            u32 sector = (ROMCmd[1]<<24) | (ROMCmd[2]<<16) | (ROMCmd[3]<<8) | ROMCmd[4];
             if (SD)
                 SD->ReadSectors(GetAdjustedSector(sector), 1, Buffer);
-            for (u32 pos = 0; pos < len; pos += 4)
-                *(u32*)&data[pos] = 0;
-            return 0;
+            return;
         }
     case 0xBB: /* SD write start */
     case 0xBD: /* Save write start */
-        return 1;
+        return;
     case 0xBC: /* SD write status */
     case 0xBE: /* Save write status */
         {
@@ -179,9 +162,7 @@ int CartR4::ROMCommandStart(NDS& nds, NDSCart::NDSCartSlot& cartslot, const u8* 
                 if (checksum != cmd[7])
                     Log(LogLevel::Warn, "R4: invalid 0xBC command checksum (%d != %d)", cmd[7], checksum);
             }
-            for (u32 pos = 0; pos < len; pos += 4)
-                *(u32*)&data[pos] = 0;
-            return 0;
+            return;
         }
     case 0xB7: /* ROM read data */
         {
@@ -189,9 +170,50 @@ int CartR4::ROMCommandStart(NDS& nds, NDSCart::NDSCartSlot& cartslot, const u8* 
             /* TODO: When does the R4 do this exactly? */
             if (!BufferInitialized)
             {
-                u32 addr = (cmd[1]<<24) | (cmd[2]<<16) | (cmd[3]<<8) | cmd[4];
-                memcpy(data, &ROM[addr & (ROMLength-1)], len);
-                return 0;
+                ROMAddr = (ROMCmd[1]<<24) | (ROMCmd[2]<<16) | (ROMCmd[3]<<8) | ROMCmd[4];
+                return;
+            }
+            /* Otherwise, fall through. */
+        }
+    case 0xB3: /* Save read data */
+    case 0xBA: /* SD read data */
+        {
+            BufferPos = 0;
+            return;
+        }
+    case 0xBF: /* ROM read decrypted data */
+        {
+            // TODO: Is decryption done using the sector from 0xBF or 0xB6?
+            u32 sector = (ROMCmd[1]<<24) | (ROMCmd[2]<<16) | (ROMCmd[3]<<8) | ROMCmd[4];
+            DecryptR4Sector(SectorBuffer, Buffer, GetEncryptionKey(sector >> 9));
+            return;
+        }
+    default:
+        Log(LogLevel::Warn, "R4: unknown command %02X %02X %02X %02X %02X %02X %02X %02X\n", cmd[0], cmd[1], cmd[2], cmd[3], cmd[4], cmd[5], cmd[6], cmd[7]);
+        return;
+    }
+}
+
+u32 CartR4::ROMCommandReceive()
+{
+    if (CmdEncMode != 2) return CartSD::ROMCommandReceive();
+
+    switch (ROMCmd[0])
+    {
+    case 0xB0: /* Get card information */
+        {
+            u32 info = 0x75A00000 | (((R4CartType >= 1 ? 4 : 0) | CartLanguage) << 3) | InitStatus;
+            return info;
+        }
+    case 0xB8: /* ? Get chip ID ? */
+        return ChipID;
+    case 0xB7: /* ROM read data */
+        {
+            /* If the buffer has not been initialized yet, emulate ROM. */
+            /* TODO: When does the R4 do this exactly? */
+            if (!BufferInitialized)
+            {
+                return *(u32*)&ROM[ROMAddr & (ROMLength-1)];
             }
             /* Otherwise, fall through. */
         }
@@ -199,57 +221,75 @@ int CartR4::ROMCommandStart(NDS& nds, NDSCart::NDSCartSlot& cartslot, const u8* 
     case 0xBA: /* SD read data */
         {
             // TODO: Do these use separate buffers?
-            for (u32 pos = 0; pos < len; pos++)
-                data[pos] = Buffer[pos & 0x1FF];
-            return 0;
+            u32 ret = *(u32*)&Buffer[BufferPos];
+            BufferPos += 4;
+            BufferPos &= 0x1FF;
+            return ret;
         }
     case 0xBF: /* ROM read decrypted data */
         {
-            // TODO: Is decryption done using the sector from 0xBF or 0xB6?
-            u32 sector = (cmd[1]<<24) | (cmd[2]<<16) | (cmd[3]<<8) | cmd[4];
-            if (len >= 512)
-                DecryptR4Sector(data, Buffer, GetEncryptionKey(sector >> 9));
-            return 0;        
+            u32 ret = *(u32*)&SectorBuffer[SectorPos];
+            SectorPos += 4;
+            SectorPos &= 0x1FF;
+            return ret;
         }
     default:
-        Log(LogLevel::Warn, "R4: unknown command %02X %02X %02X %02X %02X %02X %02X %02X (%d)\n", cmd[0], cmd[1], cmd[2], cmd[3], cmd[4], cmd[5], cmd[6], cmd[7], len);
-        for (u32 pos = 0; pos < len; pos += 4)
-            *(u32*)&data[pos] = 0;
-        return 0;
+        return CartSD::ROMCommandReceive();
     }
 }
 
-void CartR4::ROMCommandFinish(const u8* cmd, u8* data, u32 len)
+void CartR4::ROMCommandTransmit(u32 val)
 {
-    if (CmdEncMode != 2) return CartCommon::ROMCommandFinish(cmd, data, len);
+    if (CmdEncMode != 2) return CartSD::ROMCommandTransmit(val);
 
-    switch (cmd[0])
+    switch (ROMCmd[0])
+    {
+    case 0xBB: /* SD write start */
+    case 0xBD: /* Save write start */
+        if (SectorPos < 512)
+        {
+            *(u32*)&SectorBuffer[SectorPos] = val;
+            SectorPos += 4;
+        }
+        return;
+    default:
+        return CartSD::ROMCommandTransmit(val);
+    }
+}
+
+void CartR4::ROMCommandFinish()
+{
+    if (CmdEncMode != 2) return CartSD::ROMCommandFinish();
+
+    switch (ROMCmd[0])
     {
     case 0xBB: /* SD write start */
         {
-            u32 sector = (cmd[1]<<24) | (cmd[2]<<16) | (cmd[3]<<8) | cmd[4];
+            u32 sector = (ROMCmd[1]<<24) | (ROMCmd[2]<<16) | (ROMCmd[3]<<8) | ROMCmd[4];
 
             // The official R4 firmware sends a superfluous write to card
             // (sector 0, byte 1) on boot. TODO: Is this correct?
             if (GetAdjustedSector(sector) != sector && (sector & 0x1FF)) break;
 
             if (SD && !SD->IsReadOnly())
-                SD->WriteSectors(GetAdjustedSector(sector), 1, data);
+                SD->WriteSectors(GetAdjustedSector(sector), 1, SectorBuffer);
             break;
         }
     case 0xBD: /* Save write start */
         {
-            u32 sector = (cmd[1]<<24) | (cmd[2]<<16) | (cmd[3]<<8) | cmd[4];
+            u32 sector = (ROMCmd[1]<<24) | (ROMCmd[2]<<16) | (ROMCmd[3]<<8) | ROMCmd[4];
 
             if (sector & 0x1FF) break;
 
             if (SD && !SD->IsReadOnly())
                 SD->WriteSectors(
                     SDFATEntrySectorGet(FATEntryOffset[1], sector) >> 9,
-                    1, data
+                    1, SectorBuffer
                 );
             break;
         }
+    default:
+        return CartSD::ROMCommandFinish();
     }
 }
 
