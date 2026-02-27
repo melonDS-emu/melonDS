@@ -16,11 +16,8 @@
     with melonDS. If not, see http://www.gnu.org/licenses/.
 */
 
-#include <string.h>
-#include "NDS.h"
-#include "DSi.h"
-#include "NDSCart.h"
-#include "Platform.h"
+#include "../NDS.h"
+#include "CartR4.h"
 
 namespace melonDS
 {

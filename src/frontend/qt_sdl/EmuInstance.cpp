@@ -48,6 +48,8 @@
 #include "FreeBIOS.h"
 #include "main.h"
 
+#include "NDSCart/CartSD.h"
+
 using std::make_unique;
 using std::pair;
 using std::string;
