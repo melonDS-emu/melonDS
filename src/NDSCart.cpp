@@ -681,7 +681,7 @@ void NDSCartSlot::WriteROMCnt(u32 val) noexcept
     TransferDir = (ROMCnt >> 30) & 0x1;
 
     if (Cart)
-        Cart->ROMCommandStart(NDS, *this, TransferCmd.data());
+        Cart->ROMCommandStart(*this, TransferCmd.data());
 
     //if ((datasize > 0) && (((ROMCnt >> 30) & 0x1) != TransferDir))
     //    Log(LogLevel::Debug, "NDSCART: !! BAD TRANSFER DIRECTION FOR CMD %02X, DIR=%d, ROMCNT=%08X\n", ROMCommand[0], TransferDir, ROMCnt);

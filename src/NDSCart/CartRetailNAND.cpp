@@ -108,9 +108,9 @@ u32 CartRetailNAND::SRAMRead32()
     return ret;
 }
 
-void CartRetailNAND::ROMCommandStart(NDS& nds, NDSCart::NDSCartSlot& cartslot, const u8* cmd)
+void CartRetailNAND::ROMCommandStart(NDSCart::NDSCartSlot& cartslot, const u8* cmd)
 {
-    if (CmdEncMode != 2) return CartRetail::ROMCommandStart(nds, cartslot, cmd);
+    if (CmdEncMode != 2) return CartRetail::ROMCommandStart(cartslot, cmd);
 
     memcpy(ROMCmd, cmd, 8);
 
@@ -208,7 +208,7 @@ void CartRetailNAND::ROMCommandStart(NDS& nds, NDSCart::NDSCartSlot& cartslot, c
             if (SRAMWindow == 0)
             {
                 // regular ROM mode
-                return CartRetail::ROMCommandStart(nds, cartslot, cmd);
+                return CartRetail::ROMCommandStart(cartslot, cmd);
             }
             else
             {
@@ -225,7 +225,7 @@ void CartRetailNAND::ROMCommandStart(NDS& nds, NDSCart::NDSCartSlot& cartslot, c
         return;
 
     default:
-        return CartRetail::ROMCommandStart(nds, cartslot, cmd);
+        return CartRetail::ROMCommandStart(cartslot, cmd);
     }
 }
 

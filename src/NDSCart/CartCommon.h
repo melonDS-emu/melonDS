@@ -62,14 +62,11 @@ public:
 
     virtual void DoSavestate(Savestate* file);
 
-    //virtual int ROMCommandStart(NDS& nds, NDSCart::NDSCartSlot& cartslot, const u8* cmd, u8* data, u32 len);
-    //virtual void ROMCommandFinish(const u8* cmd, u8* data, u32 len);
-    virtual void ROMCommandStart(NDS& nds, NDSCart::NDSCartSlot& cartslot, const u8* cmd);
+    virtual void ROMCommandStart(NDSCart::NDSCartSlot& cartslot, const u8* cmd);
     virtual u32 ROMCommandReceive();
     virtual void ROMCommandTransmit(u32 val) {}
     virtual void ROMCommandFinish() {}
 
-    //virtual u8 SPIWrite(u8 val, u32 pos, bool last);
     virtual void SPISelect() { SPISelected = true; }
     virtual void SPIRelease() { SPISelected = false; };
     virtual u8 SPITransmitReceive(u8 val) { return 0xFF; }
@@ -108,8 +105,6 @@ protected:
     u32 CmdEncMode = 0;
     u32 DataEncMode = 0;
 
-    //u8 TransferData[0x4000];
-    //std::array<u8, 0x4000> TransferData {};
     u8 ROMCmd[8] {};
     u32 ROMAddr = 0;
 

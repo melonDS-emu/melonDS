@@ -135,7 +135,7 @@ u32 CartCommon::ROMRead32()
     return ret;
 }
 
-void CartCommon::ROMCommandStart(NDS& nds, NDSCartSlot& cartslot, const u8* cmd)
+void CartCommon::ROMCommandStart(NDSCartSlot& cartslot, const u8* cmd)
 {
     if (CmdEncMode == 0)
     {

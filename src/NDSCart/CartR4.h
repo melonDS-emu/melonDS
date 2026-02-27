@@ -57,7 +57,7 @@ public:
 
     //int ROMCommandStart(NDS& nds, NDSCart::NDSCartSlot& cartslot, const u8* cmd, u8* data, u32 len) override;
     //void ROMCommandFinish(const u8* cmd, u8* data, u32 len) override;
-    void ROMCommandStart(NDS& nds, NDSCart::NDSCartSlot& cartslot, const u8* cmd) override;
+    void ROMCommandStart(NDSCart::NDSCartSlot& cartslot, const u8* cmd) override;
     u32 ROMCommandReceive() override;
     void ROMCommandTransmit(u32 val) override;
     void ROMCommandFinish() override;

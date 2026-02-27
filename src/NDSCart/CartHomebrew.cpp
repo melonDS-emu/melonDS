@@ -85,9 +85,9 @@ void CartHomebrew::SetupDirectBoot(const std::string& romname, NDS& nds)
     }
 }
 
-void CartHomebrew::ROMCommandStart(NDS& nds, NDSCart::NDSCartSlot& cartslot, const u8* cmd)
+void CartHomebrew::ROMCommandStart(NDSCart::NDSCartSlot& cartslot, const u8* cmd)
 {
-    if (CmdEncMode != 2) return CartSD::ROMCommandStart(nds, cartslot, cmd);
+    if (CmdEncMode != 2) return CartSD::ROMCommandStart(cartslot, cmd);
 
     memcpy(ROMCmd, cmd, 8);
 
@@ -105,7 +105,7 @@ void CartHomebrew::ROMCommandStart(NDS& nds, NDSCart::NDSCartSlot& cartslot, con
         return;
 
     default:
-        return CartSD::ROMCommandStart(nds, cartslot, cmd);
+        return CartSD::ROMCommandStart(cartslot, cmd);
     }
 }
 

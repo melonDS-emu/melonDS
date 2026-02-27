@@ -35,7 +35,7 @@ public:
     void Reset() override;
     void SetupDirectBoot(const std::string& romname, NDS& nds) override;
 
-    void ROMCommandStart(NDS& nds, NDSCart::NDSCartSlot& cartslot, const u8* cmd) override;
+    void ROMCommandStart(NDSCart::NDSCartSlot& cartslot, const u8* cmd) override;
     u32 ROMCommandReceive() override;
     void ROMCommandTransmit(u32 val) override;
     void ROMCommandFinish() override;

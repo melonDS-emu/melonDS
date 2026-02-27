@@ -108,10 +108,10 @@ void CartR4::DoSavestate(Savestate* file)
 }
 
 // FIXME: Ace3DS/clone behavior is only partially verified.
-void CartR4::ROMCommandStart(NDS& nds, NDSCart::NDSCartSlot& cartslot, const u8* cmd)
+void CartR4::ROMCommandStart(NDSCart::NDSCartSlot& cartslot, const u8* cmd)
 {
     if (CmdEncMode != 2)
-        return CartSD::ROMCommandStart(nds, cartslot, cmd);
+        return CartSD::ROMCommandStart(cartslot, cmd);
 
     memcpy(ROMCmd, cmd, 8);
 
