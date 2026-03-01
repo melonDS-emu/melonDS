@@ -137,7 +137,11 @@ private:
     //bool SPIHold = false;
     bool SPISelected = false;
 
-    u32 ROMData = 0;
+    u32 ROMData[2] {};
+    u32 ROMDataPosCPU;
+    u32 ROMDataPosCart;
+    u32 ROMDataCount;
+    bool ROMDataLate;
 
     //std::array<u8, 0x4000> TransferData {};
     u32 TransferPos = 0;
@@ -160,9 +164,13 @@ private:
 
     void Key2_Encrypt(const u8* data, u32 len) noexcept;
 
+    void RaiseDRQ() noexcept;
     void ROMEndTransfer(u32 param) noexcept;
     void ROMPrepareData(u32 param) noexcept;
+    void ROMSendData(u32 param) noexcept;
+    void ROMAdvanceData() noexcept;
     void AdvanceROMTransfer() noexcept;
+
     void SPITransferDone(u32 param) noexcept;
 };
 

@@ -89,6 +89,7 @@ void CartCommon::Reset()
 
 void CartCommon::SetupDirectBoot(const std::string& romname, NDS& nds)
 {
+    //return;
     CmdEncMode = 2;
     DataEncMode = 2;
     DSiMode = IsDSi && (nds.ConsoleType==1);
@@ -246,8 +247,6 @@ void CartCommon::ROMCommandStart(NDSCartSlot& cartslot, const u8* cmd)
 
 u32 CartCommon::ROMCommandReceive()
 {
-    u32 ret;
-
     if (CmdEncMode == 0)
     {
         switch (ROMCmd[0])

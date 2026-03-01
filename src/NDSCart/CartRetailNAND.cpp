@@ -104,7 +104,7 @@ u32 CartRetailNAND::SRAMRead32()
         addrlo = (addrlo + 4) & 0xFFF;
     }
 
-    SRAMAddr = addrhi | addrlo;
+    SRAMAddr = SRAMBase + (addrhi | addrlo);
     return ret;
 }
 
@@ -179,6 +179,7 @@ void CartRetailNAND::ROMCommandStart(NDSCart::NDSCartSlot& cartslot, const u8* c
 
     case 0x8B: // revert to ROM read mode
         SRAMWindow = 0;
+        printf("ROM mode\n");
         return;
 
     case 0x94: // return ID data
@@ -198,6 +199,7 @@ void CartRetailNAND::ROMCommandStart(NDSCart::NDSCartSlot& cartslot, const u8* c
                 Log(LogLevel::Warn, "NAND: !! BAD ADDR %08X > %08X\n", addr, SRAMBase+SRAMLength);
 
             SRAMWindow = addr;
+            printf("SRAMWindow = %08X\n", SRAMWindow);
         }
         return;
 
@@ -261,6 +263,7 @@ u32 CartRetailNAND::ROMCommandReceive()
         else
         {
             // SRAM mode
+            printf("reading SRAM: %08X\n", SRAMAddr);
             if (!SRAMAddr)
                 return 0xFFFFFFFF;
 
