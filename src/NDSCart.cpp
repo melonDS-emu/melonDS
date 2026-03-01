@@ -602,6 +602,9 @@ void NDSCartSlot::ResetCart() noexcept
 
 void NDSCartSlot::ROMEndTransfer(u32 param) noexcept
 {
+    if (!(ROMCnt & (1<<31)))
+        return;
+
     ROMCnt &= ~(1<<31);
 
     if (SPICnt & (1<<14))
@@ -613,6 +616,9 @@ void NDSCartSlot::ROMEndTransfer(u32 param) noexcept
 
 void NDSCartSlot::ROMPrepareData(u32 param) noexcept
 {
+    if (!(ROMCnt & (1<<31)))
+        return;
+
 #if 0
     if (TransferDir == 0)
     {
@@ -674,6 +680,9 @@ void NDSCartSlot::ROMPrepareData(u32 param) noexcept
 
 void NDSCartSlot::ROMSendData(u32 param) noexcept
 {
+    if (!(ROMCnt & (1<<31)))
+        return;
+
     if (ROMDataCount == 0)
     {
         // if we have no data available, keep track of this, and abort
@@ -798,13 +807,9 @@ void NDSCartSlot::WriteROMCnt(u32 val) noexcept
     if (Cart)
         Cart->ROMCommandStart(*this, TransferCmd.data());
 
-    //if ((datasize > 0) && (((ROMCnt >> 30) & 0x1) != TransferDir))
-    //    Log(LogLevel::Debug, "NDSCART: !! BAD TRANSFER DIRECTION FOR CMD %02X, DIR=%d, ROMCNT=%08X\n", ROMCommand[0], TransferDir, ROMCnt);
-
-    // TODO CHECKME!!
-    ROMCnt &= ~(1<<23);
-
-    // TODO CHECKME ALSO
+    // reset the FIFO
+    ROMDataPosCPU = 0;
+    ROMDataPosCart = 0;
     ROMDataCount = 0;
     ROMDataLate = false;
 
@@ -977,8 +982,6 @@ void NDSCartSlot::WriteROMData(u32 val) noexcept
 
     // TODO support 8-bit and 16-bit writes
     // FIFO is only advanced when writing to the MSB
-
-    // TODO: does the FIFO empty/full logic only work during transfers? should it get reset?
 
     ROMData[ROMDataPosCPU] = val;
     ROMDataPosCPU ^= 1;
