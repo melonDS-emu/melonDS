@@ -143,11 +143,8 @@ private:
     u32 ROMDataCount;
     bool ROMDataLate;
 
-    //std::array<u8, 0x4000> TransferData {};
     u32 TransferPos = 0;
     u32 TransferLen = 0;
-    u32 TransferDir = 0; // TODO remove me?
-    std::array<u8, 8> TransferCmd {};
 
     std::unique_ptr<CartCommon> Cart = nullptr;
 
@@ -164,12 +161,12 @@ private:
 
     void Key2_Encrypt(const u8* data, u32 len) noexcept;
 
-    void RaiseDRQ() noexcept;
-    void ROMEndTransfer(u32 param) noexcept;
-    void ROMPrepareData(u32 param) noexcept;
+    void ROMReceiveData(u32 param) noexcept;
+    void ROMAdvanceReceive() noexcept;
     void ROMSendData(u32 param) noexcept;
-    //void ROMAdvanceData() noexcept;
-    void AdvanceROMTransfer() noexcept;
+    void ROMAdvanceSend() noexcept;
+    void ROMEndTransfer(u32 param) noexcept;
+    void RaiseDRQ() noexcept;
 
     void SPITransferDone(u32 param) noexcept;
 };
