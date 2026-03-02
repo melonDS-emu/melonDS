@@ -168,7 +168,7 @@ private:
     void ROMEndTransfer(u32 param) noexcept;
     void ROMPrepareData(u32 param) noexcept;
     void ROMSendData(u32 param) noexcept;
-    void ROMAdvanceData() noexcept;
+    //void ROMAdvanceData() noexcept;
     void AdvanceROMTransfer() noexcept;
 
     void SPITransferDone(u32 param) noexcept;

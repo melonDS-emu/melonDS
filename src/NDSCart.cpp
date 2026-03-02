@@ -600,156 +600,15 @@ void NDSCartSlot::ResetCart() noexcept
 }
 
 
-void NDSCartSlot::ROMEndTransfer(u32 param) noexcept
-{
-    if (!(ROMCnt & (1<<31)))
-        return;
-
-    ROMCnt &= ~(1<<31);
-
-    if (SPICnt & (1<<14))
-        NDS.SetIRQ((NDS.ExMemCnt[0]>>11)&0x1, IRQ_CartXferDone);
-
-    if (Cart)
-        Cart->ROMCommandFinish();
-}
-
-void NDSCartSlot::ROMPrepareData(u32 param) noexcept
-{
-    if (!(ROMCnt & (1<<31)))
-        return;
-
-#if 0
-    if (TransferDir == 0)
-    {
-        printf("preparing data: %d/%d\n", TransferPos, TransferLen);
-        if (TransferPos < TransferLen)
-        {
-            if (Cart) ROMData[1] = Cart->ROMCommandReceive();
-            //ROMData = *(u32*)&TransferData[TransferPos];
-        }
-        else
-            printf("WHAT???? TRANSFERPOS BAD! %d >= %d\n", TransferPos, TransferLen);
-
-        TransferPos += 4;
-    }
-
-    /*ROMCnt |= (1<<23);
-
-    if (NDS.ExMemCnt[0] & (1<<11))
-        NDS.CheckDMAs(1, 0x12);
-    else
-        NDS.CheckDMAs(0, 0x05);*/
-    ROMAdvanceData();
-#endif
-    if (!(ROMCnt & (1<<30)))
-    {
-        // receiving data from cartridge
-
-        //printf("preparing data: %d/%d, count=%d\n", TransferPos, TransferLen, ROMDataCount);
-
-        u32 data = 0;
-        if (Cart) data = Cart->ROMCommandReceive();
-
-        // TODO: should ROMCommandFinish() here
-
-        ROMData[ROMDataPosCart] = data;
-        ROMDataPosCart ^= 1;
-        ROMDataCount++;
-
-        TransferPos += 4;
-
-        // raise DRQ and trigger DMA if needed
-
-        RaiseDRQ();
-
-        // if there is space in the FIFO, schedule the next transfer
-
-        if (ROMDataCount < 2)
-            AdvanceROMTransfer();
-    }
-    else
-    {
-        // sending data to cartridge
-
-        // TODO
-    }
-
-    //ROMAdvanceData();
-}
-
-void NDSCartSlot::ROMSendData(u32 param) noexcept
-{
-    if (!(ROMCnt & (1<<31)))
-        return;
-
-    if (ROMDataCount == 0)
-    {
-        // if we have no data available, keep track of this, and abort
-        // the transfer will resume whenever data is written to the buffer
-
-        ROMDataLate = true;
-        return;
-    }
-
-    // fetch data from the buffer and send it to the cart
-
-    u32 data = ROMData[ROMDataPosCart];
-    if (Cart) Cart->ROMCommandTransmit(data);
-
-    ROMDataPosCart ^= 1;
-    ROMDataCount--;
-
-    // if needed, raise DRQ for the next data word, and schedule that transfer
-
-    TransferPos += 4;
-    if (TransferPos < TransferLen)
-        RaiseDRQ();
-
-    AdvanceROMTransfer();
-}
-
-void NDSCartSlot::ROMAdvanceData() noexcept
-{
-    if (!(ROMCnt & (1<<30)))
-    {
-        // if the data register is free, fill it in and signal DRQ
-printf("ROMAdvanceData: cnt=%08X\n", ROMCnt);
-        //if (ROMCnt & (1<<23))
-        //    return;
-
-
-
-        // schedule the next transfer
-
-        if (TransferPos < TransferLen)
-        {
-            u32 xfercycle = (ROMCnt & (1<<27)) ? 8 : 5;
-            u32 delay = 4;
-            if (!(ROMCnt & (1<<30)))
-            {
-                if (!(TransferPos & 0x1FF))
-                    delay += ((ROMCnt >> 16) & 0x3F);
-            }
-
-            NDS.ScheduleEvent(Event_ROMTransfer, false, xfercycle*delay, ROMTransfer_PrepareData, 0);
-        }
-    }
-    else
-    {
-        // TODO do it for writing!
-    }
-}
-
 void NDSCartSlot::WriteROMCnt(u32 val) noexcept
 {
     u32 xferstart = (val & ~ROMCnt) & (1<<31);
     ROMCnt = (val & 0xFF7F7FFF) | (ROMCnt & 0x20800000);
 
-    if (!(ROMCnt & (1<<31)))
+    /*if (!(ROMCnt & (1<<31)))
     {
         ROMDataLate = false;
-    }
+    }*/
 
     // all this junk would only really be useful if melonDS was interfaced to
     // a DS cart reader
@@ -856,6 +715,77 @@ void NDSCartSlot::WriteROMCnt(u32 val) noexcept
 }
 
 
+void NDSCartSlot::ROMPrepareData(u32 param) noexcept
+{
+    // receiving data from cartridge
+
+    //printf("preparing data: %d/%d, count=%d\n", TransferPos, TransferLen, ROMDataCount);
+
+    u32 data = 0;
+    if (Cart) data = Cart->ROMCommandReceive();
+
+    // TODO: should ROMCommandFinish() here
+
+    ROMData[ROMDataPosCart] = data;
+    ROMDataPosCart ^= 1;
+    ROMDataCount++;
+
+    TransferPos += 4;
+
+    // raise DRQ and trigger DMA if needed
+
+    RaiseDRQ();
+
+    // if there is space in the FIFO, schedule the next transfer
+
+    if (ROMDataCount < 2)
+        AdvanceROMTransfer();
+    else
+        ROMDataLate = true;
+}
+
+void NDSCartSlot::ROMSendData(u32 param) noexcept
+{
+    if (ROMDataCount == 0)
+    {
+        // if we have no data available, keep track of this, and abort
+        // the transfer will resume whenever data is written to the buffer
+
+        ROMDataLate = true;
+        return;
+    }
+
+    // fetch data from the buffer and send it to the cart
+
+    u32 data = ROMData[ROMDataPosCart];
+    if (Cart) Cart->ROMCommandTransmit(data);
+
+    ROMDataPosCart ^= 1;
+    ROMDataCount--;
+
+    // if needed, raise DRQ for the next data word, and schedule that transfer
+
+    TransferPos += 4;
+    if (TransferPos < TransferLen)
+        RaiseDRQ();
+
+    AdvanceROMTransfer();
+}
+
+void NDSCartSlot::ROMEndTransfer(u32 param) noexcept
+{
+    //if (!(ROMCnt & (1<<31)))
+    //    return;
+
+    ROMCnt &= ~(1<<31);
+
+    if (SPICnt & (1<<14))
+        NDS.SetIRQ((NDS.ExMemCnt[0]>>11)&0x1, IRQ_CartXferDone);
+
+    if (Cart)
+        Cart->ROMCommandFinish();
+}
+
 void NDSCartSlot::RaiseDRQ() noexcept
 {
     // TODO: the DMA trigger is level-sensitive
@@ -911,57 +841,26 @@ void NDSCartSlot::AdvanceROMTransfer() noexcept
 
 u32 NDSCartSlot::ReadROMData() noexcept
 {
-#if 0
-    if (ROMCnt & (1<<30)) return 0;
-
-    u32 ret = ROMData[0];
-    printf("read ROM data: %08X, cnt=%08X\n", ret, ROMCnt);
-    if (ROMCnt & (1<<23))
-    {
-        //AdvanceROMTransfer();
-        ROMCnt &= ~(1<<23);
-
-        if (TransferPos < TransferLen)
-        {
-            //ROMAdvanceData();
-            // TODO
-            // when transfer finished:
-            // * if front buffer free: put data there, raise DRQ, schedule next transfer
-            // * if front buffer occupied and back free: put data in back
-
-            // when reading rom data:
-            // * if front buffer was occupied: clear DRQ
-            // * if back buffer was occupied: move to front buffer, raise DRQ, schedule next transfer
-            // * if no next transfer to schedule: raise IRQ, clear busy bit
-        }
-        else
-        {
-            // TODO CHECKME does this happen before the last word is read?
-            ROMEndTransfer(0);
-        }
-    }
-
-    return ret;
-#endif
     u32 ret = ROMData[ROMDataPosCPU];
     if (ROMCnt & (1<<30))
         return ret;
 
-    bool wasfull = (ROMDataCount >= 2);
     ROMDataPosCPU ^= 1;
     if (ROMDataCount > 0)
         ROMDataCount--;
 
     ROMCnt &= ~(1<<23);
 
-    // TODO: is there a condition for this logic? (like that ROMCnt bit31 be set)
     if (ROMCnt & (1<<31))
     {
         if (TransferPos < TransferLen)
         {
             // if the FIFO was full, we need to get the transfer going again
-            if (wasfull)
+            if (ROMDataLate)
+            {
+                ROMDataLate = false;
                 AdvanceROMTransfer();
+            }
         }
         else
         {
@@ -997,38 +896,25 @@ void NDSCartSlot::WriteROMData(u32 val) noexcept
         ROMDataLate = false;
         ROMSendData(0);
     }
-#if 0
-    ROMData = val;
-
-    if (ROMCnt & (1<<23))
-    {
-        if (TransferDir == 1)
-        {
-            if (TransferPos < TransferLen)
-            {
-                if (Cart) Cart->ROMCommandTransmit(ROMData);
-            }
-                //*(u32*)&TransferData[TransferPos] = ROMData;
-
-            TransferPos += 4;
-        }
-
-        AdvanceROMTransfer();
-    }
-#endif
 }
 
 
 void NDSCartSlot::WriteSPICnt(u16 val) noexcept
 {
-    if ((SPICnt & 0x2040) == 0x2040 && (val & 0x2000) == 0x0000)
+    if (SPISelected && Cart)
     {
-        // forcefully reset SPI hold
-        //SPIHold = false;
-        // CHECKME
-        if (Cart && SPISelected)
+        // Bit 13 selects between ROM and SPI modes.
+        // Clearing bit 13 during a SPI transfer causes the SPI chipselect line to go high.
+        // Setting it again causes the chipselect line to go low again.
+        // Pokémon Typing Adventure uses this when talking to its Bluetooth controller.
+        // Setting bit 13 during a ROM transfer also affects the ROM chipselect line, but
+        // it's unlikely anything uses this.
+        // Toggling bit 15 doesn't affect the chipselect lines.
+
+        if (SPICnt & ~val & (1<<13))
             Cart->SPIRelease();
-        SPISelected = false;
+        else if (~SPICnt & val & (1<<13))
+            Cart->SPISelect();
     }
 
     SPICnt = (SPICnt & 0x0080) | (val & 0xE043);
@@ -1040,16 +926,11 @@ void NDSCartSlot::WriteSPICnt(u16 val) noexcept
         Log(LogLevel::Debug, "!! CHANGING AUXSPICNT DURING TRANSFER: %04X\n", val);
 }
 
-void NDSCartSlot::SPITransferDone(u32 param) noexcept
-{
-    SPICnt &= ~(1<<7);
-}
-
 u8 NDSCartSlot::ReadSPIData() const noexcept
 {
     if (!(SPICnt & (1<<15))) return 0;
     if (!(SPICnt & (1<<13))) return 0;
-    if (SPICnt & (1<<7)) return 0; // checkme
+    if (SPICnt & (1<<7)) return 0; // no cheesing
 
     return SPIData;
 }
@@ -1063,26 +944,6 @@ void NDSCartSlot::WriteSPIData(u8 val) noexcept
     SPICnt |= (1<<7);
 
     bool hold = SPICnt&(1<<6);
-    /*bool islast = false;
-    if (!hold)
-    {
-        if (SPIHold) SPIDataPos++;
-        else         SPIDataPos = 0;
-        islast = true;
-        SPIHold = false;
-    }
-    else if (hold && (!SPIHold))
-    {
-        SPIHold = true;
-        SPIDataPos = 0;
-    }
-    else
-    {
-        SPIDataPos++;
-    }
-
-    if (Cart) SPIData = Cart->SPIWrite(val, SPIDataPos, islast);
-    else      SPIData = 0;*/
 
     if (Cart)
     {
@@ -1098,6 +959,11 @@ void NDSCartSlot::WriteSPIData(u8 val) noexcept
     // SPI transfers one bit per cycle -> 8 cycles per byte
     u32 delay = 8 * (8 << (SPICnt & 0x3));
     NDS.ScheduleEvent(Event_ROMSPITransfer, false, delay, 0, 0);
+}
+
+void NDSCartSlot::SPITransferDone(u32 param) noexcept
+{
+    SPICnt &= ~(1<<7);
 }
 
 }
