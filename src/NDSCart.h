@@ -1,5 +1,5 @@
 /*
-    Copyright 2016-2025 melonDS team
+    Copyright 2016-2026 melonDS team
 
     This file is part of melonDS.
 
@@ -417,6 +417,7 @@ public:
     [[nodiscard]] u32 GetROMCnt() const noexcept { return ROMCnt; }
     [[nodiscard]] u16 GetSPICnt() const noexcept { return SPICnt; }
     void SetSPICnt(u16 val) noexcept { SPICnt = val; }
+
 private:
     friend class CartCommon;
     melonDS::NDS& NDS;

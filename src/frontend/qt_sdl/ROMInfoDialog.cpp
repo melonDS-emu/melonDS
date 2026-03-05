@@ -1,5 +1,5 @@
 /*
-    Copyright 2016-2025 melonDS team
+    Copyright 2016-2026 melonDS team
 
     This file is part of melonDS.
 
@@ -51,8 +51,31 @@ ROMInfoDialog::ROMInfoDialog(QWidget* parent) : QDialog(parent), ui(new Ui::ROMI
     emuInstance = ((MainWindow*)parent)->getEmuInstance();
 
     auto rom = emuInstance->getNDS()->NDSCartSlot.GetCart();
-    const NDSBanner* banner = rom->Banner();
-    const NDSHeader& header = rom->GetHeader();
+    populateBannerInfo(rom->Banner());
+    populateHeaderInfo(rom->GetHeader());
+}
+
+void ROMInfoDialog::populateBannerInfo(const NDSBanner* banner)
+{
+    if (!banner)
+    {
+        ui->iconImage->clear();
+        ui->dsiIconImage->clear();
+        ui->iconTitle->clear();
+        ui->japaneseTitle->clear();
+        ui->englishTitle->clear();
+        ui->frenchTitle->clear();
+        ui->germanTitle->clear();
+        ui->italianTitle->clear();
+        ui->spanishTitle->clear();
+        ui->chineseTitle->clear();
+        ui->koreanTitle->clear();
+        ui->titles->setEnabled(false); // grey out the group box
+        ui->saveIconButton->setEnabled(false);
+        ui->saveAnimatedIconButton->setEnabled(false);
+        return;
+    }
+
     u32 iconData[32 * 32];
     emuInstance->romIcon(banner->Icon, banner->Palette, iconData);
     iconImage = QImage(reinterpret_cast<u8*>(iconData), 32, 32, QImage::Format_RGBA8888).copy();
@@ -106,7 +129,10 @@ ROMInfoDialog::ROMInfoDialog(QWidget* parent) : QDialog(parent), ui(new Ui::ROMI
         ui->koreanTitle->setText(QString::fromUtf16(banner->KoreanTitle));
     else
         ui->koreanTitle->setText("None");
+}
 
+void ROMInfoDialog::populateHeaderInfo(const NDSHeader& header)
+{
     ui->gameTitle->setText(QString::fromLatin1(header.GameTitle, 12));
     ui->gameCode->setText(QString::fromLatin1(header.GameCode, 4));
     ui->makerCode->setText(QString::fromLatin1(header.MakerCode, 2));
@@ -126,7 +152,6 @@ ROMInfoDialog::ROMInfoDialog(QWidget* parent) : QDialog(parent), ui(new Ui::ROMI
     ui->fntSize->setText(QStringBytes(header.FNTSize));
     ui->fatOffset->setText(IntToHex(header.FATOffset));
     ui->fatSize->setText(QStringBytes(header.FATSize));
-
 }
 
 ROMInfoDialog::~ROMInfoDialog()

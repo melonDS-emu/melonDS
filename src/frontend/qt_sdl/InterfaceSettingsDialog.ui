@@ -90,6 +90,13 @@
         </property>
        </widget>
       </item>
+      <item>
+       <widget class="QCheckBox" name="cbMuteFastForward">
+        <property name="text">
+         <string>Mute audio while fast forwarding</string>
+        </property>
+       </widget>
+      </item>
      </layout>
     </widget>
    </item>

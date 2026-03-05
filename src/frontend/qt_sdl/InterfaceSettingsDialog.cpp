@@ -1,5 +1,5 @@
 /*
-    Copyright 2016-2025 melonDS team
+    Copyright 2016-2026 melonDS team
 
     This file is part of melonDS.
 
@@ -39,6 +39,7 @@ InterfaceSettingsDialog::InterfaceSettingsDialog(QWidget* parent) : QDialog(pare
     ui->spinMouseHideSeconds->setEnabled(ui->cbMouseHide->isChecked());
     ui->spinMouseHideSeconds->setValue(cfg.GetInt("Mouse.HideSeconds"));
     ui->cbPauseLostFocus->setChecked(cfg.GetBool("PauseLostFocus"));
+    ui->cbMuteFastForward->setChecked(cfg.GetBool("MuteFastForward"));
     ui->spinTargetFPS->setValue(cfg.GetDouble("TargetFPS"));
     ui->spinFFW->setValue(cfg.GetDouble("FastForwardFPS"));
     ui->spinSlow->setValue(cfg.GetDouble("SlowmoFPS"));
@@ -118,6 +119,7 @@ void InterfaceSettingsDialog::done(int r)
         cfg.SetBool("Mouse.Hide", ui->cbMouseHide->isChecked());
         cfg.SetInt("Mouse.HideSeconds", ui->spinMouseHideSeconds->value());
         cfg.SetBool("PauseLostFocus", ui->cbPauseLostFocus->isChecked());
+        cfg.SetBool("MuteFastForward", ui->cbMuteFastForward->isChecked());
 
         double val = ui->spinTargetFPS->value();
         if (val == 0.0) cfg.SetDouble("TargetFPS", 0.0001);
