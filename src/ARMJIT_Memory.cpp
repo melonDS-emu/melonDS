@@ -1434,8 +1434,8 @@ static void GPU_WriteVRAM_ARM7(u32 addr, T val) noexcept
 }
 
 u32 NDSCartSlot_ReadROMData()
-{ // TODO: Add a NDS* parameter, when NDS* is eventually implemented
-    return NDS::Current->NDSCartSlot.ReadROMData();
+{
+    return NDS::Current->NDSCartSlot.ReadROMData(0);
 }
 
 static u8 NDS_ARM9IORead8(u32 addr)

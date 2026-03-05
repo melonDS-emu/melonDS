@@ -111,8 +111,8 @@ DSi::DSi(DSiArgs&& args, void* userdata) noexcept :
     CamModule(*this),
     AES(*this)
 {
-    RegisterEventFuncs(Event_DSi_CartSlot1Power, this, {MakeEventThunk(DSi, CartSlotEvent)});
-    RegisterEventFuncs(Event_DSi_CartSlot2Power, this, {MakeEventThunk(DSi, CartSlotEvent)});
+    RegisterEventFuncs(Event_DSi_Cart1Power, this, {MakeEventThunk(DSi, CartSlotEvent)});
+    RegisterEventFuncs(Event_DSi_Cart2Power, this, {MakeEventThunk(DSi, CartSlotEvent)});
 
     // Memory is owned by ARMJIT_Memory, don't free it
     NWRAM_A = JIT.Memory.GetNWRAM_A();
@@ -124,8 +124,8 @@ DSi::DSi(DSiArgs&& args, void* userdata) noexcept :
 
 DSi::~DSi() noexcept
 {
-    UnregisterEventFuncs(Event_DSi_CartSlot1Power);
-    UnregisterEventFuncs(Event_DSi_CartSlot2Power);
+    UnregisterEventFuncs(Event_DSi_Cart1Power);
+    UnregisterEventFuncs(Event_DSi_Cart2Power);
 
     // Memory is owned externally
     NWRAM_A = nullptr;

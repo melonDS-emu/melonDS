@@ -137,7 +137,7 @@ u32 CartCommon::ROMRead32()
 }
 
 void CartCommon::ROMCommandStart(NDSCartSlot& cartslot, const u8* cmd)
-{
+{printf("heh %02X\n", cmd[0]);
     if (CmdEncMode == 0)
     {
         memcpy(ROMCmd, cmd, 8);

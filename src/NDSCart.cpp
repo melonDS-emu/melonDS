@@ -17,6 +17,7 @@
 */
 
 #include <string.h>
+#include <inttypes.h>
 #include "NDS.h"
 #include "DSi.h"
 #include "NDSCart.h"
@@ -198,14 +199,8 @@ void NDSCartSlot::Key2_Encrypt(const u8* data, u32 len) noexcept
 
 NDSCartSlot::NDSCartSlot(melonDS::NDS& nds, std::unique_ptr<CartCommon>&& rom) noexcept : NDS(nds)
 {
-    NDS.RegisterEventFuncs(Event_ROMTransfer, this,
-                           {
-                                   MakeEventThunk(NDSCartSlot, ROMReceiveData),
-                                   MakeEventThunk(NDSCartSlot, ROMSendData),
-                                   MakeEventThunk(NDSCartSlot, ROMEndTransfer)
-                           });
-    NDS.RegisterEventFuncs(Event_ROMSPITransfer, this, {MakeEventThunk(NDSCartSlot, SPITransferDone)});
-    // All fields are default-constructed because they're listed as such in the class declaration
+    // TODO for DSi second cart slot
+    Num = 0;
 
     if (rom)
         SetCart(std::move(rom));
@@ -213,37 +208,32 @@ NDSCartSlot::NDSCartSlot(melonDS::NDS& nds, std::unique_ptr<CartCommon>&& rom) n
 
 NDSCartSlot::~NDSCartSlot() noexcept
 {
-    NDS.UnregisterEventFuncs(Event_ROMTransfer);
-    NDS.UnregisterEventFuncs(Event_ROMSPITransfer);
-
     // Cart is cleaned up automatically because it's a unique_ptr
 }
 
 void NDSCartSlot::Reset() noexcept
 {
+    for (auto& inter : Interfaces)
+        inter.Reset();
+
+    Key2_X = 0;
+    Key2_Y = 0;
+
     ResetCart();
 }
 
 void NDSCartSlot::DoSavestate(Savestate* file) noexcept
 {
-    file->Section("NDSC");
+    file->Section((Num==0) ? "NDSC" : "NC2i");
 
-    file->Var16(&SPICnt);
-    file->Var32(&ROMCnt);
+    file->Var64(&Key2_X);
+    file->Var64(&Key2_Y);
 
-    file->Var8(&SPIData);
-    //file->Var32(&SPIDataPos);
-    //file->Bool32(&SPIHold);
-    file->VarBool(&SPISelected);
+    file->Var8(&CPUSelect);
+    file->VarBool(&CartActive);
 
-    file->VarArray(ROMCommand.data(), sizeof(ROMCommand));
-    file->VarArray(ROMData, sizeof(ROMData));
-    file->Var32(&ROMDataPosCPU);
-    file->Var32(&ROMDataPosCart);
-    file->Var32(&ROMDataCount);
-
-    file->Var32(&TransferPos);
-    file->Var32(&TransferLen);
+    for (auto& inter : Interfaces)
+        inter.DoSavestate(file);
 
     // cart inserted/len/ROM/etc should be already populated
     // savestate should be loaded after the right game is loaded
@@ -274,7 +264,14 @@ void NDSCartSlot::DoSavestate(Savestate* file) noexcept
         if (savechk != cartchk) return;
     }
 
-    if (Cart) Cart->DoSavestate(file);
+    if (Cart)
+        Cart->DoSavestate(file);
+
+    if (!file->Saving)
+    {
+        if (!Cart)
+            CartActive = false;
+    }
 }
 
 
@@ -500,8 +497,15 @@ void NDSCartSlot::SetCart(std::unique_ptr<CartCommon>&& cart) noexcept
     Cart = std::move(cart);
 
     if (!Cart)
+    {
         // If we're ejecting an existing cart without inserting a new one...
+        CartActive = false;
+        // TODO power off?
         return;
+    }
+
+    // TODO do better?
+    CartActive = true;
 
     Cart->Reset();
 
@@ -565,58 +569,120 @@ std::unique_ptr<CartCommon> NDSCartSlot::EjectCart() noexcept
 void NDSCartSlot::ResetCart() noexcept
 {
     // CHECKME: what if there is a transfer in progress?
-    // TODO this probably shouldn't reset the interface, only the cart itself
 
-    SPICnt = 0;
-    ROMCnt = 0;
+    if (Cart)
+        Cart->Reset();
+}
 
-    SPIData = 0;
-    //SPIDataPos = 0;
-    //SPIHold = false;
-    SPISelected = false;
-
-    memset(ROMCommand.data(), 0, sizeof(ROMCommand));
-    ROMData[0] = 0;
-    ROMData[1] = 0;
-    ROMDataPosCPU = 0;
-    ROMDataPosCart = 0;
-    ROMDataCount = 0;
-
-    Key2_X = 0;
-    Key2_Y = 0;
-
-    TransferPos = 0;
-    TransferLen = 0;
-
-    if (Cart) Cart->Reset();
+void NDSCartSlot::SetCPUSelect(u32 sel)
+{
+    // TODO: what happens if this is changed during a transfer?
+    CPUSelect = sel;
 }
 
 
-void NDSCartSlot::WriteROMCnt(u32 val) noexcept
+NDSCartSlot::sInterface::sInterface(NDSCartSlot& parent, u8 num)
+: Parent(parent), Num(num)
 {
+    if (Parent.Num == 0)
+    {
+        // first cart slot
+        ROMTransferEvent = (Num==0) ? Event_CartROMTransfer9 : Event_CartROMTransfer7;
+        SPITransferEvent = (Num==0) ? Event_CartSPITransfer9 : Event_CartSPITransfer7;
+    }
+    else
+    {
+        // second cart slot, for DSi
+        ROMTransferEvent = (Num==0) ? Event_DSi_Cart2ROMTransfer9 : Event_DSi_Cart2ROMTransfer7;
+        SPITransferEvent = (Num==0) ? Event_DSi_Cart2SPITransfer9 : Event_DSi_Cart2SPITransfer7;
+    }
+
+    // due to how the event scheduler works, we need specific event IDs for each interface, which isn't ideal
+    Parent.NDS.RegisterEventFuncs(ROMTransferEvent, this, {
+        MakeEventThunk(sInterface, ROMReceiveData),
+        MakeEventThunk(sInterface, ROMSendData),
+        MakeEventThunk(sInterface, ROMEndTransfer)
+    });
+    Parent.NDS.RegisterEventFuncs(SPITransferEvent, this,
+                                  {MakeEventThunk(sInterface, SPITransferDone)});
+}
+
+NDSCartSlot::sInterface::~sInterface()
+{
+    Parent.NDS.UnregisterEventFuncs(ROMTransferEvent);
+    Parent.NDS.UnregisterEventFuncs(SPITransferEvent);
+}
+
+void NDSCartSlot::sInterface::Reset()
+{
+    SPICnt = 0;
+    SPIData = 0;
+
+    ROMCnt = 0;
+    memset(ROMCommand, 0, sizeof(ROMCommand));
+
+    // TODO checkme
+    Key2_Seed0 = 0;
+    Key2_Seed1 = 0;
+
+    ROMTransferPos = 0;
+    ROMTransferLen = 0;
+
+    memset(ROMData, 0, sizeof(ROMData));
+    ROMDataPosCPU = 0;
+    ROMDataPosCart = 0;
+    ROMDataCount = 0;
+    ROMDataLate = false;
+
+    SPISelected = false;
+}
+
+void NDSCartSlot::sInterface::DoSavestate(Savestate* file)
+{
+    file->Var16(&SPICnt);
+    file->Var8(&SPIData);
+
+    file->Var32(&ROMCnt);
+    file->VarArray(ROMCommand, sizeof(ROMCommand));
+
+    file->Var64(&Key2_Seed0);
+    file->Var64(&Key2_Seed1);
+
+    file->Var32(&ROMTransferPos);
+    file->Var32(&ROMTransferLen);
+
+    file->VarArray(ROMData, sizeof(ROMData));
+    file->Var32(&ROMDataPosCPU);
+    file->Var32(&ROMDataPosCart);
+    file->Var32(&ROMDataCount);
+    file->VarBool(&ROMDataLate);
+
+    file->VarBool(&SPISelected);
+}
+
+
+void NDSCartSlot::sInterface::WriteROMCnt(u32 val, u32 mask)
+{printf("write ROMCNT %d %08X %08X\n", Num, val, mask);
+    val &= mask;
     u32 xferstart = (val & ~ROMCnt) & (1<<31);
-    ROMCnt = (val & 0xFF7F7FFF) | (ROMCnt & 0x20800000);
+    ROMCnt = (ROMCnt & (~mask | 0x20800000)) | (val & 0xFF7F7FFF);
 
     // all this junk would only really be useful if melonDS was interfaced to
     // a DS cart reader
     if (val & (1<<15))
     {
-        u32 snum = (NDS.ExMemCnt[0]>>8)&0x8;
-        u64 seed0 = *(u32*)&NDS.ROMSeed0[snum] | ((u64)NDS.ROMSeed0[snum+4] << 32);
-        u64 seed1 = *(u32*)&NDS.ROMSeed1[snum] | ((u64)NDS.ROMSeed1[snum+4] << 32);
-
-        Key2_X = 0;
-        Key2_Y = 0;
+        Parent.Key2_X = 0;
+        Parent.Key2_Y = 0;
         for (u32 i = 0; i < 39; i++)
         {
-            if (seed0 & (1ULL << i)) Key2_X |= (1ULL << (38-i));
-            if (seed1 & (1ULL << i)) Key2_Y |= (1ULL << (38-i));
+            if (Key2_Seed0 & (1ULL << i)) Parent.Key2_X |= (1ULL << (38-i));
+            if (Key2_Seed1 & (1ULL << i)) Parent.Key2_Y |= (1ULL << (38-i));
         }
 
-        Log(LogLevel::Debug, "seed0: %02X%08X\n", (u32)(seed0>>32), (u32)seed0);
-        Log(LogLevel::Debug, "seed1: %02X%08X\n", (u32)(seed1>>32), (u32)seed1);
-        Log(LogLevel::Debug, "key2 X: %02X%08X\n", (u32)(Key2_X>>32), (u32)Key2_X);
-        Log(LogLevel::Debug, "key2 Y: %02X%08X\n", (u32)(Key2_Y>>32), (u32)Key2_Y);
+        Log(LogLevel::Debug, "seed0: %010" PRIx64 "\n", Key2_Seed0);
+        Log(LogLevel::Debug, "seed1: %010" PRIx64 "\n", Key2_Seed1);
+        Log(LogLevel::Debug, "key2 X: %010" PRIx64 "\n", Parent.Key2_X);
+        Log(LogLevel::Debug, "key2 Y: %010" PRIx64 "\n", Parent.Key2_Y);
     }
 
     // transfers will only start when bit31 changes from 0 to 1
@@ -631,17 +697,18 @@ void NDSCartSlot::WriteROMCnt(u32 val) noexcept
     else if (datasize > 0)
         datasize = 0x100 << datasize;
 
-    TransferPos = 0;
-    TransferLen = datasize;
+    ROMTransferPos = 0;
+    ROMTransferLen = datasize;
 
     printf("ROM COMMAND %04X %08X %02X%02X%02X%02X%02X%02X%02X%02X SIZE %04X\n",
            SPICnt, ROMCnt,
            ROMCommand[0], ROMCommand[1], ROMCommand[2], ROMCommand[3],
            ROMCommand[4], ROMCommand[5], ROMCommand[6], ROMCommand[7],
            datasize);
-
-    if (Cart)
-        Cart->ROMCommandStart(*this, ROMCommand.data());
+printf("prootfart %d %d %d\n", Parent.CartActive, Parent.CPUSelect, Num);
+    if (Parent.CartActive && Parent.CPUSelect == Num)
+        Parent.Cart->ROMCommandStart(Parent, ROMCommand);
+        //Parent.Cart->ROMCommandStart(Parent, ROMCommand.data());
 
     // reset the FIFO
     ROMDataPosCPU = 0;
@@ -653,6 +720,8 @@ void NDSCartSlot::WriteROMCnt(u32 val) noexcept
     // the bus is parallel with 8 bits
     // thus a command would take 8 cycles to be transferred
     // and it would take 4 cycles to receive a word of data
+    // gap1 delay applies before the data transfer
+    // gap2 delay applies before each 0x200 byte block (including the first block)
     // TODO: advance read position if bit28 is set
 
     u32 xfercycle = (ROMCnt & (1<<27)) ? 8 : 5;
@@ -662,9 +731,9 @@ void NDSCartSlot::WriteROMCnt(u32 val) noexcept
     if (!(ROMCnt & (1<<30)))
     {
         if (datasize == 0)
-            NDS.ScheduleEvent(Event_ROMTransfer, false, xfercycle*cmddelay, ROMTransfer_End, 0);
+            Parent.NDS.ScheduleEvent(ROMTransferEvent, false, xfercycle * cmddelay, ROMTransfer_End, 0);
         else
-            NDS.ScheduleEvent(Event_ROMTransfer, false, xfercycle*(cmddelay+4), ROMTransfer_ReceiveData, 0);
+            Parent.NDS.ScheduleEvent(ROMTransferEvent, false, xfercycle * (cmddelay + 4), ROMTransfer_ReceiveData, 0);
     }
     else
     {
@@ -685,24 +754,29 @@ void NDSCartSlot::WriteROMCnt(u32 val) noexcept
         RaiseDRQ();
 
         if (datasize == 0)
-            NDS.ScheduleEvent(Event_ROMTransfer, false, xfercycle*cmddelay, ROMTransfer_End, 0);
+            Parent.NDS.ScheduleEvent(ROMTransferEvent, false, xfercycle * cmddelay, ROMTransfer_End, 0);
         else
-            NDS.ScheduleEvent(Event_ROMTransfer, false, xfercycle*cmddelay, ROMTransfer_SendData, 0);
+            Parent.NDS.ScheduleEvent(ROMTransferEvent, false, xfercycle * cmddelay, ROMTransfer_SendData, 0);
     }
 }
 
 
-void NDSCartSlot::ROMReceiveData(u32 param) noexcept
+void NDSCartSlot::sInterface::ROMReceiveData(u32 param)
 {
     u32 data = 0;
-    if (Cart)
-        data = Cart->ROMCommandReceive();
+    if (Parent.CartActive)
+    {
+        if (Parent.CPUSelect == Num)
+            data = Parent.Cart->ROMCommandReceive();
+        else
+            data = 0xFFFFFFFF;
+    }
 
     ROMData[ROMDataPosCart] = data;
     ROMDataPosCart ^= 1;
     ROMDataCount++;
 
-    TransferPos += 4;
+    ROMTransferPos += 4;
 
     // raise DRQ and trigger DMA if needed
 
@@ -716,21 +790,21 @@ void NDSCartSlot::ROMReceiveData(u32 param) noexcept
         ROMDataLate = true;
 }
 
-void NDSCartSlot::ROMAdvanceReceive() noexcept
+void NDSCartSlot::sInterface::ROMAdvanceReceive()
 {
     // end-of-transfer condition is handled when the last data word is read from the FIFO
-    if (TransferPos >= TransferLen)
+    if (ROMTransferPos >= ROMTransferLen)
         return;
 
     u32 xfercycle = (ROMCnt & (1<<27)) ? 8 : 5;
     u32 delay = 4;
-    if (!(TransferPos & 0x1FF))
+    if (!(ROMTransferPos & 0x1FF))
         delay += ((ROMCnt >> 16) & 0x3F);
 
-    NDS.ScheduleEvent(Event_ROMTransfer, false, xfercycle*delay, ROMTransfer_ReceiveData, 0);
+    Parent.NDS.ScheduleEvent(ROMTransferEvent, false, xfercycle * delay, ROMTransfer_ReceiveData, 0);
 }
 
-void NDSCartSlot::ROMSendData(u32 param) noexcept
+void NDSCartSlot::sInterface::ROMSendData(u32 param)
 {
     if (ROMDataCount == 0)
     {
@@ -743,66 +817,86 @@ void NDSCartSlot::ROMSendData(u32 param) noexcept
 
     // fetch data from the buffer and send it to the cart
 
-    u32 data = ROMData[ROMDataPosCart];
-    if (Cart)
-        Cart->ROMCommandTransmit(data);
+    if (Parent.CartActive && Parent.CPUSelect == Num)
+    {
+        u32 data = ROMData[ROMDataPosCart];
+        Parent.Cart->ROMCommandTransmit(data);
+    }
 
     ROMDataPosCart ^= 1;
     ROMDataCount--;
 
     // if needed, raise DRQ for the next data word, and schedule that transfer
 
-    TransferPos += 4;
-    if (TransferPos < TransferLen)
+    ROMTransferPos += 4;
+    if (ROMTransferPos < ROMTransferLen)
         RaiseDRQ();
 
     ROMAdvanceSend();
 }
 
-void NDSCartSlot::ROMAdvanceSend() noexcept
+void NDSCartSlot::sInterface::ROMAdvanceSend()
 {
     u32 xfercycle = (ROMCnt & (1<<27)) ? 8 : 5;
     u32 delay = 4;
 
-    if (TransferPos < TransferLen)
+    if (ROMTransferPos < ROMTransferLen)
     {
-        if (!(TransferPos & 0x1FF))
+        if (!(ROMTransferPos & 0x1FF))
             delay += ((ROMCnt >> 16) & 0x3F);
 
-        NDS.ScheduleEvent(Event_ROMTransfer, false, xfercycle*delay, ROMTransfer_SendData, 0);
+        Parent.NDS.ScheduleEvent(ROMTransferEvent, false, xfercycle * delay, ROMTransfer_SendData, 0);
     }
     else
-        NDS.ScheduleEvent(Event_ROMTransfer, false, xfercycle*delay, ROMTransfer_End, 0);
+        Parent.NDS.ScheduleEvent(ROMTransferEvent, false, xfercycle * delay, ROMTransfer_End, 0);
 }
 
-void NDSCartSlot::ROMEndTransfer(u32 param) noexcept
+void NDSCartSlot::sInterface::ROMEndTransfer(u32 param)
 {
     ROMCnt &= ~(1<<31);
 
-    TransferPos = 0;
-    TransferLen = 0;
+    ROMTransferPos = 0;
+    ROMTransferLen = 0;
 
     if (SPICnt & (1<<14))
-        NDS.SetIRQ((NDS.ExMemCnt[0]>>11)&0x1, IRQ_CartXferDone);
+        Parent.NDS.SetIRQ(Num, IRQ_CartXferDone);
 
-    if (Cart)
-        Cart->ROMCommandFinish();
+    if (Parent.CartActive && Parent.CPUSelect == Num)
+        Parent.Cart->ROMCommandFinish();
 }
 
-void NDSCartSlot::RaiseDRQ() noexcept
+void NDSCartSlot::sInterface::RaiseDRQ()
 {
     // TODO: the DMA trigger is level-sensitive
     // thus, if a cart DMA gets set up while DRQ is already active, it will start immediately
+    // emulating this would require keeping track of the DMA trigger line states somewhere
 
     ROMCnt |= (1<<23);
 
-    if (NDS.ExMemCnt[0] & (1<<11))
-        NDS.CheckDMAs(1, 0x12);
+    // TODO: make this code suck less!!
+    // maybe have a general "DMA trigger function" that covers both DMA types for DSi
+    // use a proper enum instead of magic numbers (hardware values) for trigger IDs
+    if (Parent.Num == 0)
+    {
+        if (Num)
+            Parent.NDS.CheckDMAs(1, 0x12);
+        else
+            Parent.NDS.CheckDMAs(0, 0x05);
+    }
     else
-        NDS.CheckDMAs(0, 0x05);
+    {
+        assert(Parent.NDS.ConsoleType == 1);
+        auto& dsi = dynamic_cast<melonDS::DSi&>(Parent.NDS);
+
+        // the second cart interface can only be used with NDMA
+        if (Num)
+            dsi.CheckNDMAs(1, 0x25);
+        else
+            dsi.CheckNDMAs(0, 0x05);
+    }
 }
 
-u32 NDSCartSlot::ReadROMData() noexcept
+u32 NDSCartSlot::sInterface::ReadROMData()
 {
     u32 ret = ROMData[ROMDataPosCPU];
     if (ROMCnt & (1<<30))
@@ -814,7 +908,7 @@ u32 NDSCartSlot::ReadROMData() noexcept
 
     ROMCnt &= ~(1<<23);
 
-    if (TransferPos < TransferLen)
+    if (ROMTransferPos < ROMTransferLen)
     {
         // if the FIFO was full, we need to get the transfer going again
         if (ROMDataLate)
@@ -834,15 +928,17 @@ u32 NDSCartSlot::ReadROMData() noexcept
     return ret;
 }
 
-void NDSCartSlot::WriteROMData(u32 val) noexcept
+void NDSCartSlot::sInterface::WriteROMData(u32 val, u32 mask)
 {
     if (!(ROMCnt & (1<<30)))
         return;
 
-    // TODO support 8-bit and 16-bit writes
-    // FIFO is only advanced when writing to the MSB
+    // FIFO is only advanced when writing to the MSB, same for DRQ logic
 
-    ROMData[ROMDataPosCPU] = val;
+    ROMData[ROMDataPosCPU] = (ROMData[ROMDataPosCPU] & ~mask) | (val & mask);
+    if (!(mask & 0xFF000000))
+        return;
+
     ROMDataPosCPU ^= 1;
     if (ROMDataCount < 2)
         ROMDataCount++;
@@ -859,9 +955,11 @@ void NDSCartSlot::WriteROMData(u32 val) noexcept
 }
 
 
-void NDSCartSlot::WriteSPICnt(u16 val) noexcept
+void NDSCartSlot::sInterface::WriteSPICnt(u16 val, u16 mask)
 {
-    if (SPISelected && Cart)
+    val &= mask;
+
+    if (SPISelected && Parent.CartActive && Parent.CPUSelect == Num)
     {
         // Bit 13 selects between ROM and SPI modes.
         // Clearing bit 13 during a SPI transfer causes the SPI chipselect line to go high.
@@ -872,12 +970,12 @@ void NDSCartSlot::WriteSPICnt(u16 val) noexcept
         // Toggling bit 15 doesn't affect the chipselect lines.
 
         if (SPICnt & ~val & (1<<13))
-            Cart->SPIRelease();
+            Parent.Cart->SPIRelease();
         else if (~SPICnt & val & (1<<13))
-            Cart->SPISelect();
+            Parent.Cart->SPISelect();
     }
 
-    SPICnt = (SPICnt & 0x0080) | (val & 0xE043);
+    SPICnt = (SPICnt & (~mask | 0x0080)) | (val & 0xE043);
 
     // AUXSPICNT can be changed during a transfer
     // in this case, the transfer continues until the end, even if bit13 or bit15 are cleared
@@ -886,7 +984,7 @@ void NDSCartSlot::WriteSPICnt(u16 val) noexcept
         Log(LogLevel::Debug, "!! CHANGING AUXSPICNT DURING TRANSFER: %04X\n", val);
 }
 
-u8 NDSCartSlot::ReadSPIData() const noexcept
+u8 NDSCartSlot::sInterface::ReadSPIData() const
 {
     if (!(SPICnt & (1<<15))) return 0;
     if (!(SPICnt & (1<<13))) return 0;
@@ -895,7 +993,7 @@ u8 NDSCartSlot::ReadSPIData() const noexcept
     return SPIData;
 }
 
-void NDSCartSlot::WriteSPIData(u8 val) noexcept
+void NDSCartSlot::sInterface::WriteSPIData(u8 val)
 {
     if (!(SPICnt & (1<<15))) return;
     if (!(SPICnt & (1<<13))) return;
@@ -905,11 +1003,20 @@ void NDSCartSlot::WriteSPIData(u8 val) noexcept
 
     bool hold = !!(SPICnt & (1<<6));
 
-    if (Cart)
+    if (Parent.CartActive)
     {
-        if (!SPISelected) Cart->SPISelect();
-        SPIData = Cart->SPITransmitReceive(val);
-        if (!hold) Cart->SPIRelease();
+        if (Parent.CPUSelect == Num)
+        {
+            if (!SPISelected)
+                Parent.Cart->SPISelect();
+
+            SPIData = Parent.Cart->SPITransmitReceive(val);
+
+            if (!hold)
+                Parent.Cart->SPIRelease();
+        }
+        else
+            SPIData = 0xFF;
     }
     else
         SPIData = 0;
@@ -918,10 +1025,10 @@ void NDSCartSlot::WriteSPIData(u8 val) noexcept
 
     // SPI transfers one bit per cycle -> 8 cycles per byte
     u32 delay = 8 * (8 << (SPICnt & 0x3));
-    NDS.ScheduleEvent(Event_ROMSPITransfer, false, delay, 0, 0);
+    Parent.NDS.ScheduleEvent(SPITransferEvent, false, delay, 0, 0);
 }
 
-void NDSCartSlot::SPITransferDone(u32 param) noexcept
+void NDSCartSlot::sInterface::SPITransferDone(u32 param)
 {
     SPICnt &= ~(1<<7);
 }

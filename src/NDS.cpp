@@ -406,6 +406,9 @@ void NDS::SetupDirectBoot(const std::string& romname)
     ARM9.JumpTo(header.ARM9EntryAddress);
     ARM7.JumpTo(header.ARM7EntryAddress);
 
+    SetExMemCnt(0, 0xE880, 0xFFFF);
+    SetExMemCnt(1, 0x0080, 0x00FF);
+
     PostFlag9 = 0x01;
     PostFlag7 = 0x01;
 
@@ -419,7 +422,10 @@ void NDS::SetupDirectBoot(const std::string& romname)
     // checkme
     RCnt = 0x8000;
 
-    NDSCartSlot.SetSPICnt(0x8000);
+    //NDSCartSlot.SetSPICnt(0x8000);
+    // TODO CHECK ME
+    NDSCartSlot.WriteSPICnt(0, 0x8000, 0xFFFF);
+    NDSCartSlot.WriteSPICnt(1, 0x8000, 0xFFFF);
 
     SPU.SetBias(0x200);
 
@@ -467,10 +473,10 @@ void NDS::Reset()
 
     MapSharedWRAM(0);
 
-    ExMemCnt[0] = 0x4000;
-    ExMemCnt[1] = 0x4000;
-    memset(ROMSeed0, 0, 2*8);
-    memset(ROMSeed1, 0, 2*8);
+    // TODO FIX THOSE VALUES
+    // TODO figure out what they should be
+    ExMemCnt[0] = 0x6000;
+    ExMemCnt[1] = 0x6000;
     SetGBASlotTimings();
 
     IME[0] = 0;
@@ -647,8 +653,6 @@ bool NDS::DoSavestate(Savestate* file)
     //file->VarArray(ARM7BIOS, 0x4000);
 
     file->VarArray(ExMemCnt, 2*sizeof(u16));
-    file->VarArray(ROMSeed0, 2*8);
-    file->VarArray(ROMSeed1, 2*8);
 
     file->Var16(&WifiWaitCnt);
 
@@ -1238,6 +1242,43 @@ void NDS::Halt()
 {
     Log(LogLevel::Info, "Halt()\n");
     Running = false;
+}
+
+
+void NDS::SetExMemCnt(u32 cpu, u16 val, u16 mask)
+{
+    val &= mask;
+
+    if (cpu == 0)
+    {
+        u16 oldval = ExMemCnt[0];
+
+        // DSi has one extra bit (access rights for second cart slot)
+        u16 rwmask = (ConsoleType == 1) ? 0x8CFF : 0x88FF;
+
+        // bit13/14 are read-only
+        ExMemCnt[0] = (ExMemCnt[0] & (~mask | 0x6000)) | (val & rwmask);
+        ExMemCnt[1] = (ExMemCnt[0] & 0xFF80) | (ExMemCnt[1] & 0x007F);
+        u16 diff = oldval ^ ExMemCnt[0];
+
+        if (diff & 0xFF)
+            SetGBASlotTimings();
+
+        if (diff & (1<<11))
+            NDSCartSlot.SetCPUSelect((ExMemCnt[0] >> 11) & 0x1);
+    }
+    else
+    {
+        if (!(mask & 0xFF))
+            return;
+
+        u16 oldval = ExMemCnt[1];
+        ExMemCnt[1] = (ExMemCnt[1] & 0xFF80) | (val & 0x007F);
+        u16 diff = oldval ^ ExMemCnt[1];
+
+        if (diff & 0xFF)
+            SetGBASlotTimings();
+    }
 }
 
 
@@ -2785,69 +2826,13 @@ u8 NDS::ARM9IORead8(u32 addr)
     case 0x04000180: return IPCSync9 & 0xFF;
     case 0x04000181: return IPCSync9 >> 8;
 
-    case 0x040001A0:
-        if (!(ExMemCnt[0] & (1<<11)))
-            return NDSCartSlot.GetSPICnt() & 0xFF;
-        return 0;
-    case 0x040001A1:
-        if (!(ExMemCnt[0] & (1<<11)))
-            return NDSCartSlot.GetSPICnt() >> 8;
-        return 0;
-
-    case 0x040001A2:
-        if (!(ExMemCnt[0] & (1<<11)))
-            return NDSCartSlot.ReadSPIData();
-        return 0;
-
-    case 0x040001A4:
-        if (!(ExMemCnt[0] & (1<<11)))
-            return NDSCartSlot.GetROMCnt() & 0xFF;
-        return 0;
-    case 0x040001A5:
-        if (!(ExMemCnt[0] & (1<<11)))
-            return (NDSCartSlot.GetROMCnt() >> 8) & 0xFF;
-        return 0;
-    case 0x040001A6:
-        if (!(ExMemCnt[0] & (1<<11)))
-            return (NDSCartSlot.GetROMCnt() >> 16) & 0xFF;
-        return 0;
-    case 0x040001A7:
-        if (!(ExMemCnt[0] & (1<<11)))
-            return NDSCartSlot.GetROMCnt() >> 24;
-        return 0;
-
-    case 0x040001A8:
-        if (!(ExMemCnt[0] & (1<<11)))
-            return NDSCartSlot.GetROMCommand(0);
-        return 0;
-    case 0x040001A9:
-        if (!(ExMemCnt[0] & (1<<11)))
-            return NDSCartSlot.GetROMCommand(1);
-        return 0;
-    case 0x040001AA:
-        if (!(ExMemCnt[0] & (1<<11)))
-            return NDSCartSlot.GetROMCommand(2);
-        return 0;
-    case 0x040001AB:
-        if (!(ExMemCnt[0] & (1<<11)))
-            return NDSCartSlot.GetROMCommand(3);
-        return 0;
-    case 0x040001AC:
-        if (!(ExMemCnt[0] & (1<<11)))
-            return NDSCartSlot.GetROMCommand(4);
-        return 0;
-    case 0x040001AD:
-        if (!(ExMemCnt[0] & (1<<11)))
-            return NDSCartSlot.GetROMCommand(5);
-        return 0;
-    case 0x040001AE:
-        if (!(ExMemCnt[0] & (1<<11)))
-            return NDSCartSlot.GetROMCommand(6);
-        return 0;
-    case 0x040001AF:
-        if (!(ExMemCnt[0] & (1<<11)))
-            return NDSCartSlot.GetROMCommand(7);
-        return 0;
+    case 0x040001A0: return NDSCartSlot.ReadSPICnt(0) & 0xFF;
+    case 0x040001A1: return NDSCartSlot.ReadSPICnt(0) >> 8;
+    case 0x040001A2: return NDSCartSlot.ReadSPIData(0);
+    case 0x040001A4: return NDSCartSlot.ReadROMCnt(0) & 0xFF;
+    case 0x040001A5: return (NDSCartSlot.ReadROMCnt(0) >> 8) & 0xFF;
+    case 0x040001A6: return (NDSCartSlot.ReadROMCnt(0) >> 16) & 0xFF;
+    case 0x040001A7: return NDSCartSlot.ReadROMCnt(0) >> 24;
 
     case 0x04000208: return IME[0];
 
@@ -2960,44 +2945,10 @@ u16 NDS::ARM9IORead16(u32 addr)
             return val;
         }
 
-    case 0x040001A0:
-        if (!(ExMemCnt[0] & (1<<11)))
-            return NDSCartSlot.GetSPICnt();
-        return 0;
-    case 0x040001A2:
-        if (!(ExMemCnt[0] & (1<<11)))
-            return NDSCartSlot.ReadSPIData();
-        return 0;
-
-    case 0x040001A4:
-        if (!(ExMemCnt[0] & (1<<11)))
-            return NDSCartSlot.GetROMCnt() & 0xFFFF;
-        return 0;
-    case 0x040001A6:
-        if (!(ExMemCnt[0] & (1<<11)))
-            return NDSCartSlot.GetROMCnt() >> 16;
-        return 0;
-
-    case 0x040001A8:
-        if (!(ExMemCnt[0] & (1<<11)))
-            return NDSCartSlot.GetROMCommand(0) |
-                  (NDSCartSlot.GetROMCommand(1) << 8);
-        return 0;
-    case 0x040001AA:
-        if (!(ExMemCnt[0] & (1<<11)))
-            return NDSCartSlot.GetROMCommand(2) |
-                  (NDSCartSlot.GetROMCommand(3) << 8);
-        return 0;
-    case 0x040001AC:
-        if (!(ExMemCnt[0] & (1<<11)))
-            return NDSCartSlot.GetROMCommand(4) |
-                  (NDSCartSlot.GetROMCommand(5) << 8);
-        return 0;
-    case 0x040001AE:
-        if (!(ExMemCnt[0] & (1<<11)))
-            return NDSCartSlot.GetROMCommand(6) |
-                  (NDSCartSlot.GetROMCommand(7) << 8);
-        return 0;
+    case 0x040001A0: return NDSCartSlot.ReadSPICnt(0);
+    case 0x040001A2: return NDSCartSlot.ReadSPIData(0);
+    case 0x040001A4: return NDSCartSlot.ReadROMCnt(0) & 0xFFFF;
+    case 0x040001A6: return NDSCartSlot.ReadROMCnt(0) >> 16;
 
     case 0x04000204: return ExMemCnt[0];
     case 0x04000208: return IME[0];
@@ -3107,29 +3058,8 @@ u32 NDS::ARM9IORead32(u32 addr)
     case 0x04000180: return IPCSync9;
     case 0x04000184: return NDS::ARM9IORead16(addr);
 
-    case 0x040001A0:
-        if (!(ExMemCnt[0] & (1<<11)))
-            return NDSCartSlot.GetSPICnt() | (NDSCartSlot.ReadSPIData() << 16);
-        return 0;
-    case 0x040001A4:
-        if (!(ExMemCnt[0] & (1<<11)))
-            return NDSCartSlot.GetROMCnt();
-        return 0;
-
-    case 0x040001A8:
-        if (!(ExMemCnt[0] & (1<<11)))
-            return NDSCartSlot.GetROMCommand(0) |
-                  (NDSCartSlot.GetROMCommand(1) << 8) |
-                  (NDSCartSlot.GetROMCommand(2) << 16) |
-                  (NDSCartSlot.GetROMCommand(3) << 24);
-        return 0;
-    case 0x040001AC:
-        if (!(ExMemCnt[0] & (1<<11)))
-            return NDSCartSlot.GetROMCommand(4) |
-                  (NDSCartSlot.GetROMCommand(5) << 8) |
-                  (NDSCartSlot.GetROMCommand(6) << 16) |
-                  (NDSCartSlot.GetROMCommand(7) << 24);
-        return 0;
+    case 0x040001A0: return NDSCartSlot.ReadSPICnt(0) | (NDSCartSlot.ReadSPIData(0) << 16);
+    case 0x040001A4: return NDSCartSlot.ReadROMCnt(0);
 
     case 0x04000208: return IME[0];
     case 0x04000210: return IE[0];
@@ -3179,8 +3109,7 @@ u32 NDS::ARM9IORead32(u32 addr)
             return IPCFIFO7.Peek();
 
     case 0x04100010:
-        if (!(ExMemCnt[0] & (1<<11))) return NDSCartSlot.ReadROMData();
-        return 0;
+        return NDSCartSlot.ReadROMData(0);
 
     case 0x04004000:
     case 0x04004004:
@@ -3259,43 +3188,36 @@ void NDS::ARM9IOWrite8(u32 addr, u8 val)
         return;
 
     case 0x040001A0:
-        if (!(ExMemCnt[0] & (1<<11)))
-            NDSCartSlot.WriteSPICnt((NDSCartSlot.GetSPICnt() & 0xFF00) | val);
+        NDSCartSlot.WriteSPICnt(0, val, 0x00FF);
         return;
     case 0x040001A1:
-        if (!(ExMemCnt[0] & (1<<11)))
-            NDSCartSlot.WriteSPICnt((NDSCartSlot.GetSPICnt() & 0x00FF) | (val << 8));
+        NDSCartSlot.WriteSPICnt(0, val << 8, 0xFF00);
         return;
     case 0x040001A2:
-        if (!(ExMemCnt[0] & (1<<11)))
-            NDSCartSlot.WriteSPIData(val);
+        NDSCartSlot.WriteSPIData(0, val);
         return;
 
     case 0x040001A4:
-        if (!(ExMemCnt[0] & (1<<11)))
-            NDSCartSlot.WriteROMCnt((NDSCartSlot.GetROMCnt() & 0xFFFFFF00) | val);
+        NDSCartSlot.WriteROMCnt(0, val, 0x000000FF);
         return;
     case 0x040001A5:
-        if (!(ExMemCnt[0] & (1<<11)))
-            NDSCartSlot.WriteROMCnt((NDSCartSlot.GetROMCnt() & 0xFFFF00FF) | (val << 8));
+        NDSCartSlot.WriteROMCnt(0, val << 8, 0x0000FF00);
         return;
     case 0x040001A6:
-        if (!(ExMemCnt[0] & (1<<11)))
-            NDSCartSlot.WriteROMCnt((NDSCartSlot.GetROMCnt() & 0xFF00FFFF) | (val << 16));
+        NDSCartSlot.WriteROMCnt(0, val << 16, 0x00FF0000);
         return;
     case 0x040001A7:
-        if (!(ExMemCnt[0] & (1<<11)))
-            NDSCartSlot.WriteROMCnt((NDSCartSlot.GetROMCnt() & 0x00FFFFFF) | (val << 24));
+        NDSCartSlot.WriteROMCnt(0, val << 24, 0xFF000000);
         return;
 
-    case 0x040001A8: if (!(ExMemCnt[0] & (1<<11))) NDSCartSlot.SetROMCommand(0, val); return;
-    case 0x040001A9: if (!(ExMemCnt[0] & (1<<11))) NDSCartSlot.SetROMCommand(1, val); return;
-    case 0x040001AA: if (!(ExMemCnt[0] & (1<<11))) NDSCartSlot.SetROMCommand(2, val); return;
-    case 0x040001AB: if (!(ExMemCnt[0] & (1<<11))) NDSCartSlot.SetROMCommand(3, val); return;
-    case 0x040001AC: if (!(ExMemCnt[0] & (1<<11))) NDSCartSlot.SetROMCommand(4, val); return;
-    case 0x040001AD: if (!(ExMemCnt[0] & (1<<11))) NDSCartSlot.SetROMCommand(5, val); return;
-    case 0x040001AE: if (!(ExMemCnt[0] & (1<<11))) NDSCartSlot.SetROMCommand(6, val); return;
-    case 0x040001AF: if (!(ExMemCnt[0] & (1<<11))) NDSCartSlot.SetROMCommand(7, val); return;
+    case 0x040001A8: NDSCartSlot.WriteROMCommand(0, 0, val); return;
+    case 0x040001A9: NDSCartSlot.WriteROMCommand(0, 1, val); return;
+    case 0x040001AA: NDSCartSlot.WriteROMCommand(0, 2, val); return;
+    case 0x040001AB: NDSCartSlot.WriteROMCommand(0, 3, val); return;
+    case 0x040001AC: NDSCartSlot.WriteROMCommand(0, 4, val); return;
+    case 0x040001AD: NDSCartSlot.WriteROMCommand(0, 5, val); return;
+    case 0x040001AE: NDSCartSlot.WriteROMCommand(0, 6, val); return;
+    case 0x040001AF: NDSCartSlot.WriteROMCommand(0, 7, val); return;
 
     case 0x04000208: IME[0] = val & 0x1; UpdateIRQ(0); return;
 
@@ -3412,64 +3334,46 @@ void NDS::ARM9IOWrite16(u32 addr, u16 val)
         return;
 
     case 0x040001A0:
-        if (!(ExMemCnt[0] & (1<<11)))
-            NDSCartSlot.WriteSPICnt(val);
+        NDSCartSlot.WriteSPICnt(0, val, 0xFFFF);
         return;
     case 0x040001A2:
-        if (!(ExMemCnt[0] & (1<<11)))
-            NDSCartSlot.WriteSPIData(val & 0xFF);
+        NDSCartSlot.WriteSPIData(0, val & 0xFF);
         return;
 
     case 0x040001A4:
-        if (!(ExMemCnt[0] & (1<<11)))
-            NDSCartSlot.WriteROMCnt((NDSCartSlot.GetROMCnt() & 0xFFFF0000) | val);
+        NDSCartSlot.WriteROMCnt(0, val, 0x0000FFFF);
         return;
     case 0x040001A6:
-        if (!(ExMemCnt[0] & (1<<11)))
-            NDSCartSlot.WriteROMCnt((NDSCartSlot.GetROMCnt() & 0x0000FFFF) | (val << 16));
+        NDSCartSlot.WriteROMCnt(0, val << 16, 0xFFFF0000);
         return;
 
     case 0x040001A8:
-        if (!(ExMemCnt[0] & (1<<11)))
-        {
-            NDSCartSlot.SetROMCommand(0, val & 0xFF);
-            NDSCartSlot.SetROMCommand(1, val >> 8);
-        }
+        NDSCartSlot.WriteROMCommand(0, 0, val & 0xFF);
+        NDSCartSlot.WriteROMCommand(0, 1, val >> 8);
         return;
     case 0x040001AA:
-        if (!(ExMemCnt[0] & (1<<11)))
-        {
-            NDSCartSlot.SetROMCommand(2, val & 0xFF);
-            NDSCartSlot.SetROMCommand(3, val >> 8);
-        }
+        NDSCartSlot.WriteROMCommand(0, 2, val & 0xFF);
+        NDSCartSlot.WriteROMCommand(0, 3, val >> 8);
         return;
     case 0x040001AC:
-        if (!(ExMemCnt[0] & (1<<11)))
-        {
-            NDSCartSlot.SetROMCommand(4, val & 0xFF);
-            NDSCartSlot.SetROMCommand(5, val >> 8);
-        }
+        NDSCartSlot.WriteROMCommand(0, 4, val & 0xFF);
+        NDSCartSlot.WriteROMCommand(0, 5, val >> 8);
         return;
     case 0x040001AE:
-        if (!(ExMemCnt[0] & (1<<11)))
-        {
-            NDSCartSlot.SetROMCommand(6, val & 0xFF);
-            NDSCartSlot.SetROMCommand(7, val >> 8);
-        }
+        NDSCartSlot.WriteROMCommand(0, 6, val & 0xFF);
+        NDSCartSlot.WriteROMCommand(0, 7, val >> 8);
         return;
 
-    case 0x040001B8: ROMSeed0[4] = val & 0x7F; return;
-    case 0x040001BA: ROMSeed1[4] = val & 0x7F; return;
+    case 0x040001B8:
+        NDSCartSlot.WriteKey2Seed0(0, (u64)val << 32, 0x7F00000000ULL);
+        return;
+    case 0x040001BA:
+        NDSCartSlot.WriteKey2Seed1(0, (u64)val << 32, 0x7F00000000ULL);
+        return;
 
     case 0x04000204:
-        {
-            u16 oldVal = ExMemCnt[0];
-            ExMemCnt[0] = val;
-            ExMemCnt[1] = (ExMemCnt[1] & 0x007F) | (val & 0xFF80);
-            if ((oldVal ^ ExMemCnt[0]) & 0xFF)
-                SetGBASlotTimings();
-            return;
-        }
+        SetExMemCnt(0, val, 0xFFFF);
+        return;
 
     case 0x04000208: IME[0] = val & 0x1; UpdateIRQ(0); return;
     case 0x04000210: IE[0] = (IE[0] & 0xFFFF0000) | val; UpdateIRQ(0); return;
@@ -3607,38 +3511,32 @@ void NDS::ARM9IOWrite32(u32 addr, u32 val)
         return;
 
     case 0x040001A0:
-        if (!(ExMemCnt[0] & (1<<11)))
-        {
-            NDSCartSlot.WriteSPICnt(val & 0xFFFF);
-            NDSCartSlot.WriteSPIData((val >> 16) & 0xFF);
-        }
+        NDSCartSlot.WriteSPICnt(0, val & 0xFFFF, 0xFFFF);
+        NDSCartSlot.WriteSPIData(0, (val >> 16) & 0xFF);
         return;
     case 0x040001A4:
-        if (!(ExMemCnt[0] & (1<<11)))
-            NDSCartSlot.WriteROMCnt(val);
+        NDSCartSlot.WriteROMCnt(0, val, 0xFFFFFFFF);
         return;
 
     case 0x040001A8:
-        if (!(ExMemCnt[0] & (1<<11)))
-        {
-            NDSCartSlot.SetROMCommand(0, val & 0xFF);
-            NDSCartSlot.SetROMCommand(1, (val >> 8) & 0xFF);
-            NDSCartSlot.SetROMCommand(2, (val >> 16) & 0xFF);
-            NDSCartSlot.SetROMCommand(3, val >> 24);
-        }
+        NDSCartSlot.WriteROMCommand(0, 0, val & 0xFF);
+        NDSCartSlot.WriteROMCommand(0, 1, (val >> 8) & 0xFF);
+        NDSCartSlot.WriteROMCommand(0, 2, (val >> 16) & 0xFF);
+        NDSCartSlot.WriteROMCommand(0, 3, val >> 24);
         return;
     case 0x040001AC:
-        if (!(ExMemCnt[0] & (1<<11)))
-        {
-            NDSCartSlot.SetROMCommand(4, val & 0xFF);
-            NDSCartSlot.SetROMCommand(5, (val >> 8) & 0xFF);
-            NDSCartSlot.SetROMCommand(6, (val >> 16) & 0xFF);
-            NDSCartSlot.SetROMCommand(7, val >> 24);
-        }
+        NDSCartSlot.WriteROMCommand(0, 4, val & 0xFF);
+        NDSCartSlot.WriteROMCommand(0, 5, (val >> 8) & 0xFF);
+        NDSCartSlot.WriteROMCommand(0, 6, (val >> 16) & 0xFF);
+        NDSCartSlot.WriteROMCommand(0, 7, val >> 24);
         return;
 
-    case 0x040001B0: *(u32*)&ROMSeed0[0] = val; return;
-    case 0x040001B4: *(u32*)&ROMSeed1[0] = val; return;
+    case 0x040001B0:
+        NDSCartSlot.WriteKey2Seed0(0, (u64)val, 0x00FFFFFFFFULL);
+        return;
+    case 0x040001B4:
+        NDSCartSlot.WriteKey2Seed1(0, (u64)val, 0x00FFFFFFFFULL);
+        return;
 
     case 0x04000208: IME[0] = val & 0x1; UpdateIRQ(0); return;
     case 0x04000210: IE[0] = val; UpdateIRQ(0); return;
@@ -3679,7 +3577,7 @@ void NDS::ARM9IOWrite32(u32 addr, u32 val)
         return;
 
     case 0x04100010:
-        if (!(ExMemCnt[0] & (1<<11)))  NDSCartSlot.WriteROMData(val);
+        NDSCartSlot.WriteROMData(0, val, 0xFFFFFFFF);
         return;
 
     // NO$GBA debug register "String Out (raw)"
@@ -3752,69 +3650,13 @@ u8 NDS::ARM7IORead8(u32 addr)
     case 0x04000180: return IPCSync7 & 0xFF;
     case 0x04000181: return IPCSync7 >> 8;
 
-    case 0x040001A0:
-        if (ExMemCnt[0] & (1<<11))
-            return NDSCartSlot.GetSPICnt() & 0xFF;
-        return 0;
-    case 0x040001A1:
-        if (ExMemCnt[0] & (1<<11))
-            return NDSCartSlot.GetSPICnt() >> 8;
-        return 0;
-
-    case 0x040001A2:
-        if (ExMemCnt[0] & (1<<11))
-            return NDSCartSlot.ReadSPIData();
-        return 0;
-
-    case 0x040001A4:
-        if (ExMemCnt[0] & (1<<11))
-            return NDSCartSlot.GetROMCnt() & 0xFF;
-        return 0;
-    case 0x040001A5:
-        if (ExMemCnt[0] & (1<<11))
-            return (NDSCartSlot.GetROMCnt() >> 8) & 0xFF;
-        return 0;
-    case 0x040001A6:
-        if (ExMemCnt[0] & (1<<11))
-            return (NDSCartSlot.GetROMCnt() >> 16) & 0xFF;
-        return 0;
-    case 0x040001A7:
-        if (ExMemCnt[0] & (1<<11))
-            return NDSCartSlot.GetROMCnt() >> 24;
-        return 0;
-
-    case 0x040001A8:
-        if (ExMemCnt[0] & (1<<11))
-            return NDSCartSlot.GetROMCommand(0);
-        return 0;
-    case 0x040001A9:
-        if (ExMemCnt[0] & (1<<11))
-            return NDSCartSlot.GetROMCommand(1);
-        return 0;
-    case 0x040001AA:
-        if (ExMemCnt[0] & (1<<11))
-            return NDSCartSlot.GetROMCommand(2);
-        return 0;
-    case 0x040001AB:
-        if (ExMemCnt[0] & (1<<11))
-            return NDSCartSlot.GetROMCommand(3);
-        return 0;
-    case 0x040001AC:
-        if (ExMemCnt[0] & (1<<11))
-            return NDSCartSlot.GetROMCommand(4);
-        return 0;
-    case 0x040001AD:
-        if (ExMemCnt[0] & (1<<11))
-            return NDSCartSlot.GetROMCommand(5);
-        return 0;
-    case 0x040001AE:
-        if (ExMemCnt[0] & (1<<11))
-            return NDSCartSlot.GetROMCommand(6);
-        return 0;
-    case 0x040001AF:
-        if (ExMemCnt[0] & (1<<11))
-            return NDSCartSlot.GetROMCommand(7);
-        return 0;
+    case 0x040001A0: return NDSCartSlot.ReadSPICnt(1) & 0xFF;
+    case 0x040001A1: return NDSCartSlot.ReadSPICnt(1) >> 8;
+    case 0x040001A2: return NDSCartSlot.ReadSPIData(1);
+    case 0x040001A4: return NDSCartSlot.ReadROMCnt(1) & 0xFF;
+    case 0x040001A5: return (NDSCartSlot.ReadROMCnt(1) >> 8) & 0xFF;
+    case 0x040001A6: return (NDSCartSlot.ReadROMCnt(1) >> 16) & 0xFF;
+    case 0x040001A7: return NDSCartSlot.ReadROMCnt(1) >> 24;
 
     case 0x040001C2: return SPI.ReadData();
 
@@ -3880,38 +3722,10 @@ u16 NDS::ARM7IORead16(u32 addr)
             return val;
         }
 
-    case 0x040001A0: if (ExMemCnt[0] & (1<<11)) return NDSCartSlot.GetSPICnt();   return 0;
-    case 0x040001A2: if (ExMemCnt[0] & (1<<11)) return NDSCartSlot.ReadSPIData(); return 0;
-
-    case 0x040001A4:
-        if (ExMemCnt[0] & (1<<11))
-            return NDSCartSlot.GetROMCnt() & 0xFFFF;
-        return 0;
-    case 0x040001A6:
-        if (ExMemCnt[0] & (1<<11))
-            return NDSCartSlot.GetROMCnt() >> 16;
-        return 0;
-
-    case 0x040001A8:
-        if (ExMemCnt[0] & (1<<11))
-            return NDSCartSlot.GetROMCommand(0) |
-                  (NDSCartSlot.GetROMCommand(1) << 8);
-        return 0;
-    case 0x040001AA:
-        if (ExMemCnt[0] & (1<<11))
-            return NDSCartSlot.GetROMCommand(2) |
-                  (NDSCartSlot.GetROMCommand(3) << 8);
-        return 0;
-    case 0x040001AC:
-        if (ExMemCnt[0] & (1<<11))
-            return NDSCartSlot.GetROMCommand(4) |
-                  (NDSCartSlot.GetROMCommand(5) << 8);
-        return 0;
-    case 0x040001AE:
-        if (ExMemCnt[0] & (1<<11))
-            return NDSCartSlot.GetROMCommand(6) |
-                  (NDSCartSlot.GetROMCommand(7) << 8);
-        return 0;
+    case 0x040001A0: return NDSCartSlot.ReadSPICnt(1);
+    case 0x040001A2: return NDSCartSlot.ReadSPIData(1);
+    case 0x040001A4: return NDSCartSlot.ReadROMCnt(1) & 0xFFFF;
+    case 0x040001A6: return NDSCartSlot.ReadROMCnt(1) >> 16;
 
     case 0x040001C0: return SPI.ReadCnt();
     case 0x040001C2: return SPI.ReadData();
@@ -3971,29 +3785,8 @@ u32 NDS::ARM7IORead32(u32 addr)
     case 0x04000180: return IPCSync7;
     case 0x04000184: return NDS::ARM7IORead16(addr);
 
-    case 0x040001A0:
-        if (ExMemCnt[0] & (1<<11))
-            return NDSCartSlot.GetSPICnt() | (NDSCartSlot.ReadSPIData() << 16);
-        return 0;
-    case 0x040001A4:
-        if (ExMemCnt[0] & (1<<11))
-            return NDSCartSlot.GetROMCnt();
-        return 0;
-
-    case 0x040001A8:
-        if (ExMemCnt[0] & (1<<11))
-            return NDSCartSlot.GetROMCommand(0) |
-                  (NDSCartSlot.GetROMCommand(1) << 8) |
-                  (NDSCartSlot.GetROMCommand(2) << 16) |
-                  (NDSCartSlot.GetROMCommand(3) << 24);
-        return 0;
-    case 0x040001AC:
-        if (ExMemCnt[0] & (1<<11))
-            return NDSCartSlot.GetROMCommand(4) |
-                  (NDSCartSlot.GetROMCommand(5) << 8) |
-                  (NDSCartSlot.GetROMCommand(6) << 16) |
-                  (NDSCartSlot.GetROMCommand(7) << 24);
-        return 0;
+    case 0x040001A0: return NDSCartSlot.ReadSPICnt(1) | (NDSCartSlot.ReadSPIData(1) << 16);
+    case 0x040001A4: return NDSCartSlot.ReadROMCnt(1);
 
     case 0x040001C0:
         return SPI.ReadCnt() | (SPI.ReadData() << 16);
@@ -4027,8 +3820,7 @@ u32 NDS::ARM7IORead32(u32 addr)
             return IPCFIFO9.Peek();
 
     case 0x04100010:
-        if (ExMemCnt[0] & (1<<11)) return NDSCartSlot.ReadROMData();
-        return 0;
+        return NDSCartSlot.ReadROMData(1);
     }
 
     if (addr >= 0x04000400 && addr < 0x04000520)
@@ -4081,45 +3873,36 @@ void NDS::ARM7IOWrite8(u32 addr, u8 val)
         return;
 
     case 0x040001A0:
-        if (ExMemCnt[0] & (1<<11))
-        {
-            NDSCartSlot.WriteSPICnt((NDSCartSlot.GetSPICnt() & 0xFF00) | val);
-        }
+        NDSCartSlot.WriteSPICnt(1, val, 0x00FF);
         return;
     case 0x040001A1:
-        if (ExMemCnt[0] & (1<<11))
-            NDSCartSlot.WriteSPICnt((NDSCartSlot.GetSPICnt() & 0x00FF) | (val << 8));
+        NDSCartSlot.WriteSPICnt(1, val << 8, 0xFF00);
         return;
     case 0x040001A2:
-        if (ExMemCnt[0] & (1<<11))
-            NDSCartSlot.WriteSPIData(val);
+        NDSCartSlot.WriteSPIData(1, val);
         return;
 
     case 0x040001A4:
-        if (ExMemCnt[0] & (1<<11))
-            NDSCartSlot.WriteROMCnt((NDSCartSlot.GetROMCnt() & 0xFFFFFF00) | val);
+        NDSCartSlot.WriteROMCnt(1, val, 0x000000FF);
         return;
     case 0x040001A5:
-        if (ExMemCnt[0] & (1<<11))
-            NDSCartSlot.WriteROMCnt((NDSCartSlot.GetROMCnt() & 0xFFFF00FF) | (val << 8));
+        NDSCartSlot.WriteROMCnt(1, val << 8, 0x0000FF00);
         return;
     case 0x040001A6:
-        if (ExMemCnt[0] & (1<<11))
-            NDSCartSlot.WriteROMCnt((NDSCartSlot.GetROMCnt() & 0xFF00FFFF) | (val << 16));
+        NDSCartSlot.WriteROMCnt(1, val << 16, 0x00FF0000);
         return;
     case 0x040001A7:
-        if (ExMemCnt[0] & (1<<11))
-            NDSCartSlot.WriteROMCnt((NDSCartSlot.GetROMCnt() & 0x00FFFFFF) | (val << 24));
+        NDSCartSlot.WriteROMCnt(1, val << 24, 0xFF000000);
         return;
 
-    case 0x040001A8: if (ExMemCnt[0] & (1<<11)) NDSCartSlot.SetROMCommand(0, val); return;
-    case 0x040001A9: if (ExMemCnt[0] & (1<<11)) NDSCartSlot.SetROMCommand(1, val); return;
-    case 0x040001AA: if (ExMemCnt[0] & (1<<11)) NDSCartSlot.SetROMCommand(2, val); return;
-    case 0x040001AB: if (ExMemCnt[0] & (1<<11)) NDSCartSlot.SetROMCommand(3, val); return;
-    case 0x040001AC: if (ExMemCnt[0] & (1<<11)) NDSCartSlot.SetROMCommand(4, val); return;
-    case 0x040001AD: if (ExMemCnt[0] & (1<<11)) NDSCartSlot.SetROMCommand(5, val); return;
-    case 0x040001AE: if (ExMemCnt[0] & (1<<11)) NDSCartSlot.SetROMCommand(6, val); return;
-    case 0x040001AF: if (ExMemCnt[0] & (1<<11)) NDSCartSlot.SetROMCommand(7, val); return;
+    case 0x040001A8: NDSCartSlot.WriteROMCommand(1, 0, val); return;
+    case 0x040001A9: NDSCartSlot.WriteROMCommand(1, 1, val); return;
+    case 0x040001AA: NDSCartSlot.WriteROMCommand(1, 2, val); return;
+    case 0x040001AB: NDSCartSlot.WriteROMCommand(1, 3, val); return;
+    case 0x040001AC: NDSCartSlot.WriteROMCommand(1, 4, val); return;
+    case 0x040001AD: NDSCartSlot.WriteROMCommand(1, 5, val); return;
+    case 0x040001AE: NDSCartSlot.WriteROMCommand(1, 6, val); return;
+    case 0x040001AF: NDSCartSlot.WriteROMCommand(1, 7, val); return;
 
     case 0x040001C2:
         SPI.WriteData(val);
@@ -4209,54 +3992,42 @@ void NDS::ARM7IOWrite16(u32 addr, u16 val)
         return;
 
     case 0x040001A0:
-        if (ExMemCnt[0] & (1<<11))
-            NDSCartSlot.WriteSPICnt(val);
+        NDSCartSlot.WriteSPICnt(1, val, 0xFFFF);
         return;
     case 0x040001A2:
-        if (ExMemCnt[0] & (1<<11))
-            NDSCartSlot.WriteSPIData(val & 0xFF);
+        NDSCartSlot.WriteSPIData(1, val & 0xFF);
         return;
 
     case 0x040001A4:
-        if (ExMemCnt[0] & (1<<11))
-            NDSCartSlot.WriteROMCnt((NDSCartSlot.GetROMCnt() & 0xFFFFFF00) | val);
+        NDSCartSlot.WriteROMCnt(1, val, 0x0000FFFF);
         return;
     case 0x040001A6:
-        if (ExMemCnt[0] & (1<<11))
-            NDSCartSlot.WriteROMCnt((NDSCartSlot.GetROMCnt() & 0xFF00FFFF) | (val << 16));
+        NDSCartSlot.WriteROMCnt(1, val << 16, 0xFFFF0000);
         return;
 
     case 0x040001A8:
-        if (ExMemCnt[0] & (1<<11))
-        {
-            NDSCartSlot.SetROMCommand(0, val & 0xFF);
-            NDSCartSlot.SetROMCommand(1, val >> 8);
-        }
+        NDSCartSlot.WriteROMCommand(1, 0, val & 0xFF);
+        NDSCartSlot.WriteROMCommand(1, 1, val >> 8);
         return;
     case 0x040001AA:
-        if (ExMemCnt[0] & (1<<11))
-        {
-            NDSCartSlot.SetROMCommand(2, val & 0xFF);
-            NDSCartSlot.SetROMCommand(3, val >> 8);
-        }
+        NDSCartSlot.WriteROMCommand(1, 2, val & 0xFF);
+        NDSCartSlot.WriteROMCommand(1, 3, val >> 8);
         return;
     case 0x040001AC:
-        if (ExMemCnt[0] & (1<<11))
-        {
-            NDSCartSlot.SetROMCommand(4, val & 0xFF);
-            NDSCartSlot.SetROMCommand(5, val >> 8);
-        }
+        NDSCartSlot.WriteROMCommand(1, 4, val & 0xFF);
+        NDSCartSlot.WriteROMCommand(1, 5, val >> 8);
         return;
     case 0x040001AE:
-        if (ExMemCnt[0] & (1<<11))
-        {
-            NDSCartSlot.SetROMCommand(6, val & 0xFF);
-            NDSCartSlot.SetROMCommand(7, val >> 8);
-        }
+        NDSCartSlot.WriteROMCommand(1, 6, val & 0xFF);
+        NDSCartSlot.WriteROMCommand(1, 7, val >> 8);
         return;
 
-    case 0x040001B8: ROMSeed0[12] = val & 0x7F; return;
-    case 0x040001BA: ROMSeed1[12] = val & 0x7F; return;
+    case 0x040001B8:
+        NDSCartSlot.WriteKey2Seed0(1, (u64)val << 32, 0x7F00000000ULL);
+        return;
+    case 0x040001BA:
+        NDSCartSlot.WriteKey2Seed1(1, (u64)val << 32, 0x7F00000000ULL);
+        return;
 
     case 0x040001C0:
         SPI.WriteCnt(val);
@@ -4266,13 +4037,9 @@ void NDS::ARM7IOWrite16(u32 addr, u16 val)
         return;
 
     case 0x04000204:
-        {
-            u16 oldVal = ExMemCnt[1];
-            ExMemCnt[1] = (ExMemCnt[1] & 0xFF80) | (val & 0x007F);
-            if ((ExMemCnt[1] ^ oldVal) & 0xFF)
-                SetGBASlotTimings();
-            return;
-        }
+        SetExMemCnt(1, val, 0xFFFF);
+        return;
+
     case 0x04000206:
         if (!(PowerControl7 & (1<<1))) return;
         SetWifiWaitCnt(val);
@@ -4378,38 +4145,32 @@ void NDS::ARM7IOWrite32(u32 addr, u32 val)
         return;
 
     case 0x040001A0:
-        if (ExMemCnt[0] & (1<<11))
-        {
-            NDSCartSlot.WriteSPICnt(val & 0xFFFF);
-            NDSCartSlot.WriteSPIData((val >> 16) & 0xFF);
-        }
+        NDSCartSlot.WriteSPICnt(1, val & 0xFFFF, 0xFFFF);
+        NDSCartSlot.WriteSPIData(1, (val >> 16) & 0xFF);
         return;
     case 0x040001A4:
-        if (ExMemCnt[0] & (1<<11))
-            NDSCartSlot.WriteROMCnt(val);
+        NDSCartSlot.WriteROMCnt(1, val, 0xFFFFFFFF);
         return;
 
     case 0x040001A8:
-        if (ExMemCnt[0] & (1<<11))
-        {
-            NDSCartSlot.SetROMCommand(0, val & 0xFF);
-            NDSCartSlot.SetROMCommand(1, (val >> 8) & 0xFF);
-            NDSCartSlot.SetROMCommand(2, (val >> 16) & 0xFF);
-            NDSCartSlot.SetROMCommand(3, val >> 24);
-        }
+        NDSCartSlot.WriteROMCommand(1, 0, val & 0xFF);
+        NDSCartSlot.WriteROMCommand(1, 1, (val >> 8) & 0xFF);
+        NDSCartSlot.WriteROMCommand(1, 2, (val >> 16) & 0xFF);
+        NDSCartSlot.WriteROMCommand(1, 3, val >> 24);
         return;
     case 0x040001AC:
-        if (ExMemCnt[0] & (1<<11))
-        {
-            NDSCartSlot.SetROMCommand(4, val & 0xFF);
-            NDSCartSlot.SetROMCommand(5, (val >> 8) & 0xFF);
-            NDSCartSlot.SetROMCommand(6, (val >> 16) & 0xFF);
-            NDSCartSlot.SetROMCommand(7, val >> 24);
-        }
+        NDSCartSlot.WriteROMCommand(1, 4, val & 0xFF);
+        NDSCartSlot.WriteROMCommand(1, 5, (val >> 8) & 0xFF);
+        NDSCartSlot.WriteROMCommand(1, 6, (val >> 16) & 0xFF);
+        NDSCartSlot.WriteROMCommand(1, 7, val >> 24);
         return;
 
-    case 0x040001B0: *(u32*)&ROMSeed0[8] = val; return;
-    case 0x040001B4: *(u32*)&ROMSeed1[8] = val; return;
+    case 0x040001B0:
+        NDSCartSlot.WriteKey2Seed0(1, (u64)val, 0x00FFFFFFFFULL);
+        return;
+    case 0x040001B4:
+        NDSCartSlot.WriteKey2Seed1(1, (u64)val, 0x00FFFFFFFFULL);
+        return;
 
     case 0x040001C0:
         SPI.WriteCnt(val & 0xFFFF);
@@ -4436,7 +4197,7 @@ void NDS::ARM7IOWrite32(u32 addr, u32 val)
         return;
 
     case 0x04100010:
-        if (ExMemCnt[0] & (1<<11))  NDSCartSlot.WriteROMData(val);
+        NDSCartSlot.WriteROMData(1, val, 0xFFFFFFFF);
         return;
     }
 
