@@ -137,6 +137,9 @@ private:
     melonDS::NDS& NDS;
     u8 Num;
 
+    u32 TransferIRQ;
+    u32 CardIRQ;
+
     struct sInterface
     {
         sInterface(NDSCartSlot& parent, u8 num);

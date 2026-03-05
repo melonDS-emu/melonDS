@@ -202,6 +202,18 @@ NDSCartSlot::NDSCartSlot(melonDS::NDS& nds, std::unique_ptr<CartCommon>&& rom) n
     // TODO for DSi second cart slot
     Num = 0;
 
+    if (Num == 0)
+    {
+        TransferIRQ = IRQ_CartXferDone;
+        CardIRQ = IRQ_CartIREQMC;
+    }
+    else
+    {
+        assert(NDS.ConsoleType == 1);
+        TransferIRQ = IRQ_DSi_Cart2XferDone;
+        CardIRQ = IRQ_DSi_Cart2IREQMC;
+    }
+
     if (rom)
         SetCart(std::move(rom));
 }
@@ -558,8 +570,8 @@ std::unique_ptr<CartCommon> NDSCartSlot::EjectCart() noexcept
     if (!Cart) return nullptr;
 
     // ejecting the cart triggers the gamecard IRQ
-    NDS.SetIRQ(0, IRQ_CartIREQMC);
-    NDS.SetIRQ(1, IRQ_CartIREQMC);
+    NDS.SetIRQ(0, CardIRQ);
+    NDS.SetIRQ(1, CardIRQ);
 
     return std::move(Cart);
 
@@ -705,10 +717,9 @@ void NDSCartSlot::sInterface::WriteROMCnt(u32 val, u32 mask)
            ROMCommand[0], ROMCommand[1], ROMCommand[2], ROMCommand[3],
            ROMCommand[4], ROMCommand[5], ROMCommand[6], ROMCommand[7],
            datasize);
-printf("prootfart %d %d %d\n", Parent.CartActive, Parent.CPUSelect, Num);
+
     if (Parent.CartActive && Parent.CPUSelect == Num)
         Parent.Cart->ROMCommandStart(Parent, ROMCommand);
-        //Parent.Cart->ROMCommandStart(Parent, ROMCommand.data());
 
     // reset the FIFO
     ROMDataPosCPU = 0;
@@ -859,7 +870,7 @@ void NDSCartSlot::sInterface::ROMEndTransfer(u32 param)
     ROMTransferLen = 0;
 
     if (SPICnt & (1<<14))
-        Parent.NDS.SetIRQ(Num, IRQ_CartXferDone);
+        Parent.NDS.SetIRQ(Num, Parent.TransferIRQ);
 
     if (Parent.CartActive && Parent.CPUSelect == Num)
         Parent.Cart->ROMCommandFinish();
