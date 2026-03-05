@@ -1,17 +1,44 @@
-TC_PREFIX  = /home/exophase/pandora-dev
-PREFIX     = $(TC_PREFIX)/arm-2011.03
-AS         = $(PREFIX)/bin/arm-none-linux-gnueabi-gcc
-OBJCOPY    = $(PREFIX)/bin/arm-none-linux-gnueabi-objcopy
+# SPDX-License-Identifier: CC0-1.0
+#
+# SPDX-FileContributor: Adrian "asie" Siekierka, 2025
 
-BIN_ARM7   = drastic_bios_arm7
-BIN_ARM9   = drastic_bios_arm9
+BIOS_FILE_NTR_ARM9 = bios_ntr_arm9.bin
+BIOS_FILE_NTR_ARM7 = bios_ntr_arm7.bin
+BIOS_FILE_TWL_ARM9 = bios_twl_arm9.bin
+BIOS_FILE_TWL_ARM7 = bios_twl_arm7.bin
 
-all:
-	$(AS) bios_common.S -DBIOS_ARM7 -march=armv4 -c -Wa,-asl=$(BIN_ARM7).list -o $(BIN_ARM7).o
-	$(AS) bios_common.S -DBIOS_ARM9 -march=armv5 -c -Wa,-asl=$(BIN_ARM9).list -o $(BIN_ARM9).o
-	$(OBJCOPY) -O binary $(BIN_ARM7).o $(BIN_ARM7).bin
-	$(OBJCOPY) -O binary $(BIN_ARM9).o $(BIN_ARM9).bin
+BIOS_FILES = \
+	$(BIOS_FILE_NTR_ARM9) \
+	$(BIOS_FILE_NTR_ARM7) \
+	$(BIOS_FILE_TWL_ARM9) \
+	$(BIOS_FILE_TWL_ARM7)
+
+BIOS_HEADERS = \
+	 $(patsubst %.bin,%.h,$(BIOS_FILES))
+
+BIOS_HEADER_ALL = FreeBIOS_Data.h
+
+.PHONY: all clean $(BIOS_FILES) $(BIOS_HEADER_ALL)
+
+all: $(BIOS_FILES) $(BIOS_HEADER_ALL)
+
+$(BIOS_HEADER_ALL): $(BIOS_FILES)
+	cat $(BIOS_HEADERS) > $(BIOS_HEADER_ALL)
+
+$(BIOS_FILE_NTR_ARM9):
+	$(MAKE) -f Makefile.bios TARGET=arm9 PLATFORM=ntr OUTPUT=$(BIOS_FILE_NTR_ARM9)
+
+$(BIOS_FILE_NTR_ARM7):
+	$(MAKE) -f Makefile.bios TARGET=arm7 PLATFORM=ntr OUTPUT=$(BIOS_FILE_NTR_ARM7)
+
+$(BIOS_FILE_TWL_ARM9):
+	$(MAKE) -f Makefile.bios TARGET=arm9 PLATFORM=twl OUTPUT=$(BIOS_FILE_TWL_ARM9)
+
+$(BIOS_FILE_TWL_ARM7):
+	$(MAKE) -f Makefile.bios TARGET=arm7 PLATFORM=twl OUTPUT=$(BIOS_FILE_TWL_ARM7)
 
 clean:
-	rm -f $(BIN_ARM7).bin $(BIN_ARM7).o $(BIN_ARM9).bin $(BIN_ARM9).o
-
+	rm -fr build || true
+	rm -r $(BIOS_FILES) || true
+	rm -r $(BIOS_HEADERS) || true
+	rm -r $(BIOS_HEADER_ALL) || true

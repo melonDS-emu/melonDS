@@ -1,5 +1,5 @@
 /*
-    Copyright 2016-2025 melonDS team
+    Copyright 2016-2026 melonDS team
 
     This file is part of melonDS.
 
@@ -261,7 +261,9 @@ GLRenderer::~GLRenderer()
     delete[] AuxInputBuffer[1];
 
     glDeleteTextures(1, &CaptureOutput256Tex);
+    glDeleteFramebuffers(4, CaptureOutput256FB);
     glDeleteTextures(1, &CaptureOutput128Tex);
+    glDeleteFramebuffers(16, CaptureOutput128FB);
     glDeleteTextures(1, &CaptureSyncTex);
     glDeleteFramebuffers(1, &CaptureSyncFB);
 
