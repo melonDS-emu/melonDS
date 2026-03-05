@@ -2210,6 +2210,24 @@ void MainWindow::onFullscreenToggled()
     toggleFullscreen();
 }
 
+void MainWindow::onWindowBorderToggled()
+{
+#ifdef _WIN32
+    HWND hwnd = (HWND)winId();
+    LONG style = GetWindowLong(hwnd, GWL_STYLE);
+
+    if (style & WS_CAPTION) {
+        style &= ~(WS_CAPTION | WS_THICKFRAME);
+    } else {
+        style |= WS_CAPTION | WS_THICKFRAME;
+    }
+
+    SetWindowLong(hwnd, GWL_STYLE, style);
+    SetWindowPos(hwnd, nullptr, 0, 0, 0, 0,
+                 SWP_NOMOVE | SWP_NOSIZE | SWP_NOZORDER | SWP_FRAMECHANGED);
+#endif
+}
+
 void MainWindow::onScreenEmphasisToggled()
 {
     int currentSizing = windowCfg.GetInt("ScreenSizing");
