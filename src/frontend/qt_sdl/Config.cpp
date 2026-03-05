@@ -103,6 +103,10 @@ DefaultList<bool> DefaultBools =
     {"Emu.DirectBoot", true},
     {"Instance*.DS.Battery.LevelOkay", true},
     {"Instance*.DSi.Battery.Charging", true},
+#ifdef RETROACHIEVEMENTS_ENABLED
+    {"Instance*.RetroAchievements.Enabled", false},
+    {"Instance*.RetroAchievements.HardcoreMode", false},
+#endif
 #ifdef JIT_ENABLED
     {"JIT.BranchOptimisations", true},
     {"JIT.LiteralOptimisations", true},
@@ -117,6 +121,11 @@ DefaultList<std::string> DefaultStrings =
 {
     {"DLDI.ImagePath",                  "dldi.bin"},
     {"DSi.SD.ImagePath",                "dsisd.bin"},
+    #ifdef RETROACHIEVEMENTS_ENABLED
+    {"Instance*.RetroAchievements.Username", ""},
+    {"Instance*.RetroAchievements.Password", ""},
+    {"Instance*.RetroAchievements.Token", ""},
+    #endif
     {"Instance*.Firmware.Username",     "melonDS"}
 };
 
@@ -162,6 +171,9 @@ LegacyEntry LegacyFile[] =
     {"HKKey_FastForward",         0, "Keyboard.HK_FastForward", true},
     {"HKKey_FastForwardToggle",   0, "Keyboard.HK_FrameLimitToggle", true},
     {"HKKey_FullscreenToggle",    0, "Keyboard.HK_FullscreenToggle", true},
+    #ifdef RETROACHIEVEMENTS_ENABLED
+    {"HKKey_RAOverlayToggle",     0, "Keyboard.HK_RAOverlayToggle", true},
+    #endif
     {"HKKey_SwapScreens",         0, "Keyboard.HK_SwapScreens", true},
     {"HKKey_SwapScreenEmphasis",  0, "Keyboard.HK_SwapScreenEmphasis", true},
     {"HKKey_SolarSensorDecrease", 0, "Keyboard.HK_SolarSensorDecrease", true},
@@ -182,6 +194,9 @@ LegacyEntry LegacyFile[] =
     {"HKJoy_FastForward",         0, "Joystick.HK_FastForward", true},
     {"HKJoy_FastForwardToggle",   0, "Joystick.HK_FrameLimitToggle", true},
     {"HKJoy_FullscreenToggle",    0, "Joystick.HK_FullscreenToggle", true},
+    #ifdef RETROACHIEVEMENTS_ENABLED
+    {"HKJoy_RAOverlayToggle",     0, "Joystick.HK_RAOverlayToggle", true},
+    #endif
     {"HKJoy_SwapScreens",         0, "Joystick.HK_SwapScreens", true},
     {"HKJoy_SwapScreenEmphasis",  0, "Joystick.HK_SwapScreenEmphasis", true},
     {"HKJoy_SolarSensorDecrease", 0, "Joystick.HK_SolarSensorDecrease", true},
@@ -830,5 +845,18 @@ Table GetLocalTable(int instance)
 
     return Table(tbl, key);
 }
+
+#ifdef RETROACHIEVEMENTS_ENABLED
+Table GetRAPlaytimeTable()
+{
+    std::string key = "RetroAchievements.Playtime";
+    toml::value& tbl = RootTable["RetroAchievements"]["Playtime"];
+    
+    if (!tbl.is_table())
+        tbl = toml::table();
+
+    return Table(tbl, key);
+}
+#endif
 
 }

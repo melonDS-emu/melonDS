@@ -1,0 +1,10 @@
+<RCC>
+    <qresource prefix="/ra">
+        <!-- Icons -->
+        <file>icons/placeholder.png</file>
+        <file>icons/ra-icon.png</file>
+
+        <!-- Sounds -->
+        <file>sounds/unlock.wav</file>
+    </qresource>
+</RCC>
