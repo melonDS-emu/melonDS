@@ -1,5 +1,5 @@
 /*
-    Copyright 2016-2025 melonDS team
+    Copyright 2016-2026 melonDS team
 
     This file is part of melonDS.
 
@@ -241,7 +241,7 @@ void SPU::Reset()
     Cnt = 0;
     MasterVolume = 0;
     Bias = 0;
-    Mute = false;
+    Mute = true;
 
     for (int i = 0; i < 16; i++)
         Channels[i].Reset();
