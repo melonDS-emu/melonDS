@@ -573,9 +573,10 @@ std::unique_ptr<CartCommon> NDSCartSlot::EjectCart() noexcept
     NDS.SetIRQ(0, CardIRQ);
     NDS.SetIRQ(1, CardIRQ);
 
-    return std::move(Cart);
+    // TODO proper power down, eventually
+    CartActive = false;
 
-    // CHECKME: does an eject imply anything for the ROM/SPI transfer registers?
+    return std::move(Cart);
 }
 
 void NDSCartSlot::ResetCart() noexcept
