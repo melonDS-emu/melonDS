@@ -127,6 +127,7 @@ void ScreenLayout::Setup(int screenWidth, int screenHeight,
     int screenGap,
     bool integerScale,
     bool swapScreens,
+    int topWeight, int botWeight,
     float topAspect, float botAspect)
 {
     HybEnable = screenLayout == 3;
@@ -319,10 +320,16 @@ void ScreenLayout::Setup(int screenWidth, int screenHeight,
             }
             else
             {
-                int primOffset = (sizing == screenSizing_EmphTop) ? 0 : 2;
-                int secOffset = (sizing == screenSizing_EmphTop) ? 2 : 0;
-                float* primMtx = (sizing == screenSizing_EmphTop) ? TopScreenMtx : BotScreenMtx;
-                float* secMtx = (sizing == screenSizing_EmphTop) ? BotScreenMtx : TopScreenMtx;
+                bool topIsPrim;
+                if (sizing == screenSizing_Weighted)
+                    topIsPrim = topWeight >= botWeight;
+                else
+                    topIsPrim = sizing == screenSizing_EmphTop;
+
+                int primOffset = topIsPrim ? 0 : 2;
+                int secOffset = topIsPrim ? 2 : 0;
+                float* primMtx = topIsPrim ? TopScreenMtx : BotScreenMtx;
+                float* secMtx = topIsPrim ? BotScreenMtx : TopScreenMtx;
 
                 float primMinX = refpoints[primOffset][0], primMaxX = primMinX;
                 float primMinY = refpoints[primOffset][1], primMaxY = primMinY;
@@ -351,19 +358,43 @@ void ScreenLayout::Setup(int screenWidth, int screenHeight,
                 if (integerScale)
                     primScale = floorf(primScale);
 
-                if (layout == 0)
+                float totalWeight = float(topWeight + botWeight);
+                float primWeight  = topIsPrim ? topWeight : botWeight;
+                float secWeight   = topIsPrim ? botWeight : topWeight;
+
+                if (sizing == screenSizing_Weighted) 
                 {
-                    if (screenHeight - primVSize * primScale < secVSize)
-                        primScale = std::min(screenWidth / primHSize, (screenHeight - secVSize) / primVSize);
+                    if (layout == 0)
+                    {
+                        float primTargetV = screenHeight * (primWeight / totalWeight);
+                        float secTargetV  = screenHeight * (secWeight  / totalWeight);
+                        primScale = std::min(screenWidth / primHSize, primTargetV / primVSize);
+                        secScale  = std::min(screenWidth / secHSize,  secTargetV  / secVSize);
+                    }
                     else
-                        secScale = std::min((screenHeight - primVSize * primScale) / secVSize, screenWidth / secHSize);
+                    {
+                        float primTargetH = screenWidth * (primWeight / totalWeight);
+                        float secTargetH  = screenWidth * (secWeight  / totalWeight);
+                        primScale = std::min(primTargetH / primHSize, screenHeight / primVSize);
+                        secScale  = std::min(secTargetH  / secHSize,  screenHeight / secVSize);
+                    }
                 }
-                else
+                else 
                 {
-                    if (screenWidth - primHSize * primScale < secHSize)
-                        primScale = std::min((screenWidth - secHSize) / primHSize, screenHeight / primVSize);
+                    if (layout == 0)
+                    {
+                        if (screenHeight - primVSize * primScale < secVSize)
+                            primScale = std::min(screenWidth / primHSize, (screenHeight - secVSize) / primVSize);
+                        else
+                            secScale = std::min((screenHeight - primVSize * primScale) / secVSize, screenWidth / secHSize);
+                    }
                     else
-                        secScale = std::min((screenWidth - primHSize * primScale) / secHSize, screenHeight / secVSize);
+                    {
+                        if (screenWidth - primHSize * primScale < secHSize)
+                            primScale = std::min((screenWidth - secHSize) / primHSize, screenHeight / primVSize);
+                        else
+                            secScale = std::min((screenWidth - primHSize * primScale) / secHSize, screenHeight / secVSize);
+                    }
                 }
 
                 if (integerScale)
@@ -384,7 +415,7 @@ void ScreenLayout::Setup(int screenWidth, int screenHeight,
                 refpoints[secOffset+1][0] *= secScale;
                 refpoints[secOffset+1][1] *= secScale;
 
-                botScale = (sizing == screenSizing_EmphTop) ? secScale : primScale;
+                botScale = topIsPrim ? secScale : primScale;
             }
         }
     }
