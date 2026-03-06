@@ -197,10 +197,12 @@ void NDSCartSlot::Key2_Encrypt(const u8* data, u32 len) noexcept
 }
 
 
-NDSCartSlot::NDSCartSlot(melonDS::NDS& nds, std::unique_ptr<CartCommon>&& rom) noexcept : NDS(nds)
+NDSCartSlot::NDSCartSlot(melonDS::NDS& nds, u32 num, std::unique_ptr<CartCommon>&& rom) noexcept
+: NDS(nds), Num(num)
 {
     // TODO for DSi second cart slot
-    Num = 0;
+    //Num = num;
+    // TODO provision to change the num on each side
 
     if (Num == 0)
     {
@@ -570,8 +572,7 @@ std::unique_ptr<CartCommon> NDSCartSlot::EjectCart() noexcept
     if (!Cart) return nullptr;
 
     // ejecting the cart triggers the gamecard IRQ
-    NDS.SetIRQ(0, CardIRQ);
-    NDS.SetIRQ(1, CardIRQ);
+    RaiseCardIRQ();
 
     // TODO proper power down, eventually
     CartActive = false;
@@ -593,10 +594,36 @@ void NDSCartSlot::SetCPUSelect(u32 sel)
     CPUSelect = sel;
 }
 
+void NDSCartSlot::SetPowerState(bool power)
+{
+    if (!power)
+    {
+        // powering off the interface clears the "reset release" bit
+        Interfaces[0].ROMCnt &= ~(1<<29);
+        Interfaces[1].ROMCnt &= ~(1<<29);
+
+        // TODO: cart needs to be notified
+    }
+
+    CartActive = (Cart != nullptr) && power;
+}
+
+void NDSCartSlot::SetResetState(bool reset)
+{
+    // TODO: communicate reset state
+    // interface should read all FF while in reset
+}
+
+void NDSCartSlot::RaiseCardIRQ()
+{
+    NDS.SetIRQ(0, CardIRQ);
+    NDS.SetIRQ(1, CardIRQ);
+}
+
 
 NDSCartSlot::sInterface::sInterface(NDSCartSlot& parent, u8 num)
 : Parent(parent), Num(num)
-{
+{printf("create sInterface: %p, %p, num=%d, parent=%d\n", this, &Parent, num, Parent.Num);
     if (Parent.Num == 0)
     {
         // first cart slot
@@ -675,7 +702,7 @@ void NDSCartSlot::sInterface::DoSavestate(Savestate* file)
 
 
 void NDSCartSlot::sInterface::WriteROMCnt(u32 val, u32 mask)
-{printf("write ROMCNT %d %08X %08X\n", Num, val, mask);
+{
     val &= mask;
     u32 xferstart = (val & ~ROMCnt) & (1<<31);
     ROMCnt = (ROMCnt & (~mask | 0x20800000)) | (val & 0xFF7F7FFF);

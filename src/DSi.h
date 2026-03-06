@@ -76,6 +76,10 @@ public:
     u32 NWRAMEnd[2][3];
     u32 NWRAMMask[2][3];
 
+    // DSi second cart slot
+    // even though there is no physical slot, the hardware is still 100% functional
+    NDSCart::NDSCartSlot NDSCartSlot2;
+
     DSi_I2CHost I2C;
     DSi_I2S I2S;
     DSi_CamModule CamModule;
@@ -191,9 +195,9 @@ private:
     bool FullBIOSBoot;
 
     void Set_SCFG_Clock9(u16 val);
-    void Set_SCFG_MC(u16 val);
+    void SetScfgMC(u16 val, u16 mask);
 
-    void CartSlotEvent(u32 param);
+    void CartPowerOffEvent(u32 param);
 
     void DecryptModcryptArea(u32 offset, u32 size, const u8* iv);
     void ApplyNewRAMSize(u32 size);

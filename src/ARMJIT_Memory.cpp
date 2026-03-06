@@ -1435,12 +1435,12 @@ static void GPU_WriteVRAM_ARM7(u32 addr, T val) noexcept
 
 u32 NDSCartSlot_ReadROMData9()
 {
-    return NDS::Current->NDSCartSlot.ReadROMData(0);
+    return NDS::Current->NDSCartSlots[0]->ReadROMData(0);
 }
 
 u32 NDSCartSlot_ReadROMData7()
 {
-    return NDS::Current->NDSCartSlot.ReadROMData(1);
+    return NDS::Current->NDSCartSlots[0]->ReadROMData(1);
 }
 
 static u8 NDS_ARM9IORead8(u32 addr)

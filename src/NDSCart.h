@@ -66,7 +66,7 @@ struct NDSCartArgs
 class NDSCartSlot
 {
 public:
-    explicit NDSCartSlot(melonDS::NDS& nds, std::unique_ptr<CartCommon>&& rom = nullptr) noexcept;
+    explicit NDSCartSlot(melonDS::NDS& nds, u32 num, std::unique_ptr<CartCommon>&& rom = nullptr) noexcept;
     ~NDSCartSlot() noexcept;
     void Reset() noexcept;
     void ResetCart() noexcept;
@@ -91,6 +91,7 @@ public:
     void SetCart(std::unique_ptr<CartCommon>&& cart) noexcept;
     [[nodiscard]] CartCommon* GetCart() noexcept { return Cart.get(); }
     [[nodiscard]] const CartCommon* GetCart() const noexcept { return Cart.get(); }
+    bool CartInserted() const { return Cart != nullptr; }
 
     void SetupDirectBoot(const std::string& romname) noexcept;
 
@@ -115,6 +116,10 @@ public:
 
     void SetCPUSelect(u32 sel);
 
+    // power/reset control, for DSi
+    void SetPowerState(bool power);
+    void SetResetState(bool reset);
+
     u16 ReadSPICnt(u32 cpu) const noexcept { return Interfaces[cpu].SPICnt; }
     void WriteSPICnt(u32 cpu, u16 val, u16 mask) noexcept { Interfaces[cpu].WriteSPICnt(val, mask); };
 
@@ -131,6 +136,8 @@ public:
 
     u32 ReadROMData(u32 cpu) noexcept { return Interfaces[cpu].ReadROMData(); }
     void WriteROMData(u32 cpu, u32 val, u32 mask) noexcept { Interfaces[cpu].WriteROMData(val, mask); }
+
+    void RaiseCardIRQ();
 
 private:
     friend class CartCommon;

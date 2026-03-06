@@ -334,6 +334,9 @@ public: // TODO: Encapsulate the rest of these members
     const u32 ARM7WRAMSize = 0x10000;
     u8* ARM7WRAM;
 
+    // provision for DSi second cart slot
+    NDSCart::NDSCartSlot* NDSCartSlots[2];
+
     virtual void Reset();
     void Start();
 
