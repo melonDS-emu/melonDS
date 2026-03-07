@@ -558,6 +558,14 @@ void NDSCartSlot::SetSaveMemory(const u8* savedata, u32 savelen) noexcept
 
 void NDSCartSlot::SetupDirectBoot(const std::string& romname) noexcept
 {
+    PowerState = 2;
+
+    // TODO: determine actual values
+    Interfaces[0].ROMCnt = (1<<29);
+    Interfaces[1].ROMCnt = (1<<29);
+
+    UpdateCartState();
+
     if (Cart)
         Cart->SetupDirectBoot(romname, NDS);
 }

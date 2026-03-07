@@ -718,6 +718,7 @@ void DSi::SetupDirectBoot()
 
     SPI.GetFirmwareMem()->SetupDirectBoot();
 
+    SCFG_MC = 0x0018;
     SCFG_CartInsertDelay = 0x1988;
     SCFG_CartPowerOffDelay = 0x264C;
 
