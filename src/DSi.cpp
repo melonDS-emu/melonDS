@@ -1447,9 +1447,33 @@ void DSi::SetScfgMC(u16 val, u16 mask)
         }
 
         SCFG_MC = (SCFG_MC & ~(0x3 << shift)) | (newpower << shift);
+    }
 
-        // TODO: swap bit
-        // if swap is changed at the same time as mode3 is set: card IRQ is triggered on old side
+    if ((SCFG_MC ^ oldval) & (1<<15))
+    {
+        // slot swap setting
+        // this swaps the I/O addresses, IRQ lines, DMA trigger lines and EXMEMCNT settings for the cart slots
+
+        u16 slot1state = (SCFG_MC >> 2) & 0x3;
+        if (slot1state == 1 || slot1state == 2)
+            NDSCartSlot.RaiseCardIRQ();
+
+        if (SCFG_MC & (1<<15))
+        {
+            NDSCartSlots[0] = &NDSCartSlot2;
+            NDSCartSlots[1] = &NDSCartSlot;
+        }
+        else
+        {
+            NDSCartSlots[0] = &NDSCartSlot;
+            NDSCartSlots[1] = &NDSCartSlot2;
+        }
+
+        NDSCartSlots[0]->SetLogicalNum(0);
+        NDSCartSlots[0]->SetCPUSelect((ExMemCnt[0] >> 11) & 0x1);
+
+        NDSCartSlots[1]->SetLogicalNum(1);
+        NDSCartSlots[1]->SetCPUSelect((ExMemCnt[0] >> 10) & 0x1);
     }
 }
 

@@ -69,7 +69,6 @@ public:
     explicit NDSCartSlot(melonDS::NDS& nds, u32 num, std::unique_ptr<CartCommon>&& rom = nullptr) noexcept;
     ~NDSCartSlot() noexcept;
     void Reset() noexcept;
-    //void ResetCart() noexcept;
     void DoSavestate(Savestate* file) noexcept;
 
     void DecryptSecureArea(u8* out) noexcept;
@@ -119,6 +118,9 @@ public:
     // power control, for DSi
     void SetPowerState(u8 power);
 
+    // SCFG_MC swap, for DSi
+    void SetLogicalNum(u8 num);
+
     u16 ReadSPICnt(u32 cpu) const noexcept { return Interfaces[cpu].SPICnt; }
     void WriteSPICnt(u32 cpu, u16 val, u16 mask) noexcept { Interfaces[cpu].WriteSPICnt(val, mask); };
 
@@ -142,6 +144,7 @@ private:
     friend class CartCommon;
     melonDS::NDS& NDS;
     u8 Num;
+    u8 LogicalNum;
 
     u32 TransferIRQ;
     u32 CardIRQ;

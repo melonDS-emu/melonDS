@@ -85,7 +85,6 @@ void CartCommon::Reset()
 
 void CartCommon::SetupDirectBoot(const std::string& romname, NDS& nds)
 {
-    //return;
     CmdEncMode = 2;
     DataEncMode = 2;
     DSiMode = IsDSi && (nds.ConsoleType==1);

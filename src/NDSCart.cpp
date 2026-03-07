@@ -200,21 +200,7 @@ void NDSCartSlot::Key2_Encrypt(const u8* data, u32 len) noexcept
 NDSCartSlot::NDSCartSlot(melonDS::NDS& nds, u32 num, std::unique_ptr<CartCommon>&& rom) noexcept
 : NDS(nds), Num(num)
 {
-    // TODO for DSi second cart slot
-    //Num = num;
-    // TODO provision to change the num on each side
-
-    if (Num == 0)
-    {
-        TransferIRQ = IRQ_CartXferDone;
-        CardIRQ = IRQ_CartIREQMC;
-    }
-    else
-    {
-        assert(NDS.ConsoleType == 1);
-        TransferIRQ = IRQ_DSi_Cart2XferDone;
-        CardIRQ = IRQ_DSi_Cart2IREQMC;
-    }
+    SetLogicalNum(Num);
 
     if (rom)
         SetCart(std::move(rom));
@@ -227,6 +213,8 @@ NDSCartSlot::~NDSCartSlot() noexcept
 
 void NDSCartSlot::Reset() noexcept
 {
+    SetLogicalNum(Num);
+
     // on DS, the cart interface is always powered on
     // on DSi, start powered off - SCFG_MC is used to power the interface up/down
     if (NDS.ConsoleType == 1)
@@ -620,6 +608,22 @@ void NDSCartSlot::SetPowerState(u8 power)
     CartActive = (Cart != nullptr) && (PowerState == 2);
 }
 
+void NDSCartSlot::SetLogicalNum(u8 num)
+{
+    LogicalNum = num;
+    if (LogicalNum == 0)
+    {
+        TransferIRQ = IRQ_CartXferDone;
+        CardIRQ = IRQ_CartIREQMC;
+    }
+    else
+    {
+        assert(NDS.ConsoleType == 1);
+        TransferIRQ = IRQ_DSi_Cart2XferDone;
+        CardIRQ = IRQ_DSi_Cart2IREQMC;
+    }
+}
+
 void NDSCartSlot::RaiseCardIRQ()
 {
     NDS.SetIRQ(0, CardIRQ);
@@ -947,7 +951,7 @@ void NDSCartSlot::sInterface::RaiseDRQ()
     // TODO: make this code suck less!!
     // maybe have a general "DMA trigger function" that covers both DMA types for DSi
     // use a proper enum instead of magic numbers (hardware values) for trigger IDs
-    if (Parent.Num == 0)
+    if (Parent.LogicalNum == 0)
     {
         if (Num)
             Parent.NDS.CheckDMAs(1, 0x12);
@@ -1089,6 +1093,8 @@ void NDSCartSlot::sInterface::WriteSPIData(u8 val)
         else
             SPIData = 0xFF;
     }
+    else if (Parent.PowerState == 1)
+        SPIData = 0xFF;
     else
         SPIData = 0;
 
