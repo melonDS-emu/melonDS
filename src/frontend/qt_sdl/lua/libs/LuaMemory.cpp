@@ -180,9 +180,11 @@ memoryDomain get_currentMemoryDomain(LuaBundle* bundle){
 **/
 memoryDomain L_checkForMemoryDomain(lua_State* L, int narg){
 	LuaBundle* bundle = get_bundle(L);
+	NDS* CurrentNDS = bundle->getEmuInstance()->getNDS();
+	if (CurrentNDS == nullptr)
+		luaL_error(L,"No NDS memory currently loaded.\n");
 	if (lua_isnoneornil(L,narg)) return get_currentMemoryDomain(bundle);
 	const char* name = luaL_checklstring(L,narg,NULL);
-	NDS* CurrentNDS = bundle->getEmuInstance()->getNDS();
 	memoryDomain domain;
 	domain.CurrentNDS=CurrentNDS;
     #define ADD_MEMORY_DOMAIN(domain_name,domain_base,domain_size) if (std::strcmp(name,domain_name)==0){\
@@ -250,6 +252,9 @@ memoryDomain L_checkForMemoryDomain(lua_State* L, int narg){
 int Lua_getcurrentmemorydomain(lua_State* L)
 {
 	LuaBundle* bundle = get_bundle(L);
+	NDS* CurrentNDS = bundle->getEmuInstance()->getNDS();
+	if (CurrentNDS == nullptr)
+		luaL_error(L,"No NDS memory currently loaded.\n");
 	const char* domainName = get_currentMemoryDomain(bundle).name;
 	lua_pushstring(L,domainName);
 	return 1;
@@ -259,6 +264,9 @@ AddMemoryFunction(Lua_getcurrentmemorydomain,getcurrentmemorydomain);
 int Lua_getcurrentmemorydomainsize(lua_State* L)
 {
 	LuaBundle* bundle = get_bundle(L);
+	NDS* CurrentNDS = bundle->getEmuInstance()->getNDS();
+	if (CurrentNDS == nullptr)
+		luaL_error(L,"No NDS memory currently loaded.\n");
 	u64 domainSize = get_currentMemoryDomain(bundle).size;
 	lua_pushinteger(L,domainSize);
 	return 1;

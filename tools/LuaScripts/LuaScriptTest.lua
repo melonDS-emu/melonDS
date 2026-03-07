@@ -2,6 +2,11 @@
 -- Written by NPO197
 -- TODO: re-write to be more readable... 
 
+if gameinfo.getromhash() == "NULL" then 
+    print("No ROM is loaded. Please load a ROM first.\n")
+    goto EXIT;
+end
+
 console.clear()
 print("This text Should be cleared")
 console.clear()
@@ -15,10 +20,11 @@ canvas = gui.MakeCanvas(0,0,500,500)
 gui.SetCanvas(canvas)
 gui.ClearOverlay()
 
-gui.FillRect(0,0,55,11,0xffffffff)
+gui.FillRect(0,0,75,11,0xffffffff)
+gui.Rect(0,0,75,11,0xff00ff00)
 gui.drawText(0,9,"Test Message")
-gui.drawLine(0,10,55,10,0x00ff00ff)
-gui.Rect(0,0,55,11,0xff00ff00)
+gui.drawLine(0,10,75,10,0x00ff00ff)
+
 
 gui.drawImage("Lua-Logo_128x128.png",0,60)
 
@@ -164,5 +170,5 @@ function KeyPress(keyStr)
     return false
 end
 
-
+::EXIT::
 
