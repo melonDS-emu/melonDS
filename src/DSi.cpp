@@ -194,7 +194,7 @@ void DSi::Reset()
     SCFG_Clock7 = 0x0187;
     SCFG_EXT[0] = 0x8307F100;
     SCFG_EXT[1] = 0x93FFFB06;
-    SCFG_MC = 0x0010 | (~((u32)(NDSCartSlot.GetCart() != nullptr))&1);//0x0011; // FIXME!!
+    SCFG_MC = 0x0010 | (NDSCartSlot.CartInserted() ? 0 : (1<<0));
     SCFG_CartInsertDelay = 0xFFFF;
     SCFG_CartPowerOffDelay = 0xFFFF;
     SCFG_RST = 0;
@@ -341,10 +341,17 @@ void DSi::DoSavestateExtra(Savestate* file)
 
 void DSi::SetCartInserted(bool inserted)
 {
+    // update SCFG_MC
+    // if ejecting a cart, we should also switch to power state 3, and schedule the power-off timer
+
     if (inserted)
-        SCFG_MC &= ~1;
+        SCFG_MC &= ~(1<<0);
     else
-        SCFG_MC |= 1;
+    {
+        ScheduleEvent(Event_DSi_Cart1Power, false, SCFG_CartPowerOffDelay << 9, 0, 0);
+        SCFG_MC |= ((1<<0) | (3<<2));
+        NDSCartSlot.SetPowerState(3);
+    }
 }
 
 u64 DSi::GetConsoleID() const noexcept {
@@ -792,7 +799,7 @@ void DSi::SoftReset()
     SCFG_Clock7 = 0x0187;
     SCFG_EXT[0] = 0x8307F100;
     SCFG_EXT[1] = 0x93FFFB06;
-    SCFG_MC = 0x0010;//0x0011;
+    SCFG_MC = 0x0010 | (NDSCartSlot.CartInserted() ? 0 : (1<<0));
     // TODO: is this actually reset?
     SCFG_RST = 0;
     DSP.SetRstLine(false);
@@ -1426,23 +1433,9 @@ void DSi::SetScfgMC(u16 val, u16 mask)
             newpower = 3;
         }
 
-        switch (newpower)
-        {
-        case 0:
-            slot.SetPowerState(false);
-            break;
-        case 1:
-            slot.SetPowerState(true);
-            slot.SetResetState(true);
-            break;
-        case 2:
-            slot.SetPowerState(true);
-            slot.SetResetState(false);
-            break;
-        case 3:
+        slot.SetPowerState(newpower);
+        if (newpower == 3)
             ScheduleEvent(event, false, SCFG_CartPowerOffDelay << 9, 0, i);
-            break;
-        }
 
         // on the first slot, any change from state 1 or 2 to 3 or 0 will raise a card IRQ
         // for some reason, the second slot doesn't raise them
@@ -1454,25 +1447,16 @@ void DSi::SetScfgMC(u16 val, u16 mask)
         }
 
         SCFG_MC = (SCFG_MC & ~(0x3 << shift)) | (newpower << shift);
+
+        // TODO: swap bit
+        // if swap is changed at the same time as mode3 is set: card IRQ is triggered on old side
     }
-
-    /*u32 oldslotstatus = SCFG_MC & 0xC;
-printf("Set SCFG MC = %08X\n", val);
-    val &= 0xFFFF800C;
-    if ((val & 0xC) == 0xC) val &= ~0xC; // hax
-    if (val & 0x8000) Log(LogLevel::Warn, "SCFG_MC: weird NDS slot swap\n");
-    SCFG_MC = (SCFG_MC & ~0xFFFF800C) | val;
-
-    if ((oldslotstatus == 0x0) && ((SCFG_MC & 0xC) == 0x4))
-    {
-        NDSCartSlot.ResetCart();
-    }*/
 }
 
 void DSi::CartPowerOffEvent(u32 id)
 {
     auto& slot = (id == 0) ? NDSCartSlot : NDSCartSlot2;
-    slot.SetPowerState(false);
+    slot.SetPowerState(0);
 
     // set power state to 0
     int shift = 2 + (4*id);

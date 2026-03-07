@@ -62,6 +62,8 @@ public:
 
     virtual void DoSavestate(Savestate* file);
 
+    virtual void SetResetState(bool reset);
+
     virtual void ROMCommandStart(NDSCart::NDSCartSlot& cartslot, const u8* cmd);
     virtual u32 ROMCommandReceive();
     virtual void ROMCommandTransmit(u32 val) {}
@@ -90,6 +92,8 @@ protected:
     u32 ROMRead32();
 
     void* UserData;
+
+    bool ResetState;
 
     std::unique_ptr<u8[]> ROM = nullptr;
     u32 ROMLength = 0;

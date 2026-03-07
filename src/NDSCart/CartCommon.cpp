@@ -77,13 +77,9 @@ u32 CartCommon::Checksum() const
 
 void CartCommon::Reset()
 {
-    CmdEncMode = 0;
-    DataEncMode = 0;
-    DSiMode = false;
-
-    memset(ROMCmd, 0, sizeof(ROMCmd));
-    ROMAddr = 0;
-
+    // TODO: do we need this function?
+    ResetState = false;
+    SetResetState(true);
     SPISelected = false;
 }
 
@@ -99,6 +95,8 @@ void CartCommon::DoSavestate(Savestate* file)
 {
     file->Section("NDCS");
 
+    file->VarBool(&ResetState);
+
     file->Var32(&CmdEncMode);
     file->Var32(&DataEncMode);
     file->VarBool(&DSiMode);
@@ -107,6 +105,21 @@ void CartCommon::DoSavestate(Savestate* file)
     file->Var32(&ROMAddr);
 
     file->VarBool(&SPISelected);
+}
+
+void CartCommon::SetResetState(bool reset)
+{
+    if (reset == ResetState)
+        return;
+
+    CmdEncMode = 0;
+    DataEncMode = 0;
+    DSiMode = false;
+
+    memset(ROMCmd, 0, sizeof(ROMCmd));
+    ROMAddr = 0;
+
+    ResetState = reset;
 }
 
 u32 CartCommon::ROMRead32()
@@ -137,7 +150,9 @@ u32 CartCommon::ROMRead32()
 }
 
 void CartCommon::ROMCommandStart(NDSCartSlot& cartslot, const u8* cmd)
-{printf("heh %02X\n", cmd[0]);
+{
+    if (ResetState) return;
+
     if (CmdEncMode == 0)
     {
         memcpy(ROMCmd, cmd, 8);
@@ -247,6 +262,8 @@ void CartCommon::ROMCommandStart(NDSCartSlot& cartslot, const u8* cmd)
 
 u32 CartCommon::ROMCommandReceive()
 {
+    if (ResetState) return 0;
+
     if (CmdEncMode == 0)
     {
         switch (ROMCmd[0])

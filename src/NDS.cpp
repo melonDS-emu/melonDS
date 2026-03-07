@@ -1954,7 +1954,7 @@ void NDS::debug(u32 param)
     Platform::CloseFile(shit);*/
 
     FILE*
-    shit = fopen("debug/castle9.bin", "wb");
+    shit = fopen("debug/bowser9.bin", "wb");
     fwrite(ARM9.ITCM, 0x8000, 1, shit);
     for (u32 i = 0x02000000; i < 0x04000000; i+=4)
     {
@@ -1962,7 +1962,7 @@ void NDS::debug(u32 param)
         fwrite(&val, 4, 1, shit);
     }
     fclose(shit);
-    shit = fopen("debug/castle7.bin", "wb");
+    shit = fopen("debug/bowser7.bin", "wb");
     for (u32 i = 0x02000000; i < 0x04000000; i+=4)
     {
         u32 val = ARM7Read32(i);

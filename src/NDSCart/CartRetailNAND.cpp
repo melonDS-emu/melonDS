@@ -110,6 +110,7 @@ u32 CartRetailNAND::SRAMRead32()
 
 void CartRetailNAND::ROMCommandStart(NDSCart::NDSCartSlot& cartslot, const u8* cmd)
 {
+    if (ResetState) return;
     if (CmdEncMode != 2) return CartRetail::ROMCommandStart(cartslot, cmd);
 
     memcpy(ROMCmd, cmd, 8);
@@ -233,6 +234,7 @@ void CartRetailNAND::ROMCommandStart(NDSCart::NDSCartSlot& cartslot, const u8* c
 
 u32 CartRetailNAND::ROMCommandReceive()
 {
+    if (ResetState) return 0;
     if (CmdEncMode != 2) return CartRetail::ROMCommandReceive();
 
     switch (ROMCmd[0])
@@ -283,6 +285,7 @@ u32 CartRetailNAND::ROMCommandReceive()
 
 void CartRetailNAND::ROMCommandTransmit(u32 val)
 {
+    if (ResetState) return;
     if (CmdEncMode != 2) return CartRetail::ROMCommandTransmit(val);
 
     switch (ROMCmd[0])

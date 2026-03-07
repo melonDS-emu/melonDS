@@ -69,7 +69,7 @@ public:
     explicit NDSCartSlot(melonDS::NDS& nds, u32 num, std::unique_ptr<CartCommon>&& rom = nullptr) noexcept;
     ~NDSCartSlot() noexcept;
     void Reset() noexcept;
-    void ResetCart() noexcept;
+    //void ResetCart() noexcept;
     void DoSavestate(Savestate* file) noexcept;
 
     void DecryptSecureArea(u8* out) noexcept;
@@ -116,9 +116,8 @@ public:
 
     void SetCPUSelect(u32 sel);
 
-    // power/reset control, for DSi
-    void SetPowerState(bool power);
-    void SetResetState(bool reset);
+    // power control, for DSi
+    void SetPowerState(u8 power);
 
     u16 ReadSPICnt(u32 cpu) const noexcept { return Interfaces[cpu].SPICnt; }
     void WriteSPICnt(u32 cpu, u16 val, u16 mask) noexcept { Interfaces[cpu].WriteSPICnt(val, mask); };
@@ -207,6 +206,7 @@ private:
     } Interfaces[2] {sInterface(*this, 0), sInterface(*this, 1)};
 
     u8 CPUSelect = 0;
+    u8 PowerState = 0;
     bool CartActive = false;
     std::unique_ptr<CartCommon> Cart = nullptr;
 
@@ -214,6 +214,8 @@ private:
 
     u64 Key2_X = 0;
     u64 Key2_Y = 0;
+
+    void UpdateCartState();
 
     void Key1_Encrypt(u32* data) const noexcept;
     void Key1_Decrypt(u32* data) const noexcept;

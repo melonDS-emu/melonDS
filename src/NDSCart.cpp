@@ -227,13 +227,21 @@ NDSCartSlot::~NDSCartSlot() noexcept
 
 void NDSCartSlot::Reset() noexcept
 {
+    // on DS, the cart interface is always powered on
+    // on DSi, start powered off - SCFG_MC is used to power the interface up/down
+    if (NDS.ConsoleType == 1)
+        PowerState = 0;
+    else
+        PowerState = 2;
+
     for (auto& inter : Interfaces)
         inter.Reset();
 
     Key2_X = 0;
     Key2_Y = 0;
 
-    ResetCart();
+    if (Cart)
+        Cart->Reset();
 }
 
 void NDSCartSlot::DoSavestate(Savestate* file) noexcept
@@ -514,14 +522,13 @@ void NDSCartSlot::SetCart(std::unique_ptr<CartCommon>&& cart) noexcept
     {
         // If we're ejecting an existing cart without inserting a new one...
         CartActive = false;
-        // TODO power off?
         return;
     }
 
-    // TODO do better?
     CartActive = true;
-
     Cart->Reset();
+
+    UpdateCartState();
 
     const NDSHeader& header = Cart->GetHeader();
     const ROMListEntry romparams = Cart->GetROMParams();
@@ -574,44 +581,43 @@ std::unique_ptr<CartCommon> NDSCartSlot::EjectCart() noexcept
     // ejecting the cart triggers the gamecard IRQ
     RaiseCardIRQ();
 
-    // TODO proper power down, eventually
     CartActive = false;
+    auto oldcart = std::move(Cart);
+    Cart = nullptr;
 
-    return std::move(Cart);
-}
+    UpdateCartState();
 
-void NDSCartSlot::ResetCart() noexcept
-{
-    // CHECKME: what if there is a transfer in progress?
-
-    if (Cart)
-        Cart->Reset();
+    return oldcart;
 }
 
 void NDSCartSlot::SetCPUSelect(u32 sel)
 {
     // TODO: what happens if this is changed during a transfer?
     CPUSelect = sel;
+
+    if ((Interfaces[0].ROMCnt ^ Interfaces[1].ROMCnt) & (1<<29))
+        UpdateCartState();
 }
 
-void NDSCartSlot::SetPowerState(bool power)
+void NDSCartSlot::SetPowerState(u8 power)
 {
-    if (!power)
+    assert(NDS.ConsoleType == 1);
+
+    if (power == PowerState)
+        return;
+    PowerState = power;
+
+    if (PowerState == 0)
     {
-        // powering off the interface clears the "reset release" bit
+        // state 0 clears the "reset release" bit
         Interfaces[0].ROMCnt &= ~(1<<29);
         Interfaces[1].ROMCnt &= ~(1<<29);
 
-        // TODO: cart needs to be notified
+        UpdateCartState();
     }
 
-    CartActive = (Cart != nullptr) && power;
-}
-
-void NDSCartSlot::SetResetState(bool reset)
-{
-    // TODO: communicate reset state
-    // interface should read all FF while in reset
+    // clock output is only active in power state 2
+    CartActive = (Cart != nullptr) && (PowerState == 2);
 }
 
 void NDSCartSlot::RaiseCardIRQ()
@@ -620,10 +626,27 @@ void NDSCartSlot::RaiseCardIRQ()
     NDS.SetIRQ(1, CardIRQ);
 }
 
+void NDSCartSlot::UpdateCartState()
+{
+    if (!Cart)
+        return;
+
+    CartActive = (PowerState == 2);
+
+    // /RES is held low if:
+    // * ROMCTRL bit 29 is zero
+    // * on DSi: power state is not 2
+    bool reset = false;
+    if (!CartActive || !(Interfaces[CPUSelect].ROMCnt & (1<<29)))
+        reset = true;
+
+    Cart->SetResetState(reset);
+}
+
 
 NDSCartSlot::sInterface::sInterface(NDSCartSlot& parent, u8 num)
 : Parent(parent), Num(num)
-{printf("create sInterface: %p, %p, num=%d, parent=%d\n", this, &Parent, num, Parent.Num);
+{
     if (Parent.Num == 0)
     {
         // first cart slot
@@ -704,8 +727,15 @@ void NDSCartSlot::sInterface::DoSavestate(Savestate* file)
 void NDSCartSlot::sInterface::WriteROMCnt(u32 val, u32 mask)
 {
     val &= mask;
+    u32 resetrel = (val & ~ROMCnt) & (1<<29);
     u32 xferstart = (val & ~ROMCnt) & (1<<31);
     ROMCnt = (ROMCnt & (~mask | 0x20800000)) | (val & 0xFF7F7FFF);
+
+    if (resetrel)
+    {
+        if (Parent.CPUSelect == Num)
+            Parent.UpdateCartState();
+    }
 
     // all this junk would only really be useful if melonDS was interfaced to
     // a DS cart reader
@@ -810,6 +840,8 @@ void NDSCartSlot::sInterface::ROMReceiveData(u32 param)
         else
             data = 0xFFFFFFFF;
     }
+    else if (Parent.PowerState == 1)
+        data = 0xFFFFFFFF;
 
     ROMData[ROMDataPosCart] = data;
     ROMDataPosCart ^= 1;

@@ -54,18 +54,22 @@ CartRetail::CartRetail(std::unique_ptr<u8[]>&& rom, u32 len, u32 chipid, bool ba
     SRAMLength = sramlengths[savememtype];
 
     if (SRAMLength)
-    { // If this cart should have any save data...
+    {
+        // If this cart should have any save data...
         if (sram && sramlen == SRAMLength)
-        { // If we were given save data that already has the correct length...
+        {
+            // If we were given save data that already has the correct length...
             SRAM = std::move(sram);
         }
         else
-        { // Copy in what we can, truncate the rest.
+        {
+            // Copy in what we can, truncate the rest.
             SRAM = std::make_unique<u8[]>(SRAMLength);
             memset(SRAM.get(), 0xFF, SRAMLength);
 
             if (sram)
-            { // If we have anything to copy, that is.
+            {
+                // If we have anything to copy, that is.
                 memcpy(SRAM.get(), sram.get(), std::min(sramlen, SRAMLength));
             }
         }

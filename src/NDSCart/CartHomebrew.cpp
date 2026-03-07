@@ -87,6 +87,7 @@ void CartHomebrew::SetupDirectBoot(const std::string& romname, NDS& nds)
 
 void CartHomebrew::ROMCommandStart(NDSCart::NDSCartSlot& cartslot, const u8* cmd)
 {
+    if (ResetState) return;
     if (CmdEncMode != 2) return CartSD::ROMCommandStart(cartslot, cmd);
 
     memcpy(ROMCmd, cmd, 8);
@@ -111,6 +112,7 @@ void CartHomebrew::ROMCommandStart(NDSCart::NDSCartSlot& cartslot, const u8* cmd
 
 u32 CartHomebrew::ROMCommandReceive()
 {
+    if (ResetState) return 0;
     if (CmdEncMode != 2) return CartSD::ROMCommandReceive();
 
     switch (ROMCmd[0])
@@ -135,6 +137,7 @@ u32 CartHomebrew::ROMCommandReceive()
 
 void CartHomebrew::ROMCommandTransmit(u32 val)
 {
+    if (ResetState) return;
     if (CmdEncMode != 2) return CartSD::ROMCommandTransmit(val);
 
     switch (ROMCmd[0])
@@ -157,6 +160,7 @@ void CartHomebrew::ROMCommandTransmit(u32 val)
 
 void CartHomebrew::ROMCommandFinish()
 {
+    if (ResetState) return;
     if (CmdEncMode != 2) return CartCommon::ROMCommandFinish();
 
     // TODO: delayed SD writing? like we have for SRAM
