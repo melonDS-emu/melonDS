@@ -40,6 +40,7 @@
 
 class EmuInstance;
 class EmuThread;
+class LuaConsoleDialog;
 
 const int kMaxRecentROMs = 10;
 
@@ -53,6 +54,9 @@ public:
 
     EmuInstance* getEmuInstance() { return emuInstance; }
     Config::Table& getWindowConfig() { return windowCfg; }
+
+    LuaConsoleDialog* getLuaDialog() {return luaDialog;}
+
     int getWindowID() { return windowID; }
 
     bool winHasMenu() { return hasMenu; }
@@ -111,7 +115,9 @@ private slots:
     void onInsertGBACart();
     void onInsertGBAAddon();
     void onEjectGBACart();
+    void onLuaSaveState(const QString& filename);
     void onSaveState();
+    void onLuaLoadState(const QString& filename);
     void onLoadState();
     void onUndoStateLoad();
     void onImportSavefile();
@@ -122,6 +128,7 @@ private slots:
     void onStop();
     void onFrameStep();
     void onOpenPowerManagement();
+    void onOpenLuaScript();
     void onOpenDateTime();
     void onEnableCheats(bool checked);
     void onSetupCheats();
@@ -216,6 +223,7 @@ private:
 
     EmuInstance* emuInstance;
     EmuThread* emuThread;
+    LuaConsoleDialog* luaDialog=nullptr;
 
     Config::Table& globalCfg;
     Config::Table& localCfg;
@@ -264,6 +272,7 @@ public:
 #ifdef __APPLE__
     QAction* actPreferences;
 #endif
+    QAction* actLuaScript;
     QAction* actInputConfig;
     QAction* actVideoSettings;
     QAction* actCameraSettings;
