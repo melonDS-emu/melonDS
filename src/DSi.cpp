@@ -726,8 +726,8 @@ void DSi::SetupDirectBoot()
 
     if (dsmode)
     {
-        SCFG_EXT[0] = 0x03000000;
-        SCFG_EXT[1] = 0x12A03000;
+        SCFG_EXT[0] = 0x02000000;
+        SCFG_EXT[1] = 0x92A00000;
     }
     else
     {
