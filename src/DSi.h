@@ -197,6 +197,9 @@ private:
     void SetScfgClock9(u16 val);
     void SetScfgMC(u16 val, u16 mask);
 
+    bool CheckIO9Access(u32 addr);
+    bool CheckIO7Access(u32 addr);
+
     void CartPowerOffEvent(u32 param);
 
     void DecryptModcryptArea(u32 offset, u32 size, const u8* iv);

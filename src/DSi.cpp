@@ -724,6 +724,17 @@ void DSi::SetupDirectBoot()
 
     I2S.WriteSndExCnt(0x8008, 0xFFFF);
 
+    if (dsmode)
+    {
+        SCFG_EXT[0] = 0x03000000;
+        SCFG_EXT[1] = 0x12A03000;
+    }
+    else
+    {
+        SCFG_EXT[0] = 0x8307F100;
+        SCFG_EXT[1] = 0x93FBFB06;
+    }
+
     ARM9.CP15Write(0x100, 0x00056078);
     ARM9.CP15Write(0x200, 0x0000004A);
     ARM9.CP15Write(0x201, 0x0000004A);
@@ -2423,6 +2434,61 @@ bool DSi::ARM7GetMemRegion(u32 addr, bool write, MemRegion* region)
 }
 
 
+bool DSi::CheckIO9Access(u32 addr)
+{
+    if ((addr & 0xFFFFF000) == 0x04004000)
+    {
+        // DSi I/O
+        switch (addr & 0xF00)
+        {
+            case 0x000: return !!(SCFG_EXT[0] & (1<<31));
+            case 0x100: return !!(SCFG_EXT[0] & (1<<16));
+            case 0x200: return !!(SCFG_EXT[0] & (1<<17));
+            case 0x300: return !!(SCFG_EXT[0] & (1<<18));
+            default: return true;
+        }
+    }
+
+    if ((addr & 0xFFEFF000) == 0x04002000)
+    {
+        // second cart slot
+        return !!(SCFG_EXT[0] & (1<<24));
+    }
+
+    return true;
+}
+
+bool DSi::CheckIO7Access(u32 addr)
+{
+    if ((addr & 0xFFFFF000) == 0x04004000)
+    {
+        // DSi I/O
+        switch (addr & 0xF00)
+        {
+            case 0x000: return !!(SCFG_EXT[1] & (1<<31));
+            case 0x100: return !!(SCFG_EXT[1] & (1<<16));
+            case 0x400: return !!(SCFG_EXT[1] & (1<<17));
+            case 0x500: return !!(SCFG_EXT[1] & (1<<22));
+            case 0x600: return !!(SCFG_EXT[1] & (1<<20));
+            case 0x700: return !!(SCFG_EXT[1] & (1<<21));
+            case 0x800:
+            case 0x900: return !!(SCFG_EXT[1] & (1<<18));
+            case 0xA00:
+            case 0xB00: return !!(SCFG_EXT[1] & (1<<19));
+            case 0xC00: return !!(SCFG_EXT[1] & (1<<23));
+            case 0xD00: return !(SCFG_BIOS & (1<<10));
+            default: return true;
+        }
+    }
+
+    if ((addr & 0xFFEFF000) == 0x04002000)
+    {
+        // second cart slot
+        return !!(SCFG_EXT[1] & (1<<24));
+    }
+
+    return true;
+}
 
 
 #define CASE_READ8_16BIT(addr, val) \
@@ -2441,6 +2507,10 @@ bool DSi::ARM7GetMemRegion(u32 addr, bool write, MemRegion* region)
 
 u8 DSi::ARM9IORead8(u32 addr)
 {
+    assert(ConsoleType == 1);
+    if (!CheckIO9Access(addr))
+        return 0;
+
     switch (addr)
     {
     case 0x04004000: return SCFG_BIOS & 0xFF;
@@ -2467,13 +2537,11 @@ u8 DSi::ARM9IORead8(u32 addr)
 
     if ((addr & 0xFFFFFF00) == 0x04004200)
     {
-        if (!(SCFG_EXT[0] & (1<<17))) return 0;
         return CamModule.Read8(addr);
     }
 
     if ((addr & 0xFFFFFF00) == 0x04004300)
     {
-        if (!(SCFG_EXT[0] & (1<<18))) return 0;
         return DSP.Read8(addr);
     }
 
@@ -2483,6 +2551,9 @@ u8 DSi::ARM9IORead8(u32 addr)
 u16 DSi::ARM9IORead16(u32 addr)
 {
     assert(ConsoleType == 1);
+    if (!CheckIO9Access(addr))
+        return 0;
+
     switch (addr)
     {
     case 0x04004000: return SCFG_BIOS & 0xFF;
@@ -2508,13 +2579,11 @@ u16 DSi::ARM9IORead16(u32 addr)
 
     if ((addr & 0xFFFFFF00) == 0x04004200)
     {
-        if (!(SCFG_EXT[0] & (1<<17))) return 0;
         return CamModule.Read16(addr);
     }
 
     if ((addr & 0xFFFFFF00) == 0x04004300)
     {
-        if (!(SCFG_EXT[0] & (1<<18))) return 0;
         return DSP.Read16(addr);
     }
 
@@ -2524,6 +2593,9 @@ u16 DSi::ARM9IORead16(u32 addr)
 u32 DSi::ARM9IORead32(u32 addr)
 {
     assert(ConsoleType == 1);
+    if (!CheckIO9Access(addr))
+        return 0;
+
     switch (addr)
     {
     case 0x04004000: return SCFG_BIOS & 0xFF;
@@ -2580,13 +2652,11 @@ u32 DSi::ARM9IORead32(u32 addr)
 
     if ((addr & 0xFFFFFF00) == 0x04004200)
     {
-        if (!(SCFG_EXT[0] & (1<<17))) return 0;
         return CamModule.Read32(addr);
     }
 
     if ((addr & 0xFFFFFF00) == 0x04004300)
     {
-        if (!(SCFG_EXT[0] & (1<<18))) return 0;
         return DSP.Read32(addr);
     }
 
@@ -2596,6 +2666,9 @@ u32 DSi::ARM9IORead32(u32 addr)
 void DSi::ARM9IOWrite8(u32 addr, u8 val)
 {
     assert(ConsoleType == 1);
+    if (!CheckIO9Access(addr))
+        return;
+
     switch (addr)
     {
     case 0x04000301:
@@ -2609,8 +2682,6 @@ void DSi::ARM9IOWrite8(u32 addr, u8 val)
         return;
 
     case 0x04004006:
-        if (!(SCFG_EXT[0] & (1 << 31))) /* no access to SCFG Registers if disabled*/
-            return;
         SCFG_RST = (SCFG_RST & 0xFF00) | val;
         DSP.SetRstLine(val & 1);
         return;
@@ -2619,8 +2690,6 @@ void DSi::ARM9IOWrite8(u32 addr, u8 val)
     case 0x04004041:
     case 0x04004042:
     case 0x04004043:
-        if (!(SCFG_EXT[0] & (1 << 31))) /* no access to SCFG Registers if disabled*/
-            return;
         MapNWRAM_A(addr & 3, val);
         return;
     case 0x04004044:
@@ -2631,8 +2700,6 @@ void DSi::ARM9IOWrite8(u32 addr, u8 val)
     case 0x04004049:
     case 0x0400404A:
     case 0x0400404B:
-        if (!(SCFG_EXT[0] & (1 << 31))) /* no access to SCFG Registers if disabled*/
-            return;
         MapNWRAM_B((addr - 0x04) & 7, val);
         return;
     case 0x0400404C:
@@ -2643,8 +2710,6 @@ void DSi::ARM9IOWrite8(u32 addr, u8 val)
     case 0x04004051:
     case 0x04004052:
     case 0x04004053:
-        if (!(SCFG_EXT[0] & (1 << 31))) /* no access to SCFG Registers if disabled*/
-            return;
         MapNWRAM_C((addr-0x0C) & 7, val);
         return;
 
@@ -2683,13 +2748,11 @@ void DSi::ARM9IOWrite8(u32 addr, u8 val)
 
     if ((addr & 0xFFFFFF00) == 0x04004200)
     {
-        if (!(SCFG_EXT[0] & (1<<17))) return;
         return CamModule.Write8(addr, val);
     }
 
     if ((addr & 0xFFFFFF00) == 0x04004300)
     {
-        if (!(SCFG_EXT[0] & (1<<18))) return;
         return DSP.Write8(addr, val);
     }
 
@@ -2699,25 +2762,22 @@ void DSi::ARM9IOWrite8(u32 addr, u8 val)
 void DSi::ARM9IOWrite16(u32 addr, u16 val)
 {
     assert(ConsoleType == 1);
+    if (!CheckIO9Access(addr))
+        return;
+
     switch (addr)
     {
     case 0x04004004:
-        if (!(SCFG_EXT[0] & (1 << 31))) /* no access to SCFG Registers if disabled*/
-            return;
         SetScfgClock9(val);
         return;
 
     case 0x04004006:
-        if (!(SCFG_EXT[0] & (1 << 31))) /* no access to SCFG Registers if disabled*/
-            return;
         SCFG_RST = val;
         DSP.SetRstLine(val & 1);
         return;
 
     case 0x04004040:
     case 0x04004042:
-        if (!(SCFG_EXT[0] & (1 << 31))) /* no access to SCFG Registers if disabled*/
-            return;
         MapNWRAM_A((addr & 2), val & 0xFF);
         MapNWRAM_A((addr & 2) + 1, val >> 8);
         return;
@@ -2726,8 +2786,6 @@ void DSi::ARM9IOWrite16(u32 addr, u16 val)
     case 0x04004046:
     case 0x04004048:
     case 0x0400404A:
-        if (!(SCFG_EXT[0] & (1 << 31))) /* no access to SCFG Registers if disabled*/
-            return;
         MapNWRAM_B(((addr - 0x04) & 6), val & 0xFF);
         MapNWRAM_B(((addr - 0x04) & 6) + 1, val >> 8);
         return;
@@ -2735,8 +2793,6 @@ void DSi::ARM9IOWrite16(u32 addr, u16 val)
     case 0x0400404E:
     case 0x04004050:
     case 0x04004052:
-        if (!(SCFG_EXT[0] & (1 << 31))) /* no access to SCFG Registers if disabled*/
-            return;
         MapNWRAM_C(((addr - 0x0C) & 6), val & 0xFF);
         MapNWRAM_C(((addr - 0x0C) & 6) + 1, val >> 8);
         return;
@@ -2782,13 +2838,11 @@ void DSi::ARM9IOWrite16(u32 addr, u16 val)
 
     if ((addr & 0xFFFFFF00) == 0x04004200)
     {
-        if (!(SCFG_EXT[0] & (1<<17))) return;
         return CamModule.Write16(addr, val);
     }
 
     if ((addr & 0xFFFFFF00) == 0x04004300)
     {
-        if (!(SCFG_EXT[0] & (1<<18))) return;
         return DSP.Write16(addr, val);
     }
 
@@ -2798,11 +2852,12 @@ void DSi::ARM9IOWrite16(u32 addr, u16 val)
 void DSi::ARM9IOWrite32(u32 addr, u32 val)
 {
     assert(ConsoleType == 1);
+    if (!CheckIO9Access(addr))
+        return;
+
     switch (addr)
     {
     case 0x04004004:
-        if (!(SCFG_EXT[0] & (1 << 31))) /* no access to SCFG Registers if disabled*/
-            return;
         SetScfgClock9(val & 0xFFFF);
         SCFG_RST = val >> 16;
         DSP.SetRstLine((val >> 16) & 1);
@@ -2810,8 +2865,6 @@ void DSi::ARM9IOWrite32(u32 addr, u32 val)
 
     case 0x04004008:
         {
-            if (!(SCFG_EXT[0] & (1 << 31))) /* no access to SCFG Registers if disabled*/
-                return;
             u32 oldram = (SCFG_EXT[0] >> 14) & 0x3;
             u32 newram = (val >> 14) & 0x3;
 
@@ -2868,58 +2921,42 @@ void DSi::ARM9IOWrite32(u32 addr, u32 val)
         return;
 
     case 0x04004040:
-        if (!(SCFG_EXT[0] & (1 << 31))) /* no access to SCFG Registers if disabled*/
-            return;
         MapNWRAM_A(0, val & 0xFF);
         MapNWRAM_A(1, (val >> 8) & 0xFF);
         MapNWRAM_A(2, (val >> 16) & 0xFF);
         MapNWRAM_A(3, val >> 24);
         return;
     case 0x04004044:
-        if (!(SCFG_EXT[0] & (1 << 31))) /* no access to SCFG Registers if disabled*/
-            return;
         MapNWRAM_B(0, val & 0xFF);
         MapNWRAM_B(1, (val >> 8) & 0xFF);
         MapNWRAM_B(2, (val >> 16) & 0xFF);
         MapNWRAM_B(3, val >> 24);
         return;
     case 0x04004048:
-        if (!(SCFG_EXT[0] & (1 << 31))) /* no access to SCFG Registers if disabled*/
-            return;
         MapNWRAM_B(4, val & 0xFF);
         MapNWRAM_B(5, (val >> 8) & 0xFF);
         MapNWRAM_B(6, (val >> 16) & 0xFF);
         MapNWRAM_B(7, val >> 24);
         return;
     case 0x0400404C:
-        if (!(SCFG_EXT[0] & (1 << 31))) /* no access to SCFG Registers if disabled*/
-            return;
         MapNWRAM_C(0, val & 0xFF);
         MapNWRAM_C(1, (val >> 8) & 0xFF);
         MapNWRAM_C(2, (val >> 16) & 0xFF);
         MapNWRAM_C(3, val >> 24);
         return;
     case 0x04004050:
-        if (!(SCFG_EXT[0] & (1 << 31))) /* no access to SCFG Registers if disabled*/
-            return;
         MapNWRAM_C(4, val & 0xFF);
         MapNWRAM_C(5, (val >> 8) & 0xFF);
         MapNWRAM_C(6, (val >> 16) & 0xFF);
         MapNWRAM_C(7, val >> 24);
         return;
     case 0x04004054:
-        if (!(SCFG_EXT[0] & (1 << 31))) /* no access to SCFG Registers if disabled*/
-            return;
         MapNWRAMRange(0, 0, val);
         return;
     case 0x04004058:
-        if (!(SCFG_EXT[0] & (1 << 31))) /* no access to SCFG Registers if disabled*/
-            return;
         MapNWRAMRange(0, 1, val);
         return;
     case 0x0400405C:
-        if (!(SCFG_EXT[0] & (1 << 31))) /* no access to SCFG Registers if disabled*/
-            return;
         MapNWRAMRange(0, 2, val);
         return;
 
@@ -2988,13 +3025,11 @@ void DSi::ARM9IOWrite32(u32 addr, u32 val)
 
     if ((addr & 0xFFFFFF00) == 0x04004200)
     {
-        if (!(SCFG_EXT[0] & (1<<17))) return;
         return CamModule.Write32(addr, val);
     }
 
     if ((addr & 0xFFFFFF00) == 0x04004300)
     {
-        if (!(SCFG_EXT[0] & (1<<18))) return;
         return DSP.Write32(addr, val);
     }
 
@@ -3005,11 +3040,12 @@ void DSi::ARM9IOWrite32(u32 addr, u32 val)
 u8 DSi::ARM7IORead8(u32 addr)
 {
     assert(ConsoleType == 1);
+    if (!CheckIO7Access(addr))
+        return 0;
 
     switch (addr)
     {
-    case 0x04004000:
-        return SCFG_BIOS & 0xFF;
+    case 0x04004000: return SCFG_BIOS & 0xFF;
     case 0x04004001: return SCFG_BIOS >> 8;
     case 0x04004002: return 0; // SCFG_ROMWE, always 0
 
@@ -3026,26 +3062,26 @@ u8 DSi::ARM7IORead8(u32 addr)
     case 0x04004500: return I2C.ReadData();
     case 0x04004501: return I2C.ReadCnt();
 
-    case 0x04004D00: if (SCFG_BIOS & (1<<10)) return 0; return GetConsoleID() & 0xFF;
-    case 0x04004D01: if (SCFG_BIOS & (1<<10)) return 0; return (GetConsoleID() >> 8) & 0xFF;
-    case 0x04004D02: if (SCFG_BIOS & (1<<10)) return 0; return (GetConsoleID() >> 16) & 0xFF;
-    case 0x04004D03: if (SCFG_BIOS & (1<<10)) return 0; return (GetConsoleID() >> 24) & 0xFF;
-    case 0x04004D04: if (SCFG_BIOS & (1<<10)) return 0; return (GetConsoleID() >> 32) & 0xFF;
-    case 0x04004D05: if (SCFG_BIOS & (1<<10)) return 0; return (GetConsoleID() >> 40) & 0xFF;
-    case 0x04004D06: if (SCFG_BIOS & (1<<10)) return 0; return (GetConsoleID() >> 48) & 0xFF;
-    case 0x04004D07: if (SCFG_BIOS & (1<<10)) return 0; return GetConsoleID() >> 56;
+    case 0x04004D00: return GetConsoleID() & 0xFF;
+    case 0x04004D01: return (GetConsoleID() >> 8) & 0xFF;
+    case 0x04004D02: return (GetConsoleID() >> 16) & 0xFF;
+    case 0x04004D03: return (GetConsoleID() >> 24) & 0xFF;
+    case 0x04004D04: return (GetConsoleID() >> 32) & 0xFF;
+    case 0x04004D05: return (GetConsoleID() >> 40) & 0xFF;
+    case 0x04004D06: return (GetConsoleID() >> 48) & 0xFF;
+    case 0x04004D07: return GetConsoleID() >> 56;
     case 0x04004D08: return 0;
 
-    case 0x4004600: if (!(SCFG_EXT[1] & (1 << 20))) return 0; return I2S.ReadMicCnt() & 0xFF;
-    case 0x4004601: if (!(SCFG_EXT[1] & (1 << 20))) return 0; return I2S.ReadMicCnt() >> 8;
+    case 0x4004600: return I2S.ReadMicCnt() & 0xFF;
+    case 0x4004601: return I2S.ReadMicCnt() >> 8;
     case 0x4004602: return 0;
     case 0x4004603: return 0;
-    case 0x4004604: if (!(SCFG_EXT[1] & (1 << 20))) return 0; return I2S.ReadMicData() & 0xFF;
-    case 0x4004605: if (!(SCFG_EXT[1] & (1 << 20))) return 0; return (I2S.ReadMicData() >> 8) & 0xFF;
-    case 0x4004606: if (!(SCFG_EXT[1] & (1 << 20))) return 0; return (I2S.ReadMicData() >> 16) & 0xFF;
-    case 0x4004607: if (!(SCFG_EXT[1] & (1 << 20))) return 0; return I2S.ReadMicData() >> 24;
-    case 0x4004700: if (!(SCFG_EXT[1] & (1 << 21))) return 0; return I2S.ReadSndExCnt() & 0xFF;
-    case 0x4004701: if (!(SCFG_EXT[1] & (1 << 21))) return 0; return I2S.ReadSndExCnt() >> 8;
+    case 0x4004604: return I2S.ReadMicData() & 0xFF;
+    case 0x4004605: return (I2S.ReadMicData() >> 8) & 0xFF;
+    case 0x4004606: return (I2S.ReadMicData() >> 16) & 0xFF;
+    case 0x4004607: return I2S.ReadMicData() >> 24;
+    case 0x4004700: return I2S.ReadSndExCnt() & 0xFF;
+    case 0x4004701: return I2S.ReadSndExCnt() >> 8;
 
     case 0x04004C00: return GPIO_Data;
     case 0x04004C01: return GPIO_Dir;
@@ -3069,6 +3105,9 @@ u8 DSi::ARM7IORead8(u32 addr)
 u16 DSi::ARM7IORead16(u32 addr)
 {
     assert(ConsoleType == 1);
+    if (!CheckIO7Access(addr))
+        return 0;
+
     switch (addr)
     {
     case 0x04000218: return NDS::IE2;
@@ -3090,17 +3129,17 @@ u16 DSi::ARM7IORead16(u32 addr)
     CASE_READ16_32BIT(0x0400405C, MBK[1][7])
     CASE_READ16_32BIT(0x04004060, MBK[1][8])
 
-    case 0x04004D00: if (SCFG_BIOS & (1<<10)) return 0; return GetConsoleID() & 0xFFFF;
-    case 0x04004D02: if (SCFG_BIOS & (1<<10)) return 0; return (GetConsoleID() >> 16) & 0xFFFF;
-    case 0x04004D04: if (SCFG_BIOS & (1<<10)) return 0; return (GetConsoleID() >> 32) & 0xFFFF;
-    case 0x04004D06: if (SCFG_BIOS & (1<<10)) return 0; return GetConsoleID() >> 48;
+    case 0x04004D00: return GetConsoleID() & 0xFFFF;
+    case 0x04004D02: return (GetConsoleID() >> 16) & 0xFFFF;
+    case 0x04004D04: return (GetConsoleID() >> 32) & 0xFFFF;
+    case 0x04004D06: return GetConsoleID() >> 48;
     case 0x04004D08: return 0;
 
-    case 0x4004600: if (!(SCFG_EXT[1] & (1 << 20))) return 0; return I2S.ReadMicCnt();
+    case 0x4004600: return I2S.ReadMicCnt();
     case 0x4004602: return 0;
-    case 0x4004604: if (!(SCFG_EXT[1] & (1 << 20))) return 0; return I2S.ReadMicData() & 0xFFFF;
-    case 0x4004606: if (!(SCFG_EXT[1] & (1 << 20))) return 0; return I2S.ReadMicData() >> 16;
-    case 0x4004700: if (!(SCFG_EXT[1] & (1 << 21))) return 0; return I2S.ReadSndExCnt();
+    case 0x4004604: return I2S.ReadMicData() & 0xFFFF;
+    case 0x4004606: return I2S.ReadMicData() >> 16;
+    case 0x4004700: return I2S.ReadSndExCnt();
 
     case 0x04004C00: return GPIO_Data | ((u16)GPIO_Dir << 8);
     case 0x04004C02: return GPIO_IEdgeSel | ((u16)GPIO_IE << 8);
@@ -3127,6 +3166,9 @@ u16 DSi::ARM7IORead16(u32 addr)
 u32 DSi::ARM7IORead32(u32 addr)
 {
     assert(ConsoleType == 1);
+    if (!CheckIO7Access(addr))
+        return 0;
+
     switch (addr)
     {
     case 0x04000218: return NDS::IE2;
@@ -3179,13 +3221,13 @@ u32 DSi::ARM7IORead32(u32 addr)
     case 0x04004400: return AES.ReadCnt();
     case 0x0400440C: return AES.ReadOutputFIFO();
 
-    case 0x04004D00: if (SCFG_BIOS & (1<<10)) return 0; return GetConsoleID() & 0xFFFFFFFF;
-    case 0x04004D04: if (SCFG_BIOS & (1<<10)) return 0; return GetConsoleID() >> 32;
+    case 0x04004D00: return GetConsoleID() & 0xFFFFFFFF;
+    case 0x04004D04: return GetConsoleID() >> 32;
     case 0x04004D08: return 0;
 
-    case 0x4004600: if (!(SCFG_EXT[1] & (1 << 20))) return 0; return I2S.ReadMicCnt();
-    case 0x4004604: if (!(SCFG_EXT[1] & (1 << 20))) return 0; return I2S.ReadMicData();
-    case 0x4004700: if (!(SCFG_EXT[1] & (1 << 21))) return 0; return I2S.ReadSndExCnt();
+    case 0x4004600: return I2S.ReadMicCnt();
+    case 0x4004604: return I2S.ReadMicData();
+    case 0x4004700: return I2S.ReadSndExCnt();
 
     case 0x040021A0: return NDSCartSlots[1]->ReadSPICnt(1) | (NDSCartSlots[1]->ReadSPIData(1) << 16);
     case 0x040021A4: return NDSCartSlots[1]->ReadROMCnt(1);
@@ -3211,16 +3253,15 @@ u32 DSi::ARM7IORead32(u32 addr)
 void DSi::ARM7IOWrite8(u32 addr, u8 val)
 {
     assert(ConsoleType == 1);
+    if (!CheckIO7Access(addr))
+        return;
+
     switch (addr)
     {
     case 0x04004000:
-        if (!(SCFG_EXT[1] & (1 << 31))) /* no access to SCFG Registers if disabled*/
-            return;
         SCFG_BIOS |= (val & 0x03);
         return;
     case 0x04004001:
-        if (!(SCFG_EXT[1] & (1 << 31))) /* no access to SCFG Registers if disabled*/
-            return;
         SCFG_BIOS |= ((val & 0x07) << 8);
         return;
     case 0x04004002:
@@ -3231,8 +3272,6 @@ void DSi::ARM7IOWrite8(u32 addr, u8 val)
     case 0x04004062:
     case 0x04004063:
     {
-        if (!(SCFG_EXT[1] & (1 << 31))) /* no access to SCFG Registers if disabled*/
-            return;
         u32 tmp = MBK[0][8];
         tmp &= ~(0xff << ((addr % 4) * 8));
         tmp |= (val << ((addr % 4) * 8));
@@ -3245,23 +3284,15 @@ void DSi::ARM7IOWrite8(u32 addr, u8 val)
     case 0x04004501: I2C.WriteCnt(val); return;
 
     case 0x4004600:
-        if (!(SCFG_EXT[1] & (1 << 20)))
-            return;
         I2S.WriteMicCnt((u16)val, 0xFF);
         return;
     case 0x4004601:
-        if (!(SCFG_EXT[1] & (1 << 20)))
-            return;
         I2S.WriteMicCnt(((u16)val << 8), 0xFF00);
         return;
     case 0x4004700:
-        if (!(SCFG_EXT[1] & (1 << 21)))
-            return;
         I2S.WriteSndExCnt((u16)val, 0xFF);
         return;
     case 0x4004701:
-        if (!(SCFG_EXT[1] & (1 << 21)))
-            return;
         I2S.WriteSndExCnt(((u16)val << 8), 0xFF00);
         return;
 
@@ -3353,6 +3384,9 @@ void DSi::ARM7IOWrite8(u32 addr, u8 val)
 void DSi::ARM7IOWrite16(u32 addr, u16 val)
 {
     assert(ConsoleType == 1);
+    if (!CheckIO7Access(addr))
+        return;
+
     switch (addr)
     {
     case 0x04000180:
@@ -3365,39 +3399,27 @@ void DSi::ARM7IOWrite16(u32 addr, u16 val)
     case 0x0400021C: NDS::IF2 &= ~(val & 0x7FF7); NDS::UpdateIRQ(1); return;
 
     case 0x04004000:
-        if (!(SCFG_EXT[1] & (1 << 31))) /* no access to SCFG Registers if disabled*/
-            return;
         SCFG_BIOS |= (val & 0x0703);
         return;
     case 0x04004002:
         // SCFG_ROMWE. ignored, as it always reads as 0
         return;
     case 0x04004004:
-        if (!(SCFG_EXT[1] & (1 << 31))) /* no access to SCFG Registers if disabled*/
-            return;
         SCFG_Clock7 = val & 0x0187;
         return;
     case 0x04004010:
-        if (!(SCFG_EXT[1] & (1 << 31))) /* no access to SCFG Registers if disabled*/
-            return;
         SetScfgMC(val, 0xFFFF);
         return;
     case 0x04004012:
-        if (!(SCFG_EXT[1] & (1 << 31))) /* no access to SCFG Registers if disabled*/
-            return;
         SCFG_CartInsertDelay = val;
         return;
     case 0x04004014:
-        if (!(SCFG_EXT[1] & (1 << 31))) /* no access to SCFG Registers if disabled*/
-            return;
         // TODO: reschedule if this changes during the power-off phase?
         SCFG_CartPowerOffDelay = val;
         return;
 
     case 0x04004060:
     case 0x04004062:
-        if (!(SCFG_EXT[1] & (1 << 31))) /* no access to SCFG Registers if disabled*/
-            return;
         {
             u32 tmp = MBK[0][8];
             tmp &= ~(0xffff << ((addr % 4) * 8));
@@ -3412,13 +3434,9 @@ void DSi::ARM7IOWrite16(u32 addr, u16 val)
         return;
 
     case 0x4004600:
-        if (!(SCFG_EXT[1] & (1 << 20)))
-            return;
         I2S.WriteMicCnt(val, 0xFFFF);
         return;
     case 0x4004700:
-        if (!(SCFG_EXT[1] & (1 << 21)))
-            return;
         I2S.WriteSndExCnt(val, 0xFFFF);
         return;
 
@@ -3523,6 +3541,9 @@ void DSi::ARM7IOWrite16(u32 addr, u16 val)
 void DSi::ARM7IOWrite32(u32 addr, u32 val)
 {
     assert(ConsoleType == 1);
+    if (!CheckIO7Access(addr))
+        return;
+
     switch (addr)
     {
     case 0x04000180:
@@ -3535,13 +3556,9 @@ void DSi::ARM7IOWrite32(u32 addr, u32 val)
     case 0x0400021C: NDS::IF2 &= ~(val & 0x7FF7); NDS::UpdateIRQ(1); return;
 
     case 0x04004000:
-        if (!(SCFG_EXT[1] & (1 << 31))) /* no access to SCFG Registers if disabled*/
-            return;
         SCFG_BIOS |= (val & 0x0703);
         return;
     case 0x04004008:
-        if (!(SCFG_EXT[1] & (1 << 31))) /* no access to SCFG Registers if disabled*/
-            return;
         SCFG_EXT[0] &= ~0x03000000;
         SCFG_EXT[0] |= (val & 0x03000000);
         SCFG_EXT[1] &= ~0x93FF0F07;
@@ -3549,36 +3566,24 @@ void DSi::ARM7IOWrite32(u32 addr, u32 val)
         Log(LogLevel::Debug, "SCFG_EXT = %08X / %08X (val7 %08X)\n", SCFG_EXT[0], SCFG_EXT[1], val);
         return;
     case 0x04004010:
-        if (!(SCFG_EXT[1] & (1 << 31))) /* no access to SCFG Registers if disabled*/
-            return;
         SCFG_CartInsertDelay = val >> 16;
         SetScfgMC(val & 0xFFFF, 0xFFFF);
         return;
     case 0x04004014:
-        if (!(SCFG_EXT[1] & (1 << 31))) /* no access to SCFG Registers if disabled*/
-            return;
         // TODO: reschedule if this changes during the power-off phase?
         SCFG_CartPowerOffDelay = val & 0xFFFF;
         return;
 
     case 0x04004054:
-        if (!(SCFG_EXT[1] & (1 << 31))) /* no access to SCFG Registers if disabled*/
-            return;
         MapNWRAMRange(1, 0, val);
         return;
     case 0x04004058:
-        if (!(SCFG_EXT[1] & (1 << 31))) /* no access to SCFG Registers if disabled*/
-            return;
         MapNWRAMRange(1, 1, val);
         return;
     case 0x0400405C:
-        if (!(SCFG_EXT[1] & (1 << 31))) /* no access to SCFG Registers if disabled*/
-            return;
         MapNWRAMRange(1, 2, val);
         return;
     case 0x04004060:
-        if (!(SCFG_EXT[1] & (1 << 31))) /* no access to SCFG Registers if disabled*/
-            return;
         val &= 0x00FFFF0F;
         MBK[0][8] = val;
         MBK[1][8] = val;
@@ -3619,13 +3624,9 @@ void DSi::ARM7IOWrite32(u32 addr, u32 val)
     case 0x04004408: AES.WriteInputFIFO(val); return;
 
     case 0x4004600:
-        if (!(SCFG_EXT[1] & (1 << 20)))
-            return;
         I2S.WriteMicCnt(val, 0xFFFF);
         return;
     case 0x4004700:
-        if (!(SCFG_EXT[1] & (1 << 21)))
-            return;
         I2S.WriteSndExCnt(val, 0xFFFF);
         return;
 
@@ -3702,7 +3703,6 @@ void DSi::ARM7IOWrite32(u32 addr, u32 val)
         SDIO.Write(addr+2, val >> 16);
         return;
     }
-
 
     if (addr >= 0x04004300 && addr <= 0x04004400)
     {
