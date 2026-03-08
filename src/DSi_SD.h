@@ -43,6 +43,7 @@ enum class MMCCommand : u32
 	GetOCR = 1,
 	AllGetCID = 2,
 	GetRCA = 3,
+	SDIO_OpCond = 5,
 	Switch = 6,
 	Select = 7,
 	SetVoltage = 8,
