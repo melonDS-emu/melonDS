@@ -236,10 +236,13 @@ void NDSCartSlot::DoSavestate(Savestate* file) noexcept
 {
     file->Section((Num==0) ? "NDSC" : "NC2i");
 
+    file->Var8(&LogicalNum);
+
     file->Var64(&Key2_X);
     file->Var64(&Key2_Y);
 
     file->Var8(&CPUSelect);
+    file->Var8(&PowerState);
     file->VarBool(&CartActive);
 
     for (auto& inter : Interfaces)
@@ -279,6 +282,8 @@ void NDSCartSlot::DoSavestate(Savestate* file) noexcept
 
     if (!file->Saving)
     {
+        SetLogicalNum(LogicalNum);
+
         if (!Cart)
             CartActive = false;
     }
@@ -782,11 +787,11 @@ void NDSCartSlot::sInterface::WriteROMCnt(u32 val, u32 mask)
     ROMTransferPos = 0;
     ROMTransferLen = datasize;
 
-    printf("ROM COMMAND %04X %08X %02X%02X%02X%02X%02X%02X%02X%02X SIZE %04X\n",
+    /*printf("ROM COMMAND %04X %08X %02X%02X%02X%02X%02X%02X%02X%02X SIZE %04X\n",
            SPICnt, ROMCnt,
            ROMCommand[0], ROMCommand[1], ROMCommand[2], ROMCommand[3],
            ROMCommand[4], ROMCommand[5], ROMCommand[6], ROMCommand[7],
-           datasize);
+           datasize);*/
 
     if (Parent.CartActive && Parent.CPUSelect == Num)
         Parent.Cart->ROMCommandStart(Parent, ROMCommand);

@@ -279,7 +279,7 @@ void DSi::DoSavestateExtra(Savestate* file)
     else
     {
         Set_SCFG_Clock9(SCFG_Clock9);
-        SetScfgMC(SCFG_MC, 0xFFFF);
+        //SetScfgMC(SCFG_MC, 0xFFFF);
 
         MBK[0][8] = 0;
         MBK[1][8] = 0;
