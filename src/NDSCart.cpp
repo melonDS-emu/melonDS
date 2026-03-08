@@ -18,6 +18,7 @@
 
 #include <string.h>
 #include <inttypes.h>
+#include <assert.h>
 #include "NDS.h"
 #include "DSi.h"
 #include "NDSCart.h"
