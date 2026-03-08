@@ -37,16 +37,6 @@ using Platform::LogLevel;
 #include "OpenGL_shaders/2DCompositorFS.h"
 
 
-int GLRenderer2D::ShaderCount = 0;
-GLuint GLRenderer2D::LayerPreShader = 0;
-GLint GLRenderer2D::LayerPreCurBGULoc = 0;
-GLuint GLRenderer2D::SpritePreShader = 0;
-GLuint GLRenderer2D::SpriteShader = 0;
-GLint GLRenderer2D::SpriteRenderTransULoc = 0;
-GLuint GLRenderer2D::CompositorShader = 0;
-GLint GLRenderer2D::CompositorScaleULoc = 0;
-GLuint GLRenderer2D::MosaicTex = 0;
-
 
 GLRenderer2D::GLRenderer2D(melonDS::GPU2D& gpu2D, GLRenderer& parent)
     : Renderer2D(gpu2D), Parent(parent)
@@ -60,138 +50,155 @@ GLRenderer2D::GLRenderer2D(melonDS::GPU2D& gpu2D, GLRenderer& parent)
     glTexParameteri(target, GL_TEXTURE_MIN_FILTER, GL_NEAREST); \
     glTexParameteri(target, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
 
-bool GLRenderer2D::Init()
+bool GLRenderer2D::InitShaders()
 {
     GLint uniloc;
 
-    if (ShaderCount++ == 0)
+    // compile shaders
+
+    if (!OpenGL::CompileVertexFragmentProgram(LayerPreShader,
+                                              k2DLayerPreVS, k2DLayerPreFS,
+                                              "2DLayerPreShader",
+                                              {{"vPosition", 0}},
+                                              {{"oColor", 0}}))
+        return false;
+
+    if (!OpenGL::CompileVertexFragmentProgram(SpritePreShader,
+                                              k2DSpritePreVS, k2DSpritePreFS,
+                                              "2DSpritePreShader",
+                                              {{"vPosition", 0}, {"vSpriteIndex", 1}},
+                                              {{"oColor", 0}}))
+        return false;
+
+    if (!OpenGL::CompileVertexFragmentProgram(SpriteShader,
+                                              k2DSpriteVS, k2DSpriteFS,
+                                              "2DSpriteShader",
+                                              {{"vPosition", 0}, {"vTexcoord", 1}, {"vSpriteIndex", 2}},
+                                              {{"oColor", 0}, {"oFlags", 1}}))
+        return false;
+
+    if (!OpenGL::CompileVertexFragmentProgram(CompositorShader,
+                                              k2DCompositorVS, k2DCompositorFS,
+                                              "2DCompositorShader",
+                                              {{"vPosition", 0}},
+                                              {{"oColor", 0}}))
+        return false;
+
+    // set up uniforms
+
+    glUseProgram(LayerPreShader);
+
+    uniloc = glGetUniformLocation(LayerPreShader, "VRAMTex");
+    glUniform1i(uniloc, 0);
+    uniloc = glGetUniformLocation(LayerPreShader, "PalTex");
+    glUniform1i(uniloc, 1);
+
+    uniloc = glGetUniformBlockIndex(LayerPreShader, "ubBGConfig");
+    glUniformBlockBinding(LayerPreShader, uniloc, 20);
+
+    LayerPreCurBGULoc = glGetUniformLocation(LayerPreShader, "uCurBG");
+
+
+    glUseProgram(SpritePreShader);
+
+    uniloc = glGetUniformLocation(SpritePreShader, "VRAMTex");
+    glUniform1i(uniloc, 0);
+    uniloc = glGetUniformLocation(SpritePreShader, "PalTex");
+    glUniform1i(uniloc, 1);
+
+    uniloc = glGetUniformBlockIndex(SpritePreShader, "ubSpriteConfig");
+    glUniformBlockBinding(SpritePreShader, uniloc, 21);
+
+
+    glUseProgram(SpriteShader);
+
+    uniloc = glGetUniformLocation(SpriteShader, "SpriteTex");
+    glUniform1i(uniloc, 0);
+    uniloc = glGetUniformLocation(SpriteShader, "Capture128Tex");
+    glUniform1i(uniloc, 1);
+    uniloc = glGetUniformLocation(SpriteShader, "Capture256Tex");
+    glUniform1i(uniloc, 2);
+
+    uniloc = glGetUniformBlockIndex(SpriteShader, "ubSpriteConfig");
+    glUniformBlockBinding(SpriteShader, uniloc, 21);
+    uniloc = glGetUniformBlockIndex(SpriteShader, "ubSpriteScanlineConfig");
+    glUniformBlockBinding(SpriteShader, uniloc, 24);
+
+    SpriteRenderTransULoc = glGetUniformLocation(SpriteShader, "uRenderTransparent");
+
+
+    glUseProgram(CompositorShader);
+
+    uniloc = glGetUniformLocation(CompositorShader, "BGLayerTex[0]");
+    glUniform1i(uniloc, 0);
+    uniloc = glGetUniformLocation(CompositorShader, "BGLayerTex[1]");
+    glUniform1i(uniloc, 1);
+    uniloc = glGetUniformLocation(CompositorShader, "BGLayerTex[2]");
+    glUniform1i(uniloc, 2);
+    uniloc = glGetUniformLocation(CompositorShader, "BGLayerTex[3]");
+    glUniform1i(uniloc, 3);
+    uniloc = glGetUniformLocation(CompositorShader, "OBJLayerTex");
+    glUniform1i(uniloc, 4);
+    uniloc = glGetUniformLocation(CompositorShader, "Capture128Tex");
+    glUniform1i(uniloc, 5);
+    uniloc = glGetUniformLocation(CompositorShader, "Capture256Tex");
+    glUniform1i(uniloc, 6);
+    uniloc = glGetUniformLocation(CompositorShader, "MosaicTex");
+    glUniform1i(uniloc, 7);
+
+    uniloc = glGetUniformBlockIndex(CompositorShader, "ubBGConfig");
+    glUniformBlockBinding(CompositorShader, uniloc, 20);
+    uniloc = glGetUniformBlockIndex(CompositorShader, "ubScanlineConfig");
+    glUniformBlockBinding(CompositorShader, uniloc, 22);
+    uniloc = glGetUniformBlockIndex(CompositorShader, "ubCompositorConfig");
+    glUniformBlockBinding(CompositorShader, uniloc, 23);
+
+    CompositorScaleULoc = glGetUniformLocation(CompositorShader, "uScaleFactor");
+
+    // generate mosaic lookup texture
+
+    u8* mosaic_tex = new u8[256 * 16];
+    for (int m = 0; m < 16; m++)
     {
-        // compile shaders
-
-        if (!OpenGL::CompileVertexFragmentProgram(LayerPreShader,
-                                                  k2DLayerPreVS, k2DLayerPreFS,
-                                                  "2DLayerPreShader",
-                                                  {{"vPosition", 0}},
-                                                  {{"oColor", 0}}))
-            return false;
-
-        if (!OpenGL::CompileVertexFragmentProgram(SpritePreShader,
-                                                  k2DSpritePreVS, k2DSpritePreFS,
-                                                  "2DSpritePreShader",
-                                                  {{"vPosition", 0}, {"vSpriteIndex", 1}},
-                                                  {{"oColor", 0}}))
-            return false;
-
-        if (!OpenGL::CompileVertexFragmentProgram(SpriteShader,
-                                                  k2DSpriteVS, k2DSpriteFS,
-                                                  "2DSpriteShader",
-                                                  {{"vPosition", 0}, {"vTexcoord", 1}, {"vSpriteIndex", 2}},
-                                                  {{"oColor", 0}, {"oFlags", 1}}))
-            return false;
-
-        if (!OpenGL::CompileVertexFragmentProgram(CompositorShader,
-                                                  k2DCompositorVS, k2DCompositorFS,
-                                                  "2DCompositorShader",
-                                                  {{"vPosition", 0}},
-                                                  {{"oColor", 0}}))
-            return false;
-
-        // set up uniforms
-
-        glUseProgram(LayerPreShader);
-
-        uniloc = glGetUniformLocation(LayerPreShader, "VRAMTex");
-        glUniform1i(uniloc, 0);
-        uniloc = glGetUniformLocation(LayerPreShader, "PalTex");
-        glUniform1i(uniloc, 1);
-
-        uniloc = glGetUniformBlockIndex(LayerPreShader, "ubBGConfig");
-        glUniformBlockBinding(LayerPreShader, uniloc, 20);
-
-        LayerPreCurBGULoc = glGetUniformLocation(LayerPreShader, "uCurBG");
-
-
-        glUseProgram(SpritePreShader);
-
-        uniloc = glGetUniformLocation(SpritePreShader, "VRAMTex");
-        glUniform1i(uniloc, 0);
-        uniloc = glGetUniformLocation(SpritePreShader, "PalTex");
-        glUniform1i(uniloc, 1);
-
-        uniloc = glGetUniformBlockIndex(SpritePreShader, "ubSpriteConfig");
-        glUniformBlockBinding(SpritePreShader, uniloc, 21);
-
-
-        glUseProgram(SpriteShader);
-
-        uniloc = glGetUniformLocation(SpriteShader, "SpriteTex");
-        glUniform1i(uniloc, 0);
-        uniloc = glGetUniformLocation(SpriteShader, "Capture128Tex");
-        glUniform1i(uniloc, 1);
-        uniloc = glGetUniformLocation(SpriteShader, "Capture256Tex");
-        glUniform1i(uniloc, 2);
-
-        uniloc = glGetUniformBlockIndex(SpriteShader, "ubSpriteConfig");
-        glUniformBlockBinding(SpriteShader, uniloc, 21);
-        uniloc = glGetUniformBlockIndex(SpriteShader, "ubSpriteScanlineConfig");
-        glUniformBlockBinding(SpriteShader, uniloc, 24);
-
-        SpriteRenderTransULoc = glGetUniformLocation(SpriteShader, "uRenderTransparent");
-
-
-        glUseProgram(CompositorShader);
-
-        uniloc = glGetUniformLocation(CompositorShader, "BGLayerTex[0]");
-        glUniform1i(uniloc, 0);
-        uniloc = glGetUniformLocation(CompositorShader, "BGLayerTex[1]");
-        glUniform1i(uniloc, 1);
-        uniloc = glGetUniformLocation(CompositorShader, "BGLayerTex[2]");
-        glUniform1i(uniloc, 2);
-        uniloc = glGetUniformLocation(CompositorShader, "BGLayerTex[3]");
-        glUniform1i(uniloc, 3);
-        uniloc = glGetUniformLocation(CompositorShader, "OBJLayerTex");
-        glUniform1i(uniloc, 4);
-        uniloc = glGetUniformLocation(CompositorShader, "Capture128Tex");
-        glUniform1i(uniloc, 5);
-        uniloc = glGetUniformLocation(CompositorShader, "Capture256Tex");
-        glUniform1i(uniloc, 6);
-        uniloc = glGetUniformLocation(CompositorShader, "MosaicTex");
-        glUniform1i(uniloc, 7);
-
-        uniloc = glGetUniformBlockIndex(CompositorShader, "ubBGConfig");
-        glUniformBlockBinding(CompositorShader, uniloc, 20);
-        uniloc = glGetUniformBlockIndex(CompositorShader, "ubScanlineConfig");
-        glUniformBlockBinding(CompositorShader, uniloc, 22);
-        uniloc = glGetUniformBlockIndex(CompositorShader, "ubCompositorConfig");
-        glUniformBlockBinding(CompositorShader, uniloc, 23);
-
-        CompositorScaleULoc = glGetUniformLocation(CompositorShader, "uScaleFactor");
-
-        // generate mosaic lookup texture
-
-        u8* mosaic_tex = new u8[256 * 16];
-        for (int m = 0; m < 16; m++)
+        int mosx = 0;
+        for (int x = 0; x < 256; x++)
         {
-            int mosx = 0;
-            for (int x = 0; x < 256; x++)
-            {
-                mosaic_tex[(m * 256) + x] = mosx;
+            mosaic_tex[(m * 256) + x] = mosx;
 
-                if (mosx == m)
-                    mosx = 0;
-                else
-                    mosx++;
-            }
+            if (mosx == m)
+                mosx = 0;
+            else
+                mosx++;
         }
-
-        glGenTextures(1, &MosaicTex);
-        glBindTexture(GL_TEXTURE_2D, MosaicTex);
-        glDefaultTexParams(GL_TEXTURE_2D);
-        glTexImage2D(GL_TEXTURE_2D, 0, GL_R8I, 256, 16, 0, GL_RED_INTEGER, GL_BYTE, mosaic_tex);
-
-        delete[] mosaic_tex;
     }
 
+    glGenTextures(1, &MosaicTex);
+    glBindTexture(GL_TEXTURE_2D, MosaicTex);
+    glDefaultTexParams(GL_TEXTURE_2D);
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_R8I, 256, 16, 0, GL_RED_INTEGER, GL_BYTE, mosaic_tex);
+
+    delete[] mosaic_tex;
+    return true;
+}
+
+bool GLRenderer2D::InitShaders(GLRenderer2D& other)
+{
+    LayerPreShader = other.LayerPreShader;
+    SpritePreShader = other.SpritePreShader;
+    SpriteShader = other.SpriteShader;
+    CompositorShader = other.CompositorShader;
+
+    LayerPreCurBGULoc = other.LayerPreCurBGULoc;
+    SpriteRenderTransULoc = other.SpriteRenderTransULoc;
+    CompositorScaleULoc = other.CompositorScaleULoc;
+
+    MosaicTex = other.MosaicTex;
+
+    return true;
+}
+
+bool GLRenderer2D::Init()
+{
     // sprite prerender vertex data: 2x position, 1x sprite index
     int sprdatasize = (3 * 6) * 128;
     SpritePreVtxData = new u16[sprdatasize];
@@ -348,18 +355,18 @@ bool GLRenderer2D::Init()
     return true;
 }
 
+void GLRenderer2D::DeleteShaders()
+{
+    glDeleteProgram(LayerPreShader);
+    glDeleteProgram(SpritePreShader);
+    glDeleteProgram(SpriteShader);
+    glDeleteProgram(CompositorShader);
+
+    glDeleteTextures(1, &MosaicTex);
+}
+
 GLRenderer2D::~GLRenderer2D()
 {
-    if (--ShaderCount == 0)
-    {
-        glDeleteProgram(LayerPreShader);
-        glDeleteProgram(SpritePreShader);
-        glDeleteProgram(SpriteShader);
-        glDeleteProgram(CompositorShader);
-
-        glDeleteTextures(1, &MosaicTex);
-    }
-
     glDeleteBuffers(1, &SpritePreVtxBuffer);
     glDeleteVertexArrays(1, &SpritePreVtxArray);
 
