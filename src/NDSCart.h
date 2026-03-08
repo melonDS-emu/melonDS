@@ -138,6 +138,8 @@ public:
     u32 ReadROMData(u32 cpu) noexcept { return Interfaces[cpu].ReadROMData(); }
     void WriteROMData(u32 cpu, u32 val, u32 mask) noexcept { Interfaces[cpu].WriteROMData(val, mask); }
 
+    void CheckDMA(u32 cpu) { return Interfaces[cpu].CheckDMA(); }
+
     void RaiseCardIRQ();
 
 private:
@@ -177,6 +179,7 @@ private:
         void ROMAdvanceSend();
         void ROMEndTransfer(u32 param);
         void RaiseDRQ();
+        void CheckDMA();
 
         void SPITransferDone(u32 param);
 

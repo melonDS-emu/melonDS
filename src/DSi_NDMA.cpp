@@ -127,6 +127,10 @@ void DSi_NDMA::WriteCnt(u32 val)
 
         if ((StartMode & 0x1F) == 0x10)
             Start();
+        else if (StartMode == 0x04 || StartMode == 0x24)
+            DSi.NDSCartSlots[0]->CheckDMA(CPU);
+        else if (StartMode == 0x05 || StartMode == 0x25)
+            DSi.NDSCartSlots[1]->CheckDMA(CPU);
         else if (StartMode == 0x0A)
             DSi.GPU.GPU3D.CheckFIFODMA();
 
@@ -290,6 +294,11 @@ void DSi_NDMA::Run9()
     Running = 0;
     InProgress = false;
     DSi.ResumeCPU(0, 1<<(Num+4));
+
+    if (StartMode == 0x04)
+        DSi.NDSCartSlots[0]->CheckDMA(0);
+    else if (StartMode == 0x05)
+        DSi.NDSCartSlots[1]->CheckDMA(0);
 }
 
 void DSi_NDMA::Run7()
@@ -389,6 +398,11 @@ void DSi_NDMA::Run7()
 
     DSi.AES.CheckInputDMA();
     DSi.AES.CheckOutputDMA();
+
+    if (StartMode == 0x24)
+        DSi.NDSCartSlots[0]->CheckDMA(1);
+    else if (StartMode == 0x25)
+        DSi.NDSCartSlots[1]->CheckDMA(1);
 }
 
 }

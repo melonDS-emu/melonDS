@@ -959,8 +959,17 @@ void NDSCartSlot::Interface::RaiseDRQ()
     // TODO: the DMA trigger is level-sensitive
     // thus, if a cart DMA gets set up while DRQ is already active, it will start immediately
     // emulating this would require keeping track of the DMA trigger line states somewhere
+    // the current handling for this is a hack
+    // (DMA triggering needs a cleanup anyway)
 
     ROMCnt |= (1<<23);
+    CheckDMA();
+}
+
+void NDSCartSlot::Interface::CheckDMA()
+{
+    if (!(ROMCnt & (1<<23)))
+        return;
 
     // TODO: make this code suck less!!
     // maybe have a general "DMA trigger function" that covers both DMA types for DSi
