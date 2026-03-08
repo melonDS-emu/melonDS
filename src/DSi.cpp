@@ -2704,7 +2704,7 @@ void DSi::ARM9IOWrite16(u32 addr, u16 val)
     case 0x04004004:
         if (!(SCFG_EXT[0] & (1 << 31))) /* no access to SCFG Registers if disabled*/
             return;
-            SetScfgClock9(val);
+        SetScfgClock9(val);
         return;
 
     case 0x04004006:
@@ -2803,7 +2803,7 @@ void DSi::ARM9IOWrite32(u32 addr, u32 val)
     case 0x04004004:
         if (!(SCFG_EXT[0] & (1 << 31))) /* no access to SCFG Registers if disabled*/
             return;
-            SetScfgClock9(val & 0xFFFF);
+        SetScfgClock9(val & 0xFFFF);
         SCFG_RST = val >> 16;
         DSP.SetRstLine((val >> 16) & 1);
         break;
