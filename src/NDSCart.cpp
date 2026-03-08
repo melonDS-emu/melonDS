@@ -662,7 +662,7 @@ void NDSCartSlot::UpdateCartState()
 }
 
 
-NDSCartSlot::sInterface::sInterface(NDSCartSlot& parent, u8 num)
+NDSCartSlot::Interface::Interface(NDSCartSlot& parent, u8 num)
 : Parent(parent), Num(num)
 {
     if (Parent.Num == 0)
@@ -680,21 +680,21 @@ NDSCartSlot::sInterface::sInterface(NDSCartSlot& parent, u8 num)
 
     // due to how the event scheduler works, we need specific event IDs for each interface, which isn't ideal
     Parent.NDS.RegisterEventFuncs(ROMTransferEvent, this, {
-        MakeEventThunk(sInterface, ROMReceiveData),
-        MakeEventThunk(sInterface, ROMSendData),
-        MakeEventThunk(sInterface, ROMEndTransfer)
+        MakeEventThunk(Interface, ROMReceiveData),
+        MakeEventThunk(Interface, ROMSendData),
+        MakeEventThunk(Interface, ROMEndTransfer)
     });
     Parent.NDS.RegisterEventFuncs(SPITransferEvent, this,
-                                  {MakeEventThunk(sInterface, SPITransferDone)});
+                                  {MakeEventThunk(Interface, SPITransferDone)});
 }
 
-NDSCartSlot::sInterface::~sInterface()
+NDSCartSlot::Interface::~Interface()
 {
     Parent.NDS.UnregisterEventFuncs(ROMTransferEvent);
     Parent.NDS.UnregisterEventFuncs(SPITransferEvent);
 }
 
-void NDSCartSlot::sInterface::Reset()
+void NDSCartSlot::Interface::Reset()
 {
     SPICnt = 0;
     SPIData = 0;
@@ -718,7 +718,7 @@ void NDSCartSlot::sInterface::Reset()
     SPISelected = false;
 }
 
-void NDSCartSlot::sInterface::DoSavestate(Savestate* file)
+void NDSCartSlot::Interface::DoSavestate(Savestate* file)
 {
     file->Var16(&SPICnt);
     file->Var8(&SPIData);
@@ -742,7 +742,7 @@ void NDSCartSlot::sInterface::DoSavestate(Savestate* file)
 }
 
 
-void NDSCartSlot::sInterface::WriteROMCnt(u32 val, u32 mask)
+void NDSCartSlot::Interface::WriteROMCnt(u32 val, u32 mask)
 {
     val &= mask;
     u32 resetrel = (val & ~ROMCnt) & (1<<29);
@@ -848,7 +848,7 @@ void NDSCartSlot::sInterface::WriteROMCnt(u32 val, u32 mask)
 }
 
 
-void NDSCartSlot::sInterface::ROMReceiveData(u32 param)
+void NDSCartSlot::Interface::ROMReceiveData(u32 param)
 {
     u32 data = 0;
     if (Parent.CartActive)
@@ -879,7 +879,7 @@ void NDSCartSlot::sInterface::ROMReceiveData(u32 param)
         ROMDataLate = true;
 }
 
-void NDSCartSlot::sInterface::ROMAdvanceReceive()
+void NDSCartSlot::Interface::ROMAdvanceReceive()
 {
     // end-of-transfer condition is handled when the last data word is read from the FIFO
     if (ROMTransferPos >= ROMTransferLen)
@@ -893,7 +893,7 @@ void NDSCartSlot::sInterface::ROMAdvanceReceive()
     Parent.NDS.ScheduleEvent(ROMTransferEvent, false, xfercycle * delay, ROMTransfer_ReceiveData, 0);
 }
 
-void NDSCartSlot::sInterface::ROMSendData(u32 param)
+void NDSCartSlot::Interface::ROMSendData(u32 param)
 {
     if (ROMDataCount == 0)
     {
@@ -924,7 +924,7 @@ void NDSCartSlot::sInterface::ROMSendData(u32 param)
     ROMAdvanceSend();
 }
 
-void NDSCartSlot::sInterface::ROMAdvanceSend()
+void NDSCartSlot::Interface::ROMAdvanceSend()
 {
     u32 xfercycle = (ROMCnt & (1<<27)) ? 8 : 5;
     u32 delay = 4;
@@ -940,7 +940,7 @@ void NDSCartSlot::sInterface::ROMAdvanceSend()
         Parent.NDS.ScheduleEvent(ROMTransferEvent, false, xfercycle * delay, ROMTransfer_End, 0);
 }
 
-void NDSCartSlot::sInterface::ROMEndTransfer(u32 param)
+void NDSCartSlot::Interface::ROMEndTransfer(u32 param)
 {
     ROMCnt &= ~(1<<31);
 
@@ -954,7 +954,7 @@ void NDSCartSlot::sInterface::ROMEndTransfer(u32 param)
         Parent.Cart->ROMCommandFinish();
 }
 
-void NDSCartSlot::sInterface::RaiseDRQ()
+void NDSCartSlot::Interface::RaiseDRQ()
 {
     // TODO: the DMA trigger is level-sensitive
     // thus, if a cart DMA gets set up while DRQ is already active, it will start immediately
@@ -985,7 +985,7 @@ void NDSCartSlot::sInterface::RaiseDRQ()
     }
 }
 
-u32 NDSCartSlot::sInterface::ReadROMData()
+u32 NDSCartSlot::Interface::ReadROMData()
 {
     u32 ret = ROMData[ROMDataPosCPU];
     if (ROMCnt & (1<<30))
@@ -1017,7 +1017,7 @@ u32 NDSCartSlot::sInterface::ReadROMData()
     return ret;
 }
 
-void NDSCartSlot::sInterface::WriteROMData(u32 val, u32 mask)
+void NDSCartSlot::Interface::WriteROMData(u32 val, u32 mask)
 {
     if (!(ROMCnt & (1<<30)))
         return;
@@ -1044,7 +1044,7 @@ void NDSCartSlot::sInterface::WriteROMData(u32 val, u32 mask)
 }
 
 
-void NDSCartSlot::sInterface::WriteSPICnt(u16 val, u16 mask)
+void NDSCartSlot::Interface::WriteSPICnt(u16 val, u16 mask)
 {
     val &= mask;
 
@@ -1073,7 +1073,7 @@ void NDSCartSlot::sInterface::WriteSPICnt(u16 val, u16 mask)
         Log(LogLevel::Debug, "!! CHANGING AUXSPICNT DURING TRANSFER: %04X\n", val);
 }
 
-u8 NDSCartSlot::sInterface::ReadSPIData() const
+u8 NDSCartSlot::Interface::ReadSPIData() const
 {
     if (!(SPICnt & (1<<15))) return 0;
     if (!(SPICnt & (1<<13))) return 0;
@@ -1082,7 +1082,7 @@ u8 NDSCartSlot::sInterface::ReadSPIData() const
     return SPIData;
 }
 
-void NDSCartSlot::sInterface::WriteSPIData(u8 val)
+void NDSCartSlot::Interface::WriteSPIData(u8 val)
 {
     if (!(SPICnt & (1<<15))) return;
     if (!(SPICnt & (1<<13))) return;
@@ -1119,7 +1119,7 @@ void NDSCartSlot::sInterface::WriteSPIData(u8 val)
     Parent.NDS.ScheduleEvent(SPITransferEvent, false, delay, 0, 0);
 }
 
-void NDSCartSlot::sInterface::SPITransferDone(u32 param)
+void NDSCartSlot::Interface::SPITransferDone(u32 param)
 {
     SPICnt &= ~(1<<7);
 }

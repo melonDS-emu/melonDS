@@ -149,10 +149,10 @@ private:
     u32 TransferIRQ;
     u32 CardIRQ;
 
-    struct sInterface
+    struct Interface
     {
-        sInterface(NDSCartSlot& parent, u8 num);
-        ~sInterface();
+        Interface(NDSCartSlot& parent, u8 num);
+        ~Interface();
         void Reset();
         void DoSavestate(Savestate* file);
 
@@ -206,7 +206,7 @@ private:
 
         bool SPISelected = false;
 
-    } Interfaces[2] {sInterface(*this, 0), sInterface(*this, 1)};
+    } Interfaces[2] {Interface(*this, 0), Interface(*this, 1)};
 
     u8 CPUSelect = 0;
     u8 PowerState = 0;
