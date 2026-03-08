@@ -278,7 +278,7 @@ void DSi::DoSavestateExtra(Savestate* file)
     }
     else
     {
-        Set_SCFG_Clock9(SCFG_Clock9);
+        SetScfgClock9(SCFG_Clock9);
         //SetScfgMC(SCFG_MC, 0xFFFF);
 
         MBK[0][8] = 0;
@@ -503,7 +503,7 @@ void DSi::SetupDirectBoot()
         NDS::MapSharedWRAM(3);
 
         tsc->SetMode(0x00);
-        Set_SCFG_Clock9(0x0000);
+        SetScfgClock9(0x0000);
 
         SCFG_EXT[0] &= ~0xC000;
         ApplyNewRAMSize(0);
@@ -1386,7 +1386,7 @@ void DSi::CheckDSiLoaderHack()
 }
 
 
-void DSi::Set_SCFG_Clock9(u16 val)
+void DSi::SetScfgClock9(u16 val)
 {
     ARM9Timestamp >>= ARM9ClockShift;
     ARM9Target    >>= ARM9ClockShift;
@@ -2704,7 +2704,7 @@ void DSi::ARM9IOWrite16(u32 addr, u16 val)
     case 0x04004004:
         if (!(SCFG_EXT[0] & (1 << 31))) /* no access to SCFG Registers if disabled*/
             return;
-        Set_SCFG_Clock9(val);
+            SetScfgClock9(val);
         return;
 
     case 0x04004006:
@@ -2803,7 +2803,7 @@ void DSi::ARM9IOWrite32(u32 addr, u32 val)
     case 0x04004004:
         if (!(SCFG_EXT[0] & (1 << 31))) /* no access to SCFG Registers if disabled*/
             return;
-        Set_SCFG_Clock9(val & 0xFFFF);
+            SetScfgClock9(val & 0xFFFF);
         SCFG_RST = val >> 16;
         DSP.SetRstLine((val >> 16) & 1);
         break;

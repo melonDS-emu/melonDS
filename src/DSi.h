@@ -194,7 +194,7 @@ public:
 private:
     bool FullBIOSBoot;
 
-    void Set_SCFG_Clock9(u16 val);
+    void SetScfgClock9(u16 val);
     void SetScfgMC(u16 val, u16 mask);
 
     void CartPowerOffEvent(u32 param);
