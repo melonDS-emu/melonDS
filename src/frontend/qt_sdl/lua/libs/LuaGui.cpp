@@ -59,7 +59,7 @@ int Lua_MakeCanvas(lua_State* L)
     int w = luaL_checknumber(L,3);
     int h = luaL_checknumber(L,4);
     int t = luaL_optinteger(L,5,2);
-    bool a = 0 != luaL_optinteger(L,6,1);
+    bool a = (0 != luaL_optinteger(L,6,1));//non zero is true 
     
     OverlayCanvas canvas(x,y,w,h,(LuaCanvasTarget)t);
     canvas.isActive = a;

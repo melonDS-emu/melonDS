@@ -1052,7 +1052,7 @@ void ScreenPanelGL::initOpenGL()
     transferLayout();
 
     OpenGL::CompileVertexFragmentProgram(overlayShader,
-                                        kScreenVS,kScreenFS_overlay,
+                                        kScreenVS_overlay,kScreenFS_overlay,
                                         "OverlayShader",
                                          {{"vPosition", 0}, {"vTexcoord", 1}},
                                          {{"oColor", 0}});
@@ -1063,7 +1063,6 @@ void ScreenPanelGL::initOpenGL()
     overlayTransformULoc = glGetUniformLocation(overlayShader, "uTransform");
     overlayPosULoc = glGetUniformLocation(overlayShader, "uOverlayPos");
     overlaySizeULoc = glGetUniformLocation(overlayShader, "uOverlaySize");
-    overlayScreenTypeULoc = glGetUniformLocation(overlayShader, "uOverlayScreenType");
   
     glInited = true;
 
@@ -1198,7 +1197,6 @@ void ScreenPanelGL::drawOverlays(int screenType,int screen)
         }
         glUniform2f(overlayPosULoc,overlay.rectangle.left(),overlay.rectangle.top());
         glUniform2f(overlaySizeULoc,overlay.rectangle.width(),overlay.rectangle.height());
-        glUniform1i(overlayScreenTypeULoc, screenType);
         glUniformMatrix2x3fv(overlayTransformULoc, 1, GL_TRUE,screenMatrix[screen]);
         glDrawArrays(GL_TRIANGLES,screenType == 0 ? 0 : 2*3, 2*3);
     }
