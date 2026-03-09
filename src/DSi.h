@@ -1,5 +1,5 @@
 /*
-    Copyright 2016-2025 melonDS team
+    Copyright 2016-2026 melonDS team
 
     This file is part of melonDS.
 
@@ -76,6 +76,10 @@ public:
     u32 NWRAMEnd[2][3];
     u32 NWRAMMask[2][3];
 
+    // DSi second cart slot
+    // even though there is no physical slot, the hardware is still 100% functional
+    NDSCart::NDSCartSlot NDSCartSlot2;
+
     DSi_I2CHost I2C;
     DSi_I2S I2S;
     DSi_CamModule CamModule;
@@ -89,6 +93,7 @@ public:
 
     void SetCartInserted(bool inserted);
 
+    bool NeedsDirectBoot() const override;
     void SetupDirectBoot() override;
     void SoftReset();
 
@@ -150,16 +155,11 @@ public:
     DSi& operator=(DSi&&) = delete;
     void SetNDSCart(std::unique_ptr<NDSCart::CartCommon>&& cart) override;
     std::unique_ptr<NDSCart::CartCommon> EjectCart() override;
-    bool NeedsDirectBoot() const override
-    {
-        // for now, DSi mode requires original BIOS/NAND
-        return false;
-    }
 
     [[nodiscard]] const DSi_NAND::NANDImage& GetNAND() const noexcept { return *SDMMC.GetNAND(); }
     [[nodiscard]] DSi_NAND::NANDImage& GetNAND() noexcept { return *SDMMC.GetNAND(); }
-    void SetNAND(DSi_NAND::NANDImage&& nand) noexcept { SDMMC.SetNAND(std::move(nand)); }
-    u64 GetConsoleID() const noexcept { return SDMMC.GetNAND()->GetConsoleID(); }
+    void SetNAND(std::optional<DSi_NAND::NANDImage>&& nand) noexcept { SDMMC.SetNAND(std::move(nand)); }
+    u64 GetConsoleID() const noexcept;
 
     [[nodiscard]] const FATStorage* GetSDCard() const noexcept { return SDMMC.GetSDCard(); }
     void SetSDCard(FATStorage&& sdcard) noexcept { SDMMC.SetSDCard(std::move(sdcard)); }
@@ -169,9 +169,15 @@ public:
     bool DMAsRunning(u32 cpu) const override;
     void StopDMAs(u32 cpu, u32 mode) override;
     void CheckDMAs(u32 cpu, u32 mode) override;
+
     u16 SCFG_Clock7;
-    u32 SCFG_MC;
+
+    u16 SCFG_MC;
+    u16 SCFG_CartInsertDelay;
+    u16 SCFG_CartPowerOffDelay;
+
     u16 SCFG_RST;
+
     u32 MBK[2][9];
     u32 NDMACnt[2];
     std::array<DSi_NDMA, 8> NDMAs;
@@ -188,8 +194,14 @@ public:
 private:
     bool FullBIOSBoot;
 
-    void Set_SCFG_Clock9(u16 val);
-    void Set_SCFG_MC(u32 val);
+    void SetScfgClock9(u16 val);
+    void SetScfgMC(u16 val, u16 mask);
+
+    bool CheckIO9Access(u32 addr);
+    bool CheckIO7Access(u32 addr);
+
+    void CartPowerOffEvent(u32 param);
+
     void DecryptModcryptArea(u32 offset, u32 size, const u8* iv);
     void ApplyNewRAMSize(u32 size);
     void CheckDSiLoaderHack();

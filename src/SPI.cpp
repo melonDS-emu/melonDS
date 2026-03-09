@@ -1,5 +1,5 @@
 /*
-    Copyright 2016-2025 melonDS team
+    Copyright 2016-2026 melonDS team
 
     This file is part of melonDS.
 
@@ -130,6 +130,7 @@ void FirmwareMem::SetupDirectBoot()
 {
     const auto& header = FirmwareData.GetHeader();
     const auto& userdata = FirmwareData.GetEffectiveUserData();
+
     if (NDS.ConsoleType == 1)
     {
         // The ARMWrite methods are virtual, they'll delegate to DSi if necessary
