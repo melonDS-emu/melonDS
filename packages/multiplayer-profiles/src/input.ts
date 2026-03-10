@@ -127,11 +127,120 @@ export const N64_DEFAULT_PROFILES: InputProfile[] = [
 ];
 
 /**
+ * Default NDS input profiles.
+ *
+ * The Nintendo DS button layout: A, B, X, Y, Start, Select, L, R,
+ * D-Pad (Up/Down/Left/Right), and the touchscreen (mapped to mouse).
+ *
+ * melonDS CLI / SDL input conventions:
+ *  - Face buttons A/B/X/Y map directly to standard gamepad buttons
+ *  - L/R shoulders: triggers or bumpers depending on controller
+ *  - Touchscreen: mouse or touchpad; melonDS uses the bottom screen area
+ *  - No analog stick on original DS hardware; left stick → D-Pad digital
+ */
+export const NDS_DEFAULT_PROFILES: InputProfile[] = [
+  // --- Xbox controller ---
+  {
+    id: 'nds-xbox-default',
+    name: 'NDS — Xbox Controller (default)',
+    controllerType: 'xbox',
+    system: 'nds',
+    isDefault: true,
+    bindings: [
+      // Face buttons (Xbox layout maps 1:1 to DS)
+      { action: 'A',      button: 'button(0)' },  // A → DS A
+      { action: 'B',      button: 'button(1)' },  // B → DS B
+      { action: 'X',      button: 'button(2)' },  // X → DS X (held for menu shortcuts)
+      { action: 'Y',      button: 'button(3)' },  // Y → DS Y
+      // System buttons
+      { action: 'Start',  button: 'button(7)' },  // Menu/Start → DS Start
+      { action: 'Select', button: 'button(6)' },  // View/Select → DS Select
+      // Shoulder buttons
+      { action: 'L',      button: 'button(4)' },  // LB → DS L
+      { action: 'R',      button: 'button(5)' },  // RB → DS R
+      // D-Pad (Xbox hat/directional buttons)
+      { action: 'DPadUp',    button: 'hat(0 Up)'    },
+      { action: 'DPadDown',  button: 'hat(0 Down)'  },
+      { action: 'DPadLeft',  button: 'hat(0 Left)'  },
+      { action: 'DPadRight', button: 'hat(0 Right)' },
+      // Left stick as D-Pad alternative (common for games that use D-Pad heavily)
+      { action: 'DPadUp',    axis: 'axis(1-)' },
+      { action: 'DPadDown',  axis: 'axis(1+)' },
+      { action: 'DPadLeft',  axis: 'axis(0-)' },
+      { action: 'DPadRight', axis: 'axis(0+)' },
+      // Touchscreen — mouse controls the bottom screen in melonDS
+      { action: 'TouchScreen', button: 'mouse(left)' },
+    ],
+  },
+  // --- PlayStation controller (DualShock / DualSense) ---
+  {
+    id: 'nds-playstation-default',
+    name: 'NDS — PlayStation Controller (default)',
+    controllerType: 'playstation',
+    system: 'nds',
+    isDefault: true,
+    bindings: [
+      // Face buttons (PS layout: Cross=A, Circle=B, Square=X, Triangle=Y)
+      { action: 'A',      button: 'button(0)' },  // Cross  → DS A
+      { action: 'B',      button: 'button(1)' },  // Circle → DS B
+      { action: 'X',      button: 'button(2)' },  // Square → DS X
+      { action: 'Y',      button: 'button(3)' },  // Triangle → DS Y
+      // System buttons
+      { action: 'Start',  button: 'button(9)' },  // Options → DS Start
+      { action: 'Select', button: 'button(8)' },  // Share/Create → DS Select
+      // Shoulder buttons (L1/R1 = DS L/R; L2/R2 not standard on DS)
+      { action: 'L',      button: 'button(4)' },  // L1 → DS L
+      { action: 'R',      button: 'button(5)' },  // R1 → DS R
+      // D-Pad
+      { action: 'DPadUp',    button: 'hat(0 Up)'    },
+      { action: 'DPadDown',  button: 'hat(0 Down)'  },
+      { action: 'DPadLeft',  button: 'hat(0 Left)'  },
+      { action: 'DPadRight', button: 'hat(0 Right)' },
+      // Left stick as D-Pad alternative
+      { action: 'DPadUp',    axis: 'axis(1-)' },
+      { action: 'DPadDown',  axis: 'axis(1+)' },
+      { action: 'DPadLeft',  axis: 'axis(0-)' },
+      { action: 'DPadRight', axis: 'axis(0+)' },
+      // Touchscreen — mouse controls bottom screen
+      { action: 'TouchScreen', button: 'mouse(left)' },
+    ],
+  },
+  // --- Keyboard fallback ---
+  {
+    id: 'nds-keyboard-default',
+    name: 'NDS — Keyboard (default)',
+    controllerType: 'keyboard',
+    system: 'nds',
+    isDefault: true,
+    bindings: [
+      // Face buttons
+      { action: 'A',      key: 'key(x)' },
+      { action: 'B',      key: 'key(z)' },
+      { action: 'X',      key: 'key(s)' },
+      { action: 'Y',      key: 'key(a)' },
+      // System buttons
+      { action: 'Start',  key: 'key(return)' },
+      { action: 'Select', key: 'key(rshift)' },
+      // Shoulder buttons
+      { action: 'L',      key: 'key(q)' },
+      { action: 'R',      key: 'key(w)' },
+      // D-Pad → arrow keys
+      { action: 'DPadUp',    key: 'key(up)'    },
+      { action: 'DPadDown',  key: 'key(down)'  },
+      { action: 'DPadLeft',  key: 'key(left)'  },
+      { action: 'DPadRight', key: 'key(right)' },
+      // Touchscreen — mouse click on bottom screen area
+      { action: 'TouchScreen', button: 'mouse(left)' },
+    ],
+  },
+];
+
+/**
  * InputProfileManager handles controller mapping and input configuration.
  * It provides per-game and per-system templates for unified input handling.
  *
  * Constructed with `loadDefaults = true` (default), the manager is pre-seeded
- * with the built-in N64 profiles (Xbox, PlayStation, keyboard).
+ * with the built-in N64 and NDS profiles.
  */
 export class InputProfileManager {
   private profiles: Map<string, InputProfile> = new Map();
@@ -139,6 +248,9 @@ export class InputProfileManager {
   constructor(loadDefaults = true) {
     if (loadDefaults) {
       for (const profile of N64_DEFAULT_PROFILES) {
+        this.profiles.set(profile.id, profile);
+      }
+      for (const profile of NDS_DEFAULT_PROFILES) {
         this.profiles.set(profile.id, profile);
       }
     }

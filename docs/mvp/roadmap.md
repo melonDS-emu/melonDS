@@ -119,6 +119,35 @@
 - [ ] Server-side friend list and presence persistence
 - [ ] Push notifications for joinable sessions
 
+## Phase 6 — Nintendo DS Premium Experience
+
+**Goal:** Make Nintendo DS feel like a standout feature, not an afterthought.
+
+### Systems
+- Focus: Nintendo DS (melonDS core already embedded in /src)
+
+### Milestones
+- [x] NDS default input profiles: Xbox, PlayStation, keyboard (DS button + touchscreen mappings)
+- [x] Enhanced NDS system adapter: DeSmuME fallback, touchEnabled arg, WFC DNS override arg
+- [x] melonDS backend enriched with full install/setup notes (all platforms + BIOS guide)
+- [x] DeSmuME backend enriched with install notes and netplay caveats
+- [x] Additional DS session templates: New Super Mario Bros., Metroid Prime Hunters, Tetris DS, Mario Party DS, Zelda Phantom Hourglass, Pokémon Black/White
+- [x] DS showcase games expanded in mock catalog (NDS system color #E87722)
+- [x] Pokémon Black and White WFC presets added
+- [x] GameDetailsPage: DS dual-screen tip, WFC Online badge, WFC explanation callout
+- [x] LobbyPage: DS session hints (Pokémon, kart, hunters, Tetris, party context)
+- [x] LobbyPage: collapsible DS Controls & Setup Guide panel (compact mode)
+- [x] DSControlsGuide component: button mapping table, touchscreen explanation, screen layout reference, WFC info
+- [x] HomePage: Nintendo DS Spotlight section with setup callout
+- [x] docs/status/phase-6-ds.md: phase status, known-good showcase games list
+- [x] roadmap.md updated with Phase 6 milestones
+- [ ] melonDS integration (this repository's C++ core → IPC bridge for launch/control)
+- [ ] Dual-screen layout picker in HostRoomModal (stacked / side-by-side / focus modes)
+- [ ] Screen swap hotkey displayed in lobby (F11 reminder)
+- [ ] Touch input calibration panel (map mouse coordinates to DS screen coords)
+- [ ] DS-specific compatibility badges (WFC Online, Touch Controls, Download Play)
+- [ ] Advanced: DSi mode detection and DSiWare support
+
 ## Future Ideas
 - Tournament-style rooms
 - Seasonal featured games

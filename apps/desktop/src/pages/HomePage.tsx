@@ -21,7 +21,8 @@ export function HomePage() {
 
   const { data: allGames } = useGames();
   const n64PartyGames = allGames.filter((g) => g.system === 'N64' && g.tags.includes('Party'));
-  const partyPicks = allGames.filter((g) => g.tags.includes('Party') && g.system !== 'N64');
+  const ndsShowcaseGames = allGames.filter((g) => g.system === 'NDS');
+  const partyPicks = allGames.filter((g) => g.tags.includes('Party') && g.system !== 'N64' && g.system !== 'NDS');
   const recentGames = allGames.slice(0, 4);
 
   // Refresh public rooms when the page mounts / becomes visible
@@ -236,6 +237,43 @@ export function HomePage() {
             {n64PartyGames.map((game) => (
               <GameCard key={game.id} game={game} />
             ))}
+          </div>
+        </section>
+      )}
+
+      {/* Nintendo DS Spotlight */}
+      {ndsShowcaseGames.length > 0 && (
+        <section>
+          <div className="flex items-center justify-between mb-3">
+            <div>
+              <h2 className="text-lg font-bold" style={{ color: '#E87722' }}>
+                📱 Nintendo DS — Dual Screen
+              </h2>
+              <p className="text-xs mt-0.5" style={{ color: 'var(--color-oasis-text-muted)' }}>
+                Touch controls, WFC online, and local wireless — all in your browser
+              </p>
+            </div>
+            <Link to="/library" className="text-sm" style={{ color: 'var(--color-oasis-text-muted)' }}>
+              View All →
+            </Link>
+          </div>
+          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
+            {ndsShowcaseGames.slice(0, 8).map((game) => (
+              <GameCard key={game.id} game={game} />
+            ))}
+          </div>
+          {/* DS setup callout */}
+          <div
+            className="mt-3 px-4 py-3 rounded-xl text-xs flex items-start gap-3"
+            style={{ backgroundColor: 'var(--color-oasis-card)' }}
+          >
+            <span className="text-base flex-shrink-0">💡</span>
+            <div style={{ color: 'var(--color-oasis-text-muted)' }}>
+              <span className="font-semibold" style={{ color: 'var(--color-oasis-text)' }}>Getting started with DS:</span>{' '}
+              Install melonDS, place your BIOS files in <code className="text-[10px] px-1 py-0.5 rounded" style={{ backgroundColor: 'var(--color-oasis-surface)' }}>~/.config/melonDS/</code>,
+              then host a room and launch your ROM. The touch screen is controlled by your mouse — click the bottom screen area.
+              WFC games like Pokémon and Mario Kart connect via Wiimmfi automatically.
+            </div>
           </div>
         </section>
       )}

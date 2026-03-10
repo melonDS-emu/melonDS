@@ -12,6 +12,15 @@ function getPartyHint(game: { system: string; maxPlayers: number; tags: string[]
     }
     return '👾 Best with 4 players — fill those slots for the full N64 experience.';
   }
+  if (game.system === 'NDS' && game.maxPlayers >= 4) {
+    if (game.tags.includes('Party')) {
+      return '🎉 Party game for up to 4 — touch screen mini-games await!';
+    }
+    return '🎮 Best with 4 players — share your room code and race to fill the slots.';
+  }
+  if (game.system === 'NDS' && game.tags.includes('WFC')) {
+    return '🌐 WFC-enabled — connects through Wiimmfi automatically. Just start a room!';
+  }
   if (game.maxPlayers >= 4) {
     return `🎮 Supports up to ${game.maxPlayers} players — more is merrier!`;
   }
@@ -21,6 +30,14 @@ function getPartyHint(game: { system: string; maxPlayers: number; tags: string[]
 /** Controller tip shown on N64 game detail pages. */
 const N64_CONTROLLER_TIP =
   '🕹️ Controller tip: Use an Xbox or PlayStation controller — the left stick maps to the N64 analog stick automatically. A gamepad is strongly recommended for analog-heavy games.';
+
+/** Dual-screen tip shown on NDS game detail pages. */
+const NDS_DUAL_SCREEN_TIP =
+  '📱 Dual-screen tip: melonDS shows the top screen above and the bottom (touch) screen below. Move your mouse to the bottom screen area and click to interact with touch controls. Use F11 to swap screens if needed.';
+
+/** WFC tip shown on NDS games that support Pokémon Wi-Fi Connection. */
+const NDS_WFC_TIP =
+  '🌐 Wi-Fi Connection: This game uses Wiimmfi — a free replacement for Nintendo\'s discontinued online service. RetroOasis sets it up automatically when you host a room. No extra configuration needed!';
 
 export function GameDetailsPage() {
   const { gameId } = useParams<{ gameId: string }>();
@@ -56,6 +73,8 @@ export function GameDetailsPage() {
 
   const partyHint = getPartyHint(game);
   const isN64 = game.system === 'N64';
+  const isNDS = game.system === 'NDS';
+  const isNdsWfc = isNDS && game.tags.includes('WFC');
 
   return (
     <div className="max-w-3xl">
@@ -91,6 +110,22 @@ export function GameDetailsPage() {
                   N64
                 </span>
               )}
+              {isNDS && (
+                <span
+                  className="px-2 py-0.5 rounded text-[10px] font-bold"
+                  style={{ backgroundColor: '#E87722', color: 'white' }}
+                >
+                  Dual Screen
+                </span>
+              )}
+              {isNdsWfc && (
+                <span
+                  className="px-2 py-0.5 rounded text-[10px] font-bold"
+                  style={{ backgroundColor: '#2563eb', color: 'white' }}
+                >
+                  WFC Online
+                </span>
+              )}
             </div>
             <h1 className="text-2xl font-bold mb-2">{game.title}</h1>
             <p className="text-sm" style={{ color: 'var(--color-oasis-text-muted)' }}>
@@ -116,6 +151,26 @@ export function GameDetailsPage() {
             style={{ backgroundColor: 'var(--color-oasis-surface)', color: 'var(--color-oasis-text-muted)' }}
           >
             {N64_CONTROLLER_TIP}
+          </div>
+        )}
+
+        {/* NDS dual-screen tip */}
+        {isNDS && (
+          <div
+            className="mt-2 px-4 py-2 rounded-xl text-xs"
+            style={{ backgroundColor: 'var(--color-oasis-surface)', color: 'var(--color-oasis-text-muted)' }}
+          >
+            {NDS_DUAL_SCREEN_TIP}
+          </div>
+        )}
+
+        {/* NDS WFC tip */}
+        {isNdsWfc && (
+          <div
+            className="mt-2 px-4 py-2 rounded-xl text-xs"
+            style={{ backgroundColor: 'rgba(37,99,235,0.15)', color: '#93c5fd' }}
+          >
+            {NDS_WFC_TIP}
           </div>
         )}
 
