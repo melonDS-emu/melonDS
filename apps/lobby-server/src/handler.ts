@@ -141,6 +141,13 @@ export function handleConnection(ws: WebSocket, lobby: LobbyManager): void {
 
   ws.on('close', () => {
     connections.delete(playerId);
-    // TODO: Clean up rooms where this player was
+    // Clean up rooms where this player was participating
+    const affected = lobby.disconnectPlayer(playerId);
+    for (const [roomId, room] of affected.entries()) {
+      if (room) {
+        const remainingIds = lobby.getRoomPlayerIds(roomId);
+        broadcast(remainingIds, { type: 'room-updated', room });
+      }
+    }
   });
 }

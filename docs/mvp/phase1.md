@@ -27,15 +27,20 @@ A polished multiplayer-first retro Nintendo app for simpler systems (NES, SNES, 
 - [x] Join rooms by ID or room code
 - [x] Player slots and ready states
 - [x] Host designation
-- [ ] Room code sharing UI
+- [x] Room code display (click-to-copy)
+- [x] Real-time player list updates via WebSocket
+- [x] Disconnect cleanup (room removed when host leaves)
+- [x] Host Room modal with game selection
+- [x] Join by Room Code modal
+- [x] Room chat
 - [ ] Friend invite flow
 - [ ] Connection quality indicators
 
 ### Session Templates
 - [x] Template data model
-- [ ] Per-game default templates
-- [ ] Controller mapping presets
-- [ ] Auto-save rules
+- [x] Per-game default templates (NES, SNES, GB, GBC, GBA + popular titles)
+- [x] Auto-save rules per template
+- [ ] Controller mapping presets UI
 
 ### Save System
 - [x] Local save path management
@@ -62,6 +67,6 @@ A user should be able to:
 1. Open RetroOasis
 2. See multiplayer game recommendations
 3. Select a game → see its multiplayer details
-4. Host a lobby → share room code
-5. Friend joins → both ready up
+4. Host a lobby → share room code ✅
+5. Friend joins → both ready up ✅
 6. Game launches with preconfigured settings

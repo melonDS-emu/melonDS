@@ -1,4 +1,4 @@
-interface SeedGame {
+export interface SeedGame {
   id: string;
   title: string;
   system: string;

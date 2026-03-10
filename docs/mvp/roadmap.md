@@ -1,6 +1,6 @@
 # RetroOasis Development Roadmap
 
-## Phase 1 — Foundation (Current)
+## Phase 1 — Foundation (Complete)
 
 **Goal:** Polished multiplayer-first retro Nintendo app for simpler systems.
 
@@ -13,20 +13,24 @@
 - [x] Game catalog with multiplayer seed data (30 games)
 - [x] Emulator bridge interfaces and backend definitions
 - [x] Save system scaffold (local + cloud models)
-- [x] Session engine scaffold
+- [x] Session engine scaffold with Phase 1 default templates
 - [x] Presence client scaffold
 - [x] Multiplayer profiles + input management
 - [x] React frontend scaffold with mocked data
 - [x] WebSocket lobby server prototype
 - [x] Architecture and UX documentation
+- [x] WebSocket-connected lobby in frontend (host/join rooms, ready state, chat)
+- [x] Host a Room modal with game selection
+- [x] Join by Room Code modal
+- [x] Lobby page with real-time player list, ready-up, host controls, and chat
+- [x] Disconnect cleanup (rooms closed when host disconnects)
 - [ ] Tauri integration for native desktop app
 - [ ] ROM scanning and library management
 - [ ] Actual emulator process launching via bridge
-- [ ] WebSocket-connected lobby in frontend
 - [ ] Controller mapping UI
 - [ ] Local save file I/O
 - [ ] Cloud save sync implementation
-- [ ] Friend invite flow
+- [ ] Friend invite flow (room code sharing)
 
 ## Phase 2 — N64 + Enhanced Social
 

@@ -146,4 +146,19 @@ export class LobbyManager {
     if (!room) return [];
     return room.players.map((p) => p.id);
   }
+
+  /**
+   * Remove a player from all rooms they are in (called on disconnect).
+   * Returns a map of roomId → updated Room (or null if room was deleted).
+   */
+  disconnectPlayer(playerId: string): Map<string, Room | null> {
+    const affected = new Map<string, Room | null>();
+    for (const [roomId, room] of this.rooms.entries()) {
+      if (room.players.some((p) => p.id === playerId)) {
+        const updated = this.leaveRoom(roomId, playerId);
+        affected.set(roomId, updated);
+      }
+    }
+    return affected;
+  }
 }

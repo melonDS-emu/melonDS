@@ -1,7 +1,13 @@
-import * as path from 'path';
-
 /** Default base directory for saves (platform-specific in production) */
 const DEFAULT_SAVE_BASE = './retro-oasis-saves';
+
+/** Simple path joining utility (avoids Node.js 'path' module dependency). */
+function joinPath(...parts: string[]): string {
+  return parts
+    .filter((p) => p.length > 0)
+    .map((p, i) => (i === 0 ? p.replace(/\/+$/, '') : p.replace(/^\/+|\/+$/g, '')))
+    .join('/');
+}
 
 /**
  * Build a save file path for a specific game.
@@ -11,7 +17,7 @@ export function buildSavePath(
   system: string,
   baseDir: string = DEFAULT_SAVE_BASE
 ): string {
-  return path.join(baseDir, system, gameId);
+  return joinPath(baseDir, system, gameId);
 }
 
 /**
@@ -21,7 +27,7 @@ export function getSystemSaveDir(
   system: string,
   baseDir: string = DEFAULT_SAVE_BASE
 ): string {
-  return path.join(baseDir, system);
+  return joinPath(baseDir, system);
 }
 
 /**
@@ -33,7 +39,7 @@ export function getSaveStatePath(
   slotIndex: number,
   baseDir: string = DEFAULT_SAVE_BASE
 ): string {
-  return path.join(baseDir, system, gameId, `state-${slotIndex}.sav`);
+  return joinPath(baseDir, system, gameId, `state-${slotIndex}.sav`);
 }
 
 /**
@@ -44,5 +50,5 @@ export function getAutoSavePath(
   system: string,
   baseDir: string = DEFAULT_SAVE_BASE
 ): string {
-  return path.join(baseDir, system, gameId, 'auto.sav');
+  return joinPath(baseDir, system, gameId, 'auto.sav');
 }
