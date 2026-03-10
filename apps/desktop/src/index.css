@@ -1,0 +1,21 @@
+@import "tailwindcss";
+
+:root {
+  --color-oasis-bg: #1a1025;
+  --color-oasis-surface: #241535;
+  --color-oasis-card: #2e1d42;
+  --color-oasis-accent: #7c5cbf;
+  --color-oasis-accent-light: #a78bfa;
+  --color-oasis-green: #34d399;
+  --color-oasis-yellow: #fbbf24;
+  --color-oasis-red: #f87171;
+  --color-oasis-text: #f0e6ff;
+  --color-oasis-text-muted: #9a8bb3;
+}
+
+body {
+  margin: 0;
+  background-color: var(--color-oasis-bg);
+  color: var(--color-oasis-text);
+  font-family: 'Inter', system-ui, -apple-system, sans-serif;
+}
