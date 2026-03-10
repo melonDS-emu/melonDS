@@ -2,6 +2,19 @@ import { useState, useEffect } from 'react';
 import { useGames } from '../lib/use-games';
 import type { CreateRoomPayload } from '../services/lobby-types';
 
+const NDS_LAYOUT_KEY = 'retro-oasis-nds-screen-layout';
+/** NDS brand colour — matches systemColor used across the app for NDS games. */
+const NDS_COLOR = '#E87722';
+
+type NdsScreenLayout = 'stacked' | 'side-by-side' | 'top-focus' | 'bottom-focus';
+
+const NDS_LAYOUT_OPTIONS: { value: NdsScreenLayout; label: string; description: string }[] = [
+  { value: 'stacked',      label: 'Stacked',       description: 'Top screen above, touch screen below (default)' },
+  { value: 'side-by-side', label: 'Side by Side',  description: 'Both screens next to each other' },
+  { value: 'top-focus',    label: 'Top Focus',     description: 'Top screen enlarged, touch screen small' },
+  { value: 'bottom-focus', label: 'Bottom Focus',  description: 'Touch screen enlarged (great for Phantom Hourglass)' },
+];
+
 interface HostRoomModalProps {
   preselectedGameId?: string;
   onConfirm: (payload: Omit<CreateRoomPayload, 'displayName'>, displayName: string) => void;
@@ -17,6 +30,9 @@ export function HostRoomModal({ preselectedGameId, onConfirm, onClose }: HostRoo
   );
   const [isPublic, setIsPublic] = useState(true);
   const [seeded, setSeeded] = useState(false);
+  const [ndsLayout, setNdsLayout] = useState<NdsScreenLayout>(
+    () => (localStorage.getItem(NDS_LAYOUT_KEY) as NdsScreenLayout | null) ?? 'stacked'
+  );
 
   // Seed form defaults once the game list becomes available
   useEffect(() => {
@@ -29,6 +45,7 @@ export function HostRoomModal({ preselectedGameId, onConfirm, onClose }: HostRoo
   }, [games, preselectedGameId, seeded]);
 
   const selectedGame = games.find((g) => g.id === selectedGameId) ?? games[0];
+  const isNds = selectedGame?.system === 'NDS';
 
   function handleGameChange(gameId: string) {
     const game = games.find((g) => g.id === gameId);
@@ -40,6 +57,9 @@ export function HostRoomModal({ preselectedGameId, onConfirm, onClose }: HostRoo
     e.preventDefault();
     if (!displayName.trim() || !selectedGame) return;
     localStorage.setItem('retro-oasis-display-name', displayName.trim());
+    if (isNds) {
+      localStorage.setItem(NDS_LAYOUT_KEY, ndsLayout);
+    }
 
     onConfirm(
       {
@@ -128,6 +148,33 @@ export function HostRoomModal({ preselectedGameId, onConfirm, onClose }: HostRoo
               }}
             />
           </div>
+
+          {/* NDS screen layout picker */}
+          {isNds && (
+            <div>
+              <label className="block text-xs font-semibold mb-1" style={{ color: 'var(--color-oasis-text-muted)' }}>
+                📱 Dual-Screen Layout
+              </label>
+              <div className="grid grid-cols-2 gap-2">
+                {NDS_LAYOUT_OPTIONS.map((opt) => (
+                  <button
+                    key={opt.value}
+                    type="button"
+                    onClick={() => setNdsLayout(opt.value)}
+                    className="text-left px-3 py-2 rounded-xl text-xs transition-colors"
+                    style={{
+                      backgroundColor: ndsLayout === opt.value ? NDS_COLOR : 'var(--color-oasis-surface)',
+                      color: ndsLayout === opt.value ? 'white' : 'var(--color-oasis-text-muted)',
+                      border: ndsLayout === opt.value ? `1px solid ${NDS_COLOR}` : '1px solid transparent',
+                    }}
+                  >
+                    <div className="font-semibold">{opt.label}</div>
+                    <div className="text-[10px] opacity-75 mt-0.5">{opt.description}</div>
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
 
           {/* Public toggle */}
           <div className="flex items-center justify-between">

@@ -173,4 +173,50 @@ export class PresenceClient {
     ];
     mock.forEach((f) => this.friends.set(f.userId, f));
   }
+
+  /**
+   * Return a mock recent-activity feed for development/demo purposes.
+   * Derived from the mock friends seeded by `seedMockFriends()`.
+   */
+  getMockRecentActivity(): RecentActivity[] {
+    const now = new Date();
+    return [
+      {
+        id: 'act-1',
+        type: 'started',
+        userId: 'mock-player2',
+        displayName: 'Player2',
+        gameTitle: 'Mario Kart 64',
+        lobbyId: 'mock-lobby-mk64',
+        roomCode: 'MK6401',
+        timestamp: new Date(now.getTime() - 8 * 60 * 1000).toISOString(),
+      },
+      {
+        id: 'act-2',
+        type: 'joined',
+        userId: 'mock-starfox99',
+        displayName: 'StarFox99',
+        gameTitle: 'Mario Party 2',
+        lobbyId: 'mock-lobby-mp2',
+        roomCode: 'PARTY2',
+        timestamp: new Date(now.getTime() - 12 * 60 * 1000).toISOString(),
+      },
+      {
+        id: 'act-3',
+        type: 'online',
+        userId: 'mock-retrofan',
+        displayName: 'RetroFan',
+        timestamp: new Date(now.getTime() - 2 * 60 * 1000).toISOString(),
+      },
+      {
+        id: 'act-4',
+        type: 'finished',
+        userId: 'mock-linkmaster',
+        displayName: 'LinkMaster',
+        gameTitle: 'Super Smash Bros.',
+        lobbyId: 'mock-lobby-ssb',
+        timestamp: new Date(now.getTime() - 30 * 60 * 1000).toISOString(),
+      },
+    ];
+  }
 }

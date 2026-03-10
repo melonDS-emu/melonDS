@@ -1,24 +1,77 @@
 import { useState } from 'react';
+import { Link } from 'react-router-dom';
 import { useGames } from '../lib/use-games';
 import { GameCard } from '../components/GameCard';
+import { getRomDirectory } from '../lib/rom-settings';
 
+const SCAN_SIMULATION_MS = 800;
+const SUCCESS_MESSAGE_DURATION_MS = 3000;
 const SYSTEMS = ['All', 'NES', 'SNES', 'GB', 'GBC', 'GBA', 'N64', 'NDS'];
 const TAGS = ['All', 'Party', 'Co-op', 'Versus', 'Battle', 'Link', 'Trade'];
 
 export function LibraryPage() {
   const [selectedSystem, setSelectedSystem] = useState('All');
   const [selectedTag, setSelectedTag] = useState('All');
+  const [scanStatus, setScanStatus] = useState<'idle' | 'scanning' | 'done'>('idle');
+  const romDir = getRomDirectory();
 
-  const { data: filtered, loading, error } = useGames({
+  const { data: filtered, loading, error, refetch } = useGames({
     system: selectedSystem !== 'All' ? selectedSystem : undefined,
     tag: selectedTag !== 'All' ? selectedTag : undefined,
   });
 
+  function handleScan() {
+    setScanStatus('scanning');
+    // Simulate ROM scan (real scan would run through Tauri IPC in a native build)
+    setTimeout(() => {
+      refetch();
+      setScanStatus('done');
+      setTimeout(() => setScanStatus('idle'), SUCCESS_MESSAGE_DURATION_MS);
+    }, SCAN_SIMULATION_MS);
+  }
+
   return (
     <div className="max-w-5xl">
-      <h1 className="text-2xl font-bold mb-4" style={{ color: 'var(--color-oasis-accent-light)' }}>
-        🎮 Multiplayer Library
-      </h1>
+      <div className="flex items-start justify-between mb-4">
+        <h1 className="text-2xl font-bold" style={{ color: 'var(--color-oasis-accent-light)' }}>
+          🎮 Multiplayer Library
+        </h1>
+
+        {/* ROM scan control */}
+        <div className="flex items-center gap-2">
+          {romDir ? (
+            <button
+              onClick={handleScan}
+              disabled={scanStatus === 'scanning'}
+              className="text-xs font-semibold px-3 py-1.5 rounded-lg transition-opacity disabled:opacity-50"
+              style={{ backgroundColor: 'var(--color-oasis-accent)', color: 'white' }}
+            >
+              {scanStatus === 'scanning' ? '⏳ Scanning…' : scanStatus === 'done' ? '✓ Refreshed' : '🔍 Scan ROMs'}
+            </button>
+          ) : (
+            <Link
+              to="/settings"
+              className="text-xs font-semibold px-3 py-1.5 rounded-lg"
+              style={{ backgroundColor: 'var(--color-oasis-surface)', color: 'var(--color-oasis-text-muted)' }}
+            >
+              ⚙️ Set ROM path
+            </Link>
+          )}
+        </div>
+      </div>
+
+      {/* ROM directory info */}
+      {romDir && (
+        <p className="text-[11px] mb-4" style={{ color: 'var(--color-oasis-text-muted)' }}>
+          ROM directory:{' '}
+          <code
+            className="px-1.5 py-0.5 rounded text-[10px] font-mono"
+            style={{ backgroundColor: 'var(--color-oasis-surface)' }}
+          >
+            {romDir}
+          </code>
+        </p>
+      )}
 
       {/* System filter */}
       <div className="flex flex-wrap gap-2 mb-3">

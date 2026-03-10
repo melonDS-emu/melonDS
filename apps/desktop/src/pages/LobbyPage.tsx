@@ -216,6 +216,11 @@ export function LobbyPage() {
               {sessionHint}
             </p>
           )}
+          {isNds && (
+            <p className="text-[10px] mt-1 opacity-70" style={{ color: 'var(--color-oasis-text-muted)' }}>
+              💡 Press <kbd className="px-1 py-0.5 rounded text-[9px] font-mono" style={{ backgroundColor: 'var(--color-oasis-surface)' }}>F11</kbd> in melonDS to swap screens
+            </p>
+          )}
         </div>
       </div>
 

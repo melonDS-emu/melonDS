@@ -15,14 +15,16 @@ export function PresenceProvider({ children }: { children: ReactNode }) {
   // Initialise once per mount — useRef ensures the client is never recreated on re-renders.
   const clientRef = useRef<PresenceClient | null>(null);
   if (clientRef.current === null) {
-    clientRef.current = new PresenceClient('local-user');
+    const c = new PresenceClient('local-user');
+    c.seedMockFriends();
+    clientRef.current = c;
   }
   const client = clientRef.current;
 
   const friends = client.getAllFriends();
   const onlineFriends = client.getOnlineFriends();
   const joinableSessions = client.getJoinableSessions();
-  const recentActivity: RecentActivity[] = [];
+  const recentActivity: RecentActivity[] = client.getMockRecentActivity();
 
   const value: PresenceContextValue = { friends, onlineFriends, joinableSessions, recentActivity };
 
