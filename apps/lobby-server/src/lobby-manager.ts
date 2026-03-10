@@ -98,8 +98,9 @@ export class LobbyManager {
   }
 
   joinByCode(roomCode: string, playerId: string, displayName: string): Room | null {
+    const normalised = roomCode.toUpperCase();
     for (const room of this.rooms.values()) {
-      if (room.roomCode === roomCode) {
+      if (room.roomCode === normalised) {
         return this.joinRoom(room.id, playerId, displayName);
       }
     }
@@ -107,8 +108,9 @@ export class LobbyManager {
   }
 
   joinByCodeAsSpectator(roomCode: string, spectatorId: string, displayName: string): Room | null {
+    const normalised = roomCode.toUpperCase();
     for (const room of this.rooms.values()) {
-      if (room.roomCode === roomCode) {
+      if (room.roomCode === normalised) {
         return this.joinAsSpectator(room.id, spectatorId, displayName);
       }
     }
@@ -139,6 +141,11 @@ export class LobbyManager {
       room.players[0].isHost = true;
     }
 
+    // Renumber slots so they remain contiguous (0, 1, 2, …) after a departure.
+    room.players.forEach((p, index) => {
+      p.slot = index;
+    });
+
     return room;
   }
 
@@ -156,6 +163,7 @@ export class LobbyManager {
   startGame(roomId: string, playerId: string): Room | null {
     const room = this.rooms.get(roomId);
     if (!room) return null;
+    if (room.status !== 'waiting') return null;
     if (room.hostId !== playerId) return null;
 
     const allReady = room.players.every((p) => p.readyState === 'ready');

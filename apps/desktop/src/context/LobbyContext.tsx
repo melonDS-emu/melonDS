@@ -200,6 +200,11 @@ export function LobbyProvider({ children }: { children: ReactNode }) {
         setConnectionState('disconnected');
         setPlayerId(null);
         setLatencyMs(null);
+        // Clear room state so reconnecting clients start fresh and the
+        // auto-join effect on LobbyPage can re-trigger correctly.
+        setCurrentRoom(null);
+        setRelayInfo(null);
+        setChatMessages([]);
         stopPing();
         // Attempt to reconnect after 3 seconds
         reconnectTimeout = setTimeout(connect, RECONNECT_DELAY_MS);
@@ -258,6 +263,7 @@ export function LobbyProvider({ children }: { children: ReactNode }) {
       send({ type: 'leave-room', payload: { roomId: room.id } });
       setCurrentRoom(null);
       setRelayInfo(null);
+      setChatMessages([]);
     }
   }, [send]);
 

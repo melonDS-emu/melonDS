@@ -390,8 +390,8 @@ export function LobbyPage() {
           </div>
         )}
 
-        {/* Actions */}
-        {!isSpectating && (
+        {/* Actions — only show pre-game controls while waiting */}
+        {!isSpectating && room.status === 'waiting' && (
           <div className="mb-6">
             <div className="flex gap-3">
               <button
@@ -428,6 +428,19 @@ export function LobbyPage() {
                 Waiting for all players to ready up…
               </p>
             )}
+          </div>
+        )}
+
+        {/* Leave button shown separately once in-game (ready/start controls are hidden) */}
+        {!isSpectating && room.status !== 'waiting' && (
+          <div className="mb-6">
+            <button
+              onClick={handleLeave}
+              className="w-full py-3 rounded-xl font-bold transition-transform hover:scale-[1.02] active:scale-[0.98]"
+              style={{ backgroundColor: 'var(--color-oasis-surface)', color: 'var(--color-oasis-text-muted)' }}
+            >
+              Leave Room
+            </button>
           </div>
         )}
 
