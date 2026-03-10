@@ -1,4 +1,5 @@
 import * as net from 'net';
+import { randomUUID } from 'crypto';
 
 /**
  * NetplayRelay provides a lightweight TCP relay that forwards raw emulator
@@ -23,6 +24,10 @@ import * as net from 'net';
 interface RelaySession {
   roomId: string;
   playerIds: string[];
+  /** Pre-assigned token per player: playerId -> relayToken (UUID) */
+  playerTokens: Map<string, string>;
+  /** Set of valid tokens for fast O(1) validation on connect */
+  validTokens: Set<string>;
   sockets: Map<string, net.Socket>; // sessionToken -> socket
   port: number;
   server: net.Server;
@@ -53,15 +58,30 @@ export class NetplayRelay {
 
   /**
    * Allocate a relay session for the given room.
-   * Returns the TCP port, or null if no ports are available.
+   * Generates a unique relay token per player so the server can authenticate
+   * each emulator connection instead of accepting anonymous sockets.
+   *
+   * Returns `{ port, tokens }` where `tokens` maps playerId → relayToken,
+   * or null if no ports are available.
    */
-  allocateSession(roomId: string, playerIds: string[]): number | null {
+  allocateSession(
+    roomId: string,
+    playerIds: string[],
+  ): { port: number; tokens: Map<string, string> } | null {
     if (this.sessions.has(roomId)) {
-      return this.sessions.get(roomId)!.port;
+      const existing = this.sessions.get(roomId)!;
+      return { port: existing.port, tokens: existing.playerTokens };
     }
 
     const port = this.allocatePort();
     if (port === null) return null;
+
+    // Generate one pre-assigned token per player
+    const playerTokens = new Map<string, string>();
+    for (const pid of playerIds) {
+      playerTokens.set(pid, randomUUID());
+    }
+    const validTokens = new Set(playerTokens.values());
 
     const sockets = new Map<string, net.Socket>();
 
@@ -79,7 +99,16 @@ export class NetplayRelay {
 
           if (tokenBytesReceived >= SESSION_TOKEN_LENGTH) {
             const combined = Buffer.concat(tokenChunks);
-            sessionToken = combined.subarray(0, SESSION_TOKEN_LENGTH).toString('ascii').trim();
+            const candidate = combined.subarray(0, SESSION_TOKEN_LENGTH).toString('ascii').trim();
+
+            // Reject connections that don't present a pre-assigned token
+            if (!validTokens.has(candidate)) {
+              console.warn(`[relay] Rejected unauthorised token on room ${roomId}`);
+              socket.destroy();
+              return;
+            }
+
+            sessionToken = candidate;
             sockets.set(sessionToken, socket);
 
             // Forward any payload bytes that came after the token
@@ -124,6 +153,8 @@ export class NetplayRelay {
     const session: RelaySession = {
       roomId,
       playerIds,
+      playerTokens,
+      validTokens,
       sockets,
       port,
       server,
@@ -131,7 +162,15 @@ export class NetplayRelay {
     };
 
     this.sessions.set(roomId, session);
-    return port;
+    return { port, tokens: playerTokens };
+  }
+
+  /**
+   * Get the pre-assigned relay token for a specific player in a room.
+   * Returns null if the session or player is not found.
+   */
+  getPlayerToken(roomId: string, playerId: string): string | null {
+    return this.sessions.get(roomId)?.playerTokens.get(playerId) ?? null;
   }
 
   /**

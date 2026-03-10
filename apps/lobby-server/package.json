@@ -8,6 +8,7 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
+    "@retro-oasis/emulator-bridge": "*",
     "ws": "^8.17.1"
   },
   "devDependencies": {

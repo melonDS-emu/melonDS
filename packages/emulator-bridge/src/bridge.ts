@@ -29,6 +29,12 @@ export interface LaunchOptions {
   netplayHost?: string;
   /** Netplay: port of the relay or peer */
   netplayPort?: number;
+  /**
+   * Pre-assigned session token (UUID) for the relay server.
+   * The relay proxy sends this as the first 36 bytes on connect so the
+   * relay can authenticate and route the emulator's TCP stream.
+   */
+  netplaySessionToken?: string;
   /** NDS-specific */
   screenLayout?: 'stacked' | 'side-by-side' | 'top-focus' | 'bottom-focus';
   touchEnabled?: boolean;

@@ -49,6 +49,24 @@ export interface ChatMessage {
   sentAt: string;
 }
 
+/** ROM file metadata returned by the server's directory scanner. */
+export interface RomFileInfo {
+  filePath: string;
+  fileName: string;
+  system: string;
+  inferredTitle: string;
+  fileSizeBytes: number;
+  lastModified: string;
+}
+
+export interface LaunchEmulatorPayload {
+  roomId: string;
+  romPath: string;
+  system: string;
+  backendId: string;
+  saveDirectory?: string;
+}
+
 /** Messages sent from client to server */
 export type ClientMessage =
   | { type: 'create-room'; payload: CreateRoomPayload }
@@ -59,7 +77,9 @@ export type ClientMessage =
   | { type: 'list-rooms' }
   | { type: 'start-game'; payload: { roomId: string } }
   | { type: 'chat'; payload: { roomId: string; content: string } }
-  | { type: 'ping'; payload: { sentAt: number } };
+  | { type: 'ping'; payload: { sentAt: number } }
+  | { type: 'scan-roms'; payload: { directory: string; recursive?: boolean } }
+  | { type: 'launch-emulator'; payload: LaunchEmulatorPayload };
 
 export interface CreateRoomPayload {
   name: string;
@@ -85,7 +105,10 @@ export type ServerMessage =
   | { type: 'room-left'; roomId: string }
   | { type: 'room-updated'; room: Room }
   | { type: 'room-list'; rooms: Room[] }
-  | { type: 'game-starting'; roomId: string; relayPort?: number; relayHost?: string }
+  | { type: 'game-starting'; roomId: string; relayPort?: number; relayHost?: string; relayToken?: string }
   | { type: 'error'; message: string }
   | { type: 'chat-broadcast'; roomId: string; userId: string; displayName: string; content: string; sentAt: string }
-  | { type: 'pong'; sentAt: number; serverAt: number };
+  | { type: 'pong'; sentAt: number; serverAt: number }
+  | { type: 'rom-scan-result'; roms: RomFileInfo[]; error?: string }
+  | { type: 'emulator-launched'; sessionId: string; pid: number }
+  | { type: 'emulator-launch-error'; message: string };

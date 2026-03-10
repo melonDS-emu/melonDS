@@ -71,7 +71,10 @@ export function PresenceProvider({ children }: { children: ReactNode }) {
   const clientRef = useRef<PresenceClient | null>(null);
   if (clientRef.current === null) {
     const client = new PresenceClient('local-user');
-    client.seedMockFriends();
+    // Seed fake friends only during development so real users see a clean empty state.
+    if (import.meta.env.DEV) {
+      client.seedMockFriends();
+    }
     clientRef.current = client;
   }
   const client = clientRef.current;
@@ -79,7 +82,7 @@ export function PresenceProvider({ children }: { children: ReactNode }) {
   const friends = client.getAllFriends();
   const onlineFriends = client.getOnlineFriends();
   const joinableSessions = client.getJoinableSessions();
-  const recentActivity = buildMockActivity(friends);
+  const recentActivity = import.meta.env.DEV ? buildMockActivity(friends) : [];
 
   const value: PresenceContextValue = { friends, onlineFriends, joinableSessions, recentActivity };
 

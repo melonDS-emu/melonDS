@@ -3,6 +3,13 @@ import { randomUUID } from 'crypto';
 import { LobbyManager } from './lobby-manager';
 import type { ClientMessage, ServerMessage, ConnectionQuality } from './types';
 import { NetplayRelay } from './netplay-relay';
+import { EmulatorBridge, scanRomDirectory } from '@retro-oasis/emulator-bridge';
+
+/** Shared emulator bridge instance — one per server process. */
+const bridge = new EmulatorBridge();
+
+/** Default save directory for server-side emulator launches. */
+const DEFAULT_SAVE_DIR = process.env.SAVE_DIR ?? '/tmp/retro-oasis-saves';
 
 /** Map of playerId -> WebSocket for broadcasting */
 const connections = new Map<string, WebSocket>();
@@ -130,25 +137,89 @@ export function handleConnection(ws: WebSocket, lobby: LobbyManager, relay: Netp
           break;
         }
 
-        // Allocate a relay session for this room
-        const relayPort = relay.allocateSession(room.id, room.players.map((p) => p.id));
-        if (relayPort === null) {
+        // Allocate a relay session and generate per-player tokens
+        const relayResult = relay.allocateSession(room.id, room.players.map((p) => p.id));
+        if (relayResult === null) {
           send(ws, { type: 'error', message: 'Relay server is at capacity — no free ports. Try again shortly.' });
           // Roll back room status so players can retry
           room.status = 'waiting';
           break;
         }
 
+        const { port: relayPort, tokens: playerTokens } = relayResult;
         room.relayPort = relayPort;
 
-        const playerIds = lobby.getRoomPlayerIds(room.id);
+        const allIds = lobby.getRoomPlayerIds(room.id);
         // Broadcast room-updated first so clients persist the in-game status and
         // relay port — this allows reconnecting clients to rehydrate correctly.
-        broadcast(playerIds, { type: 'room-updated', room });
-        broadcast(playerIds, {
-          type: 'game-starting',
-          roomId: room.id,
-          relayPort,
+        broadcast(allIds, { type: 'room-updated', room });
+
+        // Send each player their individual relay token (used to authenticate
+        // their emulator's TCP connection to the relay server).
+        for (const p of room.players) {
+          const playerWs = connections.get(p.id);
+          if (playerWs) {
+            send(playerWs, {
+              type: 'game-starting',
+              roomId: room.id,
+              relayPort,
+              relayToken: playerTokens.get(p.id),
+            });
+          }
+        }
+
+        // Spectators get the game-starting notification without a relay token.
+        for (const s of room.spectators) {
+          const spectatorWs = connections.get(s.id);
+          if (spectatorWs) {
+            send(spectatorWs, { type: 'game-starting', roomId: room.id, relayPort });
+          }
+        }
+        break;
+      }
+
+      case 'scan-roms': {
+        const { directory, recursive } = msg.payload;
+        try {
+          const roms = scanRomDirectory(directory, recursive ?? false);
+          send(ws, { type: 'rom-scan-result', roms });
+        } catch (err) {
+          send(ws, { type: 'rom-scan-result', roms: [], error: String(err) });
+        }
+        break;
+      }
+
+      case 'launch-emulator': {
+        const { roomId, romPath, system, backendId, saveDirectory } = msg.payload;
+        const room = lobby.getRoom(roomId);
+        if (!room || room.status !== 'in-game') {
+          send(ws, { type: 'emulator-launch-error', message: 'Room is not in an in-game state.' });
+          break;
+        }
+        if (!room.relayPort) {
+          send(ws, { type: 'emulator-launch-error', message: 'No relay port assigned to this room.' });
+          break;
+        }
+
+        // Look up this player's pre-assigned relay token
+        const relayToken = relay.getPlayerToken(roomId, playerId);
+
+        bridge.launch({
+          romPath,
+          system,
+          backendId,
+          saveDirectory: saveDirectory ?? DEFAULT_SAVE_DIR,
+          netplayHost: process.env.RELAY_HOST ?? '127.0.0.1',
+          netplayPort: room.relayPort,
+          netplaySessionToken: relayToken ?? undefined,
+        }).then((result) => {
+          if (result.success && result.process) {
+            send(ws, { type: 'emulator-launched', sessionId: result.process.sessionId, pid: result.process.pid });
+          } else {
+            send(ws, { type: 'emulator-launch-error', message: result.error ?? 'Failed to launch emulator.' });
+          }
+        }).catch((err: unknown) => {
+          send(ws, { type: 'emulator-launch-error', message: String(err) });
         });
         break;
       }

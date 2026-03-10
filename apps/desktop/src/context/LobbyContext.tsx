@@ -14,9 +14,11 @@ import type {
   ChatMessage,
   CreateRoomPayload,
   JoinRoomPayload,
+  RomFileInfo,
+  LaunchEmulatorPayload,
 } from '../services/lobby-types';
 
-const WS_URL = 'ws://localhost:8080';
+const WS_URL = import.meta.env.VITE_WS_URL ?? 'ws://localhost:8080';
 const RECONNECT_DELAY_MS = 3000;
 const PING_INTERVAL_MS = 10_000;
 
@@ -25,6 +27,8 @@ export type ConnectionState = 'disconnected' | 'connecting' | 'connected' | 'err
 export interface RelayInfo {
   port: number;
   host: string;
+  /** Pre-assigned session token for authenticating this player's relay connection. */
+  token: string | null;
 }
 
 interface LobbyContextValue {
@@ -38,6 +42,12 @@ interface LobbyContextValue {
   latencyMs: number | null;
   /** Relay info set when a game starts. */
   relayInfo: RelayInfo | null;
+  /** ROM directory path persisted to localStorage. */
+  romDirectory: string;
+  /** ROMs discovered by the most recent scan. */
+  scannedRoms: RomFileInfo[];
+  /** Whether a ROM scan is in progress. */
+  scanning: boolean;
 
   // Actions
   createRoom: (payload: Omit<CreateRoomPayload, 'displayName'>, displayName: string) => void;
@@ -50,9 +60,15 @@ interface LobbyContextValue {
   sendChat: (content: string) => void;
   listRooms: () => void;
   clearError: () => void;
+  /** Scan the given directory for ROM files (server-side). */
+  scanRoms: (directory: string) => void;
+  /** Request the server to launch an emulator for the current in-game room. */
+  launchEmulator: (options: Omit<LaunchEmulatorPayload, 'roomId'>) => void;
 }
 
 const LobbyContext = createContext<LobbyContextValue | null>(null);
+
+const ROM_DIR_KEY = 'retro-oasis:rom-directory';
 
 export function LobbyProvider({ children }: { children: ReactNode }) {
   const [connectionState, setConnectionState] = useState<ConnectionState>('disconnected');
@@ -63,6 +79,11 @@ export function LobbyProvider({ children }: { children: ReactNode }) {
   const [error, setError] = useState<string | null>(null);
   const [latencyMs, setLatencyMs] = useState<number | null>(null);
   const [relayInfo, setRelayInfo] = useState<RelayInfo | null>(null);
+  const [romDirectory, setRomDirectory] = useState<string>(
+    () => localStorage.getItem(ROM_DIR_KEY) ?? ''
+  );
+  const [scannedRoms, setScannedRoms] = useState<RomFileInfo[]>([]);
+  const [scanning, setScanning] = useState(false);
 
   const wsRef = useRef<WebSocket | null>(null);
   const currentRoomRef = useRef<Room | null>(null);
@@ -155,6 +176,7 @@ export function LobbyProvider({ children }: { children: ReactNode }) {
               setRelayInfo({
                 port: msg.relayPort,
                 host: msg.relayHost ?? 'localhost',
+                token: msg.relayToken ?? null,
               });
             }
             // Mark room as in-game so clients can show the correct status
@@ -188,6 +210,24 @@ export function LobbyProvider({ children }: { children: ReactNode }) {
             setLatencyMs(rtt);
             break;
           }
+
+          case 'rom-scan-result':
+            setScanning(false);
+            if (msg.error) {
+              setError(`ROM scan failed: ${msg.error}`);
+            } else {
+              setScannedRoms(msg.roms);
+            }
+            break;
+
+          case 'emulator-launched':
+            // Emulator started successfully on the server side.
+            // PID/sessionId available for diagnostics if needed.
+            break;
+
+          case 'emulator-launch-error':
+            setError(`Emulator launch failed: ${msg.message}`);
+            break;
 
           case 'error':
             setError(msg.message);
@@ -297,6 +337,25 @@ export function LobbyProvider({ children }: { children: ReactNode }) {
 
   const clearError = useCallback(() => setError(null), []);
 
+  const scanRoms = useCallback(
+    (directory: string) => {
+      setRomDirectory(directory);
+      localStorage.setItem(ROM_DIR_KEY, directory);
+      setScanning(true);
+      send({ type: 'scan-roms', payload: { directory } });
+    },
+    [send]
+  );
+
+  const launchEmulator = useCallback(
+    (options: Omit<LaunchEmulatorPayload, 'roomId'>) => {
+      const room = currentRoomRef.current;
+      if (!room) return;
+      send({ type: 'launch-emulator', payload: { roomId: room.id, ...options } });
+    },
+    [send]
+  );
+
   return (
     <LobbyContext.Provider
       value={{
@@ -308,6 +367,9 @@ export function LobbyProvider({ children }: { children: ReactNode }) {
         error,
         latencyMs,
         relayInfo,
+        romDirectory,
+        scannedRoms,
+        scanning,
         createRoom,
         joinByCode,
         joinById,
@@ -318,6 +380,8 @@ export function LobbyProvider({ children }: { children: ReactNode }) {
         sendChat,
         listRooms,
         clearError,
+        scanRoms,
+        launchEmulator,
       }}
     >
       {children}
