@@ -105,13 +105,15 @@ void luaHookFunction(lua_State* L, lua_Debug *arg)
 std::vector<LuaFunction*> definedLuaFunctions;//List of all defined lua functions
 QList<LuaLibrary*> luaLibraries;
 
-LuaLibrary::LuaLibrary(const char* libName,std::vector<luaL_Reg>* luaFuncs){
+LuaLibrary::LuaLibrary(const char* libName,std::vector<luaL_Reg>* luaFuncs)
+{
     this->libName=libName;
     this->luaFuncs=luaFuncs;
     luaLibraries.push_back(this);
 }
 
-void LuaLibrary::load(lua_State* L){
+void LuaLibrary::load(lua_State* L)
+{
     lua_createtable(L, 0, this->luaFuncs->size());
     this->luaFuncs->push_back((luaL_Reg){NULL,NULL});//append sentinel value
     luaL_setfuncs(L,this->luaFuncs->data(),0);

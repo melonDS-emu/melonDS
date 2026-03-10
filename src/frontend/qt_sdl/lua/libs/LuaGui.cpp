@@ -78,6 +78,7 @@ int Lua_SetCanvas(lua_State* L) //SetCanvas(int index)
     return 0;
 }
 AddGuiFunction(Lua_SetCanvas,SetCanvas);
+
 int Lua_ClearOverlay(lua_State* L)
 {
     LuaBundle* bundle = get_bundle(L);
@@ -98,7 +99,8 @@ AddGuiFunction(Lua_Flip,Flip);
 int Lua_CheckUpdate(lua_State* L)
 {
     LuaBundle* bundle = get_bundle(L);
-    if (bundle->luaCanvas->updated){
+    if (bundle->luaCanvas->updated)
+    {
         bundle->luaCanvas->flip();
         bundle->luaCanvas->imageBuffer->fill(0x00000000);
     }

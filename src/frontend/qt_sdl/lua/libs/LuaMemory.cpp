@@ -6,23 +6,25 @@ LuaLibrary memoryLibrary("memory",&memoryFunctions);//adds "memory" to the list 
 
 using namespace melonDS;
 
-enum isbus{
-	NotBus,
-	ARM9_Bus,
-	ARM7_Bus
+enum isbus
+{
+	isBus_NotBus,
+	isBus_ARM9_Bus,
+	isBus_ARM7_Bus
 };
 
-struct memoryDomain{
+struct memoryDomain
+{
 	NDS* CurrentNDS;
 	const char* name;
     u8* base;
     u64 size;
-	isbus SystemBus=NotBus;
+	isbus SystemBus=isBus_NotBus;
 	void write(u8* buffer,s64 address,s64 count);
 	void read(u8* buffer,s64 address,s64 count);
 };
-//https://github.com/TASEmulators/BizHawk/blob/master/waterbox/melon/BizDebugging.cpp#L148
 
+//https://github.com/TASEmulators/BizHawk/blob/master/waterbox/melon/BizDebugging.cpp#L148
 template <bool arm9>
 static bool SafeToPeek(u32 addr)
 {
@@ -58,6 +60,7 @@ static bool SafeToPeek(u32 addr)
 
 	return true;
 }
+
 //https://github.com/TASEmulators/BizHawk/blob/master/waterbox/melon/BizDebugging.cpp#L184
 static void ARM9Access(u8* buffer, s64 address, s64 count,bool write,NDS* CurrentNDS)
 {
@@ -104,6 +107,7 @@ static void ARM9Access(u8* buffer, s64 address, s64 count,bool write,NDS* Curren
 		}
 	}
 }
+
 //https://github.com/TASEmulators/BizHawk/blob/master/waterbox/melon/BizDebugging.cpp#L230
 static void ARM7Access(u8* buffer, s64 address, s64 count, bool write,NDS* CurrentNDS)
 {
@@ -130,28 +134,34 @@ static void ARM7Access(u8* buffer, s64 address, s64 count, bool write,NDS* Curre
 }
 
 void memoryDomain::write(u8* buffer,s64 address,s64 count){
-	switch(this->SystemBus){
-		case NotBus:
+	switch (this->SystemBus)
+	{
+		case isBus_NotBus:
 			while (count--)
-				if(this->size<address)return;
+			{
+				if (this->size<address) return;
 				this->base[address++] = *(buffer++);
+			}
 			return;
-		case ARM9_Bus:
+		case isBus_ARM9_Bus:
 			return ARM9Access(buffer,address,count,true,this->CurrentNDS);
-		case ARM7_Bus:
+		case isBus_ARM7_Bus:
 			return ARM7Access(buffer,address,count,true,this->CurrentNDS);
 	}
 }
 void memoryDomain::read(u8* buffer,s64 address,s64 count){
-	switch(this->SystemBus){
-		case NotBus:
+	switch (this->SystemBus)
+	{
+		case isBus_NotBus:
 			while (count--)
+			{
 				if (this->size<address) return;
 				*(buffer++) = this->base[address++];
+			}
 			return;
-		case ARM9_Bus:
+		case isBus_ARM9_Bus:
 			return ARM9Access(buffer,address,count,false,this->CurrentNDS);
-		case ARM7_Bus:
+		case isBus_ARM7_Bus:
 			return ARM7Access(buffer,address,count,false,this->CurrentNDS);
 	}
 }
@@ -161,7 +171,8 @@ namespace luaMemoryDefinitions
 //Macro to register lua_CFunction with 'name' to the "memory" library
 #define AddMemoryFunction(functPointer,name)LuaFunctionRegister name(&functPointer,#name,&memoryFunctions)
 
-memoryDomain get_currentMemoryDomain(LuaBundle* bundle){
+memoryDomain get_currentMemoryDomain(LuaBundle* bundle)
+{
 	if (bundle->currentMemoryDomain!=nullptr) return *bundle->currentMemoryDomain;
 	memoryDomain domain;
 	NDS* CurrentNDS = bundle->getEmuInstance()->getNDS();
@@ -178,16 +189,19 @@ memoryDomain get_currentMemoryDomain(LuaBundle* bundle){
  * or if unable to find the memoryDomain / the memoryDomain is currently unused. 
  * (based off BizHawk's API)
 **/
-memoryDomain L_checkForMemoryDomain(lua_State* L, int narg){
+memoryDomain L_checkForMemoryDomain(lua_State* L, int narg)
+{
 	LuaBundle* bundle = get_bundle(L);
 	NDS* CurrentNDS = bundle->getEmuInstance()->getNDS();
 	if (CurrentNDS == nullptr)
 		luaL_error(L,"No NDS memory currently loaded.\n");
-	if (lua_isnoneornil(L,narg)) return get_currentMemoryDomain(bundle);
+	if (lua_isnoneornil(L,narg)) 
+		return get_currentMemoryDomain(bundle);
 	const char* name = luaL_checklstring(L,narg,NULL);
 	memoryDomain domain;
 	domain.CurrentNDS=CurrentNDS;
-    #define ADD_MEMORY_DOMAIN(domain_name,domain_base,domain_size) if (std::strcmp(name,domain_name)==0){\
+    #define ADD_MEMORY_DOMAIN(domain_name,domain_base,domain_size) if (std::strcmp(name,domain_name)==0)\
+	{\
 		domain.name=domain_name;\
 		domain.base=domain_base;\
 		domain.size=domain_size;\
@@ -231,15 +245,17 @@ memoryDomain L_checkForMemoryDomain(lua_State* L, int narg){
 		ADD_MEMORY_DOMAIN("NWRAM C", dsi->NWRAM_C, melonDS::NWRAMSize);
 	}
 	// *Handeled seperatly
-	if (std::strcmp(name,"ARM9 System Bus")==0){ 
+	if (std::strcmp(name,"ARM9 System Bus")==0)
+	{ 
 		domain.name="ARM9 System Bus"; 
-		domain.SystemBus = ARM9_Bus;
+		domain.SystemBus = isBus_ARM9_Bus;
 		domain.size=1ull << 32; 
 		return domain; 
 	}
-	if (std::strcmp(name,"ARM7 System Bus")==0){ 
+	if (std::strcmp(name,"ARM7 System Bus")==0)
+	{ 
 		domain.name="ARM7 System Bus"; 
-		domain.SystemBus= ARM7_Bus; 
+		domain.SystemBus= isBus_ARM7_Bus; 
 		domain.size=1ull << 32; 
 		return domain; 
 	}
@@ -307,7 +323,8 @@ int Lua_getmemorydomainlist(lua_State* L)
 	domainList.push_back("ARM9 System Bus");
 	domainList.push_back("ARM7 System Bus");
 	lua_createtable(L,domainList.size(),0);
-	for(int i=1;i<=domainList.size();i++){
+	for (int i=1;i<=domainList.size();i++)
+	{
 		lua_pushstring(L,domainList.at(i-1));
 		lua_seti(L,-2,i);
 	}
@@ -329,7 +346,8 @@ int Lua_usememorydomain(lua_State* L)
 {
 	const char* name = luaL_checklstring(L,1,NULL);
 	memoryDomain domain = L_checkForMemoryDomain(L,1);
-	if (std::strcmp(name,domain.name)==0){
+	if (std::strcmp(name,domain.name)==0)
+	{
 		LuaBundle* bundle = get_bundle(L);
 		bundle->currentMemoryDomain = &domain;
 		lua_pushboolean(L,true);
@@ -352,7 +370,8 @@ int Lua_read_bytes_as_array(lua_State* L)
 	domain.read(buff,address,length);
 
     lua_createtable(L, length, 0);
-    for(int i=1;i<=length;i++){
+    for (int i=1;i<=length;i++)
+	{
 		if(domain.size<address++)break;
         lua_pushinteger(L,buff[i-1]);
         lua_seti(L,-2,i);
@@ -372,7 +391,8 @@ int Lua_write_bytes_as_array(lua_State* L)
     luaL_checktype(L,2,LUA_TTABLE);//check arg2 is a TABLE
 	std::vector<u8> buff;
 	lua_geti(L,2,1);//push arg2[1] to top of stack
-    for(int i=1;!lua_isnil(L,-1);lua_geti(L,2,++i)){//loop until arg2[i]==nil
+    for (int i=1;!lua_isnil(L,-1);lua_geti(L,2,++i)) //loop until arg2[i]==nil
+	{	
 		if(domain.size<(address+i-2))break;
         u8 byte = luaL_checkinteger(L,-1); 
 		buff.push_back(byte);
@@ -381,11 +401,14 @@ int Lua_write_bytes_as_array(lua_State* L)
 	domain.write(buff.data(),address,buff.size());
     return 0; 
 }
+AddMemoryFunction(Lua_write_bytes_as_array,write_bytes_as_array);
 
 //TODO: memory.write_bytes_as_dict
 
-void byteswap(u8* arr,size_t size){
-	for(int i = 0; i < size/2; i++) {
+void byteswap(u8* arr,size_t size)
+{
+	for(int i = 0; i < size/2; i++)
+	{
     	std::swap(arr[i], arr[size - i - 1]);
     }
 	return;
@@ -405,18 +428,25 @@ template <typename T, bool Be=false> int Lua_WriteData(lua_State* L)
 }
 
 //Scuffed support for 'dummy' 24bit types...
-namespace dummyIntType{
-	struct u24{
-		u8 bytes[3];
-	};
-	static_assert(sizeof(u24)==3);
-	struct s24{
-		u8 bytes[3];
-	};
-	static_assert(sizeof(s24)==3);
-	template <typename T> constexpr bool isSigned = ((T)0 - 1 > 0);
-	template <> constexpr bool isSigned<u24> = false;
-	template <> constexpr bool isSigned<s24> = true;
+namespace dummyIntType
+{
+
+struct u24
+{
+	u8 bytes[3];
+};
+static_assert(sizeof(u24)==3);
+
+struct s24
+{
+	u8 bytes[3];
+};
+static_assert(sizeof(s24)==3);
+
+template <typename T> constexpr bool isSigned = ((T)0 - 1 > 0);
+template <> constexpr bool isSigned<u24> = false;
+template <> constexpr bool isSigned<s24> = true;
+
 }
 
 template <typename T, bool Be=false> int Lua_ReadData(lua_State* L) 
@@ -428,7 +458,8 @@ template <typename T, bool Be=false> int Lua_ReadData(lua_State* L)
 	if (address<=domain.size-sizeof(T))
 		domain.read(bits,address,sizeof(T));
 	if (Be) byteswap(bits,sizeof(T));
-	if (dummyIntType::isSigned<T>){
+	if (dummyIntType::isSigned<T>)
+	{
 		//if MSB is negative, set all 'unused' bytes in the s64 to 0xff 
 		if((*(s8*)(bits))<0) memset(&value,0xff,(sizeof(s64)-sizeof(T)));
 	}

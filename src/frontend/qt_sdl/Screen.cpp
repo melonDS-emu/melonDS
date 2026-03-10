@@ -1335,9 +1335,8 @@ void ScreenPanelGL::drawScreen()
         glBindBuffer(GL_ARRAY_BUFFER, screenVertexBuffer);
         glBindVertexArray(screenVertexArray);
 
-        for(int i = 0;i<numScreens;i++){
+        for (int i = 0;i<numScreens;i++)
             drawOverlays(screenKind[i],i);
-        }
 
 
         screenSettingsLock.unlock();

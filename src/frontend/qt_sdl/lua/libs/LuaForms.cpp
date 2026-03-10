@@ -11,7 +11,8 @@ void LuaConsoleDialog::onLuaCallback()
     bundle->luaCallback(ref);
 }
 
-void LuaBundle::luaCallback(int ref){
+void LuaBundle::luaCallback(int ref)
+{
     //Call refrenced lua function
     if (!luaState || flagPause) return;
     lua_rawgeti(luaState, LUA_REGISTRYINDEX, ref);
@@ -33,7 +34,8 @@ namespace luaFormDefinitions
 //Macro to register lua_CFunction with 'name' to the "form" library
 #define AddFormFunction(functPointer,name)LuaFunctionRegister name(functPointer,#name,&formFunctions)
 
-int Lua_newForm(lua_State* L){
+int Lua_newForm(lua_State* L)
+{
     LuaBundle* bundle = get_bundle(L);
     int w = 100;
     int h = 100;
@@ -141,7 +143,8 @@ int Lua_newButton(lua_State* L)
 }
 AddFormFunction(Lua_newButton,button);
 
-int Lua_setLocation(lua_State* L){
+int Lua_setLocation(lua_State* L)
+{
     LuaBundle* bundle = get_bundle(L);
     int index = luaL_checkinteger(L,1);
     //TODO: check given index is valid
@@ -153,7 +156,8 @@ int Lua_setLocation(lua_State* L){
 }
 AddFormFunction(Lua_setLocation,setlocation);
 
-int Lua_setDropDownItems(lua_State* L){
+int Lua_setDropDownItems(lua_State* L)
+{
     LuaBundle* bundle = get_bundle(L);
     int index = luaL_checkinteger(L,1);
     //TODO: check given index is valid
@@ -179,10 +183,13 @@ int Lua_setProperty(lua_State* L)
     int index = luaL_checkinteger(L,1);
     QWidget* widget = bundle->luaWidgets->at(index);
     const char* propName = luaL_checkstring(L,2);
-    if(lua_type(L,3)==LUA_TSTRING){
+    if (lua_type(L,3)==LUA_TSTRING)
+    {
         const char* str = luaL_checkstring(L,3);
         lua_pushboolean(L,widget->setProperty(propName,(QString)str));
-    }else{
+    }
+    else
+    {
         double num = luaL_checknumber(L,3);
         lua_pushboolean(L,widget->setProperty(propName,num));
     }
@@ -195,10 +202,6 @@ int Lua_getText(lua_State* L)
     LuaBundle* bundle = get_bundle(L);
     int index = luaL_checkinteger(L,1);
     QWidget* widget = bundle->luaWidgets->at(index);
-    // const QMetaObject* metaObject = widget->metaObject();
-    // for(int i = metaObject->propertyOffset(); i < metaObject->propertyCount(); ++i){
-    //     bundle->printText(QString::fromLatin1(metaObject->property(i).name()));
-    // }
     QString text = widget->property("currentText").toString();
     lua_pushstring(L,text.toStdString().c_str());
     return 1;
