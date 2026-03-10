@@ -833,6 +833,10 @@ void MainWindow::closeEvent(QCloseEvent* event)
             saveEnabled(false);
     }
 
+    //close lua console
+    LuaConsoleDialog* dialog = getLuaDialog();
+    if (dialog) dialog->close();
+
     // explicitly close children windows, so the OpenGL contexts get closed properly
     auto childwins = findChildren<MainWindow *>(nullptr, Qt::FindDirectChildrenOnly);
     for (auto child : childwins)
