@@ -42,7 +42,8 @@ Most emulators treat multiplayer as an afterthought. RetroOasis makes it the mai
 │   Emulator Bridge · Save System · Game DB    │
 ├─────────────────────────────────────────────┤
 │           Emulator Backends (External)       │
-│   FCEUX · Snes9x · mGBA · Mupen64+ · melonDS│
+│  FCEUX · Snes9x · mGBA · SameBoy · VBA-M    │
+│  Mupen64Plus · melonDS                        │
 └─────────────────────────────────────────────┘
 ```
 
@@ -82,12 +83,23 @@ Most emulators treat multiplayer as an afterthought. RetroOasis makes it the mai
 
 ## Supported Systems
 
-| System | Backend | Phase |
-|--------|---------|-------|
-| NES | FCEUX | 1 |
-| SNES | Snes9x | 1 |
-| Game Boy | mGBA | 1 |
-| Game Boy Color | mGBA | 1 |
-| Game Boy Advance | mGBA | 1 |
-| Nintendo 64 | Mupen64Plus | 2 |
-| Nintendo DS | melonDS | 3 |
+| System | Backend | Fallback(s) | Phase |
+|--------|---------|-------------|-------|
+| NES | FCEUX | — | 1 |
+| SNES | Snes9x | bsnes | 1 |
+| Game Boy | mGBA | SameBoy, Gambatte | 1 |
+| Game Boy Color | mGBA | SameBoy, Gambatte | 1 |
+| Game Boy Advance | mGBA | VisualBoyAdvance-M | 1 |
+| Nintendo 64 | Mupen64Plus | Project64 | 2 |
+| Nintendo DS | melonDS | DeSmuME | 3 |
+
+### Link Cable Emulation
+
+GB, GBC, and GBA games that use the link cable (Pokémon trades/battles, Zelda Four Swords, etc.) connect
+through the RetroOasis TCP relay using the emulator's link cable TCP flag:
+
+| Backend | Link Cable Flag |
+|---------|----------------|
+| mGBA | `--link-host <host>:<port>` |
+| SameBoy | `--link-address <host>:<port>` |
+| VisualBoyAdvance-M | `--link-host <host>:<port>` |
