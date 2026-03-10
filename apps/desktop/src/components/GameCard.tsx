@@ -1,7 +1,7 @@
 import { Link } from 'react-router-dom';
-import type { MockGame } from '../data/mock-games';
+import type { ApiGame } from '../types/api';
 
-export function GameCard({ game }: { game: MockGame }) {
+export function GameCard({ game }: { game: ApiGame }) {
   const is4PParty = game.maxPlayers >= 4 && game.tags.includes('Party');
   return (
     <Link

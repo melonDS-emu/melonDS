@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
-import { MOCK_GAMES } from '../data/mock-games';
+import { useGame } from '../lib/use-games';
 import { HostRoomModal } from '../components/HostRoomModal';
 import { useLobby } from '../context/LobbyContext';
 
@@ -28,14 +28,22 @@ export function GameDetailsPage() {
   const { createRoom, currentRoom } = useLobby();
   const [showHost, setShowHost] = useState(false);
 
-  const game = MOCK_GAMES.find((g) => g.id === gameId);
+  const { data: game, loading, error } = useGame(gameId);
 
   // Navigate to lobby after room is created
   useEffect(() => {
     if (currentRoom) navigate(`/lobby/${currentRoom.id}`);
   }, [currentRoom, navigate]);
 
-  if (!game) {
+  if (loading) {
+    return (
+      <div className="text-center py-12">
+        <p style={{ color: 'var(--color-oasis-text-muted)' }}>Loading…</p>
+      </div>
+    );
+  }
+
+  if (error || !game) {
     return (
       <div className="text-center py-12">
         <p style={{ color: 'var(--color-oasis-text-muted)' }}>Game not found.</p>

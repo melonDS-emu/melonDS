@@ -1,5 +1,5 @@
-import { useState } from 'react';
-import { MOCK_GAMES } from '../data/mock-games';
+import { useState, useEffect } from 'react';
+import { useGames } from '../lib/use-games';
 import type { CreateRoomPayload } from '../services/lobby-types';
 
 interface HostRoomModalProps {
@@ -9,26 +9,36 @@ interface HostRoomModalProps {
 }
 
 export function HostRoomModal({ preselectedGameId, onConfirm, onClose }: HostRoomModalProps) {
-  const defaultGame = MOCK_GAMES.find((g) => g.id === preselectedGameId) ?? MOCK_GAMES[0];
-
-  const [roomName, setRoomName] = useState(`${defaultGame.title} Room`);
-  const [selectedGameId, setSelectedGameId] = useState(defaultGame.id);
+  const { data: games } = useGames();
+  const [roomName, setRoomName] = useState('');
+  const [selectedGameId, setSelectedGameId] = useState('');
   const [displayName, setDisplayName] = useState(
     () => localStorage.getItem('retro-oasis-display-name') ?? ''
   );
   const [isPublic, setIsPublic] = useState(true);
+  const [seeded, setSeeded] = useState(false);
 
-  const selectedGame = MOCK_GAMES.find((g) => g.id === selectedGameId) ?? MOCK_GAMES[0];
+  // Seed form defaults once the game list becomes available
+  useEffect(() => {
+    if (seeded || games.length === 0) return;
+    const defaultGame =
+      (preselectedGameId ? games.find((g) => g.id === preselectedGameId) : null) ?? games[0];
+    setSelectedGameId(defaultGame.id);
+    setRoomName(`${defaultGame.title} Room`);
+    setSeeded(true);
+  }, [games, preselectedGameId, seeded]);
+
+  const selectedGame = games.find((g) => g.id === selectedGameId) ?? games[0];
 
   function handleGameChange(gameId: string) {
-    const game = MOCK_GAMES.find((g) => g.id === gameId);
+    const game = games.find((g) => g.id === gameId);
     setSelectedGameId(gameId);
     if (game) setRoomName(`${game.title} Room`);
   }
 
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    if (!displayName.trim()) return;
+    if (!displayName.trim() || !selectedGame) return;
     localStorage.setItem('retro-oasis-display-name', displayName.trim());
 
     onConfirm(
@@ -92,7 +102,7 @@ export function HostRoomModal({ preselectedGameId, onConfirm, onClose }: HostRoo
                 color: 'var(--color-oasis-text)',
               }}
             >
-              {MOCK_GAMES.map((g) => (
+              {games.map((g) => (
                 <option key={g.id} value={g.id}>
                   {g.coverEmoji} {g.title} ({g.system}) — {g.maxPlayers}P
                 </option>
