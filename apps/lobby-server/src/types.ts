@@ -73,7 +73,7 @@ export type ServerMessage =
   | { type: 'room-left'; roomId: string }
   | { type: 'room-updated'; room: Room }
   | { type: 'room-list'; rooms: Room[] }
-  | { type: 'game-starting'; roomId: string; relayPort?: number; relayHost?: string }
+  | { type: 'game-starting'; roomId: string; relayPort?: number; relayHost?: string; sessionToken?: string }
   | { type: 'error'; message: string }
   | { type: 'chat-broadcast'; roomId: string; userId: string; displayName: string; content: string; sentAt: string }
   | { type: 'welcome'; playerId: string }

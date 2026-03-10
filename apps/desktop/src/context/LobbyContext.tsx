@@ -15,10 +15,27 @@ import type {
   CreateRoomPayload,
   JoinRoomPayload,
 } from '../services/lobby-types';
+import { getRomDirectory, getSaveDirectory } from '../lib/rom-settings';
 
-const WS_URL = 'ws://localhost:8080';
+const WS_URL = import.meta.env.VITE_WS_URL ?? 'ws://localhost:8080';
+/** Base URL for the local HTTP launch API (same host as the lobby server by default). */
+const LAUNCH_API_BASE = import.meta.env.VITE_LAUNCH_API_URL ?? WS_URL.replace(/^ws/, 'http');
 const RECONNECT_DELAY_MS = 3000;
 const PING_INTERVAL_MS = 10_000;
+
+/** Returns the default emulator backend ID for a given system, or null if unknown. */
+function defaultBackendId(system: string): string | null {
+  switch (system.toLowerCase()) {
+    case 'n64': return 'mupen64plus';
+    case 'nds': return 'melonds';
+    case 'gba': return 'mgba';
+    case 'gb':
+    case 'gbc': return 'sameboy';
+    case 'nes': return 'fceux';
+    case 'snes': return 'snes9x';
+    default: return null;
+  }
+}
 
 export type ConnectionState = 'disconnected' | 'connecting' | 'connected' | 'error';
 
@@ -38,6 +55,8 @@ interface LobbyContextValue {
   latencyMs: number | null;
   /** Relay info set when a game starts. */
   relayInfo: RelayInfo | null;
+  /** Session token for the relay TCP connection (set when game starts). */
+  sessionToken: string | null;
 
   // Actions
   createRoom: (payload: Omit<CreateRoomPayload, 'displayName'>, displayName: string) => void;
@@ -63,13 +82,16 @@ export function LobbyProvider({ children }: { children: ReactNode }) {
   const [error, setError] = useState<string | null>(null);
   const [latencyMs, setLatencyMs] = useState<number | null>(null);
   const [relayInfo, setRelayInfo] = useState<RelayInfo | null>(null);
+  const [sessionToken, setSessionToken] = useState<string | null>(null);
 
   const wsRef = useRef<WebSocket | null>(null);
   const currentRoomRef = useRef<Room | null>(null);
+  const playerIdRef = useRef<string | null>(null);
   const pingTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
-  // Keep ref in sync with state for use in closures
+  // Keep refs in sync with state for use in closures
   currentRoomRef.current = currentRoom;
+  playerIdRef.current = playerId;
 
   const send = useCallback((msg: ClientMessage) => {
     if (wsRef.current?.readyState === WebSocket.OPEN) {
@@ -150,21 +172,56 @@ export function LobbyProvider({ children }: { children: ReactNode }) {
             setPublicRooms(msg.rooms);
             break;
 
-          case 'game-starting':
-            if (msg.relayPort) {
-              setRelayInfo({
-                port: msg.relayPort,
-                host: msg.relayHost ?? 'localhost',
-              });
+          case 'game-starting': {
+            const relayPort = msg.relayPort;
+            const relayHost = msg.relayHost ?? 'localhost';
+            if (relayPort) {
+              setRelayInfo({ port: relayPort, host: relayHost });
+            }
+            if (msg.sessionToken) {
+              setSessionToken(msg.sessionToken);
             }
             // Mark room as in-game so clients can show the correct status
             // even if they reload or reconnect.
             setCurrentRoom((prev) =>
               prev?.id === msg.roomId
-                ? { ...prev, status: 'in-game', relayPort: msg.relayPort }
+                ? { ...prev, status: 'in-game', relayPort }
                 : prev
             );
+
+            // Attempt to auto-launch the emulator if the ROM directory is configured
+            // and a session token was provided (i.e. this client is a player, not a spectator).
+            if (msg.sessionToken && relayPort) {
+              const romDir = getRomDirectory();
+              if (romDir) {
+                const room = currentRoomRef.current;
+                const myPlayerId = playerIdRef.current;
+                const mySlot = room?.players.find((p) => p.id === myPlayerId)?.slot ?? 0;
+                const backendId = defaultBackendId(room?.system ?? '');
+
+                if (backendId) {
+                  const saveDir = getSaveDirectory() || romDir;
+                  fetch(`${LAUNCH_API_BASE}/api/launch`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                      romPath: romDir,
+                      system: room?.system ?? '',
+                      backendId,
+                      saveDirectory: saveDir,
+                      playerSlot: mySlot,
+                      netplayHost: relayHost,
+                      netplayPort: relayPort,
+                    }),
+                  }).catch(() => {
+                    // Launch errors are non-fatal — the user can still start their
+                    // emulator manually using the relay endpoint shown in the UI.
+                  });
+                }
+              }
+            }
             break;
+          }
 
           case 'chat-broadcast':
             setChatMessages((prev) => [
@@ -204,6 +261,7 @@ export function LobbyProvider({ children }: { children: ReactNode }) {
         // auto-join effect on LobbyPage can re-trigger correctly.
         setCurrentRoom(null);
         setRelayInfo(null);
+        setSessionToken(null);
         setChatMessages([]);
         stopPing();
         // Attempt to reconnect after 3 seconds
@@ -263,6 +321,7 @@ export function LobbyProvider({ children }: { children: ReactNode }) {
       send({ type: 'leave-room', payload: { roomId: room.id } });
       setCurrentRoom(null);
       setRelayInfo(null);
+      setSessionToken(null);
       setChatMessages([]);
     }
   }, [send]);
@@ -308,6 +367,7 @@ export function LobbyProvider({ children }: { children: ReactNode }) {
         error,
         latencyMs,
         relayInfo,
+        sessionToken,
         createRoom,
         joinByCode,
         joinById,

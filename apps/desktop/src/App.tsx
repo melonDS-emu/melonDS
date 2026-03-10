@@ -6,6 +6,7 @@ import { LobbyPage } from './pages/LobbyPage';
 import { LibraryPage } from './pages/LibraryPage';
 import { SavesPage } from './pages/SavesPage';
 import { FriendsPage } from './pages/FriendsPage';
+import { SettingsPage } from './pages/SettingsPage';
 
 export function App() {
   return (
@@ -17,6 +18,7 @@ export function App() {
         <Route path="/lobby/:lobbyId" element={<LobbyPage />} />
         <Route path="/saves" element={<SavesPage />} />
         <Route path="/friends" element={<FriendsPage />} />
+        <Route path="/settings" element={<SettingsPage />} />
       </Route>
     </Routes>
   );

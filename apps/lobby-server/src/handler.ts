@@ -145,10 +145,27 @@ export function handleConnection(ws: WebSocket, lobby: LobbyManager, relay: Netp
         // Broadcast room-updated first so clients persist the in-game status and
         // relay port — this allows reconnecting clients to rehydrate correctly.
         broadcast(playerIds, { type: 'room-updated', room });
-        broadcast(playerIds, {
+
+        // Generate a unique session token per player so the relay can identify each
+        // emulator connection. Spectators receive the event without a token.
+        for (const player of room.players) {
+          const playerWs = connections.get(player.id);
+          if (playerWs) {
+            send(playerWs, {
+              type: 'game-starting',
+              roomId: room.id,
+              relayPort,
+              relayHost: 'localhost',
+              sessionToken: randomUUID(),
+            });
+          }
+        }
+        const spectatorIds = room.spectators.map((s) => s.id);
+        broadcast(spectatorIds, {
           type: 'game-starting',
           roomId: room.id,
           relayPort,
+          relayHost: 'localhost',
         });
         break;
       }

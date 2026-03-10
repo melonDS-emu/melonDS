@@ -70,6 +70,7 @@ export function LobbyPage() {
     clearError,
     latencyMs,
     relayInfo,
+    sessionToken,
   } = useLobby();
 
   const [chatInput, setChatInput] = useState('');
@@ -280,6 +281,16 @@ export function LobbyPage() {
               </div>
             )}
           </div>
+          {sessionToken && (
+            <div className="mt-2 pt-2" style={{ borderTop: '1px solid rgba(255,255,255,0.06)' }}>
+              <p className="text-[11px] mb-0.5" style={{ color: 'var(--color-oasis-text-muted)' }}>
+                Session token (for manual emulator setup)
+              </p>
+              <p className="font-mono text-[11px] break-all" style={{ color: 'var(--color-oasis-text)' }}>
+                {sessionToken}
+              </p>
+            </div>
+          )}
         </div>
 
         {/* Player list */}
