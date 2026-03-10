@@ -2,10 +2,11 @@ import { useState } from 'react';
 
 interface JoinRoomModalProps {
   onConfirm: (roomCode: string, displayName: string) => void;
+  onSpectate?: (roomCode: string, displayName: string) => void;
   onClose: () => void;
 }
 
-export function JoinRoomModal({ onConfirm, onClose }: JoinRoomModalProps) {
+export function JoinRoomModal({ onConfirm, onSpectate, onClose }: JoinRoomModalProps) {
   const [roomCode, setRoomCode] = useState('');
   const [displayName, setDisplayName] = useState(
     () => localStorage.getItem('retro-oasis-display-name') ?? ''
@@ -16,6 +17,12 @@ export function JoinRoomModal({ onConfirm, onClose }: JoinRoomModalProps) {
     if (!displayName.trim() || !roomCode.trim()) return;
     localStorage.setItem('retro-oasis-display-name', displayName.trim());
     onConfirm(roomCode.trim().toUpperCase(), displayName.trim());
+  }
+
+  function handleSpectate() {
+    if (!displayName.trim() || !roomCode.trim()) return;
+    localStorage.setItem('retro-oasis-display-name', displayName.trim());
+    onSpectate?.(roomCode.trim().toUpperCase(), displayName.trim());
   }
 
   return (
@@ -81,6 +88,17 @@ export function JoinRoomModal({ onConfirm, onClose }: JoinRoomModalProps) {
             >
               Cancel
             </button>
+            {onSpectate && (
+              <button
+                type="button"
+                onClick={handleSpectate}
+                disabled={!displayName.trim() || !roomCode.trim()}
+                className="flex-1 py-3 rounded-xl font-bold text-sm disabled:opacity-40"
+                style={{ backgroundColor: 'var(--color-oasis-surface)', color: 'var(--color-oasis-text)' }}
+              >
+                👁 Spectate
+              </button>
+            )}
             <button
               type="submit"
               className="flex-1 py-3 rounded-xl font-bold text-sm transition-transform hover:scale-[1.02] active:scale-[0.98]"

@@ -17,6 +17,10 @@ export interface AdapterOptions {
   saveDirectory?: string;
   configPath?: string;
   playerSlot?: number;
+  /** Netplay relay or peer host to connect to */
+  netplayHost?: string;
+  /** Netplay relay or peer port */
+  netplayPort?: number;
   /** NDS-specific */
   screenLayout?: string;
   touchEnabled?: boolean;
@@ -26,6 +30,13 @@ export interface AdapterOptions {
  * Factory to create a system adapter for a given system.
  * Each adapter encapsulates the launch arguments and save path logic
  * specific to that system's preferred emulator backend.
+ *
+ * Netplay argument conventions:
+ *  - FCEUX:      --net <host>:<port> --player <slot>
+ *  - Snes9x:     -netplay <host> <port>
+ *  - mGBA:       --link-host <host>:<port>  (link cable over TCP)
+ *  - Mupen64Plus: --netplay-host <host> --netplay-port <port>
+ *  - melonDS:    --wifi-host <host> --wifi-port <port>
  */
 export function createSystemAdapter(system: string): SystemAdapterConfig {
   switch (system) {
@@ -37,6 +48,12 @@ export function createSystemAdapter(system: string): SystemAdapterConfig {
         buildLaunchArgs: (romPath, options) => {
           const args = [romPath];
           if (options.fullscreen) args.push('--fullscreen');
+          if (options.netplayHost && options.netplayPort) {
+            args.push('--net', `${options.netplayHost}:${options.netplayPort}`);
+            if (options.playerSlot !== undefined) {
+              args.push('--player', String(options.playerSlot + 1));
+            }
+          }
           return args;
         },
         getSavePath: (gameId, baseDir) => `${baseDir}/nes/${gameId}`,
@@ -50,6 +67,9 @@ export function createSystemAdapter(system: string): SystemAdapterConfig {
         buildLaunchArgs: (romPath, options) => {
           const args = [romPath];
           if (options.fullscreen) args.push('-fullscreen');
+          if (options.netplayHost && options.netplayPort) {
+            args.push('-netplay', options.netplayHost, String(options.netplayPort));
+          }
           return args;
         },
         getSavePath: (gameId, baseDir) => `${baseDir}/snes/${gameId}`,
@@ -65,6 +85,10 @@ export function createSystemAdapter(system: string): SystemAdapterConfig {
         buildLaunchArgs: (romPath, options) => {
           const args = ['-f', romPath];
           if (options.fullscreen) args.push('--fullscreen');
+          // mGBA link cable over TCP — used for Pokémon trades, battles, etc.
+          if (options.netplayHost && options.netplayPort) {
+            args.push('--link-host', `${options.netplayHost}:${options.netplayPort}`);
+          }
           return args;
         },
         getSavePath: (gameId, baseDir) => `${baseDir}/${system}/${gameId}`,
@@ -78,6 +102,10 @@ export function createSystemAdapter(system: string): SystemAdapterConfig {
         buildLaunchArgs: (romPath, options) => {
           const args = ['--rom', romPath];
           if (options.fullscreen) args.push('--fullscreen');
+          if (options.netplayHost && options.netplayPort) {
+            args.push('--netplay-host', options.netplayHost);
+            args.push('--netplay-port', String(options.netplayPort));
+          }
           return args;
         },
         getSavePath: (gameId, baseDir) => `${baseDir}/n64/${gameId}`,
@@ -92,6 +120,11 @@ export function createSystemAdapter(system: string): SystemAdapterConfig {
           const args = [romPath];
           if (options.fullscreen) args.push('--fullscreen');
           if (options.screenLayout) args.push(`--screen-layout=${options.screenLayout}`);
+          // melonDS Wi-Fi relay — used for NDS Pokémon WFC features
+          if (options.netplayHost && options.netplayPort) {
+            args.push('--wifi-host', options.netplayHost);
+            args.push('--wifi-port', String(options.netplayPort));
+          }
           return args;
         },
         getSavePath: (gameId, baseDir) => `${baseDir}/nds/${gameId}`,

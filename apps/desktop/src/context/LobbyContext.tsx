@@ -13,12 +13,19 @@ import type {
   Room,
   ChatMessage,
   CreateRoomPayload,
+  JoinRoomPayload,
 } from '../services/lobby-types';
 
 const WS_URL = 'ws://localhost:8080';
 const RECONNECT_DELAY_MS = 3000;
+const PING_INTERVAL_MS = 10_000;
 
 export type ConnectionState = 'disconnected' | 'connecting' | 'connected' | 'error';
+
+export interface RelayInfo {
+  port: number;
+  host: string;
+}
 
 interface LobbyContextValue {
   connectionState: ConnectionState;
@@ -27,11 +34,16 @@ interface LobbyContextValue {
   publicRooms: Room[];
   chatMessages: ChatMessage[];
   error: string | null;
+  /** Latency to the lobby server in ms, updated every ping cycle. */
+  latencyMs: number | null;
+  /** Relay info set when a game starts. */
+  relayInfo: RelayInfo | null;
 
   // Actions
   createRoom: (payload: Omit<CreateRoomPayload, 'displayName'>, displayName: string) => void;
   joinByCode: (roomCode: string, displayName: string) => void;
   joinById: (roomId: string, displayName: string) => void;
+  joinAsSpectator: (payload: Omit<JoinRoomPayload, 'displayName'>, displayName: string) => void;
   leaveRoom: () => void;
   toggleReady: () => void;
   startGame: () => void;
@@ -49,9 +61,12 @@ export function LobbyProvider({ children }: { children: ReactNode }) {
   const [publicRooms, setPublicRooms] = useState<Room[]>([]);
   const [chatMessages, setChatMessages] = useState<ChatMessage[]>([]);
   const [error, setError] = useState<string | null>(null);
+  const [latencyMs, setLatencyMs] = useState<number | null>(null);
+  const [relayInfo, setRelayInfo] = useState<RelayInfo | null>(null);
 
   const wsRef = useRef<WebSocket | null>(null);
   const currentRoomRef = useRef<Room | null>(null);
+  const pingTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   // Keep ref in sync with state for use in closures
   currentRoomRef.current = currentRoom;
@@ -67,6 +82,22 @@ export function LobbyProvider({ children }: { children: ReactNode }) {
     let reconnectTimeout: ReturnType<typeof setTimeout> | null = null;
     let unmounted = false;
 
+    function startPing() {
+      if (pingTimerRef.current) clearInterval(pingTimerRef.current);
+      pingTimerRef.current = setInterval(() => {
+        if (ws?.readyState === WebSocket.OPEN) {
+          ws.send(JSON.stringify({ type: 'ping', payload: { sentAt: Date.now() } } satisfies ClientMessage));
+        }
+      }, PING_INTERVAL_MS);
+    }
+
+    function stopPing() {
+      if (pingTimerRef.current) {
+        clearInterval(pingTimerRef.current);
+        pingTimerRef.current = null;
+      }
+    }
+
     function connect() {
       if (unmounted) return;
       setConnectionState('connecting');
@@ -78,6 +109,7 @@ export function LobbyProvider({ children }: { children: ReactNode }) {
         setConnectionState('connected');
         // Request public rooms when connected
         ws.send(JSON.stringify({ type: 'list-rooms' } satisfies ClientMessage));
+        startPing();
       };
 
       ws.onmessage = (event: MessageEvent<string>) => {
@@ -119,7 +151,12 @@ export function LobbyProvider({ children }: { children: ReactNode }) {
             break;
 
           case 'game-starting':
-            // Game is starting — could trigger emulator launch here
+            if (msg.relayPort) {
+              setRelayInfo({
+                port: msg.relayPort,
+                host: msg.relayHost ?? 'localhost',
+              });
+            }
             break;
 
           case 'chat-broadcast':
@@ -135,6 +172,16 @@ export function LobbyProvider({ children }: { children: ReactNode }) {
             ]);
             break;
 
+          case 'pong': {
+            // Use serverAt to get a more accurate half-RTT estimate:
+            // elapsed = (now - sentAt), half_rtt ≈ (now - serverAt)
+            // We report the full round-trip but clamp to avoid negative values
+            // caused by minor clock drift.
+            const rtt = Math.max(0, Date.now() - msg.sentAt);
+            setLatencyMs(rtt);
+            break;
+          }
+
           case 'error':
             setError(msg.message);
             break;
@@ -145,6 +192,8 @@ export function LobbyProvider({ children }: { children: ReactNode }) {
         if (unmounted) return;
         setConnectionState('disconnected');
         setPlayerId(null);
+        setLatencyMs(null);
+        stopPing();
         // Attempt to reconnect after 3 seconds
         reconnectTimeout = setTimeout(connect, RECONNECT_DELAY_MS);
       };
@@ -160,6 +209,7 @@ export function LobbyProvider({ children }: { children: ReactNode }) {
     return () => {
       unmounted = true;
       if (reconnectTimeout) clearTimeout(reconnectTimeout);
+      stopPing();
       ws?.close();
     };
   }, []);
@@ -188,11 +238,19 @@ export function LobbyProvider({ children }: { children: ReactNode }) {
     [send]
   );
 
+  const joinAsSpectator = useCallback(
+    (payload: Omit<JoinRoomPayload, 'displayName'>, displayName: string) => {
+      send({ type: 'join-as-spectator', payload: { ...payload, displayName } });
+    },
+    [send]
+  );
+
   const leaveRoom = useCallback(() => {
     const room = currentRoomRef.current;
     if (room) {
       send({ type: 'leave-room', payload: { roomId: room.id } });
       setCurrentRoom(null);
+      setRelayInfo(null);
     }
   }, [send]);
 
@@ -235,9 +293,12 @@ export function LobbyProvider({ children }: { children: ReactNode }) {
         publicRooms,
         chatMessages,
         error,
+        latencyMs,
+        relayInfo,
         createRoom,
         joinByCode,
         joinById,
+        joinAsSpectator,
         leaveRoom,
         toggleReady,
         startGame,

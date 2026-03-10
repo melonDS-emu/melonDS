@@ -5,6 +5,7 @@
 
 export type LobbyStatus = 'waiting' | 'ready' | 'in-game' | 'closed';
 export type PlayerReadyState = 'not-ready' | 'ready';
+export type ConnectionQuality = 'excellent' | 'good' | 'fair' | 'poor' | 'unknown';
 
 export interface Room {
   id: string;
@@ -17,8 +18,10 @@ export interface Room {
   roomCode: string;
   maxPlayers: number;
   players: RoomPlayer[];
+  spectators: RoomSpectator[];
   status: LobbyStatus;
   createdAt: string;
+  relayPort?: number;
 }
 
 export interface RoomPlayer {
@@ -27,6 +30,14 @@ export interface RoomPlayer {
   readyState: PlayerReadyState;
   slot: number;
   isHost: boolean;
+  joinedAt: string;
+  connectionQuality: ConnectionQuality;
+  latencyMs?: number;
+}
+
+export interface RoomSpectator {
+  id: string;
+  displayName: string;
   joinedAt: string;
 }
 
@@ -42,11 +53,13 @@ export interface ChatMessage {
 export type ClientMessage =
   | { type: 'create-room'; payload: CreateRoomPayload }
   | { type: 'join-room'; payload: JoinRoomPayload }
+  | { type: 'join-as-spectator'; payload: JoinRoomPayload }
   | { type: 'leave-room'; payload: { roomId: string } }
   | { type: 'toggle-ready'; payload: { roomId: string } }
   | { type: 'list-rooms' }
   | { type: 'start-game'; payload: { roomId: string } }
-  | { type: 'chat'; payload: { roomId: string; content: string } };
+  | { type: 'chat'; payload: { roomId: string; content: string } }
+  | { type: 'ping'; payload: { sentAt: number } };
 
 export interface CreateRoomPayload {
   name: string;
@@ -72,6 +85,7 @@ export type ServerMessage =
   | { type: 'room-left'; roomId: string }
   | { type: 'room-updated'; room: Room }
   | { type: 'room-list'; rooms: Room[] }
-  | { type: 'game-starting'; roomId: string }
+  | { type: 'game-starting'; roomId: string; relayPort?: number; relayHost?: string }
   | { type: 'error'; message: string }
-  | { type: 'chat-broadcast'; roomId: string; userId: string; displayName: string; content: string; sentAt: string };
+  | { type: 'chat-broadcast'; roomId: string; userId: string; displayName: string; content: string; sentAt: string }
+  | { type: 'pong'; sentAt: number; serverAt: number };
