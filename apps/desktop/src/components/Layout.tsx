@@ -3,6 +3,7 @@ import { Outlet, Link, useLocation } from 'react-router-dom';
 const NAV_ITEMS = [
   { path: '/', label: '🏠 Home', emoji: '🏠' },
   { path: '/library', label: '🎮 Library', emoji: '🎮' },
+  { path: '/saves', label: '💾 Saves', emoji: '💾' },
 ];
 
 export function Layout() {
