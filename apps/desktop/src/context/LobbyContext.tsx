@@ -58,6 +58,8 @@ interface LobbyContextValue {
   relayInfo: RelayInfo | null;
   /** Session token for the relay TCP connection (set when game starts). */
   sessionToken: string | null;
+  /** The active WebSocket connection (null if disconnected). Exposed for voice chat signaling. */
+  ws: WebSocket | null;
 
   // Actions
   createRoom: (payload: Omit<CreateRoomPayload, 'displayName'>, displayName: string) => void;
@@ -375,6 +377,7 @@ export function LobbyProvider({ children }: { children: ReactNode }) {
         latencyMs,
         relayInfo,
         sessionToken,
+        ws: wsRef.current,
         createRoom,
         joinByCode,
         joinById,

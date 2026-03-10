@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useCallback } from 'react';
 import {
   getRomDirectory,
   setRomDirectory,
@@ -6,14 +6,27 @@ import {
 } from '../lib/rom-settings';
 import { InputProfileManager } from '@retro-oasis/multiplayer-profiles';
 import type { InputProfile, InputBinding } from '@retro-oasis/multiplayer-profiles';
+import {
+  getCustomProfile,
+  saveCustomProfile,
+  resetCustomProfile,
+  mergeWithCustomProfiles,
+} from '../lib/custom-profiles';
+import {
+  loadTouchCalibration,
+  saveTouchCalibration,
+  resetTouchCalibration,
+  DEFAULT_CALIBRATION,
+} from '../lib/touch-calibration';
+import type { DsTouchCalibration } from '../lib/touch-calibration';
 
 const SAVE_DIR_KEY = 'retro-oasis-save-directory';
 const DISPLAY_NAME_KEY = 'retro-oasis-display-name';
 
 const profileManager = new InputProfileManager();
-const ALL_PROFILES = profileManager.listAll();
+const DEFAULT_PROFILES = profileManager.listAll();
 
-const SYSTEMS_WITH_PROFILES: string[] = [...new Set(ALL_PROFILES.map((p) => p.system.toUpperCase()))];
+const SYSTEMS_WITH_PROFILES: string[] = [...new Set(DEFAULT_PROFILES.map((p) => p.system.toUpperCase()))];
 
 function bindingLabel(b: InputBinding): string {
   if (b.key)    return b.key.replace(/^key\(/, '').replace(/\)$/, '').toUpperCase();
@@ -22,9 +35,139 @@ function bindingLabel(b: InputBinding): string {
   return '—';
 }
 
-function ControllerProfileCard({ profile }: { profile: InputProfile }) {
+/** Formats a raw user-typed binding string into the canonical internal format. */
+function parseUserBinding(raw: string, originalBinding: InputBinding): InputBinding {
+  const trimmed = raw.trim().toLowerCase();
+  if (!trimmed) return originalBinding;
+
+  // Detect axis notation  e.g. "axis(0+,0-)" or "axis(1-)"
+  if (trimmed.startsWith('axis(')) {
+    return { action: originalBinding.action, axis: trimmed };
+  }
+  // Detect hat/button notation  e.g. "hat(0 up)" or "button(4)"
+  if (trimmed.startsWith('hat(') || trimmed.startsWith('button(') || trimmed.startsWith('mouse(')) {
+    return { action: originalBinding.action, button: trimmed };
+  }
+  // Detect key notation  e.g. "key(space)"
+  if (trimmed.startsWith('key(')) {
+    return { action: originalBinding.action, key: trimmed };
+  }
+  // Plain key name like "space", "a", "return" → wrap in key()
+  return { action: originalBinding.action, key: `key(${trimmed})` };
+}
+
+// ---------------------------------------------------------------------------
+// BindingRow — single editable row within a profile card
+// ---------------------------------------------------------------------------
+
+interface BindingRowProps {
+  binding: InputBinding;
+  index: number;
+  editing: boolean;
+  onStartEdit: (index: number) => void;
+  onCommit: (index: number, raw: string) => void;
+  onCancel: () => void;
+}
+
+function BindingRow({ binding, index, editing, onStartEdit, onCommit, onCancel }: BindingRowProps) {
+  const [draft, setDraft] = useState('');
+
+  function handleKeyDown(e: React.KeyboardEvent<HTMLInputElement>) {
+    if (e.key === 'Enter') {
+      onCommit(index, draft);
+    } else if (e.key === 'Escape') {
+      onCancel();
+    }
+  }
+
+  function handleStartEdit() {
+    setDraft(bindingLabel(binding));
+    onStartEdit(index);
+  }
+
+  return (
+    <tr style={{ borderTop: index > 0 ? '1px solid rgba(255,255,255,0.05)' : undefined }}>
+      <td className="py-1 pr-3 font-medium" style={{ color: 'var(--color-oasis-text)' }}>
+        {binding.action}
+      </td>
+      <td className="py-1">
+        {editing ? (
+          <input
+            autoFocus
+            type="text"
+            value={draft}
+            onChange={(e) => setDraft(e.target.value)}
+            onKeyDown={handleKeyDown}
+            onBlur={() => onCommit(index, draft)}
+            className="w-full px-2 py-0.5 rounded text-xs font-mono outline-none"
+            style={{
+              backgroundColor: 'var(--color-oasis-card)',
+              color: 'var(--color-oasis-accent-light)',
+              border: '1px solid var(--color-oasis-accent)',
+            }}
+            placeholder="e.g. key(x) or button(0)"
+          />
+        ) : (
+          <button
+            type="button"
+            onClick={handleStartEdit}
+            title="Click to remap"
+            className="font-mono text-xs rounded px-1 py-0.5 transition-opacity hover:opacity-70"
+            style={{ color: 'var(--color-oasis-accent-light)', background: 'transparent' }}
+          >
+            {bindingLabel(binding)}
+          </button>
+        )}
+      </td>
+    </tr>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// ControllerProfileCard — expandable + editable profile
+// ---------------------------------------------------------------------------
+
+interface ProfileCardProps {
+  defaultProfile: InputProfile;
+  onProfileChange: () => void;
+}
+
+function ControllerProfileCard({ defaultProfile, onProfileChange }: ProfileCardProps) {
   const [expanded, setExpanded] = useState(false);
-  const icon = profile.controllerType === 'xbox' ? '🎮' : profile.controllerType === 'playstation' ? '🕹️' : '⌨️';
+  const [editingIndex, setEditingIndex] = useState<number | null>(null);
+  const [saved, setSaved] = useState(false);
+
+  // Load current (possibly customized) profile
+  const current = getCustomProfile(defaultProfile.id) ?? defaultProfile;
+  const isCustomized = !!getCustomProfile(defaultProfile.id);
+
+  const [bindings, setBindings] = useState<InputBinding[]>(current.bindings);
+
+  const icon = current.controllerType === 'xbox' ? '🎮' : current.controllerType === 'playstation' ? '🕹️' : '⌨️';
+
+  const handleCommit = useCallback(
+    (index: number, raw: string) => {
+      const updated = bindings.map((b, i) => (i === index ? parseUserBinding(raw, b) : b));
+      setBindings(updated);
+      setEditingIndex(null);
+    },
+    [bindings],
+  );
+
+  function handleSave() {
+    const updated: InputProfile = { ...current, bindings };
+    saveCustomProfile(updated);
+    setSaved(true);
+    setTimeout(() => setSaved(false), 1500);
+    onProfileChange();
+  }
+
+  function handleReset() {
+    resetCustomProfile(defaultProfile.id);
+    setBindings(defaultProfile.bindings);
+    onProfileChange();
+  }
+
   return (
     <div className="rounded-xl overflow-hidden" style={{ backgroundColor: 'var(--color-oasis-surface)' }}>
       <button
@@ -35,16 +178,28 @@ function ControllerProfileCard({ profile }: { profile: InputProfile }) {
         <div className="flex items-center gap-2">
           <span>{icon}</span>
           <span className="text-sm font-semibold" style={{ color: 'var(--color-oasis-text)' }}>
-            {profile.name.replace(/ \(default\)$/, '')}
+            {current.name.replace(/ \(default\)$/, '')}
           </span>
+          {isCustomized && (
+            <span
+              className="text-xs px-1.5 py-0.5 rounded-full"
+              style={{ backgroundColor: 'var(--color-oasis-accent)', color: 'white', fontSize: '10px' }}
+            >
+              custom
+            </span>
+          )}
         </div>
         <span className="text-xs" style={{ color: 'var(--color-oasis-text-muted)' }}>
           {expanded ? '▲' : '▼'}
         </span>
       </button>
+
       {expanded && (
         <div className="px-4 pb-3 border-t border-white/10">
-          <table className="w-full text-xs mt-2">
+          <p className="text-xs mt-2 mb-1" style={{ color: 'var(--color-oasis-text-muted)' }}>
+            Click any binding to edit it. Type a key name, <code>button(N)</code>, <code>axis(…)</code>, or <code>hat(…)</code>.
+          </p>
+          <table className="w-full text-xs mt-1">
             <thead>
               <tr style={{ color: 'var(--color-oasis-text-muted)' }}>
                 <th className="text-left pb-1 font-semibold">Action</th>
@@ -52,17 +207,143 @@ function ControllerProfileCard({ profile }: { profile: InputProfile }) {
               </tr>
             </thead>
             <tbody>
-              {profile.bindings.map((b, i) => (
-                <tr key={i} style={{ borderTop: i > 0 ? '1px solid rgba(255,255,255,0.05)' : undefined }}>
-                  <td className="py-1 pr-3 font-medium" style={{ color: 'var(--color-oasis-text)' }}>{b.action}</td>
-                  <td className="py-1 font-mono" style={{ color: 'var(--color-oasis-accent-light)' }}>{bindingLabel(b)}</td>
-                </tr>
+              {bindings.map((b, i) => (
+                <BindingRow
+                  key={i}
+                  binding={b}
+                  index={i}
+                  editing={editingIndex === i}
+                  onStartEdit={(idx) => setEditingIndex(idx)}
+                  onCommit={handleCommit}
+                  onCancel={() => setEditingIndex(null)}
+                />
               ))}
             </tbody>
           </table>
+          <div className="flex gap-2 mt-3">
+            <button
+              type="button"
+              onClick={handleSave}
+              className="px-3 py-1 rounded-lg text-xs font-semibold transition-opacity hover:opacity-80"
+              style={{ backgroundColor: 'var(--color-oasis-accent)', color: 'white' }}
+            >
+              {saved ? '✓ Saved' : 'Save Bindings'}
+            </button>
+            {isCustomized && (
+              <button
+                type="button"
+                onClick={handleReset}
+                className="px-3 py-1 rounded-lg text-xs font-semibold transition-opacity hover:opacity-80"
+                style={{ backgroundColor: 'var(--color-oasis-surface)', color: 'var(--color-oasis-text-muted)', border: '1px solid rgba(255,255,255,0.1)' }}
+              >
+                Reset to Default
+              </button>
+            )}
+          </div>
         </div>
       )}
     </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// DS Touch Input Calibration panel
+// ---------------------------------------------------------------------------
+
+function DsTouchCalibrationPanel() {
+  const [cal, setCal] = useState<DsTouchCalibration>(loadTouchCalibration);
+  const [saved, setSaved] = useState(false);
+
+  function handleChange(field: keyof DsTouchCalibration, raw: string) {
+    const value = parseFloat(raw);
+    if (!Number.isFinite(value)) return;
+    setCal((prev) => ({ ...prev, [field]: value }));
+  }
+
+  function handleSave() {
+    saveTouchCalibration(cal);
+    setSaved(true);
+    setTimeout(() => setSaved(false), 1500);
+  }
+
+  function handleReset() {
+    resetTouchCalibration();
+    setCal({ ...DEFAULT_CALIBRATION });
+  }
+
+  const isDefault =
+    cal.offsetX === DEFAULT_CALIBRATION.offsetX &&
+    cal.offsetY === DEFAULT_CALIBRATION.offsetY &&
+    cal.scaleX === DEFAULT_CALIBRATION.scaleX &&
+    cal.scaleY === DEFAULT_CALIBRATION.scaleY;
+
+  return (
+    <section className="mt-8 rounded-2xl p-5" style={{ backgroundColor: 'var(--color-oasis-card)' }}>
+      <h2 className="text-base font-bold mb-1" style={{ color: 'var(--color-oasis-text)' }}>
+        📱 DS Touch Input Calibration
+      </h2>
+      <p className="text-xs mb-4" style={{ color: 'var(--color-oasis-text-muted)' }}>
+        Fine-tune how mouse clicks map to the DS bottom screen. Adjust offset (pixel shift)
+        and scale (stretch/shrink) if touch input feels misaligned in melonDS.
+      </p>
+
+      <div className="grid grid-cols-2 gap-3 mb-4">
+        {(
+          [
+            { field: 'offsetX', label: 'Offset X (px)', step: '1', hint: 'Horizontal pixel shift' },
+            { field: 'offsetY', label: 'Offset Y (px)', step: '1', hint: 'Vertical pixel shift' },
+            { field: 'scaleX',  label: 'Scale X',       step: '0.01', hint: 'Horizontal stretch (1.0 = none)' },
+            { field: 'scaleY',  label: 'Scale Y',       step: '0.01', hint: 'Vertical stretch (1.0 = none)' },
+          ] as const
+        ).map(({ field, label, step, hint }) => (
+          <label key={field} className="block">
+            <span className="text-xs font-semibold mb-1 block" style={{ color: 'var(--color-oasis-text-muted)' }}>
+              {label}
+              <span className="ml-1 font-normal opacity-60">— {hint}</span>
+            </span>
+            <input
+              type="number"
+              step={step}
+              value={cal[field]}
+              onChange={(e) => handleChange(field, e.target.value)}
+              className="w-full px-3 py-2 rounded-lg text-sm font-mono outline-none"
+              style={{
+                backgroundColor: 'var(--color-oasis-surface)',
+                color: 'var(--color-oasis-text)',
+                border: '1px solid rgba(255,255,255,0.1)',
+              }}
+            />
+          </label>
+        ))}
+      </div>
+
+      <div className="flex gap-2 items-center">
+        <button
+          type="button"
+          onClick={handleSave}
+          className="px-4 py-2 rounded-xl text-sm font-bold transition-opacity hover:opacity-80"
+          style={{ backgroundColor: '#E87722', color: 'white' }}
+        >
+          {saved ? '✓ Saved' : 'Save Calibration'}
+        </button>
+        {!isDefault && (
+          <button
+            type="button"
+            onClick={handleReset}
+            className="px-4 py-2 rounded-xl text-sm font-semibold transition-opacity hover:opacity-80"
+            style={{ backgroundColor: 'var(--color-oasis-surface)', color: 'var(--color-oasis-text-muted)', border: '1px solid rgba(255,255,255,0.1)' }}
+          >
+            Reset to Defaults
+          </button>
+        )}
+      </div>
+
+      <p className="text-xs mt-3" style={{ color: 'var(--color-oasis-text-muted)' }}>
+        💡 melonDS tip: if the bottom screen region is offset in your window layout, try{' '}
+        <code className="font-mono">offsetY = −192</code> (one DS screen height) to shift
+        touch coordinates to the correct half.
+      </p>
+    </section>
   );
 }
 
@@ -76,6 +357,9 @@ export function SettingsPage() {
   );
   const [saved, setSaved] = useState(false);
   const [profileSystem, setProfileSystem] = useState<string>(SYSTEMS_WITH_PROFILES[0] ?? 'N64');
+  // Bump this to force re-render after a profile is saved/reset
+  const [profileVersion, setProfileVersion] = useState(0);
+  const handleProfileChange = useCallback(() => setProfileVersion((v) => v + 1), []);
 
   function handleSave(e: React.FormEvent) {
     e.preventDefault();
@@ -197,14 +481,14 @@ export function SettingsPage() {
         </div>
       </form>
 
-      {/* Controller Profiles — read-only reference (not part of the save form) */}
+      {/* Controller Profiles — editable */}
       <section className="mt-8 rounded-2xl p-5" style={{ backgroundColor: 'var(--color-oasis-card)' }}>
         <h2 className="text-base font-bold mb-1" style={{ color: 'var(--color-oasis-text)' }}>
           🕹️ Controller Profiles
         </h2>
         <p className="text-xs mb-4" style={{ color: 'var(--color-oasis-text-muted)' }}>
-          Default input mappings for each system. These are used by the emulator when launching a session.
-          Expand a profile to see its button bindings.
+          Input mappings used when launching a session. Expand a profile and click any binding to remap it.
+          Custom bindings are saved to local storage; use "Reset to Default" to restore the original.
         </p>
 
         {/* System tabs */}
@@ -225,14 +509,19 @@ export function SettingsPage() {
           ))}
         </div>
 
-        <div className="space-y-2">
-          {profileManager
-            .listForSystem(profileSystem.toLowerCase())
-            .map((profile) => (
-              <ControllerProfileCard key={profile.id} profile={profile} />
-            ))}
+        <div key={profileVersion} className="space-y-2">
+          {mergeWithCustomProfiles(profileManager.listForSystem(profileSystem.toLowerCase())).map((profile) => (
+            <ControllerProfileCard
+              key={profile.id}
+              defaultProfile={DEFAULT_PROFILES.find((p) => p.id === profile.id) ?? profile}
+              onProfileChange={handleProfileChange}
+            />
+          ))}
         </div>
       </section>
+
+      {/* DS Touch Input Calibration */}
+      <DsTouchCalibrationPanel />
     </div>
   );
 }
