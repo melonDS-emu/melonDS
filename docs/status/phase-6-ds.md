@@ -1,6 +1,6 @@
 # Phase 6 — Nintendo DS Premium Experience
 
-**Status:** ✅ Core vertical slice complete  
+**Status:** ✅ UX vertical slice complete; native core / IPC work still pending  
 **Date:** 2026-03-10  
 **Focus:** Making Nintendo DS feel intentionally designed — dual-screen UX, touch input clarity, WFC configuration, and curated showcase titles.
 
@@ -164,8 +164,5 @@ These titles are confirmed to work well in multiplayer with melonDS + Wiimmfi an
 ## Remaining Work (Future Phases)
 
 - [ ] C++ IPC bridge between melonDS `/src` core and the TypeScript launcher
-- [ ] Dual-screen layout picker in `HostRoomModal` UI
-- [ ] F11 screen swap reminder shown in lobby for DS sessions
 - [ ] Touch coordinate calibration panel
-- [ ] DS-specific compatibility badges surfaced in `GameCard`
 - [ ] DSi mode auto-detection and DSiWare support
