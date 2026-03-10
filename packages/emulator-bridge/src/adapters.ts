@@ -31,14 +31,21 @@ export interface AdapterOptions {
  * Each adapter encapsulates the launch arguments and save path logic
  * specific to that system's preferred emulator backend.
  *
- * Netplay argument conventions:
- *  - FCEUX:      --net <host>:<port> --player <slot>
- *  - Snes9x:     -netplay <host> <port>
- *  - mGBA:       --link-host <host>:<port>  (link cable over TCP)
- *  - Mupen64Plus: --netplay-host <host> --netplay-port <port>
- *  - melonDS:    --wifi-host <host> --wifi-port <port>
+ * Netplay / link cable argument conventions:
+ *  - FCEUX:               --net <host>:<port> --player <slot>
+ *  - Snes9x:              -netplay <host> <port>
+ *  - mGBA:                --link-host <host>:<port>  (link cable over TCP)
+ *  - SameBoy:             --link-address <host>:<port>  (link cable over TCP)
+ *  - VisualBoyAdvance-M:  --link-host <host>:<port>  (link cable over TCP)
+ *  - Mupen64Plus:         --netplay-host <host> --netplay-port <port>
+ *  - melonDS:             --wifi-host <host> --wifi-port <port>
+ *
+ * @param system    The system identifier (e.g. 'gb', 'gba', 'n64').
+ * @param backendId Optional backend override. When provided, launch args are
+ *                  tailored to that backend's CLI conventions. Defaults to the
+ *                  system's preferred backend.
  */
-export function createSystemAdapter(system: string): SystemAdapterConfig {
+export function createSystemAdapter(system: string, backendId?: string): SystemAdapterConfig {
   switch (system) {
     case 'nes':
       return {
@@ -77,22 +84,42 @@ export function createSystemAdapter(system: string): SystemAdapterConfig {
 
     case 'gb':
     case 'gbc':
-    case 'gba':
+    case 'gba': {
+      const effectiveBackend = backendId ?? 'mgba';
       return {
         system,
         preferredBackendId: 'mgba',
-        fallbackBackendIds: system === 'gba' ? [] : ['gambatte'],
+        fallbackBackendIds: system === 'gba' ? ['vbam'] : ['sameboy', 'gambatte'],
         buildLaunchArgs: (romPath, options) => {
-          const args = ['-f', romPath];
-          if (options.fullscreen) args.push('--fullscreen');
-          // mGBA link cable over TCP — used for Pokémon trades, battles, etc.
-          if (options.netplayHost && options.netplayPort) {
-            args.push('--link-host', `${options.netplayHost}:${options.netplayPort}`);
+          if (effectiveBackend === 'sameboy') {
+            // SameBoy: link cable over TCP via --link-address <host:port>
+            const args = [romPath];
+            if (options.fullscreen) args.push('--fullscreen');
+            if (options.netplayHost && options.netplayPort) {
+              args.push('--link-address', `${options.netplayHost}:${options.netplayPort}`);
+            }
+            return args;
+          } else if (effectiveBackend === 'vbam') {
+            // VisualBoyAdvance-M: link cable over TCP via --link-host <host:port>
+            const args = [romPath];
+            if (options.fullscreen) args.push('--fullscreen');
+            if (options.netplayHost && options.netplayPort) {
+              args.push('--link-host', `${options.netplayHost}:${options.netplayPort}`);
+            }
+            return args;
+          } else {
+            // mGBA (default): link cable over TCP via --link-host <host:port>
+            const args = ['-f', romPath];
+            if (options.fullscreen) args.push('--fullscreen');
+            if (options.netplayHost && options.netplayPort) {
+              args.push('--link-host', `${options.netplayHost}:${options.netplayPort}`);
+            }
+            return args;
           }
-          return args;
         },
         getSavePath: (gameId, baseDir) => `${baseDir}/${system}/${gameId}`,
       };
+    }
 
     case 'n64':
       return {

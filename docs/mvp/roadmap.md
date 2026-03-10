@@ -51,6 +51,15 @@
 ### Milestones
 - [x] N64 session templates (Mupen64Plus, 2P + 4P defaults, MK64, Smash Bros presets)
 - [x] Netplay relay supports N64 packet forwarding
+- [x] SameBoy backend added (GB/GBC — best-in-class accuracy + link cable via TCP)
+- [x] VisualBoyAdvance-M (VBA-M) backend added (GB/GBC/GBA — link cable via TCP)
+- [x] System adapters updated with backend-specific link cable args (SameBoy, VBA-M)
+- [x] GB Pokémon Gen I catalog entries (Red, Blue, Yellow — link/trade)
+- [x] GBC link game catalog entries (Zelda Oracle of Ages, Oracle of Seasons)
+- [x] GBA Pokémon Gen III catalog entries (Ruby, Sapphire, LeafGreen — link/trade)
+- [x] GBA Four Swords catalog entry (4-player link co-op)
+- [x] Session templates for all new Pokémon link/trade games
+- [x] Session template for Zelda Four Swords 4P
 - [ ] N64 backend integration (Mupen64Plus install + detection)
 - [ ] 4-player party game optimization
 - [ ] Analog stick mapping quality

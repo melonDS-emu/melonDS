@@ -54,7 +54,7 @@ export class EmulatorBridge {
     // Build launch args via the system adapter
     let adapter;
     try {
-      adapter = createSystemAdapter(options.system);
+      adapter = createSystemAdapter(options.system, options.backendId);
     } catch (err) {
       return { success: false, error: String(err) };
     }
