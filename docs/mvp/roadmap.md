@@ -36,8 +36,8 @@
 - [x] Save file real I/O (fs/promises create, delete, import, export)
 - [x] Relay port surfaced to frontend on game-starting event
 - [ ] Tauri integration for native desktop app
-- [ ] ROM scanning UI in library page
-- [ ] Controller mapping UI
+- [x] ROM scanning UI in library page
+- [x] Controller mapping UI
 - [ ] Cloud save sync implementation
 - [ ] Friend invite flow (room code sharing via external messaging)
 
@@ -73,9 +73,9 @@
 - [x] Connection diagnostics UI
 - [x] Spectator mode (Phase 1 carry-over) ✅
 - [ ] Tauri integration for native desktop app (Phase 1 carry-over)
-- [ ] Controller mapping UI (bind N64_DEFAULT_PROFILES to UI)
+- [x] Controller mapping UI (bind N64_DEFAULT_PROFILES to UI)
 - [ ] Voice chat hooks
-- [ ] Party activity feed
+- [x] Party activity feed
 
 ## Phase 3 — Nintendo DS + Premium Features
 
@@ -91,11 +91,11 @@
 - [x] Dual-screen layout options in session templates
 - [x] melonDS netplay args in system adapter (--wifi-host / --wifi-port)
 - [ ] melonDS integration (this repository's core — C++ build + IPC bridge)
-- [ ] Dual-screen layout controls UI (stacked, side-by-side, focus modes)
-- [ ] Touch input mapping (mouse/touchpad)
+- [x] Dual-screen layout controls UI (stacked, side-by-side, focus modes)
+- [x] Touch input mapping (mouse/touchpad)
 - [ ] DS wireless-inspired room UX
-- [ ] Advanced compatibility badges
-- [ ] Screen swap hotkeys
+- [x] Advanced compatibility badges
+- [x] Screen swap hotkeys
 
 ## Phase 5 — Presence and Social Discovery
 
@@ -106,7 +106,9 @@
 - [x] `RecentActivity` type added to presence-client (join/start/finish/online events)
 - [x] `OnlineStatus` and `ActivityEventType` exported as standalone types
 - [x] `PresenceClient.seedMockFriends()` — realistic mock friends for dev/demo
+- [x] `PresenceClient.getMockRecentActivity()` — mock activity feed seeded from friends
 - [x] `PresenceContext` React context exposing friends, onlineFriends, joinableSessions, recentActivity
+- [x] `PresenceProvider` seeds mock friends + activity on mount
 - [x] `PresenceProvider` mounted in app root alongside LobbyProvider
 - [x] Sidebar friends panel — dynamic list from context, hover-reveal Join button, online count
 - [x] Friends nav item added to sidebar with green online-count badge
@@ -142,10 +144,10 @@
 - [x] docs/status/phase-6-ds.md: phase status, known-good showcase games list
 - [x] roadmap.md updated with Phase 6 milestones
 - [ ] melonDS integration (this repository's C++ core → IPC bridge for launch/control)
-- [ ] Dual-screen layout picker in HostRoomModal (stacked / side-by-side / focus modes)
-- [ ] Screen swap hotkey displayed in lobby (F11 reminder)
+- [x] Dual-screen layout picker in HostRoomModal (stacked / side-by-side / focus modes)
+- [x] Screen swap hotkey displayed in lobby (F11 reminder)
 - [ ] Touch input calibration panel (map mouse coordinates to DS screen coords)
-- [ ] DS-specific compatibility badges (WFC Online, Touch Controls, Download Play)
+- [x] DS-specific compatibility badges (WFC Online, Touch Controls, Download Play)
 - [ ] Advanced: DSi mode detection and DSiWare support
 
 ## Future Ideas

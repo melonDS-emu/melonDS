@@ -1,8 +1,37 @@
 import { Link } from 'react-router-dom';
 import type { ApiGame } from '../types/api';
 
+/** Badge colour config for well-known badge names. */
+const BADGE_STYLES: Record<string, { bg: string; color: string }> = {
+  'WFC Online':     { bg: '#3b82f6', color: 'white' },
+  'Touch Controls': { bg: '#E87722', color: 'white' },
+  'Download Play':  { bg: '#7c5cbf', color: 'white' },
+  'Party Favorite': { bg: 'var(--color-oasis-yellow)', color: '#1a1025' },
+  'Great Online':   { bg: 'var(--color-oasis-green)', color: '#1a1025' },
+  'Best with Friends': { bg: 'var(--color-oasis-accent)', color: 'white' },
+};
+
+/** DS-specific compatibility badges shown on game cards. */
+const DS_COMPATIBILITY_BADGES = ['WFC Online', 'Touch Controls', 'Download Play'] as const;
+
+function BadgePill({ label }: { label: string }) {
+  const style = BADGE_STYLES[label] ?? { bg: 'var(--color-oasis-surface)', color: 'var(--color-oasis-text-muted)' };
+  return (
+    <span
+      className="text-[9px] font-bold px-1.5 py-0.5 rounded-full"
+      style={{ backgroundColor: style.bg, color: style.color }}
+    >
+      {label}
+    </span>
+  );
+}
+
 export function GameCard({ game }: { game: ApiGame }) {
   const is4PParty = game.maxPlayers >= 4 && game.tags.includes('Party');
+  const isNds = game.system === 'NDS';
+  // DS-specific compatibility badges shown on the card (max 2 to keep it compact)
+  const dsBadges = isNds ? game.badges.filter((b) => (DS_COMPATIBILITY_BADGES as readonly string[]).includes(b)).slice(0, 2) : [];
+
   return (
     <Link
       to={`/game/${game.id}`}
@@ -35,6 +64,14 @@ export function GameCard({ game }: { game: ApiGame }) {
         </span>
       </div>
       <p className="text-sm font-semibold truncate">{game.title}</p>
+      {/* DS-specific compatibility badges */}
+      {dsBadges.length > 0 && (
+        <div className="flex flex-wrap gap-1 mt-1">
+          {dsBadges.map((badge) => (
+            <BadgePill key={badge} label={badge} />
+          ))}
+        </div>
+      )}
       <div className="flex flex-wrap gap-1 mt-1">
         {game.tags.slice(0, 3).map((tag) => (
           <span

@@ -4,9 +4,67 @@ import {
   setRomDirectory,
   setSaveDirectory,
 } from '../lib/rom-settings';
+import { InputProfileManager } from '@retro-oasis/multiplayer-profiles';
+import type { InputProfile, InputBinding } from '@retro-oasis/multiplayer-profiles';
 
 const SAVE_DIR_KEY = 'retro-oasis-save-directory';
 const DISPLAY_NAME_KEY = 'retro-oasis-display-name';
+
+const profileManager = new InputProfileManager();
+const ALL_PROFILES = profileManager.listAll();
+
+const SYSTEMS_WITH_PROFILES: string[] = [...new Set(ALL_PROFILES.map((p) => p.system.toUpperCase()))];
+
+function bindingLabel(b: InputBinding): string {
+  if (b.key)    return b.key.replace(/^key\(/, '').replace(/\)$/, '').toUpperCase();
+  if (b.button) return b.button.replace(/^button\(/, 'Btn ').replace(/^hat\(0 /, '').replace(/\)$/, '');
+  if (b.axis)   return b.axis.replace(/^axis\(/, 'Axis ').replace(/\)$/, '');
+  return '—';
+}
+
+function ControllerProfileCard({ profile }: { profile: InputProfile }) {
+  const [expanded, setExpanded] = useState(false);
+  const icon = profile.controllerType === 'xbox' ? '🎮' : profile.controllerType === 'playstation' ? '🕹️' : '⌨️';
+  return (
+    <div className="rounded-xl overflow-hidden" style={{ backgroundColor: 'var(--color-oasis-surface)' }}>
+      <button
+        type="button"
+        onClick={() => setExpanded((v) => !v)}
+        className="w-full flex items-center justify-between px-4 py-3 text-left"
+      >
+        <div className="flex items-center gap-2">
+          <span>{icon}</span>
+          <span className="text-sm font-semibold" style={{ color: 'var(--color-oasis-text)' }}>
+            {profile.name.replace(/ \(default\)$/, '')}
+          </span>
+        </div>
+        <span className="text-xs" style={{ color: 'var(--color-oasis-text-muted)' }}>
+          {expanded ? '▲' : '▼'}
+        </span>
+      </button>
+      {expanded && (
+        <div className="px-4 pb-3 border-t border-white/10">
+          <table className="w-full text-xs mt-2">
+            <thead>
+              <tr style={{ color: 'var(--color-oasis-text-muted)' }}>
+                <th className="text-left pb-1 font-semibold">Action</th>
+                <th className="text-left pb-1 font-semibold">Binding</th>
+              </tr>
+            </thead>
+            <tbody>
+              {profile.bindings.map((b, i) => (
+                <tr key={i} style={{ borderTop: i > 0 ? '1px solid rgba(255,255,255,0.05)' : undefined }}>
+                  <td className="py-1 pr-3 font-medium" style={{ color: 'var(--color-oasis-text)' }}>{b.action}</td>
+                  <td className="py-1 font-mono" style={{ color: 'var(--color-oasis-accent-light)' }}>{bindingLabel(b)}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </div>
+  );
+}
 
 export function SettingsPage() {
   const [romDir, setRomDir] = useState(getRomDirectory);
@@ -17,6 +75,7 @@ export function SettingsPage() {
     () => localStorage.getItem(DISPLAY_NAME_KEY) ?? ''
   );
   const [saved, setSaved] = useState(false);
+  const [profileSystem, setProfileSystem] = useState<string>(SYSTEMS_WITH_PROFILES[0] ?? 'N64');
 
   function handleSave(e: React.FormEvent) {
     e.preventDefault();
@@ -137,6 +196,43 @@ export function SettingsPage() {
           )}
         </div>
       </form>
+
+      {/* Controller Profiles — read-only reference (not part of the save form) */}
+      <section className="mt-8 rounded-2xl p-5" style={{ backgroundColor: 'var(--color-oasis-card)' }}>
+        <h2 className="text-base font-bold mb-1" style={{ color: 'var(--color-oasis-text)' }}>
+          🕹️ Controller Profiles
+        </h2>
+        <p className="text-xs mb-4" style={{ color: 'var(--color-oasis-text-muted)' }}>
+          Default input mappings for each system. These are used by the emulator when launching a session.
+          Expand a profile to see its button bindings.
+        </p>
+
+        {/* System tabs */}
+        <div className="flex gap-2 mb-4">
+          {SYSTEMS_WITH_PROFILES.map((sys) => (
+            <button
+              key={sys}
+              type="button"
+              onClick={() => setProfileSystem(sys)}
+              className="px-3 py-1 rounded-full text-xs font-semibold transition-colors"
+              style={{
+                backgroundColor: profileSystem === sys ? 'var(--color-oasis-accent)' : 'var(--color-oasis-surface)',
+                color: profileSystem === sys ? 'white' : 'var(--color-oasis-text-muted)',
+              }}
+            >
+              {sys}
+            </button>
+          ))}
+        </div>
+
+        <div className="space-y-2">
+          {profileManager
+            .listForSystem(profileSystem.toLowerCase())
+            .map((profile) => (
+              <ControllerProfileCard key={profile.id} profile={profile} />
+            ))}
+        </div>
+      </section>
     </div>
   );
 }
