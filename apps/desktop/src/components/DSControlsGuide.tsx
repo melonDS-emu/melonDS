@@ -20,7 +20,7 @@ const DS_BUTTON_ROWS: Array<{ ds: string; xbox: string; ps: string; keyboard: st
   { ds: 'R',        xbox: 'RB',         ps: 'R1',          keyboard: 'W' },
   { ds: 'Start',    xbox: 'Menu',       ps: 'Options',     keyboard: 'Enter' },
   { ds: 'Select',   xbox: 'View',       ps: 'Share/Create', keyboard: 'Right Shift' },
-  { ds: 'D-Pad',    xbox: 'D-Pad / L̈Stick', ps: 'D-Pad / L̈Stick', keyboard: '↑↓←→' },
+  { ds: 'D-Pad',    xbox: 'D-Pad / L-Stick', ps: 'D-Pad / L-Stick', keyboard: '↑↓←→' },
   { ds: 'Touch',    xbox: 'Mouse click', ps: 'Mouse click', keyboard: 'Mouse click' },
 ];
 

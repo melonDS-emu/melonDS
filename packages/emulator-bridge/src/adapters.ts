@@ -21,7 +21,8 @@ export interface AdapterOptions {
   netplayHost?: string;
   /** Netplay relay or peer port */
   netplayPort?: number;
-  /** NDS-specific: screen layout ('stacked', 'side-by-side', 'top-focus', 'bottom-focus') */
+  /** NDS-specific: screen layout ('stacked', 'side-by-side', 'top-focus', 'bottom-focus')
+   *  Maps directly to the melonDS CLI `--screen-layout=<value>` flag. */
   screenLayout?: 'stacked' | 'side-by-side' | 'top-focus' | 'bottom-focus';
   /** NDS-specific: enable touchscreen input via mouse/touchpad */
   touchEnabled?: boolean;

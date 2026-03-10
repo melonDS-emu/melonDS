@@ -37,6 +37,13 @@ const DEFAULT_SAVE_RULES: SessionTemplateConfig['saveRules'] = {
   syncSavesToCloud: false,
 };
 
+/** Save rules for competitive / arcade sessions where saves are not meaningful. */
+const NO_SAVE_RULES: SessionTemplateConfig['saveRules'] = {
+  ...DEFAULT_SAVE_RULES,
+  autoSave: false,
+  allowSaveStates: false,
+};
+
 /** Build default controller mappings for N players. */
 function defaultMappings(count: number): { slot: number; profile: string }[] {
   return Array.from({ length: count }, (_, i) => ({ slot: i, profile: 'default' }));
@@ -126,7 +133,7 @@ export const DEFAULT_TEMPLATES: SessionTemplateConfig[] = [
     emulatorBackendId: 'snes9x',
     playerCount: 4,
     controllerMappings: defaultMappings(4),
-    saveRules: { ...DEFAULT_SAVE_RULES, autoSave: false, allowSaveStates: false },
+    saveRules: NO_SAVE_RULES,
     netplayMode: 'online-relay',
     latencyTarget: 120,
   },
@@ -217,7 +224,7 @@ export const DEFAULT_TEMPLATES: SessionTemplateConfig[] = [
     emulatorBackendId: 'mgba',
     playerCount: 4,
     controllerMappings: defaultMappings(4),
-    saveRules: { ...DEFAULT_SAVE_RULES, autoSave: false, allowSaveStates: false },
+    saveRules: NO_SAVE_RULES,
     netplayMode: 'online-relay',
     latencyTarget: 120,
   },
@@ -262,7 +269,7 @@ export const DEFAULT_TEMPLATES: SessionTemplateConfig[] = [
     emulatorBackendId: 'mupen64plus',
     playerCount: 4,
     controllerMappings: defaultMappings(4),
-    saveRules: { ...DEFAULT_SAVE_RULES, autoSave: false, allowSaveStates: false },
+    saveRules: NO_SAVE_RULES,
     netplayMode: 'online-relay',
     latencyTarget: 150,
   },
@@ -273,7 +280,7 @@ export const DEFAULT_TEMPLATES: SessionTemplateConfig[] = [
     emulatorBackendId: 'mupen64plus',
     playerCount: 4,
     controllerMappings: defaultMappings(4),
-    saveRules: { ...DEFAULT_SAVE_RULES, autoSave: false, allowSaveStates: false },
+    saveRules: NO_SAVE_RULES,
     netplayMode: 'online-relay',
     latencyTarget: 120,
   },
@@ -295,7 +302,7 @@ export const DEFAULT_TEMPLATES: SessionTemplateConfig[] = [
     emulatorBackendId: 'mupen64plus',
     playerCount: 4,
     controllerMappings: defaultMappings(4),
-    saveRules: { ...DEFAULT_SAVE_RULES, autoSave: false, allowSaveStates: false },
+    saveRules: NO_SAVE_RULES,
     netplayMode: 'online-relay',
     latencyTarget: 120,
   },
@@ -306,7 +313,7 @@ export const DEFAULT_TEMPLATES: SessionTemplateConfig[] = [
     emulatorBackendId: 'mupen64plus',
     playerCount: 4,
     controllerMappings: defaultMappings(4),
-    saveRules: { ...DEFAULT_SAVE_RULES, autoSave: false, allowSaveStates: false },
+    saveRules: NO_SAVE_RULES,
     netplayMode: 'online-relay',
     latencyTarget: 150,
   },
@@ -408,7 +415,7 @@ export const DEFAULT_TEMPLATES: SessionTemplateConfig[] = [
     emulatorBackendId: 'melonds',
     playerCount: 4,
     controllerMappings: defaultMappings(4),
-    saveRules: { ...DEFAULT_SAVE_RULES, autoSave: false, allowSaveStates: false },
+    saveRules: NO_SAVE_RULES,
     netplayMode: 'online-relay',
     latencyTarget: 120,
     uiLayoutOptions: { dsScreenLayout: 'stacked' },
@@ -425,7 +432,7 @@ export const DEFAULT_TEMPLATES: SessionTemplateConfig[] = [
     emulatorBackendId: 'melonds',
     playerCount: 4,
     controllerMappings: defaultMappings(4),
-    saveRules: { ...DEFAULT_SAVE_RULES, autoSave: false, allowSaveStates: false },
+    saveRules: NO_SAVE_RULES,
     netplayMode: 'online-relay',
     latencyTarget: 120,
     uiLayoutOptions: { dsScreenLayout: 'stacked' },
@@ -438,7 +445,7 @@ export const DEFAULT_TEMPLATES: SessionTemplateConfig[] = [
     emulatorBackendId: 'melonds',
     playerCount: 4,
     controllerMappings: defaultMappings(4),
-    saveRules: { ...DEFAULT_SAVE_RULES, autoSave: false, allowSaveStates: false },
+    saveRules: NO_SAVE_RULES,
     netplayMode: 'online-relay',
     latencyTarget: 100,
     uiLayoutOptions: { dsScreenLayout: 'stacked' },
@@ -455,7 +462,7 @@ export const DEFAULT_TEMPLATES: SessionTemplateConfig[] = [
     emulatorBackendId: 'melonds',
     playerCount: 4,
     controllerMappings: defaultMappings(4),
-    saveRules: { ...DEFAULT_SAVE_RULES, autoSave: false, allowSaveStates: false },
+    saveRules: NO_SAVE_RULES,
     netplayMode: 'online-relay',
     latencyTarget: 100,
     uiLayoutOptions: { dsScreenLayout: 'stacked' },
