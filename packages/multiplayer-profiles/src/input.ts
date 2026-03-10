@@ -26,7 +26,7 @@ export interface InputProfile {
  * Analog stick mapping notes for Mupen64Plus (mupen64plus-input-sdl):
  *   - Xbox left stick  → Axis 0 (X) and Axis 1 (Y) — maps directly to N64 analog stick
  *   - Deadzone ~4096 and peak ~32768 work well for most analog-heavy games
- *   - C-buttons are mapped to the right stick (Axis 3/4) or face buttons
+ *   - C-buttons are mapped to the right stick (Axis 2/3) or face buttons
  */
 export const N64_DEFAULT_PROFILES: InputProfile[] = [
   // --- Xbox controller ---

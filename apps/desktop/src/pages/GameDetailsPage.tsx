@@ -18,6 +18,10 @@ function getPartyHint(game: { system: string; maxPlayers: number; tags: string[]
   return null;
 }
 
+/** Controller tip shown on N64 game detail pages. */
+const N64_CONTROLLER_TIP =
+  '🕹️ Controller tip: Use an Xbox or PlayStation controller — the left stick maps to the N64 analog stick automatically. A gamepad is strongly recommended for analog-heavy games.';
+
 export function GameDetailsPage() {
   const { gameId } = useParams<{ gameId: string }>();
   const navigate = useNavigate();
@@ -103,7 +107,7 @@ export function GameDetailsPage() {
             className="mt-2 px-4 py-2 rounded-xl text-xs"
             style={{ backgroundColor: 'var(--color-oasis-surface)', color: 'var(--color-oasis-text-muted)' }}
           >
-            🕹️ <strong>Controller tip:</strong> Use an Xbox or PlayStation controller — the left stick maps to the N64 analog stick automatically. A gamepad is strongly recommended for analog-heavy games.
+            {N64_CONTROLLER_TIP}
           </div>
         )}
 
