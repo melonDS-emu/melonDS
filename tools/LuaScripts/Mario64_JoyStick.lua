@@ -1,3 +1,7 @@
+--[[
+    lua script Mario64DS Joystick for melonDS
+    written by NPO, using cheat code made by shocoman
+--]]
 
 -- Joystick Axis for my XBOX controller...
 local LeftStick = {x=0,y=1}
