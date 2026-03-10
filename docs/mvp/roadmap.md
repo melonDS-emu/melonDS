@@ -1,5 +1,12 @@
 # RetroOasis Development Roadmap
 
+> **Honest progress snapshot (2026-03-10)**
+>
+> - The current working stack is **React + Vite desktop UI + WebSocket lobby server + TCP relay + local HTTP launch API (`/api/launch`)**.
+> - **Tauri/native packaging, a C++ IPC bridge into the melonDS core in `/src`, and a broader REST backend for catalog/save/presence data are still not complete.**
+> - The lobby now triggers **local emulator launch requests** through the server, but **real per-game ROM discovery/selection and relay token handoff into emulator processes are still incomplete**.
+> - Presence, activity, saves, and cloud flows have useful UI scaffolding, but the **live/server-backed versions remain future work unless explicitly marked “mock/dev/demo.”**
+
 ## Phase 1 — Foundation (Complete)
 
 **Goal:** Polished multiplayer-first retro Nintendo app for simpler systems.
@@ -30,14 +37,20 @@
 - [x] Ping/pong heartbeat with live latency display
 - [x] Connection quality indicators per player
 - [x] Netplay TCP relay server (ports 9000–9200, room-scoped sessions)
-- [x] Real child_process emulator launching (SIGTERM stop)
+- [x] Local child_process emulator launching via the server `/api/launch` endpoint (SIGTERM stop)
 - [x] Emulator netplay args per backend (FCEUX, Snes9x, mGBA, Mupen64Plus, melonDS)
 - [x] ROM file scanner (by extension, recursive, grouped by system)
 - [x] Save file real I/O (fs/promises create, delete, import, export)
 - [x] Relay port surfaced to frontend on game-starting event
+- [x] Session token surfaced to players on `game-starting`
 - [ ] Tauri integration for native desktop app
-- [x] ROM scanning UI in library page
-- [x] Controller mapping UI
+- [x] Settings page for ROM/save directories and display name
+- [x] Library refresh affordance tied to the configured ROM path (currently simulated until native filesystem IPC is added)
+- [x] Read-only controller profile reference UI in Settings
+- [ ] Native ROM scan + per-game ROM file selection wired into the desktop UI
+- [ ] Relay session token handoff from `game-starting` into emulator processes
+- [ ] Editable controller remapping UI
+- [ ] Game catalog REST backend (`/api/games`, `/api/systems`) to back `VITE_API_MODE=backend`
 - [ ] Cloud save sync implementation
 - [ ] Friend invite flow (room code sharing via external messaging)
 
@@ -73,9 +86,10 @@
 - [x] Connection diagnostics UI
 - [x] Spectator mode (Phase 1 carry-over) ✅
 - [ ] Tauri integration for native desktop app (Phase 1 carry-over)
-- [x] Controller mapping UI (bind N64_DEFAULT_PROFILES to UI)
+- [x] Read-only controller profile UI shows N64 default mappings
+- [ ] Editable N64 controller remapping UI
 - [ ] Voice chat hooks
-- [x] Party activity feed
+- [x] Party activity feed (mock/dev presence data)
 
 ## Phase 3 — Nintendo DS + Premium Features
 
@@ -100,6 +114,8 @@
 ## Phase 5 — Presence and Social Discovery
 
 **Goal:** Make RetroOasis feel alive even before a session starts.
+
+**Current reality:** the discovery UI is in place, but today it is powered by seeded mock/dev data rather than live presence transport or persistence.
 
 ### Milestones
 - [x] `FriendInfo` enriched with `roomCode` for direct join surfacing
@@ -149,6 +165,29 @@
 - [ ] Touch input calibration panel (map mouse coordinates to DS screen coords)
 - [x] DS-specific compatibility badges (WFC Online, Touch Controls, Download Play)
 - [ ] Advanced: DSi mode detection and DSiWare support
+
+## Cross-Cutting Quality Work
+
+**Goal:** Keep the current prototype honest, debuggable, and safe to extend while native packaging and deeper backend work are still in progress.
+
+### Milestones
+- [x] `docs/status/debug-pass.md` — targeted bug-fix pass across lobby/frontend/server flows
+- [x] `docs/status/current-state-audit.md` — honest working-vs-mocked inventory
+- [x] `docs/status/full-audit.md` — full product/code audit with gap analysis
+- [x] Phase status notes for N64, saves, presence, and DS work
+- [x] Desktop API smoke tests (`apps/desktop/src/lib/__tests__/api-client.test.ts`, 14 tests)
+- [x] Workspace validation documented and re-verified after `npm install` (`npm run typecheck`, `npm run test -w @retro-oasis/desktop`)
+- [ ] Integration coverage for emulator launch, relay token flow, ROM scanning, save I/O, and live presence
+- [ ] Native desktop verification checklist for Tauri / IPC flows
+- [ ] Backend hardening: auth/identity, rate limiting, persistence, and deployable relay host configuration
+
+## Current Carry-Over / Blockers
+
+- [ ] Tauri native shell and IPC command surface for desktop-only capabilities
+- [ ] C++ IPC bridge between the TypeScript launcher and the melonDS core in `/src`
+- [ ] Backend expansion beyond WebSocket rooms + `/api/launch` (catalog, saves, presence, auth)
+- [ ] Real ROM ownership/discovery flow: filesystem scan, file association, and per-room ROM selection
+- [ ] Relay authentication handoff: feed per-player session tokens into launched emulator processes
 
 ## Future Ideas
 - Tournament-style rooms

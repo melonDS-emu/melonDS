@@ -8,12 +8,12 @@ RetroOasis is a social Nintendo retro gaming hub — not just another emulator f
 
 ## ✨ Features
 
-- **Multiplayer-first** — Host/join rooms in seconds, invite friends, ready up, and play
-- **Unified library** — NES, SNES, GB, GBC, GBA, N64, and NDS in one app
+- **Multiplayer-first** — Host/join rooms in seconds, ready up, chat, and surface local launch/relay info from the lobby flow
+- **Unified library UI** — NES, SNES, GB, GBC, GBA, N64, and NDS in one app (real ROM discovery is still in progress)
 - **Curated discovery** — Browse games by multiplayer mode (Party, Co-op, Versus, Link, Trade)
 - **Per-game intelligence** — Player counts, compatibility badges, session templates
-- **Social presence** — See what friends are playing, join their sessions
-- **Save management** — Local and cloud save sync with conflict resolution
+- **Social presence UI** — Friend roster and activity feed are available today in mock/dev form; live presence is still planned
+- **Save management UI** — Local demo flows and conflict UX exist today; real cloud sync is still planned
 
 ## 🚀 Quick Start
 
@@ -35,8 +35,8 @@ npm run build:desktop
 
 ```
 /apps
-  /desktop          — React + Vite desktop frontend (Tauri-ready)
-  /lobby-server     — WebSocket-based lobby/room server
+  /desktop          — React + Vite desktop frontend (browser-based today; Tauri planned)
+  /lobby-server     — WebSocket lobby/room server + local HTTP launch API
 
 /packages
   /ui               — Shared UI components
@@ -72,12 +72,14 @@ npm run build:desktop
 
 RetroOasis uses a layered architecture:
 
-1. **Frontend** — React + Vite + Tailwind CSS (Tauri-ready)
-2. **Multiplayer Services** — WebSocket lobby server, presence, session engine
+1. **Frontend** — React + Vite + Tailwind CSS (native packaging via Tauri is still planned)
+2. **Multiplayer Services** — WebSocket lobby server, presence scaffolding, session engine
 3. **Orchestration** — Emulator bridge, save system, game database
 4. **Emulator Backends** — External proven emulators (mGBA, melonDS, etc.)
 
 The app does **not** build emulator cores from scratch. It orchestrates existing backends behind a unified interface.
+
+Today the backend/server side is intentionally narrow: live rooms use WebSockets, emulator launch uses a local `/api/launch` HTTP endpoint, and broader REST APIs for games/saves/presence are still roadmap items.
 
 > Users must provide their own legally obtained game files.
 

@@ -51,8 +51,8 @@ Most emulators treat multiplayer as an afterthought. RetroOasis makes it the mai
 
 ```
 /apps
-  /desktop          — React + Vite desktop frontend (Tauri-ready)
-  /lobby-server     — WebSocket-based lobby/room server
+  /desktop          — React + Vite desktop frontend (browser-based today; Tauri/native packaging planned)
+  /lobby-server     — WebSocket lobby server + local HTTP launch API
 
 /packages
   /ui               — Shared UI components
@@ -79,7 +79,7 @@ Most emulators treat multiplayer as an afterthought. RetroOasis makes it the mai
 3. **WebSocket lobby server** — Real-time room management
 4. **Per-game intelligence** — Metadata drives the UX (player count, modes, badges)
 5. **Modular packages** — Each concern is a separate, testable package
-6. **Tauri-ready** — Frontend is designed to work with Tauri for native desktop app
+6. **Native packaging is planned, not finished** — the current frontend can be packaged with Tauri later, but the Tauri shell and IPC bridge are not in this repo yet
 
 ## Supported Systems
 
