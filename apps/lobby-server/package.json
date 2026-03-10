@@ -9,6 +9,7 @@
   },
   "dependencies": {
     "@retro-oasis/emulator-bridge": "*",
+    "@retro-oasis/game-db": "*",
     "ws": "^8.17.1"
   },
   "devDependencies": {

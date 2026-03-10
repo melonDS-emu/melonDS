@@ -48,9 +48,9 @@
 - [x] Library refresh affordance tied to the configured ROM path (currently simulated until native filesystem IPC is added)
 - [x] Read-only controller profile reference UI in Settings
 - [ ] Native ROM scan + per-game ROM file selection wired into the desktop UI
-- [ ] Relay session token handoff from `game-starting` into emulator processes
+- [x] Relay session token handoff from `game-starting` into emulator processes (`RETRO_OASIS_SESSION_TOKEN` env var)
 - [ ] Editable controller remapping UI
-- [ ] Game catalog REST backend (`/api/games`, `/api/systems`) to back `VITE_API_MODE=backend`
+- [x] Game catalog REST backend (`/api/games`, `/api/systems`) now live on the lobby server; backed by `@retro-oasis/game-db` seed data
 - [ ] Cloud save sync implementation
 - [ ] Friend invite flow (room code sharing via external messaging)
 
@@ -183,11 +183,47 @@
 
 ## Current Carry-Over / Blockers
 
-- [ ] Tauri native shell and IPC command surface for desktop-only capabilities
-- [ ] C++ IPC bridge between the TypeScript launcher and the melonDS core in `/src`
-- [ ] Backend expansion beyond WebSocket rooms + `/api/launch` (catalog, saves, presence, auth)
-- [ ] Real ROM ownership/discovery flow: filesystem scan, file association, and per-room ROM selection
-- [ ] Relay authentication handoff: feed per-player session tokens into launched emulator processes
+- [ ] **Tauri native shell and IPC command surface for desktop-only capabilities**
+  - `apps/desktop/src/lib/tauri-ipc.ts` defines the full typed command surface
+    (`tauriScanRoms`, `tauriPickFile`, `tauriPickDirectory`, `tauriLaunchEmulator`)
+    with HTTP-API fallbacks so the app runs in both native and browser/dev mode.
+  - Remaining: scaffold `src-tauri/` (Rust, `tauri.conf.json`, `Cargo.toml`),
+    implement matching Rust command handlers, wire into the npm build.
+
+- [ ] **C++ IPC bridge between the TypeScript launcher and the melonDS core in `/src`**
+  - `apps/lobby-server/src/melonds-ipc.ts` defines the full `MelonDsIpcBridge`
+    interface + protocol message types (`MelonDsCommand` / `MelonDsResponse`).
+    A `MelonDsIpcStub` provides no-op responses for dev/test use.
+  - Remaining: compile the C++ core via the existing CMake build, implement the
+    Unix socket / named-pipe server in C++, replace the stub with a real socket
+    client, wire the sidecar launch into Tauri or Node.js.
+
+- [ ] **Backend expansion beyond WebSocket rooms + `/api/launch`**
+  - Catalog endpoints (`GET /api/games`, `GET /api/games/:id`,
+    `GET /api/games/search`, `GET /api/systems`) are now live on the lobby
+    server, backed by `@retro-oasis/game-db`. `VITE_API_MODE=backend` is
+    functional for catalog queries.
+  - Remaining: auth/identity layer, rate limiting, save-sync endpoints, presence
+    persistence, deployable relay-host configuration.
+
+- [ ] **Real ROM ownership/discovery flow: filesystem scan, file association, and per-room ROM selection**
+  - `GET /api/roms/scan?dir=<path>&recursive=<bool>` endpoint added to the lobby
+    server (delegates to the existing `scanRomDirectory` scanner).
+  - `apps/desktop/src/lib/rom-library.ts` added: per-game ROM file associations
+    stored in localStorage (`setRomAssociation`, `getRomAssociation`,
+    `resolveGameRomPath`).
+  - `LobbyContext` now resolves the game-specific ROM path via
+    `resolveGameRomPath(gameId)` instead of using the raw ROM directory.
+  - Remaining: native file-picker UI in Settings / game detail page (requires
+    Tauri `tauriPickFile`), visible association status per game in Library page,
+    server-side ROM catalog persistence.
+
+- [x] **Relay authentication handoff: feed per-player session tokens into launched emulator processes**
+  - `LaunchOptions.sessionToken` added to `@retro-oasis/emulator-bridge`.
+  - Token is injected as `RETRO_OASIS_SESSION_TOKEN` env var on the spawned
+    emulator child process.
+  - `/api/launch` now accepts and forwards `sessionToken`.
+  - `LobbyContext` includes `sessionToken` in the `/api/launch` request body.
 
 ## Future Ideas
 - Tournament-style rooms

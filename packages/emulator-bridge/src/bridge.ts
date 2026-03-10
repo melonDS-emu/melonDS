@@ -32,6 +32,13 @@ export interface LaunchOptions {
   /** NDS-specific */
   screenLayout?: 'stacked' | 'side-by-side' | 'top-focus' | 'bottom-focus';
   touchEnabled?: boolean;
+  /**
+   * Relay authentication token for this player's session.
+   * Injected into the emulator process as the `RETRO_OASIS_SESSION_TOKEN`
+   * environment variable so the emulator (or a wrapper) can authenticate
+   * its TCP connection to the netplay relay.
+   */
+  sessionToken?: string;
 }
 
 export interface LaunchResult {
@@ -82,12 +89,21 @@ export class EmulatorBridge {
 
     this.runningProcesses.set(sessionId, emulatorProcess);
 
+    // Build the child-process environment, injecting the relay session token
+    // when one is provided so the emulator (or a thin wrapper script) can
+    // present it on its TCP connection to the netplay relay.
+    const childEnv: NodeJS.ProcessEnv = { ...process.env };
+    if (options.sessionToken) {
+      childEnv['RETRO_OASIS_SESSION_TOKEN'] = options.sessionToken;
+    }
+
     // Spawn the emulator as a real child process
     let child: ChildProcess;
     try {
       child = spawn(options.backendId, args, {
         detached: true,   // allow emulator to outlive the Node process if desired
         stdio: 'ignore',
+        env: childEnv,
       });
     } catch (err) {
       emulatorProcess.state = 'error';
