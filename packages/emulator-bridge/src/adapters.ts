@@ -132,6 +132,10 @@ export function createSystemAdapter(system: string, backendId?: string): SystemA
           if (options.netplayHost && options.netplayPort) {
             args.push('--netplay-host', options.netplayHost);
             args.push('--netplay-port', String(options.netplayPort));
+            // Player slot is 1-based in Mupen64Plus netplay
+            if (options.playerSlot !== undefined) {
+              args.push('--netplay-player', String(options.playerSlot + 1));
+            }
           }
           return args;
         },

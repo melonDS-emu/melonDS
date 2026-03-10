@@ -14,7 +14,8 @@ export function HomePage() {
   const [showHost, setShowHost] = useState(false);
   const [showJoin, setShowJoin] = useState(false);
 
-  const partyPicks = MOCK_GAMES.filter((g) => g.tags.includes('Party'));
+  const n64PartyGames = MOCK_GAMES.filter((g) => g.system === 'N64' && g.tags.includes('Party'));
+  const partyPicks = MOCK_GAMES.filter((g) => g.tags.includes('Party') && g.system !== 'N64');
   const recentGames = MOCK_GAMES.slice(0, 4);
 
   // Refresh public rooms when the page mounts / becomes visible
@@ -126,22 +127,48 @@ export function HomePage() {
         )}
       </section>
 
-      {/* Quick Party Picks */}
-      <section>
-        <div className="flex items-center justify-between mb-3">
-          <h2 className="text-lg font-bold" style={{ color: 'var(--color-oasis-accent-light)' }}>
-            🎉 Quick Party Picks
-          </h2>
-          <Link to="/library" className="text-sm" style={{ color: 'var(--color-oasis-text-muted)' }}>
-            View All →
-          </Link>
-        </div>
-        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
-          {partyPicks.map((game) => (
-            <GameCard key={game.id} game={game} />
-          ))}
-        </div>
-      </section>
+      {/* N64 Party Spotlight */}
+      {n64PartyGames.length > 0 && (
+        <section>
+          <div className="flex items-center justify-between mb-3">
+            <div>
+              <h2 className="text-lg font-bold" style={{ color: 'var(--color-oasis-accent-light)' }}>
+                🟢 N64 Party Games
+              </h2>
+              <p className="text-xs mt-0.5" style={{ color: 'var(--color-oasis-text-muted)' }}>
+                Best with 4 players — grab your friends!
+              </p>
+            </div>
+            <Link to="/library" className="text-sm" style={{ color: 'var(--color-oasis-text-muted)' }}>
+              View All →
+            </Link>
+          </div>
+          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
+            {n64PartyGames.map((game) => (
+              <GameCard key={game.id} game={game} />
+            ))}
+          </div>
+        </section>
+      )}
+
+      {/* Quick Party Picks (non-N64) */}
+      {partyPicks.length > 0 && (
+        <section>
+          <div className="flex items-center justify-between mb-3">
+            <h2 className="text-lg font-bold" style={{ color: 'var(--color-oasis-accent-light)' }}>
+              🎉 More Party Picks
+            </h2>
+            <Link to="/library" className="text-sm" style={{ color: 'var(--color-oasis-text-muted)' }}>
+              View All →
+            </Link>
+          </div>
+          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
+            {partyPicks.map((game) => (
+              <GameCard key={game.id} game={game} />
+            ))}
+          </div>
+        </section>
+      )}
 
       {/* Recently Played */}
       <section>

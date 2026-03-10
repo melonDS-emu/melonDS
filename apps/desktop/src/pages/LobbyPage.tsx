@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useLobby } from '../context/LobbyContext';
+import { MOCK_GAMES } from '../data/mock-games';
 import type { ConnectionQuality } from '../services/lobby-types';
 
 function qualityDot(quality: ConnectionQuality): { color: string; label: string; text: string } {
@@ -11,6 +12,24 @@ function qualityDot(quality: ConnectionQuality): { color: string; label: string;
     case 'poor':      return { color: '#f87171', label: '●○○○', text: 'Poor' };
     default:          return { color: 'var(--color-oasis-text-muted)', label: '○○○○', text: 'Unknown' };
   }
+}
+
+/** Returns a human-friendly party hint for the given game/system. */
+function getSessionHint(system: string, maxPlayers: number, gameTitle: string): string | null {
+  const title = gameTitle.toLowerCase();
+  if (system === 'n64' || system === 'N64') {
+    if (maxPlayers >= 4) {
+      if (title.includes('kart') || title.includes('party') || title.includes('racing')) {
+        return `🏎️ This session needs all 4 players for the full experience — invite friends!`;
+      }
+      if (title.includes('smash') || title.includes('goldeneye')) {
+        return `⚔️ Fill all 4 slots for maximum chaos. Best played with a full lobby!`;
+      }
+      return `🎮 N64 party game — best with ${maxPlayers} players. Share your room code!`;
+    }
+    return `🎮 N64 session — grab your N64 adapter or use a gamepad with left-stick analog support.`;
+  }
+  return null;
 }
 
 export function LobbyPage() {
@@ -104,6 +123,11 @@ export function LobbyPage() {
   const allReady = room.players.length >= 1 && room.players.every((p) => p.readyState === 'ready');
   const myQuality = qualityDot(myPlayer?.connectionQuality ?? 'unknown');
 
+  // Game metadata for context card
+  const gameData = MOCK_GAMES.find((g) => g.id === room.gameId);
+  const sessionHint = getSessionHint(room.system, room.maxPlayers, room.gameTitle);
+  const slotsNeeded = room.maxPlayers - room.players.length;
+
   return (
     <div className="max-w-2xl">
       <button onClick={handleLeave} className="text-sm mb-4 inline-block" style={{ color: 'var(--color-oasis-text-muted)' }}>
@@ -132,6 +156,43 @@ export function LobbyPage() {
           </p>
         </div>
       )}
+
+      {/* Game summary card */}
+      <div
+        className="mb-3 rounded-2xl px-4 py-3 flex items-center gap-4"
+        style={{ backgroundColor: 'var(--color-oasis-card)' }}
+      >
+        <div
+          className="w-14 h-14 rounded-xl flex items-center justify-center text-3xl flex-shrink-0"
+          style={{ backgroundColor: 'var(--color-oasis-surface)' }}
+        >
+          {gameData?.coverEmoji ?? '🎮'}
+        </div>
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center gap-2 mb-0.5">
+            <span
+              className="px-1.5 py-0.5 rounded text-[9px] font-bold"
+              style={{ backgroundColor: gameData?.systemColor ?? 'var(--color-oasis-accent)', color: 'white' }}
+            >
+              {room.system.toUpperCase()}
+            </span>
+            {room.maxPlayers >= 4 && (
+              <span
+                className="px-1.5 py-0.5 rounded-full text-[9px] font-bold"
+                style={{ backgroundColor: 'var(--color-oasis-yellow)', color: '#1a1025' }}
+              >
+                Up to {room.maxPlayers}P
+              </span>
+            )}
+          </div>
+          <p className="text-sm font-bold truncate">{room.gameTitle}</p>
+          {sessionHint && (
+            <p className="text-[11px] mt-0.5 leading-snug" style={{ color: 'var(--color-oasis-accent-light)' }}>
+              {sessionHint}
+            </p>
+          )}
+        </div>
+      </div>
 
       <div className="rounded-2xl p-6" style={{ backgroundColor: 'var(--color-oasis-card)' }}>
         <div className="flex items-center justify-between mb-4">
@@ -265,6 +326,24 @@ export function LobbyPage() {
             </div>
           ))}
         </div>
+
+        {/* Waiting for players nudge */}
+        {slotsNeeded > 0 && !relayInfo && (
+          <div
+            className="mb-4 px-3 py-2 rounded-xl text-xs text-center"
+            style={{ backgroundColor: 'var(--color-oasis-surface)', color: 'var(--color-oasis-text-muted)' }}
+          >
+            👋 {slotsNeeded} open slot{slotsNeeded > 1 ? 's' : ''} — share your room code{' '}
+            <button
+              className="font-bold underline"
+              style={{ color: 'var(--color-oasis-accent-light)', background: 'none', border: 'none', padding: 0, cursor: 'pointer' }}
+              onClick={() => handleCopyCode(room.roomCode)}
+            >
+              {room.roomCode}
+            </button>{' '}
+            to invite friends!
+          </div>
+        )}
 
         {/* Spectators section */}
         {room.spectators && room.spectators.length > 0 && (
