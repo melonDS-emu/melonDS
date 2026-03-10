@@ -189,6 +189,17 @@ export class LobbyManager {
     return this.rooms.get(roomId) ?? null;
   }
 
+  /** Find any rooms where this player is an active participant. */
+  getRoomsForPlayer(playerId: string): Room[] {
+    const matches: Room[] = [];
+    for (const room of this.rooms.values()) {
+      if (room.players.some((p) => p.id === playerId)) {
+        matches.push(room);
+      }
+    }
+    return matches;
+  }
+
   /** Get all player IDs in a room (for broadcasting), including spectators. */
   getRoomPlayerIds(roomId: string): string[] {
     const room = this.rooms.get(roomId);

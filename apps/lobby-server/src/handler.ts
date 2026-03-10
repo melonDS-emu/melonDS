@@ -185,10 +185,22 @@ export function handleConnection(ws: WebSocket, lobby: LobbyManager, relay: Netp
 
       case 'ping': {
         const { sentAt } = msg.payload;
-        send(ws, { type: 'pong', sentAt, serverAt: Date.now() });
+        const serverAt = Date.now();
+        const rtt = Math.max(0, serverAt - sentAt);
+        const quality = qualityFromLatency(rtt);
 
-        // Update connection quality based on the ping
-        // The client will send another ping to measure RTT; here we simply respond
+        // Persist and broadcast connection quality for any room this player is in.
+        const rooms = lobby.getRoomsForPlayer(playerId);
+        for (const room of rooms) {
+          lobby.updateConnectionQuality(room.id, playerId, quality, rtt);
+          const updated = lobby.getRoom(room.id);
+          if (updated) {
+            const ids = lobby.getRoomPlayerIds(room.id);
+            broadcast(ids, { type: 'room-updated', room: updated });
+          }
+        }
+
+        send(ws, { type: 'pong', sentAt, serverAt });
         break;
       }
 

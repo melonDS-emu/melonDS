@@ -65,7 +65,7 @@
 - [ ] Analog stick mapping quality
 - [ ] Spectator mode already done (Phase 1 carry-over) ✅
 - [ ] Voice chat hooks
-- [ ] Connection diagnostics UI
+- [x] Connection diagnostics UI
 - [ ] Party activity feed
 - [ ] Latency indicators for N64 games (relay already tracks this)
 

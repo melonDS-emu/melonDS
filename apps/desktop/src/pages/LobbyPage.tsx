@@ -9,7 +9,7 @@ function qualityDot(quality: ConnectionQuality): { color: string; label: string;
     case 'good':      return { color: '#86efac', label: '●●●○', text: 'Good' };
     case 'fair':      return { color: '#fbbf24', label: '●●○○', text: 'Fair' };
     case 'poor':      return { color: '#f87171', label: '●○○○', text: 'Poor' };
-    default:          return { color: 'var(--color-oasis-text-muted)', label: '○○○○', text: '' };
+    default:          return { color: 'var(--color-oasis-text-muted)', label: '○○○○', text: 'Unknown' };
   }
 }
 
@@ -93,6 +93,7 @@ export function LobbyPage() {
   const isHost = myPlayer?.isHost ?? false;
   const imReady = myPlayer?.readyState === 'ready';
   const allReady = room.players.length > 1 && room.players.every((p) => p.readyState === 'ready');
+  const myQuality = qualityDot(myPlayer?.connectionQuality ?? 'unknown');
 
   return (
     <div className="max-w-2xl">
@@ -156,6 +157,36 @@ export function LobbyPage() {
               <p className="text-xs mt-1" style={{ color: 'var(--color-oasis-text-muted)' }}>
                 🌐 {latencyMs}ms
               </p>
+            )}
+          </div>
+        </div>
+
+        {/* Connection diagnostics */}
+        <div
+          className="rounded-xl p-3 mb-4"
+          style={{ backgroundColor: 'var(--color-oasis-surface)' }}
+        >
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-xs font-semibold" style={{ color: 'var(--color-oasis-text-muted)' }}>
+                Connection diagnostics
+              </p>
+              <p className="text-sm font-medium flex items-center gap-2" style={{ color: 'var(--color-oasis-text)' }}>
+                {latencyMs !== null ? `${latencyMs}ms ping` : 'Measuring ping…'}
+                <span className="text-[11px] font-semibold" style={{ color: myQuality.color }}>
+                  {myQuality.label} {myQuality.text}
+                </span>
+              </p>
+            </div>
+            {relayInfo && (
+              <div className="text-right">
+                <p className="text-[11px]" style={{ color: 'var(--color-oasis-text-muted)' }}>
+                  Relay endpoint
+                </p>
+                <p className="font-mono text-xs" style={{ color: 'var(--color-oasis-text)' }}>
+                  {relayInfo.host}:{relayInfo.port}
+                </p>
+              </div>
             )}
           </div>
         </div>
