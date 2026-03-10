@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { MOCK_GAMES } from '../data/mock-games';
+import { useGames } from '../lib/use-games';
 import { GameCard } from '../components/GameCard';
 import { LobbyCard } from '../components/LobbyCard';
 import { HostRoomModal } from '../components/HostRoomModal';
@@ -14,9 +14,10 @@ export function HomePage() {
   const [showHost, setShowHost] = useState(false);
   const [showJoin, setShowJoin] = useState(false);
 
-  const n64PartyGames = MOCK_GAMES.filter((g) => g.system === 'N64' && g.tags.includes('Party'));
-  const partyPicks = MOCK_GAMES.filter((g) => g.tags.includes('Party') && g.system !== 'N64');
-  const recentGames = MOCK_GAMES.slice(0, 4);
+  const { data: allGames } = useGames();
+  const n64PartyGames = allGames.filter((g) => g.system === 'N64' && g.tags.includes('Party'));
+  const partyPicks = allGames.filter((g) => g.tags.includes('Party') && g.system !== 'N64');
+  const recentGames = allGames.slice(0, 4);
 
   // Refresh public rooms when the page mounts / becomes visible
   useEffect(() => {
@@ -45,7 +46,7 @@ export function HomePage() {
 
   // Build a lobby-card-compatible object from a real Room
   function toLobbyCard(room: Room) {
-    const game = MOCK_GAMES.find((g) => g.id === room.gameId);
+    const game = allGames.find((g) => g.id === room.gameId);
     return {
       id: room.id,
       name: room.name,

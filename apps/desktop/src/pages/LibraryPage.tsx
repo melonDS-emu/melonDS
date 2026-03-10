@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { MOCK_GAMES } from '../data/mock-games';
+import { useGames } from '../lib/use-games';
 import { GameCard } from '../components/GameCard';
 
 const SYSTEMS = ['All', 'NES', 'SNES', 'GB', 'GBC', 'GBA', 'N64', 'NDS'];
@@ -9,10 +9,9 @@ export function LibraryPage() {
   const [selectedSystem, setSelectedSystem] = useState('All');
   const [selectedTag, setSelectedTag] = useState('All');
 
-  const filtered = MOCK_GAMES.filter((g) => {
-    if (selectedSystem !== 'All' && g.system !== selectedSystem) return false;
-    if (selectedTag !== 'All' && !g.tags.includes(selectedTag)) return false;
-    return true;
+  const { data: filtered, loading, error } = useGames({
+    system: selectedSystem !== 'All' ? selectedSystem : undefined,
+    tag: selectedTag !== 'All' ? selectedTag : undefined,
   });
 
   return (
@@ -61,7 +60,17 @@ export function LibraryPage() {
         ))}
       </div>
 
-      {filtered.length === 0 && (
+      {loading && (
+        <p className="text-center py-12" style={{ color: 'var(--color-oasis-text-muted)' }}>
+          Loading…
+        </p>
+      )}
+      {error && (
+        <p className="text-center py-12" style={{ color: 'var(--color-oasis-text-muted)' }}>
+          ⚠️ {error}
+        </p>
+      )}
+      {!loading && !error && filtered.length === 0 && (
         <p className="text-center py-12" style={{ color: 'var(--color-oasis-text-muted)' }}>
           No games match the current filters.
         </p>
