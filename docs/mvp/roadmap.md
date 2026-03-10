@@ -97,6 +97,28 @@
 - [ ] Advanced compatibility badges
 - [ ] Screen swap hotkeys
 
+## Phase 5 — Presence and Social Discovery
+
+**Goal:** Make RetroOasis feel alive even before a session starts.
+
+### Milestones
+- [x] `FriendInfo` enriched with `roomCode` for direct join surfacing
+- [x] `RecentActivity` type added to presence-client (join/start/finish/online events)
+- [x] `OnlineStatus` and `ActivityEventType` exported as standalone types
+- [x] `PresenceClient.seedMockFriends()` — realistic mock friends for dev/demo
+- [x] `PresenceContext` React context exposing friends, onlineFriends, joinableSessions, recentActivity
+- [x] `PresenceProvider` mounted in app root alongside LobbyProvider
+- [x] Sidebar friends panel — dynamic list from context, hover-reveal Join button, online count
+- [x] Friends nav item added to sidebar with green online-count badge
+- [x] `JoinRoomModal` accepts optional `initialCode` prop for pre-filled join from friend
+- [x] Home page "Friends Playing Now" section — friend session cards with ▶ Join button
+- [x] Home page "Recent Activity" section — timestamped feed with inline join actions
+- [x] `/friends` route + `FriendsPage` — full social discovery (spotlight, filter tabs, roster, activity feed)
+- [ ] Connect PresenceClient to lobby WebSocket for live friend presence
+- [ ] Friend request / add-friend flow
+- [ ] Server-side friend list and presence persistence
+- [ ] Push notifications for joinable sessions
+
 ## Future Ideas
 - Tournament-style rooms
 - Seasonal featured games

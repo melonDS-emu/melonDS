@@ -1,13 +1,14 @@
 import { useState } from 'react';
 
 interface JoinRoomModalProps {
+  initialCode?: string;
   onConfirm: (roomCode: string, displayName: string) => void;
   onSpectate?: (roomCode: string, displayName: string) => void;
   onClose: () => void;
 }
 
-export function JoinRoomModal({ onConfirm, onSpectate, onClose }: JoinRoomModalProps) {
-  const [roomCode, setRoomCode] = useState('');
+export function JoinRoomModal({ initialCode, onConfirm, onSpectate, onClose }: JoinRoomModalProps) {
+  const [roomCode, setRoomCode] = useState(initialCode?.toUpperCase() ?? '');
   const [displayName, setDisplayName] = useState(
     () => localStorage.getItem('retro-oasis-display-name') ?? ''
   );
