@@ -60,14 +60,22 @@
 - [x] GBA Four Swords catalog entry (4-player link co-op)
 - [x] Session templates for all new Pokémon link/trade games
 - [x] Session template for Zelda Four Swords 4P
-- [ ] N64 backend integration (Mupen64Plus install + detection)
-- [ ] 4-player party game optimization
-- [ ] Analog stick mapping quality
-- [ ] Spectator mode already done (Phase 1 carry-over) ✅
-- [ ] Voice chat hooks
+- [x] N64 backend integration: Mupen64Plus install/detection notes + analog calibration guidance
+- [x] N64 playerSlot support in adapter (--netplay-player arg)
+- [x] N64 default input profiles: Xbox, PlayStation, keyboard (analog stick mappings)
+- [x] Session templates: Mario Party 2, GoldenEye 007, Diddy Kong Racing (4P)
+- [x] Mock game catalog expanded with Mario Party 2, GoldenEye 007, Diddy Kong Racing
+- [x] "Best 4P" badge on party game cards (N64 4-player games)
+- [x] Party hint banners on game detail pages (N64-specific messaging)
+- [x] N64 party spotlight section on home page
+- [x] Game summary card in lobby with party context and system badge
+- [x] Open slots invite nudge in lobby (share room code prompt)
 - [x] Connection diagnostics UI
+- [x] Spectator mode (Phase 1 carry-over) ✅
+- [ ] Tauri integration for native desktop app (Phase 1 carry-over)
+- [ ] Controller mapping UI (bind N64_DEFAULT_PROFILES to UI)
+- [ ] Voice chat hooks
 - [ ] Party activity feed
-- [ ] Latency indicators for N64 games (relay already tracks this)
 
 ## Phase 3 — Nintendo DS + Premium Features
 

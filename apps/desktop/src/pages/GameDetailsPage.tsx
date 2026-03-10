@@ -4,6 +4,24 @@ import { MOCK_GAMES } from '../data/mock-games';
 import { HostRoomModal } from '../components/HostRoomModal';
 import { useLobby } from '../context/LobbyContext';
 
+/** System-specific quick-start hints shown on the game detail page. */
+function getPartyHint(game: { system: string; maxPlayers: number; tags: string[] }): string | null {
+  if (game.system === 'N64' && game.maxPlayers >= 4) {
+    if (game.tags.includes('Party')) {
+      return '🎉 Perfect for a full party of 4 — grab your friends and launch a room!';
+    }
+    return '👾 Best with 4 players — fill those slots for the full N64 experience.';
+  }
+  if (game.maxPlayers >= 4) {
+    return `🎮 Supports up to ${game.maxPlayers} players — more is merrier!`;
+  }
+  return null;
+}
+
+/** Controller tip shown on N64 game detail pages. */
+const N64_CONTROLLER_TIP =
+  '🕹️ Controller tip: Use an Xbox or PlayStation controller — the left stick maps to the N64 analog stick automatically. A gamepad is strongly recommended for analog-heavy games.';
+
 export function GameDetailsPage() {
   const { gameId } = useParams<{ gameId: string }>();
   const navigate = useNavigate();
@@ -27,6 +45,9 @@ export function GameDetailsPage() {
       </div>
     );
   }
+
+  const partyHint = getPartyHint(game);
+  const isN64 = game.system === 'N64';
 
   return (
     <div className="max-w-3xl">
@@ -54,6 +75,14 @@ export function GameDetailsPage() {
               <span className="text-xs" style={{ color: 'var(--color-oasis-text-muted)' }}>
                 Up to {game.maxPlayers} players
               </span>
+              {isN64 && (
+                <span
+                  className="px-2 py-0.5 rounded text-[10px] font-bold"
+                  style={{ backgroundColor: 'var(--color-oasis-accent)', color: 'white' }}
+                >
+                  N64
+                </span>
+              )}
             </div>
             <h1 className="text-2xl font-bold mb-2">{game.title}</h1>
             <p className="text-sm" style={{ color: 'var(--color-oasis-text-muted)' }}>
@@ -61,6 +90,26 @@ export function GameDetailsPage() {
             </p>
           </div>
         </div>
+
+        {/* Party hint banner */}
+        {partyHint && (
+          <div
+            className="mt-4 px-4 py-3 rounded-xl text-sm font-semibold"
+            style={{ backgroundColor: 'var(--color-oasis-surface)', color: 'var(--color-oasis-accent-light)' }}
+          >
+            {partyHint}
+          </div>
+        )}
+
+        {/* N64 analog stick note */}
+        {isN64 && (
+          <div
+            className="mt-2 px-4 py-2 rounded-xl text-xs"
+            style={{ backgroundColor: 'var(--color-oasis-surface)', color: 'var(--color-oasis-text-muted)' }}
+          >
+            {N64_CONTROLLER_TIP}
+          </div>
+        )}
 
         {/* Tags */}
         <div className="flex flex-wrap gap-2 mt-4">
