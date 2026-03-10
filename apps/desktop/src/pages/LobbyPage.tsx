@@ -1,9 +1,10 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useMemo } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useLobby } from '../context/LobbyContext';
 import { MOCK_GAMES } from '../data/mock-games';
 import type { ConnectionQuality } from '../services/lobby-types';
 import { DSControlsGuide } from '../components/DSControlsGuide';
+import { useVoiceChat } from '../lib/voice-chat';
 
 function qualityDot(quality: ConnectionQuality): { color: string; label: string; text: string } {
   switch (quality) {
@@ -71,12 +72,23 @@ export function LobbyPage() {
     latencyMs,
     relayInfo,
     sessionToken,
+    ws,
   } = useLobby();
 
   const [chatInput, setChatInput] = useState('');
   const [roomCodeCopied, setRoomCodeCopied] = useState(false);
   const [showDsGuide, setShowDsGuide] = useState(false);
   const chatEndRef = useRef<HTMLDivElement>(null);
+
+  // Voice chat — resolve peer IDs (all non-spectating players except ourselves)
+  const peerIds = useMemo(
+    () =>
+      (currentRoom?.players ?? [])
+        .filter((p) => p.id !== playerId && !p.isSpectator)
+        .map((p) => p.id),
+    [currentRoom?.players, playerId],
+  );
+  const voiceChat = useVoiceChat(ws, playerId ?? '', peerIds);
 
   // Auto-join if we navigated directly to a lobby URL
   useEffect(() => {
@@ -358,17 +370,62 @@ export function LobbyPage() {
             <div
               key={`empty-${i}`}
               className="flex items-center justify-center p-3 rounded-xl border border-dashed"
-              style={{ borderColor: 'var(--color-oasis-text-muted)', opacity: 0.3 }}
+              style={{ borderColor: isNds ? '#E87722' : 'var(--color-oasis-text-muted)', opacity: isNds ? 0.5 : 0.3 }}
             >
-              <p className="text-xs" style={{ color: 'var(--color-oasis-text-muted)' }}>
-                Open Slot
-              </p>
+              {isNds ? (
+                <span className="text-xs flex items-center gap-2" style={{ color: '#E87722' }}>
+                  <span className="inline-block animate-pulse">📡</span>
+                  Searching for DS nearby…
+                </span>
+              ) : (
+                <p className="text-xs" style={{ color: 'var(--color-oasis-text-muted)' }}>
+                  Open Slot
+                </p>
+              )}
             </div>
           ))}
         </div>
 
-        {/* Waiting for players nudge */}
-        {slotsNeeded > 0 && !relayInfo && (
+        {/* DS wireless "searching" banner — shown for NDS sessions with open slots */}
+        {isNds && slotsNeeded > 0 && !relayInfo && (
+          <div
+            className="mb-4 px-4 py-3 rounded-xl"
+            style={{ backgroundColor: 'rgba(232,119,34,0.1)', border: '1px solid rgba(232,119,34,0.3)' }}
+          >
+            <div className="flex items-center gap-2 mb-1">
+              <span className="text-sm font-bold" style={{ color: '#E87722' }}>📡 DS Wireless</span>
+              <span className="flex gap-0.5">
+                {[0, 1, 2].map((bar) => (
+                  <span
+                    key={bar}
+                    className="inline-block rounded-sm animate-pulse"
+                    style={{
+                      width: '3px',
+                      height: `${6 + bar * 4}px`,
+                      backgroundColor: '#E87722',
+                      opacity: 0.6 + bar * 0.15,
+                      animationDelay: `${bar * 0.2}s`,
+                    }}
+                  />
+                ))}
+              </span>
+            </div>
+            <p className="text-xs" style={{ color: '#E87722', opacity: 0.8 }}>
+              Scanning for {slotsNeeded} player{slotsNeeded > 1 ? 's' : ''} — share room code{' '}
+              <button
+                className="font-bold underline"
+                style={{ color: '#E87722', background: 'none', border: 'none', padding: 0, cursor: 'pointer' }}
+                onClick={() => handleCopyCode(room.roomCode)}
+              >
+                {room.roomCode}
+              </button>{' '}
+              to invite friends!
+            </p>
+          </div>
+        )}
+
+        {/* Waiting for players nudge (non-NDS sessions) */}
+        {!isNds && slotsNeeded > 0 && !relayInfo && (
           <div
             className="mb-4 px-3 py-2 rounded-xl text-xs text-center"
             style={{ backgroundColor: 'var(--color-oasis-surface)', color: 'var(--color-oasis-text-muted)' }}
@@ -471,6 +528,74 @@ export function LobbyPage() {
             </button>
           </div>
         )}
+
+        {/* Voice Chat */}
+        <div className="mb-4 rounded-xl p-3" style={{ backgroundColor: 'var(--color-oasis-surface)' }}>
+          <p className="text-xs font-semibold mb-2" style={{ color: 'var(--color-oasis-text-muted)' }}>
+            🎙️ Voice Chat
+          </p>
+          {voiceChat.error && (
+            <p className="text-xs mb-2" style={{ color: '#f87171' }}>{voiceChat.error}</p>
+          )}
+          <div className="flex items-center gap-2">
+            {!voiceChat.active ? (
+              <button
+                type="button"
+                onClick={() => void voiceChat.enable()}
+                className="px-3 py-1.5 rounded-lg text-xs font-semibold transition-opacity hover:opacity-80"
+                style={{ backgroundColor: 'var(--color-oasis-accent)', color: 'white' }}
+              >
+                🎤 Join Voice
+              </button>
+            ) : (
+              <>
+                <button
+                  type="button"
+                  onClick={voiceChat.toggleMute}
+                  className="px-3 py-1.5 rounded-lg text-xs font-semibold transition-opacity hover:opacity-80"
+                  style={{
+                    backgroundColor: voiceChat.muted ? '#4b5563' : 'var(--color-oasis-accent)',
+                    color: 'white',
+                  }}
+                >
+                  {voiceChat.muted ? '🔇 Unmute' : '🎤 Mute'}
+                </button>
+                <button
+                  type="button"
+                  onClick={voiceChat.disable}
+                  className="px-3 py-1.5 rounded-lg text-xs font-semibold transition-opacity hover:opacity-80"
+                  style={{ backgroundColor: 'var(--color-oasis-surface)', color: 'var(--color-oasis-text-muted)', border: '1px solid rgba(255,255,255,0.1)' }}
+                >
+                  Leave Voice
+                </button>
+              </>
+            )}
+            {/* Per-player talking indicators */}
+            {voiceChat.active && peerIds.length > 0 && (
+              <div className="flex items-center gap-1 ml-2">
+                {peerIds.map((pid) => {
+                  const player = currentRoom?.players.find((p) => p.id === pid);
+                  const talking = voiceChat.peerActivity[pid];
+                  return (
+                    <span
+                      key={pid}
+                      title={`${player?.displayName ?? pid}${talking ? ' (talking)' : ''}`}
+                      className="text-xs px-1.5 py-0.5 rounded-full transition-colors"
+                      style={{
+                        backgroundColor: talking ? '#4ade80' : 'var(--color-oasis-surface)',
+                        color: talking ? '#000' : 'var(--color-oasis-text-muted)',
+                        border: '1px solid rgba(255,255,255,0.1)',
+                        fontSize: '10px',
+                      }}
+                    >
+                      {talking ? '🔊' : '○'} {player?.displayName ?? pid.slice(0, 6)}
+                    </span>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        </div>
 
         {/* Chat */}
         <div>

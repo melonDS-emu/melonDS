@@ -87,8 +87,8 @@
 - [x] Spectator mode (Phase 1 carry-over) ✅
 - [ ] Tauri integration for native desktop app (Phase 1 carry-over)
 - [x] Read-only controller profile UI shows N64 default mappings
-- [ ] Editable N64 controller remapping UI
-- [ ] Voice chat hooks
+- [x] Editable N64 controller remapping UI (all systems; bindings saved to localStorage)
+- [x] Voice chat hooks (WebRTC mesh; mute/unmute + per-peer talking indicators in lobby)
 - [x] Party activity feed (mock/dev presence data)
 
 ## Phase 3 — Nintendo DS + Premium Features
@@ -107,9 +107,10 @@
 - [ ] melonDS integration (this repository's core — C++ build + IPC bridge)
 - [x] Dual-screen layout controls UI (stacked, side-by-side, focus modes)
 - [x] Touch input mapping (mouse/touchpad)
-- [ ] DS wireless-inspired room UX
+- [x] DS wireless-inspired room UX (animated signal bars + "Scanning for DS nearby" in open slots)
 - [x] Advanced compatibility badges
 - [x] Screen swap hotkeys
+- [x] Touch input calibration panel (offsetX/Y, scaleX/Y; persisted in localStorage)
 
 ## Phase 5 — Presence and Social Discovery
 
@@ -177,6 +178,8 @@
 - [x] Phase status notes for N64, saves, presence, and DS work
 - [x] Desktop API smoke tests (`apps/desktop/src/lib/__tests__/api-client.test.ts`, 14 tests)
 - [x] Workspace validation documented and re-verified after `npm install` (`npm run typecheck`, `npm run test -w @retro-oasis/desktop`)
+- [x] Custom controller profile persistence tests (`custom-profiles.test.ts`, 8 tests)
+- [x] DS touch calibration service tests (`touch-calibration.test.ts`, 8 tests)
 - [ ] Integration coverage for emulator launch, relay token flow, ROM scanning, save I/O, and live presence
 - [ ] Native desktop verification checklist for Tauri / IPC flows
 - [ ] Backend hardening: auth/identity, rate limiting, persistence, and deployable relay host configuration
