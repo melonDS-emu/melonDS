@@ -5,6 +5,7 @@ import { GameDetailsPage } from './pages/GameDetailsPage';
 import { LobbyPage } from './pages/LobbyPage';
 import { LibraryPage } from './pages/LibraryPage';
 import { SavesPage } from './pages/SavesPage';
+import { FriendsPage } from './pages/FriendsPage';
 
 export function App() {
   return (
@@ -15,6 +16,7 @@ export function App() {
         <Route path="/game/:gameId" element={<GameDetailsPage />} />
         <Route path="/lobby/:lobbyId" element={<LobbyPage />} />
         <Route path="/saves" element={<SavesPage />} />
+        <Route path="/friends" element={<FriendsPage />} />
       </Route>
     </Routes>
   );
