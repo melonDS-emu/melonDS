@@ -16,6 +16,7 @@ import type {
   JoinRoomPayload,
 } from '../services/lobby-types';
 import { getRomDirectory, getSaveDirectory } from '../lib/rom-settings';
+import { resolveGameRomPath } from '../lib/rom-library';
 
 const WS_URL = import.meta.env.VITE_WS_URL ?? 'ws://localhost:8080';
 /** Base URL for the local HTTP launch API (same host as the lobby server by default). */
@@ -189,29 +190,35 @@ export function LobbyProvider({ children }: { children: ReactNode }) {
                 : prev
             );
 
-            // Attempt to auto-launch the emulator if the ROM directory is configured
+            // Attempt to auto-launch the emulator if a ROM path can be resolved
             // and a session token was provided (i.e. this client is a player, not a spectator).
             if (msg.sessionToken && relayPort) {
-              const romDir = getRomDirectory();
-              if (romDir) {
-                const room = currentRoomRef.current;
+              const room = currentRoomRef.current;
+              const romPath = resolveGameRomPath(room?.gameId ?? '');
+              if (romPath) {
                 const myPlayerId = playerIdRef.current;
                 const mySlot = room?.players.find((p) => p.id === myPlayerId)?.slot ?? 0;
                 const backendId = defaultBackendId(room?.system ?? '');
 
                 if (backendId) {
-                  const saveDir = getSaveDirectory() || romDir;
+                  const romDir = getRomDirectory();
+                  // Derive a directory from the rom path in case it points to a
+                  // specific file (e.g. from a per-game association) so the
+                  // save directory is always a valid directory path.
+                  const romFileDir = romPath.replace(/[/\\][^/\\]+$/, '') || romPath;
+                  const saveDir = getSaveDirectory() || romDir || romFileDir;
                   fetch(`${LAUNCH_API_BASE}/api/launch`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
-                      romPath: romDir,
+                      romPath,
                       system: room?.system ?? '',
                       backendId,
                       saveDirectory: saveDir,
                       playerSlot: mySlot,
                       netplayHost: relayHost,
                       netplayPort: relayPort,
+                      sessionToken: msg.sessionToken,
                     }),
                   }).catch(() => {
                     // Launch errors are non-fatal — the user can still start their
