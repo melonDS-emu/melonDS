@@ -1,9 +1,21 @@
-import { useParams, Link } from 'react-router-dom';
+import { useState, useEffect } from 'react';
+import { useParams, Link, useNavigate } from 'react-router-dom';
 import { MOCK_GAMES } from '../data/mock-games';
+import { HostRoomModal } from '../components/HostRoomModal';
+import { useLobby } from '../context/LobbyContext';
 
 export function GameDetailsPage() {
   const { gameId } = useParams<{ gameId: string }>();
+  const navigate = useNavigate();
+  const { createRoom, currentRoom } = useLobby();
+  const [showHost, setShowHost] = useState(false);
+
   const game = MOCK_GAMES.find((g) => g.id === gameId);
+
+  // Navigate to lobby after room is created
+  useEffect(() => {
+    if (currentRoom) navigate(`/lobby/${currentRoom.id}`);
+  }, [currentRoom, navigate]);
 
   if (!game) {
     return (
@@ -79,6 +91,7 @@ export function GameDetailsPage() {
         {/* Actions */}
         <div className="flex gap-3 mt-6">
           <button
+            onClick={() => setShowHost(true)}
             className="flex-1 py-3 rounded-xl font-bold transition-transform hover:scale-[1.02] active:scale-[0.98]"
             style={{ backgroundColor: 'var(--color-oasis-accent)', color: 'white' }}
           >
@@ -92,6 +105,17 @@ export function GameDetailsPage() {
           </button>
         </div>
       </div>
+
+      {showHost && (
+        <HostRoomModal
+          preselectedGameId={game.id}
+          onConfirm={(payload, displayName) => {
+            createRoom(payload, displayName);
+            setShowHost(false);
+          }}
+          onClose={() => setShowHost(false)}
+        />
+      )}
     </div>
   );
 }
