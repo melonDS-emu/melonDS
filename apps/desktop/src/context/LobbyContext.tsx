@@ -157,6 +157,13 @@ export function LobbyProvider({ children }: { children: ReactNode }) {
                 host: msg.relayHost ?? 'localhost',
               });
             }
+            // Mark room as in-game so clients can show the correct status
+            // even if they reload or reconnect.
+            setCurrentRoom((prev) =>
+              prev?.id === msg.roomId
+                ? { ...prev, status: 'in-game', relayPort: msg.relayPort }
+                : prev
+            );
             break;
 
           case 'chat-broadcast':

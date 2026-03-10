@@ -63,7 +63,7 @@ export function handleConnection(ws: WebSocket, lobby: LobbyManager, relay: Netp
         }
 
         if (!room) {
-          send(ws, { type: 'error', message: 'Could not join room' });
+          send(ws, { type: 'error', message: 'Could not join room. The code may be wrong, the room may be full, or the game has already started.' });
           break;
         }
 
@@ -104,6 +104,9 @@ export function handleConnection(ws: WebSocket, lobby: LobbyManager, relay: Netp
         if (room) {
           const playerIds = lobby.getRoomPlayerIds(room.id);
           broadcast(playerIds, { type: 'room-updated', room });
+        } else {
+          // Room was deleted (last player left) — free the relay port if one was allocated.
+          relay.deallocateSession(msg.payload.roomId);
         }
         break;
       }
@@ -139,6 +142,9 @@ export function handleConnection(ws: WebSocket, lobby: LobbyManager, relay: Netp
         room.relayPort = relayPort;
 
         const playerIds = lobby.getRoomPlayerIds(room.id);
+        // Broadcast room-updated first so clients persist the in-game status and
+        // relay port — this allows reconnecting clients to rehydrate correctly.
+        broadcast(playerIds, { type: 'room-updated', room });
         broadcast(playerIds, {
           type: 'game-starting',
           roomId: room.id,
@@ -211,12 +217,26 @@ export function handleConnection(ws: WebSocket, lobby: LobbyManager, relay: Netp
 
   ws.on('close', () => {
     connections.delete(playerId);
+
+    // Capture spectator IDs per room before rooms are potentially deleted.
+    // We must do this before calling disconnectPlayer because leaveRoom deletes
+    // the room when the last player leaves, making the data unavailable afterward.
+    const spectatorsByRoom = new Map<string, string[]>();
+    for (const room of lobby.getRoomsForPlayer(playerId)) {
+      spectatorsByRoom.set(room.id, room.spectators.map((s) => s.id));
+    }
+
     // Clean up rooms where this player was participating
     const affected = lobby.disconnectPlayer(playerId);
     for (const [roomId, room] of affected.entries()) {
       if (room) {
         const remainingIds = lobby.getRoomPlayerIds(roomId);
         broadcast(remainingIds, { type: 'room-updated', room });
+      } else {
+        // Room was closed (last player left) — free relay port and tell spectators.
+        relay.deallocateSession(roomId);
+        const spectators = spectatorsByRoom.get(roomId) ?? [];
+        broadcast(spectators, { type: 'room-left', roomId });
       }
     }
   });

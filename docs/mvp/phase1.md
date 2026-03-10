@@ -33,8 +33,8 @@ A polished multiplayer-first retro Nintendo app for simpler systems (NES, SNES, 
 - [x] Host Room modal with game selection
 - [x] Join by Room Code modal
 - [x] Room chat
+- [x] Connection quality indicators
 - [ ] Friend invite flow
-- [ ] Connection quality indicators
 
 ### Session Templates
 - [x] Template data model

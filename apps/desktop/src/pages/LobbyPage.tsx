@@ -78,9 +78,18 @@ export function LobbyPage() {
         <button onClick={() => navigate('/')} className="text-sm mb-4 inline-block" style={{ color: 'var(--color-oasis-text-muted)' }}>
           ← Back to Home
         </button>
+        {error && (
+          <div
+            className="mb-3 px-4 py-2 rounded-xl text-sm font-semibold flex items-center justify-between"
+            style={{ backgroundColor: 'var(--color-oasis-surface)', color: '#f87171' }}
+          >
+            <span>⚠️ {error}</span>
+            <button onClick={clearError} className="ml-4 text-xs opacity-70">✕</button>
+          </div>
+        )}
         <div className="rounded-2xl p-6 text-center" style={{ backgroundColor: 'var(--color-oasis-card)' }}>
           <p className="text-sm" style={{ color: 'var(--color-oasis-text-muted)' }}>
-            Joining lobby…
+            {error ? 'Could not join — check the room code and try again.' : 'Joining lobby…'}
           </p>
         </div>
       </div>
@@ -92,7 +101,7 @@ export function LobbyPage() {
   const isSpectating = !!mySpectator && !myPlayer;
   const isHost = myPlayer?.isHost ?? false;
   const imReady = myPlayer?.readyState === 'ready';
-  const allReady = room.players.length > 1 && room.players.every((p) => p.readyState === 'ready');
+  const allReady = room.players.length >= 1 && room.players.every((p) => p.readyState === 'ready');
   const myQuality = qualityDot(myPlayer?.connectionQuality ?? 'unknown');
 
   return (
@@ -111,18 +120,15 @@ export function LobbyPage() {
         </div>
       )}
 
-      {/* Relay info banner — appears when game is starting */}
+      {/* Session live banner — appears when game has started */}
       {relayInfo && (
         <div
           className="mb-3 px-4 py-3 rounded-xl text-sm"
           style={{ backgroundColor: 'var(--color-oasis-green)', color: '#1a1025' }}
         >
-          <p className="font-bold">🕹️ Game Starting — Netplay Relay Active</p>
-          <p className="text-xs mt-1 font-mono">
-            Connect your emulator to: <strong>{relayInfo.host}:{relayInfo.port}</strong>
-          </p>
-          <p className="text-xs mt-1 opacity-70">
-            Each player should configure their emulator netplay to use this relay address.
+          <p className="font-bold">🎮 Session Live — Everyone's in!</p>
+          <p className="text-xs mt-1 opacity-80">
+            Launch your emulator and use the netplay address shown in Connection Diagnostics below.
           </p>
         </div>
       )}
@@ -283,34 +289,42 @@ export function LobbyPage() {
 
         {/* Actions */}
         {!isSpectating && (
-          <div className="flex gap-3 mb-6">
-            <button
-              onClick={toggleReady}
-              className="flex-1 py-3 rounded-xl font-bold transition-transform hover:scale-[1.02] active:scale-[0.98]"
-              style={{
-                backgroundColor: imReady ? 'var(--color-oasis-surface)' : 'var(--color-oasis-green)',
-                color: imReady ? 'var(--color-oasis-text-muted)' : '#1a1025',
-              }}
-            >
-              {imReady ? '⏸ Unready' : '✓ Ready Up'}
-            </button>
-            {isHost && (
+          <div className="mb-6">
+            <div className="flex gap-3">
               <button
-                onClick={startGame}
-                disabled={!allReady}
-                className="flex-1 py-3 rounded-xl font-bold transition-transform hover:scale-[1.02] active:scale-[0.98] disabled:opacity-40 disabled:cursor-not-allowed"
-                style={{ backgroundColor: 'var(--color-oasis-accent)', color: 'white' }}
+                onClick={toggleReady}
+                className="flex-1 py-3 rounded-xl font-bold transition-transform hover:scale-[1.02] active:scale-[0.98]"
+                style={{
+                  backgroundColor: imReady ? 'var(--color-oasis-surface)' : 'var(--color-oasis-green)',
+                  color: imReady ? 'var(--color-oasis-text-muted)' : '#1a1025',
+                }}
               >
-                ▶ Start Game
+                {imReady ? '⏸ Unready' : '✓ Ready Up'}
               </button>
+              {isHost && (
+                <button
+                  onClick={startGame}
+                  disabled={!allReady}
+                  className="flex-1 py-3 rounded-xl font-bold transition-transform hover:scale-[1.02] active:scale-[0.98] disabled:opacity-40 disabled:cursor-not-allowed"
+                  style={{ backgroundColor: 'var(--color-oasis-accent)', color: 'white' }}
+                >
+                  ▶ Start Game
+                </button>
+              )}
+              <button
+                onClick={handleLeave}
+                className="py-3 px-6 rounded-xl font-bold transition-transform hover:scale-[1.02] active:scale-[0.98]"
+                style={{ backgroundColor: 'var(--color-oasis-surface)', color: 'var(--color-oasis-text-muted)' }}
+              >
+                Leave
+              </button>
+            </div>
+            {/* "Waiting" hint is only relevant when there are other players to wait for */}
+            {isHost && !allReady && room.players.length > 1 && (
+              <p className="text-xs mt-2 text-center" style={{ color: 'var(--color-oasis-text-muted)' }}>
+                Waiting for all players to ready up…
+              </p>
             )}
-            <button
-              onClick={handleLeave}
-              className="py-3 px-6 rounded-xl font-bold transition-transform hover:scale-[1.02] active:scale-[0.98]"
-              style={{ backgroundColor: 'var(--color-oasis-surface)', color: 'var(--color-oasis-text-muted)' }}
-            >
-              Leave
-            </button>
           </div>
         )}
 
