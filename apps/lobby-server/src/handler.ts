@@ -1,7 +1,8 @@
 import type { WebSocket } from 'ws';
 import { randomUUID } from 'crypto';
 import { LobbyManager } from './lobby-manager';
-import type { ClientMessage, ServerMessage } from './types';
+import type { ClientMessage, ServerMessage, ConnectionQuality } from './types';
+import { NetplayRelay } from './netplay-relay';
 
 /** Map of playerId -> WebSocket for broadcasting */
 const connections = new Map<string, WebSocket>();
@@ -20,7 +21,15 @@ function broadcast(playerIds: string[], message: ServerMessage, exclude?: string
   }
 }
 
-export function handleConnection(ws: WebSocket, lobby: LobbyManager): void {
+/** Derive connection quality from round-trip latency. */
+function qualityFromLatency(latencyMs: number): ConnectionQuality {
+  if (latencyMs < 50) return 'excellent';
+  if (latencyMs < 120) return 'good';
+  if (latencyMs < 250) return 'fair';
+  return 'poor';
+}
+
+export function handleConnection(ws: WebSocket, lobby: LobbyManager, relay: NetplayRelay): void {
   const playerId = randomUUID();
   connections.set(playerId, ws);
 
@@ -66,6 +75,28 @@ export function handleConnection(ws: WebSocket, lobby: LobbyManager): void {
         break;
       }
 
+      case 'join-as-spectator': {
+        const { roomId, roomCode, displayName } = msg.payload;
+        let room;
+
+        if (roomCode) {
+          room = lobby.joinByCodeAsSpectator(roomCode, playerId, displayName);
+        } else if (roomId) {
+          room = lobby.joinAsSpectator(roomId, playerId, displayName);
+        }
+
+        if (!room) {
+          send(ws, { type: 'error', message: 'Could not join room as spectator' });
+          break;
+        }
+
+        send(ws, { type: 'room-joined', room });
+
+        const allIds = lobby.getRoomPlayerIds(room.id);
+        broadcast(allIds, { type: 'room-updated', room }, playerId);
+        break;
+      }
+
       case 'leave-room': {
         const room = lobby.leaveRoom(msg.payload.roomId, playerId);
         send(ws, { type: 'room-left', roomId: msg.payload.roomId });
@@ -96,8 +127,23 @@ export function handleConnection(ws: WebSocket, lobby: LobbyManager): void {
           break;
         }
 
+        // Allocate a relay session for this room
+        const relayPort = relay.allocateSession(room.id, room.players.map((p) => p.id));
+        if (relayPort === null) {
+          send(ws, { type: 'error', message: 'Relay server is at capacity — no free ports. Try again shortly.' });
+          // Roll back room status so players can retry
+          room.status = 'waiting';
+          break;
+        }
+
+        room.relayPort = relayPort;
+
         const playerIds = lobby.getRoomPlayerIds(room.id);
-        broadcast(playerIds, { type: 'game-starting', roomId: room.id });
+        broadcast(playerIds, {
+          type: 'game-starting',
+          roomId: room.id,
+          relayPort,
+        });
         break;
       }
 
@@ -115,7 +161,10 @@ export function handleConnection(ws: WebSocket, lobby: LobbyManager): void {
         }
 
         const player = room.players.find((p) => p.id === playerId);
-        if (!player) {
+        const spectator = room.spectators.find((s) => s.id === playerId);
+        const sender = player ?? spectator;
+
+        if (!sender) {
           send(ws, { type: 'error', message: 'You are not in this room' });
           break;
         }
@@ -124,13 +173,22 @@ export function handleConnection(ws: WebSocket, lobby: LobbyManager): void {
           type: 'chat-broadcast',
           roomId: room.id,
           userId: playerId,
-          displayName: player.displayName,
+          displayName: sender.displayName,
           content: msg.payload.content,
           sentAt: new Date().toISOString(),
         };
 
         const allPlayerIds = lobby.getRoomPlayerIds(room.id);
         broadcast(allPlayerIds, chatMsg);
+        break;
+      }
+
+      case 'ping': {
+        const { sentAt } = msg.payload;
+        send(ws, { type: 'pong', sentAt, serverAt: Date.now() });
+
+        // Update connection quality based on the ping
+        // The client will send another ping to measure RTT; here we simply respond
         break;
       }
 

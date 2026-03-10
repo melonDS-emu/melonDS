@@ -17,6 +17,16 @@ export interface SessionTemplateConfig {
     dsScreenLayout?: 'stacked' | 'side-by-side' | 'top-focus' | 'bottom-focus';
     dsScreenSwap?: boolean;
   };
+  /**
+   * WFC / Pokémon Online configuration.
+   * When set, the emulator should be launched with WFC relay support.
+   */
+  wfcConfig?: {
+    /** The DNS server to point the emulator at for WFC authentication. */
+    dnsServer: string;
+    /** Human-readable description of the WFC setup. */
+    description: string;
+  };
 }
 
 /** Default save rules shared by most Phase 1 games. */
@@ -141,6 +151,158 @@ export const DEFAULT_TEMPLATES: SessionTemplateConfig[] = [
     saveRules: { ...DEFAULT_SAVE_RULES, syncSavesToCloud: true },
     netplayMode: 'online-p2p',
     latencyTarget: 100,
+  },
+  // === Nintendo 64 (Phase 2) ===
+  {
+    id: 'n64-default-2p',
+    gameId: 'n64-default',
+    system: 'n64',
+    emulatorBackendId: 'mupen64plus',
+    playerCount: 2,
+    controllerMappings: defaultMappings(2),
+    saveRules: DEFAULT_SAVE_RULES,
+    netplayMode: 'online-relay',
+    latencyTarget: 120,
+  },
+  {
+    id: 'n64-default-4p',
+    gameId: 'n64-default-4p',
+    system: 'n64',
+    emulatorBackendId: 'mupen64plus',
+    playerCount: 4,
+    controllerMappings: defaultMappings(4),
+    saveRules: DEFAULT_SAVE_RULES,
+    netplayMode: 'online-relay',
+    latencyTarget: 150,
+  },
+  {
+    id: 'n64-mario-kart-64-4p',
+    gameId: 'n64-mario-kart-64',
+    system: 'n64',
+    emulatorBackendId: 'mupen64plus',
+    playerCount: 4,
+    controllerMappings: defaultMappings(4),
+    saveRules: { ...DEFAULT_SAVE_RULES, autoSave: false, allowSaveStates: false },
+    netplayMode: 'online-relay',
+    latencyTarget: 150,
+  },
+  {
+    id: 'n64-smash-bros-4p',
+    gameId: 'n64-super-smash-bros',
+    system: 'n64',
+    emulatorBackendId: 'mupen64plus',
+    playerCount: 4,
+    controllerMappings: defaultMappings(4),
+    saveRules: { ...DEFAULT_SAVE_RULES, autoSave: false, allowSaveStates: false },
+    netplayMode: 'online-relay',
+    latencyTarget: 120,
+  },
+  // === Nintendo DS (Phase 3) ===
+  {
+    id: 'nds-default-2p',
+    gameId: 'nds-default',
+    system: 'nds',
+    emulatorBackendId: 'melonds',
+    playerCount: 2,
+    controllerMappings: defaultMappings(2),
+    saveRules: DEFAULT_SAVE_RULES,
+    netplayMode: 'online-relay',
+    latencyTarget: 100,
+    uiLayoutOptions: { dsScreenLayout: 'stacked' },
+  },
+  {
+    id: 'nds-default-4p',
+    gameId: 'nds-default-4p',
+    system: 'nds',
+    emulatorBackendId: 'melonds',
+    playerCount: 4,
+    controllerMappings: defaultMappings(4),
+    saveRules: DEFAULT_SAVE_RULES,
+    netplayMode: 'online-relay',
+    latencyTarget: 100,
+    uiLayoutOptions: { dsScreenLayout: 'stacked' },
+  },
+  // === NDS Pokémon games — WFC / Pokémon Online presets ===
+  {
+    id: 'nds-pokemon-diamond-2p',
+    gameId: 'nds-pokemon-diamond',
+    system: 'nds',
+    emulatorBackendId: 'melonds',
+    playerCount: 2,
+    controllerMappings: defaultMappings(2),
+    saveRules: { ...DEFAULT_SAVE_RULES, syncSavesToCloud: true },
+    netplayMode: 'online-relay',
+    latencyTarget: 100,
+    uiLayoutOptions: { dsScreenLayout: 'stacked' },
+    wfcConfig: {
+      dnsServer: '178.62.43.212', // Wiimmfi WFC replacement
+      description: 'Uses Wiimmfi for Pokémon Diamond online play (GTS, Battle Tower, Union Room)',
+    },
+  },
+  {
+    id: 'nds-pokemon-pearl-2p',
+    gameId: 'nds-pokemon-pearl',
+    system: 'nds',
+    emulatorBackendId: 'melonds',
+    playerCount: 2,
+    controllerMappings: defaultMappings(2),
+    saveRules: { ...DEFAULT_SAVE_RULES, syncSavesToCloud: true },
+    netplayMode: 'online-relay',
+    latencyTarget: 100,
+    uiLayoutOptions: { dsScreenLayout: 'stacked' },
+    wfcConfig: {
+      dnsServer: '178.62.43.212',
+      description: 'Uses Wiimmfi for Pokémon Pearl online play (GTS, Battle Tower, Union Room)',
+    },
+  },
+  {
+    id: 'nds-pokemon-platinum-2p',
+    gameId: 'nds-pokemon-platinum',
+    system: 'nds',
+    emulatorBackendId: 'melonds',
+    playerCount: 2,
+    controllerMappings: defaultMappings(2),
+    saveRules: { ...DEFAULT_SAVE_RULES, syncSavesToCloud: true },
+    netplayMode: 'online-relay',
+    latencyTarget: 100,
+    uiLayoutOptions: { dsScreenLayout: 'stacked' },
+    wfcConfig: {
+      dnsServer: '178.62.43.212',
+      description: 'Uses Wiimmfi for Pokémon Platinum online play (GTS, Battle Tower, Union Room)',
+    },
+  },
+  {
+    id: 'nds-pokemon-hgss-2p',
+    gameId: 'nds-pokemon-hgss',
+    system: 'nds',
+    emulatorBackendId: 'melonds',
+    playerCount: 2,
+    controllerMappings: defaultMappings(2),
+    saveRules: { ...DEFAULT_SAVE_RULES, syncSavesToCloud: true },
+    netplayMode: 'online-relay',
+    latencyTarget: 100,
+    uiLayoutOptions: { dsScreenLayout: 'stacked' },
+    wfcConfig: {
+      dnsServer: '178.62.43.212',
+      description: 'Uses Wiimmfi for HeartGold/SoulSilver online play',
+    },
+  },
+  // === Mario Kart DS (WFC) ===
+  {
+    id: 'nds-mario-kart-ds-4p',
+    gameId: 'nds-mario-kart-ds',
+    system: 'nds',
+    emulatorBackendId: 'melonds',
+    playerCount: 4,
+    controllerMappings: defaultMappings(4),
+    saveRules: { ...DEFAULT_SAVE_RULES, autoSave: false, allowSaveStates: false },
+    netplayMode: 'online-relay',
+    latencyTarget: 120,
+    uiLayoutOptions: { dsScreenLayout: 'stacked' },
+    wfcConfig: {
+      dnsServer: '178.62.43.212',
+      description: 'Uses Wiimmfi for Mario Kart DS online racing',
+    },
   },
 ];
 

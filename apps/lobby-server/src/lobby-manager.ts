@@ -1,5 +1,5 @@
 import { randomUUID } from 'crypto';
-import type { Room, RoomPlayer, LobbyStatus } from './types';
+import type { Room, RoomPlayer, RoomSpectator, LobbyStatus, ConnectionQuality } from './types';
 
 function generateRoomCode(): string {
   const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
@@ -37,6 +37,7 @@ export class LobbyManager {
       slot: 0,
       isHost: true,
       joinedAt: new Date().toISOString(),
+      connectionQuality: 'unknown',
     };
 
     const room: Room = {
@@ -50,6 +51,7 @@ export class LobbyManager {
       roomCode,
       maxPlayers,
       players: [host],
+      spectators: [],
       status: 'waiting',
       createdAt: new Date().toISOString(),
     };
@@ -72,9 +74,26 @@ export class LobbyManager {
       slot: room.players.length,
       isHost: false,
       joinedAt: new Date().toISOString(),
+      connectionQuality: 'unknown',
     };
 
     room.players.push(player);
+    return room;
+  }
+
+  joinAsSpectator(roomId: string, spectatorId: string, displayName: string): Room | null {
+    const room = this.rooms.get(roomId);
+    if (!room) return null;
+    if (room.status === 'closed') return null;
+    if (room.spectators.some((s) => s.id === spectatorId)) return room;
+
+    const spectator: RoomSpectator = {
+      id: spectatorId,
+      displayName,
+      joinedAt: new Date().toISOString(),
+    };
+
+    room.spectators.push(spectator);
     return room;
   }
 
@@ -87,9 +106,25 @@ export class LobbyManager {
     return null;
   }
 
+  joinByCodeAsSpectator(roomCode: string, spectatorId: string, displayName: string): Room | null {
+    for (const room of this.rooms.values()) {
+      if (room.roomCode === roomCode) {
+        return this.joinAsSpectator(room.id, spectatorId, displayName);
+      }
+    }
+    return null;
+  }
+
   leaveRoom(roomId: string, playerId: string): Room | null {
     const room = this.rooms.get(roomId);
     if (!room) return null;
+
+    // Check if this is a spectator leaving
+    const spectatorIndex = room.spectators.findIndex((s) => s.id === playerId);
+    if (spectatorIndex !== -1) {
+      room.spectators.splice(spectatorIndex, 1);
+      return room;
+    }
 
     room.players = room.players.filter((p) => p.id !== playerId);
 
@@ -130,6 +165,20 @@ export class LobbyManager {
     return room;
   }
 
+  updateConnectionQuality(
+    roomId: string,
+    playerId: string,
+    quality: ConnectionQuality,
+    latencyMs: number
+  ): void {
+    const room = this.rooms.get(roomId);
+    if (!room) return;
+    const player = room.players.find((p) => p.id === playerId);
+    if (!player) return;
+    player.connectionQuality = quality;
+    player.latencyMs = latencyMs;
+  }
+
   listPublicRooms(): Room[] {
     return Array.from(this.rooms.values()).filter(
       (r) => r.isPublic && r.status === 'waiting'
@@ -140,11 +189,13 @@ export class LobbyManager {
     return this.rooms.get(roomId) ?? null;
   }
 
-  /** Get all player IDs in a room (for broadcasting). */
+  /** Get all player IDs in a room (for broadcasting), including spectators. */
   getRoomPlayerIds(roomId: string): string[] {
     const room = this.rooms.get(roomId);
     if (!room) return [];
-    return room.players.map((p) => p.id);
+    const playerIds = room.players.map((p) => p.id);
+    const spectatorIds = room.spectators.map((s) => s.id);
+    return [...playerIds, ...spectatorIds];
   }
 
   /**
@@ -154,7 +205,9 @@ export class LobbyManager {
   disconnectPlayer(playerId: string): Map<string, Room | null> {
     const affected = new Map<string, Room | null>();
     for (const [roomId, room] of this.rooms.entries()) {
-      if (room.players.some((p) => p.id === playerId)) {
+      const isPlayer = room.players.some((p) => p.id === playerId);
+      const isSpectator = room.spectators.some((s) => s.id === playerId);
+      if (isPlayer || isSpectator) {
         const updated = this.leaveRoom(roomId, playerId);
         affected.set(roomId, updated);
       }

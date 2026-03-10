@@ -1,3 +1,6 @@
+import { spawn, type ChildProcess } from 'child_process';
+import { createSystemAdapter } from './adapters';
+
 /**
  * EmulatorBridge is the main orchestration layer for launching and managing
  * emulator processes. It abstracts away the details of individual emulator
@@ -5,11 +8,13 @@
  */
 export interface EmulatorProcess {
   pid: number;
+  sessionId: string;
   system: string;
   backendId: string;
   romPath: string;
   state: 'launching' | 'running' | 'paused' | 'stopped' | 'error';
   startedAt: string;
+  exitCode?: number;
 }
 
 export interface LaunchOptions {
@@ -20,7 +25,9 @@ export interface LaunchOptions {
   configPath?: string;
   fullscreen?: boolean;
   playerSlot?: number;
+  /** Netplay: connect to relay or peer at this host */
   netplayHost?: string;
+  /** Netplay: port of the relay or peer */
   netplayPort?: number;
   /** NDS-specific */
   screenLayout?: 'stacked' | 'side-by-side' | 'top-focus' | 'bottom-focus';
@@ -35,17 +42,37 @@ export interface LaunchResult {
 
 export class EmulatorBridge {
   private runningProcesses: Map<string, EmulatorProcess> = new Map();
+  private childProcesses: Map<string, ChildProcess> = new Map();
 
   /**
    * Launch a game using the specified backend.
-   * In a real implementation, this would spawn a child process.
+   * Spawns a real child process using the system adapter's launch arguments.
    */
   async launch(options: LaunchOptions): Promise<LaunchResult> {
-    // TODO: Implement actual process spawning via Tauri commands or Node child_process
     const sessionId = crypto.randomUUID();
 
-    const process: EmulatorProcess = {
-      pid: 0, // Placeholder - real PID from spawned process
+    // Build launch args via the system adapter
+    let adapter;
+    try {
+      adapter = createSystemAdapter(options.system);
+    } catch (err) {
+      return { success: false, error: String(err) };
+    }
+
+    const args = adapter.buildLaunchArgs(options.romPath, {
+      fullscreen: options.fullscreen,
+      saveDirectory: options.saveDirectory,
+      configPath: options.configPath,
+      playerSlot: options.playerSlot,
+      netplayHost: options.netplayHost,
+      netplayPort: options.netplayPort,
+      screenLayout: options.screenLayout,
+      touchEnabled: options.touchEnabled,
+    });
+
+    const emulatorProcess: EmulatorProcess = {
+      pid: 0,
+      sessionId,
       system: options.system,
       backendId: options.backendId,
       romPath: options.romPath,
@@ -53,28 +80,60 @@ export class EmulatorBridge {
       startedAt: new Date().toISOString(),
     };
 
-    this.runningProcesses.set(sessionId, process);
+    this.runningProcesses.set(sessionId, emulatorProcess);
 
-    // Simulate launch
-    process.state = 'running';
-    process.pid = Math.floor(Math.random() * 65535);
+    // Spawn the emulator as a real child process
+    let child: ChildProcess;
+    try {
+      child = spawn(options.backendId, args, {
+        detached: true,   // allow emulator to outlive the Node process if desired
+        stdio: 'ignore',
+      });
+    } catch (err) {
+      emulatorProcess.state = 'error';
+      this.runningProcesses.delete(sessionId);
+      return {
+        success: false,
+        error: `Failed to spawn emulator '${options.backendId}': ${String(err)}`,
+      };
+    }
 
-    return {
-      success: true,
-      process,
-    };
+    emulatorProcess.pid = child.pid ?? 0;
+    emulatorProcess.state = 'running';
+
+    child.on('error', (err: Error) => {
+      console.error(`[emulator] Session ${sessionId} error:`, err.message);
+      emulatorProcess.state = 'error';
+      this.childProcesses.delete(sessionId);
+    });
+
+    child.on('exit', (code: number | null) => {
+      emulatorProcess.state = 'stopped';
+      emulatorProcess.exitCode = code ?? undefined;
+      this.runningProcesses.delete(sessionId);
+      this.childProcesses.delete(sessionId);
+    });
+
+    this.childProcesses.set(sessionId, child);
+
+    return { success: true, process: emulatorProcess };
   }
 
   /**
-   * Stop a running emulator session.
+   * Stop a running emulator session by sending SIGTERM to the child process.
    */
   async stop(sessionId: string): Promise<boolean> {
-    const process = this.runningProcesses.get(sessionId);
-    if (!process) return false;
+    const emulatorProcess = this.runningProcesses.get(sessionId);
+    if (!emulatorProcess) return false;
 
-    // TODO: Actually kill the process
-    process.state = 'stopped';
+    const child = this.childProcesses.get(sessionId);
+    if (child && !child.killed) {
+      child.kill('SIGTERM');
+    }
+
+    emulatorProcess.state = 'stopped';
     this.runningProcesses.delete(sessionId);
+    this.childProcesses.delete(sessionId);
     return true;
   }
 

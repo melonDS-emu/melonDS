@@ -10,7 +10,7 @@ import type { Room } from '../services/lobby-types';
 
 export function HomePage() {
   const navigate = useNavigate();
-  const { publicRooms, createRoom, joinByCode, currentRoom, listRooms, connectionState } = useLobby();
+  const { publicRooms, createRoom, joinByCode, joinAsSpectator, currentRoom, listRooms, connectionState } = useLobby();
   const [showHost, setShowHost] = useState(false);
   const [showJoin, setShowJoin] = useState(false);
 
@@ -34,6 +34,11 @@ export function HomePage() {
 
   function handleJoinConfirm(roomCode: string, displayName: string) {
     joinByCode(roomCode, displayName);
+    setShowJoin(false);
+  }
+
+  function handleSpectateConfirm(roomCode: string, displayName: string) {
+    joinAsSpectator({ roomCode }, displayName);
     setShowJoin(false);
   }
 
@@ -160,6 +165,7 @@ export function HomePage() {
       {showJoin && (
         <JoinRoomModal
           onConfirm={handleJoinConfirm}
+          onSpectate={handleSpectateConfirm}
           onClose={() => setShowJoin(false)}
         />
       )}
