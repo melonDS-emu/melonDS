@@ -1,69 +1,103 @@
-<p align="center"><img src="https://raw.githubusercontent.com/melonDS-emu/melonDS/master/res/icon/melon_128x128.png"></p>
-<h2 align="center"><b>melonDS</b></h2>
+<h2 align="center">🌴 <b>RetroOasis</b></h2>
+<p align="center"><em>A multiplayer-first unified Nintendo emulator platform</em></p>
 <p align="center">
-<a href="http://melonds.kuribo64.net/" alt="melonDS website"><img src="https://img.shields.io/badge/website-melonds.kuribo64.net-%2331352e.svg"></a>
-<a href="http://melonds.kuribo64.net/downloads.php" alt="Release: 1.1"><img src="https://img.shields.io/badge/release-1.1-%235c913b.svg"></a>
 <a href="https://www.gnu.org/licenses/gpl-3.0" alt="License: GPLv3"><img src="https://img.shields.io/badge/License-GPL%20v3-%23ff554d.svg"></a>
-<a href="https://kiwiirc.com/client/irc.badnik.net/?nick=IRC-Source_?#melonds" alt="IRC channel: #melonds"><img src="https://img.shields.io/badge/IRC%20chat-%23melonds-%23dd2e44.svg"></a>
-<a href="https://discord.gg/pAMAtExcqV" alt="Discord"><img src="https://img.shields.io/badge/Discord-Kuribo64-7289da?logo=discord&logoColor=white"></a>
-<br>
-<a href="https://github.com/melonDS-emu/melonDS/actions/workflows/build-windows.yml?query=event%3Apush"><img src="https://github.com/melonDS-emu/melonDS/actions/workflows/build-windows.yml/badge.svg" /></a>
-<a href="https://github.com/melonDS-emu/melonDS/actions/workflows/build-ubuntu.yml?query=event%3Apush"><img src="https://github.com/melonDS-emu/melonDS/actions/workflows/build-ubuntu.yml/badge.svg" /></a>
-<a href="https://github.com/melonDS-emu/melonDS/actions/workflows/build-macos.yml?query=event%3Apush"><img src="https://github.com/melonDS-emu/melonDS/actions/workflows/build-macos.yml/badge.svg" /></a>
-<a href="https://github.com/melonDS-emu/melonDS/actions/workflows/build-bsd.yml?query=event%3Apush"><img src="https://github.com/melonDS-emu/melonDS/actions/workflows/build-bsd.yml/badge.svg" /></a>
 </p>
-DS emulator, sorta
 
-The goal is to do things right and fast, akin to blargSNES (but hopefully better). But also to, you know, have a fun challenge :)
-<hr>
+RetroOasis is a social Nintendo retro gaming hub — not just another emulator frontend. It unifies systems from NES through Nintendo DS and puts **multiplayer and social play** at the center of the experience. Think Discord + game lobby system + console-style launcher for retro Nintendo games.
 
-## How to use
+## ✨ Features
 
-Firmware boot (not direct boot) requires a BIOS/firmware dump from an original DS or DS Lite.
-DS firmwares dumped from a DSi or 3DS aren't bootable and only contain configuration data, thus they are only suitable when booting games directly.
+- **Multiplayer-first** — Host/join rooms in seconds, invite friends, ready up, and play
+- **Unified library** — NES, SNES, GB, GBC, GBA, N64, and NDS in one app
+- **Curated discovery** — Browse games by multiplayer mode (Party, Co-op, Versus, Link, Trade)
+- **Per-game intelligence** — Player counts, compatibility badges, session templates
+- **Social presence** — See what friends are playing, join their sessions
+- **Save management** — Local and cloud save sync with conflict resolution
 
-### Possible firmware sizes
+## 🚀 Quick Start
 
- * 128KB: DSi/3DS DS-mode firmware (reduced size due to lacking bootcode)
- * 256KB: regular DS firmware
- * 512KB: iQue DS firmware
+```bash
+# Install dependencies
+npm install
 
-DS BIOS dumps from a DSi or 3DS can be used with no compatibility issues. DSi BIOS dumps (in DSi mode) are not compatible. Or maybe they are. I don't know.
+# Start the desktop frontend (React + Vite)
+npm run dev:desktop
 
-As for the rest, the interface should be pretty straightforward. If you have a question, don't hesitate to ask, though!
+# Start the lobby server (WebSocket)
+npm run dev:server
 
-## How to build
-See [BUILD.md](./BUILD.md) for build instructions.
+# Build the desktop app
+npm run build:desktop
+```
 
-## TODO LIST
+## 📁 Project Structure
 
- * better DSi emulation
- * better OpenGL rendering
- * netplay
- * the impossible quest of pixel-perfect 3D graphics
- * support for rendering screens to separate windows
- * emulating some fancy addons
- * other non-core shit (debugger, graphics viewers, etc)
+```
+/apps
+  /desktop          — React + Vite desktop frontend (Tauri-ready)
+  /lobby-server     — WebSocket-based lobby/room server
 
-### TODO LIST FOR LATER (low priority)
+/packages
+  /ui               — Shared UI components
+  /shared-types     — Core TypeScript domain types
+  /game-db          — Game catalog + multiplayer metadata (30 games)
+  /session-engine   — Session lifecycle management
+  /emulator-bridge  — Emulator backend abstraction layer
+  /save-system      — Local + cloud save management
+  /presence-client  — Friend presence and social features
+  /multiplayer-profiles — Per-game multiplayer config + input profiles
 
- * big-endian compatibility (Wii, etc)
- * LCD refresh time (used by some games for blending effects)
- * any feature you can eventually ask for that isn't outright stupid
+/src                — melonDS emulator core (existing C++ codebase)
 
-## Credits
+/docs
+  /architecture     — System design documentation
+  /mvp              — MVP planning and phase scope
+  /ux               — UX design guidance and style guide
+```
 
- * Martin for GBAtek, a good piece of documentation
- * Cydrak for the extra 3D GPU research
- * limittox for the icon
- * All of you comrades who have been testing melonDS, reporting issues, suggesting shit, etc
+## 🎮 Supported Systems
+
+| System | Backend | Phase |
+|--------|---------|-------|
+| NES | FCEUX | 1 |
+| SNES | Snes9x | 1 |
+| Game Boy | mGBA | 1 |
+| Game Boy Color | mGBA | 1 |
+| Game Boy Advance | mGBA | 1 |
+| Nintendo 64 | Mupen64Plus | 2 |
+| Nintendo DS | melonDS | 3 |
+
+## 🏗️ Architecture
+
+RetroOasis uses a layered architecture:
+
+1. **Frontend** — React + Vite + Tailwind CSS (Tauri-ready)
+2. **Multiplayer Services** — WebSocket lobby server, presence, session engine
+3. **Orchestration** — Emulator bridge, save system, game database
+4. **Emulator Backends** — External proven emulators (mGBA, melonDS, etc.)
+
+The app does **not** build emulator cores from scratch. It orchestrates existing backends behind a unified interface.
+
+> Users must provide their own legally obtained game files.
+
+## 📖 Documentation
+
+- [Architecture Overview](./docs/architecture/overview.md)
+- [MVP Phase 1](./docs/mvp/phase1.md)
+- [Development Roadmap](./docs/mvp/roadmap.md)
+- [UX Design Guide](./docs/ux/design-guide.md)
+
+## melonDS Core
+
+This repository is built on top of [melonDS](https://melonds.kuribo64.net/), a fast and accurate Nintendo DS emulator. The melonDS C++ codebase is in `src/` and can be built separately — see [BUILD.md](./BUILD.md) for build instructions.
 
 ## Licenses
 
 [![GNU GPLv3 Image](https://www.gnu.org/graphics/gplv3-127x51.png)](http://www.gnu.org/licenses/gpl-3.0.en.html)
 
-melonDS is free software: you can redistribute it and/or modify
-it under the terms of the GNU General Public License as published by
+RetroOasis and melonDS are free software: you can redistribute and/or modify
+them under the terms of the GNU General Public License as published by
 the Free Software Foundation, either version 3 of the License, or
 (at your option) any later version.
 

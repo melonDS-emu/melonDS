@@ -8,7 +8,7 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "@retro-oasis/shared-types": "workspace:*"
+    "@retro-oasis/shared-types": "*"
   },
   "devDependencies": {
     "typescript": "^5.4.0"
