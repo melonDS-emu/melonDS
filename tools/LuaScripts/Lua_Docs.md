@@ -3,25 +3,19 @@
 Lua scripting support is still a work in progress, lua features and functions are subject to change.
 
 ## Hello World Eample
-Example of a Lua script that, when run, will display "Hello World", and a second counter on the top screen.
+Example of a Lua script to display "Hello World", and a frame counter on the top screen.
 
 ```Lua
-screenID = 0 -- TopScreen = 0, BottomScreen = 1, OSD = 2
-canvas = gui.MakeCanvas(0,0,100,100,screenID) 
+local screenID = 0 -- TopScreen = 0, BottomScreen = 1, OSD = 2
+local canvas = gui.MakeCanvas(0,0,100,100,screenID) 
 gui.SetCanvas(canvas)
-frameCount = 0
-time_seconds=0
+local frameCount = 0
 -- '_Update()' gets called once every frame
 function _Update()
+    gui.ClearOverlay() -- Clear previous frame
     frameCount = frameCount+1
-    
-    if frameCount>=60 then
-        frameCount=0 
-        time_seconds+=1
-        gui.ClearOverlay()
-        gui.drawText(0,10,"Hello World: "..time_seconds,0xffffff) --White text 
-    end
-    gui.checkupdate() --check if canvas has been updated, flip image buffer if so.
+    gui.drawText(0,10,"Hello World: "..frameCount,0xffffff) --White text 
+    gui.Flip() -- Draw the new frame
 end
 ```
 
@@ -54,8 +48,9 @@ end
 - Table keys are: `X, Y, Left, Middle, Right, XButton1, XButton2`
 - Example
     ```Lua
-    if GetMouse().Left == true then 
-        print("Click at:"..GetMouse().X..','..GetMouse().Y)
+    local mouse = input.GetMouse()
+    if mouse.Left == true then 
+        print("Click at:"..mouse.X..','..mouse.Y)
     end
     ```
 
@@ -69,8 +64,8 @@ end
 - Example
     ```Lua 
     function JoyText()
-        joys = input.GetJoy()
-        str = ""
+        local joys = input.GetJoy()
+        local str = ""
         for k,v in pairs(joys) do
             if v then
                 str = str..k
@@ -85,12 +80,16 @@ end
 - check the Qt docs for a list of key codes: https://doc.qt.io/qt-6/qt.html#Key-enum
 - Example
     ```Lua
+    --poll currently held keys
+    local tHeldKeys = input.HeldKeys()
     --Loop over all currently held keys
-    for k,_ in pairs(input.HeldKeys()) do
-        print("KeyPressed:"..k)
+    for k,v in tHeldKeys do
+        if v then 
+            print("KeyPressed:"..k)
+        end
     end
     --Check if the "Q" key is currently pressed
-    if input.HeldKeys()[string.byte("Q")] then
+    if tHeldKeys[string.byte("Q")] then
         print("\"Q\" Pressed!")
     end
     ```
@@ -102,26 +101,22 @@ end
 - Mostly used for cases that need faster typing/higher poll rate... otherwise use HeldKeys() for most use cases.
 - Example 
     ```Lua
-    typed = ""
-    keys = {}
+    local typed_string = ""
     function KeysText() 
-        keys = input.Keys()
-        str = ""
+        local keys = input.Keys()
+        local str = ""
         for _,i in pairs(keys) do
-            if pcall(string.char,i) then
+            if (0<=i) and (i<=255) then
                 str = str..string.char(i)
             else
-                print("NonAscii:"..i)
-                typed = ""
-            end    
+                print(string.format("NonASCII keypress: 0x%x",i))
+                typed_string = ""
+            end
         end
-        typed = typed..str
-        return "Keys:"..typed
+        typed_string = typed_string..str
+        return "Keys:"..typed_string
     end
     ```
-
-
-
 
 `nCanvasID gui.MakeCanvas(nX, nY,nWidth,nHeight,[nScreenTarget = 2],[bIsActive = true])`
 - Creates a new canvas and returns it's ID.
@@ -135,14 +130,22 @@ end
 - All future drawing functions will draw to the *currently set canvas*. 
 
 `nil gui.ClearOverlay()`
-- Clears the *currently set canvas* by setting all pixels to `0x00000000` transparent black
+- Clears the *currently set canvas* by setting all pixels to `0x00000000` (transparent black)
 
 `nil gui.Flip()`
-- Tells MelonDS that the *currently set canvas* has been updated and must be redrawn. 
+- Tells MelonDS that the *currently set canvas* has been updated and must be redrawn.
+- Note: Every canvas has an 'active' (on screen) and 'inactive' (internal) image buffer.
+    - At any time only the 'active' buffer is shown on screen
+    - internally all draw functions draw to the inactive image buffer
+    - calling Flip will swap the active and inactive image buffers
+    - by using a double buffer in this way we can prevent partialy finished drawings from being shown
 - This may be handled automatically in the future...
 
-`nil gui.checkupdate()`
-- Checks if the *currently set canvas* has been updated, then redraws the canvas if so
+`nil gui.checkupdate()` *for compatibilty use*
+- same as `do Flip();ClearOverlay() end` but only actually gets called if the *currently set canvas* is in need of an update
+- all `gui.draw___()` functions will set the *currently set canvas*'s 'updateNeeded' flag, regardless if anything is drawn.
+- can be useful for compatability with bizhawk lua scripts in some cases.
+- for now please use `Flip` and `ClearOverlay` instead of `checkupdate` whenever possible.
 
 `nil gui.drawText(nX,nY,sMessage, [nColor = 0x000000],[nFontSize = 9],[sFontFamily = 'Helvetica'])`
 - Draws `sMessage` to the *currently set canvas* given the color and font specified.
@@ -160,14 +163,23 @@ end
 `nil gui.Ellipse(nX,nY,nWidth,nHeight,ncolor)`
 - Draws a 1p width Ellipse on the *currently set canvas* of the given size position and color.
 
-`nil gui.DrawImage(sImagePath,nX,nY,[nSourceX = 0],[nSourceY = 0],[nSourceWidth = -1],[nSourceHeight = -1])`
+`nil gui.drawImage(sImagePath, nX, nY, [nWidth=-1],[nHeight=-1])`
 - Draws the image saved at `sImagePath` to the *currently set canvas* at the given position.
 - By default copies the entire image to the canvas.
-- optional arguments Source-(X,Y,Width,Height) determain where in the source image to copy from.
+- optional arguments nWidth, nHeight, will resize image to the given width and height before drawing.
+- if nWidth or nHeight are negative will instead default to using the images original width / height.
+- the file contents will be cached and re-used next time this function is called with the same sImagePath
+
+`nil void gui.drawImageRegion(sImagePath, nSource_x, nSource_y, nSource_width, nSource_height, nDest_x, nDest_y, [nDest_width = -1], [nDest_height = -1])` 
+
+- Draws part of the image saved at `sImagePath` to the *currently set canvas*
+- Consult the following diagram to see its usage (renders embedded on the TASVideos Wiki): 
+![](https://user-images.githubusercontent.com/13409956/198868522-55dc1e5f-ae67-4ebb-a75f-558656cb4468.png)
+- the file contents will be cached and re-used next time this function is called with the same sImagePath
 
 `nil gui.ClearImageHash()`
-- Clears the interal hash of all images drawn using DrawImage
-- Only needed if RAM is being filled up with lots of different Image files.
+- Clears the interal hash of all images drawn using drawImage
+- Only really needed if RAM is being filled up with lots of different Image files.
 
 
 

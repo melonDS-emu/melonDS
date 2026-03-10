@@ -1,11 +1,11 @@
 
 -- Joystick Axis for my XBOX controller...
-LeftStick = {x=0,y=1}
-RightSick = {x=2,y=3}
-Triggers = {x=4,y=5}
+local LeftStick = {x=0,y=1}
+local RightSick = {x=2,y=3}
+local Triggers = {x=4,y=5}
 
---shocoman's hack uses RTCOM_DATA_OUTPUT register to send analog stick information from the 3ds
-shocomanAddress = 0x0C7FFDF0 
+--shocoman's hack uses RTCOM_DATA_OUTPUT register to send analog stick information from the "3ds"
+local shocomanAddress = 0x0C7FFDF0 
 
 function _Update()
     local bytes = getPad(LeftStick,true)
@@ -28,9 +28,10 @@ function getPad(stick,flipy)
     if flipy then joy_y = -joy_y - 1 end
 
     --Deadzone of +/- 5%
+    local DEADZONE = 0.05
     local MAX = 32767
-    if (math.abs(joy_x)<(MAX*0.05)) then joy_x = 0 end
-    if (math.abs(joy_y)<(MAX*0.05)) then joy_y = 0 end
+    if (math.abs(joy_x)<(MAX*DEADZONE)) then joy_x = 0 end
+    if (math.abs(joy_y)<(MAX*DEADZONE)) then joy_y = 0 end
 
     --Shift 16 bit values down to 8 bit value
     local x = ((math.abs(joy_x)>>8))

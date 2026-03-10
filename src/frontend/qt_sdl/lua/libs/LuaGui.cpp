@@ -232,19 +232,7 @@ int Lua_Ellipse(lua_State* L)
 }
 AddGuiFunction(Lua_Ellipse,Ellipse);
 
-//DrawImage(string path, int x, int y,[int source x=0], [int source y=0], [int source w=-1],[int source h=-1])
-int Lua_DrawImage(lua_State* L)
-{
-    LuaBundle* bundle = get_bundle(L);
-    const char* path = luaL_checklstring(L,1,NULL);
-    int x = luaL_checkinteger(L,2);
-    int y = luaL_checkinteger(L,3);
-    int sx = luaL_optinteger(L,4,0);
-    int sy = luaL_optinteger(L,5,0);
-    int sw = luaL_optinteger(L,6,-1);
-    int sh = luaL_optinteger(L,7,-1);
-
-    QPainter painter(bundle->luaCanvas->imageBuffer);
+QImage imageFetch(LuaBundle* bundle,const char* path){
     QImage image;
     if (bundle->imageHash->contains(path))
     {
@@ -255,7 +243,52 @@ int Lua_DrawImage(lua_State* L)
         image=QImage((QString)path);
         (*bundle->imageHash)[path] = image;
     }
-    painter.drawImage(x,y,image,sx,sy,sw,sh);
+    return image;
+}
+
+//DrawImage(string path, int source_x, int source_y,int source_width, int source_height=0, int dest_x,int dest_y,[int dest_width=-1],[int dest_dest_height=-1])
+int Lua_DrawImageRegion(lua_State* L)
+{
+    LuaBundle* bundle = get_bundle(L);
+    const char* path = luaL_checklstring(L,1,NULL);
+    int source_x = luaL_checkinteger(L,2);
+    int source_y = luaL_checkinteger(L,3);
+    int source_width = luaL_checkinteger(L,4);
+    int source_height = luaL_checkinteger(L,5);
+    int dest_x = luaL_checkinteger(L,6);
+    int dest_y = luaL_checkinteger(L,7);
+    int dest_width = luaL_optinteger(L,8,-1);
+    int dest_height = luaL_optinteger(L,9,-1);
+
+    QPainter painter(bundle->luaCanvas->imageBuffer);
+    QImage image = imageFetch(bundle,path);
+
+    if (dest_width<0) dest_width = source_width;
+    if (dest_height<0) dest_height = source_height;
+    QRect target(dest_x,dest_height,dest_width,dest_height);
+    QRect source(source_x,source_y,source_width,source_height);
+    painter.drawImage(target,image,source);
+    bundle->luaCanvas->updated=true;
+    return 0;
+}
+AddGuiFunction(Lua_DrawImageRegion,drawImageRegion);
+
+//drawImage(string path, int x, int y, [int width=-1],[int height=-1])
+int Lua_DrawImage(lua_State* L)
+{
+    LuaBundle* bundle = get_bundle(L);
+    const char* path = luaL_checklstring(L,1,NULL);
+    int x = luaL_checkinteger(L,2);
+    int y = luaL_checkinteger(L,3);
+    int width = luaL_optinteger(L,4,-1);
+    int height = luaL_optinteger(L,5,-1);
+
+    QPainter painter(bundle->luaCanvas->imageBuffer);
+    QImage image = imageFetch(bundle,path);
+
+    if (width<0) width = image.width();
+    if (height<0) height = image.height();
+    painter.drawImage(QRect(x,y,width,height),image);
     bundle->luaCanvas->updated=true;
     return 0;
 }

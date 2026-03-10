@@ -338,6 +338,7 @@ int Lua_usememorydomain(lua_State* L)
 	lua_pushboolean(L,false);
 	return 0;
 }
+AddMemoryFunction(Lua_usememorydomain,usememorydomain);
 
 int Lua_read_bytes_as_array(lua_State* L)
 {
