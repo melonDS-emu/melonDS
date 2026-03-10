@@ -21,9 +21,12 @@ export interface AdapterOptions {
   netplayHost?: string;
   /** Netplay relay or peer port */
   netplayPort?: number;
-  /** NDS-specific */
-  screenLayout?: string;
+  /** NDS-specific: screen layout ('stacked', 'side-by-side', 'top-focus', 'bottom-focus') */
+  screenLayout?: 'stacked' | 'side-by-side' | 'top-focus' | 'bottom-focus';
+  /** NDS-specific: enable touchscreen input via mouse/touchpad */
   touchEnabled?: boolean;
+  /** NDS-specific: WFC DNS server override (e.g. Wiimmfi '178.62.43.212') */
+  wfcDnsServer?: string;
 }
 
 /**
@@ -39,6 +42,11 @@ export interface AdapterOptions {
  *  - VisualBoyAdvance-M:  --link-host <host>:<port>  (link cable over TCP)
  *  - Mupen64Plus:         --netplay-host <host> --netplay-port <port>
  *  - melonDS:             --wifi-host <host> --wifi-port <port>
+ *                         --screen-layout=<layout>  (stacked|side-by-side|top-focus|bottom-focus)
+ *                         --touch-mouse  (enable touchscreen via mouse click)
+ *                         --wfc-dns=<ip>  (WFC DNS override for Pokémon / Nintendo Wi-Fi Connection)
+ *  - DeSmuME:             --cflash-image=<sav>  (no built-in netplay; relay only)
+ *                         --num-cores=<n>  (optional performance tuning)
  *
  * @param system    The system identifier (e.g. 'gb', 'gba', 'n64').
  * @param backendId Optional backend override. When provided, launch args are
@@ -142,24 +150,45 @@ export function createSystemAdapter(system: string, backendId?: string): SystemA
         getSavePath: (gameId, baseDir) => `${baseDir}/n64/${gameId}`,
       };
 
-    case 'nds':
+    case 'nds': {
+      const effectiveNdsBackend = backendId ?? 'melonds';
       return {
         system: 'nds',
         preferredBackendId: 'melonds',
         fallbackBackendIds: ['desmume'],
         buildLaunchArgs: (romPath, options) => {
+          if (effectiveNdsBackend === 'desmume') {
+            // DeSmuME: no built-in netplay; relay is handled at TCP level
+            const args = [romPath];
+            if (options.fullscreen) args.push('--fullscreen');
+            if (options.saveDirectory) args.push(`--cflash-image=${options.saveDirectory}`);
+            return args;
+          }
+          // melonDS (default): Wi-Fi relay + screen layout + touchscreen
           const args = [romPath];
           if (options.fullscreen) args.push('--fullscreen');
-          if (options.screenLayout) args.push(`--screen-layout=${options.screenLayout}`);
-          // melonDS Wi-Fi relay — used for NDS Pokémon WFC features
+          // Map screen layout to melonDS CLI flag
+          if (options.screenLayout) {
+            args.push(`--screen-layout=${options.screenLayout}`);
+          }
+          // Enable mouse-driven touchscreen
+          if (options.touchEnabled !== false) {
+            args.push('--touch-mouse');
+          }
+          // Wi-Fi relay — used for NDS Pokémon WFC and local wireless
           if (options.netplayHost && options.netplayPort) {
             args.push('--wifi-host', options.netplayHost);
             args.push('--wifi-port', String(options.netplayPort));
+          }
+          // WFC DNS override (e.g. Wiimmfi) for Pokémon and Nintendo online titles
+          if (options.wfcDnsServer) {
+            args.push(`--wfc-dns=${options.wfcDnsServer}`);
           }
           return args;
         },
         getSavePath: (gameId, baseDir) => `${baseDir}/nds/${gameId}`,
       };
+    }
 
     default:
       throw new Error(`Unsupported system: ${system}`);

@@ -3,6 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { useLobby } from '../context/LobbyContext';
 import { MOCK_GAMES } from '../data/mock-games';
 import type { ConnectionQuality } from '../services/lobby-types';
+import { DSControlsGuide } from '../components/DSControlsGuide';
 
 function qualityDot(quality: ConnectionQuality): { color: string; label: string; text: string } {
   switch (quality) {
@@ -29,6 +30,27 @@ function getSessionHint(system: string, maxPlayers: number, gameTitle: string): 
     }
     return `🎮 N64 session — grab your N64 adapter or use a gamepad with left-stick analog support.`;
   }
+  if (system === 'nds' || system === 'NDS') {
+    if (title.includes('pokemon') || title.includes('pokémon')) {
+      return `🌐 Pokémon WFC session — trades and battles via Wiimmfi. Start the emulator after everyone readies up!`;
+    }
+    if (title.includes('kart')) {
+      return `🏎️ DS multiplayer kart racing — up to ${maxPlayers} players via WFC. Touchscreen controls the track map!`;
+    }
+    if (title.includes('hunters') || title.includes('metroid')) {
+      return `🔫 DS first-person shooter — use mouse on the bottom screen to aim. Everyone needs a steady hand!`;
+    }
+    if (title.includes('tetris')) {
+      return `🧩 Tetris DS — send garbage lines to knock out your opponents. Fast reaction time wins!`;
+    }
+    if (title.includes('party')) {
+      return `🎉 DS party game — touch mini-games ahead! Mouse clicks drive the bottom screen.`;
+    }
+    if (maxPlayers >= 4) {
+      return `🎮 NDS session — dual-screen layout. Click the bottom screen area to interact with touch controls.`;
+    }
+    return `📱 NDS dual-screen session — the bottom screen responds to mouse clicks (touchscreen emulation).`;
+  }
   return null;
 }
 
@@ -52,6 +74,7 @@ export function LobbyPage() {
 
   const [chatInput, setChatInput] = useState('');
   const [roomCodeCopied, setRoomCodeCopied] = useState(false);
+  const [showDsGuide, setShowDsGuide] = useState(false);
   const chatEndRef = useRef<HTMLDivElement>(null);
 
   // Auto-join if we navigated directly to a lobby URL
@@ -127,6 +150,7 @@ export function LobbyPage() {
   const gameData = MOCK_GAMES.find((g) => g.id === room.gameId);
   const sessionHint = getSessionHint(room.system, room.maxPlayers, room.gameTitle);
   const slotsNeeded = room.maxPlayers - room.players.length;
+  const isNds = room.system === 'nds' || room.system === 'NDS';
 
   return (
     <div className="max-w-2xl">
@@ -466,6 +490,24 @@ export function LobbyPage() {
             </button>
           </form>
         </div>
+
+        {/* DS Controls Guide — shown for NDS sessions */}
+        {isNds && (
+          <div className="mt-4">
+            <button
+              onClick={() => setShowDsGuide((v) => !v)}
+              className="w-full py-2 rounded-xl text-xs font-semibold flex items-center justify-center gap-2 transition-opacity hover:opacity-80"
+              style={{ backgroundColor: 'var(--color-oasis-surface)', color: '#E87722' }}
+            >
+              📱 {showDsGuide ? 'Hide' : 'Show'} DS Controls &amp; Setup Guide
+            </button>
+            {showDsGuide && (
+              <div className="mt-3">
+                <DSControlsGuide compact />
+              </div>
+            )}
+          </div>
+        )}
       </div>
     </div>
   );
