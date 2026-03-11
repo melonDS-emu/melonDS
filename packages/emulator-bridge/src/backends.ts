@@ -158,6 +158,7 @@ export const KNOWN_BACKENDS: BackendDefinition[] = [
       'WFC DNS override: --wfc-dns=<ip> for Wiimmfi (178.62.43.212) or other WFC replacements',
       'BIOS/firmware: place NDS BIOS (bios7.bin, bios9.bin) and firmware.bin in ~/.config/melonDS/',
       'DSi mode: place DSi BIOS files (bios7i.bin, bios9i.bin, nand.bin) alongside the above',
+      'DSi mode CLI arg: --dsi-mode (auto-detects DSiWare ROMs and enables DSi hardware features)',
       'Save states: Ctrl+1-8 to save slot, Shift+1-8 to load slot',
       'Screen swap hotkey: F11 swaps top/bottom screens while running',
     ],

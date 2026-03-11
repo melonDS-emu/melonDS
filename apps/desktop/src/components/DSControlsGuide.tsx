@@ -9,6 +9,8 @@
 interface DSControlsGuideProps {
   /** Compact mode hides the layout diagram and only shows the mapping table. */
   compact?: boolean;
+  /** Show the DSi mode setup section (for DSiWare sessions). */
+  showDsiSection?: boolean;
 }
 
 const DS_BUTTON_ROWS: Array<{ ds: string; xbox: string; ps: string; keyboard: string }> = [
@@ -47,7 +49,7 @@ const SCREEN_LAYOUTS: Array<{ id: string; label: string; description: string }> 
   },
 ];
 
-export function DSControlsGuide({ compact = false }: DSControlsGuideProps) {
+export function DSControlsGuide({ compact = false, showDsiSection = false }: DSControlsGuideProps) {
   return (
     <div className="space-y-4">
       {/* Button mapping table */}
@@ -152,6 +154,35 @@ export function DSControlsGuide({ compact = false }: DSControlsGuideProps) {
           DNS: 178.62.43.212 (configured automatically)
         </p>
       </div>
+
+      {/* DSi Mode section */}
+      {showDsiSection && (
+        <div
+          className="rounded-xl px-4 py-3 text-xs"
+          style={{ backgroundColor: 'rgba(3,105,161,0.12)' }}
+        >
+          <p className="font-semibold mb-1" style={{ color: '#7dd3fc' }}>
+            🟦 DSi Mode (DSiWare)
+          </p>
+          <p style={{ color: 'var(--color-oasis-text-muted)' }}>
+            DSiWare titles run on the Nintendo DSi hardware revision and require additional BIOS files.
+            RetroOasis automatically launches melonDS with <code className="font-mono">--dsi-mode</code> for
+            DSiWare sessions.
+          </p>
+          <p className="mt-2 font-semibold text-[10px]" style={{ color: '#7dd3fc' }}>
+            Required files in <code className="font-mono">~/.config/melonDS/</code>:
+          </p>
+          <ul className="mt-1 space-y-0.5 font-mono text-[10px]" style={{ color: 'var(--color-oasis-text-muted)' }}>
+            <li>• bios7i.bin — DSi ARM7 BIOS</li>
+            <li>• bios9i.bin — DSi ARM9 BIOS</li>
+            <li>• nand.bin — DSi NAND (system memory)</li>
+          </ul>
+          <p className="mt-2" style={{ color: 'var(--color-oasis-text-muted)' }}>
+            These files can be dumped from a real DSi using the <strong>dsibinhax</strong> tool.
+            Standard DS BIOS files (bios7.bin, bios9.bin, firmware.bin) are also required.
+          </p>
+        </div>
+      )}
     </div>
   );
 }

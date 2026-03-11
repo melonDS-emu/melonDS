@@ -64,6 +64,7 @@ function normalizeMockGame(g: (typeof MOCK_GAMES)[number]): ApiGame {
     supportsPrivateLobby: true,
     onlineRecommended: g.badges.includes('Great Online'),
     compatibilityNotes: [],
+    isDsiWare: g.isDsiWare,
   };
 }
 

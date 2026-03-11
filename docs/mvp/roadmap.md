@@ -1,11 +1,12 @@
 # RetroOasis Development Roadmap
 
-> **Honest progress snapshot (2026-03-10)**
+> **Honest progress snapshot (2026-03-11)**
 >
 > - The current working stack is **React + Vite desktop UI + WebSocket lobby server + TCP relay + local HTTP launch API (`/api/launch`)**.
 > - **Tauri/native packaging, a C++ IPC bridge into the melonDS core in `/src`, and a broader REST backend for catalog/save/presence data are still not complete.**
 > - The lobby now triggers **local emulator launch requests** through the server, but **real per-game ROM discovery/selection and relay token handoff into emulator processes are still incomplete**.
 > - Presence, activity, saves, and cloud flows have useful UI scaffolding, but the **live/server-backed versions remain future work unless explicitly marked “mock/dev/demo.”**
+> - Phase 6 DSiWare support and interactive touch calibration panel are now complete. Phase 7 backend hardening has started with per-IP rate limiting on the lobby server.
 
 ## Phase 1 — Foundation (Complete)
 
@@ -163,9 +164,9 @@
 - [ ] melonDS integration (this repository's C++ core → IPC bridge for launch/control)
 - [x] Dual-screen layout picker in HostRoomModal (stacked / side-by-side / focus modes)
 - [x] Screen swap hotkey displayed in lobby (F11 reminder)
-- [ ] Touch input calibration panel (map mouse coordinates to DS screen coords)
+- [x] Touch input calibration panel — interactive visual test area + offsetX/Y/scaleX/Y controls
 - [x] DS-specific compatibility badges (WFC Online, Touch Controls, Download Play)
-- [ ] Advanced: DSi mode detection and DSiWare support
+- [x] DSi mode detection and DSiWare support — dsiMode adapter option, DSiWare mock games, DSi badge/tips in UI, DSiWare session templates
 
 ## Cross-Cutting Quality Work
 
@@ -180,6 +181,7 @@
 - [x] Workspace validation documented and re-verified after `npm install` (`npm run typecheck`, `npm run test -w @retro-oasis/desktop`)
 - [x] Custom controller profile persistence tests (`custom-profiles.test.ts`, 8 tests)
 - [x] DS touch calibration service tests (`touch-calibration.test.ts`, 8 tests)
+- [x] Rate limiter unit tests (rate-limiter.test.ts, 8 tests)
 - [ ] Integration coverage for emulator launch, relay token flow, ROM scanning, save I/O, and live presence
 - [ ] Native desktop verification checklist for Tauri / IPC flows
 - [ ] Backend hardening: auth/identity, rate limiting, persistence, and deployable relay host configuration
@@ -227,6 +229,24 @@
     emulator child process.
   - `/api/launch` now accepts and forwards `sessionToken`.
   - `LobbyContext` includes `sessionToken` in the `/api/launch` request body.
+
+## Phase 7 — Backend Hardening + Advanced Integration
+
+**Goal:** Make the server production-ready and wire together the remaining loose ends.
+
+### Milestones
+- [x] Per-IP token-bucket rate limiter on lobby server (WebSocket connections + HTTP requests)
+- [x] Rate limiter unit tests (8 tests)
+- [ ] Auth/identity layer: player display name verification and room ownership tokens
+- [ ] Save-sync REST endpoints (upload / download save files with conflict detection)
+- [ ] Live presence transport: connect PresenceClient to lobby WebSocket events
+- [ ] Friend request / add-friend flow with server-side friend list
+- [ ] Deployable relay host configuration (env-variable override for relay host/port range)
+- [ ] Backend persistence: SQLite or flat-file store for rooms, players, and session history
+- [ ] Session history / game stats tracking (games played, durations, participant lists)
+- [ ] Push notifications for joinable friend sessions (browser Notification API)
+- [ ] Integration test suite for lobby server (WebSocket connect/create/join/start flows)
+
 
 ## Future Ideas
 - Tournament-style rooms

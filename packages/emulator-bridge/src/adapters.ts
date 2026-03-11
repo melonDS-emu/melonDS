@@ -29,6 +29,12 @@ export interface AdapterOptions {
   /** NDS-specific: WFC DNS server override (e.g. Wiimmfi '178.62.43.212') */
   wfcDnsServer?: string;
   /**
+   * NDS-specific: launch in DSi mode.
+   * Requires DSi BIOS files (bios7i.bin, bios9i.bin, nand.bin) in the melonDS config directory.
+   * Maps to the melonDS CLI `--dsi-mode` flag.
+   */
+  dsiMode?: boolean;
+  /**
    * Enable debug / developer mode for the emulator backend.
    * - mGBA:      opens a GDB stub server on port 2345 (--gdb 2345)
    * - FCEUX:     enables internal debugger at startup (--debug)
@@ -297,6 +303,10 @@ export function createSystemAdapter(system: string, backendId?: string): SystemA
           // WFC DNS override (e.g. Wiimmfi) for Pokémon and Nintendo online titles
           if (options.wfcDnsServer) {
             args.push(`--wfc-dns=${options.wfcDnsServer}`);
+          }
+          // DSi mode — requires DSi BIOS files in the melonDS config directory
+          if (options.dsiMode) {
+            args.push('--dsi-mode');
           }
           if (options.debug) args.push('--verbose');
           return args;

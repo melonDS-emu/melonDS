@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useRef } from 'react';
 import {
   getRomDirectory,
   setRomDirectory,
@@ -16,6 +16,7 @@ import {
   loadTouchCalibration,
   saveTouchCalibration,
   resetTouchCalibration,
+  applyCalibration,
   DEFAULT_CALIBRATION,
 } from '../lib/touch-calibration';
 import type { DsTouchCalibration } from '../lib/touch-calibration';
@@ -250,9 +251,17 @@ function ControllerProfileCard({ defaultProfile, onProfileChange }: ProfileCardP
 // DS Touch Input Calibration panel
 // ---------------------------------------------------------------------------
 
+// DS screen dimensions (256×192 per screen at native resolution)
+const DS_SCREEN_W = 256;
+const DS_SCREEN_H = 192;
+
 function DsTouchCalibrationPanel() {
   const [cal, setCal] = useState<DsTouchCalibration>(loadTouchCalibration);
   const [saved, setSaved] = useState(false);
+  // Visual test state: raw click position within the test area and its calibrated output
+  const [testRaw, setTestRaw] = useState<{ x: number; y: number } | null>(null);
+  const [testMapped, setTestMapped] = useState<{ x: number; y: number } | null>(null);
+  const testAreaRef = useRef<HTMLDivElement>(null);
 
   function handleChange(field: keyof DsTouchCalibration, raw: string) {
     const value = parseFloat(raw);
@@ -269,6 +278,20 @@ function DsTouchCalibrationPanel() {
   function handleReset() {
     resetTouchCalibration();
     setCal({ ...DEFAULT_CALIBRATION });
+    setTestRaw(null);
+    setTestMapped(null);
+  }
+
+  /** Handle a click on the visual test area — maps click coords through current calibration. */
+  function handleTestClick(e: React.MouseEvent<HTMLDivElement>) {
+    if (!testAreaRef.current) return;
+    const rect = testAreaRef.current.getBoundingClientRect();
+    // Map click position to 0–DS_SCREEN_W / 0–DS_SCREEN_H coordinate space
+    const rawX = ((e.clientX - rect.left) / rect.width) * DS_SCREEN_W;
+    const rawY = ((e.clientY - rect.top) / rect.height) * DS_SCREEN_H;
+    const [mappedX, mappedY] = applyCalibration(rawX, rawY, cal);
+    setTestRaw({ x: rawX, y: rawY });
+    setTestMapped({ x: mappedX, y: mappedY });
   }
 
   const isDefault =
@@ -276,6 +299,20 @@ function DsTouchCalibrationPanel() {
     cal.offsetY === DEFAULT_CALIBRATION.offsetY &&
     cal.scaleX === DEFAULT_CALIBRATION.scaleX &&
     cal.scaleY === DEFAULT_CALIBRATION.scaleY;
+
+  // Convert DS coordinates (0–256, 0–192) back to percentage for dot placement
+  const rawDotStyle = testRaw
+    ? {
+        left: `${(testRaw.x / DS_SCREEN_W) * 100}%`,
+        top: `${(testRaw.y / DS_SCREEN_H) * 100}%`,
+      }
+    : null;
+  const mappedDotStyle = testMapped
+    ? {
+        left: `${Math.min(Math.max((testMapped.x / DS_SCREEN_W) * 100, 0), 100)}%`,
+        top: `${Math.min(Math.max((testMapped.y / DS_SCREEN_H) * 100, 0), 100)}%`,
+      }
+    : null;
 
   return (
     <section className="mt-8 rounded-2xl p-5" style={{ backgroundColor: 'var(--color-oasis-card)' }}>
@@ -315,6 +352,62 @@ function DsTouchCalibrationPanel() {
             />
           </label>
         ))}
+      </div>
+
+      {/* Visual calibration test area */}
+      <div className="mb-4">
+        <p className="text-xs font-semibold mb-1" style={{ color: 'var(--color-oasis-text-muted)' }}>
+          🖱️ Click Test Area
+          <span className="ml-1 font-normal opacity-60">— click anywhere below to preview the calibrated mapping</span>
+        </p>
+        <div
+          ref={testAreaRef}
+          onClick={handleTestClick}
+          className="relative rounded-xl overflow-hidden cursor-crosshair select-none"
+          style={{
+            backgroundColor: 'var(--color-oasis-surface)',
+            border: '1px solid rgba(255,255,255,0.1)',
+            aspectRatio: `${DS_SCREEN_W} / ${DS_SCREEN_H}`,
+            maxHeight: '120px',
+          }}
+        >
+          {/* Grid lines for visual reference */}
+          <div className="absolute inset-0 opacity-10" style={{
+            backgroundImage: 'linear-gradient(rgba(255,255,255,0.3) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.3) 1px, transparent 1px)',
+            backgroundSize: '25% 25%',
+          }} />
+          <span
+            className="absolute inset-0 flex items-center justify-center text-[10px]"
+            style={{ color: 'var(--color-oasis-text-muted)', pointerEvents: 'none' }}
+          >
+            {testRaw ? '' : 'Click to test calibration'}
+          </span>
+          {/* Raw click position (grey dot) */}
+          {rawDotStyle && (
+            <div
+              className="absolute w-2.5 h-2.5 rounded-full -translate-x-1/2 -translate-y-1/2 border border-white/30"
+              style={{ backgroundColor: 'rgba(148,163,184,0.8)', left: rawDotStyle.left, top: rawDotStyle.top, zIndex: 1 }}
+              title="Raw click position"
+            />
+          )}
+          {/* Calibrated (mapped) position (orange dot) */}
+          {mappedDotStyle && (
+            <div
+              className="absolute w-2.5 h-2.5 rounded-full -translate-x-1/2 -translate-y-1/2 border border-white/30"
+              style={{ backgroundColor: '#E87722', left: mappedDotStyle.left, top: mappedDotStyle.top, zIndex: 2 }}
+              title="Calibrated position"
+            />
+          )}
+        </div>
+        {testRaw && testMapped && (
+          <p className="text-[10px] mt-1 font-mono" style={{ color: 'var(--color-oasis-text-muted)' }}>
+            Raw: ({testRaw.x.toFixed(1)}, {testRaw.y.toFixed(1)}) →{' '}
+            <span style={{ color: '#E87722' }}>
+              Mapped: ({testMapped.x.toFixed(1)}, {testMapped.y.toFixed(1)})
+            </span>
+            {' '}(DS coords 0–{DS_SCREEN_W} × 0–{DS_SCREEN_H})
+          </p>
+        )}
       </div>
 
       <div className="flex gap-2 items-center">

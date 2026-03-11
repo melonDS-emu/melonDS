@@ -27,6 +27,11 @@ export interface SessionTemplateConfig {
     /** Human-readable description of the WFC setup. */
     description: string;
   };
+  /**
+   * DSi mode — when true, melonDS is launched with --dsi-mode.
+   * Requires DSi BIOS files (bios7i.bin, bios9i.bin, nand.bin).
+   */
+  dsiMode?: boolean;
 }
 
 /** Default save rules shared by most Phase 1 games. */
@@ -623,6 +628,57 @@ export const DEFAULT_TEMPLATES: SessionTemplateConfig[] = [
       dnsServer: '178.62.43.212',
       description: 'Uses Wiimmfi for Pokémon White online play (GTS, Battle Subway, C-Gear)',
     },
+  },
+  // === DSiWare ===
+  {
+    id: 'dsiware-flipnote-studio-1p',
+    gameId: 'dsiware-flipnote-studio',
+    system: 'nds',
+    emulatorBackendId: 'melonds',
+    playerCount: 1,
+    controllerMappings: defaultMappings(1),
+    saveRules: DEFAULT_SAVE_RULES,
+    netplayMode: 'local-only',
+    uiLayoutOptions: { dsScreenLayout: 'stacked' },
+    dsiMode: true,
+  },
+  {
+    id: 'dsiware-dr-mario-express-2p',
+    gameId: 'dsiware-dr-mario-express',
+    system: 'nds',
+    emulatorBackendId: 'melonds',
+    playerCount: 2,
+    controllerMappings: defaultMappings(2),
+    saveRules: NO_SAVE_RULES,
+    netplayMode: 'online-relay',
+    latencyTarget: 80,
+    uiLayoutOptions: { dsScreenLayout: 'stacked' },
+    dsiMode: true,
+  },
+  {
+    id: 'dsiware-art-academy-1p',
+    gameId: 'dsiware-art-academy',
+    system: 'nds',
+    emulatorBackendId: 'melonds',
+    playerCount: 1,
+    controllerMappings: defaultMappings(1),
+    saveRules: DEFAULT_SAVE_RULES,
+    netplayMode: 'local-only',
+    uiLayoutOptions: { dsScreenLayout: 'bottom-focus' },
+    dsiMode: true,
+  },
+  {
+    id: 'dsiware-puzzle-league-2p',
+    gameId: 'dsiware-puzzle-league',
+    system: 'nds',
+    emulatorBackendId: 'melonds',
+    playerCount: 2,
+    controllerMappings: defaultMappings(2),
+    saveRules: NO_SAVE_RULES,
+    netplayMode: 'online-relay',
+    latencyTarget: 80,
+    uiLayoutOptions: { dsScreenLayout: 'stacked' },
+    dsiMode: true,
   },
 ];
 
