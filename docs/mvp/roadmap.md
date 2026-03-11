@@ -8,6 +8,7 @@
 > - Presence, activity, saves, and cloud flows have useful UI scaffolding, but the **live/server-backed versions remain future work unless explicitly marked “mock/dev/demo.”**
 > - Phase 6 DSiWare support and interactive touch calibration panel are now complete. Phase 7 backend hardening has started with per-IP rate limiting on the lobby server.
 > - Phase 8 SQLite persistence, friend system, matchmaking queue, player identity, and enhanced session stats are now complete. Set `DB_PATH` env var to enable persistence across restarts.
+> - Phase 9 achievements (20 definitions), player stats aggregation, global leaderboard, and a Profile page are now complete.
 
 ## Phase 1 — Foundation (Complete)
 
@@ -260,7 +261,6 @@
 - Seasonal featured games
 - Ranked/casual matchmaking tags
 - Custom room themes
-- Achievement system
 - Game clip sharing
 - Mobile companion app
 
@@ -279,3 +279,23 @@
 - [x] Player identity / display name persistence (server-assigned or user-chosen, stored per connection)
 - [x] Session history REST API enhancements: per-player stats, most-played games, total session time
 - [x] Relay host deployment guide: Docker Compose config, env-variable reference, reverse-proxy notes
+
+## Phase 9 — Achievements & Player Stats
+
+**Goal:** Reward engagement with a persistent achievement system and give players visibility into their playtime history through stats and leaderboards.
+
+### Milestones
+- [x] Achievement engine: 20 definitions across 5 categories (Sessions, Social, Systems, Games, Streaks)
+- [x] `AchievementStore` — in-memory per-player tracker with `checkAndUnlock()` predicate engine
+- [x] Player stats aggregation: `computePlayerStats()` — sessions, playtime, top games, systems, active days
+- [x] Global leaderboard: `computeLeaderboard()` — rank by sessions, playtime, unique games, or systems
+- [x] REST endpoints: `GET /api/achievements`, `GET /api/achievements/:playerId`, `GET /api/stats/:displayName`, `GET /api/leaderboard`
+- [x] Desktop Profile page (`/profile`): name lookup, stats cards, top-games list, achievement grid with progress bar, category filter tabs, global leaderboard
+- [x] Desktop Home page: "🏆 Top Players" leaderboard teaser widget (top 5 by sessions)
+- [x] Stats service (`stats-service.ts`): typed fetch wrappers + `formatDuration` helper
+- [x] Achievement unit tests (21 tests)
+- [x] Player stats unit tests (13 tests)
+- [x] `docs/status/phase-9-achievements.md` — phase status and known limitations
+- [ ] SQLite-backed achievement persistence (follow `SqliteSessionHistory` pattern)
+- [ ] Achievement unlock WebSocket push (`achievement-unlocked` server message + toast in UI)
+- [ ] `POST /api/achievements/:playerId/refresh` — re-evaluate achievements against live history on demand

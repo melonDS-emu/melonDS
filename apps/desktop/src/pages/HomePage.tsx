@@ -8,6 +8,7 @@ import { JoinRoomModal } from '../components/JoinRoomModal';
 import { useLobby } from '../context/LobbyContext';
 import { usePresence } from '../context/PresenceContext';
 import { activityEmoji, activityVerb, relativeTime } from '../lib/presence-utils';
+import { fetchLeaderboard, type LeaderboardEntry } from '../lib/stats-service';
 import type { Room } from '../services/lobby-types';
 import type { FriendInfo } from '@retro-oasis/presence-client';
 
@@ -18,6 +19,7 @@ export function HomePage() {
   const [showHost, setShowHost] = useState(false);
   const [showJoin, setShowJoin] = useState(false);
   const [joinFriend, setJoinFriend] = useState<FriendInfo | null>(null);
+  const [topPlayers, setTopPlayers] = useState<LeaderboardEntry[]>([]);
 
   const { data: allGames } = useGames();
   const n64PartyGames = allGames.filter((g) => g.system === 'N64' && g.tags.includes('Party'));
@@ -29,6 +31,11 @@ export function HomePage() {
   useEffect(() => {
     if (connectionState === 'connected') listRooms();
   }, [connectionState, listRooms]);
+
+  // Fetch top players for the leaderboard widget
+  useEffect(() => {
+    fetchLeaderboard('sessions', 5).then(setTopPlayers).catch(() => {});
+  }, []);
 
   // When we successfully join or create a room, navigate to the lobby
   useEffect(() => {
@@ -292,6 +299,46 @@ export function HomePage() {
           <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
             {partyPicks.map((game) => (
               <GameCard key={game.id} game={game} />
+            ))}
+          </div>
+        </section>
+      )}
+
+      {/* Leaderboard teaser */}
+      {topPlayers.length > 0 && (
+        <section>
+          <div className="flex items-center justify-between mb-3">
+            <h2 className="text-lg font-bold" style={{ color: 'var(--color-oasis-accent-light)' }}>
+              🏆 Top Players
+            </h2>
+            <Link
+              to="/profile"
+              className="text-xs font-medium"
+              style={{ color: 'var(--color-oasis-text-muted)' }}
+            >
+              Full leaderboard →
+            </Link>
+          </div>
+          <div
+            className="rounded-2xl overflow-hidden"
+            style={{ backgroundColor: 'var(--color-oasis-surface)' }}
+          >
+            {topPlayers.map((entry) => (
+              <div
+                key={entry.playerId}
+                className="flex items-center gap-3 px-4 py-2.5 border-b last:border-b-0"
+                style={{ borderColor: 'var(--color-oasis-card)' }}
+              >
+                <span className="w-5 text-sm font-bold text-center" style={{ color: 'var(--color-oasis-text-muted)' }}>
+                  {entry.rank === 1 ? '🥇' : entry.rank === 2 ? '🥈' : entry.rank === 3 ? '🥉' : `#${entry.rank}`}
+                </span>
+                <span className="flex-1 text-sm" style={{ color: 'var(--color-oasis-text)' }}>
+                  {entry.displayName}
+                </span>
+                <span className="text-xs" style={{ color: 'var(--color-oasis-text-muted)' }}>
+                  {entry.value} sessions
+                </span>
+              </div>
             ))}
           </div>
         </section>
