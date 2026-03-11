@@ -7,12 +7,12 @@ import { ToastContainer } from './ToastContainer';
 import type { FriendInfo } from '@retro-oasis/presence-client';
 
 const NAV_ITEMS = [
-  { path: '/', label: '🏠 Home' },
-  { path: '/library', label: '🎮 Library' },
-  { path: '/friends', label: '👥 Friends' },
-  { path: '/saves', label: '💾 Saves' },
-  { path: '/profile', label: '👤 Profile' },
-  { path: '/settings', label: '⚙️ Settings' },
+  { path: '/',         label: 'Home',     icon: '🏠' },
+  { path: '/library',  label: 'Library',  icon: '🎮' },
+  { path: '/friends',  label: 'Friends',  icon: '👥' },
+  { path: '/saves',    label: 'Saves',    icon: '💾' },
+  { path: '/profile',  label: 'Profile',  icon: '👤' },
+  { path: '/settings', label: 'Settings', icon: '⚙️' },
 ];
 
 export function Layout() {
@@ -22,7 +22,6 @@ export function Layout() {
   const { joinByCode, joinAsSpectator, currentRoom } = useLobby();
   const [pendingFriend, setPendingFriend] = useState<FriendInfo | null>(null);
 
-  // Navigate to lobby once joined via the sidebar friend-join modal
   useEffect(() => {
     if (currentRoom && location.pathname !== `/lobby/${currentRoom.id}`) {
       navigate(`/lobby/${currentRoom.id}`);
@@ -43,48 +42,96 @@ export function Layout() {
 
   return (
     <div className="flex h-screen">
-      {/* Sidebar */}
-      <nav className="w-56 flex-shrink-0 flex flex-col" style={{ backgroundColor: 'var(--color-oasis-surface)' }}>
-        <div className="p-4 border-b border-white/10">
-          <h1 className="text-xl font-bold" style={{ color: 'var(--color-oasis-accent-light)' }}>
-            🌴 RetroOasis
-          </h1>
-          <p className="text-xs mt-1" style={{ color: 'var(--color-oasis-text-muted)' }}>
-            Play Together
-          </p>
+      {/* ── Nintendo-style sidebar ── */}
+      <nav
+        className="w-60 flex-shrink-0 flex flex-col border-r"
+        style={{
+          backgroundColor: 'var(--color-oasis-surface)',
+          borderColor: 'var(--n-border)',
+        }}
+      >
+        {/* Logo */}
+        <div className="px-5 py-5 flex items-center gap-3">
+          <div
+            className="w-9 h-9 rounded-xl flex items-center justify-center text-lg font-black flex-shrink-0"
+            style={{ backgroundColor: 'var(--color-oasis-accent)', color: '#fff' }}
+          >
+            R
+          </div>
+          <div>
+            <h1 className="text-base font-black tracking-tight leading-none" style={{ color: '#fff' }}>
+              RetroOasis
+            </h1>
+            <p className="text-[10px] font-semibold mt-0.5" style={{ color: 'var(--color-oasis-text-muted)' }}>
+              Play Together
+            </p>
+          </div>
         </div>
 
-        <div className="flex-1 py-4">
-          {NAV_ITEMS.map((item) => (
-            <Link
-              key={item.path}
-              to={item.path}
-              className="flex items-center justify-between px-4 py-2.5 text-sm font-medium transition-colors rounded-lg mx-2 mb-1"
+        {/* Divider */}
+        <div className="mx-4 mb-3" style={{ height: 1, backgroundColor: 'var(--n-border)' }} />
+
+        {/* Nav items */}
+        <div className="flex-1 px-3 space-y-0.5">
+          {NAV_ITEMS.map((item) => {
+            const active = location.pathname === item.path;
+            return (
+              <Link
+                key={item.path}
+                to={item.path}
+                className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-bold transition-all relative"
+                style={{
+                  backgroundColor: active ? 'rgba(230,0,18,0.15)' : 'transparent',
+                  color: active ? 'var(--color-oasis-accent)' : 'var(--color-oasis-text-muted)',
+                }}
+              >
+                {/* Active left-border accent */}
+                {active && (
+                  <span
+                    className="absolute left-0 top-1/2 -translate-y-1/2 rounded-r-full"
+                    style={{
+                      width: 3,
+                      height: 22,
+                      backgroundColor: 'var(--color-oasis-accent)',
+                    }}
+                  />
+                )}
+                <span className="text-base leading-none w-5 text-center">{item.icon}</span>
+                <span className="flex-1">{item.label}</span>
+                {item.path === '/friends' && onlineCount > 0 && (
+                  <span
+                    className="text-[9px] font-black px-1.5 py-0.5 rounded-full min-w-[18px] text-center"
+                    style={{ backgroundColor: 'var(--color-oasis-green)', color: '#0a0a0a' }}
+                  >
+                    {onlineCount}
+                  </span>
+                )}
+              </Link>
+            );
+          })}
+        </div>
+
+        {/* Friends online panel */}
+        <div
+          className="mx-3 mb-4 rounded-2xl p-3"
+          style={{ backgroundColor: 'var(--color-oasis-card)' }}
+        >
+          <p
+            className="text-[10px] font-black uppercase tracking-widest mb-2 flex items-center justify-between"
+            style={{ color: 'var(--color-oasis-text-muted)' }}
+          >
+            <span>Friends Online</span>
+            <span
+              className="font-black px-1.5 py-0.5 rounded-full text-[9px]"
               style={{
-                backgroundColor: location.pathname === item.path ? 'var(--color-oasis-card)' : 'transparent',
-                color: location.pathname === item.path ? 'var(--color-oasis-accent-light)' : 'var(--color-oasis-text-muted)',
+                backgroundColor: onlineCount > 0 ? 'var(--color-oasis-green)' : 'var(--color-oasis-card)',
+                color: onlineCount > 0 ? '#0a0a0a' : 'var(--color-oasis-text-muted)',
               }}
             >
-              <span>{item.label}</span>
-              {item.path === '/friends' && onlineCount > 0 && (
-                <span
-                  className="text-[10px] font-bold px-1.5 py-0.5 rounded-full"
-                  style={{ backgroundColor: 'var(--color-oasis-green)', color: '#0a0a0a' }}
-                >
-                  {onlineCount}
-                </span>
-              )}
-            </Link>
-          ))}
-        </div>
-
-        {/* Live friends panel */}
-        <div className="p-4 border-t border-white/10">
-          <p className="text-xs font-semibold mb-2 flex items-center justify-between" style={{ color: 'var(--color-oasis-text-muted)' }}>
-            <span>Friends Online</span>
-            <span style={{ color: 'var(--color-oasis-green)' }}>{onlineCount}</span>
+              {onlineCount}
+            </span>
           </p>
-          <div className="space-y-2">
+          <div className="space-y-1.5">
             {onlineFriends.slice(0, 4).map((f) => (
               <FriendBadge
                 key={f.userId}
@@ -98,7 +145,11 @@ export function Layout() {
               </p>
             )}
             {onlineFriends.length > 4 && (
-              <Link to="/friends" className="text-[10px]" style={{ color: 'var(--color-oasis-text-muted)' }}>
+              <Link
+                to="/friends"
+                className="text-[10px] font-bold"
+                style={{ color: 'var(--color-oasis-accent)' }}
+              >
                 +{onlineFriends.length - 4} more →
               </Link>
             )}
@@ -106,12 +157,14 @@ export function Layout() {
         </div>
       </nav>
 
-      {/* Main content */}
-      <main className="flex-1 overflow-y-auto p-6">
-        <Outlet />
+      {/* ── Main content ── */}
+      <main className="flex-1 overflow-y-auto" style={{ backgroundColor: 'var(--color-oasis-bg)' }}>
+        <div className="p-7">
+          <Outlet />
+        </div>
       </main>
 
-      {/* Join-friend modal */}
+      {/* Modals & overlays */}
       {pendingFriend && (
         <JoinRoomModal
           initialCode={pendingFriend.roomCode}
@@ -120,8 +173,6 @@ export function Layout() {
           onClose={() => setPendingFriend(null)}
         />
       )}
-
-      {/* Toast notifications overlay */}
       <ToastContainer />
     </div>
   );
@@ -138,14 +189,17 @@ function FriendBadge({
     friend.status === 'in-game'
       ? 'var(--color-oasis-green)'
       : friend.status === 'online'
-        ? 'var(--color-oasis-accent-light)'
+        ? 'var(--color-oasis-blue)'
         : 'var(--color-oasis-text-muted)';
 
   return (
     <div className="flex items-center gap-2 group">
-      <div className="w-2 h-2 rounded-full flex-shrink-0" style={{ backgroundColor: statusColor }} />
+      <div
+        className="w-2 h-2 rounded-full flex-shrink-0"
+        style={{ backgroundColor: statusColor }}
+      />
       <div className="flex-1 min-w-0">
-        <p className="text-xs font-medium truncate" style={{ color: 'var(--color-oasis-text)' }}>
+        <p className="text-xs font-bold truncate" style={{ color: 'var(--color-oasis-text)' }}>
           {friend.displayName}
         </p>
         {friend.currentGameTitle && (
@@ -157,7 +211,7 @@ function FriendBadge({
       {onJoin && (
         <button
           onClick={onJoin}
-          className="text-[10px] font-bold px-1.5 py-0.5 rounded opacity-0 group-hover:opacity-100 transition-opacity"
+          className="text-[10px] font-black px-2 py-0.5 rounded-full opacity-0 group-hover:opacity-100 transition-opacity"
           style={{ backgroundColor: 'var(--color-oasis-accent)', color: 'white' }}
           title={`Join ${friend.displayName}'s room`}
         >

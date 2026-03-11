@@ -27,17 +27,14 @@ export function HomePage() {
   const partyPicks = allGames.filter((g) => g.tags.includes('Party') && g.system !== 'N64' && g.system !== 'NDS');
   const recentGames = allGames.slice(0, 4);
 
-  // Refresh public rooms when the page mounts / becomes visible
   useEffect(() => {
     if (connectionState === 'connected') listRooms();
   }, [connectionState, listRooms]);
 
-  // Fetch top players for the leaderboard widget
   useEffect(() => {
     fetchLeaderboard('sessions', 5).then(setTopPlayers).catch(() => {});
   }, []);
 
-  // When we successfully join or create a room, navigate to the lobby
   useEffect(() => {
     if (currentRoom) navigate(`/lobby/${currentRoom.id}`);
   }, [currentRoom, navigate]);
@@ -59,7 +56,6 @@ export function HomePage() {
     setJoinFriend(null);
   }
 
-  // Build a lobby-card-compatible object from a real Room
   function toLobbyCard(room: Room) {
     const game = allGames.find((g) => g.id === room.gameId);
     return {
@@ -68,7 +64,7 @@ export function HomePage() {
       host: room.players[0]?.displayName ?? 'Unknown',
       gameTitle: room.gameTitle,
       system: room.system.toUpperCase(),
-      systemColor: game?.systemColor ?? '#7c5cbf',
+      systemColor: game?.systemColor ?? 'var(--color-oasis-accent)',
       playerCount: room.players.length,
       maxPlayers: room.maxPlayers,
       status: room.status,
@@ -80,54 +76,80 @@ export function HomePage() {
     : [];
 
   return (
-    <div className="space-y-8 max-w-5xl">
-      {/* Connection status indicator */}
+    <div className="space-y-10 max-w-5xl">
+
+      {/* ── Connection banner ── */}
       {connectionState !== 'connected' && (
         <div
-          className="px-4 py-2 rounded-xl text-xs font-semibold"
+          className="px-4 py-2.5 rounded-2xl text-xs font-bold flex items-center gap-2"
           style={{
-            backgroundColor: connectionState === 'connecting' ? 'var(--color-oasis-yellow)' : 'var(--color-oasis-surface)',
-            color: connectionState === 'connecting' ? '#1a1025' : 'var(--color-oasis-text-muted)',
+            backgroundColor: connectionState === 'connecting'
+              ? 'rgba(255,179,0,0.15)'
+              : 'rgba(255,255,255,0.05)',
+            color: connectionState === 'connecting'
+              ? 'var(--color-oasis-yellow)'
+              : 'var(--color-oasis-text-muted)',
+            border: '1px solid var(--n-border)',
           }}
         >
-          {connectionState === 'connecting' ? '⏳ Connecting to lobby server…' : '⚠️ Offline — lobby server unreachable'}
+          <span>{connectionState === 'connecting' ? '⏳' : '⚠️'}</span>
+          <span>
+            {connectionState === 'connecting'
+              ? 'Connecting to lobby server…'
+              : 'Offline — lobby server unreachable'}
+          </span>
         </div>
       )}
 
-      {/* Hero actions */}
-      <div className="flex gap-4">
-        <button
-          onClick={() => setShowHost(true)}
-          className="flex-1 py-4 rounded-2xl text-lg font-bold transition-transform hover:scale-[1.02] active:scale-[0.98]"
-          style={{ backgroundColor: 'var(--color-oasis-accent)', color: 'white' }}
-        >
-          🎮 Host a Room
-        </button>
-        <button
-          onClick={() => setShowJoin(true)}
-          className="flex-1 py-4 rounded-2xl text-lg font-bold transition-transform hover:scale-[1.02] active:scale-[0.98]"
-          style={{ backgroundColor: 'var(--color-oasis-card)', color: 'var(--color-oasis-text)' }}
-        >
-          🚪 Join a Room
-        </button>
+      {/* ── Hero CTA ── */}
+      <div
+        className="rounded-3xl p-6 flex flex-col gap-4"
+        style={{
+          background: 'linear-gradient(135deg, #1a0008 0%, #0f0f1b 60%, #001a0a 100%)',
+          border: '1px solid rgba(230,0,18,0.2)',
+        }}
+      >
+        <div>
+          <h1 className="text-3xl font-black tracking-tight leading-none">
+            <span style={{ color: 'var(--color-oasis-accent)' }}>Retro</span>
+            <span style={{ color: '#fff' }}>Oasis</span>
+          </h1>
+          <p className="text-sm mt-1 font-semibold" style={{ color: 'var(--color-oasis-text-muted)' }}>
+            Play classic games together, online
+          </p>
+        </div>
+        <div className="flex gap-3">
+          <button
+            onClick={() => setShowHost(true)}
+            className="flex-1 py-3.5 rounded-2xl text-base font-black transition-all hover:brightness-110 active:scale-[0.97]"
+            style={{ backgroundColor: 'var(--color-oasis-accent)', color: 'white' }}
+          >
+            🎮 Host a Room
+          </button>
+          <button
+            onClick={() => setShowJoin(true)}
+            className="flex-1 py-3.5 rounded-2xl text-base font-black transition-all hover:brightness-110 active:scale-[0.97]"
+            style={{
+              backgroundColor: 'var(--color-oasis-card)',
+              color: 'var(--color-oasis-text)',
+              border: '1px solid var(--n-border)',
+            }}
+          >
+            🚪 Join a Room
+          </button>
+        </div>
       </div>
 
-      {/* Joinable Lobbies */}
+      {/* ── Joinable Lobbies ── */}
       <section>
-        <div className="flex items-center justify-between mb-3">
-          <h2 className="text-lg font-bold" style={{ color: 'var(--color-oasis-accent-light)' }}>
-            🔥 Joinable Lobbies
-          </h2>
-          {connectionState === 'connected' && (
-            <button
-              onClick={listRooms}
-              className="text-xs"
-              style={{ color: 'var(--color-oasis-text-muted)' }}
-            >
-              ↻ Refresh
-            </button>
-          )}
-        </div>
+        <SectionHeader
+          title="🔥 Joinable Lobbies"
+          action={
+            connectionState === 'connected'
+              ? <button onClick={listRooms} className="text-xs font-bold" style={{ color: 'var(--color-oasis-text-muted)' }}>↻ Refresh</button>
+              : undefined
+          }
+        />
         {displayLobbies.length > 0 ? (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
             {displayLobbies.map((lobby) => (
@@ -135,30 +157,22 @@ export function HomePage() {
             ))}
           </div>
         ) : (
-          <p className="text-sm" style={{ color: 'var(--color-oasis-text-muted)' }}>
-            {connectionState === 'connected'
+          <EmptyState
+            message={connectionState === 'connected'
               ? 'No open lobbies right now — be the first to host!'
               : 'Connect to the lobby server to see open rooms.'}
-          </p>
+          />
         )}
       </section>
 
-      {/* Friends Playing Now */}
+      {/* ── Friends Playing Now ── */}
       {joinableSessions.length > 0 && (
         <section>
-          <div className="flex items-center justify-between mb-3">
-            <div>
-              <h2 className="text-lg font-bold" style={{ color: 'var(--color-oasis-accent-light)' }}>
-                👥 Friends Playing Now
-              </h2>
-              <p className="text-xs mt-0.5" style={{ color: 'var(--color-oasis-text-muted)' }}>
-                Jump in and play with your crew
-              </p>
-            </div>
-            <Link to="/friends" className="text-sm" style={{ color: 'var(--color-oasis-text-muted)' }}>
-              All Friends →
-            </Link>
-          </div>
+          <SectionHeader
+            title="👥 Friends Playing Now"
+            subtitle="Jump in and play with your crew"
+            action={<Link to="/friends" className="text-sm font-bold" style={{ color: 'var(--color-oasis-text-muted)' }}>All Friends →</Link>}
+          />
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
             {joinableSessions.map((friend) => (
               <FriendSessionCard
@@ -171,48 +185,43 @@ export function HomePage() {
         </section>
       )}
 
-      {/* Recent Activity */}
+      {/* ── Recent Activity ── */}
       {recentActivity.length > 0 && (
         <section>
-          <div className="flex items-center justify-between mb-3">
-            <h2 className="text-lg font-bold" style={{ color: 'var(--color-oasis-accent-light)' }}>
-              ⚡ Recent Activity
-            </h2>
-            <Link to="/friends" className="text-sm" style={{ color: 'var(--color-oasis-text-muted)' }}>
-              See All →
-            </Link>
-          </div>
+          <SectionHeader
+            title="⚡ Recent Activity"
+            action={<Link to="/friends" className="text-sm font-bold" style={{ color: 'var(--color-oasis-text-muted)' }}>See All →</Link>}
+          />
           <div
             className="rounded-2xl overflow-hidden"
-            style={{ backgroundColor: 'var(--color-oasis-card)' }}
+            style={{ backgroundColor: 'var(--color-oasis-card)', border: '1px solid var(--n-border)' }}
           >
             {recentActivity.slice(0, 4).map((item, i) => (
               <div
                 key={item.id}
                 className="px-4 py-3 flex items-center gap-3"
-                style={{ borderTop: i > 0 ? '1px solid rgba(255,255,255,0.06)' : undefined }}
+                style={{ borderTop: i > 0 ? '1px solid var(--n-border)' : undefined }}
               >
                 <span className="text-base">{activityEmoji(item.type)}</span>
                 <div className="flex-1 min-w-0">
                   <p className="text-xs" style={{ color: 'var(--color-oasis-text)' }}>
-                    <span className="font-semibold">{item.displayName}</span>{' '}
+                    <span className="font-black">{item.displayName}</span>{' '}
                     <span style={{ color: 'var(--color-oasis-text-muted)' }}>{activityVerb(item.type)}</span>
                     {item.gameTitle && (
-                      <> <span className="font-medium">{item.gameTitle}</span></>
+                      <> <span className="font-bold">{item.gameTitle}</span></>
                     )}
                   </p>
                 </div>
                 <span className="text-[10px] flex-shrink-0" style={{ color: 'var(--color-oasis-text-muted)' }}>
                   {relativeTime(item.timestamp)}
                 </span>
-                {/* Only show Join if the friend is still joinable */}
                 {item.roomCode && joinableSessions.some((f) => f.userId === item.userId) && (
                   <button
                     onClick={() => {
                       const friend = joinableSessions.find((f) => f.userId === item.userId);
                       if (friend) setJoinFriend(friend);
                     }}
-                    className="text-[10px] font-bold px-2 py-1 rounded"
+                    className="text-[10px] font-black px-2.5 py-1 rounded-full"
                     style={{ backgroundColor: 'var(--color-oasis-accent)', color: 'white' }}
                   >
                     Join
@@ -224,22 +233,14 @@ export function HomePage() {
         </section>
       )}
 
-      {/* N64 Party Spotlight */}
+      {/* ── N64 Party Spotlight ── */}
       {n64PartyGames.length > 0 && (
         <section>
-          <div className="flex items-center justify-between mb-3">
-            <div>
-              <h2 className="text-lg font-bold" style={{ color: 'var(--color-oasis-accent-light)' }}>
-                🟢 N64 Party Games
-              </h2>
-              <p className="text-xs mt-0.5" style={{ color: 'var(--color-oasis-text-muted)' }}>
-                Best with 4 players — grab your friends!
-              </p>
-            </div>
-            <Link to="/library" className="text-sm" style={{ color: 'var(--color-oasis-text-muted)' }}>
-              View All →
-            </Link>
-          </div>
+          <SectionHeader
+            title="🟢 N64 Party Games"
+            subtitle="Best with 4 players — grab your friends!"
+            action={<Link to="/library" className="text-sm font-bold" style={{ color: 'var(--color-oasis-text-muted)' }}>View All →</Link>}
+          />
           <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
             {n64PartyGames.map((game) => (
               <GameCard key={game.id} game={game} />
@@ -248,54 +249,51 @@ export function HomePage() {
         </section>
       )}
 
-      {/* Nintendo DS Spotlight */}
+      {/* ── Nintendo DS Spotlight ── */}
       {ndsShowcaseGames.length > 0 && (
         <section>
-          <div className="flex items-center justify-between mb-3">
-            <div>
-              <h2 className="text-lg font-bold" style={{ color: '#E87722' }}>
-                📱 Nintendo DS — Dual Screen
-              </h2>
-              <p className="text-xs mt-0.5" style={{ color: 'var(--color-oasis-text-muted)' }}>
-                Touch controls, WFC online, and local wireless — all in your browser
-              </p>
-            </div>
-            <Link to="/library" className="text-sm" style={{ color: 'var(--color-oasis-text-muted)' }}>
-              View All →
-            </Link>
-          </div>
+          <SectionHeader
+            title="📱 Nintendo DS — Dual Screen"
+            subtitle="Touch controls, WFC online, and local wireless — all in your browser"
+            titleColor="var(--color-oasis-ds-orange)"
+            action={<Link to="/library" className="text-sm font-bold" style={{ color: 'var(--color-oasis-text-muted)' }}>View All →</Link>}
+          />
           <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
             {ndsShowcaseGames.slice(0, 8).map((game) => (
               <GameCard key={game.id} game={game} />
             ))}
           </div>
-          {/* DS setup callout */}
           <div
-            className="mt-3 px-4 py-3 rounded-xl text-xs flex items-start gap-3"
-            style={{ backgroundColor: 'var(--color-oasis-card)' }}
+            className="mt-3 px-4 py-3 rounded-2xl text-xs flex items-start gap-3"
+            style={{
+              backgroundColor: 'var(--color-oasis-card)',
+              border: '1px solid var(--n-border)',
+            }}
           >
             <span className="text-base flex-shrink-0">💡</span>
             <div style={{ color: 'var(--color-oasis-text-muted)' }}>
-              <span className="font-semibold" style={{ color: 'var(--color-oasis-text)' }}>Getting started with DS:</span>{' '}
-              Install melonDS, place your BIOS files in <code className="text-[10px] px-1 py-0.5 rounded" style={{ backgroundColor: 'var(--color-oasis-surface)' }}>~/.config/melonDS/</code>,
-              then host a room and launch your ROM. The touch screen is controlled by your mouse — click the bottom screen area.
+              <span className="font-black" style={{ color: 'var(--color-oasis-text)' }}>Getting started with DS:</span>{' '}
+              Install melonDS, place your BIOS files in{' '}
+              <code
+                className="text-[10px] px-1 py-0.5 rounded font-mono"
+                style={{ backgroundColor: 'rgba(255,255,255,0.08)' }}
+              >
+                ~/.config/melonDS/
+              </code>
+              , then host a room and launch your ROM. The touch screen is controlled by your mouse.
               WFC games like Pokémon and Mario Kart connect via Wiimmfi automatically.
             </div>
           </div>
         </section>
       )}
 
-      {/* Quick Party Picks (non-N64) */}
+      {/* ── More Party Picks ── */}
       {partyPicks.length > 0 && (
         <section>
-          <div className="flex items-center justify-between mb-3">
-            <h2 className="text-lg font-bold" style={{ color: 'var(--color-oasis-accent-light)' }}>
-              🎉 More Party Picks
-            </h2>
-            <Link to="/library" className="text-sm" style={{ color: 'var(--color-oasis-text-muted)' }}>
-              View All →
-            </Link>
-          </div>
+          <SectionHeader
+            title="🎉 More Party Picks"
+            action={<Link to="/library" className="text-sm font-bold" style={{ color: 'var(--color-oasis-text-muted)' }}>View All →</Link>}
+          />
           <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
             {partyPicks.map((game) => (
               <GameCard key={game.id} game={game} />
@@ -304,38 +302,30 @@ export function HomePage() {
         </section>
       )}
 
-      {/* Leaderboard teaser */}
+      {/* ── Leaderboard teaser ── */}
       {topPlayers.length > 0 && (
         <section>
-          <div className="flex items-center justify-between mb-3">
-            <h2 className="text-lg font-bold" style={{ color: 'var(--color-oasis-accent-light)' }}>
-              🏆 Top Players
-            </h2>
-            <Link
-              to="/profile"
-              className="text-xs font-medium"
-              style={{ color: 'var(--color-oasis-text-muted)' }}
-            >
-              Full leaderboard →
-            </Link>
-          </div>
+          <SectionHeader
+            title="🏆 Top Players"
+            action={<Link to="/profile" className="text-xs font-bold" style={{ color: 'var(--color-oasis-text-muted)' }}>Full leaderboard →</Link>}
+          />
           <div
             className="rounded-2xl overflow-hidden"
-            style={{ backgroundColor: 'var(--color-oasis-surface)' }}
+            style={{ backgroundColor: 'var(--color-oasis-card)', border: '1px solid var(--n-border)' }}
           >
-            {topPlayers.map((entry) => (
+            {topPlayers.map((entry, i) => (
               <div
                 key={entry.playerId}
-                className="flex items-center gap-3 px-4 py-2.5 border-b last:border-b-0"
-                style={{ borderColor: 'var(--color-oasis-card)' }}
+                className="flex items-center gap-3 px-4 py-3"
+                style={{ borderTop: i > 0 ? '1px solid var(--n-border)' : undefined }}
               >
-                <span className="w-5 text-sm font-bold text-center" style={{ color: 'var(--color-oasis-text-muted)' }}>
+                <span className="w-6 text-sm font-black text-center" style={{ color: 'var(--color-oasis-text-muted)' }}>
                   {entry.rank === 1 ? '🥇' : entry.rank === 2 ? '🥈' : entry.rank === 3 ? '🥉' : `#${entry.rank}`}
                 </span>
-                <span className="flex-1 text-sm" style={{ color: 'var(--color-oasis-text)' }}>
+                <span className="flex-1 text-sm font-bold" style={{ color: 'var(--color-oasis-text)' }}>
                   {entry.displayName}
                 </span>
-                <span className="text-xs" style={{ color: 'var(--color-oasis-text-muted)' }}>
+                <span className="text-xs font-semibold" style={{ color: 'var(--color-oasis-text-muted)' }}>
                   {entry.value} sessions
                 </span>
               </div>
@@ -344,11 +334,9 @@ export function HomePage() {
         </section>
       )}
 
-      {/* Recently Played */}
+      {/* ── Recently Played ── */}
       <section>
-        <h2 className="text-lg font-bold mb-3" style={{ color: 'var(--color-oasis-accent-light)' }}>
-          🕹️ Recently Played
-        </h2>
+        <SectionHeader title="🕹️ Recently Played" />
         <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
           {recentGames.map((game) => (
             <GameCard key={game.id} game={game} />
@@ -358,10 +346,7 @@ export function HomePage() {
 
       {/* Modals */}
       {showHost && (
-        <HostRoomModal
-          onConfirm={handleHostConfirm}
-          onClose={() => setShowHost(false)}
-        />
+        <HostRoomModal onConfirm={handleHostConfirm} onClose={() => setShowHost(false)} />
       )}
       {(showJoin || joinFriend) && (
         <JoinRoomModal
@@ -375,24 +360,69 @@ export function HomePage() {
   );
 }
 
+// ── Helper sub-components ──────────────────────────────────────────────────────
+
+function SectionHeader({
+  title,
+  subtitle,
+  action,
+  titleColor,
+}: {
+  title: string;
+  subtitle?: string;
+  action?: React.ReactNode;
+  titleColor?: string;
+}) {
+  return (
+    <div className="flex items-start justify-between mb-4">
+      <div>
+        <h2
+          className="text-lg font-black"
+          style={{ color: titleColor ?? 'var(--color-oasis-accent-light)' }}
+        >
+          {title}
+        </h2>
+        {subtitle && (
+          <p className="text-xs mt-0.5 font-semibold" style={{ color: 'var(--color-oasis-text-muted)' }}>
+            {subtitle}
+          </p>
+        )}
+      </div>
+      {action && <div className="mt-0.5">{action}</div>}
+    </div>
+  );
+}
+
+function EmptyState({ message }: { message: string }) {
+  return (
+    <p className="text-sm font-semibold py-4" style={{ color: 'var(--color-oasis-text-muted)' }}>
+      {message}
+    </p>
+  );
+}
+
 function FriendSessionCard({ friend, onJoin }: { friend: FriendInfo; onJoin: () => void }) {
   return (
     <div
-      className="rounded-xl p-4 flex items-center gap-3"
-      style={{ backgroundColor: 'var(--color-oasis-card)' }}
+      className="rounded-2xl p-4 flex items-center gap-3"
+      style={{ backgroundColor: 'var(--color-oasis-card)', border: '1px solid var(--n-border)' }}
     >
-      <div className="w-2.5 h-2.5 rounded-full flex-shrink-0" style={{ backgroundColor: 'var(--color-oasis-green)' }} />
+      <div
+        className="w-2.5 h-2.5 rounded-full flex-shrink-0 shadow-sm"
+        style={{
+          backgroundColor: 'var(--color-oasis-green)',
+          boxShadow: '0 0 6px var(--color-oasis-green)',
+        }}
+      />
       <div className="flex-1 min-w-0">
-        <p className="text-sm font-bold truncate" style={{ color: 'var(--color-oasis-text)' }}>
-          {friend.displayName}
-        </p>
-        <p className="text-xs truncate" style={{ color: 'var(--color-oasis-text-muted)' }}>
+        <p className="text-sm font-black truncate">{friend.displayName}</p>
+        <p className="text-xs truncate font-semibold" style={{ color: 'var(--color-oasis-text-muted)' }}>
           {friend.currentGameTitle ?? 'In a game'}
         </p>
       </div>
       <button
         onClick={onJoin}
-        className="text-xs font-bold px-3 py-1.5 rounded-lg transition-transform hover:scale-[1.05] active:scale-[0.97]"
+        className="text-xs font-black px-3 py-1.5 rounded-full transition-all hover:brightness-110 active:scale-[0.95]"
         style={{ backgroundColor: 'var(--color-oasis-accent)', color: 'white' }}
       >
         ▶ Join
