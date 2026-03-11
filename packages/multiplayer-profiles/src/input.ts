@@ -17,6 +17,343 @@ export interface InputProfile {
 }
 
 /**
+ * Default NES input profiles.
+ *
+ * The NES controller layout: A, B, Start, Select, D-Pad.
+ *
+ * FCEUX and Nestopia UE both use SDL2 input APIs:
+ *  - Face buttons A/B map to gamepad buttons
+ *  - D-Pad maps to hat or left stick
+ */
+export const NES_DEFAULT_PROFILES: InputProfile[] = [
+  // --- Xbox controller ---
+  {
+    id: 'nes-xbox-default',
+    name: 'NES — Xbox Controller (default)',
+    controllerType: 'xbox',
+    system: 'nes',
+    isDefault: true,
+    bindings: [
+      { action: 'A',      button: 'button(0)' },  // A → NES A
+      { action: 'B',      button: 'button(1)' },  // B → NES B
+      { action: 'Start',  button: 'button(7)' },  // Menu/Start → NES Start
+      { action: 'Select', button: 'button(6)' },  // View/Select → NES Select
+      // D-Pad
+      { action: 'DPadUp',    button: 'hat(0 Up)'    },
+      { action: 'DPadDown',  button: 'hat(0 Down)'  },
+      { action: 'DPadLeft',  button: 'hat(0 Left)'  },
+      { action: 'DPadRight', button: 'hat(0 Right)' },
+      // Left stick as D-Pad alternative
+      { action: 'DPadUp',    axis: 'axis(1-)' },
+      { action: 'DPadDown',  axis: 'axis(1+)' },
+      { action: 'DPadLeft',  axis: 'axis(0-)' },
+      { action: 'DPadRight', axis: 'axis(0+)' },
+    ],
+  },
+  // --- PlayStation controller ---
+  {
+    id: 'nes-playstation-default',
+    name: 'NES — PlayStation Controller (default)',
+    controllerType: 'playstation',
+    system: 'nes',
+    isDefault: true,
+    bindings: [
+      { action: 'A',      button: 'button(0)' },  // Cross  → NES A
+      { action: 'B',      button: 'button(1)' },  // Circle → NES B
+      { action: 'Start',  button: 'button(9)' },  // Options → NES Start
+      { action: 'Select', button: 'button(8)' },  // Share/Create → NES Select
+      // D-Pad
+      { action: 'DPadUp',    button: 'hat(0 Up)'    },
+      { action: 'DPadDown',  button: 'hat(0 Down)'  },
+      { action: 'DPadLeft',  button: 'hat(0 Left)'  },
+      { action: 'DPadRight', button: 'hat(0 Right)' },
+      // Left stick as D-Pad alternative
+      { action: 'DPadUp',    axis: 'axis(1-)' },
+      { action: 'DPadDown',  axis: 'axis(1+)' },
+      { action: 'DPadLeft',  axis: 'axis(0-)' },
+      { action: 'DPadRight', axis: 'axis(0+)' },
+    ],
+  },
+  // --- Keyboard fallback ---
+  {
+    id: 'nes-keyboard-default',
+    name: 'NES — Keyboard (default)',
+    controllerType: 'keyboard',
+    system: 'nes',
+    isDefault: true,
+    bindings: [
+      { action: 'A',      key: 'key(x)' },
+      { action: 'B',      key: 'key(z)' },
+      { action: 'Start',  key: 'key(return)' },
+      { action: 'Select', key: 'key(rshift)' },
+      { action: 'DPadUp',    key: 'key(up)'    },
+      { action: 'DPadDown',  key: 'key(down)'  },
+      { action: 'DPadLeft',  key: 'key(left)'  },
+      { action: 'DPadRight', key: 'key(right)' },
+    ],
+  },
+];
+
+/**
+ * Default SNES input profiles.
+ *
+ * The SNES controller layout: A, B, X, Y, L, R, Start, Select, D-Pad.
+ *
+ * Snes9x and higan/ares both use SDL2 conventions:
+ *  - SNES B (bottom)  → Xbox A / PS Cross
+ *  - SNES A (right)   → Xbox B / PS Circle
+ *  - SNES Y (left)    → Xbox X / PS Square
+ *  - SNES X (top)     → Xbox Y / PS Triangle
+ */
+export const SNES_DEFAULT_PROFILES: InputProfile[] = [
+  // --- Xbox controller ---
+  {
+    id: 'snes-xbox-default',
+    name: 'SNES — Xbox Controller (default)',
+    controllerType: 'xbox',
+    system: 'snes',
+    isDefault: true,
+    bindings: [
+      { action: 'B',      button: 'button(0)' },  // A     → SNES B
+      { action: 'A',      button: 'button(1)' },  // B     → SNES A
+      { action: 'Y',      button: 'button(2)' },  // X     → SNES Y
+      { action: 'X',      button: 'button(3)' },  // Y     → SNES X
+      { action: 'L',      button: 'button(4)' },  // LB    → SNES L
+      { action: 'R',      button: 'button(5)' },  // RB    → SNES R
+      { action: 'Start',  button: 'button(7)' },  // Menu  → SNES Start
+      { action: 'Select', button: 'button(6)' },  // View  → SNES Select
+      // D-Pad
+      { action: 'DPadUp',    button: 'hat(0 Up)'    },
+      { action: 'DPadDown',  button: 'hat(0 Down)'  },
+      { action: 'DPadLeft',  button: 'hat(0 Left)'  },
+      { action: 'DPadRight', button: 'hat(0 Right)' },
+      // Left stick as D-Pad alternative
+      { action: 'DPadUp',    axis: 'axis(1-)' },
+      { action: 'DPadDown',  axis: 'axis(1+)' },
+      { action: 'DPadLeft',  axis: 'axis(0-)' },
+      { action: 'DPadRight', axis: 'axis(0+)' },
+    ],
+  },
+  // --- PlayStation controller ---
+  {
+    id: 'snes-playstation-default',
+    name: 'SNES — PlayStation Controller (default)',
+    controllerType: 'playstation',
+    system: 'snes',
+    isDefault: true,
+    bindings: [
+      { action: 'B',      button: 'button(0)' },  // Cross     → SNES B
+      { action: 'A',      button: 'button(1)' },  // Circle    → SNES A
+      { action: 'Y',      button: 'button(2)' },  // Square    → SNES Y
+      { action: 'X',      button: 'button(3)' },  // Triangle  → SNES X
+      { action: 'L',      button: 'button(4)' },  // L1        → SNES L
+      { action: 'R',      button: 'button(5)' },  // R1        → SNES R
+      { action: 'Start',  button: 'button(9)' },  // Options   → SNES Start
+      { action: 'Select', button: 'button(8)' },  // Share     → SNES Select
+      // D-Pad
+      { action: 'DPadUp',    button: 'hat(0 Up)'    },
+      { action: 'DPadDown',  button: 'hat(0 Down)'  },
+      { action: 'DPadLeft',  button: 'hat(0 Left)'  },
+      { action: 'DPadRight', button: 'hat(0 Right)' },
+      // Left stick as D-Pad alternative
+      { action: 'DPadUp',    axis: 'axis(1-)' },
+      { action: 'DPadDown',  axis: 'axis(1+)' },
+      { action: 'DPadLeft',  axis: 'axis(0-)' },
+      { action: 'DPadRight', axis: 'axis(0+)' },
+    ],
+  },
+  // --- Keyboard fallback ---
+  {
+    id: 'snes-keyboard-default',
+    name: 'SNES — Keyboard (default)',
+    controllerType: 'keyboard',
+    system: 'snes',
+    isDefault: true,
+    bindings: [
+      { action: 'B',      key: 'key(z)' },
+      { action: 'A',      key: 'key(x)' },
+      { action: 'Y',      key: 'key(a)' },
+      { action: 'X',      key: 'key(s)' },
+      { action: 'L',      key: 'key(q)' },
+      { action: 'R',      key: 'key(w)' },
+      { action: 'Start',  key: 'key(return)' },
+      { action: 'Select', key: 'key(rshift)' },
+      { action: 'DPadUp',    key: 'key(up)'    },
+      { action: 'DPadDown',  key: 'key(down)'  },
+      { action: 'DPadLeft',  key: 'key(left)'  },
+      { action: 'DPadRight', key: 'key(right)' },
+    ],
+  },
+];
+
+/**
+ * Default GB / GBC input profiles.
+ *
+ * The Game Boy / Game Boy Color controller layout: A, B, Start, Select, D-Pad.
+ * Used by mGBA, SameBoy, Gambatte, and higan for GB/GBC.
+ */
+export const GB_DEFAULT_PROFILES: InputProfile[] = [
+  // --- Xbox controller ---
+  {
+    id: 'gb-xbox-default',
+    name: 'GB/GBC — Xbox Controller (default)',
+    controllerType: 'xbox',
+    system: 'gb',
+    isDefault: true,
+    bindings: [
+      { action: 'A',      button: 'button(0)' },  // A     → GB A
+      { action: 'B',      button: 'button(1)' },  // B     → GB B
+      { action: 'Start',  button: 'button(7)' },  // Menu  → GB Start
+      { action: 'Select', button: 'button(6)' },  // View  → GB Select
+      // D-Pad
+      { action: 'DPadUp',    button: 'hat(0 Up)'    },
+      { action: 'DPadDown',  button: 'hat(0 Down)'  },
+      { action: 'DPadLeft',  button: 'hat(0 Left)'  },
+      { action: 'DPadRight', button: 'hat(0 Right)' },
+      // Left stick as D-Pad alternative
+      { action: 'DPadUp',    axis: 'axis(1-)' },
+      { action: 'DPadDown',  axis: 'axis(1+)' },
+      { action: 'DPadLeft',  axis: 'axis(0-)' },
+      { action: 'DPadRight', axis: 'axis(0+)' },
+    ],
+  },
+  // --- PlayStation controller ---
+  {
+    id: 'gb-playstation-default',
+    name: 'GB/GBC — PlayStation Controller (default)',
+    controllerType: 'playstation',
+    system: 'gb',
+    isDefault: true,
+    bindings: [
+      { action: 'A',      button: 'button(0)' },  // Cross  → GB A
+      { action: 'B',      button: 'button(1)' },  // Circle → GB B
+      { action: 'Start',  button: 'button(9)' },  // Options → GB Start
+      { action: 'Select', button: 'button(8)' },  // Share   → GB Select
+      // D-Pad
+      { action: 'DPadUp',    button: 'hat(0 Up)'    },
+      { action: 'DPadDown',  button: 'hat(0 Down)'  },
+      { action: 'DPadLeft',  button: 'hat(0 Left)'  },
+      { action: 'DPadRight', button: 'hat(0 Right)' },
+      // Left stick as D-Pad alternative
+      { action: 'DPadUp',    axis: 'axis(1-)' },
+      { action: 'DPadDown',  axis: 'axis(1+)' },
+      { action: 'DPadLeft',  axis: 'axis(0-)' },
+      { action: 'DPadRight', axis: 'axis(0+)' },
+    ],
+  },
+  // --- Keyboard fallback ---
+  {
+    id: 'gb-keyboard-default',
+    name: 'GB/GBC — Keyboard (default)',
+    controllerType: 'keyboard',
+    system: 'gb',
+    isDefault: true,
+    bindings: [
+      { action: 'A',      key: 'key(x)' },
+      { action: 'B',      key: 'key(z)' },
+      { action: 'Start',  key: 'key(return)' },
+      { action: 'Select', key: 'key(rshift)' },
+      { action: 'DPadUp',    key: 'key(up)'    },
+      { action: 'DPadDown',  key: 'key(down)'  },
+      { action: 'DPadLeft',  key: 'key(left)'  },
+      { action: 'DPadRight', key: 'key(right)' },
+    ],
+  },
+];
+
+/**
+ * Default GBC (Game Boy Color) input profiles.
+ * GBC uses the same physical controls as the original Game Boy — the profiles
+ * mirror GB_DEFAULT_PROFILES with `system` set to 'gbc'.
+ */
+export const GBC_DEFAULT_PROFILES: InputProfile[] = GB_DEFAULT_PROFILES.map((p) => ({
+  ...p,
+  id: p.id.replace(/^gb-/, 'gbc-'),
+  name: p.name.replace('GB/GBC', 'GBC'),
+  system: 'gbc',
+}));
+
+/**
+ * Default GBA input profiles.
+ *
+ * The Game Boy Advance controller layout: A, B, L, R, Start, Select, D-Pad.
+ * Used by mGBA, VBA-M, higan, and RetroArch for GBA.
+ */
+export const GBA_DEFAULT_PROFILES: InputProfile[] = [
+  {
+    id: 'gba-xbox-default',
+    name: 'GBA — Xbox Controller (default)',
+    controllerType: 'xbox',
+    system: 'gba',
+    isDefault: true,
+    bindings: [
+      { action: 'A',      button: 'button(0)' },  // A     → GBA A
+      { action: 'B',      button: 'button(1)' },  // B     → GBA B
+      { action: 'L',      button: 'button(4)' },  // LB    → GBA L
+      { action: 'R',      button: 'button(5)' },  // RB    → GBA R
+      { action: 'Start',  button: 'button(7)' },  // Menu  → GBA Start
+      { action: 'Select', button: 'button(6)' },  // View  → GBA Select
+      // D-Pad
+      { action: 'DPadUp',    button: 'hat(0 Up)'    },
+      { action: 'DPadDown',  button: 'hat(0 Down)'  },
+      { action: 'DPadLeft',  button: 'hat(0 Left)'  },
+      { action: 'DPadRight', button: 'hat(0 Right)' },
+      // Left stick as D-Pad alternative
+      { action: 'DPadUp',    axis: 'axis(1-)' },
+      { action: 'DPadDown',  axis: 'axis(1+)' },
+      { action: 'DPadLeft',  axis: 'axis(0-)' },
+      { action: 'DPadRight', axis: 'axis(0+)' },
+    ],
+  },
+  // --- PlayStation controller ---
+  {
+    id: 'gba-playstation-default',
+    name: 'GBA — PlayStation Controller (default)',
+    controllerType: 'playstation',
+    system: 'gba',
+    isDefault: true,
+    bindings: [
+      { action: 'A',      button: 'button(0)' },  // Cross    → GBA A
+      { action: 'B',      button: 'button(1)' },  // Circle   → GBA B
+      { action: 'L',      button: 'button(4)' },  // L1       → GBA L
+      { action: 'R',      button: 'button(5)' },  // R1       → GBA R
+      { action: 'Start',  button: 'button(9)' },  // Options  → GBA Start
+      { action: 'Select', button: 'button(8)' },  // Share    → GBA Select
+      // D-Pad
+      { action: 'DPadUp',    button: 'hat(0 Up)'    },
+      { action: 'DPadDown',  button: 'hat(0 Down)'  },
+      { action: 'DPadLeft',  button: 'hat(0 Left)'  },
+      { action: 'DPadRight', button: 'hat(0 Right)' },
+      // Left stick as D-Pad alternative
+      { action: 'DPadUp',    axis: 'axis(1-)' },
+      { action: 'DPadDown',  axis: 'axis(1+)' },
+      { action: 'DPadLeft',  axis: 'axis(0-)' },
+      { action: 'DPadRight', axis: 'axis(0+)' },
+    ],
+  },
+  // --- Keyboard fallback ---
+  {
+    id: 'gba-keyboard-default',
+    name: 'GBA — Keyboard (default)',
+    controllerType: 'keyboard',
+    system: 'gba',
+    isDefault: true,
+    bindings: [
+      { action: 'A',      key: 'key(x)' },
+      { action: 'B',      key: 'key(z)' },
+      { action: 'L',      key: 'key(q)' },
+      { action: 'R',      key: 'key(w)' },
+      { action: 'Start',  key: 'key(return)' },
+      { action: 'Select', key: 'key(rshift)' },
+      { action: 'DPadUp',    key: 'key(up)'    },
+      { action: 'DPadDown',  key: 'key(down)'  },
+      { action: 'DPadLeft',  key: 'key(left)'  },
+      { action: 'DPadRight', key: 'key(right)' },
+    ],
+  },
+];
+
+/**
  * Default N64 input profiles.
  *
  * The N64 controller layout: A, B, Start, Z, L, R,
@@ -247,6 +584,21 @@ export class InputProfileManager {
 
   constructor(loadDefaults = true) {
     if (loadDefaults) {
+      for (const profile of NES_DEFAULT_PROFILES) {
+        this.profiles.set(profile.id, profile);
+      }
+      for (const profile of SNES_DEFAULT_PROFILES) {
+        this.profiles.set(profile.id, profile);
+      }
+      for (const profile of GB_DEFAULT_PROFILES) {
+        this.profiles.set(profile.id, profile);
+      }
+      for (const profile of GBC_DEFAULT_PROFILES) {
+        this.profiles.set(profile.id, profile);
+      }
+      for (const profile of GBA_DEFAULT_PROFILES) {
+        this.profiles.set(profile.id, profile);
+      }
       for (const profile of N64_DEFAULT_PROFILES) {
         this.profiles.set(profile.id, profile);
       }
