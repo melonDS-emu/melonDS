@@ -1,24 +1,58 @@
 import * as http from 'http';
-import * as net from 'net';
 import * as url from 'url';
 import { WebSocketServer } from 'ws';
 import { LobbyManager } from './lobby-manager';
+import { SqliteLobbyManager } from './sqlite-lobby-manager';
 import { NetplayRelay } from './netplay-relay';
 import { handleConnection } from './handler';
 import { EmulatorBridge, scanRomDirectory } from '@retro-oasis/emulator-bridge';
 import { GameCatalog } from '@retro-oasis/game-db';
 import { RateLimiter, getRemoteIp } from './rate-limiter';
 import { SessionHistory } from './session-history';
+import { SqliteSessionHistory } from './sqlite-session-history';
 import { SaveStore } from './save-store';
+import { SqliteSaveStore } from './sqlite-save-store';
+import { FriendStore } from './friend-store';
+import { MatchmakingQueue } from './matchmaking';
+import { PlayerIdentityStore } from './player-identity';
+import { getDatabase } from './db';
+import { normalizeDisplayName, validateDisplayName } from './auth';
 
 const PORT = parseInt(process.env.PORT ?? '8080', 10);
 /** Public hostname/IP players use to reach the relay (surfaced in game-starting events). */
 const RELAY_HOST = process.env.RELAY_HOST ?? 'localhost';
-const lobbyManager = new LobbyManager();
+
+/**
+ * When DB_PATH is set, use persistent SQLite-backed implementations.
+ * Otherwise fall back to the in-memory implementations for zero-config usage.
+ */
+const USE_SQLITE = !!process.env.DB_PATH;
+
+let lobbyManager: LobbyManager | SqliteLobbyManager;
+let sessionHistory: SessionHistory | SqliteSessionHistory;
+let saveStore: SaveStore | SqliteSaveStore;
+let friendStore: FriendStore | undefined;
+let matchmakingQueue: MatchmakingQueue | undefined;
+let playerIdentityStore: PlayerIdentityStore | undefined;
+
+if (USE_SQLITE) {
+  const db = getDatabase();
+  lobbyManager = new SqliteLobbyManager(db);
+  sessionHistory = new SqliteSessionHistory(db);
+  saveStore = new SqliteSaveStore(db);
+  friendStore = new FriendStore(db);
+  matchmakingQueue = new MatchmakingQueue(db);
+  playerIdentityStore = new PlayerIdentityStore(db);
+  console.log(`[db] SQLite persistence enabled — ${process.env.DB_PATH}`);
+} else {
+  lobbyManager = new LobbyManager();
+  sessionHistory = new SessionHistory();
+  saveStore = new SaveStore();
+  console.log('[db] Using in-memory stores (set DB_PATH for persistence)');
+}
+
 const netplayRelay = new NetplayRelay();
 const emulatorBridge = new EmulatorBridge();
-const sessionHistory = new SessionHistory();
-const saveStore = new SaveStore();
 const gameCatalog = new GameCatalog();
 
 // Rate limiter: max 20 connections/requests burst, 2 per second steady-state
@@ -39,7 +73,7 @@ function readBody(req: http.IncomingMessage): Promise<string> {
 
 function setCors(res: http.ServerResponse): void {
   res.setHeader('Access-Control-Allow-Origin', '*');
-  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
+  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, DELETE, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
 }
 
@@ -202,6 +236,40 @@ async function httpHandler(req: http.IncomingMessage, res: http.ServerResponse):
     return;
   }
 
+  // GET /api/sessions/stats/most-played  — Phase 8 enhanced stats
+  if (req.method === 'GET' && pathname === '/api/sessions/stats/most-played') {
+    if (!(sessionHistory instanceof SqliteSessionHistory)) {
+      json(res, 501, { error: 'Statistics require SQLite persistence. Set DB_PATH to enable.' });
+      return;
+    }
+    const { limit } = parsedUrl.query;
+    const games = sessionHistory.getMostPlayedGames(typeof limit === 'string' ? parseInt(limit, 10) : 10);
+    json(res, 200, games);
+    return;
+  }
+
+  // GET /api/sessions/stats/total-time  — Phase 8 enhanced stats
+  if (req.method === 'GET' && pathname === '/api/sessions/stats/total-time') {
+    if (!(sessionHistory instanceof SqliteSessionHistory)) {
+      json(res, 501, { error: 'Statistics require SQLite persistence. Set DB_PATH to enable.' });
+      return;
+    }
+    json(res, 200, { totalTimeSecs: sessionHistory.getTotalPlayTimeSecs() });
+    return;
+  }
+
+  // GET /api/sessions/stats/player/:displayName  — Phase 8 player stats
+  const playerStatsMatch = pathname.match(/^\/api\/sessions\/stats\/player\/([^/]+)$/);
+  if (req.method === 'GET' && playerStatsMatch) {
+    if (!(sessionHistory instanceof SqliteSessionHistory)) {
+      json(res, 501, { error: 'Statistics require SQLite persistence. Set DB_PATH to enable.' });
+      return;
+    }
+    const displayName = decodeURIComponent(playerStatsMatch[1]);
+    json(res, 200, sessionHistory.getPlayerStats(displayName));
+    return;
+  }
+
   // GET /api/sessions/:roomId
   const sessionRoomMatch = pathname.match(/^\/api\/sessions\/([^/]+)$/);
   if (req.method === 'GET' && sessionRoomMatch) {
@@ -272,6 +340,208 @@ async function httpHandler(req: http.IncomingMessage, res: http.ServerResponse):
     return;
   }
 
+  // -------------------------------------------------------------------------
+  // Phase 8: Friend list API
+  //   GET    /api/friends?userId=<id>                   — list friends
+  //   POST   /api/friends/add                           — add friend / send request
+  //   DELETE /api/friends/:friendId?userId=<id>         — remove friend
+  //   POST   /api/friends/requests/:requestId/accept    — accept request
+  //   POST   /api/friends/requests/:requestId/decline   — decline request
+  //   GET    /api/friends/requests?userId=<id>          — list incoming requests
+  // -------------------------------------------------------------------------
+
+  if (friendStore) {
+    if (req.method === 'GET' && pathname === '/api/friends') {
+      const { userId } = parsedUrl.query;
+      if (!userId || typeof userId !== 'string') {
+        json(res, 400, { error: 'Query param "userId" is required' });
+        return;
+      }
+      json(res, 200, friendStore.getFriends(userId));
+      return;
+    }
+
+    if (req.method === 'POST' && pathname === '/api/friends/add') {
+      let body: Record<string, unknown>;
+      try {
+        const raw = await readBody(req);
+        body = JSON.parse(raw) as Record<string, unknown>;
+      } catch {
+        json(res, 400, { error: 'Invalid JSON body' });
+        return;
+      }
+      const { userId, friendId } = body as { userId?: string; friendId?: string };
+      if (!userId || !friendId) {
+        json(res, 400, { error: '"userId" and "friendId" are required' });
+        return;
+      }
+      const request = friendStore.addRequest(userId, friendId);
+      if (!request) {
+        json(res, 409, { error: 'Already friends or request exists.' });
+        return;
+      }
+      json(res, 201, request);
+      return;
+    }
+
+    const friendDeleteMatch = pathname.match(/^\/api\/friends\/([^/]+)$/);
+    if (req.method === 'DELETE' && friendDeleteMatch) {
+      const friendId = decodeURIComponent(friendDeleteMatch[1]);
+      const { userId } = parsedUrl.query;
+      if (!userId || typeof userId !== 'string') {
+        json(res, 400, { error: 'Query param "userId" is required' });
+        return;
+      }
+      const ok = friendStore.removeFriend(userId, friendId);
+      json(res, ok ? 200 : 404, ok ? { removed: true } : { error: 'Friendship not found' });
+      return;
+    }
+
+    const requestActionMatch = pathname.match(/^\/api\/friends\/requests\/([^/]+)\/(accept|decline)$/);
+    if (req.method === 'POST' && requestActionMatch) {
+      const requestId = decodeURIComponent(requestActionMatch[1]);
+      const action = requestActionMatch[2];
+      let body: Record<string, unknown>;
+      try {
+        const raw = await readBody(req);
+        body = JSON.parse(raw) as Record<string, unknown>;
+      } catch {
+        json(res, 400, { error: 'Invalid JSON body' });
+        return;
+      }
+      const { userId } = body as { userId?: string };
+      if (!userId) {
+        json(res, 400, { error: '"userId" is required' });
+        return;
+      }
+      const result = action === 'accept'
+        ? friendStore.acceptRequest(requestId, userId)
+        : friendStore.declineRequest(requestId, userId);
+      if (!result) {
+        json(res, 404, { error: 'Friend request not found or action not permitted.' });
+        return;
+      }
+      json(res, 200, result);
+      return;
+    }
+
+    if (req.method === 'GET' && pathname === '/api/friends/requests') {
+      const { userId } = parsedUrl.query;
+      if (!userId || typeof userId !== 'string') {
+        json(res, 400, { error: 'Query param "userId" is required' });
+        return;
+      }
+      json(res, 200, friendStore.getPendingRequests(userId));
+      return;
+    }
+  }
+
+  // -------------------------------------------------------------------------
+  // Phase 8: Matchmaking API
+  //   POST   /api/matchmaking/join   — join queue
+  //   DELETE /api/matchmaking/leave  — leave queue
+  //   GET    /api/matchmaking        — list queue (admin/debug)
+  // -------------------------------------------------------------------------
+
+  if (matchmakingQueue) {
+    if (req.method === 'POST' && pathname === '/api/matchmaking/join') {
+      let body: Record<string, unknown>;
+      try {
+        const raw = await readBody(req);
+        body = JSON.parse(raw) as Record<string, unknown>;
+      } catch {
+        json(res, 400, { error: 'Invalid JSON body' });
+        return;
+      }
+      const { playerId, displayName, gameId, gameTitle, system, maxPlayers } =
+        body as {
+          playerId?: string;
+          displayName?: string;
+          gameId?: string;
+          gameTitle?: string;
+          system?: string;
+          maxPlayers?: number;
+        };
+      if (!playerId || !displayName || !gameId || !gameTitle || !system || !maxPlayers) {
+        json(res, 400, { error: 'playerId, displayName, gameId, gameTitle, system, maxPlayers are required' });
+        return;
+      }
+      const normalizedName = normalizeDisplayName(displayName);
+      const nameError = validateDisplayName(normalizedName);
+      if (nameError) {
+        json(res, 400, { error: nameError });
+        return;
+      }
+      const entry = matchmakingQueue.join({ playerId, displayName: normalizedName, gameId, gameTitle, system, maxPlayers });
+      const all = matchmakingQueue.getAll();
+      const position = all.findIndex((e) => e.playerId === playerId) + 1;
+      json(res, 200, { entry, position });
+      return;
+    }
+
+    if (req.method === 'DELETE' && pathname === '/api/matchmaking/leave') {
+      const { playerId } = parsedUrl.query;
+      if (!playerId || typeof playerId !== 'string') {
+        json(res, 400, { error: 'Query param "playerId" is required' });
+        return;
+      }
+      const ok = matchmakingQueue.leave(playerId);
+      json(res, ok ? 200 : 404, ok ? { removed: true } : { error: 'Player not in queue' });
+      return;
+    }
+
+    if (req.method === 'GET' && pathname === '/api/matchmaking') {
+      json(res, 200, matchmakingQueue.getAll());
+      return;
+    }
+  }
+
+  // -------------------------------------------------------------------------
+  // Phase 8: Player identity API
+  //   POST /api/identity   — register or look up a persistent identity
+  //   GET  /api/identity/:playerId  — get identity by stable player ID
+  // -------------------------------------------------------------------------
+
+  if (playerIdentityStore) {
+    if (req.method === 'POST' && pathname === '/api/identity') {
+      let body: Record<string, unknown>;
+      try {
+        const raw = await readBody(req);
+        body = JSON.parse(raw) as Record<string, unknown>;
+      } catch {
+        json(res, 400, { error: 'Invalid JSON body' });
+        return;
+      }
+      const { identityToken, displayName, updateName } =
+        body as { identityToken?: string; displayName?: string; updateName?: boolean };
+      if (!identityToken || !displayName) {
+        json(res, 400, { error: '"identityToken" and "displayName" are required' });
+        return;
+      }
+      const normalizedName = normalizeDisplayName(displayName);
+      const nameError = validateDisplayName(normalizedName);
+      if (nameError) {
+        json(res, 400, { error: nameError });
+        return;
+      }
+      const identity = playerIdentityStore.resolve(identityToken, normalizedName, updateName === true);
+      json(res, 200, identity);
+      return;
+    }
+
+    const identityByIdMatch = pathname.match(/^\/api\/identity\/([^/]+)$/);
+    if (req.method === 'GET' && identityByIdMatch) {
+      const playerId = decodeURIComponent(identityByIdMatch[1]);
+      const identity = playerIdentityStore.getById(playerId);
+      if (!identity) {
+        json(res, 404, { error: 'Player not found' });
+      } else {
+        json(res, 200, identity);
+      }
+      return;
+    }
+  }
+
   json(res, 404, { error: 'Not found' });
 }
 
@@ -296,7 +566,11 @@ wss.on('connection', (ws, req) => {
     ws.close(1008, 'Rate limit exceeded — too many connections from your IP.');
     return;
   }
-  handleConnection(ws, lobbyManager, netplayRelay, RELAY_HOST, sessionHistory);
+  handleConnection(ws, lobbyManager, netplayRelay, RELAY_HOST, sessionHistory, {
+    friends: friendStore,
+    matchmaking: matchmakingQueue,
+    playerIdentity: playerIdentityStore,
+  });
 });
 
 server.listen(PORT, () => {

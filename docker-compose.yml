@@ -1,0 +1,31 @@
+services:
+  lobby:
+    build:
+      context: .
+      dockerfile: apps/lobby-server/Dockerfile
+    ports:
+      - "${PORT:-8080}:8080"
+      # Relay TCP ports — exposed directly (not via HTTP proxy)
+      - "9000-9200:9000-9200"
+    environment:
+      PORT: "8080"
+      # Public hostname / IP clients use for relay connections.
+      # Override with your server's public IP or domain name.
+      RELAY_HOST: "${RELAY_HOST:-localhost}"
+      RELAY_PORT_MIN: "${RELAY_PORT_MIN:-9000}"
+      RELAY_PORT_MAX: "${RELAY_PORT_MAX:-9200}"
+      RELAY_BIND: "${RELAY_BIND:-0.0.0.0}"
+      # SQLite database file path (inside container).
+      DB_PATH: "/data/retro-oasis.db"
+    volumes:
+      - lobby-data:/data
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:8080/api/systems"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+
+volumes:
+  lobby-data:
+    driver: local
