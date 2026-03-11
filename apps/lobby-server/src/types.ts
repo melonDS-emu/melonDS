@@ -47,6 +47,7 @@ export type ClientMessage =
   | { type: 'toggle-ready'; payload: { roomId: string } }
   | { type: 'list-rooms' }
   | { type: 'start-game'; payload: { roomId: string } }
+  | { type: 'kick-player'; payload: { roomId: string; targetPlayerId: string; ownerToken: string } }
   | { type: 'chat'; payload: { roomId: string; content: string } }
   | { type: 'ping'; payload: { sentAt: number } };
 
@@ -66,9 +67,20 @@ export interface JoinRoomPayload {
   displayName: string;
 }
 
+/** Lightweight presence record broadcast to all connected clients. */
+export interface PresencePlayer {
+  playerId: string;
+  displayName: string;
+  /** Room code if the player is currently in a lobby, undefined if just online. */
+  roomCode?: string;
+  /** Game title if in-game. */
+  gameTitle?: string;
+  status: 'online' | 'in-lobby' | 'in-game';
+}
+
 /** Messages from server to client */
 export type ServerMessage =
-  | { type: 'room-created'; room: Room }
+  | { type: 'room-created'; room: Room; ownerToken: string }
   | { type: 'room-joined'; room: Room }
   | { type: 'room-left'; roomId: string }
   | { type: 'room-updated'; room: Room }
@@ -77,4 +89,5 @@ export type ServerMessage =
   | { type: 'error'; message: string }
   | { type: 'chat-broadcast'; roomId: string; userId: string; displayName: string; content: string; sentAt: string }
   | { type: 'welcome'; playerId: string }
-  | { type: 'pong'; sentAt: number; serverAt: number };
+  | { type: 'pong'; sentAt: number; serverAt: number }
+  | { type: 'presence-update'; players: PresencePlayer[] };

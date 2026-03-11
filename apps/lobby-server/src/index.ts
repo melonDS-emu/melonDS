@@ -8,11 +8,17 @@ import { handleConnection } from './handler';
 import { EmulatorBridge, scanRomDirectory } from '@retro-oasis/emulator-bridge';
 import { GameCatalog } from '@retro-oasis/game-db';
 import { RateLimiter, getRemoteIp } from './rate-limiter';
+import { SessionHistory } from './session-history';
+import { SaveStore } from './save-store';
 
 const PORT = parseInt(process.env.PORT ?? '8080', 10);
+/** Public hostname/IP players use to reach the relay (surfaced in game-starting events). */
+const RELAY_HOST = process.env.RELAY_HOST ?? 'localhost';
 const lobbyManager = new LobbyManager();
 const netplayRelay = new NetplayRelay();
 const emulatorBridge = new EmulatorBridge();
+const sessionHistory = new SessionHistory();
+const saveStore = new SaveStore();
 const gameCatalog = new GameCatalog();
 
 // Rate limiter: max 20 connections/requests burst, 2 per second steady-state
@@ -183,6 +189,89 @@ async function httpHandler(req: http.IncomingMessage, res: http.ServerResponse):
     return;
   }
 
+  // -------------------------------------------------------------------------
+  // Session history API  (GET /api/sessions)
+  // -------------------------------------------------------------------------
+
+  if (req.method === 'GET' && pathname === '/api/sessions') {
+    const { completed } = parsedUrl.query;
+    const sessions = completed === 'true' || completed === '1'
+      ? sessionHistory.getCompleted()
+      : sessionHistory.getAll();
+    json(res, 200, sessions);
+    return;
+  }
+
+  // GET /api/sessions/:roomId
+  const sessionRoomMatch = pathname.match(/^\/api\/sessions\/([^/]+)$/);
+  if (req.method === 'GET' && sessionRoomMatch) {
+    const roomId = decodeURIComponent(sessionRoomMatch[1]);
+    const record = sessionHistory.getByRoomId(roomId);
+    if (!record) {
+      json(res, 404, { error: 'Session not found' });
+    } else {
+      json(res, 200, record);
+    }
+    return;
+  }
+
+  // -------------------------------------------------------------------------
+  // Save-sync API
+  //   POST   /api/saves/:gameId         — upload/replace save data
+  //   GET    /api/saves/:gameId         — list saves for a game
+  //   GET    /api/saves/:gameId/:saveId — download a specific save
+  //   DELETE /api/saves/:gameId/:saveId — delete a save
+  // -------------------------------------------------------------------------
+
+  const saveGameMatch = pathname.match(/^\/api\/saves\/([^/]+)$/);
+  const saveSingleMatch = pathname.match(/^\/api\/saves\/([^/]+)\/([^/]+)$/);
+
+  if (req.method === 'POST' && saveGameMatch) {
+    const gameId = decodeURIComponent(saveGameMatch[1]);
+    let body: Record<string, unknown>;
+    try {
+      const raw = await readBody(req);
+      body = JSON.parse(raw) as Record<string, unknown>;
+    } catch {
+      json(res, 400, { error: 'Invalid JSON body' });
+      return;
+    }
+    const { name, data, mimeType } = body as { name?: string; data?: string; mimeType?: string };
+    if (!name || !data) {
+      json(res, 400, { error: '"name" and "data" (base64) are required' });
+      return;
+    }
+    const record = saveStore.put(gameId, name, data, typeof mimeType === 'string' ? mimeType : 'application/octet-stream');
+    json(res, 201, record);
+    return;
+  }
+
+  if (req.method === 'GET' && saveGameMatch) {
+    const gameId = decodeURIComponent(saveGameMatch[1]);
+    json(res, 200, saveStore.listForGame(gameId));
+    return;
+  }
+
+  if (req.method === 'GET' && saveSingleMatch) {
+    const gameId = decodeURIComponent(saveSingleMatch[1]);
+    const saveId = decodeURIComponent(saveSingleMatch[2]);
+    const record = saveStore.get(saveId);
+    if (!record || record.gameId !== gameId) {
+      json(res, 404, { error: 'Save not found' });
+    } else {
+      json(res, 200, record);
+    }
+    return;
+  }
+
+  if (req.method === 'DELETE' && saveSingleMatch) {
+    const gameId = decodeURIComponent(saveSingleMatch[1]);
+    const saveId = decodeURIComponent(saveSingleMatch[2]);
+    const ok = saveStore.delete(saveId, gameId);
+    json(res, ok ? 200 : 404, ok ? { deleted: true } : { error: 'Save not found' });
+    return;
+  }
+
   json(res, 404, { error: 'Not found' });
 }
 
@@ -207,11 +296,11 @@ wss.on('connection', (ws, req) => {
     ws.close(1008, 'Rate limit exceeded — too many connections from your IP.');
     return;
   }
-  handleConnection(ws, lobbyManager, netplayRelay);
+  handleConnection(ws, lobbyManager, netplayRelay, RELAY_HOST, sessionHistory);
 });
 
 server.listen(PORT, () => {
   console.log(`RetroOasis Lobby Server running on ws://localhost:${PORT}`);
   console.log(`Launch API available at http://localhost:${PORT}/api/launch`);
-  console.log(`Netplay relay available on TCP ports 9000-9200`);
+  console.log(`Relay host: ${RELAY_HOST} | TCP ports ${process.env.RELAY_PORT_MIN ?? 9000}-${process.env.RELAY_PORT_MAX ?? 9200}`);
 });

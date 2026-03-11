@@ -1,8 +1,10 @@
 import type { WebSocket } from 'ws';
 import { randomUUID } from 'crypto';
 import { LobbyManager } from './lobby-manager';
-import type { ClientMessage, ServerMessage, ConnectionQuality } from './types';
+import type { ClientMessage, ServerMessage, ConnectionQuality, PresencePlayer } from './types';
 import { NetplayRelay } from './netplay-relay';
+import { normalizeDisplayName, validateDisplayName, generateOwnerToken, verifyOwnerToken } from './auth';
+import { SessionHistory } from './session-history';
 
 /** Map of playerId -> WebSocket for broadcasting */
 const connections = new Map<string, WebSocket>();
@@ -29,7 +31,7 @@ function qualityFromLatency(latencyMs: number): ConnectionQuality {
   return 'poor';
 }
 
-export function handleConnection(ws: WebSocket, lobby: LobbyManager, relay: NetplayRelay): void {
+export function handleConnection(ws: WebSocket, lobby: LobbyManager, relay: NetplayRelay, relayHost = 'localhost', sessionHistory?: SessionHistory): void {
   const playerId = randomUUID();
   connections.set(playerId, ws);
 
@@ -47,19 +49,33 @@ export function handleConnection(ws: WebSocket, lobby: LobbyManager, relay: Netp
     switch (msg.type) {
       case 'create-room': {
         const { name, gameId, gameTitle, system, isPublic, maxPlayers, displayName } = msg.payload;
-        const room = lobby.createRoom(playerId, name, gameId, gameTitle, system, isPublic, maxPlayers, displayName);
-        send(ws, { type: 'room-created', room });
+        const normalizedName = normalizeDisplayName(displayName);
+        const nameError = validateDisplayName(normalizedName);
+        if (nameError) {
+          send(ws, { type: 'error', message: nameError });
+          break;
+        }
+        const room = lobby.createRoom(playerId, name, gameId, gameTitle, system, isPublic, maxPlayers, normalizedName);
+        const ownerToken = generateOwnerToken(room.id);
+        send(ws, { type: 'room-created', room, ownerToken });
+        broadcastPresence(lobby, connections);
         break;
       }
 
       case 'join-room': {
         const { roomId, roomCode, displayName } = msg.payload;
+        const normalizedName = normalizeDisplayName(displayName);
+        const nameError = validateDisplayName(normalizedName);
+        if (nameError) {
+          send(ws, { type: 'error', message: nameError });
+          break;
+        }
         let room;
 
         if (roomCode) {
-          room = lobby.joinByCode(roomCode, playerId, displayName);
+          room = lobby.joinByCode(roomCode, playerId, normalizedName);
         } else if (roomId) {
-          room = lobby.joinRoom(roomId, playerId, displayName);
+          room = lobby.joinRoom(roomId, playerId, normalizedName);
         }
 
         if (!room) {
@@ -72,17 +88,24 @@ export function handleConnection(ws: WebSocket, lobby: LobbyManager, relay: Netp
         // Notify others in the room
         const playerIds = lobby.getRoomPlayerIds(room.id);
         broadcast(playerIds, { type: 'room-updated', room }, playerId);
+        broadcastPresence(lobby, connections);
         break;
       }
 
       case 'join-as-spectator': {
         const { roomId, roomCode, displayName } = msg.payload;
+        const normalizedSpectatorName = normalizeDisplayName(displayName);
+        const spectatorNameError = validateDisplayName(normalizedSpectatorName);
+        if (spectatorNameError) {
+          send(ws, { type: 'error', message: spectatorNameError });
+          break;
+        }
         let room;
 
         if (roomCode) {
-          room = lobby.joinByCodeAsSpectator(roomCode, playerId, displayName);
+          room = lobby.joinByCodeAsSpectator(roomCode, playerId, normalizedSpectatorName);
         } else if (roomId) {
-          room = lobby.joinAsSpectator(roomId, playerId, displayName);
+          room = lobby.joinAsSpectator(roomId, playerId, normalizedSpectatorName);
         }
 
         if (!room) {
@@ -107,6 +130,7 @@ export function handleConnection(ws: WebSocket, lobby: LobbyManager, relay: Netp
         } else {
           // Room was deleted (last player left) — free the relay port if one was allocated.
           relay.deallocateSession(msg.payload.roomId);
+          sessionHistory?.endSession(msg.payload.roomId);
         }
         break;
       }
@@ -155,7 +179,7 @@ export function handleConnection(ws: WebSocket, lobby: LobbyManager, relay: Netp
               type: 'game-starting',
               roomId: room.id,
               relayPort,
-              relayHost: 'localhost',
+              relayHost,
               sessionToken: randomUUID(),
             });
           }
@@ -165,8 +189,19 @@ export function handleConnection(ws: WebSocket, lobby: LobbyManager, relay: Netp
           type: 'game-starting',
           roomId: room.id,
           relayPort,
-          relayHost: 'localhost',
+          relayHost,
         });
+
+        // Record the session start in history
+        sessionHistory?.startSession(
+          room.id,
+          room.gameId,
+          room.gameTitle,
+          room.system,
+          room.players.map((p) => p.displayName)
+        );
+
+        broadcastPresence(lobby, connections);
         break;
       }
 
@@ -227,6 +262,39 @@ export function handleConnection(ws: WebSocket, lobby: LobbyManager, relay: Netp
         break;
       }
 
+      case 'kick-player': {
+        const { roomId, targetPlayerId, ownerToken } = msg.payload;
+        const room = lobby.getRoom(roomId);
+        if (!room) {
+          send(ws, { type: 'error', message: 'Room not found' });
+          break;
+        }
+        if (room.hostId !== playerId) {
+          send(ws, { type: 'error', message: 'Only the host can kick players.' });
+          break;
+        }
+        if (!verifyOwnerToken(roomId, ownerToken)) {
+          send(ws, { type: 'error', message: 'Invalid owner token.' });
+          break;
+        }
+        if (targetPlayerId === playerId) {
+          send(ws, { type: 'error', message: 'You cannot kick yourself.' });
+          break;
+        }
+        const updatedRoom = lobby.leaveRoom(roomId, targetPlayerId);
+        const targetWs = connections.get(targetPlayerId);
+        if (targetWs) {
+          send(targetWs, { type: 'room-left', roomId });
+        }
+        if (updatedRoom) {
+          const kickedRoomPlayerIds = lobby.getRoomPlayerIds(roomId);
+          broadcast(kickedRoomPlayerIds, { type: 'room-updated', room: updatedRoom });
+        } else {
+          relay.deallocateSession(roomId);
+        }
+        break;
+      }
+
       default:
         send(ws, { type: 'error', message: 'Unknown message type' });
     }
@@ -252,9 +320,52 @@ export function handleConnection(ws: WebSocket, lobby: LobbyManager, relay: Netp
       } else {
         // Room was closed (last player left) — free relay port and tell spectators.
         relay.deallocateSession(roomId);
+        sessionHistory?.endSession(roomId);
         const spectators = spectatorsByRoom.get(roomId) ?? [];
         broadcast(spectators, { type: 'room-left', roomId });
       }
     }
+
+    broadcastPresence(lobby, connections);
   });
+}
+
+/**
+ * Build a lightweight presence snapshot and broadcast it to all connected clients.
+ * Each client can then update their friends-list or lobby views without polling.
+ */
+function buildPresencePlayers(lobby: LobbyManager, connections: Map<string, WebSocket>): PresencePlayer[] {
+  const players: PresencePlayer[] = [];
+  const seenPlayers = new Set<string>();
+
+  for (const [pid] of connections) {
+    if (seenPlayers.has(pid)) continue;
+
+    const rooms = lobby.getRoomsForPlayer(pid);
+    if (rooms.length > 0) {
+      const room = rooms[0];
+      const playerRecord = room.players.find((p) => p.id === pid);
+      if (playerRecord) {
+        seenPlayers.add(pid);
+        players.push({
+          playerId: pid,
+          displayName: playerRecord.displayName,
+          roomCode: room.roomCode,
+          gameTitle: room.status === 'in-game' ? room.gameTitle : undefined,
+          status: room.status === 'in-game' ? 'in-game' : 'in-lobby',
+        });
+      }
+    }
+    // Players not yet in a room are omitted — they have no display name yet.
+  }
+
+  return players;
+}
+
+function broadcastPresence(lobby: LobbyManager, connections: Map<string, WebSocket>): void {
+  const players = buildPresencePlayers(lobby, connections);
+  const msg: ServerMessage = { type: 'presence-update', players };
+  for (const [, clientWs] of connections) {
+    send(clientWs, msg);
+  }
 }
