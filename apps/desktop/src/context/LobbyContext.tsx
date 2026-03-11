@@ -58,6 +58,10 @@ interface LobbyContextValue {
   relayInfo: RelayInfo | null;
   /** Session token for the relay TCP connection (set when game starts). */
   sessionToken: string | null;
+  /** Room ownership token returned by the server on room creation. Required for host-only actions. */
+  ownerToken: string | null;
+  /** Live presence snapshot from the server (updated on join/leave/start events). */
+  onlinePlayers: import('../services/lobby-types').PresencePlayer[];
   /** The active WebSocket connection (null if disconnected). Exposed for voice chat signaling. */
   ws: WebSocket | null;
 
@@ -86,6 +90,8 @@ export function LobbyProvider({ children }: { children: ReactNode }) {
   const [latencyMs, setLatencyMs] = useState<number | null>(null);
   const [relayInfo, setRelayInfo] = useState<RelayInfo | null>(null);
   const [sessionToken, setSessionToken] = useState<string | null>(null);
+  const [ownerToken, setOwnerToken] = useState<string | null>(null);
+  const [onlinePlayers, setOnlinePlayers] = useState<import('../services/lobby-types').PresencePlayer[]>([]);
 
   const wsRef = useRef<WebSocket | null>(null);
   const currentRoomRef = useRef<Room | null>(null);
@@ -152,6 +158,10 @@ export function LobbyProvider({ children }: { children: ReactNode }) {
             break;
 
           case 'room-created':
+            setCurrentRoom(msg.room);
+            setOwnerToken(msg.ownerToken);
+            break;
+
           case 'room-joined':
             setCurrentRoom(msg.room);
             break;
@@ -255,6 +265,10 @@ export function LobbyProvider({ children }: { children: ReactNode }) {
             break;
           }
 
+          case 'presence-update':
+            setOnlinePlayers(msg.players);
+            break;
+
           case 'error':
             setError(msg.message);
             break;
@@ -271,6 +285,8 @@ export function LobbyProvider({ children }: { children: ReactNode }) {
         setCurrentRoom(null);
         setRelayInfo(null);
         setSessionToken(null);
+        setOwnerToken(null);
+        setOnlinePlayers([]);
         setChatMessages([]);
         stopPing();
         // Attempt to reconnect after 3 seconds
@@ -377,6 +393,8 @@ export function LobbyProvider({ children }: { children: ReactNode }) {
         latencyMs,
         relayInfo,
         sessionToken,
+        ownerToken,
+        onlinePlayers,
         ws: wsRef.current,
         createRoom,
         joinByCode,

@@ -29,8 +29,8 @@ interface RelaySession {
   createdAt: Date;
 }
 
-const RELAY_BASE_PORT = 9000;
-const RELAY_MAX_PORT = 9200;
+const RELAY_BASE_PORT = parseInt(process.env.RELAY_PORT_MIN ?? '9000', 10);
+const RELAY_MAX_PORT = parseInt(process.env.RELAY_PORT_MAX ?? '9200', 10);
 /** UUID string with hyphens is exactly 36 bytes in ASCII/UTF-8. */
 const SESSION_TOKEN_LENGTH = 36;
 
@@ -40,6 +40,12 @@ const SESSION_TOKEN_LENGTH = 36;
 export class NetplayRelay {
   private sessions: Map<string, RelaySession> = new Map(); // roomId -> session
   private usedPorts: Set<number> = new Set();
+  /** Host address the relay TCP servers bind to. Configurable via RELAY_BIND env var. */
+  readonly bindHost: string;
+
+  constructor(bindHost?: string) {
+    this.bindHost = bindHost ?? process.env.RELAY_BIND ?? '0.0.0.0';
+  }
 
   private allocatePort(): number | null {
     for (let p = RELAY_BASE_PORT; p <= RELAY_MAX_PORT; p++) {
@@ -117,7 +123,7 @@ export class NetplayRelay {
       this.deallocateSession(roomId);
     });
 
-    server.listen(port, '0.0.0.0', () => {
+    server.listen(port, this.bindHost, () => {
       console.log(`[relay] Session ${roomId} listening on TCP :${port}`);
     });
 

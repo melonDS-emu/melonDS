@@ -237,15 +237,21 @@
 ### Milestones
 - [x] Per-IP token-bucket rate limiter on lobby server (WebSocket connections + HTTP requests)
 - [x] Rate limiter unit tests (8 tests)
-- [ ] Auth/identity layer: player display name verification and room ownership tokens
-- [ ] Save-sync REST endpoints (upload / download save files with conflict detection)
-- [ ] Live presence transport: connect PresenceClient to lobby WebSocket events
+- [x] Auth/identity layer: player display name validation (length, control-char filtering, whitespace normalisation) + HMAC-signed room ownership tokens (kick-player action, owner token returned on room-created)
+- [x] Auth unit tests (13 tests)
+- [x] Save-sync REST endpoints: `POST/GET /api/saves/:gameId`, `GET/DELETE /api/saves/:gameId/:saveId`; optimistic-concurrency conflict detection via version counter (in-memory SaveStore)
+- [x] Save-store unit tests (9 tests)
+- [x] Session history tracking: in-memory `SessionHistory`; `GET /api/sessions` and `GET /api/sessions/:roomId`; sessions recorded on game-start and ended on room close
+- [x] Session history unit tests (7 tests)
+- [x] Live presence transport: server broadcasts `presence-update` on join/leave/start; `LobbyContext` exposes `onlinePlayers` state updated from WS events
+- [x] Deployable relay host configuration: `RELAY_HOST`, `RELAY_PORT_MIN`, `RELAY_PORT_MAX`, `RELAY_BIND` env-variable overrides
+- [x] Room ownership tokens surfaced in `LobbyContext` (`ownerToken` state) for use in future kick/reclaim-host UI
+- [x] Integration test suite for lobby server (WebSocket connect/create/join/start/kick/ping flows — 12 tests)
+- [x] Push notification service (`NotificationService` + `notificationService` singleton) with browser Notification API, permission management, and convenience helpers (friendOnline, friendInLobby, gameStarting, roomReady)
+- [x] Push notification service unit tests (10 tests)
 - [ ] Friend request / add-friend flow with server-side friend list
-- [ ] Deployable relay host configuration (env-variable override for relay host/port range)
 - [ ] Backend persistence: SQLite or flat-file store for rooms, players, and session history
-- [ ] Session history / game stats tracking (games played, durations, participant lists)
-- [ ] Push notifications for joinable friend sessions (browser Notification API)
-- [ ] Integration test suite for lobby server (WebSocket connect/create/join/start flows)
+- [ ] Server-side friend list and presence persistence
 
 
 ## Future Ideas
@@ -256,3 +262,19 @@
 - Achievement system
 - Game clip sharing
 - Mobile companion app
+
+## Phase 8 — Persistence, Matchmaking, and Social Graph
+
+**Goal:** Persist data across server restarts, add a real matchmaking queue, and build a server-side social graph for friends.
+
+### Milestones
+- [ ] SQLite persistence layer: schema for rooms, players, session history, friends
+- [ ] Migrate in-memory `LobbyManager`, `SessionHistory`, and `SaveStore` to SQLite-backed implementations
+- [ ] Server-side friend list: `POST /api/friends/add`, `GET /api/friends`, `DELETE /api/friends/:userId`
+- [ ] Live friend presence via WebSocket: broadcast friend status changes to subscribed clients
+- [ ] Friend request / accept / decline flow
+- [ ] Push notifications for joinable friend sessions (wired to live presence + browser Notification API)
+- [ ] Matchmaking queue: `POST /api/matchmaking/join`, `DELETE /api/matchmaking/leave`, auto-create room when enough players matched
+- [ ] Player identity / display name persistence (server-assigned or user-chosen, stored per connection)
+- [ ] Session history REST API enhancements: per-player stats, most-played games, total session time
+- [ ] Relay host deployment guide: Docker Compose config, env-variable reference, reverse-proxy notes
