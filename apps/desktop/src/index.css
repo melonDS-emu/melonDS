@@ -1,21 +1,69 @@
+@import url('https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800;900&display=swap');
 @import "tailwindcss";
 
 :root {
-  --color-oasis-bg: #1a1025;
-  --color-oasis-surface: #241535;
-  --color-oasis-card: #2e1d42;
-  --color-oasis-accent: #7c5cbf;
-  --color-oasis-accent-light: #a78bfa;
-  --color-oasis-green: #34d399;
-  --color-oasis-yellow: #fbbf24;
-  --color-oasis-red: #f87171;
-  --color-oasis-text: #f0e6ff;
-  --color-oasis-text-muted: #9a8bb3;
+  /* ── Nintendo-inspired palette ── */
+  --color-oasis-bg: #0f0f1b;          /* deep navy background */
+  --color-oasis-surface: #181828;     /* sidebar / raised surface */
+  --color-oasis-card: #21213a;        /* card / panel background */
+  --color-oasis-accent: #e60012;      /* Nintendo Red */
+  --color-oasis-accent-light: #ff4d58; /* lighter red for headings */
+  --color-oasis-blue: #0097e0;        /* Nintendo Blue (secondary CTA) */
+  --color-oasis-green: #00d170;       /* online / success green */
+  --color-oasis-yellow: #ffb300;      /* gold / achievement yellow */
+  --color-oasis-red: #e60012;         /* alias for error/alert red */
+  --color-oasis-text: #ffffff;        /* primary text */
+  --color-oasis-text-muted: #8a8ab0;  /* secondary / muted text */
+  /* DS section accent colour */
+  --color-oasis-ds-orange: #e67e22;
+  /* System cover gradients for game tiles */
+  --gradient-nes:  linear-gradient(135deg, #b22222 0%, #6b0000 100%);
+  --gradient-snes: linear-gradient(135deg, #6a3de8 0%, #2d1b69 100%);
+  --gradient-gb:   linear-gradient(135deg, #4a7c59 0%, #1e3d2b 100%);
+  --gradient-gbc:  linear-gradient(135deg, #e67e22 0%, #7d4500 100%);
+  --gradient-gba:  linear-gradient(135deg, #2980b9 0%, #0d3c5e 100%);
+  --gradient-n64:  linear-gradient(135deg, #27ae60 0%, #0d4d22 100%);
+  --gradient-nds:  linear-gradient(135deg, #e60012 0%, #7a0009 100%);
+  --gradient-default: linear-gradient(135deg, #3a3a5c 0%, #1a1a2e 100%);
+  --n-card-hover: rgba(255, 255, 255, 0.04);
 }
 
+/* ── Base ── */
 body {
   margin: 0;
   background-color: var(--color-oasis-bg);
   color: var(--color-oasis-text);
-  font-family: 'Inter', system-ui, -apple-system, sans-serif;
+  font-family: 'Nunito', system-ui, -apple-system, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* ── Custom scrollbar ── */
+::-webkit-scrollbar        { width: 5px; height: 5px; }
+::-webkit-scrollbar-track  { background: var(--color-oasis-bg); }
+::-webkit-scrollbar-thumb  { background: var(--color-oasis-card); border-radius: 4px; }
+::-webkit-scrollbar-thumb:hover { background: var(--color-oasis-accent); }
+
+/* ── Focus ring ── */
+*:focus-visible {
+  outline: 2px solid var(--color-oasis-accent);
+  outline-offset: 2px;
+}
+
+/* ── Nintendo-style selection colour ── */
+::selection {
+  background-color: var(--color-oasis-accent);
+  color: #fff;
+}
+
+/* ── Smooth card hover lift ── */
+.n-card {
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+.n-card:hover {
+  transform: translateY(-2px) scale(1.01);
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.45);
+}
+.n-card:active {
+  transform: scale(0.97);
 }

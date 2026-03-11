@@ -22,7 +22,6 @@ export function LibraryPage() {
 
   function handleScan() {
     setScanStatus('scanning');
-    // Simulate ROM scan (real scan would run through Tauri IPC in a native build)
     setTimeout(() => {
       refetch();
       setScanStatus('done');
@@ -32,81 +31,104 @@ export function LibraryPage() {
 
   return (
     <div className="max-w-5xl">
-      <div className="flex items-start justify-between mb-4">
-        <h1 className="text-2xl font-bold" style={{ color: 'var(--color-oasis-accent-light)' }}>
-          🎮 Multiplayer Library
-        </h1>
-
-        {/* ROM scan control */}
-        <div className="flex items-center gap-2">
-          {romDir ? (
-            <button
-              onClick={handleScan}
-              disabled={scanStatus === 'scanning'}
-              className="text-xs font-semibold px-3 py-1.5 rounded-lg transition-opacity disabled:opacity-50"
-              style={{ backgroundColor: 'var(--color-oasis-accent)', color: 'white' }}
-            >
-              {scanStatus === 'scanning' ? '⏳ Scanning…' : scanStatus === 'done' ? '✓ Refreshed' : '🔍 Scan ROMs'}
-            </button>
-          ) : (
-            <Link
-              to="/settings"
-              className="text-xs font-semibold px-3 py-1.5 rounded-lg"
-              style={{ backgroundColor: 'var(--color-oasis-surface)', color: 'var(--color-oasis-text-muted)' }}
-            >
-              ⚙️ Set ROM path
-            </Link>
-          )}
+      {/* ── Page header ── */}
+      <div className="flex items-center justify-between mb-6">
+        <div>
+          <h1 className="text-2xl font-black tracking-tight" style={{ color: '#fff' }}>
+            Game Library
+          </h1>
+          <p className="text-xs font-semibold mt-0.5" style={{ color: 'var(--color-oasis-text-muted)' }}>
+            {filtered.length} game{filtered.length !== 1 ? 's' : ''} available
+          </p>
         </div>
+
+        {/* ROM scan */}
+        {romDir ? (
+          <button
+            onClick={handleScan}
+            disabled={scanStatus === 'scanning'}
+            className="text-xs font-black px-4 py-2 rounded-full transition-all hover:brightness-110 active:scale-[0.97] disabled:opacity-50"
+            style={{ backgroundColor: 'var(--color-oasis-accent)', color: 'white' }}
+          >
+            {scanStatus === 'scanning' ? '⏳ Scanning…' : scanStatus === 'done' ? '✓ Refreshed' : '🔍 Scan ROMs'}
+          </button>
+        ) : (
+          <Link
+            to="/settings"
+            className="text-xs font-black px-4 py-2 rounded-full"
+            style={{
+              backgroundColor: 'var(--color-oasis-card)',
+              color: 'var(--color-oasis-text-muted)',
+              border: '1px solid var(--n-border)',
+            }}
+          >
+            ⚙️ Set ROM path
+          </Link>
+        )}
       </div>
 
       {/* ROM directory info */}
       {romDir && (
-        <p className="text-[11px] mb-4" style={{ color: 'var(--color-oasis-text-muted)' }}>
-          ROM directory:{' '}
-          <code
-            className="px-1.5 py-0.5 rounded text-[10px] font-mono"
-            style={{ backgroundColor: 'var(--color-oasis-surface)' }}
-          >
-            {romDir}
-          </code>
-        </p>
+        <div
+          className="flex items-center gap-2 mb-5 px-3 py-2 rounded-xl text-[11px] font-semibold"
+          style={{
+            backgroundColor: 'var(--color-oasis-card)',
+            border: '1px solid var(--n-border)',
+            color: 'var(--color-oasis-text-muted)',
+          }}
+        >
+          <span>📂</span>
+          <code className="font-mono truncate">{romDir}</code>
+        </div>
       )}
 
-      {/* System filter */}
-      <div className="flex flex-wrap gap-2 mb-3">
-        {SYSTEMS.map((sys) => (
-          <button
-            key={sys}
-            onClick={() => setSelectedSystem(sys)}
-            className="px-3 py-1 rounded-full text-xs font-semibold transition-colors"
-            style={{
-              backgroundColor: selectedSystem === sys ? 'var(--color-oasis-accent)' : 'var(--color-oasis-card)',
-              color: selectedSystem === sys ? 'white' : 'var(--color-oasis-text-muted)',
-            }}
-          >
-            {sys}
-          </button>
-        ))}
+      {/* ── System filter ── */}
+      <div className="mb-2">
+        <p className="text-[10px] font-black uppercase tracking-widest mb-2" style={{ color: 'var(--color-oasis-text-muted)' }}>
+          System
+        </p>
+        <div className="flex flex-wrap gap-1.5">
+          {SYSTEMS.map((sys) => (
+            <button
+              key={sys}
+              onClick={() => setSelectedSystem(sys)}
+              className="px-3.5 py-1.5 rounded-full text-xs font-black transition-all"
+              style={{
+                backgroundColor: selectedSystem === sys ? 'var(--color-oasis-accent)' : 'var(--color-oasis-card)',
+                color: selectedSystem === sys ? 'white' : 'var(--color-oasis-text-muted)',
+                border: selectedSystem === sys ? 'none' : '1px solid var(--n-border)',
+              }}
+            >
+              {sys}
+            </button>
+          ))}
+        </div>
       </div>
 
-      {/* Tag filter */}
-      <div className="flex flex-wrap gap-2 mb-6">
-        {TAGS.map((tag) => (
-          <button
-            key={tag}
-            onClick={() => setSelectedTag(tag)}
-            className="px-3 py-1 rounded-full text-xs font-semibold transition-colors"
-            style={{
-              backgroundColor: selectedTag === tag ? 'var(--color-oasis-accent)' : 'var(--color-oasis-card)',
-              color: selectedTag === tag ? 'white' : 'var(--color-oasis-text-muted)',
-            }}
-          >
-            {tag}
-          </button>
-        ))}
+      {/* ── Tag filter ── */}
+      <div className="mb-7">
+        <p className="text-[10px] font-black uppercase tracking-widest mb-2 mt-4" style={{ color: 'var(--color-oasis-text-muted)' }}>
+          Mode
+        </p>
+        <div className="flex flex-wrap gap-1.5">
+          {TAGS.map((tag) => (
+            <button
+              key={tag}
+              onClick={() => setSelectedTag(tag)}
+              className="px-3.5 py-1.5 rounded-full text-xs font-black transition-all"
+              style={{
+                backgroundColor: selectedTag === tag ? 'var(--color-oasis-blue)' : 'var(--color-oasis-card)',
+                color: selectedTag === tag ? 'white' : 'var(--color-oasis-text-muted)',
+                border: selectedTag === tag ? 'none' : '1px solid var(--n-border)',
+              }}
+            >
+              {tag}
+            </button>
+          ))}
+        </div>
       </div>
 
+      {/* ── Game grid ── */}
       <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
         {filtered.map((game) => (
           <GameCard key={game.id} game={game} />
@@ -114,19 +136,22 @@ export function LibraryPage() {
       </div>
 
       {loading && (
-        <p className="text-center py-12" style={{ color: 'var(--color-oasis-text-muted)' }}>
+        <p className="text-center py-12 font-semibold" style={{ color: 'var(--color-oasis-text-muted)' }}>
           Loading…
         </p>
       )}
       {error && (
-        <p className="text-center py-12" style={{ color: 'var(--color-oasis-text-muted)' }}>
+        <p className="text-center py-12 font-semibold" style={{ color: 'var(--color-oasis-text-muted)' }}>
           ⚠️ {error}
         </p>
       )}
       {!loading && !error && filtered.length === 0 && (
-        <p className="text-center py-12" style={{ color: 'var(--color-oasis-text-muted)' }}>
-          No games match the current filters.
-        </p>
+        <div className="text-center py-16">
+          <p className="text-4xl mb-3">🎮</p>
+          <p className="text-sm font-bold" style={{ color: 'var(--color-oasis-text-muted)' }}>
+            No games match the current filters.
+          </p>
+        </div>
       )}
     </div>
   );
