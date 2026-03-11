@@ -7,6 +7,7 @@ import { LibraryPage } from './pages/LibraryPage';
 import { SavesPage } from './pages/SavesPage';
 import { FriendsPage } from './pages/FriendsPage';
 import { SettingsPage } from './pages/SettingsPage';
+import { ProfilePage } from './pages/ProfilePage';
 
 export function App() {
   return (
@@ -19,6 +20,7 @@ export function App() {
         <Route path="/saves" element={<SavesPage />} />
         <Route path="/friends" element={<FriendsPage />} />
         <Route path="/settings" element={<SettingsPage />} />
+        <Route path="/profile" element={<ProfilePage />} />
       </Route>
     </Routes>
   );

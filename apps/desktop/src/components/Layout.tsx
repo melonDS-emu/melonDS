@@ -10,6 +10,7 @@ const NAV_ITEMS = [
   { path: '/library', label: '🎮 Library' },
   { path: '/friends', label: '👥 Friends' },
   { path: '/saves', label: '💾 Saves' },
+  { path: '/profile', label: '👤 Profile' },
   { path: '/settings', label: '⚙️ Settings' },
 ];
 

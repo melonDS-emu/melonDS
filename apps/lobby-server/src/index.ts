@@ -17,6 +17,9 @@ import { MatchmakingQueue } from './matchmaking';
 import { PlayerIdentityStore } from './player-identity';
 import { getDatabase } from './db';
 import { normalizeDisplayName, validateDisplayName } from './auth';
+import { AchievementStore } from './achievement-store';
+import { computePlayerStats, computeLeaderboard } from './player-stats';
+import type { LeaderboardMetric } from './player-stats';
 
 const PORT = parseInt(process.env.PORT ?? '8080', 10);
 /** Public hostname/IP players use to reach the relay (surfaced in game-starting events). */
@@ -54,6 +57,7 @@ if (USE_SQLITE) {
 const netplayRelay = new NetplayRelay();
 const emulatorBridge = new EmulatorBridge();
 const gameCatalog = new GameCatalog();
+const achievementStore = new AchievementStore();
 
 // Rate limiter: max 20 connections/requests burst, 2 per second steady-state
 const wsRateLimiter = new RateLimiter({ capacity: 20, refillRate: 2 });
@@ -540,6 +544,61 @@ async function httpHandler(req: http.IncomingMessage, res: http.ServerResponse):
       }
       return;
     }
+  }
+
+  // ─── Achievements API ────────────────────────────────────────────────────
+  //   GET /api/achievements            — all definitions
+  //   GET /api/achievements/:playerId  — earned achievements for a player
+  // ─────────────────────────────────────────────────────────────────────────
+  if (pathname === '/api/achievements' && req.method === 'GET') {
+    json(res, 200, achievementStore.getDefinitions());
+    return;
+  }
+
+  const achievementsPlayerMatch = pathname.match(/^\/api\/achievements\/([^/]+)$/);
+  if (achievementsPlayerMatch && req.method === 'GET') {
+    const playerId = decodeURIComponent(achievementsPlayerMatch[1]);
+    const earned = achievementStore.getEarned(playerId);
+    json(res, 200, { playerId, earned });
+    return;
+  }
+
+  // ─── Player Stats API ────────────────────────────────────────────────────
+  //   GET /api/stats/:playerId                — stats for a specific player
+  //   GET /api/leaderboard?metric=sessions    — global leaderboard
+  // ─────────────────────────────────────────────────────────────────────────
+  const statsPlayerMatch = pathname.match(/^\/api\/stats\/([^/]+)$/);
+  if (statsPlayerMatch && req.method === 'GET') {
+    const displayName = decodeURIComponent(statsPlayerMatch[1]);
+    const allSessions = sessionHistory.getAll();
+    const playerSessions = allSessions.filter((s) =>
+      s.players.includes(displayName)
+    );
+    const stats = computePlayerStats(displayName, displayName, playerSessions);
+    json(res, 200, stats);
+    return;
+  }
+
+  if (pathname === '/api/leaderboard' && req.method === 'GET') {
+    const metric = (typeof parsedUrl.query.metric === 'string' ? parsedUrl.query.metric : 'sessions') as LeaderboardMetric;
+    const limitRaw = typeof parsedUrl.query.limit === 'string' ? parsedUrl.query.limit : '10';
+    const limit = Math.min(parseInt(limitRaw, 10), 50);
+    const allSessions = sessionHistory.getAll();
+
+    // Collect unique display names from session history
+    const allNames = new Set<string>();
+    for (const s of allSessions) {
+      for (const name of s.players) allNames.add(name);
+    }
+
+    const allStats = [...allNames].map((name) => {
+      const playerSessions = allSessions.filter((s) => s.players.includes(name));
+      return computePlayerStats(name, name, playerSessions);
+    });
+
+    const leaderboard = computeLeaderboard(allStats, metric, limit);
+    json(res, 200, leaderboard);
+    return;
   }
 
   json(res, 404, { error: 'Not found' });
