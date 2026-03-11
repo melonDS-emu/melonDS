@@ -1,5 +1,5 @@
 /*
-    Copyright 2016-2025 melonDS team
+    Copyright 2016-2026 melonDS team
 
     This file is part of melonDS.
 
@@ -50,6 +50,13 @@ T GetMSBit(T val)
     if constexpr(sizeof(val) > 4) val |= (val >> 32);
     
     return val - (val >> 1);
+}
+
+// convenience function for updating part of a register
+template <typename T>
+void UpdateRegister(T& reg, T val, T mask)
+{
+    reg = (reg & ~mask) | (val & mask);
 }
 
 }
