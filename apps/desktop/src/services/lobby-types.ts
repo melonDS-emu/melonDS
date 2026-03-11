@@ -89,7 +89,9 @@ export type ServerMessage =
   | { type: 'error'; message: string }
   | { type: 'chat-broadcast'; roomId: string; userId: string; displayName: string; content: string; sentAt: string }
   | { type: 'pong'; sentAt: number; serverAt: number }
-  | { type: 'presence-update'; players: PresencePlayer[] };
+  | { type: 'presence-update'; players: PresencePlayer[] }
+  /** Phase 9: achievement unlocked */
+  | { type: 'achievement-unlocked'; achievementId: string; name: string; description: string; icon: string };
 
 export interface PresencePlayer {
   playerId: string;

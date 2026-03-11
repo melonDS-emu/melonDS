@@ -18,6 +18,7 @@ import { PlayerIdentityStore } from './player-identity';
 import { getDatabase } from './db';
 import { normalizeDisplayName, validateDisplayName } from './auth';
 import { AchievementStore } from './achievement-store';
+import { SqliteAchievementStore } from './sqlite-achievement-store';
 import { computePlayerStats, computeLeaderboard } from './player-stats';
 import type { LeaderboardMetric } from './player-stats';
 
@@ -57,7 +58,9 @@ if (USE_SQLITE) {
 const netplayRelay = new NetplayRelay();
 const emulatorBridge = new EmulatorBridge();
 const gameCatalog = new GameCatalog();
-const achievementStore = new AchievementStore();
+const achievementStore: AchievementStore | SqliteAchievementStore = USE_SQLITE
+  ? new SqliteAchievementStore(getDatabase())
+  : new AchievementStore();
 
 // Rate limiter: max 20 connections/requests burst, 2 per second steady-state
 const wsRateLimiter = new RateLimiter({ capacity: 20, refillRate: 2 });
@@ -563,6 +566,18 @@ async function httpHandler(req: http.IncomingMessage, res: http.ServerResponse):
     return;
   }
 
+  // POST /api/achievements/:playerId/refresh — re-evaluate achievements against live session history
+  const achievementsRefreshMatch = pathname.match(/^\/api\/achievements\/([^/]+)\/refresh$/);
+  if (achievementsRefreshMatch && req.method === 'POST') {
+    const playerId = decodeURIComponent(achievementsRefreshMatch[1]);
+    const allSessions = sessionHistory.getAll();
+    const playerSessions = allSessions.filter((s) => s.players.includes(playerId));
+    const newlyUnlocked = achievementStore.checkAndUnlock(playerId, playerId, playerSessions);
+    const earned = achievementStore.getEarned(playerId);
+    json(res, 200, { playerId, earned, newlyUnlocked: newlyUnlocked.map((d) => d.id) });
+    return;
+  }
+
   // ─── Player Stats API ────────────────────────────────────────────────────
   //   GET /api/stats/:playerId                — stats for a specific player
   //   GET /api/leaderboard?metric=sessions    — global leaderboard
@@ -629,6 +644,7 @@ wss.on('connection', (ws, req) => {
     friends: friendStore,
     matchmaking: matchmakingQueue,
     playerIdentity: playerIdentityStore,
+    achievements: achievementStore,
   });
 });
 

@@ -6,6 +6,7 @@ import { openDatabase } from '../db';
 import { SqliteLobbyManager } from '../sqlite-lobby-manager';
 import { SqliteSessionHistory } from '../sqlite-session-history';
 import { SqliteSaveStore } from '../sqlite-save-store';
+import { SqliteAchievementStore } from '../sqlite-achievement-store';
 
 // ---------------------------------------------------------------------------
 // SqliteLobbyManager
@@ -228,5 +229,85 @@ describe('SqliteSaveStore', () => {
     const created = store.put(GAME_ID, 'Slot 1', DATA) as import('../save-store').SaveRecord;
     expect(store.delete(created.id, GAME_ID)).toBe(true);
     expect(store.get(created.id)).toBeNull();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// SqliteAchievementStore
+// ---------------------------------------------------------------------------
+
+describe('SqliteAchievementStore', () => {
+  let store: SqliteAchievementStore;
+
+  function makeSession(overrides: Partial<import('../session-history').SessionRecord> = {}): import('../session-history').SessionRecord {
+    const now = new Date().toISOString();
+    return {
+      id: 'sess-1',
+      roomId: 'room-1',
+      gameId: 'mk64',
+      gameTitle: 'Mario Kart 64',
+      system: 'N64',
+      startedAt: now,
+      endedAt: now,
+      durationSecs: 600,
+      players: ['Alice', 'Bob'],
+      playerCount: 2,
+      ...overrides,
+    };
+  }
+
+  beforeEach(() => {
+    const db = openDatabase(':memory:');
+    store = new SqliteAchievementStore(db);
+  });
+
+  it('returns all achievement definitions', () => {
+    expect(store.getDefinitions().length).toBeGreaterThan(0);
+  });
+
+  it('returns empty array for unknown player', () => {
+    expect(store.getEarned('unknown')).toEqual([]);
+  });
+
+  it('unlocks first-session on first completed session', () => {
+    const sessions = [makeSession()];
+    const unlocked = store.checkAndUnlock('Alice', 'Alice', sessions);
+    expect(unlocked.some((d) => d.id === 'first-session')).toBe(true);
+  });
+
+  it('persists unlocked achievements across store instances', () => {
+    const db = openDatabase(':memory:');
+    const store1 = new SqliteAchievementStore(db);
+    const sessions = [makeSession()];
+    store1.checkAndUnlock('Alice', 'Alice', sessions);
+
+    const store2 = new SqliteAchievementStore(db);
+    const earned = store2.getEarned('Alice');
+    expect(earned.some((e) => e.achievementId === 'first-session')).toBe(true);
+  });
+
+  it('does not re-unlock already earned achievements', () => {
+    const sessions = [makeSession()];
+    store.checkAndUnlock('Alice', 'Alice', sessions);
+    const second = store.checkAndUnlock('Alice', 'Alice', sessions);
+    expect(second.some((d) => d.id === 'first-session')).toBe(false);
+  });
+
+  it('unlocks n64-debut for an N64 session', () => {
+    const sessions = [makeSession({ system: 'N64' })];
+    const unlocked = store.checkAndUnlock('Alice', 'Alice', sessions);
+    expect(unlocked.some((d) => d.id === 'n64-debut')).toBe(true);
+  });
+
+  it('getState initialises meta row on first call', () => {
+    const state = store.getState('p1', 'Player1');
+    expect(state.playerId).toBe('p1');
+    expect(state.displayName).toBe('Player1');
+  });
+
+  it('playerCount tracks unique players', () => {
+    store.checkAndUnlock('Alice', 'Alice', [makeSession()]);
+    store.checkAndUnlock('Bob', 'Bob', [makeSession()]);
+    expect(store.playerCount()).toBe(2);
   });
 });

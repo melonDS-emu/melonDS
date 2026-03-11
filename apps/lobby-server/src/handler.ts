@@ -7,9 +7,12 @@ import { NetplayRelay } from './netplay-relay';
 import { normalizeDisplayName, validateDisplayName, generateOwnerToken, verifyOwnerToken } from './auth';
 import { SessionHistory } from './session-history';
 import type { SqliteSessionHistory } from './sqlite-session-history';
+import type { SessionRecord } from './session-history';
 import type { FriendStore } from './friend-store';
 import type { MatchmakingQueue } from './matchmaking';
 import type { PlayerIdentityStore } from './player-identity';
+import type { AchievementStore } from './achievement-store';
+import type { SqliteAchievementStore } from './sqlite-achievement-store';
 
 /** Map of playerId -> WebSocket for broadcasting */
 const connections = new Map<string, WebSocket>();
@@ -17,6 +20,15 @@ const connections = new Map<string, WebSocket>();
 const sessionToPersistentId = new Map<string, string>();
 /** Map of persistent player ID -> display name (Phase 8 identity) */
 const persistentDisplayNames = new Map<string, string>();
+/**
+ * Best-effort map of display name → ephemeral playerId for achievement WS push.
+ *
+ * Updated when a player creates or joins a room (the first point at which their
+ * display name is known).  Cleaned up on disconnect.  Stale entries (e.g. from
+ * a player who left a room but is still connected) are harmless: the old
+ * playerId will simply not be found in `connections`.
+ */
+const displayNameToPlayerId = new Map<string, string>();
 
 function send(ws: WebSocket, message: ServerMessage): void {
   if (ws.readyState === ws.OPEN) {
@@ -83,6 +95,38 @@ export interface Phase8Stores {
   friends?: FriendStore;
   matchmaking?: MatchmakingQueue;
   playerIdentity?: PlayerIdentityStore;
+  achievements?: AchievementStore | SqliteAchievementStore;
+}
+
+/**
+ * After a session ends, check and push any newly unlocked achievements to
+ * each player who is still connected (identified by their display name).
+ */
+function pushAchievementUnlocks(
+  endedSession: SessionRecord | null,
+  sessionHistory: SessionHistory | SqliteSessionHistory | undefined,
+  achievementStore: AchievementStore | SqliteAchievementStore | undefined
+): void {
+  if (!endedSession || !sessionHistory || !achievementStore) return;
+  const allSessions = sessionHistory.getAll();
+  for (const displayName of endedSession.players) {
+    const playerSessions = allSessions.filter((s) => s.players.includes(displayName));
+    const newlyUnlocked = achievementStore.checkAndUnlock(displayName, displayName, playerSessions);
+    if (newlyUnlocked.length === 0) continue;
+    const pid = displayNameToPlayerId.get(displayName);
+    if (!pid) continue;
+    const playerWs = connections.get(pid);
+    if (!playerWs) continue;
+    for (const def of newlyUnlocked) {
+      send(playerWs, {
+        type: 'achievement-unlocked',
+        achievementId: def.id,
+        name: def.name,
+        description: def.description,
+        icon: def.icon,
+      });
+    }
+  }
 }
 
 export function handleConnection(
@@ -116,6 +160,7 @@ export function handleConnection(
           send(ws, { type: 'error', message: nameError });
           break;
         }
+        displayNameToPlayerId.set(normalizedName, playerId);
         const room = lobby.createRoom(playerId, name, gameId, gameTitle, system, isPublic, maxPlayers, normalizedName);
         const ownerToken = generateOwnerToken(room.id);
         send(ws, { type: 'room-created', room, ownerToken });
@@ -131,6 +176,7 @@ export function handleConnection(
           send(ws, { type: 'error', message: nameError });
           break;
         }
+        displayNameToPlayerId.set(normalizedName, playerId);
         let room;
 
         if (roomCode) {
@@ -191,7 +237,8 @@ export function handleConnection(
         } else {
           // Room was deleted (last player left) — free the relay port if one was allocated.
           relay.deallocateSession(msg.payload.roomId);
-          sessionHistory?.endSession(msg.payload.roomId);
+          const ended = sessionHistory?.endSession(msg.payload.roomId) ?? null;
+          pushAchievementUnlocks(ended, sessionHistory, phase8?.achievements);
         }
         break;
       }
@@ -590,6 +637,16 @@ export function handleConnection(
     }
     sessionToPersistentId.delete(playerId);
 
+    // Remove displayName → playerId mapping for this connection.
+    // Only remove it if the mapping still points to this playerId (a later
+    // connection with the same display name may have already replaced it).
+    for (const [dn, pid] of displayNameToPlayerId.entries()) {
+      if (pid === playerId) {
+        displayNameToPlayerId.delete(dn);
+        break;
+      }
+    }
+
     // Capture spectator IDs per room before rooms are potentially deleted.
     // We must do this before calling disconnectPlayer because leaveRoom deletes
     // the room when the last player leaves, making the data unavailable afterward.
@@ -607,7 +664,8 @@ export function handleConnection(
       } else {
         // Room was closed (last player left) — free relay port and tell spectators.
         relay.deallocateSession(roomId);
-        sessionHistory?.endSession(roomId);
+        const ended = sessionHistory?.endSession(roomId) ?? null;
+        pushAchievementUnlocks(ended, sessionHistory, phase8?.achievements);
         const spectators = spectatorsByRoom.get(roomId) ?? [];
         broadcast(spectators, { type: 'room-left', roomId });
       }
