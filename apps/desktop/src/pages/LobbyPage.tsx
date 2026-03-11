@@ -17,7 +17,7 @@ function qualityDot(quality: ConnectionQuality): { color: string; label: string;
 }
 
 /** Returns a human-friendly party hint for the given game/system. */
-function getSessionHint(system: string, maxPlayers: number, gameTitle: string): string | null {
+function getSessionHint(system: string, maxPlayers: number, gameTitle: string, isDsiWare?: boolean): string | null {
   const title = gameTitle.toLowerCase();
   if (system === 'n64' || system === 'N64') {
     if (maxPlayers >= 4) {
@@ -32,6 +32,9 @@ function getSessionHint(system: string, maxPlayers: number, gameTitle: string): 
     return `🎮 N64 session — grab your N64 adapter or use a gamepad with left-stick analog support.`;
   }
   if (system === 'nds' || system === 'NDS') {
+    if (isDsiWare) {
+      return `🟦 DSiWare session — melonDS launches in DSi mode. Ensure DSi BIOS files are in your melonDS config folder.`;
+    }
     if (title.includes('pokemon') || title.includes('pokémon')) {
       return `🌐 Pokémon WFC session — trades and battles via Wiimmfi. Start the emulator after everyone readies up!`;
     }
@@ -161,9 +164,10 @@ export function LobbyPage() {
 
   // Game metadata for context card
   const gameData = MOCK_GAMES.find((g) => g.id === room.gameId);
-  const sessionHint = getSessionHint(room.system, room.maxPlayers, room.gameTitle);
+  const sessionHint = getSessionHint(room.system, room.maxPlayers, room.gameTitle, gameData?.isDsiWare);
   const slotsNeeded = room.maxPlayers - room.players.length;
   const isNds = room.system === 'nds' || room.system === 'NDS';
+  const isDsiWare = isNds && (gameData?.isDsiWare === true);
 
   return (
     <div className="max-w-2xl">
@@ -228,9 +232,14 @@ export function LobbyPage() {
               {sessionHint}
             </p>
           )}
-          {isNds && (
+          {isNds && !isDsiWare && (
             <p className="text-[10px] mt-1 opacity-70" style={{ color: 'var(--color-oasis-text-muted)' }}>
               💡 Press <kbd className="px-1 py-0.5 rounded text-[9px] font-mono" style={{ backgroundColor: 'var(--color-oasis-surface)' }}>F11</kbd> in melonDS to swap screens
+            </p>
+          )}
+          {isDsiWare && (
+            <p className="text-[10px] mt-1 font-semibold" style={{ color: '#7dd3fc' }}>
+              🟦 DSi Mode — requires DSi BIOS files in your melonDS config folder
             </p>
           )}
         </div>
@@ -657,7 +666,7 @@ export function LobbyPage() {
             </button>
             {showDsGuide && (
               <div className="mt-3">
-                <DSControlsGuide compact />
+                <DSControlsGuide compact showDsiSection={isDsiWare} />
               </div>
             )}
           </div>

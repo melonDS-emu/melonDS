@@ -14,6 +14,8 @@ export interface ApiGame {
   supportsPrivateLobby: boolean;
   onlineRecommended: boolean;
   compatibilityNotes: string[];
+  /** DSiWare title — requires DSi mode (DSi BIOS files) in melonDS */
+  isDsiWare?: boolean;
 }
 
 /** Query parameters for filtering the game list. */

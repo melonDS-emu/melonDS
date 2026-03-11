@@ -8,6 +8,8 @@ export interface MockGame {
   badges: string[];
   description: string;
   coverEmoji: string;
+  /** DSiWare title — requires DSi mode (DSi BIOS files) in melonDS */
+  isDsiWare?: boolean;
 }
 
 export const MOCK_GAMES: MockGame[] = [
@@ -252,6 +254,55 @@ export const MOCK_GAMES: MockGame[] = [
     badges: ['WFC Online', 'Party Favorite'],
     description: 'Nintendo-themed Tetris with online and local wireless multiplayer.',
     coverEmoji: '🎮',
+  },
+  // === DSiWare ===
+  {
+    id: 'dsiware-flipnote-studio',
+    title: 'Flipnote Studio',
+    system: 'NDS',
+    systemColor: '#E87722',
+    maxPlayers: 1,
+    tags: ['Single Player'],
+    badges: ['DSi Mode', 'Creative'],
+    description: 'Create and share hand-drawn animations. A beloved DSiWare classic.',
+    coverEmoji: '🎨',
+    isDsiWare: true,
+  },
+  {
+    id: 'dsiware-dr-mario-express',
+    title: 'Dr. Mario Express',
+    system: 'NDS',
+    systemColor: '#E87722',
+    maxPlayers: 2,
+    tags: ['2P', 'Versus', 'Puzzle'],
+    badges: ['DSi Mode', 'Great Local'],
+    description: 'The classic puzzle game reimagined for DSiWare with local wireless play.',
+    coverEmoji: '💊',
+    isDsiWare: true,
+  },
+  {
+    id: 'dsiware-art-academy',
+    title: 'Art Academy: First Semester',
+    system: 'NDS',
+    systemColor: '#E87722',
+    maxPlayers: 1,
+    tags: ['Single Player'],
+    badges: ['DSi Mode', 'Creative'],
+    description: 'Learn painting and drawing fundamentals with the DS stylus. A touch-screen showcase.',
+    coverEmoji: '🖌️',
+    isDsiWare: true,
+  },
+  {
+    id: 'dsiware-puzzle-league',
+    title: 'Pokémon Puzzle League DS',
+    system: 'NDS',
+    systemColor: '#E87722',
+    maxPlayers: 2,
+    tags: ['2P', 'Versus', 'Puzzle'],
+    badges: ['DSi Mode', 'Great Local'],
+    description: 'Panel de Pon gameplay with Pokémon theming. Fast-paced puzzle battles.',
+    coverEmoji: '🧩',
+    isDsiWare: true,
   },
 ];
 

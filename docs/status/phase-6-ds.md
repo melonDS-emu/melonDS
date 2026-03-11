@@ -164,5 +164,5 @@ These titles are confirmed to work well in multiplayer with melonDS + Wiimmfi an
 ## Remaining Work (Future Phases)
 
 - [ ] C++ IPC bridge between melonDS `/src` core and the TypeScript launcher
-- [ ] Touch coordinate calibration panel
-- [ ] DSi mode auto-detection and DSiWare support
+- [x] Touch coordinate calibration panel — interactive visual test area with click-to-test, raw vs calibrated coordinate display
+- [x] DSi mode auto-detection and DSiWare support — `dsiMode` adapter option, DSiWare mock games (Flipnote Studio, Dr. Mario Express, Art Academy, Puzzle League DS), DSiWare session templates, DSi badge + tip in GameDetailsPage, DSi lobby hints, DSiWare section in DSControlsGuide

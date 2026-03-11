@@ -1,4 +1,5 @@
 import * as http from 'http';
+import * as net from 'net';
 import * as url from 'url';
 import { WebSocketServer } from 'ws';
 import { LobbyManager } from './lobby-manager';
@@ -6,12 +7,17 @@ import { NetplayRelay } from './netplay-relay';
 import { handleConnection } from './handler';
 import { EmulatorBridge, scanRomDirectory } from '@retro-oasis/emulator-bridge';
 import { GameCatalog } from '@retro-oasis/game-db';
+import { RateLimiter, getRemoteIp } from './rate-limiter';
 
 const PORT = parseInt(process.env.PORT ?? '8080', 10);
 const lobbyManager = new LobbyManager();
 const netplayRelay = new NetplayRelay();
 const emulatorBridge = new EmulatorBridge();
 const gameCatalog = new GameCatalog();
+
+// Rate limiter: max 20 connections/requests burst, 2 per second steady-state
+const wsRateLimiter = new RateLimiter({ capacity: 20, refillRate: 2 });
+const httpRateLimiter = new RateLimiter({ capacity: 60, refillRate: 10 });
 // Cache the system list since it is derived from static seed data.
 const CACHED_SYSTEMS: string[] = [...new Set(gameCatalog.getAll().map((g) => g.system))].sort();
 
@@ -43,10 +49,17 @@ function json(res: http.ServerResponse, status: number, body: unknown): void {
 async function httpHandler(req: http.IncomingMessage, res: http.ServerResponse): Promise<void> {
   setCors(res);
 
-  // Handle CORS pre-flight
+  // Handle CORS pre-flight (not rate limited)
   if (req.method === 'OPTIONS') {
     res.writeHead(204);
     res.end();
+    return;
+  }
+
+  // Per-IP rate limit for HTTP API calls
+  const clientIp = getRemoteIp(req);
+  if (!httpRateLimiter.allow(clientIp)) {
+    json(res, 429, { error: 'Too many requests — please slow down.' });
     return;
   }
 
@@ -186,7 +199,14 @@ const server = http.createServer((req, res) => {
 
 const wss = new WebSocketServer({ server });
 
-wss.on('connection', (ws) => {
+wss.on('connection', (ws, req) => {
+  // Per-IP rate limit for new WebSocket connections
+  const clientIp = getRemoteIp(req);
+  if (!wsRateLimiter.allow(clientIp)) {
+    console.warn(`[rate-limit] WebSocket connection rejected from ${clientIp}`);
+    ws.close(1008, 'Rate limit exceeded — too many connections from your IP.');
+    return;
+  }
   handleConnection(ws, lobbyManager, netplayRelay);
 });
 
