@@ -21,6 +21,7 @@ import { AchievementStore } from './achievement-store';
 import { SqliteAchievementStore } from './sqlite-achievement-store';
 import { computePlayerStats, computeLeaderboard } from './player-stats';
 import type { LeaderboardMetric } from './player-stats';
+import { TournamentStore } from './tournament-store';
 
 const PORT = parseInt(process.env.PORT ?? '8080', 10);
 /** Public hostname/IP players use to reach the relay (surfaced in game-starting events). */
@@ -61,6 +62,10 @@ const gameCatalog = new GameCatalog();
 const achievementStore: AchievementStore | SqliteAchievementStore = USE_SQLITE
   ? new SqliteAchievementStore(getDatabase())
   : new AchievementStore();
+const tournamentStore = new TournamentStore();
+
+/** Lazy reference to the WebSocketServer — set after server creation. */
+let wss: WebSocketServer | undefined;
 
 // Rate limiter: max 20 connections/requests burst, 2 per second steady-state
 const wsRateLimiter = new RateLimiter({ capacity: 20, refillRate: 2 });
@@ -616,6 +621,133 @@ async function httpHandler(req: http.IncomingMessage, res: http.ServerResponse):
     return;
   }
 
+  // ─── Tournaments API ─────────────────────────────────────────────────────
+  //   GET  /api/tournaments              — list all tournaments
+  //   POST /api/tournaments              — create a new tournament
+  //   GET  /api/tournaments/:id          — get tournament details
+  //   POST /api/tournaments/:id/matches/:matchId/result  — record match result
+  // ─────────────────────────────────────────────────────────────────────────
+  if (pathname === '/api/tournaments' && req.method === 'GET') {
+    json(res, 200, tournamentStore.getAll());
+    return;
+  }
+
+  if (pathname === '/api/tournaments' && req.method === 'POST') {
+    const body = await readBody(req);
+    let params: { name?: unknown; gameId?: unknown; gameTitle?: unknown; system?: unknown; players?: unknown };
+    try {
+      params = JSON.parse(body);
+    } catch {
+      json(res, 400, { error: 'Invalid JSON body.' });
+      return;
+    }
+    if (
+      typeof params.name !== 'string' ||
+      typeof params.gameId !== 'string' ||
+      typeof params.gameTitle !== 'string' ||
+      typeof params.system !== 'string' ||
+      !Array.isArray(params.players) ||
+      (params.players as unknown[]).length < 2
+    ) {
+      json(res, 400, { error: 'Required: name, gameId, gameTitle, system, players (min 2).' });
+      return;
+    }
+    try {
+      const tournament = tournamentStore.create({
+        name: params.name as string,
+        gameId: params.gameId as string,
+        gameTitle: params.gameTitle as string,
+        system: params.system as string,
+        players: (params.players as unknown[]).map(String),
+      });
+      json(res, 201, tournament);
+    } catch (err: unknown) {
+      json(res, 400, { error: (err as Error).message });
+    }
+    return;
+  }
+
+  const tournamentIdMatch = pathname.match(/^\/api\/tournaments\/([^/]+)$/);
+  if (tournamentIdMatch && req.method === 'GET') {
+    const tournament = tournamentStore.get(decodeURIComponent(tournamentIdMatch[1]));
+    if (!tournament) {
+      json(res, 404, { error: 'Tournament not found.' });
+      return;
+    }
+    json(res, 200, tournament);
+    return;
+  }
+
+  const tournamentResultMatch = pathname.match(
+    /^\/api\/tournaments\/([^/]+)\/matches\/([^/]+)\/result$/
+  );
+  if (tournamentResultMatch && req.method === 'POST') {
+    const tournamentId = decodeURIComponent(tournamentResultMatch[1]);
+    const matchId = decodeURIComponent(tournamentResultMatch[2]);
+    const body = await readBody(req);
+    let payload: { winner?: unknown };
+    try {
+      payload = JSON.parse(body);
+    } catch {
+      json(res, 400, { error: 'Invalid JSON body.' });
+      return;
+    }
+    if (typeof payload.winner !== 'string') {
+      json(res, 400, { error: 'Required: winner (display name string).' });
+      return;
+    }
+    try {
+      const updated = tournamentStore.recordResult(tournamentId, matchId, payload.winner as string);
+
+      // Broadcast tournament-updated to all connected WebSocket clients
+      if (wss) {
+        const msg = JSON.stringify({ type: 'tournament-updated', tournamentId });
+        wss.clients.forEach((client) => {
+          if (client.readyState === client.OPEN) client.send(msg);
+        });
+      }
+
+      // Check tournament winner achievements
+      if (updated.status === 'completed' && updated.winner) {
+        const winnerName = updated.winner;
+        const allTournaments = tournamentStore.getAll();
+        const wins = allTournaments.filter(
+          (t) => t.status === 'completed' && t.winner === winnerName
+        ).length;
+        const matchWins = allTournaments
+          .flatMap((t) => t.matches)
+          .filter((m) => m.winner === winnerName).length;
+        const newAchievements = achievementStore.checkTournamentAchievements(
+          winnerName,
+          winnerName,
+          wins,
+          matchWins
+        );
+        // Push achievement-unlocked WS messages to the winner if connected
+        if (wss && newAchievements.length > 0) {
+          for (const ach of newAchievements) {
+            const achMsg = JSON.stringify({
+              type: 'achievement-unlocked',
+              achievementId: ach.id,
+              name: ach.name,
+              description: ach.description,
+              icon: ach.icon,
+            });
+            // Best-effort — broadcast to all; the client filters by its own display name
+            wss.clients.forEach((client) => {
+              if (client.readyState === client.OPEN) client.send(achMsg);
+            });
+          }
+        }
+      }
+
+      json(res, 200, updated);
+    } catch (err: unknown) {
+      json(res, 400, { error: (err as Error).message });
+    }
+    return;
+  }
+
   json(res, 404, { error: 'Not found' });
 }
 
@@ -630,7 +762,7 @@ const server = http.createServer((req, res) => {
   });
 });
 
-const wss = new WebSocketServer({ server });
+wss = new WebSocketServer({ server });
 
 wss.on('connection', (ws, req) => {
   // Per-IP rate limit for new WebSocket connections

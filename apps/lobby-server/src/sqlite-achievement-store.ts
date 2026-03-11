@@ -234,4 +234,53 @@ export class SqliteAchievementStore {
         return false;
     }
   }
+
+  /**
+   * Check and unlock tournament-based achievements for a player (SQLite-backed).
+   */
+  checkTournamentAchievements(
+    playerId: string,
+    displayName: string,
+    tournamentWins: number,
+    matchWins: number
+  ): AchievementDef[] {
+    const earnedRows = this.db
+      .prepare<string, { achievement_id: string }>(
+        'SELECT achievement_id FROM player_achievements WHERE player_id = ?'
+      )
+      .all(playerId);
+    const earnedIds = new Set(earnedRows.map((r) => r.achievement_id));
+    const newly: AchievementDef[] = [];
+    const now = new Date().toISOString();
+
+    const insertAchievement = this.db.prepare(
+      'INSERT OR IGNORE INTO player_achievements (player_id, achievement_id, unlocked_at) VALUES (?, ?, ?)'
+    );
+
+    const candidates: Array<{ id: string; condition: boolean }> = [
+      { id: 'first-blood', condition: matchWins >= 1 },
+      { id: 'champion', condition: tournamentWins >= 1 },
+      { id: 'dynasty', condition: tournamentWins >= 3 },
+    ];
+
+    for (const { id, condition } of candidates) {
+      if (earnedIds.has(id) || !condition) continue;
+      const def = ACHIEVEMENT_DEFS.find((d) => d.id === id);
+      if (def) {
+        insertAchievement.run(playerId, id, now);
+        earnedIds.add(id);
+        newly.push(def);
+      }
+    }
+
+    this.db
+      .prepare(`
+        INSERT INTO player_achievement_meta (player_id, display_name, last_checked_at)
+        VALUES (?, ?, ?)
+        ON CONFLICT(player_id) DO UPDATE SET display_name = excluded.display_name, last_checked_at = excluded.last_checked_at
+      `)
+      .run(playerId, displayName, now);
+
+    return newly;
+  }
 }

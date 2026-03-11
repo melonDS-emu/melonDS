@@ -17,7 +17,8 @@ export type AchievementCategory =
   | 'social'
   | 'systems'
   | 'games'
-  | 'streaks';
+  | 'streaks'
+  | 'tournaments';
 
 export interface AchievementDef {
   id: string;
@@ -185,6 +186,32 @@ export const ACHIEVEMENT_DEFS: AchievementDef[] = [
     description: 'Return after a break: play again after 7+ days of inactivity.',
     icon: '🔄',
     category: 'streaks',
+  },
+
+  // ── Tournaments ───────────────────────────────────────────────────────────
+  {
+    id: 'first-blood',
+    name: 'First Blood',
+    description: 'Win your first tournament match.',
+    icon: '⚔️',
+    category: 'tournaments',
+    threshold: 1,
+  },
+  {
+    id: 'champion',
+    name: 'Champion',
+    description: 'Win a tournament.',
+    icon: '🥇',
+    category: 'tournaments',
+    threshold: 1,
+  },
+  {
+    id: 'dynasty',
+    name: 'Dynasty',
+    description: 'Win 3 tournaments.',
+    icon: '👑',
+    category: 'tournaments',
+    threshold: 3,
   },
 ];
 
@@ -384,6 +411,44 @@ export class AchievementStore {
       default:
         return false;
     }
+  }
+
+  /**
+   * Check and unlock tournament-based achievements for a player.
+   *
+   * @param tournamentWins  Number of tournaments this player has won.
+   * @param matchWins       Number of individual tournament matches won.
+   * Returns newly unlocked defs.
+   */
+  checkTournamentAchievements(
+    playerId: string,
+    displayName: string,
+    tournamentWins: number,
+    matchWins: number
+  ): AchievementDef[] {
+    const state = this.getState(playerId, displayName);
+    const earnedIds = new Set(state.earned.map((e) => e.achievementId));
+    const newly: AchievementDef[] = [];
+    const now = new Date().toISOString();
+
+    const candidates: Array<{ id: string; condition: boolean }> = [
+      { id: 'first-blood', condition: matchWins >= 1 },
+      { id: 'champion', condition: tournamentWins >= 1 },
+      { id: 'dynasty', condition: tournamentWins >= 3 },
+    ];
+
+    for (const { id, condition } of candidates) {
+      if (earnedIds.has(id) || !condition) continue;
+      const def = ACHIEVEMENT_DEFS.find((d) => d.id === id);
+      if (def) {
+        state.earned.push({ achievementId: id, unlockedAt: now });
+        earnedIds.add(id);
+        newly.push(def);
+      }
+    }
+
+    state.lastCheckedAt = now;
+    return newly;
   }
 
   /** Total number of players tracked. */

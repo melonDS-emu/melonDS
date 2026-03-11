@@ -8,8 +8,9 @@
 > - Presence, activity, saves, and cloud flows have useful UI scaffolding, but the **live/server-backed versions remain future work unless explicitly marked “mock/dev/demo.”**
 > - Phase 6 DSiWare support and interactive touch calibration panel are now complete. Phase 7 backend hardening has started with per-IP rate limiting on the lobby server.
 > - Phase 8 SQLite persistence, friend system, matchmaking queue, player identity, and enhanced session stats are now complete. Set `DB_PATH` env var to enable persistence across restarts.
-> - Phase 9 achievements (20 definitions), player stats aggregation, global leaderboard, Profile page, SQLite achievement persistence, WebSocket achievement push + desktop toast notifications, and the `/api/achievements/:playerId/refresh` endpoint are now complete.
-> - **Next: Phase 10 — Tournaments & Clip Sharing.**
+> - Phase 9 achievements (20 definitions + 3 tournament achievements), player stats aggregation, global leaderboard, Profile page, SQLite achievement persistence, WebSocket achievement push + desktop toast notifications, and the `/api/achievements/:playerId/refresh` endpoint are now complete.
+> - Phase 10 tournaments (single-elimination bracket engine, REST + WS push, desktop Tournament page, winner achievements) and clip sharing (MediaRecorder service, IndexedDB storage, export, home page widget) are now complete.
+> - **Next: Phase 11 — see roadmap below.**
 
 ## Phase 1 — Foundation (Complete)
 
@@ -306,13 +307,29 @@
 **Goal:** Add competitive structure through bracket-style tournaments and let players capture / share short session clips.
 
 ### Milestones
-- [ ] Tournament engine: `TournamentStore` — bracket creation (single-elimination), match scheduling, result recording
-- [ ] REST endpoints: `POST /api/tournaments`, `GET /api/tournaments/:id`, `POST /api/tournaments/:id/matches/:matchId/result`
-- [ ] WebSocket push: `tournament-updated` message broadcast to all participants on bracket change
-- [ ] Desktop Tournament page (`/tournaments`): create bracket, visualise single-elimination draw, report results, view standings
-- [ ] Game clip recorder hook: capture last-N-seconds of emulator output (client-side `MediaRecorder` API, browser-only)
-- [ ] Clip viewer: list saved clips per game, play back in-app, delete
-- [ ] Clip sharing: export clip as `.webm` / copy shareable link (local file URL)
-- [ ] Home page "Recent Clips" widget: last 3 clips with thumbnail + game label
-- [ ] Tournament leaderboard integration: winner achievements (`First-Blood`, `Champion`, `Dynasty` unlocks)
-- [ ] docs/status/phase-10-tournaments.md — phase status and feature notes
+- [x] Tournament engine: `TournamentStore` — bracket creation (single-elimination), match scheduling, result recording
+- [x] REST endpoints: `POST /api/tournaments`, `GET /api/tournaments`, `GET /api/tournaments/:id`, `POST /api/tournaments/:id/matches/:matchId/result`
+- [x] WebSocket push: `tournament-updated` message broadcast to all connected clients on bracket change
+- [x] Desktop Tournament page (`/tournaments`): create bracket, visualise single-elimination draw, report results, view standings
+- [x] Game clip recorder hook: client-side `MediaRecorder` API, IndexedDB storage (`clip-service.ts`)
+- [x] Clip viewer: list saved clips per game, play back in-app (via blob URL), delete
+- [x] Clip sharing: export clip as `.webm` / copy shareable link (local blob URL)
+- [x] Home page “Recent Clips” widget: last 3 clips with game label and duration
+- [x] Tournament winner achievements (`First-Blood`, `Champion`, `Dynasty`) — 3 new defs in `achievement-store.ts`
+- [x] docs/status/phase-10-tournaments.md — phase status and feature notes
+
+## Phase 11 — Clip Library, Social Sharing & Live Presence
+
+**Goal:** Build a full in-app clip library with playback, management and social features; upgrade presence to use live server-side data rather than mock/demo data.
+
+### Milestones
+- [ ] Clip library page (`/clips`): grid of all recorded clips, grouped by game, with play/delete/export/share actions
+- [ ] In-page clip player: `<video>` element loaded from IndexedDB blob URL, playback controls, fullscreen
+- [ ] Clip thumbnail generation: capture a still frame from the recorded blob at 50% duration via `<video>` + canvas
+- [ ] Clip tagging: attach a tournament match ID or free-text label to a clip
+- [ ] Live friend presence: connect `PresenceContext` to the lobby WebSocket `presence-update` feed instead of mock data
+- [ ] Live friend request UI: send/receive/accept/decline from the Friends page wired to Phase 8 WebSocket events
+- [ ] Notification badge: unread friend requests count shown on Friends nav item
+- [ ] Tournament SQLite persistence: `SqliteTournamentStore` following the `SqliteSessionHistory` pattern
+- [ ] Tournament history in Profile page: tournaments entered, wins, runner-up finishes
+- [ ] docs/status/phase-11-clips-presence.md — phase status and feature notes

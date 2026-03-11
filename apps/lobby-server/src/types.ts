@@ -121,4 +121,6 @@ export type ServerMessage =
   | { type: 'matchmaking-queued'; position: number }
   | { type: 'match-found'; room: Room }
   /** Phase 9: achievement unlocked */
-  | { type: 'achievement-unlocked'; achievementId: string; name: string; description: string; icon: string };
+  | { type: 'achievement-unlocked'; achievementId: string; name: string; description: string; icon: string }
+  /** Phase 10: tournament bracket changed */
+  | { type: 'tournament-updated'; tournamentId: string };
