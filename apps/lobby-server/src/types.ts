@@ -119,4 +119,6 @@ export type ServerMessage =
   | { type: 'friend-status-update'; friendId: string; status: 'online' | 'in-lobby' | 'in-game' | 'offline'; roomCode?: string; gameTitle?: string }
   /** Phase 8: matchmaking */
   | { type: 'matchmaking-queued'; position: number }
-  | { type: 'match-found'; room: Room };
+  | { type: 'match-found'; room: Room }
+  /** Phase 9: achievement unlocked */
+  | { type: 'achievement-unlocked'; achievementId: string; name: string; description: string; icon: string };

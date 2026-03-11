@@ -3,6 +3,7 @@ import { Outlet, Link, useLocation, useNavigate } from 'react-router-dom';
 import { usePresence } from '../context/PresenceContext';
 import { useLobby } from '../context/LobbyContext';
 import { JoinRoomModal } from './JoinRoomModal';
+import { ToastContainer } from './ToastContainer';
 import type { FriendInfo } from '@retro-oasis/presence-client';
 
 const NAV_ITEMS = [
@@ -119,6 +120,9 @@ export function Layout() {
           onClose={() => setPendingFriend(null)}
         />
       )}
+
+      {/* Toast notifications overlay */}
+      <ToastContainer />
     </div>
   );
 }

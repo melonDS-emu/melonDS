@@ -148,6 +148,22 @@ export function openDatabase(path = ':memory:'): DatabaseType {
       max_players  INTEGER NOT NULL,
       joined_at    TEXT NOT NULL
     );
+
+    -- -----------------------------------------------------------------------
+    -- Achievement persistence (Phase 9)
+    -- -----------------------------------------------------------------------
+    CREATE TABLE IF NOT EXISTS player_achievements (
+      player_id      TEXT NOT NULL,
+      achievement_id TEXT NOT NULL,
+      unlocked_at    TEXT NOT NULL,
+      PRIMARY KEY (player_id, achievement_id)
+    );
+
+    CREATE TABLE IF NOT EXISTS player_achievement_meta (
+      player_id        TEXT PRIMARY KEY,
+      display_name     TEXT NOT NULL,
+      last_checked_at  TEXT NOT NULL
+    );
   `);
 
   return db;

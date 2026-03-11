@@ -8,7 +8,8 @@
 > - Presence, activity, saves, and cloud flows have useful UI scaffolding, but the **live/server-backed versions remain future work unless explicitly marked “mock/dev/demo.”**
 > - Phase 6 DSiWare support and interactive touch calibration panel are now complete. Phase 7 backend hardening has started with per-IP rate limiting on the lobby server.
 > - Phase 8 SQLite persistence, friend system, matchmaking queue, player identity, and enhanced session stats are now complete. Set `DB_PATH` env var to enable persistence across restarts.
-> - Phase 9 achievements (20 definitions), player stats aggregation, global leaderboard, and a Profile page are now complete.
+> - Phase 9 achievements (20 definitions), player stats aggregation, global leaderboard, Profile page, SQLite achievement persistence, WebSocket achievement push + desktop toast notifications, and the `/api/achievements/:playerId/refresh` endpoint are now complete.
+> - **Next: Phase 10 — Tournaments & Clip Sharing.**
 
 ## Phase 1 — Foundation (Complete)
 
@@ -296,6 +297,22 @@
 - [x] Achievement unit tests (21 tests)
 - [x] Player stats unit tests (13 tests)
 - [x] `docs/status/phase-9-achievements.md` — phase status and known limitations
-- [ ] SQLite-backed achievement persistence (follow `SqliteSessionHistory` pattern)
-- [ ] Achievement unlock WebSocket push (`achievement-unlocked` server message + toast in UI)
-- [ ] `POST /api/achievements/:playerId/refresh` — re-evaluate achievements against live history on demand
+- [x] SQLite-backed achievement persistence (follow `SqliteSessionHistory` pattern)
+- [x] Achievement unlock WebSocket push (`achievement-unlocked` server message + toast in UI)
+- [x] `POST /api/achievements/:playerId/refresh` — re-evaluate achievements against live history on demand
+
+## Phase 10 — Tournaments & Clip Sharing
+
+**Goal:** Add competitive structure through bracket-style tournaments and let players capture / share short session clips.
+
+### Milestones
+- [ ] Tournament engine: `TournamentStore` — bracket creation (single-elimination), match scheduling, result recording
+- [ ] REST endpoints: `POST /api/tournaments`, `GET /api/tournaments/:id`, `POST /api/tournaments/:id/matches/:matchId/result`
+- [ ] WebSocket push: `tournament-updated` message broadcast to all participants on bracket change
+- [ ] Desktop Tournament page (`/tournaments`): create bracket, visualise single-elimination draw, report results, view standings
+- [ ] Game clip recorder hook: capture last-N-seconds of emulator output (client-side `MediaRecorder` API, browser-only)
+- [ ] Clip viewer: list saved clips per game, play back in-app, delete
+- [ ] Clip sharing: export clip as `.webm` / copy shareable link (local file URL)
+- [ ] Home page "Recent Clips" widget: last 3 clips with thumbnail + game label
+- [ ] Tournament leaderboard integration: winner achievements (`First-Blood`, `Champion`, `Dynasty` unlocks)
+- [ ] docs/status/phase-10-tournaments.md — phase status and feature notes

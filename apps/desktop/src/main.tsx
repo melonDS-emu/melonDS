@@ -4,16 +4,19 @@ import { BrowserRouter } from 'react-router-dom';
 import { App } from './App';
 import { LobbyProvider } from './context/LobbyContext';
 import { PresenceProvider } from './context/PresenceContext';
+import { ToastProvider } from './context/ToastContext';
 import './index.css';
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
     <BrowserRouter>
-      <LobbyProvider>
-        <PresenceProvider>
-          <App />
-        </PresenceProvider>
-      </LobbyProvider>
+      <ToastProvider>
+        <LobbyProvider>
+          <PresenceProvider>
+            <App />
+          </PresenceProvider>
+        </LobbyProvider>
+      </ToastProvider>
     </BrowserRouter>
   </StrictMode>
 );

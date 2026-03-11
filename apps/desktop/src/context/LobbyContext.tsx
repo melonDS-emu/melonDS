@@ -17,6 +17,7 @@ import type {
 } from '../services/lobby-types';
 import { getRomDirectory, getSaveDirectory } from '../lib/rom-settings';
 import { resolveGameRomPath } from '../lib/rom-library';
+import { useToast } from './ToastContext';
 
 const WS_URL = import.meta.env.VITE_WS_URL ?? 'ws://localhost:8080';
 /** Base URL for the local HTTP launch API (same host as the lobby server by default). */
@@ -81,6 +82,7 @@ interface LobbyContextValue {
 const LobbyContext = createContext<LobbyContextValue | null>(null);
 
 export function LobbyProvider({ children }: { children: ReactNode }) {
+  const { addToast } = useToast();
   const [connectionState, setConnectionState] = useState<ConnectionState>('disconnected');
   const [playerId, setPlayerId] = useState<string | null>(null);
   const [currentRoom, setCurrentRoom] = useState<Room | null>(null);
@@ -267,6 +269,15 @@ export function LobbyProvider({ children }: { children: ReactNode }) {
 
           case 'presence-update':
             setOnlinePlayers(msg.players);
+            break;
+
+          case 'achievement-unlocked':
+            addToast({
+              message: `Achievement Unlocked: ${msg.name}`,
+              detail: msg.description,
+              icon: msg.icon,
+              duration: 6000,
+            });
             break;
 
           case 'error':
