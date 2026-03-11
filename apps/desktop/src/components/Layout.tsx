@@ -7,12 +7,13 @@ import { ToastContainer } from './ToastContainer';
 import type { FriendInfo } from '@retro-oasis/presence-client';
 
 const NAV_ITEMS = [
-  { path: '/',         label: 'Home',     icon: '🏠' },
-  { path: '/library',  label: 'Library',  icon: '🎮' },
-  { path: '/friends',  label: 'Friends',  icon: '👥' },
-  { path: '/saves',    label: 'Saves',    icon: '💾' },
-  { path: '/profile',  label: 'Profile',  icon: '👤' },
-  { path: '/settings', label: 'Settings', icon: '⚙️' },
+  { path: '/',             label: 'Home',        icon: '🏠' },
+  { path: '/library',      label: 'Library',     icon: '🎮' },
+  { path: '/friends',      label: 'Friends',     icon: '👥' },
+  { path: '/tournaments',  label: 'Tournaments', icon: '🏆' },
+  { path: '/saves',        label: 'Saves',       icon: '💾' },
+  { path: '/profile',      label: 'Profile',     icon: '👤' },
+  { path: '/settings',     label: 'Settings',    icon: '⚙️' },
 ];
 
 export function Layout() {

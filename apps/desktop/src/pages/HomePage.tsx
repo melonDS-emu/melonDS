@@ -9,6 +9,7 @@ import { useLobby } from '../context/LobbyContext';
 import { usePresence } from '../context/PresenceContext';
 import { activityEmoji, activityVerb, relativeTime } from '../lib/presence-utils';
 import { fetchLeaderboard, type LeaderboardEntry } from '../lib/stats-service';
+import { listClipMeta, formatClipDuration, type ClipMeta } from '../lib/clip-service';
 import type { Room } from '../services/lobby-types';
 import type { FriendInfo } from '@retro-oasis/presence-client';
 
@@ -20,6 +21,7 @@ export function HomePage() {
   const [showJoin, setShowJoin] = useState(false);
   const [joinFriend, setJoinFriend] = useState<FriendInfo | null>(null);
   const [topPlayers, setTopPlayers] = useState<LeaderboardEntry[]>([]);
+  const [recentClips, setRecentClips] = useState<ClipMeta[]>([]);
 
   const { data: allGames } = useGames();
   const n64PartyGames = allGames.filter((g) => g.system === 'N64' && g.tags.includes('Party'));
@@ -33,6 +35,10 @@ export function HomePage() {
 
   useEffect(() => {
     fetchLeaderboard('sessions', 5).then(setTopPlayers).catch(() => {});
+  }, []);
+
+  useEffect(() => {
+    setRecentClips(listClipMeta().slice(0, 3));
   }, []);
 
   useEffect(() => {
@@ -343,6 +349,35 @@ export function HomePage() {
           ))}
         </div>
       </section>
+
+      {/* ── Recent Clips ── */}
+      {recentClips.length > 0 && (
+        <section>
+          <SectionHeader
+            title="🎬 Recent Clips"
+            subtitle="Captured session recordings"
+          />
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+            {recentClips.map((clip) => (
+              <div
+                key={clip.id}
+                className="rounded-2xl p-4 flex items-center gap-3"
+                style={{ backgroundColor: 'var(--color-oasis-card)', border: '1px solid var(--n-border)' }}
+              >
+                <span className="text-2xl">🎥</span>
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-black truncate" style={{ color: 'var(--color-oasis-text)' }}>
+                    {clip.gameTitle}
+                  </p>
+                  <p className="text-xs mt-0.5" style={{ color: 'var(--color-oasis-text-muted)' }}>
+                    {formatClipDuration(clip.durationSecs)} · {new Date(clip.capturedAt).toLocaleDateString()}
+                  </p>
+                </div>
+              </div>
+            ))}
+          </div>
+        </section>
+      )}
 
       {/* Modals */}
       {showHost && (
