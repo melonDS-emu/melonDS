@@ -49,7 +49,17 @@ export type ClientMessage =
   | { type: 'start-game'; payload: { roomId: string } }
   | { type: 'kick-player'; payload: { roomId: string; targetPlayerId: string; ownerToken: string } }
   | { type: 'chat'; payload: { roomId: string; content: string } }
-  | { type: 'ping'; payload: { sentAt: number } };
+  | { type: 'ping'; payload: { sentAt: number } }
+  /** Phase 8: player identity registration */
+  | { type: 'register-identity'; payload: { identityToken: string; displayName: string } }
+  /** Phase 8: friend request actions */
+  | { type: 'friend-request'; payload: { toPlayerId: string } }
+  | { type: 'friend-request-accept'; payload: { requestId: string } }
+  | { type: 'friend-request-decline'; payload: { requestId: string } }
+  | { type: 'friend-remove'; payload: { friendId: string } }
+  /** Phase 8: matchmaking */
+  | { type: 'matchmaking-join'; payload: MatchmakingJoinPayload }
+  | { type: 'matchmaking-leave' };
 
 export interface CreateRoomPayload {
   name: string;
@@ -64,6 +74,15 @@ export interface CreateRoomPayload {
 export interface JoinRoomPayload {
   roomId?: string;
   roomCode?: string;
+  displayName: string;
+}
+
+/** Phase 8: matchmaking join payload. */
+export interface MatchmakingJoinPayload {
+  gameId: string;
+  gameTitle: string;
+  system: string;
+  maxPlayers: number;
   displayName: string;
 }
 
@@ -90,4 +109,14 @@ export type ServerMessage =
   | { type: 'chat-broadcast'; roomId: string; userId: string; displayName: string; content: string; sentAt: string }
   | { type: 'welcome'; playerId: string }
   | { type: 'pong'; sentAt: number; serverAt: number }
-  | { type: 'presence-update'; players: PresencePlayer[] };
+  | { type: 'presence-update'; players: PresencePlayer[] }
+  /** Phase 8: player identity confirmed */
+  | { type: 'identity-confirmed'; persistentId: string; displayName: string }
+  /** Phase 8: friend events */
+  | { type: 'friend-request-received'; requestId: string; fromId: string; fromDisplayName: string }
+  | { type: 'friend-request-accepted'; requestId: string; byId: string; byDisplayName: string }
+  | { type: 'friend-request-declined'; requestId: string }
+  | { type: 'friend-status-update'; friendId: string; status: 'online' | 'in-lobby' | 'in-game' | 'offline'; roomCode?: string; gameTitle?: string }
+  /** Phase 8: matchmaking */
+  | { type: 'matchmaking-queued'; position: number }
+  | { type: 'match-found'; room: Room };

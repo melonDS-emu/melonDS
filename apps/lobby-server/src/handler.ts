@@ -1,13 +1,22 @@
 import type { WebSocket } from 'ws';
 import { randomUUID } from 'crypto';
 import { LobbyManager } from './lobby-manager';
+import type { SqliteLobbyManager } from './sqlite-lobby-manager';
 import type { ClientMessage, ServerMessage, ConnectionQuality, PresencePlayer } from './types';
 import { NetplayRelay } from './netplay-relay';
 import { normalizeDisplayName, validateDisplayName, generateOwnerToken, verifyOwnerToken } from './auth';
 import { SessionHistory } from './session-history';
+import type { SqliteSessionHistory } from './sqlite-session-history';
+import type { FriendStore } from './friend-store';
+import type { MatchmakingQueue } from './matchmaking';
+import type { PlayerIdentityStore } from './player-identity';
 
 /** Map of playerId -> WebSocket for broadcasting */
 const connections = new Map<string, WebSocket>();
+/** Map of sessionPlayerId -> persistent player ID (Phase 8 identity) */
+const sessionToPersistentId = new Map<string, string>();
+/** Map of persistent player ID -> display name (Phase 8 identity) */
+const persistentDisplayNames = new Map<string, string>();
 
 function send(ws: WebSocket, message: ServerMessage): void {
   if (ws.readyState === ws.OPEN) {
@@ -31,7 +40,59 @@ function qualityFromLatency(latencyMs: number): ConnectionQuality {
   return 'poor';
 }
 
-export function handleConnection(ws: WebSocket, lobby: LobbyManager, relay: NetplayRelay, relayHost = 'localhost', sessionHistory?: SessionHistory): void {
+/** Broadcast a friend-status-update to all friends of the given persistent player ID. */
+function broadcastFriendStatus(
+  persistentId: string,
+  status: PresencePlayer['status'] | 'offline',
+  friends: FriendStore,
+  roomCode?: string,
+  gameTitle?: string
+): void {
+  const friendEntries = friends.getFriends(persistentId);
+  for (const entry of friendEntries) {
+    // Find any session connected with this persistent friend ID
+    for (const [sessionId, pid] of sessionToPersistentId.entries()) {
+      if (pid === entry.friendId) {
+        const ws = connections.get(sessionId);
+        if (ws) {
+          send(ws, {
+            type: 'friend-status-update',
+            friendId: persistentId,
+            status,
+            roomCode,
+            gameTitle,
+          });
+        }
+      }
+    }
+    // Also check if friendId IS a session id directly (for non-registered users)
+    const directWs = connections.get(entry.friendId);
+    if (directWs) {
+      send(directWs, {
+        type: 'friend-status-update',
+        friendId: persistentId,
+        status,
+        roomCode,
+        gameTitle,
+      });
+    }
+  }
+}
+
+export interface Phase8Stores {
+  friends?: FriendStore;
+  matchmaking?: MatchmakingQueue;
+  playerIdentity?: PlayerIdentityStore;
+}
+
+export function handleConnection(
+  ws: WebSocket,
+  lobby: LobbyManager | SqliteLobbyManager,
+  relay: NetplayRelay,
+  relayHost = 'localhost',
+  sessionHistory?: SessionHistory | SqliteSessionHistory,
+  phase8?: Phase8Stores
+): void {
   const playerId = randomUUID();
   connections.set(playerId, ws);
 
@@ -295,6 +356,222 @@ export function handleConnection(ws: WebSocket, lobby: LobbyManager, relay: Netp
         break;
       }
 
+      // -----------------------------------------------------------------------
+      // Phase 8: Player identity registration
+      // -----------------------------------------------------------------------
+
+      case 'register-identity': {
+        const { identityToken, displayName } = msg.payload;
+        if (!phase8?.playerIdentity) break;
+        const normalizedName = normalizeDisplayName(displayName);
+        const nameError = validateDisplayName(normalizedName);
+        if (nameError) {
+          send(ws, { type: 'error', message: nameError });
+          break;
+        }
+        const identity = phase8.playerIdentity.resolve(identityToken, normalizedName);
+        sessionToPersistentId.set(playerId, identity.id);
+        persistentDisplayNames.set(identity.id, identity.displayName);
+        send(ws, { type: 'identity-confirmed', persistentId: identity.id, displayName: identity.displayName });
+
+        // Notify friends that this player came online
+        if (phase8.friends) {
+          broadcastFriendStatus(identity.id, 'online', phase8.friends);
+        }
+        break;
+      }
+
+      // -----------------------------------------------------------------------
+      // Phase 8: Friend request flow
+      // -----------------------------------------------------------------------
+
+      case 'friend-request': {
+        if (!phase8?.friends) {
+          send(ws, { type: 'error', message: 'Friend system not available.' });
+          break;
+        }
+        const fromPersistentId = sessionToPersistentId.get(playerId);
+        if (!fromPersistentId) {
+          send(ws, { type: 'error', message: 'Register your identity before sending friend requests.' });
+          break;
+        }
+        const { toPlayerId } = msg.payload;
+        const request = phase8.friends.addRequest(fromPersistentId, toPlayerId);
+        if (!request) {
+          send(ws, { type: 'error', message: 'Could not send friend request.' });
+          break;
+        }
+        // Notify the recipient if they are online
+        const fromDisplayName = persistentDisplayNames.get(fromPersistentId) ?? fromPersistentId;
+        for (const [sid, pid] of sessionToPersistentId.entries()) {
+          if (pid === toPlayerId) {
+            const recipientWs = connections.get(sid);
+            if (recipientWs) {
+              send(recipientWs, {
+                type: 'friend-request-received',
+                requestId: request.id,
+                fromId: fromPersistentId,
+                fromDisplayName,
+              });
+            }
+          }
+        }
+        break;
+      }
+
+      case 'friend-request-accept': {
+        if (!phase8?.friends) {
+          send(ws, { type: 'error', message: 'Friend system not available.' });
+          break;
+        }
+        const acceptorId = sessionToPersistentId.get(playerId);
+        if (!acceptorId) {
+          send(ws, { type: 'error', message: 'Register your identity before accepting friend requests.' });
+          break;
+        }
+        const { requestId } = msg.payload;
+        const accepted = phase8.friends.acceptRequest(requestId, acceptorId);
+        if (!accepted) {
+          send(ws, { type: 'error', message: 'Friend request not found or cannot be accepted.' });
+          break;
+        }
+        // Notify the requester
+        const acceptorName = persistentDisplayNames.get(acceptorId) ?? acceptorId;
+        for (const [sid, pid] of sessionToPersistentId.entries()) {
+          if (pid === accepted.fromId) {
+            const requesterWs = connections.get(sid);
+            if (requesterWs) {
+              send(requesterWs, {
+                type: 'friend-request-accepted',
+                requestId,
+                byId: acceptorId,
+                byDisplayName: acceptorName,
+              });
+            }
+          }
+        }
+        // Broadcast current online status to both parties
+        if (phase8.friends) {
+          broadcastFriendStatus(acceptorId, 'online', phase8.friends);
+          broadcastFriendStatus(accepted.fromId, 'online', phase8.friends);
+        }
+        break;
+      }
+
+      case 'friend-request-decline': {
+        if (!phase8?.friends) {
+          send(ws, { type: 'error', message: 'Friend system not available.' });
+          break;
+        }
+        const decliningId = sessionToPersistentId.get(playerId);
+        if (!decliningId) {
+          send(ws, { type: 'error', message: 'Register your identity before declining friend requests.' });
+          break;
+        }
+        const { requestId: declineRequestId } = msg.payload;
+        const declined = phase8.friends.declineRequest(declineRequestId, decliningId);
+        if (!declined) {
+          send(ws, { type: 'error', message: 'Friend request not found or cannot be declined.' });
+          break;
+        }
+        // Notify the requester
+        for (const [sid, pid] of sessionToPersistentId.entries()) {
+          if (pid === declined.fromId) {
+            const requesterWs = connections.get(sid);
+            if (requesterWs) {
+              send(requesterWs, { type: 'friend-request-declined', requestId: declineRequestId });
+            }
+          }
+        }
+        break;
+      }
+
+      case 'friend-remove': {
+        if (!phase8?.friends) {
+          send(ws, { type: 'error', message: 'Friend system not available.' });
+          break;
+        }
+        const removingId = sessionToPersistentId.get(playerId);
+        if (!removingId) {
+          send(ws, { type: 'error', message: 'Register your identity before managing friends.' });
+          break;
+        }
+        const { friendId: removeFriendId } = msg.payload;
+        phase8.friends.removeFriend(removingId, removeFriendId);
+        break;
+      }
+
+      // -----------------------------------------------------------------------
+      // Phase 8: Matchmaking
+      // -----------------------------------------------------------------------
+
+      case 'matchmaking-join': {
+        if (!phase8?.matchmaking) {
+          send(ws, { type: 'error', message: 'Matchmaking not available.' });
+          break;
+        }
+        const { gameId, gameTitle, system, maxPlayers, displayName: mmName } = msg.payload;
+        const normalizedMmName = normalizeDisplayName(mmName);
+        const mmNameError = validateDisplayName(normalizedMmName);
+        if (mmNameError) {
+          send(ws, { type: 'error', message: mmNameError });
+          break;
+        }
+
+        phase8.matchmaking.join({
+          playerId,
+          displayName: normalizedMmName,
+          gameId,
+          gameTitle,
+          system,
+          maxPlayers,
+        });
+
+        const queueAll = phase8.matchmaking.getAll();
+        const position = queueAll.findIndex((e) => e.playerId === playerId) + 1;
+        send(ws, { type: 'matchmaking-queued', position });
+
+        // Check for matches
+        const matches = phase8.matchmaking.flushMatches();
+        for (const match of matches) {
+          // Create a room for the matched players
+          const firstPlayer = match.players[0];
+          const room = lobby.createRoom(
+            firstPlayer.playerId,
+            `${match.gameTitle} — Matchmaking`,
+            match.gameId,
+            match.gameTitle,
+            match.system,
+            false,
+            match.maxPlayers,
+            firstPlayer.displayName
+          );
+
+          // Add remaining players to the room
+          for (let i = 1; i < match.players.length; i++) {
+            const p = match.players[i];
+            lobby.joinRoom(room.id, p.playerId, p.displayName);
+          }
+
+          const updatedRoom = lobby.getRoom(room.id) ?? room;
+
+          // Notify matched players
+          for (const matchedPlayer of match.players) {
+            const matchedWs = connections.get(matchedPlayer.playerId);
+            if (matchedWs) {
+              send(matchedWs, { type: 'match-found', room: updatedRoom });
+            }
+          }
+        }
+        break;
+      }
+
+      case 'matchmaking-leave': {
+        if (!phase8?.matchmaking) break;
+        phase8.matchmaking.leave(playerId);
+        break;
+      }
+
       default:
         send(ws, { type: 'error', message: 'Unknown message type' });
     }
@@ -302,6 +579,16 @@ export function handleConnection(ws: WebSocket, lobby: LobbyManager, relay: Netp
 
   ws.on('close', () => {
     connections.delete(playerId);
+
+    // Remove from matchmaking queue if applicable
+    phase8?.matchmaking?.leave(playerId);
+
+    // Notify friends that this player went offline
+    const persistentId = sessionToPersistentId.get(playerId);
+    if (persistentId && phase8?.friends) {
+      broadcastFriendStatus(persistentId, 'offline', phase8.friends);
+    }
+    sessionToPersistentId.delete(playerId);
 
     // Capture spectator IDs per room before rooms are potentially deleted.
     // We must do this before calling disconnectPlayer because leaveRoom deletes
@@ -334,7 +621,7 @@ export function handleConnection(ws: WebSocket, lobby: LobbyManager, relay: Netp
  * Build a lightweight presence snapshot and broadcast it to all connected clients.
  * Each client can then update their friends-list or lobby views without polling.
  */
-function buildPresencePlayers(lobby: LobbyManager, connections: Map<string, WebSocket>): PresencePlayer[] {
+function buildPresencePlayers(lobby: LobbyManager | SqliteLobbyManager, connections: Map<string, WebSocket>): PresencePlayer[] {
   const players: PresencePlayer[] = [];
   const seenPlayers = new Set<string>();
 
@@ -362,7 +649,7 @@ function buildPresencePlayers(lobby: LobbyManager, connections: Map<string, WebS
   return players;
 }
 
-function broadcastPresence(lobby: LobbyManager, connections: Map<string, WebSocket>): void {
+function broadcastPresence(lobby: LobbyManager | SqliteLobbyManager, connections: Map<string, WebSocket>): void {
   const players = buildPresencePlayers(lobby, connections);
   const msg: ServerMessage = { type: 'presence-update', players };
   for (const [, clientWs] of connections) {

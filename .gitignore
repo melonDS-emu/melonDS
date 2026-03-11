@@ -41,3 +41,4 @@ apps/desktop/src-tauri/target/
 # Misc
 *.log
 coverage/
+*.db

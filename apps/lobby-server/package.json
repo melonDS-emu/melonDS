@@ -11,9 +11,11 @@
   "dependencies": {
     "@retro-oasis/emulator-bridge": "*",
     "@retro-oasis/game-db": "*",
+    "better-sqlite3": "^12.6.2",
     "ws": "^8.17.1"
   },
   "devDependencies": {
+    "@types/better-sqlite3": "^7.6.13",
     "@types/node": "^25.4.0",
     "@types/ws": "^8.5.10",
     "tsx": "^4.7.0",

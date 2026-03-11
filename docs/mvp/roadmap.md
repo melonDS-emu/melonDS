@@ -7,6 +7,7 @@
 > - The lobby now triggers **local emulator launch requests** through the server, but **real per-game ROM discovery/selection and relay token handoff into emulator processes are still incomplete**.
 > - Presence, activity, saves, and cloud flows have useful UI scaffolding, but the **live/server-backed versions remain future work unless explicitly marked “mock/dev/demo.”**
 > - Phase 6 DSiWare support and interactive touch calibration panel are now complete. Phase 7 backend hardening has started with per-IP rate limiting on the lobby server.
+> - Phase 8 SQLite persistence, friend system, matchmaking queue, player identity, and enhanced session stats are now complete. Set `DB_PATH` env var to enable persistence across restarts.
 
 ## Phase 1 — Foundation (Complete)
 
@@ -268,13 +269,13 @@
 **Goal:** Persist data across server restarts, add a real matchmaking queue, and build a server-side social graph for friends.
 
 ### Milestones
-- [ ] SQLite persistence layer: schema for rooms, players, session history, friends
-- [ ] Migrate in-memory `LobbyManager`, `SessionHistory`, and `SaveStore` to SQLite-backed implementations
-- [ ] Server-side friend list: `POST /api/friends/add`, `GET /api/friends`, `DELETE /api/friends/:userId`
-- [ ] Live friend presence via WebSocket: broadcast friend status changes to subscribed clients
-- [ ] Friend request / accept / decline flow
-- [ ] Push notifications for joinable friend sessions (wired to live presence + browser Notification API)
-- [ ] Matchmaking queue: `POST /api/matchmaking/join`, `DELETE /api/matchmaking/leave`, auto-create room when enough players matched
-- [ ] Player identity / display name persistence (server-assigned or user-chosen, stored per connection)
-- [ ] Session history REST API enhancements: per-player stats, most-played games, total session time
-- [ ] Relay host deployment guide: Docker Compose config, env-variable reference, reverse-proxy notes
+- [x] SQLite persistence layer: schema for rooms, players, session history, friends
+- [x] Migrate in-memory `LobbyManager`, `SessionHistory`, and `SaveStore` to SQLite-backed implementations
+- [x] Server-side friend list: `POST /api/friends/add`, `GET /api/friends`, `DELETE /api/friends/:userId`
+- [x] Live friend presence via WebSocket: broadcast friend status changes to subscribed clients
+- [x] Friend request / accept / decline flow
+- [x] Push notifications for joinable friend sessions (wired to live presence + browser Notification API)
+- [x] Matchmaking queue: `POST /api/matchmaking/join`, `DELETE /api/matchmaking/leave`, auto-create room when enough players matched
+- [x] Player identity / display name persistence (server-assigned or user-chosen, stored per connection)
+- [x] Session history REST API enhancements: per-player stats, most-played games, total session time
+- [x] Relay host deployment guide: Docker Compose config, env-variable reference, reverse-proxy notes
