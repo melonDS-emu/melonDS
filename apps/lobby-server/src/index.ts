@@ -22,6 +22,7 @@ import { SqliteAchievementStore } from './sqlite-achievement-store';
 import { computePlayerStats, computeLeaderboard } from './player-stats';
 import type { LeaderboardMetric } from './player-stats';
 import { TournamentStore } from './tournament-store';
+import { SqliteTournamentStore } from './sqlite-tournament-store';
 
 const PORT = parseInt(process.env.PORT ?? '8080', 10);
 /** Public hostname/IP players use to reach the relay (surfaced in game-starting events). */
@@ -62,7 +63,9 @@ const gameCatalog = new GameCatalog();
 const achievementStore: AchievementStore | SqliteAchievementStore = USE_SQLITE
   ? new SqliteAchievementStore(getDatabase())
   : new AchievementStore();
-const tournamentStore = new TournamentStore();
+const tournamentStore: TournamentStore | SqliteTournamentStore = USE_SQLITE
+  ? new SqliteTournamentStore(getDatabase())
+  : new TournamentStore();
 
 /** Lazy reference to the WebSocketServer — set after server creation. */
 let wss: WebSocketServer | undefined;
@@ -708,7 +711,7 @@ async function httpHandler(req: http.IncomingMessage, res: http.ServerResponse):
       }
 
       // Check tournament winner achievements
-      if (updated.status === 'completed' && updated.winner) {
+      if (updated && updated.status === 'completed' && updated.winner) {
         const winnerName = updated.winner;
         const allTournaments = tournamentStore.getAll();
         const wins = allTournaments.filter(
@@ -745,6 +748,30 @@ async function httpHandler(req: http.IncomingMessage, res: http.ServerResponse):
     } catch (err: unknown) {
       json(res, 400, { error: (err as Error).message });
     }
+    return;
+  }
+
+  // GET /api/tournaments/player/:displayName — player tournament history
+  // (only available when using SqliteTournamentStore)
+  const tournamentPlayerMatch = pathname.match(/^\/api\/tournaments\/player\/([^/]+)$/);
+  if (tournamentPlayerMatch && req.method === 'GET') {
+    const displayName = decodeURIComponent(tournamentPlayerMatch[1]);
+    if (!USE_SQLITE || !('getPlayerTournaments' in tournamentStore)) {
+      json(res, 501, { error: 'Tournament history requires SQLite persistence. Set DB_PATH to enable.' });
+      return;
+    }
+    const sqliteStore = tournamentStore as import('./sqlite-tournament-store').SqliteTournamentStore;
+    const tournaments = sqliteStore.getPlayerTournaments(displayName);
+    const result = tournaments.map((t) => ({
+      id: t.id,
+      name: t.name,
+      gameTitle: t.gameTitle,
+      status: t.status,
+      winner: t.winner,
+      playerCount: t.players.length,
+      createdAt: t.createdAt,
+    }));
+    json(res, 200, result);
     return;
   }
 

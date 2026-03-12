@@ -1,6 +1,6 @@
 # RetroOasis Development Roadmap
 
-> **Honest progress snapshot (2026-03-11)**
+> **Honest progress snapshot (2026-03-12)**
 >
 > - The current working stack is **React + Vite desktop UI + WebSocket lobby server + TCP relay + local HTTP launch API (`/api/launch`)**.
 > - **Tauri/native packaging, a C++ IPC bridge into the melonDS core in `/src`, and a broader REST backend for catalog/save/presence data are still not complete.**
@@ -10,7 +10,8 @@
 > - Phase 8 SQLite persistence, friend system, matchmaking queue, player identity, and enhanced session stats are now complete. Set `DB_PATH` env var to enable persistence across restarts.
 > - Phase 9 achievements (20 definitions + 3 tournament achievements), player stats aggregation, global leaderboard, Profile page, SQLite achievement persistence, WebSocket achievement push + desktop toast notifications, and the `/api/achievements/:playerId/refresh` endpoint are now complete.
 > - Phase 10 tournaments (single-elimination bracket engine, REST + WS push, desktop Tournament page, winner achievements) and clip sharing (MediaRecorder service, IndexedDB storage, export, home page widget) are now complete.
-> - **Next: Phase 11 — see roadmap below.**
+> - Phase 11 clip library (`/clips`), live friend presence, live friend request UI, notification badges, `SqliteTournamentStore`, and tournament history in Profile page are now complete.
+> - **Next: Phase 12 — see Future Ideas section below.**
 
 ## Phase 1 — Foundation (Complete)
 
@@ -323,13 +324,13 @@
 **Goal:** Build a full in-app clip library with playback, management and social features; upgrade presence to use live server-side data rather than mock/demo data.
 
 ### Milestones
-- [ ] Clip library page (`/clips`): grid of all recorded clips, grouped by game, with play/delete/export/share actions
-- [ ] In-page clip player: `<video>` element loaded from IndexedDB blob URL, playback controls, fullscreen
-- [ ] Clip thumbnail generation: capture a still frame from the recorded blob at 50% duration via `<video>` + canvas
-- [ ] Clip tagging: attach a tournament match ID or free-text label to a clip
-- [ ] Live friend presence: connect `PresenceContext` to the lobby WebSocket `presence-update` feed instead of mock data
-- [ ] Live friend request UI: send/receive/accept/decline from the Friends page wired to Phase 8 WebSocket events
-- [ ] Notification badge: unread friend requests count shown on Friends nav item
-- [ ] Tournament SQLite persistence: `SqliteTournamentStore` following the `SqliteSessionHistory` pattern
-- [ ] Tournament history in Profile page: tournaments entered, wins, runner-up finishes
-- [ ] docs/status/phase-11-clips-presence.md — phase status and feature notes
+- [x] Clip library page (`/clips`): grid of all recorded clips, grouped by game, with play/delete/export/share actions
+- [x] In-page clip player: `<video>` element loaded from IndexedDB blob URL, playback controls, fullscreen
+- [x] Clip thumbnail generation: capture a still frame from the recorded blob at 50% duration via `<video>` + canvas
+- [x] Clip tagging: attach a tournament match ID or free-text label to a clip
+- [x] Live friend presence: connect `PresenceContext` to the lobby WebSocket `presence-update` feed instead of mock data
+- [x] Live friend request UI: send/receive/accept/decline from the Friends page wired to Phase 8 WebSocket events
+- [x] Notification badge: unread friend requests count shown on Friends nav item
+- [x] Tournament SQLite persistence: `SqliteTournamentStore` following the `SqliteSessionHistory` pattern
+- [x] Tournament history in Profile page: tournaments entered, wins, runner-up finishes
+- [x] docs/status/phase-11-clips-presence.md — phase status and feature notes

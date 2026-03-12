@@ -46,6 +46,21 @@ export interface RelayInfo {
   host: string;
 }
 
+/** A pending inbound friend request. */
+export interface PendingFriendRequest {
+  requestId: string;
+  fromId: string;
+  fromDisplayName: string;
+}
+
+/** Live friend status entry from server push. */
+export interface FriendStatus {
+  friendId: string;
+  status: string;
+  roomCode?: string;
+  gameTitle?: string;
+}
+
 interface LobbyContextValue {
   connectionState: ConnectionState;
   playerId: string | null;
@@ -65,6 +80,10 @@ interface LobbyContextValue {
   onlinePlayers: import('../services/lobby-types').PresencePlayer[];
   /** The active WebSocket connection (null if disconnected). Exposed for voice chat signaling. */
   ws: WebSocket | null;
+  /** Inbound friend requests pending a response. */
+  pendingFriendRequests: PendingFriendRequest[];
+  /** Live friend statuses pushed by the server. */
+  friendStatuses: FriendStatus[];
 
   // Actions
   createRoom: (payload: Omit<CreateRoomPayload, 'displayName'>, displayName: string) => void;
@@ -77,6 +96,12 @@ interface LobbyContextValue {
   sendChat: (content: string) => void;
   listRooms: () => void;
   clearError: () => void;
+  /** Phase 8: register player identity (enables friend graph). */
+  registerIdentity: (displayName: string, identityToken?: string) => void;
+  sendFriendRequest: (toPlayerId: string) => void;
+  acceptFriendRequest: (requestId: string) => void;
+  declineFriendRequest: (requestId: string) => void;
+  removeFriend: (friendId: string) => void;
 }
 
 const LobbyContext = createContext<LobbyContextValue | null>(null);
@@ -94,6 +119,8 @@ export function LobbyProvider({ children }: { children: ReactNode }) {
   const [sessionToken, setSessionToken] = useState<string | null>(null);
   const [ownerToken, setOwnerToken] = useState<string | null>(null);
   const [onlinePlayers, setOnlinePlayers] = useState<import('../services/lobby-types').PresencePlayer[]>([]);
+  const [pendingFriendRequests, setPendingFriendRequests] = useState<PendingFriendRequest[]>([]);
+  const [friendStatuses, setFriendStatuses] = useState<FriendStatus[]>([]);
 
   const wsRef = useRef<WebSocket | null>(null);
   const currentRoomRef = useRef<Room | null>(null);
@@ -271,6 +298,43 @@ export function LobbyProvider({ children }: { children: ReactNode }) {
             setOnlinePlayers(msg.players);
             break;
 
+          case 'friend-request-received':
+            setPendingFriendRequests((prev) => [
+              ...prev.filter((r) => r.requestId !== msg.requestId),
+              { requestId: msg.requestId, fromId: msg.fromId, fromDisplayName: msg.fromDisplayName },
+            ]);
+            addToast({
+              message: `Friend Request from ${msg.fromDisplayName}`,
+              detail: 'Check Friends to accept or decline.',
+              icon: '👥',
+              duration: 8000,
+            });
+            break;
+
+          case 'friend-request-accepted':
+            setPendingFriendRequests((prev) =>
+              prev.filter((r) => r.requestId !== msg.requestId)
+            );
+            addToast({
+              message: `${msg.byDisplayName} accepted your friend request`,
+              icon: '🤝',
+              duration: 5000,
+            });
+            break;
+
+          case 'friend-request-declined':
+            setPendingFriendRequests((prev) =>
+              prev.filter((r) => r.requestId !== msg.requestId)
+            );
+            break;
+
+          case 'friend-status-update':
+            setFriendStatuses((prev) => [
+              ...prev.filter((s) => s.friendId !== msg.friendId),
+              { friendId: msg.friendId, status: msg.status, roomCode: msg.roomCode, gameTitle: msg.gameTitle },
+            ]);
+            break;
+
           case 'achievement-unlocked':
             addToast({
               message: `Achievement Unlocked: ${msg.name}`,
@@ -299,6 +363,8 @@ export function LobbyProvider({ children }: { children: ReactNode }) {
         setOwnerToken(null);
         setOnlinePlayers([]);
         setChatMessages([]);
+        setPendingFriendRequests([]);
+        setFriendStatuses([]);
         stopPing();
         // Attempt to reconnect after 3 seconds
         reconnectTimeout = setTimeout(connect, RECONNECT_DELAY_MS);
@@ -392,6 +458,43 @@ export function LobbyProvider({ children }: { children: ReactNode }) {
 
   const clearError = useCallback(() => setError(null), []);
 
+  const registerIdentity = useCallback(
+    (displayName: string, identityToken?: string) => {
+      send({ type: 'register-identity', payload: { displayName, identityToken } });
+    },
+    [send]
+  );
+
+  const sendFriendRequest = useCallback(
+    (toPlayerId: string) => {
+      send({ type: 'friend-request', payload: { toPlayerId } });
+    },
+    [send]
+  );
+
+  const acceptFriendRequest = useCallback(
+    (requestId: string) => {
+      send({ type: 'friend-request-accept', payload: { requestId } });
+      setPendingFriendRequests((prev) => prev.filter((r) => r.requestId !== requestId));
+    },
+    [send]
+  );
+
+  const declineFriendRequest = useCallback(
+    (requestId: string) => {
+      send({ type: 'friend-request-decline', payload: { requestId } });
+      setPendingFriendRequests((prev) => prev.filter((r) => r.requestId !== requestId));
+    },
+    [send]
+  );
+
+  const removeFriend = useCallback(
+    (friendId: string) => {
+      send({ type: 'friend-remove', payload: { friendId } });
+    },
+    [send]
+  );
+
   return (
     <LobbyContext.Provider
       value={{
@@ -407,6 +510,8 @@ export function LobbyProvider({ children }: { children: ReactNode }) {
         ownerToken,
         onlinePlayers,
         ws: wsRef.current,
+        pendingFriendRequests,
+        friendStatuses,
         createRoom,
         joinByCode,
         joinById,
@@ -417,6 +522,11 @@ export function LobbyProvider({ children }: { children: ReactNode }) {
         sendChat,
         listRooms,
         clearError,
+        registerIdentity,
+        sendFriendRequest,
+        acceptFriendRequest,
+        declineFriendRequest,
+        removeFriend,
       }}
     >
       {children}

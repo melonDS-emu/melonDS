@@ -27,6 +27,8 @@ export interface ClipMeta {
   gameTitle: string;
   capturedAt: string; // ISO timestamp
   durationSecs: number;
+  /** Optional free-text label or tournament match reference. */
+  tag?: string;
 }
 
 export interface Clip extends ClipMeta {
@@ -195,6 +197,56 @@ export async function copyClipLink(meta: ClipMeta): Promise<void> {
   if (!blob) throw new Error('Clip data not found.');
   const url = URL.createObjectURL(blob);
   await navigator.clipboard.writeText(url);
+}
+
+/** Update the tag on an existing clip (stored in localStorage metadata). */
+export function updateClipTag(id: string, tag: string): void {
+  const metas = loadMeta().map((m) => (m.id === id ? { ...m, tag: tag.trim() || undefined } : m));
+  saveMeta(metas);
+}
+
+/**
+ * Generate a thumbnail still-frame from a clip blob.
+ *
+ * Seeks to 50 % of the clip duration, paints one frame onto a canvas, and
+ * returns a data-URL (PNG).  Falls back to null if the browser cannot decode
+ * the blob (e.g. in headless environments).
+ */
+export async function generateClipThumbnail(meta: ClipMeta): Promise<string | null> {
+  const blob = await loadBlob(meta.id);
+  if (!blob) return null;
+  return new Promise((resolve) => {
+    const url = URL.createObjectURL(blob);
+    const video = document.createElement('video');
+    video.muted = true;
+    video.preload = 'metadata';
+    video.src = url;
+
+    const cleanup = () => URL.revokeObjectURL(url);
+
+    video.onerror = () => { cleanup(); resolve(null); };
+
+    video.onloadedmetadata = () => {
+      const seekTo = video.duration > 0 ? video.duration * 0.5 : 0;
+      video.currentTime = seekTo;
+    };
+
+    video.onseeked = () => {
+      try {
+        const canvas = document.createElement('canvas');
+        canvas.width = 320;
+        canvas.height = 180;
+        const ctx = canvas.getContext('2d');
+        if (!ctx) { cleanup(); resolve(null); return; }
+        ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+        cleanup();
+        resolve(canvas.toDataURL('image/png'));
+      } catch {
+        cleanup();
+        resolve(null);
+      }
+    };
+  });
 }
 
 /** Format seconds as mm:ss */

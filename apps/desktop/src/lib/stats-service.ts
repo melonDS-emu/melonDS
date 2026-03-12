@@ -67,6 +67,17 @@ export interface LeaderboardEntry {
 
 export type LeaderboardMetric = 'sessions' | 'playtime' | 'games' | 'systems';
 
+/** Summary of a tournament a player participated in. */
+export interface PlayerTournamentEntry {
+  id: string;
+  name: string;
+  gameTitle: string;
+  status: string;
+  winner: string | null;
+  playerCount: number;
+  createdAt: string;
+}
+
 // ─── API calls ────────────────────────────────────────────────────────────
 
 /** Fetch all achievement definitions. */
@@ -122,6 +133,21 @@ export async function fetchLeaderboard(
     );
     if (!res.ok) return [];
     return res.json() as Promise<LeaderboardEntry[]>;
+  } catch {
+    return [];
+  }
+}
+
+/** Fetch tournament history for a player by display name. */
+export async function fetchPlayerTournaments(
+  displayName: string
+): Promise<PlayerTournamentEntry[]> {
+  try {
+    const res = await fetch(
+      `${API_BASE}/api/tournaments/player/${encodeURIComponent(displayName)}`
+    );
+    if (!res.ok) return [];
+    return res.json() as Promise<PlayerTournamentEntry[]>;
   } catch {
     return [];
   }

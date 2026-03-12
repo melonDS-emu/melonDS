@@ -9,9 +9,11 @@ type StatusFilter = 'all' | 'online' | 'in-game';
 
 export function FriendsPage() {
   const { friends, recentActivity } = usePresence();
-  const { joinByCode, joinAsSpectator } = useLobby();
+  const { joinByCode, joinAsSpectator, pendingFriendRequests, acceptFriendRequest, declineFriendRequest, sendFriendRequest } = useLobby();
   const [filter, setFilter] = useState<StatusFilter>('all');
   const [joinTarget, setJoinTarget] = useState<FriendInfo | null>(null);
+  const [addInput, setAddInput] = useState('');
+  const [addStatus, setAddStatus] = useState('');
 
   const filtered = friends.filter((f) => {
     if (filter === 'online') return f.status === 'online' || f.status === 'in-game' || f.status === 'idle';
@@ -33,6 +35,15 @@ export function FriendsPage() {
     setJoinTarget(null);
   }
 
+  function handleSendRequest() {
+    const id = addInput.trim();
+    if (!id) return;
+    sendFriendRequest(id);
+    setAddInput('');
+    setAddStatus('Request sent!');
+    setTimeout(() => setAddStatus(''), 3000);
+  }
+
   return (
     <div className="space-y-8 max-w-4xl">
       {/* Header */}
@@ -44,6 +55,83 @@ export function FriendsPage() {
           {inGame.length} in game · {online.length} online · {idle.length} idle
         </p>
       </div>
+
+      {/* Add Friend */}
+      <section>
+        <h2 className="text-base font-bold mb-2" style={{ color: 'var(--color-oasis-accent-light)' }}>
+          ➕ Add Friend
+        </h2>
+        <div className="flex gap-2 items-center">
+          <input
+            value={addInput}
+            onChange={(e) => setAddInput(e.target.value)}
+            onKeyDown={(e) => e.key === 'Enter' && handleSendRequest()}
+            placeholder="Player ID…"
+            className="rounded-xl px-3 py-2 text-sm border-0 focus:outline-none flex-1 max-w-xs"
+            style={{ backgroundColor: 'var(--color-oasis-card)', color: 'var(--color-oasis-text)' }}
+          />
+          <button
+            onClick={handleSendRequest}
+            disabled={!addInput.trim()}
+            className="text-sm font-bold px-4 py-2 rounded-xl transition-opacity"
+            style={{ backgroundColor: 'var(--color-oasis-accent)', color: '#fff', opacity: addInput.trim() ? 1 : 0.5 }}
+          >
+            Send Request
+          </button>
+          {addStatus && (
+            <span className="text-xs" style={{ color: 'var(--color-oasis-accent-light)' }}>
+              {addStatus}
+            </span>
+          )}
+        </div>
+      </section>
+
+      {/* Pending Friend Requests */}
+      {pendingFriendRequests.length > 0 && (
+        <section>
+          <h2 className="text-base font-bold mb-3" style={{ color: 'var(--color-oasis-accent-light)' }}>
+            📬 Friend Requests ({pendingFriendRequests.length})
+          </h2>
+          <div className="rounded-2xl overflow-hidden" style={{ backgroundColor: 'var(--color-oasis-card)' }}>
+            {pendingFriendRequests.map((req, i) => (
+              <div
+                key={req.requestId}
+                className="px-4 py-3 flex items-center gap-3"
+                style={{ borderTop: i > 0 ? '1px solid rgba(255,255,255,0.06)' : undefined }}
+              >
+                <div
+                  className="w-9 h-9 rounded-full flex items-center justify-center text-sm font-bold flex-shrink-0"
+                  style={{ backgroundColor: avatarColor(req.fromId), color: 'white' }}
+                >
+                  {req.fromDisplayName[0]?.toUpperCase() ?? '?'}
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-semibold" style={{ color: 'var(--color-oasis-text)' }}>
+                    {req.fromDisplayName}
+                  </p>
+                  <p className="text-xs" style={{ color: 'var(--color-oasis-text-muted)' }}>
+                    wants to be your friend
+                  </p>
+                </div>
+                <button
+                  onClick={() => acceptFriendRequest(req.requestId)}
+                  className="text-xs font-bold px-3 py-1.5 rounded-lg"
+                  style={{ backgroundColor: 'var(--color-oasis-green)', color: '#0a0a0a' }}
+                >
+                  ✓ Accept
+                </button>
+                <button
+                  onClick={() => declineFriendRequest(req.requestId)}
+                  className="text-xs font-bold px-3 py-1.5 rounded-lg"
+                  style={{ backgroundColor: 'var(--color-oasis-surface)', color: 'var(--color-oasis-text-muted)' }}
+                >
+                  ✕
+                </button>
+              </div>
+            ))}
+          </div>
+        </section>
+      )}
 
       {/* Joinable sessions spotlight */}
       {inGame.filter((f) => f.isJoinable).length > 0 && (
