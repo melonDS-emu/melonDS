@@ -5,12 +5,12 @@ import { useLobby } from '../context/LobbyContext';
 import { JoinRoomModal } from './JoinRoomModal';
 import { ToastContainer } from './ToastContainer';
 import type { FriendInfo } from '@retro-oasis/presence-client';
-
 const NAV_ITEMS = [
   { path: '/',             label: 'Home',        icon: '🏠' },
   { path: '/library',      label: 'Library',     icon: '🎮' },
   { path: '/friends',      label: 'Friends',     icon: '👥' },
   { path: '/tournaments',  label: 'Tournaments', icon: '🏆' },
+  { path: '/clips',        label: 'Clips',       icon: '🎬' },
   { path: '/saves',        label: 'Saves',       icon: '💾' },
   { path: '/profile',      label: 'Profile',     icon: '👤' },
   { path: '/settings',     label: 'Settings',    icon: '⚙️' },
@@ -20,7 +20,7 @@ export function Layout() {
   const location = useLocation();
   const navigate = useNavigate();
   const { onlineFriends } = usePresence();
-  const { joinByCode, joinAsSpectator, currentRoom } = useLobby();
+  const { joinByCode, joinAsSpectator, currentRoom, pendingFriendRequests } = useLobby();
   const [pendingFriend, setPendingFriend] = useState<FriendInfo | null>(null);
 
   useEffect(() => {
@@ -105,6 +105,15 @@ export function Layout() {
                     style={{ backgroundColor: 'var(--color-oasis-green)', color: '#0a0a0a' }}
                   >
                     {onlineCount}
+                  </span>
+                )}
+                {item.path === '/friends' && pendingFriendRequests.length > 0 && (
+                  <span
+                    className="text-[9px] font-black px-1.5 py-0.5 rounded-full min-w-[18px] text-center"
+                    style={{ backgroundColor: 'var(--color-oasis-accent)', color: '#fff' }}
+                    title={`${pendingFriendRequests.length} pending friend request${pendingFriendRequests.length !== 1 ? 's' : ''}`}
+                  >
+                    {pendingFriendRequests.length}
                   </span>
                 )}
               </Link>

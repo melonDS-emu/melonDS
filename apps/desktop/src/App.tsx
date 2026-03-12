@@ -9,6 +9,7 @@ import { FriendsPage } from './pages/FriendsPage';
 import { SettingsPage } from './pages/SettingsPage';
 import { ProfilePage } from './pages/ProfilePage';
 import { TournamentsPage } from './pages/TournamentsPage';
+import { ClipsPage } from './pages/ClipsPage';
 
 export function App() {
   return (
@@ -23,6 +24,7 @@ export function App() {
         <Route path="/settings" element={<SettingsPage />} />
         <Route path="/profile" element={<ProfilePage />} />
         <Route path="/tournaments" element={<TournamentsPage />} />
+        <Route path="/clips" element={<ClipsPage />} />
       </Route>
     </Routes>
   );

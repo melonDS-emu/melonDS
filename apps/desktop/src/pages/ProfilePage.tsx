@@ -4,12 +4,14 @@ import {
   fetchPlayerAchievements,
   fetchPlayerStats,
   fetchLeaderboard,
+  fetchPlayerTournaments,
   formatDuration,
   type AchievementDef,
   type PlayerAchievement,
   type PlayerStats,
   type LeaderboardEntry,
   type LeaderboardMetric,
+  type PlayerTournamentEntry,
 } from '../lib/stats-service';
 
 // ─── Category config ──────────────────────────────────────────────────────────
@@ -108,6 +110,7 @@ export function ProfilePage() {
   const [leaderboard, setLeaderboard] = useState<LeaderboardEntry[]>([]);
   const [lbMetric, setLbMetric] = useState<LeaderboardMetric>('sessions');
   const [activeCategory, setActiveCategory] = useState<string>('all');
+  const [tournaments, setTournaments] = useState<PlayerTournamentEntry[]>([]);
   const [loading, setLoading] = useState(false);
 
   const load = useCallback(
@@ -115,14 +118,16 @@ export function ProfilePage() {
       if (!name) return;
       setLoading(true);
       try {
-        const [defsData, earnedData, statsData] = await Promise.all([
+        const [defsData, earnedData, statsData, tourneyData] = await Promise.all([
           fetchAchievementDefs(),
           fetchPlayerAchievements(name),
           fetchPlayerStats(name),
+          fetchPlayerTournaments(name),
         ]);
         setDefs(defsData);
         setEarned(earnedData);
         setStats(statsData);
+        setTournaments(tourneyData);
       } finally {
         setLoading(false);
       }
@@ -319,6 +324,53 @@ export function ProfilePage() {
                 earned={earnedMap.get(def.id)}
               />
             ))}
+          </div>
+        </section>
+      )}
+
+      {/* Tournament History */}
+      {tournaments.length > 0 && (
+        <section>
+          <h2 className="text-base font-bold mb-3" style={{ color: 'var(--color-oasis-text)' }}>
+            🏅 Tournament History
+          </h2>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            {tournaments.map((t) => {
+              const isWinner = t.winner === activeName;
+              const isFinal = t.status === 'completed';
+              return (
+                <div
+                  key={t.id}
+                  className="rounded-xl p-4 flex gap-3 items-start"
+                  style={{
+                    backgroundColor: 'var(--color-oasis-card)',
+                    border: isWinner ? '1px solid #FFD700' : '1px solid transparent',
+                  }}
+                >
+                  <span className="text-2xl">{isWinner ? '🥇' : isFinal ? '🏅' : '🎮'}</span>
+                  <div className="min-w-0 flex-1">
+                    <p className="text-sm font-semibold truncate" style={{ color: 'var(--color-oasis-text)' }}>
+                      {t.name}
+                    </p>
+                    <p className="text-xs mt-0.5 truncate" style={{ color: 'var(--color-oasis-text-muted)' }}>
+                      {t.gameTitle} · {t.playerCount} players
+                    </p>
+                    <p className="text-[10px] mt-1" style={{ color: isWinner ? '#FFD700' : 'var(--color-oasis-text-muted)' }}>
+                      {isWinner
+                        ? '🏆 Winner'
+                        : isFinal && t.winner
+                          ? `Won by ${t.winner}`
+                          : t.status === 'active'
+                            ? '⚔️ In progress'
+                            : 'Pending'}
+                    </p>
+                  </div>
+                  <span className="text-[10px] flex-shrink-0" style={{ color: 'var(--color-oasis-text-muted)' }}>
+                    {new Date(t.createdAt).toLocaleDateString()}
+                  </span>
+                </div>
+              );
+            })}
           </div>
         </section>
       )}

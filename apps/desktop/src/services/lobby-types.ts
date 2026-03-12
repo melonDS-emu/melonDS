@@ -59,7 +59,13 @@ export type ClientMessage =
   | { type: 'list-rooms' }
   | { type: 'start-game'; payload: { roomId: string } }
   | { type: 'chat'; payload: { roomId: string; content: string } }
-  | { type: 'ping'; payload: { sentAt: number } };
+  | { type: 'ping'; payload: { sentAt: number } }
+  /** Phase 8: identity + social graph */
+  | { type: 'register-identity'; payload: { identityToken?: string; displayName: string } }
+  | { type: 'friend-request'; payload: { toPlayerId: string } }
+  | { type: 'friend-request-accept'; payload: { requestId: string } }
+  | { type: 'friend-request-decline'; payload: { requestId: string } }
+  | { type: 'friend-remove'; payload: { friendId: string } };
 
 export interface CreateRoomPayload {
   name: string;
@@ -91,7 +97,13 @@ export type ServerMessage =
   | { type: 'pong'; sentAt: number; serverAt: number }
   | { type: 'presence-update'; players: PresencePlayer[] }
   /** Phase 9: achievement unlocked */
-  | { type: 'achievement-unlocked'; achievementId: string; name: string; description: string; icon: string };
+  | { type: 'achievement-unlocked'; achievementId: string; name: string; description: string; icon: string }
+  /** Phase 8: social graph events */
+  | { type: 'friend-request-received'; requestId: string; fromId: string; fromDisplayName: string }
+  | { type: 'friend-request-accepted'; requestId: string; byId: string; byDisplayName: string }
+  | { type: 'friend-request-declined'; requestId: string }
+  | { type: 'friend-status-update'; friendId: string; status: string; roomCode?: string; gameTitle?: string }
+  | { type: 'identity-registered'; persistentId: string; displayName: string };
 
 export interface PresencePlayer {
   playerId: string;

@@ -164,6 +164,41 @@ export function openDatabase(path = ':memory:'): DatabaseType {
       display_name     TEXT NOT NULL,
       last_checked_at  TEXT NOT NULL
     );
+
+    -- -----------------------------------------------------------------------
+    -- Tournament persistence (Phase 11)
+    -- -----------------------------------------------------------------------
+    CREATE TABLE IF NOT EXISTS tournaments (
+      id          TEXT PRIMARY KEY,
+      name        TEXT NOT NULL,
+      game_id     TEXT NOT NULL,
+      game_title  TEXT NOT NULL,
+      system      TEXT NOT NULL,
+      status      TEXT NOT NULL DEFAULT 'pending',
+      winner      TEXT,
+      created_at  TEXT NOT NULL,
+      updated_at  TEXT NOT NULL
+    );
+
+    CREATE TABLE IF NOT EXISTS tournament_players (
+      tournament_id TEXT NOT NULL,
+      display_name  TEXT NOT NULL,
+      seed          INTEGER NOT NULL,
+      PRIMARY KEY (tournament_id, display_name),
+      FOREIGN KEY (tournament_id) REFERENCES tournaments(id) ON DELETE CASCADE
+    );
+
+    CREATE TABLE IF NOT EXISTS tournament_matches (
+      id            TEXT PRIMARY KEY,
+      tournament_id TEXT NOT NULL,
+      round         INTEGER NOT NULL,
+      slot          INTEGER NOT NULL,
+      player_a      TEXT,
+      player_b      TEXT,
+      winner        TEXT,
+      status        TEXT NOT NULL DEFAULT 'pending',
+      FOREIGN KEY (tournament_id) REFERENCES tournaments(id) ON DELETE CASCADE
+    );
   `);
 
   return db;
