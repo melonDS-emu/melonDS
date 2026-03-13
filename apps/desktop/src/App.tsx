@@ -12,6 +12,7 @@ import { TournamentsPage } from './pages/TournamentsPage';
 import { ClipsPage } from './pages/ClipsPage';
 import { PokemonPage } from './pages/PokemonPage';
 import { MarioKartPage } from './pages/MarioKartPage';
+import { MarioSportsPage } from './pages/MarioSportsPage';
 
 export function App() {
   return (
@@ -29,6 +30,7 @@ export function App() {
         <Route path="/clips" element={<ClipsPage />} />
         <Route path="/pokemon" element={<PokemonPage />} />
         <Route path="/mario-kart" element={<MarioKartPage />} />
+        <Route path="/mario-sports" element={<MarioSportsPage />} />
       </Route>
     </Routes>
   );
