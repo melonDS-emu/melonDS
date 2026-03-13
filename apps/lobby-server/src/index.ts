@@ -23,6 +23,8 @@ import { computePlayerStats, computeLeaderboard } from './player-stats';
 import type { LeaderboardMetric } from './player-stats';
 import { TournamentStore } from './tournament-store';
 import { SqliteTournamentStore } from './sqlite-tournament-store';
+import { WFC_PROVIDERS } from './wfc-config';
+import { FriendCodeStore, validateFriendCode } from './friend-code-store';
 
 const PORT = parseInt(process.env.PORT ?? '8080', 10);
 /** Public hostname/IP players use to reach the relay (surfaced in game-starting events). */
@@ -60,6 +62,7 @@ if (USE_SQLITE) {
 const netplayRelay = new NetplayRelay();
 const emulatorBridge = new EmulatorBridge();
 const gameCatalog = new GameCatalog();
+const friendCodeStore = new FriendCodeStore();
 const achievementStore: AchievementStore | SqliteAchievementStore = USE_SQLITE
   ? new SqliteAchievementStore(getDatabase())
   : new AchievementStore();
@@ -773,6 +776,87 @@ async function httpHandler(req: http.IncomingMessage, res: http.ServerResponse):
     }));
     json(res, 200, result);
     return;
+  }
+
+  // ─── WFC Provider API ────────────────────────────────────────────────────
+  //   GET /api/wfc/providers        — list all WFC providers
+  //   GET /api/wfc/providers/:id    — get a specific provider
+  // ─────────────────────────────────────────────────────────────────────────
+  if (pathname === '/api/wfc/providers' && req.method === 'GET') {
+    json(res, 200, WFC_PROVIDERS);
+    return;
+  }
+
+  const wfcProviderMatch = pathname.match(/^\/api\/wfc\/providers\/([^/]+)$/);
+  if (wfcProviderMatch && req.method === 'GET') {
+    const providerId = decodeURIComponent(wfcProviderMatch[1]);
+    const provider = WFC_PROVIDERS.find((p) => p.id === providerId);
+    if (!provider) {
+      json(res, 404, { error: 'WFC provider not found' });
+      return;
+    }
+    json(res, 200, provider);
+    return;
+  }
+
+  // ─── Friend Codes API ─────────────────────────────────────────────────────
+  //   GET    /api/friend-codes?gameId=<id>          — all codes for a game
+  //   GET    /api/friend-codes?player=<name>        — all codes for a player
+  //   POST   /api/friend-codes                      — register/update a code
+  //   DELETE /api/friend-codes?player=<n>&gameId=<g> — remove a code
+  // ─────────────────────────────────────────────────────────────────────────
+  if (pathname === '/api/friend-codes') {
+    if (req.method === 'GET') {
+      const { gameId, player } = parsedUrl.query;
+      if (typeof gameId === 'string') {
+        json(res, 200, friendCodeStore.getByGame(gameId));
+      } else if (typeof player === 'string') {
+        json(res, 200, friendCodeStore.getByPlayer(player));
+      } else {
+        json(res, 200, friendCodeStore.getAll());
+      }
+      return;
+    }
+
+    if (req.method === 'POST') {
+      let body: Record<string, unknown>;
+      try {
+        const raw = await readBody(req);
+        body = JSON.parse(raw) as Record<string, unknown>;
+      } catch {
+        json(res, 400, { error: 'Invalid JSON body' });
+        return;
+      }
+      const { displayName, gameId, gameTitle, code } = body as {
+        displayName?: string;
+        gameId?: string;
+        gameTitle?: string;
+        code?: string;
+      };
+      if (!displayName || !gameId || !gameTitle || !code) {
+        json(res, 400, { error: '"displayName", "gameId", "gameTitle", and "code" are required' });
+        return;
+      }
+      const codeError = validateFriendCode(code);
+      if (codeError) {
+        json(res, 400, { error: codeError });
+        return;
+      }
+      const entry = friendCodeStore.put(displayName, gameId, gameTitle, code);
+      json(res, 201, entry);
+      return;
+    }
+
+    if (req.method === 'DELETE') {
+      const { player, gameId } = parsedUrl.query;
+      if (!player || typeof player !== 'string' || !gameId || typeof gameId !== 'string') {
+        json(res, 400, { error: 'Query params "player" and "gameId" are required' });
+        return;
+      }
+      const ok = friendCodeStore.delete(player, gameId);
+      json(res, ok ? 200 : 404, ok ? { deleted: true } : { error: 'Friend code not found' });
+      return;
+    }
   }
 
   json(res, 404, { error: 'Not found' });
