@@ -10,6 +10,14 @@ import { usePresence } from '../context/PresenceContext';
 import { activityEmoji, activityVerb, relativeTime } from '../lib/presence-utils';
 import { fetchLeaderboard, type LeaderboardEntry } from '../lib/stats-service';
 import { listClipMeta, formatClipDuration, type ClipMeta } from '../lib/clip-service';
+import {
+  fetchCurrentEvents,
+  fetchFeaturedGames,
+  themeGradient,
+  themeAccent,
+  type SeasonalEvent,
+  type FeaturedGame,
+} from '../lib/events-service';
 import type { Room } from '../services/lobby-types';
 import type { FriendInfo } from '@retro-oasis/presence-client';
 
@@ -22,6 +30,8 @@ export function HomePage() {
   const [joinFriend, setJoinFriend] = useState<FriendInfo | null>(null);
   const [topPlayers, setTopPlayers] = useState<LeaderboardEntry[]>([]);
   const [recentClips, setRecentClips] = useState<ClipMeta[]>([]);
+  const [activeEvents, setActiveEvents] = useState<SeasonalEvent[]>([]);
+  const [featuredGames, setFeaturedGames] = useState<FeaturedGame[]>([]);
 
   const { data: allGames } = useGames();
   const n64PartyGames = allGames.filter((g) => g.system === 'N64' && g.tags.includes('Party'));
@@ -39,6 +49,11 @@ export function HomePage() {
 
   useEffect(() => {
     setRecentClips(listClipMeta().slice(0, 3));
+  }, []);
+
+  useEffect(() => {
+    fetchCurrentEvents().then((d) => setActiveEvents(d.active)).catch(() => {});
+    fetchFeaturedGames().then(setFeaturedGames).catch(() => {});
   }, []);
 
   useEffect(() => {
@@ -146,6 +161,50 @@ export function HomePage() {
         </div>
       </div>
 
+      {/* ── Seasonal Event Banner ── */}
+      {activeEvents.length > 0 && (
+        <div
+          className="rounded-3xl p-5 flex items-start gap-4"
+          style={{
+            background: themeGradient(activeEvents[0].theme),
+            border: `1px solid ${themeAccent(activeEvents[0].theme)}44`,
+          }}
+        >
+          <span className="text-3xl flex-shrink-0">{activeEvents[0].emoji}</span>
+          <div className="flex-1 min-w-0">
+            <div className="flex items-center gap-2 mb-1">
+              <h2 className="font-black text-base" style={{ color: '#fff' }}>
+                {activeEvents[0].name}
+              </h2>
+              <span
+                className="text-xs font-black px-2 py-0.5 rounded-full"
+                style={{ backgroundColor: `${themeAccent(activeEvents[0].theme)}22`, color: themeAccent(activeEvents[0].theme) }}
+              >
+                ● Live Now
+              </span>
+              {(activeEvents[0].xpMultiplier ?? 1) > 1 && (
+                <span
+                  className="text-xs font-black px-2 py-0.5 rounded-full"
+                  style={{ backgroundColor: 'rgba(255,179,0,0.15)', color: 'var(--color-oasis-yellow)' }}
+                >
+                  ⚡ {activeEvents[0].xpMultiplier}× Stats
+                </span>
+              )}
+            </div>
+            <p className="text-sm" style={{ color: 'var(--color-oasis-text-muted)' }}>
+              {activeEvents[0].description}
+            </p>
+          </div>
+          <Link
+            to="/events"
+            className="flex-shrink-0 text-xs font-black px-3 py-1.5 rounded-full transition-all hover:brightness-110"
+            style={{ backgroundColor: themeAccent(activeEvents[0].theme), color: '#000' }}
+          >
+            Details →
+          </Link>
+        </div>
+      )}
+
       {/* ── Joinable Lobbies ── */}
       <section>
         <SectionHeader
@@ -170,6 +229,34 @@ export function HomePage() {
           />
         )}
       </section>
+
+      {/* ── Featured Games This Week ── */}
+      {featuredGames.length > 0 && (
+        <section>
+          <SectionHeader
+            title="⭐ Featured This Week"
+            action={<Link to="/events" className="text-xs font-bold" style={{ color: 'var(--color-oasis-text-muted)' }}>All Events →</Link>}
+          />
+          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-2">
+            {featuredGames.map((g) => (
+              <Link
+                key={g.gameId}
+                to={`/game/${g.gameId}`}
+                className="rounded-2xl p-3 flex flex-col items-center gap-1.5 text-center hover:brightness-110 transition-all n-card"
+                style={{ backgroundColor: 'var(--color-oasis-card)', border: '1px solid var(--n-border)' }}
+              >
+                <span className="text-2xl">{g.emoji}</span>
+                <p className="text-xs font-black leading-tight" style={{ color: 'var(--color-oasis-text)' }}>
+                  {g.gameTitle}
+                </p>
+                <p className="text-[10px] font-semibold" style={{ color: 'var(--color-oasis-text-muted)' }}>
+                  {g.reason}
+                </p>
+              </Link>
+            ))}
+          </div>
+        </section>
+      )}
 
       {/* ── Friends Playing Now ── */}
       {joinableSessions.length > 0 && (

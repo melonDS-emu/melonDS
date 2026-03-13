@@ -19,6 +19,8 @@ export interface Room {
   createdAt: string;
   /** Netplay relay port assigned when game starts, if relay mode is used. */
   relayPort?: number;
+  /** Optional visual theme chosen by the host (e.g. 'spring', 'summer', 'neon', 'classic'). */
+  theme?: string;
 }
 
 export interface RoomPlayer {
@@ -69,6 +71,8 @@ export interface CreateRoomPayload {
   isPublic: boolean;
   maxPlayers: number;
   displayName: string;
+  /** Optional visual theme for the room (e.g. 'spring', 'neon'). */
+  theme?: string;
 }
 
 export interface JoinRoomPayload {

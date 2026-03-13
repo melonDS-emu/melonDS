@@ -5,6 +5,7 @@ import { MOCK_GAMES } from '../data/mock-games';
 import type { ConnectionQuality } from '../services/lobby-types';
 import { DSControlsGuide } from '../components/DSControlsGuide';
 import { useVoiceChat } from '../lib/voice-chat';
+import { themeGradient, themeAccent, themeLabel } from '../lib/events-service';
 
 function qualityDot(quality: ConnectionQuality): { color: string; label: string; text: string } {
   switch (quality) {
@@ -245,13 +246,27 @@ export function LobbyPage() {
         </div>
       </div>
 
-      <div className="rounded-2xl p-6" style={{ backgroundColor: 'var(--color-oasis-card)' }}>
+      <div
+        className="rounded-2xl p-6"
+        style={{
+          background: room.theme ? themeGradient(room.theme) : 'var(--color-oasis-card)',
+          border: room.theme ? `1px solid ${themeAccent(room.theme)}44` : undefined,
+        }}
+      >
         <div className="flex items-center justify-between mb-4">
           <div>
             <h1 className="text-xl font-bold">{room.name}</h1>
             <p className="text-sm" style={{ color: 'var(--color-oasis-text-muted)' }}>
               {room.gameTitle} · {room.system.toUpperCase()}
             </p>
+            {room.theme && (
+              <span
+                className="text-[10px] px-1.5 py-0.5 rounded mt-1 inline-block font-semibold"
+                style={{ backgroundColor: `${themeAccent(room.theme)}22`, color: themeAccent(room.theme) }}
+              >
+                {themeLabel(room.theme)}
+              </span>
+            )}
             {isSpectating && (
               <span
                 className="text-[10px] px-1.5 py-0.5 rounded mt-1 inline-block font-semibold"

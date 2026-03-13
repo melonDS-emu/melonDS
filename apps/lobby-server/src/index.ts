@@ -25,6 +25,8 @@ import { TournamentStore } from './tournament-store';
 import { SqliteTournamentStore } from './sqlite-tournament-store';
 import { WFC_PROVIDERS } from './wfc-config';
 import { FriendCodeStore, validateFriendCode } from './friend-code-store';
+import { SEASONAL_EVENTS, getActiveEvents, getNextEvent } from './seasonal-events';
+import { getFeaturedGames } from './featured-games';
 
 const PORT = parseInt(process.env.PORT ?? '8080', 10);
 /** Public hostname/IP players use to reach the relay (surfaced in game-starting events). */
@@ -857,6 +859,31 @@ async function httpHandler(req: http.IncomingMessage, res: http.ServerResponse):
       json(res, ok ? 200 : 404, ok ? { deleted: true } : { error: 'Friend code not found' });
       return;
     }
+  }
+
+  // ---------------------------------------------------------------------------
+  // Seasonal Events & Featured Games API  (Phase 13)
+  //   GET /api/events              — all seasonal events
+  //   GET /api/events/current      — events active today
+  //   GET /api/games/featured      — featured games for the current week
+  // ---------------------------------------------------------------------------
+
+  if (req.method === 'GET' && pathname === '/api/events') {
+    const next = getNextEvent();
+    json(res, 200, { events: SEASONAL_EVENTS, nextEvent: next ?? null });
+    return;
+  }
+
+  if (req.method === 'GET' && pathname === '/api/events/current') {
+    const active = getActiveEvents();
+    const next = getNextEvent();
+    json(res, 200, { active, nextEvent: next ?? null });
+    return;
+  }
+
+  if (req.method === 'GET' && pathname === '/api/games/featured') {
+    json(res, 200, { featured: getFeaturedGames() });
+    return;
   }
 
   json(res, 404, { error: 'Not found' });

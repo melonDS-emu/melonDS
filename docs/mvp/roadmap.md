@@ -12,6 +12,7 @@
 > - Phase 10 tournaments (single-elimination bracket engine, REST + WS push, desktop Tournament page, winner achievements) and clip sharing (MediaRecorder service, IndexedDB storage, export, home page widget) are now complete.
 > - Phase 11 clip library (`/clips`), live friend presence, live friend request UI, notification badges, `SqliteTournamentStore`, and tournament history in Profile page are now complete.
 > - Phase 12 WFC auto-config (Wiimmfi + AltWFC, `GET /api/wfc/providers`), Pokémon Online page (`/pokemon` — Trade Lobby, Battle Lobby, Friend Codes), and Mario Kart DS matchmaking page (`/mario-kart` — Quick Race, Public Rooms, Ranked Races) are now complete.
+> - Phase 13 Seasonal Events, Featured Games & Custom Room Themes are now complete. REST: `GET /api/events`, `GET /api/events/current`, `GET /api/games/featured`. Events page (`/events`), home page seasonal banner + featured games widget, theme picker in HostRoomModal, themed lobby cards.
 > - **Next: further phases — see Future Ideas section below.**
 
 ## Phase 1 — Foundation (Complete)
@@ -262,9 +263,9 @@
 
 ## Future Ideas
 - Tournament-style rooms
-- Seasonal featured games
+- ~~Seasonal featured games~~ ✓ Phase 13
 - Ranked/casual matchmaking tags
-- Custom room themes
+- ~~Custom room themes~~ ✓ Phase 13
 - Game clip sharing
 - Mobile companion app
 
@@ -364,3 +365,40 @@
   - Ranked Races: join 4-player ranked queue, leaderboard from session history
 - [x] Mario Kart nav item added to sidebar (🏎️ Mario Kart)
 - [x] WFC auto-config badge in MK page explains zero-setup DNS
+
+## Phase 13 — Seasonal Events, Featured Games & Custom Room Themes
+
+**Goal:** Add a living community layer — weekly featured-game rotations, date-bounded seasonal events, and host-chosen room themes that give each lobby a visual identity.
+
+### Milestones
+
+#### Phase 13a — Seasonal Events
+- [x] `seasonal-events.ts` — `SeasonalEvent` interface + 5 seeded events (Spring/Summer/Fall/Winter 2026, Spring 2027)
+- [x] `getActiveEvents(date?)` — returns currently active events; `getNextEvent(date?)` — returns the next upcoming event
+- [x] `REST GET /api/events` — all events + `nextEvent` pointer
+- [x] `REST GET /api/events/current` — active events + `nextEvent`
+- [x] `xpMultiplier` field on events (cosmetic multiplier shown in UI; stat weighting is future work)
+
+#### Phase 13b — Weekly Featured Games
+- [x] `featured-games.ts` — static pool of 20 curated entries (Racing, Fighting, Party, Pokémon, Puzzle, Adventure, Action)
+- [x] `getFeaturedGames(date?)` — deterministic ISO-week rotation; 6 different games shown each week
+- [x] `REST GET /api/games/featured` — current week's featured games
+- [x] Home page **⭐ Featured This Week** widget — 6-column card grid, links to game detail pages
+
+#### Phase 13c — Custom Room Themes
+- [x] `theme?: string` added to `Room` and `CreateRoomPayload` types (server + desktop)
+- [x] SQLite migration: `ALTER TABLE rooms ADD COLUMN theme TEXT` (idempotent, Phase 13 upgrade)
+- [x] `LobbyManager` and `SqliteLobbyManager` `createRoom` accept optional `theme`
+- [x] `handler.ts` `create-room` case passes `theme` from payload
+- [x] 6 themes: `classic`, `spring`, `summer`, `fall`, `winter`, `neon`
+- [x] `HostRoomModal` theme picker — 3-column grid of styled buttons; `classic` is the default (omitted from payload)
+- [x] `LobbyPage` room card uses themed gradient background + accent border
+
+#### Phase 13d — Client-Side Services & Pages
+- [x] `events-service.ts` — typed fetch wrappers (`fetchAllEvents`, `fetchCurrentEvents`, `fetchFeaturedGames`)
+- [x] Theme helpers: `themeGradient(theme)`, `themeAccent(theme)`, `themeLabel(theme)`, `ROOM_THEMES` constant
+- [x] `EventsPage` (`/events`) — Featured This Week grid + all Seasonal Events with filter tabs (All / Active / Upcoming / Past), status badges, xp-multiplier tag, Room Themes explainer
+- [x] Home page **Seasonal Event Banner** — appears when ≥ 1 event is active; themed gradient, emoji, description, stat multiplier badge, "Details →" link
+- [x] `🎪 Events` nav item added to sidebar in `Layout.tsx`
+- [x] `docs/status/phase-13-events.md` — phase status and known limitations
+- [x] roadmap.md updated with Phase 13 milestones

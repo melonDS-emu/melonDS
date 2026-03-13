@@ -53,6 +53,7 @@ export function openDatabase(path = ':memory:'): DatabaseType {
       max_players INTEGER NOT NULL DEFAULT 4,
       status      TEXT NOT NULL DEFAULT 'waiting',
       relay_port  INTEGER,
+      theme       TEXT,
       created_at  TEXT NOT NULL
     );
 
@@ -200,6 +201,13 @@ export function openDatabase(path = ':memory:'): DatabaseType {
       FOREIGN KEY (tournament_id) REFERENCES tournaments(id) ON DELETE CASCADE
     );
   `);
+
+  // Phase 13 migration: add theme column to rooms if it doesn't already exist.
+  try {
+    db.exec(`ALTER TABLE rooms ADD COLUMN theme TEXT;`);
+  } catch {
+    // Column already exists — safe to ignore.
+  }
 
   return db;
 }
