@@ -25,7 +25,8 @@ export class LobbyManager {
     system: string,
     isPublic: boolean,
     maxPlayers: number,
-    displayName: string
+    displayName: string,
+    theme?: string
   ): Room {
     const roomId = randomUUID();
     const roomCode = generateRoomCode();
@@ -54,6 +55,7 @@ export class LobbyManager {
       spectators: [],
       status: 'waiting',
       createdAt: new Date().toISOString(),
+      theme,
     };
 
     this.rooms.set(roomId, room);

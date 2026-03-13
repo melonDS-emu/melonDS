@@ -13,6 +13,7 @@ import { ClipsPage } from './pages/ClipsPage';
 import { PokemonPage } from './pages/PokemonPage';
 import { MarioKartPage } from './pages/MarioKartPage';
 import { MarioSportsPage } from './pages/MarioSportsPage';
+import { EventsPage } from './pages/EventsPage';
 
 export function App() {
   return (
@@ -31,6 +32,7 @@ export function App() {
         <Route path="/pokemon" element={<PokemonPage />} />
         <Route path="/mario-kart" element={<MarioKartPage />} />
         <Route path="/mario-sports" element={<MarioSportsPage />} />
+        <Route path="/events" element={<EventsPage />} />
       </Route>
     </Routes>
   );

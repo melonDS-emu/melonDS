@@ -153,7 +153,7 @@ export function handleConnection(
 
     switch (msg.type) {
       case 'create-room': {
-        const { name, gameId, gameTitle, system, isPublic, maxPlayers, displayName } = msg.payload;
+        const { name, gameId, gameTitle, system, isPublic, maxPlayers, displayName, theme } = msg.payload;
         const normalizedName = normalizeDisplayName(displayName);
         const nameError = validateDisplayName(normalizedName);
         if (nameError) {
@@ -161,7 +161,7 @@ export function handleConnection(
           break;
         }
         displayNameToPlayerId.set(normalizedName, playerId);
-        const room = lobby.createRoom(playerId, name, gameId, gameTitle, system, isPublic, maxPlayers, normalizedName);
+        const room = lobby.createRoom(playerId, name, gameId, gameTitle, system, isPublic, maxPlayers, normalizedName, theme);
         const ownerToken = generateOwnerToken(room.id);
         send(ws, { type: 'room-created', room, ownerToken });
         broadcastPresence(lobby, connections);

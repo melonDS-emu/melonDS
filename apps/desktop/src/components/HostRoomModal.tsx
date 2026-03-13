@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useGames } from '../lib/use-games';
+import { ROOM_THEMES, themeAccent } from '../lib/events-service';
 import type { CreateRoomPayload } from '../services/lobby-types';
 
 const NDS_LAYOUT_KEY = 'retro-oasis-nds-screen-layout';
@@ -30,6 +31,7 @@ export function HostRoomModal({ preselectedGameId, onConfirm, onClose }: HostRoo
   );
   const [isPublic, setIsPublic] = useState(true);
   const [seeded, setSeeded] = useState(false);
+  const [theme, setTheme] = useState<string>('classic');
   const [ndsLayout, setNdsLayout] = useState<NdsScreenLayout>(
     () => (localStorage.getItem(NDS_LAYOUT_KEY) as NdsScreenLayout | null) ?? 'stacked'
   );
@@ -69,6 +71,7 @@ export function HostRoomModal({ preselectedGameId, onConfirm, onClose }: HostRoo
         system: selectedGame.system,
         isPublic,
         maxPlayers: selectedGame.maxPlayers,
+        theme: theme !== 'classic' ? theme : undefined,
       },
       displayName.trim()
     );
@@ -147,6 +150,34 @@ export function HostRoomModal({ preselectedGameId, onConfirm, onClose }: HostRoo
                 color: 'var(--color-oasis-text)',
               }}
             />
+          </div>
+
+          {/* Room theme */}
+          <div>
+            <label className="block text-xs font-semibold mb-2" style={{ color: 'var(--color-oasis-text-muted)' }}>
+              🎨 Room Theme
+            </label>
+            <div className="grid grid-cols-3 gap-1.5">
+              {ROOM_THEMES.map((t) => {
+                const accent = themeAccent(t.id);
+                const selected = theme === t.id;
+                return (
+                  <button
+                    key={t.id}
+                    type="button"
+                    onClick={() => setTheme(t.id)}
+                    className="px-2 py-1.5 rounded-xl text-xs font-semibold transition-all"
+                    style={{
+                      backgroundColor: selected ? `${accent}22` : 'var(--color-oasis-surface)',
+                      color: selected ? accent : 'var(--color-oasis-text-muted)',
+                      border: `1px solid ${selected ? accent : 'transparent'}`,
+                    }}
+                  >
+                    {t.label}
+                  </button>
+                );
+              })}
+            </div>
           </div>
 
           {/* NDS screen layout picker */}
