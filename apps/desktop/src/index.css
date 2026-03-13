@@ -26,6 +26,7 @@
   --gradient-nds:  linear-gradient(135deg, #e60012 0%, #7a0009 100%);
   --gradient-default: linear-gradient(135deg, #3a3a5c 0%, #1a1a2e 100%);
   --n-card-hover: rgba(255, 255, 255, 0.04);
+  --n-border: rgba(255, 255, 255, 0.08);   /* subtle divider / card border */
 }
 
 /* ── Base ── */

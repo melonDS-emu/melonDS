@@ -11,7 +11,7 @@ function setupNotificationMock(permission: NotificationPermission = 'granted') {
   const MockNotification = vi.fn().mockImplementation(function (
     this: Notification,
     title: string,
-    opts?: NotificationOptions,
+    _opts?: NotificationOptions,
   ) {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     (this as any).title = title;

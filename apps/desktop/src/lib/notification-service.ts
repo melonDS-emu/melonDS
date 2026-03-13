@@ -72,9 +72,10 @@ export class NotificationService {
       body: options.body,
       icon: options.icon ?? DEFAULT_ICON,
       tag: options.tag,
-      renotify: options.renotify ?? true,
+      // `renotify` is supported by browsers but missing from older TS DOM types
+      ...(options.renotify !== false && { renotify: true }),
       silent: false,
-    });
+    } as NotificationOptions);
 
     if (options.autoCloseMs != null) {
       setTimeout(() => n.close(), options.autoCloseMs);

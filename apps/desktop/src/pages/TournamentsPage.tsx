@@ -89,7 +89,9 @@ function BracketView({
   tournament: Tournament;
   onRecordResult: (match: TournamentMatch) => void;
 }) {
-  const maxRound = Math.max(...tournament.matches.map((m) => m.round));
+  const maxRound = tournament.matches.length > 0
+    ? Math.max(...tournament.matches.map((m) => m.round))
+    : 0;
   const rounds = Array.from({ length: maxRound }, (_, i) => i + 1);
 
   const roundLabel = (r: number) => {

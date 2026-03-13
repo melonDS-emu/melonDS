@@ -83,11 +83,11 @@ export function LobbyPage() {
   const [showDsGuide, setShowDsGuide] = useState(false);
   const chatEndRef = useRef<HTMLDivElement>(null);
 
-  // Voice chat — resolve peer IDs (all non-spectating players except ourselves)
+  // Voice chat — resolve peer IDs (all players in the room except ourselves)
   const peerIds = useMemo(
     () =>
       (currentRoom?.players ?? [])
-        .filter((p) => p.id !== playerId && !p.isSpectator)
+        .filter((p) => p.id !== playerId)
         .map((p) => p.id),
     [currentRoom?.players, playerId],
   );
@@ -621,7 +621,7 @@ export function LobbyPage() {
               </p>
             ) : (
               roomMessages.map((msg, i) => (
-                <div key={i} className="text-xs">
+                <div key={`${msg.sentAt}-${msg.userId}-${i}`} className="text-xs">
                   <span className="font-semibold" style={{ color: msg.userId === playerId ? 'var(--color-oasis-accent-light)' : 'var(--color-oasis-text)' }}>
                     {msg.displayName}:
                   </span>{' '}
