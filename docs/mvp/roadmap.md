@@ -11,7 +11,8 @@
 > - Phase 9 achievements (20 definitions + 3 tournament achievements), player stats aggregation, global leaderboard, Profile page, SQLite achievement persistence, WebSocket achievement push + desktop toast notifications, and the `/api/achievements/:playerId/refresh` endpoint are now complete.
 > - Phase 10 tournaments (single-elimination bracket engine, REST + WS push, desktop Tournament page, winner achievements) and clip sharing (MediaRecorder service, IndexedDB storage, export, home page widget) are now complete.
 > - Phase 11 clip library (`/clips`), live friend presence, live friend request UI, notification badges, `SqliteTournamentStore`, and tournament history in Profile page are now complete.
-> - **Next: Phase 12 — see Future Ideas section below.**
+> - Phase 12 WFC auto-config (Wiimmfi + AltWFC, `GET /api/wfc/providers`), Pokémon Online page (`/pokemon` — Trade Lobby, Battle Lobby, Friend Codes), and Mario Kart DS matchmaking page (`/mario-kart` — Quick Race, Public Rooms, Ranked Races) are now complete.
+> - **Next: further phases — see Future Ideas section below.**
 
 ## Phase 1 — Foundation (Complete)
 
@@ -334,3 +335,32 @@
 - [x] Tournament SQLite persistence: `SqliteTournamentStore` following the `SqliteSessionHistory` pattern
 - [x] Tournament history in Profile page: tournaments entered, wins, runner-up finishes
 - [x] docs/status/phase-11-clips-presence.md — phase status and feature notes
+
+## Phase 12 — WFC Auto-Config, Pokémon Lobbies & Mario Kart Matchmaking
+
+**Goal:** Make Nintendo DS online play zero-friction — players go from "I have a ROM" to "I'm playing online" with one click, no DNS setup required.
+
+### Phase 12a — WFC Auto-Config
+- [x] `WFC_PROVIDERS` constant (`wfc-config.ts`): Wiimmfi (178.62.43.212) + AltWFC (172.104.88.237) definitions with description, URL, and stable ID
+- [x] `GET /api/wfc/providers` — list all WFC providers; `GET /api/wfc/providers/:id` — single provider lookup
+- [x] `wfcConfig.providerId` field added to `SessionTemplateConfig` — all existing Pokémon/MK DS templates carry `providerId: 'wiimmfi'`
+- [x] Three Mario Kart DS session templates: `nds-mario-kart-ds-4p` (public), `nds-mario-kart-ds-quick-2p` (quick), `nds-mario-kart-ds-ranked-4p` (ranked)
+- [x] `kartMode` field on `SessionTemplateConfig` (`'quick' | 'public' | 'ranked'`) tags MK rooms for UI bucketing
+
+### Phase 12b — Pokémon Online Page (`/pokemon`)
+- [x] `FriendCodeStore` — in-memory DS friend code registry (12-digit, per player per game)
+- [x] `validateFriendCode()` — format validation helper (XXXX-XXXX-XXXX)
+- [x] REST: `GET /api/friend-codes?gameId=<id>`, `GET /api/friend-codes?player=<name>`, `POST /api/friend-codes`, `DELETE /api/friend-codes?player=<n>&gameId=<g>`
+- [x] `PokemonPage` (`/pokemon`): three-tab UI — Trade Lobby, Battle Lobby, Friend Codes
+  - Trade Lobby: WFC auto-config banner, Wiimmfi/AltWFC provider switcher, host-a-trade-room flow, live open-rooms list
+  - Battle Lobby: battle-room host flow, live open-rooms list
+  - Friend Codes: register/display/copy your 12-digit DS codes per game; community codes directory
+- [x] Pokémon nav item added to sidebar (🔴 Pokémon)
+
+### Phase 12c — Mario Kart DS Matchmaking Page (`/mario-kart`)
+- [x] `MarioKartPage` (`/mario-kart`): three-mode UI — Quick Race, Public Rooms, Ranked Races
+  - Quick Race: one-click match via existing open rooms or auto-host + matchmaking queue join
+  - Public Rooms: browse/join all open MK DS rooms; host public race
+  - Ranked Races: join 4-player ranked queue, leaderboard from session history
+- [x] Mario Kart nav item added to sidebar (🏎️ Mario Kart)
+- [x] WFC auto-config badge in MK page explains zero-setup DNS

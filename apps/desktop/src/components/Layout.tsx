@@ -8,6 +8,8 @@ import type { FriendInfo } from '@retro-oasis/presence-client';
 const NAV_ITEMS = [
   { path: '/',             label: 'Home',        icon: '🏠' },
   { path: '/library',      label: 'Library',     icon: '🎮' },
+  { path: '/pokemon',      label: 'Pokémon',     icon: '🔴' },
+  { path: '/mario-kart',   label: 'Mario Kart',  icon: '🏎️' },
   { path: '/friends',      label: 'Friends',     icon: '👥' },
   { path: '/tournaments',  label: 'Tournaments', icon: '🏆' },
   { path: '/clips',        label: 'Clips',       icon: '🎬' },

@@ -10,6 +10,8 @@ import { SettingsPage } from './pages/SettingsPage';
 import { ProfilePage } from './pages/ProfilePage';
 import { TournamentsPage } from './pages/TournamentsPage';
 import { ClipsPage } from './pages/ClipsPage';
+import { PokemonPage } from './pages/PokemonPage';
+import { MarioKartPage } from './pages/MarioKartPage';
 
 export function App() {
   return (
@@ -25,6 +27,8 @@ export function App() {
         <Route path="/profile" element={<ProfilePage />} />
         <Route path="/tournaments" element={<TournamentsPage />} />
         <Route path="/clips" element={<ClipsPage />} />
+        <Route path="/pokemon" element={<PokemonPage />} />
+        <Route path="/mario-kart" element={<MarioKartPage />} />
       </Route>
     </Routes>
   );

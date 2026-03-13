@@ -26,7 +26,18 @@ export interface SessionTemplateConfig {
     dnsServer: string;
     /** Human-readable description of the WFC setup. */
     description: string;
+    /**
+     * Stable ID of the WFC provider (e.g. 'wiimmfi', 'altwfc').
+     * Used by the UI to let players switch providers without touching DNS.
+     * Defaults to 'wiimmfi' when omitted.
+     */
+    providerId?: string;
   };
+  /**
+   * Mario Kart DS matchmaking mode tag.
+   * Used by the MarioKartPage to bucket rooms into Quick / Public / Ranked.
+   */
+  kartMode?: 'quick' | 'public' | 'ranked';
   /**
    * DSi mode — when true, melonDS is launched with --dsi-mode.
    * Requires DSi BIOS files (bios7i.bin, bios9i.bin, nand.bin).
@@ -451,6 +462,7 @@ export const DEFAULT_TEMPLATES: SessionTemplateConfig[] = [
     uiLayoutOptions: { dsScreenLayout: 'stacked' },
     wfcConfig: {
       dnsServer: '178.62.43.212', // Wiimmfi WFC replacement
+      providerId: 'wiimmfi',
       description: 'Uses Wiimmfi for Pokémon Diamond online play (GTS, Battle Tower, Union Room)',
     },
   },
@@ -467,6 +479,7 @@ export const DEFAULT_TEMPLATES: SessionTemplateConfig[] = [
     uiLayoutOptions: { dsScreenLayout: 'stacked' },
     wfcConfig: {
       dnsServer: '178.62.43.212',
+      providerId: 'wiimmfi',
       description: 'Uses Wiimmfi for Pokémon Pearl online play (GTS, Battle Tower, Union Room)',
     },
   },
@@ -483,6 +496,7 @@ export const DEFAULT_TEMPLATES: SessionTemplateConfig[] = [
     uiLayoutOptions: { dsScreenLayout: 'stacked' },
     wfcConfig: {
       dnsServer: '178.62.43.212',
+      providerId: 'wiimmfi',
       description: 'Uses Wiimmfi for Pokémon Platinum online play (GTS, Battle Tower, Union Room)',
     },
   },
@@ -499,6 +513,7 @@ export const DEFAULT_TEMPLATES: SessionTemplateConfig[] = [
     uiLayoutOptions: { dsScreenLayout: 'stacked' },
     wfcConfig: {
       dnsServer: '178.62.43.212',
+      providerId: 'wiimmfi',
       description: 'Uses Wiimmfi for HeartGold/SoulSilver online play',
     },
   },
@@ -514,9 +529,49 @@ export const DEFAULT_TEMPLATES: SessionTemplateConfig[] = [
     netplayMode: 'online-relay',
     latencyTarget: 120,
     uiLayoutOptions: { dsScreenLayout: 'stacked' },
+    kartMode: 'public',
     wfcConfig: {
       dnsServer: '178.62.43.212',
+      providerId: 'wiimmfi',
       description: 'Uses Wiimmfi for Mario Kart DS online racing',
+    },
+  },
+  // Mario Kart DS — Quick Race (2-player, auto-matched)
+  {
+    id: 'nds-mario-kart-ds-quick-2p',
+    gameId: 'nds-mario-kart-ds',
+    system: 'nds',
+    emulatorBackendId: 'melonds',
+    playerCount: 2,
+    controllerMappings: defaultMappings(2),
+    saveRules: NO_SAVE_RULES,
+    netplayMode: 'online-relay',
+    latencyTarget: 100,
+    uiLayoutOptions: { dsScreenLayout: 'stacked' },
+    kartMode: 'quick',
+    wfcConfig: {
+      dnsServer: '178.62.43.212',
+      providerId: 'wiimmfi',
+      description: 'Quick Race — auto-matched 1v1 via Wiimmfi',
+    },
+  },
+  // Mario Kart DS — Ranked Race (4-player, skill-matched)
+  {
+    id: 'nds-mario-kart-ds-ranked-4p',
+    gameId: 'nds-mario-kart-ds',
+    system: 'nds',
+    emulatorBackendId: 'melonds',
+    playerCount: 4,
+    controllerMappings: defaultMappings(4),
+    saveRules: NO_SAVE_RULES,
+    netplayMode: 'online-relay',
+    latencyTarget: 120,
+    uiLayoutOptions: { dsScreenLayout: 'stacked' },
+    kartMode: 'ranked',
+    wfcConfig: {
+      dnsServer: '178.62.43.212',
+      providerId: 'wiimmfi',
+      description: 'Ranked Race — skill-matched 4-player race via Wiimmfi',
     },
   },
   // === New Super Mario Bros. DS ===
@@ -546,6 +601,7 @@ export const DEFAULT_TEMPLATES: SessionTemplateConfig[] = [
     uiLayoutOptions: { dsScreenLayout: 'stacked' },
     wfcConfig: {
       dnsServer: '178.62.43.212',
+      providerId: 'wiimmfi',
       description: 'Uses Wiimmfi for Metroid Prime Hunters online deathmatch',
     },
   },
@@ -563,6 +619,7 @@ export const DEFAULT_TEMPLATES: SessionTemplateConfig[] = [
     uiLayoutOptions: { dsScreenLayout: 'stacked' },
     wfcConfig: {
       dnsServer: '178.62.43.212',
+      providerId: 'wiimmfi',
       description: 'Uses Wiimmfi for Tetris DS online versus',
     },
   },
@@ -593,6 +650,7 @@ export const DEFAULT_TEMPLATES: SessionTemplateConfig[] = [
     uiLayoutOptions: { dsScreenLayout: 'stacked' },
     wfcConfig: {
       dnsServer: '178.62.43.212',
+      providerId: 'wiimmfi',
       description: 'Uses Wiimmfi for Phantom Hourglass Battle Mode online',
     },
   },
@@ -610,6 +668,7 @@ export const DEFAULT_TEMPLATES: SessionTemplateConfig[] = [
     uiLayoutOptions: { dsScreenLayout: 'stacked' },
     wfcConfig: {
       dnsServer: '178.62.43.212',
+      providerId: 'wiimmfi',
       description: 'Uses Wiimmfi for Pokémon Black online play (GTS, Battle Subway, C-Gear)',
     },
   },
@@ -626,6 +685,7 @@ export const DEFAULT_TEMPLATES: SessionTemplateConfig[] = [
     uiLayoutOptions: { dsScreenLayout: 'stacked' },
     wfcConfig: {
       dnsServer: '178.62.43.212',
+      providerId: 'wiimmfi',
       description: 'Uses Wiimmfi for Pokémon White online play (GTS, Battle Subway, C-Gear)',
     },
   },
