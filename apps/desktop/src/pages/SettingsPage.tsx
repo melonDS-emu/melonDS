@@ -210,7 +210,7 @@ function ControllerProfileCard({ defaultProfile, onProfileChange }: ProfileCardP
             <tbody>
               {bindings.map((b, i) => (
                 <BindingRow
-                  key={i}
+                  key={b.action}
                   binding={b}
                   index={i}
                   editing={editingIndex === i}

@@ -232,12 +232,13 @@ export function GameDetailsPage() {
           >
             🎮 Host Lobby
           </button>
-          <button
-            className="flex-1 py-3 rounded-xl font-bold transition-transform hover:scale-[1.02] active:scale-[0.98]"
+          <Link
+            to="/friends"
+            className="flex-1 py-3 rounded-xl font-bold transition-transform hover:scale-[1.02] active:scale-[0.98] flex items-center justify-center"
             style={{ backgroundColor: 'var(--color-oasis-surface)', color: 'var(--color-oasis-text)' }}
           >
             👥 Invite Friends
-          </button>
+          </Link>
         </div>
       </div>
 

@@ -228,6 +228,11 @@ export function FriendsPage() {
           className="rounded-2xl overflow-hidden"
           style={{ backgroundColor: 'var(--color-oasis-card)' }}
         >
+          {recentActivity.length === 0 && (
+            <p className="p-6 text-sm text-center" style={{ color: 'var(--color-oasis-text-muted)' }}>
+              No recent activity
+            </p>
+          )}
           {recentActivity.map((item, i) => (
             <div
               key={item.id}
