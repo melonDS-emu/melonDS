@@ -10,7 +10,7 @@
     let
       pkgs = import nixpkgs { inherit system; };
       inherit (pkgs.lib) cmakeBool optionals makeLibraryPath;
-      inherit (pkgs.stdenv) isLinux isDarwin;
+      inherit (pkgs.stdenv.hostPlatform) isLinux isDarwin;
 
       revision = with self; if sourceInfo?dirtyRev
         then sourceInfo.dirtyRev
@@ -21,7 +21,7 @@
 
       melonDS = pkgs.stdenv.mkDerivation {
         pname = "melonDS";
-        version = "1.0-${shortRevision}";
+        version = "1.1-${shortRevision}";
         src = ./.;
 
         nativeBuildInputs = with pkgs; [

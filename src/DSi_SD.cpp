@@ -538,7 +538,7 @@ u16 DSi_SDHost::Read(u32 addr)
 
     case 0x01C:
         {
-            u16 ret = (IRQStatus & 0x031D);
+            u16 ret = (IRQStatus & (0x031D | (Num ? 2 : 0)));
 
             if (!Num)
             {
@@ -564,6 +564,7 @@ u16 DSi_SDHost::Read(u32 addr)
     case 0x028: return SDOption;
 
     case 0x02C: return 0; // TODO
+    case 0x02E: return 0; // TODO
 
     case 0x034: return CardIRQCtl;
     case 0x036: return CardIRQStatus;

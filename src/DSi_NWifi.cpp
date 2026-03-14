@@ -686,6 +686,14 @@ void DSi_NWifi::SendCMD(MMCCommand cmd, u32 param)
             }
         }
         return;
+
+    case MMCCommand::SDIO_OpCond:
+        Host->SendResponse(0x80ffff00, true);
+        return;
+    case MMCCommand::GetRCA:
+    case MMCCommand::Select:
+        Host->SendResponse(0, true);
+        return;
     }
 
     Log(LogLevel::Warn, "NWIFI: unknown CMD %d %08X\n", cmd, param);
@@ -813,6 +821,9 @@ void DSi_NWifi::BMI_Command()
             u32 arg = MB_Read32(0);
 
             Log(LogLevel::Debug, "BMI_EXECUTE %08X %08X\n", entry, arg);
+
+            // needs a response value. not checked in firmware, actual value depends on xtensa code...
+            MB_Write32(4, 0);
         }
         return;
 

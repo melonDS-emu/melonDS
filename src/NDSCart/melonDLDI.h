@@ -19,7 +19,7 @@
 #ifndef MELONDLDI_H
 #define MELONDLDI_H
 
-#include "types.h"
+#include "../types.h"
 
 namespace melonDS
 {
