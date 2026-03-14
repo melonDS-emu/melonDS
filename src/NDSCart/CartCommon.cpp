@@ -233,7 +233,7 @@ void CartCommon::ROMCommandStart(NDSCartSlot& cartslot, const u8* cmd)
         switch (ROMCmd[0])
         {
         case 0xB7:
-            ROMAddr = (ROMCmd[1]<<24) | (ROMCmd[2]<<16) | (ROMCmd[3]<<8) | ROMCmd[4];
+            ROMAddr = ((ROMCmd[1]<<24) | (ROMCmd[2]<<16) | (ROMCmd[3]<<8) | ROMCmd[4]) & ROMMask;
             if (!LenientAddressing)
             {
                 // redirect incorrect addresses if needed
