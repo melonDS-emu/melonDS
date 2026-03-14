@@ -103,6 +103,7 @@ DSi::DSi(DSiArgs&& args, void* userdata) noexcept :
     },
     ARM7iBIOS(*args.ARM7iBIOS),
     ARM9iBIOS(*args.ARM9iBIOS),
+    NDSCartSlot2(*this, 1, nullptr),
     DSP(*this),
     SDMMC(*this, std::move(args.NANDImage), std::move(args.DSiSDCard)),
     SDIO(*this),
@@ -111,6 +112,11 @@ DSi::DSi(DSiArgs&& args, void* userdata) noexcept :
     CamModule(*this),
     AES(*this)
 {
+    NDSCartSlots[1] = &NDSCartSlot2;
+
+    RegisterEventFuncs(Event_DSi_Cart1Power, this, {MakeEventThunk(DSi, CartPowerOffEvent)});
+    RegisterEventFuncs(Event_DSi_Cart2Power, this, {MakeEventThunk(DSi, CartPowerOffEvent)});
+
     // Memory is owned by ARMJIT_Memory, don't free it
     NWRAM_A = JIT.Memory.GetNWRAM_A();
     NWRAM_B = JIT.Memory.GetNWRAM_B();
@@ -121,6 +127,9 @@ DSi::DSi(DSiArgs&& args, void* userdata) noexcept :
 
 DSi::~DSi() noexcept
 {
+    UnregisterEventFuncs(Event_DSi_Cart1Power);
+    UnregisterEventFuncs(Event_DSi_Cart2Power);
+
     // Memory is owned externally
     NWRAM_A = nullptr;
     NWRAM_B = nullptr;
@@ -153,6 +162,8 @@ void DSi::Reset()
     KeyInput &= ~(1 << (16+6));
     MapSharedWRAM(3);
 
+    NDSCartSlot2.Reset();
+
     NDMACnt[0] = 0; NDMACnt[1] = 0;
     for (int i = 0; i < 8; i++) NDMAs[i].Reset();
 
@@ -183,7 +194,9 @@ void DSi::Reset()
     SCFG_Clock7 = 0x0187;
     SCFG_EXT[0] = 0x8307F100;
     SCFG_EXT[1] = 0x93FFFB06;
-    SCFG_MC = 0x0010 | (~((u32)(NDSCartSlot.GetCart() != nullptr))&1);//0x0011;
+    SCFG_MC = 0x0010 | (NDSCartSlot.CartInserted() ? 0 : (1<<0));
+    SCFG_CartInsertDelay = 0xFFFF;
+    SCFG_CartPowerOffDelay = 0xFFFF;
     SCFG_RST = 0;
 
     DSP.SetRstLine(false);
@@ -249,7 +262,9 @@ void DSi::DoSavestateExtra(Savestate* file)
     file->Var16(&SCFG_Clock9);
     file->Var16(&SCFG_Clock7);
     file->VarArray(&SCFG_EXT[0], sizeof(u32)*2);
-    file->Var32(&SCFG_MC);
+    file->Var16(&SCFG_MC);
+    file->Var16(&SCFG_CartInsertDelay);
+    file->Var16(&SCFG_CartPowerOffDelay);
     file->Var16(&SCFG_RST);
 
     //file->VarArray(ARM9iBIOS, 0x10000);
@@ -263,8 +278,8 @@ void DSi::DoSavestateExtra(Savestate* file)
     }
     else
     {
-        Set_SCFG_Clock9(SCFG_Clock9);
-        Set_SCFG_MC(SCFG_MC);
+        SetScfgClock9(SCFG_Clock9);
+        //SetScfgMC(SCFG_MC, 0xFFFF);
 
         MBK[0][8] = 0;
         MBK[1][8] = 0;
@@ -308,6 +323,8 @@ void DSi::DoSavestateExtra(Savestate* file)
         MBK[1][8] = mbk[11];
     }
 
+    NDSCartSlot2.DoSavestate(file);
+
     for (int i = 0; i < 8; i++)
         NDMAs[i].DoSavestate(file);
 
@@ -324,10 +341,17 @@ void DSi::DoSavestateExtra(Savestate* file)
 
 void DSi::SetCartInserted(bool inserted)
 {
+    // update SCFG_MC
+    // if ejecting a cart, we should also switch to power state 3, and schedule the power-off timer
+
     if (inserted)
-        SCFG_MC &= ~1;
+        SCFG_MC &= ~(1<<0);
     else
-        SCFG_MC |= 1;
+    {
+        ScheduleEvent(Event_DSi_Cart1Power, false, SCFG_CartPowerOffDelay << 9, 0, 0);
+        SCFG_MC |= ((1<<0) | (3<<2));
+        NDSCartSlot.SetPowerState(3);
+    }
 }
 
 u64 DSi::GetConsoleID() const noexcept {
@@ -479,7 +503,7 @@ void DSi::SetupDirectBoot()
         NDS::MapSharedWRAM(3);
 
         tsc->SetMode(0x00);
-        Set_SCFG_Clock9(0x0000);
+        SetScfgClock9(0x0000);
 
         SCFG_EXT[0] &= ~0xC000;
         ApplyNewRAMSize(0);
@@ -694,7 +718,22 @@ void DSi::SetupDirectBoot()
 
     SPI.GetFirmwareMem()->SetupDirectBoot();
 
+    SCFG_MC = 0x0018;
+    SCFG_CartInsertDelay = 0x1988;
+    SCFG_CartPowerOffDelay = 0x264C;
+
     I2S.WriteSndExCnt(0x8008, 0xFFFF);
+
+    if (dsmode)
+    {
+        SCFG_EXT[0] = 0x02000000;
+        SCFG_EXT[1] = 0x92A00000;
+    }
+    else
+    {
+        SCFG_EXT[0] = 0x8307F100;
+        SCFG_EXT[1] = 0x93FBFB06;
+    }
 
     ARM9.CP15Write(0x100, 0x00056078);
     ARM9.CP15Write(0x200, 0x0000004A);
@@ -772,7 +811,7 @@ void DSi::SoftReset()
     SCFG_Clock7 = 0x0187;
     SCFG_EXT[0] = 0x8307F100;
     SCFG_EXT[1] = 0x93FFFB06;
-    SCFG_MC = 0x0010;//0x0011;
+    SCFG_MC = 0x0010 | (NDSCartSlot.CartInserted() ? 0 : (1<<0));
     // TODO: is this actually reset?
     SCFG_RST = 0;
     DSP.SetRstLine(false);
@@ -1358,7 +1397,7 @@ void DSi::CheckDSiLoaderHack()
 }
 
 
-void DSi::Set_SCFG_Clock9(u16 val)
+void DSi::SetScfgClock9(u16 val)
 {
     ARM9Timestamp >>= ARM9ClockShift;
     ARM9Target    >>= ARM9ClockShift;
@@ -1374,19 +1413,90 @@ void DSi::Set_SCFG_Clock9(u16 val)
     ARM9.UpdateRegionTimings(0x00000, 0x100000);
 }
 
-void DSi::Set_SCFG_MC(u32 val)
+void DSi::SetScfgMC(u16 val, u16 mask)
 {
-    u32 oldslotstatus = SCFG_MC & 0xC;
+    u16 oldval = SCFG_MC;
+    SCFG_MC = (SCFG_MC & (~mask | 0x0011)) | (val & mask & 0x80CC);
 
-    val &= 0xFFFF800C;
-    if ((val & 0xC) == 0xC) val &= ~0xC; // hax
-    if (val & 0x8000) Log(LogLevel::Warn, "SCFG_MC: weird NDS slot swap\n");
-    SCFG_MC = (SCFG_MC & ~0xFFFF800C) | val;
-
-    if ((oldslotstatus == 0x0) && ((SCFG_MC & 0xC) == 0x4))
+    for (int i = 0; i < 2; i++)
     {
-        NDSCartSlot.ResetCart();
+        int shift = 2 + (4*i);
+        u16 oldpower = (oldval >> shift) & 0x3;
+        u16 newpower = (SCFG_MC >> shift) & 0x3;
+        if (newpower == oldpower)
+            continue;
+
+        u32 event = (i == 0) ? Event_DSi_Cart1Power : Event_DSi_Cart2Power;
+        CancelEvent(event);
+
+        // SCFG_MC power states:
+        // 0 = off
+        // 1 = on, reset active
+        // 2 = on, reset released
+        // 3 = turn off after timer
+        // switching from state 0 to 1 also clears bit 29 in ROMCTRL
+
+        auto& slot = (i == 0) ? NDSCartSlot : NDSCartSlot2;
+
+        // if there's no cart inserted, any power-on state will switch to state 3
+        if ((newpower == 1 || newpower == 2) && !slot.CartInserted())
+        {
+            oldpower = newpower;
+            newpower = 3;
+        }
+
+        slot.SetPowerState(newpower);
+        if (newpower == 3)
+            ScheduleEvent(event, false, SCFG_CartPowerOffDelay << 9, 0, i);
+
+        // on the first slot, any change from state 1 or 2 to 3 or 0 will raise a card IRQ
+        // for some reason, the second slot doesn't raise them
+        // maybe the card IRQ line has an external pull-up/pull-down resistor
+        if (i == 0)
+        {
+            if ((oldpower == 1 || oldpower == 2) && (newpower == 3 || newpower == 0))
+                slot.RaiseCardIRQ();
+        }
+
+        SCFG_MC = (SCFG_MC & ~(0x3 << shift)) | (newpower << shift);
     }
+
+    if ((SCFG_MC ^ oldval) & (1<<15))
+    {
+        // slot swap setting
+        // this swaps the I/O addresses, IRQ lines, DMA trigger lines and EXMEMCNT settings for the cart slots
+
+        u16 slot1state = (SCFG_MC >> 2) & 0x3;
+        if (slot1state == 1 || slot1state == 2)
+            NDSCartSlot.RaiseCardIRQ();
+
+        if (SCFG_MC & (1<<15))
+        {
+            NDSCartSlots[0] = &NDSCartSlot2;
+            NDSCartSlots[1] = &NDSCartSlot;
+        }
+        else
+        {
+            NDSCartSlots[0] = &NDSCartSlot;
+            NDSCartSlots[1] = &NDSCartSlot2;
+        }
+
+        NDSCartSlots[0]->SetLogicalNum(0);
+        NDSCartSlots[0]->SetCPUSelect((ExMemCnt[0] >> 11) & 0x1);
+
+        NDSCartSlots[1]->SetLogicalNum(1);
+        NDSCartSlots[1]->SetCPUSelect((ExMemCnt[0] >> 10) & 0x1);
+    }
+}
+
+void DSi::CartPowerOffEvent(u32 id)
+{
+    auto& slot = (id == 0) ? NDSCartSlot : NDSCartSlot2;
+    slot.SetPowerState(0);
+
+    // set power state to 0
+    int shift = 2 + (4*id);
+    SCFG_MC &= ~(0x3 << shift);
 }
 
 
@@ -2324,6 +2434,61 @@ bool DSi::ARM7GetMemRegion(u32 addr, bool write, MemRegion* region)
 }
 
 
+bool DSi::CheckIO9Access(u32 addr)
+{
+    if ((addr & 0xFFFFF000) == 0x04004000)
+    {
+        // DSi I/O
+        switch (addr & 0xF00)
+        {
+            case 0x000: return !!(SCFG_EXT[0] & (1<<31));
+            case 0x100: return !!(SCFG_EXT[0] & (1<<16));
+            case 0x200: return !!(SCFG_EXT[0] & (1<<17));
+            case 0x300: return !!(SCFG_EXT[0] & (1<<18));
+            default: return true;
+        }
+    }
+
+    if ((addr & 0xFFEFF000) == 0x04002000)
+    {
+        // second cart slot
+        return !!(SCFG_EXT[0] & (1<<24));
+    }
+
+    return true;
+}
+
+bool DSi::CheckIO7Access(u32 addr)
+{
+    if ((addr & 0xFFFFF000) == 0x04004000)
+    {
+        // DSi I/O
+        switch (addr & 0xF00)
+        {
+            case 0x000: return !!(SCFG_EXT[1] & (1<<31));
+            case 0x100: return !!(SCFG_EXT[1] & (1<<16));
+            case 0x400: return !!(SCFG_EXT[1] & (1<<17));
+            case 0x500: return !!(SCFG_EXT[1] & (1<<22));
+            case 0x600: return !!(SCFG_EXT[1] & (1<<20));
+            case 0x700: return !!(SCFG_EXT[1] & (1<<21));
+            case 0x800:
+            case 0x900: return !!(SCFG_EXT[1] & (1<<18));
+            case 0xA00:
+            case 0xB00: return !!(SCFG_EXT[1] & (1<<19));
+            case 0xC00: return !!(SCFG_EXT[1] & (1<<23));
+            case 0xD00: return !(SCFG_BIOS & (1<<10));
+            default: return true;
+        }
+    }
+
+    if ((addr & 0xFFEFF000) == 0x04002000)
+    {
+        // second cart slot
+        return !!(SCFG_EXT[1] & (1<<24));
+    }
+
+    return true;
+}
 
 
 #define CASE_READ8_16BIT(addr, val) \
@@ -2342,6 +2507,10 @@ bool DSi::ARM7GetMemRegion(u32 addr, bool write, MemRegion* region)
 
 u8 DSi::ARM9IORead8(u32 addr)
 {
+    assert(ConsoleType == 1);
+    if (!CheckIO9Access(addr))
+        return 0;
+
     switch (addr)
     {
     case 0x04004000: return SCFG_BIOS & 0xFF;
@@ -2356,17 +2525,23 @@ u8 DSi::ARM9IORead8(u32 addr)
     CASE_READ8_32BIT(0x04004058, MBK[0][6])
     CASE_READ8_32BIT(0x0400405C, MBK[0][7])
     CASE_READ8_32BIT(0x04004060, MBK[0][8])
+
+    case 0x040021A0: return NDSCartSlots[1]->ReadSPICnt(0) & 0xFF;
+    case 0x040021A1: return NDSCartSlots[1]->ReadSPICnt(0) >> 8;
+    case 0x040021A2: return NDSCartSlots[1]->ReadSPIData(0);
+    case 0x040021A4: return NDSCartSlots[1]->ReadROMCnt(0) & 0xFF;
+    case 0x040021A5: return (NDSCartSlots[1]->ReadROMCnt(0) >> 8) & 0xFF;
+    case 0x040021A6: return (NDSCartSlots[1]->ReadROMCnt(0) >> 16) & 0xFF;
+    case 0x040021A7: return NDSCartSlots[1]->ReadROMCnt(0) >> 24;
     }
 
     if ((addr & 0xFFFFFF00) == 0x04004200)
     {
-        if (!(SCFG_EXT[0] & (1<<17))) return 0;
         return CamModule.Read8(addr);
     }
 
     if ((addr & 0xFFFFFF00) == 0x04004300)
     {
-        if (!(SCFG_EXT[0] & (1<<18))) return 0;
         return DSP.Read8(addr);
     }
 
@@ -2376,6 +2551,9 @@ u8 DSi::ARM9IORead8(u32 addr)
 u16 DSi::ARM9IORead16(u32 addr)
 {
     assert(ConsoleType == 1);
+    if (!CheckIO9Access(addr))
+        return 0;
+
     switch (addr)
     {
     case 0x04004000: return SCFG_BIOS & 0xFF;
@@ -2392,17 +2570,20 @@ u16 DSi::ARM9IORead16(u32 addr)
     CASE_READ16_32BIT(0x04004058, MBK[0][6])
     CASE_READ16_32BIT(0x0400405C, MBK[0][7])
     CASE_READ16_32BIT(0x04004060, MBK[0][8])
+
+    case 0x040021A0: return NDSCartSlots[1]->ReadSPICnt(0);
+    case 0x040021A2: return NDSCartSlots[1]->ReadSPIData(0);
+    case 0x040021A4: return NDSCartSlots[1]->ReadROMCnt(0) & 0xFFFF;
+    case 0x040021A6: return NDSCartSlots[1]->ReadROMCnt(0) >> 16;
     }
 
     if ((addr & 0xFFFFFF00) == 0x04004200)
     {
-        if (!(SCFG_EXT[0] & (1<<17))) return 0;
         return CamModule.Read16(addr);
     }
 
     if ((addr & 0xFFFFFF00) == 0x04004300)
     {
-        if (!(SCFG_EXT[0] & (1<<18))) return 0;
         return DSP.Read16(addr);
     }
 
@@ -2412,6 +2593,9 @@ u16 DSi::ARM9IORead16(u32 addr)
 u32 DSi::ARM9IORead32(u32 addr)
 {
     assert(ConsoleType == 1);
+    if (!CheckIO9Access(addr))
+        return 0;
+
     switch (addr)
     {
     case 0x04004000: return SCFG_BIOS & 0xFF;
@@ -2458,17 +2642,21 @@ u32 DSi::ARM9IORead32(u32 addr)
     case 0x04004168: return NDMAs[3].SubblockTimer;
     case 0x0400416C: return NDMAs[3].FillData;
     case 0x04004170: return NDMAs[3].Cnt;
+
+    case 0x040021A0: return NDSCartSlots[1]->ReadSPICnt(0) | (NDSCartSlots[1]->ReadSPIData(0) << 16);
+    case 0x040021A4: return NDSCartSlots[1]->ReadROMCnt(0);
+
+    case 0x04102010:
+        return NDSCartSlots[1]->ReadROMData(0);
     }
 
     if ((addr & 0xFFFFFF00) == 0x04004200)
     {
-        if (!(SCFG_EXT[0] & (1<<17))) return 0;
         return CamModule.Read32(addr);
     }
 
     if ((addr & 0xFFFFFF00) == 0x04004300)
     {
-        if (!(SCFG_EXT[0] & (1<<18))) return 0;
         return DSP.Read32(addr);
     }
 
@@ -2478,6 +2666,9 @@ u32 DSi::ARM9IORead32(u32 addr)
 void DSi::ARM9IOWrite8(u32 addr, u8 val)
 {
     assert(ConsoleType == 1);
+    if (!CheckIO9Access(addr))
+        return;
+
     switch (addr)
     {
     case 0x04000301:
@@ -2491,8 +2682,6 @@ void DSi::ARM9IOWrite8(u32 addr, u8 val)
         return;
 
     case 0x04004006:
-        if (!(SCFG_EXT[0] & (1 << 31))) /* no access to SCFG Registers if disabled*/
-            return;
         SCFG_RST = (SCFG_RST & 0xFF00) | val;
         DSP.SetRstLine(val & 1);
         return;
@@ -2501,8 +2690,6 @@ void DSi::ARM9IOWrite8(u32 addr, u8 val)
     case 0x04004041:
     case 0x04004042:
     case 0x04004043:
-        if (!(SCFG_EXT[0] & (1 << 31))) /* no access to SCFG Registers if disabled*/
-            return;
         MapNWRAM_A(addr & 3, val);
         return;
     case 0x04004044:
@@ -2513,8 +2700,6 @@ void DSi::ARM9IOWrite8(u32 addr, u8 val)
     case 0x04004049:
     case 0x0400404A:
     case 0x0400404B:
-        if (!(SCFG_EXT[0] & (1 << 31))) /* no access to SCFG Registers if disabled*/
-            return;
         MapNWRAM_B((addr - 0x04) & 7, val);
         return;
     case 0x0400404C:
@@ -2525,21 +2710,49 @@ void DSi::ARM9IOWrite8(u32 addr, u8 val)
     case 0x04004051:
     case 0x04004052:
     case 0x04004053:
-        if (!(SCFG_EXT[0] & (1 << 31))) /* no access to SCFG Registers if disabled*/
-            return;
         MapNWRAM_C((addr-0x0C) & 7, val);
         return;
+
+    case 0x040021A0:
+        NDSCartSlots[1]->WriteSPICnt(0, val, 0x00FF);
+        return;
+    case 0x040021A1:
+        NDSCartSlots[1]->WriteSPICnt(0, val << 8, 0xFF00);
+        return;
+    case 0x040021A2:
+        NDSCartSlots[1]->WriteSPIData(0, val);
+        return;
+
+    case 0x040021A4:
+        NDSCartSlots[1]->WriteROMCnt(0, val, 0x000000FF);
+        return;
+    case 0x040021A5:
+        NDSCartSlots[1]->WriteROMCnt(0, val << 8, 0x0000FF00);
+        return;
+    case 0x040021A6:
+        NDSCartSlots[1]->WriteROMCnt(0, val << 16, 0x00FF0000);
+        return;
+    case 0x040021A7:
+        NDSCartSlots[1]->WriteROMCnt(0, val << 24, 0xFF000000);
+        return;
+
+    case 0x040021A8: NDSCartSlots[1]->WriteROMCommand(0, 0, val); return;
+    case 0x040021A9: NDSCartSlots[1]->WriteROMCommand(0, 1, val); return;
+    case 0x040021AA: NDSCartSlots[1]->WriteROMCommand(0, 2, val); return;
+    case 0x040021AB: NDSCartSlots[1]->WriteROMCommand(0, 3, val); return;
+    case 0x040021AC: NDSCartSlots[1]->WriteROMCommand(0, 4, val); return;
+    case 0x040021AD: NDSCartSlots[1]->WriteROMCommand(0, 5, val); return;
+    case 0x040021AE: NDSCartSlots[1]->WriteROMCommand(0, 6, val); return;
+    case 0x040021AF: NDSCartSlots[1]->WriteROMCommand(0, 7, val); return;
     }
 
     if ((addr & 0xFFFFFF00) == 0x04004200)
     {
-        if (!(SCFG_EXT[0] & (1<<17))) return;
         return CamModule.Write8(addr, val);
     }
 
     if ((addr & 0xFFFFFF00) == 0x04004300)
     {
-        if (!(SCFG_EXT[0] & (1<<18))) return;
         return DSP.Write8(addr, val);
     }
 
@@ -2549,25 +2762,22 @@ void DSi::ARM9IOWrite8(u32 addr, u8 val)
 void DSi::ARM9IOWrite16(u32 addr, u16 val)
 {
     assert(ConsoleType == 1);
+    if (!CheckIO9Access(addr))
+        return;
+
     switch (addr)
     {
     case 0x04004004:
-        if (!(SCFG_EXT[0] & (1 << 31))) /* no access to SCFG Registers if disabled*/
-            return;
-        Set_SCFG_Clock9(val);
+        SetScfgClock9(val);
         return;
 
     case 0x04004006:
-        if (!(SCFG_EXT[0] & (1 << 31))) /* no access to SCFG Registers if disabled*/
-            return;
         SCFG_RST = val;
         DSP.SetRstLine(val & 1);
         return;
 
     case 0x04004040:
     case 0x04004042:
-        if (!(SCFG_EXT[0] & (1 << 31))) /* no access to SCFG Registers if disabled*/
-            return;
         MapNWRAM_A((addr & 2), val & 0xFF);
         MapNWRAM_A((addr & 2) + 1, val >> 8);
         return;
@@ -2576,8 +2786,6 @@ void DSi::ARM9IOWrite16(u32 addr, u16 val)
     case 0x04004046:
     case 0x04004048:
     case 0x0400404A:
-        if (!(SCFG_EXT[0] & (1 << 31))) /* no access to SCFG Registers if disabled*/
-            return;
         MapNWRAM_B(((addr - 0x04) & 6), val & 0xFF);
         MapNWRAM_B(((addr - 0x04) & 6) + 1, val >> 8);
         return;
@@ -2585,22 +2793,56 @@ void DSi::ARM9IOWrite16(u32 addr, u16 val)
     case 0x0400404E:
     case 0x04004050:
     case 0x04004052:
-        if (!(SCFG_EXT[0] & (1 << 31))) /* no access to SCFG Registers if disabled*/
-            return;
         MapNWRAM_C(((addr - 0x0C) & 6), val & 0xFF);
         MapNWRAM_C(((addr - 0x0C) & 6) + 1, val >> 8);
+        return;
+
+    case 0x040021A0:
+        NDSCartSlots[1]->WriteSPICnt(0, val, 0xFFFF);
+        return;
+    case 0x040021A2:
+        NDSCartSlots[1]->WriteSPIData(0, val & 0xFF);
+        return;
+
+    case 0x040021A4:
+        NDSCartSlots[1]->WriteROMCnt(0, val, 0x0000FFFF);
+        return;
+    case 0x040021A6:
+        NDSCartSlots[1]->WriteROMCnt(0, val << 16, 0xFFFF0000);
+        return;
+
+    case 0x040021A8:
+        NDSCartSlots[1]->WriteROMCommand(0, 0, val & 0xFF);
+        NDSCartSlots[1]->WriteROMCommand(0, 1, val >> 8);
+        return;
+    case 0x040021AA:
+        NDSCartSlots[1]->WriteROMCommand(0, 2, val & 0xFF);
+        NDSCartSlots[1]->WriteROMCommand(0, 3, val >> 8);
+        return;
+    case 0x040021AC:
+        NDSCartSlots[1]->WriteROMCommand(0, 4, val & 0xFF);
+        NDSCartSlots[1]->WriteROMCommand(0, 5, val >> 8);
+        return;
+    case 0x040021AE:
+        NDSCartSlots[1]->WriteROMCommand(0, 6, val & 0xFF);
+        NDSCartSlots[1]->WriteROMCommand(0, 7, val >> 8);
+        return;
+
+    case 0x040021B8:
+        NDSCartSlots[1]->WriteKey2Seed0(0, (u64)val << 32, 0x7F00000000ULL);
+        return;
+    case 0x040021BA:
+        NDSCartSlots[1]->WriteKey2Seed1(0, (u64)val << 32, 0x7F00000000ULL);
         return;
     }
 
     if ((addr & 0xFFFFFF00) == 0x04004200)
     {
-        if (!(SCFG_EXT[0] & (1<<17))) return;
         return CamModule.Write16(addr, val);
     }
 
     if ((addr & 0xFFFFFF00) == 0x04004300)
     {
-        if (!(SCFG_EXT[0] & (1<<18))) return;
         return DSP.Write16(addr, val);
     }
 
@@ -2610,20 +2852,19 @@ void DSi::ARM9IOWrite16(u32 addr, u16 val)
 void DSi::ARM9IOWrite32(u32 addr, u32 val)
 {
     assert(ConsoleType == 1);
+    if (!CheckIO9Access(addr))
+        return;
+
     switch (addr)
     {
     case 0x04004004:
-        if (!(SCFG_EXT[0] & (1 << 31))) /* no access to SCFG Registers if disabled*/
-            return;
-        Set_SCFG_Clock9(val & 0xFFFF);
+        SetScfgClock9(val & 0xFFFF);
         SCFG_RST = val >> 16;
         DSP.SetRstLine((val >> 16) & 1);
         break;
 
     case 0x04004008:
         {
-            if (!(SCFG_EXT[0] & (1 << 31))) /* no access to SCFG Registers if disabled*/
-                return;
             u32 oldram = (SCFG_EXT[0] >> 14) & 0x3;
             u32 newram = (val >> 14) & 0x3;
 
@@ -2680,58 +2921,42 @@ void DSi::ARM9IOWrite32(u32 addr, u32 val)
         return;
 
     case 0x04004040:
-        if (!(SCFG_EXT[0] & (1 << 31))) /* no access to SCFG Registers if disabled*/
-            return;
         MapNWRAM_A(0, val & 0xFF);
         MapNWRAM_A(1, (val >> 8) & 0xFF);
         MapNWRAM_A(2, (val >> 16) & 0xFF);
         MapNWRAM_A(3, val >> 24);
         return;
     case 0x04004044:
-        if (!(SCFG_EXT[0] & (1 << 31))) /* no access to SCFG Registers if disabled*/
-            return;
         MapNWRAM_B(0, val & 0xFF);
         MapNWRAM_B(1, (val >> 8) & 0xFF);
         MapNWRAM_B(2, (val >> 16) & 0xFF);
         MapNWRAM_B(3, val >> 24);
         return;
     case 0x04004048:
-        if (!(SCFG_EXT[0] & (1 << 31))) /* no access to SCFG Registers if disabled*/
-            return;
         MapNWRAM_B(4, val & 0xFF);
         MapNWRAM_B(5, (val >> 8) & 0xFF);
         MapNWRAM_B(6, (val >> 16) & 0xFF);
         MapNWRAM_B(7, val >> 24);
         return;
     case 0x0400404C:
-        if (!(SCFG_EXT[0] & (1 << 31))) /* no access to SCFG Registers if disabled*/
-            return;
         MapNWRAM_C(0, val & 0xFF);
         MapNWRAM_C(1, (val >> 8) & 0xFF);
         MapNWRAM_C(2, (val >> 16) & 0xFF);
         MapNWRAM_C(3, val >> 24);
         return;
     case 0x04004050:
-        if (!(SCFG_EXT[0] & (1 << 31))) /* no access to SCFG Registers if disabled*/
-            return;
         MapNWRAM_C(4, val & 0xFF);
         MapNWRAM_C(5, (val >> 8) & 0xFF);
         MapNWRAM_C(6, (val >> 16) & 0xFF);
         MapNWRAM_C(7, val >> 24);
         return;
     case 0x04004054:
-        if (!(SCFG_EXT[0] & (1 << 31))) /* no access to SCFG Registers if disabled*/
-            return;
         MapNWRAMRange(0, 0, val);
         return;
     case 0x04004058:
-        if (!(SCFG_EXT[0] & (1 << 31))) /* no access to SCFG Registers if disabled*/
-            return;
         MapNWRAMRange(0, 1, val);
         return;
     case 0x0400405C:
-        if (!(SCFG_EXT[0] & (1 << 31))) /* no access to SCFG Registers if disabled*/
-            return;
         MapNWRAMRange(0, 2, val);
         return;
 
@@ -2764,17 +2989,47 @@ void DSi::ARM9IOWrite32(u32 addr, u32 val)
     case 0x04004168: NDMAs[3].SubblockTimer = val & 0x0003FFFF; return;
     case 0x0400416C: NDMAs[3].FillData = val; return;
     case 0x04004170: NDMAs[3].WriteCnt(val); return;
+
+    case 0x040021A0:
+        NDSCartSlots[1]->WriteSPICnt(0, val & 0xFFFF, 0xFFFF);
+        NDSCartSlots[1]->WriteSPIData(0, (val >> 16) & 0xFF);
+        return;
+    case 0x040021A4:
+        NDSCartSlots[1]->WriteROMCnt(0, val, 0xFFFFFFFF);
+        return;
+
+    case 0x040021A8:
+        NDSCartSlots[1]->WriteROMCommand(0, 0, val & 0xFF);
+        NDSCartSlots[1]->WriteROMCommand(0, 1, (val >> 8) & 0xFF);
+        NDSCartSlots[1]->WriteROMCommand(0, 2, (val >> 16) & 0xFF);
+        NDSCartSlots[1]->WriteROMCommand(0, 3, val >> 24);
+        return;
+    case 0x040021AC:
+        NDSCartSlots[1]->WriteROMCommand(0, 4, val & 0xFF);
+        NDSCartSlots[1]->WriteROMCommand(0, 5, (val >> 8) & 0xFF);
+        NDSCartSlots[1]->WriteROMCommand(0, 6, (val >> 16) & 0xFF);
+        NDSCartSlots[1]->WriteROMCommand(0, 7, val >> 24);
+        return;
+
+    case 0x040021B0:
+        NDSCartSlots[1]->WriteKey2Seed0(0, (u64)val, 0x00FFFFFFFFULL);
+        return;
+    case 0x040021B4:
+        NDSCartSlots[1]->WriteKey2Seed1(0, (u64)val, 0x00FFFFFFFFULL);
+        return;
+
+    case 0x04102010:
+        NDSCartSlots[1]->WriteROMData(0, val, 0xFFFFFFFF);
+        return;
     }
 
     if ((addr & 0xFFFFFF00) == 0x04004200)
     {
-        if (!(SCFG_EXT[0] & (1<<17))) return;
         return CamModule.Write32(addr, val);
     }
 
     if ((addr & 0xFFFFFF00) == 0x04004300)
     {
-        if (!(SCFG_EXT[0] & (1<<18))) return;
         return DSP.Write32(addr, val);
     }
 
@@ -2785,11 +3040,12 @@ void DSi::ARM9IOWrite32(u32 addr, u32 val)
 u8 DSi::ARM7IORead8(u32 addr)
 {
     assert(ConsoleType == 1);
+    if (!CheckIO7Access(addr))
+        return 0;
 
     switch (addr)
     {
-    case 0x04004000:
-        return SCFG_BIOS & 0xFF;
+    case 0x04004000: return SCFG_BIOS & 0xFF;
     case 0x04004001: return SCFG_BIOS >> 8;
     case 0x04004002: return 0; // SCFG_ROMWE, always 0
 
@@ -2806,26 +3062,26 @@ u8 DSi::ARM7IORead8(u32 addr)
     case 0x04004500: return I2C.ReadData();
     case 0x04004501: return I2C.ReadCnt();
 
-    case 0x04004D00: if (SCFG_BIOS & (1<<10)) return 0; return GetConsoleID() & 0xFF;
-    case 0x04004D01: if (SCFG_BIOS & (1<<10)) return 0; return (GetConsoleID() >> 8) & 0xFF;
-    case 0x04004D02: if (SCFG_BIOS & (1<<10)) return 0; return (GetConsoleID() >> 16) & 0xFF;
-    case 0x04004D03: if (SCFG_BIOS & (1<<10)) return 0; return (GetConsoleID() >> 24) & 0xFF;
-    case 0x04004D04: if (SCFG_BIOS & (1<<10)) return 0; return (GetConsoleID() >> 32) & 0xFF;
-    case 0x04004D05: if (SCFG_BIOS & (1<<10)) return 0; return (GetConsoleID() >> 40) & 0xFF;
-    case 0x04004D06: if (SCFG_BIOS & (1<<10)) return 0; return (GetConsoleID() >> 48) & 0xFF;
-    case 0x04004D07: if (SCFG_BIOS & (1<<10)) return 0; return GetConsoleID() >> 56;
+    case 0x04004D00: return GetConsoleID() & 0xFF;
+    case 0x04004D01: return (GetConsoleID() >> 8) & 0xFF;
+    case 0x04004D02: return (GetConsoleID() >> 16) & 0xFF;
+    case 0x04004D03: return (GetConsoleID() >> 24) & 0xFF;
+    case 0x04004D04: return (GetConsoleID() >> 32) & 0xFF;
+    case 0x04004D05: return (GetConsoleID() >> 40) & 0xFF;
+    case 0x04004D06: return (GetConsoleID() >> 48) & 0xFF;
+    case 0x04004D07: return GetConsoleID() >> 56;
     case 0x04004D08: return 0;
 
-    case 0x4004600: if (!(SCFG_EXT[1] & (1 << 20))) return 0; return I2S.ReadMicCnt() & 0xFF;
-    case 0x4004601: if (!(SCFG_EXT[1] & (1 << 20))) return 0; return I2S.ReadMicCnt() >> 8;
+    case 0x4004600: return I2S.ReadMicCnt() & 0xFF;
+    case 0x4004601: return I2S.ReadMicCnt() >> 8;
     case 0x4004602: return 0;
     case 0x4004603: return 0;
-    case 0x4004604: if (!(SCFG_EXT[1] & (1 << 20))) return 0; return I2S.ReadMicData() & 0xFF;
-    case 0x4004605: if (!(SCFG_EXT[1] & (1 << 20))) return 0; return (I2S.ReadMicData() >> 8) & 0xFF;
-    case 0x4004606: if (!(SCFG_EXT[1] & (1 << 20))) return 0; return (I2S.ReadMicData() >> 16) & 0xFF;
-    case 0x4004607: if (!(SCFG_EXT[1] & (1 << 20))) return 0; return I2S.ReadMicData() >> 24;
-    case 0x4004700: if (!(SCFG_EXT[1] & (1 << 21))) return 0; return I2S.ReadSndExCnt() & 0xFF;
-    case 0x4004701: if (!(SCFG_EXT[1] & (1 << 21))) return 0; return I2S.ReadSndExCnt() >> 8;
+    case 0x4004604: return I2S.ReadMicData() & 0xFF;
+    case 0x4004605: return (I2S.ReadMicData() >> 8) & 0xFF;
+    case 0x4004606: return (I2S.ReadMicData() >> 16) & 0xFF;
+    case 0x4004607: return I2S.ReadMicData() >> 24;
+    case 0x4004700: return I2S.ReadSndExCnt() & 0xFF;
+    case 0x4004701: return I2S.ReadSndExCnt() >> 8;
 
     case 0x04004C00: return GPIO_Data;
     case 0x04004C01: return GPIO_Dir;
@@ -2833,6 +3089,14 @@ u8 DSi::ARM7IORead8(u32 addr)
     case 0x04004C03: return GPIO_IE;
     case 0x04004C04: return GPIO_WiFi & 0xff;
     case 0x04004C05: return GPIO_WiFi >> 8;
+
+    case 0x040021A0: return NDSCartSlots[1]->ReadSPICnt(1) & 0xFF;
+    case 0x040021A1: return NDSCartSlots[1]->ReadSPICnt(1) >> 8;
+    case 0x040021A2: return NDSCartSlots[1]->ReadSPIData(1);
+    case 0x040021A4: return NDSCartSlots[1]->ReadROMCnt(1) & 0xFF;
+    case 0x040021A5: return (NDSCartSlots[1]->ReadROMCnt(1) >> 8) & 0xFF;
+    case 0x040021A6: return (NDSCartSlots[1]->ReadROMCnt(1) >> 16) & 0xFF;
+    case 0x040021A7: return NDSCartSlots[1]->ReadROMCnt(1) >> 24;
     }
 
     return NDS::ARM7IORead8(addr);
@@ -2841,6 +3105,9 @@ u8 DSi::ARM7IORead8(u32 addr)
 u16 DSi::ARM7IORead16(u32 addr)
 {
     assert(ConsoleType == 1);
+    if (!CheckIO7Access(addr))
+        return 0;
+
     switch (addr)
     {
     case 0x04000218: return NDS::IE2;
@@ -2862,21 +3129,26 @@ u16 DSi::ARM7IORead16(u32 addr)
     CASE_READ16_32BIT(0x0400405C, MBK[1][7])
     CASE_READ16_32BIT(0x04004060, MBK[1][8])
 
-    case 0x04004D00: if (SCFG_BIOS & (1<<10)) return 0; return GetConsoleID() & 0xFFFF;
-    case 0x04004D02: if (SCFG_BIOS & (1<<10)) return 0; return (GetConsoleID() >> 16) & 0xFFFF;
-    case 0x04004D04: if (SCFG_BIOS & (1<<10)) return 0; return (GetConsoleID() >> 32) & 0xFFFF;
-    case 0x04004D06: if (SCFG_BIOS & (1<<10)) return 0; return GetConsoleID() >> 48;
+    case 0x04004D00: return GetConsoleID() & 0xFFFF;
+    case 0x04004D02: return (GetConsoleID() >> 16) & 0xFFFF;
+    case 0x04004D04: return (GetConsoleID() >> 32) & 0xFFFF;
+    case 0x04004D06: return GetConsoleID() >> 48;
     case 0x04004D08: return 0;
 
-    case 0x4004600: if (!(SCFG_EXT[1] & (1 << 20))) return 0; return I2S.ReadMicCnt();
+    case 0x4004600: return I2S.ReadMicCnt();
     case 0x4004602: return 0;
-    case 0x4004604: if (!(SCFG_EXT[1] & (1 << 20))) return 0; return I2S.ReadMicData() & 0xFFFF;
-    case 0x4004606: if (!(SCFG_EXT[1] & (1 << 20))) return 0; return I2S.ReadMicData() >> 16;
-    case 0x4004700: if (!(SCFG_EXT[1] & (1 << 21))) return 0; return I2S.ReadSndExCnt();
+    case 0x4004604: return I2S.ReadMicData() & 0xFFFF;
+    case 0x4004606: return I2S.ReadMicData() >> 16;
+    case 0x4004700: return I2S.ReadSndExCnt();
 
     case 0x04004C00: return GPIO_Data | ((u16)GPIO_Dir << 8);
     case 0x04004C02: return GPIO_IEdgeSel | ((u16)GPIO_IE << 8);
     case 0x04004C04: return GPIO_WiFi;
+
+    case 0x040021A0: return NDSCartSlots[1]->ReadSPICnt(1);
+    case 0x040021A2: return NDSCartSlots[1]->ReadSPIData(1);
+    case 0x040021A4: return NDSCartSlots[1]->ReadROMCnt(1) & 0xFFFF;
+    case 0x040021A6: return NDSCartSlots[1]->ReadROMCnt(1) >> 16;
     }
 
     if (addr >= 0x04004800 && addr < 0x04004A00)
@@ -2894,6 +3166,9 @@ u16 DSi::ARM7IORead16(u32 addr)
 u32 DSi::ARM7IORead32(u32 addr)
 {
     assert(ConsoleType == 1);
+    if (!CheckIO7Access(addr))
+        return 0;
+
     switch (addr)
     {
     case 0x04000218: return NDS::IE2;
@@ -2946,13 +3221,19 @@ u32 DSi::ARM7IORead32(u32 addr)
     case 0x04004400: return AES.ReadCnt();
     case 0x0400440C: return AES.ReadOutputFIFO();
 
-    case 0x04004D00: if (SCFG_BIOS & (1<<10)) return 0; return GetConsoleID() & 0xFFFFFFFF;
-    case 0x04004D04: if (SCFG_BIOS & (1<<10)) return 0; return GetConsoleID() >> 32;
+    case 0x04004D00: return GetConsoleID() & 0xFFFFFFFF;
+    case 0x04004D04: return GetConsoleID() >> 32;
     case 0x04004D08: return 0;
 
-    case 0x4004600: if (!(SCFG_EXT[1] & (1 << 20))) return 0; return I2S.ReadMicCnt();
-    case 0x4004604: if (!(SCFG_EXT[1] & (1 << 20))) return 0; return I2S.ReadMicData();
-    case 0x4004700: if (!(SCFG_EXT[1] & (1 << 21))) return 0; return I2S.ReadSndExCnt();
+    case 0x4004600: return I2S.ReadMicCnt();
+    case 0x4004604: return I2S.ReadMicData();
+    case 0x4004700: return I2S.ReadSndExCnt();
+
+    case 0x040021A0: return NDSCartSlots[1]->ReadSPICnt(1) | (NDSCartSlots[1]->ReadSPIData(1) << 16);
+    case 0x040021A4: return NDSCartSlots[1]->ReadROMCnt(1);
+
+    case 0x04102010:
+        return NDSCartSlots[1]->ReadROMData(1);
     }
 
     if (addr >= 0x04004800 && addr < 0x04004A00)
@@ -2972,16 +3253,15 @@ u32 DSi::ARM7IORead32(u32 addr)
 void DSi::ARM7IOWrite8(u32 addr, u8 val)
 {
     assert(ConsoleType == 1);
+    if (!CheckIO7Access(addr))
+        return;
+
     switch (addr)
     {
     case 0x04004000:
-        if (!(SCFG_EXT[1] & (1 << 31))) /* no access to SCFG Registers if disabled*/
-            return;
         SCFG_BIOS |= (val & 0x03);
         return;
     case 0x04004001:
-        if (!(SCFG_EXT[1] & (1 << 31))) /* no access to SCFG Registers if disabled*/
-            return;
         SCFG_BIOS |= ((val & 0x07) << 8);
         return;
     case 0x04004002:
@@ -2992,8 +3272,6 @@ void DSi::ARM7IOWrite8(u32 addr, u8 val)
     case 0x04004062:
     case 0x04004063:
     {
-        if (!(SCFG_EXT[1] & (1 << 31))) /* no access to SCFG Registers if disabled*/
-            return;
         u32 tmp = MBK[0][8];
         tmp &= ~(0xff << ((addr % 4) * 8));
         tmp |= (val << ((addr % 4) * 8));
@@ -3006,23 +3284,15 @@ void DSi::ARM7IOWrite8(u32 addr, u8 val)
     case 0x04004501: I2C.WriteCnt(val); return;
 
     case 0x4004600:
-        if (!(SCFG_EXT[1] & (1 << 20)))
-            return;
         I2S.WriteMicCnt((u16)val, 0xFF);
         return;
     case 0x4004601:
-        if (!(SCFG_EXT[1] & (1 << 20)))
-            return;
         I2S.WriteMicCnt(((u16)val << 8), 0xFF00);
         return;
     case 0x4004700:
-        if (!(SCFG_EXT[1] & (1 << 21)))
-            return;
         I2S.WriteSndExCnt((u16)val, 0xFF);
         return;
     case 0x4004701:
-        if (!(SCFG_EXT[1] & (1 << 21)))
-            return;
         I2S.WriteSndExCnt(((u16)val << 8), 0xFF00);
         return;
 
@@ -3041,6 +3311,38 @@ void DSi::ARM7IOWrite8(u32 addr, u8 val)
     case 0x04004C04:
         GPIO_WiFi = val | (GPIO_WiFi & 0xff00);
         return;
+
+    case 0x040021A0:
+        NDSCartSlots[1]->WriteSPICnt(1, val, 0x00FF);
+        return;
+    case 0x040021A1:
+        NDSCartSlots[1]->WriteSPICnt(1, val << 8, 0xFF00);
+        return;
+    case 0x040021A2:
+        NDSCartSlots[1]->WriteSPIData(1, val);
+        return;
+
+    case 0x040021A4:
+        NDSCartSlots[1]->WriteROMCnt(1, val, 0x000000FF);
+        return;
+    case 0x040021A5:
+        NDSCartSlots[1]->WriteROMCnt(1, val << 8, 0x0000FF00);
+        return;
+    case 0x040021A6:
+        NDSCartSlots[1]->WriteROMCnt(1, val << 16, 0x00FF0000);
+        return;
+    case 0x040021A7:
+        NDSCartSlots[1]->WriteROMCnt(1, val << 24, 0xFF000000);
+        return;
+
+    case 0x040021A8: NDSCartSlots[1]->WriteROMCommand(1, 0, val); return;
+    case 0x040021A9: NDSCartSlots[1]->WriteROMCommand(1, 1, val); return;
+    case 0x040021AA: NDSCartSlots[1]->WriteROMCommand(1, 2, val); return;
+    case 0x040021AB: NDSCartSlots[1]->WriteROMCommand(1, 3, val); return;
+    case 0x040021AC: NDSCartSlots[1]->WriteROMCommand(1, 4, val); return;
+    case 0x040021AD: NDSCartSlots[1]->WriteROMCommand(1, 5, val); return;
+    case 0x040021AE: NDSCartSlots[1]->WriteROMCommand(1, 6, val); return;
+    case 0x040021AF: NDSCartSlots[1]->WriteROMCommand(1, 7, val); return;
     }
 
     if (addr >= 0x04004420 && addr < 0x04004430)
@@ -3082,74 +3384,111 @@ void DSi::ARM7IOWrite8(u32 addr, u8 val)
 void DSi::ARM7IOWrite16(u32 addr, u16 val)
 {
     assert(ConsoleType == 1);
+    if (!CheckIO7Access(addr))
+        return;
+
     switch (addr)
     {
-        case 0x04000180:
-            // DSi loader hack hook
-            if ((val & 0x0F00) == 0x0000)
-                CheckDSiLoaderHack();
-            return NDS::ARM7IOWrite16(addr, val);
+    case 0x04000180:
+        // DSi loader hack hook
+        if ((val & 0x0F00) == 0x0000)
+            CheckDSiLoaderHack();
+        return NDS::ARM7IOWrite16(addr, val);
 
-        case 0x04000218: NDS::IE2 = (val & 0x7FF7); NDS::UpdateIRQ(1); return;
-        case 0x0400021C: NDS::IF2 &= ~(val & 0x7FF7); NDS::UpdateIRQ(1); return;
+    case 0x04000218: NDS::IE2 = (val & 0x7FF7); NDS::UpdateIRQ(1); return;
+    case 0x0400021C: NDS::IF2 &= ~(val & 0x7FF7); NDS::UpdateIRQ(1); return;
 
-        case 0x04004000:
-            if (!(SCFG_EXT[1] & (1 << 31))) /* no access to SCFG Registers if disabled*/
-                return;
-            SCFG_BIOS |= (val & 0x0703);
-            return;
-        case 0x04004002:
-            // SCFG_ROMWE. ignored, as it always reads as 0
-            return;
-        case 0x04004004:
-            if (!(SCFG_EXT[1] & (1 << 31))) /* no access to SCFG Registers if disabled*/
-                return;
-            SCFG_Clock7 = val & 0x0187;
-            return;
-        case 0x04004010:
-            if (!(SCFG_EXT[1] & (1 << 31))) /* no access to SCFG Registers if disabled*/
-                return;
-            Set_SCFG_MC((SCFG_MC & 0xFFFF0000) | val);
-            return;
-        case 0x04004060:
-        case 0x04004062:
-            if (!(SCFG_EXT[1] & (1 << 31))) /* no access to SCFG Registers if disabled*/
-                return;
-            {
-                u32 tmp = MBK[0][8];
-                tmp &= ~(0xffff << ((addr % 4) * 8));
-                tmp |= (val << ((addr % 4) * 8));
-                MBK[0][8] = tmp & 0x00FFFF0F;
-                MBK[1][8] = MBK[0][8];
-            }
-            return;
+    case 0x04004000:
+        SCFG_BIOS |= (val & 0x0703);
+        return;
+    case 0x04004002:
+        // SCFG_ROMWE. ignored, as it always reads as 0
+        return;
+    case 0x04004004:
+        SCFG_Clock7 = val & 0x0187;
+        return;
+    case 0x04004010:
+        SetScfgMC(val, 0xFFFF);
+        return;
+    case 0x04004012:
+        SCFG_CartInsertDelay = val;
+        return;
+    case 0x04004014:
+        // TODO: reschedule if this changes during the power-off phase?
+        SCFG_CartPowerOffDelay = val;
+        return;
 
-        case 0x04004406:
-            AES.WriteBlkCnt(val<<16);
-            return;
+    case 0x04004060:
+    case 0x04004062:
+        {
+            u32 tmp = MBK[0][8];
+            tmp &= ~(0xffff << ((addr % 4) * 8));
+            tmp |= (val << ((addr % 4) * 8));
+            MBK[0][8] = tmp & 0x00FFFF0F;
+            MBK[1][8] = MBK[0][8];
+        }
+        return;
 
-        case 0x4004600:
-            if (!(SCFG_EXT[1] & (1 << 20)))
-                return;
-            I2S.WriteMicCnt(val, 0xFFFF);
-            return;
-        case 0x4004700:
-            if (!(SCFG_EXT[1] & (1 << 21)))
-                return;
-            I2S.WriteSndExCnt(val, 0xFFFF);
-            return;
+    case 0x04004406:
+        AES.WriteBlkCnt(val<<16);
+        return;
 
-        case 0x04004C00:
-            GPIO_Data = val & 0xff;
-            GPIO_Dir = val >> 8;
-            return;
-        case 0x04004C02:
-            GPIO_IEdgeSel = val & 0xff;
-            GPIO_IE = val >> 8;
-            return;
-        case 0x04004C04:
-            GPIO_WiFi = val;
-            return;
+    case 0x4004600:
+        I2S.WriteMicCnt(val, 0xFFFF);
+        return;
+    case 0x4004700:
+        I2S.WriteSndExCnt(val, 0xFFFF);
+        return;
+
+    case 0x04004C00:
+        GPIO_Data = val & 0xff;
+        GPIO_Dir = val >> 8;
+        return;
+    case 0x04004C02:
+        GPIO_IEdgeSel = val & 0xff;
+        GPIO_IE = val >> 8;
+        return;
+    case 0x04004C04:
+        GPIO_WiFi = val;
+        return;
+
+    case 0x040021A0:
+        NDSCartSlots[1]->WriteSPICnt(1, val, 0xFFFF);
+        return;
+    case 0x040021A2:
+        NDSCartSlots[1]->WriteSPIData(1, val & 0xFF);
+        return;
+
+    case 0x040021A4:
+        NDSCartSlots[1]->WriteROMCnt(1, val, 0x0000FFFF);
+        return;
+    case 0x040021A6:
+        NDSCartSlots[1]->WriteROMCnt(1, val << 16, 0xFFFF0000);
+        return;
+
+    case 0x040021A8:
+        NDSCartSlots[1]->WriteROMCommand(1, 0, val & 0xFF);
+        NDSCartSlots[1]->WriteROMCommand(1, 1, val >> 8);
+        return;
+    case 0x040021AA:
+        NDSCartSlots[1]->WriteROMCommand(1, 2, val & 0xFF);
+        NDSCartSlots[1]->WriteROMCommand(1, 3, val >> 8);
+        return;
+    case 0x040021AC:
+        NDSCartSlots[1]->WriteROMCommand(1, 4, val & 0xFF);
+        NDSCartSlots[1]->WriteROMCommand(1, 5, val >> 8);
+        return;
+    case 0x040021AE:
+        NDSCartSlots[1]->WriteROMCommand(1, 6, val & 0xFF);
+        NDSCartSlots[1]->WriteROMCommand(1, 7, val >> 8);
+        return;
+
+    case 0x040021B8:
+        NDSCartSlots[1]->WriteKey2Seed0(1, (u64)val << 32, 0x7F00000000ULL);
+        return;
+    case 0x040021BA:
+        NDSCartSlots[1]->WriteKey2Seed1(1, (u64)val << 32, 0x7F00000000ULL);
+        return;
     }
 
     if (addr >= 0x04004420 && addr < 0x04004430)
@@ -3202,6 +3541,9 @@ void DSi::ARM7IOWrite16(u32 addr, u16 val)
 void DSi::ARM7IOWrite32(u32 addr, u32 val)
 {
     assert(ConsoleType == 1);
+    if (!CheckIO7Access(addr))
+        return;
+
     switch (addr)
     {
     case 0x04000180:
@@ -3214,13 +3556,9 @@ void DSi::ARM7IOWrite32(u32 addr, u32 val)
     case 0x0400021C: NDS::IF2 &= ~(val & 0x7FF7); NDS::UpdateIRQ(1); return;
 
     case 0x04004000:
-        if (!(SCFG_EXT[1] & (1 << 31))) /* no access to SCFG Registers if disabled*/
-            return;
         SCFG_BIOS |= (val & 0x0703);
         return;
     case 0x04004008:
-        if (!(SCFG_EXT[1] & (1 << 31))) /* no access to SCFG Registers if disabled*/
-            return;
         SCFG_EXT[0] &= ~0x03000000;
         SCFG_EXT[0] |= (val & 0x03000000);
         SCFG_EXT[1] &= ~0x93FF0F07;
@@ -3228,29 +3566,24 @@ void DSi::ARM7IOWrite32(u32 addr, u32 val)
         Log(LogLevel::Debug, "SCFG_EXT = %08X / %08X (val7 %08X)\n", SCFG_EXT[0], SCFG_EXT[1], val);
         return;
     case 0x04004010:
-        if (!(SCFG_EXT[1] & (1 << 31))) /* no access to SCFG Registers if disabled*/
-            return;
-        Set_SCFG_MC(val);
+        SCFG_CartInsertDelay = val >> 16;
+        SetScfgMC(val & 0xFFFF, 0xFFFF);
+        return;
+    case 0x04004014:
+        // TODO: reschedule if this changes during the power-off phase?
+        SCFG_CartPowerOffDelay = val & 0xFFFF;
         return;
 
     case 0x04004054:
-        if (!(SCFG_EXT[1] & (1 << 31))) /* no access to SCFG Registers if disabled*/
-            return;
         MapNWRAMRange(1, 0, val);
         return;
     case 0x04004058:
-        if (!(SCFG_EXT[1] & (1 << 31))) /* no access to SCFG Registers if disabled*/
-            return;
         MapNWRAMRange(1, 1, val);
         return;
     case 0x0400405C:
-        if (!(SCFG_EXT[1] & (1 << 31))) /* no access to SCFG Registers if disabled*/
-            return;
         MapNWRAMRange(1, 2, val);
         return;
     case 0x04004060:
-        if (!(SCFG_EXT[1] & (1 << 31))) /* no access to SCFG Registers if disabled*/
-            return;
         val &= 0x00FFFF0F;
         MBK[0][8] = val;
         MBK[1][8] = val;
@@ -3291,14 +3624,42 @@ void DSi::ARM7IOWrite32(u32 addr, u32 val)
     case 0x04004408: AES.WriteInputFIFO(val); return;
 
     case 0x4004600:
-        if (!(SCFG_EXT[1] & (1 << 20)))
-            return;
         I2S.WriteMicCnt(val, 0xFFFF);
         return;
     case 0x4004700:
-        if (!(SCFG_EXT[1] & (1 << 21)))
-            return;
         I2S.WriteSndExCnt(val, 0xFFFF);
+        return;
+
+    case 0x040021A0:
+        NDSCartSlots[1]->WriteSPICnt(1, val & 0xFFFF, 0xFFFF);
+        NDSCartSlots[1]->WriteSPIData(1, (val >> 16) & 0xFF);
+        return;
+    case 0x040021A4:
+        NDSCartSlots[1]->WriteROMCnt(1, val, 0xFFFFFFFF);
+        return;
+
+    case 0x040021A8:
+        NDSCartSlots[1]->WriteROMCommand(1, 0, val & 0xFF);
+        NDSCartSlots[1]->WriteROMCommand(1, 1, (val >> 8) & 0xFF);
+        NDSCartSlots[1]->WriteROMCommand(1, 2, (val >> 16) & 0xFF);
+        NDSCartSlots[1]->WriteROMCommand(1, 3, val >> 24);
+        return;
+    case 0x040021AC:
+        NDSCartSlots[1]->WriteROMCommand(1, 4, val & 0xFF);
+        NDSCartSlots[1]->WriteROMCommand(1, 5, (val >> 8) & 0xFF);
+        NDSCartSlots[1]->WriteROMCommand(1, 6, (val >> 16) & 0xFF);
+        NDSCartSlots[1]->WriteROMCommand(1, 7, val >> 24);
+        return;
+
+    case 0x040021B0:
+        NDSCartSlots[1]->WriteKey2Seed0(1, (u64)val, 0x00FFFFFFFFULL);
+        return;
+    case 0x040021B4:
+        NDSCartSlots[1]->WriteKey2Seed1(1, (u64)val, 0x00FFFFFFFFULL);
+        return;
+
+    case 0x04102010:
+        NDSCartSlots[1]->WriteROMData(1, val, 0xFFFFFFFF);
         return;
     }
 
@@ -3342,7 +3703,6 @@ void DSi::ARM7IOWrite32(u32 addr, u32 val)
         SDIO.Write(addr+2, val >> 16);
         return;
     }
-
 
     if (addr >= 0x04004300 && addr <= 0x04004400)
     {

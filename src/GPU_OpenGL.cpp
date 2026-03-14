@@ -229,6 +229,11 @@ bool GLRenderer::Init()
     CapDownInputLayerULoc = glGetUniformLocation(CapDownShader, "uInputLayer");
 
 
+    auto rend2DA = dynamic_cast<GLRenderer2D*>(Rend2D_A.get());
+    if (!rend2DA->InitShaders()) return false;
+    auto rend2DB = dynamic_cast<GLRenderer2D*>(Rend2D_B.get());
+    if (!rend2DB->InitShaders(*rend2DA)) return false;
+
     if (!Rend2D_A->Init()) return false;
     if (!Rend2D_B->Init()) return false;
     if (!Rend3D->Init()) return false;
@@ -269,6 +274,9 @@ GLRenderer::~GLRenderer()
 
     glDeleteBuffers(1, &FPConfigUBO);
     glDeleteBuffers(1, &CaptureConfigUBO);
+
+    auto rend2D = dynamic_cast<GLRenderer2D*>(Rend2D_A.get());
+    rend2D->DeleteShaders();
 }
 
 void GLRenderer::Reset()

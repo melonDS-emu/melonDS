@@ -60,8 +60,10 @@ enum
     Event_RTC,
 
     Event_DisplayFIFO,
-    Event_ROMTransfer,
-    Event_ROMSPITransfer,
+    Event_CartROMTransfer9,
+    Event_CartSPITransfer9,
+    Event_CartROMTransfer7,
+    Event_CartSPITransfer7,
     Event_SPITransfer,
     Event_Div,
     Event_Sqrt,
@@ -74,6 +76,12 @@ enum
     Event_DSi_CamTransfer,
     Event_DSi_DSP,
     Event_DSi_DSPHLE, // TODO use same event for both flavors of DSP?
+    Event_DSi_Cart2ROMTransfer9,
+    Event_DSi_Cart2SPITransfer9,
+    Event_DSi_Cart2ROMTransfer7,
+    Event_DSi_Cart2SPITransfer7,
+    Event_DSi_Cart1Power,
+    Event_DSi_Cart2Power,
 
     Event_MAX
 };
@@ -81,6 +89,7 @@ enum
 static constexpr u32 MaxEventFunctions = 3;
 
 typedef void (*EventFunc)(void* that, u32 param);
+typedef std::initializer_list<EventFunc> EventFuncList;
 #define MakeEventThunk(class, func) [](void* that, u32 param) { static_cast<class*>(that)->func(param); }
 
 struct SchedEvent
@@ -122,8 +131,8 @@ enum
     // DSi IRQs
     IRQ_DSi_DSP = 24,
     IRQ_DSi_Camera,
-    IRQ_DSi_Unk26,
-    IRQ_DSi_Unk27,
+    IRQ_DSi_Cart2XferDone,
+    IRQ_DSi_Cart2IREQMC,
     IRQ_DSi_NDMA0,
     IRQ_DSi_NDMA1,
     IRQ_DSi_NDMA2,
@@ -280,8 +289,6 @@ public: // TODO: Encapsulate the rest of these members
     u16 PowerControl9;
 
     u16 ExMemCnt[2];
-    alignas(u32) u8 ROMSeed0[2*8];
-    alignas(u32) u8 ROMSeed1[2*8];
 
 protected:
     // These BIOS arrays should be declared *before* the component objects (JIT, SPI, etc.)
@@ -326,6 +333,9 @@ public: // TODO: Encapsulate the rest of these members
 
     const u32 ARM7WRAMSize = 0x10000;
     u8* ARM7WRAM;
+
+    // provision for DSi second cart slot
+    NDSCart::NDSCartSlot* NDSCartSlots[2];
 
     virtual void Reset();
     void Start();
@@ -414,7 +424,7 @@ public: // TODO: Encapsulate the rest of these members
     bool IsLidClosed() const;
     void SetLidClosed(bool closed);
 
-    void RegisterEventFuncs(u32 id, void* that, const std::initializer_list<EventFunc>& funcs);
+    void RegisterEventFuncs(u32 id, void* that, const EventFuncList& funcs);
     void UnregisterEventFuncs(u32 id);
     void ScheduleEvent(u32 id, bool periodic, s32 delay, u32 funcid, u32 param);
     void CancelEvent(u32 id);
@@ -541,6 +551,7 @@ protected:
     void RunTimer(u32 tid, s32 cycles);
     void UpdateWifiTimings();
     void SetWifiWaitCnt(u16 val);
+    void SetExMemCnt(u32 cpu, u16 val, u16 mask);
     void SetGBASlotTimings();
     void EnterSleepMode();
     template <CPUExecuteMode cpuMode>
