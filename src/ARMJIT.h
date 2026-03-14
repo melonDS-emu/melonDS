@@ -67,8 +67,10 @@ public:
     u32 LocaliseCodeAddress(u32 num, u32 addr) const noexcept;
 
     ARMJIT_Memory Memory;
+
+    static constexpr u32 MaxSupportedBlockSize = 32;
 private:
-    int MaxBlockSize {};
+    u32 MaxBlockSize {};
     bool LiteralOptimizations = false;
     bool BranchOptimizations = false;
     bool FastMemory = false;
