@@ -1,14 +1,17 @@
 option('version_suffix', type: 'string', value: '',
        description: 'Suffix to append to SLIRP_VERSION_STRING')
 
-option('oss-fuzz', type : 'boolean', value : 'false',
+option('oss-fuzz', type : 'boolean', value : false,
        description : 'build against oss-fuzz')
 
-option('llvm-fuzz', type : 'boolean', value : 'false',
+option('llvm-fuzz', type : 'boolean', value : false,
        description : 'build against LLVM libFuzzer')
 
-option('fuzz-reproduce', type : 'boolean', value : 'false',
+option('fuzz-reproduce', type : 'boolean', value : false,
        description : 'build a standalone executable to reproduce fuzz cases')
 
-option('static', type : 'boolean', value : 'false',
+option('static', type : 'boolean', value : false,
        description : 'build static binary, only for debugging, otherwise rather use --default-library static')
+
+option('target_winver', type : 'string', value: '',
+       description : 'Target Windows version (default is Windows 7/0x0601)')
