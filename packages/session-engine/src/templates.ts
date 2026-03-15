@@ -871,6 +871,42 @@ export const DEFAULT_TEMPLATES: SessionTemplateConfig[] = [
     uiLayoutOptions: { dsScreenLayout: 'stacked' },
     dsiMode: true,
   },
+
+  // ===========================================================================
+  // Phase 14 — Zelda & Metroid Online
+  // ===========================================================================
+
+  // === Metroid Prime Hunters — quick 1-on-1 (Phase 14) ===
+  {
+    id: 'nds-metroid-prime-hunters-2p',
+    gameId: 'nds-metroid-prime-hunters',
+    system: 'nds',
+    emulatorBackendId: 'melonds',
+    playerCount: 2,
+    controllerMappings: defaultMappings(2),
+    saveRules: NO_SAVE_RULES,
+    netplayMode: 'online-relay',
+    latencyTarget: 80,
+    uiLayoutOptions: { dsScreenLayout: 'top-focus' },
+    wfcConfig: {
+      dnsServer: '178.62.43.212',
+      providerId: 'wiimmfi',
+      description: 'Uses Wiimmfi for Metroid Prime Hunters 1v1 deathmatch',
+    },
+  },
+
+  // === GBA Zelda Four Swords — 2P variant ===
+  {
+    id: 'gba-zelda-four-swords-2p',
+    gameId: 'gba-zelda-four-swords',
+    system: 'gba',
+    emulatorBackendId: 'mgba',
+    playerCount: 2,
+    controllerMappings: defaultMappings(2),
+    saveRules: NO_SAVE_RULES,
+    netplayMode: 'online-relay',
+    latencyTarget: 100,
+  },
 ];
 
 /**

@@ -1,19 +1,36 @@
-import { useState } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { usePresence } from '../context/PresenceContext';
 import { useLobby } from '../context/LobbyContext';
 import { JoinRoomModal } from '../components/JoinRoomModal';
 import { activityEmoji, activityVerb, relativeTime, avatarColor } from '../lib/presence-utils';
 import type { FriendInfo } from '@retro-oasis/presence-client';
 
+const API =
+  typeof import.meta !== 'undefined'
+    ? (import.meta as { env?: { VITE_SERVER_URL?: string } }).env?.VITE_SERVER_URL ??
+      'http://localhost:8080'
+    : 'http://localhost:8080';
+
 type StatusFilter = 'all' | 'online' | 'in-game';
 
 export function FriendsPage() {
   const { friends, recentActivity } = usePresence();
-  const { joinByCode, joinAsSpectator, pendingFriendRequests, acceptFriendRequest, declineFriendRequest, sendFriendRequest } = useLobby();
+  const { joinByCode, joinAsSpectator, pendingFriendRequests, acceptFriendRequest, declineFriendRequest, sendFriendRequest, sendDm, markDmRead, incomingDms } = useLobby();
   const [filter, setFilter] = useState<StatusFilter>('all');
   const [joinTarget, setJoinTarget] = useState<FriendInfo | null>(null);
   const [addInput, setAddInput] = useState('');
   const [addStatus, setAddStatus] = useState('');
+  const [dmPeer, setDmPeer] = useState<string | null>(null);
+  const [dmHistory, setDmHistory] = useState<Array<{ id: string; fromPlayer: string; toPlayer: string; content: string; sentAt: string; readAt: string | null }>>([]);
+  const [dmInput, setDmInput] = useState('');
+  const [dmLoading, setDmLoading] = useState(false);
+  const dmScrollRef = useRef<HTMLDivElement>(null);
+  const [myDisplayName, setMyDisplayName] = useState('');
+
+  useEffect(() => {
+    const stored = localStorage.getItem('retro-oasis-display-name');
+    if (stored) setMyDisplayName(stored);
+  }, []);
 
   const filtered = friends.filter((f) => {
     if (filter === 'online') return f.status === 'online' || f.status === 'in-game' || f.status === 'idle';
@@ -43,6 +60,45 @@ export function FriendsPage() {
     setAddStatus('Request sent!');
     setTimeout(() => setAddStatus(''), 3000);
   }
+
+  async function openDm(peerName: string) {
+    setDmPeer(peerName);
+    setDmLoading(true);
+    try {
+      const res = await fetch(`${API}/api/messages/${encodeURIComponent(myDisplayName)}/${encodeURIComponent(peerName)}`);
+      if (res.ok) {
+        const data = await res.json() as { messages: Array<{ id: string; fromPlayer: string; toPlayer: string; content: string; sentAt: string; readAt: string | null }> };
+        setDmHistory(data.messages);
+      }
+    } catch { /* ignore */ }
+    setDmLoading(false);
+    markDmRead(peerName);
+    setTimeout(() => { dmScrollRef.current?.scrollTo({ top: dmScrollRef.current.scrollHeight, behavior: 'smooth' }); }, 50);
+  }
+
+  function handleSendDm() {
+    if (!dmPeer || !dmInput.trim()) return;
+    sendDm(dmPeer, dmInput.trim());
+    // Optimistically add to local history
+    setDmHistory((prev) => [...prev, { id: `local-${Date.now()}`, fromPlayer: myDisplayName, toPlayer: dmPeer, content: dmInput.trim(), sentAt: new Date().toISOString(), readAt: null }]);
+    setDmInput('');
+    setTimeout(() => { dmScrollRef.current?.scrollTo({ top: dmScrollRef.current.scrollHeight, behavior: 'smooth' }); }, 50);
+  }
+
+  // Merge incoming WS DMs into history if the thread is open
+  useEffect(() => {
+    if (!dmPeer) return;
+    const relevant = incomingDms.filter((dm) => dm.fromPlayer === dmPeer);
+    if (relevant.length > 0) {
+      setDmHistory((prev) => {
+        const ids = new Set(prev.map((m) => m.id));
+        const newMsgs = relevant.filter((m) => !ids.has(m.id)).map((m) => ({ ...m, toPlayer: myDisplayName, readAt: null }));
+        return [...prev, ...newMsgs];
+      });
+      markDmRead(dmPeer);
+      setTimeout(() => { dmScrollRef.current?.scrollTo({ top: dmScrollRef.current.scrollHeight, behavior: 'smooth' }); }, 50);
+    }
+  }, [incomingDms, dmPeer, myDisplayName, markDmRead]);
 
   return (
     <div className="space-y-8 max-w-4xl">
@@ -279,6 +335,144 @@ export function FriendsPage() {
           onClose={() => setJoinTarget(null)}
         />
       )}
+
+      {/* Direct Messages panel */}
+      <section>
+        <h2 className="text-base font-bold mb-3 flex items-center gap-2" style={{ color: 'var(--color-oasis-accent-light)' }}>
+          💬 Direct Messages
+          {incomingDms.length > 0 && (
+            <span
+              className="text-[10px] font-black px-2 py-0.5 rounded-full"
+              style={{ backgroundColor: 'var(--color-oasis-accent)', color: '#fff' }}
+            >
+              {incomingDms.length}
+            </span>
+          )}
+        </h2>
+
+        {/* Friend DM list */}
+        {!dmPeer ? (
+          <div className="rounded-2xl overflow-hidden" style={{ backgroundColor: 'var(--color-oasis-card)', border: '1px solid var(--n-border)' }}>
+            {friends.length === 0 ? (
+              <p className="p-6 text-sm text-center" style={{ color: 'var(--color-oasis-text-muted)' }}>
+                Add friends to send direct messages.
+              </p>
+            ) : (
+              friends.map((f, i) => {
+                const unread = incomingDms.filter((dm) => dm.fromPlayer === f.displayName).length;
+                return (
+                  <div
+                    key={f.userId}
+                    className="px-4 py-3 flex items-center gap-3 cursor-pointer hover:bg-white/5 transition-colors"
+                    style={{ borderTop: i > 0 ? '1px solid rgba(255,255,255,0.06)' : undefined }}
+                    onClick={() => openDm(f.displayName)}
+                  >
+                    <div
+                      className="w-9 h-9 rounded-full flex items-center justify-center text-sm font-bold flex-shrink-0"
+                      style={{ backgroundColor: avatarColor(f.userId), color: 'white' }}
+                    >
+                      {f.displayName[0].toUpperCase()}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-semibold" style={{ color: 'var(--color-oasis-text)' }}>
+                        {f.displayName}
+                      </p>
+                      <p className="text-xs" style={{ color: 'var(--color-oasis-text-muted)' }}>
+                        {f.status === 'in-game' ? `Playing ${f.currentGameTitle ?? '…'}` : f.status}
+                      </p>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      {unread > 0 && (
+                        <span
+                          className="text-[10px] font-black px-1.5 py-0.5 rounded-full"
+                          style={{ backgroundColor: 'var(--color-oasis-accent)', color: '#fff' }}
+                        >
+                          {unread}
+                        </span>
+                      )}
+                      <span className="text-xs" style={{ color: 'var(--color-oasis-text-muted)' }}>→</span>
+                    </div>
+                  </div>
+                );
+              })
+            )}
+          </div>
+        ) : (
+          /* DM thread view */
+          <div className="rounded-2xl overflow-hidden flex flex-col" style={{ backgroundColor: 'var(--color-oasis-card)', border: '1px solid var(--n-border)', height: 360 }}>
+            {/* Thread header */}
+            <div
+              className="px-4 py-3 flex items-center gap-3 flex-shrink-0"
+              style={{ borderBottom: '1px solid var(--n-border)' }}
+            >
+              <button
+                onClick={() => { setDmPeer(null); setDmHistory([]); }}
+                className="text-xs font-bold"
+                style={{ color: 'var(--color-oasis-text-muted)' }}
+              >
+                ← Back
+              </button>
+              <p className="text-sm font-bold flex-1" style={{ color: 'var(--color-oasis-text)' }}>
+                💬 {dmPeer}
+              </p>
+            </div>
+
+            {/* Messages */}
+            <div ref={dmScrollRef} className="flex-1 overflow-y-auto px-4 py-3 space-y-2">
+              {dmLoading ? (
+                <p className="text-xs text-center" style={{ color: 'var(--color-oasis-text-muted)' }}>Loading…</p>
+              ) : dmHistory.length === 0 ? (
+                <p className="text-xs text-center" style={{ color: 'var(--color-oasis-text-muted)' }}>
+                  No messages yet. Say hi!
+                </p>
+              ) : (
+                dmHistory.map((msg) => {
+                  const isMe = msg.fromPlayer === myDisplayName;
+                  return (
+                    <div key={msg.id} className={`flex ${isMe ? 'justify-end' : 'justify-start'}`}>
+                      <div
+                        className="max-w-[70%] px-3 py-2 rounded-2xl text-xs"
+                        style={{
+                          backgroundColor: isMe ? 'var(--color-oasis-accent)' : 'var(--color-oasis-surface)',
+                          color: isMe ? '#fff' : 'var(--color-oasis-text)',
+                          borderRadius: isMe ? '16px 16px 4px 16px' : '16px 16px 16px 4px',
+                        }}
+                      >
+                        <p>{msg.content}</p>
+                        <p className="text-[9px] mt-0.5 opacity-60">{new Date(msg.sentAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</p>
+                      </div>
+                    </div>
+                  );
+                })
+              )}
+            </div>
+
+            {/* Input */}
+            <div
+              className="px-3 py-2 flex gap-2 flex-shrink-0"
+              style={{ borderTop: '1px solid var(--n-border)' }}
+            >
+              <input
+                value={dmInput}
+                onChange={(e) => setDmInput(e.target.value)}
+                onKeyDown={(e) => e.key === 'Enter' && handleSendDm()}
+                placeholder={`Message ${dmPeer}…`}
+                maxLength={500}
+                className="flex-1 rounded-xl px-3 py-2 text-xs border-0 focus:outline-none"
+                style={{ backgroundColor: 'var(--color-oasis-surface)', color: 'var(--color-oasis-text)' }}
+              />
+              <button
+                onClick={handleSendDm}
+                disabled={!dmInput.trim()}
+                className="text-xs font-black px-3 py-2 rounded-xl disabled:opacity-40"
+                style={{ backgroundColor: 'var(--color-oasis-accent)', color: '#fff' }}
+              >
+                Send
+              </button>
+            </div>
+          </div>
+        )}
+      </section>
     </div>
   );
 }

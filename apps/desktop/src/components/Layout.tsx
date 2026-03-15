@@ -11,6 +11,8 @@ const NAV_ITEMS = [
   { path: '/pokemon',      label: 'Pokémon',     icon: '🔴' },
   { path: '/mario-kart',    label: 'Mario Kart',   icon: '🏎️' },
   { path: '/mario-sports',  label: 'Mario Sports', icon: '🎾' },
+  { path: '/zelda',         label: 'Zelda',        icon: '🗡️' },
+  { path: '/metroid',       label: 'Metroid',      icon: '🌌' },
   { path: '/events',       label: 'Events',       icon: '🎪' },
   { path: '/friends',      label: 'Friends',      icon: '👥' },
   { path: '/tournaments',  label: 'Tournaments', icon: '🏆' },
@@ -24,7 +26,7 @@ export function Layout() {
   const location = useLocation();
   const navigate = useNavigate();
   const { onlineFriends } = usePresence();
-  const { joinByCode, joinAsSpectator, currentRoom, pendingFriendRequests } = useLobby();
+  const { joinByCode, joinAsSpectator, currentRoom, pendingFriendRequests, unreadDmCount } = useLobby();
   const [pendingFriend, setPendingFriend] = useState<FriendInfo | null>(null);
 
   useEffect(() => {
@@ -118,6 +120,15 @@ export function Layout() {
                     title={`${pendingFriendRequests.length} pending friend request${pendingFriendRequests.length !== 1 ? 's' : ''}`}
                   >
                     {pendingFriendRequests.length}
+                  </span>
+                )}
+                {item.path === '/friends' && unreadDmCount > 0 && (
+                  <span
+                    className="text-[9px] font-black px-1.5 py-0.5 rounded-full min-w-[18px] text-center"
+                    style={{ backgroundColor: 'var(--color-oasis-blue)', color: '#fff' }}
+                    title={`${unreadDmCount} unread message${unreadDmCount !== 1 ? 's' : ''}`}
+                  >
+                    💬
                   </span>
                 )}
               </Link>

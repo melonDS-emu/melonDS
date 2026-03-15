@@ -61,6 +61,14 @@ export interface FriendStatus {
   gameTitle?: string;
 }
 
+/** Phase 14: an incoming direct message received via WS. */
+export interface IncomingDm {
+  id: string;
+  fromPlayer: string;
+  content: string;
+  sentAt: string;
+}
+
 interface LobbyContextValue {
   connectionState: ConnectionState;
   playerId: string | null;
@@ -102,6 +110,11 @@ interface LobbyContextValue {
   acceptFriendRequest: (requestId: string) => void;
   declineFriendRequest: (requestId: string) => void;
   removeFriend: (friendId: string) => void;
+  /** Phase 14: direct messages. */
+  sendDm: (toPlayer: string, content: string) => void;
+  markDmRead: (fromPlayer: string) => void;
+  unreadDmCount: number;
+  incomingDms: IncomingDm[];
 }
 
 const LobbyContext = createContext<LobbyContextValue | null>(null);
@@ -121,6 +134,8 @@ export function LobbyProvider({ children }: { children: ReactNode }) {
   const [onlinePlayers, setOnlinePlayers] = useState<import('../services/lobby-types').PresencePlayer[]>([]);
   const [pendingFriendRequests, setPendingFriendRequests] = useState<PendingFriendRequest[]>([]);
   const [friendStatuses, setFriendStatuses] = useState<FriendStatus[]>([]);
+  const [incomingDms, setIncomingDms] = useState<IncomingDm[]>([]);
+  const [unreadDmCount, setUnreadDmCount] = useState(0);
 
   const wsRef = useRef<WebSocket | null>(null);
   const currentRoomRef = useRef<Room | null>(null);
@@ -344,6 +359,20 @@ export function LobbyProvider({ children }: { children: ReactNode }) {
             });
             break;
 
+          case 'dm-received':
+            setIncomingDms((prev) => [...prev, msg.message]);
+            setUnreadDmCount((prev) => prev + 1);
+            addToast({
+              message: `💬 Message from ${msg.message.fromPlayer}`,
+              detail: msg.message.content.slice(0, 80),
+              duration: 5000,
+            });
+            break;
+
+          case 'dm-read-ack':
+            // Sender's read-ack doesn't affect receiver unread count
+            break;
+
           case 'error':
             setError(msg.message);
             break;
@@ -365,6 +394,8 @@ export function LobbyProvider({ children }: { children: ReactNode }) {
         setChatMessages([]);
         setPendingFriendRequests([]);
         setFriendStatuses([]);
+        setIncomingDms([]);
+        setUnreadDmCount(0);
         stopPing();
         // Attempt to reconnect after 3 seconds
         reconnectTimeout = setTimeout(connect, RECONNECT_DELAY_MS);
@@ -495,6 +526,25 @@ export function LobbyProvider({ children }: { children: ReactNode }) {
     [send]
   );
 
+  const sendDm = useCallback(
+    (toPlayer: string, content: string) => {
+      send({ type: 'send-dm', payload: { toPlayer, content } });
+    },
+    [send]
+  );
+
+  const markDmRead = useCallback(
+    (fromPlayer: string) => {
+      send({ type: 'mark-dm-read', payload: { fromPlayer } });
+      setIncomingDms((prev) => prev.filter((dm) => dm.fromPlayer !== fromPlayer));
+      setUnreadDmCount((prev) => {
+        const cleared = incomingDms.filter((dm) => dm.fromPlayer === fromPlayer).length;
+        return Math.max(0, prev - cleared);
+      });
+    },
+    [send, incomingDms]
+  );
+
   return (
     <LobbyContext.Provider
       value={{
@@ -527,6 +577,10 @@ export function LobbyProvider({ children }: { children: ReactNode }) {
         acceptFriendRequest,
         declineFriendRequest,
         removeFriend,
+        sendDm,
+        markDmRead,
+        unreadDmCount,
+        incomingDms,
       }}
     >
       {children}

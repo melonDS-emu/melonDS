@@ -27,6 +27,8 @@ import { WFC_PROVIDERS } from './wfc-config';
 import { FriendCodeStore, validateFriendCode } from './friend-code-store';
 import { SEASONAL_EVENTS, getActiveEvents, getNextEvent } from './seasonal-events';
 import { getFeaturedGames } from './featured-games';
+import { MessageStore } from './message-store';
+import { SqliteMessageStore } from './sqlite-message-store';
 
 const PORT = parseInt(process.env.PORT ?? '8080', 10);
 /** Public hostname/IP players use to reach the relay (surfaced in game-starting events). */
@@ -71,6 +73,9 @@ const achievementStore: AchievementStore | SqliteAchievementStore = USE_SQLITE
 const tournamentStore: TournamentStore | SqliteTournamentStore = USE_SQLITE
   ? new SqliteTournamentStore(getDatabase())
   : new TournamentStore();
+const messageStore: MessageStore | SqliteMessageStore = USE_SQLITE
+  ? (() => { const s = new SqliteMessageStore(getDatabase()); s.hydrate(); return s; })()
+  : new MessageStore();
 
 /** Lazy reference to the WebSocketServer — set after server creation. */
 let wss: WebSocketServer | undefined;
@@ -886,6 +891,64 @@ async function httpHandler(req: http.IncomingMessage, res: http.ServerResponse):
     return;
   }
 
+  // ---------------------------------------------------------------------------
+  // Direct Messages API  (Phase 14)
+  //   GET  /api/messages/:player               — recent conversations for player
+  //   GET  /api/messages/:player1/:player2     — conversation between two players
+  //   POST /api/messages/send                  — send a DM
+  //   POST /api/messages/read                  — mark conversation as read
+  //   GET  /api/messages/:player/unread-count  — total unread count
+  // ---------------------------------------------------------------------------
+
+  const dmMatch = pathname.match(/^\/api\/messages\/([^/]+)(?:\/(.+))?$/);
+  if (dmMatch) {
+    const p1 = decodeURIComponent(dmMatch[1]);
+    const p2Segment = dmMatch[2] ? decodeURIComponent(dmMatch[2]) : null;
+
+    if (req.method === 'GET' && p2Segment === 'unread-count') {
+      json(res, 200, { player: p1, unreadCount: messageStore.getUnreadCount(p1) });
+      return;
+    }
+
+    if (req.method === 'GET' && p2Segment) {
+      const msgs = messageStore.getConversation(p1, p2Segment);
+      json(res, 200, { messages: msgs });
+      return;
+    }
+
+    if (req.method === 'GET' && !p2Segment) {
+      const convos = messageStore.getRecentConversations(p1);
+      json(res, 200, { conversations: convos });
+      return;
+    }
+  }
+
+  if (req.method === 'POST' && pathname === '/api/messages/send') {
+    const raw = await readBody(req);
+    const body = JSON.parse(raw) as { fromPlayer: string; toPlayer: string; content: string };
+    const { fromPlayer, toPlayer, content } = body;
+    if (!fromPlayer || !toPlayer || !content) {
+      json(res, 400, { error: 'fromPlayer, toPlayer and content are required' });
+      return;
+    }
+    const dm = messageStore.sendMessage(fromPlayer, toPlayer, content);
+    json(res, 201, { message: dm });
+    return;
+  }
+
+  if (req.method === 'POST' && pathname === '/api/messages/read') {
+    const raw = await readBody(req);
+    const body = JSON.parse(raw) as { fromPlayer: string; toPlayer: string };
+    const { fromPlayer, toPlayer } = body;
+    if (!fromPlayer || !toPlayer) {
+      json(res, 400, { error: 'fromPlayer and toPlayer are required' });
+      return;
+    }
+    messageStore.markRead(fromPlayer, toPlayer);
+    json(res, 200, { ok: true });
+    return;
+  }
+
   json(res, 404, { error: 'Not found' });
 }
 
@@ -915,6 +978,7 @@ wss.on('connection', (ws, req) => {
     matchmaking: matchmakingQueue,
     playerIdentity: playerIdentityStore,
     achievements: achievementStore,
+    messages: messageStore,
   });
 });
 

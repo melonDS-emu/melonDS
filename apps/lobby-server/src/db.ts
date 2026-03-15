@@ -209,6 +209,20 @@ export function openDatabase(path = ':memory:'): DatabaseType {
     // Column already exists — safe to ignore.
   }
 
+  // Phase 14 migration: direct messages table.
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS direct_messages (
+      id          TEXT PRIMARY KEY,
+      from_player TEXT NOT NULL,
+      to_player   TEXT NOT NULL,
+      content     TEXT NOT NULL,
+      sent_at     TEXT NOT NULL,
+      read_at     TEXT
+    );
+    CREATE INDEX IF NOT EXISTS idx_dm_from_to ON direct_messages (from_player, to_player);
+    CREATE INDEX IF NOT EXISTS idx_dm_to_unread ON direct_messages (to_player, read_at);
+  `);
+
   return db;
 }
 
