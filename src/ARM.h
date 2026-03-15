@@ -319,6 +319,12 @@ public:
     void ICacheInvalidateByAddr(u32 addr);
     void ICacheInvalidateAll();
 
+    void DCacheLookup(u32 addr);
+    void DCacheInvalidateByAddr(u32 addr);
+    void DCacheInvalidateAll();
+    void DCacheFlushByAddr(u32 addr);
+    void DCacheFlushAll(); // A
+
     void CP15Write(u32 id, u32 val);
     u32 CP15Read(u32 id) const;
 
@@ -341,6 +347,10 @@ public:
     u8 ICache[0x2000];
     u32 ICacheTags[64*4];
     u8 ICacheCount[64];
+
+    u8 DCache[0x1000];
+    u32 DCacheTags[32*4];
+    u8 DCacheCount[32];
 
     u32 PU_CodeCacheable;
     u32 PU_DataCacheable;

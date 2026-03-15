@@ -60,6 +60,10 @@ void ARMv5::CP15Reset()
     ICacheInvalidateAll();
     memset(ICacheCount, 0, 64);
 
+    memset(DCache, 0, 0x1000);
+    DCacheInvalidateAll();
+    memset(DCacheCount, 0, 32);
+
     PU_CodeCacheable = 0;
     PU_DataCacheable = 0;
     PU_DataCacheWrite = 0;
@@ -399,8 +403,10 @@ void ARMv5::ICacheLookup(u32 addr)
     ICacheTags[line] = tag;
 
     // ouch :/
-    //printf("cache miss %08X: %d/%d\n", addr, NDS::ARM9MemTimings[addr >> 14][2], NDS::ARM9MemTimings[addr >> 14][3]);
+    //printf("cache miss %08X: %d/%d\n", addr, NDS.ARM9MemTimings[addr >> 14][2], NDS.ARM9MemTimings[addr >> 14][3]);
     CodeCycles = (NDS.ARM9MemTimings[addr >> 14][2] + (NDS.ARM9MemTimings[addr >> 14][3] * 7)) << NDS.ARM9ClockShift;
+    //printf("cycles=%d\n", CodeCycles);
+    //CodeCycles = (NDS.ARM9MemTimings[addr >> 14][2]*8) << NDS.ARM9ClockShift;
     CurICacheLine = ptr;
 }
 
@@ -438,6 +444,147 @@ void ARMv5::ICacheInvalidateAll()
         ICacheTags[i] = 1;
 }
 
+void ARMv5::DCacheLookup(u32 addr)
+{
+    u32 tag = addr & 0xFFFFFC00;
+    u32 id = (addr >> 5) & 0x1F;
+
+    // instr: 8KB, TAG=addr[31..11], index=addr[10..5]
+    // data:  4KB, TAG=addr[31..10], index=addr[9..5]
+
+    id <<= 2;
+    if (DCacheTags[id+0] == tag)
+    {
+        DataCycles = 1;
+        //CurICacheLine = &ICache[(id+0) << 5];
+        return;
+    }
+    if (DCacheTags[id+1] == tag)
+    {
+        DataCycles = 1;
+        //CurICacheLine = &ICache[(id+1) << 5];
+        return;
+    }
+    if (DCacheTags[id+2] == tag)
+    {
+        DataCycles = 1;
+        //CurICacheLine = &ICache[(id+2) << 5];
+        return;
+    }
+    if (DCacheTags[id+3] == tag)
+    {
+        DataCycles = 1;
+        //CurICacheLine = &ICache[(id+3) << 5];
+        return;
+    }
+
+    // cache miss
+
+    u32 line;
+    if (CP15Control & (1<<14))
+    {
+        line = DCacheCount[id>>2];
+        DCacheCount[id>>2] = (line+1) & 0x3;
+    }
+    else
+    {
+        line = RandomLineIndex();
+    }
+
+    line += id;
+
+    addr &= ~0x1F;
+    u8* ptr = &DCache[line << 5];
+
+    for (int i = 0; i < 32; i+=4)
+        *(u32*)&ptr[i] = NDS.ARM9Read32(addr+i);
+
+    DCacheTags[line] = tag;
+
+    // ouch :/
+    /*printf("dcache miss %08X: %d/%d, adding to cache line %04X, tag=%08X\n",
+           addr,
+           NDS.ARM9MemTimings[addr >> 14][2], NDS.ARM9MemTimings[addr >> 14][3],
+           line, tag);*/
+    DataCycles = (NDS.ARM9MemTimings[addr >> 14][2] + (NDS.ARM9MemTimings[addr >> 14][3] * 7)) << NDS.ARM9ClockShift;
+}
+
+void ARMv5::DCacheInvalidateByAddr(u32 addr)
+{
+    u32 tag = addr & 0xFFFFFC00;
+    u32 id = (addr >> 5) & 0x1F;
+    printf("invalidate dcache addr %08X: tag=%08X, id=%04X\n", addr, tag, id<<2);
+
+    id <<= 2;
+    if (DCacheTags[id+0] == tag)
+    {
+        DCacheTags[id+0] = 1;
+        return;
+    }
+    if (DCacheTags[id+1] == tag)
+    {
+        DCacheTags[id+1] = 1;
+        return;
+    }
+    if (DCacheTags[id+2] == tag)
+    {
+        DCacheTags[id+2] = 1;
+        return;
+    }
+    if (DCacheTags[id+3] == tag)
+    {
+        DCacheTags[id+3] = 1;
+        return;
+    }
+}
+
+void ARMv5::DCacheInvalidateAll()
+{
+    for (int i = 0; i < 32*4; i++)
+        DCacheTags[i] = 1;
+}
+
+void ARMv5::DCacheFlushByAddr(u32 addr)
+{
+    u32 tag = addr & 0xFFFFFC00;
+    u32 id = (addr >> 5) & 0x1F;
+printf("dcache flushbyaddr %08X\n", addr);
+    id <<= 2;
+    if (DCacheTags[id+0] == tag)
+    {
+        DCacheTags[id+0] = 1;
+        return;
+    }
+    if (DCacheTags[id+1] == tag)
+    {
+        DCacheTags[id+1] = 1;
+        return;
+    }
+    if (DCacheTags[id+2] == tag)
+    {
+        DCacheTags[id+2] = 1;
+        return;
+    }
+    if (DCacheTags[id+3] == tag)
+    {
+        DCacheTags[id+3] = 1;
+        return;
+    }
+
+    // TODO writeback
+    // HACK
+    //CodeCycles += 5000<<1;
+    //CodeCycles += ((NDS.ARM9MemTimings[addr >> 14][2] + (NDS.ARM9MemTimings[addr >> 14][3] * 7)) << NDS.ARM9ClockShift);
+}
+
+void ARMv5::DCacheFlushAll()
+{
+    for (int i = 0; i < 32*4; i++)
+        DCacheTags[i] = 1;
+
+    // TODO writeback
+}
+
 
 void ARMv5::CP15Write(u32 id, u32 val)
 {
@@ -466,7 +613,7 @@ void ARMv5::CP15Write(u32 id, u32 val)
 
 
     case 0x200: // data cacheable
-        {
+        {printf("CP15 datacache=%08X\n", val);
             u32 diff = PU_DataCacheable ^ val;
             PU_DataCacheable = val;
             for (u32 i = 0; i < 8; i++)
@@ -489,7 +636,7 @@ void ARMv5::CP15Write(u32 id, u32 val)
 
 
     case 0x300: // data cache write-buffer
-        {
+        {printf("CP15 datacachewrite=%08X\n", val);
             u32 diff = PU_DataCacheWrite ^ val;
             PU_DataCacheWrite = val;
             for (u32 i = 0; i < 8; i++)
@@ -619,18 +766,24 @@ void ARMv5::CP15Write(u32 id, u32 val)
         return;
 
 
+    case 0x760:
+        printf("inval all dcache\n");
+        DCacheInvalidateAll();
+        return;
     case 0x761:
-        //printf("inval data cache %08X\n", val);
+        //printf("inval data cache %08X %08X\n", val, R[15]);
+        DCacheInvalidateByAddr(val);
         return;
     case 0x762:
-        //printf("inval data cache SI\n");
+        printf("inval data cache SI %08X\n", val);
         return;
 
     case 0x7A1:
-        //printf("flush data cache %08X\n", val);
+        printf("flush data cache %08X\n", val);
+        DCacheFlushByAddr(val);
         return;
     case 0x7A2:
-        //printf("flush data cache SI\n");
+        printf("flush data cache SI %08X\n", val);
         return;
 
 
@@ -802,11 +955,12 @@ u32 ARMv5::CodeRead32(u32 addr, bool branch)
     if (CodeCycles == 0xFF) // cached memory. hax
     {
         if (branch || !(addr & 0x1F))
-            CodeCycles = kCodeCacheTiming;//ICacheLookup(addr);
+            //CodeCycles = kCodeCacheTiming;//ICacheLookup(addr);
+            ICacheLookup(addr);
         else
             CodeCycles = 1;
 
-        //return *(u32*)&CurICacheLine[addr & 0x1C];
+        return *(u32*)&CurICacheLine[addr & 0x1C];
     }
 
     if (CodeMem.Mem) return *(u32*)&CodeMem.Mem[addr & CodeMem.Mask];
@@ -840,6 +994,8 @@ void ARMv5::DataRead8(u32 addr, u32* val)
 
     *val = BusRead8(addr);
     DataCycles = MemTimings[addr >> 12][1];
+    if (PU_Map[addr>>12] & 0x10)
+        DCacheLookup(addr);
 }
 
 void ARMv5::DataRead16(u32 addr, u32* val)
@@ -869,6 +1025,8 @@ void ARMv5::DataRead16(u32 addr, u32* val)
 
     *val = BusRead16(addr);
     DataCycles = MemTimings[addr >> 12][1];
+    if (PU_Map[addr>>12] & 0x10)
+        DCacheLookup(addr);
 }
 
 void ARMv5::DataRead32(u32 addr, u32* val)
@@ -898,6 +1056,8 @@ void ARMv5::DataRead32(u32 addr, u32* val)
 
     *val = BusRead32(addr);
     DataCycles = MemTimings[addr >> 12][2];
+    if (PU_Map[addr>>12] & 0x10)
+        DCacheLookup(addr);
 }
 
 void ARMv5::DataRead32S(u32 addr, u32* val)
@@ -919,6 +1079,8 @@ void ARMv5::DataRead32S(u32 addr, u32* val)
 
     *val = BusRead32(addr);
     DataCycles += MemTimings[addr >> 12][3];
+    if (PU_Map[addr>>12] & 0x10)
+        DCacheLookup(addr);
 }
 
 void ARMv5::DataWrite8(u32 addr, u8 val)
@@ -947,6 +1109,8 @@ void ARMv5::DataWrite8(u32 addr, u8 val)
 
     BusWrite8(addr, val);
     DataCycles = MemTimings[addr >> 12][1];
+    if (PU_Map[addr>>12] & 0x10)
+        DCacheLookup(addr);
 }
 
 void ARMv5::DataWrite16(u32 addr, u16 val)
@@ -977,6 +1141,8 @@ void ARMv5::DataWrite16(u32 addr, u16 val)
 
     BusWrite16(addr, val);
     DataCycles = MemTimings[addr >> 12][1];
+    if (PU_Map[addr>>12] & 0x10)
+        DCacheLookup(addr);
 }
 
 void ARMv5::DataWrite32(u32 addr, u32 val)
@@ -1007,6 +1173,8 @@ void ARMv5::DataWrite32(u32 addr, u32 val)
 
     BusWrite32(addr, val);
     DataCycles = MemTimings[addr >> 12][2];
+    if (PU_Map[addr>>12] & 0x10)
+        DCacheLookup(addr);
 }
 
 void ARMv5::DataWrite32S(u32 addr, u32 val)
@@ -1031,6 +1199,8 @@ void ARMv5::DataWrite32S(u32 addr, u32 val)
 
     BusWrite32(addr, val);
     DataCycles += MemTimings[addr >> 12][3];
+    if (PU_Map[addr>>12] & 0x10)
+        DCacheLookup(addr);
 }
 
 void ARMv5::GetCodeMemRegion(u32 addr, MemRegion* region)
