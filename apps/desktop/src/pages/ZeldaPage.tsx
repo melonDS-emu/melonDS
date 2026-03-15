@@ -150,6 +150,7 @@ function CoopRoomsPanel({ displayName }: { displayName: string }) {
   }, [listRooms]);
 
   const zeldaCoopGames = [...GBA_ZELDA_GAMES, ...GBC_ZELDA_GAMES];
+  const hostableGames = zeldaCoopGames.filter((g) => g.templateId !== '');
   const openRooms = publicRooms.filter((r) =>
     zeldaCoopGames.some((g) => g.id === r.gameId)
   );
@@ -190,7 +191,7 @@ function CoopRoomsPanel({ displayName }: { displayName: string }) {
           Host a Co-op Room
         </h3>
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-          {zeldaCoopGames.map((game, i) => (
+          {hostableGames.map((game, i) => (
             <div
               key={`${game.id}-${i}`}
               className="rounded-2xl p-4 flex flex-col gap-2"
@@ -220,6 +221,33 @@ function CoopRoomsPanel({ displayName }: { displayName: string }) {
             </div>
           ))}
         </div>
+      </div>
+
+      {/* GBC Oracle info (link cable only — no host flow) */}
+      <div>
+        <h3 className="text-xs font-black uppercase tracking-widest mb-3" style={{ color: 'var(--color-oasis-text-muted)' }}>
+          GBC Oracle Games (Link Cable)
+        </h3>
+        <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+          {GBC_ZELDA_GAMES.map((game) => (
+            <div
+              key={game.id}
+              className="rounded-2xl p-3 flex items-start gap-3"
+              style={{ background: systemGradient(game.system), border: '1px solid var(--n-border)', opacity: 0.8 }}
+            >
+              <span className="text-xl flex-shrink-0">{game.modeEmoji}</span>
+              <div>
+                <p className="text-xs font-black leading-tight" style={{ color: '#fff' }}>{game.title.replace('The Legend of Zelda: ', '')}</p>
+                <p className="text-[10px] mt-0.5" style={{ color: 'rgba(255,255,255,0.55)' }}>
+                  GBC · Link Cable (p2p) · 2P trade/secrets
+                </p>
+              </div>
+            </div>
+          ))}
+        </div>
+        <p className="text-[11px] mt-2" style={{ color: 'var(--color-oasis-text-muted)' }}>
+          Oracle games use GBC link cable emulation (p2p). Use the standard game library to start a session.
+        </p>
       </div>
 
       {/* Open rooms */}

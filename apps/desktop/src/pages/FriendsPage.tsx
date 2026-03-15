@@ -69,10 +69,10 @@ export function FriendsPage() {
       if (res.ok) {
         const data = await res.json() as { messages: Array<{ id: string; fromPlayer: string; toPlayer: string; content: string; sentAt: string; readAt: string | null }> };
         setDmHistory(data.messages);
+        markDmRead(peerName);
       }
     } catch { /* ignore */ }
     setDmLoading(false);
-    markDmRead(peerName);
     setTimeout(() => { dmScrollRef.current?.scrollTo({ top: dmScrollRef.current.scrollHeight, behavior: 'smooth' }); }, 50);
   }
 

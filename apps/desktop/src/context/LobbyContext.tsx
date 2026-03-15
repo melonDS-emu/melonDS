@@ -536,13 +536,15 @@ export function LobbyProvider({ children }: { children: ReactNode }) {
   const markDmRead = useCallback(
     (fromPlayer: string) => {
       send({ type: 'mark-dm-read', payload: { fromPlayer } });
-      setIncomingDms((prev) => prev.filter((dm) => dm.fromPlayer !== fromPlayer));
-      setUnreadDmCount((prev) => {
-        const cleared = incomingDms.filter((dm) => dm.fromPlayer === fromPlayer).length;
-        return Math.max(0, prev - cleared);
+      let clearedCount = 0;
+      setIncomingDms((prev) => {
+        const filtered = prev.filter((dm) => dm.fromPlayer !== fromPlayer);
+        clearedCount = prev.length - filtered.length;
+        return filtered;
       });
+      setUnreadDmCount((prev) => Math.max(0, prev - clearedCount));
     },
-    [send, incomingDms]
+    [send]
   );
 
   return (

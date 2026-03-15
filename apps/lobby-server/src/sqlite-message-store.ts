@@ -91,29 +91,61 @@ export class SqliteMessageStore extends MessageStore {
   }
 
   override getRecentConversations(player: string): ConversationSummary[] {
-    // Find all peers
-    const peerRows = this.db
-      .prepare<string, { peer: string }>(
-        `SELECT DISTINCT
-           CASE WHEN from_player = ? THEN to_player ELSE from_player END AS peer
-         FROM direct_messages
-         WHERE from_player = ? OR to_player = ?`
-      )
-      .all(player, player, player);
-
-    const result: ConversationSummary[] = [];
-    for (const { peer } of peerRows) {
-      const msgs = this.getConversation(player, peer, 1);
-      const lastMessage = msgs[msgs.length - 1];
-      if (!lastMessage) continue;
-      const unreadRow = this.db
-        .prepare<[string, string], { cnt: number }>(
-          `SELECT COUNT(*) as cnt FROM direct_messages WHERE from_player = ? AND to_player = ? AND read_at IS NULL`
-        )
-        .get(peer, player);
-      result.push({ peer, lastMessage, unreadCount: unreadRow?.cnt ?? 0 });
+    // Single query: for each peer, get the most recent message and unread count.
+    // SQLite doesn't support window functions in older versions, so we use a
+    // correlated subquery approach that is still a single round-trip.
+    interface ConvRow {
+      peer: string;
+      id: string;
+      from_player: string;
+      to_player: string;
+      content: string;
+      sent_at: string;
+      read_at: string | null;
+      unread_count: number;
     }
-    return result.sort((a, b) => b.lastMessage.sentAt.localeCompare(a.lastMessage.sentAt));
+    const rows = this.db
+      .prepare<[string, string, string, string, string], ConvRow>(
+        `SELECT
+           peers.peer,
+           m.id,
+           m.from_player,
+           m.to_player,
+           m.content,
+           m.sent_at,
+           m.read_at,
+           (SELECT COUNT(*) FROM direct_messages
+            WHERE from_player = peers.peer AND to_player = ? AND read_at IS NULL) AS unread_count
+         FROM (
+           SELECT DISTINCT
+             CASE WHEN from_player = ? THEN to_player ELSE from_player END AS peer
+           FROM direct_messages
+           WHERE from_player = ? OR to_player = ?
+         ) AS peers
+         JOIN direct_messages m ON
+           ((m.from_player = ? AND m.to_player = peers.peer) OR
+            (m.from_player = peers.peer AND m.to_player = ?))
+           AND m.sent_at = (
+             SELECT MAX(sent_at) FROM direct_messages
+             WHERE (from_player = ? AND to_player = peers.peer)
+                OR (from_player = peers.peer AND to_player = ?)
+           )
+         ORDER BY m.sent_at DESC`
+      )
+      .all(player, player, player, player, player, player, player, player);
+
+    return rows.map((row) => ({
+      peer: row.peer,
+      lastMessage: {
+        id: row.id,
+        fromPlayer: row.from_player,
+        toPlayer: row.to_player,
+        content: row.content,
+        sentAt: row.sent_at,
+        readAt: row.read_at,
+      },
+      unreadCount: row.unread_count,
+    }));
   }
 
   // ---------------------------------------------------------------------------

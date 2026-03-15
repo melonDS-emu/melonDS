@@ -313,7 +313,7 @@ function QuickMatchPanel({ displayName }: { displayName: string }) {
         </p>
         <ol className="text-xs space-y-1.5" style={{ color: 'var(--color-oasis-text-muted)' }}>
           <li>1. RetroOasis scans for an open Metroid Prime Hunters match.</li>
-          <li>2. Found one? You&apos;re joined immediately.</li>
+          <li>2. Found one? You're joined immediately.</li>
           <li>3. No open match? A 1v1 room is auto-hosted while you wait.</li>
           <li>4. WFC / Wiimmfi DNS is set automatically — no manual config.</li>
         </ol>
