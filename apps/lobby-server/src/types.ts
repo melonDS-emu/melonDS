@@ -61,7 +61,10 @@ export type ClientMessage =
   | { type: 'friend-remove'; payload: { friendId: string } }
   /** Phase 8: matchmaking */
   | { type: 'matchmaking-join'; payload: MatchmakingJoinPayload }
-  | { type: 'matchmaking-leave' };
+  | { type: 'matchmaking-leave' }
+  /** Phase 14: direct messages */
+  | { type: 'send-dm'; payload: { toPlayer: string; content: string } }
+  | { type: 'mark-dm-read'; payload: { fromPlayer: string } };
 
 export interface CreateRoomPayload {
   name: string;
@@ -127,4 +130,7 @@ export type ServerMessage =
   /** Phase 9: achievement unlocked */
   | { type: 'achievement-unlocked'; achievementId: string; name: string; description: string; icon: string }
   /** Phase 10: tournament bracket changed */
-  | { type: 'tournament-updated'; tournamentId: string };
+  | { type: 'tournament-updated'; tournamentId: string }
+  /** Phase 14: direct messages */
+  | { type: 'dm-received'; message: { id: string; fromPlayer: string; content: string; sentAt: string } }
+  | { type: 'dm-read-ack'; fromPlayer: string };

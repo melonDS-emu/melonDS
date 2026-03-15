@@ -13,6 +13,8 @@ import type { MatchmakingQueue } from './matchmaking';
 import type { PlayerIdentityStore } from './player-identity';
 import type { AchievementStore } from './achievement-store';
 import type { SqliteAchievementStore } from './sqlite-achievement-store';
+import type { MessageStore } from './message-store';
+import type { SqliteMessageStore } from './sqlite-message-store';
 
 /** Map of playerId -> WebSocket for broadcasting */
 const connections = new Map<string, WebSocket>();
@@ -96,6 +98,8 @@ export interface Phase8Stores {
   matchmaking?: MatchmakingQueue;
   playerIdentity?: PlayerIdentityStore;
   achievements?: AchievementStore | SqliteAchievementStore;
+  /** Phase 14: direct message store */
+  messages?: MessageStore | SqliteMessageStore;
 }
 
 /**
@@ -616,6 +620,50 @@ export function handleConnection(
       case 'matchmaking-leave': {
         if (!phase8?.matchmaking) break;
         phase8.matchmaking.leave(playerId);
+        break;
+      }
+
+      // -----------------------------------------------------------------------
+      // Phase 14: direct messages
+      // -----------------------------------------------------------------------
+      case 'send-dm': {
+        const { toPlayer, content } = msg.payload;
+        if (!phase8?.messages) break;
+        if (!content || typeof content !== 'string' || content.trim() === '') break;
+        // Resolve sender display name from displayNameToPlayerId reverse map
+        const senderName =
+          Array.from(displayNameToPlayerId.entries()).find(([, pid]) => pid === playerId)?.[0] ??
+          'Unknown';
+        const dm = phase8.messages.sendMessage(senderName, toPlayer, content.trim());
+        // Deliver to recipient if online
+        const recipientPid = displayNameToPlayerId.get(toPlayer);
+        if (recipientPid) {
+          const recipientWs = connections.get(recipientPid);
+          if (recipientWs) {
+            send(recipientWs, {
+              type: 'dm-received',
+              message: { id: dm.id, fromPlayer: dm.fromPlayer, content: dm.content, sentAt: dm.sentAt },
+            });
+          }
+        }
+        break;
+      }
+
+      case 'mark-dm-read': {
+        const { fromPlayer } = msg.payload;
+        if (!phase8?.messages) break;
+        const readerName =
+          Array.from(displayNameToPlayerId.entries()).find(([, pid]) => pid === playerId)?.[0] ??
+          'Unknown';
+        phase8.messages.markRead(fromPlayer, readerName);
+        // Notify sender their message was read
+        const senderPid = displayNameToPlayerId.get(fromPlayer);
+        if (senderPid) {
+          const senderWs = connections.get(senderPid);
+          if (senderWs) {
+            send(senderWs, { type: 'dm-read-ack', fromPlayer: readerName });
+          }
+        }
         break;
       }
 

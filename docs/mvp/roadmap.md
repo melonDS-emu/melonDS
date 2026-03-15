@@ -12,7 +12,8 @@
 > - Phase 10 tournaments (single-elimination bracket engine, REST + WS push, desktop Tournament page, winner achievements) and clip sharing (MediaRecorder service, IndexedDB storage, export, home page widget) are now complete.
 > - Phase 11 clip library (`/clips`), live friend presence, live friend request UI, notification badges, `SqliteTournamentStore`, and tournament history in Profile page are now complete.
 > - Phase 12 WFC auto-config (Wiimmfi + AltWFC, `GET /api/wfc/providers`), Pokémon Online page (`/pokemon` — Trade Lobby, Battle Lobby, Friend Codes), and Mario Kart DS matchmaking page (`/mario-kart` — Quick Race, Public Rooms, Ranked Races) are now complete.
-> - Phase 13 Seasonal Events, Featured Games & Custom Room Themes are now complete. REST: `GET /api/events`, `GET /api/events/current`, `GET /api/games/featured`. Events page (`/events`), home page seasonal banner + featured games widget, theme picker in HostRoomModal, themed lobby cards.
+> - Phase 13 Seasonal Events, Featured Games & Custom Room Themes are now complete. REST: `GET /api/events`, `GET /api/events/current`, `GET /api/games/featured`. Events page (`/events`), home page seasonal banner + featured games widget, theme picker in HostRoomModal, themed lobby cards. Mario Sports page (`/mario-sports`) also added.
+> - Phase 14 Zelda & Metroid Online + Direct Messaging are now complete. Zelda page (`/zelda` — Four Swords co-op, Phantom Hourglass battle mode), Metroid page (`/metroid` — Prime Hunters 4P deathmatch, quick match), in-app DMs between friends with WS push delivery, unread badge in nav.
 > - **Next: further phases — see Future Ideas section below.**
 
 ## Phase 1 — Foundation (Complete)
@@ -402,3 +403,43 @@
 - [x] `🎪 Events` nav item added to sidebar in `Layout.tsx`
 - [x] `docs/status/phase-13-events.md` — phase status and known limitations
 - [x] roadmap.md updated with Phase 13 milestones
+
+## Phase 14 — Zelda & Metroid Online + Direct Messaging
+
+**Goal:** Expand game-specific multiplayer hubs to Zelda and Metroid franchises, and add real-time direct messaging between friends so players can coordinate sessions without leaving the app.
+
+### Phase 14a — Zelda Multiplayer Hub (`/zelda`)
+- [x] `ZeldaPage` (`/zelda`) — Co-op Rooms, Battle Mode, Leaderboard tabs
+  - Co-op Rooms: GBA Four Swords 4P/2P (online relay) + GBC Oracle Ages/Seasons 2P (link cable) lobby browser and host flow
+  - Battle Mode: NDS Phantom Hourglass 2P (Wiimmfi/AltWFC) host/join + WFC auto-config banner
+  - Leaderboard: top players by sessions (global)
+- [x] `⚔️ Zelda` nav item added to sidebar
+
+### Phase 14b — Metroid Hunters Lobby (`/metroid`)
+- [x] `MetroidPage` (`/metroid`) — Online Matches, Quick Match, Rankings tabs
+  - Online Matches: 4P deathmatch lobby with WFC zero-setup banner + provider switcher
+  - Quick Match: one-click find-or-create a 1v1 match with Wiimmfi auto-config
+  - Rankings: global leaderboard + playable hunters roster card (all 7 hunters)
+- [x] `🌌 Metroid` nav item added to sidebar
+
+### Phase 14c — Direct Messaging
+- [x] `MessageStore` — in-memory DM store with `sendMessage`, `getConversation`, `getUnreadCount`, `markRead`, `getRecentConversations`
+- [x] `SqliteMessageStore` — SQLite-backed DM store (follows `SqliteSessionHistory` pattern); `hydrate()` pre-loads rows
+- [x] SQLite schema: `direct_messages` table + indexes; Phase 14 migration in `db.ts`
+- [x] REST: `GET /api/messages/:player` (recent conversations), `GET /api/messages/:player1/:player2` (thread), `GET /api/messages/:player/unread-count`, `POST /api/messages/send`, `POST /api/messages/read`
+- [x] WebSocket: `send-dm` (client→server), `dm-received` (server→client push to recipient), `mark-dm-read` / `dm-read-ack`
+- [x] DM thread UI in `FriendsPage`: friend list opens a message thread with chat bubbles and a send input; incoming WS messages merged in real-time
+- [x] Unread DM count tracked in `LobbyContext` (`unreadDmCount`, `incomingDms`)
+- [x] 💬 DM badge on Friends nav item when unread messages arrive
+- [x] Toast notification for incoming DMs
+
+### Phase 14d — Game Catalog & Session Templates
+- [x] `nds-metroid-prime-hunters` added to game catalog (`seed-data.ts`) — 4P online, Wiimmfi
+- [x] `nds-zelda-phantom-hourglass` added to game catalog — 2P online, Wiimmfi  
+- [x] `nds-zelda-spirit-tracks` added to game catalog — 2P local co-op
+- [x] `nds-metroid-prime-hunters-2p` session template — quick 1v1 variant
+- [x] `gba-zelda-four-swords-2p` session template — 2-player variant of Four Swords
+
+### Phase 14e — Documentation
+- [x] `docs/status/phase-14-zelda-metroid-dms.md` — phase status and feature notes
+- [x] `roadmap.md` updated with Phase 14 milestones

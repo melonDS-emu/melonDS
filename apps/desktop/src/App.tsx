@@ -13,6 +13,8 @@ import { ClipsPage } from './pages/ClipsPage';
 import { PokemonPage } from './pages/PokemonPage';
 import { MarioKartPage } from './pages/MarioKartPage';
 import { MarioSportsPage } from './pages/MarioSportsPage';
+import { ZeldaPage } from './pages/ZeldaPage';
+import { MetroidPage } from './pages/MetroidPage';
 import { EventsPage } from './pages/EventsPage';
 
 export function App() {
@@ -32,6 +34,8 @@ export function App() {
         <Route path="/pokemon" element={<PokemonPage />} />
         <Route path="/mario-kart" element={<MarioKartPage />} />
         <Route path="/mario-sports" element={<MarioSportsPage />} />
+        <Route path="/zelda" element={<ZeldaPage />} />
+        <Route path="/metroid" element={<MetroidPage />} />
         <Route path="/events" element={<EventsPage />} />
       </Route>
     </Routes>

@@ -67,7 +67,10 @@ export type ClientMessage =
   | { type: 'friend-request'; payload: { toPlayerId: string } }
   | { type: 'friend-request-accept'; payload: { requestId: string } }
   | { type: 'friend-request-decline'; payload: { requestId: string } }
-  | { type: 'friend-remove'; payload: { friendId: string } };
+  | { type: 'friend-remove'; payload: { friendId: string } }
+  /** Phase 14: direct messages */
+  | { type: 'send-dm'; payload: { toPlayer: string; content: string } }
+  | { type: 'mark-dm-read'; payload: { fromPlayer: string } };
 
 export interface CreateRoomPayload {
   name: string;
@@ -107,7 +110,12 @@ export type ServerMessage =
   | { type: 'friend-request-accepted'; requestId: string; byId: string; byDisplayName: string }
   | { type: 'friend-request-declined'; requestId: string }
   | { type: 'friend-status-update'; friendId: string; status: string; roomCode?: string; gameTitle?: string }
-  | { type: 'identity-registered'; persistentId: string; displayName: string };
+  | { type: 'identity-registered'; persistentId: string; displayName: string }
+  /** Phase 10: tournament bracket update */
+  | { type: 'tournament-updated'; tournamentId: string }
+  /** Phase 14: direct messages */
+  | { type: 'dm-received'; message: { id: string; fromPlayer: string; content: string; sentAt: string } }
+  | { type: 'dm-read-ack'; fromPlayer: string };
 
 export interface PresencePlayer {
   playerId: string;
