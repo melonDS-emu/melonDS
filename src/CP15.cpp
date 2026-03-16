@@ -510,6 +510,9 @@ u32 ARMv5::DCacheLookup(const u32 addr)
         if ((DCacheTags[id+set] & ~(CACHE_FLAG_DIRTY_MASK | CACHE_FLAG_SET_MASK)) == (tag | CACHE_FLAG_VALID))
         {
             DataCycles = 1;
+            //if (DCacheTags[id+set] & CACHE_FLAG_DIRTY_MASK)
+            //    DataCycles = (NDS.ARM9MemTimings[tag >> 14][2] + (NDS.ARM9MemTimings[tag >> 14][3] * ((DCACHE_LINELENGTH / 4) - 1))) << NDS.ARM9ClockShift;
+            //    printf("oops! reading dirty cache line, should write back??\n");
             u32 *cacheLine = (u32 *)&DCache[(id+set) << DCACHE_LINELENGTH_LOG2];
             if (CP15BISTTestStateRegister & CP15_BIST_TR_DISABLE_DCACHE_STREAMING) [[unlikely]]
             {
@@ -851,7 +854,7 @@ void ARMv5::CP15Write(const u32 id, const u32 val)
     switch (id & 0xFFF)
     {
     case 0x100:
-        {
+        {printf("CP15 CTRL = %08X\n", val);
             u32 old = CP15Control;
             CP15Control = (CP15Control & ~CP15_CR_CHANGEABLE_MASK) | (val & CP15_CR_CHANGEABLE_MASK);
             //Log(LogLevel::Debug, "CP15Control = %08X (%08X->%08X)\n", CP15Control, old, val);
@@ -1750,7 +1753,10 @@ void ARMv5::DataRead32S(const u32 addr, u32* val)
             {
                 if (IsAddressDCachable(addr))
                 {
+                    s32 cycles = DataCycles;
+                    DataCycles = 0;
                     *val = DCacheLookup(addr);
+                    DataCycles += cycles;
                     return;
                 }
             }
