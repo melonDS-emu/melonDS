@@ -7,6 +7,7 @@ import { SqliteLobbyManager } from '../sqlite-lobby-manager';
 import { SqliteSessionHistory } from '../sqlite-session-history';
 import { SqliteSaveStore } from '../sqlite-save-store';
 import { SqliteAchievementStore } from '../sqlite-achievement-store';
+import { SqliteMessageStore } from '../sqlite-message-store';
 
 // ---------------------------------------------------------------------------
 // SqliteLobbyManager
@@ -309,5 +310,80 @@ describe('SqliteAchievementStore', () => {
     store.checkAndUnlock('Alice', 'Alice', [makeSession()]);
     store.checkAndUnlock('Bob', 'Bob', [makeSession()]);
     expect(store.playerCount()).toBe(2);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// SqliteMessageStore
+// ---------------------------------------------------------------------------
+
+describe('SqliteMessageStore', () => {
+  let store: SqliteMessageStore;
+
+  beforeEach(() => {
+    const db = openDatabase(':memory:');
+    store = new SqliteMessageStore(db);
+  });
+
+  it('sends and retrieves a message in a conversation', () => {
+    store.sendMessage('Alice', 'Bob', 'Hello!');
+    const msgs = store.getConversation('Alice', 'Bob');
+    expect(msgs).toHaveLength(1);
+    expect(msgs[0].fromPlayer).toBe('Alice');
+    expect(msgs[0].toPlayer).toBe('Bob');
+    expect(msgs[0].content).toBe('Hello!');
+    expect(msgs[0].readAt).toBeNull();
+  });
+
+  it('retrieves conversation in both directions', () => {
+    store.sendMessage('Alice', 'Bob', 'Hi Bob');
+    store.sendMessage('Bob', 'Alice', 'Hi Alice');
+    const msgs = store.getConversation('Alice', 'Bob');
+    expect(msgs).toHaveLength(2);
+  });
+
+  it('counts unread messages for recipient', () => {
+    store.sendMessage('Alice', 'Bob', 'Msg 1');
+    store.sendMessage('Alice', 'Bob', 'Msg 2');
+    expect(store.getUnreadCount('Bob')).toBe(2);
+    expect(store.getUnreadCount('Alice')).toBe(0);
+  });
+
+  it('marks messages as read', () => {
+    store.sendMessage('Alice', 'Bob', 'Hello');
+    store.markRead('Alice', 'Bob');
+    expect(store.getUnreadCount('Bob')).toBe(0);
+    const msgs = store.getConversation('Alice', 'Bob');
+    expect(msgs[0].readAt).not.toBeNull();
+  });
+
+  it('returns recent conversations with last message and unread count', () => {
+    store.sendMessage('Alice', 'Bob', 'Msg 1');
+    store.sendMessage('Charlie', 'Bob', 'Hey');
+    const convos = store.getRecentConversations('Bob');
+    expect(convos).toHaveLength(2);
+    const peers = convos.map((c) => c.peer);
+    expect(peers).toContain('Alice');
+    expect(peers).toContain('Charlie');
+  });
+
+  it('hydrates in-memory state from existing DB rows', () => {
+    const db = openDatabase(':memory:');
+    const store1 = new SqliteMessageStore(db);
+    store1.sendMessage('Alice', 'Bob', 'Persisted');
+
+    const store2 = new SqliteMessageStore(db);
+    store2.hydrate();
+    const msgs = store2.getConversation('Alice', 'Bob');
+    expect(msgs).toHaveLength(1);
+    expect(msgs[0].content).toBe('Persisted');
+  });
+
+  it('respects conversation limit parameter', () => {
+    for (let i = 0; i < 10; i++) {
+      store.sendMessage('Alice', 'Bob', `Msg ${i}`);
+    }
+    const limited = store.getConversation('Alice', 'Bob', 5);
+    expect(limited).toHaveLength(5);
   });
 });

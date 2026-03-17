@@ -105,7 +105,7 @@ export class SqliteMessageStore extends MessageStore {
       unread_count: number;
     }
     const rows = this.db
-      .prepare<[string, string, string, string, string], ConvRow>(
+      .prepare<[string, string, string, string, string, string, string, string], ConvRow>(
         `SELECT
            peers.peer,
            m.id,
