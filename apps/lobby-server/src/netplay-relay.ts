@@ -177,4 +177,34 @@ export class NetplayRelay {
       age: `${Math.floor((Date.now() - s.createdAt.getTime()) / 1000)}s`,
     }));
   }
+
+  /**
+   * Close and remove sessions that have been inactive (no connected sockets)
+   * for longer than `maxAgeMs` milliseconds.
+   *
+   * Returns the number of sessions that were pruned.
+   *
+   * Call this periodically (e.g. every 5 minutes) to reclaim relay ports from
+   * sessions whose room was closed but whose TCP server was never explicitly
+   * deallocated — for example when a room crashes or the LobbyManager is
+   * running in-memory and loses state on restart.
+   */
+  pruneInactiveSessions(maxAgeMs: number): number {
+    const cutoff = Date.now() - maxAgeMs;
+    const toPrune: string[] = [];
+
+    for (const session of this.sessions.values()) {
+      const idle = session.sockets.size === 0;
+      const old = session.createdAt.getTime() < cutoff;
+      if (idle && old) {
+        toPrune.push(session.roomId);
+      }
+    }
+
+    for (const roomId of toPrune) {
+      this.deallocateSession(roomId);
+    }
+
+    return toPrune.length;
+  }
 }

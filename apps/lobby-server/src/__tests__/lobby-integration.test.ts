@@ -531,3 +531,115 @@ describe('Lobby WebSocket — ping/pong', () => {
     ws.close();
   });
 });
+
+describe('Lobby WebSocket — chat rate limiting', () => {
+  let port: number;
+  let closeServer: () => Promise<void>;
+
+  beforeEach(async () => {
+    ({ port, close: closeServer } = await bootServer());
+  });
+
+  afterEach(async () => {
+    await closeServer();
+  });
+
+  /**
+   * Send multiple chat messages rapidly and collect all responses (both
+   * chat-broadcast confirmations and error messages) until we see at least
+   * one error or the timeout fires.
+   */
+  async function spamChat(ws: WebSocket, roomId: string, count: number): Promise<string[]> {
+    const types: string[] = [];
+    return new Promise((resolve) => {
+      const timeout = setTimeout(() => resolve(types), 2000);
+
+      ws.on('message', function handler(raw) {
+        const msg = JSON.parse(raw.toString()) as { type: string };
+        types.push(msg.type);
+        if (msg.type === 'error' || types.length >= count * 2) {
+          clearTimeout(timeout);
+          ws.off('message', handler);
+          resolve(types);
+        }
+      });
+
+      for (let i = 0; i < count; i++) {
+        ws.send(JSON.stringify({
+          type: 'chat',
+          payload: { roomId, content: `msg ${i}` },
+        }));
+      }
+    });
+  }
+
+  it('allows the first 5 messages and rate-limits the 6th', async () => {
+    const { ws: hostWs } = await connectClient(port);
+
+    const created = await sendAndReceive(
+      hostWs,
+      {
+        type: 'create-room',
+        payload: {
+          name: 'Chat Test',
+          gameId: 'mk64',
+          gameTitle: 'Mario Kart 64',
+          system: 'n64',
+          isPublic: true,
+          maxPlayers: 4,
+          displayName: 'ChatHost',
+        },
+      },
+      'room-created',
+    ) as { type: 'room-created'; room: Room };
+
+    const roomId = created.room.id;
+
+    // Send 6 messages — the first 5 should be delivered, the 6th should
+    // trigger a rate-limit error.
+    const types = await spamChat(hostWs, roomId, 6);
+
+    expect(types).toContain('error');
+
+    hostWs.close();
+  });
+
+  it('allows messages again after the rate-limit window resets', { timeout: 10_000 }, async () => {
+    const { ws } = await connectClient(port);
+
+    const created = await sendAndReceive(
+      ws,
+      {
+        type: 'create-room',
+        payload: {
+          name: 'Chat Reset Test',
+          gameId: 'mk64',
+          gameTitle: 'Mario Kart 64',
+          system: 'n64',
+          isPublic: true,
+          maxPlayers: 4,
+          displayName: 'ChatHost2',
+        },
+      },
+      'room-created',
+    ) as { type: 'room-created'; room: Room };
+
+    const roomId = created.room.id;
+
+    // Exhaust the window with 6 rapid messages
+    await spamChat(ws, roomId, 6);
+
+    // Wait for the 5-second window to reset then send one more — should succeed
+    await new Promise((r) => setTimeout(r, 5100));
+
+    const reply = await sendAndReceive(
+      ws,
+      { type: 'chat', payload: { roomId, content: 'after reset' } },
+      'chat-broadcast',
+    ) as { type: 'chat-broadcast'; content: string };
+
+    expect(reply.content).toBe('after reset');
+
+    ws.close();
+  });
+});

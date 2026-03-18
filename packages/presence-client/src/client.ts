@@ -35,12 +35,31 @@ export interface RecentActivity {
 }
 
 /**
+ * Minimal interface for a WebSocket-like object used by PresenceClient.
+ * Compatible with both the browser WebSocket API and the 'ws' package.
+ */
+export interface PresenceSocket {
+  readyState: number;
+  send(data: string): void;
+  /** OPEN state constant — 1 in both browser and ws */
+  readonly OPEN: number;
+}
+
+/** Envelope sent to the server when presence changes. */
+interface PresenceUpdateEnvelope {
+  type: 'presence-update-self';
+  state: PresenceState;
+}
+
+/**
  * PresenceClient manages the user's online status and friends list.
- * In production, this would connect to the lobby server via WebSocket.
+ * Call `connect(socket)` to attach a live WebSocket so that status changes
+ * are immediately broadcast to the lobby server.
  */
 export class PresenceClient {
   private friends: Map<string, FriendInfo> = new Map();
   private currentState: PresenceState;
+  private socket: PresenceSocket | null = null;
 
   constructor(userId: string) {
     this.currentState = {
@@ -50,11 +69,30 @@ export class PresenceClient {
   }
 
   /**
+   * Attach a WebSocket connection so presence updates are sent to the server.
+   * Pass `null` to detach.
+   */
+  connect(socket: PresenceSocket | null): void {
+    this.socket = socket;
+    if (socket) {
+      // Immediately broadcast current state on connect
+      this.broadcast();
+    }
+  }
+
+  /**
+   * Detach the WebSocket (equivalent to `connect(null)`).
+   */
+  disconnect(): void {
+    this.socket = null;
+  }
+
+  /**
    * Update own presence status.
    */
   setStatus(status: OnlineStatus): void {
     this.currentState.status = status;
-    // TODO: Broadcast to server
+    this.broadcast();
   }
 
   /**
@@ -64,7 +102,7 @@ export class PresenceClient {
     this.currentState.currentGameId = gameId;
     this.currentState.currentLobbyId = lobbyId;
     this.currentState.status = gameId ? 'in-game' : 'online';
-    // TODO: Broadcast to server
+    this.broadcast();
   }
 
   /**
@@ -218,5 +256,18 @@ export class PresenceClient {
         timestamp: new Date(now.getTime() - 30 * 60 * 1000).toISOString(),
       },
     ];
+  }
+
+  /**
+   * Send the current presence state to the server via the attached socket.
+   * No-ops if no socket is connected or socket is not open.
+   */
+  private broadcast(): void {
+    if (!this.socket || this.socket.readyState !== this.socket.OPEN) return;
+    const envelope: PresenceUpdateEnvelope = {
+      type: 'presence-update-self',
+      state: { ...this.currentState },
+    };
+    this.socket.send(JSON.stringify(envelope));
   }
 }
