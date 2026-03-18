@@ -32,6 +32,39 @@ const persistentDisplayNames = new Map<string, string>();
  */
 const displayNameToPlayerId = new Map<string, string>();
 
+/**
+ * Per-player chat rate limiting: max CHAT_RATE_LIMIT_MAX messages per
+ * CHAT_RATE_LIMIT_WINDOW_MS milliseconds.  Uses a simple sliding-window
+ * counter that resets when the window expires.
+ */
+const CHAT_RATE_LIMIT_MAX = 5;
+const CHAT_RATE_LIMIT_WINDOW_MS = 5_000;
+
+interface ChatRateEntry {
+  count: number;
+  windowStart: number;
+}
+
+const chatRateMap = new Map<string, ChatRateEntry>();
+
+function isChatRateLimited(playerId: string): boolean {
+  const now = Date.now();
+  const entry = chatRateMap.get(playerId);
+
+  if (!entry || now - entry.windowStart >= CHAT_RATE_LIMIT_WINDOW_MS) {
+    // Start a fresh window
+    chatRateMap.set(playerId, { count: 1, windowStart: now });
+    return false;
+  }
+
+  entry.count += 1;
+  if (entry.count > CHAT_RATE_LIMIT_MAX) {
+    return true;
+  }
+
+  return false;
+}
+
 function send(ws: WebSocket, message: ServerMessage): void {
   if (ws.readyState === ws.OPEN) {
     ws.send(JSON.stringify(message));
@@ -324,6 +357,11 @@ export function handleConnection(
       }
 
       case 'chat': {
+        if (isChatRateLimited(playerId)) {
+          send(ws, { type: 'error', message: 'You are sending messages too fast — please slow down.' });
+          break;
+        }
+
         const room = lobby.getRoom(msg.payload.roomId);
         if (!room) {
           send(ws, { type: 'error', message: 'Room not found' });
@@ -674,6 +712,7 @@ export function handleConnection(
 
   ws.on('close', () => {
     connections.delete(playerId);
+    chatRateMap.delete(playerId);
 
     // Remove from matchmaking queue if applicable
     phase8?.matchmaking?.leave(playerId);

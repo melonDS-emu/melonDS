@@ -11,6 +11,8 @@
   "dependencies": {
     "@retro-oasis/emulator-bridge": "*",
     "@retro-oasis/game-db": "*",
+    "@retro-oasis/presence-client": "*",
+    "@retro-oasis/save-system": "*",
     "better-sqlite3": "^12.6.2",
     "ws": "^8.17.1"
   },
