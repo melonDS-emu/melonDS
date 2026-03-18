@@ -12,8 +12,9 @@ RetroOasis is a social Nintendo retro gaming hub — not just another emulator f
 - **Unified library UI** — NES, SNES, GB, GBC, GBA, N64, and NDS in one app (real ROM discovery is still in progress)
 - **Curated discovery** — Browse games by multiplayer mode (Party, Co-op, Versus, Link, Trade)
 - **Per-game intelligence** — Player counts, compatibility badges, session templates
-- **Social presence UI** — Friend roster and activity feed are available today in mock/dev form; live presence is still planned
-- **Save management UI** — Local demo flows and conflict UX exist today; real cloud sync is still planned
+- **Live social layer** — Friends, direct messaging, presence, achievements, and player profile stats are integrated into the desktop app
+- **Community hub + ranked play** — `/community` includes activity feed, game ratings/reviews, and global/per-game ELO leaderboards with Bronze→Diamond tiers
+- **Save management UI** — Local save flows and conflict UX are available today; cloud sync remains planned
 
 ## 🚀 Quick Start
 
@@ -79,7 +80,7 @@ RetroOasis uses a layered architecture:
 
 The app does **not** build emulator cores from scratch. It orchestrates existing backends behind a unified interface.
 
-Today the backend/server side is intentionally narrow: live rooms use WebSockets, emulator launch uses a local `/api/launch` HTTP endpoint, and broader REST APIs for games/saves/presence are still roadmap items.
+Today the backend/server side combines live WebSocket rooms with a growing REST surface (games, saves, friends, matchmaking, achievements/stats, events, direct messages, reviews/activity/rankings). Native desktop packaging + deeper emulator-core integration remain roadmap work.
 
 > Users must provide their own legally obtained game files.
 
