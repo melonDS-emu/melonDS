@@ -289,12 +289,12 @@
 **Goal:** Convert RetroOasis from a browser-first prototype into a native desktop runtime with tighter emulator integration and less manual setup.
 
 ### Milestones
-- [ ] Tauri desktop shell integration for shipping native builds (Phase 1 carry-over)
-- [ ] Native ROM discovery wired into desktop settings/library (replace simulated refresh-only flow)
-- [ ] Per-game ROM selection persisted and used by launch flow
-- [ ] melonDS core IPC bridge path documented + initial integration spike in desktop launch pipeline
-- [ ] Network/runtime config hardening: environment-driven lobby URL + relay host defaults for non-local deployments
-- [ ] End-to-end launch validation for one title per system family (NES/SNES, GB/GBC/GBA, N64, NDS) with docs/status report
+- [x] Tauri desktop shell integration for shipping native builds (Phase 1 carry-over)
+- [x] Native ROM discovery wired into desktop settings/library (replace simulated refresh-only flow)
+- [x] Per-game ROM selection persisted and used by launch flow
+- [x] melonDS core IPC bridge path documented + initial integration spike in desktop launch pipeline
+- [x] Network/runtime config hardening: environment-driven lobby URL + relay host defaults for non-local deployments
+- [x] End-to-end launch validation for one title per system family (NES/SNES, GB/GBC/GBA, N64, NDS) with docs/status report
 
 ## Future Ideas
 - Tournament-style rooms

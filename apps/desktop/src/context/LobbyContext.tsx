@@ -17,11 +17,16 @@ import type {
 } from '../services/lobby-types';
 import { getRomDirectory, getSaveDirectory } from '../lib/rom-settings';
 import { resolveGameRomPath } from '../lib/rom-library';
+import { tauriLaunchEmulator } from '../lib/tauri-ipc';
 import { useToast } from './ToastContext';
 
 const WS_URL = import.meta.env.VITE_WS_URL ?? 'ws://localhost:8080';
-/** Base URL for the local HTTP launch API (same host as the lobby server by default). */
-const LAUNCH_API_BASE = import.meta.env.VITE_LAUNCH_API_URL ?? WS_URL.replace(/^ws/, 'http');
+/**
+ * Optional client-side relay host override. When set via VITE_RELAY_HOST, this
+ * hostname/IP is used in the relay endpoint banner regardless of what the server
+ * reports. Useful for deployments where the relay is behind a public hostname.
+ */
+const RELAY_HOST_OVERRIDE: string | undefined = import.meta.env.VITE_RELAY_HOST;
 const RECONNECT_DELAY_MS = 3000;
 const PING_INTERVAL_MS = 10_000;
 
@@ -231,7 +236,7 @@ export function LobbyProvider({ children }: { children: ReactNode }) {
 
           case 'game-starting': {
             const relayPort = msg.relayPort;
-            const relayHost = msg.relayHost ?? 'localhost';
+            const relayHost = RELAY_HOST_OVERRIDE ?? msg.relayHost ?? 'localhost';
             if (relayPort) {
               setRelayInfo({ port: relayPort, host: relayHost });
             }
@@ -263,19 +268,15 @@ export function LobbyProvider({ children }: { children: ReactNode }) {
                   // save directory is always a valid directory path.
                   const romFileDir = romPath.replace(/[/\\][^/\\]+$/, '') || romPath;
                   const saveDir = getSaveDirectory() || romDir || romFileDir;
-                  fetch(`${LAUNCH_API_BASE}/api/launch`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                      romPath,
-                      system: room?.system ?? '',
-                      backendId,
-                      saveDirectory: saveDir,
-                      playerSlot: mySlot,
-                      netplayHost: relayHost,
-                      netplayPort: relayPort,
-                      sessionToken: msg.sessionToken,
-                    }),
+                  tauriLaunchEmulator({
+                    romPath,
+                    system: room?.system ?? '',
+                    backendId,
+                    saveDirectory: saveDir,
+                    playerSlot: mySlot,
+                    netplayHost: relayHost,
+                    netplayPort: relayPort,
+                    sessionToken: msg.sessionToken,
                   }).catch(() => {
                     // Launch errors are non-fatal — the user can still start their
                     // emulator manually using the relay endpoint shown in the UI.

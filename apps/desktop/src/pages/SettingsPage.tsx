@@ -20,6 +20,7 @@ import {
   DEFAULT_CALIBRATION,
 } from '../lib/touch-calibration';
 import type { DsTouchCalibration } from '../lib/touch-calibration';
+import { tauriPickDirectory, isTauri } from '../lib/tauri-ipc';
 
 const SAVE_DIR_KEY = 'retro-oasis-save-directory';
 const DISPLAY_NAME_KEY = 'retro-oasis-display-name';
@@ -518,19 +519,35 @@ export function SettingsPage() {
               <span className="text-xs font-semibold mb-1 block" style={{ color: 'var(--color-oasis-text-muted)' }}>
                 ROM Directory
               </span>
-              <input
-                type="text"
-                value={romDir}
-                onChange={(e) => setRomDir(e.target.value)}
-                placeholder="/home/user/roms  or  C:\ROMs"
-                className="w-full px-3 py-2 rounded-lg text-sm font-mono"
-                style={{
-                  backgroundColor: 'var(--color-oasis-surface)',
-                  color: 'var(--color-oasis-text)',
-                  border: '1px solid rgba(255,255,255,0.1)',
-                  outline: 'none',
-                }}
-              />
+              <div className="flex gap-2">
+                <input
+                  type="text"
+                  value={romDir}
+                  onChange={(e) => setRomDir(e.target.value)}
+                  placeholder="/home/user/roms  or  C:\ROMs"
+                  className="flex-1 px-3 py-2 rounded-lg text-sm font-mono"
+                  style={{
+                    backgroundColor: 'var(--color-oasis-surface)',
+                    color: 'var(--color-oasis-text)',
+                    border: '1px solid rgba(255,255,255,0.1)',
+                    outline: 'none',
+                  }}
+                />
+                {isTauri() && (
+                  <button
+                    type="button"
+                    onClick={async () => {
+                      const result = await tauriPickDirectory();
+                      if (result.path) setRomDir(result.path);
+                    }}
+                    className="px-3 py-2 rounded-lg text-xs font-semibold flex-shrink-0 transition-opacity hover:opacity-80"
+                    style={{ backgroundColor: 'var(--color-oasis-surface)', color: 'var(--color-oasis-text-muted)', border: '1px solid rgba(255,255,255,0.1)' }}
+                    title="Open native directory picker"
+                  >
+                    📂 Browse
+                  </button>
+                )}
+              </div>
             </label>
 
             <label className="block">
@@ -540,19 +557,35 @@ export function SettingsPage() {
                   (defaults to ROM Directory if empty)
                 </span>
               </span>
-              <input
-                type="text"
-                value={saveDir}
-                onChange={(e) => setSaveDirState(e.target.value)}
-                placeholder="/home/user/saves  or  C:\Saves"
-                className="w-full px-3 py-2 rounded-lg text-sm font-mono"
-                style={{
-                  backgroundColor: 'var(--color-oasis-surface)',
-                  color: 'var(--color-oasis-text)',
-                  border: '1px solid rgba(255,255,255,0.1)',
-                  outline: 'none',
-                }}
-              />
+              <div className="flex gap-2">
+                <input
+                  type="text"
+                  value={saveDir}
+                  onChange={(e) => setSaveDirState(e.target.value)}
+                  placeholder="/home/user/saves  or  C:\Saves"
+                  className="flex-1 px-3 py-2 rounded-lg text-sm font-mono"
+                  style={{
+                    backgroundColor: 'var(--color-oasis-surface)',
+                    color: 'var(--color-oasis-text)',
+                    border: '1px solid rgba(255,255,255,0.1)',
+                    outline: 'none',
+                  }}
+                />
+                {isTauri() && (
+                  <button
+                    type="button"
+                    onClick={async () => {
+                      const result = await tauriPickDirectory();
+                      if (result.path) setSaveDirState(result.path);
+                    }}
+                    className="px-3 py-2 rounded-lg text-xs font-semibold flex-shrink-0 transition-opacity hover:opacity-80"
+                    style={{ backgroundColor: 'var(--color-oasis-surface)', color: 'var(--color-oasis-text-muted)', border: '1px solid rgba(255,255,255,0.1)' }}
+                    title="Open native directory picker"
+                  >
+                    📂 Browse
+                  </button>
+                )}
+              </div>
             </label>
           </div>
         </section>

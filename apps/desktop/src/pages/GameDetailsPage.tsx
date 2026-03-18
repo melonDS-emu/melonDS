@@ -3,6 +3,11 @@ import { useParams, Link, useNavigate } from 'react-router-dom';
 import { useGame } from '../lib/use-games';
 import { HostRoomModal } from '../components/HostRoomModal';
 import { useLobby } from '../context/LobbyContext';
+import { getRomAssociation, setRomAssociation, clearRomAssociation } from '../lib/rom-library';
+import { tauriPickFile, isTauri } from '../lib/tauri-ipc';
+
+/** ROM file extensions used in the native file picker filter. */
+const ROM_EXTENSIONS = ['nes', 'sfc', 'smc', 'gb', 'gbc', 'gba', 'n64', 'z64', 'v64', 'nds'];
 
 /** System-specific quick-start hints shown on the game detail page. */
 function getPartyHint(game: { system: string; maxPlayers: number; tags: string[] }): string | null {
@@ -48,6 +53,9 @@ export function GameDetailsPage() {
   const navigate = useNavigate();
   const { createRoom, currentRoom } = useLobby();
   const [showHost, setShowHost] = useState(false);
+  const [romAssoc, setRomAssoc] = useState(() =>
+    gameId ? getRomAssociation(gameId) : null,
+  );
 
   const { data: game, loading, error } = useGame(gameId);
 
@@ -55,6 +63,23 @@ export function GameDetailsPage() {
   useEffect(() => {
     if (currentRoom) navigate(`/lobby/${currentRoom.id}`);
   }, [currentRoom, navigate]);
+
+  async function handlePickRom() {
+    if (!gameId) return;
+    const result = await tauriPickFile([
+      { name: 'ROM Files', extensions: ROM_EXTENSIONS },
+    ]);
+    if (result.path) {
+      setRomAssociation(gameId, result.path);
+      setRomAssoc(getRomAssociation(gameId));
+    }
+  }
+
+  function handleClearRom() {
+    if (!gameId) return;
+    clearRomAssociation(gameId);
+    setRomAssoc(null);
+  }
 
   if (loading) {
     return (
@@ -221,6 +246,66 @@ export function GameDetailsPage() {
               {badge}
             </span>
           ))}
+        </div>
+
+        {/* ROM file association */}
+        <div
+          className="mt-4 px-4 py-3 rounded-xl"
+          style={{ backgroundColor: 'var(--color-oasis-surface)' }}
+        >
+          <p className="text-xs font-bold mb-2" style={{ color: 'var(--color-oasis-text-muted)' }}>
+            🗂️ ROM File
+          </p>
+          {romAssoc ? (
+            <div className="flex items-center gap-2 flex-wrap">
+              <code
+                className="text-[11px] font-mono flex-1 truncate"
+                style={{ color: 'var(--color-oasis-text)' }}
+                title={romAssoc.romPath}
+              >
+                {romAssoc.romPath}
+              </code>
+              {isTauri() && (
+                <button
+                  type="button"
+                  onClick={handlePickRom}
+                  className="text-xs px-2 py-1 rounded-lg font-semibold transition-opacity hover:opacity-80 flex-shrink-0"
+                  style={{ backgroundColor: 'var(--color-oasis-card)', color: 'var(--color-oasis-text-muted)', border: '1px solid rgba(255,255,255,0.1)' }}
+                >
+                  📂 Change
+                </button>
+              )}
+              <button
+                type="button"
+                onClick={handleClearRom}
+                className="text-xs px-2 py-1 rounded-lg font-semibold transition-opacity hover:opacity-80 flex-shrink-0"
+                style={{ backgroundColor: 'rgba(230,0,18,0.1)', color: '#f87171', border: '1px solid rgba(230,0,18,0.2)' }}
+              >
+                ✕ Clear
+              </button>
+            </div>
+          ) : (
+            <div className="flex items-center gap-2">
+              <span className="text-[11px]" style={{ color: 'var(--color-oasis-text-muted)' }}>
+                No ROM file set — will use ROM directory as fallback.
+              </span>
+              {isTauri() && (
+                <button
+                  type="button"
+                  onClick={handlePickRom}
+                  className="text-xs px-3 py-1.5 rounded-lg font-semibold transition-opacity hover:opacity-80 flex-shrink-0"
+                  style={{ backgroundColor: 'var(--color-oasis-accent)', color: 'white' }}
+                >
+                  📂 Set ROM File
+                </button>
+              )}
+            </div>
+          )}
+          <p className="text-[10px] mt-1.5" style={{ color: 'var(--color-oasis-text-muted)', opacity: 0.6 }}>
+            {isTauri()
+              ? 'This path is auto-used when your session starts. Use the Browse button to pick the exact ROM file.'
+              : 'Run the app in Tauri desktop mode to use the native file picker. You can also set a ROM directory in Settings.'}
+          </p>
         </div>
 
         {/* Actions */}
