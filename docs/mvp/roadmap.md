@@ -14,6 +14,7 @@
 > - Phase 12 WFC auto-config (Wiimmfi + AltWFC, `GET /api/wfc/providers`), Pokémon Online page (`/pokemon` — Trade Lobby, Battle Lobby, Friend Codes), and Mario Kart DS matchmaking page (`/mario-kart` — Quick Race, Public Rooms, Ranked Races) are now complete.
 > - Phase 13 Seasonal Events, Featured Games & Custom Room Themes are now complete. REST: `GET /api/events`, `GET /api/events/current`, `GET /api/games/featured`. Events page (`/events`), home page seasonal banner + featured games widget, theme picker in HostRoomModal, themed lobby cards. Mario Sports page (`/mario-sports`) also added.
 > - Phase 14 Zelda & Metroid Online + Direct Messaging are now complete. Zelda page (`/zelda` — Four Swords co-op, Phantom Hourglass battle mode), Metroid page (`/metroid` — Prime Hunters 4P deathmatch, quick match), in-app DMs between friends with WS push delivery, unread badge in nav.
+> - Phase 15 Community Hub, Game Ratings & Ranked Play are now complete. Game reviews/ratings with 1-5 stars + text, top-rated games, per-game summaries. Community activity feed (session-started, achievement-unlocked, tournament-won, review-submitted, friend-added). ELO-based ranked matchmaking (casual/ranked room toggle, global + per-game leaderboards, Bronze→Diamond tiers). Community Hub page (`/community` — Activity Feed, Game Ratings, Rankings tabs). Player rank badge in Profile page. SQLite-backed stores for reviews and rankings.
 > - **Next: further phases — see Future Ideas section below.**
 
 ## Phase 1 — Foundation (Complete)
@@ -262,10 +263,31 @@
 - [ ] Server-side friend list and presence persistence
 
 
+## Phase 15 — Community Hub, Game Ratings & Ranked Play
+
+**Goal:** Give RetroOasis a community layer — players can rate games, see what others are doing in real time, and compete for ELO rankings in ranked rooms.
+
+### Milestones
+- [x] `GameRatingsStore` + `SqliteGameRatingsStore` — 1-5 star reviews, per-player upsert, delete, top-rated games, per-game summary
+- [x] REST: `GET /api/reviews/top`, `GET /api/reviews/:gameId`, `GET /api/reviews/:gameId/summary`, `POST /api/reviews/:gameId`, `DELETE /api/reviews/:reviewId`, `GET /api/reviews/player/:playerId`
+- [x] `ActivityFeedStore` — ring-buffer (200 events), records: session-started/ended, achievement-unlocked, tournament-created/won, review-submitted, friend-added
+- [x] REST: `GET /api/activity` with `?type=`, `?player=`, `?limit=` filters
+- [x] `RankingStore` + `SqliteRankingStore` — ELO (K=32, start=1000), global + per-game, tiers: Bronze/Silver/Gold/Platinum/Diamond
+- [x] REST: `GET /api/rankings`, `GET /api/rankings/:gameId`, `GET /api/rankings/player/:playerId`, `GET /api/rankings/player/:playerId/:gameId`, `POST /api/rankings/match`
+- [x] `rankMode: 'casual' | 'ranked'` added to `Room`, `CreateRoomPayload`, `LobbyManager`, `SqliteLobbyManager`, `handler.ts`
+- [x] Phase 15 SQLite migrations: `game_reviews`, `global_rankings`, `game_rankings` tables; `rank_mode` column on `rooms`
+- [x] `CommunityPage` (`/community`) — Activity Feed, Game Ratings, Rankings tabs
+- [x] Community Hub nav item added to sidebar (🌐 Community)
+- [x] Player rank badge in Profile page — tier icon, ELO, W/L, earned title
+- [x] `community-service.ts` — typed fetch wrappers + `TIER_COLORS`, `TIER_ICONS`, `playerTitle()` helper
+- [x] Ranked/Casual mode toggle in `HostRoomModal` (affects ELO on session end)
+- [x] Phase 15 unit tests (39 tests across GameRatingsStore, ActivityFeedStore, RankingStore + ELO helpers)
+- [x] `docs/mvp/roadmap.md` updated with Phase 15 milestones
+
 ## Future Ideas
 - Tournament-style rooms
 - ~~Seasonal featured games~~ ✓ Phase 13
-- Ranked/casual matchmaking tags
+- ~~Ranked/casual matchmaking tags~~ ✓ Phase 15
 - ~~Custom room themes~~ ✓ Phase 13
 - Game clip sharing
 - Mobile companion app

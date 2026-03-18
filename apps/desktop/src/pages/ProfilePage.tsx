@@ -13,6 +13,13 @@ import {
   type LeaderboardMetric,
   type PlayerTournamentEntry,
 } from '../lib/stats-service';
+import {
+  fetchPlayerRank,
+  TIER_COLORS,
+  TIER_ICONS,
+  playerTitle,
+  type PlayerRank,
+} from '../lib/community-service';
 
 // ─── Category config ──────────────────────────────────────────────────────────
 
@@ -111,6 +118,7 @@ export function ProfilePage() {
   const [lbMetric, setLbMetric] = useState<LeaderboardMetric>('sessions');
   const [activeCategory, setActiveCategory] = useState<string>('all');
   const [tournaments, setTournaments] = useState<PlayerTournamentEntry[]>([]);
+  const [playerRank, setPlayerRank] = useState<PlayerRank | null>(null);
   const [loading, setLoading] = useState(false);
 
   const load = useCallback(
@@ -118,16 +126,18 @@ export function ProfilePage() {
       if (!name) return;
       setLoading(true);
       try {
-        const [defsData, earnedData, statsData, tourneyData] = await Promise.all([
+        const [defsData, earnedData, statsData, tourneyData, rankData] = await Promise.all([
           fetchAchievementDefs(),
           fetchPlayerAchievements(name),
           fetchPlayerStats(name),
           fetchPlayerTournaments(name),
+          fetchPlayerRank(name).catch(() => null),
         ]);
         setDefs(defsData);
         setEarned(earnedData);
         setStats(statsData);
         setTournaments(tourneyData);
+        setPlayerRank(rankData);
       } finally {
         setLoading(false);
       }
@@ -215,6 +225,40 @@ export function ProfilePage() {
         <p className="text-sm" style={{ color: 'var(--color-oasis-text-muted)' }}>
           Loading…
         </p>
+      )}
+
+      {/* Rank badge */}
+      {playerRank && !loading && (
+        <section>
+          <h2 className="text-base font-bold mb-3" style={{ color: 'var(--color-oasis-text)' }}>
+            🏅 Ranked Standing
+          </h2>
+          <div
+            className="rounded-2xl px-5 py-4 flex items-center gap-4"
+            style={{
+              backgroundColor: 'var(--color-oasis-surface)',
+              border: `1px solid ${TIER_COLORS[playerRank.tier]}44`,
+            }}
+          >
+            <span className="text-4xl">{TIER_ICONS[playerRank.tier]}</span>
+            <div className="flex-1">
+              <p className="font-black text-lg" style={{ color: TIER_COLORS[playerRank.tier] }}>
+                {playerRank.tier}
+              </p>
+              <p className="text-sm font-semibold" style={{ color: 'var(--color-oasis-text-muted)' }}>
+                {playerTitle(playerRank.tier, playerRank.gamesPlayed)}
+              </p>
+            </div>
+            <div className="text-right">
+              <p className="font-black text-2xl" style={{ color: TIER_COLORS[playerRank.tier] }}>{playerRank.elo}</p>
+              <p className="text-xs" style={{ color: 'var(--color-oasis-text-muted)' }}>ELO</p>
+            </div>
+            <div className="text-right">
+              <p className="font-bold text-sm" style={{ color: 'var(--color-oasis-text)' }}>{playerRank.wins}W / {playerRank.losses}L</p>
+              <p className="text-xs" style={{ color: 'var(--color-oasis-text-muted)' }}>{playerRank.gamesPlayed} ranked games</p>
+            </div>
+          </div>
+        </section>
       )}
 
       {/* Stats */}

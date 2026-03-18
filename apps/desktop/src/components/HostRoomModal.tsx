@@ -32,6 +32,7 @@ export function HostRoomModal({ preselectedGameId, onConfirm, onClose }: HostRoo
   const [isPublic, setIsPublic] = useState(true);
   const [seeded, setSeeded] = useState(false);
   const [theme, setTheme] = useState<string>('classic');
+  const [rankMode, setRankMode] = useState<'casual' | 'ranked'>('casual');
   const [ndsLayout, setNdsLayout] = useState<NdsScreenLayout>(
     () => (localStorage.getItem(NDS_LAYOUT_KEY) as NdsScreenLayout | null) ?? 'stacked'
   );
@@ -72,6 +73,7 @@ export function HostRoomModal({ preselectedGameId, onConfirm, onClose }: HostRoo
         isPublic,
         maxPlayers: selectedGame.maxPlayers,
         theme: theme !== 'classic' ? theme : undefined,
+        rankMode,
       },
       displayName.trim()
     );
@@ -174,6 +176,37 @@ export function HostRoomModal({ preselectedGameId, onConfirm, onClose }: HostRoo
                     }}
                   >
                     {t.label}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* Ranked / Casual mode */}
+          <div>
+            <label className="block text-xs font-semibold mb-2" style={{ color: 'var(--color-oasis-text-muted)' }}>
+              🏅 Match Mode
+            </label>
+            <div className="flex gap-2">
+              {(['casual', 'ranked'] as const).map(mode => {
+                const selected = rankMode === mode;
+                const accent = mode === 'ranked' ? '#e60012' : '#60a5fa';
+                return (
+                  <button
+                    key={mode}
+                    type="button"
+                    onClick={() => setRankMode(mode)}
+                    className="flex-1 px-3 py-2 rounded-xl text-xs font-bold capitalize transition-all"
+                    style={{
+                      backgroundColor: selected ? `${accent}22` : 'var(--color-oasis-surface)',
+                      color: selected ? accent : 'var(--color-oasis-text-muted)',
+                      border: `1px solid ${selected ? accent : 'transparent'}`,
+                    }}
+                  >
+                    {mode === 'ranked' ? '🏆 Ranked' : '🎮 Casual'}
+                    <p className="text-[10px] font-normal mt-0.5 opacity-75">
+                      {mode === 'ranked' ? 'Affects ELO scores' : 'No ELO changes'}
+                    </p>
                   </button>
                 );
               })}

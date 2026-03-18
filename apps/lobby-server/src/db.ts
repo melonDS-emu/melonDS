@@ -223,6 +223,58 @@ export function openDatabase(path = ':memory:'): DatabaseType {
     CREATE INDEX IF NOT EXISTS idx_dm_to_unread ON direct_messages (to_player, read_at);
   `);
 
+  // Phase 15 migrations: game reviews, global/per-game rankings, rank_mode on rooms.
+  db.exec(`
+    -- Game ratings & reviews
+    CREATE TABLE IF NOT EXISTS game_reviews (
+      id          TEXT PRIMARY KEY,
+      game_id     TEXT NOT NULL,
+      game_title  TEXT NOT NULL,
+      player_id   TEXT NOT NULL,
+      player_name TEXT NOT NULL,
+      rating      INTEGER NOT NULL,
+      text        TEXT,
+      created_at  TEXT NOT NULL,
+      updated_at  TEXT NOT NULL,
+      UNIQUE (game_id, player_id)
+    );
+    CREATE INDEX IF NOT EXISTS idx_reviews_game ON game_reviews (game_id);
+    CREATE INDEX IF NOT EXISTS idx_reviews_player ON game_reviews (player_id);
+
+    -- Global ELO rankings
+    CREATE TABLE IF NOT EXISTS global_rankings (
+      player_id    TEXT PRIMARY KEY,
+      player_name  TEXT NOT NULL,
+      elo          INTEGER NOT NULL DEFAULT 1000,
+      wins         INTEGER NOT NULL DEFAULT 0,
+      losses       INTEGER NOT NULL DEFAULT 0,
+      draws        INTEGER NOT NULL DEFAULT 0,
+      games_played INTEGER NOT NULL DEFAULT 0,
+      updated_at   TEXT NOT NULL
+    );
+
+    -- Per-game ELO rankings
+    CREATE TABLE IF NOT EXISTS game_rankings (
+      game_id      TEXT NOT NULL,
+      game_title   TEXT NOT NULL,
+      player_id    TEXT NOT NULL,
+      player_name  TEXT NOT NULL,
+      elo          INTEGER NOT NULL DEFAULT 1000,
+      wins         INTEGER NOT NULL DEFAULT 0,
+      losses       INTEGER NOT NULL DEFAULT 0,
+      games_played INTEGER NOT NULL DEFAULT 0,
+      updated_at   TEXT NOT NULL,
+      PRIMARY KEY (game_id, player_id)
+    );
+  `);
+
+  // Phase 15 migration: add rank_mode column to rooms if it doesn't already exist.
+  try {
+    db.exec(`ALTER TABLE rooms ADD COLUMN rank_mode TEXT NOT NULL DEFAULT 'casual';`);
+  } catch {
+    // Column already exists — safe to ignore.
+  }
+
   return db;
 }
 

@@ -29,6 +29,9 @@ import { SEASONAL_EVENTS, getActiveEvents, getNextEvent } from './seasonal-event
 import { getFeaturedGames } from './featured-games';
 import { MessageStore } from './message-store';
 import { SqliteMessageStore } from './sqlite-message-store';
+import { GameRatingsStore, SqliteGameRatingsStore } from './game-ratings';
+import { activityFeed, recordReviewSubmitted } from './activity-feed';
+import { RankingStore, SqliteRankingStore } from './ranking-store';
 
 const PORT = parseInt(process.env.PORT ?? '8080', 10);
 /** Public hostname/IP players use to reach the relay (surfaced in game-starting events). */
@@ -76,6 +79,12 @@ const tournamentStore: TournamentStore | SqliteTournamentStore = USE_SQLITE
 const messageStore: MessageStore | SqliteMessageStore = USE_SQLITE
   ? (() => { const s = new SqliteMessageStore(getDatabase()); s.hydrate(); return s; })()
   : new MessageStore();
+const gameRatingsStore: GameRatingsStore | SqliteGameRatingsStore = USE_SQLITE
+  ? new SqliteGameRatingsStore(getDatabase())
+  : new GameRatingsStore();
+const rankingStore: RankingStore | SqliteRankingStore = USE_SQLITE
+  ? new SqliteRankingStore(getDatabase())
+  : new RankingStore();
 
 /** Lazy reference to the WebSocketServer — set after server creation. */
 let wss: WebSocketServer | undefined;
@@ -946,6 +955,155 @@ async function httpHandler(req: http.IncomingMessage, res: http.ServerResponse):
     }
     messageStore.markRead(fromPlayer, toPlayer);
     json(res, 200, { ok: true });
+    return;
+  }
+
+  // ---------------------------------------------------------------------------
+  // Game Reviews & Ratings API  (Phase 15)
+  //   GET    /api/reviews/:gameId            — reviews for a game
+  //   POST   /api/reviews/:gameId            — submit/update a rating+review
+  //   DELETE /api/reviews/:reviewId          — delete own review
+  //   GET    /api/reviews/player/:playerId   — reviews by a player
+  //   GET    /api/reviews/top                — top-rated games
+  //   GET    /api/reviews/:gameId/summary    — aggregated summary for a game
+  // ---------------------------------------------------------------------------
+
+  if (pathname === '/api/reviews/top' && req.method === 'GET') {
+    const limit = parseInt(query.limit ?? '10', 10);
+    json(res, 200, { games: gameRatingsStore.getTopRatedGames(limit) });
+    return;
+  }
+
+  const reviewsPlayerMatch = pathname.match(/^\/api\/reviews\/player\/([^/]+)$/);
+  if (reviewsPlayerMatch && req.method === 'GET') {
+    const playerId = decodeURIComponent(reviewsPlayerMatch[1]);
+    json(res, 200, { reviews: gameRatingsStore.getReviewsByPlayer(playerId) });
+    return;
+  }
+
+  const reviewsGameSummaryMatch = pathname.match(/^\/api\/reviews\/([^/]+)\/summary$/);
+  if (reviewsGameSummaryMatch && req.method === 'GET') {
+    const gameId = decodeURIComponent(reviewsGameSummaryMatch[1]);
+    const summary = gameRatingsStore.getSummaryForGame(gameId);
+    if (!summary) { json(res, 404, { error: 'No reviews for this game' }); return; }
+    json(res, 200, summary);
+    return;
+  }
+
+  const reviewsDeleteMatch = pathname.match(/^\/api\/reviews\/([^/]+)$/) ;
+  if (reviewsDeleteMatch && req.method === 'DELETE') {
+    const reviewId = decodeURIComponent(reviewsDeleteMatch[1]);
+    const raw = await readBody(req);
+    const body = JSON.parse(raw.trim() || '{}') as { playerId?: string };
+    if (!body.playerId) { json(res, 400, { error: 'playerId required' }); return; }
+    const ok = gameRatingsStore.deleteReview(reviewId, body.playerId);
+    json(res, ok ? 200 : 403, { ok });
+    return;
+  }
+
+  const reviewsGameMatch = pathname.match(/^\/api\/reviews\/([^/]+)$/);
+  if (reviewsGameMatch) {
+    const gameId = decodeURIComponent(reviewsGameMatch[1]);
+    if (req.method === 'GET') {
+      json(res, 200, { reviews: gameRatingsStore.getReviewsForGame(gameId) });
+      return;
+    }
+    if (req.method === 'POST') {
+      const raw = await readBody(req);
+      const body = JSON.parse(raw) as { gameTitle?: string; playerId?: string; playerName?: string; rating?: number; text?: string };
+      const { gameTitle, playerId, playerName, rating, text } = body;
+      if (!gameTitle || !playerId || !playerName || rating == null) {
+        json(res, 400, { error: 'gameTitle, playerId, playerName and rating are required' });
+        return;
+      }
+      try {
+        const review = gameRatingsStore.upsertReview(gameId, gameTitle, playerId, playerName, rating, text);
+        recordReviewSubmitted(playerName, gameTitle, rating);
+        json(res, 201, { review });
+      } catch (err: unknown) {
+        json(res, 400, { error: err instanceof Error ? err.message : 'Invalid rating' });
+      }
+      return;
+    }
+  }
+
+  // ---------------------------------------------------------------------------
+  // Community Activity Feed API  (Phase 15)
+  //   GET /api/activity              — recent community activity (last 50)
+  //   GET /api/activity?type=X       — filter by event type
+  //   GET /api/activity?player=X     — filter by player name
+  //   GET /api/activity?limit=N      — override limit (max 200)
+  // ---------------------------------------------------------------------------
+
+  if (pathname === '/api/activity' && req.method === 'GET') {
+    const limit = Math.min(parseInt(query.limit ?? '50', 10), 200);
+    const type = query.type as string | undefined;
+    const player = query.player as string | undefined;
+    const events = activityFeed.getRecent(limit, {
+      type: type as Parameters<typeof activityFeed.getRecent>[1]['type'],
+      playerName: player,
+    });
+    json(res, 200, { events, total: activityFeed.count() });
+    return;
+  }
+
+  // ---------------------------------------------------------------------------
+  // Rankings API  (Phase 15)
+  //   GET /api/rankings                       — global ELO leaderboard
+  //   GET /api/rankings/:gameId               — per-game ELO leaderboard
+  //   GET /api/rankings/player/:playerId      — global rank for a player
+  //   GET /api/rankings/player/:playerId/:gameId — per-game rank for a player
+  //   POST /api/rankings/match                — record a ranked match result
+  // ---------------------------------------------------------------------------
+
+  if (pathname === '/api/rankings' && req.method === 'GET') {
+    const limit = parseInt(query.limit ?? '20', 10);
+    json(res, 200, { rankings: rankingStore.getGlobalLeaderboard(limit) });
+    return;
+  }
+
+  if (req.method === 'POST' && pathname === '/api/rankings/match') {
+    const raw = await readBody(req);
+    const body = JSON.parse(raw) as {
+      playerAId: string; playerAName: string;
+      playerBId: string; playerBName: string;
+      gameId: string; gameTitle: string;
+      outcome: 1 | 0 | -1;
+    };
+    const { playerAId, playerAName, playerBId, playerBName, gameId, gameTitle, outcome } = body;
+    if (!playerAId || !playerAName || !playerBId || !playerBName || !gameId || !gameTitle || outcome == null) {
+      json(res, 400, { error: 'playerAId, playerAName, playerBId, playerBName, gameId, gameTitle and outcome are required' });
+      return;
+    }
+    rankingStore.recordMatch(playerAId, playerAName, playerBId, playerBName, gameId, gameTitle, outcome);
+    json(res, 200, { ok: true });
+    return;
+  }
+
+  const rankingsPlayerGameMatch = pathname.match(/^\/api\/rankings\/player\/([^/]+)\/([^/]+)$/);
+  if (rankingsPlayerGameMatch && req.method === 'GET') {
+    const playerId = decodeURIComponent(rankingsPlayerGameMatch[1]);
+    const gameId = decodeURIComponent(rankingsPlayerGameMatch[2]);
+    const rank = rankingStore.getPlayerGameRank(playerId, gameId);
+    if (!rank) { json(res, 404, { error: 'No ranked games found for this player and game' }); return; }
+    json(res, 200, rank);
+    return;
+  }
+
+  const rankingsPlayerMatch = pathname.match(/^\/api\/rankings\/player\/([^/]+)$/);
+  if (rankingsPlayerMatch && req.method === 'GET') {
+    const playerId = decodeURIComponent(rankingsPlayerMatch[1]);
+    const rank = rankingStore.getPlayerRank(playerId);
+    if (!rank) { json(res, 404, { error: 'Player has no ranked games' }); return; }
+    json(res, 200, rank);
+    return;
+  }
+
+  const rankingsGameMatch = pathname.match(/^\/api\/rankings\/([^/]+)$/);
+  if (rankingsGameMatch && req.method === 'GET') {
+    const gameId = decodeURIComponent(rankingsGameMatch[1]);
+    const limit = parseInt(query.limit ?? '20', 10);
+    json(res, 200, { gameId, rankings: rankingStore.getGameLeaderboard(gameId, limit) });
     return;
   }
 

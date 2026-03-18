@@ -36,6 +36,7 @@ interface RoomRow {
   status: string;
   relay_port: number | null;
   theme: string | null;
+  rank_mode: string | null;
   created_at: string;
 }
 
@@ -121,6 +122,7 @@ export class SqliteLobbyManager {
       status: row.status as LobbyStatus,
       relayPort: row.relay_port ?? undefined,
       theme: row.theme ?? undefined,
+      rankMode: (row.rank_mode as 'casual' | 'ranked' | null) ?? 'casual',
       createdAt: row.created_at,
       players: playerRows.map(rowToPlayer),
       spectators: spectatorRows.map(rowToSpectator),
@@ -140,16 +142,17 @@ export class SqliteLobbyManager {
     isPublic: boolean,
     maxPlayers: number,
     displayName: string,
-    theme?: string
+    theme?: string,
+    rankMode?: 'casual' | 'ranked',
   ): Room {
     const roomId = randomUUID();
     const roomCode = generateRoomCode();
     const now = new Date().toISOString();
 
     this.db.prepare(`
-      INSERT INTO rooms (id, name, host_id, game_id, game_title, system, is_public, room_code, max_players, status, theme, created_at)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'waiting', ?, ?)
-    `).run(roomId, name, hostId, gameId, gameTitle, system, isPublic ? 1 : 0, roomCode, maxPlayers, theme ?? null, now);
+      INSERT INTO rooms (id, name, host_id, game_id, game_title, system, is_public, room_code, max_players, status, theme, rank_mode, created_at)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'waiting', ?, ?, ?)
+    `).run(roomId, name, hostId, gameId, gameTitle, system, isPublic ? 1 : 0, roomCode, maxPlayers, theme ?? null, rankMode ?? 'casual', now);
 
     this.db.prepare(`
       INSERT INTO room_players (room_id, player_id, display_name, ready_state, slot, is_host, joined_at, connection_quality)
