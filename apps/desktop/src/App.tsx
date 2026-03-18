@@ -16,6 +16,7 @@ import { MarioSportsPage } from './pages/MarioSportsPage';
 import { ZeldaPage } from './pages/ZeldaPage';
 import { MetroidPage } from './pages/MetroidPage';
 import { EventsPage } from './pages/EventsPage';
+import { CommunityPage } from './pages/CommunityPage';
 
 export function App() {
   return (
@@ -37,6 +38,7 @@ export function App() {
         <Route path="/zelda" element={<ZeldaPage />} />
         <Route path="/metroid" element={<MetroidPage />} />
         <Route path="/events" element={<EventsPage />} />
+        <Route path="/community" element={<CommunityPage />} />
       </Route>
     </Routes>
   );

@@ -1,8 +1,8 @@
 # RetroOasis Agent Guide
 
 ## Current Phase
-- Focus: **Phase 9 — Achievements & Player Stats**. Emphasis on rewarding engagement with an achievement system and giving players visibility into their playtime history through stats and leaderboards.
-- Latest work: Achievement engine (20 definitions, 5 categories), player stats aggregation, global leaderboard, REST endpoints, Profile page (`/profile`), and a home-page leaderboard teaser widget.
+- Focus: **Phase 15 — Community Hub, Game Ratings & Ranked Play**. Emphasis on community engagement through game reviews, a real-time activity feed, and ELO-based ranked matchmaking.
+- Latest work: `GameRatingsStore` (1-5 star reviews + summaries), `ActivityFeedStore` (7 event types, ring buffer), `RankingStore` (ELO K=32, Bronze→Diamond tiers, global + per-game), `CommunityPage` (`/community` — Activity Feed / Game Ratings / Rankings), ranked room toggle in HostRoomModal, player rank badge in Profile page. SQLite-backed stores for reviews and rankings. Phase 15 unit tests (39 tests).
 
 ## Build & Test Quickstart
 - Install: `npm install` (root workspace installs all packages).
@@ -17,12 +17,13 @@
 - Session templates: `packages/session-engine/src/templates.ts` contains Phase 1 defaults plus N64 and NDS presets.
 - Phase 8 persistence: set `DB_PATH` env var to enable SQLite-backed lobby, session history, saves, friends, matchmaking, and identity. In-memory fallback used otherwise.
 - Phase 9 achievements: `apps/lobby-server/src/achievement-store.ts` — 20 definitions; `player-stats.ts` — aggregation + leaderboard. REST: `/api/achievements`, `/api/stats/:displayName`, `/api/leaderboard`.
+- Phase 15 community: `game-ratings.ts` (reviews + summaries), `activity-feed.ts` (ring buffer, 7 event types), `ranking-store.ts` (ELO, global + per-game). REST: `/api/reviews/*`, `/api/activity`, `/api/rankings/*`. Frontend: `CommunityPage` at `/community`, rank badge in `ProfilePage`, ranked/casual toggle in `HostRoomModal`.
 
 ## Social/Diagnostics Behavior
 - Client pings every 10s; server now updates player `connectionQuality` and `latencyMs`, then broadcasts `room-updated` so the lobby UI can show per-player dots and latency.
 - Lobby UI banner exposes relay host/port when a game starts; Connection Diagnostics shows your measured ping and quality.
 
 ## Agent Expectations
-- Keep Phase 9 roadmap in sync (docs/mvp/roadmap.md) when marking milestones.
+- Keep Phase 15 roadmap in sync (docs/mvp/roadmap.md) when marking milestones.
 - Run `npm run typecheck` after changes touching TS packages.
 - Prefer existing packages over new dependencies; respect emulator adapter conventions when adding backends or netplay flags.

@@ -13,6 +13,7 @@ const NAV_ITEMS = [
   { path: '/mario-sports',  label: 'Mario Sports', icon: '🎾' },
   { path: '/zelda',         label: 'Zelda',        icon: '🗡️' },
   { path: '/metroid',       label: 'Metroid',      icon: '🌌' },
+  { path: '/community',    label: 'Community',    icon: '🌐' },
   { path: '/events',       label: 'Events',       icon: '🎪' },
   { path: '/friends',      label: 'Friends',      icon: '👥' },
   { path: '/tournaments',  label: 'Tournaments', icon: '🏆' },

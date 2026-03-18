@@ -24,6 +24,8 @@ export interface Room {
   relayPort?: number;
   /** Optional visual theme chosen by the host (e.g. 'spring', 'summer', 'neon', 'classic'). */
   theme?: string;
+  /** Ranked vs casual mode. */
+  rankMode?: 'casual' | 'ranked';
 }
 
 export interface RoomPlayer {
@@ -82,6 +84,8 @@ export interface CreateRoomPayload {
   displayName: string;
   /** Optional visual theme for the room (e.g. 'spring', 'neon'). */
   theme?: string;
+  /** Ranked vs casual mode. Defaults to 'casual'. */
+  rankMode?: 'casual' | 'ranked';
 }
 
 export interface JoinRoomPayload {
