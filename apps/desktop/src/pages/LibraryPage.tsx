@@ -3,16 +3,30 @@ import { Link } from 'react-router-dom';
 import { useGames } from '../lib/use-games';
 import { GameCard } from '../components/GameCard';
 import { getRomDirectory } from '../lib/rom-settings';
+import { tauriScanRoms } from '../lib/tauri-ipc';
+import { setRomAssociation } from '../lib/rom-library';
 
-const SCAN_SIMULATION_MS = 800;
 const SUCCESS_MESSAGE_DURATION_MS = 3000;
 const SYSTEMS = ['All', 'NES', 'SNES', 'GB', 'GBC', 'GBA', 'N64', 'NDS'];
 const TAGS = ['All', 'Party', 'Co-op', 'Versus', 'Battle', 'Link', 'Trade'];
 
+/** Attempt to map a scanned ROM's inferred title to a game ID using simple
+ *  title normalisation. Returns null when no confident match can be made. */
+function inferGameId(system: string, inferredTitle: string): string | null {
+  const sys = system.toLowerCase();
+  const slug = inferredTitle
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-|-$/g, '');
+  return slug ? `${sys}-${slug}` : null;
+}
+
 export function LibraryPage() {
   const [selectedSystem, setSelectedSystem] = useState('All');
   const [selectedTag, setSelectedTag] = useState('All');
-  const [scanStatus, setScanStatus] = useState<'idle' | 'scanning' | 'done'>('idle');
+  const [scanStatus, setScanStatus] = useState<'idle' | 'scanning' | 'done' | 'error'>('idle');
+  const [scanCount, setScanCount] = useState<number | null>(null);
+  const [scanError, setScanError] = useState<string | null>(null);
   const romDir = getRomDirectory();
 
   const { data: filtered, loading, error, refetch } = useGames({
@@ -20,13 +34,30 @@ export function LibraryPage() {
     tag: selectedTag !== 'All' ? selectedTag : undefined,
   });
 
-  function handleScan() {
+  async function handleScan() {
     setScanStatus('scanning');
-    setTimeout(() => {
+    setScanError(null);
+    setScanCount(null);
+    try {
+      const roms = await tauriScanRoms(romDir, true);
+      // Auto-associate each discovered ROM to its inferred game ID so the
+      // launch flow can resolve it automatically at session start.
+      for (const rom of roms) {
+        const gameId = inferGameId(rom.system, rom.inferredTitle);
+        if (gameId) setRomAssociation(gameId, rom.filePath);
+      }
+      setScanCount(roms.length);
       refetch();
       setScanStatus('done');
+      setTimeout(() => {
+        setScanStatus('idle');
+        setScanCount(null);
+      }, SUCCESS_MESSAGE_DURATION_MS);
+    } catch (err) {
+      setScanError(String(err));
+      setScanStatus('error');
       setTimeout(() => setScanStatus('idle'), SUCCESS_MESSAGE_DURATION_MS);
-    }, SCAN_SIMULATION_MS);
+    }
   }
 
   return (
@@ -50,7 +81,13 @@ export function LibraryPage() {
             className="text-xs font-black px-4 py-2 rounded-full transition-all hover:brightness-110 active:scale-[0.97] disabled:opacity-50"
             style={{ backgroundColor: 'var(--color-oasis-accent)', color: 'white' }}
           >
-            {scanStatus === 'scanning' ? '⏳ Scanning…' : scanStatus === 'done' ? '✓ Refreshed' : '🔍 Scan ROMs'}
+            {scanStatus === 'scanning'
+              ? '⏳ Scanning…'
+              : scanStatus === 'done'
+              ? `✓ Found ${scanCount ?? 0} ROM${scanCount !== 1 ? 's' : ''}`
+              : scanStatus === 'error'
+              ? '⚠️ Scan Failed'
+              : '🔍 Scan ROMs'}
           </button>
         ) : (
           <Link
@@ -79,6 +116,16 @@ export function LibraryPage() {
         >
           <span>📂</span>
           <code className="font-mono truncate">{romDir}</code>
+        </div>
+      )}
+
+      {/* Scan error banner */}
+      {scanStatus === 'error' && scanError && (
+        <div
+          className="mb-4 px-3 py-2 rounded-xl text-[11px] font-semibold"
+          style={{ backgroundColor: 'rgba(230,0,18,0.1)', border: '1px solid rgba(230,0,18,0.3)', color: '#f87171' }}
+        >
+          ⚠️ ROM scan failed: {scanError}
         </div>
       )}
 
