@@ -1,8 +1,8 @@
 # RetroOasis Agent Guide
 
 ## Current Phase
-- Focus: **Phase 15 — Community Hub, Game Ratings & Ranked Play**. Emphasis on community engagement through game reviews, a real-time activity feed, and ELO-based ranked matchmaking.
-- Latest work: `GameRatingsStore` (1-5 star reviews + summaries), `ActivityFeedStore` (7 event types, ring buffer), `RankingStore` (ELO K=32, Bronze→Diamond tiers, global + per-game), `CommunityPage` (`/community` — Activity Feed / Game Ratings / Rankings), ranked room toggle in HostRoomModal, player rank badge in Profile page. SQLite-backed stores for reviews and rankings. Phase 15 unit tests (39 tests).
+- Focus: **Phase 16 — Desktop Runtime & Core Integration**. Emphasis on native desktop packaging, real ROM-selection wiring, and deeper emulator-core integration for a production-ready launch flow.
+- Latest work: Phase 15 is complete (`GameRatingsStore`, `ActivityFeedStore`, `RankingStore`, `CommunityPage`, ranked room toggle, profile rank badge, SQLite-backed review/ranking stores, 39 tests). Next implementation targets are Tauri shell wiring, native ROM discovery/selection, and launch-path hardening.
 
 ## Build & Test Quickstart
 - Install: `npm install` (root workspace installs all packages).
@@ -24,6 +24,6 @@
 - Lobby UI banner exposes relay host/port when a game starts; Connection Diagnostics shows your measured ping and quality.
 
 ## Agent Expectations
-- Keep Phase 15 roadmap in sync (docs/mvp/roadmap.md) when marking milestones.
+- Keep Phase 16 roadmap in sync (docs/mvp/roadmap.md) when marking milestones.
 - Run `npm run typecheck` after changes touching TS packages.
 - Prefer existing packages over new dependencies; respect emulator adapter conventions when adding backends or netplay flags.
