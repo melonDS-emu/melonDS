@@ -18,7 +18,7 @@
 > - Phase 18 GameCube (Dolphin) & Nintendo 3DS (Citra/Lime3DS) support are now complete. 10 GC games (MK:DD, Melee, MP4-7, F-Zero GX, Luigi's Mansion, Pikmin 2), 10 3DS games (MK7, SSB4-3DS, Pokémon X/Y/OR/AS/Sun/Moon, AC:NL, MH4U). 22 new templates. Dolphin backend, Citra backend. 235 tests total.
 > - Phase 19 Nintendo Wii (Dolphin) support is now complete: `wii` system type, Wii adapter with MotionPlus flag, 10 Wii game templates, 9 Wii mock games, `WiiPage` (`/wii`), 🐬 Wii nav item. 270 tests total.
 > - Phase 20 Debug & Polish is now complete: TypeScript `rootDir` fix (phase-18/19 tests now type-check cleanly), duplicate `n64-mario-party-2` mock-game entry removed, try/catch error isolation added to `send-dm`/`mark-dm-read`/`send-global-chat` handlers, `GameCubePage` (`/gc`) added with 9 GC games + Leaderboard tab, 🟣 GameCube nav item. 382 tests total.
-> - **Next up: Phase 21 — [TBD]**.
+> - Phase 21 SEGA Genesis / Mega Drive is now complete: `genesis` system type, RetroArch + Genesis Plus GX adapter, 10 Genesis session templates, 9 Genesis mock games, `GenesisPage` (`/genesis`), 🔵 Genesis nav item. 427 tests total.
 
 ## Phase 1 — Foundation (Complete)
 
@@ -369,6 +369,23 @@
 - [x] `/gc` route added in `App.tsx`
 - [x] 41 unit tests in `phase-20.test.ts` (duplicate-ID regression, GC system type, Dolphin backend, adapter launch args, session templates, mock catalog, NotificationStore API, GlobalChatStore ring-buffer)
 - [x] `roadmap.md` updated with Phase 20 milestones
+
+## Phase 21 — SEGA Genesis / Mega Drive
+
+**Goal:** Extend RetroArch integration to cover the SEGA Genesis / Mega Drive — RetroOasis's first non-Nintendo platform — adding the Genesis Plus GX adapter, 10 Genesis session templates, 9 mock catalog entries, and a dedicated Genesis lobby page.
+
+### Milestones
+- [x] `genesis` added to `SupportedSystem` type and `SYSTEM_INFO` (generation 4, 2 local players, SEGA blue `#0066CC`)
+- [x] `retroarch` backend updated to include `genesis` in its systems list; Genesis Plus GX core noted in backend notes
+- [x] Genesis system adapter: RetroArch with Genesis Plus GX core, standard `--host`/`--connect` relay flags, saves to `genesis/` subdirectory
+- [x] 10 Genesis session templates: `genesis-default-2p`, `genesis-sonic-the-hedgehog-2-2p`, `genesis-streets-of-rage-2-2p`, `genesis-mortal-kombat-3-2p`, `genesis-nba-jam-2p`, `genesis-contra-hard-corps-2p`, `genesis-gunstar-heroes-2p`, `genesis-golden-axe-2p`, `genesis-toejam-and-earl-2p`, `genesis-earthworm-jim-2-2p`
+- [x] 9 Genesis mock games: Sonic 2, Streets of Rage 2, Mortal Kombat 3, NBA Jam, Contra: Hard Corps, Gunstar Heroes, Golden Axe, ToeJam & Earl, Earthworm Jim 2
+- [x] `--gradient-genesis` CSS variable added (`#0066cc → #003366`)
+- [x] `GenesisPage` (`/genesis`) — Game grid with Quick Match / Host Room per card, Genesis Plus GX info banner, Leaderboard tab, SEGA blue colour scheme
+- [x] 🔵 Genesis nav item added to sidebar in `Layout.tsx`
+- [x] `/genesis` route added in `App.tsx`
+- [x] 45 unit tests in `phase-21.test.ts` (system type, RetroArch backend, adapter launch args, session templates, mock catalog, no-duplicate regression)
+- [x] `roadmap.md` updated with Phase 21 milestones
 
 ## Future Ideas
 - Tournament-style rooms

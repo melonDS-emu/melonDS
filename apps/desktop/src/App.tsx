@@ -21,6 +21,7 @@ import { GlobalChatPage } from './pages/GlobalChatPage';
 import { NotificationsPage } from './pages/NotificationsPage';
 import WiiPage from './pages/WiiPage';
 import GameCubePage from './pages/GameCubePage';
+import GenesisPage from './pages/GenesisPage';
 
 export function App() {
   return (
@@ -43,6 +44,7 @@ export function App() {
         <Route path="/metroid" element={<MetroidPage />} />
         <Route path="/wii" element={<WiiPage />} />
         <Route path="/gc" element={<GameCubePage />} />
+        <Route path="/genesis" element={<GenesisPage />} />
         <Route path="/events" element={<EventsPage />} />
         <Route path="/community" element={<CommunityPage />} />
         <Route path="/chat" element={<GlobalChatPage />} />
