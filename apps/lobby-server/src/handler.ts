@@ -149,7 +149,7 @@ function pushAchievementUnlocks(
   endedSession: SessionRecord | null,
   sessionHistory: SessionHistory | SqliteSessionHistory | undefined,
   achievementStore: AchievementStore | SqliteAchievementStore | undefined,
-  notificationStore?: NotificationStore
+  notificationStore: NotificationStore | undefined
 ): void {
   if (!endedSession || !sessionHistory || !achievementStore) return;
   const allSessions = sessionHistory.getAll();

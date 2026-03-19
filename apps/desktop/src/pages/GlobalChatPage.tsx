@@ -61,7 +61,11 @@ export function GlobalChatPage() {
             text: msg.text,
             timestamp: msg.timestamp,
           };
-          setMessages((prev) => [...prev, chatMsg]);
+          // Cap client-side history at 500 to mirror server ring-buffer limit
+          setMessages((prev) => {
+            const next = [...prev, chatMsg];
+            return next.length > 500 ? next.slice(next.length - 500) : next;
+          });
         }
       } catch {
         // ignore parse errors

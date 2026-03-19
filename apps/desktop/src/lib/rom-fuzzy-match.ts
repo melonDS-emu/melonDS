@@ -55,8 +55,9 @@ function levenshtein(a: string, b: string): number {
 export function fuzzyMatchGameId(
   system: string,
   rawTitle: string,
-  catalog: CatalogEntry[]
+  catalog: CatalogEntry[] | null | undefined
 ): string | null {
+  if (!catalog || catalog.length === 0) return null;
   const normTitle = normalise(rawTitle);
   if (!normTitle) return null;
 
