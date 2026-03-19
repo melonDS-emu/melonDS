@@ -19,6 +19,7 @@ import { EventsPage } from './pages/EventsPage';
 import { CommunityPage } from './pages/CommunityPage';
 import { GlobalChatPage } from './pages/GlobalChatPage';
 import { NotificationsPage } from './pages/NotificationsPage';
+import WiiPage from './pages/WiiPage';
 
 export function App() {
   return (
@@ -39,6 +40,7 @@ export function App() {
         <Route path="/mario-sports" element={<MarioSportsPage />} />
         <Route path="/zelda" element={<ZeldaPage />} />
         <Route path="/metroid" element={<MetroidPage />} />
+        <Route path="/wii" element={<WiiPage />} />
         <Route path="/events" element={<EventsPage />} />
         <Route path="/community" element={<CommunityPage />} />
         <Route path="/chat" element={<GlobalChatPage />} />

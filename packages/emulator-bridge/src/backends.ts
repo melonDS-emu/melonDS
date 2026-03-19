@@ -230,7 +230,7 @@ export const KNOWN_BACKENDS: BackendDefinition[] = [
   {
     id: 'retroarch',
     name: 'RetroArch',
-    systems: ['nes', 'snes', 'gb', 'gbc', 'gba', 'n64', 'nds', 'gc', '3ds'],
+    systems: ['nes', 'snes', 'gb', 'gbc', 'gba', 'n64', 'nds', 'gc', 'wii', '3ds'],
     description: 'Universal open-source emulator frontend using libretro cores',
     executableName: 'retroarch',
     supportsNetplay: true,
@@ -254,7 +254,7 @@ export const KNOWN_BACKENDS: BackendDefinition[] = [
   {
     id: 'dolphin',
     name: 'Dolphin',
-    systems: ['gc'],
+    systems: ['gc', 'wii'],
     description: 'The premier GameCube and Wii emulator with netplay support',
     executableName: 'dolphin-emu',
     supportsNetplay: true,
