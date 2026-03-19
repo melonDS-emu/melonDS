@@ -58,17 +58,6 @@ export const MOCK_GAMES: MockGame[] = [
     coverEmoji: '🎲',
   },
   {
-    id: 'n64-mario-party-2',
-    title: 'Mario Party 2',
-    system: 'N64',
-    systemColor: '#009900',
-    maxPlayers: 4,
-    tags: ['4P', 'Party', 'Co-op'],
-    badges: ['Party Favorite', 'Best with Friends'],
-    description: 'Board game fun with dozens of mini-games for 4 players.',
-    coverEmoji: '🎲',
-  },
-  {
     id: 'n64-goldeneye-007',
     title: 'GoldenEye 007',
     system: 'N64',
