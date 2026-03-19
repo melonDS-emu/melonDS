@@ -5,21 +5,11 @@ import { GameCard } from '../components/GameCard';
 import { getRomDirectory } from '../lib/rom-settings';
 import { tauriScanRoms } from '../lib/tauri-ipc';
 import { setRomAssociation } from '../lib/rom-library';
+import { fuzzyMatchGameId } from '../lib/rom-fuzzy-match';
 
 const SUCCESS_MESSAGE_DURATION_MS = 3000;
 const SYSTEMS = ['All', 'NES', 'SNES', 'GB', 'GBC', 'GBA', 'N64', 'NDS'];
 const TAGS = ['All', 'Party', 'Co-op', 'Versus', 'Battle', 'Link', 'Trade'];
-
-/** Attempt to map a scanned ROM's inferred title to a game ID using simple
- *  title normalisation. Returns null when no confident match can be made. */
-function inferGameId(system: string, inferredTitle: string): string | null {
-  const sys = system.toLowerCase();
-  const slug = inferredTitle
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, '-')
-    .replace(/^-|-$/g, '');
-  return slug ? `${sys}-${slug}` : null;
-}
 
 export function LibraryPage() {
   const [selectedSystem, setSelectedSystem] = useState('All');
@@ -28,6 +18,9 @@ export function LibraryPage() {
   const [scanCount, setScanCount] = useState<number | null>(null);
   const [scanError, setScanError] = useState<string | null>(null);
   const romDir = getRomDirectory();
+
+  // Fetch all games for the fuzzy-match catalog (no filters applied here)
+  const { data: allGames } = useGames();
 
   const { data: filtered, loading, error, refetch } = useGames({
     system: selectedSystem !== 'All' ? selectedSystem : undefined,
@@ -40,10 +33,11 @@ export function LibraryPage() {
     setScanCount(null);
     try {
       const roms = await tauriScanRoms(romDir, true);
-      // Auto-associate each discovered ROM to its inferred game ID so the
-      // launch flow can resolve it automatically at session start.
+      // Auto-associate each discovered ROM using fuzzy title matching against
+      // the full game catalog.  Falls back gracefully when no confident match
+      // is found (fuzzyMatchGameId returns null).
       for (const rom of roms) {
-        const gameId = inferGameId(rom.system, rom.inferredTitle);
+        const gameId = fuzzyMatchGameId(rom.system, rom.inferredTitle, allGames);
         if (gameId) setRomAssociation(gameId, rom.filePath);
       }
       setScanCount(roms.length);

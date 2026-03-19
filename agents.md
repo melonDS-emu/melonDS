@@ -1,8 +1,8 @@
 # RetroOasis Agent Guide
 
 ## Current Phase
-- Focus: **Phase 16 — Desktop Runtime & Core Integration**. Emphasis on native desktop packaging, real ROM-selection wiring, and deeper emulator-core integration for a production-ready launch flow.
-- Latest work: Phase 15 is complete (`GameRatingsStore`, `ActivityFeedStore`, `RankingStore`, `CommunityPage`, ranked room toggle, profile rank badge, SQLite-backed review/ranking stores, 39 tests). Next implementation targets are Tauri shell wiring, native ROM discovery/selection, and launch-path hardening.
+- Focus: **Phase 18** (next). Phase 17 — ROM Intelligence, Global Chat & Notification Center — is complete.
+- Latest work: Phase 17 delivered `fuzzyMatchGameId()` (Levenshtein ROM matching), `GlobalChatStore` + `/chat` page (global real-time chat), `NotificationStore` + `/notifications` page (per-player notification center), 18 new tests (289 total).
 
 ## Build & Test Quickstart
 - Install: `npm install` (root workspace installs all packages).
@@ -18,12 +18,15 @@
 - Phase 8 persistence: set `DB_PATH` env var to enable SQLite-backed lobby, session history, saves, friends, matchmaking, and identity. In-memory fallback used otherwise.
 - Phase 9 achievements: `apps/lobby-server/src/achievement-store.ts` — 20 definitions; `player-stats.ts` — aggregation + leaderboard. REST: `/api/achievements`, `/api/stats/:displayName`, `/api/leaderboard`.
 - Phase 15 community: `game-ratings.ts` (reviews + summaries), `activity-feed.ts` (ring buffer, 7 event types), `ranking-store.ts` (ELO, global + per-game). REST: `/api/reviews/*`, `/api/activity`, `/api/rankings/*`. Frontend: `CommunityPage` at `/community`, rank badge in `ProfilePage`, ranked/casual toggle in `HostRoomModal`.
+- Phase 17 ROM intelligence: `rom-fuzzy-match.ts` — `fuzzyMatchGameId(system, rawTitle, catalog)` uses Levenshtein distance with 40 % threshold; used in `LibraryPage` ROM scan.
+- Phase 17 global chat: `global-chat-store.ts` — 500-message ring buffer. WS: `send-global-chat` / `global-chat-message`. REST: `GET /api/chat`. Frontend: `GlobalChatPage` at `/chat`.
+- Phase 17 notifications: `notification-store.ts` — per-player store (max 200). REST: `GET/POST /api/notifications/:playerId/*`. Frontend: `NotificationsPage` at `/notifications`; unread badge in Layout sidebar.
 
 ## Social/Diagnostics Behavior
 - Client pings every 10s; server now updates player `connectionQuality` and `latencyMs`, then broadcasts `room-updated` so the lobby UI can show per-player dots and latency.
 - Lobby UI banner exposes relay host/port when a game starts; Connection Diagnostics shows your measured ping and quality.
 
 ## Agent Expectations
-- Keep Phase 16 roadmap in sync (docs/mvp/roadmap.md) when marking milestones.
+- Keep Phase 18 roadmap in sync (docs/mvp/roadmap.md) when marking milestones.
 - Run `npm run typecheck` after changes touching TS packages.
 - Prefer existing packages over new dependencies; respect emulator adapter conventions when adding backends or netplay flags.
