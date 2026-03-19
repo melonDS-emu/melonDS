@@ -72,7 +72,9 @@ export type ClientMessage =
   | { type: 'friend-remove'; payload: { friendId: string } }
   /** Phase 14: direct messages */
   | { type: 'send-dm'; payload: { toPlayer: string; content: string } }
-  | { type: 'mark-dm-read'; payload: { fromPlayer: string } };
+  | { type: 'mark-dm-read'; payload: { fromPlayer: string } }
+  /** Phase 17: global chat */
+  | { type: 'send-global-chat'; text: string };
 
 export interface CreateRoomPayload {
   name: string;
@@ -119,7 +121,9 @@ export type ServerMessage =
   | { type: 'tournament-updated'; tournamentId: string }
   /** Phase 14: direct messages */
   | { type: 'dm-received'; message: { id: string; fromPlayer: string; content: string; sentAt: string } }
-  | { type: 'dm-read-ack'; fromPlayer: string };
+  | { type: 'dm-read-ack'; fromPlayer: string }
+  /** Phase 17: global chat */
+  | { type: 'global-chat-message'; id: string; playerId: string; displayName: string; text: string; timestamp: string };
 
 export interface PresencePlayer {
   playerId: string;

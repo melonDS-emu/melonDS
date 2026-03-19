@@ -17,6 +17,8 @@ import { ZeldaPage } from './pages/ZeldaPage';
 import { MetroidPage } from './pages/MetroidPage';
 import { EventsPage } from './pages/EventsPage';
 import { CommunityPage } from './pages/CommunityPage';
+import { GlobalChatPage } from './pages/GlobalChatPage';
+import { NotificationsPage } from './pages/NotificationsPage';
 
 export function App() {
   return (
@@ -39,6 +41,8 @@ export function App() {
         <Route path="/metroid" element={<MetroidPage />} />
         <Route path="/events" element={<EventsPage />} />
         <Route path="/community" element={<CommunityPage />} />
+        <Route path="/chat" element={<GlobalChatPage />} />
+        <Route path="/notifications" element={<NotificationsPage />} />
       </Route>
     </Routes>
   );

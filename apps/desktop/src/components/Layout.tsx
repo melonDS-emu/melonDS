@@ -14,8 +14,10 @@ const NAV_ITEMS = [
   { path: '/zelda',         label: 'Zelda',        icon: '🗡️' },
   { path: '/metroid',       label: 'Metroid',      icon: '🌌' },
   { path: '/community',    label: 'Community',    icon: '🌐' },
+  { path: '/chat',         label: 'Chat',         icon: '💬' },
   { path: '/events',       label: 'Events',       icon: '🎪' },
   { path: '/friends',      label: 'Friends',      icon: '👥' },
+  { path: '/notifications', label: 'Notifications', icon: '🔔' },
   { path: '/tournaments',  label: 'Tournaments', icon: '🏆' },
   { path: '/clips',        label: 'Clips',       icon: '🎬' },
   { path: '/saves',        label: 'Saves',       icon: '💾' },
@@ -27,8 +29,39 @@ export function Layout() {
   const location = useLocation();
   const navigate = useNavigate();
   const { onlineFriends } = usePresence();
-  const { joinByCode, joinAsSpectator, currentRoom, pendingFriendRequests, unreadDmCount } = useLobby();
+  const { joinByCode, joinAsSpectator, currentRoom, pendingFriendRequests, unreadDmCount, playerId } = useLobby();
   const [pendingFriend, setPendingFriend] = useState<FriendInfo | null>(null);
+  const [unreadNotifCount, setUnreadNotifCount] = useState(0);
+
+  const BACKEND_URL: string =
+    (import.meta.env?.VITE_BACKEND_URL as string | undefined) ?? '';
+
+  useEffect(() => {
+    if (!playerId) return;
+    let cancelled = false;
+    const controller = new AbortController();
+
+    function poll() {
+      fetch(`${BACKEND_URL}/api/notifications/${encodeURIComponent(playerId)}`, { signal: controller.signal })
+        .then((r) => r.json())
+        .then((data: { notifications: Array<{ read: boolean }> }) => {
+          if (!cancelled) {
+            setUnreadNotifCount((data.notifications ?? []).filter((n) => !n.read).length);
+          }
+        })
+        .catch(() => {
+          // best-effort; AbortError is expected on cleanup
+        });
+    }
+
+    poll();
+    const interval = setInterval(poll, 30_000);
+    return () => {
+      cancelled = true;
+      clearInterval(interval);
+      controller.abort();
+    };
+  }, [playerId, BACKEND_URL]);
 
   useEffect(() => {
     if (currentRoom && location.pathname !== `/lobby/${currentRoom.id}`) {
@@ -130,6 +163,15 @@ export function Layout() {
                     title={`${unreadDmCount} unread message${unreadDmCount !== 1 ? 's' : ''}`}
                   >
                     💬
+                  </span>
+                )}
+                {item.path === '/notifications' && unreadNotifCount > 0 && (
+                  <span
+                    className="text-[9px] font-black px-1.5 py-0.5 rounded-full min-w-[18px] text-center"
+                    style={{ backgroundColor: 'var(--color-oasis-accent)', color: '#fff' }}
+                    title={`${unreadNotifCount} unread notification${unreadNotifCount !== 1 ? 's' : ''}`}
+                  >
+                    {unreadNotifCount}
                   </span>
                 )}
               </Link>

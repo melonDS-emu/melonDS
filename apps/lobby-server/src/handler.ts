@@ -15,6 +15,8 @@ import type { AchievementStore } from './achievement-store';
 import type { SqliteAchievementStore } from './sqlite-achievement-store';
 import type { MessageStore } from './message-store';
 import type { SqliteMessageStore } from './sqlite-message-store';
+import { GlobalChatStore } from './global-chat-store';
+import { NotificationStore } from './notification-store';
 
 /** Map of playerId -> WebSocket for broadcasting */
 const connections = new Map<string, WebSocket>();
@@ -133,6 +135,10 @@ export interface Phase8Stores {
   achievements?: AchievementStore | SqliteAchievementStore;
   /** Phase 14: direct message store */
   messages?: MessageStore | SqliteMessageStore;
+  /** Phase 17: global chat store */
+  globalChat?: GlobalChatStore;
+  /** Phase 17: notification store */
+  notifications?: NotificationStore;
 }
 
 /**
@@ -142,7 +148,8 @@ export interface Phase8Stores {
 function pushAchievementUnlocks(
   endedSession: SessionRecord | null,
   sessionHistory: SessionHistory | SqliteSessionHistory | undefined,
-  achievementStore: AchievementStore | SqliteAchievementStore | undefined
+  achievementStore: AchievementStore | SqliteAchievementStore | undefined,
+  notificationStore: NotificationStore | undefined
 ): void {
   if (!endedSession || !sessionHistory || !achievementStore) return;
   const allSessions = sessionHistory.getAll();
@@ -162,6 +169,13 @@ function pushAchievementUnlocks(
         description: def.description,
         icon: def.icon,
       });
+      notificationStore?.add(
+        pid,
+        'achievement-unlocked',
+        `Achievement Unlocked: ${def.name}`,
+        def.description,
+        def.id
+      );
     }
   }
 }
@@ -275,7 +289,7 @@ export function handleConnection(
           // Room was deleted (last player left) — free the relay port if one was allocated.
           relay.deallocateSession(msg.payload.roomId);
           const ended = sessionHistory?.endSession(msg.payload.roomId) ?? null;
-          pushAchievementUnlocks(ended, sessionHistory, phase8?.achievements);
+          pushAchievementUnlocks(ended, sessionHistory, phase8?.achievements, phase8?.notifications);
         }
         break;
       }
@@ -503,6 +517,14 @@ export function handleConnection(
                 fromDisplayName,
               });
             }
+            // Phase 17: create a notification for the recipient
+            phase8.notifications?.add(
+              sid,
+              'friend-request',
+              'Friend Request',
+              `${fromDisplayName} sent you a friend request.`,
+              request.id
+            );
           }
         }
         break;
@@ -683,6 +705,14 @@ export function handleConnection(
               message: { id: dm.id, fromPlayer: dm.fromPlayer, content: dm.content, sentAt: dm.sentAt },
             });
           }
+          // Phase 17: create a notification for the recipient
+          phase8.notifications?.add(
+            recipientPid,
+            'dm-received',
+            `Message from ${senderName}`,
+            dm.content.length > 80 ? dm.content.slice(0, 77) + '…' : dm.content,
+            dm.id
+          );
         }
         break;
       }
@@ -701,6 +731,24 @@ export function handleConnection(
           if (senderWs) {
             send(senderWs, { type: 'dm-read-ack', fromPlayer: readerName });
           }
+        }
+        break;
+      }
+
+      // -----------------------------------------------------------------------
+      // Phase 17: global chat
+      // -----------------------------------------------------------------------
+      case 'send-global-chat': {
+        const chatText = msg.text;
+        if (!phase8?.globalChat) break;
+        if (!chatText || typeof chatText !== 'string' || chatText.trim() === '') break;
+        const senderDisplayName =
+          Array.from(displayNameToPlayerId.entries()).find(([, pid]) => pid === playerId)?.[0] ??
+          'Unknown';
+        const chatMsg = phase8.globalChat.post(playerId, senderDisplayName, chatText.trim());
+        // Broadcast to ALL connected clients
+        for (const [, clientWs] of connections) {
+          send(clientWs, { type: 'global-chat-message', ...chatMsg });
         }
         break;
       }
@@ -752,7 +800,7 @@ export function handleConnection(
         // Room was closed (last player left) — free relay port and tell spectators.
         relay.deallocateSession(roomId);
         const ended = sessionHistory?.endSession(roomId) ?? null;
-        pushAchievementUnlocks(ended, sessionHistory, phase8?.achievements);
+        pushAchievementUnlocks(ended, sessionHistory, phase8?.achievements, phase8?.notifications);
         const spectators = spectatorsByRoom.get(roomId) ?? [];
         broadcast(spectators, { type: 'room-left', roomId });
       }

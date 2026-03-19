@@ -15,7 +15,7 @@
 > - Phase 13 Seasonal Events, Featured Games & Custom Room Themes are now complete. REST: `GET /api/events`, `GET /api/events/current`, `GET /api/games/featured`. Events page (`/events`), home page seasonal banner + featured games widget, theme picker in HostRoomModal, themed lobby cards. Mario Sports page (`/mario-sports`) also added.
 > - Phase 14 Zelda & Metroid Online + Direct Messaging are now complete. Zelda page (`/zelda` — Four Swords co-op, Phantom Hourglass battle mode), Metroid page (`/metroid` — Prime Hunters 4P deathmatch, quick match), in-app DMs between friends with WS push delivery, unread badge in nav.
 > - Phase 15 Community Hub, Game Ratings & Ranked Play are now complete. Game reviews/ratings with 1-5 stars + text, top-rated games, per-game summaries. Community activity feed (session-started, achievement-unlocked, tournament-won, review-submitted, friend-added). ELO-based ranked matchmaking (casual/ranked room toggle, global + per-game leaderboards, Bronze→Diamond tiers). Community Hub page (`/community` — Activity Feed, Game Ratings, Rankings tabs). Player rank badge in Profile page. SQLite-backed stores for reviews and rankings.
-> - **Next up: Phase 16 — Desktop Runtime & Core Integration** (native packaging, emulator-core IPC, and production-ready local runtime wiring).
+> - **Next up: Phase 18 — [TBD]**. Phase 17 (ROM Intelligence, Global Chat & Notification Center) is complete: fuzzy ROM title matching, global lobby chat, in-app notification center.
 
 ## Phase 1 — Foundation (Complete)
 
@@ -284,7 +284,7 @@
 - [x] Phase 15 unit tests (39 tests across GameRatingsStore, ActivityFeedStore, RankingStore + ELO helpers)
 - [x] `docs/mvp/roadmap.md` updated with Phase 15 milestones
 
-## Phase 16 — Desktop Runtime & Core Integration (Next)
+## Phase 16 — Desktop Runtime & Core Integration
 
 **Goal:** Convert RetroOasis from a browser-first prototype into a native desktop runtime with tighter emulator integration and less manual setup.
 
@@ -295,6 +295,26 @@
 - [x] melonDS core IPC bridge path documented + initial integration spike in desktop launch pipeline
 - [x] Network/runtime config hardening: environment-driven lobby URL + relay host defaults for non-local deployments
 - [x] End-to-end launch validation for one title per system family (NES/SNES, GB/GBC/GBA, N64, NDS) with docs/status report
+
+## Phase 17 — ROM Intelligence, Global Chat & Notification Center
+
+**Goal:** Add Levenshtein-based fuzzy ROM title matching to improve auto-association accuracy, create a global lobby chat channel, and build an in-app notification center.
+
+### Milestones
+- [x] `rom-fuzzy-match.ts` — `fuzzyMatchGameId()` with Levenshtein edit distance, normalisation, 40 % confidence threshold
+- [x] `LibraryPage` updated to use `fuzzyMatchGameId` against the full game catalog instead of the slug heuristic
+- [x] `GlobalChatStore` — 500-message ring buffer with `post`, `getRecent`, `clear`
+- [x] WS: `send-global-chat` → broadcast `global-chat-message` to all connected clients
+- [x] REST: `GET /api/chat?limit=N` — fetch recent global chat messages
+- [x] `GlobalChatPage` (`/chat`) — live global chat UI with WS subscription and Send input
+- [x] `NotificationStore` — per-player notification store with `add`, `list`, `markRead`, `markAllRead`, `unreadCount`
+- [x] Notifications auto-generated for: achievement unlocked, friend request received, DM received
+- [x] REST: `GET /api/notifications/:playerId`, `POST /api/notifications/:playerId/read`, `POST /api/notifications/:playerId/read/:notifId`
+- [x] `NotificationsPage` (`/notifications`) — groups unread/read, mark-all-read button, type icons
+- [x] Layout sidebar: 💬 Chat and 🔔 Notifications nav items; unread badge on Notifications
+- [x] 18 unit tests in `phase-17.test.ts` (GlobalChatStore + NotificationStore)
+- [x] `docs/status/phase-17-rom-intelligence.md` — phase status doc
+- [x] `roadmap.md` updated with Phase 17 milestones
 
 ## Future Ideas
 - Tournament-style rooms

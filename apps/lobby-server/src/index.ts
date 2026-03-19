@@ -32,6 +32,8 @@ import { SqliteMessageStore } from './sqlite-message-store';
 import { GameRatingsStore, SqliteGameRatingsStore } from './game-ratings';
 import { activityFeed, recordReviewSubmitted } from './activity-feed';
 import { RankingStore, SqliteRankingStore } from './ranking-store';
+import { GlobalChatStore } from './global-chat-store';
+import { NotificationStore } from './notification-store';
 
 const PORT = parseInt(process.env.PORT ?? '8080', 10);
 /** Public hostname/IP players use to reach the relay (surfaced in game-starting events). */
@@ -85,6 +87,9 @@ const gameRatingsStore: GameRatingsStore | SqliteGameRatingsStore = USE_SQLITE
 const rankingStore: RankingStore | SqliteRankingStore = USE_SQLITE
   ? new SqliteRankingStore(getDatabase())
   : new RankingStore();
+
+const globalChatStore = new GlobalChatStore();
+const notificationStore = new NotificationStore();
 
 /** Lazy reference to the WebSocketServer — set after server creation. */
 let wss: WebSocketServer | undefined;
@@ -1107,6 +1112,42 @@ async function httpHandler(req: http.IncomingMessage, res: http.ServerResponse):
     return;
   }
 
+  // -------------------------------------------------------------------------
+  // Phase 17: global chat REST
+  //   GET  /api/chat                          — recent messages
+  // -------------------------------------------------------------------------
+  if (pathname === '/api/chat' && req.method === 'GET') {
+    const chatLimit = parseInt(parsedUrl.query.limit as string ?? '100', 10);
+    json(res, 200, { messages: globalChatStore.getRecent(chatLimit) });
+    return;
+  }
+
+  // -------------------------------------------------------------------------
+  // Phase 17: notification REST
+  //   GET  /api/notifications/:playerId               — list
+  //   POST /api/notifications/:playerId/read          — mark all read
+  //   POST /api/notifications/:playerId/read/:notificationId — mark one read
+  // -------------------------------------------------------------------------
+  const notifMatch = pathname.match(/^\/api\/notifications\/([^/]+)(\/read(?:\/([^/]+))?)?$/);
+  if (notifMatch) {
+    const notifPlayerId = decodeURIComponent(notifMatch[1]);
+    if (req.method === 'GET' && !notifMatch[2]) {
+      json(res, 200, { notifications: notificationStore.list(notifPlayerId) });
+      return;
+    }
+    if (req.method === 'POST' && notifMatch[2] === '/read' && !notifMatch[3]) {
+      const count = notificationStore.markAllRead(notifPlayerId);
+      json(res, 200, { read: count });
+      return;
+    }
+    if (req.method === 'POST' && notifMatch[3]) {
+      const ok = notificationStore.markRead(notifMatch[3]);
+      if (!ok) { json(res, 404, { error: 'Notification not found' }); return; }
+      json(res, 200, { ok: true });
+      return;
+    }
+  }
+
   json(res, 404, { error: 'Not found' });
 }
 
@@ -1137,6 +1178,8 @@ wss.on('connection', (ws, req) => {
     playerIdentity: playerIdentityStore,
     achievements: achievementStore,
     messages: messageStore,
+    globalChat: globalChatStore,
+    notifications: notificationStore,
   });
 });
 
