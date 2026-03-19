@@ -28,6 +28,10 @@
   --gradient-wii:  linear-gradient(135deg, #c0c0c0 0%, #606060 100%);
   --gradient-3ds:  linear-gradient(135deg, #cc2200 0%, #660011 100%);
   --gradient-genesis: linear-gradient(135deg, #0066cc 0%, #003366 100%);
+  --gradient-dreamcast: linear-gradient(135deg, #ff6600 0%, #8b3300 100%);
+  --gradient-psx:  linear-gradient(135deg, #888888 0%, #333333 100%);
+  --gradient-ps2:  linear-gradient(135deg, #00439c 0%, #001a5c 100%);
+  --gradient-psp:  linear-gradient(135deg, #3c3c3c 0%, #0a0a0a 100%);
   --gradient-default: linear-gradient(135deg, #3a3a5c 0%, #1a1a2e 100%);
   --n-card-hover: rgba(255, 255, 255, 0.04);
   --n-border: rgba(255, 255, 255, 0.08);   /* subtle divider / card border */

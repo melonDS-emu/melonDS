@@ -22,6 +22,10 @@ import { NotificationsPage } from './pages/NotificationsPage';
 import WiiPage from './pages/WiiPage';
 import GameCubePage from './pages/GameCubePage';
 import GenesisPage from './pages/GenesisPage';
+import DreamcastPage from './pages/DreamcastPage';
+import PSXPage from './pages/PSXPage';
+import PS2Page from './pages/PS2Page';
+import PSPPage from './pages/PSPPage';
 
 export function App() {
   return (
@@ -45,6 +49,10 @@ export function App() {
         <Route path="/wii" element={<WiiPage />} />
         <Route path="/gc" element={<GameCubePage />} />
         <Route path="/genesis" element={<GenesisPage />} />
+        <Route path="/dreamcast" element={<DreamcastPage />} />
+        <Route path="/psx" element={<PSXPage />} />
+        <Route path="/ps2" element={<PS2Page />} />
+        <Route path="/psp" element={<PSPPage />} />
         <Route path="/events" element={<EventsPage />} />
         <Route path="/community" element={<CommunityPage />} />
         <Route path="/chat" element={<GlobalChatPage />} />
