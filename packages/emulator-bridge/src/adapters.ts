@@ -121,6 +121,21 @@ function buildRetroArchArgs(romPath: string, options: AdapterOptions): string[] 
  *  - Citra / Lime3DS:     <rom>  (direct ROM path)
  *                         (multiplayer via relay or citra-room server)
  *                         --single-window  (single window mode)
+ *  - Flycast:             <rom>  (standalone) or RetroArch with flycast_libretro
+ *                         (relay netplay via RetroArch --host/--connect)
+ *                         --fullscreen  (fullscreen mode)
+ *                         --verbose  (debug output)
+ *  - DuckStation:         <rom>  (no built-in netplay; relay-only)
+ *                         --fullscreen  (fullscreen mode)
+ *                         --verbose  (debug output)
+ *  - PCSX2:               -- <rom>  (ROM path after double dash)
+ *                         (relay netplay at TCP level; no CLI netplay flags)
+ *                         --fullscreen  (fullscreen mode)
+ *                         --verbose  (debug output)
+ *  - PPSSPP:              <rom>  (ROM path as first argument)
+ *                         --adhoc-server <host>:<port>  (ad-hoc relay)
+ *                         --fullscreen  (fullscreen mode)
+ *                         --verbose  (debug output)
  *
  * Debug argument conventions:
  *  - mGBA:      --gdb <port>  opens a GDB remote-debugging stub
@@ -408,6 +423,91 @@ export function createSystemAdapter(system: string, backendId?: string): SystemA
         fallbackBackendIds: [],
         buildLaunchArgs: (romPath, options) => buildRetroArchArgs(romPath, options),
         getSavePath: (gameId, baseDir) => `${baseDir}/genesis/${gameId}`,
+      };
+    }
+
+    case 'dreamcast': {
+      // Flycast: standalone or via RetroArch with flycast_libretro
+      // Netplay: relay at TCP level; Flycast has experimental online but relay is recommended
+      return {
+        system: 'dreamcast',
+        preferredBackendId: 'retroarch',
+        fallbackBackendIds: ['flycast'],
+        buildLaunchArgs: (romPath, options) => {
+          const effectiveDcBackend = backendId ?? 'retroarch';
+          if (effectiveDcBackend === 'flycast') {
+            const args = [romPath];
+            if (options.fullscreen) args.push('--fullscreen');
+            if (options.debug) args.push('--verbose');
+            return args;
+          }
+          return buildRetroArchArgs(romPath, options);
+        },
+        getSavePath: (gameId, baseDir) => `${baseDir}/dreamcast/${gameId}`,
+      };
+    }
+
+    case 'psx': {
+      const effectivePsxBackend = backendId ?? 'duckstation';
+      return {
+        system: 'psx',
+        preferredBackendId: 'duckstation',
+        fallbackBackendIds: ['retroarch'],
+        buildLaunchArgs: (romPath, options) => {
+          if (effectivePsxBackend === 'retroarch') {
+            return buildRetroArchArgs(romPath, options);
+          }
+          // DuckStation: relay-only; no built-in netplay CLI flags
+          const args = [romPath];
+          if (options.fullscreen) args.push('--fullscreen');
+          if (options.debug) args.push('--verbose');
+          return args;
+        },
+        getSavePath: (gameId, baseDir) => `${baseDir}/psx/${gameId}`,
+      };
+    }
+
+    case 'ps2': {
+      const effectivePs2Backend = backendId ?? 'pcsx2';
+      return {
+        system: 'ps2',
+        preferredBackendId: 'pcsx2',
+        fallbackBackendIds: ['retroarch'],
+        buildLaunchArgs: (romPath, options) => {
+          if (effectivePs2Backend === 'retroarch') {
+            return buildRetroArchArgs(romPath, options);
+          }
+          // PCSX2: relay at TCP level; -- separates PCSX2 options from the ROM path
+          const args: string[] = [];
+          if (options.fullscreen) args.push('--fullscreen');
+          if (options.debug) args.push('--verbose');
+          args.push('--', romPath);
+          return args;
+        },
+        getSavePath: (gameId, baseDir) => `${baseDir}/ps2/${gameId}`,
+      };
+    }
+
+    case 'psp': {
+      const effectivePspBackend = backendId ?? 'ppsspp';
+      return {
+        system: 'psp',
+        preferredBackendId: 'ppsspp',
+        fallbackBackendIds: ['retroarch'],
+        buildLaunchArgs: (romPath, options) => {
+          if (effectivePspBackend === 'retroarch') {
+            return buildRetroArchArgs(romPath, options);
+          }
+          // PPSSPP: ad-hoc relay via --adhoc-server
+          const args = [romPath];
+          if (options.fullscreen) args.push('--fullscreen');
+          if (options.netplayHost && options.netplayPort) {
+            args.push('--adhoc-server', `${options.netplayHost}:${options.netplayPort}`);
+          }
+          if (options.debug) args.push('--verbose');
+          return args;
+        },
+        getSavePath: (gameId, baseDir) => `${baseDir}/psp/${gameId}`,
       };
     }
 

@@ -1411,6 +1411,542 @@ export const DEFAULT_TEMPLATES: SessionTemplateConfig[] = [
     netplayMode: 'online-relay',
     latencyTarget: 100,
   },
+
+  // =========================================================================
+  // SEGA Dreamcast templates
+  // =========================================================================
+
+  // --- Dreamcast default ---
+  {
+    id: 'dreamcast-default',
+    gameId: 'dreamcast-default',
+    system: 'dreamcast',
+    emulatorBackendId: 'retroarch',
+    playerCount: 2,
+    controllerMappings: defaultMappings(2),
+    saveRules: DEFAULT_SAVE_RULES,
+    netplayMode: 'online-relay',
+    latencyTarget: 120,
+  },
+
+  // --- Sonic Adventure 2 ---
+  {
+    id: 'dreamcast-sonic-adventure-2-2p',
+    gameId: 'dc-sonic-adventure-2',
+    system: 'dreamcast',
+    emulatorBackendId: 'retroarch',
+    playerCount: 2,
+    controllerMappings: defaultMappings(2),
+    saveRules: DEFAULT_SAVE_RULES,
+    netplayMode: 'online-relay',
+    latencyTarget: 120,
+  },
+
+  // --- Power Stone 2 ---
+  {
+    id: 'dreamcast-power-stone-2-4p',
+    gameId: 'dc-power-stone-2',
+    system: 'dreamcast',
+    emulatorBackendId: 'retroarch',
+    playerCount: 4,
+    controllerMappings: defaultMappings(4),
+    saveRules: DEFAULT_SAVE_RULES,
+    netplayMode: 'online-relay',
+    latencyTarget: 120,
+  },
+
+  // --- Marvel vs. Capcom 2 ---
+  {
+    id: 'dreamcast-marvel-vs-capcom-2-2p',
+    gameId: 'dc-marvel-vs-capcom-2',
+    system: 'dreamcast',
+    emulatorBackendId: 'retroarch',
+    playerCount: 2,
+    controllerMappings: defaultMappings(2),
+    saveRules: DEFAULT_SAVE_RULES,
+    netplayMode: 'online-relay',
+    latencyTarget: 120,
+  },
+
+  // --- Soul Calibur ---
+  {
+    id: 'dreamcast-soul-calibur-2p',
+    gameId: 'dc-soul-calibur',
+    system: 'dreamcast',
+    emulatorBackendId: 'retroarch',
+    playerCount: 2,
+    controllerMappings: defaultMappings(2),
+    saveRules: DEFAULT_SAVE_RULES,
+    netplayMode: 'online-relay',
+    latencyTarget: 120,
+  },
+
+  // --- Crazy Taxi ---
+  {
+    id: 'dreamcast-crazy-taxi-2p',
+    gameId: 'dc-crazy-taxi',
+    system: 'dreamcast',
+    emulatorBackendId: 'retroarch',
+    playerCount: 2,
+    controllerMappings: defaultMappings(2),
+    saveRules: DEFAULT_SAVE_RULES,
+    netplayMode: 'online-relay',
+    latencyTarget: 120,
+  },
+
+  // --- Virtua Tennis ---
+  {
+    id: 'dreamcast-virtua-tennis-4p',
+    gameId: 'dc-virtua-tennis',
+    system: 'dreamcast',
+    emulatorBackendId: 'retroarch',
+    playerCount: 4,
+    controllerMappings: defaultMappings(4),
+    saveRules: DEFAULT_SAVE_RULES,
+    netplayMode: 'online-relay',
+    latencyTarget: 120,
+  },
+
+  // --- NBA 2K2 ---
+  {
+    id: 'dreamcast-nba-2k2-2p',
+    gameId: 'dc-nba-2k2',
+    system: 'dreamcast',
+    emulatorBackendId: 'retroarch',
+    playerCount: 2,
+    controllerMappings: defaultMappings(2),
+    saveRules: DEFAULT_SAVE_RULES,
+    netplayMode: 'online-relay',
+    latencyTarget: 120,
+  },
+
+  // --- Project Justice ---
+  {
+    id: 'dreamcast-project-justice-2p',
+    gameId: 'dc-project-justice',
+    system: 'dreamcast',
+    emulatorBackendId: 'retroarch',
+    playerCount: 2,
+    controllerMappings: defaultMappings(2),
+    saveRules: DEFAULT_SAVE_RULES,
+    netplayMode: 'online-relay',
+    latencyTarget: 120,
+  },
+
+  // --- Jet Grind Radio ---
+  {
+    id: 'dreamcast-jet-grind-radio-2p',
+    gameId: 'dc-jet-grind-radio',
+    system: 'dreamcast',
+    emulatorBackendId: 'retroarch',
+    playerCount: 2,
+    controllerMappings: defaultMappings(2),
+    saveRules: DEFAULT_SAVE_RULES,
+    netplayMode: 'online-relay',
+    latencyTarget: 120,
+  },
+
+  // =========================================================================
+  // Sony PlayStation (PSX) templates
+  // =========================================================================
+
+  // --- PSX default ---
+  {
+    id: 'psx-default',
+    gameId: 'psx-default',
+    system: 'psx',
+    emulatorBackendId: 'duckstation',
+    playerCount: 2,
+    controllerMappings: defaultMappings(2),
+    saveRules: DEFAULT_SAVE_RULES,
+    netplayMode: 'online-relay',
+    latencyTarget: 100,
+  },
+
+  // --- Tekken 3 ---
+  {
+    id: 'psx-tekken-3-2p',
+    gameId: 'psx-tekken-3',
+    system: 'psx',
+    emulatorBackendId: 'duckstation',
+    playerCount: 2,
+    controllerMappings: defaultMappings(2),
+    saveRules: DEFAULT_SAVE_RULES,
+    netplayMode: 'online-relay',
+    latencyTarget: 100,
+  },
+
+  // --- Street Fighter Alpha 3 ---
+  {
+    id: 'psx-street-fighter-alpha-3-2p',
+    gameId: 'psx-street-fighter-alpha-3',
+    system: 'psx',
+    emulatorBackendId: 'duckstation',
+    playerCount: 2,
+    controllerMappings: defaultMappings(2),
+    saveRules: DEFAULT_SAVE_RULES,
+    netplayMode: 'online-relay',
+    latencyTarget: 100,
+  },
+
+  // --- Tony Hawk's Pro Skater 2 ---
+  {
+    id: 'psx-tony-hawks-pro-skater-2-2p',
+    gameId: 'psx-tony-hawks-pro-skater-2',
+    system: 'psx',
+    emulatorBackendId: 'duckstation',
+    playerCount: 2,
+    controllerMappings: defaultMappings(2),
+    saveRules: DEFAULT_SAVE_RULES,
+    netplayMode: 'online-relay',
+    latencyTarget: 100,
+  },
+
+  // --- Twisted Metal 2 ---
+  {
+    id: 'psx-twisted-metal-2-2p',
+    gameId: 'psx-twisted-metal-2',
+    system: 'psx',
+    emulatorBackendId: 'duckstation',
+    playerCount: 2,
+    controllerMappings: defaultMappings(2),
+    saveRules: DEFAULT_SAVE_RULES,
+    netplayMode: 'online-relay',
+    latencyTarget: 100,
+  },
+
+  // --- Crash Bash ---
+  {
+    id: 'psx-crash-bash-4p',
+    gameId: 'psx-crash-bash',
+    system: 'psx',
+    emulatorBackendId: 'duckstation',
+    playerCount: 4,
+    controllerMappings: defaultMappings(4),
+    saveRules: DEFAULT_SAVE_RULES,
+    netplayMode: 'online-relay',
+    latencyTarget: 100,
+  },
+
+  // --- Worms Armageddon ---
+  {
+    id: 'psx-worms-armageddon-4p',
+    gameId: 'psx-worms-armageddon',
+    system: 'psx',
+    emulatorBackendId: 'duckstation',
+    playerCount: 4,
+    controllerMappings: defaultMappings(4),
+    saveRules: DEFAULT_SAVE_RULES,
+    netplayMode: 'online-relay',
+    latencyTarget: 100,
+  },
+
+  // --- Crash Bandicoot ---
+  {
+    id: 'psx-crash-bandicoot-1p',
+    gameId: 'psx-crash-bandicoot',
+    system: 'psx',
+    emulatorBackendId: 'duckstation',
+    playerCount: 1,
+    controllerMappings: defaultMappings(1),
+    saveRules: DEFAULT_SAVE_RULES,
+    netplayMode: 'online-relay',
+    latencyTarget: 100,
+  },
+
+  // --- Castlevania: Symphony of the Night ---
+  {
+    id: 'psx-castlevania-sotn-1p',
+    gameId: 'psx-castlevania-sotn',
+    system: 'psx',
+    emulatorBackendId: 'duckstation',
+    playerCount: 1,
+    controllerMappings: defaultMappings(1),
+    saveRules: DEFAULT_SAVE_RULES,
+    netplayMode: 'online-relay',
+    latencyTarget: 100,
+  },
+
+  // --- Metal Gear Solid ---
+  {
+    id: 'psx-metal-gear-solid-1p',
+    gameId: 'psx-metal-gear-solid',
+    system: 'psx',
+    emulatorBackendId: 'duckstation',
+    playerCount: 1,
+    controllerMappings: defaultMappings(1),
+    saveRules: DEFAULT_SAVE_RULES,
+    netplayMode: 'online-relay',
+    latencyTarget: 100,
+  },
+
+  // =========================================================================
+  // Sony PlayStation 2 (PS2) templates
+  // =========================================================================
+
+  // --- PS2 default ---
+  {
+    id: 'ps2-default',
+    gameId: 'ps2-default',
+    system: 'ps2',
+    emulatorBackendId: 'pcsx2',
+    playerCount: 2,
+    controllerMappings: defaultMappings(2),
+    saveRules: DEFAULT_SAVE_RULES,
+    netplayMode: 'online-relay',
+    latencyTarget: 120,
+  },
+
+  // --- Guitar Hero II ---
+  {
+    id: 'ps2-guitar-hero-2-2p',
+    gameId: 'ps2-guitar-hero-2',
+    system: 'ps2',
+    emulatorBackendId: 'pcsx2',
+    playerCount: 2,
+    controllerMappings: defaultMappings(2),
+    saveRules: DEFAULT_SAVE_RULES,
+    netplayMode: 'online-relay',
+    latencyTarget: 120,
+  },
+
+  // --- Burnout 3 ---
+  {
+    id: 'ps2-burnout-3-2p',
+    gameId: 'ps2-burnout-3',
+    system: 'ps2',
+    emulatorBackendId: 'pcsx2',
+    playerCount: 2,
+    controllerMappings: defaultMappings(2),
+    saveRules: DEFAULT_SAVE_RULES,
+    netplayMode: 'online-relay',
+    latencyTarget: 120,
+  },
+
+  // --- Katamari Damacy ---
+  {
+    id: 'ps2-katamari-damacy-2p',
+    gameId: 'ps2-katamari-damacy',
+    system: 'ps2',
+    emulatorBackendId: 'pcsx2',
+    playerCount: 2,
+    controllerMappings: defaultMappings(2),
+    saveRules: DEFAULT_SAVE_RULES,
+    netplayMode: 'online-relay',
+    latencyTarget: 120,
+  },
+
+  // --- Ratchet & Clank: Up Your Arsenal ---
+  {
+    id: 'ps2-ratchet-clank-upa-2p',
+    gameId: 'ps2-ratchet-clank-upa',
+    system: 'ps2',
+    emulatorBackendId: 'pcsx2',
+    playerCount: 2,
+    controllerMappings: defaultMappings(2),
+    saveRules: DEFAULT_SAVE_RULES,
+    netplayMode: 'online-relay',
+    latencyTarget: 120,
+  },
+
+  // --- Need for Speed: Underground 2 ---
+  {
+    id: 'ps2-need-for-speed-ug2-2p',
+    gameId: 'ps2-need-for-speed-ug2',
+    system: 'ps2',
+    emulatorBackendId: 'pcsx2',
+    playerCount: 2,
+    controllerMappings: defaultMappings(2),
+    saveRules: DEFAULT_SAVE_RULES,
+    netplayMode: 'online-relay',
+    latencyTarget: 120,
+  },
+
+  // --- WWE SmackDown! vs. RAW ---
+  {
+    id: 'ps2-wwe-smackdown-vs-raw-2p',
+    gameId: 'ps2-wwe-smackdown-vs-raw',
+    system: 'ps2',
+    emulatorBackendId: 'pcsx2',
+    playerCount: 2,
+    controllerMappings: defaultMappings(2),
+    saveRules: DEFAULT_SAVE_RULES,
+    netplayMode: 'online-relay',
+    latencyTarget: 120,
+  },
+
+  // --- Kingdom Hearts ---
+  {
+    id: 'ps2-kingdom-hearts-1p',
+    gameId: 'ps2-kingdom-hearts',
+    system: 'ps2',
+    emulatorBackendId: 'pcsx2',
+    playerCount: 1,
+    controllerMappings: defaultMappings(1),
+    saveRules: DEFAULT_SAVE_RULES,
+    netplayMode: 'online-relay',
+    latencyTarget: 120,
+  },
+
+  // --- Shadow of the Colossus ---
+  {
+    id: 'ps2-shadow-of-the-colossus-1p',
+    gameId: 'ps2-shadow-of-the-colossus',
+    system: 'ps2',
+    emulatorBackendId: 'pcsx2',
+    playerCount: 1,
+    controllerMappings: defaultMappings(1),
+    saveRules: DEFAULT_SAVE_RULES,
+    netplayMode: 'online-relay',
+    latencyTarget: 120,
+  },
+
+  // --- GTA: San Andreas ---
+  {
+    id: 'ps2-gta-san-andreas-1p',
+    gameId: 'ps2-gta-san-andreas',
+    system: 'ps2',
+    emulatorBackendId: 'pcsx2',
+    playerCount: 1,
+    controllerMappings: defaultMappings(1),
+    saveRules: DEFAULT_SAVE_RULES,
+    netplayMode: 'online-relay',
+    latencyTarget: 120,
+  },
+
+  // =========================================================================
+  // Sony PlayStation Portable (PSP) templates
+  // =========================================================================
+
+  // --- PSP default ---
+  {
+    id: 'psp-default',
+    gameId: 'psp-default',
+    system: 'psp',
+    emulatorBackendId: 'ppsspp',
+    playerCount: 2,
+    controllerMappings: defaultMappings(2),
+    saveRules: DEFAULT_SAVE_RULES,
+    netplayMode: 'online-relay',
+    latencyTarget: 100,
+  },
+
+  // --- Monster Hunter Freedom Unite ---
+  {
+    id: 'psp-monster-hunter-fu-4p',
+    gameId: 'psp-monster-hunter-fu',
+    system: 'psp',
+    emulatorBackendId: 'ppsspp',
+    playerCount: 4,
+    controllerMappings: defaultMappings(4),
+    saveRules: DEFAULT_SAVE_RULES,
+    netplayMode: 'online-relay',
+    latencyTarget: 100,
+  },
+
+  // --- Metal Gear Solid: Peace Walker ---
+  {
+    id: 'psp-peace-walker-4p',
+    gameId: 'psp-peace-walker',
+    system: 'psp',
+    emulatorBackendId: 'ppsspp',
+    playerCount: 4,
+    controllerMappings: defaultMappings(4),
+    saveRules: DEFAULT_SAVE_RULES,
+    netplayMode: 'online-relay',
+    latencyTarget: 100,
+  },
+
+  // --- Patapon ---
+  {
+    id: 'psp-patapon-4p',
+    gameId: 'psp-patapon',
+    system: 'psp',
+    emulatorBackendId: 'ppsspp',
+    playerCount: 4,
+    controllerMappings: defaultMappings(4),
+    saveRules: DEFAULT_SAVE_RULES,
+    netplayMode: 'online-relay',
+    latencyTarget: 100,
+  },
+
+  // --- WipEout Pulse ---
+  {
+    id: 'psp-wipeout-pulse-8p',
+    gameId: 'psp-wipeout-pulse',
+    system: 'psp',
+    emulatorBackendId: 'ppsspp',
+    playerCount: 8,
+    controllerMappings: defaultMappings(8),
+    saveRules: DEFAULT_SAVE_RULES,
+    netplayMode: 'online-relay',
+    latencyTarget: 100,
+  },
+
+  // --- Tekken: Dark Resurrection ---
+  {
+    id: 'psp-tekken-dark-resurrection-2p',
+    gameId: 'psp-tekken-dark-resurrection',
+    system: 'psp',
+    emulatorBackendId: 'ppsspp',
+    playerCount: 2,
+    controllerMappings: defaultMappings(2),
+    saveRules: DEFAULT_SAVE_RULES,
+    netplayMode: 'online-relay',
+    latencyTarget: 100,
+  },
+
+  // --- GTA: Vice City Stories ---
+  {
+    id: 'psp-gta-vice-city-stories-2p',
+    gameId: 'psp-gta-vice-city-stories',
+    system: 'psp',
+    emulatorBackendId: 'ppsspp',
+    playerCount: 2,
+    controllerMappings: defaultMappings(2),
+    saveRules: DEFAULT_SAVE_RULES,
+    netplayMode: 'online-relay',
+    latencyTarget: 100,
+  },
+
+  // --- Lumines ---
+  {
+    id: 'psp-lumines-2p',
+    gameId: 'psp-lumines',
+    system: 'psp',
+    emulatorBackendId: 'ppsspp',
+    playerCount: 2,
+    controllerMappings: defaultMappings(2),
+    saveRules: DEFAULT_SAVE_RULES,
+    netplayMode: 'online-relay',
+    latencyTarget: 100,
+  },
+
+  // --- God of War: Chains of Olympus ---
+  {
+    id: 'psp-god-of-war-chains-1p',
+    gameId: 'psp-god-of-war-chains',
+    system: 'psp',
+    emulatorBackendId: 'ppsspp',
+    playerCount: 1,
+    controllerMappings: defaultMappings(1),
+    saveRules: DEFAULT_SAVE_RULES,
+    netplayMode: 'online-relay',
+    latencyTarget: 100,
+  },
+
+  // --- Crisis Core: Final Fantasy VII ---
+  {
+    id: 'psp-crisis-core-ff7-1p',
+    gameId: 'psp-crisis-core-ff7',
+    system: 'psp',
+    emulatorBackendId: 'ppsspp',
+    playerCount: 1,
+    controllerMappings: defaultMappings(1),
+    saveRules: DEFAULT_SAVE_RULES,
+    netplayMode: 'online-relay',
+    latencyTarget: 100,
+  },
 ];
 
 /**

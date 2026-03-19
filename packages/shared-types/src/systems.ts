@@ -1,4 +1,4 @@
-/** Supported systems (Nintendo + SEGA) */
+/** Supported systems (Nintendo + SEGA + Sony) */
 export type SupportedSystem =
   | 'nes'
   | 'snes'
@@ -10,7 +10,11 @@ export type SupportedSystem =
   | 'gc'
   | 'wii'
   | '3ds'
-  | 'genesis';
+  | 'genesis'
+  | 'dreamcast'
+  | 'psx'
+  | 'ps2'
+  | 'psp';
 
 export interface SystemInfo {
   id: SupportedSystem;
@@ -121,5 +125,41 @@ export const SYSTEM_INFO: Record<SupportedSystem, SystemInfo> = {
     maxLocalPlayers: 2,
     supportsLink: false,
     color: '#0066CC',
+  },
+  dreamcast: {
+    id: 'dreamcast',
+    name: 'SEGA Dreamcast',
+    shortName: 'Dreamcast',
+    generation: 6,
+    maxLocalPlayers: 4,
+    supportsLink: false,
+    color: '#FF6600',
+  },
+  psx: {
+    id: 'psx',
+    name: 'Sony PlayStation',
+    shortName: 'PSX',
+    generation: 5,
+    maxLocalPlayers: 4,
+    supportsLink: false,
+    color: '#808080',
+  },
+  ps2: {
+    id: 'ps2',
+    name: 'Sony PlayStation 2',
+    shortName: 'PS2',
+    generation: 6,
+    maxLocalPlayers: 4,
+    supportsLink: false,
+    color: '#00439C',
+  },
+  psp: {
+    id: 'psp',
+    name: 'Sony PlayStation Portable',
+    shortName: 'PSP',
+    generation: 7,
+    maxLocalPlayers: 6,
+    supportsLink: false,
+    color: '#1C1C1C',
   },
 };
