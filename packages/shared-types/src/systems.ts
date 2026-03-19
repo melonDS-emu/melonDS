@@ -1,4 +1,4 @@
-/** Supported Nintendo systems */
+/** Supported systems (Nintendo + SEGA) */
 export type SupportedSystem =
   | 'nes'
   | 'snes'
@@ -9,7 +9,8 @@ export type SupportedSystem =
   | 'nds'
   | 'gc'
   | 'wii'
-  | '3ds';
+  | '3ds'
+  | 'genesis';
 
 export interface SystemInfo {
   id: SupportedSystem;
@@ -111,5 +112,14 @@ export const SYSTEM_INFO: Record<SupportedSystem, SystemInfo> = {
     maxLocalPlayers: 8,
     supportsLink: false,
     color: '#CC0000',
+  },
+  genesis: {
+    id: 'genesis',
+    name: 'SEGA Genesis',
+    shortName: 'Genesis',
+    generation: 4,
+    maxLocalPlayers: 2,
+    supportsLink: false,
+    color: '#0066CC',
   },
 };

@@ -1275,6 +1275,142 @@ export const DEFAULT_TEMPLATES: SessionTemplateConfig[] = [
     netplayMode: 'online-relay',
     latencyTarget: 120,
   },
+
+  // =========================================================================
+  // SEGA Genesis / Mega Drive — RetroArch (Genesis Plus GX core)
+  // All sessions use online-relay netplay via RetroArch's built-in
+  // --host / --connect flags. Recommended core: genesis_plus_gx_libretro.so
+  // =========================================================================
+
+  // --- Default / fallback templates ---
+  {
+    id: 'genesis-default-2p',
+    gameId: 'genesis-default',
+    system: 'genesis',
+    emulatorBackendId: 'retroarch',
+    playerCount: 2,
+    controllerMappings: defaultMappings(2),
+    saveRules: DEFAULT_SAVE_RULES,
+    netplayMode: 'online-relay',
+    latencyTarget: 100,
+  },
+
+  // --- Sonic the Hedgehog 2 ---
+  {
+    id: 'genesis-sonic-the-hedgehog-2-2p',
+    gameId: 'genesis-sonic-the-hedgehog-2',
+    system: 'genesis',
+    emulatorBackendId: 'retroarch',
+    playerCount: 2,
+    controllerMappings: defaultMappings(2),
+    saveRules: DEFAULT_SAVE_RULES,
+    netplayMode: 'online-relay',
+    latencyTarget: 100,
+  },
+
+  // --- Streets of Rage 2 ---
+  {
+    id: 'genesis-streets-of-rage-2-2p',
+    gameId: 'genesis-streets-of-rage-2',
+    system: 'genesis',
+    emulatorBackendId: 'retroarch',
+    playerCount: 2,
+    controllerMappings: defaultMappings(2),
+    saveRules: DEFAULT_SAVE_RULES,
+    netplayMode: 'online-relay',
+    latencyTarget: 100,
+  },
+
+  // --- Mortal Kombat 3 ---
+  {
+    id: 'genesis-mortal-kombat-3-2p',
+    gameId: 'genesis-mortal-kombat-3',
+    system: 'genesis',
+    emulatorBackendId: 'retroarch',
+    playerCount: 2,
+    controllerMappings: defaultMappings(2),
+    saveRules: DEFAULT_SAVE_RULES,
+    netplayMode: 'online-relay',
+    latencyTarget: 100,
+  },
+
+  // --- NBA Jam ---
+  {
+    id: 'genesis-nba-jam-2p',
+    gameId: 'genesis-nba-jam',
+    system: 'genesis',
+    emulatorBackendId: 'retroarch',
+    playerCount: 2,
+    controllerMappings: defaultMappings(2),
+    saveRules: DEFAULT_SAVE_RULES,
+    netplayMode: 'online-relay',
+    latencyTarget: 100,
+  },
+
+  // --- Contra: Hard Corps ---
+  {
+    id: 'genesis-contra-hard-corps-2p',
+    gameId: 'genesis-contra-hard-corps',
+    system: 'genesis',
+    emulatorBackendId: 'retroarch',
+    playerCount: 2,
+    controllerMappings: defaultMappings(2),
+    saveRules: DEFAULT_SAVE_RULES,
+    netplayMode: 'online-relay',
+    latencyTarget: 100,
+  },
+
+  // --- Gunstar Heroes ---
+  {
+    id: 'genesis-gunstar-heroes-2p',
+    gameId: 'genesis-gunstar-heroes',
+    system: 'genesis',
+    emulatorBackendId: 'retroarch',
+    playerCount: 2,
+    controllerMappings: defaultMappings(2),
+    saveRules: DEFAULT_SAVE_RULES,
+    netplayMode: 'online-relay',
+    latencyTarget: 100,
+  },
+
+  // --- Golden Axe ---
+  {
+    id: 'genesis-golden-axe-2p',
+    gameId: 'genesis-golden-axe',
+    system: 'genesis',
+    emulatorBackendId: 'retroarch',
+    playerCount: 2,
+    controllerMappings: defaultMappings(2),
+    saveRules: DEFAULT_SAVE_RULES,
+    netplayMode: 'online-relay',
+    latencyTarget: 100,
+  },
+
+  // --- ToeJam & Earl ---
+  {
+    id: 'genesis-toejam-and-earl-2p',
+    gameId: 'genesis-toejam-and-earl',
+    system: 'genesis',
+    emulatorBackendId: 'retroarch',
+    playerCount: 2,
+    controllerMappings: defaultMappings(2),
+    saveRules: DEFAULT_SAVE_RULES,
+    netplayMode: 'online-relay',
+    latencyTarget: 100,
+  },
+
+  // --- Earthworm Jim 2 ---
+  {
+    id: 'genesis-earthworm-jim-2-2p',
+    gameId: 'genesis-earthworm-jim-2',
+    system: 'genesis',
+    emulatorBackendId: 'retroarch',
+    playerCount: 2,
+    controllerMappings: defaultMappings(2),
+    saveRules: DEFAULT_SAVE_RULES,
+    netplayMode: 'online-relay',
+    latencyTarget: 100,
+  },
 ];
 
 /**

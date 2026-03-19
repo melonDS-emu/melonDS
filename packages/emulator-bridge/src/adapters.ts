@@ -399,6 +399,18 @@ export function createSystemAdapter(system: string, backendId?: string): SystemA
       };
     }
 
+    case 'genesis': {
+      // SEGA Genesis / Mega Drive uses RetroArch with the Genesis Plus GX core.
+      // Netplay uses the standard RetroArch --host / --connect relay flags.
+      return {
+        system: 'genesis',
+        preferredBackendId: 'retroarch',
+        fallbackBackendIds: [],
+        buildLaunchArgs: (romPath, options) => buildRetroArchArgs(romPath, options),
+        getSavePath: (gameId, baseDir) => `${baseDir}/genesis/${gameId}`,
+      };
+    }
+
     default:
       throw new Error(`Unsupported system: ${system}`);
   }
