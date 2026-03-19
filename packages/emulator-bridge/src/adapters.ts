@@ -109,6 +109,12 @@ function buildRetroArchArgs(romPath: string, options: AdapterOptions): string[] 
  *                         --verbose  (debug output)
  *  - DeSmuME:             --cflash-image=<sav>  (no built-in netplay; relay only)
  *                         --num-cores=<n>  (optional performance tuning)
+ *  - Dolphin:             -b -e <rom>  (batch mode launch)
+ *                         (netplay handled by relay at TCP level)
+ *                         --debugger  (open integrated debugger)
+ *  - Citra / Lime3DS:     <rom>  (direct ROM path)
+ *                         (multiplayer via relay or citra-room server)
+ *                         --single-window  (single window mode)
  *
  * Debug argument conventions:
  *  - mGBA:      --gdb <port>  opens a GDB remote-debugging stub
@@ -121,6 +127,8 @@ function buildRetroArchArgs(romPath: string, options: AdapterOptions): string[] 
  *  - RetroArch: --verbose
  *  - Mupen64Plus: --verbose
  *  - melonDS:   --verbose
+ *  - Dolphin:   --debugger  opens the integrated debugger
+ *  - Citra:     no dedicated debug flag; use RetroArch with citra_libretro for verbose output
  *
  * @param system    The system identifier (e.g. 'gb', 'gba', 'n64').
  * @param backendId Optional backend override. When provided, launch args are
@@ -312,6 +320,52 @@ export function createSystemAdapter(system: string, backendId?: string): SystemA
           return args;
         },
         getSavePath: (gameId, baseDir) => `${baseDir}/nds/${gameId}`,
+      };
+    }
+
+    case 'gc': {
+      const effectiveGcBackend = backendId ?? 'dolphin';
+      return {
+        system: 'gc',
+        preferredBackendId: 'dolphin',
+        fallbackBackendIds: ['retroarch'],
+        buildLaunchArgs: (romPath, options) => {
+          if (effectiveGcBackend === 'retroarch') {
+            return buildRetroArchArgs(romPath, options);
+          }
+          // Dolphin: batch mode (-b) with explicit ROM path (-e)
+          // Netplay is handled at TCP relay level; no native CLI netplay flags used here.
+          const args = ['-b', '-e', romPath];
+          if (options.fullscreen) args.push('--no-gui');
+          if (options.debug) args.push('--debugger');
+          return args;
+        },
+        getSavePath: (gameId, baseDir) => `${baseDir}/gc/${gameId}`,
+      };
+    }
+
+    case '3ds': {
+      const effectiveCitraBackend = backendId ?? 'citra';
+      return {
+        system: '3ds',
+        preferredBackendId: 'citra',
+        fallbackBackendIds: ['retroarch'],
+        buildLaunchArgs: (romPath, options) => {
+          if (effectiveCitraBackend === 'retroarch') {
+            return buildRetroArchArgs(romPath, options);
+          }
+          // Citra / Lime3DS: ROM path as first argument.
+          // Multiplayer is handled at relay level or via citra-room server.
+          const args = [romPath];
+          if (options.fullscreen) args.push('--fullscreen');
+          // Relay netplay: connect to relay host/port for bridged sessions
+          if (options.netplayHost && options.netplayPort) {
+            args.push('--multiplayer-server', options.netplayHost);
+            args.push('--multiplayer-port', String(options.netplayPort));
+          }
+          return args;
+        },
+        getSavePath: (gameId, baseDir) => `${baseDir}/3ds/${gameId}`,
       };
     }
 

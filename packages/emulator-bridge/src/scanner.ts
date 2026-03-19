@@ -25,6 +25,17 @@ export const ROM_EXTENSIONS: Record<string, string> = {
   '.nds': 'nds',
   '.dsi': 'nds',
   '.ids': 'nds',
+  // GameCube
+  '.gcm': 'gc',     // raw GameCube disc image
+  '.gcz': 'gc',     // Dolphin compressed GameCube image
+  '.rvz': 'gc',     // Dolphin RVZ compressed format
+  '.iso': 'gc',     // optical disc image — defaults to GC; Wii support not yet enabled
+  '.ciso': 'gc',    // compact ISO
+  // Nintendo 3DS
+  '.3ds': '3ds',    // trimmed 3DS ROM (most common)
+  '.cci': '3ds',    // raw 3DS card image
+  '.cia': '3ds',    // 3DS installable content archive
+  '.3dsx': '3ds',   // 3DS homebrew executable
 };
 
 export interface RomFileInfo {

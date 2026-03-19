@@ -8,7 +8,7 @@ import { setRomAssociation } from '../lib/rom-library';
 import { fuzzyMatchGameId } from '../lib/rom-fuzzy-match';
 
 const SUCCESS_MESSAGE_DURATION_MS = 3000;
-const SYSTEMS = ['All', 'NES', 'SNES', 'GB', 'GBC', 'GBA', 'N64', 'NDS'];
+const SYSTEMS = ['All', 'NES', 'SNES', 'GB', 'GBC', 'GBA', 'N64', 'NDS', 'GC', '3DS'];
 const TAGS = ['All', 'Party', 'Co-op', 'Versus', 'Battle', 'Link', 'Trade'];
 
 export function LibraryPage() {
