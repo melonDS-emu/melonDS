@@ -969,7 +969,7 @@ async function httpHandler(req: http.IncomingMessage, res: http.ServerResponse):
   // ---------------------------------------------------------------------------
 
   if (pathname === '/api/reviews/top' && req.method === 'GET') {
-    const limit = parseInt(query.limit ?? '10', 10);
+    const limit = parseInt(parsedUrl.query.limit as string ?? '10', 10);
     json(res, 200, { games: gameRatingsStore.getTopRatedGames(limit) });
     return;
   }
@@ -1036,11 +1036,11 @@ async function httpHandler(req: http.IncomingMessage, res: http.ServerResponse):
   // ---------------------------------------------------------------------------
 
   if (pathname === '/api/activity' && req.method === 'GET') {
-    const limit = Math.min(parseInt(query.limit ?? '50', 10), 200);
-    const type = query.type as string | undefined;
-    const player = query.player as string | undefined;
+    const limit = Math.min(parseInt(parsedUrl.query.limit as string ?? '50', 10), 200);
+    const type = parsedUrl.query.type as string | undefined;
+    const player = parsedUrl.query.player as string | undefined;
     const events = activityFeed.getRecent(limit, {
-      type: type as Parameters<typeof activityFeed.getRecent>[1]['type'],
+      type: type as NonNullable<Parameters<typeof activityFeed.getRecent>[1]>['type'],
       playerName: player,
     });
     json(res, 200, { events, total: activityFeed.count() });
@@ -1057,7 +1057,7 @@ async function httpHandler(req: http.IncomingMessage, res: http.ServerResponse):
   // ---------------------------------------------------------------------------
 
   if (pathname === '/api/rankings' && req.method === 'GET') {
-    const limit = parseInt(query.limit ?? '20', 10);
+    const limit = parseInt(parsedUrl.query.limit as string ?? '20', 10);
     json(res, 200, { rankings: rankingStore.getGlobalLeaderboard(limit) });
     return;
   }
@@ -1102,7 +1102,7 @@ async function httpHandler(req: http.IncomingMessage, res: http.ServerResponse):
   const rankingsGameMatch = pathname.match(/^\/api\/rankings\/([^/]+)$/);
   if (rankingsGameMatch && req.method === 'GET') {
     const gameId = decodeURIComponent(rankingsGameMatch[1]);
-    const limit = parseInt(query.limit ?? '20', 10);
+    const limit = parseInt(parsedUrl.query.limit as string ?? '20', 10);
     json(res, 200, { gameId, rankings: rankingStore.getGameLeaderboard(gameId, limit) });
     return;
   }
