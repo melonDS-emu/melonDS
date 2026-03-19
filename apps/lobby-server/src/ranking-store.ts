@@ -281,7 +281,6 @@ export class SqliteRankingStore extends RankingStore {
       return row;
     };
     const upsertGame = (playerId: string, playerName: string) => {
-      const key = { gameId, playerId };
       const row = this.db
         .prepare('SELECT * FROM game_rankings WHERE game_id = ? AND player_id = ?')
         .get(gameId, playerId) as GameRankRow | undefined;
@@ -298,7 +297,6 @@ export class SqliteRankingStore extends RankingStore {
       }
       return row;
     };
-    void key; // suppress unused warning
     const gA = upsertGlobal(playerAId, playerAName);
     const gB = upsertGlobal(playerBId, playerBName);
     const [newGA, newGB] = updateElo(gA.elo, gB.elo, outcome);
