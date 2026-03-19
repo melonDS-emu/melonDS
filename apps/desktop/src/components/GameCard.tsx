@@ -10,6 +10,8 @@ const SYSTEM_GRADIENT_VAR: Record<string, string> = {
   GBA:  'var(--gradient-gba)',
   N64:  'var(--gradient-n64)',
   NDS:  'var(--gradient-nds)',
+  GC:   'var(--gradient-gc)',
+  '3DS': 'var(--gradient-3ds)',
 };
 
 /** Badge colour config for well-known badge names. */

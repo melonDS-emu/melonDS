@@ -62,6 +62,36 @@ describe('GameApiClient – mock mode', () => {
     expect(games).toHaveLength(0);
   });
 
+  it('filters GameCube games by system', async () => {
+    const gcGames = await client.getGames({ system: 'gc' });
+    expect(gcGames.length).toBeGreaterThan(0);
+    for (const g of gcGames) {
+      expect(g.system).toBe('GC');
+    }
+  });
+
+  it('filters 3DS games by system', async () => {
+    const n3dsGames = await client.getGames({ system: '3ds' });
+    expect(n3dsGames.length).toBeGreaterThan(0);
+    for (const g of n3dsGames) {
+      expect(g.system).toBe('3DS');
+    }
+  });
+
+  it('finds Mario Kart Double Dash in the catalog', async () => {
+    const game = await client.getGameById('gc-mario-kart-double-dash');
+    expect(game).not.toBeNull();
+    expect(game?.system).toBe('GC');
+    expect(game?.title).toBe('Mario Kart: Double Dash!!');
+  });
+
+  it('finds Mario Kart 7 in the 3DS catalog', async () => {
+    const game = await client.getGameById('3ds-mario-kart-7');
+    expect(game).not.toBeNull();
+    expect(game?.system).toBe('3DS');
+    expect(game?.maxPlayers).toBe(8);
+  });
+
   // -------------------------------------------------------------------------
   // getGameById
   // -------------------------------------------------------------------------
@@ -110,9 +140,11 @@ describe('GameApiClient – mock mode', () => {
     for (const s of systems) {
       expect(s).toBe(s.toUpperCase());
     }
-    // Should include at least NES and N64
+    // Should include at least NES, N64, GC, and 3DS
     expect(systems).toContain('NES');
     expect(systems).toContain('N64');
+    expect(systems).toContain('GC');
+    expect(systems).toContain('3DS');
     // Should be sorted
     const sorted = [...systems].sort();
     expect(systems).toEqual(sorted);

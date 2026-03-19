@@ -6,7 +6,9 @@ export type SupportedSystem =
   | 'gbc'
   | 'gba'
   | 'n64'
-  | 'nds';
+  | 'nds'
+  | 'gc'
+  | '3ds';
 
 export interface SystemInfo {
   id: SupportedSystem;
@@ -81,5 +83,23 @@ export const SYSTEM_INFO: Record<SupportedSystem, SystemInfo> = {
     maxLocalPlayers: 4,
     supportsLink: true,
     color: '#A0A0A0',
+  },
+  gc: {
+    id: 'gc',
+    name: 'Nintendo GameCube',
+    shortName: 'GC',
+    generation: 6,
+    maxLocalPlayers: 4,
+    supportsLink: false,
+    color: '#6A0DAD',
+  },
+  '3ds': {
+    id: '3ds',
+    name: 'Nintendo 3DS',
+    shortName: '3DS',
+    generation: 8,
+    maxLocalPlayers: 8,
+    supportsLink: false,
+    color: '#CC0000',
   },
 };

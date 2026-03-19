@@ -30,6 +30,8 @@ const SYSTEM_COLORS: Record<string, string> = {
   GBA: '#4B0082',
   N64: '#009900',
   NDS: '#A0A0A0',
+  GC: '#6A0DAD',
+  '3DS': '#CC0000',
 };
 
 const COVER_EMOJI_FALLBACK: Record<string, string> = {
@@ -40,6 +42,8 @@ const COVER_EMOJI_FALLBACK: Record<string, string> = {
   GBA: '🎮',
   N64: '🎮',
   NDS: '📱',
+  GC: '🎮',
+  '3DS': '🎮',
 };
 
 /** Normalise a system string to the uppercase abbreviation used by the UI. */

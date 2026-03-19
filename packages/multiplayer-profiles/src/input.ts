@@ -573,6 +573,227 @@ export const NDS_DEFAULT_PROFILES: InputProfile[] = [
 ];
 
 /**
+ * Default GameCube input profiles.
+ *
+ * The GameCube controller has an unusual layout:
+ *  - Large A button, B (smaller), X/Y above
+ *  - Analog L/R triggers (also digital click)
+ *  - Z button (right shoulder, smaller)
+ *  - Main analog stick (left), C-Stick (right)
+ *  - D-Pad (lower-left, smaller than Nintendo standard)
+ *  - Start (centre, no Select)
+ *
+ * Dolphin maps these to SDL2 gamepad axes and buttons.
+ */
+export const GC_DEFAULT_PROFILES: InputProfile[] = [
+  // --- Xbox controller ---
+  {
+    id: 'gc-xbox-default',
+    name: 'GC — Xbox Controller (default)',
+    controllerType: 'xbox',
+    system: 'gc',
+    isDefault: true,
+    bindings: [
+      { action: 'A',     button: 'button(0)' },  // A → GC A
+      { action: 'B',     button: 'button(1)' },  // B → GC B
+      { action: 'X',     button: 'button(2)' },  // X → GC X
+      { action: 'Y',     button: 'button(3)' },  // Y → GC Y
+      { action: 'Z',     button: 'button(5)' },  // RB → GC Z
+      { action: 'Start', button: 'button(7)' },  // Menu/Start → GC Start
+      // Shoulder triggers (analog; also support digital press)
+      { action: 'L',     axis: 'axis(4+)' },     // LT → GC L
+      { action: 'R',     axis: 'axis(5+)' },     // RT → GC R
+      // D-Pad
+      { action: 'DPadUp',    button: 'hat(0 Up)'    },
+      { action: 'DPadDown',  button: 'hat(0 Down)'  },
+      { action: 'DPadLeft',  button: 'hat(0 Left)'  },
+      { action: 'DPadRight', button: 'hat(0 Right)' },
+      // Main stick
+      { action: 'StickUp',    axis: 'axis(1-)' },
+      { action: 'StickDown',  axis: 'axis(1+)' },
+      { action: 'StickLeft',  axis: 'axis(0-)' },
+      { action: 'StickRight', axis: 'axis(0+)' },
+      // C-Stick (mapped to right stick)
+      { action: 'CStickUp',    axis: 'axis(3-)' },
+      { action: 'CStickDown',  axis: 'axis(3+)' },
+      { action: 'CStickLeft',  axis: 'axis(2-)' },
+      { action: 'CStickRight', axis: 'axis(2+)' },
+    ],
+  },
+  // --- PlayStation controller ---
+  {
+    id: 'gc-playstation-default',
+    name: 'GC — PlayStation Controller (default)',
+    controllerType: 'playstation',
+    system: 'gc',
+    isDefault: true,
+    bindings: [
+      { action: 'A',     button: 'button(0)' },  // Cross  → GC A
+      { action: 'B',     button: 'button(1)' },  // Circle → GC B
+      { action: 'X',     button: 'button(2)' },  // Square → GC X
+      { action: 'Y',     button: 'button(3)' },  // Triangle → GC Y
+      { action: 'Z',     button: 'button(5)' },  // R1 → GC Z
+      { action: 'Start', button: 'button(9)' },  // Options → GC Start
+      { action: 'L',     axis: 'axis(4+)' },     // L2 → GC L
+      { action: 'R',     axis: 'axis(5+)' },     // R2 → GC R
+      { action: 'DPadUp',    button: 'hat(0 Up)'    },
+      { action: 'DPadDown',  button: 'hat(0 Down)'  },
+      { action: 'DPadLeft',  button: 'hat(0 Left)'  },
+      { action: 'DPadRight', button: 'hat(0 Right)' },
+      { action: 'StickUp',    axis: 'axis(1-)' },
+      { action: 'StickDown',  axis: 'axis(1+)' },
+      { action: 'StickLeft',  axis: 'axis(0-)' },
+      { action: 'StickRight', axis: 'axis(0+)' },
+      { action: 'CStickUp',    axis: 'axis(3-)' },
+      { action: 'CStickDown',  axis: 'axis(3+)' },
+      { action: 'CStickLeft',  axis: 'axis(2-)' },
+      { action: 'CStickRight', axis: 'axis(2+)' },
+    ],
+  },
+  // --- Keyboard fallback ---
+  {
+    id: 'gc-keyboard-default',
+    name: 'GC — Keyboard (default)',
+    controllerType: 'keyboard',
+    system: 'gc',
+    isDefault: true,
+    bindings: [
+      { action: 'A',     key: 'key(x)' },
+      { action: 'B',     key: 'key(z)' },
+      { action: 'X',     key: 'key(s)' },
+      { action: 'Y',     key: 'key(a)' },
+      { action: 'Z',     key: 'key(e)' },
+      { action: 'Start', key: 'key(return)' },
+      { action: 'L',     key: 'key(q)' },
+      { action: 'R',     key: 'key(w)' },
+      { action: 'DPadUp',    key: 'key(up)'    },
+      { action: 'DPadDown',  key: 'key(down)'  },
+      { action: 'DPadLeft',  key: 'key(left)'  },
+      { action: 'DPadRight', key: 'key(right)' },
+      { action: 'StickUp',    key: 'key(i)' },
+      { action: 'StickDown',  key: 'key(k)' },
+      { action: 'StickLeft',  key: 'key(j)' },
+      { action: 'StickRight', key: 'key(l)' },
+    ],
+  },
+];
+
+/**
+ * Default Nintendo 3DS input profiles.
+ *
+ * The 3DS control layout (base model):
+ *  - Face buttons: A, B, X, Y
+ *  - System: Start, Select
+ *  - Shoulder: L, R  (New 3DS adds ZL, ZR)
+ *  - Circle Pad (left analog stick)
+ *  - D-Pad
+ *  - Touchscreen (bottom screen)
+ *
+ * Citra / Lime3DS maps these to SDL2 gamepad inputs.
+ */
+export const N3DS_DEFAULT_PROFILES: InputProfile[] = [
+  // --- Xbox controller ---
+  {
+    id: '3ds-xbox-default',
+    name: '3DS — Xbox Controller (default)',
+    controllerType: 'xbox',
+    system: '3ds',
+    isDefault: true,
+    bindings: [
+      { action: 'A',      button: 'button(0)' },  // A → 3DS A
+      { action: 'B',      button: 'button(1)' },  // B → 3DS B
+      { action: 'X',      button: 'button(2)' },  // X → 3DS X
+      { action: 'Y',      button: 'button(3)' },  // Y → 3DS Y
+      { action: 'Start',  button: 'button(7)' },  // Menu/Start → 3DS Start
+      { action: 'Select', button: 'button(6)' },  // View/Select → 3DS Select
+      { action: 'L',      button: 'button(4)' },  // LB → 3DS L
+      { action: 'R',      button: 'button(5)' },  // RB → 3DS R
+      { action: 'ZL',     axis: 'axis(4+)' },     // LT → 3DS ZL (New 3DS)
+      { action: 'ZR',     axis: 'axis(5+)' },     // RT → 3DS ZR (New 3DS)
+      // D-Pad
+      { action: 'DPadUp',    button: 'hat(0 Up)'    },
+      { action: 'DPadDown',  button: 'hat(0 Down)'  },
+      { action: 'DPadLeft',  button: 'hat(0 Left)'  },
+      { action: 'DPadRight', button: 'hat(0 Right)' },
+      // Circle Pad (left analog)
+      { action: 'CirclePadUp',    axis: 'axis(1-)' },
+      { action: 'CirclePadDown',  axis: 'axis(1+)' },
+      { action: 'CirclePadLeft',  axis: 'axis(0-)' },
+      { action: 'CirclePadRight', axis: 'axis(0+)' },
+      // C-Stick (New 3DS — right stick)
+      { action: 'CStickUp',    axis: 'axis(3-)' },
+      { action: 'CStickDown',  axis: 'axis(3+)' },
+      { action: 'CStickLeft',  axis: 'axis(2-)' },
+      { action: 'CStickRight', axis: 'axis(2+)' },
+      // Touchscreen
+      { action: 'TouchScreen', button: 'mouse(left)' },
+    ],
+  },
+  // --- PlayStation controller ---
+  {
+    id: '3ds-playstation-default',
+    name: '3DS — PlayStation Controller (default)',
+    controllerType: 'playstation',
+    system: '3ds',
+    isDefault: true,
+    bindings: [
+      { action: 'A',      button: 'button(0)' },  // Cross  → 3DS A
+      { action: 'B',      button: 'button(1)' },  // Circle → 3DS B
+      { action: 'X',      button: 'button(2)' },  // Square → 3DS X
+      { action: 'Y',      button: 'button(3)' },  // Triangle → 3DS Y
+      { action: 'Start',  button: 'button(9)' },  // Options → 3DS Start
+      { action: 'Select', button: 'button(8)' },  // Share/Create → 3DS Select
+      { action: 'L',      button: 'button(4)' },  // L1 → 3DS L
+      { action: 'R',      button: 'button(5)' },  // R1 → 3DS R
+      { action: 'ZL',     axis: 'axis(4+)' },     // L2 → 3DS ZL (New 3DS)
+      { action: 'ZR',     axis: 'axis(5+)' },     // R2 → 3DS ZR (New 3DS)
+      { action: 'DPadUp',    button: 'hat(0 Up)'    },
+      { action: 'DPadDown',  button: 'hat(0 Down)'  },
+      { action: 'DPadLeft',  button: 'hat(0 Left)'  },
+      { action: 'DPadRight', button: 'hat(0 Right)' },
+      { action: 'CirclePadUp',    axis: 'axis(1-)' },
+      { action: 'CirclePadDown',  axis: 'axis(1+)' },
+      { action: 'CirclePadLeft',  axis: 'axis(0-)' },
+      { action: 'CirclePadRight', axis: 'axis(0+)' },
+      { action: 'CStickUp',    axis: 'axis(3-)' },
+      { action: 'CStickDown',  axis: 'axis(3+)' },
+      { action: 'CStickLeft',  axis: 'axis(2-)' },
+      { action: 'CStickRight', axis: 'axis(2+)' },
+      { action: 'TouchScreen', button: 'mouse(left)' },
+    ],
+  },
+  // --- Keyboard fallback ---
+  {
+    id: '3ds-keyboard-default',
+    name: '3DS — Keyboard (default)',
+    controllerType: 'keyboard',
+    system: '3ds',
+    isDefault: true,
+    bindings: [
+      { action: 'A',      key: 'key(x)' },
+      { action: 'B',      key: 'key(z)' },
+      { action: 'X',      key: 'key(s)' },
+      { action: 'Y',      key: 'key(a)' },
+      { action: 'Start',  key: 'key(return)' },
+      { action: 'Select', key: 'key(rshift)' },
+      { action: 'L',      key: 'key(q)' },
+      { action: 'R',      key: 'key(w)' },
+      { action: 'ZL',     key: 'key(1)' },
+      { action: 'ZR',     key: 'key(2)' },
+      { action: 'DPadUp',    key: 'key(up)'    },
+      { action: 'DPadDown',  key: 'key(down)'  },
+      { action: 'DPadLeft',  key: 'key(left)'  },
+      { action: 'DPadRight', key: 'key(right)' },
+      { action: 'CirclePadUp',    key: 'key(i)' },
+      { action: 'CirclePadDown',  key: 'key(k)' },
+      { action: 'CirclePadLeft',  key: 'key(j)' },
+      { action: 'CirclePadRight', key: 'key(l)' },
+      { action: 'TouchScreen', button: 'mouse(left)' },
+    ],
+  },
+];
+
+/**
  * InputProfileManager handles controller mapping and input configuration.
  * It provides per-game and per-system templates for unified input handling.
  *
@@ -603,6 +824,12 @@ export class InputProfileManager {
         this.profiles.set(profile.id, profile);
       }
       for (const profile of NDS_DEFAULT_PROFILES) {
+        this.profiles.set(profile.id, profile);
+      }
+      for (const profile of GC_DEFAULT_PROFILES) {
+        this.profiles.set(profile.id, profile);
+      }
+      for (const profile of N3DS_DEFAULT_PROFILES) {
         this.profiles.set(profile.id, profile);
       }
     }
