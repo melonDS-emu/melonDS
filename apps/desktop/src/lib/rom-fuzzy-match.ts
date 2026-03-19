@@ -67,6 +67,7 @@ export function fuzzyMatchGameId(
 
   let bestId: string | null = null;
   let bestDist = Infinity;
+  let bestNormEntry = '';
 
   for (const entry of candidates) {
     const normEntry = normalise(entry.title);
@@ -74,12 +75,13 @@ export function fuzzyMatchGameId(
     if (dist < bestDist) {
       bestDist = dist;
       bestId = entry.id;
+      bestNormEntry = normEntry;
     }
   }
 
   if (bestId === null) return null;
 
   // Confidence gate: reject if distance exceeds 40 % of the longer string
-  const threshold = 0.4 * Math.max(normTitle.length, normalise(catalog.find((e) => e.id === bestId)!.title).length);
+  const threshold = 0.4 * Math.max(normTitle.length, bestNormEntry.length);
   return bestDist < threshold ? bestId : null;
 }

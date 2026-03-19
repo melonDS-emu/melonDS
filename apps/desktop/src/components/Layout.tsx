@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect } from 'react';
 import { Outlet, Link, useLocation, useNavigate } from 'react-router-dom';
 import { usePresence } from '../context/PresenceContext';
 import { useLobby } from '../context/LobbyContext';
@@ -36,23 +36,32 @@ export function Layout() {
   const BACKEND_URL: string =
     (import.meta.env?.VITE_BACKEND_URL as string | undefined) ?? '';
 
-  const pollNotifications = useCallback(() => {
-    if (!playerId) return;
-    fetch(`${BACKEND_URL}/api/notifications/${encodeURIComponent(playerId)}`)
-      .then((r) => r.json())
-      .then((data: { notifications: Array<{ read: boolean }> }) => {
-        setUnreadNotifCount((data.notifications ?? []).filter((n) => !n.read).length);
-      })
-      .catch(() => {
-        // best-effort
-      });
-  }, [playerId, BACKEND_URL]);
-
   useEffect(() => {
-    pollNotifications();
-    const interval = setInterval(pollNotifications, 30_000);
-    return () => clearInterval(interval);
-  }, [pollNotifications]);
+    if (!playerId) return;
+    let cancelled = false;
+    const controller = new AbortController();
+
+    function poll() {
+      fetch(`${BACKEND_URL}/api/notifications/${encodeURIComponent(playerId)}`, { signal: controller.signal })
+        .then((r) => r.json())
+        .then((data: { notifications: Array<{ read: boolean }> }) => {
+          if (!cancelled) {
+            setUnreadNotifCount((data.notifications ?? []).filter((n) => !n.read).length);
+          }
+        })
+        .catch(() => {
+          // best-effort; AbortError is expected on cleanup
+        });
+    }
+
+    poll();
+    const interval = setInterval(poll, 30_000);
+    return () => {
+      cancelled = true;
+      clearInterval(interval);
+      controller.abort();
+    };
+  }, [playerId, BACKEND_URL]);
 
   useEffect(() => {
     if (currentRoom && location.pathname !== `/lobby/${currentRoom.id}`) {

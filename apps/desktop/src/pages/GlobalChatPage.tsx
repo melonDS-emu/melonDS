@@ -49,9 +49,18 @@ export function GlobalChatPage() {
     if (!ws) return;
     const handler = (event: MessageEvent<string>) => {
       try {
-        const msg = JSON.parse(event.data) as { type: string };
-        if (msg.type === 'global-chat-message') {
-          const chatMsg = msg as GlobalChatMessage & { type: string };
+        const msg = JSON.parse(event.data) as { type: string } & Partial<GlobalChatMessage>;
+        if (
+          msg.type === 'global-chat-message' &&
+          msg.id && msg.playerId && msg.displayName && msg.text && msg.timestamp
+        ) {
+          const chatMsg: GlobalChatMessage = {
+            id: msg.id,
+            playerId: msg.playerId,
+            displayName: msg.displayName,
+            text: msg.text,
+            timestamp: msg.timestamp,
+          };
           setMessages((prev) => [...prev, chatMsg]);
         }
       } catch {
