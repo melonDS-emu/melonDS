@@ -8,6 +8,7 @@ export type SupportedSystem =
   | 'n64'
   | 'nds'
   | 'gc'
+  | 'wii'
   | '3ds';
 
 export interface SystemInfo {
@@ -92,6 +93,15 @@ export const SYSTEM_INFO: Record<SupportedSystem, SystemInfo> = {
     maxLocalPlayers: 4,
     supportsLink: false,
     color: '#6A0DAD',
+  },
+  wii: {
+    id: 'wii',
+    name: 'Nintendo Wii',
+    shortName: 'Wii',
+    generation: 7,
+    maxLocalPlayers: 4,
+    supportsLink: false,
+    color: '#E4E4E4',
   },
   '3ds': {
     id: '3ds',

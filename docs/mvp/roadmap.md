@@ -15,7 +15,9 @@
 > - Phase 13 Seasonal Events, Featured Games & Custom Room Themes are now complete. REST: `GET /api/events`, `GET /api/events/current`, `GET /api/games/featured`. Events page (`/events`), home page seasonal banner + featured games widget, theme picker in HostRoomModal, themed lobby cards. Mario Sports page (`/mario-sports`) also added.
 > - Phase 14 Zelda & Metroid Online + Direct Messaging are now complete. Zelda page (`/zelda` — Four Swords co-op, Phantom Hourglass battle mode), Metroid page (`/metroid` — Prime Hunters 4P deathmatch, quick match), in-app DMs between friends with WS push delivery, unread badge in nav.
 > - Phase 15 Community Hub, Game Ratings & Ranked Play are now complete. Game reviews/ratings with 1-5 stars + text, top-rated games, per-game summaries. Community activity feed (session-started, achievement-unlocked, tournament-won, review-submitted, friend-added). ELO-based ranked matchmaking (casual/ranked room toggle, global + per-game leaderboards, Bronze→Diamond tiers). Community Hub page (`/community` — Activity Feed, Game Ratings, Rankings tabs). Player rank badge in Profile page. SQLite-backed stores for reviews and rankings.
-> - **Next up: Phase 18 — [TBD]**. Phase 17 (ROM Intelligence, Global Chat & Notification Center) is complete: fuzzy ROM title matching, global lobby chat, in-app notification center.
+> - Phase 18 GameCube (Dolphin) & Nintendo 3DS (Citra/Lime3DS) support are now complete. 10 GC games (MK:DD, Melee, MP4-7, F-Zero GX, Luigi's Mansion, Pikmin 2), 10 3DS games (MK7, SSB4-3DS, Pokémon X/Y/OR/AS/Sun/Moon, AC:NL, MH4U). 22 new templates. Dolphin backend, Citra backend. 235 tests total.
+> - Phase 19 Nintendo Wii (Dolphin) support is now complete: `wii` system type, Wii adapter with MotionPlus flag, 10 Wii game templates, 9 Wii mock games, `WiiPage` (`/wii`), 🐬 Wii nav item. 270 tests total.
+> - **Next up: Phase 20 — [TBD]**.
 
 ## Phase 1 — Foundation (Complete)
 
@@ -315,6 +317,43 @@
 - [x] 18 unit tests in `phase-17.test.ts` (GlobalChatStore + NotificationStore)
 - [x] `docs/status/phase-17-rom-intelligence.md` — phase status doc
 - [x] `roadmap.md` updated with Phase 17 milestones
+
+## Phase 18 — GameCube & Nintendo 3DS Emulation
+
+**Goal:** Extend RetroOasis to support GameCube (via Dolphin) and Nintendo 3DS (via Citra/Lime3DS) with relay-based online netplay, game-specific session templates, and dedicated mock catalog entries for both systems.
+
+### Milestones
+- [x] `gc` and `3ds` added to `SupportedSystem` type and `SYSTEM_INFO`
+- [x] `dolphin` backend added (GC support, relay-only netplay, batch launch `-b -e`)
+- [x] `citra` backend added (3DS support, relay + `--multiplayer-server/--port`)
+- [x] `RetroArch` backend updated to include `gc` and `3ds` systems
+- [x] GC system adapter: Dolphin `-b -e <rom>`, `--no-gui`, `--debugger` flags
+- [x] 3DS system adapter: `citra <rom>`, `--fullscreen`, `--multiplayer-server/--port` flags
+- [x] 10 GC session templates (default 2P/4P, MK:DD, Melee, MP4/5/6/7, F-Zero GX, Luigi's Mansion, Pikmin 2)
+- [x] 10 3DS session templates (default 2P/4P, MK7 8P, SSB4-3DS 4P, Pokémon X/Y/OR/AS/Sun/Moon, AC:NL, MH4U)
+- [x] 9 GC mock games + 10 3DS mock games in desktop catalog
+- [x] `--gradient-gc` and `--gradient-3ds` CSS variables added
+- [x] 22 new session templates; `phase-18.test.ts` — 22 tests
+- [x] `roadmap.md` updated with Phase 18 milestones
+
+## Phase 19 — Nintendo Wii (Dolphin)
+
+**Goal:** Extend Dolphin emulator integration to cover the Nintendo Wii, adding Wii-specific adapter flags (MotionPlus emulation), 10 Wii game templates, 9 mock catalog entries, and a dedicated Wii lobby page.
+
+### Milestones
+- [x] `wii` added to `SupportedSystem` type and `SYSTEM_INFO` (generation 7, 4 local players)
+- [x] `dolphin` backend updated to cover both `gc` and `wii` systems
+- [x] `RetroArch` backend updated to include `wii`
+- [x] Wii system adapter: Dolphin `-b -e <rom>`, `--no-gui`, `--wii-motionplus`, `--debugger` flags
+- [x] `wiiMotionPlus?: boolean` added to `AdapterOptions` (Wii Sports Resort, etc.)
+- [x] 10 Wii session templates: `wii-default-2p/4p`, `wii-mario-kart-wii-4p`, `wii-super-smash-bros-brawl-4p`, `wii-new-super-mario-bros-wii-4p`, `wii-wii-sports-4p`, `wii-wii-sports-resort-4p`, `wii-mario-party-8/9-4p`, `wii-donkey-kong-country-returns-2p`, `wii-kirby-return-to-dream-land-4p`
+- [x] 9 Wii mock games (MKWii, Brawl, NSMBW, Wii Sports, Wii Sports Resort, MP8, MP9, DKC Returns, Kirby RTD)
+- [x] `--gradient-wii` CSS variable added (`#c0c0c0 → #606060`)
+- [x] `WiiPage` (`/wii`) — Lobby tab (game grid with Quick Match / Host Room) + Leaderboard tab
+- [x] 🐬 Wii nav item added to sidebar in `Layout.tsx`
+- [x] `/wii` route added in `App.tsx`
+- [x] 35 unit tests in `phase-19.test.ts` (system type, Dolphin backend, adapter launch args, session templates, mock catalog)
+- [x] `roadmap.md` updated with Phase 19 milestones
 
 ## Future Ideas
 - Tournament-style rooms

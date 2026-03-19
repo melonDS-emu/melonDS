@@ -35,6 +35,11 @@ export interface AdapterOptions {
    */
   dsiMode?: boolean;
   /**
+   * Wii-specific: emulate MotionPlus extension on Wiimotes.
+   * Maps to Dolphin's --wii-motionplus flag.
+   */
+  wiiMotionPlus?: boolean;
+  /**
    * Enable debug / developer mode for the emulator backend.
    * - mGBA:      opens a GDB stub server on port 2345 (--gdb 2345)
    * - FCEUX:     enables internal debugger at startup (--debug)
@@ -112,6 +117,7 @@ function buildRetroArchArgs(romPath: string, options: AdapterOptions): string[] 
  *  - Dolphin:             -b -e <rom>  (batch mode launch)
  *                         (netplay handled by relay at TCP level)
  *                         --debugger  (open integrated debugger)
+ *                         --wii-motionplus  (emulate MotionPlus extension)
  *  - Citra / Lime3DS:     <rom>  (direct ROM path)
  *                         (multiplayer via relay or citra-room server)
  *                         --single-window  (single window mode)
@@ -341,6 +347,30 @@ export function createSystemAdapter(system: string, backendId?: string): SystemA
           return args;
         },
         getSavePath: (gameId, baseDir) => `${baseDir}/gc/${gameId}`,
+      };
+    }
+
+    case 'wii': {
+      const effectiveWiiBackend = backendId ?? 'dolphin';
+      return {
+        system: 'wii',
+        preferredBackendId: 'dolphin',
+        fallbackBackendIds: ['retroarch'],
+        buildLaunchArgs: (romPath, options) => {
+          if (effectiveWiiBackend === 'retroarch') {
+            return buildRetroArchArgs(romPath, options);
+          }
+          // Dolphin: batch mode (-b) with explicit ROM path (-e)
+          // Netplay is handled at TCP relay level.
+          // Dolphin auto-detects Wii vs GC from the disc header — no extra flag needed.
+          const args = ['-b', '-e', romPath];
+          if (options.fullscreen) args.push('--no-gui');
+          // MotionPlus emulation (Wii MotionPlus games, e.g. Wii Sports Resort)
+          if (options.wiiMotionPlus) args.push('--wii-motionplus');
+          if (options.debug) args.push('--debugger');
+          return args;
+        },
+        getSavePath: (gameId, baseDir) => `${baseDir}/wii/${gameId}`,
       };
     }
 
