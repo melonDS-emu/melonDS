@@ -694,25 +694,29 @@ export function handleConnection(
         const senderName =
           Array.from(displayNameToPlayerId.entries()).find(([, pid]) => pid === playerId)?.[0] ??
           'Unknown';
-        const dm = phase8.messages.sendMessage(senderName, toPlayer, content.trim());
-        // Deliver to recipient if online
-        const recipientPid = displayNameToPlayerId.get(toPlayer);
-        if (recipientPid) {
-          const recipientWs = connections.get(recipientPid);
-          if (recipientWs) {
-            send(recipientWs, {
-              type: 'dm-received',
-              message: { id: dm.id, fromPlayer: dm.fromPlayer, content: dm.content, sentAt: dm.sentAt },
-            });
+        try {
+          const dm = phase8.messages.sendMessage(senderName, toPlayer, content.trim());
+          // Deliver to recipient if online
+          const recipientPid = displayNameToPlayerId.get(toPlayer);
+          if (recipientPid) {
+            const recipientWs = connections.get(recipientPid);
+            if (recipientWs) {
+              send(recipientWs, {
+                type: 'dm-received',
+                message: { id: dm.id, fromPlayer: dm.fromPlayer, content: dm.content, sentAt: dm.sentAt },
+              });
+            }
+            // Phase 17: create a notification for the recipient
+            phase8.notifications?.add(
+              recipientPid,
+              'dm-received',
+              `Message from ${senderName}`,
+              dm.content.length > 80 ? dm.content.slice(0, 77) + '…' : dm.content,
+              dm.id
+            );
           }
-          // Phase 17: create a notification for the recipient
-          phase8.notifications?.add(
-            recipientPid,
-            'dm-received',
-            `Message from ${senderName}`,
-            dm.content.length > 80 ? dm.content.slice(0, 77) + '…' : dm.content,
-            dm.id
-          );
+        } catch {
+          send(ws, { type: 'error', message: 'Failed to send message.' });
         }
         break;
       }
@@ -723,14 +727,18 @@ export function handleConnection(
         const readerName =
           Array.from(displayNameToPlayerId.entries()).find(([, pid]) => pid === playerId)?.[0] ??
           'Unknown';
-        phase8.messages.markRead(fromPlayer, readerName);
-        // Notify sender their message was read
-        const senderPid = displayNameToPlayerId.get(fromPlayer);
-        if (senderPid) {
-          const senderWs = connections.get(senderPid);
-          if (senderWs) {
-            send(senderWs, { type: 'dm-read-ack', fromPlayer: readerName });
+        try {
+          phase8.messages.markRead(fromPlayer, readerName);
+          // Notify sender their message was read
+          const senderPid = displayNameToPlayerId.get(fromPlayer);
+          if (senderPid) {
+            const senderWs = connections.get(senderPid);
+            if (senderWs) {
+              send(senderWs, { type: 'dm-read-ack', fromPlayer: readerName });
+            }
           }
+        } catch {
+          // Best-effort: ignore read-receipt errors
         }
         break;
       }
@@ -745,10 +753,14 @@ export function handleConnection(
         const senderDisplayName =
           Array.from(displayNameToPlayerId.entries()).find(([, pid]) => pid === playerId)?.[0] ??
           'Unknown';
-        const chatMsg = phase8.globalChat.post(playerId, senderDisplayName, chatText.trim());
-        // Broadcast to ALL connected clients
-        for (const [, clientWs] of connections) {
-          send(clientWs, { type: 'global-chat-message', ...chatMsg });
+        try {
+          const chatMsg = phase8.globalChat.post(playerId, senderDisplayName, chatText.trim());
+          // Broadcast to ALL connected clients
+          for (const [, clientWs] of connections) {
+            send(clientWs, { type: 'global-chat-message', ...chatMsg });
+          }
+        } catch {
+          send(ws, { type: 'error', message: 'Failed to post chat message.' });
         }
         break;
       }

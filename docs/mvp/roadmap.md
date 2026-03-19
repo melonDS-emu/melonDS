@@ -17,7 +17,8 @@
 > - Phase 15 Community Hub, Game Ratings & Ranked Play are now complete. Game reviews/ratings with 1-5 stars + text, top-rated games, per-game summaries. Community activity feed (session-started, achievement-unlocked, tournament-won, review-submitted, friend-added). ELO-based ranked matchmaking (casual/ranked room toggle, global + per-game leaderboards, Bronze→Diamond tiers). Community Hub page (`/community` — Activity Feed, Game Ratings, Rankings tabs). Player rank badge in Profile page. SQLite-backed stores for reviews and rankings.
 > - Phase 18 GameCube (Dolphin) & Nintendo 3DS (Citra/Lime3DS) support are now complete. 10 GC games (MK:DD, Melee, MP4-7, F-Zero GX, Luigi's Mansion, Pikmin 2), 10 3DS games (MK7, SSB4-3DS, Pokémon X/Y/OR/AS/Sun/Moon, AC:NL, MH4U). 22 new templates. Dolphin backend, Citra backend. 235 tests total.
 > - Phase 19 Nintendo Wii (Dolphin) support is now complete: `wii` system type, Wii adapter with MotionPlus flag, 10 Wii game templates, 9 Wii mock games, `WiiPage` (`/wii`), 🐬 Wii nav item. 270 tests total.
-> - **Next up: Phase 20 — [TBD]**.
+> - Phase 20 Debug & Polish is now complete: TypeScript `rootDir` fix (phase-18/19 tests now type-check cleanly), duplicate `n64-mario-party-2` mock-game entry removed, try/catch error isolation added to `send-dm`/`mark-dm-read`/`send-global-chat` handlers, `GameCubePage` (`/gc`) added with 9 GC games + Leaderboard tab, 🟣 GameCube nav item. 382 tests total.
+> - **Next up: Phase 21 — [TBD]**.
 
 ## Phase 1 — Foundation (Complete)
 
@@ -354,6 +355,20 @@
 - [x] `/wii` route added in `App.tsx`
 - [x] 35 unit tests in `phase-19.test.ts` (system type, Dolphin backend, adapter launch args, session templates, mock catalog)
 - [x] `roadmap.md` updated with Phase 19 milestones
+
+## Phase 20 — Debug & Polish
+
+**Goal:** Fix accumulated bugs, eliminate type-check failures, harden WebSocket error handling, and surface the GameCube library that was added in Phase 18 with a dedicated lobby page.
+
+### Milestones
+- [x] `rootDir` removed from `apps/lobby-server/tsconfig.json` — phase-18 and phase-19 test files that import cross-package symbols now type-check cleanly
+- [x] Duplicate `n64-mario-party-2` entry removed from `apps/desktop/src/data/mock-games.ts`
+- [x] try/catch error isolation added to `send-dm`, `mark-dm-read`, and `send-global-chat` cases in `handler.ts` — store failures now return a graceful error response instead of crashing the WS handler
+- [x] `GameCubePage` (`/gc`) added — 9 GC games (MK:DD, Melee, Mario Party 4-7, F-Zero GX, Luigi's Mansion, Pikmin 2), Quick Match / Host Room per card, Leaderboard tab, purple GC colour scheme
+- [x] 🟣 GameCube nav item added to sidebar in `Layout.tsx`
+- [x] `/gc` route added in `App.tsx`
+- [x] 41 unit tests in `phase-20.test.ts` (duplicate-ID regression, GC system type, Dolphin backend, adapter launch args, session templates, mock catalog, NotificationStore API, GlobalChatStore ring-buffer)
+- [x] `roadmap.md` updated with Phase 20 milestones
 
 ## Future Ideas
 - Tournament-style rooms

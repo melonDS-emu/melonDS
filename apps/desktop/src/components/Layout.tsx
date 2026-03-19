@@ -14,6 +14,7 @@ const NAV_ITEMS = [
   { path: '/zelda',         label: 'Zelda',        icon: '🗡️' },
   { path: '/metroid',       label: 'Metroid',      icon: '🌌' },
   { path: '/wii',           label: 'Wii',          icon: '🐬' },
+  { path: '/gc',            label: 'GameCube',     icon: '🟣' },
   { path: '/community',    label: 'Community',    icon: '🌐' },
   { path: '/chat',         label: 'Chat',         icon: '💬' },
   { path: '/events',       label: 'Events',       icon: '🎪' },
