@@ -101,30 +101,39 @@ export function RetroAchievementsPage() {
   );
   const [leaderboard, setLeaderboard] = useState<RetroLeaderboardEntry[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const [retryKey, setRetryKey] = useState(0);
   const [activeGame, setActiveGame] = useState<string | null>(null);
 
   useEffect(() => {
     let alive = true;
     async function load() {
       setLoading(true);
-      const [allDefs, progress, lb] = await Promise.all([
-        fetchRetroAchievementDefs(),
-        playerId ? fetchRetroPlayerProgress(playerId) : Promise.resolve(null),
-        fetchRetroLeaderboard(20),
-      ]);
-      if (!alive) return;
-      setDefs(allDefs);
-      const map = new Map<string, EarnedRetroAchievement>();
-      for (const e of progress?.earned ?? []) {
-        map.set(e.achievementId, e);
+      setLoadError(null);
+      try {
+        const [allDefs, progress, lb] = await Promise.all([
+          fetchRetroAchievementDefs(),
+          playerId ? fetchRetroPlayerProgress(playerId) : Promise.resolve(null),
+          fetchRetroLeaderboard(20),
+        ]);
+        if (!alive) return;
+        setDefs(allDefs);
+        const map = new Map<string, EarnedRetroAchievement>();
+        for (const e of progress?.earned ?? []) {
+          map.set(e.achievementId, e);
+        }
+        setEarnedMap(map);
+        setLeaderboard(lb);
+      } catch {
+        if (!alive) return;
+        setLoadError('Failed to load achievements. Check your connection and try again.');
+      } finally {
+        if (alive) setLoading(false);
       }
-      setEarnedMap(map);
-      setLeaderboard(lb);
-      setLoading(false);
     }
     void load();
     return () => { alive = false; };
-  }, [playerId]);
+  }, [playerId, retryKey]);
 
   // Group defs by game
   const groups: GameGroup[] = [];
@@ -250,6 +259,19 @@ export function RetroAchievementsPage() {
         <p className="text-center py-12" style={{ color: 'var(--color-oasis-text-muted)' }}>
           Loading achievements…
         </p>
+      ) : loadError ? (
+        <div className="text-center py-12">
+          <p className="mb-3" style={{ color: 'var(--color-oasis-error, #ef4444)' }}>
+            {loadError}
+          </p>
+          <button
+            onClick={() => setRetryKey((k) => k + 1)}
+            className="px-4 py-2 rounded-lg text-sm font-medium"
+            style={{ backgroundColor: 'var(--color-oasis-accent)', color: '#fff' }}
+          >
+            Retry
+          </button>
+        </div>
       ) : activeTab === 'leaderboard' ? (
         /* ── Leaderboard tab ──────────────────────────────────────────────── */
         <div

@@ -165,6 +165,8 @@ export class RankingStore {
     grB.elo = ngB; grB.gamesPlayed += 1; grB.updatedAt = now;
     if (outcome === 1) { grA.wins += 1; grB.losses += 1; }
     else if (outcome === -1) { grB.wins += 1; grA.losses += 1; }
+    // For per-game rankings, draws only increment gamesPlayed (already done above)
+    // and adjust ELO — no separate wins/losses counter is mutated.
   }
 
   getGlobalLeaderboard(limit = 20): PlayerRank[] {
