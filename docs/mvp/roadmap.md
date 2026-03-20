@@ -473,7 +473,30 @@
 - [x] 20 unit tests in `phase-25.test.ts` — catalog integrity, new-game coverage, store behaviour, leaderboard
 - [x] `roadmap.md` updated with Phase 25 milestones
 
-## Future Ideas
+## Phase 26 — Debug, Audit & Polish
+
+**Goal:** Fix latent bugs discovered during audit of Phases 15–25, harden REST error handling, and polish the UI.
+
+### Phase 26a — Bug Fixes
+
+- [x] `activity-feed.ts` — Ring buffer eviction: replaced `O(n)` `slice(0, MAX_EVENTS)` allocation with `O(1)` `pop()` call; oldest entry is removed without re-allocating the full array
+- [x] `ranking-store.ts` — Added explicit comment clarifying per-game draw semantics: `gamesPlayed` increments on draws; no separate wins/losses counter is mutated (consistent with `GameRank` interface and `game_rankings` schema)
+- [x] `handler.ts` — `displayNameToPlayerId` cleanup on disconnect: removed `break` so **all** stale entries for the disconnected `playerId` are deleted (prevents ghost entries / memory leak)
+- [x] `handler.ts` — `send-dm` handler: added 2 000-character maximum length guard; oversized messages return `{ type: 'error', message: 'Message too long (max 2000 characters)' }` instead of being stored
+- [x] `index.ts` — `POST /api/messages/send`: wrapped `JSON.parse` in `try/catch`; malformed body now returns `400 { error: 'Invalid JSON body' }` instead of an unhandled crash
+- [x] `index.ts` — `POST /api/messages/read`: same JSON parse guard added
+- [x] `index.ts` — `POST /api/rankings/match`: same JSON parse guard added
+
+### Phase 26b — UI Polish
+
+- [x] `RetroAchievementsPage.tsx` — Added `loadError` state + `retryKey` counter; if any fetch throws, an error message with a **Retry** button is shown instead of the spinner hanging forever
+
+### Phase 26c — Tests
+
+- [x] 14 new unit tests in `phase-26.test.ts` — ring buffer eviction, draw outcome (global + per-game), GlobalChatStore ordering, NotificationStore unread count
+- [x] `roadmap.md` updated with Phase 26 milestones
+
+
 - Tournament-style rooms
 - ~~Seasonal featured games~~ ✓ Phase 13
 - ~~Ranked/casual matchmaking tags~~ ✓ Phase 15

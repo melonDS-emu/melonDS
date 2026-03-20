@@ -943,9 +943,15 @@ async function httpHandler(req: http.IncomingMessage, res: http.ServerResponse):
   }
 
   if (req.method === 'POST' && pathname === '/api/messages/send') {
-    const raw = await readBody(req);
-    const body = JSON.parse(raw) as { fromPlayer: string; toPlayer: string; content: string };
-    const { fromPlayer, toPlayer, content } = body;
+    let body: Record<string, unknown>;
+    try {
+      const raw = await readBody(req);
+      body = JSON.parse(raw) as Record<string, unknown>;
+    } catch {
+      json(res, 400, { error: 'Invalid JSON body' });
+      return;
+    }
+    const { fromPlayer, toPlayer, content } = body as { fromPlayer?: string; toPlayer?: string; content?: string };
     if (!fromPlayer || !toPlayer || !content) {
       json(res, 400, { error: 'fromPlayer, toPlayer and content are required' });
       return;
@@ -956,9 +962,15 @@ async function httpHandler(req: http.IncomingMessage, res: http.ServerResponse):
   }
 
   if (req.method === 'POST' && pathname === '/api/messages/read') {
-    const raw = await readBody(req);
-    const body = JSON.parse(raw) as { fromPlayer: string; toPlayer: string };
-    const { fromPlayer, toPlayer } = body;
+    let body: Record<string, unknown>;
+    try {
+      const raw = await readBody(req);
+      body = JSON.parse(raw) as Record<string, unknown>;
+    } catch {
+      json(res, 400, { error: 'Invalid JSON body' });
+      return;
+    }
+    const { fromPlayer, toPlayer } = body as { fromPlayer?: string; toPlayer?: string };
     if (!fromPlayer || !toPlayer) {
       json(res, 400, { error: 'fromPlayer and toPlayer are required' });
       return;
@@ -1073,14 +1085,20 @@ async function httpHandler(req: http.IncomingMessage, res: http.ServerResponse):
   }
 
   if (req.method === 'POST' && pathname === '/api/rankings/match') {
-    const raw = await readBody(req);
-    const body = JSON.parse(raw) as {
-      playerAId: string; playerAName: string;
-      playerBId: string; playerBName: string;
-      gameId: string; gameTitle: string;
-      outcome: 1 | 0 | -1;
+    let body: Record<string, unknown>;
+    try {
+      const raw = await readBody(req);
+      body = JSON.parse(raw) as Record<string, unknown>;
+    } catch {
+      json(res, 400, { error: 'Invalid JSON body' });
+      return;
+    }
+    const { playerAId, playerAName, playerBId, playerBName, gameId, gameTitle, outcome } = body as {
+      playerAId?: string; playerAName?: string;
+      playerBId?: string; playerBName?: string;
+      gameId?: string; gameTitle?: string;
+      outcome?: 1 | 0 | -1;
     };
-    const { playerAId, playerAName, playerBId, playerBName, gameId, gameTitle, outcome } = body;
     if (!playerAId || !playerAName || !playerBId || !playerBName || !gameId || !gameTitle || outcome == null) {
       json(res, 400, { error: 'playerAId, playerAName, playerBId, playerBName, gameId, gameTitle and outcome are required' });
       return;

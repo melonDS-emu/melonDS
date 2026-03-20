@@ -64,9 +64,9 @@ export class ActivityFeedStore {
       createdAt: new Date().toISOString(),
     };
     this.events.unshift(event);
-    // Cap ring buffer
+    // Cap ring buffer: remove the oldest entry instead of re-allocating the array
     if (this.events.length > MAX_EVENTS) {
-      this.events = this.events.slice(0, MAX_EVENTS);
+      this.events.pop();
     }
     return event;
   }

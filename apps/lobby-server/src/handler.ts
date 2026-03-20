@@ -724,6 +724,10 @@ export function handleConnection(
         const { toPlayer, content } = msg.payload;
         if (!phase8?.messages) break;
         if (!content || typeof content !== 'string' || content.trim() === '') break;
+        if (content.length > 2000) {
+          send(ws, { type: 'error', message: 'Message too long (max 2000 characters)' });
+          break;
+        }
         // Resolve sender display name from displayNameToPlayerId reverse map
         const senderName =
           Array.from(displayNameToPlayerId.entries()).find(([, pid]) => pid === playerId)?.[0] ??
@@ -819,12 +823,12 @@ export function handleConnection(
     sessionToPersistentId.delete(playerId);
 
     // Remove displayName → playerId mapping for this connection.
-    // Only remove it if the mapping still points to this playerId (a later
-    // connection with the same display name may have already replaced it).
+    // Remove ALL entries for this playerId to avoid stale ghost entries in the
+    // map (a player could theoretically register under more than one display name
+    // during their session lifetime).
     for (const [dn, pid] of displayNameToPlayerId.entries()) {
       if (pid === playerId) {
         displayNameToPlayerId.delete(dn);
-        break;
       }
     }
 
