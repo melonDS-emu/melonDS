@@ -51,27 +51,37 @@ export function GameCard({ game }: { game: ApiGame }) {
   return (
     <Link
       to={`/game/${game.id}`}
-      className="n-card rounded-2xl overflow-hidden block"
+      className="n-card rounded-2xl overflow-hidden block shimmer-overlay"
       style={{ backgroundColor: 'var(--color-oasis-card)' }}
     >
-      {/* Cover art area — coloured gradient per system */}
+      {/* Cover art area — gradient per system + shine overlay */}
       <div
-        className="w-full aspect-square flex items-center justify-center text-5xl relative"
+        className="w-full aspect-square flex items-center justify-center text-5xl relative overflow-hidden"
         style={{ background: coverGradient }}
       >
-        {game.coverEmoji}
+        {/* Subtle inner glow */}
+        <div
+          className="absolute inset-0 pointer-events-none"
+          style={{ background: 'radial-gradient(ellipse at 30% 30%, rgba(255,255,255,0.12) 0%, transparent 60%)' }}
+        />
+        <span className="relative z-10 drop-shadow-lg">{game.coverEmoji}</span>
         {is4PParty && (
           <span
-            className="absolute top-2 right-2 text-[9px] font-black px-1.5 py-0.5 rounded-full shadow-sm"
+            className="absolute top-2 right-2 text-[9px] font-black px-1.5 py-0.5 rounded-full shadow-sm z-10"
             style={{ backgroundColor: 'var(--color-oasis-yellow)', color: '#1a1a2e' }}
           >
-            Best 4P
+            4P
           </span>
         )}
         {/* System badge pinned bottom-left */}
         <span
-          className="absolute bottom-2 left-2 px-2 py-0.5 rounded-full text-[9px] font-black shadow-sm"
-          style={{ backgroundColor: game.systemColor, color: 'white' }}
+          className="absolute bottom-2 left-2 px-2 py-0.5 rounded-full text-[9px] font-black shadow-sm z-10"
+          style={{
+            backgroundColor: 'var(--color-glass-dark)',
+            backdropFilter: 'blur(4px)',
+            border: '1px solid rgba(255,255,255,0.15)',
+            color: 'white',
+          }}
         >
           {game.system}
         </span>
@@ -79,16 +89,22 @@ export function GameCard({ game }: { game: ApiGame }) {
 
       {/* Card body */}
       <div className="p-3">
-        <div className="flex items-center justify-between mb-1">
-          <p className="text-sm font-black truncate flex-1">{game.title}</p>
-          <span className="text-[10px] font-bold ml-2 flex-shrink-0" style={{ color: 'var(--color-oasis-text-muted)' }}>
+        <div className="flex items-center justify-between mb-1.5">
+          <p className="text-sm font-black truncate flex-1 leading-tight">{game.title}</p>
+          <span
+            className="text-[9px] font-bold ml-2 flex-shrink-0 px-1.5 py-0.5 rounded-full"
+            style={{
+              backgroundColor: 'rgba(255,255,255,0.06)',
+              color: 'var(--color-oasis-text-muted)',
+            }}
+          >
             {game.maxPlayers}P
           </span>
         </div>
 
         {/* DS compatibility badges */}
         {dsBadges.length > 0 && (
-          <div className="flex flex-wrap gap-1 mb-1">
+          <div className="flex flex-wrap gap-1 mb-1.5">
             {dsBadges.map((badge) => (
               <BadgePill key={badge} label={badge} />
             ))}
@@ -101,7 +117,7 @@ export function GameCard({ game }: { game: ApiGame }) {
             <span
               key={tag}
               className="text-[9px] font-bold px-1.5 py-0.5 rounded-full"
-              style={{ backgroundColor: 'rgba(255,255,255,0.08)', color: 'var(--color-oasis-text-muted)' }}
+              style={{ backgroundColor: 'rgba(255,255,255,0.06)', color: 'var(--color-oasis-text-muted)' }}
             >
               {tag}
             </span>

@@ -2,39 +2,50 @@
 @import "tailwindcss";
 
 :root {
-  /* ── Nintendo-inspired palette ── */
-  --color-oasis-bg: #0f0f1b;          /* deep navy background */
-  --color-oasis-surface: #181828;     /* sidebar / raised surface */
-  --color-oasis-card: #21213a;        /* card / panel background */
+  /* ── RetroOasis palette ── */
+  --color-oasis-bg: #080812;          /* deep midnight background */
+  --color-oasis-surface: #0e0e1e;     /* sidebar / raised surface */
+  --color-oasis-card: #13132b;        /* card / panel background */
+  --color-oasis-card-hover: #1a1a38;  /* card hover state */
   --color-oasis-accent: #e60012;      /* Nintendo Red */
-  --color-oasis-accent-light: #ff4d58; /* lighter red for headings */
+  --color-oasis-accent-light: #ff3347; /* lighter red for headings */
+  --color-oasis-accent-glow: rgba(230, 0, 18, 0.35); /* red glow */
   --color-oasis-blue: #0097e0;        /* Nintendo Blue (secondary CTA) */
+  --color-oasis-blue-glow: rgba(0, 151, 224, 0.3);
   --color-oasis-green: #00d170;       /* online / success green */
+  --color-oasis-green-glow: rgba(0, 209, 112, 0.3);
   --color-oasis-yellow: #ffb300;      /* gold / achievement yellow */
   --color-oasis-red: #e60012;         /* alias for error/alert red */
-  --color-oasis-text: #ffffff;        /* primary text */
-  --color-oasis-text-muted: #8a8ab0;  /* secondary / muted text */
+  --color-oasis-purple: #7c3aed;      /* purple accent */
+  --color-oasis-text: #f0f0ff;        /* primary text */
+  --color-oasis-text-muted: #7070a0;  /* secondary / muted text */
+  --color-oasis-text-subtle: #404060; /* very subtle text */
+  --color-glass-dark: rgba(0, 0, 0, 0.5); /* semi-transparent dark overlay for glass effects */
   /* DS section accent colour */
   --color-oasis-ds-orange: #e67e22;
   /* System cover gradients for game tiles */
-  --gradient-nes:  linear-gradient(135deg, #b22222 0%, #6b0000 100%);
-  --gradient-snes: linear-gradient(135deg, #6a3de8 0%, #2d1b69 100%);
-  --gradient-gb:   linear-gradient(135deg, #4a7c59 0%, #1e3d2b 100%);
-  --gradient-gbc:  linear-gradient(135deg, #e67e22 0%, #7d4500 100%);
-  --gradient-gba:  linear-gradient(135deg, #2980b9 0%, #0d3c5e 100%);
-  --gradient-n64:  linear-gradient(135deg, #27ae60 0%, #0d4d22 100%);
+  --gradient-nes:  linear-gradient(135deg, #c0392b 0%, #7b0000 100%);
+  --gradient-snes: linear-gradient(135deg, #7c3aed 0%, #3b1a8c 100%);
+  --gradient-gb:   linear-gradient(135deg, #16a34a 0%, #064e2b 100%);
+  --gradient-gbc:  linear-gradient(135deg, #ea580c 0%, #7c2d12 100%);
+  --gradient-gba:  linear-gradient(135deg, #0284c7 0%, #0c3461 100%);
+  --gradient-n64:  linear-gradient(135deg, #16a34a 0%, #0d4d22 100%);
   --gradient-nds:  linear-gradient(135deg, #e60012 0%, #7a0009 100%);
-  --gradient-gc:   linear-gradient(135deg, #7b2fbe 0%, #3a0e6e 100%);
-  --gradient-wii:  linear-gradient(135deg, #c0c0c0 0%, #606060 100%);
-  --gradient-3ds:  linear-gradient(135deg, #cc2200 0%, #660011 100%);
-  --gradient-genesis: linear-gradient(135deg, #0066cc 0%, #003366 100%);
-  --gradient-dreamcast: linear-gradient(135deg, #ff6600 0%, #8b3300 100%);
-  --gradient-psx:  linear-gradient(135deg, #888888 0%, #333333 100%);
-  --gradient-ps2:  linear-gradient(135deg, #00439c 0%, #001a5c 100%);
-  --gradient-psp:  linear-gradient(135deg, #3c3c3c 0%, #0a0a0a 100%);
-  --gradient-default: linear-gradient(135deg, #3a3a5c 0%, #1a1a2e 100%);
+  --gradient-gc:   linear-gradient(135deg, #9333ea 0%, #4a1080 100%);
+  --gradient-wii:  linear-gradient(135deg, #94a3b8 0%, #475569 100%);
+  --gradient-3ds:  linear-gradient(135deg, #dc2626 0%, #7f1d1d 100%);
+  --gradient-genesis: linear-gradient(135deg, #1d4ed8 0%, #1e3a8a 100%);
+  --gradient-dreamcast: linear-gradient(135deg, #ea580c 0%, #7c2d12 100%);
+  --gradient-psx:  linear-gradient(135deg, #64748b 0%, #1e293b 100%);
+  --gradient-ps2:  linear-gradient(135deg, #1d4ed8 0%, #1e3a8a 100%);
+  --gradient-psp:  linear-gradient(135deg, #374151 0%, #111827 100%);
+  --gradient-default: linear-gradient(135deg, #3730a3 0%, #1e1b4b 100%);
   --n-card-hover: rgba(255, 255, 255, 0.04);
-  --n-border: rgba(255, 255, 255, 0.08);   /* subtle divider / card border */
+  --n-border: rgba(255, 255, 255, 0.07);
+  --n-border-hover: rgba(255, 255, 255, 0.15);
+  --n-glow-red: 0 0 20px rgba(230, 0, 18, 0.4), 0 0 40px rgba(230, 0, 18, 0.15);
+  --n-glow-blue: 0 0 20px rgba(0, 151, 224, 0.4), 0 0 40px rgba(0, 151, 224, 0.15);
+  --n-glow-green: 0 0 20px rgba(0, 209, 112, 0.4), 0 0 40px rgba(0, 209, 112, 0.15);
 }
 
 /* ── Base ── */
@@ -50,7 +61,7 @@ body {
 /* ── Custom scrollbar ── */
 ::-webkit-scrollbar        { width: 5px; height: 5px; }
 ::-webkit-scrollbar-track  { background: var(--color-oasis-bg); }
-::-webkit-scrollbar-thumb  { background: var(--color-oasis-card); border-radius: 4px; }
+::-webkit-scrollbar-thumb  { background: rgba(255,255,255,0.1); border-radius: 4px; }
 ::-webkit-scrollbar-thumb:hover { background: var(--color-oasis-accent); }
 
 /* ── Focus ring ── */
@@ -59,20 +70,169 @@ body {
   outline-offset: 2px;
 }
 
-/* ── Nintendo-style selection colour ── */
+/* ── Selection colour ── */
 ::selection {
-  background-color: var(--color-oasis-accent);
+  background-color: var(--color-oasis-accent-glow);
   color: #fff;
 }
 
-/* ── Smooth card hover lift ── */
+/* ── Keyframe Animations ── */
+@keyframes shimmer {
+  0%   { transform: translateX(-100%); }
+  100% { transform: translateX(100%); }
+}
+@keyframes pulse-glow {
+  0%, 100% { opacity: 1; }
+  50%       { opacity: 0.6; }
+}
+@keyframes slide-in-up {
+  from { opacity: 0; transform: translateY(8px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+@keyframes gradient-shift {
+  0%   { background-position: 0% 50%; }
+  50%  { background-position: 100% 50%; }
+  100% { background-position: 0% 50%; }
+}
+@keyframes border-glow-pulse {
+  0%, 100% { box-shadow: 0 0 12px rgba(230,0,18,0.25); }
+  50%       { box-shadow: 0 0 24px rgba(230,0,18,0.5), 0 0 40px rgba(230,0,18,0.2); }
+}
+
+/* ── Gradient text utility ── */
+.text-gradient-red {
+  background: linear-gradient(135deg, var(--color-oasis-accent-light) 0%, var(--color-oasis-accent) 50%, #a00010 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+.text-gradient-blue {
+  background: linear-gradient(135deg, #60c8ff 0%, var(--color-oasis-blue) 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+.text-gradient-multi {
+  background: linear-gradient(135deg, #ff3347 0%, #ff8c42 35%, #ffd700 65%, #4df5a0 100%);
+  background-size: 200% 200%;
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+/* ── Glass card ── */
+.glass-card {
+  background: rgba(255, 255, 255, 0.03);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+/* ── Glow border utility ── */
+.glow-border-red {
+  border: 1px solid rgba(230, 0, 18, 0.4);
+  box-shadow: 0 0 16px rgba(230, 0, 18, 0.2), inset 0 0 16px rgba(230, 0, 18, 0.03);
+}
+
+/* ── n-card – smooth hover lift + glow ── */
 .n-card {
-  transition: transform 0.15s ease, box-shadow 0.15s ease;
+  transition: transform 0.18s cubic-bezier(0.34, 1.56, 0.64, 1),
+              box-shadow 0.18s ease,
+              border-color 0.18s ease;
+  border: 1px solid var(--n-border);
 }
 .n-card:hover {
-  transform: translateY(-2px) scale(1.01);
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.45);
+  transform: translateY(-3px) scale(1.015);
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.6), 0 0 20px rgba(230, 0, 18, 0.12);
+  border-color: rgba(230, 0, 18, 0.25);
 }
 .n-card:active {
   transform: scale(0.97);
+  transition-duration: 0.08s;
+}
+
+/* ── Shimmer effect (overlay on cards / buttons) ── */
+.shimmer-overlay {
+  position: relative;
+  overflow: hidden;
+}
+.shimmer-overlay::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    90deg,
+    transparent 0%,
+    rgba(255, 255, 255, 0.06) 50%,
+    transparent 100%
+  );
+  transform: translateX(-100%);
+  transition: none;
+}
+.shimmer-overlay:hover::after {
+  animation: shimmer 0.6s ease forwards;
+}
+
+/* ── Glow button ── */
+.btn-glow-red {
+  background: linear-gradient(135deg, #ff1a2e 0%, var(--color-oasis-accent) 60%, #b50010 100%);
+  box-shadow: 0 4px 20px rgba(230, 0, 18, 0.45), 0 1px 0 rgba(255,255,255,0.1) inset;
+  transition: transform 0.15s ease, box-shadow 0.15s ease, filter 0.15s ease;
+}
+.btn-glow-red:hover {
+  filter: brightness(1.12);
+  box-shadow: 0 6px 28px rgba(230, 0, 18, 0.6), 0 1px 0 rgba(255,255,255,0.15) inset;
+  transform: translateY(-1px);
+}
+.btn-glow-red:active {
+  transform: scale(0.97);
+  box-shadow: 0 2px 12px rgba(230, 0, 18, 0.4);
+}
+
+.btn-glass {
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  box-shadow: 0 2px 12px rgba(0,0,0,0.3), 0 1px 0 rgba(255,255,255,0.05) inset;
+  transition: transform 0.15s ease, box-shadow 0.15s ease, background 0.15s ease;
+}
+.btn-glass:hover {
+  background: rgba(255, 255, 255, 0.09);
+  border-color: rgba(255, 255, 255, 0.18);
+  box-shadow: 0 4px 20px rgba(0,0,0,0.4);
+  transform: translateY(-1px);
+}
+.btn-glass:active {
+  transform: scale(0.97);
+}
+
+/* ── Section header gradient line ── */
+.section-title-line {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.section-title-line::after {
+  content: '';
+  flex: 1;
+  height: 1px;
+  background: linear-gradient(90deg, rgba(230,0,18,0.3) 0%, rgba(255,255,255,0.05) 60%, transparent 100%);
+}
+
+/* ── Active nav glow ── */
+.nav-item-active {
+  background: linear-gradient(90deg, rgba(230,0,18,0.18) 0%, rgba(230,0,18,0.06) 100%);
+  box-shadow: inset 3px 0 0 var(--color-oasis-accent);
+}
+
+/* ── Page enter animation ── */
+.page-enter {
+  animation: slide-in-up 0.25s ease both;
+}
+
+/* ── Hero gradient text ── */
+.hero-title {
+  background: linear-gradient(135deg, #ffffff 0%, #e0e0ff 40%, var(--color-oasis-accent-light) 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
 }
