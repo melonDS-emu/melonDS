@@ -22,15 +22,25 @@ RetroOasis is a social retro gaming hub spanning multiple platforms and generati
 # Install dependencies
 npm install
 
-# Start the desktop frontend (React + Vite)
+# Start the desktop frontend (React + Vite, http://localhost:5173)
 npm run dev:desktop
 
-# Start the lobby server (WebSocket)
+# Start the lobby server (WebSocket + HTTP on ws://localhost:8080)
 npm run dev:server
 
-# Build the desktop app
+# Build the desktop app for production
 npm run build:desktop
+
+# Type-check all packages
+npm run typecheck
 ```
+
+> All commands run from the repository root.  No other setup is required for
+> local development — `npm install` handles all workspace packages.
+>
+> **Configuration:** copy `apps/desktop/.env.example` → `apps/desktop/.env.local`
+> and `apps/lobby-server/.env.example` → `apps/lobby-server/.env` to override
+> defaults.  The defaults work out-of-the-box for local development.
 
 ## 📁 Project Structure
 

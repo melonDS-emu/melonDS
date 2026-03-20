@@ -2,7 +2,6 @@ import { useState, useEffect, useCallback } from 'react';
 import { useLobby } from '../context/LobbyContext';
 import { HostRoomModal } from '../components/HostRoomModal';
 import { JoinRoomModal } from '../components/JoinRoomModal';
-import type { CreateRoomPayload } from '../services/lobby-types';
 
 // ---------------------------------------------------------------------------
 // Constants
@@ -84,7 +83,7 @@ function RankBadge({ rank }: { rank: number }) {
 // ---------------------------------------------------------------------------
 
 export default function WiiUPage() {
-  const { rooms, playerId } = useLobby();
+  const { publicRooms, createRoom, joinByCode } = useLobby();
   const [activeTab, setActiveTab] = useState<ActiveTab>('lobby');
   const [selectedGame, setSelectedGame] = useState<WiiUGame | null>(null);
   const [showHost, setShowHost] = useState(false);
@@ -116,19 +115,7 @@ export default function WiiUPage() {
     [],
   );
 
-  const hostPayload = useCallback(
-    (): CreateRoomPayload => ({
-      gameId: selectedGame?.id ?? '',
-      gameTitle: selectedGame?.title ?? '',
-      system: 'wiiu',
-      maxPlayers: selectedGame?.maxPlayers ?? 4,
-      isPrivate: false,
-      hostDisplayName: playerId ?? 'Player',
-    }),
-    [selectedGame, playerId],
-  );
-
-  const wiiuRooms = rooms.filter((r) => r.system?.toLowerCase() === 'wii u');
+  const wiiuRooms = publicRooms.filter((r) => r.system?.toLowerCase() === 'wii u');
 
   return (
     <div className="p-6 max-w-5xl mx-auto">
@@ -181,7 +168,7 @@ export default function WiiUPage() {
                     </div>
                     <div className="flex items-center gap-3 text-sm text-gray-400">
                       <span>
-                        {room.playerCount}/{room.maxPlayers} players
+                        {room.players.length}/{room.maxPlayers} players
                       </span>
                       <button
                         onClick={() => setShowJoin(true)}
@@ -280,14 +267,14 @@ export default function WiiUPage() {
 
       {showHost && selectedGame && (
         <HostRoomModal
-          isOpen={showHost}
+          preselectedGameId={selectedGame.id}
+          onConfirm={(payload, dn) => { createRoom(payload, dn); setShowHost(false); }}
           onClose={() => setShowHost(false)}
-          initialPayload={hostPayload()}
         />
       )}
       {showJoin && (
         <JoinRoomModal
-          isOpen={showJoin}
+          onConfirm={(code, dn) => { joinByCode(code, dn); setShowJoin(false); }}
           onClose={() => setShowJoin(false)}
         />
       )}

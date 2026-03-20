@@ -1319,3 +1319,11 @@ server.listen(PORT, () => {
   console.log(`Launch API available at http://localhost:${PORT}/api/launch`);
   console.log(`Relay host: ${RELAY_HOST} | TCP ports ${process.env.RELAY_PORT_MIN ?? 9000}-${process.env.RELAY_PORT_MAX ?? 9200}`);
 });
+
+process.on('uncaughtException', (err) => {
+  console.error('[fatal] Uncaught exception:', err);
+});
+
+process.on('unhandledRejection', (reason) => {
+  console.error('[fatal] Unhandled promise rejection:', reason);
+});
