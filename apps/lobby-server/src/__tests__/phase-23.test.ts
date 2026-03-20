@@ -35,8 +35,8 @@ const BOMBERMAN_GAME_ID = 'snes-super-bomberman';
 // ─── Catalog structure ───────────────────────────────────────────────────────
 
 describe('RETRO_ACHIEVEMENT_DEFS catalog', () => {
-  it('contains exactly 40 definitions', () => {
-    expect(RETRO_ACHIEVEMENT_DEFS).toHaveLength(40);
+  it('contains at least 40 definitions', () => {
+    expect(RETRO_ACHIEVEMENT_DEFS.length).toBeGreaterThanOrEqual(40);
   });
 
   it('has no duplicate achievement IDs', () => {
@@ -45,9 +45,9 @@ describe('RETRO_ACHIEVEMENT_DEFS catalog', () => {
     expect(unique.size).toBe(ids.length);
   });
 
-  it('covers exactly 10 games', () => {
+  it('covers at least 10 games', () => {
     const gameIds = new Set(RETRO_ACHIEVEMENT_DEFS.map((d) => d.gameId));
-    expect(gameIds.size).toBe(10);
+    expect(gameIds.size).toBeGreaterThanOrEqual(10);
   });
 
   it('every definition has required fields', () => {
@@ -100,8 +100,8 @@ describe('RetroAchievementStore', () => {
 
   // ── getDefinitions ─────────────────────────────────────────────────────────
 
-  it('getDefinitions returns all 40 defs', () => {
-    expect(store.getDefinitions()).toHaveLength(40);
+  it('getDefinitions returns all defs', () => {
+    expect(store.getDefinitions().length).toBeGreaterThanOrEqual(40);
   });
 
   it('getDefinitions returns the same array reference as catalog', () => {
@@ -122,8 +122,8 @@ describe('RetroAchievementStore', () => {
 
   // ── getGameIds ─────────────────────────────────────────────────────────────
 
-  it('getGameIds returns 10 unique game IDs', () => {
-    expect(store.getGameIds()).toHaveLength(10);
+  it('getGameIds returns at least 10 unique game IDs', () => {
+    expect(store.getGameIds().length).toBeGreaterThanOrEqual(10);
   });
 
   it('getGameIds includes all expected systems', () => {
@@ -137,8 +137,8 @@ describe('RetroAchievementStore', () => {
 
   // ── getGameSummaries ───────────────────────────────────────────────────────
 
-  it('getGameSummaries returns 10 entries', () => {
-    expect(store.getGameSummaries()).toHaveLength(10);
+  it('getGameSummaries returns at least 10 entries', () => {
+    expect(store.getGameSummaries().length).toBeGreaterThanOrEqual(10);
   });
 
   it('each game summary has correct totalAchievements', () => {

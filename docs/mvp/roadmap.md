@@ -20,6 +20,7 @@
 > - Phase 20 Debug & Polish is now complete: TypeScript `rootDir` fix (phase-18/19 tests now type-check cleanly), duplicate `n64-mario-party-2` mock-game entry removed, try/catch error isolation added to `send-dm`/`mark-dm-read`/`send-global-chat` handlers, `GameCubePage` (`/gc`) added with 9 GC games + Leaderboard tab, 🟣 GameCube nav item. 382 tests total.
 > - Phase 21 SEGA Genesis / Mega Drive is now complete: `genesis` system type, RetroArch + Genesis Plus GX adapter, 10 Genesis session templates, 9 Genesis mock games, `GenesisPage` (`/genesis`), 🔵 Genesis nav item. 427 tests total.
 > - Phase 23 Retro Achievement Support is now complete: `RetroAchievementStore` with 40 per-game achievements across 10 games, 6 REST endpoints (`/api/retro-achievements/*`), `RetroAchievementsPage` (`/retro-achievements`) with summary bar + game sidebar + badge grid, `🏅 Retro Achievements` nav item. 48 new tests (660 total).
+ - Phase 24 Further Retro Achievement Support is now complete: catalog expanded to 60 achievements across 15 games (added GC/Wii/3DS/DC/PS2), `SqliteRetroAchievementStore` with Phase 24 DB migration, `getLeaderboard()` + `GET /api/retro-achievements/leaderboard`, `retro-achievement-unlocked` WS push on unlock, Leaderboard tab in `RetroAchievementsPage`. 22 new tests.
 
 ## Phase 1 — Foundation (Complete)
 
@@ -419,6 +420,40 @@
 - [x] 48 unit tests in `phase-23.test.ts` covering all store methods, catalog integrity, cross-player isolation, edge cases
 - [x] `docs/status/phase-23-retro-achievements.md` — phase status and achievement catalog
 - [x] `roadmap.md` updated with Phase 23 milestones
+
+## Phase 24 — Further Retro Achievement Support
+
+**Goal:** Expand retro achievement coverage to newer systems added in Phases 18–22, add SQLite persistence, a leaderboard endpoint, WebSocket push for unlocks, and a Leaderboard tab in the frontend.
+
+### Phase 24a — Expanded Achievement Catalog
+- [x] 20 new achievement definitions across 5 games (4 each):
+  - `gc-mario-kart-double-dash` — Mario Kart: Double Dash!! (GameCube): First Double Dash, Perfect Partnership, Grand Prix Master, LAN Party Champion
+  - `wii-mario-kart-wii` — Mario Kart Wii: First Race Online, Big Air, Star Ranked, Worldwide Winner
+  - `3ds-mario-kart-7` — Mario Kart 7: First Race, Hang Glider, Community Racer, Perfect Cup
+  - `dc-sonic-adventure-2` — Sonic Adventure 2 (Dreamcast): City Escape, A-Rank Hero, Chao Keeper, Space Colony ARK
+  - `ps2-gta-san-andreas` — GTA: San Andreas (PS2): Welcome to San Andreas, High Roller, Grove Street 4 Life, 100% Complete
+- [x] Catalog now totals 60 definitions across 15 games
+
+### Phase 24b — SQLite Persistence
+- [x] `SqliteRetroAchievementStore` — SQLite-backed store; same public API as `RetroAchievementStore`
+- [x] Phase 24 DB migration: `retro_achievement_progress` table with `PRIMARY KEY (player_id, achievement_id)` and two indexes
+- [x] `index.ts` wires `SqliteRetroAchievementStore` when `DB_PATH` is set
+
+### Phase 24c — Leaderboard & WS Push
+- [x] `getLeaderboard(limit?)` — top-N players sorted by `totalPoints` (tie-break: earnedCount then playerId)
+- [x] `GET /api/retro-achievements/leaderboard?limit=<n>` — new REST endpoint (max 100, default 10)
+- [x] `pushRetroAchievementUnlocked()` exported from `handler.ts` — sends `retro-achievement-unlocked` WS message to the player's connection and creates a notification on unlock
+- [x] `retro-achievement-unlocked` WS message type added to `ServerMessage` union
+
+### Phase 24d — Frontend
+- [x] `RetroLeaderboardEntry` type + `fetchRetroLeaderboard()` added to `retro-achievement-service.ts`
+- [x] `gameIdToTitle` updated with 5 new game titles (GC, Wii, 3DS, DC, PS2)
+- [x] `RetroAchievementsPage` gains Achievements / Leaderboard tab bar; Leaderboard tab shows ranked table with gold/silver/bronze medals and "You" badge for the current player
+
+### Phase 24e — Tests & Docs
+- [x] 22 unit tests in `phase-24.test.ts` — expanded catalog integrity, `getLeaderboard()` sorting + limit, cross-player isolation, new Phase 24 achievement IDs
+- [x] Phase 23 tests updated to use `toBeGreaterThanOrEqual` instead of exact counts (catalog is now 60 defs / 15 games)
+- [x] `roadmap.md` updated with Phase 24 milestones
 
 ## Future Ideas
 - Tournament-style rooms

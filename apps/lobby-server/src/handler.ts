@@ -142,6 +142,40 @@ export interface Phase8Stores {
 }
 
 /**
+ * Push a retro-achievement-unlocked event to a connected player's WebSocket.
+ * Also adds a notification via the notification store if provided.
+ * Returns true if the player was found and the message was sent.
+ */
+export function pushRetroAchievementUnlocked(
+  playerId: string,
+  achievementId: string,
+  title: string,
+  description: string,
+  badge: string,
+  points: number,
+  notificationStore?: NotificationStore
+): boolean {
+  const playerWs = connections.get(playerId);
+  if (!playerWs) return false;
+  send(playerWs, {
+    type: 'retro-achievement-unlocked',
+    achievementId,
+    title,
+    description,
+    badge,
+    points,
+  });
+  notificationStore?.add(
+    playerId,
+    'achievement-unlocked',
+    `🏅 Retro Achievement: ${title}`,
+    description,
+    achievementId
+  );
+  return true;
+}
+
+/**
  * After a session ends, check and push any newly unlocked achievements to
  * each player who is still connected (identified by their display name).
  */

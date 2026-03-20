@@ -4,7 +4,7 @@ import { WebSocketServer } from 'ws';
 import { LobbyManager } from './lobby-manager';
 import { SqliteLobbyManager } from './sqlite-lobby-manager';
 import { NetplayRelay } from './netplay-relay';
-import { handleConnection } from './handler';
+import { handleConnection, pushRetroAchievementUnlocked } from './handler';
 import { EmulatorBridge, scanRomDirectory } from '@retro-oasis/emulator-bridge';
 import { GameCatalog } from '@retro-oasis/game-db';
 import { RateLimiter, getRemoteIp } from './rate-limiter';
@@ -35,6 +35,7 @@ import { RankingStore, SqliteRankingStore } from './ranking-store';
 import { GlobalChatStore } from './global-chat-store';
 import { NotificationStore } from './notification-store';
 import { RetroAchievementStore } from './retro-achievement-store';
+import { SqliteRetroAchievementStore } from './sqlite-retro-achievement-store';
 
 const PORT = parseInt(process.env.PORT ?? '8080', 10);
 /** Public hostname/IP players use to reach the relay (surfaced in game-starting events). */
@@ -91,7 +92,9 @@ const rankingStore: RankingStore | SqliteRankingStore = USE_SQLITE
 
 const globalChatStore = new GlobalChatStore();
 const notificationStore = new NotificationStore();
-const retroAchievementStore = new RetroAchievementStore();
+const retroAchievementStore: RetroAchievementStore | SqliteRetroAchievementStore = USE_SQLITE
+  ? new SqliteRetroAchievementStore(getDatabase())
+  : new RetroAchievementStore();
 
 /** Lazy reference to the WebSocketServer — set after server creation. */
 let wss: WebSocketServer | undefined;
@@ -1151,13 +1154,14 @@ async function httpHandler(req: http.IncomingMessage, res: http.ServerResponse):
   }
 
   // -------------------------------------------------------------------------
-  // Phase 23: Retro Achievement REST
+  // Phase 23 + 24: Retro Achievement REST
   //   GET  /api/retro-achievements                          — all defs
   //   GET  /api/retro-achievements/games                    — game summaries
   //   GET  /api/retro-achievements/games/:gameId            — defs for a game
   //   GET  /api/retro-achievements/player/:playerId         — earned (all games)
   //   GET  /api/retro-achievements/player/:playerId/game/:gameId — per-game progress
   //   POST /api/retro-achievements/player/:playerId/game/:gameId/unlock — unlock one
+  //   GET  /api/retro-achievements/leaderboard              — top players by points
   // -------------------------------------------------------------------------
 
   if (pathname === '/api/retro-achievements' && req.method === 'GET') {
@@ -1167,6 +1171,14 @@ async function httpHandler(req: http.IncomingMessage, res: http.ServerResponse):
 
   if (pathname === '/api/retro-achievements/games' && req.method === 'GET') {
     json(res, 200, retroAchievementStore.getGameSummaries());
+    return;
+  }
+
+  if (pathname === '/api/retro-achievements/leaderboard' && req.method === 'GET') {
+    const limitParam = parsedUrl.query.limit;
+    const limitNum = Array.isArray(limitParam) ? limitParam[0] : limitParam;
+    const limit = limitNum ? Math.min(Math.max(parseInt(limitNum, 10) || 10, 1), 100) : 10;
+    json(res, 200, retroAchievementStore.getLeaderboard(limit));
     return;
   }
 
@@ -1235,6 +1247,16 @@ async function httpHandler(req: http.IncomingMessage, res: http.ServerResponse):
       json(res, 409, { error: 'Achievement already earned or unknown ID' });
       return;
     }
+    // Push WS notification to the player if they are currently connected.
+    pushRetroAchievementUnlocked(
+      pid,
+      unlocked.id,
+      unlocked.title,
+      unlocked.description,
+      unlocked.badge,
+      unlocked.points,
+      notificationStore
+    );
     json(res, 200, { unlocked });
     return;
   }

@@ -275,6 +275,20 @@ export function openDatabase(path = ':memory:'): DatabaseType {
     // Column already exists — safe to ignore.
   }
 
+  // Phase 24 migration: retro achievement progress table.
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS retro_achievement_progress (
+      player_id      TEXT NOT NULL,
+      achievement_id TEXT NOT NULL,
+      game_id        TEXT NOT NULL,
+      earned_at      TEXT NOT NULL,
+      session_id     TEXT,
+      PRIMARY KEY (player_id, achievement_id)
+    );
+    CREATE INDEX IF NOT EXISTS idx_retro_progress_player ON retro_achievement_progress (player_id);
+    CREATE INDEX IF NOT EXISTS idx_retro_progress_game ON retro_achievement_progress (player_id, game_id);
+  `);
+
   return db;
 }
 
