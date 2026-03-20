@@ -3,10 +3,12 @@ import { useLobby } from '../context/LobbyContext';
 import {
   fetchRetroAchievementDefs,
   fetchRetroPlayerProgress,
+  fetchRetroLeaderboard,
   gameIdToTitle,
   gameIdToSystem,
   type RetroGameAchievementDef,
   type EarnedRetroAchievement,
+  type RetroLeaderboardEntry,
 } from '../lib/retro-achievement-service';
 
 // ─── Sub-components ───────────────────────────────────────────────────────────
@@ -92,10 +94,12 @@ interface GameGroup {
 export function RetroAchievementsPage() {
   const { playerId } = useLobby();
 
+  const [activeTab, setActiveTab] = useState<'achievements' | 'leaderboard'>('achievements');
   const [defs, setDefs] = useState<RetroGameAchievementDef[]>([]);
   const [earnedMap, setEarnedMap] = useState<Map<string, EarnedRetroAchievement>>(
     new Map()
   );
+  const [leaderboard, setLeaderboard] = useState<RetroLeaderboardEntry[]>([]);
   const [loading, setLoading] = useState(true);
   const [activeGame, setActiveGame] = useState<string | null>(null);
 
@@ -103,9 +107,10 @@ export function RetroAchievementsPage() {
     let alive = true;
     async function load() {
       setLoading(true);
-      const [allDefs, progress] = await Promise.all([
+      const [allDefs, progress, lb] = await Promise.all([
         fetchRetroAchievementDefs(),
         playerId ? fetchRetroPlayerProgress(playerId) : Promise.resolve(null),
+        fetchRetroLeaderboard(20),
       ]);
       if (!alive) return;
       setDefs(allDefs);
@@ -114,6 +119,7 @@ export function RetroAchievementsPage() {
         map.set(e.achievementId, e);
       }
       setEarnedMap(map);
+      setLeaderboard(lb);
       setLoading(false);
     }
     void load();
@@ -152,7 +158,7 @@ export function RetroAchievementsPage() {
   return (
     <div className="p-6 max-w-5xl mx-auto">
       {/* Header */}
-      <div className="mb-6">
+      <div className="mb-4">
         <h1
           className="text-2xl font-bold mb-1"
           style={{ color: 'var(--color-oasis-text)' }}
@@ -164,8 +170,26 @@ export function RetroAchievementsPage() {
         </p>
       </div>
 
-      {/* Summary bar */}
-      {!loading && (
+      {/* Tab bar */}
+      <div className="flex gap-2 mb-6">
+        {(['achievements', 'leaderboard'] as const).map((tab) => (
+          <button
+            key={tab}
+            onClick={() => setActiveTab(tab)}
+            className="px-4 py-1.5 rounded-full text-sm font-medium transition-all"
+            style={{
+              backgroundColor:
+                activeTab === tab ? 'var(--color-oasis-accent)' : 'var(--color-oasis-card)',
+              color: activeTab === tab ? '#fff' : 'var(--color-oasis-text)',
+            }}
+          >
+            {tab === 'achievements' ? '🏅 Achievements' : '🏆 Leaderboard'}
+          </button>
+        ))}
+      </div>
+
+      {/* Summary bar — only on Achievements tab */}
+      {activeTab === 'achievements' && !loading && (
         <div
           className="rounded-xl p-4 mb-6 flex gap-6 flex-wrap"
           style={{ backgroundColor: 'var(--color-oasis-card)' }}
@@ -226,7 +250,96 @@ export function RetroAchievementsPage() {
         <p className="text-center py-12" style={{ color: 'var(--color-oasis-text-muted)' }}>
           Loading achievements…
         </p>
+      ) : activeTab === 'leaderboard' ? (
+        /* ── Leaderboard tab ──────────────────────────────────────────────── */
+        <div
+          className="rounded-xl overflow-hidden"
+          style={{ backgroundColor: 'var(--color-oasis-card)' }}
+        >
+          {leaderboard.length === 0 ? (
+            <p
+              className="text-center py-12 text-sm"
+              style={{ color: 'var(--color-oasis-text-muted)' }}
+            >
+              No players have earned retro achievements yet.
+            </p>
+          ) : (
+            <table className="w-full text-sm">
+              <thead>
+                <tr style={{ borderBottom: '1px solid var(--color-oasis-border)' }}>
+                  <th
+                    className="text-left px-4 py-3 font-semibold text-xs"
+                    style={{ color: 'var(--color-oasis-text-muted)' }}
+                  >
+                    Rank
+                  </th>
+                  <th
+                    className="text-left px-4 py-3 font-semibold text-xs"
+                    style={{ color: 'var(--color-oasis-text-muted)' }}
+                  >
+                    Player
+                  </th>
+                  <th
+                    className="text-right px-4 py-3 font-semibold text-xs"
+                    style={{ color: 'var(--color-oasis-text-muted)' }}
+                  >
+                    Points
+                  </th>
+                  <th
+                    className="text-right px-4 py-3 font-semibold text-xs"
+                    style={{ color: 'var(--color-oasis-text-muted)' }}
+                  >
+                    Unlocked
+                  </th>
+                </tr>
+              </thead>
+              <tbody>
+                {leaderboard.map((entry, idx) => (
+                  <tr
+                    key={entry.playerId}
+                    style={{ borderBottom: '1px solid var(--color-oasis-border)' }}
+                  >
+                    <td className="px-4 py-3 font-bold" style={{ color: 'var(--color-oasis-text-muted)' }}>
+                      {idx === 0 ? '🥇' : idx === 1 ? '🥈' : idx === 2 ? '🥉' : `#${idx + 1}`}
+                    </td>
+                    <td className="px-4 py-3 font-medium" style={{ color: 'var(--color-oasis-text)' }}>
+                      {entry.playerId === playerId ? (
+                        <span>
+                          {entry.playerId}
+                          <span
+                            className="ml-2 text-[10px] px-1.5 py-0.5 rounded-full"
+                            style={{
+                              backgroundColor: 'var(--color-oasis-accent)',
+                              color: '#fff',
+                            }}
+                          >
+                            You
+                          </span>
+                        </span>
+                      ) : (
+                        entry.playerId
+                      )}
+                    </td>
+                    <td
+                      className="px-4 py-3 text-right font-bold"
+                      style={{ color: 'var(--color-oasis-accent)' }}
+                    >
+                      {entry.totalPoints}
+                    </td>
+                    <td
+                      className="px-4 py-3 text-right"
+                      style={{ color: 'var(--color-oasis-text-muted)' }}
+                    >
+                      {entry.earnedCount}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
+        </div>
       ) : (
+        /* ── Achievements tab ─────────────────────────────────────────────── */
         <div className="flex gap-6">
           {/* Game list sidebar */}
           <div className="w-56 shrink-0 flex flex-col gap-2">

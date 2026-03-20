@@ -4,7 +4,8 @@
  * Each game in the catalog has a set of in-game achievements (inspired by
  * RetroAchievements.org). Players earn them by completing in-game milestones
  * during netplay sessions. The store tracks earned achievements per player
- * in memory; a future SQLite-backed variant can extend this class.
+ * in memory; a SQLite-backed variant (SqliteRetroAchievementStore) extends
+ * this for persistence across server restarts.
  */
 
 // ---------------------------------------------------------------------------
@@ -39,8 +40,14 @@ export interface RetroGameSummary {
   totalPoints: number;
 }
 
+export interface RetroLeaderboardEntry {
+  playerId: string;
+  totalPoints: number;
+  earnedCount: number;
+}
+
 // ---------------------------------------------------------------------------
-// Achievement catalog  (10 games × 4 achievements = 40 definitions)
+// Achievement catalog  (15 games × 4 achievements = 60 definitions)
 // ---------------------------------------------------------------------------
 
 export const RETRO_ACHIEVEMENT_DEFS: RetroGameAchievementDef[] = [
@@ -383,6 +390,176 @@ export const RETRO_ACHIEVEMENT_DEFS: RetroGameAchievementDef[] = [
     points: 50,
     badge: '🎯',
   },
+
+  // ── Mario Kart: Double Dash!! (GameCube) ─────────────────────────────────
+  {
+    id: 'mkdd-first-race',
+    gameId: 'gc-mario-kart-double-dash',
+    title: 'First Double Dash',
+    description: 'Complete your first race in Mario Kart: Double Dash!!.',
+    points: 5,
+    badge: '🏎️',
+  },
+  {
+    id: 'mkdd-team-finish',
+    gameId: 'gc-mario-kart-double-dash',
+    title: 'Perfect Partnership',
+    description: 'Finish 1st in a race using a full item combination combo.',
+    points: 25,
+    badge: '🤜',
+  },
+  {
+    id: 'mkdd-all-cups',
+    gameId: 'gc-mario-kart-double-dash',
+    title: 'Grand Prix Master',
+    description: 'Win all four Grand Prix cups.',
+    points: 50,
+    badge: '🏆',
+  },
+  {
+    id: 'mkdd-lan-win',
+    gameId: 'gc-mario-kart-double-dash',
+    title: 'LAN Party Champion',
+    description: 'Win a 4-player LAN race.',
+    points: 10,
+    badge: '🌐',
+  },
+
+  // ── Mario Kart Wii (Wii) ──────────────────────────────────────────────────
+  {
+    id: 'mkwii-first-race',
+    gameId: 'wii-mario-kart-wii',
+    title: 'First Race Online',
+    description: 'Complete your first Mario Kart Wii race online.',
+    points: 5,
+    badge: '🏁',
+  },
+  {
+    id: 'mkwii-trick',
+    gameId: 'wii-mario-kart-wii',
+    title: 'Big Air',
+    description: 'Land a trick off a ramp.',
+    points: 5,
+    badge: '🤸',
+  },
+  {
+    id: 'mkwii-star-rank',
+    gameId: 'wii-mario-kart-wii',
+    title: 'Star Ranked',
+    description: 'Earn a 1-star rank in any Grand Prix cup.',
+    points: 25,
+    badge: '⭐',
+  },
+  {
+    id: 'mkwii-online-win',
+    gameId: 'wii-mario-kart-wii',
+    title: 'Worldwide Winner',
+    description: 'Win a worldwide online race.',
+    points: 50,
+    badge: '🌍',
+  },
+
+  // ── Mario Kart 7 (3DS) ────────────────────────────────────────────────────
+  {
+    id: 'mk7-first-race',
+    gameId: '3ds-mario-kart-7',
+    title: 'First Race',
+    description: 'Complete your first Mario Kart 7 race.',
+    points: 5,
+    badge: '🏁',
+  },
+  {
+    id: 'mk7-glider',
+    gameId: '3ds-mario-kart-7',
+    title: 'Hang Glider',
+    description: 'Fly the full length of a glider section.',
+    points: 10,
+    badge: '🪂',
+  },
+  {
+    id: 'mk7-community',
+    gameId: '3ds-mario-kart-7',
+    title: 'Community Racer',
+    description: 'Win a race in a Community room.',
+    points: 25,
+    badge: '👥',
+  },
+  {
+    id: 'mk7-three-star',
+    gameId: '3ds-mario-kart-7',
+    title: 'Perfect Cup',
+    description: 'Earn a 3-star rank in any Grand Prix cup.',
+    points: 50,
+    badge: '✨',
+  },
+
+  // ── Sonic Adventure 2 (Dreamcast) ─────────────────────────────────────────
+  {
+    id: 'sa2-first-stage',
+    gameId: 'dc-sonic-adventure-2',
+    title: 'City Escape',
+    description: 'Clear the first stage as Sonic.',
+    points: 5,
+    badge: '🏙️',
+  },
+  {
+    id: 'sa2-a-rank',
+    gameId: 'dc-sonic-adventure-2',
+    title: 'A-Rank Hero',
+    description: 'Earn an A rank on any stage.',
+    points: 25,
+    badge: '🅰️',
+  },
+  {
+    id: 'sa2-chao-garden',
+    gameId: 'dc-sonic-adventure-2',
+    title: 'Chao Keeper',
+    description: 'Raise a Chao to level 10 in the Chao Garden.',
+    points: 25,
+    badge: '🐣',
+  },
+  {
+    id: 'sa2-last-story',
+    gameId: 'dc-sonic-adventure-2',
+    title: 'Space Colony ARK',
+    description: 'Complete the Last Story.',
+    points: 50,
+    badge: '🌌',
+  },
+
+  // ── GTA: San Andreas (PS2) ────────────────────────────────────────────────
+  {
+    id: 'gta-sa-first-mission',
+    gameId: 'ps2-gta-san-andreas',
+    title: 'Welcome to San Andreas',
+    description: 'Complete the first mission.',
+    points: 5,
+    badge: '🌴',
+  },
+  {
+    id: 'gta-sa-100k',
+    gameId: 'ps2-gta-san-andreas',
+    title: 'High Roller',
+    description: 'Earn $100,000 in total.',
+    points: 10,
+    badge: '💰',
+  },
+  {
+    id: 'gta-sa-grove-street',
+    gameId: 'ps2-gta-san-andreas',
+    title: 'Grove Street 4 Life',
+    description: 'Reclaim all Grove Street territories.',
+    points: 25,
+    badge: '🟢',
+  },
+  {
+    id: 'gta-sa-100pct',
+    gameId: 'ps2-gta-san-andreas',
+    title: '100% Complete',
+    description: 'Achieve 100% game completion.',
+    points: 100,
+    badge: '🎖️',
+  },
 ];
 
 // ---------------------------------------------------------------------------
@@ -490,5 +667,29 @@ export class RetroAchievementStore {
   /** Total number of players tracked. */
   playerCount(): number {
     return this.progress.size;
+  }
+
+  /**
+   * Top-N players sorted by totalPoints (descending).
+   * Ties are broken by the number of earned achievements, then by playerId
+   * alphabetically for deterministic ordering.
+   */
+  getLeaderboard(limit = 10): RetroLeaderboardEntry[] {
+    const entries: RetroLeaderboardEntry[] = [];
+    for (const prog of this.progress.values()) {
+      if (prog.totalPoints > 0 || prog.earned.length > 0) {
+        entries.push({
+          playerId: prog.playerId,
+          totalPoints: prog.totalPoints,
+          earnedCount: prog.earned.length,
+        });
+      }
+    }
+    entries.sort((a, b) => {
+      if (b.totalPoints !== a.totalPoints) return b.totalPoints - a.totalPoints;
+      if (b.earnedCount !== a.earnedCount) return b.earnedCount - a.earnedCount;
+      return a.playerId.localeCompare(b.playerId);
+    });
+    return entries.slice(0, limit);
   }
 }

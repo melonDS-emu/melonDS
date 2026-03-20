@@ -141,4 +141,6 @@ export type ServerMessage =
   | { type: 'dm-received'; message: { id: string; fromPlayer: string; content: string; sentAt: string } }
   | { type: 'dm-read-ack'; fromPlayer: string }
   /** Phase 17: global chat */
-  | { type: 'global-chat-message'; id: string; playerId: string; displayName: string; text: string; timestamp: string };
+  | { type: 'global-chat-message'; id: string; playerId: string; displayName: string; text: string; timestamp: string }
+  /** Phase 24: retro achievement unlocked */
+  | { type: 'retro-achievement-unlocked'; achievementId: string; title: string; description: string; badge: string; points: number };

@@ -46,6 +46,12 @@ export interface RetroGameSummary {
   totalPoints: number;
 }
 
+export interface RetroLeaderboardEntry {
+  playerId: string;
+  totalPoints: number;
+  earnedCount: number;
+}
+
 // ─── API calls ────────────────────────────────────────────────────────────────
 
 /** Fetch all retro achievement definitions. */
@@ -140,6 +146,17 @@ export async function unlockRetroAchievement(
   }
 }
 
+/** Fetch the retro achievement leaderboard (top players by total points). */
+export async function fetchRetroLeaderboard(limit = 10): Promise<RetroLeaderboardEntry[]> {
+  try {
+    const res = await fetch(`${API_BASE}/api/retro-achievements/leaderboard?limit=${limit}`);
+    if (!res.ok) return [];
+    return res.json() as Promise<RetroLeaderboardEntry[]>;
+  } catch {
+    return [];
+  }
+}
+
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
 /** Human-readable game name from a catalog game ID. */
@@ -155,6 +172,12 @@ export function gameIdToTitle(gameId: string): string {
     'snes-super-bomberman': 'Super Bomberman',
     'genesis-sonic-the-hedgehog-2': 'Sonic the Hedgehog 2',
     'psx-crash-bandicoot': 'Crash Bandicoot',
+    // Phase 24 additions
+    'gc-mario-kart-double-dash': 'Mario Kart: Double Dash!!',
+    'wii-mario-kart-wii': 'Mario Kart Wii',
+    '3ds-mario-kart-7': 'Mario Kart 7',
+    'dc-sonic-adventure-2': 'Sonic Adventure 2',
+    'ps2-gta-san-andreas': 'GTA: San Andreas',
   };
   return TITLES[gameId] ?? gameId;
 }
