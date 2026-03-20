@@ -1932,8 +1932,14 @@ void ARMv5::DataWrite32S(const u32 addr, const u32 val)
             {
                 if (IsAddressDCachable(addr))
                 {
+                    s32 cycles = DataCycles;
+                    DataCycles = 0;
                     if (DCacheWrite32(addr, val))
+                    {
+                        DataCycles += cycles;
                         return;
+                    }
+                    DataCycles = cycles;
                 }
             }
         }

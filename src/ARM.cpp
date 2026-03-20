@@ -309,6 +309,7 @@ void ARMv5::JumpTo(u32 addr, bool restorecpsr)
     u32 newregion = addr >> 24;
 
     RegionCodeCycles = MemTimings[addr >> 12][0];
+    Cycles += CodeCycles;
 
     if (addr & 0x1)
     {
@@ -666,12 +667,14 @@ void ARMv5::Execute()
                 R[15] += 2;
                 CurInstr = NextInstr[0];
                 NextInstr[0] = NextInstr[1];
-                if (R[15] & 0x2) { NextInstr[1] >>= 16; CodeCycles = 0; }
+                if (R[15] & 0x2) { NextInstr[1] >>= 16; CodeCycles = 1; }
                 else             NextInstr[1] = CodeRead32(R[15], false);
 
                 // actually execute
                 u32 icode = (CurInstr >> 6) & 0x3FF;
                 ARMInterpreter::THUMBInstrTable[icode](this);
+                if ((CurInstr&0xFFFF)==0x46C0)
+                    printf("instr %08X cycles = %d (%d) (%lld)\n", R[15], CodeCycles, Cycles, NDS.ARM9Timestamp);
             }
             else
             {
@@ -1046,6 +1049,7 @@ void ARM::WriteReg(Gdb::Register reg, u32 v)
 }
 u32 ARM::ReadMem(u32 addr, int size)
 {
+    MemInfo dummy;
     if (size == 8) return BusRead8(addr);
     else if (size == 16) return BusRead16(addr);
     else if (size == 32) return BusRead32(addr);
@@ -1053,6 +1057,7 @@ u32 ARM::ReadMem(u32 addr, int size)
 }
 void ARM::WriteMem(u32 addr, int size, u32 v)
 {
+    MemInfo dummy;
     if (size == 8) BusWrite8(addr, (u8)v);
     else if (size == 16) BusWrite16(addr, (u16)v);
     else if (size == 32) BusWrite32(addr, v);

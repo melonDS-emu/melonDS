@@ -1378,6 +1378,11 @@ void NDS::SetGBASlotTimings()
 
         SetARM7RegionTimings(0x08000, 0x0A000, 0, 32, 1, 1);
         SetARM7RegionTimings(0x0A000, 0x0B000, 0, 32, 1, 1);
+
+        MemInfo_GBAROM[0] = {Mem9_GBAROM, (u8)romN, (u8)romS, (u8)(romN+romS), (u8)(romS+romS)};
+        MemInfo_GBASRAM[0] = {Mem9_GBARAM, (u8)ramN, (u8)ramN, (u8)ramN, (u8)ramN};
+        MemInfo_GBAROM[1] = {};
+        MemInfo_GBASRAM[1] = {};
     }
     else
     {
@@ -1386,6 +1391,11 @@ void NDS::SetGBASlotTimings()
 
         SetARM7RegionTimings(0x08000, 0x0A000, Mem7_GBAROM, 16, romN, romS);
         SetARM7RegionTimings(0x0A000, 0x0B000, Mem7_GBARAM, 8, ramN, ramN);
+
+        MemInfo_GBAROM[0] = {};
+        MemInfo_GBASRAM[0] = {};
+        MemInfo_GBAROM[1] = {Mem9_GBAROM, (u8)romN, (u8)romS, (u8)(romN+romS), (u8)(romS+romS)};
+        MemInfo_GBASRAM[1] = {Mem9_GBARAM, (u8)ramN, (u8)ramN, (u8)ramN, (u8)ramN};
     }
 
     // this open-bus implementation is a rough way of simulating the way values
@@ -2347,6 +2357,64 @@ bool NDS::ARM9GetMemRegion(const u32 addr, const bool write, MemRegion* region)
     return false;
 }
 
+void NDS::ARM9GetMemInfo(const u32 addr, MemInfo& info)
+{
+    // TODO: to consider
+    // this function could also return memory pointer/mask, for faster mem access
+    // could also get rid of the function above
+
+    switch (addr & 0xFF000000)
+    {
+    case 0x02000000:
+        info = {Mem9_MainRAM, 8, 1, 9, 1};
+        return;
+
+    case 0x03000000:
+        if (!SWRAM_ARM9.Mem)
+            break;
+        info = {Mem9_WRAM, 1, 1, 1, 1};
+        return;
+
+    case 0x04000000:
+        info = {Mem9_IO, 1, 1, 1, 1};
+        return;
+
+    case 0x05000000:
+        if (!(PowerControl9 & ((addr & 0x400) ? (1<<9) : (1<<1))))
+            break;
+        info = {Mem9_Pal, 1, 1, 2, 1};
+        return;
+
+    case 0x06000000:
+        // TODO
+        break;
+
+    case 0x07000000:
+        if (!(PowerControl9 & ((addr & 0x400) ? (1<<9) : (1<<1))))
+            break;
+        info = {Mem9_OAM, 1, 1, 1, 1};
+        return;
+
+    case 0x08000000:
+    case 0x09000000:
+        info = MemInfo_GBAROM[0];
+        return;
+
+    case 0x0A000000:
+        info = MemInfo_GBASRAM[0];
+        return;
+
+    case 0xFF000000:
+        if (addr < 0xFFFF0000)
+            break;
+        info = {Mem9_BIOS, 1, 1, 1, 1};
+        return;
+    }
+
+    // return null info
+    info = {};
+}
+
 
 
 u8 NDS::ARM7Read8(u32 addr)
@@ -2794,6 +2862,49 @@ bool NDS::ARM7GetMemRegion(u32 addr, bool write, MemRegion* region)
 
     region->Mem = NULL;
     return false;
+}
+
+void NDS::ARM7GetMemInfo(const u32 addr, MemInfo& info)
+{
+    switch (addr & 0xFF000000)
+    {
+    case 0x00000000:
+        // TODO
+        break;
+
+    case 0x02000000:
+        info = {Mem7_MainRAM, 8, 1, 9, 1};
+        return;
+
+    case 0x03000000:
+        // TODO need to distinguish shared WRAM from ARM7 WRAM
+        // also this is wrong
+        if (SWRAM_ARM7.Mem)
+            info = {Mem7_WRAM, 1, 1, 1, 1};
+        else
+            info = {Mem7_WRAM, 1, 1, 1, 1};
+        return;
+
+    case 0x04000000:
+        info = {Mem7_IO, 1, 1, 1, 1};
+        return;
+
+    case 0x06000000:
+        // TODO
+        break;
+
+    case 0x08000000:
+    case 0x09000000:
+        info = MemInfo_GBAROM[1];
+        return;
+
+    case 0x0A000000:
+        info = MemInfo_GBASRAM[1];
+        return;
+    }
+
+    // return null info
+    info = {};
 }
 
 

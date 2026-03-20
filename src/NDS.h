@@ -194,33 +194,6 @@ struct Timer
     u32 CycleShift;
 };
 
-enum
-{
-    Mem9_ITCM       = 0x00000001,
-    Mem9_DTCM       = 0x00000002,
-    Mem9_BIOS       = 0x00000004,
-    Mem9_MainRAM    = 0x00000008,
-    Mem9_WRAM       = 0x00000010,
-    Mem9_IO         = 0x00000020,
-    Mem9_Pal        = 0x00000040,
-    Mem9_OAM        = 0x00000080,
-    Mem9_VRAM       = 0x00000100,
-    Mem9_GBAROM     = 0x00020000,
-    Mem9_GBARAM     = 0x00040000,
-
-    Mem7_BIOS       = 0x00000001,
-    Mem7_MainRAM    = 0x00000002,
-    Mem7_WRAM       = 0x00000004,
-    Mem7_IO         = 0x00000008,
-    Mem7_Wifi0      = 0x00000010,
-    Mem7_Wifi1      = 0x00000020,
-    Mem7_VRAM       = 0x00000040,
-    Mem7_GBAROM     = 0x00000100,
-    Mem7_GBARAM     = 0x00000200,
-
-    // TODO: add DSi regions!
-};
-
 // supported GBA slot addon types
 enum
 {
@@ -471,6 +444,7 @@ public: // TODO: Encapsulate the rest of these members
     virtual void ARM9Write32(u32 addr, u32 val);
 
     virtual bool ARM9GetMemRegion(const u32 addr, const bool write, MemRegion* region);
+    virtual void ARM9GetMemInfo(const u32 addr, MemInfo& info);
 
     virtual u8 ARM7Read8(u32 addr);
     virtual u16 ARM7Read16(u32 addr);
@@ -480,6 +454,7 @@ public: // TODO: Encapsulate the rest of these members
     virtual void ARM7Write32(u32 addr, u32 val);
 
     virtual bool ARM7GetMemRegion(u32 addr, bool write, MemRegion* region);
+    virtual void ARM7GetMemInfo(const u32 addr, MemInfo& info);
 
     virtual u8 ARM9IORead8(u32 addr);
     virtual u16 ARM9IORead16(u32 addr);
@@ -539,6 +514,10 @@ protected:
     bool RunningGame;
     u64 LastSysClockCycles;
     u64 FrameStartTimestamp;
+
+    MemInfo MemInfo_GBAROM[2];
+    MemInfo MemInfo_GBASRAM[2];
+
     u64 NextTarget();
     u64 NextTargetSleep();
     void CheckKeyIRQ(u32 cpu, u32 oldkey, u32 newkey);

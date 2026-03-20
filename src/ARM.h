@@ -267,7 +267,7 @@ public:
     void AddCycles_C() override
     {
         // code only. always nonseq 32-bit for ARM9.
-        s32 numC = (R[15] & 0x2) ? 0 : CodeCycles;
+        s32 numC = (R[15] & 0x2) ? 1 : CodeCycles;
         Cycles += numC;
     }
 
