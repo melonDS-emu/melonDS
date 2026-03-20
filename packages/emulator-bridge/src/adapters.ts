@@ -511,6 +511,26 @@ export function createSystemAdapter(system: string, backendId?: string): SystemA
       };
     }
 
+    case 'wiiu': {
+      const effectiveWiiUBackend = backendId ?? 'cemu';
+      return {
+        system: 'wiiu',
+        preferredBackendId: 'cemu',
+        fallbackBackendIds: ['retroarch'],
+        buildLaunchArgs: (romPath, options) => {
+          if (effectiveWiiUBackend === 'retroarch') {
+            return buildRetroArchArgs(romPath, options);
+          }
+          // Cemu: -g <rom> launches the game directly; relay handles TCP-level netplay
+          const args = ['-g', romPath];
+          if (options.fullscreen) args.push('-f');
+          if (options.debug) args.push('--verbose');
+          return args;
+        },
+        getSavePath: (gameId, baseDir) => `${baseDir}/wiiu/${gameId}`,
+      };
+    }
+
     default:
       throw new Error(`Unsupported system: ${system}`);
   }

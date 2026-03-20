@@ -14,6 +14,7 @@ const NAV_ITEMS = [
   { path: '/zelda',         label: 'Zelda',        icon: '◇',  group: 'games' },
   { path: '/metroid',       label: 'Metroid',      icon: '◑',  group: 'games' },
   { path: '/wii',           label: 'Wii',          icon: '⊕',  group: 'systems' },
+  { path: '/wiiu',          label: 'Wii U',        icon: '⊞',  group: 'systems' },
   { path: '/gc',            label: 'GameCube',     icon: '⬡',  group: 'systems' },
   { path: '/genesis',       label: 'Genesis',      icon: '⬢',  group: 'systems' },
   { path: '/dreamcast',     label: 'Dreamcast',    icon: '◎',  group: 'systems' },

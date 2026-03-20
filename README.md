@@ -1,15 +1,15 @@
 <h2 align="center">🌴 <b>RetroOasis</b></h2>
-<p align="center"><em>A multiplayer-first unified Nintendo emulator platform</em></p>
+<p align="center"><em>A multiplayer-first retro gaming emulator platform — from the SMS to the Wii U</em></p>
 <p align="center">
 <a href="https://www.gnu.org/licenses/gpl-3.0" alt="License: GPLv3"><img src="https://img.shields.io/badge/License-GPL%20v3-%23ff554d.svg"></a>
 </p>
 
-RetroOasis is a social Nintendo retro gaming hub — not just another emulator frontend. It unifies systems from NES through Nintendo DS and puts **multiplayer and social play** at the center of the experience. Think Discord + game lobby system + console-style launcher for retro Nintendo games.
+RetroOasis is a social retro gaming hub spanning multiple platforms and generations — not just another emulator frontend. It unifies systems from the **Sega Master System era through the Wii U and 3DS** and puts **multiplayer and social play** at the center of the experience. Think Discord + game lobby system + console-style launcher for retro games across Nintendo, SEGA, and Sony platforms.
 
 ## ✨ Features
 
 - **Multiplayer-first** — Host/join rooms in seconds, ready up, chat, and surface local launch/relay info from the lobby flow
-- **Unified library UI** — NES, SNES, GB, GBC, GBA, N64, and NDS in one app (real ROM discovery is still in progress)
+- **Multi-platform library** — NES, SNES, GB, GBC, GBA, N64, NDS, GC, Wii, Wii U, 3DS, Genesis, Dreamcast, PSX, PS2, and PSP in one app
 - **Curated discovery** — Browse games by multiplayer mode (Party, Co-op, Versus, Link, Trade)
 - **Per-game intelligence** — Player counts, compatibility badges, session templates
 - **Live social layer** — Friends, direct messaging, presence, achievements, and player profile stats are integrated into the desktop app
@@ -42,7 +42,7 @@ npm run build:desktop
 /packages
   /ui               — Shared UI components
   /shared-types     — Core TypeScript domain types
-  /game-db          — Game catalog + multiplayer metadata (30 games)
+  /game-db          — Game catalog + multiplayer metadata
   /session-engine   — Session lifecycle management
   /emulator-bridge  — Emulator backend abstraction layer
   /save-system      — Local + cloud save management
@@ -59,15 +59,24 @@ npm run build:desktop
 
 ## 🎮 Supported Systems
 
-| System | Backend | Phase |
-|--------|---------|-------|
-| NES | FCEUX | 1 |
-| SNES | Snes9x | 1 |
-| Game Boy | mGBA | 1 |
-| Game Boy Color | mGBA | 1 |
-| Game Boy Advance | mGBA | 1 |
-| Nintendo 64 | Mupen64Plus | 2 |
-| Nintendo DS | melonDS | 3 |
+| System | Manufacturer | Backend | Generation |
+|--------|-------------|---------|------------|
+| NES | Nintendo | FCEUX | 3rd |
+| SNES | Nintendo | Snes9x | 4th |
+| Game Boy | Nintendo | mGBA | 4th |
+| Game Boy Color | Nintendo | mGBA | 4th |
+| SEGA Genesis | SEGA | RetroArch / Genesis Plus GX | 4th |
+| Game Boy Advance | Nintendo | mGBA | 6th |
+| Nintendo 64 | Nintendo | Mupen64Plus | 5th |
+| Sony PlayStation | Sony | DuckStation | 5th |
+| Nintendo GameCube | Nintendo | Dolphin | 6th |
+| Sony PlayStation 2 | Sony | PCSX2 | 6th |
+| SEGA Dreamcast | SEGA | Flycast | 6th |
+| Nintendo DS | Nintendo | melonDS | 7th |
+| Nintendo Wii | Nintendo | Dolphin | 7th |
+| Sony PSP | Sony | PPSSPP | 7th |
+| Nintendo 3DS | Nintendo | Citra / Lime3DS | 8th |
+| Nintendo Wii U | Nintendo | Cemu | 8th |
 
 ## 🏗️ Architecture
 
@@ -76,7 +85,7 @@ RetroOasis uses a layered architecture:
 1. **Frontend** — React + Vite + Tailwind CSS (native packaging via Tauri is still planned)
 2. **Multiplayer Services** — WebSocket lobby server, presence scaffolding, session engine
 3. **Orchestration** — Emulator bridge, save system, game database
-4. **Emulator Backends** — External proven emulators (mGBA, melonDS, etc.)
+4. **Emulator Backends** — External proven emulators (mGBA, melonDS, Dolphin, Cemu, PPSSPP, etc.)
 
 The app does **not** build emulator cores from scratch. It orchestrates existing backends behind a unified interface.
 

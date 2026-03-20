@@ -21,6 +21,7 @@ import { GlobalChatPage } from './pages/GlobalChatPage';
 import { NotificationsPage } from './pages/NotificationsPage';
 import { RetroAchievementsPage } from './pages/RetroAchievementsPage';
 import WiiPage from './pages/WiiPage';
+import WiiUPage from './pages/WiiUPage';
 import GameCubePage from './pages/GameCubePage';
 import GenesisPage from './pages/GenesisPage';
 import DreamcastPage from './pages/DreamcastPage';
@@ -48,6 +49,7 @@ export function App() {
         <Route path="/zelda" element={<ZeldaPage />} />
         <Route path="/metroid" element={<MetroidPage />} />
         <Route path="/wii" element={<WiiPage />} />
+        <Route path="/wiiu" element={<WiiUPage />} />
         <Route path="/gc" element={<GameCubePage />} />
         <Route path="/genesis" element={<GenesisPage />} />
         <Route path="/dreamcast" element={<DreamcastPage />} />

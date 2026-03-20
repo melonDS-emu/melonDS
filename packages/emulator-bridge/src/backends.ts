@@ -230,7 +230,7 @@ export const KNOWN_BACKENDS: BackendDefinition[] = [
   {
     id: 'retroarch',
     name: 'RetroArch',
-    systems: ['nes', 'snes', 'gb', 'gbc', 'gba', 'n64', 'nds', 'gc', 'wii', '3ds', 'genesis', 'dreamcast', 'psx', 'ps2', 'psp'],
+    systems: ['nes', 'snes', 'gb', 'gbc', 'gba', 'n64', 'nds', 'gc', 'wii', 'wiiu', '3ds', 'genesis', 'dreamcast', 'psx', 'ps2', 'psp'],
     description: 'Universal open-source emulator frontend using libretro cores',
     executableName: 'retroarch',
     supportsNetplay: true,
@@ -374,6 +374,24 @@ export const KNOWN_BACKENDS: BackendDefinition[] = [
       'Install (Windows): download from https://www.ppsspp.org/downloads.html',
       'Supports .iso, .cso, .pbp, .elf ROM formats',
       'Open source (GPLv2)',
+    ],
+  },
+  {
+    id: 'cemu',
+    name: 'Cemu',
+    systems: ['wiiu'],
+    description: 'Highly accurate Nintendo Wii U emulator',
+    executableName: 'Cemu',
+    supportsNetplay: false,
+    supportsSaveStates: true,
+    website: 'https://cemu.info',
+    notes: [
+      'Relay netplay: relay bridges TCP at infrastructure level; Cemu has no built-in netplay CLI flags',
+      'Install (Linux): flatpak install flathub info.cemu.Cemu  OR download from https://cemu.info',
+      'Install (macOS): download from https://cemu.info/download.html',
+      'Install (Windows): download from https://cemu.info/download.html',
+      'Requires Wii U keys file (keys.txt) and game files in .wud/.wux/.iso/.rpx/.wua format',
+      'Open source (MPL-2.0) since 2022',
     ],
   },
 ];
