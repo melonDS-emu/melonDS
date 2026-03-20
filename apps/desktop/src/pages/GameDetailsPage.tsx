@@ -4,7 +4,11 @@ import { useGame } from '../lib/use-games';
 import { HostRoomModal } from '../components/HostRoomModal';
 import { useLobby } from '../context/LobbyContext';
 import { getRomAssociation, setRomAssociation, clearRomAssociation } from '../lib/rom-library';
-import { tauriPickFile, isTauri } from '../lib/tauri-ipc';
+import { tauriPickFile, tauriLaunchLocal, isTauri } from '../lib/tauri-ipc';
+import { isFavorite, toggleFavorite } from '../lib/favorites-store';
+import { recordRecentlyPlayed } from '../lib/recently-played';
+import { getEmulatorPathForSystem, getBackendIdForSystem, EMULATOR_NAMES } from '../lib/emulator-settings';
+import { getSaveDirectory } from '../lib/rom-settings';
 
 /** ROM file extensions used in the native file picker filter. */
 const ROM_EXTENSIONS = ['nes', 'sfc', 'smc', 'gb', 'gbc', 'gba', 'n64', 'z64', 'v64', 'nds'];
@@ -56,6 +60,11 @@ export function GameDetailsPage() {
   const [romAssoc, setRomAssoc] = useState(() =>
     gameId ? getRomAssociation(gameId) : null,
   );
+  const [favorited, setFavorited] = useState(() =>
+    gameId ? isFavorite(gameId) : false,
+  );
+  const [launchStatus, setLaunchStatus] = useState<'idle' | 'launching' | 'success' | 'error'>('idle');
+  const [launchError, setLaunchError] = useState<string | null>(null);
 
   const { data: game, loading, error } = useGame(gameId);
 
@@ -79,6 +88,61 @@ export function GameDetailsPage() {
     if (!gameId) return;
     clearRomAssociation(gameId);
     setRomAssoc(null);
+  }
+
+  function handleToggleFavorite() {
+    if (!gameId) return;
+    const next = toggleFavorite(gameId);
+    setFavorited(next);
+  }
+
+  async function handleLaunchLocal() {
+    if (!gameId || !game) return;
+
+    const romPath = romAssoc?.romPath ?? null;
+    if (!romPath) {
+      setLaunchError('No ROM file set. Use "Set ROM File" to associate a ROM with this game.');
+      setLaunchStatus('error');
+      return;
+    }
+
+    const system = game.system.toLowerCase();
+    const backendId = getBackendIdForSystem(system);
+    const emulatorPath = getEmulatorPathForSystem(system);
+
+    if (!emulatorPath) {
+      const name = backendId ? (EMULATOR_NAMES[backendId] ?? backendId) : game.system;
+      setLaunchError(
+        `No emulator path configured for ${name}. Go to Settings → Emulator Paths to set the executable location.`,
+      );
+      setLaunchStatus('error');
+      return;
+    }
+
+    setLaunchStatus('launching');
+    setLaunchError(null);
+
+    try {
+      const result = await tauriLaunchLocal({
+        emulatorPath,
+        romPath,
+        system,
+        backendId: backendId ?? system,
+        saveDirectory: getSaveDirectory() ?? undefined,
+      });
+
+      if (result.success) {
+        recordRecentlyPlayed(gameId);
+        setLaunchStatus('success');
+        setTimeout(() => setLaunchStatus('idle'), 3000);
+      } else {
+        setLaunchError(result.error ?? 'Emulator failed to start. Check the path in Settings.');
+        setLaunchStatus('error');
+      }
+    } catch (err) {
+      setLaunchError(String(err));
+      setLaunchStatus('error');
+    }
   }
 
   if (loading) {
@@ -165,7 +229,18 @@ export function GameDetailsPage() {
                 </span>
               )}
             </div>
-            <h1 className="text-2xl font-bold mb-2">{game.title}</h1>
+            <div className="flex items-center gap-2">
+              <h1 className="text-2xl font-bold mb-2 flex-1">{game.title}</h1>
+              <button
+                type="button"
+                onClick={handleToggleFavorite}
+                title={favorited ? 'Remove from favorites' : 'Add to favorites'}
+                className="text-xl pb-2 transition-transform hover:scale-110 active:scale-95 flex-shrink-0"
+                aria-label={favorited ? 'Remove from favorites' : 'Add to favorites'}
+              >
+                {favorited ? '⭐' : '☆'}
+              </button>
+            </div>
             <p className="text-sm" style={{ color: 'var(--color-oasis-text-muted)' }}>
               {game.description}
             </p>
@@ -308,18 +383,51 @@ export function GameDetailsPage() {
           </p>
         </div>
 
+        {/* Launch error banner */}
+        {launchStatus === 'error' && launchError && (
+          <div
+            className="mt-4 px-4 py-3 rounded-xl text-sm font-semibold"
+            style={{ backgroundColor: 'rgba(230,0,18,0.1)', border: '1px solid rgba(230,0,18,0.3)', color: '#f87171' }}
+          >
+            ⚠️ {launchError}
+          </div>
+        )}
+
         {/* Actions */}
-        <div className="flex gap-3 mt-6">
+        <div className="flex gap-3 mt-6 flex-wrap">
+          {/* Play Locally */}
+          <button
+            onClick={handleLaunchLocal}
+            disabled={launchStatus === 'launching'}
+            className="flex-1 py-3 rounded-xl font-bold transition-transform hover:scale-[1.02] active:scale-[0.98] disabled:opacity-50 min-w-[140px]"
+            style={{
+              backgroundColor: launchStatus === 'success'
+                ? '#16a34a'
+                : launchStatus === 'error'
+                ? 'rgba(230,0,18,0.7)'
+                : 'var(--color-oasis-surface)',
+              color: 'white',
+              border: '1px solid rgba(255,255,255,0.1)',
+            }}
+          >
+            {launchStatus === 'launching'
+              ? '⏳ Launching…'
+              : launchStatus === 'success'
+              ? '✓ Launched!'
+              : launchStatus === 'error'
+              ? '⚠️ Launch Failed'
+              : '▶ Play Locally'}
+          </button>
           <button
             onClick={() => setShowHost(true)}
-            className="flex-1 py-3 rounded-xl font-bold transition-transform hover:scale-[1.02] active:scale-[0.98]"
+            className="flex-1 py-3 rounded-xl font-bold transition-transform hover:scale-[1.02] active:scale-[0.98] min-w-[140px]"
             style={{ backgroundColor: 'var(--color-oasis-accent)', color: 'white' }}
           >
             🎮 Host Lobby
           </button>
           <Link
             to="/friends"
-            className="flex-1 py-3 rounded-xl font-bold transition-transform hover:scale-[1.02] active:scale-[0.98] flex items-center justify-center"
+            className="flex-1 py-3 rounded-xl font-bold transition-transform hover:scale-[1.02] active:scale-[0.98] flex items-center justify-center min-w-[140px]"
             style={{ backgroundColor: 'var(--color-oasis-surface)', color: 'var(--color-oasis-text)' }}
           >
             👥 Invite Friends

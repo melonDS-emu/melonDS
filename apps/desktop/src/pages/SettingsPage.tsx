@@ -21,6 +21,13 @@ import {
 } from '../lib/touch-calibration';
 import type { DsTouchCalibration } from '../lib/touch-calibration';
 import { tauriPickDirectory, isTauri } from '../lib/tauri-ipc';
+import {
+  EMULATOR_NAMES,
+  EMULATOR_DEFAULT_PATHS,
+  getEmulatorPath,
+  setEmulatorPath,
+  clearEmulatorPath,
+} from '../lib/emulator-settings';
 
 const SAVE_DIR_KEY = 'retro-oasis-save-directory';
 const DISPLAY_NAME_KEY = 'retro-oasis-display-name';
@@ -455,6 +462,42 @@ export function SettingsPage() {
   const [profileVersion, setProfileVersion] = useState(0);
   const handleProfileChange = useCallback(() => setProfileVersion((v) => v + 1), []);
 
+  // Emulator path drafts — local state for the editable inputs, flushed on blur/save
+  const [emulatorPathDrafts, setEmulatorPathDrafts] = useState<Record<string, string>>(
+    () => {
+      const result: Record<string, string> = {};
+      for (const id of Object.keys(EMULATOR_NAMES)) {
+        result[id] = getEmulatorPath(id) ?? '';
+      }
+      return result;
+    },
+  );
+  const [emulatorPathsSaved, setEmulatorPathsSaved] = useState(false);
+
+  function handleEmulatorPathChange(backendId: string, value: string) {
+    setEmulatorPathDrafts((prev) => ({ ...prev, [backendId]: value }));
+  }
+
+  function persistEmulatorPath(backendId: string, value: string) {
+    if (value.trim()) {
+      setEmulatorPath(backendId, value);
+    } else {
+      clearEmulatorPath(backendId);
+    }
+  }
+
+  function handleEmulatorPathBlur(backendId: string) {
+    persistEmulatorPath(backendId, emulatorPathDrafts[backendId] ?? '');
+  }
+
+  function handleSaveEmulatorPaths() {
+    for (const [id, val] of Object.entries(emulatorPathDrafts)) {
+      persistEmulatorPath(id, val);
+    }
+    setEmulatorPathsSaved(true);
+    setTimeout(() => setEmulatorPathsSaved(false), 3000);
+  }
+
   function handleSave(e: React.FormEvent) {
     e.preventDefault();
     setRomDirectory(romDir);
@@ -648,6 +691,65 @@ export function SettingsPage() {
 
       {/* DS Touch Input Calibration */}
       <DsTouchCalibrationPanel />
+
+      {/* Emulator Paths */}
+      <section className="mt-8 rounded-2xl p-5" style={{ backgroundColor: 'var(--color-oasis-card)' }}>
+        <h2 className="text-base font-bold mb-1" style={{ color: 'var(--color-oasis-text)' }}>
+          🎮 Emulator Paths
+        </h2>
+        <p className="text-xs mb-4" style={{ color: 'var(--color-oasis-text-muted)' }}>
+          Set the absolute path to each emulator executable. RetroOasis uses these paths when you click
+          "▶ Play Locally" on a game detail page. Leave a field blank to disable local launch for that system.
+        </p>
+
+        <div className="space-y-3">
+          {Object.entries(EMULATOR_NAMES).map(([backendId, displayName]) => (
+            <label key={backendId} className="block">
+              <span className="text-xs font-semibold mb-1 block" style={{ color: 'var(--color-oasis-text-muted)' }}>
+                {displayName}
+              </span>
+              <input
+                type="text"
+                value={emulatorPathDrafts[backendId] ?? ''}
+                onChange={(e) => handleEmulatorPathChange(backendId, e.target.value)}
+                onBlur={() => handleEmulatorPathBlur(backendId)}
+                placeholder={
+                  (EMULATOR_DEFAULT_PATHS[backendId] ?? [])[0] ??
+                  `/usr/bin/${backendId}`
+                }
+                className="w-full px-3 py-2 rounded-lg text-sm font-mono"
+                style={{
+                  backgroundColor: 'var(--color-oasis-surface)',
+                  color: 'var(--color-oasis-text)',
+                  border: '1px solid rgba(255,255,255,0.1)',
+                  outline: 'none',
+                }}
+              />
+              {(EMULATOR_DEFAULT_PATHS[backendId] ?? []).length > 0 && (
+                <p className="text-[10px] mt-0.5" style={{ color: 'var(--color-oasis-text-muted)', opacity: 0.6 }}>
+                  Common paths: {(EMULATOR_DEFAULT_PATHS[backendId] ?? []).join(' · ')}
+                </p>
+              )}
+            </label>
+          ))}
+        </div>
+
+        <div className="flex items-center gap-3 mt-4">
+          <button
+            type="button"
+            onClick={handleSaveEmulatorPaths}
+            className="px-6 py-2.5 rounded-xl text-sm font-bold transition-transform hover:scale-[1.02] active:scale-[0.98]"
+            style={{ backgroundColor: 'var(--color-oasis-accent)', color: 'white' }}
+          >
+            {emulatorPathsSaved ? '✓ Saved!' : 'Save Emulator Paths'}
+          </button>
+          {emulatorPathsSaved && (
+            <span className="text-xs" style={{ color: 'var(--color-oasis-text-muted)' }}>
+              Paths saved to local storage.
+            </span>
+          )}
+        </div>
+      </section>
     </div>
   );
 }

@@ -179,3 +179,79 @@ export async function tauriLaunchEmulator(opts: {
   });
   return (await res.json()) as TauriLaunchResult;
 }
+
+// ---------------------------------------------------------------------------
+// Command: launch_local
+// Single-player local launch — no netplay parameters required.
+// Tauri Rust signature: `#[tauri::command] fn launch_local(opts: LocalLaunchOpts)`
+// ---------------------------------------------------------------------------
+
+/**
+ * Launch an emulator for single-player / local play.
+ *
+ * Unlike `tauriLaunchEmulator` this requires no session token or netplay
+ * addresses. In Tauri it invokes the `launch_local` command directly;
+ * outside Tauri it falls back to `POST /api/launch/local`.
+ *
+ * @param emulatorPath - Absolute path to the emulator executable.
+ * @param romPath      - Absolute path to the ROM file.
+ * @param system       - System shortname (e.g. 'gba', 'nes').
+ * @param backendId    - Backend ID (e.g. 'mgba', 'fceux').
+ * @param saveDirectory - Optional directory for save files.
+ * @param fullscreen    - Launch in fullscreen mode (default false).
+ *
+ * @returns `{ success: true, pid }` on success, or `{ success: false, error }` on
+ *          failure where `error` is a human-readable message suitable for display
+ *          in the UI (e.g. "ROM file not found" or "executable not found at path").
+ */
+export async function tauriLaunchLocal(opts: {
+  emulatorPath: string;
+  romPath: string;
+  system: string;
+  backendId: string;
+  saveDirectory?: string;
+  fullscreen?: boolean;
+}): Promise<TauriLaunchResult> {
+  if (isTauri()) {
+    return tauriInvoke<TauriLaunchResult>('launch_local', opts as Record<string, unknown>);
+  }
+
+  const res = await fetch(`${API_BASE}/api/launch/local`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(opts),
+  });
+  if (!res.ok) {
+    return { success: false, error: `HTTP ${res.status}` };
+  }
+  return (await res.json()) as TauriLaunchResult;
+}
+
+// ---------------------------------------------------------------------------
+// Command: check_file_exists
+// Tauri Rust signature: `#[tauri::command] fn check_file_exists(path: String) -> bool`
+// ---------------------------------------------------------------------------
+
+/**
+ * Check whether a file exists at the given absolute path.
+ *
+ * In Tauri: invokes the native `check_file_exists` command.
+ * Fallback: calls `GET /api/fs/exists?path=<path>`.
+ *
+ * Returns true if the file exists, false otherwise.
+ */
+export async function tauriCheckFileExists(filePath: string): Promise<boolean> {
+  if (isTauri()) {
+    return tauriInvoke<boolean>('check_file_exists', { path: filePath });
+  }
+
+  try {
+    const params = new URLSearchParams({ path: filePath });
+    const res = await fetch(`${API_BASE}/api/fs/exists?${params}`);
+    if (!res.ok) return false;
+    const data = (await res.json()) as { exists: boolean };
+    return data.exists ?? false;
+  } catch {
+    return false;
+  }
+}
