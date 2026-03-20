@@ -455,6 +455,24 @@
 - [x] Phase 23 tests updated to use `toBeGreaterThanOrEqual` instead of exact counts (catalog is now 60 defs / 15 games)
 - [x] `roadmap.md` updated with Phase 24 milestones
 
+## Phase 25 — More Retro Achievements
+
+**Goal:** Expand retro achievement coverage to additional systems and classic titles supported by RetroAchievements.org, growing the catalog from 60 → 80 definitions across 20 games.
+
+### Phase 25a — Expanded Achievement Catalog
+- [x] 20 new achievement definitions across 5 games (4 each):
+  - `gbc-pokemon-crystal` — Pokémon Crystal (GBC): First Badge, Link Trade, Legendary Chase, Johto Champion
+  - `psp-monster-hunter-fu` — Monster Hunter Freedom Unite (PSP): First Hunt, Hunting Party, Rathalos Slayer, G-Rank Hunter
+  - `psx-castlevania-sotn` — Castlevania: Symphony of the Night (PSX): Dracula's Castle, Familiar Bond, Inverted Castle, True Ending
+  - `snes-secret-of-mana` — Secret of Mana (SNES): First Weapon, Multiplayer Adventure, Master of Arms, Mana Beast
+  - `psx-metal-gear-solid` — Metal Gear Solid (PSX): Sneaking Mission, Mind Reader, Pacifist, Big Boss Rank
+- [x] `gameIdToTitle` updated with 5 new game titles
+
+### Phase 25b — Tests & Docs
+- [x] Phase 24 catalog count tests updated to `toBeGreaterThanOrEqual` (catalog now 80 defs / 20 games)
+- [x] 20 unit tests in `phase-25.test.ts` — catalog integrity, new-game coverage, store behaviour, leaderboard
+- [x] `roadmap.md` updated with Phase 25 milestones
+
 ## Future Ideas
 - Tournament-style rooms
 - ~~Seasonal featured games~~ ✓ Phase 13

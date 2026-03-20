@@ -178,6 +178,12 @@ export function gameIdToTitle(gameId: string): string {
     '3ds-mario-kart-7': 'Mario Kart 7',
     'dc-sonic-adventure-2': 'Sonic Adventure 2',
     'ps2-gta-san-andreas': 'GTA: San Andreas',
+    // Phase 25 additions
+    'gbc-pokemon-crystal': 'Pokémon Crystal',
+    'psp-monster-hunter-fu': 'Monster Hunter Freedom Unite',
+    'psx-castlevania-sotn': 'Castlevania: Symphony of the Night',
+    'snes-secret-of-mana': 'Secret of Mana',
+    'psx-metal-gear-solid': 'Metal Gear Solid',
   };
   return TITLES[gameId] ?? gameId;
 }
