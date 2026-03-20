@@ -9,6 +9,7 @@ export type SupportedSystem =
   | 'nds'
   | 'gc'
   | 'wii'
+  | 'wiiu'
   | '3ds'
   | 'genesis'
   | 'dreamcast'
@@ -107,6 +108,15 @@ export const SYSTEM_INFO: Record<SupportedSystem, SystemInfo> = {
     maxLocalPlayers: 4,
     supportsLink: false,
     color: '#E4E4E4',
+  },
+  wiiu: {
+    id: 'wiiu',
+    name: 'Nintendo Wii U',
+    shortName: 'Wii U',
+    generation: 8,
+    maxLocalPlayers: 5,
+    supportsLink: false,
+    color: '#009AC7',
   },
   '3ds': {
     id: '3ds',

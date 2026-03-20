@@ -496,6 +496,38 @@
 - [x] 14 new unit tests in `phase-26.test.ts` — ring buffer eviction, draw outcome (global + per-game), GlobalChatStore ordering, NotificationStore unread count
 - [x] `roadmap.md` updated with Phase 26 milestones
 
+## Phase 27 — Nintendo Wii U Support & README Multi-Platform Update
+
+**Goal:** Add full Nintendo Wii U (Cemu) support and update the README to reflect that RetroOasis is a multi-platform retro gaming emulator — not just Nintendo — spanning the SMS era through the Wii U and 3DS.
+
+### Phase 27a — Wii U System
+
+- [x] `wiiu` added to `SupportedSystem` type in `packages/shared-types/src/systems.ts`
+- [x] `SYSTEM_INFO['wiiu']` — generation 8, 5 max local players, `#009AC7` color
+- [x] `cemu` backend added to `KNOWN_BACKENDS` in `packages/emulator-bridge/src/backends.ts`
+- [x] RetroArch `systems` list updated to include `wiiu`
+- [x] `wiiu` adapter added to `createSystemAdapter()` — Cemu `-g <rom>` launch args, relay-based netplay, RetroArch fallback
+- [x] 10 session templates: `wiiu-default-2p/4p`, `wiiu-mario-kart-8-4p`, `wiiu-super-smash-bros-wiiu-4p/8p`, `wiiu-new-super-mario-bros-u-4p`, `wiiu-nintendo-land-4p`, `wiiu-splatoon-4p`, `wiiu-pikmin-3-2p`, `wiiu-mario-party-10-4p`
+- [x] 9 mock games: Mario Kart 8, Super Smash Bros. for Wii U, New Super Mario Bros. U, Nintendo Land, Splatoon, Pikmin 3, Mario Party 10, DKC: Tropical Freeze, Bayonetta 2
+
+### Phase 27b — Desktop UI
+
+- [x] `WiiUPage.tsx` — lobby + leaderboard tabs, game grid with Quick Match / Host Room, asymmetric/co-op badges
+- [x] `/wiiu` route added to `App.tsx`
+- [x] `Wii U` nav item (⊞) added to `Layout.tsx` under Systems group
+
+### Phase 27c — README
+
+- [x] README tagline updated: "multiplayer-first retro gaming emulator platform — from the SMS to the Wii U"
+- [x] Description updated to mention Nintendo, SEGA, and Sony platforms
+- [x] Features list updated: mentions all 16 supported systems
+- [x] Supported Systems table expanded: all 16 systems with Manufacturer and Generation columns
+
+### Phase 27d — Tests
+
+- [x] 40 new unit tests in `phase-27.test.ts` — system type, Cemu backend, adapter launch args, session templates, mock games, no-duplicate regression
+- [x] `roadmap.md` updated with Phase 27 milestones
+
 
 - Tournament-style rooms
 - ~~Seasonal featured games~~ ✓ Phase 13
