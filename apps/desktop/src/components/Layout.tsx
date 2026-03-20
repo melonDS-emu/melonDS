@@ -28,6 +28,7 @@ const NAV_ITEMS = [
   { path: '/tournaments',   label: 'Tournaments',  icon: '◆',  group: 'more' },
   { path: '/clips',         label: 'Clips',        icon: '▶',  group: 'more' },
   { path: '/saves',         label: 'Saves',        icon: '◼',  group: 'more' },
+  { path: '/retro-achievements', label: 'Retro Achievements', icon: '🏅', group: 'more' },
   { path: '/profile',       label: 'Profile',      icon: '◙',  group: 'more' },
   { path: '/settings',      label: 'Settings',     icon: '✦',  group: 'more' },
 ];

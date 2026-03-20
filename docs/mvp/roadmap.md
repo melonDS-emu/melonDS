@@ -19,6 +19,7 @@
 > - Phase 19 Nintendo Wii (Dolphin) support is now complete: `wii` system type, Wii adapter with MotionPlus flag, 10 Wii game templates, 9 Wii mock games, `WiiPage` (`/wii`), 🐬 Wii nav item. 270 tests total.
 > - Phase 20 Debug & Polish is now complete: TypeScript `rootDir` fix (phase-18/19 tests now type-check cleanly), duplicate `n64-mario-party-2` mock-game entry removed, try/catch error isolation added to `send-dm`/`mark-dm-read`/`send-global-chat` handlers, `GameCubePage` (`/gc`) added with 9 GC games + Leaderboard tab, 🟣 GameCube nav item. 382 tests total.
 > - Phase 21 SEGA Genesis / Mega Drive is now complete: `genesis` system type, RetroArch + Genesis Plus GX adapter, 10 Genesis session templates, 9 Genesis mock games, `GenesisPage` (`/genesis`), 🔵 Genesis nav item. 427 tests total.
+> - Phase 23 Retro Achievement Support is now complete: `RetroAchievementStore` with 40 per-game achievements across 10 games, 6 REST endpoints (`/api/retro-achievements/*`), `RetroAchievementsPage` (`/retro-achievements`) with summary bar + game sidebar + badge grid, `🏅 Retro Achievements` nav item. 48 new tests (660 total).
 
 ## Phase 1 — Foundation (Complete)
 
@@ -386,6 +387,38 @@
 - [x] `/genesis` route added in `App.tsx`
 - [x] 45 unit tests in `phase-21.test.ts` (system type, RetroArch backend, adapter launch args, session templates, mock catalog, no-duplicate regression)
 - [x] `roadmap.md` updated with Phase 21 milestones
+
+## Phase 23 — Retro Achievement Support
+
+**Goal:** Add per-game retro achievement support inspired by RetroAchievements.org. Each supported game has a curated set of in-game milestones that players can unlock during netplay sessions.
+
+### Phase 23a — RetroAchievementStore
+- [x] `RetroAchievementStore` — in-memory store tracking per-game achievement definitions and per-player progress
+- [x] 40 achievement definitions across 10 games (4 per game): Mario Kart 64, Super Smash Bros. (N64), Mario Kart DS, Pokémon Diamond, Pokémon Emerald (GBA), Tetris (GB), Contra (NES), Sonic the Hedgehog 2 (Genesis), Crash Bandicoot (PSX), Super Bomberman (SNES)
+- [x] `unlock(playerId, achievementId, sessionId?)` — idempotent; returns def on first unlock or null if already earned / unknown
+- [x] `unlockMany(playerId, achievementIds[], sessionId?)` — batch unlock helper
+- [x] `getProgress(playerId)` — returns (or creates) `RetroPlayerProgress` with `earned[]` and `totalPoints`
+- [x] `getEarned(playerId, gameId?)` — earned achievements, optionally filtered to one game
+- [x] `getGameSummaries()` — per-game achievement count + total points
+
+### Phase 23b — REST API
+- [x] `GET  /api/retro-achievements` — all 40 definitions
+- [x] `GET  /api/retro-achievements/games` — per-game summaries
+- [x] `GET  /api/retro-achievements/games/:gameId` — definitions for a specific game (404 if unknown)
+- [x] `GET  /api/retro-achievements/player/:playerId` — player progress across all games
+- [x] `GET  /api/retro-achievements/player/:playerId/game/:gameId` — per-game progress
+- [x] `POST /api/retro-achievements/player/:playerId/game/:gameId/unlock` — unlock achievement; body `{ achievementId, sessionId? }`
+
+### Phase 23c — Frontend
+- [x] `retro-achievement-service.ts` — typed fetch helpers (`fetchRetroAchievementDefs`, `fetchRetroPlayerProgress`, `unlockRetroAchievement`, etc.)
+- [x] `RetroAchievementsPage` (`/retro-achievements`) — summary bar (earned/available, points, progress bar), game-list sidebar, achievement grid with locked/unlocked badges
+- [x] `🏅 Retro Achievements` nav item added to sidebar (More group)
+- [x] `/retro-achievements` route added in `App.tsx`
+
+### Phase 23d — Tests & Docs
+- [x] 48 unit tests in `phase-23.test.ts` covering all store methods, catalog integrity, cross-player isolation, edge cases
+- [x] `docs/status/phase-23-retro-achievements.md` — phase status and achievement catalog
+- [x] `roadmap.md` updated with Phase 23 milestones
 
 ## Future Ideas
 - Tournament-style rooms
