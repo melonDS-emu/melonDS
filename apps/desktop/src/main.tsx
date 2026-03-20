@@ -7,6 +7,14 @@ import { PresenceProvider } from './context/PresenceContext';
 import { ToastProvider } from './context/ToastContext';
 import './index.css';
 
+window.addEventListener('error', (event) => {
+  console.error('[app] Uncaught error:', event.error ?? event.message);
+});
+
+window.addEventListener('unhandledrejection', (event) => {
+  console.error('[app] Unhandled promise rejection:', event.reason);
+});
+
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
     <BrowserRouter>

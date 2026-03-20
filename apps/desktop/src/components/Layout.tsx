@@ -55,11 +55,12 @@ export function Layout() {
 
   useEffect(() => {
     if (!playerId) return;
+    const pid = playerId;
     let cancelled = false;
     const controller = new AbortController();
 
     function poll() {
-      fetch(`${BACKEND_URL}/api/notifications/${encodeURIComponent(playerId)}`, { signal: controller.signal })
+      fetch(`${BACKEND_URL}/api/notifications/${encodeURIComponent(pid)}`, { signal: controller.signal })
         .then((r) => r.json())
         .then((data: { notifications: Array<{ read: boolean }> }) => {
           if (!cancelled) {

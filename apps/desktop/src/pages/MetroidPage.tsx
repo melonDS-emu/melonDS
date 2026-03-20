@@ -262,8 +262,7 @@ function QuickMatchPanel({ displayName }: { displayName: string }) {
       system: 'nds',
       isPublic: true,
       maxPlayers: 2,
-      displayName,
-    });
+    }, displayName);
     setQueued(true);
     setStatus('No open match found — hosting a quick 1v1 and waiting for a challenger…');
   }

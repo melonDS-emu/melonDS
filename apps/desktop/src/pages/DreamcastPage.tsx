@@ -2,7 +2,6 @@ import { useState, useEffect, useCallback } from 'react';
 import { useLobby } from '../context/LobbyContext';
 import { HostRoomModal } from '../components/HostRoomModal';
 import { JoinRoomModal } from '../components/JoinRoomModal';
-import type { CreateRoomPayload } from '../services/lobby-types';
 
 // ---------------------------------------------------------------------------
 // Constants
@@ -245,20 +244,21 @@ function LeaderboardPanel() {
 // ---------------------------------------------------------------------------
 
 function LobbyPanel({ games }: { games: DreamcastGame[] }) {
-  const { rooms, displayName } = useLobby();
+  const { publicRooms, createRoom, joinByCode } = useLobby();
+  const displayName = localStorage.getItem('retro-oasis-display-name') ?? '';
   const [hostGame, setHostGame] = useState<DreamcastGame | null>(null);
   const [showJoin, setShowJoin] = useState(false);
   const [joinCode, setJoinCode] = useState('');
   const [notification, setNotification] = useState('');
 
   const openRoomsFor = useCallback(
-    (gameId: string) => rooms.filter((r) => r.gameId === gameId && r.status === 'waiting').length,
-    [rooms],
+    (gameId: string) => publicRooms.filter((r) => r.gameId === gameId && r.status === 'waiting').length,
+    [publicRooms],
   );
 
   const handleQuickMatch = useCallback(
     async (game: DreamcastGame) => {
-      const open = rooms.find((r) => r.gameId === game.id && r.status === 'waiting');
+      const open = publicRooms.find((r) => r.gameId === game.id && r.status === 'waiting');
       if (open) {
         setJoinCode(open.roomCode);
         setShowJoin(true);
@@ -268,17 +268,9 @@ function LobbyPanel({ games }: { games: DreamcastGame[] }) {
         setTimeout(() => setNotification(''), 3000);
       }
     },
-    [rooms],
+    [publicRooms],
   );
 
-  const buildPayload = useCallback(
-    (game: DreamcastGame): Partial<CreateRoomPayload> => ({
-      gameId: game.id,
-      system: 'dreamcast',
-      maxPlayers: game.maxPlayers,
-    }),
-    [],
-  );
 
   return (
     <div className="space-y-6">
@@ -313,13 +305,13 @@ function LobbyPanel({ games }: { games: DreamcastGame[] }) {
 
       {hostGame && (
         <HostRoomModal
-          open
+          preselectedGameId={hostGame.id}
+          onConfirm={(payload, dn) => { createRoom(payload, dn); setHostGame(null); }}
           onClose={() => setHostGame(null)}
-          initialPayload={buildPayload(hostGame)}
         />
       )}
       {showJoin && (
-        <JoinRoomModal open onClose={() => setShowJoin(false)} initialCode={joinCode} />
+        <JoinRoomModal onConfirm={(code, dn) => { joinByCode(code, dn); setShowJoin(false); }} onClose={() => setShowJoin(false)} initialCode={joinCode} />
       )}
     </div>
   );
