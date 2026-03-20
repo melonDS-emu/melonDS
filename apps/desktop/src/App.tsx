@@ -19,6 +19,7 @@ import { EventsPage } from './pages/EventsPage';
 import { CommunityPage } from './pages/CommunityPage';
 import { GlobalChatPage } from './pages/GlobalChatPage';
 import { NotificationsPage } from './pages/NotificationsPage';
+import { RetroAchievementsPage } from './pages/RetroAchievementsPage';
 import WiiPage from './pages/WiiPage';
 import GameCubePage from './pages/GameCubePage';
 import GenesisPage from './pages/GenesisPage';
@@ -57,6 +58,7 @@ export function App() {
         <Route path="/community" element={<CommunityPage />} />
         <Route path="/chat" element={<GlobalChatPage />} />
         <Route path="/notifications" element={<NotificationsPage />} />
+        <Route path="/retro-achievements" element={<RetroAchievementsPage />} />
       </Route>
     </Routes>
   );

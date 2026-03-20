@@ -34,6 +34,7 @@ import { activityFeed, recordReviewSubmitted } from './activity-feed';
 import { RankingStore, SqliteRankingStore } from './ranking-store';
 import { GlobalChatStore } from './global-chat-store';
 import { NotificationStore } from './notification-store';
+import { RetroAchievementStore } from './retro-achievement-store';
 
 const PORT = parseInt(process.env.PORT ?? '8080', 10);
 /** Public hostname/IP players use to reach the relay (surfaced in game-starting events). */
@@ -90,6 +91,7 @@ const rankingStore: RankingStore | SqliteRankingStore = USE_SQLITE
 
 const globalChatStore = new GlobalChatStore();
 const notificationStore = new NotificationStore();
+const retroAchievementStore = new RetroAchievementStore();
 
 /** Lazy reference to the WebSocketServer — set after server creation. */
 let wss: WebSocketServer | undefined;
@@ -1146,6 +1148,95 @@ async function httpHandler(req: http.IncomingMessage, res: http.ServerResponse):
       json(res, 200, { ok: true });
       return;
     }
+  }
+
+  // -------------------------------------------------------------------------
+  // Phase 23: Retro Achievement REST
+  //   GET  /api/retro-achievements                          — all defs
+  //   GET  /api/retro-achievements/games                    — game summaries
+  //   GET  /api/retro-achievements/games/:gameId            — defs for a game
+  //   GET  /api/retro-achievements/player/:playerId         — earned (all games)
+  //   GET  /api/retro-achievements/player/:playerId/game/:gameId — per-game progress
+  //   POST /api/retro-achievements/player/:playerId/game/:gameId/unlock — unlock one
+  // -------------------------------------------------------------------------
+
+  if (pathname === '/api/retro-achievements' && req.method === 'GET') {
+    json(res, 200, retroAchievementStore.getDefinitions());
+    return;
+  }
+
+  if (pathname === '/api/retro-achievements/games' && req.method === 'GET') {
+    json(res, 200, retroAchievementStore.getGameSummaries());
+    return;
+  }
+
+  const retroGameMatch = pathname.match(/^\/api\/retro-achievements\/games\/([^/]+)$/);
+  if (retroGameMatch && req.method === 'GET') {
+    const gameId = decodeURIComponent(retroGameMatch[1]);
+    const defs = retroAchievementStore.getGameDefinitions(gameId);
+    if (defs.length === 0) {
+      json(res, 404, { error: 'No achievements found for this game' });
+      return;
+    }
+    json(res, 200, defs);
+    return;
+  }
+
+  const retroPlayerAllMatch = pathname.match(/^\/api\/retro-achievements\/player\/([^/]+)$/);
+  if (retroPlayerAllMatch && req.method === 'GET') {
+    const pid = decodeURIComponent(retroPlayerAllMatch[1]);
+    const prog = retroAchievementStore.getProgress(pid);
+    json(res, 200, prog);
+    return;
+  }
+
+  const retroPlayerGameMatch = pathname.match(
+    /^\/api\/retro-achievements\/player\/([^/]+)\/game\/([^/]+)$/
+  );
+  if (retroPlayerGameMatch && req.method === 'GET') {
+    const pid = decodeURIComponent(retroPlayerGameMatch[1]);
+    const gid = decodeURIComponent(retroPlayerGameMatch[2]);
+    const earned = retroAchievementStore.getEarned(pid, gid);
+    const defs = retroAchievementStore.getGameDefinitions(gid);
+    json(res, 200, {
+      playerId: pid,
+      gameId: gid,
+      earned,
+      totalEarned: earned.length,
+      totalAvailable: defs.length,
+    });
+    return;
+  }
+
+  const retroUnlockMatch = pathname.match(
+    /^\/api\/retro-achievements\/player\/([^/]+)\/game\/([^/]+)\/unlock$/
+  );
+  if (retroUnlockMatch && req.method === 'POST') {
+    const pid = decodeURIComponent(retroUnlockMatch[1]);
+    let body: Record<string, unknown>;
+    try {
+      const raw = await readBody(req);
+      body = JSON.parse(raw) as Record<string, unknown>;
+    } catch {
+      json(res, 400, { error: 'Invalid JSON body' });
+      return;
+    }
+    const { achievementId, sessionId } = body as { achievementId?: string; sessionId?: string };
+    if (!achievementId || typeof achievementId !== 'string') {
+      json(res, 400, { error: '"achievementId" is required' });
+      return;
+    }
+    const unlocked = retroAchievementStore.unlock(
+      pid,
+      achievementId,
+      typeof sessionId === 'string' ? sessionId : undefined
+    );
+    if (!unlocked) {
+      json(res, 409, { error: 'Achievement already earned or unknown ID' });
+      return;
+    }
+    json(res, 200, { unlocked });
+    return;
   }
 
   json(res, 404, { error: 'Not found' });
