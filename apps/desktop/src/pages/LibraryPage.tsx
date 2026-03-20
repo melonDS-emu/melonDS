@@ -6,6 +6,8 @@ import { getRomDirectory } from '../lib/rom-settings';
 import { tauriScanRoms } from '../lib/tauri-ipc';
 import { setRomAssociation } from '../lib/rom-library';
 import { fuzzyMatchGameId } from '../lib/rom-fuzzy-match';
+import { getFavoriteIds } from '../lib/favorites-store';
+import { getRecentlyPlayed } from '../lib/recently-played';
 
 const SUCCESS_MESSAGE_DURATION_MS = 3000;
 const SYSTEMS = ['All', 'NES', 'SNES', 'GB', 'GBC', 'GBA', 'N64', 'NDS', 'GC', '3DS'];
@@ -26,6 +28,15 @@ export function LibraryPage() {
     system: selectedSystem !== 'All' ? selectedSystem : undefined,
     tag: selectedTag !== 'All' ? selectedTag : undefined,
   });
+
+  // Compute favorites + recently-played from localStorage
+  const favoriteIds = getFavoriteIds();
+  const recentIds = getRecentlyPlayed(8).map((e) => e.gameId);
+
+  const favoriteGames = allGames.filter((g) => favoriteIds.includes(g.id));
+  const recentGames = recentIds
+    .map((id) => allGames.find((g) => g.id === id))
+    .filter(Boolean) as typeof allGames;
 
   async function handleScan() {
     setScanStatus('scanning');
@@ -168,6 +179,40 @@ export function LibraryPage() {
           ))}
         </div>
       </div>
+
+      {/* ── Favorites section ── */}
+      {favoriteGames.length > 0 && selectedSystem === 'All' && selectedTag === 'All' && (
+        <section className="mb-8">
+          <p
+            className="text-[10px] font-black uppercase tracking-widest mb-3"
+            style={{ color: 'var(--color-oasis-text-muted)' }}
+          >
+            ⭐ Favorites
+          </p>
+          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
+            {favoriteGames.map((game) => (
+              <GameCard key={game.id} game={game} />
+            ))}
+          </div>
+        </section>
+      )}
+
+      {/* ── Recently Played section ── */}
+      {recentGames.length > 0 && selectedSystem === 'All' && selectedTag === 'All' && (
+        <section className="mb-8">
+          <p
+            className="text-[10px] font-black uppercase tracking-widest mb-3"
+            style={{ color: 'var(--color-oasis-text-muted)' }}
+          >
+            🕐 Recently Played
+          </p>
+          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
+            {recentGames.map((game) => (
+              <GameCard key={game.id} game={game} />
+            ))}
+          </div>
+        </section>
+      )}
 
       {/* ── Game grid ── */}
       <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
