@@ -22,6 +22,8 @@
 #include "NDS.h"
 #include "DSi.h"
 #include "ARM.h"
+#include "ARMv4.h"
+#include "ARMv5.h"
 #include "ARMInterpreter.h"
 #include "AREngine.h"
 #include "ARMJIT.h"
@@ -123,23 +125,6 @@ ARM::~ARM()
     // dorp
 }
 
-ARMv5::ARMv5(melonDS::NDS& nds, std::optional<GDBArgs> gdb, bool jit) : ARM(0, jit, gdb, nds)
-{
-    DTCM = NDS.JIT.Memory.GetARM9DTCM();
-
-    PU_Map = PU_PrivMap;
-}
-
-ARMv4::ARMv4(melonDS::NDS& nds, std::optional<GDBArgs> gdb, bool jit) : ARM(1, jit, gdb, nds)
-{
-    //
-}
-
-ARMv5::~ARMv5()
-{
-    // DTCM is owned by Memory, not going to delete it
-}
-
 void ARM::SetGdbArgs(std::optional<GDBArgs> gdb)
 {
 #ifdef GDBSTUB_ENABLED
@@ -199,13 +184,6 @@ void ARM::Reset()
 
     // zorp
     JumpTo(ExceptionBase);
-}
-
-void ARMv5::Reset()
-{
-    PU_Map = PU_PrivMap;
-
-    ARM::Reset();
 }
 
 
@@ -269,12 +247,6 @@ void ARM::DoSavestate(Savestate* file)
     }
 }
 
-void ARMv5::DoSavestate(Savestate* file)
-{
-    ARM::DoSavestate(file);
-    CP15DoSavestate(file);
-}
-
 
 void ARM::SetupCodeMem(u32 addr)
 {
@@ -288,119 +260,6 @@ void ARM::SetupCodeMem(u32 addr)
         // esp. as everything there generally runs on WRAM
         // and due to how it's mapped, we can't use this optimization
         //NDS::ARM7GetMemRegion(addr, false, &CodeMem);
-    }
-}
-
-void ARMv5::JumpTo(u32 addr, bool restorecpsr)
-{
-    if (restorecpsr)
-    {
-        RestoreCPSR();
-
-        if (CPSR & 0x20)    addr |= 0x1;
-        else                addr &= ~0x1;
-    }
-
-    // aging cart debug crap
-    //if (addr == 0x0201764C) printf("capture test %d: R1=%08X\n", R[6], R[1]);
-    //if (addr == 0x020175D8) printf("capture test %d: res=%08X\n", R[6], R[0]);
-
-    u32 oldregion = R[15] >> 24;
-    u32 newregion = addr >> 24;
-
-    RegionCodeCycles = MemTimings[addr >> 12][0];
-    Cycles += CodeCycles;
-
-    if (addr & 0x1)
-    {
-        addr &= ~0x1;
-        R[15] = addr+2;
-
-        if (newregion != oldregion) SetupCodeMem(addr);
-
-        // two-opcodes-at-once fetch
-        // doesn't matter if we put garbage in the MSbs there
-        if (addr & 0x2)
-        {
-            NextInstr[0] = CodeRead32(addr-2, true) >> 16;
-            Cycles += CodeCycles;
-            NextInstr[1] = CodeRead32(addr+2, false);
-            Cycles += CodeCycles;
-        }
-        else
-        {
-            NextInstr[0] = CodeRead32(addr, true);
-            NextInstr[1] = NextInstr[0] >> 16;
-            Cycles += CodeCycles;
-        }
-
-        CPSR |= 0x20;
-    }
-    else
-    {
-        addr &= ~0x3;
-        R[15] = addr+4;
-
-        if (newregion != oldregion) SetupCodeMem(addr);
-
-        NextInstr[0] = CodeRead32(addr, true);
-        Cycles += CodeCycles;
-        NextInstr[1] = CodeRead32(addr+4, false);
-        Cycles += CodeCycles;
-
-        CPSR &= ~0x20;
-    }
-
-    if (!(PU_Map[addr>>12] & 0x04))
-    {
-        PrefetchAbort();
-        return;
-    }
-
-    NDS.MonitorARM9Jump(addr);
-}
-
-void ARMv4::JumpTo(u32 addr, bool restorecpsr)
-{
-    if (restorecpsr)
-    {
-        RestoreCPSR();
-
-        if (CPSR & 0x20)    addr |= 0x1;
-        else                addr &= ~0x1;
-    }
-
-    u32 oldregion = R[15] >> 23;
-    u32 newregion = addr >> 23;
-
-    CodeRegion = addr >> 24;
-    CodeCycles = addr >> 15; // cheato
-
-    if (addr & 0x1)
-    {
-        addr &= ~0x1;
-        R[15] = addr+2;
-
-        //if (newregion != oldregion) SetupCodeMem(addr);
-
-        NextInstr[0] = CodeRead16(addr);
-        NextInstr[1] = CodeRead16(addr+2);
-        Cycles += NDS.ARM7MemTimings[CodeCycles][0] + NDS.ARM7MemTimings[CodeCycles][1];
-
-        CPSR |= 0x20;
-    }
-    else
-    {
-        addr &= ~0x3;
-        R[15] = addr+4;
-
-        //if (newregion != oldregion) SetupCodeMem(addr);
-
-        NextInstr[0] = CodeRead32(addr);
-        NextInstr[1] = CodeRead32(addr+4);
-        Cycles += NDS.ARM7MemTimings[CodeCycles][2] + NDS.ARM7MemTimings[CodeCycles][3];
-
-        CPSR &= ~0x20;
     }
 }
 
@@ -548,371 +407,12 @@ void ARM::TriggerIRQ()
     }
 }
 
-void ARMv5::PrefetchAbort()
-{
-    Log(LogLevel::Warn, "ARM9: prefetch abort (%08X)\n", R[15]);
-
-    u32 oldcpsr = CPSR;
-    CPSR &= ~0xBF;
-    CPSR |= 0x97;
-    UpdateMode(oldcpsr, CPSR);
-
-    // this shouldn't happen, but if it does, we're stuck in some nasty endless loop
-    // so better take care of it
-    if (!(PU_Map[ExceptionBase>>12] & 0x04))
-    {
-        Log(LogLevel::Error, "!!!!! EXCEPTION REGION NOT EXECUTABLE. THIS IS VERY BAD!!\n");
-        NDS.Stop(Platform::StopReason::BadExceptionRegion);
-        return;
-    }
-
-    R_ABT[2] = oldcpsr;
-    R[14] = R[15] + (oldcpsr & 0x20 ? 2 : 0);
-    JumpTo(ExceptionBase + 0x0C);
-}
-
-void ARMv5::DataAbort()
-{
-    Log(LogLevel::Warn, "ARM9: data abort (%08X)\n", R[15]);
-
-    u32 oldcpsr = CPSR;
-    CPSR &= ~0xBF;
-    CPSR |= 0x97;
-    UpdateMode(oldcpsr, CPSR);
-
-    R_ABT[2] = oldcpsr;
-    R[14] = R[15] + (oldcpsr & 0x20 ? 4 : 0);
-    JumpTo(ExceptionBase + 0x10);
-}
 
 void ARM::CheckGdbIncoming()
 {
     GdbCheckA();
 }
 
-template <CPUExecuteMode mode>
-void ARMv5::Execute()
-{
-    if constexpr (mode == CPUExecuteMode::InterpreterGDB)
-        GdbCheckB();
-
-    if (Halted)
-    {
-        if (Halted == 2)
-        {
-            Halted = 0;
-        }
-        else if (NDS.HaltInterrupted(0))
-        {
-            Halted = 0;
-            if (NDS.IME[0] & 0x1)
-                TriggerIRQ();
-        }
-        else
-        {
-            NDS.ARM9Timestamp = NDS.ARM9Target;
-            return;
-        }
-    }
-
-    while (NDS.ARM9Timestamp < NDS.ARM9Target)
-    {
-#ifdef JIT_ENABLED
-        if constexpr (mode == CPUExecuteMode::JIT)
-        {
-            u32 instrAddr = R[15] - ((CPSR&0x20)?2:4);
-
-            if ((instrAddr < FastBlockLookupStart || instrAddr >= (FastBlockLookupStart + FastBlockLookupSize))
-                && !NDS.JIT.SetupExecutableRegion(0, instrAddr, FastBlockLookup, FastBlockLookupStart, FastBlockLookupSize))
-            {
-                NDS.ARM9Timestamp = NDS.ARM9Target;
-                Log(LogLevel::Error, "ARMv5 PC in non executable region %08X\n", R[15]);
-                return;
-            }
-
-            JitBlockEntry block = NDS.JIT.LookUpBlock(0, FastBlockLookup,
-                instrAddr - FastBlockLookupStart, instrAddr);
-            if (block)
-                ARM_Dispatch(this, block);
-            else
-                NDS.JIT.CompileBlock(this);
-
-            if (StopExecution)
-            {
-                // this order is crucial otherwise idle loops waiting for an IRQ won't function
-                if (IRQ)
-                    TriggerIRQ();
-
-                if (Halted || IdleLoop)
-                {
-                    if ((Halted == 1 || IdleLoop) && NDS.ARM9Timestamp < NDS.ARM9Target)
-                    {
-                        Cycles = 0;
-                        NDS.ARM9Timestamp = NDS.ARM9Target;
-                    }
-                    IdleLoop = 0;
-                    break;
-                }
-            }
-        }
-        else
-#endif
-        {
-            if (CPSR & 0x20) // THUMB
-            {
-                if constexpr (mode == CPUExecuteMode::InterpreterGDB)
-                    GdbCheckC();
-
-                // prefetch
-                R[15] += 2;
-                CurInstr = NextInstr[0];
-                NextInstr[0] = NextInstr[1];
-                if (R[15] & 0x2) { NextInstr[1] >>= 16; CodeCycles = 1; }
-                else             NextInstr[1] = CodeRead32(R[15], false);
-
-                // actually execute
-                u32 icode = (CurInstr >> 6) & 0x3FF;
-                ARMInterpreter::THUMBInstrTable[icode](this);
-                if ((CurInstr&0xFFFF)==0x46C0)
-                    printf("instr %08X cycles = %d (%d) (%lld)\n", R[15], CodeCycles, Cycles, NDS.ARM9Timestamp);
-            }
-            else
-            {
-                if constexpr (mode == CPUExecuteMode::InterpreterGDB)
-                    GdbCheckC();
-
-                // prefetch
-                R[15] += 4;
-                CurInstr = NextInstr[0];
-                NextInstr[0] = NextInstr[1];
-                NextInstr[1] = CodeRead32(R[15], false);
-
-                // actually execute
-                if (CheckCondition(CurInstr >> 28))
-                {
-                    u32 icode = ((CurInstr >> 4) & 0xF) | ((CurInstr >> 16) & 0xFF0);
-                    ARMInterpreter::ARMInstrTable[icode](this);
-                }
-                else if ((CurInstr & 0xFE000000) == 0xFA000000)
-                {
-                    ARMInterpreter::A_BLX_IMM(this);
-                }
-                else
-                    AddCycles_C();
-            }
-
-            // TODO optimize this shit!!!
-            if (Halted)
-            {
-                if (Halted == 1 && NDS.ARM9Timestamp < NDS.ARM9Target)
-                {
-                    NDS.ARM9Timestamp = NDS.ARM9Target;
-                }
-                break;
-            }
-            /*if (NDS::IF[0] & NDS::IE[0])
-            {
-                if (NDS::IME[0] & 0x1)
-                    TriggerIRQ();
-            }*/
-            if (IRQ) TriggerIRQ();
-
-        }
-
-        NDS.ARM9Timestamp += Cycles;
-        Cycles = 0;
-    }
-
-    if (Halted == 2)
-        Halted = 0;
-}
-template void ARMv5::Execute<CPUExecuteMode::Interpreter>();
-template void ARMv5::Execute<CPUExecuteMode::InterpreterGDB>();
-#ifdef JIT_ENABLED
-template void ARMv5::Execute<CPUExecuteMode::JIT>();
-#endif
-
-template <CPUExecuteMode mode>
-void ARMv4::Execute()
-{
-    if constexpr (mode == CPUExecuteMode::InterpreterGDB)
-        GdbCheckB();
-
-    if (Halted)
-    {
-        if (Halted == 2)
-        {
-            Halted = 0;
-        }
-        else if (NDS.HaltInterrupted(1))
-        {
-            Halted = 0;
-            if (NDS.IME[1] & 0x1)
-                TriggerIRQ();
-        }
-        else
-        {
-            NDS.ARM7Timestamp = NDS.ARM7Target;
-            return;
-        }
-    }
-
-    while (NDS.ARM7Timestamp < NDS.ARM7Target)
-    {
-#ifdef JIT_ENABLED
-        if constexpr (mode == CPUExecuteMode::JIT)
-        {
-            u32 instrAddr = R[15] - ((CPSR&0x20)?2:4);
-
-            if ((instrAddr < FastBlockLookupStart || instrAddr >= (FastBlockLookupStart + FastBlockLookupSize))
-                && !NDS.JIT.SetupExecutableRegion(1, instrAddr, FastBlockLookup, FastBlockLookupStart, FastBlockLookupSize))
-            {
-                NDS.ARM7Timestamp = NDS.ARM7Target;
-                Log(LogLevel::Error, "ARMv4 PC in non executable region %08X\n", R[15]);
-                return;
-            }
-
-            JitBlockEntry block = NDS.JIT.LookUpBlock(1, FastBlockLookup,
-                instrAddr - FastBlockLookupStart, instrAddr);
-            if (block)
-                ARM_Dispatch(this, block);
-            else
-                NDS.JIT.CompileBlock(this);
-
-            if (StopExecution)
-            {
-                if (IRQ)
-                    TriggerIRQ();
-
-                if (Halted || IdleLoop)
-                {
-                    if ((Halted == 1 || IdleLoop) && NDS.ARM7Timestamp < NDS.ARM7Target)
-                    {
-                        Cycles = 0;
-                        NDS.ARM7Timestamp = NDS.ARM7Target;
-                    }
-                    IdleLoop = 0;
-                    break;
-                }
-            }
-        }
-        else
-#endif
-        {
-            if (CPSR & 0x20) // THUMB
-            {
-                if constexpr (mode == CPUExecuteMode::InterpreterGDB)
-                    GdbCheckC();
-
-                // prefetch
-                R[15] += 2;
-                CurInstr = NextInstr[0];
-                NextInstr[0] = NextInstr[1];
-                NextInstr[1] = CodeRead16(R[15]);
-
-                // actually execute
-                u32 icode = (CurInstr >> 6);
-                ARMInterpreter::THUMBInstrTable[icode](this);
-            }
-            else
-            {
-                if constexpr (mode == CPUExecuteMode::InterpreterGDB)
-                    GdbCheckC();
-
-                // prefetch
-                R[15] += 4;
-                CurInstr = NextInstr[0];
-                NextInstr[0] = NextInstr[1];
-                NextInstr[1] = CodeRead32(R[15]);
-
-                // actually execute
-                if (CheckCondition(CurInstr >> 28))
-                {
-                    u32 icode = ((CurInstr >> 4) & 0xF) | ((CurInstr >> 16) & 0xFF0);
-                    ARMInterpreter::ARMInstrTable[icode](this);
-                }
-                else
-                    AddCycles_C();
-            }
-
-            // TODO optimize this shit!!!
-            if (Halted)
-            {
-                if (Halted == 1 && NDS.ARM7Timestamp < NDS.ARM7Target)
-                {
-                    NDS.ARM7Timestamp = NDS.ARM7Target;
-                }
-                break;
-            }
-            /*if (NDS::IF[1] & NDS::IE[1])
-            {
-                if (NDS::IME[1] & 0x1)
-                    TriggerIRQ();
-            }*/
-            if (IRQ) TriggerIRQ();
-        }
-
-        NDS.ARM7Timestamp += Cycles;
-        Cycles = 0;
-    }
-
-    if (Halted == 2)
-        Halted = 0;
-
-    if (Halted == 4)
-    {
-        assert(NDS.ConsoleType == 1);
-        auto& dsi = dynamic_cast<melonDS::DSi&>(NDS);
-        dsi.SoftReset();
-        Halted = 2;
-    }
-}
-
-template void ARMv4::Execute<CPUExecuteMode::Interpreter>();
-template void ARMv4::Execute<CPUExecuteMode::InterpreterGDB>();
-#ifdef JIT_ENABLED
-template void ARMv4::Execute<CPUExecuteMode::JIT>();
-#endif
-
-void ARMv5::FillPipeline()
-{
-    SetupCodeMem(R[15]);
-
-    if (CPSR & 0x20)
-    {
-        if ((R[15] - 2) & 0x2)
-        {
-            NextInstr[0] = CodeRead32(R[15] - 4, false) >> 16;
-            NextInstr[1] = CodeRead32(R[15], false);
-        }
-        else
-        {
-            NextInstr[0] = CodeRead32(R[15] - 2, false);
-            NextInstr[1] = NextInstr[0] >> 16;
-        }
-    }
-    else
-    {
-        NextInstr[0] = CodeRead32(R[15] - 4, false);
-        NextInstr[1] = CodeRead32(R[15], false);
-    }
-}
-
-void ARMv4::FillPipeline()
-{
-    SetupCodeMem(R[15]);
-
-    if (CPSR & 0x20)
-    {
-        NextInstr[0] = CodeRead16(R[15] - 2);
-        NextInstr[1] = CodeRead16(R[15]);
-    }
-    else
-    {
-        NextInstr[0] = CodeRead32(R[15] - 4);
-        NextInstr[1] = CodeRead32(R[15]);
-    }
-}
 
 #ifdef GDBSTUB_ENABLED
 u32 ARM::ReadReg(Gdb::Register reg)
@@ -1049,18 +549,35 @@ void ARM::WriteReg(Gdb::Register reg, u32 v)
 }
 u32 ARM::ReadMem(u32 addr, int size)
 {
-    MemInfo dummy;
-    if (size == 8) return BusRead8(addr);
-    else if (size == 16) return BusRead16(addr);
-    else if (size == 32) return BusRead32(addr);
-    else return 0xfeedface;
+    if (Num == 0)
+    {
+        if (size == 8) return NDS.ARM9Read8(addr);
+        else if (size == 16) return NDS.ARM9Read16(addr);
+        else if (size == 32) return NDS.ARM9Read32(addr);
+        else return 0xfeedface;
+    }
+    else
+    {
+        if (size == 8) return NDS.ARM7Read8(addr);
+        else if (size == 16) return NDS.ARM7Read16(addr);
+        else if (size == 32) return NDS.ARM7Read32(addr);
+        else return 0xfeedface;
+    }
 }
 void ARM::WriteMem(u32 addr, int size, u32 v)
 {
-    MemInfo dummy;
-    if (size == 8) BusWrite8(addr, (u8)v);
-    else if (size == 16) BusWrite16(addr, (u16)v);
-    else if (size == 32) BusWrite32(addr, v);
+    if (Num == 0)
+    {
+        if (size == 8) NDS.ARM9Write8(addr, (u8) v);
+        else if (size == 16) NDS.ARM9Write16(addr, (u16) v);
+        else if (size == 32) NDS.ARM9Write32(addr, v);
+    }
+    else
+    {
+        if (size == 8) NDS.ARM7Write8(addr, (u8) v);
+        else if (size == 16) NDS.ARM7Write16(addr, (u16) v);
+        else if (size == 32) NDS.ARM7Write32(addr, v);
+    }
 }
 
 void ARM::ResetGdb()
@@ -1082,223 +599,6 @@ int ARM::RemoteCmd(const u8* cmd, size_t len)
     return 1; // not implemented (yet)
 }
 
-void ARMv5::WriteMem(u32 addr, int size, u32 v)
-{
-    if (addr < ITCMSize)
-    {
-        if (size == 8) *(u8*)&ITCM[addr & (ITCMPhysicalSize - 1)] = (u8)v;
-        else if (size == 16) *(u16*)&ITCM[addr & (ITCMPhysicalSize - 1)] = (u16)v;
-        else if (size == 32) *(u32*)&ITCM[addr & (ITCMPhysicalSize - 1)] = (u32)v;
-        else {}
-        return;
-    }
-    else if ((addr & DTCMMask) == DTCMBase)
-    {
-        if (size == 8) *(u8*)&DTCM[addr & (DTCMPhysicalSize - 1)] = (u8)v;
-        else if (size == 16) *(u16*)&DTCM[addr & (DTCMPhysicalSize - 1)] = (u16)v;
-        else if (size == 32) *(u32*)&DTCM[addr & (DTCMPhysicalSize - 1)] = (u32)v;
-        else {}
-        return;
-    }
-
-    ARM::WriteMem(addr, size, v);
-}
-u32 ARMv5::ReadMem(u32 addr, int size)
-{
-    if (addr < ITCMSize)
-    {
-        if (size == 8) return *(u8*)&ITCM[addr & (ITCMPhysicalSize - 1)];
-        else if (size == 16) return *(u16*)&ITCM[addr & (ITCMPhysicalSize - 1)];
-        else if (size == 32) return *(u32*)&ITCM[addr & (ITCMPhysicalSize - 1)];
-        else return 0xfeedface;
-    }
-    else if ((addr & DTCMMask) == DTCMBase)
-    {
-        if (size == 8) return *(u8*)&DTCM[addr & (DTCMPhysicalSize - 1)];
-        else if (size == 16) return *(u16*)&DTCM[addr & (DTCMPhysicalSize - 1)];
-        else if (size == 32) return *(u32*)&DTCM[addr & (DTCMPhysicalSize - 1)];
-        else return 0xfeedface;
-    }
-
-    return ARM::ReadMem(addr, size);
-}
 #endif
 
-void ARMv4::DataRead8(const u32 addr, u32* val)
-{
-    *val = BusRead8(addr);
-    DataRegion = addr;
-    DataCycles = NDS.ARM7MemTimings[addr >> 15][0];
 }
-
-void ARMv4::DataRead16(const u32 addr, u32* val)
-{
-    *val = BusRead16(addr & ~1);
-    DataRegion = addr;
-    DataCycles = NDS.ARM7MemTimings[addr >> 15][0];
-}
-
-void ARMv4::DataRead32(const u32 addr, u32* val)
-{
-    *val = BusRead32(addr & ~3);
-    DataRegion = addr;
-    DataCycles = NDS.ARM7MemTimings[addr >> 15][2];
-}
-
-void ARMv4::DataRead32S(const u32 addr, u32* val)
-{
-    *val = BusRead32(addr & ~3);
-    DataCycles += NDS.ARM7MemTimings[addr >> 15][3];
-}
-
-void ARMv4::DataWrite8(const u32 addr, const u8 val)
-{
-    BusWrite8(addr, val);
-    DataRegion = addr;
-    DataCycles = NDS.ARM7MemTimings[addr >> 15][0];
-}
-
-void ARMv4::DataWrite16(const u32 addr, const u16 val)
-{
-    BusWrite16(addr & ~1, val);
-    DataRegion = addr;
-    DataCycles = NDS.ARM7MemTimings[addr >> 15][0];
-}
-
-void ARMv4::DataWrite32(const u32 addr, const u32 val)
-{
-    BusWrite32(addr & ~3, val);
-    DataRegion = addr;
-    DataCycles = NDS.ARM7MemTimings[addr >> 15][2];
-}
-
-void ARMv4::DataWrite32S(const u32 addr, const u32 val)
-{
-    BusWrite32(addr & ~3, val);
-    DataCycles += NDS.ARM7MemTimings[addr >> 15][3];
-}
-
-
-void ARMv4::AddCycles_C()
-{
-    // code only. this code fetch is sequential.
-    Cycles += NDS.ARM7MemTimings[CodeCycles][(CPSR&0x20)?1:3];
-}
-
-void ARMv4::AddCycles_CI(s32 num)
-{
-    // code+internal. results in a nonseq code fetch.
-    Cycles += NDS.ARM7MemTimings[CodeCycles][(CPSR&0x20)?0:2] + num;
-}
-
-void ARMv4::AddCycles_CDI()
-{
-    // LDR/LDM cycles.
-    s32 numC = NDS.ARM7MemTimings[CodeCycles][(CPSR&0x20)?0:2];
-    s32 numD = DataCycles;
-
-    if ((DataRegion >> 24) == 0x02) // mainRAM
-    {
-        if (CodeRegion == 0x02)
-            Cycles += numC + numD;
-        else
-        {
-            numC++;
-            Cycles += std::max(numC + numD - 3, std::max(numC, numD));
-        }
-    }
-    else if (CodeRegion == 0x02)
-    {
-        numD++;
-        Cycles += std::max(numC + numD - 3, std::max(numC, numD));
-    }
-    else
-    {
-        Cycles += numC + numD + 1;
-    }
-}
-
-void ARMv4::AddCycles_CD()
-{
-    // TODO: max gain should be 5c when writing to mainRAM
-    s32 numC = NDS.ARM7MemTimings[CodeCycles][(CPSR&0x20)?0:2];
-    s32 numD = DataCycles;
-
-    if ((DataRegion >> 24) == 0x02)
-    {
-        if (CodeRegion == 0x02)
-            Cycles += numC + numD;
-        else
-            Cycles += std::max(numC + numD - 3, std::max(numC, numD));
-    }
-    else if (CodeRegion == 0x02)
-    {
-        Cycles += std::max(numC + numD - 3, std::max(numC, numD));
-    }
-    else
-    {
-        Cycles += numC + numD;
-    }
-}
-
-u8 ARMv5::BusRead8(u32 addr)
-{
-    return NDS.ARM9Read8(addr);
-}
-
-u16 ARMv5::BusRead16(u32 addr)
-{
-    return NDS.ARM9Read16(addr);
-}
-
-u32 ARMv5::BusRead32(u32 addr)
-{
-    return NDS.ARM9Read32(addr);
-}
-
-void ARMv5::BusWrite8(u32 addr, u8 val)
-{
-    NDS.ARM9Write8(addr, val);
-}
-
-void ARMv5::BusWrite16(u32 addr, u16 val)
-{
-    NDS.ARM9Write16(addr, val);
-}
-
-void ARMv5::BusWrite32(u32 addr, u32 val)
-{
-    NDS.ARM9Write32(addr, val);
-}
-
-u8 ARMv4::BusRead8(u32 addr)
-{
-    return NDS.ARM7Read8(addr);
-}
-
-u16 ARMv4::BusRead16(u32 addr)
-{
-    return NDS.ARM7Read16(addr);
-}
-
-u32 ARMv4::BusRead32(u32 addr)
-{
-    return NDS.ARM7Read32(addr);
-}
-
-void ARMv4::BusWrite8(u32 addr, u8 val)
-{
-    NDS.ARM7Write8(addr, val);
-}
-
-void ARMv4::BusWrite16(u32 addr, u16 val)
-{
-    NDS.ARM7Write16(addr, val);
-}
-
-void ARMv4::BusWrite32(u32 addr, u32 val)
-{
-    NDS.ARM7Write32(addr, val);
-}
-}
-
