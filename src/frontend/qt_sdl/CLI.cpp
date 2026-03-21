@@ -19,7 +19,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-
+#include <QDebug>
 #include <QApplication>
 #include <QCommandLineParser>
 #include <QStringList>
@@ -60,45 +60,49 @@ CommandLineOptions* ManageArgs(QApplication& melon)
     QStringList posargs = parser.positionalArguments();
 
     options->fullscreen = parser.isSet("fullscreen");
-
+    options->headless = false;
     if (parser.isSet("xt")){
         if (posargs.size() == 2){
-            exit(0);
+            return options;
         } else if (posargs.size() == 1){
-            exit(0);
+            return options;
         } else {
             Log(LogLevel::Error, "Error: Incorrect amount of arguments\n");
             exit(1);
         }
     } else if (parser.isSet("xgt")){
         if (posargs.size() == 1){
-            exit(0);
+            return options;
         } else {
             Log(LogLevel::Error, "Error: Incorrect amount of arguments\n");
             exit(1);
         }
     } else if (parser.isSet("xgc")){
         if (posargs.size() == 1){
-            exit(0);
+            qDebug() << "Entered xgc";
+            options->headless = true;
+            options->dsRomPath = posargs[0];
+            return options;
         } else {
             Log(LogLevel::Error, "Error: Incorrect amount of arguments\n");
             exit(1);
         }
     } else if (parser.isSet("xi")){
         if (posargs.size() == 1){
-            exit(0);
+            return options;
         } else {
             Log(LogLevel::Error, "Error: Incorrect amount of arguments\n");
             exit(1);
         }
     } else if (parser.isSet("xai")){
         if (posargs.size() == 1){
-            exit(0);
+            return options;
         } else {
             Log(LogLevel::Error, "Error: Incorrect amount of arguments\n");
             exit(1);
         }
     }
+    options->boot = false;
 
     switch (posargs.size())
     {

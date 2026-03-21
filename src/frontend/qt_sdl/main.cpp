@@ -24,6 +24,7 @@
 #include <optional>
 #include <string>
 
+#include <QDebug>
 #include <QApplication>
 #include <QStyle>
 #include <QMessageBox>
@@ -387,8 +388,27 @@ int main(int argc, char** argv)
         const QStringList gbafile = prepareRomPath(options->gbaRomPath, options->gbaRomArchivePath);
 
         if (memberSyntaxUsed) printf("Warning: use the a.zip|b.nds format at your own risk!\n");
-
-        win->preloadROMs(dsfile, gbafile, options->boot);
+        if (options->headless){
+            qDebug() << "Launched Headless";
+            win->preloadROMs(dsfile, gbafile, false);
+            NDSCart::CartCommon* cart = win->getEmuInstance()->getNDS()->NDSCartSlot.GetCart();
+            NDSHeader& header = cart->GetHeader();
+            const NDSBanner* banner = cart->Banner();
+            
+            // QString::fromUtf16(banner->JapaneseTitle);
+            // QString::fromUtf16(banner->EnglishTitle);
+            // QString::fromUtf16(banner->FrenchTitle);
+            // QString::fromUtf16(banner->GermanTitle);
+            // QString::fromUtf16(banner->ItalianTitle);
+            // QString::fromUtf16(banner->SpanishTitle);
+            // QString::fromLatin1(header.GameTitle, 12);
+            // QString::fromLatin1(header.GameCode, 4);
+            // qDebug() << QString::fromLatin1(header.GameCode, 4);
+            // exit(0);
+        } else {
+            qDebug() << "Launched GUI";
+            win->preloadROMs(dsfile, gbafile, options->boot);
+        }
 
         if (options->fullscreen)
             win->toggleFullscreen();
