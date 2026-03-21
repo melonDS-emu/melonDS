@@ -116,6 +116,17 @@ export interface PresencePlayer {
   status: 'online' | 'in-lobby' | 'in-game';
 }
 
+/** Phase 6: shared shape for a game lobby invite */
+export interface LobbyInvite {
+  id: string;
+  fromPlayerId: string;
+  fromDisplayName: string;
+  roomCode: string;
+  gameTitle: string;
+  sentAt: string;
+  expiresAt: string;
+}
+
 /** Messages from server to client */
 export type ServerMessage =
   | { type: 'room-created'; room: Room; ownerToken: string }
@@ -152,7 +163,7 @@ export type ServerMessage =
   /** Phase 24: retro achievement unlocked */
   | { type: 'retro-achievement-unlocked'; achievementId: string; title: string; description: string; badge: string; points: number }
   /** Phase 6: invite events */
-  | { type: 'invite-received'; invite: { id: string; fromPlayerId: string; fromDisplayName: string; roomCode: string; gameTitle: string; sentAt: string; expiresAt: string } }
-  | { type: 'invite-sent'; invite: { id: string; fromPlayerId: string; fromDisplayName: string; roomCode: string; gameTitle: string; sentAt: string; expiresAt: string } }
+  | { type: 'invite-received'; invite: LobbyInvite }
+  | { type: 'invite-sent'; invite: LobbyInvite }
   /** Phase 6: privacy settings confirmed */
   | { type: 'privacy-updated'; settings: { playerId: string; showOnline: boolean; allowInvites: boolean; showActivity: boolean; updatedAt: string } };

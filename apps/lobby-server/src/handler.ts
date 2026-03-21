@@ -438,7 +438,6 @@ export function handleConnection(
 
         // Phase 6: record recent players for every participant in this session
         if (phase8?.recentPlayers) {
-          const senderPersistentId = sessionToPersistentId.get(playerId);
           for (const player of room.players) {
             const ownerPid = sessionToPersistentId.get(player.id) ?? player.id;
             for (const other of room.players) {
@@ -453,7 +452,6 @@ export function handleConnection(
               );
             }
           }
-          void senderPersistentId; // suppress unused warning
         }
 
         broadcastPresence(lobby, connections);

@@ -99,6 +99,17 @@ export interface JoinRoomPayload {
   displayName: string;
 }
 
+/** Phase 6: shared shape for a game lobby invite */
+export interface LobbyInvite {
+  id: string;
+  fromPlayerId: string;
+  fromDisplayName: string;
+  roomCode: string;
+  gameTitle: string;
+  sentAt: string;
+  expiresAt: string;
+}
+
 /** Messages received from server */
 export type ServerMessage =
   | { type: 'welcome'; playerId: string }
@@ -128,8 +139,8 @@ export type ServerMessage =
   /** Phase 17: global chat */
   | { type: 'global-chat-message'; id: string; playerId: string; displayName: string; text: string; timestamp: string }
   /** Phase 6: invite events + privacy */
-  | { type: 'invite-received'; invite: { id: string; fromPlayerId: string; fromDisplayName: string; roomCode: string; gameTitle: string; sentAt: string; expiresAt: string } }
-  | { type: 'invite-sent'; invite: { id: string; fromPlayerId: string; fromDisplayName: string; roomCode: string; gameTitle: string; sentAt: string; expiresAt: string } }
+  | { type: 'invite-received'; invite: LobbyInvite }
+  | { type: 'invite-sent'; invite: LobbyInvite }
   | { type: 'privacy-updated'; settings: { playerId: string; showOnline: boolean; allowInvites: boolean; showActivity: boolean; updatedAt: string } }
   /** Phase 8: identity confirmed */
   | { type: 'identity-confirmed'; persistentId: string; displayName: string }
