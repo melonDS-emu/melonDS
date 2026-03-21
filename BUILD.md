@@ -21,7 +21,7 @@
    ```
 3. Compile:
    ```bash
-   cmake -B build
+   cmake -B build -DCMAKE_EXPORT_COMPILE_COMMANDS=ON
    cmake --build build -j$(nproc --all)
    ```
 
@@ -45,11 +45,11 @@
 6. Install Qt and configure the build directory
    * Dynamic builds (with DLLs)
      1. Install Qt: `pacman -S <prefix>-{qt6-base,qt6-svg,qt6-multimedia,qt6-svg,qt6-tools}`
-     2. Set up the build directory with `cmake -B build`
+     2. Set up the build directory with `cmake -B build -DCMAKE_EXPORT_COMPILE_COMMANDS=ON`
    * Static builds (without DLLs, standalone executable)
      1. Install Qt: `pacman -S <prefix>-qt5-static`  
         (Note: As of writing, the `qt6-static` package does not work.)
-     2. Set up the build directory with `cmake -B build -DBUILD_STATIC=ON -DUSE_QT6=OFF -DCMAKE_PREFIX_PATH=$MSYSTEM_PREFIX/qt5-static`
+     2. Set up the build directory with `cmake -B build -DBUILD_STATIC=ON -DUSE_QT6=OFF -DCMAKE_PREFIX_PATH=$MSYSTEM_PREFIX/qt5-static -DCMAKE_EXPORT_COMPILE_COMMANDS=ON`
 7. Compile: `cmake --build build`
 
 If everything went well, melonDS should now be in the `build` folder. For dynamic builds, you may need to run melonDS from the MSYS2 terminal in order for it to find the required DLLs.
@@ -64,7 +64,7 @@ If everything went well, melonDS should now be in the `build` folder. For dynami
    ```
 4. Compile:
    ```zsh
-   cmake -B build -DCMAKE_PREFIX_PATH="$(brew --prefix qt@6);$(brew --prefix libarchive)"
+   cmake -B build -DCMAKE_PREFIX_PATH="$(brew --prefix qt@6);$(brew --prefix libarchive)" -DCMAKE_EXPORT_COMPILE_COMMANDS=ON
    cmake --build build -j$(sysctl -n hw.logicalcpu)
    ```
 If everything went well, melonDS.app should now be in the `build` directory.
@@ -79,3 +79,20 @@ melonDS provides a Nix flake with support for both macOS and Linux. The [Nix pac
 
 * To run melonDS, just type `nix run github:melonDS-emu/melonDS`.
 * To get a shell for development, clone the melonDS repository and type `nix develop` in its directory.
+
+# Setting Up Environment
+* [VS Code](#vs-code)
+* [Qt Creator](#qt-creator)
+
+## VS Code
+Before doing this, you need the "C/C++" extension. If you have CMake Tools, it's recommended to disable it to prevent it from building incorrectly. Then open the melonDS folder.
+
+1. Open the Command Palette
+2. Type "C/C++: Edit Configurations (UI)" and open it.
+3. Change "Compiler Path" to your G++ Compiler
+4. Change "IntelliSense mode" to gcc for your OS and architecture
+5. Open the "Advanced Settings" and under "Compile Commands", paste the full path to build/compile_commands.json
+6. Close and Relaunch VS Code
+
+## Qt Creator
+Before doing this, disabled autorun cmake: Edit -> Preferences -> CMake -> Uncheck "Autorun Cmake".
