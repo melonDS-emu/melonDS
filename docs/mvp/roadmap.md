@@ -9,6 +9,7 @@
 > - Phase 7 (Input & Couch-Friendliness) is now complete: `controller-detection.ts` (Gamepad API wrapper — hot-plug events, `detectGamepadType`, `getConnectedGamepads`), `slot-assignment.ts` (per-player gamepad ↔ slot mapping, `autoAssignSlots`, localStorage persistence), `preflight-validator.ts` (`validateInputConfig` — errors for missing/disconnected gamepads, warning for keyboard sharing). Default input profiles added for 7 new systems: Wii, Wii U, Genesis, Dreamcast, PSX, PS2, PSP (21 new profiles × 3 controller types). `InputProfileManager` now loads all 16 systems (48 default profiles). 32 new tests (172 desktop total).
 > - Phase 6 (Social) Presence, Invites & Social Glue are now complete: `RecentPlayersStore` + `SqliteRecentPlayersStore` (track co-players, max 50 per user), `PlayerPrivacyStore` + `SqlitePlayerPrivacyStore` (showOnline/allowInvites/showActivity toggles), WS `send-invite` → `invite-received` with privacy guard, WS `set-privacy` → `privacy-updated`, REST `GET/DELETE /api/players/:id/recent`, REST `GET/PUT /api/players/:id/privacy`, recent-players tracked on game-start, FriendsPage updated with Incoming Invites, Recent Players, Invite buttons, and Privacy Settings panel. 23 new tests (790 total).
 > - Phase 8 SQLite persistence, friend system, matchmaking queue, player identity, and enhanced session stats are now complete. Set `DB_PATH` env var to enable persistence across restarts.
+> - Phase 8 System Expansion UX is now complete: `performancePreset` ('fast'/'balanced'/'accurate') and `compatibilityFlags` added to `AdapterOptions`; N64 Mupen64Plus maps preset to `--emumode 0/1/2`; 33 golden-list games added (NES×8, SNES×6, GB×5, GBC×3, GBA×7, N64×4); dedicated system pages `NESPage` (`/nes`), `SNESPage` (`/snes`), `GBAPage` (`/gba` — covers GB+GBC+GBA with system filter), `N64Page` (`/n64`), `NDSPage` (`/nds`) — each with lobby grid, quick match, leaderboard tab, and system-specific emulator banner. 82 new tests (790 total).
 > - Phase 9 achievements (20 definitions + 3 tournament achievements), player stats aggregation, global leaderboard, Profile page, SQLite achievement persistence, WebSocket achievement push + desktop toast notifications, and the `/api/achievements/:playerId/refresh` endpoint are now complete.
 > - Phase 10 tournaments (single-elimination bracket engine, REST + WS push, desktop Tournament page, winner achievements) and clip sharing (MediaRecorder service, IndexedDB storage, export, home page widget) are now complete.
 > - Phase 11 clip library (`/clips`), live friend presence, live friend request UI, notification badges, `SqliteTournamentStore`, and tournament history in Profile page are now complete.
@@ -626,6 +627,27 @@
 - [x] Player identity / display name persistence (server-assigned or user-chosen, stored per connection)
 - [x] Session history REST API enhancements: per-player stats, most-played games, total session time
 - [x] Relay host deployment guide: Docker Compose config, env-variable reference, reverse-proxy notes
+
+## Phase 8 — System Expansion UX (Complete)
+
+**Goal:** Expand per-system UX for the core Nintendo platforms in the right order — NES/SNES/GB/GBC/GBA first (simpler backends), then N64, then NDS — with a tested golden list of recommended games and performance presets.
+
+### Milestones
+- [x] `AdapterOptions.performancePreset` ('fast' / 'balanced' / 'accurate') — N64 Mupen64Plus maps to `--emumode 2/1/0`; all other backends document the field and respect `compatibilityFlags`
+- [x] `AdapterOptions.compatibilityFlags` — verbatim passthrough appended to emulator args; supported by FCEUX, Snes9x, mGBA, Mupen64Plus, and melonDS adapters
+- [x] NES golden list: 9 games (Contra, Super Mario Bros., Double Dragon, Tecmo Super Bowl, Ice Climber, Balloon Fight, Dr. Mario, Mega Man 2, Ninja Gaiden)
+- [x] SNES golden list: 9 games (Super Bomberman, Tetris Attack, Secret of Mana, SF2 Turbo, Super Mario Kart, Kirby Super Star, DKC, MK II, Contra III)
+- [x] GB golden list: 6 games (Tetris, Pokémon Red/Blue, Dr. Mario, Kirby's Dream Land, Super Mario Land 2)
+- [x] GBC golden list: 4 games (Pokémon Gold/Silver/Crystal, Dragon Warrior Monsters)
+- [x] GBA golden list: 8 games (Pokémon FireRed/LeafGreen/Ruby/Sapphire/Emerald, Zelda: Four Swords, Mario Tennis, Mario Golf)
+- [x] N64 golden list: 9 games (Mario Kart 64, Super Smash Bros., Mario Party 2, GoldenEye 007, Diddy Kong Racing, Mario Tennis, Mario Golf, Pokémon Stadium, Pokémon Stadium 2)
+- [x] NDS golden list: 9+ games (Mario Kart DS, New SMB, Metroid Prime Hunters, Mario Party DS, Zelda: Phantom Hourglass, Pokémon Diamond/Platinum/Black, Tetris DS)
+- [x] `NESPage` (`/nes`) — FCEUX relay, red theme, lobby + leaderboard tabs
+- [x] `SNESPage` (`/snes`) — Snes9x relay, purple theme, lobby + leaderboard tabs
+- [x] `GBAPage` (`/gba`) — mGBA link cable, indigo theme, covers GB/GBC/GBA with system filter, lobby + leaderboard tabs
+- [x] `N64Page` (`/n64`) — Mupen64Plus relay, green theme, lobby + leaderboard tabs
+- [x] `NDSPage` (`/nds`) — melonDS Wi-Fi relay + WFC, orange theme, lobby + leaderboard tabs
+- [x] 82 new unit tests in `phase-8.test.ts` — system types, backends, adapters, performance presets, template counts, golden catalog, no-duplicate regression
 
 ## Phase 9 — Achievements & Player Stats
 

@@ -66,8 +66,10 @@ export interface AdapterOptions {
    * - 'accurate': Strict timing / interpreter mode for best compatibility.
    *
    * Backend-specific mappings:
-   *  - Mupen64Plus: 'fast' → --emumode 2 (dynarec), 'accurate' → --emumode 0 (interpreter),
-   *                 'balanced' → emulator default (no --emumode flag appended)
+   *  - Mupen64Plus (N64): 'fast' → --emumode 2 (dynarec), 'accurate' → --emumode 0 (interpreter),
+   *                       'balanced' → emulator default (no --emumode flag appended)
+   *  - All other backends (FCEUX, Snes9x, mGBA, melonDS, etc.): field is acknowledged but
+   *    no additional flags are appended; use `compatibilityFlags` for manual overrides.
    */
   performancePreset?: 'fast' | 'balanced' | 'accurate';
   /**
