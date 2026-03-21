@@ -59,6 +59,22 @@ export interface AdapterOptions {
    * Example: '/usr/lib/libretro/snes9x_libretro.so'
    */
   coreLibraryPath?: string;
+  /**
+   * Performance preset controlling accuracy vs. speed trade-off.
+   * - 'fast':     Maximum performance; may sacrifice accuracy (dynarec, fewer checks).
+   * - 'balanced': Default emulator behaviour.
+   * - 'accurate': Strict timing / interpreter mode for best compatibility.
+   *
+   * Backend-specific mappings:
+   *  - Mupen64Plus: 'fast' → --emumode 2 (dynarec), 'balanced' → --emumode 1, 'accurate' → --emumode 0
+   */
+  performancePreset?: 'fast' | 'balanced' | 'accurate';
+  /**
+   * Additional compatibility flags passed verbatim to the emulator binary.
+   * Appended at the end of the argument list for maximum compatibility.
+   * Example: ['--no-audio', '--single-core']
+   */
+  compatibilityFlags?: string[];
 }
 
 /**
@@ -185,6 +201,7 @@ export function createSystemAdapter(system: string, backendId?: string): SystemA
             }
           }
           if (options.debug) args.push('--debug');
+          if (options.compatibilityFlags) args.push(...options.compatibilityFlags);
           return args;
         },
         getSavePath: (gameId, baseDir) => `${baseDir}/nes/${gameId}`,
@@ -214,6 +231,7 @@ export function createSystemAdapter(system: string, backendId?: string): SystemA
             args.push('-netplay', options.netplayHost, String(options.netplayPort));
           }
           if (options.debug) args.push('-v');
+          if (options.compatibilityFlags) args.push(...options.compatibilityFlags);
           return args;
         },
         getSavePath: (gameId, baseDir) => `${baseDir}/snes/${gameId}`,
@@ -266,6 +284,7 @@ export function createSystemAdapter(system: string, backendId?: string): SystemA
             }
             // mGBA debug: open GDB stub server on port 2345
             if (options.debug) args.push('--gdb', '2345');
+            if (options.compatibilityFlags) args.push(...options.compatibilityFlags);
             return args;
           }
         },
@@ -294,6 +313,13 @@ export function createSystemAdapter(system: string, backendId?: string): SystemA
             }
           }
           if (options.debug) args.push('--verbose');
+          // Performance preset → Mupen64Plus --emumode flag
+          // 0 = pure interpreter (accurate), 1 = cached (balanced), 2 = dynamic recompiler (fast)
+          if (options.performancePreset && options.performancePreset !== 'balanced') {
+            const emuMode = options.performancePreset === 'fast' ? '2' : '0';
+            args.push('--emumode', emuMode);
+          }
+          if (options.compatibilityFlags) args.push(...options.compatibilityFlags);
           return args;
         },
         getSavePath: (gameId, baseDir) => `${baseDir}/n64/${gameId}`,
@@ -338,6 +364,7 @@ export function createSystemAdapter(system: string, backendId?: string): SystemA
             args.push('--dsi-mode');
           }
           if (options.debug) args.push('--verbose');
+          if (options.compatibilityFlags) args.push(...options.compatibilityFlags);
           return args;
         },
         getSavePath: (gameId, baseDir) => `${baseDir}/nds/${gameId}`,
