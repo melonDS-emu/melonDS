@@ -312,6 +312,42 @@ export function handleConnection(
         break;
       }
 
+      case 'rejoin-room': {
+        const { roomId, roomCode, displayName } = msg.payload;
+        const normalizedName = normalizeDisplayName(displayName);
+        const nameError = validateDisplayName(normalizedName);
+        if (nameError) {
+          send(ws, { type: 'error', message: nameError });
+          break;
+        }
+        displayNameToPlayerId.set(normalizedName, playerId);
+        let room;
+
+        if (roomCode) {
+          room = lobby.rejoinByCode(roomCode, playerId, normalizedName);
+        } else if (roomId) {
+          room = lobby.rejoinRoom(roomId, playerId, normalizedName);
+        }
+
+        if (!room) {
+          send(ws, { type: 'error', message: 'Could not rejoin room. The session may have ended or the room is at capacity.' });
+          break;
+        }
+
+        send(ws, {
+          type: 'room-rejoined',
+          room,
+          relayPort: room.relayPort,
+          relayHost,
+          sessionToken: randomUUID(),
+        });
+
+        const rejoinPlayerIds = lobby.getRoomPlayerIds(room.id);
+        broadcast(rejoinPlayerIds, { type: 'room-updated', room }, playerId);
+        broadcastPresence(lobby, connections);
+        break;
+      }
+
       case 'leave-room': {
         const room = lobby.leaveRoom(msg.payload.roomId, playerId);
         send(ws, { type: 'room-left', roomId: msg.payload.roomId });

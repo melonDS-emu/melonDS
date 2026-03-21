@@ -68,7 +68,9 @@ export type ClientMessage =
   | { type: 'send-dm'; payload: { toPlayer: string; content: string } }
   | { type: 'mark-dm-read'; payload: { fromPlayer: string } }
   /** Phase 17: global chat */
-  | { type: 'send-global-chat'; text: string };
+  | { type: 'send-global-chat'; text: string }
+  /** Phase 3: reconnect to an in-progress session */
+  | { type: 'rejoin-room'; payload: JoinRoomPayload };
 
 export interface CreateRoomPayload {
   name: string;
@@ -114,6 +116,7 @@ export interface PresencePlayer {
 export type ServerMessage =
   | { type: 'room-created'; room: Room; ownerToken: string }
   | { type: 'room-joined'; room: Room }
+  | { type: 'room-rejoined'; room: Room; relayPort?: number; relayHost?: string; sessionToken?: string }
   | { type: 'room-left'; roomId: string }
   | { type: 'room-updated'; room: Room }
   | { type: 'room-list'; rooms: Room[] }

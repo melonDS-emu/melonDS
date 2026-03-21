@@ -201,6 +201,46 @@ export class LobbyManager {
     return this.rooms.get(roomId) ?? null;
   }
 
+  /**
+   * Allow a player to rejoin an in-progress room they previously left or were
+   * disconnected from. The room must be 'in-game' and must not already be at
+   * capacity.  The player is assigned the next available slot and starts in a
+   * 'ready' state (they were already ready when the game launched).
+   */
+  rejoinRoom(roomId: string, playerId: string, displayName: string): Room | null {
+    const room = this.rooms.get(roomId);
+    if (!room) return null;
+    if (room.status !== 'in-game') return null;
+    if (room.players.some((p) => p.id === playerId)) return room;
+    if (room.players.length >= room.maxPlayers) return null;
+
+    const player: RoomPlayer = {
+      id: playerId,
+      displayName,
+      readyState: 'ready',
+      slot: room.players.length,
+      isHost: false,
+      joinedAt: new Date().toISOString(),
+      connectionQuality: 'unknown',
+    };
+
+    room.players.push(player);
+    return room;
+  }
+
+  /**
+   * Look up an in-progress room by code and rejoin it (reconnect flow).
+   */
+  rejoinByCode(roomCode: string, playerId: string, displayName: string): Room | null {
+    const normalised = roomCode.toUpperCase();
+    for (const room of this.rooms.values()) {
+      if (room.roomCode === normalised) {
+        return this.rejoinRoom(room.id, playerId, displayName);
+      }
+    }
+    return null;
+  }
+
   /** Find any rooms where this player is an active participant. */
   getRoomsForPlayer(playerId: string): Room[] {
     const matches: Room[] = [];

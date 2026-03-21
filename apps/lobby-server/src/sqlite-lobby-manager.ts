@@ -210,6 +210,32 @@ export class SqliteLobbyManager {
     return this.joinAsSpectator(row.id, spectatorId, displayName);
   }
 
+  rejoinRoom(roomId: string, playerId: string, displayName: string): Room | null {
+    const room = this._fetchRoom(roomId);
+    if (!room) return null;
+    if (room.status !== 'in-game') return null;
+    if (room.players.some((p) => p.id === playerId)) return room;
+    if (room.players.length >= room.maxPlayers) return null;
+
+    const slot = room.players.length;
+    const now = new Date().toISOString();
+
+    this.db.prepare(`
+      INSERT INTO room_players (room_id, player_id, display_name, ready_state, slot, is_host, joined_at, connection_quality)
+      VALUES (?, ?, ?, 'ready', ?, 0, ?, 'unknown')
+    `).run(roomId, playerId, displayName, slot, now);
+
+    return this._fetchRoom(roomId)!;
+  }
+
+  rejoinByCode(roomCode: string, playerId: string, displayName: string): Room | null {
+    const row = this.db
+      .prepare<string, { id: string }>(`SELECT id FROM rooms WHERE room_code = ? AND status = 'in-game'`)
+      .get(roomCode.toUpperCase());
+    if (!row) return null;
+    return this.rejoinRoom(row.id, playerId, displayName);
+  }
+
   leaveRoom(roomId: string, playerId: string): Room | null {
     const room = this._fetchRoom(roomId);
     if (!room) return null;
