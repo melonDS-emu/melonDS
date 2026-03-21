@@ -393,7 +393,6 @@ int main(int argc, char** argv)
 
         if (memberSyntaxUsed) printf("Warning: use the a.zip|b.nds format at your own risk!\n");
         if (options->headless){
-            qDebug() << "Launched Headless";
             win->preloadROMs(dsfile, gbafile, true);
             NDSCart::CartCommon* cart = win->getEmuInstance()->getNDS()->NDSCartSlot.GetCart();
             NDSHeader& header = cart->GetHeader();
@@ -407,6 +406,11 @@ int main(int argc, char** argv)
             // QString::fromUtf16(banner->SpanishTitle);
             // QString::fromLatin1(header.GameTitle, 12);
             // QString::fromLatin1(header.GameCode, 4);
+
+            // win->getEmuInstance()->romIcon(banner->Icon, banner->Palette, iconData);
+            // iconImage = QImage(reinterpret_cast<u8*>(iconData), 32, 32, QImage::Format_RGBA8888).copy();
+            // iconImage.save(filename, "PNG");
+
             qDebug() << QString::fromLatin1(header.GameCode, 4);
             exit(0);
         } else {

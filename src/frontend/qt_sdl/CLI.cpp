@@ -59,7 +59,7 @@ CommandLineOptions* ManageArgs(QApplication& melon)
     CommandLineOptions* options = new CommandLineOptions;
     QStringList posargs = parser.positionalArguments();
 
-    options->fullscreen = parser.isSet("fullscreen");
+
     options->headless = false;
     if (parser.isSet("xt")){
         if (posargs.size() == 2){
@@ -80,8 +80,6 @@ CommandLineOptions* ManageArgs(QApplication& melon)
     } else if (parser.isSet("xgc")){
         if (posargs.size() == 1){
             melonDS::Platform::setMuteLogs(true);
-            qDebug() << "muteLogs = " << melonDS::Platform::getMuteLogs();
-            qDebug() << "Entered xgc";
             options->headless = true;
             options->dsRomPath = posargs[0];
             return options;
@@ -96,14 +94,8 @@ CommandLineOptions* ManageArgs(QApplication& melon)
             Log(LogLevel::Error, "Error: Incorrect amount of arguments\n");
             exit(1);
         }
-    } else if (parser.isSet("xai")){
-        if (posargs.size() == 1){
-            return options;
-        } else {
-            Log(LogLevel::Error, "Error: Incorrect amount of arguments\n");
-            exit(1);
-        }
     }
+    options->fullscreen = parser.isSet("fullscreen");
     options->boot = false;
 
     switch (posargs.size())
