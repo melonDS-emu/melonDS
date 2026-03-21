@@ -36,7 +36,7 @@ import { GlobalChatStore } from './global-chat-store';
 import { NotificationStore } from './notification-store';
 import { RetroAchievementStore } from './retro-achievement-store';
 import { SqliteRetroAchievementStore } from './sqlite-retro-achievement-store';
-import { SaveBackupStore } from './save-backup-store';
+import { SaveBackupStore, type BackupReason } from './save-backup-store';
 import { SqliteSaveBackupStore } from './sqlite-save-backup-store';
 
 const PORT = parseInt(process.env.PORT ?? '8080', 10);
@@ -429,7 +429,7 @@ async function httpHandler(req: http.IncomingMessage, res: http.ServerResponse):
       return;
     }
     const backup = saveBackupStore.createBackup(gameId, saveName, data, {
-      reason: (reason as import('./save-backup-store').BackupReason) ?? 'manual',
+      reason: (reason as BackupReason) ?? 'manual',
       mimeType: typeof mimeType === 'string' ? mimeType : undefined,
       saveVersion: typeof saveVersion === 'number' ? saveVersion : undefined,
     });
