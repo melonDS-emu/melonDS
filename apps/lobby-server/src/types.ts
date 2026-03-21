@@ -69,6 +69,10 @@ export type ClientMessage =
   | { type: 'mark-dm-read'; payload: { fromPlayer: string } }
   /** Phase 17: global chat */
   | { type: 'send-global-chat'; text: string }
+  /** Phase 6: send a game invite to a player */
+  | { type: 'send-invite'; payload: { toPlayerId: string; roomCode: string; gameTitle?: string } }
+  /** Phase 6: update own privacy settings */
+  | { type: 'set-privacy'; payload: { showOnline?: boolean; allowInvites?: boolean; showActivity?: boolean } }
   /** Phase 3: reconnect to an in-progress session */
   | { type: 'rejoin-room'; payload: JoinRoomPayload };
 
@@ -112,6 +116,17 @@ export interface PresencePlayer {
   status: 'online' | 'in-lobby' | 'in-game';
 }
 
+/** Phase 6: shared shape for a game lobby invite */
+export interface LobbyInvite {
+  id: string;
+  fromPlayerId: string;
+  fromDisplayName: string;
+  roomCode: string;
+  gameTitle: string;
+  sentAt: string;
+  expiresAt: string;
+}
+
 /** Messages from server to client */
 export type ServerMessage =
   | { type: 'room-created'; room: Room; ownerToken: string }
@@ -146,4 +161,9 @@ export type ServerMessage =
   /** Phase 17: global chat */
   | { type: 'global-chat-message'; id: string; playerId: string; displayName: string; text: string; timestamp: string }
   /** Phase 24: retro achievement unlocked */
-  | { type: 'retro-achievement-unlocked'; achievementId: string; title: string; description: string; badge: string; points: number };
+  | { type: 'retro-achievement-unlocked'; achievementId: string; title: string; description: string; badge: string; points: number }
+  /** Phase 6: invite events */
+  | { type: 'invite-received'; invite: LobbyInvite }
+  | { type: 'invite-sent'; invite: LobbyInvite }
+  /** Phase 6: privacy settings confirmed */
+  | { type: 'privacy-updated'; settings: { playerId: string; showOnline: boolean; allowInvites: boolean; showActivity: boolean; updatedAt: string } };

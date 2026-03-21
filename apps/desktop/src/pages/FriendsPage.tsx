@@ -4,6 +4,7 @@ import { useLobby } from '../context/LobbyContext';
 import { JoinRoomModal } from '../components/JoinRoomModal';
 import { activityEmoji, activityVerb, relativeTime, avatarColor } from '../lib/presence-utils';
 import type { FriendInfo } from '@retro-oasis/presence-client';
+import type { IncomingInvite } from '../context/LobbyContext';
 
 const API =
   typeof import.meta !== 'undefined'
@@ -13,9 +14,26 @@ const API =
 
 type StatusFilter = 'all' | 'online' | 'in-game';
 
+interface RecentPlayerEntry {
+  id: string;
+  ownerId: string;
+  metPlayerId: string;
+  metDisplayName: string;
+  roomCode: string;
+  gameTitle?: string;
+  playedAt: string;
+}
+
 export function FriendsPage() {
   const { friends, recentActivity } = usePresence();
-  const { joinByCode, joinAsSpectator, pendingFriendRequests, acceptFriendRequest, declineFriendRequest, sendFriendRequest, sendDm, markDmRead, incomingDms } = useLobby();
+  const {
+    joinByCode, joinAsSpectator,
+    pendingFriendRequests, acceptFriendRequest, declineFriendRequest,
+    sendFriendRequest, sendDm, markDmRead, incomingDms,
+    sendInvite, incomingInvites, dismissInvite,
+    privacySettings, updatePrivacy,
+    currentRoom,
+  } = useLobby();
   const [filter, setFilter] = useState<StatusFilter>('all');
   const [joinTarget, setJoinTarget] = useState<FriendInfo | null>(null);
   const [addInput, setAddInput] = useState('');
@@ -26,10 +44,20 @@ export function FriendsPage() {
   const [dmLoading, setDmLoading] = useState(false);
   const dmScrollRef = useRef<HTMLDivElement>(null);
   const [myDisplayName, setMyDisplayName] = useState('');
+  const [recentPlayers, setRecentPlayers] = useState<RecentPlayerEntry[]>([]);
+  const [showPrivacy, setShowPrivacy] = useState(false);
 
   useEffect(() => {
     const stored = localStorage.getItem('retro-oasis-display-name');
     if (stored) setMyDisplayName(stored);
+    const pid = localStorage.getItem('retro-oasis-player-id');
+    if (pid) {
+      // Load recent players from server
+      fetch(`${API}/api/players/${encodeURIComponent(pid)}/recent`)
+        .then((r) => r.json())
+        .then((d: { recent: RecentPlayerEntry[] }) => setRecentPlayers(d.recent ?? []))
+        .catch(() => {/* ignore */});
+    }
   }, []);
 
   const filtered = friends.filter((f) => {
@@ -271,9 +299,151 @@ export function FriendsPage() {
                 ▶ Join
               </button>
             )}
+            {/* Invite button — send a lobby invite if we are currently in a room */}
+            {!friend.isJoinable && currentRoom && (
+              <button
+                onClick={() => sendInvite(friend.userId, currentRoom.roomCode, currentRoom.gameTitle)}
+                className="text-xs font-bold px-3 py-1.5 rounded-lg"
+                style={{ backgroundColor: 'var(--color-oasis-surface)', color: 'var(--color-oasis-accent-light)' }}
+                title={`Invite ${friend.displayName} to your room`}
+              >
+                📨 Invite
+              </button>
+            )}
           </div>
         ))}
       </div>
+
+      {/* Incoming Invites */}
+      {incomingInvites.length > 0 && (
+        <section>
+          <h2 className="text-base font-bold mb-3" style={{ color: 'var(--color-oasis-accent-light)' }}>
+            📨 Invites ({incomingInvites.length})
+          </h2>
+          <div className="rounded-2xl overflow-hidden" style={{ backgroundColor: 'var(--color-oasis-card)' }}>
+            {incomingInvites.map((inv: IncomingInvite, i) => (
+              <div
+                key={inv.id}
+                className="px-4 py-3 flex items-center gap-3"
+                style={{ borderTop: i > 0 ? '1px solid rgba(255,255,255,0.06)' : undefined }}
+              >
+                <div
+                  className="w-9 h-9 rounded-full flex items-center justify-center text-sm font-bold flex-shrink-0"
+                  style={{ backgroundColor: avatarColor(inv.fromPlayerId), color: 'white' }}
+                >
+                  {inv.fromDisplayName[0]?.toUpperCase() ?? '?'}
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-semibold" style={{ color: 'var(--color-oasis-text)' }}>
+                    {inv.fromDisplayName}
+                  </p>
+                  <p className="text-xs" style={{ color: 'var(--color-oasis-text-muted)' }}>
+                    invited you to play {inv.gameTitle || 'a game'}
+                  </p>
+                  <p className="text-[10px] font-mono" style={{ color: 'var(--color-oasis-accent-light)' }}>
+                    Room: {inv.roomCode}
+                  </p>
+                </div>
+                <button
+                  onClick={() => {
+                    joinByCode(inv.roomCode, myDisplayName);
+                    dismissInvite(inv.id);
+                  }}
+                  className="text-xs font-bold px-3 py-1.5 rounded-lg"
+                  style={{ backgroundColor: 'var(--color-oasis-green)', color: '#0a0a0a' }}
+                >
+                  ▶ Join
+                </button>
+                <button
+                  onClick={() => dismissInvite(inv.id)}
+                  className="text-xs font-bold px-2 py-1.5 rounded-lg"
+                  style={{ backgroundColor: 'var(--color-oasis-surface)', color: 'var(--color-oasis-text-muted)' }}
+                >
+                  ✕
+                </button>
+              </div>
+            ))}
+          </div>
+        </section>
+      )}
+
+      {/* Recent Players */}
+      {recentPlayers.length > 0 && (
+        <section>
+          <h2 className="text-base font-bold mb-3" style={{ color: 'var(--color-oasis-accent-light)' }}>
+            🕹️ Recent Players
+          </h2>
+          <div className="rounded-2xl overflow-hidden" style={{ backgroundColor: 'var(--color-oasis-card)' }}>
+            {recentPlayers.slice(0, 8).map((rp: RecentPlayerEntry, i: number) => (
+              <div
+                key={rp.id}
+                className="px-4 py-3 flex items-center gap-3"
+                style={{ borderTop: i > 0 ? '1px solid rgba(255,255,255,0.06)' : undefined }}
+              >
+                <div
+                  className="w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold flex-shrink-0"
+                  style={{ backgroundColor: avatarColor(rp.metPlayerId), color: 'white' }}
+                >
+                  {rp.metDisplayName[0]?.toUpperCase() ?? '?'}
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-semibold" style={{ color: 'var(--color-oasis-text)' }}>
+                    {rp.metDisplayName}
+                  </p>
+                  <p className="text-xs" style={{ color: 'var(--color-oasis-text-muted)' }}>
+                    {rp.gameTitle ? `Played ${rp.gameTitle}` : 'Shared a session'} · {relativeTime(rp.playedAt)}
+                  </p>
+                </div>
+                <button
+                  onClick={() => {
+                    setAddInput(rp.metPlayerId);
+                    sendFriendRequest(rp.metPlayerId);
+                    setAddStatus('Request sent!');
+                    setTimeout(() => setAddStatus(''), 3000);
+                  }}
+                  className="text-xs font-bold px-3 py-1.5 rounded-lg"
+                  style={{ backgroundColor: 'var(--color-oasis-surface)', color: 'var(--color-oasis-accent-light)' }}
+                >
+                  + Add
+                </button>
+              </div>
+            ))}
+          </div>
+        </section>
+      )}
+
+      {/* Privacy Settings */}
+      <section>
+        <button
+          className="text-base font-bold flex items-center gap-2 mb-1 w-full text-left"
+          style={{ color: 'var(--color-oasis-accent-light)', background: 'none', border: 'none', cursor: 'pointer' }}
+          onClick={() => setShowPrivacy((v: boolean) => !v)}
+        >
+          🔒 Privacy Settings {showPrivacy ? '▲' : '▼'}
+        </button>
+        {showPrivacy && (
+          <div className="rounded-2xl p-4 space-y-3 mt-2" style={{ backgroundColor: 'var(--color-oasis-card)' }}>
+            <PrivacyToggle
+              label="Show online status to everyone"
+              detail="When off, only friends can see your status"
+              value={privacySettings.showOnline}
+              onChange={(v) => updatePrivacy({ showOnline: v })}
+            />
+            <PrivacyToggle
+              label="Accept invites from everyone"
+              detail="When off, only friends can send you game invites"
+              value={privacySettings.allowInvites}
+              onChange={(v) => updatePrivacy({ allowInvites: v })}
+            />
+            <PrivacyToggle
+              label="Appear in activity feed"
+              detail="When off, your sessions won't show in the community feed"
+              value={privacySettings.showActivity}
+              onChange={(v) => updatePrivacy({ showActivity: v })}
+            />
+          </div>
+        )}
+      </section>
 
       {/* Recent Activity */}
       <section>
@@ -542,4 +712,37 @@ function statusLabel(friend: FriendInfo): string {
   if (friend.status === 'online') return 'Online';
   if (friend.status === 'idle') return `Idle · last seen ${relativeTime(friend.lastSeenAt)}`;
   return `Offline · last seen ${relativeTime(friend.lastSeenAt)}`;
+}
+
+function PrivacyToggle({
+  label,
+  detail,
+  value,
+  onChange,
+}: {
+  label: string;
+  detail: string;
+  value: boolean;
+  onChange: (v: boolean) => void;
+}) {
+  return (
+    <div className="flex items-center justify-between gap-4">
+      <div className="flex-1 min-w-0">
+        <p className="text-sm font-semibold" style={{ color: 'var(--color-oasis-text)' }}>{label}</p>
+        <p className="text-xs" style={{ color: 'var(--color-oasis-text-muted)' }}>{detail}</p>
+      </div>
+      <button
+        onClick={() => onChange(!value)}
+        className="relative inline-flex w-10 h-5 rounded-full flex-shrink-0 transition-colors duration-200"
+        style={{ backgroundColor: value ? 'var(--color-oasis-accent)' : 'var(--color-oasis-surface)' }}
+        aria-pressed={value}
+        role="switch"
+      >
+        <span
+          className="inline-block w-4 h-4 rounded-full bg-white shadow transition-transform duration-200 mt-0.5"
+          style={{ transform: value ? 'translateX(22px)' : 'translateX(2px)' }}
+        />
+      </button>
+    </div>
+  );
 }

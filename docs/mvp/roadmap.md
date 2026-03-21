@@ -7,6 +7,7 @@
 > - The lobby now triggers **local emulator launch requests** through the server, but **real per-game ROM discovery/selection and relay token handoff into emulator processes are still incomplete**.
 > - Presence, activity, saves, and cloud flows have useful UI scaffolding, but the **live/server-backed versions remain future work unless explicitly marked “mock/dev/demo.”**
 > - Phase 6 DSiWare support and interactive touch calibration panel are now complete. Phase 7 backend hardening has started with per-IP rate limiting on the lobby server.
+> - Phase 6 (Social) Presence, Invites & Social Glue are now complete: `RecentPlayersStore` + `SqliteRecentPlayersStore` (track co-players, max 50 per user), `PlayerPrivacyStore` + `SqlitePlayerPrivacyStore` (showOnline/allowInvites/showActivity toggles), WS `send-invite` → `invite-received` with privacy guard, WS `set-privacy` → `privacy-updated`, REST `GET/DELETE /api/players/:id/recent`, REST `GET/PUT /api/players/:id/privacy`, recent-players tracked on game-start, FriendsPage updated with Incoming Invites, Recent Players, Invite buttons, and Privacy Settings panel. 23 new tests (790 total).
 > - Phase 8 SQLite persistence, friend system, matchmaking queue, player identity, and enhanced session stats are now complete. Set `DB_PATH` env var to enable persistence across restarts.
 > - Phase 9 achievements (20 definitions + 3 tournament achievements), player stats aggregation, global leaderboard, Profile page, SQLite achievement persistence, WebSocket achievement push + desktop toast notifications, and the `/api/achievements/:playerId/refresh` endpoint are now complete.
 > - Phase 10 tournaments (single-elimination bracket engine, REST + WS push, desktop Tournament page, winner achievements) and clip sharing (MediaRecorder service, IndexedDB storage, export, home page widget) are now complete.
@@ -233,6 +234,28 @@
 - [x] Touch input calibration panel — interactive visual test area + offsetX/Y/scaleX/Y controls
 - [x] DS-specific compatibility badges (WFC Online, Touch Controls, Download Play)
 - [x] DSi mode detection and DSiWare support — dsiMode adapter option, DSiWare mock games, DSi badge/tips in UI, DSiWare session templates
+
+## Phase 6 (Social) — Presence, Invites & Social Glue (Complete)
+
+**Goal:** Make RetroOasis feel alive even before launching a game. Users can discover each other and jump into sessions without coordinating outside the app.
+
+### Milestones
+- [x] `recent-players-store.ts` — `RecentPlayersStore` + `SqliteRecentPlayersStore`; tracks up to 50 recent co-players per user, LRU eviction, deduplication by (owner, player, room) pair
+- [x] `player-privacy-store.ts` — `PlayerPrivacyStore` + `SqlitePlayerPrivacyStore`; per-player `showOnline`, `allowInvites`, `showActivity` toggles; full defaults on first access
+- [x] Handler: `send-invite` WS case — routes invite to recipient with `invite-received` push; privacy guard blocks non-friend invites when `allowInvites=false`; notification added via `NotificationStore`
+- [x] Handler: `set-privacy` WS case — updates own privacy settings; confirms with `privacy-updated` message
+- [x] Handler: recent-players recorded for every participant pair on game-start (`start-game` case)
+- [x] `types.ts` — `send-invite`, `set-privacy` client message types; `invite-received`, `invite-sent`, `privacy-updated` server message types
+- [x] `index.ts` — instantiate `RecentPlayersStore`/`PlayerPrivacyStore` (SQLite when `DB_PATH` set); wire to `handleConnection`
+- [x] REST: `GET /api/players/:playerId/recent` — list recent players (limit 20)
+- [x] REST: `DELETE /api/players/:playerId/recent` — clear all recent players
+- [x] REST: `DELETE /api/players/:playerId/recent/:entryId` — remove one entry
+- [x] REST: `GET /api/players/:playerId/privacy` — get privacy settings
+- [x] REST: `PUT /api/players/:playerId/privacy` — update privacy settings (partial)
+- [x] `LobbyContext.tsx` — `sendInvite`, `dismissInvite`, `incomingInvites`, `updatePrivacy`, `privacySettings`; handles `invite-received` and `privacy-updated` WS messages with toast
+- [x] `lobby-types.ts` — `send-invite`, `set-privacy` client types; `invite-received`, `invite-sent`, `privacy-updated` server types
+- [x] `FriendsPage.tsx` — Incoming Invites section (join/dismiss), Recent Players section (add friend shortcut), Invite button on friend cards when in room, Privacy Settings collapsible panel with three toggle switches
+- [x] 23 new unit tests in `phase-6.test.ts` (`RecentPlayersStore` × 11, `PlayerPrivacyStore` × 8, privacy guard integration × 3, mutual-recording integration × 1)
 
 ## Cross-Cutting Quality Work
 

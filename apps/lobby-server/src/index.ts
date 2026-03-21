@@ -38,6 +38,8 @@ import { RetroAchievementStore } from './retro-achievement-store';
 import { SqliteRetroAchievementStore } from './sqlite-retro-achievement-store';
 import { SaveBackupStore, type BackupReason } from './save-backup-store';
 import { SqliteSaveBackupStore } from './sqlite-save-backup-store';
+import { RecentPlayersStore, SqliteRecentPlayersStore } from './recent-players-store';
+import { PlayerPrivacyStore, SqlitePlayerPrivacyStore } from './player-privacy-store';
 
 const PORT = parseInt(process.env.PORT ?? '8080', 10);
 /** Public hostname/IP players use to reach the relay (surfaced in game-starting events). */
@@ -94,6 +96,12 @@ const rankingStore: RankingStore | SqliteRankingStore = USE_SQLITE
 
 const globalChatStore = new GlobalChatStore();
 const notificationStore = new NotificationStore();
+const recentPlayersStore: RecentPlayersStore | SqliteRecentPlayersStore = USE_SQLITE
+  ? new SqliteRecentPlayersStore(getDatabase())
+  : new RecentPlayersStore();
+const playerPrivacyStore: PlayerPrivacyStore | SqlitePlayerPrivacyStore = USE_SQLITE
+  ? new SqlitePlayerPrivacyStore(getDatabase())
+  : new PlayerPrivacyStore();
 const retroAchievementStore: RetroAchievementStore | SqliteRetroAchievementStore = USE_SQLITE
   ? new SqliteRetroAchievementStore(getDatabase())
   : new RetroAchievementStore();
@@ -1448,7 +1456,85 @@ async function httpHandler(req: http.IncomingMessage, res: http.ServerResponse):
     return;
   }
 
+  // Phase 6: recent players + privacy
+  if (await recentPlayersHandler(req, res, pathname)) return;
+  if (await playerPrivacyHandler(req, res, pathname)) return;
+
   json(res, 404, { error: 'Not found' });
+}
+
+// ---------------------------------------------------------------------------
+// Phase 6: Recent Players REST endpoints
+//   GET  /api/players/:playerId/recent             — list recent co-players
+//   DELETE /api/players/:playerId/recent/:entryId  — remove one entry
+//   DELETE /api/players/:playerId/recent           — clear all entries
+// ---------------------------------------------------------------------------
+async function recentPlayersHandler(
+  req: import('http').IncomingMessage,
+  res: import('http').ServerResponse,
+  pathname: string,
+): Promise<boolean> {
+  const listMatch = pathname.match(/^\/api\/players\/([^/]+)\/recent$/);
+  if (listMatch) {
+    const playerId = decodeURIComponent(listMatch[1]);
+    if (req.method === 'GET') {
+      const limit = 20;
+      const entries = recentPlayersStore.getRecent(playerId, limit);
+      json(res, 200, { recent: entries });
+      return true;
+    }
+    if (req.method === 'DELETE') {
+      recentPlayersStore.clear(playerId);
+      json(res, 200, { ok: true });
+      return true;
+    }
+  }
+  const entryMatch = pathname.match(/^\/api\/players\/([^/]+)\/recent\/([^/]+)$/);
+  if (entryMatch && req.method === 'DELETE') {
+    const playerId = decodeURIComponent(entryMatch[1]);
+    const entryId = decodeURIComponent(entryMatch[2]);
+    const removed = recentPlayersStore.remove(playerId, entryId);
+    json(res, removed ? 200 : 404, removed ? { ok: true } : { error: 'Entry not found' });
+    return true;
+  }
+  return false;
+}
+
+// ---------------------------------------------------------------------------
+// Phase 6: Player Privacy REST endpoints
+//   GET  /api/players/:playerId/privacy   — get settings
+//   PUT  /api/players/:playerId/privacy   — update settings
+// ---------------------------------------------------------------------------
+async function playerPrivacyHandler(
+  req: import('http').IncomingMessage,
+  res: import('http').ServerResponse,
+  pathname: string,
+): Promise<boolean> {
+  const privMatch = pathname.match(/^\/api\/players\/([^/]+)\/privacy$/);
+  if (!privMatch) return false;
+  const playerId = decodeURIComponent(privMatch[1]);
+  if (req.method === 'GET') {
+    json(res, 200, { settings: playerPrivacyStore.get(playerId) });
+    return true;
+  }
+  if (req.method === 'PUT') {
+    let body: Record<string, unknown>;
+    try {
+      const raw = await readBody(req);
+      body = JSON.parse(raw) as Record<string, unknown>;
+    } catch {
+      json(res, 400, { error: 'Invalid JSON body' });
+      return true;
+    }
+    const patch: { showOnline?: boolean; allowInvites?: boolean; showActivity?: boolean } = {};
+    if (typeof body.showOnline === 'boolean') patch.showOnline = body.showOnline;
+    if (typeof body.allowInvites === 'boolean') patch.allowInvites = body.allowInvites;
+    if (typeof body.showActivity === 'boolean') patch.showActivity = body.showActivity;
+    const updated = playerPrivacyStore.update(playerId, patch);
+    json(res, 200, { settings: updated });
+    return true;
+  }
+  return false;
 }
 
 // Attach WebSocket server to the HTTP server so both share the same port.
@@ -1480,6 +1566,8 @@ wss.on('connection', (ws, req) => {
     messages: messageStore,
     globalChat: globalChatStore,
     notifications: notificationStore,
+    recentPlayers: recentPlayersStore,
+    privacy: playerPrivacyStore,
   });
 });
 
