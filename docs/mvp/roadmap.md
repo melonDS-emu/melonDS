@@ -26,6 +26,7 @@
 > - Phase 24 Further Retro Achievement Support is now complete: catalog expanded to 60 achievements across 15 games (added GC/Wii/3DS/DC/PS2), `SqliteRetroAchievementStore` with Phase 24 DB migration, `getLeaderboard()` + `GET /api/retro-achievements/leaderboard`, `retro-achievement-unlocked` WS push on unlock, Leaderboard tab in `RetroAchievementsPage`. 22 new tests.
 > - Phase 3 Full Multiplayer Loop is now complete: host/join private+public rooms, room-code flow, ready states, host controls, spectator support, game-start handshake with per-player session tokens, relay allocation (ports 9000–9200), per-backend emulator launch args, host migration on disconnect, clean leave flow, and `rejoinRoom`/`rejoinByCode` for in-progress reconnects. 36 new tests (765 total).
 > - Phase 4 Save System is now complete: `SaveBackupStore` + `SqliteSaveBackupStore` (pre-session/post-session/manual/last-known-good backups, per-slot eviction), 8 backup REST routes (`/api/saves/:gameId/backup`, `/api/saves/:gameId/backups`, restore, mark-lkg, last-known-good, session-start, session-end), `discoverSaveFiles()` / `getBackendSaveExtensions()` / `buildBackendSavePath()` / `inferBackendFromExtension()` in `@retro-oasis/save-system`, `save-backup-service.ts` desktop layer, `SavesPage` Backups tab with restore + last-known-good UI. 55 new tests (867 total).
+> - Phase 30 QoL & "Wow" Layer is now complete: `GameMetadataStore` (rich metadata for 35+ games — genre, developer, year, onboarding tips, netplay tips, recommended controller, artwork color), `PatchStore` (18+ safe patch/mod metadata entries — translations, QoL fixes, bugfixes), `PartyCollectionStore` (12 curated party-mode collections), 5 new REST endpoints (`/api/game-metadata[/:gameId]`, `/api/patches[?gameId=X]`, `/api/party-collections[/:id][?tag=X]`), `PartyCollectionsPage` at `/party-collections` with tag filter pills and expandable collection cards, `GameDetailsPage` enhanced with artwork-color backdrop, genre/developer/year pills, per-game onboarding tips, netplay quality tips, recommended controller badge, and safe-patch browser. 48 new tests (1101 total).
 
 ## Phase 1 — Foundation (Complete)
 
@@ -662,6 +663,69 @@
 
 - [x] 24 new unit tests in `phase-29.test.ts` — crash-reporting (opt-in, recordCrash, clear, export), first-run-service (isFirstRunComplete, completeStep, nextIncompleteStep, getSetupProgress)
 - [x] `roadmap.md` updated with Phase 29 milestones
+
+## Phase 30 — QoL & "Wow" Layer (Complete)
+
+**Goal:** The stuff that makes people prefer RetroOasis. Rich game pages with artwork/metadata, per-game onboarding tips, netplay quality tips, recommended controller profiles, curated party-mode collections, and a safe patch/mod metadata browser.
+
+### Phase 30a — Server: Rich Game Metadata
+
+- [x] `game-metadata-store.ts` — `GameMetadataStore` with 35+ seeded entries covering NES/SNES/GB/GBC/GBA/N64/NDS/Wii/GC/Genesis/Dreamcast/PSX/PS2/PSP
+  - `genre`, `developer`, `year` — display metadata for each game
+  - `onboardingTips: string[]` — 1–3 tips shown on first visit to a game detail page
+  - `netplayTips: string[]` — tips specifically for improving online play quality
+  - `recommendedController: string` — best controller recommendation per game
+  - `artworkColor: string` — CSS hex color for artwork backdrop (matches cover art palette)
+  - `quickHostPreset?: '1v1' | '4-player' | 'full-party'` — suggested preset for the host modal
+  - `get(gameId)`, `getAll()`, `set(record)`, `getByGenre(genre)`, `count()`
+
+### Phase 30b — Server: Safe Patch Metadata
+
+- [x] `patch-store.ts` — `PatchStore` with 18+ seeded safe patch entries
+  - `PatchType`: `'translation' | 'qol' | 'bugfix' | 'difficulty' | 'enhancement'`
+  - `safe: boolean` — only `safe: true` patches returned by the public REST API (never ROM binaries, only metadata)
+  - `instructions: string[]` — step-by-step application guide
+  - `tags: string[]` — `'recommended'`, `'multiplayer-compatible'`, `'beginner-friendly'`, etc.
+  - `getAll()`, `getSafe()`, `getByGameId(id)`, `getById(id)`, `upsert(patch)`, `count()`
+
+### Phase 30c — Server: Party Collections
+
+- [x] `party-collection-store.ts` — `PartyCollectionStore` with 12 curated collections
+  - Collections: Kart Racing Classics, Couch Fighters, Ultimate Party Night, Pokémon Multiverse, Streets Are Dangerous, Speedrun Ready, Hunt Together, Retro Platformer Marathon, Big Brain Energy, Zelda Chronicles, SEGA Golden Age, Online WFC Ready
+  - `getAll()`, `getById(id)`, `getByGameId(gameId)`, `getByTag(tag)`, `upsert(collection)`, `count()`
+
+### Phase 30d — REST Endpoints
+
+- [x] `GET /api/game-metadata` — all seeded metadata entries
+- [x] `GET /api/game-metadata/:gameId` — metadata for a single game (404 if unknown)
+- [x] `GET /api/patches` — all safe patches; optionally `?gameId=X` to filter by game
+- [x] `GET /api/party-collections` — all party collections; optionally `?tag=X` to filter by tag
+- [x] `GET /api/party-collections/:id` — single collection by ID (404 if unknown)
+
+### Phase 30e — Desktop UI
+
+- [x] `PartyCollectionsPage.tsx` at `/party-collections` — browse all curated collections
+  - Tag filter pill row (racing, fighting, party, co-op, competitive, casual, rpg, action, online, wfc, speedrun, all-ages, adventure)
+  - Expandable collection cards showing curator note + full game list with system badge and links to `/game/:id`
+  - Error + loading states
+- [x] `🎉 Party Collections` nav item added to sidebar in `Layout.tsx` (Social group)
+- [x] `/party-collections` route added to `App.tsx`
+- [x] `GameDetailsPage.tsx` enhanced with Phase 30 rich content:
+  - Artwork-color backdrop on the cover-emoji square (uses `metadata.artworkColor`)
+  - Genre / developer / year pill row below system tips
+  - **Getting Started** tip list (collapsed into an expandable card)
+  - **Netplay Tips** panel (blue-tinted, only shown for multiplayer games)
+  - **Recommended controller** inline badge
+  - **Available Patches** expandable section listing safe patches with type badge, version, description, and optional info URL
+
+### Phase 30f — Tests
+
+- [x] 48 new unit tests in `phase-30.test.ts`:
+  - `GameMetadataStore` — seed count, required fields, genre filter, set/upsert
+  - `PatchStore` — seed count, safe-only filter, game filter, multiplayer-compatible tags, getById/upsert
+  - `PartyCollectionStore` — seed count, required fields, getByGameId/getByTag/upsert
+  - REST layer — GET metadata, 404 for unknown game, patch filtering, collection tag filtering, single collection fetch
+- [x] `roadmap.md` updated with Phase 30 milestones
 
 
 - Tournament-style rooms
