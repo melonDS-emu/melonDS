@@ -5,6 +5,34 @@
  * The app does NOT bundle these backends — users must have them installed
  * or the app provides guided setup.
  */
+
+/**
+ * Capability matrix for a single emulator backend.
+ * Each field reflects a concrete feature that the orchestration layer
+ * can rely on when building launch arguments or managing sessions.
+ */
+export interface BackendCapabilities {
+  /** Backend can launch ROMs as a local child process via the bridge. */
+  localLaunch: boolean;
+  /**
+   * Backend supports networked multiplayer — either through built-in CLI
+   * flags (e.g. FCEUX --net, Snes9x -netplay, Mupen64Plus --netplay-host)
+   * or through the RetroOasis TCP relay (relay-only backends still count
+   * because the bridge can bridge their TCP connections).
+   */
+  netplay: boolean;
+  /** Backend accepts a save-file directory and writes SRAM / save states there. */
+  savePath: boolean;
+  /** Backend can load an external controller remapping / profile config file. */
+  controllerProfile: boolean;
+  /**
+   * Backend supports link cable emulation over TCP.
+   * True only for emulators that expose a `--link-host` / `--link-address`
+   * style flag (mGBA, SameBoy, VisualBoyAdvance-M).
+   */
+  linkCable: boolean;
+}
+
 export interface BackendDefinition {
   id: string;
   name: string;
@@ -15,6 +43,8 @@ export interface BackendDefinition {
   supportsSaveStates: boolean;
   website: string;
   notes: string[];
+  /** Fine-grained capability matrix for orchestration decisions. */
+  capabilities: BackendCapabilities;
 }
 
 export const KNOWN_BACKENDS: BackendDefinition[] = [
@@ -28,6 +58,7 @@ export const KNOWN_BACKENDS: BackendDefinition[] = [
     supportsSaveStates: true,
     website: 'https://fceux.com',
     notes: ['Good netplay support', 'Lua scripting available'],
+    capabilities: { localLaunch: true, netplay: true, savePath: true, controllerProfile: true, linkCable: false },
   },
   {
     id: 'snes9x',
@@ -39,6 +70,7 @@ export const KNOWN_BACKENDS: BackendDefinition[] = [
     supportsSaveStates: true,
     website: 'https://www.snes9x.com',
     notes: ['Strong compatibility', 'Netplay via built-in support'],
+    capabilities: { localLaunch: true, netplay: true, savePath: true, controllerProfile: true, linkCable: false },
   },
   {
     id: 'bsnes',
@@ -50,6 +82,7 @@ export const KNOWN_BACKENDS: BackendDefinition[] = [
     supportsSaveStates: true,
     website: 'https://github.com/bsnes-emu/bsnes',
     notes: ['Highest accuracy', 'Higher system requirements'],
+    capabilities: { localLaunch: true, netplay: false, savePath: true, controllerProfile: true, linkCable: false },
   },
   {
     id: 'mgba',
@@ -61,6 +94,7 @@ export const KNOWN_BACKENDS: BackendDefinition[] = [
     supportsSaveStates: true,
     website: 'https://mgba.io',
     notes: ['Link cable emulation', 'Excellent compatibility', 'Active development'],
+    capabilities: { localLaunch: true, netplay: true, savePath: true, controllerProfile: true, linkCable: true },
   },
   {
     id: 'gambatte',
@@ -72,6 +106,7 @@ export const KNOWN_BACKENDS: BackendDefinition[] = [
     supportsSaveStates: true,
     website: 'https://github.com/sinamas/gambatte',
     notes: ['Very high accuracy for GB/GBC'],
+    capabilities: { localLaunch: true, netplay: false, savePath: true, controllerProfile: false, linkCable: false },
   },
   {
     id: 'sameboy',
@@ -88,6 +123,7 @@ export const KNOWN_BACKENDS: BackendDefinition[] = [
       'Excellent for Pokémon Gen I/II trades and battles',
       'Open source (MIT license)',
     ],
+    capabilities: { localLaunch: true, netplay: true, savePath: true, controllerProfile: true, linkCable: true },
   },
   {
     id: 'vbam',
@@ -104,6 +140,7 @@ export const KNOWN_BACKENDS: BackendDefinition[] = [
       'Good compatibility for Pokémon Gen III link features',
       'Open source (GPLv2)',
     ],
+    capabilities: { localLaunch: true, netplay: true, savePath: true, controllerProfile: true, linkCable: true },
   },
   {
     id: 'mupen64plus',
@@ -124,6 +161,7 @@ export const KNOWN_BACKENDS: BackendDefinition[] = [
       'Recommended video plugin: mupen64plus-video-glide64mk2 (default) or mupen64plus-video-rice',
       'For best party-game performance use GlideN64 (mupen64plus-video-gliden64) when available',
     ],
+    capabilities: { localLaunch: true, netplay: true, savePath: true, controllerProfile: true, linkCable: false },
   },
   {
     id: 'project64',
@@ -135,6 +173,7 @@ export const KNOWN_BACKENDS: BackendDefinition[] = [
     supportsSaveStates: true,
     website: 'https://www.pj64-emu.com',
     notes: ['Windows only', 'Good compatibility'],
+    capabilities: { localLaunch: true, netplay: false, savePath: true, controllerProfile: true, linkCable: false },
   },
   {
     id: 'melonds',
@@ -162,6 +201,7 @@ export const KNOWN_BACKENDS: BackendDefinition[] = [
       'Save states: Ctrl+1-8 to save slot, Shift+1-8 to load slot',
       'Screen swap hotkey: F11 swaps top/bottom screens while running',
     ],
+    capabilities: { localLaunch: true, netplay: true, savePath: true, controllerProfile: true, linkCable: false },
   },
   {
     id: 'desmume',
@@ -183,6 +223,7 @@ export const KNOWN_BACKENDS: BackendDefinition[] = [
       'Performance: --num-cores=2 for dual-core CPU utilization on older hardware',
       'BIOS: DeSmuME can run without BIOS files (HLE mode), though BIOS improves compatibility',
     ],
+    capabilities: { localLaunch: true, netplay: false, savePath: true, controllerProfile: true, linkCable: false },
   },
   {
     id: 'nestopia',
@@ -204,6 +245,7 @@ export const KNOWN_BACKENDS: BackendDefinition[] = [
       'Open source (GPLv2) — active fork of original Nestopia',
       'Debug: launch with --log-level=debug for verbose output',
     ],
+    capabilities: { localLaunch: true, netplay: false, savePath: true, controllerProfile: true, linkCable: false },
   },
   {
     id: 'higan',
@@ -226,6 +268,7 @@ export const KNOWN_BACKENDS: BackendDefinition[] = [
       'Open source (ISC license)',
       'Debug: --no-fast-boot disables BIOS skip; --verbose for detailed logs',
     ],
+    capabilities: { localLaunch: true, netplay: false, savePath: true, controllerProfile: false, linkCable: false },
   },
   {
     id: 'retroarch',
@@ -250,6 +293,7 @@ export const KNOWN_BACKENDS: BackendDefinition[] = [
       'Save states: F2 save, F4 load (default hotkeys)',
       'Open source (GPLv3)',
     ],
+    capabilities: { localLaunch: true, netplay: true, savePath: true, controllerProfile: true, linkCable: false },
   },
   {
     id: 'dolphin',
@@ -274,6 +318,7 @@ export const KNOWN_BACKENDS: BackendDefinition[] = [
       'For best online performance use the Netplay mode in the Dolphin GUI or via relay sessions',
       'Open source (GPLv2+)',
     ],
+    capabilities: { localLaunch: true, netplay: true, savePath: true, controllerProfile: true, linkCable: false },
   },
   {
     id: 'citra',
@@ -299,6 +344,7 @@ export const KNOWN_BACKENDS: BackendDefinition[] = [
       'Save states: Ctrl+N save, Ctrl+A load (slot-based)',
       'Open source (GPLv2)',
     ],
+    capabilities: { localLaunch: true, netplay: true, savePath: true, controllerProfile: true, linkCable: false },
   },
   {
     id: 'flycast',
@@ -318,6 +364,7 @@ export const KNOWN_BACKENDS: BackendDefinition[] = [
       'Install (Windows): download from https://github.com/flyinghead/flycast/releases',
       'Open source (GPLv2)',
     ],
+    capabilities: { localLaunch: true, netplay: true, savePath: true, controllerProfile: true, linkCable: false },
   },
   {
     id: 'duckstation',
@@ -337,6 +384,7 @@ export const KNOWN_BACKENDS: BackendDefinition[] = [
       'BIOS: requires PS1 BIOS image (scph1001.bin or similar)',
       'Open source (GPLv3)',
     ],
+    capabilities: { localLaunch: true, netplay: false, savePath: true, controllerProfile: true, linkCable: false },
   },
   {
     id: 'pcsx2',
@@ -357,6 +405,7 @@ export const KNOWN_BACKENDS: BackendDefinition[] = [
       'Supports .iso, .bin/.cue, .chd ROM formats',
       'Open source (GPLv3)',
     ],
+    capabilities: { localLaunch: true, netplay: true, savePath: true, controllerProfile: true, linkCable: false },
   },
   {
     id: 'ppsspp',
@@ -375,6 +424,7 @@ export const KNOWN_BACKENDS: BackendDefinition[] = [
       'Supports .iso, .cso, .pbp, .elf ROM formats',
       'Open source (GPLv2)',
     ],
+    capabilities: { localLaunch: true, netplay: true, savePath: true, controllerProfile: true, linkCable: false },
   },
   {
     id: 'cemu',
@@ -393,5 +443,6 @@ export const KNOWN_BACKENDS: BackendDefinition[] = [
       'Requires Wii U keys file (keys.txt) and game files in .wud/.wux/.iso/.rpx/.wua format',
       'Open source (MPL-2.0) since 2022',
     ],
+    capabilities: { localLaunch: true, netplay: false, savePath: true, controllerProfile: true, linkCable: false },
   },
 ];
