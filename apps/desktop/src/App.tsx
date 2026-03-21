@@ -35,6 +35,7 @@ import N64Page from './pages/N64Page';
 import NDSPage from './pages/NDSPage';
 import CompatibilityPage from './pages/CompatibilityPage';
 import SetupPage from './pages/SetupPage';
+import { PartyCollectionsPage } from './pages/PartyCollectionsPage';
 
 export function App() {
   return (
@@ -76,6 +77,7 @@ export function App() {
         <Route path="/notifications" element={<NotificationsPage />} />
         <Route path="/retro-achievements" element={<RetroAchievementsPage />} />
         <Route path="/compatibility" element={<CompatibilityPage />} />
+        <Route path="/party-collections" element={<PartyCollectionsPage />} />
       </Route>
     </Routes>
   );

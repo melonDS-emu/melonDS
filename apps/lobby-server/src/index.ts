@@ -45,6 +45,9 @@ import { KnownIssuesStore } from './known-issues-store';
 import { SessionHealthStore } from './session-health-store';
 import { AccountStore } from './account-store';
 import { ModerationStore } from './moderation-store';
+import { GameMetadataStore } from './game-metadata-store';
+import { PatchStore } from './patch-store';
+import { PartyCollectionStore } from './party-collection-store';
 
 const PORT = parseInt(process.env.PORT ?? '8080', 10);
 /** Public hostname/IP players use to reach the relay (surfaced in game-starting events). */
@@ -122,6 +125,11 @@ const sessionHealthStore = new SessionHealthStore();
 const _phase11Db = USE_SQLITE ? getDatabase() : openDatabase();
 const accountStore = new AccountStore(_phase11Db);
 const moderationStore = new ModerationStore(_phase11Db);
+
+// Phase 30 — QoL & "Wow" Layer stores (static/seeded, no SQLite required)
+const gameMetadataStore = new GameMetadataStore();
+const patchStore = new PatchStore();
+const partyCollectionStore = new PartyCollectionStore();
 
 /** Lazy reference to the WebSocketServer — set after server creation. */
 let wss: WebSocketServer | undefined;
@@ -1483,6 +1491,9 @@ async function httpHandler(req: http.IncomingMessage, res: http.ServerResponse):
   if (await accountsHandler(req, res, pathname)) return;
   if (await moderationHandler(req, res, pathname)) return;
 
+  // Phase 30: QoL & "Wow" Layer
+  if (await phase30Handler(req, res, pathname, parsedUrl.query)) return;
+
   json(res, 404, { error: 'Not found' });
 }
 
@@ -2032,6 +2043,74 @@ async function moderationHandler(
       return true;
     }
     json(res, 200, { report: updated });
+    return true;
+  }
+
+  return false;
+}
+
+// ---------------------------------------------------------------------------
+// Phase 30 — QoL & "Wow" Layer REST endpoints
+//   GET /api/game-metadata              — all seeded rich metadata
+//   GET /api/game-metadata/:gameId      — metadata for one game
+//   GET /api/patches                    — all safe patches
+//   GET /api/patches?gameId=X           — safe patches for a specific game
+//   GET /api/party-collections          — all party collections
+//   GET /api/party-collections/:id      — single collection by ID
+// ---------------------------------------------------------------------------
+async function phase30Handler(
+  req: import('http').IncomingMessage,
+  res: import('http').ServerResponse,
+  pathname: string,
+  query: Record<string, string | string[] | undefined>,
+): Promise<boolean> {
+  // GET /api/game-metadata
+  if (pathname === '/api/game-metadata' && req.method === 'GET') {
+    json(res, 200, { metadata: gameMetadataStore.getAll() });
+    return true;
+  }
+
+  // GET /api/game-metadata/:gameId
+  const metaGameMatch = pathname.match(/^\/api\/game-metadata\/([^/]+)$/);
+  if (metaGameMatch && req.method === 'GET') {
+    const gameId = decodeURIComponent(metaGameMatch[1]);
+    const meta = gameMetadataStore.get(gameId);
+    if (!meta) {
+      json(res, 404, { error: 'No metadata found for this game' });
+      return true;
+    }
+    json(res, 200, { metadata: meta });
+    return true;
+  }
+
+  // GET /api/patches  (optionally ?gameId=X)
+  if (pathname === '/api/patches' && req.method === 'GET') {
+    const gameId = typeof query.gameId === 'string' ? query.gameId : undefined;
+    const patches = gameId ? patchStore.getByGameId(gameId) : patchStore.getSafe();
+    json(res, 200, { patches });
+    return true;
+  }
+
+  // GET /api/party-collections  (optionally ?tag=X)
+  if (pathname === '/api/party-collections' && req.method === 'GET') {
+    const tag = typeof query.tag === 'string' ? query.tag : undefined;
+    const collections = tag
+      ? partyCollectionStore.getByTag(tag)
+      : partyCollectionStore.getAll();
+    json(res, 200, { collections });
+    return true;
+  }
+
+  // GET /api/party-collections/:id
+  const collectionMatch = pathname.match(/^\/api\/party-collections\/([^/]+)$/);
+  if (collectionMatch && req.method === 'GET') {
+    const id = decodeURIComponent(collectionMatch[1]);
+    const collection = partyCollectionStore.getById(id);
+    if (!collection) {
+      json(res, 404, { error: 'Collection not found' });
+      return true;
+    }
+    json(res, 200, { collection });
     return true;
   }
 

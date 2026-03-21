@@ -11,6 +11,70 @@ import { getEmulatorPathForSystem, getBackendIdForSystem, EMULATOR_NAMES } from 
 import { getSaveDirectory } from '../lib/rom-settings';
 import { SystemBadge } from '../components/SystemBadge';
 
+// ---------------------------------------------------------------------------
+// Phase 30 — rich metadata fetched from the API
+// ---------------------------------------------------------------------------
+
+interface GameMetadata {
+  gameId: string;
+  genre: string;
+  developer: string;
+  year: number;
+  onboardingTips: string[];
+  netplayTips: string[];
+  recommendedController: string;
+  artworkColor: string;
+  quickHostPreset?: '1v1' | '4-player' | 'full-party';
+}
+
+interface GamePatch {
+  id: string;
+  gameId: string;
+  name: string;
+  description: string;
+  type: string;
+  safe: boolean;
+  version: string;
+  infoUrl?: string;
+  instructions: string[];
+  tags: string[];
+}
+
+const API_BASE = 'http://localhost:8080';
+
+async function fetchGameMetadata(gameId: string): Promise<GameMetadata | null> {
+  try {
+    const res = await fetch(`${API_BASE}/api/game-metadata/${encodeURIComponent(gameId)}`);
+    if (!res.ok) return null;
+    const data = await res.json() as { metadata: GameMetadata };
+    return data.metadata;
+  } catch {
+    return null;
+  }
+}
+
+async function fetchGamePatches(gameId: string): Promise<GamePatch[]> {
+  try {
+    const res = await fetch(`${API_BASE}/api/patches?gameId=${encodeURIComponent(gameId)}`);
+    if (!res.ok) return [];
+    const data = await res.json() as { patches: GamePatch[] };
+    return data.patches;
+  } catch {
+    return [];
+  }
+}
+
+function useGameMetadata(gameId: string | undefined) {
+  const [metadata, setMetadata] = useState<GameMetadata | null>(null);
+  const [patches, setPatches] = useState<GamePatch[]>([]);
+  useEffect(() => {
+    if (!gameId) return;
+    fetchGameMetadata(gameId).then(setMetadata);
+    fetchGamePatches(gameId).then(setPatches);
+  }, [gameId]);
+  return { metadata, patches };
+}
+
 /** ROM file extensions used in the native file picker filter. */
 const ROM_EXTENSIONS = ['nes', 'sfc', 'smc', 'gb', 'gbc', 'gba', 'n64', 'z64', 'v64', 'nds'];
 
@@ -67,8 +131,10 @@ export function GameDetailsPage() {
   const [launchStatus, setLaunchStatus] = useState<'idle' | 'launching' | 'success' | 'error'>('idle');
   const [launchError, setLaunchError] = useState<string | null>(null);
   const [showAdvanced, setShowAdvanced] = useState(false);
+  const [showPatches, setShowPatches] = useState(false);
 
   const { data: game, loading, error } = useGame(gameId);
+  const { metadata, patches } = useGameMetadata(gameId);
 
   // Navigate to lobby after room is created
   useEffect(() => {
@@ -183,7 +249,7 @@ export function GameDetailsPage() {
         <div className="flex items-start gap-6">
           <div
             className="w-28 h-28 rounded-xl flex items-center justify-center text-5xl flex-shrink-0"
-            style={{ backgroundColor: 'var(--color-oasis-surface)' }}
+            style={{ backgroundColor: metadata?.artworkColor ?? 'var(--color-oasis-surface)' }}
           >
             {game.coverEmoji}
           </div>
@@ -283,6 +349,135 @@ export function GameDetailsPage() {
             style={{ backgroundColor: 'rgba(37,99,235,0.15)', color: '#93c5fd' }}
           >
             {NDS_WFC_TIP}
+          </div>
+        )}
+
+        {/* Phase 30 — Rich metadata: genre/developer/year pill row */}
+        {metadata && (
+          <div className="flex flex-wrap gap-2 mt-4">
+            <span
+              className="px-2.5 py-1 rounded-full text-xs font-semibold"
+              style={{ backgroundColor: 'var(--color-oasis-surface)', color: 'var(--color-oasis-text-muted)' }}
+            >
+              🎭 {metadata.genre}
+            </span>
+            <span
+              className="px-2.5 py-1 rounded-full text-xs font-semibold"
+              style={{ backgroundColor: 'var(--color-oasis-surface)', color: 'var(--color-oasis-text-muted)' }}
+            >
+              🏢 {metadata.developer}
+            </span>
+            <span
+              className="px-2.5 py-1 rounded-full text-xs font-semibold"
+              style={{ backgroundColor: 'var(--color-oasis-surface)', color: 'var(--color-oasis-text-muted)' }}
+            >
+              📅 {metadata.year}
+            </span>
+          </div>
+        )}
+
+        {/* Phase 30 — Onboarding tips */}
+        {metadata && metadata.onboardingTips.length > 0 && (
+          <div
+            className="mt-3 px-4 py-3 rounded-xl"
+            style={{ backgroundColor: 'var(--color-oasis-surface)' }}
+          >
+            <p className="text-xs font-bold mb-2" style={{ color: 'var(--color-oasis-accent-light)' }}>
+              💡 Getting Started
+            </p>
+            <ul className="list-disc list-inside space-y-1">
+              {metadata.onboardingTips.map((tip, i) => (
+                <li key={i} className="text-xs" style={{ color: 'var(--color-oasis-text-muted)' }}>
+                  {tip}
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
+
+        {/* Phase 30 — Netplay tips */}
+        {metadata && metadata.netplayTips.length > 0 && (
+          <div
+            className="mt-2 px-4 py-3 rounded-xl"
+            style={{ backgroundColor: 'rgba(37,99,235,0.08)', border: '1px solid rgba(37,99,235,0.2)' }}
+          >
+            <p className="text-xs font-bold mb-2" style={{ color: '#93c5fd' }}>
+              🌐 Netplay Tips
+            </p>
+            <ul className="list-disc list-inside space-y-1">
+              {metadata.netplayTips.map((tip, i) => (
+                <li key={i} className="text-xs" style={{ color: '#93c5fd', opacity: 0.85 }}>
+                  {tip}
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
+
+        {/* Phase 30 — Recommended controller */}
+        {metadata && (
+          <div
+            className="mt-2 px-4 py-2 rounded-xl flex items-center gap-2 text-xs"
+            style={{ backgroundColor: 'var(--color-oasis-surface)', color: 'var(--color-oasis-text-muted)' }}
+          >
+            <span className="flex-shrink-0">🎮</span>
+            <span><strong>Recommended controller:</strong> {metadata.recommendedController}</span>
+          </div>
+        )}
+
+        {/* Phase 30 — Safe patches */}
+        {patches.length > 0 && (
+          <div className="mt-3">
+            <button
+              type="button"
+              onClick={() => setShowPatches((v) => !v)}
+              className="flex items-center gap-1.5 text-xs font-semibold transition-opacity hover:opacity-80"
+              style={{ color: 'var(--color-oasis-text-muted)' }}
+            >
+              <span>{showPatches ? '▾' : '▸'}</span>
+              <span>🩹 Available Patches ({patches.length})</span>
+            </button>
+            {showPatches && (
+              <div className="mt-2 space-y-2">
+                {patches.map((patch) => (
+                  <div
+                    key={patch.id}
+                    className="px-4 py-3 rounded-xl"
+                    style={{ backgroundColor: 'var(--color-oasis-surface)' }}
+                  >
+                    <div className="flex items-center gap-2 flex-wrap mb-1">
+                      <span className="text-xs font-bold">{patch.name}</span>
+                      <span
+                        className="text-[10px] px-2 py-0.5 rounded-full font-semibold"
+                        style={{ backgroundColor: 'rgba(22,163,74,0.15)', color: '#4ade80' }}
+                      >
+                        {patch.type}
+                      </span>
+                      <span
+                        className="text-[10px] px-2 py-0.5 rounded-full font-semibold"
+                        style={{ backgroundColor: 'var(--color-oasis-card)', color: 'var(--color-oasis-text-muted)' }}
+                      >
+                        v{patch.version}
+                      </span>
+                    </div>
+                    <p className="text-xs mb-1.5" style={{ color: 'var(--color-oasis-text-muted)' }}>
+                      {patch.description}
+                    </p>
+                    {patch.infoUrl && (
+                      <a
+                        href={patch.infoUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-[10px] underline"
+                        style={{ color: 'var(--color-oasis-accent-light)' }}
+                      >
+                        More info ↗
+                      </a>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
         )}
 
