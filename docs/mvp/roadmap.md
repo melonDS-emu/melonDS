@@ -20,7 +20,8 @@
 > - Phase 20 Debug & Polish is now complete: TypeScript `rootDir` fix (phase-18/19 tests now type-check cleanly), duplicate `n64-mario-party-2` mock-game entry removed, try/catch error isolation added to `send-dm`/`mark-dm-read`/`send-global-chat` handlers, `GameCubePage` (`/gc`) added with 9 GC games + Leaderboard tab, 🟣 GameCube nav item. 382 tests total.
 > - Phase 21 SEGA Genesis / Mega Drive is now complete: `genesis` system type, RetroArch + Genesis Plus GX adapter, 10 Genesis session templates, 9 Genesis mock games, `GenesisPage` (`/genesis`), 🔵 Genesis nav item. 427 tests total.
 > - Phase 23 Retro Achievement Support is now complete: `RetroAchievementStore` with 40 per-game achievements across 10 games, 6 REST endpoints (`/api/retro-achievements/*`), `RetroAchievementsPage` (`/retro-achievements`) with summary bar + game sidebar + badge grid, `🏅 Retro Achievements` nav item. 48 new tests (660 total).
- - Phase 24 Further Retro Achievement Support is now complete: catalog expanded to 60 achievements across 15 games (added GC/Wii/3DS/DC/PS2), `SqliteRetroAchievementStore` with Phase 24 DB migration, `getLeaderboard()` + `GET /api/retro-achievements/leaderboard`, `retro-achievement-unlocked` WS push on unlock, Leaderboard tab in `RetroAchievementsPage`. 22 new tests.
+> - Phase 24 Further Retro Achievement Support is now complete: catalog expanded to 60 achievements across 15 games (added GC/Wii/3DS/DC/PS2), `SqliteRetroAchievementStore` with Phase 24 DB migration, `getLeaderboard()` + `GET /api/retro-achievements/leaderboard`, `retro-achievement-unlocked` WS push on unlock, Leaderboard tab in `RetroAchievementsPage`. 22 new tests.
+> - Phase 3 Full Multiplayer Loop is now complete: host/join private+public rooms, room-code flow, ready states, host controls, spectator support, game-start handshake with per-player session tokens, relay allocation (ports 9000–9200), per-backend emulator launch args, host migration on disconnect, clean leave flow, and `rejoinRoom`/`rejoinByCode` for in-progress reconnects. 36 new tests (765 total).
 
 ## Phase 1 — Foundation (Complete)
 
@@ -106,7 +107,28 @@
 - [x] Voice chat hooks (WebRTC mesh; mute/unmute + per-peer talking indicators in lobby)
 - [x] Party activity feed (mock/dev presence data)
 
-## Phase 3 — Nintendo DS + Premium Features
+## Phase 3 — Full Multiplayer Loop (Complete)
+
+**Goal:** Users can create rooms and actually get into a session. First get: Host room → friend joins → both ready → session starts → both can leave cleanly.
+
+### Milestones
+- [x] Host creates public or private room with auto-generated 6-character room code
+- [x] Friend joins by room code (case-insensitive lookup)
+- [x] Ready-state management: host defaults to ready, guests toggle with `toggle-ready`
+- [x] `startGame` gated on all players being ready and caller being host
+- [x] Relay port allocated from NetplayRelay pool (9000–9200) on game start
+- [x] Per-player unique session tokens sent in `game-starting` event (used by emulator relay auth)
+- [x] Per-backend emulator launch args wired via `createSystemAdapter` (FCEUX, Snes9x, mGBA, Mupen64Plus, melonDS, SameBoy, VBA-M, Dolphin, RetroArch, Citra)
+- [x] Spectator join by room code (waiting and in-progress rooms)
+- [x] Host migration: host role transfers to next player when host disconnects or leaves
+- [x] Player slot renumbering after departure (contiguous 0, 1, 2, …)
+- [x] Clean leave: `leaveRoom` / `disconnectPlayer` frees relay port and ends session history record when last player exits
+- [x] `rejoinRoom(roomId, playerId, displayName)` — allows a new WebSocket connection to re-enter an in-progress session
+- [x] `rejoinByCode(roomCode, playerId, displayName)` — same flow resolved by room code
+- [x] `rejoin-room` WebSocket message + `room-rejoined` response with existing relay port and a fresh session token
+- [x] 36 new unit tests covering the full multiplayer loop (phase-3.test.ts)
+
+## Phase 3-NDS — Nintendo DS + Premium Features
 
 **Goal:** Add DS support as a premium differentiator with unique UX.
 

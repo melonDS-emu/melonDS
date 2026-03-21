@@ -8,7 +8,8 @@
  *  - Ready states: guest toggles ready, host is ready by default
  *  - startGame succeeds when all players are ready
  *  - startGame is rejected when any player is not ready
- *  - Relay port is assigned on game start
+ *  - Relay port is preserved on the Room object after being set by the handler
+ *  - Per-player session tokens: room carries relay port for fresh-token generation on rejoin
  *  - Spectator can join an in-progress room by code (stable spectator support)
  *  - Host leaves: host migrates to the next player
  *  - Guest leaves during in-game: room stays alive with remaining players
@@ -16,6 +17,7 @@
  *  - Disconnect cleanup: disconnectPlayer removes from all rooms
  *  - Reconnect: rejoinRoom / rejoinByCode allows re-entry to an in-game session
  *  - rejoinRoom is rejected for rooms not in-game status
+ *  - rejoinRoom preserves the relay port so the handler can issue a fresh session token
  *  - listPublicRooms only returns waiting public rooms
  */
 
@@ -202,6 +204,39 @@ describe('Phase 3 — game-start handshake', () => {
     mgr.startGame(room.id, 'host-1');
     const second = mgr.startGame(room.id, 'host-1');
     expect(second).toBeNull();
+  });
+
+  it('relay port can be set on the room object after startGame (simulating handler allocation)', () => {
+    const mgr = new LobbyManager();
+    const room = makeRoom(mgr, { maxPlayers: 2 });
+    mgr.joinRoom(room.id, 'guest-1', 'Guest');
+    mgr.toggleReady(room.id, 'guest-1');
+
+    const started = mgr.startGame(room.id, 'host-1');
+    expect(started).not.toBeNull();
+
+    // The handler sets relayPort on the room after calling relay.allocateSession()
+    started!.relayPort = 9001;
+    const fetched = mgr.getRoom(room.id);
+    expect(fetched!.relayPort).toBe(9001);
+  });
+
+  it('relay port is preserved on the room and visible after rejoin', () => {
+    const mgr = new LobbyManager();
+    const room = makeRoom(mgr, { maxPlayers: 4 });
+    mgr.joinRoom(room.id, 'guest-1', 'Guest');
+    mgr.toggleReady(room.id, 'guest-1');
+
+    const started = mgr.startGame(room.id, 'host-1');
+    // Simulate handler allocating relay port
+    started!.relayPort = 9042;
+
+    // Guest disconnects then rejoins
+    mgr.leaveRoom(room.id, 'guest-1');
+    const rejoined = mgr.rejoinRoom(room.id, 'guest-1-new', 'Guest');
+    expect(rejoined).not.toBeNull();
+    // The handler reads room.relayPort to include in room-rejoined; verify it persists
+    expect(rejoined!.relayPort).toBe(9042);
   });
 });
 
