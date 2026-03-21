@@ -1,4 +1,4 @@
-import { useState, useRef, useCallback } from 'react';
+import { useState, useRef, useCallback, useEffect } from 'react';
 import {
   listAllSaves,
   deleteSave,
@@ -13,6 +13,14 @@ import {
   type SaveRecord,
   type SyncStatus,
 } from '../lib/save-service';
+import {
+  listBackups,
+  deleteBackup,
+  restoreFromBackup,
+  markAsLastKnownGood,
+  getBackupReasonDisplay,
+  type BackupMeta,
+} from '../lib/save-backup-service';
 import { ConflictResolutionModal } from '../components/ConflictResolutionModal';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -387,6 +395,7 @@ function DeleteConfirmBanner({ save, onConfirm, onCancel }: DeleteConfirmBannerP
 // ─── Main page ────────────────────────────────────────────────────────────────
 
 export function SavesPage() {
+  const [activeTab, setActiveTab] = useState<'saves' | 'backups'>('saves');
   const [saves, setSaves] = useState<SaveRecord[]>(() => listAllSaves());
   const [query, setQuery] = useState('');
   const [conflictTarget, setConflictTarget] = useState<SaveRecord | null>(null);
@@ -394,9 +403,28 @@ export function SavesPage() {
   const [deleteConfirm, setDeleteConfirm] = useState<DeleteConfirmState | null>(null);
   const [importPending, setImportPending] = useState<ImportPendingState | null>(null);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
+
+  // ─── Backup tab state ─────────────────────────────────────────────────────
+  const [backups, setBackups] = useState<BackupMeta[]>([]);
+  const [backupsLoading, setBackupsLoading] = useState(false);
+  const [backupGameFilter, setBackupGameFilter] = useState('');
+
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const refresh = useCallback(() => setSaves(listAllSaves()), []);
+
+  // Load backups when the tab is activated
+  useEffect(() => {
+    if (activeTab !== 'backups') return;
+    setBackupsLoading(true);
+    // Aggregate backups for all known games
+    const gameIds = [...new Set(listAllSaves().map((s) => s.gameId))];
+    Promise.all(gameIds.map((gid) => listBackups(gid)))
+      .then((results) => {
+        setBackups(results.flat().sort((a, b) => b.createdAt.localeCompare(a.createdAt)));
+      })
+      .finally(() => setBackupsLoading(false));
+  }, [activeTab]);
 
   function showToast(msg: string) {
     setToastMessage(msg);
@@ -504,22 +532,46 @@ export function SavesPage() {
             Manage your game saves — view sync status, export, import, or restore from cloud.
           </p>
         </div>
-        <button
-          onClick={() => fileInputRef.current?.click()}
-          className="flex-shrink-0 px-4 py-2 rounded-xl text-sm font-semibold transition-colors"
-          style={{ backgroundColor: 'var(--color-oasis-accent)', color: 'white' }}
-        >
-          + Import Save
-        </button>
-        <input
-          ref={fileInputRef}
-          type="file"
-          accept=".sav,.state,.srm,.sav.gz"
-          className="hidden"
-          onChange={handleFileSelected}
-        />
+        {activeTab === 'saves' && (
+          <>
+            <button
+              onClick={() => fileInputRef.current?.click()}
+              className="flex-shrink-0 px-4 py-2 rounded-xl text-sm font-semibold transition-colors"
+              style={{ backgroundColor: 'var(--color-oasis-accent)', color: 'white' }}
+            >
+              + Import Save
+            </button>
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept=".sav,.state,.srm,.sav.gz"
+              className="hidden"
+              onChange={handleFileSelected}
+            />
+          </>
+        )}
       </div>
 
+      {/* Tab bar */}
+      <div className="flex gap-1 mb-5 p-1 rounded-xl" style={{ backgroundColor: 'var(--color-oasis-card)' }}>
+        {(['saves', 'backups'] as const).map((tab) => (
+          <button
+            key={tab}
+            onClick={() => setActiveTab(tab)}
+            className="flex-1 py-2 rounded-lg text-sm font-semibold transition-colors capitalize"
+            style={
+              activeTab === tab
+                ? { backgroundColor: 'var(--color-oasis-accent)', color: 'white' }
+                : { color: 'var(--color-oasis-text-muted)' }
+            }
+          >
+            {tab === 'saves' ? '💾 Saves' : '🔒 Backups'}
+          </button>
+        ))}
+      </div>
+
+      {/* ── Saves tab ──────────────────────────────────────────────────────── */}
+      {activeTab === 'saves' && (<>
       {/* Stats bar */}
       <div className="grid grid-cols-3 gap-3 mb-5">
         <StatCard label="Total Saves" value={String(totalCount)} color="var(--color-oasis-text)" />
@@ -704,6 +756,49 @@ export function SavesPage() {
           onCancel={() => setImportPending(null)}
         />
       )}
+      </>)}
+
+      {/* ── Backups tab ────────────────────────────────────────────────────── */}
+      {activeTab === 'backups' && (
+        <BackupsPanel
+          backups={backups}
+          loading={backupsLoading}
+          gameFilter={backupGameFilter}
+          onGameFilterChange={setBackupGameFilter}
+          onRestore={async (backup) => {
+            const result = await restoreFromBackup(backup.gameId, backup.id);
+            if (result) {
+              showToast(`✅ Restored "${backup.saveName}" from ${backup.reason} backup`);
+            } else {
+              showToast('⚠ Could not restore — server may be offline');
+            }
+          }}
+          onMarkLkg={async (backup) => {
+            const ok = await markAsLastKnownGood(backup.gameId, backup.id);
+            if (ok) {
+              setBackups((prev) =>
+                prev.map((b) =>
+                  b.gameId === backup.gameId && b.saveName === backup.saveName
+                    ? { ...b, isLastKnownGood: b.id === backup.id, reason: b.id === backup.id ? 'last-known-good' : b.reason }
+                    : b
+                )
+              );
+              showToast('⭐ Marked as Last Known Good');
+            } else {
+              showToast('⚠ Could not mark — server may be offline');
+            }
+          }}
+          onDelete={async (backup) => {
+            const ok = await deleteBackup(backup.gameId, backup.id);
+            if (ok) {
+              setBackups((prev) => prev.filter((b) => b.id !== backup.id));
+              showToast('Backup deleted');
+            } else {
+              showToast('⚠ Could not delete — server may be offline');
+            }
+          }}
+        />
+      )}
 
       {/* Toast */}
       {toastMessage && (
@@ -714,6 +809,188 @@ export function SavesPage() {
           {toastMessage}
         </div>
       )}
+    </div>
+  );
+}
+
+// ─── BackupsPanel ─────────────────────────────────────────────────────────────
+
+interface BackupsPanelProps {
+  backups: BackupMeta[];
+  loading: boolean;
+  gameFilter: string;
+  onGameFilterChange: (v: string) => void;
+  onRestore: (backup: BackupMeta) => void;
+  onMarkLkg: (backup: BackupMeta) => void;
+  onDelete: (backup: BackupMeta) => void;
+}
+
+function BackupsPanel({
+  backups,
+  loading,
+  gameFilter,
+  onGameFilterChange,
+  onRestore,
+  onMarkLkg,
+  onDelete,
+}: BackupsPanelProps) {
+  const filtered = gameFilter.trim()
+    ? backups.filter((b) =>
+        b.gameId.toLowerCase().includes(gameFilter.toLowerCase()) ||
+        b.saveName.toLowerCase().includes(gameFilter.toLowerCase())
+      )
+    : backups;
+
+  const lkgCount = backups.filter((b) => b.isLastKnownGood).length;
+
+  return (
+    <div>
+      {/* Info banner */}
+      <div
+        className="rounded-xl px-4 py-3 mb-5 text-sm"
+        style={{ backgroundColor: 'rgba(99,102,241,0.12)', color: 'var(--color-oasis-accent-light)' }}
+      >
+        <p className="font-semibold mb-0.5">🔒 Automatic save protection</p>
+        <p style={{ color: 'var(--color-oasis-text-muted)' }}>
+          RetroOasis creates a backup before every session. If something goes wrong, you can restore
+          from any snapshot here — or recover to the last version you know was working.
+        </p>
+      </div>
+
+      {/* Stats */}
+      <div className="grid grid-cols-2 gap-3 mb-5">
+        <StatCard label="Total Backups" value={String(backups.length)} color="var(--color-oasis-text)" />
+        <StatCard label="Last Known Good" value={String(lkgCount)} color="var(--color-oasis-yellow)" />
+      </div>
+
+      {/* Search */}
+      <div className="relative mb-5">
+        <span
+          className="absolute left-3 top-1/2 -translate-y-1/2 text-sm pointer-events-none"
+          style={{ color: 'var(--color-oasis-text-muted)' }}
+        >
+          🔍
+        </span>
+        <input
+          className="w-full pl-9 pr-3 py-2 rounded-xl text-sm outline-none"
+          style={{ backgroundColor: 'var(--color-oasis-card)', color: 'var(--color-oasis-text)', border: '1px solid transparent' }}
+          placeholder="Filter by game or slot…"
+          value={gameFilter}
+          onChange={(e) => onGameFilterChange(e.target.value)}
+        />
+      </div>
+
+      {loading && (
+        <p className="text-center py-8" style={{ color: 'var(--color-oasis-text-muted)' }}>
+          Loading backups…
+        </p>
+      )}
+
+      {!loading && filtered.length === 0 && (
+        <div className="text-center py-16">
+          <p className="text-4xl mb-3">🔒</p>
+          <p className="font-semibold mb-1" style={{ color: 'var(--color-oasis-text)' }}>
+            {backups.length === 0 ? 'No backups yet' : 'No backups match your filter'}
+          </p>
+          <p className="text-sm" style={{ color: 'var(--color-oasis-text-muted)' }}>
+            {backups.length === 0
+              ? 'Start a game session to automatically create your first backup.'
+              : 'Try a different search term.'}
+          </p>
+        </div>
+      )}
+
+      <div className="space-y-2">
+        {filtered.map((backup) => (
+          <BackupRow
+            key={backup.id}
+            backup={backup}
+            onRestore={onRestore}
+            onMarkLkg={onMarkLkg}
+            onDelete={onDelete}
+          />
+        ))}
+      </div>
+    </div>
+  );
+}
+
+interface BackupRowProps {
+  backup: BackupMeta;
+  onRestore: (b: BackupMeta) => void;
+  onMarkLkg: (b: BackupMeta) => void;
+  onDelete: (b: BackupMeta) => void;
+}
+
+function BackupRow({ backup, onRestore, onMarkLkg, onDelete }: BackupRowProps) {
+  const rd = getBackupReasonDisplay(backup.reason);
+  return (
+    <div
+      className="rounded-xl px-4 py-3 flex items-start gap-3"
+      style={{
+        backgroundColor: 'var(--color-oasis-card)',
+        border: backup.isLastKnownGood ? '1px solid rgba(251,191,36,0.4)' : '1px solid transparent',
+      }}
+    >
+      <div
+        className="w-9 h-9 rounded-lg flex items-center justify-center text-base flex-shrink-0 mt-0.5"
+        style={{ backgroundColor: 'var(--color-oasis-surface)' }}
+      >
+        {rd.icon}
+      </div>
+      <div className="flex-1 min-w-0">
+        <div className="flex items-center gap-2 flex-wrap">
+          <span className="text-sm font-semibold truncate" style={{ color: 'var(--color-oasis-text)' }}>
+            {backup.saveName}
+          </span>
+          {backup.isLastKnownGood && (
+            <span
+              className="px-2 py-0.5 rounded-full text-[10px] font-bold"
+              style={{ backgroundColor: 'rgba(251,191,36,0.2)', color: 'var(--color-oasis-yellow)' }}
+            >
+              ⭐ Last Known Good
+            </span>
+          )}
+          <span
+            className="px-2 py-0.5 rounded-full text-[10px] font-semibold"
+            style={{ backgroundColor: `${rd.color}20`, color: rd.color }}
+          >
+            {rd.label}
+          </span>
+        </div>
+        <p className="text-xs mt-1" style={{ color: 'var(--color-oasis-text-muted)' }}>
+          {backup.gameId} · {formatSaveDate(backup.createdAt)}
+          {backup.saveVersion > 0 && ` · v${backup.saveVersion}`}
+        </p>
+      </div>
+      <div className="flex items-center gap-1.5 flex-shrink-0 mt-0.5">
+        <button
+          onClick={() => onRestore(backup)}
+          className="px-2.5 py-1 rounded-lg text-xs font-semibold transition-colors"
+          style={{ backgroundColor: 'rgba(99,102,241,0.2)', color: 'var(--color-oasis-accent-light)' }}
+          title="Restore this backup"
+        >
+          Restore
+        </button>
+        {!backup.isLastKnownGood && (
+          <button
+            onClick={() => onMarkLkg(backup)}
+            className="px-2.5 py-1 rounded-lg text-xs font-medium transition-colors"
+            style={{ backgroundColor: 'rgba(251,191,36,0.15)', color: 'var(--color-oasis-yellow)' }}
+            title="Mark as last known good"
+          >
+            ⭐
+          </button>
+        )}
+        <button
+          onClick={() => onDelete(backup)}
+          className="p-1.5 rounded-lg text-sm transition-colors"
+          style={{ color: 'var(--color-oasis-text-muted)' }}
+          title="Delete this backup"
+        >
+          🗑
+        </button>
+      </div>
     </div>
   );
 }
