@@ -28,7 +28,7 @@ export interface GameMetadata {
 }
 
 // ---------------------------------------------------------------------------
-// Seed data — 40 games across the major supported systems
+// Seed data — games across the major supported systems
 // ---------------------------------------------------------------------------
 
 const SEED_METADATA: GameMetadata[] = [

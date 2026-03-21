@@ -75,6 +75,12 @@ function useGameMetadata(gameId: string | undefined) {
   return { metadata, patches };
 }
 
+/** Validate that a string is a safe CSS hex color (#rrggbb) before injecting into style. */
+function safeArtworkColor(color: string | undefined): string {
+  if (color && /^#[0-9a-fA-F]{6}$/.test(color)) return color;
+  return 'var(--color-oasis-surface)';
+}
+
 /** ROM file extensions used in the native file picker filter. */
 const ROM_EXTENSIONS = ['nes', 'sfc', 'smc', 'gb', 'gbc', 'gba', 'n64', 'z64', 'v64', 'nds'];
 
@@ -249,7 +255,7 @@ export function GameDetailsPage() {
         <div className="flex items-start gap-6">
           <div
             className="w-28 h-28 rounded-xl flex items-center justify-center text-5xl flex-shrink-0"
-            style={{ backgroundColor: metadata?.artworkColor ?? 'var(--color-oasis-surface)' }}
+            style={{ backgroundColor: safeArtworkColor(metadata?.artworkColor) }}
           >
             {game.coverEmoji}
           </div>

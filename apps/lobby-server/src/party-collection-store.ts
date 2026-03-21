@@ -98,7 +98,7 @@ const SEED_COLLECTIONS: PartyCollection[] = [
   },
   {
     id: 'beat-em-ups',
-    name: 'Streets Are Dangerous',
+    name: 'Streets of Danger',
     description: 'Classic co-op beat-\'em-ups where teamwork is the only way to survive.',
     emoji: '👊',
     curatorNote:
