@@ -56,6 +56,11 @@ export function LibraryPage() {
     .map((id) => allGames.find((g) => g.id === id))
     .filter(Boolean) as typeof allGames;
 
+  function handleModeChange(tag: string) {
+    setSelectedTag(tag);
+    setShowBestWithFriends(false);
+  }
+
   async function handleScan() {
     setScanStatus('scanning');
     setScanError(null);
@@ -216,7 +221,7 @@ export function LibraryPage() {
           {MODES.map(({ tag, label, icon }) => (
             <button
               key={tag}
-              onClick={() => { setSelectedTag(tag); setShowBestWithFriends(false); }}
+              onClick={() => handleModeChange(tag)}
               className="flex items-center gap-1 px-3.5 py-1.5 rounded-full text-xs font-black transition-all"
               style={{
                 backgroundColor: selectedTag === tag && !showBestWithFriends ? 'var(--color-oasis-blue)' : 'var(--color-oasis-card)',

@@ -15,6 +15,9 @@ export interface SessionPreset {
   emoji: string;
 }
 
+/** Tags that trigger a "Full Party" preset (fill all player slots). */
+const FULL_PARTY_TAGS = ['Party', 'Battle'];
+
 /** Generate quick-start presets for a given game based on its properties. */
 export function getGamePresets(game: {
   maxPlayers: number;
@@ -23,7 +26,7 @@ export function getGamePresets(game: {
 }): SessionPreset[] {
   const presets: SessionPreset[] = [];
 
-  if (game.maxPlayers >= 4 && game.tags.some((t) => ['Party', 'Battle'].includes(t))) {
+  if (game.maxPlayers >= 4 && game.tags.some((t) => FULL_PARTY_TAGS.includes(t))) {
     presets.push({
       id: 'full-party',
       label: 'Full Party',
