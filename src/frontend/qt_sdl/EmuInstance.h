@@ -56,6 +56,13 @@ enum
     HK_GuitarGripRed,
     HK_GuitarGripYellow,
     HK_GuitarGripBlue,
+    HK_Quit,
+    HK_Stop,
+    HK_LibPrev,
+    HK_LibNext,
+    HK_LibPrevRow,
+    HK_LibNextRow,
+    HK_LibConfirm,
     HK_MAX
 };
 

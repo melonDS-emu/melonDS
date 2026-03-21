@@ -81,6 +81,7 @@
 #include "CameraManager.h"
 #include "Window.h"
 #include "AboutDialog.h"
+#include "LibraryController.h"
 
 using namespace melonDS;
 
@@ -283,6 +284,9 @@ MainWindow::MainWindow(int id, EmuInstance* inst, QWidget* parent) :
             actOpenROM = menu->addAction("Open ROM...");
             connect(actOpenROM, &QAction::triggered, this, &MainWindow::onOpenFile);
             actOpenROM->setShortcut(QKeySequence(QKeySequence::StandardKey::Open));
+
+            actAddLibraryFolder = menu->addAction("Add folder to library...");
+            connect(actAddLibraryFolder, &QAction::triggered, this, &MainWindow::onAddLibraryFolder);
 
             /*actOpenROMArchive = menu->addAction("Open ROM inside archive...");
             connect(actOpenROMArchive, &QAction::triggered, this, &MainWindow::onOpenFileArchive);
@@ -892,6 +896,34 @@ void MainWindow::createScreenPanel()
     }
     setCentralWidget(panel);
 
+    // Use a stacked widget: library is the background (page 0),
+    // screen panel is on top (page 1). They swap on emu start/stop.
+    if (!m_viewStack)
+    {
+        m_viewStack = new QStackedWidget(this);
+
+        m_library = new LibraryController(this, globalCfg, m_viewStack);
+        m_library->loadConfig();
+        m_viewStack->addWidget(m_library); // index 0 — library background
+        m_viewStack->addWidget(panel);     // index 1 — screen
+
+        // Start on library unless a game was already running
+        m_viewStack->setCurrentIndex(emuThread->emuIsActive() ? 1 : 0);
+
+        setCentralWidget(m_viewStack);
+    }
+    else
+    {
+        // GL context recreation — replace the screen panel in slot 1
+        QWidget* old = m_viewStack->widget(1);
+        m_viewStack->removeWidget(old);
+        delete old;
+        m_viewStack->insertWidget(1, panel);
+        // Preserve whichever page was active
+        if (m_viewStack->currentIndex() == 1)
+            m_viewStack->setCurrentIndex(1);
+    }
+
     if (hasMenu)
         actScreenFiltering->setEnabled(hasOGL);
     panel->osdSetEnabled(showOSD);
@@ -1366,6 +1398,52 @@ void MainWindow::onOpenFile()
     updateRecentFilesMenu();
 
     updateCartInserted(false);
+}
+
+void MainWindow::onAddLibraryFolder()
+{
+    const QString dir = QFileDialog::getExistingDirectory(
+        this,
+        tr("Add folder to library"),
+        globalCfg.GetQString("LastROMFolder"));
+
+    if (dir.isEmpty()) return;
+
+    globalCfg.SetQString("LastROMFolder", dir);
+    Config::Save();
+
+    if (m_library)
+    {
+        m_library->addDirectory(dir, true);
+        // Switch to library view so the user sees their games appear
+        if (m_viewStack && !emuThread->emuIsActive())
+            m_viewStack->setCurrentIndex(0);
+    }
+}
+
+void MainWindow::onLibNav(int hk)
+{
+    if (!m_library) return;
+    QAbstractItemView* view = m_library->activeView();
+    if (!view) return;
+
+    Qt::Key key;
+    switch (hk)
+    {
+    case HK_LibPrev:    key = Qt::Key_Left;   break;
+    case HK_LibNext:    key = Qt::Key_Right;  break;
+    case HK_LibPrevRow: key = Qt::Key_Up;     break;
+    case HK_LibNextRow: key = Qt::Key_Down;   break;
+    case HK_LibConfirm: key = Qt::Key_Return; break;
+    default: return;
+    }
+
+    // Post a synthetic key event to the active view — Qt handles
+    // list/grid movement (including wrap, page, selection) natively.
+    QApplication::postEvent(view,
+        new QKeyEvent(QEvent::KeyPress,  key, Qt::NoModifier));
+    QApplication::postEvent(view,
+        new QKeyEvent(QEvent::KeyRelease, key, Qt::NoModifier));
 }
 
 void MainWindow::onClearRecentFiles()
@@ -2236,6 +2314,9 @@ void MainWindow::onEmuStart()
 {
     if (!hasMenu) return;
 
+    // Switch from library background to screen
+    if (m_viewStack) m_viewStack->setCurrentIndex(1);
+
     for (int i = 1; i < 9; i++)
     {
         actSaveState[i]->setEnabled(true);
@@ -2260,6 +2341,9 @@ void MainWindow::onEmuStart()
 void MainWindow::onEmuStop()
 {
     if (!hasMenu) return;
+
+    // Switch back to library background
+    if (m_viewStack) m_viewStack->setCurrentIndex(0);
 
     for (int i = 0; i < 9; i++)
     {

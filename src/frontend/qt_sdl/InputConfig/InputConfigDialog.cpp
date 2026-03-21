@@ -73,8 +73,18 @@ InputConfigDialog::InputConfigDialog(QWidget* parent) : QDialog(parent), ui(new 
         i++;
     }
 
+    i = 0;
+    for (int hotkey : hk_navigation)
+    {
+        const char* btn = EmuInstance::hotkeyNames[hotkey];
+        hkNavigationKeyMap[i] = keycfg.GetInt(btn);
+        hkNavigationJoyMap[i] = joycfg.GetInt(btn);
+        i++;
+    }
+
     populatePage(ui->tabAddons, hk_addons_labels, addonsKeyMap, addonsJoyMap);
     populatePage(ui->tabHotkeysGeneral, hk_general_labels, hkGeneralKeyMap, hkGeneralJoyMap);
+    populatePage(ui->tabNavigation, hk_navigation_labels, hkNavigationKeyMap, hkNavigationJoyMap);
 
     joystickID = instcfg.GetInt("JoystickID");
 
@@ -210,6 +220,15 @@ void InputConfigDialog::on_InputConfigDialog_accepted()
         const char* btn = EmuInstance::hotkeyNames[hotkey];
         keycfg.SetInt(btn, hkGeneralKeyMap[i]);
         joycfg.SetInt(btn, hkGeneralJoyMap[i]);
+        i++;
+    }
+
+    i = 0;
+    for (int hotkey : hk_navigation)
+    {
+        const char* btn = EmuInstance::hotkeyNames[hotkey];
+        keycfg.SetInt(btn, hkNavigationKeyMap[i]);
+        joycfg.SetInt(btn, hkNavigationJoyMap[i]);
         i++;
     }
 

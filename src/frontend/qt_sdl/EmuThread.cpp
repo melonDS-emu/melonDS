@@ -77,6 +77,9 @@ void EmuThread::attachWindow(MainWindow* window)
     connect(this, SIGNAL(autoScreenSizingChange(int)), window->panel, SLOT(onAutoScreenSizingChanged(int)));
     connect(this, SIGNAL(windowFullscreenToggle()), window, SLOT(onFullscreenToggled()));
     connect(this, SIGNAL(screenEmphasisToggle()), window, SLOT(onScreenEmphasisToggled()));
+    connect(this, SIGNAL(windowQuit()), window->actQuit, SLOT(trigger()));
+    connect(this, SIGNAL(windowStop()), window->actStop, SLOT(trigger()));
+    connect(this, &EmuThread::windowLibNav, window, &MainWindow::onLibNav);
 
     if (window->winHasMenu())
     {
@@ -95,6 +98,9 @@ void EmuThread::detachWindow(MainWindow* window)
     disconnect(this, SIGNAL(autoScreenSizingChange(int)), window->panel, SLOT(onAutoScreenSizingChanged(int)));
     disconnect(this, SIGNAL(windowFullscreenToggle()), window, SLOT(onFullscreenToggled()));
     disconnect(this, SIGNAL(screenEmphasisToggle()), window, SLOT(onScreenEmphasisToggled()));
+    disconnect(this, SIGNAL(windowQuit()), window->actQuit, SLOT(trigger()));
+    disconnect(this, SIGNAL(windowStop()), window->actStop, SLOT(trigger()));
+    disconnect(this, &EmuThread::windowLibNav, window, &MainWindow::onLibNav);
 
     if (window->winHasMenu())
     {
@@ -167,6 +173,19 @@ void EmuThread::run()
 
         if (emuInstance->hotkeyPressed(HK_SwapScreens)) emit swapScreensToggle();
         if (emuInstance->hotkeyPressed(HK_SwapScreenEmphasis)) emit screenEmphasisToggle();
+
+        if (emuInstance->hotkeyPressed(HK_Quit)) emit windowQuit();
+        if (emuInstance->hotkeyPressed(HK_Stop)) emit windowStop();
+
+        // Library navigation — only when no game is running
+        if (!emuActive)
+        {
+            if (emuInstance->hotkeyPressed(HK_LibPrev))    emit windowLibNav(HK_LibPrev);
+            if (emuInstance->hotkeyPressed(HK_LibNext))    emit windowLibNav(HK_LibNext);
+            if (emuInstance->hotkeyPressed(HK_LibPrevRow)) emit windowLibNav(HK_LibPrevRow);
+            if (emuInstance->hotkeyPressed(HK_LibNextRow)) emit windowLibNav(HK_LibNextRow);
+            if (emuInstance->hotkeyPressed(HK_LibConfirm)) emit windowLibNav(HK_LibConfirm);
+        }
 
         if (emuStatus == emuStatus_Running || emuStatus == emuStatus_FrameStep)
         {

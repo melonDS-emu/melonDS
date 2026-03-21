@@ -32,10 +32,12 @@
 #include <QMutex>
 #include <QScreen>
 #include <QCloseEvent>
+#include <QStackedWidget>
 
 #include "Screen.h"
 #include "Config.h"
 #include "MPInterface.h"
+#include "LibraryController.h"
 
 
 class EmuInstance;
@@ -101,8 +103,12 @@ protected:
 signals:
     void screenLayoutChange();
 
+public slots:
+    void onLibNav(int hk);
+
 private slots:
     void onOpenFile();
+    void onAddLibraryFolder();
     void onClickRecentFile();
     void onClearRecentFiles();
     void onBootFirmware();
@@ -227,6 +233,7 @@ public:
     bool hasMenu;
 
     QAction* actOpenROM;
+    QAction* actAddLibraryFolder;
     QAction* actBootFirmware;
     QAction* actCurrentCart;
     QAction* actInsertCart;
@@ -295,6 +302,10 @@ public:
     QAction* actAudioSync;
 
     QAction* actAbout;
+
+    // Game library — shown as background when no game is running
+    QStackedWidget*    m_viewStack = nullptr;
+    LibraryController* m_library   = nullptr;
 };
 
 #endif // WINDOW_H

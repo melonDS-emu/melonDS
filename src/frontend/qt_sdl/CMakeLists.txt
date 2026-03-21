@@ -60,6 +60,12 @@ set(SOURCES_QT_SDL
 
     LANDialog.cpp
     NetplayDialog.cpp
+
+    LibraryController.cpp
+    LibraryCoverManager.cpp
+    LibraryGridDelegate.cpp
+    LibraryModel.cpp
+    LibraryToolBar.cpp
 )
 
 option(USE_QT6 "Use Qt 6 instead of Qt 5" ON)
