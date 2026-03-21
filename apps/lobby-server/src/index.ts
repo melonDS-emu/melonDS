@@ -15,7 +15,7 @@ import { SqliteSaveStore } from './sqlite-save-store';
 import { FriendStore } from './friend-store';
 import { MatchmakingQueue } from './matchmaking';
 import { PlayerIdentityStore } from './player-identity';
-import { getDatabase } from './db';
+import { getDatabase, openDatabase } from './db';
 import { normalizeDisplayName, validateDisplayName } from './auth';
 import { AchievementStore } from './achievement-store';
 import { SqliteAchievementStore } from './sqlite-achievement-store';
@@ -43,6 +43,8 @@ import { PlayerPrivacyStore, SqlitePlayerPrivacyStore } from './player-privacy-s
 import { CompatibilityStore } from './compatibility-store';
 import { KnownIssuesStore } from './known-issues-store';
 import { SessionHealthStore } from './session-health-store';
+import { AccountStore } from './account-store';
+import { ModerationStore } from './moderation-store';
 
 const PORT = parseInt(process.env.PORT ?? '8080', 10);
 /** Public hostname/IP players use to reach the relay (surfaced in game-starting events). */
@@ -115,6 +117,11 @@ const saveBackupStore: SaveBackupStore | SqliteSaveBackupStore = USE_SQLITE
 const compatibilityStore = new CompatibilityStore();
 const knownIssuesStore = new KnownIssuesStore();
 const sessionHealthStore = new SessionHealthStore();
+// When SQLite is enabled, reuse the singleton database; otherwise share a
+// single in-memory instance so AccountStore and ModerationStore see the same data.
+const _phase11Db = USE_SQLITE ? getDatabase() : openDatabase();
+const accountStore = new AccountStore(_phase11Db);
+const moderationStore = new ModerationStore(_phase11Db);
 
 /** Lazy reference to the WebSocketServer — set after server creation. */
 let wss: WebSocketServer | undefined;
@@ -1472,6 +1479,10 @@ async function httpHandler(req: http.IncomingMessage, res: http.ServerResponse):
   if (await knownIssuesHandler(req, res, pathname)) return;
   if (await sessionHealthHandler(req, res, pathname)) return;
 
+  // Phase 11: accounts and moderation
+  if (await accountsHandler(req, res, pathname)) return;
+  if (await moderationHandler(req, res, pathname)) return;
+
   json(res, 404, { error: 'Not found' });
 }
 
@@ -1769,6 +1780,258 @@ async function sessionHealthHandler(
       return true;
     }
     json(res, 200, { record });
+    return true;
+  }
+
+  return false;
+}
+
+// ---------------------------------------------------------------------------
+// Phase 11: Accounts REST endpoints
+//   POST /api/accounts/register        — create a new account
+//   POST /api/accounts/login           — login → session token
+//   POST /api/accounts/logout          — revoke session token
+//   GET  /api/accounts/:id             — get account profile
+//   PUT  /api/accounts/:id/profile     — update display name / isVerified
+//   POST /api/accounts/:id/link-identity — link an anonymous identity token
+// ---------------------------------------------------------------------------
+async function accountsHandler(
+  req: import('http').IncomingMessage,
+  res: import('http').ServerResponse,
+  pathname: string,
+): Promise<boolean> {
+  if (!pathname.startsWith('/api/accounts')) return false;
+
+  // POST /api/accounts/register
+  if (pathname === '/api/accounts/register' && req.method === 'POST') {
+    let body: Record<string, unknown>;
+    try {
+      body = JSON.parse(await readBody(req)) as Record<string, unknown>;
+    } catch {
+      json(res, 400, { error: 'Invalid JSON body' });
+      return true;
+    }
+    const { email, displayName, password } = body as Record<string, unknown>;
+    if (!email || !displayName || !password) {
+      json(res, 400, { error: 'Missing required fields: email, displayName, password' });
+      return true;
+    }
+    const account = accountStore.register(
+      String(email),
+      String(displayName),
+      String(password)
+    );
+    if (!account) {
+      json(res, 409, { error: 'An account with that email already exists' });
+      return true;
+    }
+    const session = accountStore.createSession(account.id);
+    json(res, 201, { account: accountStore.getById(account.id), token: session.token });
+    return true;
+  }
+
+  // POST /api/accounts/login
+  if (pathname === '/api/accounts/login' && req.method === 'POST') {
+    let body: Record<string, unknown>;
+    try {
+      body = JSON.parse(await readBody(req)) as Record<string, unknown>;
+    } catch {
+      json(res, 400, { error: 'Invalid JSON body' });
+      return true;
+    }
+    const { email, password } = body as Record<string, unknown>;
+    if (!email || !password) {
+      json(res, 400, { error: 'Missing required fields: email, password' });
+      return true;
+    }
+    const session = accountStore.login(String(email), String(password));
+    if (!session) {
+      json(res, 401, { error: 'Invalid email or password' });
+      return true;
+    }
+    const profile = accountStore.getById(session.accountId);
+    json(res, 200, { account: profile, token: session.token });
+    return true;
+  }
+
+  // POST /api/accounts/logout
+  if (pathname === '/api/accounts/logout' && req.method === 'POST') {
+    const token = (req.headers['x-account-token'] as string | undefined) ?? '';
+    if (token) accountStore.revokeSession(token);
+    json(res, 200, { ok: true });
+    return true;
+  }
+
+  // GET /api/accounts/:id
+  const idMatch = pathname.match(/^\/api\/accounts\/([^/]+)$/);
+  if (idMatch && req.method === 'GET') {
+    const id = decodeURIComponent(idMatch[1]);
+    const profile = accountStore.getById(id);
+    if (!profile) {
+      json(res, 404, { error: 'Account not found' });
+      return true;
+    }
+    json(res, 200, { account: profile });
+    return true;
+  }
+
+  // PUT /api/accounts/:id/profile
+  const profileMatch = pathname.match(/^\/api\/accounts\/([^/]+)\/profile$/);
+  if (profileMatch && req.method === 'PUT') {
+    const id = decodeURIComponent(profileMatch[1]);
+    let body: Record<string, unknown>;
+    try {
+      body = JSON.parse(await readBody(req)) as Record<string, unknown>;
+    } catch {
+      json(res, 400, { error: 'Invalid JSON body' });
+      return true;
+    }
+    const changes: Record<string, unknown> = {};
+    if (typeof body.displayName === 'string') changes.displayName = body.displayName;
+    if (typeof body.isVerified === 'boolean') changes.isVerified = body.isVerified;
+    const updated = accountStore.updateProfile(id, changes as Parameters<typeof accountStore.updateProfile>[1]);
+    if (!updated) {
+      json(res, 404, { error: 'Account not found' });
+      return true;
+    }
+    json(res, 200, { account: updated });
+    return true;
+  }
+
+  // POST /api/accounts/:id/link-identity
+  const linkMatch = pathname.match(/^\/api\/accounts\/([^/]+)\/link-identity$/);
+  if (linkMatch && req.method === 'POST') {
+    const id = decodeURIComponent(linkMatch[1]);
+    let body: Record<string, unknown>;
+    try {
+      body = JSON.parse(await readBody(req)) as Record<string, unknown>;
+    } catch {
+      json(res, 400, { error: 'Invalid JSON body' });
+      return true;
+    }
+    const { identityToken } = body as Record<string, unknown>;
+    if (!identityToken) {
+      json(res, 400, { error: 'Missing required field: identityToken' });
+      return true;
+    }
+    const ok = accountStore.linkIdentity(id, String(identityToken));
+    if (!ok) {
+      json(res, 404, { error: 'Account not found' });
+      return true;
+    }
+    json(res, 200, { account: accountStore.getById(id) });
+    return true;
+  }
+
+  return false;
+}
+
+// ---------------------------------------------------------------------------
+// Phase 11: Moderation REST endpoints
+//   POST /api/moderation/report            — file a report
+//   GET  /api/moderation/reports           — list all reports (optionally ?status=)
+//   GET  /api/moderation/reports/:targetId — reports for a specific target
+//   PUT  /api/moderation/reports/:id/review   — mark reviewed with optional note
+//   PUT  /api/moderation/reports/:id/dismiss  — dismiss report
+// ---------------------------------------------------------------------------
+async function moderationHandler(
+  req: import('http').IncomingMessage,
+  res: import('http').ServerResponse,
+  pathname: string,
+): Promise<boolean> {
+  if (!pathname.startsWith('/api/moderation')) return false;
+
+  // POST /api/moderation/report
+  if (pathname === '/api/moderation/report' && req.method === 'POST') {
+    let body: Record<string, unknown>;
+    try {
+      body = JSON.parse(await readBody(req)) as Record<string, unknown>;
+    } catch {
+      json(res, 400, { error: 'Invalid JSON body' });
+      return true;
+    }
+    const { reporterId, reporterName, targetId, targetType, reason, description } =
+      body as Record<string, unknown>;
+    if (!reporterId || !reporterName || !targetId || !targetType || !reason) {
+      json(res, 400, {
+        error: 'Missing required fields: reporterId, reporterName, targetId, targetType, reason',
+      });
+      return true;
+    }
+    const validTargetTypes = ['player', 'room'];
+    const validReasons = ['spam', 'harassment', 'cheating', 'offensive-name', 'other'];
+    if (!validTargetTypes.includes(String(targetType))) {
+      json(res, 400, { error: 'Invalid targetType — must be player or room' });
+      return true;
+    }
+    if (!validReasons.includes(String(reason))) {
+      json(res, 400, { error: 'Invalid reason' });
+      return true;
+    }
+    const report = moderationStore.report(
+      String(reporterId),
+      String(reporterName),
+      String(targetId),
+      String(targetType) as import('./moderation-store').ReportTargetType,
+      String(reason) as import('./moderation-store').ReportReason,
+      typeof description === 'string' ? description : ''
+    );
+    json(res, 201, { report });
+    return true;
+  }
+
+  // GET /api/moderation/reports
+  if (pathname === '/api/moderation/reports' && req.method === 'GET') {
+    const parsed = new url.URL(req.url ?? '/', `http://localhost`);
+    const status = parsed.searchParams.get('status') ?? undefined;
+    const reports = moderationStore.getReports(
+      status as import('./moderation-store').ReportStatus | undefined
+    );
+    json(res, 200, { reports });
+    return true;
+  }
+
+  // GET /api/moderation/reports/:targetId — reports for a specific target
+  const targetMatch = pathname.match(/^\/api\/moderation\/reports\/([^/]+)$/);
+  if (targetMatch && req.method === 'GET') {
+    const targetId = decodeURIComponent(targetMatch[1]);
+    const reports = moderationStore.getReportsByTarget(targetId);
+    const flagged = moderationStore.isFlagged(targetId);
+    json(res, 200, { reports, flagged });
+    return true;
+  }
+
+  // PUT /api/moderation/reports/:id/review
+  const reviewMatch = pathname.match(/^\/api\/moderation\/reports\/([^/]+)\/review$/);
+  if (reviewMatch && req.method === 'PUT') {
+    const id = decodeURIComponent(reviewMatch[1]);
+    let body: Record<string, unknown> = {};
+    try {
+      body = JSON.parse(await readBody(req)) as Record<string, unknown>;
+    } catch { /* empty body is fine */ }
+    const updated = moderationStore.reviewReport(id, typeof body.note === 'string' ? body.note : '');
+    if (!updated) {
+      json(res, 404, { error: 'Report not found' });
+      return true;
+    }
+    json(res, 200, { report: updated });
+    return true;
+  }
+
+  // PUT /api/moderation/reports/:id/dismiss
+  const dismissMatch = pathname.match(/^\/api\/moderation\/reports\/([^/]+)\/dismiss$/);
+  if (dismissMatch && req.method === 'PUT') {
+    const id = decodeURIComponent(dismissMatch[1]);
+    let body: Record<string, unknown> = {};
+    try {
+      body = JSON.parse(await readBody(req)) as Record<string, unknown>;
+    } catch { /* empty body is fine */ }
+    const updated = moderationStore.dismissReport(id, typeof body.note === 'string' ? body.note : '');
+    if (!updated) {
+      json(res, 404, { error: 'Report not found' });
+      return true;
+    }
+    json(res, 200, { report: updated });
     return true;
   }
 
