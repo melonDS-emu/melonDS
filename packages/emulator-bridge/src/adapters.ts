@@ -62,11 +62,12 @@ export interface AdapterOptions {
   /**
    * Performance preset controlling accuracy vs. speed trade-off.
    * - 'fast':     Maximum performance; may sacrifice accuracy (dynarec, fewer checks).
-   * - 'balanced': Default emulator behaviour.
+   * - 'balanced': Default emulator behaviour (no extra flags added).
    * - 'accurate': Strict timing / interpreter mode for best compatibility.
    *
    * Backend-specific mappings:
-   *  - Mupen64Plus: 'fast' → --emumode 2 (dynarec), 'balanced' → --emumode 1, 'accurate' → --emumode 0
+   *  - Mupen64Plus: 'fast' → --emumode 2 (dynarec), 'accurate' → --emumode 0 (interpreter),
+   *                 'balanced' → emulator default (no --emumode flag appended)
    */
   performancePreset?: 'fast' | 'balanced' | 'accurate';
   /**
