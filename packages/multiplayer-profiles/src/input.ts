@@ -793,6 +793,741 @@ export const N3DS_DEFAULT_PROFILES: InputProfile[] = [
   },
 ];
 
+// ---------------------------------------------------------------------------
+// Wii (Dolphin) — Classic Controller / Pro Controller layout
+// ---------------------------------------------------------------------------
+
+/**
+ * Default Wii input profiles (Classic Controller / Classic Controller Pro).
+ *
+ * Dolphin emulates Wii Remotes and also supports the Classic Controller.
+ * For online multiplayer the Classic Controller layout is preferred since
+ * it provides two analog sticks and enough face/shoulder buttons.
+ *
+ * Classic Controller button layout:
+ *  - Face: A, B, X, Y   - Shoulders: L, R, ZL, ZR
+ *  - System: Start (+), Select (−), Home
+ *  - D-Pad, Left stick, Right stick
+ */
+export const WII_DEFAULT_PROFILES: InputProfile[] = [
+  // --- Xbox controller ---
+  {
+    id: 'wii-xbox-default',
+    name: 'Wii — Xbox Controller (default)',
+    controllerType: 'xbox',
+    system: 'wii',
+    isDefault: true,
+    bindings: [
+      { action: 'A',      button: 'button(0)' },  // A → Classic A
+      { action: 'B',      button: 'button(1)' },  // B → Classic B
+      { action: 'X',      button: 'button(2)' },  // X → Classic X
+      { action: 'Y',      button: 'button(3)' },  // Y → Classic Y
+      { action: 'Start',  button: 'button(7)' },  // Menu/Start → Classic +
+      { action: 'Select', button: 'button(6)' },  // View/Select → Classic −
+      { action: 'Home',   button: 'button(8)' },  // Home button
+      { action: 'L',      axis:   'axis(4+)' },   // LT → Classic L
+      { action: 'R',      axis:   'axis(5+)' },   // RT → Classic R
+      { action: 'ZL',     button: 'button(4)' },  // LB → Classic ZL
+      { action: 'ZR',     button: 'button(5)' },  // RB → Classic ZR
+      // D-Pad
+      { action: 'DPadUp',    button: 'hat(0 Up)'    },
+      { action: 'DPadDown',  button: 'hat(0 Down)'  },
+      { action: 'DPadLeft',  button: 'hat(0 Left)'  },
+      { action: 'DPadRight', button: 'hat(0 Right)' },
+      // Left stick
+      { action: 'LStickUp',    axis: 'axis(1-)' },
+      { action: 'LStickDown',  axis: 'axis(1+)' },
+      { action: 'LStickLeft',  axis: 'axis(0-)' },
+      { action: 'LStickRight', axis: 'axis(0+)' },
+      // Right stick
+      { action: 'RStickUp',    axis: 'axis(3-)' },
+      { action: 'RStickDown',  axis: 'axis(3+)' },
+      { action: 'RStickLeft',  axis: 'axis(2-)' },
+      { action: 'RStickRight', axis: 'axis(2+)' },
+    ],
+  },
+  // --- PlayStation controller ---
+  {
+    id: 'wii-playstation-default',
+    name: 'Wii — PlayStation Controller (default)',
+    controllerType: 'playstation',
+    system: 'wii',
+    isDefault: true,
+    bindings: [
+      { action: 'A',      button: 'button(0)' },  // Cross     → Classic A
+      { action: 'B',      button: 'button(1)' },  // Circle    → Classic B
+      { action: 'X',      button: 'button(2)' },  // Square    → Classic X
+      { action: 'Y',      button: 'button(3)' },  // Triangle  → Classic Y
+      { action: 'Start',  button: 'button(9)' },  // Options   → Classic +
+      { action: 'Select', button: 'button(8)' },  // Share/Create → Classic −
+      { action: 'Home',   button: 'button(12)' }, // PS button  → Home
+      { action: 'L',      axis:   'axis(4+)' },   // L2 → Classic L
+      { action: 'R',      axis:   'axis(5+)' },   // R2 → Classic R
+      { action: 'ZL',     button: 'button(4)' },  // L1 → Classic ZL
+      { action: 'ZR',     button: 'button(5)' },  // R1 → Classic ZR
+      { action: 'DPadUp',    button: 'hat(0 Up)'    },
+      { action: 'DPadDown',  button: 'hat(0 Down)'  },
+      { action: 'DPadLeft',  button: 'hat(0 Left)'  },
+      { action: 'DPadRight', button: 'hat(0 Right)' },
+      { action: 'LStickUp',    axis: 'axis(1-)' },
+      { action: 'LStickDown',  axis: 'axis(1+)' },
+      { action: 'LStickLeft',  axis: 'axis(0-)' },
+      { action: 'LStickRight', axis: 'axis(0+)' },
+      { action: 'RStickUp',    axis: 'axis(3-)' },
+      { action: 'RStickDown',  axis: 'axis(3+)' },
+      { action: 'RStickLeft',  axis: 'axis(2-)' },
+      { action: 'RStickRight', axis: 'axis(2+)' },
+    ],
+  },
+  // --- Keyboard fallback ---
+  {
+    id: 'wii-keyboard-default',
+    name: 'Wii — Keyboard (default)',
+    controllerType: 'keyboard',
+    system: 'wii',
+    isDefault: true,
+    bindings: [
+      { action: 'A',      key: 'key(x)' },
+      { action: 'B',      key: 'key(z)' },
+      { action: 'X',      key: 'key(s)' },
+      { action: 'Y',      key: 'key(a)' },
+      { action: 'Start',  key: 'key(return)' },
+      { action: 'Select', key: 'key(rshift)' },
+      { action: 'Home',   key: 'key(escape)' },
+      { action: 'L',      key: 'key(q)' },
+      { action: 'R',      key: 'key(w)' },
+      { action: 'ZL',     key: 'key(1)' },
+      { action: 'ZR',     key: 'key(2)' },
+      { action: 'DPadUp',    key: 'key(up)'    },
+      { action: 'DPadDown',  key: 'key(down)'  },
+      { action: 'DPadLeft',  key: 'key(left)'  },
+      { action: 'DPadRight', key: 'key(right)' },
+      { action: 'LStickUp',    key: 'key(i)' },
+      { action: 'LStickDown',  key: 'key(k)' },
+      { action: 'LStickLeft',  key: 'key(j)' },
+      { action: 'LStickRight', key: 'key(l)' },
+    ],
+  },
+];
+
+// ---------------------------------------------------------------------------
+// Wii U (Cemu) — GamePad / Pro Controller layout
+// ---------------------------------------------------------------------------
+
+/**
+ * Default Wii U input profiles (GamePad / Pro Controller).
+ *
+ * Cemu supports the Wii U GamePad and Pro Controller through its emulated
+ * controller API.  The Pro Controller layout is close to a standard modern
+ * controller and maps naturally.
+ */
+export const WIIU_DEFAULT_PROFILES: InputProfile[] = [
+  // --- Xbox controller ---
+  {
+    id: 'wiiu-xbox-default',
+    name: 'Wii U — Xbox Controller (default)',
+    controllerType: 'xbox',
+    system: 'wiiu',
+    isDefault: true,
+    bindings: [
+      { action: 'A',      button: 'button(0)' },  // A → Wii U A
+      { action: 'B',      button: 'button(1)' },  // B → Wii U B
+      { action: 'X',      button: 'button(2)' },  // X → Wii U X
+      { action: 'Y',      button: 'button(3)' },  // Y → Wii U Y
+      { action: 'Plus',   button: 'button(7)' },  // Menu/Start → +
+      { action: 'Minus',  button: 'button(6)' },  // View/Select → −
+      { action: 'Home',   button: 'button(8)' },  // Xbox button → Home
+      { action: 'L',      button: 'button(4)' },  // LB → L
+      { action: 'R',      button: 'button(5)' },  // RB → R
+      { action: 'ZL',     axis:   'axis(4+)' },   // LT → ZL
+      { action: 'ZR',     axis:   'axis(5+)' },   // RT → ZR
+      { action: 'LStickClick', button: 'button(9)'  },
+      { action: 'RStickClick', button: 'button(10)' },
+      // D-Pad
+      { action: 'DPadUp',    button: 'hat(0 Up)'    },
+      { action: 'DPadDown',  button: 'hat(0 Down)'  },
+      { action: 'DPadLeft',  button: 'hat(0 Left)'  },
+      { action: 'DPadRight', button: 'hat(0 Right)' },
+      // Left stick
+      { action: 'LStickUp',    axis: 'axis(1-)' },
+      { action: 'LStickDown',  axis: 'axis(1+)' },
+      { action: 'LStickLeft',  axis: 'axis(0-)' },
+      { action: 'LStickRight', axis: 'axis(0+)' },
+      // Right stick
+      { action: 'RStickUp',    axis: 'axis(3-)' },
+      { action: 'RStickDown',  axis: 'axis(3+)' },
+      { action: 'RStickLeft',  axis: 'axis(2-)' },
+      { action: 'RStickRight', axis: 'axis(2+)' },
+    ],
+  },
+  // --- PlayStation controller ---
+  {
+    id: 'wiiu-playstation-default',
+    name: 'Wii U — PlayStation Controller (default)',
+    controllerType: 'playstation',
+    system: 'wiiu',
+    isDefault: true,
+    bindings: [
+      { action: 'A',      button: 'button(0)' },  // Cross     → A
+      { action: 'B',      button: 'button(1)' },  // Circle    → B
+      { action: 'X',      button: 'button(2)' },  // Square    → X
+      { action: 'Y',      button: 'button(3)' },  // Triangle  → Y
+      { action: 'Plus',   button: 'button(9)' },  // Options   → +
+      { action: 'Minus',  button: 'button(8)' },  // Share/Create → −
+      { action: 'Home',   button: 'button(12)' }, // PS button → Home
+      { action: 'L',      button: 'button(4)' },  // L1 → L
+      { action: 'R',      button: 'button(5)' },  // R1 → R
+      { action: 'ZL',     axis:   'axis(4+)' },   // L2 → ZL
+      { action: 'ZR',     axis:   'axis(5+)' },   // R2 → ZR
+      { action: 'LStickClick', button: 'button(10)' },
+      { action: 'RStickClick', button: 'button(11)' },
+      { action: 'DPadUp',    button: 'hat(0 Up)'    },
+      { action: 'DPadDown',  button: 'hat(0 Down)'  },
+      { action: 'DPadLeft',  button: 'hat(0 Left)'  },
+      { action: 'DPadRight', button: 'hat(0 Right)' },
+      { action: 'LStickUp',    axis: 'axis(1-)' },
+      { action: 'LStickDown',  axis: 'axis(1+)' },
+      { action: 'LStickLeft',  axis: 'axis(0-)' },
+      { action: 'LStickRight', axis: 'axis(0+)' },
+      { action: 'RStickUp',    axis: 'axis(3-)' },
+      { action: 'RStickDown',  axis: 'axis(3+)' },
+      { action: 'RStickLeft',  axis: 'axis(2-)' },
+      { action: 'RStickRight', axis: 'axis(2+)' },
+    ],
+  },
+  // --- Keyboard fallback ---
+  {
+    id: 'wiiu-keyboard-default',
+    name: 'Wii U — Keyboard (default)',
+    controllerType: 'keyboard',
+    system: 'wiiu',
+    isDefault: true,
+    bindings: [
+      { action: 'A',      key: 'key(x)' },
+      { action: 'B',      key: 'key(z)' },
+      { action: 'X',      key: 'key(s)' },
+      { action: 'Y',      key: 'key(a)' },
+      { action: 'Plus',   key: 'key(return)' },
+      { action: 'Minus',  key: 'key(rshift)' },
+      { action: 'Home',   key: 'key(escape)' },
+      { action: 'L',      key: 'key(q)' },
+      { action: 'R',      key: 'key(w)' },
+      { action: 'ZL',     key: 'key(1)' },
+      { action: 'ZR',     key: 'key(2)' },
+      { action: 'DPadUp',    key: 'key(up)'    },
+      { action: 'DPadDown',  key: 'key(down)'  },
+      { action: 'DPadLeft',  key: 'key(left)'  },
+      { action: 'DPadRight', key: 'key(right)' },
+      { action: 'LStickUp',    key: 'key(i)' },
+      { action: 'LStickDown',  key: 'key(k)' },
+      { action: 'LStickLeft',  key: 'key(j)' },
+      { action: 'LStickRight', key: 'key(l)' },
+    ],
+  },
+];
+
+// ---------------------------------------------------------------------------
+// SEGA Genesis (RetroArch + Genesis Plus GX) — 6-button pad layout
+// ---------------------------------------------------------------------------
+
+/**
+ * Default SEGA Genesis input profiles.
+ *
+ * The 6-button Genesis pad: A, B, C (face), X, Y, Z (upper), Start, Mode,
+ * and D-Pad.  RetroArch / Genesis Plus GX maps these to standard gamepad
+ * buttons.
+ *
+ * Common mapping convention:
+ *  - B → button(0), C → button(1), A → button(2)
+ *  - Y → button(3), Z → button(4), X → button(5)
+ *  - Start → button(7), Mode → button(6)
+ */
+export const GENESIS_DEFAULT_PROFILES: InputProfile[] = [
+  // --- Xbox controller ---
+  {
+    id: 'genesis-xbox-default',
+    name: 'Genesis — Xbox Controller (default)',
+    controllerType: 'xbox',
+    system: 'genesis',
+    isDefault: true,
+    bindings: [
+      { action: 'B',     button: 'button(0)' },  // A (Xbox) → Genesis B
+      { action: 'C',     button: 'button(1)' },  // B (Xbox) → Genesis C
+      { action: 'A',     button: 'button(2)' },  // X (Xbox) → Genesis A
+      { action: 'Y',     button: 'button(3)' },  // Y (Xbox) → Genesis Y
+      { action: 'X',     button: 'button(4)' },  // LB → Genesis X
+      { action: 'Z',     button: 'button(5)' },  // RB → Genesis Z
+      { action: 'Start', button: 'button(7)' },  // Menu → Start
+      { action: 'Mode',  button: 'button(6)' },  // View → Mode
+      // D-Pad
+      { action: 'DPadUp',    button: 'hat(0 Up)'    },
+      { action: 'DPadDown',  button: 'hat(0 Down)'  },
+      { action: 'DPadLeft',  button: 'hat(0 Left)'  },
+      { action: 'DPadRight', button: 'hat(0 Right)' },
+      // Left stick as D-Pad alternative
+      { action: 'DPadUp',    axis: 'axis(1-)' },
+      { action: 'DPadDown',  axis: 'axis(1+)' },
+      { action: 'DPadLeft',  axis: 'axis(0-)' },
+      { action: 'DPadRight', axis: 'axis(0+)' },
+    ],
+  },
+  // --- PlayStation controller ---
+  {
+    id: 'genesis-playstation-default',
+    name: 'Genesis — PlayStation Controller (default)',
+    controllerType: 'playstation',
+    system: 'genesis',
+    isDefault: true,
+    bindings: [
+      { action: 'B',     button: 'button(0)' },  // Cross     → Genesis B
+      { action: 'C',     button: 'button(1)' },  // Circle    → Genesis C
+      { action: 'A',     button: 'button(2)' },  // Square    → Genesis A
+      { action: 'Y',     button: 'button(3)' },  // Triangle  → Genesis Y
+      { action: 'X',     button: 'button(4)' },  // L1 → Genesis X
+      { action: 'Z',     button: 'button(5)' },  // R1 → Genesis Z
+      { action: 'Start', button: 'button(9)' },  // Options   → Start
+      { action: 'Mode',  button: 'button(8)' },  // Share/Create → Mode
+      { action: 'DPadUp',    button: 'hat(0 Up)'    },
+      { action: 'DPadDown',  button: 'hat(0 Down)'  },
+      { action: 'DPadLeft',  button: 'hat(0 Left)'  },
+      { action: 'DPadRight', button: 'hat(0 Right)' },
+      { action: 'DPadUp',    axis: 'axis(1-)' },
+      { action: 'DPadDown',  axis: 'axis(1+)' },
+      { action: 'DPadLeft',  axis: 'axis(0-)' },
+      { action: 'DPadRight', axis: 'axis(0+)' },
+    ],
+  },
+  // --- Keyboard fallback ---
+  {
+    id: 'genesis-keyboard-default',
+    name: 'Genesis — Keyboard (default)',
+    controllerType: 'keyboard',
+    system: 'genesis',
+    isDefault: true,
+    bindings: [
+      { action: 'B',     key: 'key(x)' },
+      { action: 'C',     key: 'key(c)' },
+      { action: 'A',     key: 'key(z)' },
+      { action: 'Y',     key: 'key(a)' },
+      { action: 'X',     key: 'key(s)' },
+      { action: 'Z',     key: 'key(d)' },
+      { action: 'Start', key: 'key(return)' },
+      { action: 'Mode',  key: 'key(rshift)' },
+      { action: 'DPadUp',    key: 'key(up)'    },
+      { action: 'DPadDown',  key: 'key(down)'  },
+      { action: 'DPadLeft',  key: 'key(left)'  },
+      { action: 'DPadRight', key: 'key(right)' },
+    ],
+  },
+];
+
+// ---------------------------------------------------------------------------
+// SEGA Dreamcast (Flycast) — standard controller layout
+// ---------------------------------------------------------------------------
+
+/**
+ * Default SEGA Dreamcast input profiles.
+ *
+ * The Dreamcast controller: A, B, X, Y face buttons, Start, analog triggers
+ * (L / R — not digital), one analog thumb stick, and a D-Pad.
+ * Flycast maps these through its own SDL2 input layer.
+ */
+export const DREAMCAST_DEFAULT_PROFILES: InputProfile[] = [
+  // --- Xbox controller ---
+  {
+    id: 'dreamcast-xbox-default',
+    name: 'Dreamcast — Xbox Controller (default)',
+    controllerType: 'xbox',
+    system: 'dreamcast',
+    isDefault: true,
+    bindings: [
+      { action: 'A',     button: 'button(0)' },  // A → DC A
+      { action: 'B',     button: 'button(1)' },  // B → DC B
+      { action: 'X',     button: 'button(2)' },  // X → DC X
+      { action: 'Y',     button: 'button(3)' },  // Y → DC Y
+      { action: 'Start', button: 'button(7)' },  // Menu → Start
+      // Analog triggers
+      { action: 'L',     axis: 'axis(4+)' },     // LT → DC L trigger
+      { action: 'R',     axis: 'axis(5+)' },     // RT → DC R trigger
+      // Analog stick
+      { action: 'StickUp',    axis: 'axis(1-)' },
+      { action: 'StickDown',  axis: 'axis(1+)' },
+      { action: 'StickLeft',  axis: 'axis(0-)' },
+      { action: 'StickRight', axis: 'axis(0+)' },
+      // D-Pad
+      { action: 'DPadUp',    button: 'hat(0 Up)'    },
+      { action: 'DPadDown',  button: 'hat(0 Down)'  },
+      { action: 'DPadLeft',  button: 'hat(0 Left)'  },
+      { action: 'DPadRight', button: 'hat(0 Right)' },
+    ],
+  },
+  // --- PlayStation controller ---
+  {
+    id: 'dreamcast-playstation-default',
+    name: 'Dreamcast — PlayStation Controller (default)',
+    controllerType: 'playstation',
+    system: 'dreamcast',
+    isDefault: true,
+    bindings: [
+      { action: 'A',     button: 'button(0)' },  // Cross     → DC A
+      { action: 'B',     button: 'button(1)' },  // Circle    → DC B
+      { action: 'X',     button: 'button(2)' },  // Square    → DC X
+      { action: 'Y',     button: 'button(3)' },  // Triangle  → DC Y
+      { action: 'Start', button: 'button(9)' },  // Options   → Start
+      { action: 'L',     axis:   'axis(4+)' },   // L2 → DC L trigger
+      { action: 'R',     axis:   'axis(5+)' },   // R2 → DC R trigger
+      { action: 'StickUp',    axis: 'axis(1-)' },
+      { action: 'StickDown',  axis: 'axis(1+)' },
+      { action: 'StickLeft',  axis: 'axis(0-)' },
+      { action: 'StickRight', axis: 'axis(0+)' },
+      { action: 'DPadUp',    button: 'hat(0 Up)'    },
+      { action: 'DPadDown',  button: 'hat(0 Down)'  },
+      { action: 'DPadLeft',  button: 'hat(0 Left)'  },
+      { action: 'DPadRight', button: 'hat(0 Right)' },
+    ],
+  },
+  // --- Keyboard fallback ---
+  {
+    id: 'dreamcast-keyboard-default',
+    name: 'Dreamcast — Keyboard (default)',
+    controllerType: 'keyboard',
+    system: 'dreamcast',
+    isDefault: true,
+    bindings: [
+      { action: 'A',     key: 'key(x)' },
+      { action: 'B',     key: 'key(z)' },
+      { action: 'X',     key: 'key(s)' },
+      { action: 'Y',     key: 'key(a)' },
+      { action: 'Start', key: 'key(return)' },
+      { action: 'L',     key: 'key(q)' },
+      { action: 'R',     key: 'key(w)' },
+      { action: 'StickUp',    key: 'key(i)' },
+      { action: 'StickDown',  key: 'key(k)' },
+      { action: 'StickLeft',  key: 'key(j)' },
+      { action: 'StickRight', key: 'key(l)' },
+      { action: 'DPadUp',    key: 'key(up)'    },
+      { action: 'DPadDown',  key: 'key(down)'  },
+      { action: 'DPadLeft',  key: 'key(left)'  },
+      { action: 'DPadRight', key: 'key(right)' },
+    ],
+  },
+];
+
+// ---------------------------------------------------------------------------
+// Sony PlayStation (DuckStation) — DualShock layout
+// ---------------------------------------------------------------------------
+
+/**
+ * Default PSX/PS1 input profiles (DuckStation).
+ *
+ * DualShock controller: Cross, Circle, Square, Triangle, L1/L2/R1/R2,
+ * Start, Select, L3/R3 (stick clicks), D-Pad, and two analog sticks.
+ */
+export const PSX_DEFAULT_PROFILES: InputProfile[] = [
+  // --- Xbox controller ---
+  {
+    id: 'psx-xbox-default',
+    name: 'PSX — Xbox Controller (default)',
+    controllerType: 'xbox',
+    system: 'psx',
+    isDefault: true,
+    bindings: [
+      { action: 'Cross',    button: 'button(0)' },  // A → Cross
+      { action: 'Circle',   button: 'button(1)' },  // B → Circle
+      { action: 'Square',   button: 'button(2)' },  // X → Square
+      { action: 'Triangle', button: 'button(3)' },  // Y → Triangle
+      { action: 'Start',    button: 'button(7)' },  // Menu → Start
+      { action: 'Select',   button: 'button(6)' },  // View → Select
+      { action: 'L1',       button: 'button(4)' },  // LB → L1
+      { action: 'R1',       button: 'button(5)' },  // RB → R1
+      { action: 'L2',       axis:   'axis(4+)' },   // LT → L2
+      { action: 'R2',       axis:   'axis(5+)' },   // RT → R2
+      { action: 'L3',       button: 'button(9)'  }, // LS click → L3
+      { action: 'R3',       button: 'button(10)' }, // RS click → R3
+      // D-Pad
+      { action: 'DPadUp',    button: 'hat(0 Up)'    },
+      { action: 'DPadDown',  button: 'hat(0 Down)'  },
+      { action: 'DPadLeft',  button: 'hat(0 Left)'  },
+      { action: 'DPadRight', button: 'hat(0 Right)' },
+      // Left analog stick
+      { action: 'LStickUp',    axis: 'axis(1-)' },
+      { action: 'LStickDown',  axis: 'axis(1+)' },
+      { action: 'LStickLeft',  axis: 'axis(0-)' },
+      { action: 'LStickRight', axis: 'axis(0+)' },
+      // Right analog stick
+      { action: 'RStickUp',    axis: 'axis(3-)' },
+      { action: 'RStickDown',  axis: 'axis(3+)' },
+      { action: 'RStickLeft',  axis: 'axis(2-)' },
+      { action: 'RStickRight', axis: 'axis(2+)' },
+    ],
+  },
+  // --- PlayStation controller (1:1 natural mapping) ---
+  {
+    id: 'psx-playstation-default',
+    name: 'PSX — PlayStation Controller (default)',
+    controllerType: 'playstation',
+    system: 'psx',
+    isDefault: true,
+    bindings: [
+      { action: 'Cross',    button: 'button(0)' },
+      { action: 'Circle',   button: 'button(1)' },
+      { action: 'Square',   button: 'button(2)' },
+      { action: 'Triangle', button: 'button(3)' },
+      { action: 'Start',    button: 'button(9)' },  // Options
+      { action: 'Select',   button: 'button(8)' },  // Share/Create
+      { action: 'L1',       button: 'button(4)' },
+      { action: 'R1',       button: 'button(5)' },
+      { action: 'L2',       axis:   'axis(4+)' },
+      { action: 'R2',       axis:   'axis(5+)' },
+      { action: 'L3',       button: 'button(10)' },
+      { action: 'R3',       button: 'button(11)' },
+      { action: 'DPadUp',    button: 'hat(0 Up)'    },
+      { action: 'DPadDown',  button: 'hat(0 Down)'  },
+      { action: 'DPadLeft',  button: 'hat(0 Left)'  },
+      { action: 'DPadRight', button: 'hat(0 Right)' },
+      { action: 'LStickUp',    axis: 'axis(1-)' },
+      { action: 'LStickDown',  axis: 'axis(1+)' },
+      { action: 'LStickLeft',  axis: 'axis(0-)' },
+      { action: 'LStickRight', axis: 'axis(0+)' },
+      { action: 'RStickUp',    axis: 'axis(3-)' },
+      { action: 'RStickDown',  axis: 'axis(3+)' },
+      { action: 'RStickLeft',  axis: 'axis(2-)' },
+      { action: 'RStickRight', axis: 'axis(2+)' },
+    ],
+  },
+  // --- Keyboard fallback ---
+  {
+    id: 'psx-keyboard-default',
+    name: 'PSX — Keyboard (default)',
+    controllerType: 'keyboard',
+    system: 'psx',
+    isDefault: true,
+    bindings: [
+      { action: 'Cross',    key: 'key(x)' },
+      { action: 'Circle',   key: 'key(c)' },
+      { action: 'Square',   key: 'key(z)' },
+      { action: 'Triangle', key: 'key(s)' },
+      { action: 'Start',    key: 'key(return)' },
+      { action: 'Select',   key: 'key(rshift)' },
+      { action: 'L1',       key: 'key(q)' },
+      { action: 'R1',       key: 'key(w)' },
+      { action: 'L2',       key: 'key(1)' },
+      { action: 'R2',       key: 'key(2)' },
+      { action: 'DPadUp',    key: 'key(up)'    },
+      { action: 'DPadDown',  key: 'key(down)'  },
+      { action: 'DPadLeft',  key: 'key(left)'  },
+      { action: 'DPadRight', key: 'key(right)' },
+      { action: 'LStickUp',    key: 'key(i)' },
+      { action: 'LStickDown',  key: 'key(k)' },
+      { action: 'LStickLeft',  key: 'key(j)' },
+      { action: 'LStickRight', key: 'key(l)' },
+    ],
+  },
+];
+
+// ---------------------------------------------------------------------------
+// Sony PlayStation 2 (PCSX2) — DualShock 2 layout
+// ---------------------------------------------------------------------------
+
+/**
+ * Default PS2 input profiles (PCSX2).
+ *
+ * DualShock 2 is identical to DualShock 1 but adds pressure-sensitive face
+ * buttons.  The digital mapping is the same as PSX.
+ */
+export const PS2_DEFAULT_PROFILES: InputProfile[] = [
+  // --- Xbox controller ---
+  {
+    id: 'ps2-xbox-default',
+    name: 'PS2 — Xbox Controller (default)',
+    controllerType: 'xbox',
+    system: 'ps2',
+    isDefault: true,
+    bindings: [
+      { action: 'Cross',    button: 'button(0)' },
+      { action: 'Circle',   button: 'button(1)' },
+      { action: 'Square',   button: 'button(2)' },
+      { action: 'Triangle', button: 'button(3)' },
+      { action: 'Start',    button: 'button(7)' },
+      { action: 'Select',   button: 'button(6)' },
+      { action: 'L1',       button: 'button(4)' },
+      { action: 'R1',       button: 'button(5)' },
+      { action: 'L2',       axis:   'axis(4+)' },
+      { action: 'R2',       axis:   'axis(5+)' },
+      { action: 'L3',       button: 'button(9)'  },
+      { action: 'R3',       button: 'button(10)' },
+      { action: 'DPadUp',    button: 'hat(0 Up)'    },
+      { action: 'DPadDown',  button: 'hat(0 Down)'  },
+      { action: 'DPadLeft',  button: 'hat(0 Left)'  },
+      { action: 'DPadRight', button: 'hat(0 Right)' },
+      { action: 'LStickUp',    axis: 'axis(1-)' },
+      { action: 'LStickDown',  axis: 'axis(1+)' },
+      { action: 'LStickLeft',  axis: 'axis(0-)' },
+      { action: 'LStickRight', axis: 'axis(0+)' },
+      { action: 'RStickUp',    axis: 'axis(3-)' },
+      { action: 'RStickDown',  axis: 'axis(3+)' },
+      { action: 'RStickLeft',  axis: 'axis(2-)' },
+      { action: 'RStickRight', axis: 'axis(2+)' },
+    ],
+  },
+  // --- PlayStation controller ---
+  {
+    id: 'ps2-playstation-default',
+    name: 'PS2 — PlayStation Controller (default)',
+    controllerType: 'playstation',
+    system: 'ps2',
+    isDefault: true,
+    bindings: [
+      { action: 'Cross',    button: 'button(0)' },
+      { action: 'Circle',   button: 'button(1)' },
+      { action: 'Square',   button: 'button(2)' },
+      { action: 'Triangle', button: 'button(3)' },
+      { action: 'Start',    button: 'button(9)' },
+      { action: 'Select',   button: 'button(8)' },
+      { action: 'L1',       button: 'button(4)' },
+      { action: 'R1',       button: 'button(5)' },
+      { action: 'L2',       axis:   'axis(4+)' },
+      { action: 'R2',       axis:   'axis(5+)' },
+      { action: 'L3',       button: 'button(10)' },
+      { action: 'R3',       button: 'button(11)' },
+      { action: 'DPadUp',    button: 'hat(0 Up)'    },
+      { action: 'DPadDown',  button: 'hat(0 Down)'  },
+      { action: 'DPadLeft',  button: 'hat(0 Left)'  },
+      { action: 'DPadRight', button: 'hat(0 Right)' },
+      { action: 'LStickUp',    axis: 'axis(1-)' },
+      { action: 'LStickDown',  axis: 'axis(1+)' },
+      { action: 'LStickLeft',  axis: 'axis(0-)' },
+      { action: 'LStickRight', axis: 'axis(0+)' },
+      { action: 'RStickUp',    axis: 'axis(3-)' },
+      { action: 'RStickDown',  axis: 'axis(3+)' },
+      { action: 'RStickLeft',  axis: 'axis(2-)' },
+      { action: 'RStickRight', axis: 'axis(2+)' },
+    ],
+  },
+  // --- Keyboard fallback ---
+  {
+    id: 'ps2-keyboard-default',
+    name: 'PS2 — Keyboard (default)',
+    controllerType: 'keyboard',
+    system: 'ps2',
+    isDefault: true,
+    bindings: [
+      { action: 'Cross',    key: 'key(x)' },
+      { action: 'Circle',   key: 'key(c)' },
+      { action: 'Square',   key: 'key(z)' },
+      { action: 'Triangle', key: 'key(s)' },
+      { action: 'Start',    key: 'key(return)' },
+      { action: 'Select',   key: 'key(rshift)' },
+      { action: 'L1',       key: 'key(q)' },
+      { action: 'R1',       key: 'key(w)' },
+      { action: 'L2',       key: 'key(1)' },
+      { action: 'R2',       key: 'key(2)' },
+      { action: 'DPadUp',    key: 'key(up)'    },
+      { action: 'DPadDown',  key: 'key(down)'  },
+      { action: 'DPadLeft',  key: 'key(left)'  },
+      { action: 'DPadRight', key: 'key(right)' },
+      { action: 'LStickUp',    key: 'key(i)' },
+      { action: 'LStickDown',  key: 'key(k)' },
+      { action: 'LStickLeft',  key: 'key(j)' },
+      { action: 'LStickRight', key: 'key(l)' },
+    ],
+  },
+];
+
+// ---------------------------------------------------------------------------
+// Sony PSP (PPSSPP) — PSP button layout
+// ---------------------------------------------------------------------------
+
+/**
+ * Default PSP input profiles (PPSSPP).
+ *
+ * PSP button layout: Cross, Circle, Square, Triangle, L, R, Start, Select,
+ * D-Pad, and one analog stick (the PSP nub — left stick).
+ * PPSSPP adds virtual right-stick support (via right analog) for camera.
+ */
+export const PSP_DEFAULT_PROFILES: InputProfile[] = [
+  // --- Xbox controller ---
+  {
+    id: 'psp-xbox-default',
+    name: 'PSP — Xbox Controller (default)',
+    controllerType: 'xbox',
+    system: 'psp',
+    isDefault: true,
+    bindings: [
+      { action: 'Cross',    button: 'button(0)' },  // A → Cross
+      { action: 'Circle',   button: 'button(1)' },  // B → Circle
+      { action: 'Square',   button: 'button(2)' },  // X → Square
+      { action: 'Triangle', button: 'button(3)' },  // Y → Triangle
+      { action: 'Start',    button: 'button(7)' },  // Menu → Start
+      { action: 'Select',   button: 'button(6)' },  // View → Select
+      { action: 'L',        button: 'button(4)' },  // LB → L
+      { action: 'R',        button: 'button(5)' },  // RB → R
+      // D-Pad
+      { action: 'DPadUp',    button: 'hat(0 Up)'    },
+      { action: 'DPadDown',  button: 'hat(0 Down)'  },
+      { action: 'DPadLeft',  button: 'hat(0 Left)'  },
+      { action: 'DPadRight', button: 'hat(0 Right)' },
+      // Analog nub (left stick)
+      { action: 'NubUp',    axis: 'axis(1-)' },
+      { action: 'NubDown',  axis: 'axis(1+)' },
+      { action: 'NubLeft',  axis: 'axis(0-)' },
+      { action: 'NubRight', axis: 'axis(0+)' },
+    ],
+  },
+  // --- PlayStation controller ---
+  {
+    id: 'psp-playstation-default',
+    name: 'PSP — PlayStation Controller (default)',
+    controllerType: 'playstation',
+    system: 'psp',
+    isDefault: true,
+    bindings: [
+      { action: 'Cross',    button: 'button(0)' },
+      { action: 'Circle',   button: 'button(1)' },
+      { action: 'Square',   button: 'button(2)' },
+      { action: 'Triangle', button: 'button(3)' },
+      { action: 'Start',    button: 'button(9)' },  // Options
+      { action: 'Select',   button: 'button(8)' },  // Share/Create
+      { action: 'L',        button: 'button(4)' },  // L1
+      { action: 'R',        button: 'button(5)' },  // R1
+      { action: 'DPadUp',    button: 'hat(0 Up)'    },
+      { action: 'DPadDown',  button: 'hat(0 Down)'  },
+      { action: 'DPadLeft',  button: 'hat(0 Left)'  },
+      { action: 'DPadRight', button: 'hat(0 Right)' },
+      { action: 'NubUp',    axis: 'axis(1-)' },
+      { action: 'NubDown',  axis: 'axis(1+)' },
+      { action: 'NubLeft',  axis: 'axis(0-)' },
+      { action: 'NubRight', axis: 'axis(0+)' },
+    ],
+  },
+  // --- Keyboard fallback ---
+  {
+    id: 'psp-keyboard-default',
+    name: 'PSP — Keyboard (default)',
+    controllerType: 'keyboard',
+    system: 'psp',
+    isDefault: true,
+    bindings: [
+      { action: 'Cross',    key: 'key(x)' },
+      { action: 'Circle',   key: 'key(c)' },
+      { action: 'Square',   key: 'key(z)' },
+      { action: 'Triangle', key: 'key(s)' },
+      { action: 'Start',    key: 'key(return)' },
+      { action: 'Select',   key: 'key(rshift)' },
+      { action: 'L',        key: 'key(q)' },
+      { action: 'R',        key: 'key(w)' },
+      { action: 'DPadUp',    key: 'key(up)'    },
+      { action: 'DPadDown',  key: 'key(down)'  },
+      { action: 'DPadLeft',  key: 'key(left)'  },
+      { action: 'DPadRight', key: 'key(right)' },
+      { action: 'NubUp',    key: 'key(i)' },
+      { action: 'NubDown',  key: 'key(k)' },
+      { action: 'NubLeft',  key: 'key(j)' },
+      { action: 'NubRight', key: 'key(l)' },
+    ],
+  },
+];
+
 /**
  * InputProfileManager handles controller mapping and input configuration.
  * It provides per-game and per-system templates for unified input handling.
@@ -805,31 +1540,25 @@ export class InputProfileManager {
 
   constructor(loadDefaults = true) {
     if (loadDefaults) {
-      for (const profile of NES_DEFAULT_PROFILES) {
-        this.profiles.set(profile.id, profile);
-      }
-      for (const profile of SNES_DEFAULT_PROFILES) {
-        this.profiles.set(profile.id, profile);
-      }
-      for (const profile of GB_DEFAULT_PROFILES) {
-        this.profiles.set(profile.id, profile);
-      }
-      for (const profile of GBC_DEFAULT_PROFILES) {
-        this.profiles.set(profile.id, profile);
-      }
-      for (const profile of GBA_DEFAULT_PROFILES) {
-        this.profiles.set(profile.id, profile);
-      }
-      for (const profile of N64_DEFAULT_PROFILES) {
-        this.profiles.set(profile.id, profile);
-      }
-      for (const profile of NDS_DEFAULT_PROFILES) {
-        this.profiles.set(profile.id, profile);
-      }
-      for (const profile of GC_DEFAULT_PROFILES) {
-        this.profiles.set(profile.id, profile);
-      }
-      for (const profile of N3DS_DEFAULT_PROFILES) {
+      const allDefaults = [
+        ...NES_DEFAULT_PROFILES,
+        ...SNES_DEFAULT_PROFILES,
+        ...GB_DEFAULT_PROFILES,
+        ...GBC_DEFAULT_PROFILES,
+        ...GBA_DEFAULT_PROFILES,
+        ...N64_DEFAULT_PROFILES,
+        ...NDS_DEFAULT_PROFILES,
+        ...GC_DEFAULT_PROFILES,
+        ...N3DS_DEFAULT_PROFILES,
+        ...WII_DEFAULT_PROFILES,
+        ...WIIU_DEFAULT_PROFILES,
+        ...GENESIS_DEFAULT_PROFILES,
+        ...DREAMCAST_DEFAULT_PROFILES,
+        ...PSX_DEFAULT_PROFILES,
+        ...PS2_DEFAULT_PROFILES,
+        ...PSP_DEFAULT_PROFILES,
+      ];
+      for (const profile of allDefaults) {
         this.profiles.set(profile.id, profile);
       }
     }
