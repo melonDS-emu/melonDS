@@ -13,6 +13,7 @@
 > - Phase 9 achievements (20 definitions + 3 tournament achievements), player stats aggregation, global leaderboard, Profile page, SQLite achievement persistence, WebSocket achievement push + desktop toast notifications, and the `/api/achievements/:playerId/refresh` endpoint are now complete.
 > - Phase 10 tournaments (single-elimination bracket engine, REST + WS push, desktop Tournament page, winner achievements) and clip sharing (MediaRecorder service, IndexedDB storage, export, home page widget) are now complete.
 > - Phase 11 clip library (`/clips`), live friend presence, live friend request UI, notification badges, `SqliteTournamentStore`, and tournament history in Profile page are now complete.
+> - Phase 11 (Cloud) cloud & account features are now complete: `AccountStore` (email/password, scrypt hashing, session tokens, profile management, identity linking), `ModerationStore` (5-category reports, auto-flag threshold, review/dismiss), 11 REST endpoints for accounts + moderation, SQLite schema migrations. 49 new tests (1053 total).
 > - Phase 12 WFC auto-config (Wiimmfi + AltWFC, `GET /api/wfc/providers`), Pokémon Online page (`/pokemon` — Trade Lobby, Battle Lobby, Friend Codes), and Mario Kart DS matchmaking page (`/mario-kart` — Quick Race, Public Rooms, Ranked Races) are now complete.
 > - Phase 13 Seasonal Events, Featured Games & Custom Room Themes are now complete. REST: `GET /api/events`, `GET /api/events/current`, `GET /api/games/featured`. Events page (`/events`), home page seasonal banner + featured games widget, theme picker in HostRoomModal, themed lobby cards. Mario Sports page (`/mario-sports`) also added.
 > - Phase 14 Zelda & Metroid Online + Direct Messaging are now complete. Zelda page (`/zelda` — Four Swords co-op, Phantom Hourglass battle mode), Metroid page (`/metroid` — Prime Hunters 4P deathmatch, quick match), in-app DMs between friends with WS push delivery, unread badge in nav.
@@ -758,6 +759,25 @@
 - [x] Tournament SQLite persistence: `SqliteTournamentStore` following the `SqliteSessionHistory` pattern
 - [x] Tournament history in Profile page: tournaments entered, wins, runner-up finishes
 - [x] docs/status/phase-11-clips-presence.md — phase status and feature notes
+
+## Phase 11 (Cloud) — Cloud & Account Features
+
+**Goal:** Durable social platform — a user can sign in on another machine and keep their full ecosystem.
+
+### Milestones
+- [x] Optional account system (`AccountStore`): register with email + password, login → session token, revoke session, revoke all sessions on password change
+- [x] Secure password hashing: scrypt (N=16384, r=8, p=1) with per-account random salt; constant-time verification via `timingSafeEqual`
+- [x] Profile management: `updateProfile()` (displayName, isVerified), `changePassword()`, `getById()`, `getByEmail()`
+- [x] Identity linking: `linkIdentity(accountId, identityToken)` bridges pre-registration anonymous history to the new account
+- [x] SQLite schema: `accounts` table + `account_sessions` table with cascading deletes; phase-11 migration in `db.ts`
+- [x] REST API — accounts: `POST /api/accounts/register`, `POST /api/accounts/login`, `POST /api/accounts/logout`, `GET /api/accounts/:id`, `PUT /api/accounts/:id/profile`, `POST /api/accounts/:id/link-identity`
+- [x] Cloud save sync: `CloudSyncService` + `computeFileHash` in `@retro-oasis/save-system` (SHA-256 hash, pending-upload/pending-download/conflict/error states, pluggable `CloudStorageAdapter` interface)
+- [x] Friend graph persistence: `FriendStore` backed by SQLite `friends` + `friend_requests` tables (symmetric friendship, request flow, pending/accepted/declined states)
+- [x] Session history persistence: `SqliteSessionHistory` (full game session records surviving restarts)
+- [x] Lightweight moderation/reporting: `ModerationStore` — file reports (player/room, 5 reason categories), auto-flag threshold (3 pending reports), moderator review/dismiss with notes, bulk clear
+- [x] REST API — moderation: `POST /api/moderation/report`, `GET /api/moderation/reports`, `GET /api/moderation/reports/:targetId`, `PUT /api/moderation/reports/:id/review`, `PUT /api/moderation/reports/:id/dismiss`
+- [x] SQLite schema: `moderation_reports` table with indexes on target_id and status; phase-11 migration in `db.ts`
+- [x] 49 new tests covering all Phase 11 cloud/account features (phase-11.test.ts)
 
 ## Phase 12 — WFC Auto-Config, Pokémon Lobbies & Mario Kart Matchmaking
 

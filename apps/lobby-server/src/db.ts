@@ -304,6 +304,49 @@ export function openDatabase(path = ':memory:'): DatabaseType {
     CREATE INDEX IF NOT EXISTS idx_retro_progress_game ON retro_achievement_progress (player_id, game_id);
   `);
 
+  // Phase 11 (cloud/account) migration: accounts, account sessions, and moderation reports.
+  db.exec(`
+    -- Optional user accounts (email + password, links to anonymous identity token)
+    CREATE TABLE IF NOT EXISTS accounts (
+      id                     TEXT PRIMARY KEY,
+      email                  TEXT NOT NULL UNIQUE,
+      display_name           TEXT NOT NULL,
+      password_hash          TEXT NOT NULL,
+      linked_identity_token  TEXT,
+      created_at             TEXT NOT NULL,
+      last_login_at          TEXT,
+      is_verified            INTEGER NOT NULL DEFAULT 0
+    );
+    CREATE INDEX IF NOT EXISTS idx_accounts_email ON accounts (email);
+
+    -- Server-side session tokens for authenticated accounts
+    CREATE TABLE IF NOT EXISTS account_sessions (
+      token       TEXT PRIMARY KEY,
+      account_id  TEXT NOT NULL,
+      created_at  TEXT NOT NULL,
+      expires_at  TEXT NOT NULL,
+      FOREIGN KEY (account_id) REFERENCES accounts(id) ON DELETE CASCADE
+    );
+    CREATE INDEX IF NOT EXISTS idx_sessions_account ON account_sessions (account_id);
+
+    -- Lightweight moderation / reporting for public rooms
+    CREATE TABLE IF NOT EXISTS moderation_reports (
+      id             TEXT PRIMARY KEY,
+      reporter_id    TEXT NOT NULL,
+      reporter_name  TEXT NOT NULL,
+      target_id      TEXT NOT NULL,
+      target_type    TEXT NOT NULL,
+      reason         TEXT NOT NULL,
+      description    TEXT NOT NULL DEFAULT '',
+      status         TEXT NOT NULL DEFAULT 'pending',
+      created_at     TEXT NOT NULL,
+      reviewed_at    TEXT,
+      resolved_note  TEXT
+    );
+    CREATE INDEX IF NOT EXISTS idx_reports_target ON moderation_reports (target_id);
+    CREATE INDEX IF NOT EXISTS idx_reports_status ON moderation_reports (status);
+  `);
+
   return db;
 }
 
