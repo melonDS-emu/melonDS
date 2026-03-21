@@ -38,6 +38,7 @@ export function HomePage() {
   const ndsShowcaseGames = allGames.filter((g) => g.system === 'NDS');
   const partyPicks = allGames.filter((g) => g.tags.includes('Party') && g.system !== 'N64' && g.system !== 'NDS');
   const recentGames = allGames.slice(0, 4);
+  const bestWithFriendsGames = allGames.filter((g) => g.badges.includes('Best with Friends')).slice(0, 8);
 
   useEffect(() => {
     if (connectionState === 'connected') listRooms();
@@ -215,6 +216,48 @@ export function HomePage() {
           </Link>
         </div>
       )}
+
+      {/* ── Best with Friends spotlight ── */}
+      {bestWithFriendsGames.length > 0 && (
+        <section>
+          <SectionHeader
+            title="🤝 Best with Friends"
+            action={<Link to="/library" className="text-xs font-bold hover:opacity-80 transition-opacity" style={{ color: 'var(--color-oasis-text-muted)' }}>See All →</Link>}
+          />
+          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
+            {bestWithFriendsGames.slice(0, 4).map((game) => (
+              <GameCard key={game.id} game={game} />
+            ))}
+          </div>
+        </section>
+      )}
+
+      {/* ── Multiplayer mode quick-browse ── */}
+      <section>
+        <SectionHeader title="🎮 Browse by Mode" />
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
+          {[
+            { tag: 'Party',  label: 'Party Games',   icon: '🎉', color: '#c0392b', description: 'Fill the room and start the chaos' },
+            { tag: 'Co-op',  label: 'Co-op',         icon: '🤝', color: '#2980b9', description: 'Work together to win' },
+            { tag: 'Versus', label: 'Versus',        icon: '⚔️', color: '#8e44ad', description: 'Head-to-head competition' },
+            { tag: 'Battle', label: 'Battle',        icon: '💥', color: '#e67e22', description: 'All-out brawl modes' },
+          ].map(({ tag, label, icon, color, description }) => (
+            <Link
+              key={tag}
+              to={`/library?tag=${tag}`}
+              className="rounded-2xl p-4 flex flex-col gap-1.5 n-card"
+              style={{
+                background: `linear-gradient(135deg, ${color}22 0%, ${color}0a 100%)`,
+                border: `1px solid ${color}33`,
+              }}
+            >
+              <span className="text-2xl">{icon}</span>
+              <span className="font-black text-sm" style={{ color: '#f0f0ff' }}>{label}</span>
+              <span className="text-[11px]" style={{ color: 'var(--color-oasis-text-muted)' }}>{description}</span>
+            </Link>
+          ))}
+        </div>
+      </section>
 
       {/* ── Joinable Lobbies ── */}
       <section>

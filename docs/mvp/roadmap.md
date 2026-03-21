@@ -171,11 +171,11 @@
 - [x] Desktop `save-backup-service.ts` — typed wrapper around all backup REST endpoints
 - [x] 55 new tests (867 total)
 
-## Phase 5 — Presence and Social Discovery
+## Phase 5 — Curated Multiplayer UX
 
-**Goal:** Make RetroOasis feel alive even before a session starts.
+**Goal:** Make the app feel like a social console launcher where a normal user can understand how to play with friends in under 60 seconds.
 
-**Current reality:** the discovery UI is in place, but today it is powered by seeded mock/dev data rather than live presence transport or persistence.
+**Current reality:** the discovery UI is in place, social features powered by seeded mock/dev data, and the curated UX polish is now complete.
 
 ### Milestones
 - [x] `FriendInfo` enriched with `roomCode` for direct join surfacing
@@ -192,6 +192,14 @@
 - [x] Home page "Friends Playing Now" section — friend session cards with ▶ Join button
 - [x] Home page "Recent Activity" section — timestamped feed with inline join actions
 - [x] `/friends` route + `FriendsPage` — full social discovery (spotlight, filter tabs, roster, activity feed)
+- [x] **Curated multiplayer UX (Phase 5 polish pass):**
+  - [x] `SystemBadge` reusable component with `SYSTEM_COLORS` map (all 16 systems)
+  - [x] `session-presets.ts` — `getGamePresets()` generates quick-start presets (Full Party, 4-Player, 1-on-1) from game properties
+  - [x] `HostRoomModal` — "Play with Friends" heading, ⚡ Quick Start preset picker per game, advanced options (theme, NDS layout) collapsed behind toggle
+  - [x] `GameDetailsPage` — "🎮 Play with Friends" is the primary CTA (full-width, prominent), "Play Solo" and "Invite Friends" demoted to secondary row, ROM/emulator settings collapsed behind "⚙ Advanced Settings" toggle
+  - [x] `LibraryPage` — "🤝 Best with Friends" spotlight toggle surfaces games with that badge; multiplayer mode filter replaced with icon-labelled MODES list (Party 🎉, Co-op 🤝, Versus ⚔️, Battle 💥, Link 🔗, Trade 🔄)
+  - [x] `HomePage` — "🤝 Best with Friends" game grid section added; "🎮 Browse by Mode" quick-browse card row (Party / Co-op / Versus / Battle) with per-mode colour gradients
+  - [x] 30 new tests (979 total)
 - [ ] Connect PresenceClient to lobby WebSocket for live friend presence
 - [ ] Friend request / add-friend flow
 - [ ] Server-side friend list and presence persistence

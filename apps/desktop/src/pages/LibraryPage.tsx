@@ -11,11 +11,22 @@ import { getRecentlyPlayed } from '../lib/recently-played';
 
 const SUCCESS_MESSAGE_DURATION_MS = 3000;
 const SYSTEMS = ['All', 'NES', 'SNES', 'GB', 'GBC', 'GBA', 'N64', 'NDS', 'GC', '3DS'];
-const TAGS = ['All', 'Party', 'Co-op', 'Versus', 'Battle', 'Link', 'Trade'];
+
+/** Multiplayer mode filters with friendly labels + icons. */
+const MODES: { tag: string; label: string; icon: string }[] = [
+  { tag: 'All',     label: 'All Games', icon: '🎮' },
+  { tag: 'Party',   label: 'Party',     icon: '🎉' },
+  { tag: 'Co-op',   label: 'Co-op',     icon: '🤝' },
+  { tag: 'Versus',  label: 'Versus',    icon: '⚔️' },
+  { tag: 'Battle',  label: 'Battle',    icon: '💥' },
+  { tag: 'Link',    label: 'Link',      icon: '🔗' },
+  { tag: 'Trade',   label: 'Trade',     icon: '🔄' },
+];
 
 export function LibraryPage() {
   const [selectedSystem, setSelectedSystem] = useState('All');
   const [selectedTag, setSelectedTag] = useState('All');
+  const [showBestWithFriends, setShowBestWithFriends] = useState(false);
   const [scanStatus, setScanStatus] = useState<'idle' | 'scanning' | 'done' | 'error'>('idle');
   const [scanCount, setScanCount] = useState<number | null>(null);
   const [scanError, setScanError] = useState<string | null>(null);
@@ -29,6 +40,13 @@ export function LibraryPage() {
     tag: selectedTag !== 'All' ? selectedTag : undefined,
   });
 
+  // "Best with Friends" — games with that badge, optionally intersected with active filters
+  const bestWithFriendsGames = allGames.filter((g) =>
+    g.badges.includes('Best with Friends') &&
+    (selectedSystem === 'All' || g.system === selectedSystem) &&
+    (selectedTag === 'All' || g.tags.includes(selectedTag)),
+  );
+
   // Compute favorites + recently-played from localStorage
   const favoriteIds = getFavoriteIds();
   const recentIds = getRecentlyPlayed(8).map((e) => e.gameId);
@@ -37,6 +55,11 @@ export function LibraryPage() {
   const recentGames = recentIds
     .map((id) => allGames.find((g) => g.id === id))
     .filter(Boolean) as typeof allGames;
+
+  function handleModeChange(tag: string) {
+    setSelectedTag(tag);
+    setShowBestWithFriends(false);
+  }
 
   async function handleScan() {
     setScanStatus('scanning');
@@ -65,6 +88,9 @@ export function LibraryPage() {
     }
   }
 
+  // Displayed games — when "Best with Friends" spotlight is active, replace the grid
+  const displayGames = showBestWithFriends ? bestWithFriendsGames : filtered;
+
   return (
     <div className="max-w-5xl">
       {/* ── Page header ── */}
@@ -74,7 +100,7 @@ export function LibraryPage() {
             Game Library
           </h1>
           <p className="text-xs font-semibold mt-0.5" style={{ color: 'var(--color-oasis-text-muted)' }}>
-            {filtered.length} game{filtered.length !== 1 ? 's' : ''} available
+            {displayGames.length} game{displayGames.length !== 1 ? 's' : ''} available
           </p>
         </div>
 
@@ -134,6 +160,35 @@ export function LibraryPage() {
         </div>
       )}
 
+      {/* ── Quick spotlight: Best with Friends ── */}
+      {bestWithFriendsGames.length > 0 && (
+        <button
+          type="button"
+          onClick={() => setShowBestWithFriends((v) => !v)}
+          className="mb-5 w-full px-4 py-3 rounded-2xl text-left transition-all"
+          style={{
+            background: showBestWithFriends
+              ? 'linear-gradient(90deg, rgba(230,0,18,0.18) 0%, rgba(230,0,18,0.08) 100%)'
+              : 'linear-gradient(90deg, rgba(255,255,255,0.04) 0%, rgba(255,255,255,0.02) 100%)',
+            border: `1px solid ${showBestWithFriends ? 'rgba(230,0,18,0.5)' : 'rgba(255,255,255,0.07)'}`,
+          }}
+        >
+          <div className="flex items-center justify-between">
+            <div>
+              <span className="font-black text-sm" style={{ color: showBestWithFriends ? 'var(--color-oasis-accent-light)' : 'var(--color-oasis-text)' }}>
+                🤝 Best with Friends
+              </span>
+              <p className="text-[11px] mt-0.5" style={{ color: 'var(--color-oasis-text-muted)' }}>
+                {bestWithFriendsGames.length} games picked for multiplayer fun
+              </p>
+            </div>
+            <span className="text-xs font-bold" style={{ color: 'var(--color-oasis-text-muted)' }}>
+              {showBestWithFriends ? 'Show all ✕' : 'Show →'}
+            </span>
+          </div>
+        </button>
+      )}
+
       {/* ── System filter ── */}
       <div className="mb-2">
         <p className="text-[10px] font-black uppercase tracking-widest mb-2" style={{ color: 'var(--color-oasis-text-muted)' }}>
@@ -157,31 +212,32 @@ export function LibraryPage() {
         </div>
       </div>
 
-      {/* ── Tag filter ── */}
+      {/* ── Multiplayer mode filter ── */}
       <div className="mb-7">
         <p className="text-[10px] font-black uppercase tracking-widest mb-2 mt-4" style={{ color: 'var(--color-oasis-text-muted)' }}>
-          Mode
+          Multiplayer Mode
         </p>
         <div className="flex flex-wrap gap-1.5">
-          {TAGS.map((tag) => (
+          {MODES.map(({ tag, label, icon }) => (
             <button
               key={tag}
-              onClick={() => setSelectedTag(tag)}
-              className="px-3.5 py-1.5 rounded-full text-xs font-black transition-all"
+              onClick={() => handleModeChange(tag)}
+              className="flex items-center gap-1 px-3.5 py-1.5 rounded-full text-xs font-black transition-all"
               style={{
-                backgroundColor: selectedTag === tag ? 'var(--color-oasis-blue)' : 'var(--color-oasis-card)',
-                color: selectedTag === tag ? 'white' : 'var(--color-oasis-text-muted)',
-                border: selectedTag === tag ? 'none' : '1px solid var(--n-border)',
+                backgroundColor: selectedTag === tag && !showBestWithFriends ? 'var(--color-oasis-blue)' : 'var(--color-oasis-card)',
+                color: selectedTag === tag && !showBestWithFriends ? 'white' : 'var(--color-oasis-text-muted)',
+                border: selectedTag === tag && !showBestWithFriends ? 'none' : '1px solid var(--n-border)',
               }}
             >
-              {tag}
+              <span>{icon}</span>
+              <span>{label}</span>
             </button>
           ))}
         </div>
       </div>
 
       {/* ── Favorites section ── */}
-      {favoriteGames.length > 0 && selectedSystem === 'All' && selectedTag === 'All' && (
+      {favoriteGames.length > 0 && selectedSystem === 'All' && selectedTag === 'All' && !showBestWithFriends && (
         <section className="mb-8">
           <p
             className="text-[10px] font-black uppercase tracking-widest mb-3"
@@ -198,7 +254,7 @@ export function LibraryPage() {
       )}
 
       {/* ── Recently Played section ── */}
-      {recentGames.length > 0 && selectedSystem === 'All' && selectedTag === 'All' && (
+      {recentGames.length > 0 && selectedSystem === 'All' && selectedTag === 'All' && !showBestWithFriends && (
         <section className="mb-8">
           <p
             className="text-[10px] font-black uppercase tracking-widest mb-3"
@@ -215,8 +271,13 @@ export function LibraryPage() {
       )}
 
       {/* ── Game grid ── */}
+      {showBestWithFriends && (
+        <p className="text-[10px] font-black uppercase tracking-widest mb-3" style={{ color: 'var(--color-oasis-text-muted)' }}>
+          🤝 Best with Friends
+        </p>
+      )}
       <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
-        {filtered.map((game) => (
+        {displayGames.map((game) => (
           <GameCard key={game.id} game={game} />
         ))}
       </div>
@@ -231,7 +292,7 @@ export function LibraryPage() {
           ⚠️ {error}
         </p>
       )}
-      {!loading && !error && filtered.length === 0 && (
+      {!loading && !error && displayGames.length === 0 && (
         <div className="text-center py-16">
           <p className="text-4xl mb-3">🎮</p>
           <p className="text-sm font-bold" style={{ color: 'var(--color-oasis-text-muted)' }}>
