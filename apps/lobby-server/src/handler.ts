@@ -17,6 +17,8 @@ import type { MessageStore } from './message-store';
 import type { SqliteMessageStore } from './sqlite-message-store';
 import { GlobalChatStore } from './global-chat-store';
 import { NotificationStore } from './notification-store';
+import type { RecentPlayersStore, SqliteRecentPlayersStore } from './recent-players-store';
+import type { PlayerPrivacyStore, SqlitePlayerPrivacyStore } from './player-privacy-store';
 
 /** Map of playerId -> WebSocket for broadcasting */
 const connections = new Map<string, WebSocket>();
@@ -139,6 +141,10 @@ export interface Phase8Stores {
   globalChat?: GlobalChatStore;
   /** Phase 17: notification store */
   notifications?: NotificationStore;
+  /** Phase 6: recent players store */
+  recentPlayers?: RecentPlayersStore | SqliteRecentPlayersStore;
+  /** Phase 6: player privacy store */
+  privacy?: PlayerPrivacyStore | SqlitePlayerPrivacyStore;
 }
 
 /**
@@ -429,6 +435,26 @@ export function handleConnection(
           room.system,
           room.players.map((p) => p.displayName)
         );
+
+        // Phase 6: record recent players for every participant in this session
+        if (phase8?.recentPlayers) {
+          const senderPersistentId = sessionToPersistentId.get(playerId);
+          for (const player of room.players) {
+            const ownerPid = sessionToPersistentId.get(player.id) ?? player.id;
+            for (const other of room.players) {
+              if (other.id === player.id) continue;
+              const metPid = sessionToPersistentId.get(other.id) ?? other.id;
+              phase8.recentPlayers.record(
+                ownerPid,
+                metPid,
+                other.displayName,
+                room.roomCode,
+                room.gameTitle,
+              );
+            }
+          }
+          void senderPersistentId; // suppress unused warning
+        }
 
         broadcastPresence(lobby, connections);
         break;
@@ -836,6 +862,84 @@ export function handleConnection(
         } catch {
           send(ws, { type: 'error', message: 'Failed to post chat message.' });
         }
+        break;
+      }
+
+      // -----------------------------------------------------------------------
+      // Phase 6: send a game invite to another player
+      // -----------------------------------------------------------------------
+      case 'send-invite': {
+        const inviteFromPid = sessionToPersistentId.get(playerId);
+        if (!inviteFromPid) {
+          send(ws, { type: 'error', message: 'Register your identity before sending invites.' });
+          break;
+        }
+        const { toPlayerId: inviteToId, roomCode: inviteRoomCode, gameTitle: inviteGameTitle } = msg.payload ?? {};
+        if (!inviteToId || !inviteRoomCode) {
+          send(ws, { type: 'error', message: 'send-invite requires toPlayerId and roomCode.' });
+          break;
+        }
+
+        // Respect recipient privacy — block if allowInvites=false and sender is not a friend
+        const recipientPrivacy = phase8?.privacy?.get(inviteToId);
+        if (recipientPrivacy && !recipientPrivacy.allowInvites) {
+          const areFriends = phase8?.friends?.areFriends(inviteFromPid, inviteToId) ?? false;
+          if (!areFriends) {
+            send(ws, { type: 'error', message: 'That player is not accepting invites.' });
+            break;
+          }
+        }
+
+        const fromDisplayName =
+          persistentDisplayNames.get(inviteFromPid) ??
+          Array.from(displayNameToPlayerId.entries()).find(([, pid]) => pid === playerId)?.[0] ??
+          'Unknown';
+
+        const invite = {
+          id: randomUUID(),
+          fromPlayerId: inviteFromPid,
+          fromDisplayName,
+          roomCode: inviteRoomCode as string,
+          gameTitle: (inviteGameTitle as string | undefined) ?? '',
+          sentAt: new Date().toISOString(),
+          expiresAt: new Date(Date.now() + 5 * 60 * 1000).toISOString(),
+        };
+
+        // Deliver to recipient — look up via persistent ID first, then display name
+        const recipientSessionId =
+          Array.from(sessionToPersistentId.entries()).find(([, pid]) => pid === inviteToId)?.[0];
+        const recipientWs = recipientSessionId ? connections.get(recipientSessionId) : undefined;
+        if (recipientWs) {
+          send(recipientWs, { type: 'invite-received', invite });
+          // Add a notification for the recipient as well
+          phase8?.notifications?.add(
+            inviteToId,
+            'invite',
+            `${fromDisplayName} invited you to play${invite.gameTitle ? ` ${invite.gameTitle}` : ''}!`,
+            { inviteId: invite.id, roomCode: invite.roomCode },
+          );
+        }
+        send(ws, { type: 'invite-sent', invite });
+        break;
+      }
+
+      // -----------------------------------------------------------------------
+      // Phase 6: update own privacy settings
+      // -----------------------------------------------------------------------
+      case 'set-privacy': {
+        const privacyPid = sessionToPersistentId.get(playerId);
+        if (!privacyPid) {
+          send(ws, { type: 'error', message: 'Register your identity before setting privacy.' });
+          break;
+        }
+        const { showOnline, allowInvites: privAllowInvites, showActivity } = msg.payload ?? {};
+        if (!phase8?.privacy) break;
+        const updated = phase8.privacy.update(privacyPid, {
+          ...(typeof showOnline === 'boolean' && { showOnline }),
+          ...(typeof privAllowInvites === 'boolean' && { allowInvites: privAllowInvites }),
+          ...(typeof showActivity === 'boolean' && { showActivity }),
+        });
+        send(ws, { type: 'privacy-updated', settings: updated });
         break;
       }
 

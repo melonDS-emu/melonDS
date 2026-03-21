@@ -74,6 +74,24 @@ export interface IncomingDm {
   sentAt: string;
 }
 
+/** Phase 6: an incoming game invite received via WS. */
+export interface IncomingInvite {
+  id: string;
+  fromPlayerId: string;
+  fromDisplayName: string;
+  roomCode: string;
+  gameTitle: string;
+  sentAt: string;
+  expiresAt: string;
+}
+
+/** Phase 6: player privacy settings. */
+export interface PrivacySettings {
+  showOnline: boolean;
+  allowInvites: boolean;
+  showActivity: boolean;
+}
+
 interface LobbyContextValue {
   connectionState: ConnectionState;
   playerId: string | null;
@@ -120,6 +138,13 @@ interface LobbyContextValue {
   markDmRead: (fromPlayer: string) => void;
   unreadDmCount: number;
   incomingDms: IncomingDm[];
+  /** Phase 6: game invites. */
+  sendInvite: (toPlayerId: string, roomCode: string, gameTitle?: string) => void;
+  incomingInvites: IncomingInvite[];
+  dismissInvite: (inviteId: string) => void;
+  /** Phase 6: privacy settings. */
+  privacySettings: PrivacySettings;
+  updatePrivacy: (patch: Partial<PrivacySettings>) => void;
 }
 
 const LobbyContext = createContext<LobbyContextValue | null>(null);
@@ -141,6 +166,12 @@ export function LobbyProvider({ children }: { children: ReactNode }) {
   const [friendStatuses, setFriendStatuses] = useState<FriendStatus[]>([]);
   const [incomingDms, setIncomingDms] = useState<IncomingDm[]>([]);
   const [unreadDmCount, setUnreadDmCount] = useState(0);
+  const [incomingInvites, setIncomingInvites] = useState<IncomingInvite[]>([]);
+  const [privacySettings, setPrivacySettings] = useState<PrivacySettings>({
+    showOnline: true,
+    allowInvites: true,
+    showActivity: true,
+  });
 
   const wsRef = useRef<WebSocket | null>(null);
   const currentRoomRef = useRef<Room | null>(null);
@@ -374,6 +405,26 @@ export function LobbyProvider({ children }: { children: ReactNode }) {
             // Sender's read-ack doesn't affect receiver unread count
             break;
 
+          case 'invite-received': {
+            const inv = msg.invite;
+            setIncomingInvites((prev) => [...prev.filter((i) => i.id !== inv.id), inv]);
+            addToast({
+              message: `🎮 ${inv.fromDisplayName} invited you to play!`,
+              detail: inv.gameTitle ? `Game: ${inv.gameTitle}` : `Room code: ${inv.roomCode}`,
+              icon: '📨',
+              duration: 10000,
+            });
+            break;
+          }
+
+          case 'privacy-updated':
+            setPrivacySettings({
+              showOnline: msg.settings.showOnline,
+              allowInvites: msg.settings.allowInvites,
+              showActivity: msg.settings.showActivity,
+            });
+            break;
+
           case 'error':
             setError(msg.message);
             break;
@@ -548,6 +599,29 @@ export function LobbyProvider({ children }: { children: ReactNode }) {
     [send]
   );
 
+  const sendInvite = useCallback(
+    (toPlayerId: string, roomCode: string, gameTitle?: string) => {
+      send({ type: 'send-invite', payload: { toPlayerId, roomCode, gameTitle } });
+    },
+    [send]
+  );
+
+  const dismissInvite = useCallback(
+    (inviteId: string) => {
+      setIncomingInvites((prev) => prev.filter((i) => i.id !== inviteId));
+    },
+    []
+  );
+
+  const updatePrivacy = useCallback(
+    (patch: Partial<PrivacySettings>) => {
+      send({ type: 'set-privacy', payload: patch });
+      // Optimistic update
+      setPrivacySettings((prev) => ({ ...prev, ...patch }));
+    },
+    [send]
+  );
+
   return (
     <LobbyContext.Provider
       value={{
@@ -584,6 +658,11 @@ export function LobbyProvider({ children }: { children: ReactNode }) {
         markDmRead,
         unreadDmCount,
         incomingDms,
+        sendInvite,
+        incomingInvites,
+        dismissInvite,
+        privacySettings,
+        updatePrivacy,
       }}
     >
       {children}
