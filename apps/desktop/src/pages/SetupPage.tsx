@@ -234,7 +234,7 @@ function Step3RomDirectory({ onNext }: { onNext: (dir: string) => void }) {
           }}
         />
         <p className="text-xs mt-1" style={{ color: 'var(--color-oasis-text-muted)' }}>
-          Subdirectories are scanned recursively. ROMs must be ROM files (.nes, .sfc, .gba, etc.).
+          Subdirectories are scanned recursively. Supported file types include .nes, .sfc, .gba, .n64, .nds, .iso, and more.
         </p>
       </div>
 
