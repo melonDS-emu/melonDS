@@ -9,6 +9,7 @@ import { isFavorite, toggleFavorite } from '../lib/favorites-store';
 import { recordRecentlyPlayed } from '../lib/recently-played';
 import { getEmulatorPathForSystem, getBackendIdForSystem, EMULATOR_NAMES } from '../lib/emulator-settings';
 import { getSaveDirectory } from '../lib/rom-settings';
+import { SystemBadge } from '../components/SystemBadge';
 
 /** ROM file extensions used in the native file picker filter. */
 const ROM_EXTENSIONS = ['nes', 'sfc', 'smc', 'gb', 'gbc', 'gba', 'n64', 'z64', 'v64', 'nds'];
@@ -65,6 +66,7 @@ export function GameDetailsPage() {
   );
   const [launchStatus, setLaunchStatus] = useState<'idle' | 'launching' | 'success' | 'error'>('idle');
   const [launchError, setLaunchError] = useState<string | null>(null);
+  const [showAdvanced, setShowAdvanced] = useState(false);
 
   const { data: game, loading, error } = useGame(gameId);
 
@@ -187,23 +189,10 @@ export function GameDetailsPage() {
           </div>
           <div className="flex-1">
             <div className="flex items-center gap-2 mb-1 flex-wrap">
-              <span
-                className="px-2 py-0.5 rounded text-[10px] font-bold"
-                style={{ backgroundColor: game.systemColor, color: 'white' }}
-              >
-                {game.system}
-              </span>
+              <SystemBadge system={game.system} color={game.systemColor} />
               <span className="text-xs" style={{ color: 'var(--color-oasis-text-muted)' }}>
                 Up to {game.maxPlayers} players
               </span>
-              {isN64 && (
-                <span
-                  className="px-2 py-0.5 rounded text-[10px] font-bold"
-                  style={{ backgroundColor: 'var(--color-oasis-accent)', color: 'white' }}
-                >
-                  N64
-                </span>
-              )}
               {isNDS && !isDsiWare && (
                 <span
                   className="px-2 py-0.5 rounded text-[10px] font-bold"
@@ -324,63 +313,76 @@ export function GameDetailsPage() {
         </div>
 
         {/* ROM file association */}
-        <div
-          className="mt-4 px-4 py-3 rounded-xl"
-          style={{ backgroundColor: 'var(--color-oasis-surface)' }}
-        >
-          <p className="text-xs font-bold mb-2" style={{ color: 'var(--color-oasis-text-muted)' }}>
-            🗂️ ROM File
-          </p>
-          {romAssoc ? (
-            <div className="flex items-center gap-2 flex-wrap">
-              <code
-                className="text-[11px] font-mono flex-1 truncate"
-                style={{ color: 'var(--color-oasis-text)' }}
-                title={romAssoc.romPath}
-              >
-                {romAssoc.romPath}
-              </code>
-              {isTauri() && (
-                <button
-                  type="button"
-                  onClick={handlePickRom}
-                  className="text-xs px-2 py-1 rounded-lg font-semibold transition-opacity hover:opacity-80 flex-shrink-0"
-                  style={{ backgroundColor: 'var(--color-oasis-card)', color: 'var(--color-oasis-text-muted)', border: '1px solid rgba(255,255,255,0.1)' }}
-                >
-                  📂 Change
-                </button>
+        <div className="mt-4">
+          <button
+            type="button"
+            onClick={() => setShowAdvanced((v) => !v)}
+            className="flex items-center gap-1.5 text-xs font-semibold transition-opacity hover:opacity-80"
+            style={{ color: 'var(--color-oasis-text-muted)' }}
+          >
+            <span>{showAdvanced ? '▾' : '▸'}</span>
+            <span>⚙ Advanced Settings</span>
+          </button>
+          {showAdvanced && (
+            <div
+              className="mt-2 px-4 py-3 rounded-xl"
+              style={{ backgroundColor: 'var(--color-oasis-surface)' }}
+            >
+              <p className="text-xs font-bold mb-2" style={{ color: 'var(--color-oasis-text-muted)' }}>
+                🗂️ ROM File
+              </p>
+              {romAssoc ? (
+                <div className="flex items-center gap-2 flex-wrap">
+                  <code
+                    className="text-[11px] font-mono flex-1 truncate"
+                    style={{ color: 'var(--color-oasis-text)' }}
+                    title={romAssoc.romPath}
+                  >
+                    {romAssoc.romPath}
+                  </code>
+                  {isTauri() && (
+                    <button
+                      type="button"
+                      onClick={handlePickRom}
+                      className="text-xs px-2 py-1 rounded-lg font-semibold transition-opacity hover:opacity-80 flex-shrink-0"
+                      style={{ backgroundColor: 'var(--color-oasis-card)', color: 'var(--color-oasis-text-muted)', border: '1px solid rgba(255,255,255,0.1)' }}
+                    >
+                      📂 Change
+                    </button>
+                  )}
+                  <button
+                    type="button"
+                    onClick={handleClearRom}
+                    className="text-xs px-2 py-1 rounded-lg font-semibold transition-opacity hover:opacity-80 flex-shrink-0"
+                    style={{ backgroundColor: 'rgba(230,0,18,0.1)', color: '#f87171', border: '1px solid rgba(230,0,18,0.2)' }}
+                  >
+                    ✕ Clear
+                  </button>
+                </div>
+              ) : (
+                <div className="flex items-center gap-2">
+                  <span className="text-[11px]" style={{ color: 'var(--color-oasis-text-muted)' }}>
+                    No ROM file set — will use ROM directory as fallback.
+                  </span>
+                  {isTauri() && (
+                    <button
+                      type="button"
+                      onClick={handlePickRom}
+                      className="text-xs px-3 py-1.5 rounded-lg font-semibold transition-opacity hover:opacity-80 flex-shrink-0"
+                      style={{ backgroundColor: 'var(--color-oasis-accent)', color: 'white' }}
+                    >
+                      📂 Set ROM File
+                    </button>
+                  )}
+                </div>
               )}
-              <button
-                type="button"
-                onClick={handleClearRom}
-                className="text-xs px-2 py-1 rounded-lg font-semibold transition-opacity hover:opacity-80 flex-shrink-0"
-                style={{ backgroundColor: 'rgba(230,0,18,0.1)', color: '#f87171', border: '1px solid rgba(230,0,18,0.2)' }}
-              >
-                ✕ Clear
-              </button>
-            </div>
-          ) : (
-            <div className="flex items-center gap-2">
-              <span className="text-[11px]" style={{ color: 'var(--color-oasis-text-muted)' }}>
-                No ROM file set — will use ROM directory as fallback.
-              </span>
-              {isTauri() && (
-                <button
-                  type="button"
-                  onClick={handlePickRom}
-                  className="text-xs px-3 py-1.5 rounded-lg font-semibold transition-opacity hover:opacity-80 flex-shrink-0"
-                  style={{ backgroundColor: 'var(--color-oasis-accent)', color: 'white' }}
-                >
-                  📂 Set ROM File
-                </button>
-              )}
+              <p className="text-[10px] mt-1.5" style={{ color: 'var(--color-oasis-text-muted)', opacity: 0.6 }}>
+                {isTauri()
+                  ? 'This path is auto-used when your session starts. Use the Browse button to pick the exact ROM file.'
+                  : 'Run the app in Tauri desktop mode to use the native file picker. You can also set a ROM directory in Settings.'}
+              </p>
             </div>
           )}
-          <p className="text-[10px] mt-1.5" style={{ color: 'var(--color-oasis-text-muted)', opacity: 0.6 }}>
-            {isTauri()
-              ? 'This path is auto-used when your session starts. Use the Browse button to pick the exact ROM file.'
-              : 'Run the app in Tauri desktop mode to use the native file picker. You can also set a ROM directory in Settings.'}
-          </p>
         </div>
 
         {/* Launch error banner */}
@@ -393,45 +395,47 @@ export function GameDetailsPage() {
           </div>
         )}
 
-        {/* Actions */}
-        <div className="flex gap-3 mt-6 flex-wrap">
-          {/* Play Locally */}
-          <button
-            onClick={handleLaunchLocal}
-            disabled={launchStatus === 'launching'}
-            className="flex-1 py-3 rounded-xl font-bold transition-transform hover:scale-[1.02] active:scale-[0.98] disabled:opacity-50 min-w-[140px]"
-            style={{
-              backgroundColor: launchStatus === 'success'
-                ? '#16a34a'
-                : launchStatus === 'error'
-                ? 'rgba(230,0,18,0.7)'
-                : 'var(--color-oasis-surface)',
-              color: 'white',
-              border: '1px solid rgba(255,255,255,0.1)',
-            }}
-          >
-            {launchStatus === 'launching'
-              ? '⏳ Launching…'
-              : launchStatus === 'success'
-              ? '✓ Launched!'
-              : launchStatus === 'error'
-              ? '⚠️ Launch Failed'
-              : '▶ Play Locally'}
-          </button>
+        {/* Actions — play with friends is the primary CTA */}
+        <div className="flex flex-col gap-2 mt-6">
           <button
             onClick={() => setShowHost(true)}
-            className="flex-1 py-3 rounded-xl font-bold transition-transform hover:scale-[1.02] active:scale-[0.98] min-w-[140px]"
-            style={{ backgroundColor: 'var(--color-oasis-accent)', color: 'white' }}
+            className="w-full py-4 rounded-2xl font-black text-base transition-transform hover:scale-[1.01] active:scale-[0.99] btn-glow-red shimmer-overlay"
+            style={{ color: 'white' }}
           >
-            🎮 Host Lobby
+            🎮 Play with Friends
           </button>
-          <Link
-            to="/friends"
-            className="flex-1 py-3 rounded-xl font-bold transition-transform hover:scale-[1.02] active:scale-[0.98] flex items-center justify-center min-w-[140px]"
-            style={{ backgroundColor: 'var(--color-oasis-surface)', color: 'var(--color-oasis-text)' }}
-          >
-            👥 Invite Friends
-          </Link>
+          <div className="flex gap-2">
+            {/* Play Solo */}
+            <button
+              onClick={handleLaunchLocal}
+              disabled={launchStatus === 'launching'}
+              className="flex-1 py-3 rounded-xl font-bold transition-transform hover:scale-[1.02] active:scale-[0.98] disabled:opacity-50 text-sm"
+              style={{
+                backgroundColor: launchStatus === 'success'
+                  ? '#16a34a'
+                  : launchStatus === 'error'
+                  ? 'rgba(230,0,18,0.7)'
+                  : 'var(--color-oasis-surface)',
+                color: 'white',
+                border: '1px solid rgba(255,255,255,0.1)',
+              }}
+            >
+              {launchStatus === 'launching'
+                ? '⏳ Launching…'
+                : launchStatus === 'success'
+                ? '✓ Launched!'
+                : launchStatus === 'error'
+                ? '⚠️ Launch Failed'
+                : '▶ Play Solo'}
+            </button>
+            <Link
+              to="/friends"
+              className="flex-1 py-3 rounded-xl font-bold transition-transform hover:scale-[1.02] active:scale-[0.98] flex items-center justify-center text-sm"
+              style={{ backgroundColor: 'var(--color-oasis-surface)', color: 'var(--color-oasis-text)', border: '1px solid rgba(255,255,255,0.1)' }}
+            >
+              👥 Invite Friends
+            </Link>
+          </div>
         </div>
       </div>
 
