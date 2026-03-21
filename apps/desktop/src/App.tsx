@@ -28,6 +28,11 @@ import DreamcastPage from './pages/DreamcastPage';
 import PSXPage from './pages/PSXPage';
 import PS2Page from './pages/PS2Page';
 import PSPPage from './pages/PSPPage';
+import NESPage from './pages/NESPage';
+import SNESPage from './pages/SNESPage';
+import GBAPage from './pages/GBAPage';
+import N64Page from './pages/N64Page';
+import NDSPage from './pages/NDSPage';
 
 export function App() {
   return (
@@ -56,6 +61,11 @@ export function App() {
         <Route path="/psx" element={<PSXPage />} />
         <Route path="/ps2" element={<PS2Page />} />
         <Route path="/psp" element={<PSPPage />} />
+        <Route path="/nes" element={<NESPage />} />
+        <Route path="/snes" element={<SNESPage />} />
+        <Route path="/gba" element={<GBAPage />} />
+        <Route path="/n64" element={<N64Page />} />
+        <Route path="/nds" element={<NDSPage />} />
         <Route path="/events" element={<EventsPage />} />
         <Route path="/community" element={<CommunityPage />} />
         <Route path="/chat" element={<GlobalChatPage />} />
