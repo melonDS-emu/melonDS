@@ -40,6 +40,9 @@ import { SaveBackupStore, type BackupReason } from './save-backup-store';
 import { SqliteSaveBackupStore } from './sqlite-save-backup-store';
 import { RecentPlayersStore, SqliteRecentPlayersStore } from './recent-players-store';
 import { PlayerPrivacyStore, SqlitePlayerPrivacyStore } from './player-privacy-store';
+import { CompatibilityStore } from './compatibility-store';
+import { KnownIssuesStore } from './known-issues-store';
+import { SessionHealthStore } from './session-health-store';
 
 const PORT = parseInt(process.env.PORT ?? '8080', 10);
 /** Public hostname/IP players use to reach the relay (surfaced in game-starting events). */
@@ -108,6 +111,10 @@ const retroAchievementStore: RetroAchievementStore | SqliteRetroAchievementStore
 const saveBackupStore: SaveBackupStore | SqliteSaveBackupStore = USE_SQLITE
   ? new SqliteSaveBackupStore(getDatabase())
   : new SaveBackupStore();
+
+const compatibilityStore = new CompatibilityStore();
+const knownIssuesStore = new KnownIssuesStore();
+const sessionHealthStore = new SessionHealthStore();
 
 /** Lazy reference to the WebSocketServer — set after server creation. */
 let wss: WebSocketServer | undefined;
@@ -1460,6 +1467,11 @@ async function httpHandler(req: http.IncomingMessage, res: http.ServerResponse):
   if (await recentPlayersHandler(req, res, pathname)) return;
   if (await playerPrivacyHandler(req, res, pathname)) return;
 
+  // Phase 28: compatibility, known issues, session health
+  if (await compatibilityHandler(req, res, pathname)) return;
+  if (await knownIssuesHandler(req, res, pathname)) return;
+  if (await sessionHealthHandler(req, res, pathname)) return;
+
   json(res, 404, { error: 'Not found' });
 }
 
@@ -1534,6 +1546,232 @@ async function playerPrivacyHandler(
     json(res, 200, { settings: updated });
     return true;
   }
+  return false;
+}
+
+// ---------------------------------------------------------------------------
+// Phase 28: Compatibility REST endpoints
+//   GET  /api/compatibility                       — all summaries
+//   GET  /api/compatibility/system/:system        — by system
+//   GET  /api/compatibility/:gameId               — summary for one game
+//   POST /api/compatibility                       — upsert a record
+// ---------------------------------------------------------------------------
+async function compatibilityHandler(
+  req: import('http').IncomingMessage,
+  res: import('http').ServerResponse,
+  pathname: string,
+): Promise<boolean> {
+  if (!pathname.startsWith('/api/compatibility')) return false;
+
+  // GET /api/compatibility
+  if (pathname === '/api/compatibility' && req.method === 'GET') {
+    json(res, 200, { summaries: compatibilityStore.getAllSummaries() });
+    return true;
+  }
+
+  // POST /api/compatibility
+  if (pathname === '/api/compatibility' && req.method === 'POST') {
+    let body: Record<string, unknown>;
+    try {
+      const raw = await readBody(req);
+      body = JSON.parse(raw) as Record<string, unknown>;
+    } catch {
+      json(res, 400, { error: 'Invalid JSON body' });
+      return true;
+    }
+    const { gameId, system, backend, status, notes, testedBy } = body as Record<string, string | undefined>;
+    if (!gameId || !system || !backend || !status) {
+      json(res, 400, { error: 'Missing required fields: gameId, system, backend, status' });
+      return true;
+    }
+    const record = compatibilityStore.set({ gameId, system, backend, status: status as import('./compatibility-store').CompatibilityStatus, notes, testedBy: testedBy ?? 'anonymous' });
+    json(res, 200, { record });
+    return true;
+  }
+
+  // GET /api/compatibility/system/:system
+  const sysMatch = pathname.match(/^\/api\/compatibility\/system\/([^/]+)$/);
+  if (sysMatch && req.method === 'GET') {
+    const system = decodeURIComponent(sysMatch[1]);
+    json(res, 200, { records: compatibilityStore.getBySystem(system) });
+    return true;
+  }
+
+  // GET /api/compatibility/:gameId
+  const gameMatch = pathname.match(/^\/api\/compatibility\/([^/]+)$/);
+  if (gameMatch && req.method === 'GET') {
+    const gameId = decodeURIComponent(gameMatch[1]);
+    json(res, 200, compatibilityStore.getSummary(gameId));
+    return true;
+  }
+
+  return false;
+}
+
+// ---------------------------------------------------------------------------
+// Phase 28: Known Issues REST endpoints
+//   GET  /api/known-issues                — all issues
+//   GET  /api/known-issues/:gameId        — issues for a game
+//   POST /api/known-issues                — report a new issue
+//   PUT  /api/known-issues/:id/status     — update issue status
+// ---------------------------------------------------------------------------
+async function knownIssuesHandler(
+  req: import('http').IncomingMessage,
+  res: import('http').ServerResponse,
+  pathname: string,
+): Promise<boolean> {
+  if (!pathname.startsWith('/api/known-issues')) return false;
+
+  // GET /api/known-issues
+  if (pathname === '/api/known-issues' && req.method === 'GET') {
+    json(res, 200, { issues: knownIssuesStore.getAll() });
+    return true;
+  }
+
+  // POST /api/known-issues
+  if (pathname === '/api/known-issues' && req.method === 'POST') {
+    let body: Record<string, unknown>;
+    try {
+      const raw = await readBody(req);
+      body = JSON.parse(raw) as Record<string, unknown>;
+    } catch {
+      json(res, 400, { error: 'Invalid JSON body' });
+      return true;
+    }
+    const { gameId, system, backend, title, description, severity, reportedBy } =
+      body as Record<string, string | null | undefined>;
+    if (!gameId || !system || !title || !description || !severity || !reportedBy) {
+      json(res, 400, { error: 'Missing required fields' });
+      return true;
+    }
+    const issue = knownIssuesStore.report({
+      gameId,
+      system,
+      backend: backend ?? null,
+      title,
+      description,
+      severity: severity as import('./known-issues-store').IssueSeverity,
+      reportedBy,
+    });
+    json(res, 201, { issue });
+    return true;
+  }
+
+  // PUT /api/known-issues/:id/status
+  const statusMatch = pathname.match(/^\/api\/known-issues\/([^/]+)\/status$/);
+  if (statusMatch && req.method === 'PUT') {
+    const id = decodeURIComponent(statusMatch[1]);
+    let body: Record<string, unknown>;
+    try {
+      const raw = await readBody(req);
+      body = JSON.parse(raw) as Record<string, unknown>;
+    } catch {
+      json(res, 400, { error: 'Invalid JSON body' });
+      return true;
+    }
+    const { status } = body as { status?: string };
+    if (!status) {
+      json(res, 400, { error: 'Missing status' });
+      return true;
+    }
+    const updated = knownIssuesStore.updateStatus(id, status as import('./known-issues-store').IssueStatus);
+    if (!updated) {
+      json(res, 404, { error: 'Issue not found' });
+      return true;
+    }
+    json(res, 200, { issue: updated });
+    return true;
+  }
+
+  // GET /api/known-issues/:gameId
+  const gameMatch = pathname.match(/^\/api\/known-issues\/([^/]+)$/);
+  if (gameMatch && req.method === 'GET') {
+    const gameId = decodeURIComponent(gameMatch[1]);
+    json(res, 200, { issues: knownIssuesStore.getByGameId(gameId) });
+    return true;
+  }
+
+  return false;
+}
+
+// ---------------------------------------------------------------------------
+// Phase 28: Session Health REST endpoints
+//   GET  /api/session-health                — all records
+//   GET  /api/session-health/:roomId        — health for a specific room
+//   POST /api/session-health                — record health data
+//   GET  /api/smoke-tests                   — smoke-test matrix
+//   GET  /api/sessions/export               — export all session history as JSON
+// ---------------------------------------------------------------------------
+async function sessionHealthHandler(
+  req: import('http').IncomingMessage,
+  res: import('http').ServerResponse,
+  pathname: string,
+): Promise<boolean> {
+  // GET /api/smoke-tests
+  if (pathname === '/api/smoke-tests' && req.method === 'GET') {
+    json(res, 200, { matrix: sessionHealthStore.getSmokeTestMatrix() });
+    return true;
+  }
+
+  // GET /api/sessions/export
+  if (pathname === '/api/sessions/export' && req.method === 'GET') {
+    const sessions = sessionHistory.getAll();
+    json(res, 200, { exportedAt: new Date().toISOString(), count: sessions.length, sessions });
+    return true;
+  }
+
+  if (!pathname.startsWith('/api/session-health')) return false;
+
+  // GET /api/session-health
+  if (pathname === '/api/session-health' && req.method === 'GET') {
+    json(res, 200, { records: sessionHealthStore.getAll() });
+    return true;
+  }
+
+  // POST /api/session-health
+  if (pathname === '/api/session-health' && req.method === 'POST') {
+    let body: Record<string, unknown>;
+    try {
+      const raw = await readBody(req);
+      body = JSON.parse(raw) as Record<string, unknown>;
+    } catch {
+      json(res, 400, { error: 'Invalid JSON body' });
+      return true;
+    }
+    const { roomId, gameId, system, backend, avgLatencyMs, peakLatencyMs, disconnectCount, crashDetected, durationSecs, playerCount } = body as Record<string, unknown>;
+    if (!roomId || !gameId || !system || !backend) {
+      json(res, 400, { error: 'Missing required fields: roomId, gameId, system, backend' });
+      return true;
+    }
+    const record = sessionHealthStore.record({
+      roomId: String(roomId),
+      gameId: String(gameId),
+      system: String(system),
+      backend: String(backend),
+      avgLatencyMs: typeof avgLatencyMs === 'number' ? avgLatencyMs : 0,
+      peakLatencyMs: typeof peakLatencyMs === 'number' ? peakLatencyMs : 0,
+      disconnectCount: typeof disconnectCount === 'number' ? disconnectCount : 0,
+      crashDetected: crashDetected === true,
+      durationSecs: typeof durationSecs === 'number' ? durationSecs : 0,
+      playerCount: typeof playerCount === 'number' ? playerCount : 1,
+    });
+    json(res, 201, { record });
+    return true;
+  }
+
+  // GET /api/session-health/:roomId
+  const roomMatch = pathname.match(/^\/api\/session-health\/([^/]+)$/);
+  if (roomMatch && req.method === 'GET') {
+    const roomId = decodeURIComponent(roomMatch[1]);
+    const record = sessionHealthStore.getByRoomId(roomId);
+    if (!record) {
+      json(res, 404, { error: 'No health record for this room' });
+      return true;
+    }
+    json(res, 200, { record });
+    return true;
+  }
+
   return false;
 }
 

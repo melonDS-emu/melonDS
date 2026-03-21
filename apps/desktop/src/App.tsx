@@ -33,10 +33,14 @@ import SNESPage from './pages/SNESPage';
 import GBAPage from './pages/GBAPage';
 import N64Page from './pages/N64Page';
 import NDSPage from './pages/NDSPage';
+import CompatibilityPage from './pages/CompatibilityPage';
+import SetupPage from './pages/SetupPage';
 
 export function App() {
   return (
     <Routes>
+      {/* First-run wizard — outside the main Layout so there's no nav sidebar */}
+      <Route path="/setup" element={<SetupPage />} />
       <Route element={<Layout />}>
         <Route path="/" element={<HomePage />} />
         <Route path="/library" element={<LibraryPage />} />
@@ -71,6 +75,7 @@ export function App() {
         <Route path="/chat" element={<GlobalChatPage />} />
         <Route path="/notifications" element={<NotificationsPage />} />
         <Route path="/retro-achievements" element={<RetroAchievementsPage />} />
+        <Route path="/compatibility" element={<CompatibilityPage />} />
       </Route>
     </Routes>
   );

@@ -28,6 +28,14 @@ import {
   setEmulatorPath,
   clearEmulatorPath,
 } from '../lib/emulator-settings';
+import {
+  isCrashReportingEnabled,
+  enableCrashReporting,
+  disableCrashReporting,
+  clearCrashReports,
+  getCrashReports,
+  exportCrashReports,
+} from '../lib/crash-reporting';
 
 const SAVE_DIR_KEY = 'retro-oasis-save-directory';
 const DISPLAY_NAME_KEY = 'retro-oasis-display-name';
@@ -750,6 +758,99 @@ export function SettingsPage() {
           )}
         </div>
       </section>
+
+      {/* Crash Reporting */}
+      <CrashReportingSection />
     </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Crash Reporting Section — Phase 29
+// ---------------------------------------------------------------------------
+
+function CrashReportingSection() {
+  const [enabled, setEnabled] = useState(isCrashReportingEnabled);
+  const [reportCount, setReportCount] = useState(() => getCrashReports().length);
+  const [cleared, setCleared] = useState(false);
+
+  function handleToggle(on: boolean) {
+    if (on) {
+      enableCrashReporting();
+    } else {
+      disableCrashReporting();
+    }
+    setEnabled(on);
+    setReportCount(getCrashReports().length);
+  }
+
+  function handleClear() {
+    clearCrashReports();
+    setReportCount(0);
+    setCleared(true);
+    setTimeout(() => setCleared(false), 2000);
+  }
+
+  function handleExport() {
+    const data = exportCrashReports();
+    const blob = new Blob([data], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `retro-oasis-crash-reports-${Date.now()}.json`;
+    a.click();
+    URL.revokeObjectURL(url);
+  }
+
+  return (
+    <section className="mt-8 rounded-2xl p-5" style={{ backgroundColor: 'var(--color-oasis-card)' }}>
+      <h2 className="text-base font-bold mb-1" style={{ color: 'var(--color-oasis-text)' }}>
+        🐛 Crash Reporting
+      </h2>
+      <p className="text-xs mb-4" style={{ color: 'var(--color-oasis-text-muted)' }}>
+        When enabled, crash details are stored locally so you can include them when filing bug reports.
+        Nothing is sent to any remote server.
+      </p>
+
+      <label className="flex items-center gap-3 cursor-pointer select-none mb-4">
+        <input
+          type="checkbox"
+          checked={enabled}
+          onChange={(e) => handleToggle(e.target.checked)}
+          className="w-4 h-4"
+        />
+        <span className="text-sm font-medium" style={{ color: 'var(--color-oasis-text)' }}>
+          Enable local crash reporting
+        </span>
+      </label>
+
+      {enabled && (
+        <div className="flex items-center gap-3 flex-wrap">
+          <span className="text-xs" style={{ color: 'var(--color-oasis-text-muted)' }}>
+            {reportCount} report{reportCount !== 1 ? 's' : ''} stored
+          </span>
+          {reportCount > 0 && (
+            <>
+              <button
+                type="button"
+                onClick={handleExport}
+                className="px-3 py-1.5 rounded-lg text-xs font-semibold"
+                style={{ backgroundColor: 'var(--color-oasis-accent)', color: 'white' }}
+              >
+                Export Reports
+              </button>
+              <button
+                type="button"
+                onClick={handleClear}
+                className="px-3 py-1.5 rounded-lg text-xs font-semibold"
+                style={{ backgroundColor: 'var(--color-oasis-surface)', color: 'var(--color-oasis-text)' }}
+              >
+                {cleared ? '✓ Cleared' : 'Clear Reports'}
+              </button>
+            </>
+          )}
+        </div>
+      )}
+    </section>
   );
 }

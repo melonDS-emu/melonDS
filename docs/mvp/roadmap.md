@@ -605,6 +605,64 @@
 - [x] `roadmap.md` updated with Phase 27 milestones
 
 
+## Phase 28 — Compatibility & Stability Push (Complete)
+
+**Goal:** Make RetroOasis feel dependable, not experimental. Ship a compatibility badge pipeline, known issues tracking, session health diagnostics, and a smoke-test matrix covering the top-25 multiplayer games.
+
+### Phase 28a — Server: Compatibility Pipeline
+
+- [x] `compatibility-store.ts` — `CompatibilityStore` with `verified/playable/partial/broken/untested` statuses; pre-seeded with 25 top multiplayer games (NES/SNES/GB/GBC/GBA/N64/NDS/GC/Wii/PSX)
+- [x] `known-issues-store.ts` — `KnownIssuesStore` CRUD (severity levels, `open/investigating/resolved` lifecycle); pre-seeded with 5 realistic known issues
+- [x] `session-health-store.ts` — `SessionHealthStore` ring-buffer (max 1000 records); `getSummary()` aggregates avgLatency/crashRate/disconnects; `getSmokeTestMatrix()` returns 25-entry pass/fail matrix
+
+### Phase 28b — Server: REST Endpoints
+
+- [x] `GET /api/compatibility` — all game compatibility summaries
+- [x] `GET /api/compatibility/system/:system` — summaries by system
+- [x] `GET /api/compatibility/:gameId` — per-game summary with `bestStatus`
+- [x] `POST /api/compatibility` — upsert a compatibility record
+- [x] `GET /api/known-issues` — all open known issues
+- [x] `GET /api/known-issues/:gameId` — issues for a specific game
+- [x] `POST /api/known-issues` — report a new issue
+- [x] `PUT /api/known-issues/:id/status` — update issue status
+- [x] `GET /api/session-health` — all session health records
+- [x] `GET /api/session-health/:roomId` — health for a specific room
+- [x] `POST /api/session-health` — record health data for a session
+- [x] `GET /api/smoke-tests` — return the 25-entry smoke-test matrix
+- [x] `GET /api/sessions/export` — export full session history as JSON
+
+### Phase 28c — Desktop UI
+
+- [x] `compatibility-service.ts` — fetch wrapper for compatibility/known-issues/smoke-test endpoints; `COMPAT_BADGE` display helpers
+- [x] `CompatibilityPage.tsx` at `/compatibility` — three-tab page: Compatibility Badges (system filter + per-game badge), Known Issues (severity filter + lifecycle status), Smoke Tests (pass% summary + matrix)
+- [x] `🛡️ Compatibility` nav item added to Layout under "More" group
+
+### Phase 28d — Tests
+
+- [x] 32 new unit tests in `phase-28.test.ts` — CompatibilityStore seed/CRUD/summary, KnownIssuesStore seed/report/updateStatus, SessionHealthStore record/summary/smoke matrix
+- [x] `roadmap.md` updated with Phase 28 milestones
+
+
+## Phase 29 — Desktop Productization (Complete)
+
+**Goal:** Make RetroOasis installable and usable by non-developers. Ship a first-run wizard, persistent crash reporting opt-in, and all the onboarding hooks needed before a Tauri packaging pass.
+
+### Phase 29a — Services
+
+- [x] `crash-reporting.ts` — opt-in crash report collection (localStorage, max 50 reports); `recordCrash(error, context)`, `getCrashReports()`, `clearCrashReports()`, `exportCrashReports()` (JSON download); nothing sent to any remote server
+- [x] `first-run-service.ts` — `isFirstRunComplete/markFirstRunComplete/resetFirstRun`; `SetupStep` enum (`display-name/emulator-paths/rom-directory/done`); `completeStep/getSetupProgress/isStepComplete/nextIncompleteStep`
+
+### Phase 29b — Desktop UI
+
+- [x] `SetupPage.tsx` at `/setup` — 4-step first-run wizard (display name, emulator paths, ROM directory + crash-reporting opt-in, done); progress dots; skip affordances; persists to localStorage; redirects to `/` on completion; rendered OUTSIDE the main Layout (no sidebar)
+- [x] `SettingsPage.tsx` — Crash Reporting section added: toggle opt-in, show report count, Export Reports button (downloads JSON), Clear Reports button
+
+### Phase 29c — Tests
+
+- [x] 24 new unit tests in `phase-29.test.ts` — crash-reporting (opt-in, recordCrash, clear, export), first-run-service (isFirstRunComplete, completeStep, nextIncompleteStep, getSetupProgress)
+- [x] `roadmap.md` updated with Phase 29 milestones
+
+
 - Tournament-style rooms
 - ~~Seasonal featured games~~ ✓ Phase 13
 - ~~Ranked/casual matchmaking tags~~ ✓ Phase 15
