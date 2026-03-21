@@ -41,13 +41,13 @@ CommandLineOptions* ManageArgs(QApplication& melon)
     parser.addPositionalArgument("arg1", "First argument");
     parser.addPositionalArgument("arg2", "Second argument");
 
-    parser.addOption(QCommandLineOption({"b", "boot"}, "Whether to boot firmware on startup. Defaults to \"auto\" (boot if NDS rom given)", "auto/always/never", "auto"));
-    parser.addOption(QCommandLineOption({"f", "fullscreen"}, "Start melonDS in fullscreen mode"));
-    parser.addOption(QCommandLineOption({"xt", "extract-title"}, "Extract the title of specified rom in specified language. This is split into the MainTitle;Subtitle;Publisher. Supported language codes: ja, en, fr, ge, it, es, ko, zh. If no language code is given, it defaults to english"));
-    parser.addOption(QCommandLineOption({"xgt", "extract-game-title"}, "Extract the game title of specified rom"));
-    parser.addOption(QCommandLineOption({"xgc", "extract-game-code"}, "Extract the game code of specified rom"));
-    parser.addOption(QCommandLineOption({"xi", "extract-icon"}, "Extract the icon of specified rom"));
-    parser.addOption(QCommandLineOption({"xai", "extract-animated-icon"}, "Extract the animated icon of specified rom"));
+    parser.addOption(QCommandLineOption("b", "Whether to boot firmware on startup. Defaults to \"auto\" (boot if NDS rom given)", "auto/always/never", "auto"));
+    parser.addOption(QCommandLineOption("f", "Start melonDS in fullscreen mode"));
+    parser.addOption(QCommandLineOption("xt", "Extract the title of specified rom in specified language. This is split into the MainTitle;Subtitle;Publisher. Supported language codes: ja, en, fr, ge, it, es, ko, zh. If no language code is given, it defaults to english"));
+    parser.addOption(QCommandLineOption("xgt", "Extract the game title of specified rom"));
+    parser.addOption(QCommandLineOption("xgc", "Extract the game code of specified rom"));
+    parser.addOption(QCommandLineOption("xi", "Extract the icon of specified rom"));
+    parser.addOption(QCommandLineOption("xai", "Extract the animated icon of specified rom"));
 
 #ifdef ARCHIVE_SUPPORT_ENABLED
     parser.addOption(QCommandLineOption({"a", "archive-file"}, "Specify file to load inside an archive given (NDS)", "rom"));
@@ -79,6 +79,8 @@ CommandLineOptions* ManageArgs(QApplication& melon)
         }
     } else if (parser.isSet("xgc")){
         if (posargs.size() == 1){
+            melonDS::Platform::setMuteLogs(true);
+            qDebug() << "muteLogs = " << melonDS::Platform::getMuteLogs();
             qDebug() << "Entered xgc";
             options->headless = true;
             options->dsRomPath = posargs[0];

@@ -272,6 +272,10 @@ int main(int argc, char** argv)
     sysTimer.start();
     srand(time(nullptr));
 
+    AttachConsole(ATTACH_PARENT_PROCESS);
+    freopen("CONOUT$", "w", stdout);
+    freopen("CONOUT$", "w", stderr);
+
     for (int i = 0; i < kMaxEmuInstances; i++)
         emuInstances[i] = nullptr;
 
@@ -390,7 +394,7 @@ int main(int argc, char** argv)
         if (memberSyntaxUsed) printf("Warning: use the a.zip|b.nds format at your own risk!\n");
         if (options->headless){
             qDebug() << "Launched Headless";
-            win->preloadROMs(dsfile, gbafile, false);
+            win->preloadROMs(dsfile, gbafile, true);
             NDSCart::CartCommon* cart = win->getEmuInstance()->getNDS()->NDSCartSlot.GetCart();
             NDSHeader& header = cart->GetHeader();
             const NDSBanner* banner = cart->Banner();
@@ -403,8 +407,8 @@ int main(int argc, char** argv)
             // QString::fromUtf16(banner->SpanishTitle);
             // QString::fromLatin1(header.GameTitle, 12);
             // QString::fromLatin1(header.GameCode, 4);
-            // qDebug() << QString::fromLatin1(header.GameCode, 4);
-            // exit(0);
+            qDebug() << QString::fromLatin1(header.GameCode, 4);
+            exit(0);
         } else {
             qDebug() << "Launched GUI";
             win->preloadROMs(dsfile, gbafile, options->boot);
