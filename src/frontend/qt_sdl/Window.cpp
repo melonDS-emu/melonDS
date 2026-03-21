@@ -66,7 +66,6 @@
 #include "RAMInfoDialog.h"
 #include "TitleManagerDialog.h"
 #include "PowerManagement/PowerManagementDialog.h"
-
 #include "Platform.h"
 #include "Config.h"
 #include "version.h"
@@ -695,7 +694,9 @@ MainWindow::MainWindow(int id, EmuInstance* inst, QWidget* parent) :
         // if the window was closed in fullscreen do not restore this
         setWindowState(windowState() & ~Qt::WindowFullScreen);
     }
-    show();
+    if (!options->headless){
+        show();
+    }
 
     panel = nullptr;
     createScreenPanel();

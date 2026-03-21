@@ -304,7 +304,7 @@ int main(int argc, char** argv)
     MelonApplication melon(argc, argv);
     pathInit();
 
-    CLI::CommandLineOptions* options = CLI::ManageArgs(melon);
+    options = CLI::ManageArgs(melon);
 
     // http://stackoverflow.com/questions/14543333/joystick-wont-work-using-sdl
     SDL_SetHint(SDL_HINT_JOYSTICK_ALLOW_BACKGROUND_EVENTS, "1");
