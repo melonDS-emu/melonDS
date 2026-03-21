@@ -22,6 +22,7 @@
 > - Phase 23 Retro Achievement Support is now complete: `RetroAchievementStore` with 40 per-game achievements across 10 games, 6 REST endpoints (`/api/retro-achievements/*`), `RetroAchievementsPage` (`/retro-achievements`) with summary bar + game sidebar + badge grid, `🏅 Retro Achievements` nav item. 48 new tests (660 total).
 > - Phase 24 Further Retro Achievement Support is now complete: catalog expanded to 60 achievements across 15 games (added GC/Wii/3DS/DC/PS2), `SqliteRetroAchievementStore` with Phase 24 DB migration, `getLeaderboard()` + `GET /api/retro-achievements/leaderboard`, `retro-achievement-unlocked` WS push on unlock, Leaderboard tab in `RetroAchievementsPage`. 22 new tests.
 > - Phase 3 Full Multiplayer Loop is now complete: host/join private+public rooms, room-code flow, ready states, host controls, spectator support, game-start handshake with per-player session tokens, relay allocation (ports 9000–9200), per-backend emulator launch args, host migration on disconnect, clean leave flow, and `rejoinRoom`/`rejoinByCode` for in-progress reconnects. 36 new tests (765 total).
+> - Phase 4 Save System is now complete: `SaveBackupStore` + `SqliteSaveBackupStore` (pre-session/post-session/manual/last-known-good backups, per-slot eviction), 8 backup REST routes (`/api/saves/:gameId/backup`, `/api/saves/:gameId/backups`, restore, mark-lkg, last-known-good, session-start, session-end), `discoverSaveFiles()` / `getBackendSaveExtensions()` / `buildBackendSavePath()` / `inferBackendFromExtension()` in `@retro-oasis/save-system`, `save-backup-service.ts` desktop layer, `SavesPage` Backups tab with restore + last-known-good UI. 55 new tests (867 total).
 
 ## Phase 1 — Foundation (Complete)
 
@@ -148,6 +149,27 @@
 - [x] Advanced compatibility badges
 - [x] Screen swap hotkeys
 - [x] Touch input calibration panel (offsetX/Y, scaleX/Y; persisted in localStorage)
+
+## Phase 4 — Save System (Complete)
+
+**Goal:** No corrupted progress, no mystery saves. A save system users can trust.
+
+### Milestones
+- [x] Standardized save discovery per backend (`discoverSaveFiles()` + `getBackendSaveExtensions()` in `@retro-oasis/save-system`)
+- [x] `buildBackendSavePath()` — constructs correct save-file path for any emulator backend
+- [x] `inferBackendFromExtension()` — maps save-file extensions back to their emulator backend
+- [x] Local save registry — `SaveStore` (in-memory) + `SqliteSaveStore` (SQLite) with conflict detection and optimistic concurrency
+- [x] Import/export — `importSaveFromFile()` and `exportSave()` in desktop `save-service.ts`
+- [x] Pre-session backup — `POST /api/saves/:gameId/session-start` snapshots all save slots before a game launches
+- [x] Post-session sync — `POST /api/saves/:gameId/session-end` uploads updated saves and marks last-known-good on clean exit
+- [x] Save backup store — `SaveBackupStore` (in-memory) + `SqliteSaveBackupStore` (SQLite) with per-slot eviction (max 20)
+- [x] `save_backups` table in SQLite schema
+- [x] REST API: `POST /api/saves/:gameId/backup`, `GET /api/saves/:gameId/backups`, `DELETE /api/saves/:gameId/backups/:id`, `POST .../restore`, `POST .../mark-lkg`, `GET .../last-known-good`
+- [x] Conflict resolution UI — `ConflictResolutionModal` with side-by-side local/cloud comparison
+- [x] Restore from backup — Backups tab in `SavesPage` lists all snapshots; each can be restored with one click
+- [x] "Last known good" recovery path — clean-exit sessions auto-mark the saved state as LKG; UI surfaces ⭐ badge and Restore button
+- [x] Desktop `save-backup-service.ts` — typed wrapper around all backup REST endpoints
+- [x] 55 new tests (867 total)
 
 ## Phase 5 — Presence and Social Discovery
 

@@ -118,6 +118,21 @@ export function openDatabase(path = ':memory:'): DatabaseType {
     );
 
     -- -----------------------------------------------------------------------
+    -- Save backups  (pre-session snapshots, last-known-good, manual)
+    -- -----------------------------------------------------------------------
+    CREATE TABLE IF NOT EXISTS save_backups (
+      id              TEXT PRIMARY KEY,
+      game_id         TEXT NOT NULL,
+      save_name       TEXT NOT NULL,
+      data            TEXT NOT NULL,
+      mime_type       TEXT NOT NULL DEFAULT 'application/octet-stream',
+      reason          TEXT NOT NULL DEFAULT 'manual',
+      is_last_known_good INTEGER NOT NULL DEFAULT 0,
+      save_version    INTEGER NOT NULL DEFAULT 0,
+      created_at      TEXT NOT NULL
+    );
+
+    -- -----------------------------------------------------------------------
     -- Friends & friend requests
     -- -----------------------------------------------------------------------
     CREATE TABLE IF NOT EXISTS friends (

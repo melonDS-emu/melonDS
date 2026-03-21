@@ -36,6 +36,8 @@ import { GlobalChatStore } from './global-chat-store';
 import { NotificationStore } from './notification-store';
 import { RetroAchievementStore } from './retro-achievement-store';
 import { SqliteRetroAchievementStore } from './sqlite-retro-achievement-store';
+import { SaveBackupStore } from './save-backup-store';
+import { SqliteSaveBackupStore } from './sqlite-save-backup-store';
 
 const PORT = parseInt(process.env.PORT ?? '8080', 10);
 /** Public hostname/IP players use to reach the relay (surfaced in game-starting events). */
@@ -95,6 +97,9 @@ const notificationStore = new NotificationStore();
 const retroAchievementStore: RetroAchievementStore | SqliteRetroAchievementStore = USE_SQLITE
   ? new SqliteRetroAchievementStore(getDatabase())
   : new RetroAchievementStore();
+const saveBackupStore: SaveBackupStore | SqliteSaveBackupStore = USE_SQLITE
+  ? new SqliteSaveBackupStore(getDatabase())
+  : new SaveBackupStore();
 
 /** Lazy reference to the WebSocketServer — set after server creation. */
 let wss: WebSocketServer | undefined;
@@ -381,6 +386,170 @@ async function httpHandler(req: http.IncomingMessage, res: http.ServerResponse):
     const saveId = decodeURIComponent(saveSingleMatch[2]);
     const ok = saveStore.delete(saveId, gameId);
     json(res, ok ? 200 : 404, ok ? { deleted: true } : { error: 'Save not found' });
+    return;
+  }
+
+  // -------------------------------------------------------------------------
+  // Phase 4: Save backup API
+  //   POST   /api/saves/:gameId/backup                        — create backup
+  //   GET    /api/saves/:gameId/backups                       — list backups
+  //   DELETE /api/saves/:gameId/backups/:backupId             — delete backup
+  //   POST   /api/saves/:gameId/backups/:backupId/restore     — restore backup → save slot
+  //   POST   /api/saves/:gameId/backups/:backupId/mark-lkg    — mark last-known-good
+  //   GET    /api/saves/:gameId/last-known-good?name=<slot>   — get last-known-good backup
+  //   POST   /api/saves/:gameId/session-start                 — pre-session backup
+  //   POST   /api/saves/:gameId/session-end                   — post-session sync
+  // -------------------------------------------------------------------------
+
+  const backupBaseMatch = pathname.match(/^\/api\/saves\/([^/]+)\/backup$/);
+  const backupListMatch = pathname.match(/^\/api\/saves\/([^/]+)\/backups$/);
+  const backupSingleMatch = pathname.match(/^\/api\/saves\/([^/]+)\/backups\/([^/]+)$/);
+  const backupRestoreMatch = pathname.match(/^\/api\/saves\/([^/]+)\/backups\/([^/]+)\/restore$/);
+  const backupLkgActionMatch = pathname.match(/^\/api\/saves\/([^/]+)\/backups\/([^/]+)\/mark-lkg$/);
+  const lkgQueryMatch = pathname.match(/^\/api\/saves\/([^/]+)\/last-known-good$/);
+  const sessionStartMatch = pathname.match(/^\/api\/saves\/([^/]+)\/session-start$/);
+  const sessionEndMatch = pathname.match(/^\/api\/saves\/([^/]+)\/session-end$/);
+
+  // POST /api/saves/:gameId/backup — create a manual backup
+  if (req.method === 'POST' && backupBaseMatch) {
+    const gameId = decodeURIComponent(backupBaseMatch[1]);
+    let body: Record<string, unknown>;
+    try {
+      const raw = await readBody(req);
+      body = JSON.parse(raw) as Record<string, unknown>;
+    } catch {
+      json(res, 400, { error: 'Invalid JSON body' });
+      return;
+    }
+    const { saveName, data, mimeType, reason, saveVersion } = body as {
+      saveName?: string; data?: string; mimeType?: string; reason?: string; saveVersion?: number;
+    };
+    if (!saveName || !data) {
+      json(res, 400, { error: '"saveName" and "data" (base64) are required' });
+      return;
+    }
+    const backup = saveBackupStore.createBackup(gameId, saveName, data, {
+      reason: (reason as import('./save-backup-store').BackupReason) ?? 'manual',
+      mimeType: typeof mimeType === 'string' ? mimeType : undefined,
+      saveVersion: typeof saveVersion === 'number' ? saveVersion : undefined,
+    });
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    const { data: _d, ...meta } = backup;
+    json(res, 201, meta);
+    return;
+  }
+
+  // GET /api/saves/:gameId/backups — list backups for a game
+  if (req.method === 'GET' && backupListMatch) {
+    const gameId = decodeURIComponent(backupListMatch[1]);
+    json(res, 200, saveBackupStore.listForGame(gameId));
+    return;
+  }
+
+  // DELETE /api/saves/:gameId/backups/:backupId
+  if (req.method === 'DELETE' && backupSingleMatch && !backupRestoreMatch && !backupLkgActionMatch) {
+    const backupId = decodeURIComponent(backupSingleMatch[2]);
+    const ok = saveBackupStore.delete(backupId);
+    json(res, ok ? 200 : 404, ok ? { deleted: true } : { error: 'Backup not found' });
+    return;
+  }
+
+  // POST /api/saves/:gameId/backups/:backupId/restore — restore backup into save slot
+  if (req.method === 'POST' && backupRestoreMatch) {
+    const gameId = decodeURIComponent(backupRestoreMatch[1]);
+    const backupId = decodeURIComponent(backupRestoreMatch[2]);
+    const backup = saveBackupStore.get(backupId);
+    if (!backup || backup.gameId !== gameId) {
+      json(res, 404, { error: 'Backup not found' });
+      return;
+    }
+    // Write backup data back into the save store (this is the restore operation)
+    const restored = saveStore.put(gameId, backup.saveName, backup.data, backup.mimeType);
+    json(res, 200, restored);
+    return;
+  }
+
+  // POST /api/saves/:gameId/backups/:backupId/mark-lkg — mark as last-known-good
+  if (req.method === 'POST' && backupLkgActionMatch) {
+    const gameId = decodeURIComponent(backupLkgActionMatch[1]);
+    const backupId = decodeURIComponent(backupLkgActionMatch[2]);
+    const backup = saveBackupStore.get(backupId);
+    if (!backup || backup.gameId !== gameId) {
+      json(res, 404, { error: 'Backup not found' });
+      return;
+    }
+    const ok = saveBackupStore.markAsLastKnownGood(backupId);
+    json(res, ok ? 200 : 500, ok ? { marked: true } : { error: 'Failed to mark backup' });
+    return;
+  }
+
+  // GET /api/saves/:gameId/last-known-good?name=<saveName>
+  if (req.method === 'GET' && lkgQueryMatch) {
+    const gameId = decodeURIComponent(lkgQueryMatch[1]);
+    const { name } = parsedUrl.query;
+    if (!name || typeof name !== 'string') {
+      json(res, 400, { error: 'Query param "name" (save slot name) is required' });
+      return;
+    }
+    const lkg = saveBackupStore.getLastKnownGood(gameId, name);
+    if (!lkg) {
+      json(res, 404, { error: 'No last-known-good backup found' });
+    } else {
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars
+      const { data: _d, ...meta } = lkg;
+      json(res, 200, meta);
+    }
+    return;
+  }
+
+  // POST /api/saves/:gameId/session-start — pre-session backup
+  if (req.method === 'POST' && sessionStartMatch) {
+    const gameId = decodeURIComponent(sessionStartMatch[1]);
+    let body: Record<string, unknown>;
+    try {
+      const raw = await readBody(req);
+      body = JSON.parse(raw) as Record<string, unknown>;
+    } catch {
+      json(res, 400, { error: 'Invalid JSON body' });
+      return;
+    }
+    const { slots } = body as {
+      slots?: Array<{ saveName: string; data: string; mimeType?: string; version?: number }>;
+    };
+    if (!Array.isArray(slots) || slots.length === 0) {
+      json(res, 400, { error: '"slots" array is required and must not be empty' });
+      return;
+    }
+    const backups = saveBackupStore.preSessionBackup(gameId, slots);
+    json(res, 201, { backups });
+    return;
+  }
+
+  // POST /api/saves/:gameId/session-end — post-session sync
+  if (req.method === 'POST' && sessionEndMatch) {
+    const gameId = decodeURIComponent(sessionEndMatch[1]);
+    let body: Record<string, unknown>;
+    try {
+      const raw = await readBody(req);
+      body = JSON.parse(raw) as Record<string, unknown>;
+    } catch {
+      json(res, 400, { error: 'Invalid JSON body' });
+      return;
+    }
+    const { slots, cleanExit } = body as {
+      slots?: Array<{ saveName: string; data: string; mimeType?: string; version?: number }>;
+      cleanExit?: boolean;
+    };
+    if (!Array.isArray(slots) || slots.length === 0) {
+      json(res, 400, { error: '"slots" array is required and must not be empty' });
+      return;
+    }
+    // Also update the canonical save store with the latest data
+    for (const slot of slots) {
+      saveStore.put(gameId, slot.saveName, slot.data, slot.mimeType ?? 'application/octet-stream');
+    }
+    const backups = saveBackupStore.postSessionSync(gameId, slots, cleanExit === true);
+    json(res, 200, { synced: true, backups });
     return;
   }
 
