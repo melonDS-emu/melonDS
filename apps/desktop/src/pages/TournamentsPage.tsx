@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, type CSSProperties, type FormEvent } from 'react';
 
 // ---------------------------------------------------------------------------
 // Types (mirror tournament-store.ts shape)
@@ -163,7 +163,7 @@ function MatchCard({
       fontWeight: isWinner ? 700 : 400,
       textDecoration: isLoser ? 'line-through' : 'none',
       opacity: player === 'BYE' ? 0.4 : 1,
-    } as React.CSSProperties;
+    } as CSSProperties;
   }
 
   return (
@@ -264,7 +264,7 @@ function CreateTournamentForm({ onCreated }: { onCreated: (t: Tournament) => voi
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
-  async function handleSubmit(e: React.FormEvent) {
+  async function handleSubmit(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
     setError(null);
     const players = playersText

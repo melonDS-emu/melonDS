@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, type FormEvent } from 'react';
 
 interface JoinRoomModalProps {
   initialCode?: string;
@@ -13,7 +13,7 @@ export function JoinRoomModal({ initialCode, onConfirm, onSpectate, onClose }: J
     () => localStorage.getItem('retro-oasis-display-name') ?? ''
   );
 
-  function handleSubmit(e: React.FormEvent) {
+  function handleSubmit(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
     if (!displayName.trim() || !roomCode.trim()) return;
     localStorage.setItem('retro-oasis-display-name', displayName.trim());

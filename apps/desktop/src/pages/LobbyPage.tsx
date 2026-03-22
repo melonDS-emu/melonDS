@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useMemo } from 'react';
+import { useState, useEffect, useRef, useMemo, type FormEvent } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useLobby } from '../context/LobbyContext';
 import { MOCK_GAMES } from '../data/mock-games';
@@ -112,7 +112,7 @@ export function LobbyPage() {
     navigate('/');
   }
 
-  function handleChatSubmit(e: React.FormEvent) {
+  function handleChatSubmit(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
     if (chatInput.trim()) {
       sendChat(chatInput.trim());

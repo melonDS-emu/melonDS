@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, type ReactNode } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useGames } from '../lib/use-games';
 import { GameCard } from '../components/GameCard';
@@ -549,7 +549,7 @@ function SectionHeader({
 }: {
   title: string;
   subtitle?: string;
-  action?: React.ReactNode;
+  action?: ReactNode;
   titleColor?: string;
 }) {
   return (

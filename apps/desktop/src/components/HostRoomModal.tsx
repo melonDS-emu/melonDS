@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, type FormEvent } from 'react';
 import { useGames } from '../lib/use-games';
 import { ROOM_THEMES, themeAccent } from '../lib/events-service';
 import { getGamePresets, type SessionPreset } from '../lib/session-presets';
@@ -65,7 +65,7 @@ export function HostRoomModal({ preselectedGameId, onConfirm, onClose }: HostRoo
     setSelectedPresetId(preset.id);
   }
 
-  function handleSubmit(e: React.FormEvent) {
+  function handleSubmit(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
     if (!displayName.trim() || !selectedGame) return;
     localStorage.setItem('retro-oasis-display-name', displayName.trim());

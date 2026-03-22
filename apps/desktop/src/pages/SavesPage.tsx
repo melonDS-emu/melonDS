@@ -1,4 +1,4 @@
-import { useState, useRef, useCallback, useEffect } from 'react';
+import { useState, useRef, useCallback, useEffect, type ChangeEvent } from 'react';
 import {
   listAllSaves,
   deleteSave,
@@ -489,7 +489,7 @@ export function SavesPage() {
     showToast(`Restoring "${restoreTarget.label}" from cloud…`);
   }
 
-  function handleFileSelected(e: React.ChangeEvent<HTMLInputElement>) {
+  function handleFileSelected(e: ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
     if (!file) return;
     // Reset input so the same file can be selected again later
