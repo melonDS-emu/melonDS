@@ -10,6 +10,9 @@ import { recordRecentlyPlayed } from '../lib/recently-played';
 import { getEmulatorPathForSystem, getBackendIdForSystem, EMULATOR_NAMES } from '../lib/emulator-settings';
 import { getSaveDirectory } from '../lib/rom-settings';
 import { SystemBadge } from '../components/SystemBadge';
+import { getAchievementCapability, systemSupportsAchievements } from '../lib/achievement-capability';
+import { fetchRetroGameSummary, gamesWithAchievements } from '../lib/retro-achievement-service';
+import { isRAConnected } from '../lib/retro-achievements-settings';
 
 // ---------------------------------------------------------------------------
 // Phase 30 — rich metadata fetched from the API
@@ -138,9 +141,18 @@ export function GameDetailsPage() {
   const [launchError, setLaunchError] = useState<string | null>(null);
   const [showAdvanced, setShowAdvanced] = useState(false);
   const [showPatches, setShowPatches] = useState(false);
+  const [retroSummaryCount, setRetroSummaryCount] = useState<number | null>(null);
 
   const { data: game, loading, error } = useGame(gameId);
   const { metadata, patches } = useGameMetadata(gameId);
+
+  // Fetch achievement summary for this game
+  useEffect(() => {
+    if (!gameId) return;
+    fetchRetroGameSummary(gameId).then((s) => {
+      setRetroSummaryCount(s ? s.totalAchievements : null);
+    });
+  }, [gameId]);
 
   // Navigate to lobby after room is created
   useEffect(() => {
@@ -486,6 +498,63 @@ export function GameDetailsPage() {
             )}
           </div>
         )}
+
+        {/* Phase 34 — Achievements summary */}
+        {game && (() => {
+          const systemKey = game.system.toLowerCase();
+          const cap = getAchievementCapability(systemKey);
+          const hasDefs = gamesWithAchievements().includes(game.id);
+          const raConnected = isRAConnected();
+          if (!systemSupportsAchievements(systemKey)) {
+            return (
+              <div
+                className="mt-3 px-4 py-2 rounded-xl flex items-center gap-2 text-xs"
+                style={{ backgroundColor: 'var(--color-oasis-surface)', color: 'var(--color-oasis-text-muted)' }}
+              >
+                <span>🏅</span>
+                <span>Achievements not supported for this system.</span>
+              </div>
+            );
+          }
+          if (!raConnected) {
+            return (
+              <div
+                className="mt-3 px-4 py-2 rounded-xl flex items-center gap-2 text-xs"
+                style={{ backgroundColor: 'var(--color-oasis-surface)', color: 'var(--color-oasis-text-muted)' }}
+              >
+                <span>🏅</span>
+                <span>
+                  <Link
+                    to="/settings"
+                    className="underline"
+                    style={{ color: 'var(--color-oasis-accent-light)' }}
+                  >
+                    Sign in to RetroAchievements
+                  </Link>{' '}
+                  to track progress for {cap.notes}.
+                </span>
+              </div>
+            );
+          }
+          const count = retroSummaryCount ?? (hasDefs ? '?' : null);
+          if (count === null) return null;
+          return (
+            <div
+              className="mt-3 px-4 py-2 rounded-xl flex items-center gap-2 text-xs"
+              style={{ backgroundColor: 'rgba(234,179,8,0.1)', color: '#fbbf24', border: '1px solid rgba(234,179,8,0.25)' }}
+            >
+              <span>🏅</span>
+              <span className="font-semibold">{count} achievements available</span>
+              <Link
+                to="/retro-achievements"
+                className="ml-auto text-[10px] underline"
+                style={{ color: 'var(--color-oasis-accent-light)' }}
+              >
+                View →
+              </Link>
+            </div>
+          );
+        })()}
 
         {/* Tags */}
         <div className="flex flex-wrap gap-2 mt-4">
