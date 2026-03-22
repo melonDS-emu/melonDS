@@ -49,7 +49,7 @@ const TAG_COLORS: Record<string, string> = {
   racing:       '#e8a000',
   fighting:     '#b22222',
   party:        '#7c3aed',
-  co-op:        '#16a34a',
+  'co-op':      '#16a34a',
   competitive:  '#dc2626',
   casual:       '#0891b2',
   rpg:          '#9333ea',

@@ -187,10 +187,10 @@ function LeaderboardPanel() {
 
 function LobbyPanel({ onJoin }: { onJoin: (roomCode: string) => void }) {
   const { createRoom } = useLobby();
-  const navigate = useNavigate();
 
   const handleQuickMatch = useCallback(
     async (game: MockGame) => {
+      const displayName = localStorage.getItem('retro-oasis-display-name') ?? 'Player';
       try {
         const res = await fetch(`${SERVER_URL}/api/rooms?gameId=${encodeURIComponent(game.id)}`);
         const data = (await res.json()) as { rooms?: Array<{ roomCode: string }> };
@@ -198,23 +198,21 @@ function LobbyPanel({ onJoin }: { onJoin: (roomCode: string) => void }) {
         if (rooms.length > 0) {
           onJoin(rooms[0].roomCode);
         } else {
-          const room = await createRoom({ gameId: game.id, maxPlayers: game.maxPlayers });
-          if (room) navigate(`/lobby/${room.roomCode}`);
+          createRoom({ name: `${game.title} Room`, gameId: game.id, gameTitle: game.title, system: game.system, isPublic: true, maxPlayers: game.maxPlayers }, displayName);
         }
       } catch {
-        const room = await createRoom({ gameId: game.id, maxPlayers: game.maxPlayers });
-        if (room) navigate(`/lobby/${room.roomCode}`);
+        createRoom({ name: `${game.title} Room`, gameId: game.id, gameTitle: game.title, system: game.system, isPublic: true, maxPlayers: game.maxPlayers }, displayName);
       }
     },
-    [createRoom, navigate, onJoin],
+    [createRoom, onJoin],
   );
 
   const handleHostRoom = useCallback(
-    async (game: MockGame) => {
-      const room = await createRoom({ gameId: game.id, maxPlayers: game.maxPlayers });
-      if (room) navigate(`/lobby/${room.roomCode}`);
+    (game: MockGame) => {
+      const displayName = localStorage.getItem('retro-oasis-display-name') ?? 'Player';
+      createRoom({ name: `${game.title} Room`, gameId: game.id, gameTitle: game.title, system: game.system, isPublic: true, maxPlayers: game.maxPlayers }, displayName);
     },
-    [createRoom, navigate],
+    [createRoom],
   );
 
   return (
@@ -241,6 +239,12 @@ function LobbyPanel({ onJoin }: { onJoin: (roomCode: string) => void }) {
 export default function NESPage() {
   const [activeTab, setActiveTab] = useState<ActiveTab>('lobby');
   const [joinCode, setJoinCode] = useState<string | null>(null);
+  const { joinByCode, currentRoom } = useLobby();
+  const navigate = useNavigate();
+
+  useEffect(() => {
+    if (currentRoom) navigate(`/lobby/${currentRoom.id}`);
+  }, [currentRoom, navigate]);
 
   return (
     <div style={{ padding: 24, maxWidth: 960, margin: '0 auto' }}>
@@ -276,7 +280,8 @@ export default function NESPage() {
 
       {joinCode && (
         <JoinRoomModal
-          roomCode={joinCode}
+          initialCode={joinCode}
+          onConfirm={(code, name) => { joinByCode(code, name); setJoinCode(null); }}
           onClose={() => setJoinCode(null)}
         />
       )}
