@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, type KeyboardEvent, type CSSProperties } from 'react';
 import { useLobby } from '../context/LobbyContext';
 
 const BACKEND_URL: string =
@@ -87,7 +87,7 @@ export function GlobalChatPage() {
     setInputText('');
   }
 
-  function handleKeyDown(e: React.KeyboardEvent) {
+  function handleKeyDown(e: KeyboardEvent) {
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
       handleSend();
@@ -181,7 +181,7 @@ export function GlobalChatPage() {
               border: '1px solid var(--n-border)',
               color: 'var(--color-oasis-text)',
               '--tw-ring-color': 'var(--color-oasis-accent)',
-            } as React.CSSProperties}
+            } as CSSProperties}
           />
         </div>
         <button

@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, type ReactNode } from 'react';
 
 const API =
   typeof import.meta !== 'undefined'
@@ -158,7 +158,7 @@ function ChannelCard({ channel }: { channel: WiiLinkChannel }) {
 // Setup step component
 // ---------------------------------------------------------------------------
 
-function SetupStep({ step, title, children }: { step: number; title: string; children: React.ReactNode }) {
+function SetupStep({ step, title, children }: { step: number; title: string; children: ReactNode }) {
   return (
     <div style={{ display: 'flex', gap: 14, alignItems: 'flex-start' }}>
       <div style={{ width: 28, height: 28, borderRadius: '50%', background: 'linear-gradient(135deg, #4a9eff, #7b5ea7)', color: '#fff', fontWeight: 700, fontSize: 13, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>

@@ -1,4 +1,4 @@
-import { useState, useCallback, useRef } from 'react';
+import { useState, useCallback, useRef, type KeyboardEvent, type MouseEvent, type FormEvent } from 'react';
 import {
   getRomDirectory,
   setRomDirectory,
@@ -95,7 +95,7 @@ interface BindingRowProps {
 function BindingRow({ binding, index, editing, onStartEdit, onCommit, onCancel }: BindingRowProps) {
   const [draft, setDraft] = useState('');
 
-  function handleKeyDown(e: React.KeyboardEvent<HTMLInputElement>) {
+  function handleKeyDown(e: KeyboardEvent<HTMLInputElement>) {
     if (e.key === 'Enter') {
       onCommit(index, draft);
     } else if (e.key === 'Escape') {
@@ -305,7 +305,7 @@ function DsTouchCalibrationPanel() {
   }
 
   /** Handle a click on the visual test area — maps click coords through current calibration. */
-  function handleTestClick(e: React.MouseEvent<HTMLDivElement>) {
+  function handleTestClick(e: MouseEvent<HTMLDivElement>) {
     if (!testAreaRef.current) return;
     const rect = testAreaRef.current.getBoundingClientRect();
     // Map click position to 0–DS_SCREEN_W / 0–DS_SCREEN_H coordinate space
@@ -512,7 +512,7 @@ export function SettingsPage() {
     setTimeout(() => setEmulatorPathsSaved(false), 3000);
   }
 
-  function handleSave(e: React.FormEvent) {
+  function handleSave(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
     setRomDirectory(romDir);
     setSaveDirectory(saveDir);
