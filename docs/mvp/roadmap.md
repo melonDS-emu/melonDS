@@ -26,7 +26,7 @@
 > - Phase 24 Further Retro Achievement Support is now complete: catalog expanded to 60 achievements across 15 games (added GC/Wii/3DS/DC/PS2), `SqliteRetroAchievementStore` with Phase 24 DB migration, `getLeaderboard()` + `GET /api/retro-achievements/leaderboard`, `retro-achievement-unlocked` WS push on unlock, Leaderboard tab in `RetroAchievementsPage`. 22 new tests.
 > - Phase 3 Full Multiplayer Loop is now complete: host/join private+public rooms, room-code flow, ready states, host controls, spectator support, game-start handshake with per-player session tokens, relay allocation (ports 9000–9200), per-backend emulator launch args, host migration on disconnect, clean leave flow, and `rejoinRoom`/`rejoinByCode` for in-progress reconnects. 36 new tests (765 total).
 > - Phase 4 Save System is now complete: `SaveBackupStore` + `SqliteSaveBackupStore` (pre-session/post-session/manual/last-known-good backups, per-slot eviction), 8 backup REST routes (`/api/saves/:gameId/backup`, `/api/saves/:gameId/backups`, restore, mark-lkg, last-known-good, session-start, session-end), `discoverSaveFiles()` / `getBackendSaveExtensions()` / `buildBackendSavePath()` / `inferBackendFromExtension()` in `@retro-oasis/save-system`, `save-backup-service.ts` desktop layer, `SavesPage` Backups tab with restore + last-known-good UI. 55 new tests (867 total).
-> - Phase 30 QoL & "Wow" Layer is now complete: `GameMetadataStore` (rich metadata for 35+ games — genre, developer, year, onboarding tips, netplay tips, recommended controller, artwork color), `PatchStore` (18+ safe patch/mod metadata entries — translations, QoL fixes, bugfixes), `PartyCollectionStore` (12 curated party-mode collections), 5 new REST endpoints (`/api/game-metadata[/:gameId]`, `/api/patches[?gameId=X]`, `/api/party-collections[/:id][?tag=X]`), `PartyCollectionsPage` at `/party-collections` with tag filter pills and expandable collection cards, `GameDetailsPage` enhanced with artwork-color backdrop, genre/developer/year pills, per-game onboarding tips, netplay quality tips, recommended controller badge, and safe-patch browser. 48 new tests (1101 total).
+> - Phase 32 Wiimmfi & WiiLink Online Services is now complete: `WfcProvider` interface gains `supportsWii` field; `WiiLink WFC` added as a third WFC provider (DNS `167.235.229.36`); Wiimmfi description updated to highlight its role as the largest WFC revival service since 2014; `WIILINK_CHANNELS` constant (6 active channel definitions — Forecast, News, Everybody Votes, Check Mii Out, Nintendo, Demae); `GET /api/wfc/wiilink-channels` REST endpoint; `OnlineServicesPage` (`/online-services`) with three-tab UI (Overview, Wiimmfi, WiiLink) covering provider switcher, channel list, and zero-setup DNS explainer; 🌐 Online Services nav item in sidebar. 39 new tests.
 
 ## Phase 1 — Foundation (Complete)
 
@@ -948,3 +948,29 @@
 ### Phase 14e — Documentation
 - [x] `docs/status/phase-14-zelda-metroid-dms.md` — phase status and feature notes
 - [x] `roadmap.md` updated with Phase 14 milestones
+
+## Phase 32 — Wiimmfi & WiiLink Online Services (Complete)
+
+**Goal:** Surface the two primary community Wi-Fi Connection revival services — Wiimmfi and WiiLink — as first-class features inside RetroOasis, giving players a clear overview of each service and zero-setup DNS auto-configuration.
+
+### Milestones
+
+- [x] `WfcProvider` interface gains `supportsWii: boolean` — distinguishes DS-only from DS+Wii providers
+- [x] Wiimmfi description updated to emphasize it is the largest WFC revival service, running since 2014, covering DS and Wii titles
+- [x] `WiiLink WFC` added as second provider in `WFC_PROVIDERS` (DNS `167.235.229.36`, URL `https://www.wiilink24.com`, `supportsWii: true`)
+- [x] `WIILINK_CHANNELS` constant — 6 active WiiLink channel definitions: Forecast, News, Everybody Votes, Check Mii Out, Nintendo, Demae
+- [x] `WiiLinkChannel` interface with `id`, `name`, `emoji`, `description`, `active` fields
+- [x] `GET /api/wfc/wiilink-channels` REST endpoint — returns all WiiLink channel definitions
+- [x] `OnlineServicesPage` (`/online-services`) — three-tab info hub:
+  - **Overview**: history of the WFC shutdown, all three providers at a glance, zero-setup DNS explainer (3-step guide)
+  - **Wiimmfi**: dedicated tab with key facts (founded 2014, DNS, platform coverage, 2000+ game count), notable game list, default-provider callout
+  - **WiiLink**: dedicated tab with WiiLink WFC provider card, channel grid (6 channels with emoji + active badge), infrastructure facts, Wiimmfi-vs-WiiLink comparison note
+- [x] 🌐 Online Services nav item added to sidebar (Social group)
+- [x] Route `/online-services` registered in `App.tsx`
+- [x] 39 new unit/integration tests in `phase-32.test.ts`:
+  - `WFC_PROVIDERS` — length, order, required fields, per-provider DNS/URL/supportsWii assertions
+  - `getWfcProvider()` — lookup by all three IDs + null for unknown
+  - `DEFAULT_WFC_PROVIDER_ID` — still resolves to 'wiimmfi'
+  - `WIILINK_CHANNELS` — length, required fields, all active, per-channel id checks, uniqueness
+  - REST layer — `GET /api/wfc/providers` (3 providers), `GET /api/wfc/providers/:id` (200 + 404), `GET /api/wfc/wiilink-channels` (6 channels)
+- [x] `roadmap.md` updated with Phase 32 milestones

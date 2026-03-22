@@ -23,7 +23,7 @@ import { computePlayerStats, computeLeaderboard } from './player-stats';
 import type { LeaderboardMetric } from './player-stats';
 import { TournamentStore } from './tournament-store';
 import { SqliteTournamentStore } from './sqlite-tournament-store';
-import { WFC_PROVIDERS } from './wfc-config';
+import { WFC_PROVIDERS, WIILINK_CHANNELS } from './wfc-config';
 import { FriendCodeStore, validateFriendCode } from './friend-code-store';
 import { SEASONAL_EVENTS, getActiveEvents, getNextEvent } from './seasonal-events';
 import { getFeaturedGames } from './featured-games';
@@ -1006,9 +1006,15 @@ async function httpHandler(req: http.IncomingMessage, res: http.ServerResponse):
   // ─── WFC Provider API ────────────────────────────────────────────────────
   //   GET /api/wfc/providers        — list all WFC providers
   //   GET /api/wfc/providers/:id    — get a specific provider
+  //   GET /api/wfc/wiilink-channels — list WiiLink channel services
   // ─────────────────────────────────────────────────────────────────────────
   if (pathname === '/api/wfc/providers' && req.method === 'GET') {
     json(res, 200, WFC_PROVIDERS);
+    return;
+  }
+
+  if (pathname === '/api/wfc/wiilink-channels' && req.method === 'GET') {
+    json(res, 200, WIILINK_CHANNELS);
     return;
   }
 

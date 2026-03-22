@@ -30,6 +30,7 @@ const NAV_ITEMS = [
   { path: '/chat',          label: 'Chat',         icon: '◫',  group: 'social' },
   { path: '/events',        label: 'Events',       icon: '★',  group: 'social' },
   { path: '/party-collections', label: 'Party Collections', icon: '🎉', group: 'social' },
+  { path: '/online-services',   label: 'Online Services',   icon: '🌐', group: 'social' },
   { path: '/friends',       label: 'Friends',      icon: '◈',  group: 'social' },
   { path: '/notifications', label: 'Notifications', icon: '◐', group: 'social' },
   { path: '/tournaments',   label: 'Tournaments',  icon: '◆',  group: 'more' },
