@@ -126,6 +126,78 @@ const NDS_WFC_TIP =
 const NDS_DSI_TIP =
   '🟦 DSi Mode: This is a DSiWare title and requires DSi BIOS files (bios7i.bin, bios9i.bin, nand.bin) in your melonDS config directory. RetroOasis launches melonDS with --dsi-mode automatically when you host a room for a DSiWare game.';
 
+// ---------------------------------------------------------------------------
+// Phase 34 — Achievement summary card
+// ---------------------------------------------------------------------------
+
+function AchievementSummaryCard({
+  gameId,
+  system,
+  retroSummaryCount,
+}: {
+  gameId: string;
+  system: string;
+  retroSummaryCount: number | null;
+}) {
+  const systemKey = system.toLowerCase();
+  const cap = getAchievementCapability(systemKey);
+  const hasDefs = gamesWithAchievements().includes(gameId);
+  const raConnected = isRAConnected();
+
+  if (!systemSupportsAchievements(systemKey)) {
+    return (
+      <div
+        className="mt-3 px-4 py-2 rounded-xl flex items-center gap-2 text-xs"
+        style={{ backgroundColor: 'var(--color-oasis-surface)', color: 'var(--color-oasis-text-muted)' }}
+      >
+        <span>🏅</span>
+        <span>Achievements not supported for this system.</span>
+      </div>
+    );
+  }
+
+  if (!raConnected) {
+    return (
+      <div
+        className="mt-3 px-4 py-2 rounded-xl flex items-center gap-2 text-xs"
+        style={{ backgroundColor: 'var(--color-oasis-surface)', color: 'var(--color-oasis-text-muted)' }}
+      >
+        <span>🏅</span>
+        <span>
+          <Link
+            to="/settings"
+            className="underline"
+            style={{ color: 'var(--color-oasis-accent-light)' }}
+          >
+            Sign in to RetroAchievements
+          </Link>{' '}
+          to track progress — {cap.notes}.
+        </span>
+      </div>
+    );
+  }
+
+  const count = retroSummaryCount ?? (hasDefs ? '?' : null);
+  if (count === null) return null;
+
+  return (
+    <div
+      className="mt-3 px-4 py-2 rounded-xl flex items-center gap-2 text-xs"
+      style={{ backgroundColor: 'rgba(234,179,8,0.1)', color: '#fbbf24', border: '1px solid rgba(234,179,8,0.25)' }}
+    >
+      <span>🏅</span>
+      <span className="font-semibold">{count} achievements available</span>
+      <Link
+        to="/retro-achievements"
+        className="ml-auto text-[10px] underline"
+        style={{ color: 'var(--color-oasis-accent-light)' }}
+      >
+        View →
+      </Link>
+    </div>
+  );
+}
+
 export function GameDetailsPage() {
   const { gameId } = useParams<{ gameId: string }>();
   const navigate = useNavigate();
@@ -500,61 +572,13 @@ export function GameDetailsPage() {
         )}
 
         {/* Phase 34 — Achievements summary */}
-        {game && (() => {
-          const systemKey = game.system.toLowerCase();
-          const cap = getAchievementCapability(systemKey);
-          const hasDefs = gamesWithAchievements().includes(game.id);
-          const raConnected = isRAConnected();
-          if (!systemSupportsAchievements(systemKey)) {
-            return (
-              <div
-                className="mt-3 px-4 py-2 rounded-xl flex items-center gap-2 text-xs"
-                style={{ backgroundColor: 'var(--color-oasis-surface)', color: 'var(--color-oasis-text-muted)' }}
-              >
-                <span>🏅</span>
-                <span>Achievements not supported for this system.</span>
-              </div>
-            );
-          }
-          if (!raConnected) {
-            return (
-              <div
-                className="mt-3 px-4 py-2 rounded-xl flex items-center gap-2 text-xs"
-                style={{ backgroundColor: 'var(--color-oasis-surface)', color: 'var(--color-oasis-text-muted)' }}
-              >
-                <span>🏅</span>
-                <span>
-                  <Link
-                    to="/settings"
-                    className="underline"
-                    style={{ color: 'var(--color-oasis-accent-light)' }}
-                  >
-                    Sign in to RetroAchievements
-                  </Link>{' '}
-                  to track progress for {cap.notes}.
-                </span>
-              </div>
-            );
-          }
-          const count = retroSummaryCount ?? (hasDefs ? '?' : null);
-          if (count === null) return null;
-          return (
-            <div
-              className="mt-3 px-4 py-2 rounded-xl flex items-center gap-2 text-xs"
-              style={{ backgroundColor: 'rgba(234,179,8,0.1)', color: '#fbbf24', border: '1px solid rgba(234,179,8,0.25)' }}
-            >
-              <span>🏅</span>
-              <span className="font-semibold">{count} achievements available</span>
-              <Link
-                to="/retro-achievements"
-                className="ml-auto text-[10px] underline"
-                style={{ color: 'var(--color-oasis-accent-light)' }}
-              >
-                View →
-              </Link>
-            </div>
-          );
-        })()}
+        {game && (
+          <AchievementSummaryCard
+            gameId={game.id}
+            system={game.system}
+            retroSummaryCount={retroSummaryCount}
+          />
+        )}
 
         {/* Tags */}
         <div className="flex flex-wrap gap-2 mt-4">

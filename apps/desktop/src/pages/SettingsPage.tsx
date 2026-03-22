@@ -947,7 +947,7 @@ function RetroAchievementsSection() {
 
         <label className="block">
           <span className="text-xs font-semibold mb-1 block" style={{ color: 'var(--color-oasis-text-muted)' }}>
-            API Token / Password
+            API Token
           </span>
           <input
             type="password"
