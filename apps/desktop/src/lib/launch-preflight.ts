@@ -12,6 +12,7 @@
 
 import { SYSTEM_ONLINE_SUPPORT, type OnlineSupportLevel } from './game-capability';
 import { systemSupportsAchievements } from './achievement-capability';
+import { systemRequiresBios } from './bios-validator';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Types
@@ -54,6 +55,11 @@ export interface LaunchPreflightOptions {
   romPath?: string | null;
   /** Emulator executable path, or null if not configured. */
   emulatorPath?: string | null;
+  /**
+   * Path to the required BIOS file for this system, or null when not provided.
+   * Only checked when `systemRequiresBios(system)` returns true.
+   */
+  biosPath?: string | null;
   /** Whether RetroAchievements credentials are configured. */
   raConnected?: boolean;
 }
@@ -120,7 +126,19 @@ export function runLaunchPreflight(opts: LaunchPreflightOptions): LaunchPrefligh
     );
   }
 
-  // ── 3. Online support (online mode only) ───────────────────────────────────
+  // ── 3. BIOS file (systems that require it) ─────────────────────────────────
+  if (systemRequiresBios(systemKey)) {
+    if (opts.biosPath) {
+      pass('bios-configured');
+    } else {
+      block(
+        'bios-missing',
+        `A BIOS file is required for ${systemKey.toUpperCase()}. Go to Settings → Emulator Paths to configure the BIOS directory.`,
+      );
+    }
+  }
+
+  // ── 4. Online support (online mode only) ───────────────────────────────────
   if (opts.mode === 'online') {
     const level = SYSTEM_ONLINE_SUPPORT[systemKey] ?? 'supported';
     if (level === 'local-only' || level === 'experimental') {
@@ -130,7 +148,7 @@ export function runLaunchPreflight(opts: LaunchPreflightOptions): LaunchPrefligh
     }
   }
 
-  // ── 4. RetroAchievements (local mode, optional warning) ───────────────────
+  // ── 5. RetroAchievements (local mode, optional warning) ───────────────────
   if (opts.mode === 'local' && systemSupportsAchievements(systemKey) && !opts.raConnected) {
     warn(
       'achievements-not-configured',
