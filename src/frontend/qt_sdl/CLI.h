@@ -33,6 +33,7 @@ struct CommandLineOptions
     std::optional<QString> gbaRomPath;
     std::optional<QString> gbaRomArchivePath;
     bool headless;
+    std::optional<QString> headlessValue;
     bool fullscreen;
     bool boot;
 };

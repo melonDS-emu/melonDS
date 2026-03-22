@@ -41,8 +41,8 @@ CommandLineOptions* ManageArgs(QApplication& melon)
     parser.addPositionalArgument("arg1", "First argument");
     parser.addPositionalArgument("arg2", "Second argument");
 
-    parser.addOption(QCommandLineOption("b", "Whether to boot firmware on startup. Defaults to \"auto\" (boot if NDS rom given)", "auto/always/never", "auto"));
-    parser.addOption(QCommandLineOption("f", "Start melonDS in fullscreen mode"));
+    parser.addOption(QCommandLineOption({"b","boot"}, "Whether to boot firmware on startup. Defaults to \"auto\" (boot if NDS rom given)", "auto/always/never", "auto"));
+    parser.addOption(QCommandLineOption({"f","fullscreen"}, "Start melonDS in fullscreen mode"));
     parser.addOption(QCommandLineOption("xt", "Extract the title of specified rom in specified language. This is split into the MainTitle;Subtitle;Publisher. Supported language codes: ja, en, fr, ge, it, es, ko, zh. If no language code is given, it defaults to english"));
     parser.addOption(QCommandLineOption("xgt", "Extract the game title of specified rom"));
     parser.addOption(QCommandLineOption("xgc", "Extract the game code of specified rom"));
@@ -56,15 +56,25 @@ CommandLineOptions* ManageArgs(QApplication& melon)
 
     parser.process(melon);
 
-    CommandLineOptions* options = new CommandLineOptions;
+    CommandLineOptions* options = new CommandLineOptions();
+    options->fullscreen = false;
+    options->headless = false;
+    options->boot = false;
     QStringList posargs = parser.positionalArguments();
 
 
-    options->headless = false;
     if (parser.isSet("xt")){
         if (posargs.size() == 2){
+            melonDS::Platform::setMuteLogs(true);
+            options->headless = true;
+            options->dsRomPath = posargs[0];
+            options->headlessValue = "xt"+posargs[1];
             return options;
         } else if (posargs.size() == 1){
+            melonDS::Platform::setMuteLogs(true);
+            options->headless = true;
+            options->dsRomPath = posargs[0];
+            options->headlessValue = "xten";
             return options;
         } else {
             Log(LogLevel::Error, "Error: Incorrect amount of arguments\n");
@@ -72,6 +82,10 @@ CommandLineOptions* ManageArgs(QApplication& melon)
         }
     } else if (parser.isSet("xgt")){
         if (posargs.size() == 1){
+            melonDS::Platform::setMuteLogs(true);
+            options->headless = true;
+            options->dsRomPath = posargs[0];
+            options->headlessValue = "xgt";
             return options;
         } else {
             Log(LogLevel::Error, "Error: Incorrect amount of arguments\n");
@@ -82,6 +96,7 @@ CommandLineOptions* ManageArgs(QApplication& melon)
             melonDS::Platform::setMuteLogs(true);
             options->headless = true;
             options->dsRomPath = posargs[0];
+            options->headlessValue = "xgc";
             return options;
         } else {
             Log(LogLevel::Error, "Error: Incorrect amount of arguments\n");
@@ -89,15 +104,18 @@ CommandLineOptions* ManageArgs(QApplication& melon)
         }
     } else if (parser.isSet("xi")){
         if (posargs.size() == 1){
+            melonDS::Platform::setMuteLogs(true);
+            options->headless = true;
+            options->dsRomPath = posargs[0];
+            options->headlessValue = "xi";
             return options;
         } else {
             Log(LogLevel::Error, "Error: Incorrect amount of arguments\n");
             exit(1);
         }
     }
+    
     options->fullscreen = parser.isSet("fullscreen");
-    options->boot = false;
-
     switch (posargs.size())
     {
         default:
@@ -129,6 +147,7 @@ CommandLineOptions* ManageArgs(QApplication& melon)
         exit(1);
     }
 
+    qDebug() << "boot -> options = " << options->boot;
 #ifdef ARCHIVE_SUPPORT_ENABLED
     if (parser.isSet("archive-file"))
     {

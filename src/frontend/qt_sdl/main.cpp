@@ -23,7 +23,7 @@
 
 #include <optional>
 #include <string>
-
+#include <iostream>
 #include <QDebug>
 #include <QApplication>
 #include <QStyle>
@@ -392,26 +392,46 @@ int main(int argc, char** argv)
         const QStringList gbafile = prepareRomPath(options->gbaRomPath, options->gbaRomArchivePath);
 
         if (memberSyntaxUsed) printf("Warning: use the a.zip|b.nds format at your own risk!\n");
+        
         if (options->headless){
             win->preloadROMs(dsfile, gbafile, true);
             NDSCart::CartCommon* cart = win->getEmuInstance()->getNDS()->NDSCartSlot.GetCart();
             NDSHeader& header = cart->GetHeader();
             const NDSBanner* banner = cart->Banner();
             
-            // QString::fromUtf16(banner->JapaneseTitle);
-            // QString::fromUtf16(banner->EnglishTitle);
-            // QString::fromUtf16(banner->FrenchTitle);
-            // QString::fromUtf16(banner->GermanTitle);
-            // QString::fromUtf16(banner->ItalianTitle);
-            // QString::fromUtf16(banner->SpanishTitle);
-            // QString::fromLatin1(header.GameTitle, 12);
-            // QString::fromLatin1(header.GameCode, 4);
-
-            // win->getEmuInstance()->romIcon(banner->Icon, banner->Palette, iconData);
-            // iconImage = QImage(reinterpret_cast<u8*>(iconData), 32, 32, QImage::Format_RGBA8888).copy();
-            // iconImage.save(filename, "PNG");
-
-            qDebug() << QString::fromLatin1(header.GameCode, 4);
+            if (options->headlessValue == "xtja"){
+                std::cout << QString::fromUtf16(banner->JapaneseTitle).toStdString();
+            } else if (options->headlessValue == "xten") {
+                std::cout << QString::fromUtf16(banner->EnglishTitle).toStdString();
+            } else if (options->headlessValue == "xtfr") {
+                std::cout << QString::fromUtf16(banner->FrenchTitle).toStdString();
+            } else if (options->headlessValue == "xtge") {
+                std::cout << QString::fromUtf16(banner->GermanTitle).toStdString();
+            } else if (options->headlessValue == "xtit") {
+                std::cout << QString::fromUtf16(banner->ItalianTitle).toStdString();
+            } else if (options->headlessValue == "xtes") {
+                std::cout << QString::fromUtf16(banner->SpanishTitle).toStdString();
+            } else if (options->headlessValue == "xtko") {
+                if (banner->Version > 2){
+                    std::cout << QString::fromUtf16(banner->KoreanTitle).toStdString();
+                }
+            } else if (options->headlessValue == "xtzh") {
+                if (banner->Version > 1){
+                    std::cout << QString::fromUtf16(banner->ChineseTitle).toStdString();
+                }
+            } else if (options->headlessValue == "xgt") {
+                std::cout << QString::fromLatin1(header.GameTitle, 12).toStdString();
+            } else if (options->headlessValue == "xgc") {
+                std::cout << QString::fromLatin1(header.GameCode, 4).toStdString();
+            } else if (options->headlessValue == "xi") {
+                u32 iconData[32 * 32];
+                win->getEmuInstance()->romIcon(banner->Icon, banner->Palette, iconData);
+                QImage iconImage = QImage(reinterpret_cast<u8*>(iconData), 32, 32, QImage::Format_RGBA8888).copy();
+                iconImage.save(QString::fromLatin1(header.GameCode, 4) + ".png", "PNG");
+                std::cout << QString::fromLatin1(header.GameCode, 4).toStdString() << ".png saved.";
+            } else {
+                qDebug() << "Warning: Invalid arguments used. Exiting...";
+            }
             exit(0);
         } else {
             qDebug() << "Launched GUI";
