@@ -17,6 +17,7 @@ const NAV_ITEMS = [
   { path: '/wiiu',          label: 'Wii U',        icon: '⊞',  group: 'systems' },
   { path: '/gc',            label: 'GameCube',     icon: '⬡',  group: 'systems' },
   { path: '/genesis',       label: 'Genesis',      icon: '⬢',  group: 'systems' },
+  { path: '/sms',           label: 'Master System', icon: '⊡',  group: 'systems' },
   { path: '/dreamcast',     label: 'Dreamcast',    icon: '◎',  group: 'systems' },
   { path: '/psx',           label: 'PlayStation',  icon: '□',  group: 'systems' },
   { path: '/ps2',           label: 'PS2',          icon: '◧',  group: 'systems' },

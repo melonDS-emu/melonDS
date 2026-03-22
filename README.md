@@ -9,7 +9,7 @@ RetroOasis is a social retro gaming hub spanning multiple platforms and generati
 ## ✨ Features
 
 - **Multiplayer-first** — Host/join rooms in seconds, ready up, chat, and surface local launch/relay info from the lobby flow
-- **Multi-platform library** — NES, SNES, GB, GBC, GBA, N64, NDS, GC, Wii, Wii U, 3DS, Genesis, Dreamcast, PSX, PS2, and PSP in one app
+- **Multi-platform library** — NES, SNES, GB, GBC, GBA, N64, NDS, GC, Wii, Wii U, 3DS, Genesis, SMS, Dreamcast, PSX, PS2, and PSP in one app
 - **Curated discovery** — Browse games by multiplayer mode (Party, Co-op, Versus, Link, Trade)
 - **Per-game intelligence** — Player counts, compatibility badges, session templates
 - **Live social layer** — Friends, direct messaging, presence, achievements, and player profile stats are integrated into the desktop app
@@ -76,6 +76,7 @@ npm run typecheck
 | Game Boy | Nintendo | mGBA | 4th |
 | Game Boy Color | Nintendo | mGBA | 4th |
 | SEGA Genesis | SEGA | RetroArch / Genesis Plus GX | 4th |
+| Sega Master System | SEGA | RetroArch / Genesis Plus GX | 3rd |
 | Game Boy Advance | Nintendo | mGBA | 6th |
 | Nintendo 64 | Nintendo | Mupen64Plus | 5th |
 | Sony PlayStation | Sony | DuckStation | 5th |

@@ -25,6 +25,15 @@ export const ROM_EXTENSIONS: Record<string, string> = {
   '.nds': 'nds',
   '.dsi': 'nds',
   '.ids': 'nds',
+  // Sega Master System / Game Gear
+  '.sms': 'sms',    // Sega Master System ROM
+  '.gg':  'sms',    // Game Gear (shares Genesis Plus GX core)
+  '.sg':  'sms',    // SG-1000 (predecessor, same core)
+  // SEGA Genesis / Mega Drive
+  '.md':  'genesis',
+  '.gen': 'genesis',
+  '.bin': 'genesis',
+  '.smd': 'genesis',
   // GameCube
   '.gcm': 'gc',     // raw GameCube disc image
   '.gcz': 'gc',     // Dolphin compressed GameCube image

@@ -50,6 +50,7 @@ export const SYSTEM_BACKEND_MAP: Record<string, string> = {
   wii: 'dolphin',
   wiiu: 'cemu',
   genesis: 'retroarch',
+  sms: 'retroarch',
   psx: 'duckstation',
   ps2: 'pcsx2',
   psp: 'ppsspp',

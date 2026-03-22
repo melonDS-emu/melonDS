@@ -24,6 +24,7 @@ import WiiPage from './pages/WiiPage';
 import WiiUPage from './pages/WiiUPage';
 import GameCubePage from './pages/GameCubePage';
 import GenesisPage from './pages/GenesisPage';
+import SMSPage from './pages/SMSPage';
 import DreamcastPage from './pages/DreamcastPage';
 import PSXPage from './pages/PSXPage';
 import PS2Page from './pages/PS2Page';
@@ -63,6 +64,7 @@ export function App() {
         <Route path="/wiiu" element={<WiiUPage />} />
         <Route path="/gc" element={<GameCubePage />} />
         <Route path="/genesis" element={<GenesisPage />} />
+        <Route path="/sms" element={<SMSPage />} />
         <Route path="/dreamcast" element={<DreamcastPage />} />
         <Route path="/psx" element={<PSXPage />} />
         <Route path="/ps2" element={<PS2Page />} />

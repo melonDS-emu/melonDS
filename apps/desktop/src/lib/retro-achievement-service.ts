@@ -197,6 +197,7 @@ export function gameIdToSystem(gameId: string): string {
   if (gameId.startsWith('nes-')) return 'NES';
   if (gameId.startsWith('snes-')) return 'SNES';
   if (gameId.startsWith('genesis-')) return 'Genesis';
+  if (gameId.startsWith('sms-')) return 'SMS';
   if (gameId.startsWith('gc-')) return 'GameCube';
   if (gameId.startsWith('wii-')) return 'Wii';
   if (gameId.startsWith('3ds-')) return '3DS';

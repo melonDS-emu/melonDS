@@ -12,6 +12,7 @@ export type SupportedSystem =
   | 'wiiu'
   | '3ds'
   | 'genesis'
+  | 'sms'
   | 'dreamcast'
   | 'psx'
   | 'ps2'
@@ -135,6 +136,15 @@ export const SYSTEM_INFO: Record<SupportedSystem, SystemInfo> = {
     maxLocalPlayers: 2,
     supportsLink: false,
     color: '#0066CC',
+  },
+  sms: {
+    id: 'sms',
+    name: 'Sega Master System',
+    shortName: 'SMS',
+    generation: 3,
+    maxLocalPlayers: 2,
+    supportsLink: false,
+    color: '#003399',
   },
   dreamcast: {
     id: 'dreamcast',

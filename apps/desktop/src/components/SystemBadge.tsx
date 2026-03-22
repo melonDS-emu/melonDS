@@ -12,6 +12,7 @@ export const SYSTEM_COLORS: Record<string, string> = {
   Wii:  '#009ac7',
   'Wii U': '#009ac7',
   Genesis: '#1565c0',
+  SMS: '#003399',
   Dreamcast: '#e26222',
   PSX:  '#003087',
   PS2:  '#003087',

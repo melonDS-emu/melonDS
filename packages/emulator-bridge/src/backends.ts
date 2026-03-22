@@ -273,7 +273,7 @@ export const KNOWN_BACKENDS: BackendDefinition[] = [
   {
     id: 'retroarch',
     name: 'RetroArch',
-    systems: ['nes', 'snes', 'gb', 'gbc', 'gba', 'n64', 'nds', 'gc', 'wii', 'wiiu', '3ds', 'genesis', 'dreamcast', 'psx', 'ps2', 'psp'],
+    systems: ['nes', 'snes', 'gb', 'gbc', 'gba', 'n64', 'nds', 'gc', 'wii', 'wiiu', '3ds', 'genesis', 'sms', 'dreamcast', 'psx', 'ps2', 'psp'],
     description: 'Universal open-source emulator frontend using libretro cores',
     executableName: 'retroarch',
     supportsNetplay: true,
@@ -285,7 +285,7 @@ export const KNOWN_BACKENDS: BackendDefinition[] = [
       'Install (Windows): download from https://www.retroarch.com/?page=platforms',
       'Detection: app checks for "retroarch" in PATH',
       'Requires a libretro core — specify via coreLibraryPath option',
-      'Recommended cores: fceumm or nestopia (NES), snes9x (SNES), mgba (GB/GBC/GBA), genesis_plus_gx (SEGA Genesis/Mega Drive)',
+      'Recommended cores: fceumm or nestopia (NES), snes9x (SNES), mgba (GB/GBC/GBA), genesis_plus_gx (SEGA Genesis/Mega Drive/Master System/Game Gear)',
       'Install cores: retroarch --menu → Load Core → Download',
       'Netplay host: --host --port <port>',
       'Netplay client: --connect <host> --port <port>',

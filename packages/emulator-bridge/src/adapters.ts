@@ -456,6 +456,19 @@ export function createSystemAdapter(system: string, backendId?: string): SystemA
       };
     }
 
+    case 'sms': {
+      // Sega Master System / Game Gear uses RetroArch with the Genesis Plus GX core.
+      // Genesis Plus GX supports SMS, Game Gear, and SG-1000 in addition to Genesis/MD.
+      // Netplay uses the standard RetroArch --host / --connect relay flags.
+      return {
+        system: 'sms',
+        preferredBackendId: 'retroarch',
+        fallbackBackendIds: [],
+        buildLaunchArgs: (romPath, options) => buildRetroArchArgs(romPath, options),
+        getSavePath: (gameId, baseDir) => `${baseDir}/sms/${gameId}`,
+      };
+    }
+
     case 'dreamcast': {
       // Flycast: standalone or via RetroArch with flycast_libretro
       // Netplay: relay at TCP level; Flycast has experimental online but relay is recommended
