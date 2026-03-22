@@ -2089,6 +2089,12 @@ void MainWindow::onChangeScreenSwap(bool checked)
         actScreenSizing[screenSizing_BotOnly]->setChecked(false);
         actScreenSizing[sizing]->setChecked(true);
     }
+    else if (sizing == screenSizing_EmphTop){
+        sizing = screenSizing_EmphBot;
+    }
+    else if (sizing == screenSizing_EmphBot){
+        sizing = screenSizing_EmphTop;
+    }
     windowCfg.SetInt("ScreenSizing", sizing);
 
     emit screenLayoutChange();
