@@ -1019,3 +1019,33 @@
 **Tests**
 - [x] `apps/desktop/src/lib/__tests__/phase-34.test.ts` — 26 tests covering capability registry (all 17 systems, level lookups, fallback for unknown, `systemSupportsAchievements`) and RA settings (defaults, CRUD, connected/disconnected state via localStorage mock).
 - [x] Total: 223 desktop tests, 1222 lobby-server tests — all passing.
+
+## Phase 37 — BIOS Validation, Netplay Whitelist & RetroArch Enhancement Presets (Complete)
+
+**Goal:** Deliver the three remaining pillars from the original Phase 1–3 product roadmap:
+BIOS file validation, a curated per-game netplay safety whitelist, and a named RetroArch
+enhancement-preset library that clearly distinguishes netplay-safe from single-player-only configs.
+
+### What was added
+
+**New libraries**
+- [x] `bios-validator.ts` — `BIOS_REQUIREMENTS` registry for `psx` (5 regional BIOS variants), `gba`, `nds` (bios7 + bios9 + firmware), and `dreamcast` (boot + flash). `systemRequiresBios()`, `getBiosRequirements()`, `validateBiosEntry()`, `validateAllBios()` helpers. All MD5 hashes are 32-char lowercase hex strings from community verification projects.
+- [x] `netplay-whitelist.ts` — `NETPLAY_WHITELIST` of 38 entries across psx/nes/snes/gba/n64/genesis/sms/nds/psp, each rated `approved | caution | incompatible` with an honest reason. Helpers: `getNetplayEntry()`, `isNetplayApproved()`, `isNetplayIncompatible()`, `getNetplayWarning()`, `approvedGamesForSystem()`.
+- [x] `retroarch-presets.ts` — 8 named presets (4 netplay-safe: `clean`, `performance`, `scanlines`, `lcd-grid`; 4 single-player: `crt-royale`, `runahead-1`, `rewind`, `accurate`). Each has a flat `settings` map of RetroArch `.cfg` key/value pairs, a `netplaySafe` flag, and an `onlineWarning` for unsafe presets. Helpers: `getPreset()`, `netplaySafePresets()`, `singlePlayerPresets()`, `getPresetOnlineWarning()`, `applyPreset()`.
+
+**Updated**
+- [x] `launch-preflight.ts` — new `biosPath` option; check 3 (`bios-configured` / `bios-missing`) added for systems where `systemRequiresBios()` returns `true` (psx, nds, dreamcast). GBA and NES are unaffected.
+
+**Tests**
+- [x] `apps/desktop/src/lib/__tests__/phase-37.test.ts` — 63 new tests:
+  - BIOS registry shape (4 systems, MD5 format, required flags)
+  - `systemRequiresBios()` — psx/nds/dreamcast true; gba/nes false; case-insensitive
+  - `validateBiosEntry()` — hash match / mismatch / missing / unknown file / case-insensitive
+  - `validateAllBios()` — bulk validation, unknown system, passing PSX map
+  - Netplay whitelist catalog shape (≥ 30 entries, unique IDs, all systems represented)
+  - `getNetplayEntry()`, `isNetplayApproved()`, `isNetplayIncompatible()`, `getNetplayWarning()`, `approvedGamesForSystem()`
+  - RetroArch preset catalog (≥ 4 safe, ≥ 3 single-player; all non-safe have `onlineWarning`)
+  - `getPreset()`, `getPresetOnlineWarning()`, `applyPreset()` (merge, unknown ID, no base)
+  - Preflight BIOS integration — blocks psx/nds/dreamcast without biosPath, passes with it; nes/gba unaffected
+- [x] Total: 336 desktop tests — all passing.
+- [x] `roadmap.md` updated with Phase 37 milestones.
