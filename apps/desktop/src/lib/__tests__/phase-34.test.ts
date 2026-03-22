@@ -60,8 +60,8 @@ describe('ACHIEVEMENT_CAPABILITIES — registry coverage', () => {
     }
   });
 
-  it('covers all "partial" systems: nds, dc, ps2, psp', () => {
-    const partial = ['nds', 'dc', 'ps2', 'psp'];
+  it('covers all "partial" systems: nds, dreamcast, ps2, psp', () => {
+    const partial = ['nds', 'dreamcast', 'ps2', 'psp'];
     for (const sys of partial) {
       expect(ACHIEVEMENT_CAPABILITIES[sys]?.level, `${sys} should be partial`).toBe('partial');
     }

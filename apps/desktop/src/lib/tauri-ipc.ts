@@ -177,6 +177,9 @@ export async function tauriLaunchEmulator(opts: {
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(opts),
   });
+  if (!res.ok) {
+    return { success: false, error: `HTTP ${res.status}` };
+  }
   return (await res.json()) as TauriLaunchResult;
 }
 
