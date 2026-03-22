@@ -162,7 +162,9 @@ function savePaths(paths: Record<string, string>): void {
 
 /** Get the user-configured executable path for an emulator backend, or null. */
 export function getEmulatorPath(backendId: string): string | null {
-  return loadPaths()[backendId] ?? null;
+  const path = loadPaths()[backendId] ?? null;
+  // Treat blank strings (e.g. from corrupted localStorage) as unconfigured.
+  return path && path.trim().length > 0 ? path : null;
 }
 
 /** Persist the executable path for an emulator backend. */

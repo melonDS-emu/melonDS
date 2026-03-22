@@ -63,8 +63,8 @@ export const ACHIEVEMENT_CAPABILITIES: Record<string, AchievementCapability> = {
     level: 'partial',
     notes: 'Limited support via RetroArch+melonDS — not all games have achievements',
   },
-  dc: {
-    system: 'dc',
+  dreamcast: {
+    system: 'dreamcast',
     level: 'partial',
     notes: 'Partial support via RetroArch+Flycast — growing library',
   },

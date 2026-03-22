@@ -221,9 +221,14 @@ export function GameDetailsPage() {
   // Fetch achievement summary for this game
   useEffect(() => {
     if (!gameId) return;
-    fetchRetroGameSummary(gameId).then((s) => {
-      setRetroSummaryCount(s ? s.totalAchievements : null);
-    });
+    fetchRetroGameSummary(gameId)
+      .then((s) => {
+        setRetroSummaryCount(s ? s.totalAchievements : null);
+      })
+      .catch(() => {
+        // Non-fatal: leave retroSummaryCount as null if the server is unavailable.
+        setRetroSummaryCount(null);
+      });
   }, [gameId]);
 
   // Navigate to lobby after room is created
