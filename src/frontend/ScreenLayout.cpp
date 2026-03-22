@@ -132,7 +132,7 @@ void ScreenLayout::Setup(int screenWidth, int screenHeight,
     HybEnable = screenLayout == 3;
     if (HybEnable)
     {
-        screenLayout = screenLayout_Natural;
+        screenLayout = screenLayout_Default;
         sizing = screenSizing_Even;
         HybScreen = swapScreens ? 1 : 0;
         swapScreens = false;
@@ -147,7 +147,7 @@ void ScreenLayout::Setup(int screenWidth, int screenHeight,
         {0, 0}, {256, 192}
     };
 
-    int layout = screenLayout == screenLayout_Natural
+    int layout = screenLayout == screenLayout_Default
         ? rotation % 2
         : screenLayout - 1;
 

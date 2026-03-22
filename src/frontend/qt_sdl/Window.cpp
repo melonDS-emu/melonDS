@@ -523,7 +523,7 @@ MainWindow::MainWindow(int id, EmuInstance* inst, QWidget* parent) :
                 QMenu * submenu = menu->addMenu("Screen layout");
                 grpScreenLayout = new QActionGroup(submenu);
 
-                const char *screenlayout[] = {"Natural", "Vertical", "Horizontal", "Hybrid"};
+                const char *screenlayout[] = {"Default", "Single Screen", "Large Screen", "Side by Side"};
 
                 for (int i = 0; i < screenLayout_MAX; i++)
                 {
@@ -537,8 +537,25 @@ MainWindow::MainWindow(int id, EmuInstance* inst, QWidget* parent) :
 
                 submenu->addSeparator();
 
+
                 actScreenSwap = submenu->addAction("Swap screens");
                 actScreenSwap->setCheckable(true);
+
+                QMenu * smallScreenMenu = submenu->addMenu("Small Screen Position");
+                grpSmallScreenPos = new QActionGroup(smallScreenMenu);
+
+                const char *smallScreenPos[] = {"Top Right", "Middle Right", "Bottom Right", "Top Left", "Middle Left", "Bottom Left", "Above", "Below"};
+
+                for (int i = 0; i < smallScreenPos_MAX; i++)
+                {
+                    actSmallScreenPos[i] = smallScreenMenu->addAction(QString(smallScreenPos[i]));
+                    actSmallScreenPos[i]->setActionGroup(grpSmallScreenPos);
+                    actSmallScreenPos[i]->setData(QVariant(i));
+                    actSmallScreenPos[i]->setCheckable(true);
+                }
+
+                connect(grpSmallScreenPos, &QActionGroup::triggered, this, &MainWindow::onChangeSmallScreenPos);
+
                 connect(actScreenSwap, &QAction::triggered, this, &MainWindow::onChangeScreenSwap);
             }
             {
@@ -2067,6 +2084,14 @@ void MainWindow::onChangeScreenLayout(QAction* act)
     windowCfg.SetInt("ScreenLayout", layout);
 
     emit screenLayoutChange();
+}
+
+void MainWindow::onChangeSmallScreenPos(QAction* act)
+{
+    // int layout = act->data().toInt();
+    // windowCfg.SetInt("ScreenLayout", layout);
+
+    // emit screenLayoutChange();
 }
 
 void MainWindow::onChangeScreenSwap(bool checked)

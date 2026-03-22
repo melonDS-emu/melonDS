@@ -198,21 +198,14 @@ QSize ScreenPanel::screenGetMinSize(int factor = 1)
         return QSize(w, h);
     }
 
-    if (screenLayout == screenLayout_Natural)
-    {
-        if (isHori)
-            return QSize(h+gap+h, w);
-        else
-            return QSize(w, h+gap+h);
-    }
-    else if (screenLayout == screenLayout_Vertical)
+    if (screenLayout == screenLayout_Default)
     {
         if (isHori)
             return QSize(h, w+gap+w);
         else
             return QSize(w, h+gap+h);
     }
-    else if (screenLayout == screenLayout_Horizontal)
+    else if (screenLayout == screenLayout_SideBySide)
     {
         if (isHori)
             return QSize(h+gap+h, w);

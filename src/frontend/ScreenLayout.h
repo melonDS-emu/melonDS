@@ -21,11 +21,24 @@
 
 enum ScreenLayoutType
 {
-    screenLayout_Natural, // top screen above bottom screen always
-    screenLayout_Vertical,
-    screenLayout_Horizontal,
-    screenLayout_Hybrid,
+    screenLayout_Default, // top screen above bottom screen always
+    screenLayout_SingleScreen,
+    screenLayout_LargeScreen,
+    screenLayout_SideBySide,
     screenLayout_MAX,
+};
+
+enum SmallScreenPosition
+{
+    smallScreenPos_TopRight,
+    smallScreenPos_MiddleRight,
+    smallScreenPos_BottomRight,
+    smallScreenPos_TopLeft,
+    smallScreenPos_MiddleLeft,
+    smallScreenPos_BottomLeft,
+    smallScreenPos_Above,
+    smallScreenPos_Below,
+    smallScreenPos_MAX,
 };
 
 enum ScreenRotation
