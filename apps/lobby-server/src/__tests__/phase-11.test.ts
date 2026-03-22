@@ -199,7 +199,7 @@ describe('AccountStore — profile lookup', () => {
     const created = store.register('lookup@example.com', 'Player1', 'pass')!;
     const profile = store.getById(created.id);
     expect(profile).not.toBeNull();
-    expect((profile as Record<string, unknown>).passwordHash).toBeUndefined();
+    expect((profile as unknown as Record<string, unknown>).passwordHash).toBeUndefined();
   });
 
   it('getById returns null for an unknown id', () => {

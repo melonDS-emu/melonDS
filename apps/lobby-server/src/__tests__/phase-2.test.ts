@@ -32,12 +32,18 @@ import type { EmulatorLifecycleEvent } from '../../../../packages/emulator-bridg
 // ---------------------------------------------------------------------------
 
 // We need a controllable fake ChildProcess for lifecycle tests
-function makeMockChild(opts: { exitImmediately?: boolean } = {}) {
-  const ee = new EventEmitter() as ReturnType<typeof makeMockChild>;
-  (ee as any).pid = 99999;
-  (ee as any).killed = false;
-  (ee as any).kill = vi.fn((signal?: string) => {
-    (ee as any).killed = true;
+type MockChild = EventEmitter & {
+  pid: number;
+  killed: boolean;
+  kill: ReturnType<typeof vi.fn>;
+};
+
+function makeMockChild(opts: { exitImmediately?: boolean } = {}): MockChild {
+  const ee = new EventEmitter() as MockChild;
+  ee.pid = 99999;
+  ee.killed = false;
+  ee.kill = vi.fn((signal?: string) => {
+    ee.killed = true;
     // Simulate graceful exit on SIGTERM (unless test opts in to "hang" behaviour)
     if (opts.exitImmediately !== false) {
       setImmediate(() => ee.emit('exit', signal === 'SIGKILL' ? null : 0));
@@ -582,7 +588,7 @@ describe('hard kill fallback', () => {
     vi.advanceTimersByTime(6000);
 
     const kills = ((mockChild as any).kill as ReturnType<typeof vi.fn>).mock.calls;
-    const sigkillCalls = kills.filter(([sig]: [string]) => sig === 'SIGKILL');
+    const sigkillCalls = kills.filter((args: unknown[]) => args[0] === 'SIGKILL');
     expect(sigkillCalls).toHaveLength(0);
     expect(events.some((e) => e.type === 'kill-forced')).toBe(false);
 

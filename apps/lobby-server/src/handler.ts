@@ -912,9 +912,10 @@ export function handleConnection(
           // Add a notification for the recipient as well
           phase8?.notifications?.add(
             inviteToId,
-            'invite',
+            'room-invite',
             `${fromDisplayName} invited you to play${invite.gameTitle ? ` ${invite.gameTitle}` : ''}!`,
-            { inviteId: invite.id, roomCode: invite.roomCode },
+            `Room code: ${invite.roomCode}`,
+            invite.id,
           );
         }
         send(ws, { type: 'invite-sent', invite });
