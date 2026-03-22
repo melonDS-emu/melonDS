@@ -998,3 +998,24 @@
 - [x] `phase-5.test.ts` updated to include `'SMS'` in `EXPECTED_SYSTEMS`
 - [x] README updated: multi-platform library list and system table now include SMS
 - [x] 68 new unit tests in `phase-33.test.ts` — 991 total passing
+
+## Phase 34 — RetroAchievements Polish & Premium UX (Complete)
+
+**Goal:** Deepen the RetroAchievements integration surface and add premium-feeling polish across the desktop app — making achievement support feel like a natural enhancement layer rather than a bolt-on feature.
+
+### What was added
+
+**New libraries**
+- [x] `achievement-capability.ts` — `AchievementCapabilityRegistry` mapping all 17 `SupportedSystem` values to `full/partial/none` support levels with honest notes. Full: nes/snes/gb/gbc/gba/n64/psx/sms/genesis. Partial: nds/dc/ps2/psp. None: gc/wii/wiiu/3ds.
+- [x] `retro-achievements-settings.ts` — localStorage-backed credential service (`getRACredentials`, `setRACredentials`, `clearRACredentials`, `isRAConnected`) for RetroAchievements.org username, API token, and hardcore-mode toggle.
+
+**Frontend additions**
+- [x] `SettingsPage.tsx` — new 🏅 "RetroAchievements Account" section: connected status badge, username/password inputs, hardcore-mode toggle, Save/Disconnect buttons, inline help text linking to retroachievements.org.
+- [x] `GameDetailsPage.tsx` — per-game achievements card after metadata: shows "not supported for this system", sign-in prompt with Settings link, or achievement count with link to `/retro-achievements`.
+- [x] `LibraryPage.tsx` — passes `showAchievementBadge` to `GameCard` for all games on achievement-capable systems.
+- [x] `GameCard.tsx` — renders a subtle gold 🏅 overlay badge when `showAchievementBadge` is true.
+- [x] `retro-achievement-service.ts` — added `fetchRetroGameSummary(gameId)` and `gamesWithAchievements()` helpers.
+
+**Tests**
+- [x] `apps/desktop/src/lib/__tests__/phase-34.test.ts` — 26 tests covering capability registry (all 17 systems, level lookups, fallback for unknown, `systemSupportsAchievements`) and RA settings (defaults, CRUD, connected/disconnected state via localStorage mock).
+- [x] Total: 223 desktop tests, 1222 lobby-server tests — all passing.

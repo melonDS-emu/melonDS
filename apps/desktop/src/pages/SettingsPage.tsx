@@ -36,6 +36,12 @@ import {
   getCrashReports,
   exportCrashReports,
 } from '../lib/crash-reporting';
+import {
+  getRACredentials,
+  setRACredentials,
+  clearRACredentials,
+  isRAConnected,
+} from '../lib/retro-achievements-settings';
 
 const SAVE_DIR_KEY = 'retro-oasis-save-directory';
 const DISPLAY_NAME_KEY = 'retro-oasis-display-name';
@@ -761,6 +767,9 @@ export function SettingsPage() {
 
       {/* Crash Reporting */}
       <CrashReportingSection />
+
+      {/* RetroAchievements */}
+      <RetroAchievementsSection />
     </div>
   );
 }
@@ -851,6 +860,151 @@ function CrashReportingSection() {
           )}
         </div>
       )}
+    </section>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// RetroAchievements Section — Phase 34
+// ---------------------------------------------------------------------------
+
+function RetroAchievementsSection() {
+  const initial = getRACredentials();
+  const [username, setUsername] = useState(initial.username);
+  const [token, setToken] = useState(initial.token);
+  const [hardcoreMode, setHardcoreMode] = useState(initial.hardcoreMode);
+  const [connected, setConnected] = useState(isRAConnected());
+  const [saved, setSaved] = useState(false);
+
+  function handleSave() {
+    setRACredentials({ username, token, hardcoreMode });
+    setConnected(isRAConnected());
+    setSaved(true);
+    setTimeout(() => setSaved(false), 2000);
+  }
+
+  function handleDisconnect() {
+    clearRACredentials();
+    setUsername('');
+    setToken('');
+    setHardcoreMode(false);
+    setConnected(false);
+  }
+
+  return (
+    <section className="mt-8 rounded-2xl p-5" style={{ backgroundColor: 'var(--color-oasis-card)' }}>
+      <h2 className="text-base font-bold mb-1" style={{ color: 'var(--color-oasis-text)' }}>
+        🏅 RetroAchievements Account
+      </h2>
+      <p className="text-xs mb-1" style={{ color: 'var(--color-oasis-text-muted)' }}>
+        Connect your RetroAchievements.org account to track achievements across supported systems.
+        Visit{' '}
+        <a
+          href="https://retroachievements.org"
+          target="_blank"
+          rel="noopener noreferrer"
+          className="underline"
+          style={{ color: 'var(--color-oasis-accent-light)' }}
+        >
+          retroachievements.org
+        </a>{' '}
+        to get your API key.
+      </p>
+
+      {/* Status badge */}
+      <div className="mb-4 mt-2">
+        <span
+          className="inline-block text-[11px] font-bold px-2.5 py-1 rounded-full"
+          style={
+            connected
+              ? { backgroundColor: 'rgba(22,163,74,0.15)', color: '#4ade80' }
+              : { backgroundColor: 'var(--color-oasis-surface)', color: 'var(--color-oasis-text-muted)' }
+          }
+        >
+          {connected ? '● Connected' : '○ Not configured'}
+        </span>
+      </div>
+
+      <div className="space-y-3">
+        <label className="block">
+          <span className="text-xs font-semibold mb-1 block" style={{ color: 'var(--color-oasis-text-muted)' }}>
+            Username
+          </span>
+          <input
+            type="text"
+            value={username}
+            onChange={(e) => setUsername(e.target.value)}
+            placeholder="Your RetroAchievements username"
+            className="w-full px-3 py-2 rounded-lg text-sm"
+            style={{
+              backgroundColor: 'var(--color-oasis-surface)',
+              color: 'var(--color-oasis-text)',
+              border: '1px solid rgba(255,255,255,0.1)',
+              outline: 'none',
+            }}
+          />
+        </label>
+
+        <label className="block">
+          <span className="text-xs font-semibold mb-1 block" style={{ color: 'var(--color-oasis-text-muted)' }}>
+            API Token
+          </span>
+          <input
+            type="password"
+            value={token}
+            onChange={(e) => setToken(e.target.value)}
+            placeholder="Your API key or web API token"
+            className="w-full px-3 py-2 rounded-lg text-sm font-mono"
+            style={{
+              backgroundColor: 'var(--color-oasis-surface)',
+              color: 'var(--color-oasis-text)',
+              border: '1px solid rgba(255,255,255,0.1)',
+              outline: 'none',
+            }}
+          />
+        </label>
+
+        <label className="flex items-center gap-3 cursor-pointer select-none">
+          <input
+            type="checkbox"
+            checked={hardcoreMode}
+            onChange={(e) => setHardcoreMode(e.target.checked)}
+            className="w-4 h-4"
+          />
+          <span className="text-sm font-medium" style={{ color: 'var(--color-oasis-text)' }}>
+            Hardcore Mode
+          </span>
+          <span className="text-xs" style={{ color: 'var(--color-oasis-text-muted)' }}>
+            (no save states or rewind — achievements worth double points)
+          </span>
+        </label>
+      </div>
+
+      <div className="flex items-center gap-3 mt-4 flex-wrap">
+        <button
+          type="button"
+          onClick={handleSave}
+          className="px-5 py-2 rounded-xl text-sm font-bold transition-transform hover:scale-[1.02] active:scale-[0.98]"
+          style={{ backgroundColor: 'var(--color-oasis-accent)', color: 'white' }}
+        >
+          {saved ? '✓ Saved!' : 'Save'}
+        </button>
+        {connected && (
+          <button
+            type="button"
+            onClick={handleDisconnect}
+            className="px-5 py-2 rounded-xl text-sm font-bold transition-opacity hover:opacity-80"
+            style={{ backgroundColor: 'var(--color-oasis-surface)', color: '#f87171', border: '1px solid rgba(230,0,18,0.3)' }}
+          >
+            Disconnect
+          </button>
+        )}
+        {saved && (
+          <span className="text-xs" style={{ color: 'var(--color-oasis-text-muted)' }}>
+            Credentials saved to local storage.
+          </span>
+        )}
+      </div>
     </section>
   );
 }

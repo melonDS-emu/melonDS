@@ -40,7 +40,7 @@ function BadgePill({ label }: { label: string }) {
   );
 }
 
-export function GameCard({ game }: { game: ApiGame }) {
+export function GameCard({ game, showAchievementBadge = false }: { game: ApiGame; showAchievementBadge?: boolean }) {
   const is4PParty = game.maxPlayers >= 4 && game.tags.includes('Party');
   const isNds = game.system === 'NDS';
   const dsBadges = isNds
@@ -71,6 +71,15 @@ export function GameCard({ game }: { game: ApiGame }) {
             style={{ backgroundColor: 'var(--color-oasis-yellow)', color: '#1a1a2e' }}
           >
             4P
+          </span>
+        )}
+        {showAchievementBadge && (
+          <span
+            className="absolute top-2 left-2 text-[9px] font-black px-1.5 py-0.5 rounded-full shadow-sm z-10"
+            style={{ backgroundColor: 'rgba(234,179,8,0.85)', color: '#1a1a2e' }}
+            title="Achievements available"
+          >
+            🏅
           </span>
         )}
         {/* System badge pinned bottom-left */}

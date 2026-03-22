@@ -207,3 +207,39 @@ export function gameIdToSystem(gameId: string): string {
   if (gameId.startsWith('psp-')) return 'PSP';
   return gameId.split('-')[0].toUpperCase();
 }
+
+/** Fetch the summary for a single game by gameId from the /games endpoint. */
+export async function fetchRetroGameSummary(gameId: string): Promise<RetroGameSummary | null> {
+  try {
+    const summaries = await fetchRetroGameSummaries();
+    return summaries.find((s) => s.gameId === gameId) ?? null;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Returns the list of gameIds that have achievement definitions in the known
+ * catalog. Derived from the titles map — no fetch required.
+ */
+export function gamesWithAchievements(): string[] {
+  return [
+    'n64-mario-kart-64',
+    'n64-super-smash-bros',
+    'nds-mario-kart-ds',
+    'nds-pokemon-diamond',
+    'gba-pokemon-emerald',
+    'gb-tetris',
+    'nes-contra',
+    'snes-super-bomberman',
+    'genesis-sonic-the-hedgehog-2',
+    'psx-crash-bandicoot',
+    'dc-sonic-adventure-2',
+    'ps2-gta-san-andreas',
+    'gbc-pokemon-crystal',
+    'psp-monster-hunter-fu',
+    'psx-castlevania-sotn',
+    'snes-secret-of-mana',
+    'psx-metal-gear-solid',
+  ];
+}

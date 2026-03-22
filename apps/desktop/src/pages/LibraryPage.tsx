@@ -8,6 +8,7 @@ import { setRomAssociation } from '../lib/rom-library';
 import { fuzzyMatchGameId } from '../lib/rom-fuzzy-match';
 import { getFavoriteIds } from '../lib/favorites-store';
 import { getRecentlyPlayed } from '../lib/recently-played';
+import { systemSupportsAchievements } from '../lib/achievement-capability';
 
 const SUCCESS_MESSAGE_DURATION_MS = 3000;
 const SYSTEMS = ['All', 'NES', 'SNES', 'GB', 'GBC', 'GBA', 'N64', 'NDS', 'GC', '3DS'];
@@ -247,7 +248,7 @@ export function LibraryPage() {
           </p>
           <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
             {favoriteGames.map((game) => (
-              <GameCard key={game.id} game={game} />
+              <GameCard key={game.id} game={game} showAchievementBadge={systemSupportsAchievements(game.system.toLowerCase())} />
             ))}
           </div>
         </section>
@@ -264,7 +265,7 @@ export function LibraryPage() {
           </p>
           <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
             {recentGames.map((game) => (
-              <GameCard key={game.id} game={game} />
+              <GameCard key={game.id} game={game} showAchievementBadge={systemSupportsAchievements(game.system.toLowerCase())} />
             ))}
           </div>
         </section>
@@ -278,7 +279,7 @@ export function LibraryPage() {
       )}
       <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
         {displayGames.map((game) => (
-          <GameCard key={game.id} game={game} />
+          <GameCard key={game.id} game={game} showAchievementBadge={systemSupportsAchievements(game.system.toLowerCase())} />
         ))}
       </div>
 
