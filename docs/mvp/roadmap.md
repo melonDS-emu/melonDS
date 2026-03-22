@@ -974,3 +974,27 @@
   - `WIILINK_CHANNELS` — length, required fields, all active, per-channel id checks, uniqueness
   - REST layer — `GET /api/wfc/providers` (3 providers), `GET /api/wfc/providers/:id` (200 + 404), `GET /api/wfc/wiilink-channels` (6 channels)
 - [x] `roadmap.md` updated with Phase 32 milestones
+
+## Phase 33 — Sega Master System (SMS) Support (Complete)
+
+**Goal:** Add Sega Master System as a first-class retro system using the same curated architecture as Genesis and other existing systems.
+
+### What was added
+
+- [x] `'sms'` added to `SupportedSystem` type in `packages/shared-types/src/systems.ts`
+- [x] `SYSTEM_INFO['sms']`: name "Sega Master System", shortName "SMS", generation 3, maxLocalPlayers 2, supportsLink false, color `#003399`
+- [x] ROM extensions `.sms`, `.gg`, `.sg` added to `ROM_EXTENSIONS` in `packages/emulator-bridge/src/scanner.ts`
+- [x] SMS adapter in `packages/emulator-bridge/src/adapters.ts`: routes through RetroArch + Genesis Plus GX (same core as Genesis), saves to `sms/<gameId>`
+- [x] `'sms'` added to RetroArch backend `systems` list in `packages/emulator-bridge/src/backends.ts`; `notes` hint updated to mention Master System/Game Gear
+- [x] `sms: 'retroarch'` default added to `emulator-settings.ts`
+- [x] 9 SMS session templates added to `packages/session-engine/src/templates.ts` (default + 8 curated games)
+- [x] 8 SMS mock games added to `apps/desktop/src/data/mock-games.ts`
+- [x] `SMSPage.tsx` created at `apps/desktop/src/pages/SMSPage.tsx` — lobby + leaderboard tabs, honest single-player messaging
+- [x] `/sms` route registered in `App.tsx`
+- [x] Master System nav entry added to sidebar in `Layout.tsx` (Systems group)
+- [x] `--gradient-sms` CSS variable added to `index.css`
+- [x] `SMS: '#003399'` color entry added to `SystemBadge.tsx`
+- [x] `retro-achievement-service.ts` updated with `sms-` game ID prefix → `'SMS'` label
+- [x] `phase-5.test.ts` updated to include `'SMS'` in `EXPECTED_SYSTEMS`
+- [x] README updated: multi-platform library list and system table now include SMS
+- [x] 68 new unit tests in `phase-33.test.ts` — 991 total passing

@@ -1413,6 +1413,130 @@ export const DEFAULT_TEMPLATES: SessionTemplateConfig[] = [
   },
 
   // =========================================================================
+  // Sega Master System — RetroArch (Genesis Plus GX core)
+  // All sessions use online-relay netplay via RetroArch's built-in
+  // --host / --connect flags. Recommended core: genesis_plus_gx_libretro.so
+  // Note: SMS does not support dedicated online play; relay-only netplay.
+  // =========================================================================
+
+  // --- Default / fallback template ---
+  {
+    id: 'sms-default-2p',
+    gameId: 'sms-default',
+    system: 'sms',
+    emulatorBackendId: 'retroarch',
+    playerCount: 2,
+    controllerMappings: defaultMappings(2),
+    saveRules: DEFAULT_SAVE_RULES,
+    netplayMode: 'online-relay',
+    latencyTarget: 100,
+  },
+
+  // --- Alex Kidd in Miracle World ---
+  {
+    id: 'sms-alex-kidd-in-miracle-world-1p',
+    gameId: 'sms-alex-kidd-in-miracle-world',
+    system: 'sms',
+    emulatorBackendId: 'retroarch',
+    playerCount: 1,
+    controllerMappings: defaultMappings(1),
+    saveRules: DEFAULT_SAVE_RULES,
+    netplayMode: 'online-relay',
+    latencyTarget: 100,
+  },
+
+  // --- Sonic the Hedgehog (SMS) ---
+  {
+    id: 'sms-sonic-the-hedgehog-1p',
+    gameId: 'sms-sonic-the-hedgehog',
+    system: 'sms',
+    emulatorBackendId: 'retroarch',
+    playerCount: 1,
+    controllerMappings: defaultMappings(1),
+    saveRules: DEFAULT_SAVE_RULES,
+    netplayMode: 'online-relay',
+    latencyTarget: 100,
+  },
+
+  // --- Wonder Boy III: The Dragon's Trap ---
+  {
+    id: 'sms-wonder-boy-iii-1p',
+    gameId: 'sms-wonder-boy-iii',
+    system: 'sms',
+    emulatorBackendId: 'retroarch',
+    playerCount: 1,
+    controllerMappings: defaultMappings(1),
+    saveRules: DEFAULT_SAVE_RULES,
+    netplayMode: 'online-relay',
+    latencyTarget: 100,
+  },
+
+  // --- Phantasy Star ---
+  {
+    id: 'sms-phantasy-star-1p',
+    gameId: 'sms-phantasy-star',
+    system: 'sms',
+    emulatorBackendId: 'retroarch',
+    playerCount: 1,
+    controllerMappings: defaultMappings(1),
+    saveRules: DEFAULT_SAVE_RULES,
+    netplayMode: 'online-relay',
+    latencyTarget: 100,
+  },
+
+  // --- Golden Axe Warrior ---
+  {
+    id: 'sms-golden-axe-warrior-1p',
+    gameId: 'sms-golden-axe-warrior',
+    system: 'sms',
+    emulatorBackendId: 'retroarch',
+    playerCount: 1,
+    controllerMappings: defaultMappings(1),
+    saveRules: DEFAULT_SAVE_RULES,
+    netplayMode: 'online-relay',
+    latencyTarget: 100,
+  },
+
+  // --- R-Type ---
+  {
+    id: 'sms-r-type-1p',
+    gameId: 'sms-r-type',
+    system: 'sms',
+    emulatorBackendId: 'retroarch',
+    playerCount: 1,
+    controllerMappings: defaultMappings(1),
+    saveRules: DEFAULT_SAVE_RULES,
+    netplayMode: 'online-relay',
+    latencyTarget: 100,
+  },
+
+  // --- Shinobi ---
+  {
+    id: 'sms-shinobi-1p',
+    gameId: 'sms-shinobi',
+    system: 'sms',
+    emulatorBackendId: 'retroarch',
+    playerCount: 1,
+    controllerMappings: defaultMappings(1),
+    saveRules: DEFAULT_SAVE_RULES,
+    netplayMode: 'online-relay',
+    latencyTarget: 100,
+  },
+
+  // --- After Burner ---
+  {
+    id: 'sms-after-burner-1p',
+    gameId: 'sms-after-burner',
+    system: 'sms',
+    emulatorBackendId: 'retroarch',
+    playerCount: 1,
+    controllerMappings: defaultMappings(1),
+    saveRules: DEFAULT_SAVE_RULES,
+    netplayMode: 'online-relay',
+    latencyTarget: 100,
+  },
+
+  // =========================================================================
   // SEGA Dreamcast templates
   // =========================================================================
 
