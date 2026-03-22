@@ -3,15 +3,26 @@ import type { ApiGame } from '../types/api';
 
 /** System cover gradients referenced via CSS variables defined in index.css. */
 const SYSTEM_GRADIENT_VAR: Record<string, string> = {
-  NES:  'var(--gradient-nes)',
-  SNES: 'var(--gradient-snes)',
-  GB:   'var(--gradient-gb)',
-  GBC:  'var(--gradient-gbc)',
-  GBA:  'var(--gradient-gba)',
-  N64:  'var(--gradient-n64)',
-  NDS:  'var(--gradient-nds)',
-  GC:   'var(--gradient-gc)',
-  '3DS': 'var(--gradient-3ds)',
+  // Nintendo
+  NES:     'var(--gradient-nes)',
+  SNES:    'var(--gradient-snes)',
+  GB:      'var(--gradient-gb)',
+  GBC:     'var(--gradient-gbc)',
+  GBA:     'var(--gradient-gba)',
+  N64:     'var(--gradient-n64)',
+  NDS:     'var(--gradient-nds)',
+  GC:      'var(--gradient-gc)',
+  Wii:     'linear-gradient(135deg, #6b7280 0%, #9ca3af 50%, #6b7280 100%)',
+  'Wii U': 'linear-gradient(135deg, #004d63 0%, #009AC7 100%)',
+  '3DS':   'var(--gradient-3ds)',
+  // Sega
+  Genesis:   'linear-gradient(135deg, #003a73 0%, #0066CC 100%)',
+  SMS:       'linear-gradient(135deg, #001a66 0%, #003399 100%)',
+  Dreamcast: 'linear-gradient(135deg, #cc4400 0%, #FF6600 100%)',
+  // Sony
+  PSX: 'linear-gradient(135deg, #404040 0%, #808080 100%)',
+  PS2: 'linear-gradient(135deg, #00254f 0%, #00439C 100%)',
+  PSP: 'linear-gradient(135deg, #0a0a0a 0%, #2a2a3a 100%)',
 };
 
 /** Badge colour config for well-known badge names. */
