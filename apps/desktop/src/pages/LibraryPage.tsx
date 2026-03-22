@@ -11,7 +11,15 @@ import { getRecentlyPlayed } from '../lib/recently-played';
 import { systemSupportsAchievements } from '../lib/achievement-capability';
 
 const SUCCESS_MESSAGE_DURATION_MS = 3000;
-const SYSTEMS = ['All', 'NES', 'SNES', 'GB', 'GBC', 'GBA', 'N64', 'NDS', 'GC', '3DS'];
+const SYSTEMS = [
+  'All',
+  // Nintendo
+  'NES', 'SNES', 'GB', 'GBC', 'GBA', 'N64', 'NDS', 'GC', 'Wii', 'Wii U', '3DS',
+  // Sega
+  'Genesis', 'SMS', 'Dreamcast',
+  // Sony
+  'PSX', 'PS2', 'PSP',
+];
 
 /** Multiplayer mode filters with friendly labels + icons. */
 const MODES: { tag: string; label: string; icon: string }[] = [

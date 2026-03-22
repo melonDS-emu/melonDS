@@ -13,6 +13,7 @@ import { SystemBadge } from '../components/SystemBadge';
 import { getAchievementCapability, systemSupportsAchievements } from '../lib/achievement-capability';
 import { fetchRetroGameSummary, gamesWithAchievements } from '../lib/retro-achievement-service';
 import { isRAConnected } from '../lib/retro-achievements-settings';
+import { resolveGameCapability, onlineSupportBadgeColor, onlineSupportIcon } from '../lib/game-capability';
 
 // ---------------------------------------------------------------------------
 // Phase 30 — rich metadata fetched from the API
@@ -85,7 +86,18 @@ function safeArtworkColor(color: string | undefined): string {
 }
 
 /** ROM file extensions used in the native file picker filter. */
-const ROM_EXTENSIONS = ['nes', 'sfc', 'smc', 'gb', 'gbc', 'gba', 'n64', 'z64', 'v64', 'nds'];
+const ROM_EXTENSIONS = [
+  // Nintendo
+  'nes', 'sfc', 'smc', 'gb', 'gbc', 'gba', 'n64', 'z64', 'v64', 'nds',
+  // Sega
+  'sms', 'gg', 'sg', 'md', 'gen', 'bin',
+  // Sony
+  'iso', 'cue', 'chd', 'pbp', 'cso',
+  // GameCube / Wii / Wii U
+  'gcm', 'wbfs', 'wud', 'wux',
+  // 3DS
+  '3ds', 'cia',
+];
 
 /** System-specific quick-start hints shown on the game detail page. */
 function getPartyHint(game: { system: string; maxPlayers: number; tags: string[] }): string | null {
@@ -125,6 +137,14 @@ const NDS_WFC_TIP =
 /** DSiWare tip shown on DSi-mode games. */
 const NDS_DSI_TIP =
   '🟦 DSi Mode: This is a DSiWare title and requires DSi BIOS files (bios7i.bin, bios9i.bin, nand.bin) in your melonDS config directory. RetroOasis launches melonDS with --dsi-mode automatically when you host a room for a DSiWare game.';
+
+/** Sega Master System tip. */
+const SMS_TIP =
+  '🕹️ Master System: This game runs via RetroArch + Genesis Plus GX — the same core as Sega Genesis titles. Standard 2-button (or D-pad-only) layout applies. Most modern gamepads work out of the box.';
+
+/** Sega Genesis tip. */
+const GENESIS_TIP =
+  '🕹️ Genesis: Configure your gamepad to use the 3-button (A, B, C) or 6-button (A, B, C, X, Y, Z) layout for the best experience. RetroArch Genesis Plus GX supports both automatically.';
 
 // ---------------------------------------------------------------------------
 // Phase 34 — Achievement summary card
@@ -332,6 +352,19 @@ export function GameDetailsPage() {
   const isNDS = game.system === 'NDS';
   const isNdsWfc = isNDS && game.tags.includes('WFC');
   const isDsiWare = isNDS && (game.isDsiWare === true || game.badges.includes('DSi Mode'));
+  const isSMS = game.system === 'SMS';
+  const isGenesis = game.system === 'Genesis';
+
+  // Resolve capability state from central model
+  const systemKey = game.system.toLowerCase();
+  const emulatorPath = getEmulatorPathForSystem(systemKey);
+  const capability = resolveGameCapability(systemKey, {
+    emulatorPath,
+    romPath: romAssoc?.romPath,
+    raConnected: isRAConnected(),
+    hasAchievementDefs: retroSummaryCount !== null,
+  });
+  const onlineBadge = onlineSupportBadgeColor(capability.onlineSupportLevel);
 
   return (
     <div className="max-w-3xl">
@@ -378,6 +411,15 @@ export function GameDetailsPage() {
                   WFC Online
                 </span>
               )}
+              {/* Online support badge derived from capability model */}
+              <span
+                className="px-2 py-0.5 rounded text-[10px] font-bold"
+                style={{ backgroundColor: onlineBadge.bg, color: onlineBadge.text }}
+                title={capability.onlineSupportNote}
+              >
+                {onlineSupportIcon(capability.onlineSupportLevel)}{' '}
+                {capability.onlineSupportLabel}
+              </span>
             </div>
             <div className="flex items-center gap-2">
               <h1 className="text-2xl font-bold mb-2 flex-1">{game.title}</h1>
@@ -444,6 +486,26 @@ export function GameDetailsPage() {
             style={{ backgroundColor: 'rgba(37,99,235,0.15)', color: '#93c5fd' }}
           >
             {NDS_WFC_TIP}
+          </div>
+        )}
+
+        {/* SMS controller tip */}
+        {isSMS && (
+          <div
+            className="mt-2 px-4 py-2 rounded-xl text-xs"
+            style={{ backgroundColor: 'var(--color-oasis-surface)', color: 'var(--color-oasis-text-muted)' }}
+          >
+            {SMS_TIP}
+          </div>
+        )}
+
+        {/* Genesis controller tip */}
+        {isGenesis && (
+          <div
+            className="mt-2 px-4 py-2 rounded-xl text-xs"
+            style={{ backgroundColor: 'var(--color-oasis-surface)', color: 'var(--color-oasis-text-muted)' }}
+          >
+            {GENESIS_TIP}
           </div>
         )}
 
@@ -691,6 +753,33 @@ export function GameDetailsPage() {
             style={{ backgroundColor: 'rgba(230,0,18,0.1)', border: '1px solid rgba(230,0,18,0.3)', color: '#f87171' }}
           >
             ⚠️ {launchError}
+          </div>
+        )}
+
+        {/* Capability notice — emulator not configured */}
+        {!capability.emulatorConfigured && launchStatus === 'idle' && (
+          <div
+            className="mt-4 px-4 py-3 rounded-xl text-xs flex items-center gap-3"
+            style={{ backgroundColor: 'rgba(245,158,11,0.1)', border: '1px solid rgba(245,158,11,0.3)', color: '#fbbf24' }}
+          >
+            <span>⚙️</span>
+            <span className="flex-1">
+              Emulator not configured for {game.system}.{' '}
+              <Link to="/settings" className="underline font-semibold" style={{ color: '#fbbf24' }}>
+                Set up in Settings → Emulator Paths
+              </Link>
+            </span>
+          </div>
+        )}
+
+        {/* Capability notice — online support context */}
+        {capability.onlineSupportLevel !== 'supported' && (
+          <div
+            className="mt-3 px-4 py-2 rounded-xl text-xs"
+            style={{ backgroundColor: onlineBadge.bg, color: onlineBadge.text }}
+          >
+            {onlineSupportIcon(capability.onlineSupportLevel)}{' '}
+            {capability.onlineSupportNote}
           </div>
         )}
 
