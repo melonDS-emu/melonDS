@@ -207,9 +207,9 @@ describe('NETPLAY_WHITELIST catalog', () => {
     expect(new Set(ids).size).toBe(ids.length);
   });
 
-  it('includes PSX, NES, SNES, GBA, N64, Genesis, NDS entries', () => {
+  it('includes PSX, NES, SNES, GBA, N64, Genesis, NDS, and Wii entries', () => {
     const systems = new Set(NETPLAY_WHITELIST.map((e) => e.system));
-    for (const sys of ['psx', 'nes', 'snes', 'gba', 'n64', 'genesis', 'nds']) {
+    for (const sys of ['psx', 'nes', 'snes', 'gba', 'n64', 'genesis', 'nds', 'wii']) {
       expect(systems.has(sys)).toBe(true);
     }
   });
@@ -228,6 +228,13 @@ describe('getNetplayEntry()', () => {
     const entry = getNetplayEntry('psx-crash-team-racing');
     expect(entry).not.toBeNull();
     expect(entry!.system).toBe('psx');
+    expect(entry!.rating).toBe('approved');
+  });
+
+  it('returns the entry for a known Wii gameId', () => {
+    const entry = getNetplayEntry('wii-mario-kart-wii');
+    expect(entry).not.toBeNull();
+    expect(entry!.system).toBe('wii');
     expect(entry!.rating).toBe('approved');
   });
 
@@ -298,6 +305,11 @@ describe('approvedGamesForSystem()', () => {
     const lower = approvedGamesForSystem('psx');
     const upper = approvedGamesForSystem('PSX');
     expect(lower.length).toBe(upper.length);
+  });
+
+  it('returns approved Wii games when present', () => {
+    const approved = approvedGamesForSystem('wii');
+    expect(approved.some((e) => e.gameId === 'wii-mario-kart-wii')).toBe(true);
   });
 
   it('returns empty array for system with no approved games', () => {

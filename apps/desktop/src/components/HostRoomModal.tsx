@@ -3,7 +3,8 @@ import { useGames } from '../lib/use-games';
 import { ROOM_THEMES, themeAccent } from '../lib/events-service';
 import { getGamePresets, type SessionPreset } from '../lib/session-presets';
 import type { CreateRoomPayload } from '../services/lobby-types';
-import { SYSTEM_ONLINE_SUPPORT, onlineSupportBadgeColor, onlineSupportIcon, onlineSupportSummary } from '../lib/game-capability';
+import { getBackendIdForSystem } from '../lib/emulator-settings';
+import { onlineSupportBadgeColor, onlineSupportIcon, onlineSupportSummary, resolveOnlineSupport } from '../lib/game-capability';
 
 const NDS_LAYOUT_KEY = 'retro-oasis-nds-screen-layout';
 /** NDS brand colour — matches systemColor used across the app for NDS games. */
@@ -57,7 +58,9 @@ export function HostRoomModal({ preselectedGameId, onConfirm, onClose }: HostRoo
 
   // Resolve online support level for the currently selected game's system
   const selectedSystemKey = selectedGame?.system?.toLowerCase() ?? '';
-  const onlineLevel = SYSTEM_ONLINE_SUPPORT[selectedSystemKey] ?? 'supported';
+  const selectedBackendId = getBackendIdForSystem(selectedSystemKey);
+  const onlineSupport = resolveOnlineSupport(selectedSystemKey, selectedBackendId);
+  const onlineLevel = onlineSupport.level;
   const onlineBadge = onlineSupportBadgeColor(onlineLevel);
 
   function handleGameChange(gameId: string) {
@@ -156,6 +159,7 @@ export function HostRoomModal({ preselectedGameId, onConfirm, onClose }: HostRoo
               <div
                 className="mt-2 px-3 py-1.5 rounded-lg text-[11px] font-semibold flex items-center gap-1.5"
                 style={{ backgroundColor: onlineBadge.bg, color: onlineBadge.text }}
+                title={onlineSupport.note}
               >
                 <span>{onlineSupportIcon(onlineLevel)}</span>
                 <span>{onlineSupportSummary(onlineLevel)}</span>

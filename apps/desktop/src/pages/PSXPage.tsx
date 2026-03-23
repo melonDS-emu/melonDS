@@ -91,12 +91,14 @@ function PSXBanner() {
       <span className="text-xl">{SYSTEM_EMOJI}</span>
       <div>
         <p className="text-sm font-bold" style={{ color: '#d1d5db' }}>
-          Sony PlayStation Relay Netplay via DuckStation
+          Sony PlayStation Rooms for DuckStation + RetroArch
         </p>
         <p className="text-xs mt-0.5" style={{ color: 'var(--color-oasis-text-muted)' }}>
-          All PSX sessions use RetroOasis TCP relay netplay with DuckStation. No port forwarding
-          required. ROM files (.bin/.cue, .iso, .chd, .pbp) are auto-detected from your library.
-          Requires PS1 BIOS image for best compatibility.
+          DuckStation is the default PSX launcher for local play, but the most reliable fully
+          synced online sessions use RetroArch with a PSX core. RetroOasis rooms handle
+          matchmaking, quick joins, and co-viewing either way. ROM files (.bin/.cue, .iso,
+          .chd, .pbp) are auto-detected from your library, and a PS1 BIOS is still recommended
+          for the best compatibility.
         </p>
       </div>
     </div>

@@ -88,12 +88,13 @@ function DolphinBanner() {
       <span className="text-xl">🐬</span>
       <div>
         <p className="text-sm font-bold" style={{ color: '#e4e4e4' }}>
-          Wii Relay Netplay via Dolphin
+          Wii Online Rooms for Dolphin + Wiimmfi
         </p>
         <p className="text-xs mt-0.5" style={{ color: 'var(--color-oasis-text-muted)' }}>
-          All Wii sessions use RetroOasis TCP relay netplay with Dolphin emulator. No port
-          forwarding required. Wii ISOs (.wbfs, .iso, .rvz) are auto-detected from your ROM
-          library — Dolphin handles the rest automatically.
+          RetroOasis rooms coordinate Dolphin sessions, surface open lobbies, and keep players in
+          sync before launch. Many Wii games still require Dolphin Netplay setup or Wiimmfi
+          patching rather than fully automatic relay netplay. Wii images (.wbfs, .iso, .rvz) are
+          auto-detected from your ROM library, and MotionPlus titles are clearly flagged below.
         </p>
       </div>
     </div>
