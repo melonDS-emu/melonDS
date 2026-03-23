@@ -15,6 +15,12 @@ import { getAchievementCapability, systemSupportsAchievements } from './achievem
 /** Indicates the level of online / room-play support for a system. */
 export type OnlineSupportLevel = 'supported' | 'experimental' | 'local-only';
 
+export interface OnlineSupportDescriptor {
+  level: OnlineSupportLevel;
+  label: string;
+  note: string;
+}
+
 /** Actions that can be surfaced for a game in the UI. */
 export type GameAction =
   | 'play'                     // Play locally
@@ -113,6 +119,44 @@ const ONLINE_NOTES: Record<string, string> = {
   psp:        'PPSSPP infrastructure mode is experimental.',
 };
 
+const BACKEND_ONLINE_OVERRIDES: Record<string, OnlineSupportDescriptor> = {
+  'psx:duckstation': {
+    level: 'experimental',
+    label: ONLINE_LABELS.experimental,
+    note:
+      'DuckStation is excellent for local PSX play, but RetroOasis cannot auto-wire true online netplay for it. Use RetroArch for synced online sessions; DuckStation rooms are best for matchmaking or co-viewing.',
+  },
+  'psx:retroarch': {
+    level: 'supported',
+    label: ONLINE_LABELS.supported,
+    note: 'RetroArch with a compatible PSX core provides the most reliable fully synced PlayStation netplay flow.',
+  },
+  'wii:dolphin': {
+    level: 'experimental',
+    label: ONLINE_LABELS.experimental,
+    note:
+      'Dolphin supports Wii multiplayer, but most online sessions still need Dolphin Netplay or Wiimmfi setup. RetroOasis rooms coordinate players and launch data; expect per-game setup work.',
+  },
+};
+
+/**
+ * Resolve online-support messaging for a system, optionally refined by the
+ * currently selected emulator backend.
+ */
+export function resolveOnlineSupport(systemId: string, backendId?: string | null): OnlineSupportDescriptor {
+  const key = systemId.toLowerCase();
+  const backendKey = backendId?.toLowerCase();
+  const override = backendKey ? BACKEND_ONLINE_OVERRIDES[`${key}:${backendKey}`] : undefined;
+  if (override) return override;
+
+  const level = SYSTEM_ONLINE_SUPPORT[key] ?? 'supported';
+  return {
+    level,
+    label: ONLINE_LABELS[level],
+    note: ONLINE_NOTES[key] ?? 'Online play availability depends on the emulator backend.',
+  };
+}
+
 // ─────────────────────────────────────────────────────────────────────────────
 // Capability resolver
 // ─────────────────────────────────────────────────────────────────────────────
@@ -126,6 +170,8 @@ export interface ResolveCapabilityOptions {
   raConnected?: boolean;
   /** Whether this game has known achievement definitions. */
   hasAchievementDefs?: boolean;
+  /** Active emulator backend used for launch/runtime messaging. */
+  backendId?: string | null;
 }
 
 /**
@@ -141,9 +187,10 @@ export function resolveGameCapability(
   const key = systemId.toLowerCase();
 
   // Online support ────────────────────────────────────────────────────────────
-  const onlineSupportLevel = SYSTEM_ONLINE_SUPPORT[key] ?? 'supported';
-  const onlineSupportLabel = ONLINE_LABELS[onlineSupportLevel];
-  const onlineSupportNote  = ONLINE_NOTES[key] ?? 'Online play availability depends on the emulator backend.';
+  const onlineSupport = resolveOnlineSupport(key, opts.backendId);
+  const onlineSupportLevel = onlineSupport.level;
+  const onlineSupportLabel = onlineSupport.label;
+  const onlineSupportNote  = onlineSupport.note;
 
   // Config state ──────────────────────────────────────────────────────────────
   const emulatorConfigured = Boolean(opts.emulatorPath);

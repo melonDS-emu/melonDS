@@ -309,6 +309,29 @@ export const NETPLAY_WHITELIST: NetplayEntry[] = [
     recommendedMaxPlayers: 4,
   },
 
+  // ── Wii ────────────────────────────────────────────────────────────────────
+  {
+    gameId: 'wii-mario-kart-wii',
+    system: 'wii',
+    rating: 'approved',
+    reason: 'Best-tested Wii online title; Dolphin + Wiimmfi is stable when everyone matches region, NAND, and controller settings.',
+    recommendedMaxPlayers: 4,
+  },
+  {
+    gameId: 'wii-super-smash-bros-brawl',
+    system: 'wii',
+    rating: 'caution',
+    reason: 'Works online, but Brawl is delay-based and benefits from conservative buffer settings plus identical Gecko/Wiimmfi patch state.',
+    recommendedMaxPlayers: 4,
+  },
+  {
+    gameId: 'wii-new-super-mario-bros-wii',
+    system: 'wii',
+    rating: 'caution',
+    reason: 'Co-op is playable in Dolphin Netplay, but physics interactions and bubble-respawn timing can drift during long sessions.',
+    recommendedMaxPlayers: 4,
+  },
+
   // ── PSP ────────────────────────────────────────────────────────────────────
   {
     gameId: 'psp-monster-hunter-freedom-unite',

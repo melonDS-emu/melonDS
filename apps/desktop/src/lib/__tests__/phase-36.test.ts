@@ -9,6 +9,7 @@
 import { describe, it, expect, vi } from 'vitest';
 import {
   resolveGameCapability,
+  resolveOnlineSupport,
   SYSTEM_ONLINE_SUPPORT,
   onlineSupportBadgeColor,
   type OnlineSupportLevel,
@@ -164,6 +165,12 @@ describe('resolveGameCapability', () => {
     expect(cap.onlineSupportLevel).toBe('supported');
   });
 
+  it('downgrades PSX online messaging when using DuckStation', () => {
+    const cap = resolveGameCapability('psx', { backendId: 'duckstation' });
+    expect(cap.onlineSupportLevel).toBe('experimental');
+    expect(cap.onlineSupportNote).toMatch(/RetroArch/i);
+  });
+
   it('canHostRoom and canJoinRoom are always true', () => {
     for (const sys of ['nes', 'wiiu', '3ds', 'psp']) {
       const cap = resolveGameCapability(sys, {});
@@ -176,6 +183,20 @@ describe('resolveGameCapability', () => {
     const cap = resolveGameCapability('unknown-system', {});
     expect(cap.onlineSupportLevel).toBe('supported'); // fallback
     expect(cap.onlineSupportNote).toBeTruthy();
+  });
+});
+
+describe('resolveOnlineSupport', () => {
+  it('keeps PSX supported when using RetroArch', () => {
+    const online = resolveOnlineSupport('psx', 'retroarch');
+    expect(online.level).toBe('supported');
+    expect(online.note).toMatch(/RetroArch/i);
+  });
+
+  it('flags Wii + Dolphin as setup-heavy experimental online', () => {
+    const online = resolveOnlineSupport('wii', 'dolphin');
+    expect(online.level).toBe('experimental');
+    expect(online.note).toMatch(/Wiimmfi|Dolphin Netplay/i);
   });
 });
 
@@ -316,6 +337,20 @@ describe('runLaunchPreflight', () => {
     });
     expect(result.issues.find((c) => c.id.startsWith('online-'))).toBeUndefined();
     expect(result.canLaunch).toBe(true);
+  });
+
+  it('warns that DuckStation PSX online sessions still need RetroArch for fully synced netplay', () => {
+    const result = runLaunchPreflight({
+      system: 'psx',
+      mode: 'online',
+      backendId: 'duckstation',
+      romPath: '/roms/crash.cue',
+      emulatorPath: '/usr/bin/duckstation-qt',
+      biosPath: '/bios/scph1001.bin',
+    });
+    const check = result.issues.find((c) => c.id === 'online-experimental');
+    expect(check?.status).toBe('warning');
+    expect(check?.message).toMatch(/RetroArch/i);
   });
 
   it('blocks with two issues when both ROM and emulator are missing', () => {

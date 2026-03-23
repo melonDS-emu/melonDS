@@ -10,7 +10,7 @@
  *   blocked — launch cannot proceed until resolved
  */
 
-import { SYSTEM_ONLINE_SUPPORT, type OnlineSupportLevel } from './game-capability';
+import { resolveOnlineSupport, type OnlineSupportLevel } from './game-capability';
 import { systemSupportsAchievements } from './achievement-capability';
 import { systemRequiresBios } from './bios-validator';
 
@@ -55,6 +55,8 @@ export interface LaunchPreflightOptions {
   romPath?: string | null;
   /** Emulator executable path, or null if not configured. */
   emulatorPath?: string | null;
+  /** Active backend used for launch/runtime messaging. */
+  backendId?: string | null;
   /**
    * Path to the required BIOS file for this system, or null when not provided.
    * Only checked when `systemRequiresBios(system)` returns true.
@@ -140,9 +142,9 @@ export function runLaunchPreflight(opts: LaunchPreflightOptions): LaunchPrefligh
 
   // ── 4. Online support (online mode only) ───────────────────────────────────
   if (opts.mode === 'online') {
-    const level = SYSTEM_ONLINE_SUPPORT[systemKey] ?? 'supported';
+    const { level, note } = resolveOnlineSupport(systemKey, opts.backendId);
     if (level === 'local-only' || level === 'experimental') {
-      warn(`online-${level}`, buildOnlineWarning(level, systemKey));
+      warn(`online-${level}`, note || buildOnlineWarning(level, systemKey));
     } else {
       pass('online-supported');
     }

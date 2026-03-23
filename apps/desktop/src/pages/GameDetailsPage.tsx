@@ -358,8 +358,10 @@ export function GameDetailsPage() {
   // Resolve capability state from central model
   const systemKey = game.system.toLowerCase();
   const emulatorPath = getEmulatorPathForSystem(systemKey);
+  const backendId = getBackendIdForSystem(systemKey);
   const capability = resolveGameCapability(systemKey, {
     emulatorPath,
+    backendId,
     romPath: romAssoc?.romPath,
     raConnected: isRAConnected(),
     hasAchievementDefs: retroSummaryCount !== null,
