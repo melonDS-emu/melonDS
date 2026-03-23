@@ -1,4 +1,4 @@
-import { useState, useCallback, useRef, type KeyboardEvent, type MouseEvent, type FormEvent } from 'react';
+import { useState, useCallback, useRef, useMemo, type KeyboardEvent, type MouseEvent, type FormEvent } from 'react';
 import {
   getRomDirectory,
   setRomDirectory,
@@ -21,6 +21,7 @@ import {
 } from '../lib/touch-calibration';
 import type { DsTouchCalibration } from '../lib/touch-calibration';
 import { tauriPickDirectory, isTauri } from '../lib/tauri-ipc';
+import { isWindowsPlatform } from '../lib/platform';
 import {
   EMULATOR_NAMES,
   EMULATOR_DEFAULT_PATHS,
@@ -50,6 +51,10 @@ const profileManager = new InputProfileManager();
 const DEFAULT_PROFILES = profileManager.listAll();
 
 const SYSTEMS_WITH_PROFILES: string[] = [...new Set(DEFAULT_PROFILES.map((p) => p.system.toUpperCase()))];
+const WINDOWS_ROM_PLACEHOLDER = 'C:\\RetroOasis\\ROMs';
+const WINDOWS_SAVE_PLACEHOLDER = 'C:\\RetroOasis\\Saves';
+const POSIX_ROM_PLACEHOLDER = '/home/user/roms';
+const POSIX_SAVE_PLACEHOLDER = '/home/user/saves';
 
 function bindingLabel(b: InputBinding): string {
   if (b.key)    return b.key.replace(/^key\(/, '').replace(/\)$/, '').toUpperCase();
@@ -463,6 +468,7 @@ function DsTouchCalibrationPanel() {
 }
 
 export function SettingsPage() {
+  const isWindows = useMemo(() => isWindowsPlatform(), []);
   const [romDir, setRomDir] = useState(getRomDirectory);
   const [saveDir, setSaveDirState] = useState(
     () => localStorage.getItem(SAVE_DIR_KEY) ?? ''
@@ -568,7 +574,7 @@ export function SettingsPage() {
           </h2>
           <p className="text-xs mb-4" style={{ color: 'var(--color-oasis-text-muted)' }}>
             These paths are used when auto-launching your emulator after a session starts.
-            Enter the absolute path to the folder that contains your ROM files.
+            Enter the absolute path to the folder that contains your ROM files. Windows 11 users usually want a folder under Documents or a dedicated game library.
           </p>
 
           <div className="space-y-4">
@@ -581,7 +587,7 @@ export function SettingsPage() {
                   type="text"
                   value={romDir}
                   onChange={(e) => setRomDir(e.target.value)}
-                  placeholder="/home/user/roms  or  C:\ROMs"
+                  placeholder={isWindows ? WINDOWS_ROM_PLACEHOLDER : POSIX_ROM_PLACEHOLDER}
                   className="flex-1 px-3 py-2 rounded-lg text-sm font-mono"
                   style={{
                     backgroundColor: 'var(--color-oasis-surface)',
@@ -619,7 +625,7 @@ export function SettingsPage() {
                   type="text"
                   value={saveDir}
                   onChange={(e) => setSaveDirState(e.target.value)}
-                  placeholder="/home/user/saves  or  C:\Saves"
+                  placeholder={isWindows ? WINDOWS_SAVE_PLACEHOLDER : POSIX_SAVE_PLACEHOLDER}
                   className="flex-1 px-3 py-2 rounded-lg text-sm font-mono"
                   style={{
                     backgroundColor: 'var(--color-oasis-surface)',
@@ -717,7 +723,13 @@ export function SettingsPage() {
         </p>
 
         <div className="space-y-3">
-          {Object.entries(EMULATOR_NAMES).map(([backendId, displayName]) => (
+          {Object.entries(EMULATOR_NAMES).map(([backendId, displayName]) => {
+            const suggestedPaths = EMULATOR_DEFAULT_PATHS[backendId] ?? [];
+            const orderedSuggestedPaths = isWindows
+              ? [...suggestedPaths].sort((a, b) => Number(b.includes('\\')) - Number(a.includes('\\')) )
+              : [...suggestedPaths].sort((a, b) => Number(a.includes('\\')) - Number(b.includes('\\')) );
+
+            return (
             <label key={backendId} className="block">
               <span className="text-xs font-semibold mb-1 block" style={{ color: 'var(--color-oasis-text-muted)' }}>
                 {displayName}
@@ -727,10 +739,7 @@ export function SettingsPage() {
                 value={emulatorPathDrafts[backendId] ?? ''}
                 onChange={(e) => handleEmulatorPathChange(backendId, e.target.value)}
                 onBlur={() => handleEmulatorPathBlur(backendId)}
-                placeholder={
-                  (EMULATOR_DEFAULT_PATHS[backendId] ?? [])[0] ??
-                  `/usr/bin/${backendId}`
-                }
+                placeholder={orderedSuggestedPaths[0] ?? `/usr/bin/${backendId}`}
                 className="w-full px-3 py-2 rounded-lg text-sm font-mono"
                 style={{
                   backgroundColor: 'var(--color-oasis-surface)',
@@ -739,13 +748,14 @@ export function SettingsPage() {
                   outline: 'none',
                 }}
               />
-              {(EMULATOR_DEFAULT_PATHS[backendId] ?? []).length > 0 && (
+              {orderedSuggestedPaths.length > 0 && (
                 <p className="text-[10px] mt-0.5" style={{ color: 'var(--color-oasis-text-muted)', opacity: 0.6 }}>
-                  Common paths: {(EMULATOR_DEFAULT_PATHS[backendId] ?? []).join(' · ')}
+                  Common paths: {orderedSuggestedPaths.join(' · ')}
                 </p>
               )}
             </label>
-          ))}
+            );
+          })}
         </div>
 
         <div className="flex items-center gap-3 mt-4">

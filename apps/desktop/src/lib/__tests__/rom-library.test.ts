@@ -16,7 +16,7 @@ import {
   getAllAssociations,
   resolveGameRomPath,
 } from '../rom-library';
-import { setRomDirectory } from '../rom-settings';
+import { setRomDirectory, buildRomPath } from '../rom-settings';
 
 // ---------------------------------------------------------------------------
 // Minimal localStorage mock for the Node test environment
@@ -139,5 +139,27 @@ describe('resolveGameRomPath', () => {
     setRomDirectory('/home/user/roms');
     setRomAssociation('snes-super-mario-world', '/specific/smw.sfc');
     expect(resolveGameRomPath('snes-super-mario-world')).toBe('/specific/smw.sfc');
+  });
+});
+
+
+describe('buildRomPath', () => {
+  beforeEach(() => {
+    mockLocalStorage.clear();
+  });
+
+  it('joins POSIX paths with forward slashes', () => {
+    setRomDirectory('/home/user/roms');
+    expect(buildRomPath('mario.nds')).toBe('/home/user/roms/mario.nds');
+  });
+
+  it('joins Windows paths with backslashes', () => {
+    setRomDirectory('C:\\RetroOasis\\ROMs');
+    expect(buildRomPath('mario.nds')).toBe('C:\\RetroOasis\\ROMs\\mario.nds');
+  });
+
+  it('does not duplicate trailing separators', () => {
+    setRomDirectory('C:\\RetroOasis\\ROMs\\');
+    expect(buildRomPath('mario.nds')).toBe('C:\\RetroOasis\\ROMs\\mario.nds');
   });
 });

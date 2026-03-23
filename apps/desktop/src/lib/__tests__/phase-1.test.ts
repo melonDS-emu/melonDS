@@ -211,6 +211,13 @@ describe('emulator-settings', () => {
     expect(getBackendIdForSystem('atari')).toBeNull();
   });
 
+
+  it('includes Windows executable hints for key desktop emulators', () => {
+    expect(EMULATOR_DEFAULT_PATHS['mgba']).toContain('C:\\Program Files\\mGBA\\mGBA.exe');
+    expect(EMULATOR_DEFAULT_PATHS['melonds']).toContain('C:\\Program Files\\melonDS\\melonDS.exe');
+    expect(EMULATOR_DEFAULT_PATHS['dolphin']).toContain('C:\\Program Files\\Dolphin\\Dolphin.exe');
+  });
+
   it('SYSTEM_BACKEND_MAP covers all primary Phase-1 systems', () => {
     const required = ['gba', 'nes', 'snes', 'gb', 'gbc'];
     for (const sys of required) {
