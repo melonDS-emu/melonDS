@@ -10,7 +10,7 @@
  * Accessible at /setup. After completion, redirects to /.
  */
 
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   markFirstRunComplete,
@@ -29,6 +29,8 @@ import {
   enableCrashReporting,
   disableCrashReporting,
 } from '../lib/crash-reporting';
+import { isWindowsPlatform } from '../lib/platform';
+import { tauriPickDirectory, isTauri } from '../lib/tauri-ipc';
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -138,6 +140,7 @@ function Step1DisplayName({
 }
 
 function Step2EmulatorPaths({ onNext }: { onNext: () => void }) {
+  const isWindows = useMemo(() => isWindowsPlatform(), []);
   // Get unique backends from the system map
   const backends = [...new Set(Object.values(SYSTEM_BACKEND_MAP))].sort();
   const [paths, setPaths] = useState<Record<string, string>>(() => {
@@ -161,9 +164,15 @@ function Step2EmulatorPaths({ onNext }: { onNext: () => void }) {
         Enter the path to each emulator's executable. You can skip any you haven't installed.
       </p>
       <div className="flex flex-col gap-3 max-h-64 overflow-y-auto pr-1">
-        {backends.map((backend) => (
-          <div key={backend}>
-            <label
+        {backends.map((backend) => {
+          const suggestedPaths = EMULATOR_DEFAULT_PATHS[backend] ?? [];
+          const preferredPlaceholder = isWindows
+            ? suggestedPaths.find((path) => path.includes('\\')) ?? suggestedPaths[0] ?? 'path/to/executable'
+            : suggestedPaths.find((path) => !path.includes('\\')) ?? suggestedPaths[0] ?? 'path/to/executable';
+
+          return (
+            <div key={backend}>
+              <label
               className="block text-xs font-semibold mb-1 uppercase tracking-wide"
               style={{ color: 'var(--color-oasis-text-muted)' }}
             >
@@ -171,7 +180,7 @@ function Step2EmulatorPaths({ onNext }: { onNext: () => void }) {
             </label>
             <input
               type="text"
-              placeholder={EMULATOR_DEFAULT_PATHS[backend]?.[0] ?? 'path/to/executable'}
+              placeholder={preferredPlaceholder}
               value={paths[backend] ?? ''}
               onChange={(e) => setPaths((p) => ({ ...p, [backend]: e.target.value }))}
               className="w-full px-3 py-1.5 rounded-lg text-sm"
@@ -183,8 +192,14 @@ function Step2EmulatorPaths({ onNext }: { onNext: () => void }) {
                 fontFamily: 'monospace',
               }}
             />
-          </div>
-        ))}
+            {suggestedPaths.length > 0 && (
+              <p className="text-[10px] mt-1 leading-relaxed" style={{ color: 'var(--color-oasis-text-muted)' }}>
+                Suggested locations: {suggestedPaths.join(' · ')}
+              </p>
+            )}
+            </div>
+          );
+        })}
       </div>
       <button
         onClick={handleSave}
@@ -205,7 +220,13 @@ function Step2EmulatorPaths({ onNext }: { onNext: () => void }) {
 }
 
 function Step3RomDirectory({ onNext }: { onNext: (dir: string) => void }) {
+  const isWindows = useMemo(() => isWindowsPlatform(), []);
   const [dir, setDir] = useState('');
+
+  const placeholder = isWindows ? 'C:\\RetroOasis\\ROMs' : '/home/user/ROMs';
+  const helperText = isWindows
+    ? 'Tip: folders under Documents or a dedicated ROMs library tend to avoid Windows permission prompts.'
+    : 'Tip: point this at the top-level folder that contains your ROM collection.';
 
   return (
     <div className="flex flex-col gap-4">
@@ -219,22 +240,44 @@ function Step3RomDirectory({ onNext }: { onNext: (dir: string) => void }) {
         >
           ROM Directory Path
         </label>
-        <input
-          type="text"
-          placeholder={navigator.platform.startsWith('Win') ? 'C:\\ROMs' : '/home/user/ROMs'}
-          value={dir}
-          onChange={(e) => setDir(e.target.value)}
-          className="w-full px-4 py-2 rounded-lg text-sm"
-          style={{
-            background: 'var(--color-oasis-card)',
-            border: '1px solid var(--color-oasis-border)',
-            color: 'var(--color-oasis-text)',
-            outline: 'none',
-            fontFamily: 'monospace',
-          }}
-        />
+        <div className="flex gap-2">
+          <input
+            type="text"
+            placeholder={placeholder}
+            value={dir}
+            onChange={(e) => setDir(e.target.value)}
+            className="w-full px-4 py-2 rounded-lg text-sm"
+            style={{
+              background: 'var(--color-oasis-card)',
+              border: '1px solid var(--color-oasis-border)',
+              color: 'var(--color-oasis-text)',
+              outline: 'none',
+              fontFamily: 'monospace',
+            }}
+          />
+          {isTauri() && (
+            <button
+              type="button"
+              onClick={async () => {
+                const result = await tauriPickDirectory();
+                if (result.path) setDir(result.path);
+              }}
+              className="px-3 py-2 rounded-lg text-xs font-semibold flex-shrink-0 transition-opacity hover:opacity-80"
+              style={{
+                background: 'var(--color-oasis-card)',
+                color: 'var(--color-oasis-text-muted)',
+                border: '1px solid var(--color-oasis-border)',
+              }}
+            >
+              📂 Browse
+            </button>
+          )}
+        </div>
         <p className="text-xs mt-1" style={{ color: 'var(--color-oasis-text-muted)' }}>
           Subdirectories are scanned recursively. Supported file types include .nes, .sfc, .gba, .n64, .nds, .iso, and more.
+        </p>
+        <p className="text-xs mt-1" style={{ color: 'var(--color-oasis-text-muted)' }}>
+          {helperText}
         </p>
       </div>
 

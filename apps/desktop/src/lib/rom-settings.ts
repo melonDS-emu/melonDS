@@ -24,13 +24,20 @@ export function setSaveDirectory(path: string): void {
   localStorage.setItem(SAVE_DIR_KEY, path.trim());
 }
 
+function inferPathSeparator(path: string): '/' | '\\' {
+  if (path.includes('\\')) return '\\';
+  return '/';
+}
+
 /**
  * Build the full path to a ROM file given its filename.
  * If no directory is configured, returns the filename as-is.
  */
 export function buildRomPath(filename: string): string {
-  const dir = getRomDirectory();
+  const dir = getRomDirectory().trim();
   if (!dir) return filename;
-  const sep = dir.endsWith('/') || dir.endsWith('\\') ? '' : '/';
-  return `${dir}${sep}${filename}`;
+
+  const separator = inferPathSeparator(dir);
+  const normalizedDir = dir.replace(/[\\/]+$/, '');
+  return `${normalizedDir}${separator}${filename}`;
 }
