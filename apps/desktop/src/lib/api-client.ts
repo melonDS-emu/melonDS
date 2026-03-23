@@ -72,6 +72,34 @@ function normalizeMockGame(g: (typeof MOCK_GAMES)[number]): ApiGame {
   };
 }
 
+/**
+ * Normalise a raw server game response into the canonical `ApiGame` shape.
+ *
+ * The lobby-server's `/api/games` endpoint returns `SeedGame` records that
+ * use lowercase system keys and lack `coverEmoji`/`systemColor`. This function
+ * fills in the missing fields so the client always receives a complete
+ * `ApiGame` regardless of which data source is active.
+ */
+function normalizeServerGame(g: Record<string, unknown>): ApiGame {
+  const sys = normalizeSystem((g.system as string | undefined) ?? '');
+  return {
+    id: (g.id as string) ?? '',
+    title: (g.title as string) ?? '',
+    system: sys,
+    systemColor: (g.systemColor as string | undefined) ?? SYSTEM_COLORS[sys] ?? '#7c5cbf',
+    maxPlayers: (g.maxPlayers as number | undefined) ?? 2,
+    tags: (g.tags as string[] | undefined) ?? [],
+    badges: (g.badges as string[] | undefined) ?? [],
+    description: (g.description as string | undefined) ?? '',
+    coverEmoji: (g.coverEmoji as string | undefined) ?? COVER_EMOJI_FALLBACK[sys] ?? '🎮',
+    supportsPublicLobby: (g.supportsPublicLobby as boolean | undefined) ?? true,
+    supportsPrivateLobby: (g.supportsPrivateLobby as boolean | undefined) ?? true,
+    onlineRecommended: (g.onlineRecommended as boolean | undefined) ?? false,
+    compatibilityNotes: (g.compatibilityNotes as string[] | undefined) ?? [],
+    isDsiWare: (g.isDsiWare as boolean | undefined),
+  };
+}
+
 // ---------------------------------------------------------------------------
 // Retry helper
 // ---------------------------------------------------------------------------
@@ -111,7 +139,7 @@ export class GameApiClient {
     this.mode =
       (mode as ApiMode | undefined) ??
       (import.meta.env?.VITE_API_MODE as ApiMode | undefined) ??
-      'mock';
+      'hybrid';
     this.backendUrl =
       backendUrl ??
       (import.meta.env?.VITE_BACKEND_URL as string | undefined) ??
@@ -222,7 +250,8 @@ export class GameApiClient {
     const res = await fetchWithRetry(
       `${this.backendUrl}/api/games${qs ? `?${qs}` : ''}`,
     );
-    return (await res.json()) as ApiGame[];
+    const raw = (await res.json()) as Record<string, unknown>[];
+    return raw.map(normalizeServerGame);
   }
 
   private async fetchGameById(id: string): Promise<ApiGame | null> {
@@ -230,7 +259,7 @@ export class GameApiClient {
       const res = await fetchWithRetry(
         `${this.backendUrl}/api/games/${encodeURIComponent(id)}`,
       );
-      return (await res.json()) as ApiGame;
+      return normalizeServerGame((await res.json()) as Record<string, unknown>);
     } catch {
       return null;
     }
@@ -240,7 +269,8 @@ export class GameApiClient {
     const res = await fetchWithRetry(
       `${this.backendUrl}/api/games/search?q=${encodeURIComponent(text)}`,
     );
-    return (await res.json()) as ApiGame[];
+    const raw = (await res.json()) as Record<string, unknown>[];
+    return raw.map(normalizeServerGame);
   }
 
   private async fetchSystems(): Promise<string[]> {

@@ -1,11 +1,11 @@
 import { useState, useEffect, useRef, useMemo, type FormEvent } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useLobby } from '../context/LobbyContext';
-import { MOCK_GAMES } from '../data/mock-games';
 import type { ConnectionQuality } from '../services/lobby-types';
 import { DSControlsGuide } from '../components/DSControlsGuide';
 import { useVoiceChat } from '../lib/voice-chat';
 import { themeGradient, themeAccent, themeLabel } from '../lib/events-service';
+import { useGame } from '../lib/use-games';
 
 function qualityDot(quality: ConnectionQuality): { color: string; label: string; text: string } {
   switch (quality) {
@@ -94,6 +94,9 @@ export function LobbyPage() {
   );
   const voiceChat = useVoiceChat(ws, playerId ?? '', peerIds);
 
+  // Resolve game metadata from the API catalog (works with server or mock fallback)
+  const { data: gameData } = useGame(currentRoom?.gameId ?? '');
+
   // Auto-join if we navigated directly to a lobby URL
   useEffect(() => {
     if (lobbyId && !currentRoom) {
@@ -163,8 +166,7 @@ export function LobbyPage() {
   const allReady = room.players.length >= 1 && room.players.every((p) => p.readyState === 'ready');
   const myQuality = qualityDot(myPlayer?.connectionQuality ?? 'unknown');
 
-  // Game metadata for context card
-  const gameData = MOCK_GAMES.find((g) => g.id === room.gameId);
+  // Game metadata for context card (resolved by useGame hook above)
   const sessionHint = getSessionHint(room.system, room.maxPlayers, room.gameTitle, gameData?.isDsiWare);
   const slotsNeeded = room.maxPlayers - room.players.length;
   const isNds = room.system === 'nds' || room.system === 'NDS';

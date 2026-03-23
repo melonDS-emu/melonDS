@@ -1,5 +1,7 @@
 import * as http from 'http';
 import * as url from 'url';
+import * as fs from 'fs';
+import * as path from 'path';
 import { WebSocketServer } from 'ws';
 import { LobbyManager } from './lobby-manager';
 import { SqliteLobbyManager } from './sqlite-lobby-manager';
@@ -224,12 +226,67 @@ async function httpHandler(req: http.IncomingMessage, res: http.ServerResponse):
       system,
       backendId,
       // Fall back to the ROM file's directory when no save directory is given
-      saveDirectory: saveDirectory || romPath.replace(/[/\\][^/\\]+$/, '') || romPath,
+      saveDirectory: saveDirectory || path.dirname(romPath),
       playerSlot: typeof playerSlot === 'number' ? playerSlot : 0,
       netplayHost: typeof netplayHost === 'string' ? netplayHost : undefined,
       netplayPort: typeof netplayPort === 'number' ? netplayPort : undefined,
       fullscreen: fullscreen ?? false,
       sessionToken: typeof sessionToken === 'string' ? sessionToken : undefined,
+    });
+
+    json(res, result.success ? 200 : 500, result);
+    return;
+  }
+
+  // -------------------------------------------------------------------------
+  // Single-player local launch  (POST /api/launch/local)
+  // HTTP fallback for tauriLaunchLocal() when running outside Tauri.
+  // -------------------------------------------------------------------------
+
+  if (req.method === 'POST' && req.url === '/api/launch/local') {
+    let body: Record<string, unknown>;
+    try {
+      const raw = await readBody(req);
+      body = JSON.parse(raw) as Record<string, unknown>;
+    } catch {
+      json(res, 400, { success: false, error: 'Invalid JSON body' });
+      return;
+    }
+
+    const {
+      emulatorPath,
+      romPath,
+      system,
+      backendId,
+      saveDirectory,
+      fullscreen,
+    } = body as {
+      emulatorPath?: string;
+      romPath?: string;
+      system?: string;
+      backendId?: string;
+      saveDirectory?: string;
+      fullscreen?: boolean;
+    };
+
+    if (!emulatorPath || !romPath || !system || !backendId) {
+      json(res, 400, { success: false, error: 'emulatorPath, romPath, system, and backendId are required' });
+      return;
+    }
+
+    // Verify the ROM file exists before attempting launch.
+    if (!fs.existsSync(romPath)) {
+      json(res, 400, { success: false, error: `ROM file not found: ${romPath}` });
+      return;
+    }
+
+    const result = await emulatorBridge.launch({
+      romPath,
+      system,
+      backendId,
+      saveDirectory: saveDirectory || path.dirname(romPath),
+      playerSlot: 0,
+      fullscreen: fullscreen ?? false,
     });
 
     json(res, result.success ? 200 : 500, result);
@@ -299,6 +356,22 @@ async function httpHandler(req: http.IncomingMessage, res: http.ServerResponse):
     } catch (err) {
       json(res, 500, { error: `Scan failed: ${String(err)}` });
     }
+    return;
+  }
+
+  // -------------------------------------------------------------------------
+  // File-system helpers  (GET /api/fs/exists?path=<file>)
+  // HTTP fallback for tauriCheckFileExists() when running outside Tauri.
+  // -------------------------------------------------------------------------
+
+  if (req.method === 'GET' && pathname === '/api/fs/exists') {
+    const { path: filePath } = parsedUrl.query;
+    if (!filePath || typeof filePath !== 'string') {
+      json(res, 400, { error: 'Query param "path" is required' });
+      return;
+    }
+    const exists = fs.existsSync(filePath);
+    json(res, 200, { exists });
     return;
   }
 

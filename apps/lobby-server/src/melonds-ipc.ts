@@ -6,24 +6,28 @@
  * protocol** that will connect the TypeScript launcher / lobby server to the
  * C++ core once the native build and IPC channel are in place.
  *
- * ## Carry-over blocker
- * Full C++ build integration and IPC plumbing are an explicit Phase 3 blocker.
- * The remaining work is:
- *   1. Integrate the CMake build (`CMakeLists.txt`) into the npm workspace so
- *      `npm run build` (or a Tauri build hook) also compiles the C++ core.
- *   2. Implement the IPC server in C++ (Unix domain socket or named pipe).
- *   3. Replace this stub implementation with a real socket client.
- *   4. Wire Tauri's sidecar or child_process launch into the bridge so the
- *      TypeScript side can start and control the melonDS process.
- *
- * ## IPC transport
- * The planned transport is a Unix domain socket (Linux/macOS) or a named pipe
- * (Windows). The C++ side will bind to a well-known path derived from the
- * session ID so multiple instances can coexist.
+ * ## Transport
+ * The bridge communicates over a Unix domain socket (Linux/macOS) or a named
+ * pipe (Windows). Messages are newline-delimited JSON objects.
  *
  * Socket path convention: `/tmp/retro-oasis-melonds-<sessionId>.sock`
  * Windows pipe name:      `\\.\pipe\retro-oasis-melonds-<sessionId>`
+ *
+ * ## Usage
+ * ```ts
+ * const bridge = createMelonDsIpc('session-123');
+ * await bridge.connect('session-123');
+ * await bridge.send({ type: 'launch', romPath: '/path/to/game.nds', saveDirectory: '/saves' });
+ * await bridge.disconnect();
+ * ```
+ *
+ * Use `createMelonDsIpc(sessionId, { forceStub: true })` in tests/CI to
+ * skip the real socket and use the no-op stub instead.
  */
+
+import * as net from 'net';
+import * as os from 'os';
+import * as path from 'path';
 
 // ---------------------------------------------------------------------------
 // Protocol message types
@@ -75,6 +79,165 @@ export interface MelonDsIpcBridge {
 }
 
 // ---------------------------------------------------------------------------
+// Socket path helpers
+// ---------------------------------------------------------------------------
+
+/**
+ * Returns the platform-appropriate IPC socket path or pipe name for the given
+ * session ID.
+ *
+ * - Linux/macOS: `/tmp/retro-oasis-melonds-<sessionId>.sock`
+ * - Windows:     `\\.\pipe\retro-oasis-melonds-<sessionId>`
+ */
+export function melonDsSocketPath(sessionId: string): string {
+  if (os.platform() === 'win32') {
+    return `\\\\.\\pipe\\retro-oasis-melonds-${sessionId}`;
+  }
+  return path.join(os.tmpdir(), `retro-oasis-melonds-${sessionId}.sock`);
+}
+
+// ---------------------------------------------------------------------------
+// Real socket bridge implementation
+// ---------------------------------------------------------------------------
+
+/** Timeout (ms) to wait for a response from the C++ core per command. */
+const RESPONSE_TIMEOUT_MS = 5000;
+
+/** Maximum time (ms) to wait while connecting to the socket before failing. */
+const CONNECT_TIMEOUT_MS = 3000;
+
+/**
+ * `MelonDsSocketBridge` is the production IPC implementation.
+ *
+ * It opens a Unix domain socket (or Windows named pipe) to a running
+ * melonDS process, sends newline-delimited JSON commands, and parses
+ * the newline-delimited JSON responses.
+ *
+ * Call `connect(sessionId)` first, then `send(command)` for each
+ * interaction, and `disconnect()` to clean up.
+ */
+export class MelonDsSocketBridge implements MelonDsIpcBridge {
+  private _socket: net.Socket | null = null;
+  private _buffer = '';
+  private _pending: Map<number, {
+    resolve: (r: MelonDsResponse) => void;
+    reject: (e: Error) => void;
+    timer: ReturnType<typeof setTimeout>;
+  }> = new Map();
+  private _seq = 0;
+
+  get isConnected(): boolean {
+    return this._socket !== null && !this._socket.destroyed;
+  }
+
+  async connect(sessionId: string): Promise<void> {
+    const socketPath = melonDsSocketPath(sessionId);
+
+    return new Promise<void>((resolve, reject) => {
+      const socket = net.createConnection(socketPath);
+
+      const connectTimer = setTimeout(() => {
+        socket.destroy();
+        reject(new Error(`[melonDS IPC] connect timeout for session ${sessionId}`));
+      }, CONNECT_TIMEOUT_MS);
+
+      socket.once('connect', () => {
+        clearTimeout(connectTimer);
+        this._socket = socket;
+        this._buffer = '';
+        this._attachListeners();
+        resolve();
+      });
+
+      socket.once('error', (err) => {
+        clearTimeout(connectTimer);
+        reject(new Error(`[melonDS IPC] connect error: ${err.message}`));
+      });
+    });
+  }
+
+  async send(command: MelonDsCommand): Promise<MelonDsResponse> {
+    if (!this._socket || this._socket.destroyed) {
+      throw new Error('[melonDS IPC] not connected');
+    }
+
+    const seq = ++this._seq;
+    const frame = JSON.stringify({ seq, ...command }) + '\n';
+
+    return new Promise<MelonDsResponse>((resolve, reject) => {
+      const timer = setTimeout(() => {
+        this._pending.delete(seq);
+        reject(new Error(`[melonDS IPC] response timeout for command: ${command.type}`));
+      }, RESPONSE_TIMEOUT_MS);
+
+      this._pending.set(seq, { resolve, reject, timer });
+      this._socket!.write(frame);
+    });
+  }
+
+  async disconnect(terminate = false): Promise<void> {
+    if (!this._socket) return;
+    if (terminate && !this._socket.destroyed) {
+      try {
+        await this.send({ type: 'stop' }).catch(() => {/* ignore errors on shutdown */});
+      } catch {
+        // best-effort
+      }
+    }
+    this._rejectAll(new Error('[melonDS IPC] disconnected'));
+    this._socket.destroy();
+    this._socket = null;
+  }
+
+  // ── Private helpers ──────────────────────────────────────────────────────
+
+  private _attachListeners(): void {
+    const socket = this._socket!;
+
+    socket.on('data', (chunk: Buffer) => {
+      this._buffer += chunk.toString('utf8');
+      const lines = this._buffer.split('\n');
+      this._buffer = lines.pop() ?? '';
+      for (const line of lines) {
+        const trimmed = line.trim();
+        if (!trimmed) continue;
+        try {
+          const msg = JSON.parse(trimmed) as MelonDsResponse & { seq?: number };
+          const seq = msg.seq;
+          if (seq !== undefined && this._pending.has(seq)) {
+            const entry = this._pending.get(seq)!;
+            clearTimeout(entry.timer);
+            this._pending.delete(seq);
+            // Remove seq from the response object before resolving
+            const { seq: _, ...response } = msg;
+            entry.resolve(response as MelonDsResponse);
+          }
+        } catch {
+          // Malformed frame — ignore silently
+        }
+      }
+    });
+
+    socket.on('close', () => {
+      this._rejectAll(new Error('[melonDS IPC] connection closed'));
+      this._socket = null;
+    });
+
+    socket.on('error', (err) => {
+      this._rejectAll(new Error(`[melonDS IPC] socket error: ${err.message}`));
+    });
+  }
+
+  private _rejectAll(err: Error): void {
+    for (const entry of this._pending.values()) {
+      clearTimeout(entry.timer);
+      entry.reject(err);
+    }
+    this._pending.clear();
+  }
+}
+
+// ---------------------------------------------------------------------------
 // Stub implementation  (development / CI — no native binary required)
 // ---------------------------------------------------------------------------
 
@@ -84,7 +247,7 @@ export interface MelonDsIpcBridge {
  *
  *  - During frontend development when the C++ binary isn't compiled.
  *  - In unit tests that exercise session-engine logic without a real emulator.
- *  - As the default export until the real socket bridge is implemented.
+ *  - As the fallback when `createMelonDsIpc` is called with `forceStub: true`.
  */
 export class MelonDsIpcStub implements MelonDsIpcBridge {
   private _connected = false;
@@ -129,5 +292,31 @@ export class MelonDsIpcStub implements MelonDsIpcBridge {
   }
 }
 
-/** Default export: stub until the real bridge is implemented. */
+// ---------------------------------------------------------------------------
+// Factory
+// ---------------------------------------------------------------------------
+
+/**
+ * Create the appropriate melonDS IPC bridge for the current environment.
+ *
+ * @param _sessionId  The session ID — used to derive the socket path in the
+ *                    real implementation (currently unused by the factory).
+ * @param opts.forceStub  When `true`, always return a `MelonDsIpcStub`.
+ *                        Useful in tests / CI where no native binary exists.
+ *
+ * The factory currently returns a stub by default because the C++ native
+ * binary is not yet compiled into the workspace. Switch the default once
+ * the CMake build is wired into `npm run build`.
+ */
+export function createMelonDsIpc(
+  _sessionId: string,
+  opts: { forceStub?: boolean } = {},
+): MelonDsIpcBridge {
+  if (opts.forceStub) return new MelonDsIpcStub();
+  // Return the real bridge when MELONDS_IPC_ENABLED is set; stub otherwise.
+  if (process.env.MELONDS_IPC_ENABLED === '1') return new MelonDsSocketBridge();
+  return new MelonDsIpcStub();
+}
+
+/** Default export: stub until the real bridge is wired up via MELONDS_IPC_ENABLED=1. */
 export const melonDsIpc: MelonDsIpcBridge = new MelonDsIpcStub();
