@@ -125,9 +125,12 @@ describe('resolveGameRomPath', () => {
     expect(resolveGameRomPath('n64-mario-kart-64')).toBe('/roms/mk64.z64');
   });
 
-  it('falls back to the ROM directory when no association exists', () => {
+  it('returns null when no association exists, even when a ROM directory is configured', () => {
+    // The directory fallback was removed in Phase 38: passing a directory as a
+    // ROM path to an emulator always fails. A null result prompts the user to
+    // explicitly associate a ROM file via the file-picker or a ROM scan.
     setRomDirectory('/home/user/roms');
-    expect(resolveGameRomPath('n64-unknown-game')).toBe('/home/user/roms');
+    expect(resolveGameRomPath('n64-unknown-game')).toBeNull();
   });
 
   it('returns null when no association and no ROM directory is configured', () => {
