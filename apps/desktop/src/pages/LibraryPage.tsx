@@ -131,15 +131,14 @@ export function LibraryPage() {
           </button>
         ) : (
           <Link
-            to="/settings"
-            className="text-xs font-black px-4 py-2 rounded-full"
+            to="/setup"
+            className="text-xs font-black px-4 py-2 rounded-full transition-all hover:brightness-110"
             style={{
-              backgroundColor: 'var(--color-oasis-card)',
-              color: 'var(--color-oasis-text-muted)',
-              border: '1px solid var(--n-border)',
+              backgroundColor: 'var(--color-oasis-accent)',
+              color: 'white',
             }}
           >
-            ⚙️ Set ROM path
+            ⚙️ Complete Setup
           </Link>
         )}
       </div>
@@ -156,6 +155,29 @@ export function LibraryPage() {
         >
           <span>📂</span>
           <code className="font-mono truncate">{romDir}</code>
+        </div>
+      )}
+
+      {/* Setup guidance banner — shown when no ROM directory is configured */}
+      {!romDir && (
+        <div
+          className="mb-5 px-4 py-3 rounded-xl text-xs font-semibold flex items-start gap-3"
+          style={{
+            backgroundColor: 'rgba(255,179,0,0.08)',
+            border: '1px solid rgba(255,179,0,0.3)',
+            color: 'var(--color-oasis-yellow)',
+          }}
+        >
+          <span className="text-base leading-none mt-0.5">⚙️</span>
+          <div className="flex-1">
+            <p className="font-black mb-0.5">ROM directory not configured</p>
+            <p className="opacity-80">
+              Set up your ROM directory and emulator paths so RetroOasis can find and launch your games.{' '}
+              <Link to="/setup" className="underline font-black hover:brightness-110">
+                Complete Setup →
+              </Link>
+            </p>
+          </div>
         </div>
       )}
 
@@ -304,9 +326,23 @@ export function LibraryPage() {
       {!loading && !error && displayGames.length === 0 && (
         <div className="text-center py-16">
           <p className="text-4xl mb-3">🎮</p>
-          <p className="text-sm font-bold" style={{ color: 'var(--color-oasis-text-muted)' }}>
-            No games match the current filters.
-          </p>
+          {!romDir ? (
+            <>
+              <p className="text-sm font-bold mb-1" style={{ color: 'var(--color-oasis-text-muted)' }}>
+                No ROM directory configured.
+              </p>
+              <p className="text-xs" style={{ color: 'var(--color-oasis-text-subtle)' }}>
+                <Link to="/setup" className="underline font-black hover:brightness-110" style={{ color: 'var(--color-oasis-accent-light)' }}>
+                  Complete Setup
+                </Link>
+                {' '}to point RetroOasis to your ROM files.
+              </p>
+            </>
+          ) : (
+            <p className="text-sm font-bold" style={{ color: 'var(--color-oasis-text-muted)' }}>
+              No games match the current filters.
+            </p>
+          )}
         </div>
       )}
     </div>
