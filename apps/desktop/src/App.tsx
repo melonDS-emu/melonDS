@@ -1,5 +1,6 @@
-import { Routes, Route } from 'react-router-dom';
+import { Routes, Route, Navigate } from 'react-router-dom';
 import { Layout } from './components/Layout';
+import { isFirstRunComplete } from './lib/first-run-service';
 import { HomePage } from './pages/HomePage';
 import { GameDetailsPage } from './pages/GameDetailsPage';
 import { LobbyPage } from './pages/LobbyPage';
@@ -39,12 +40,20 @@ import SetupPage from './pages/SetupPage';
 import { PartyCollectionsPage } from './pages/PartyCollectionsPage';
 import OnlineServicesPage from './pages/OnlineServicesPage';
 
+/** Wraps the main Layout and redirects first-time users to the setup wizard. */
+function AppLayout() {
+  if (!isFirstRunComplete()) {
+    return <Navigate to="/setup" replace />;
+  }
+  return <Layout />;
+}
+
 export function App() {
   return (
     <Routes>
       {/* First-run wizard — outside the main Layout so there's no nav sidebar */}
       <Route path="/setup" element={<SetupPage />} />
-      <Route element={<Layout />}>
+      <Route element={<AppLayout />}>
         <Route path="/" element={<HomePage />} />
         <Route path="/library" element={<LibraryPage />} />
         <Route path="/game/:gameId" element={<GameDetailsPage />} />

@@ -18,6 +18,7 @@ import {
   type SeasonalEvent,
   type FeaturedGame,
 } from '../lib/events-service';
+import { getRomDirectory } from '../lib/rom-settings';
 import type { Room } from '../services/lobby-types';
 import type { FriendInfo } from '@retro-oasis/presence-client';
 
@@ -97,8 +98,34 @@ export function HomePage() {
     ? publicRooms.slice(0, 6).map(toLobbyCard)
     : [];
 
+  const romDir = getRomDirectory();
+
   return (
     <div className="space-y-8 max-w-5xl">
+
+      {/* ── Setup reminder banner ── */}
+      {!romDir && (
+        <div
+          className="px-4 py-3 rounded-xl text-xs font-bold flex items-center justify-between gap-3"
+          style={{
+            backgroundColor: 'rgba(255,179,0,0.08)',
+            border: '1px solid rgba(255,179,0,0.3)',
+            color: 'var(--color-oasis-yellow)',
+          }}
+        >
+          <div className="flex items-center gap-2">
+            <span>⚙️</span>
+            <span>Finish setting up RetroOasis — add your ROM directory and emulator paths to start playing.</span>
+          </div>
+          <Link
+            to="/setup"
+            className="flex-shrink-0 px-3 py-1 rounded-full font-black text-xs transition-all hover:brightness-110"
+            style={{ backgroundColor: 'rgba(255,179,0,0.2)', color: 'var(--color-oasis-yellow)', border: '1px solid rgba(255,179,0,0.4)' }}
+          >
+            Complete Setup →
+          </Link>
+        </div>
+      )}
 
       {/* ── Connection banner ── */}
       {connectionState !== 'connected' && (

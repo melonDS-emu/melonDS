@@ -4,6 +4,7 @@ import { usePresence } from '../context/PresenceContext';
 import { useLobby } from '../context/LobbyContext';
 import { JoinRoomModal } from './JoinRoomModal';
 import { ToastContainer } from './ToastContainer';
+import { getRomDirectory } from '../lib/rom-settings';
 import type { FriendInfo } from '@retro-oasis/presence-client';
 const NAV_ITEMS = [
   { path: '/',              label: 'Home',         icon: '⌂',  group: 'main' },
@@ -107,6 +108,7 @@ export function Layout() {
   }
 
   const onlineCount = onlineFriends.length;
+  const showSetupPrompt = !getRomDirectory();
 
   return (
     <div className="flex h-screen" style={{ backgroundColor: 'var(--color-oasis-bg)' }}>
@@ -217,6 +219,25 @@ export function Layout() {
             );
           })}
         </div>
+
+        {/* Complete Setup prompt — shown when ROM directory not configured */}
+        {showSetupPrompt && (
+          <div className="mx-2 mb-2">
+            <Link
+              to="/setup"
+              className="flex items-center gap-2 px-2.5 py-2 rounded-lg text-xs font-bold transition-all hover:brightness-110"
+              style={{
+                backgroundColor: 'rgba(255,179,0,0.1)',
+                border: '1px solid rgba(255,179,0,0.25)',
+                color: 'var(--color-oasis-yellow)',
+              }}
+            >
+              <span className="text-[11px]">⚙️</span>
+              <span className="flex-1 leading-none">Complete Setup</span>
+              <span className="text-[9px] opacity-70">→</span>
+            </Link>
+          </div>
+        )}
 
         {/* Friends online panel */}
         <div
