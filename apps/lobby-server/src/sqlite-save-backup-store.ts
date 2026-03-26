@@ -193,8 +193,11 @@ export class SqliteSaveBackupStore {
       if (cleanExit) {
         this.markAsLastKnownGood(b.id);
       }
+      // Re-fetch from the DB so the returned metadata reflects any mutations
+      // (e.g. isLastKnownGood = true) applied by markAsLastKnownGood above.
+      const updated = this.get(b.id) ?? b;
       // eslint-disable-next-line @typescript-eslint/no-unused-vars
-      const { data: _data, ...meta } = b;
+      const { data: _data, ...meta } = updated;
       return meta;
     });
   }

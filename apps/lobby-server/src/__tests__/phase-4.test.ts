@@ -233,6 +233,20 @@ describe('SaveBackupStore — session lifecycle', () => {
     expect(lkg!.id).toBeDefined();
   });
 
+  it('postSessionSync() returned metadata reflects isLastKnownGood=true on clean exit', () => {
+    const slots = [{ saveName: 'Slot 1', data: DATA }];
+    const results = store.postSessionSync(GAME_ID, slots, true);
+    expect(results[0].isLastKnownGood).toBe(true);
+    expect(results[0].reason).toBe('last-known-good');
+  });
+
+  it('postSessionSync() returned metadata has isLastKnownGood=false on dirty exit', () => {
+    const slots = [{ saveName: 'Slot 1', data: DATA }];
+    const results = store.postSessionSync(GAME_ID, slots, false);
+    expect(results[0].isLastKnownGood).toBe(false);
+    expect(results[0].reason).toBe('post-session');
+  });
+
   it('postSessionSync() does NOT mark LKG when cleanExit=false', () => {
     const slots = [{ saveName: 'Slot 1', data: DATA }];
     store.postSessionSync(GAME_ID, slots, false);
@@ -305,6 +319,18 @@ describe('SqliteSaveBackupStore — SQLite backed', () => {
     const lkg = store.getLastKnownGood(GAME_ID, 'Slot 1');
     expect(lkg).not.toBeNull();
     expect(lkg!.reason).toBe('last-known-good');
+  });
+
+  it('postSessionSync() returned metadata reflects isLastKnownGood=true on clean exit', () => {
+    const results = store.postSessionSync(GAME_ID, [{ saveName: 'Slot 1', data: DATA }], true);
+    expect(results[0].isLastKnownGood).toBe(true);
+    expect(results[0].reason).toBe('last-known-good');
+  });
+
+  it('postSessionSync() returned metadata has isLastKnownGood=false on dirty exit', () => {
+    const results = store.postSessionSync(GAME_ID, [{ saveName: 'Slot 1', data: DATA }], false);
+    expect(results[0].isLastKnownGood).toBe(false);
+    expect(results[0].reason).toBe('post-session');
   });
 
   it('enforces MAX_BACKUPS_PER_SLOT via eviction', () => {
@@ -399,7 +425,8 @@ describe('REST backup logic — SaveBackupStore + SaveStore integration', () => 
       saveStore.put(GAME_ID, slot.saveName, slot.data);
     }
     const backups = backupStore.postSessionSync(GAME_ID, slots, true);
-    expect(backups[0].reason).toBe('post-session');
+    // On a clean exit the reason is promoted to 'last-known-good' (matches returned metadata)
+    expect(backups[0].reason).toBe('last-known-good');
 
     // LKG should be marked
     const lkg = backupStore.getLastKnownGood(GAME_ID, 'Slot 1');
@@ -511,6 +538,10 @@ describe('inferBackendFromExtension()', () => {
 
   it('infers pcsx2 from .mcd', () => {
     expect(inferBackendFromExtension('.mcd')).toBe('pcsx2');
+  });
+
+  it('infers flycast from .vms (Dreamcast VMU format)', () => {
+    expect(inferBackendFromExtension('.vms')).toBe('flycast');
   });
 
   it('returns null for a generic .sav extension', () => {

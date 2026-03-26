@@ -185,8 +185,11 @@ export class SaveBackupStore {
       if (cleanExit) {
         this.markAsLastKnownGood(b.id);
       }
+      // Re-read from the store so the returned metadata reflects any mutations
+      // (e.g. isLastKnownGood = true) applied by markAsLastKnownGood above.
+      const stored = this.backups.get(b.id) ?? b;
       // eslint-disable-next-line @typescript-eslint/no-unused-vars
-      const { data: _data, ...meta } = b;
+      const { data: _data, ...meta } = stored;
       return meta;
     });
   }
