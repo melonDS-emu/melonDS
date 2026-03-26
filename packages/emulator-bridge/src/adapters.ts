@@ -78,6 +78,29 @@ export interface AdapterOptions {
    * Example: ['--no-audio', '--single-core']
    */
   compatibilityFlags?: string[];
+  /**
+   * N64-specific: enable Transfer Pak emulation.
+   * Required for Pokémon Stadium and Pokémon Stadium 2 to read Game Boy cartridge save data.
+   * Maps to Mupen64Plus `--transfer-pak` flag.
+   */
+  transferPakEnabled?: boolean;
+  /**
+   * N64-specific: controller pak accessory mode.
+   * - 'none':     No pak inserted (default for cartridge-save games).
+   * - 'standard': Standard Controller Pak (memory card); used by most multiplayer games.
+   * - 'rumble':   Rumble Pak; replaces Controller Pak slot.
+   * Maps to Mupen64Plus `--controller-pak none|standard|rumble` flag.
+   */
+  controllerPakMode?: 'none' | 'standard' | 'rumble';
+  /**
+   * N64-specific: hint the cartridge save type so Mupen64Plus does not need to auto-detect.
+   * - 'eeprom-4k':  Small EEPROM (512 bytes), used by most early N64 titles.
+   * - 'eeprom-16k': Large EEPROM (2 KB), used by later games (e.g. Star Fox 64).
+   * - 'sram':       256 KB SRAM (used by e.g. Zelda: Ocarina of Time).
+   * - 'flash':      1 MB Flash ROM (used by e.g. Pokémon Snap).
+   * Maps to Mupen64Plus `--savetype <type>` flag.
+   */
+  n64SaveType?: 'eeprom-4k' | 'eeprom-16k' | 'sram' | 'flash';
 }
 
 /**
@@ -123,6 +146,11 @@ function buildRetroArchArgs(romPath: string, options: AdapterOptions): string[] 
  *  - SameBoy:             --link-address <host>:<port>  (link cable over TCP)
  *  - VisualBoyAdvance-M:  --link-host <host>:<port>  (link cable over TCP)
  *  - Mupen64Plus:         --netplay-host <host> --netplay-port <port>
+ *                         --netplay-player <slot>  (1-based player slot)
+ *                         --emumode <0|1|2>  (interpreter / cached / dynarec)
+ *                         --transfer-pak  (enable Transfer Pak for Pokémon Stadium)
+ *                         --controller-pak <none|standard|rumble>
+ *                         --savetype <eeprom-4k|eeprom-16k|sram|flash>
  *  - melonDS:             --wifi-host <host> --wifi-port <port>
  *                         --screen-layout=<layout>  (stacked|side-by-side|top-focus|bottom-focus)
  *                         --touch-mouse  (enable touchscreen via mouse click)
@@ -299,12 +327,15 @@ export function createSystemAdapter(system: string, backendId?: string): SystemA
       return {
         system: 'n64',
         preferredBackendId: 'mupen64plus',
-        fallbackBackendIds: ['project64', 'retroarch'],
+        // parallel-n64 is a high-accuracy Vulkan-based libretro core (via RetroArch)
+        fallbackBackendIds: ['parallel-n64', 'project64', 'retroarch'],
         buildLaunchArgs: (romPath, options) => {
           const effectiveN64Backend = backendId ?? 'mupen64plus';
-          if (effectiveN64Backend === 'retroarch') {
+          // parallel-n64 and retroarch both use the RetroArch CLI convention
+          if (effectiveN64Backend === 'retroarch' || effectiveN64Backend === 'parallel-n64') {
             return buildRetroArchArgs(romPath, options);
           }
+          // ── Mupen64Plus ────────────────────────────────────────────────────
           const args = ['--rom', romPath];
           if (options.fullscreen) args.push('--fullscreen');
           if (options.netplayHost && options.netplayPort) {
@@ -322,6 +353,12 @@ export function createSystemAdapter(system: string, backendId?: string): SystemA
             const emuMode = options.performancePreset === 'fast' ? '2' : '0';
             args.push('--emumode', emuMode);
           }
+          // N64 accessory / save-type hints
+          if (options.transferPakEnabled) args.push('--transfer-pak');
+          if (options.controllerPakMode && options.controllerPakMode !== 'none') {
+            args.push('--controller-pak', options.controllerPakMode);
+          }
+          if (options.n64SaveType) args.push('--savetype', options.n64SaveType);
           if (options.compatibilityFlags) args.push(...options.compatibilityFlags);
           return args;
         },

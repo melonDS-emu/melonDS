@@ -45,10 +45,14 @@ describe('SYSTEM_ONLINE_SUPPORT matrix', () => {
     expect(SYSTEM_ONLINE_SUPPORT['3ds']).toBe('local-only');
   });
 
-  it('marks N64, GBA, GBC, GB, NDS, GC, Wii, Dreamcast, PS2, PSP as experimental', () => {
-    for (const sys of ['n64', 'gba', 'gbc', 'gb', 'nds', 'gc', 'wii', 'dreamcast', 'ps2', 'psp']) {
+  it('marks GBA, GBC, GB, NDS, GC, Wii, Dreamcast, PS2, PSP as experimental', () => {
+    for (const sys of ['gba', 'gbc', 'gb', 'nds', 'gc', 'wii', 'dreamcast', 'ps2', 'psp']) {
       expect(SYSTEM_ONLINE_SUPPORT[sys]).toBe('experimental');
     }
+  });
+
+  it('marks N64 as partial (upgraded from experimental)', () => {
+    expect(SYSTEM_ONLINE_SUPPORT['n64']).toBe('partial');
   });
 
   it('covers all 17 supported systems', () => {
@@ -154,10 +158,10 @@ describe('resolveGameCapability', () => {
     expect(cap.onlineSupportLabel).toBe('Local Only');
   });
 
-  it('returns correct online support for N64 (experimental)', () => {
+  it('returns correct online support for N64 (partial)', () => {
     const cap = resolveGameCapability('n64', {});
-    expect(cap.onlineSupportLevel).toBe('experimental');
-    expect(cap.onlineSupportLabel).toBe('Experimental');
+    expect(cap.onlineSupportLevel).toBe('partial');
+    expect(cap.onlineSupportLabel).toBe('Partial Online');
   });
 
   it('returns correct online support for Genesis (supported)', () => {
@@ -292,12 +296,25 @@ describe('runLaunchPreflight', () => {
     expect(result.issues.find((c) => c.id === 'achievements-not-configured')).toBeUndefined();
   });
 
-  it('warns for experimental online system in online mode', () => {
+  it('warns for partial online system (N64) in online mode', () => {
     const result = runLaunchPreflight({
       system: 'n64',
       mode: 'online',
       romPath: '/roms/game.n64',
       emulatorPath: '/usr/bin/mupen64plus',
+    });
+    expect(result.canLaunch).toBe(true);
+    const check = result.issues.find((c) => c.id === 'online-partial');
+    expect(check?.status).toBe('warning');
+    expect(check?.message).toBeTruthy();
+  });
+
+  it('warns for experimental online system (GBA) in online mode', () => {
+    const result = runLaunchPreflight({
+      system: 'gba',
+      mode: 'online',
+      romPath: '/roms/game.gba',
+      emulatorPath: '/usr/bin/mgba',
     });
     expect(result.canLaunch).toBe(true);
     const check = result.issues.find((c) => c.id === 'online-experimental');
