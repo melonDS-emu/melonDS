@@ -1054,3 +1054,44 @@ enhancement-preset library that clearly distinguishes netplay-safe from single-p
   - Preflight BIOS integration — blocks psx/nds/dreamcast without biosPath, passes with it; nes/gba unaffected
 - [x] Total: 336 desktop tests — all passing.
 - [x] `roadmap.md` updated with Phase 37 milestones.
+
+## Phase 39 — Debug & Polish Save System (Complete)
+
+**Goal:** Fix latent correctness bugs in the save-backup pipeline and tighten the save-file
+discovery utilities.
+
+### What was fixed
+
+- [x] **`SaveBackupStore.postSessionSync` stale metadata** — the in-memory store called
+  `markAsLastKnownGood(id)` on the _stored_ record but then spread the stale _copy_ returned by
+  `createBackup`.  The returned `Omit<SaveBackupRecord, 'data'>` now re-reads from the backing
+  `Map` so that `isLastKnownGood: true` and `reason: 'last-known-good'` are correctly reflected
+  on a clean exit.
+
+- [x] **`SqliteSaveBackupStore.postSessionSync` same stale-metadata bug** — the SQLite variant
+  had the identical issue; fixed by re-fetching via `this.get(b.id)` after the
+  `markAsLastKnownGood` UPDATE so the returned metadata is sourced from the database row.
+
+- [x] **`inferBackendFromExtension` missing `.vms` → `flycast` mapping** — `.vms` is the
+  Dreamcast Virtual Memory Unit save format used exclusively by the flycast emulator, but it was
+  absent from the inference table.  Added alongside `.gci` / `.raw` (dolphin) for consistent
+  discovery of non-preferred backend saves.
+
+- [x] **`SaveManager.importSave` incorrect extension extraction when directory path contains
+  dots** — `externalPath.slice(externalPath.lastIndexOf('.'))` scanned the full path including
+  parent directory names (e.g. `/home/user.name/saves/savefile` → ext `'.name/saves/savefile'`).
+  Fixed to extract the filename component first and then look for a dot only inside the basename.
+
+### Tests
+
+- [x] `phase-4.test.ts` — 5 new assertions:
+  - `SaveBackupStore`: `postSessionSync` returned metadata has `isLastKnownGood=true` and
+    `reason='last-known-good'` when `cleanExit=true`
+  - `SaveBackupStore`: returned metadata has `isLastKnownGood=false` / `reason='post-session'`
+    when `cleanExit=false`
+  - `SqliteSaveBackupStore`: same two assertions
+  - `inferBackendFromExtension('.vms')` returns `'flycast'`
+- [x] Corrected one stale assertion: the integration test for `session-end` now correctly expects
+  `reason: 'last-known-good'` (not `'post-session'`) on a clean exit.
+- [x] Total: 1643 tests — all passing.
+- [x] `roadmap.md` updated with Phase 39 milestones.

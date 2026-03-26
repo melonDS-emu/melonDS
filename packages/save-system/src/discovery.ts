@@ -98,6 +98,7 @@ export function inferBackendFromExtension(ext: string, system?: string): string 
     return system === 'snes' ? 'snes9x' : null;
   }
   if (['.gci', '.raw'].includes(e)) return 'dolphin';
+  if (['.vms'].includes(e)) return 'flycast';
   if (['.dsv'].includes(e)) return 'desmume';
   if (['.eep', '.sra', '.fla', '.mpk'].includes(e)) return 'mupen64plus';
   if (['.mcd', '.ps2'].includes(e)) return 'pcsx2';

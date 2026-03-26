@@ -183,7 +183,11 @@ export class SaveManager {
     const dir = await this.ensureDir(gameId, system);
     const existing = this.saves.get(gameId) ?? [];
     const slotIndex = existing.length;
-    const ext = externalPath.slice(externalPath.lastIndexOf('.'));
+    // Extract extension from the filename component only so that dots in
+    // parent directory names (e.g. /home/user.name/saves/file) are ignored.
+    const baseName = externalPath.split('/').pop() ?? externalPath;
+    const dotIndex = baseName.lastIndexOf('.');
+    const ext = dotIndex !== -1 ? baseName.slice(dotIndex) : '';
     const destPath = `${dir}/import-slot-${slotIndex}${ext}`;
 
     await fs.copyFile(externalPath, destPath);
