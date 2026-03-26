@@ -1,9 +1,9 @@
 # RetroOasis Development Roadmap
 
-> **Honest progress snapshot (2026-03-12)**
+> **Honest progress snapshot (2026-03-26)**
 >
-> - The current working stack is **React + Vite desktop UI + WebSocket lobby server + TCP relay + local HTTP launch API (`/api/launch`)**.
-> - **Tauri/native packaging, a C++ IPC bridge into the melonDS core in `/src`, and a broader REST backend for catalog/save/presence data are still not complete.**
+> - The current working stack is **React + Vite desktop UI + Tauri v2 native shell + WebSocket lobby server + TCP relay + local HTTP launch API (`/api/launch`)**.
+> - **Tauri native packaging is now scaffolded** (`apps/desktop/src-tauri/`) with six Rust IPC command handlers implemented. **A C++ IPC bridge into the melonDS core in `/src`, and a broader REST backend for catalog/save/presence data are still not complete.**
 > - The lobby now triggers **local emulator launch requests** through the server, but **real per-game ROM discovery/selection and relay token handoff into emulator processes are still incomplete**.
 > - Presence, activity, saves, and cloud flows have useful UI scaffolding, but the **live/server-backed versions remain future work unless explicitly marked “mock/dev/demo.”**
 > - Phase 7 (Input & Couch-Friendliness) is now complete: `controller-detection.ts` (Gamepad API wrapper — hot-plug events, `detectGamepadType`, `getConnectedGamepads`), `slot-assignment.ts` (per-player gamepad ↔ slot mapping, `autoAssignSlots`, localStorage persistence), `preflight-validator.ts` (`validateInputConfig` — errors for missing/disconnected gamepads, warning for keyboard sharing). Default input profiles added for 7 new systems: Wii, Wii U, Genesis, Dreamcast, PSX, PS2, PSP (21 new profiles × 3 controller types). `InputProfileManager` now loads all 16 systems (48 default profiles). 32 new tests (172 desktop total).
@@ -64,7 +64,7 @@
 - [x] Save file real I/O (fs/promises create, delete, import, export)
 - [x] Relay port surfaced to frontend on game-starting event
 - [x] Session token surfaced to players on `game-starting`
-- [ ] Tauri integration for native desktop app
+- [x] Tauri integration for native desktop app
 - [x] Settings page for ROM/save directories and display name
 - [x] Library refresh affordance tied to the configured ROM path (currently simulated until native filesystem IPC is added)
 - [x] Read-only controller profile reference UI in Settings
@@ -106,7 +106,7 @@
 - [x] Open slots invite nudge in lobby (share room code prompt)
 - [x] Connection diagnostics UI
 - [x] Spectator mode (Phase 1 carry-over) ✅
-- [ ] Tauri integration for native desktop app (Phase 1 carry-over)
+- [x] Tauri integration for native desktop app (Phase 1 carry-over)
 - [x] Read-only controller profile UI shows N64 default mappings
 - [x] Editable N64 controller remapping UI (all systems; bindings saved to localStorage)
 - [x] Voice chat hooks (WebRTC mesh; mute/unmute + per-peer talking indicators in lobby)
@@ -280,12 +280,17 @@
 
 ## Current Carry-Over / Blockers
 
-- [ ] **Tauri native shell and IPC command surface for desktop-only capabilities**
+- [x] **Tauri native shell and IPC command surface for desktop-only capabilities**
   - `apps/desktop/src/lib/tauri-ipc.ts` defines the full typed command surface
     (`tauriScanRoms`, `tauriPickFile`, `tauriPickDirectory`, `tauriLaunchEmulator`)
     with HTTP-API fallbacks so the app runs in both native and browser/dev mode.
-  - Remaining: scaffold `src-tauri/` (Rust, `tauri.conf.json`, `Cargo.toml`),
-    implement matching Rust command handlers, wire into the npm build.
+  - `apps/desktop/src-tauri/` scaffolded with Tauri v2: `Cargo.toml`, `tauri.conf.json`,
+    `build.rs`, `src/main.rs`, `src/lib.rs`, `src/commands.rs`, `capabilities/default.json`.
+  - Six Rust command handlers implemented: `scan_rom_directory`, `pick_file`,
+    `pick_directory`, `launch_emulator`, `launch_local`, `check_file_exists`.
+  - `@tauri-apps/api` and `@tauri-apps/cli` added to desktop workspace.
+  - `npm run tauri:dev` / `npm run tauri:build` / `npm run build:tauri` wired into npm scripts.
+  - 22 new tests in `tauri-ipc.test.ts` (392 desktop total).
 
 - [ ] **C++ IPC bridge between the TypeScript launcher and the melonDS core in `/src`**
   - `apps/lobby-server/src/melonds-ipc.ts` defines the full `MelonDsIpcBridge`
