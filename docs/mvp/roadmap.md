@@ -1095,3 +1095,44 @@ discovery utilities.
   `reason: 'last-known-good'` (not `'post-session'`) on a clean exit.
 - [x] Total: 1643 tests — all passing.
 - [x] `roadmap.md` updated with Phase 39 milestones.
+
+---
+
+## Phase 41 — PSX Overhaul ✅
+
+### Deliverables
+
+- [x] **6 new PSX mock games** (total ≥ 15): Crash Team Racing, Final Fantasy VII, Resident Evil 2,
+  Spyro 2: Ripto's Rage, Gran Turismo 2, Diablo — each with `coverEmoji`, `tags`, `badges`, and `description`.
+- [x] **6 new PSX session templates** (total 16): CTR (4P, 80 ms), FF7 (1P, 150 ms), RE2 (1P, 100 ms),
+  Spyro 2 (1P, 100 ms), Gran Turismo 2 (2P, 80 ms), Diablo (1P, 100 ms).
+- [x] **11 new PSX game-metadata entries** (total 13): Tekken 3, SF Alpha 3, THPS2, Twisted Metal 2,
+  Crash Bash, Worms Armageddon, Crash Bandicoot, Metal Gear Solid, Final Fantasy VII, Gran Turismo 2,
+  Diablo — each with `genre`, `developer`, `year`, `onboardingTips`, `netplayTips`, `artworkColor`.
+- [x] **7 new PSX netplay-whitelist entries** (total 15): Crash Bandicoot (approved), THPS2 (approved),
+  Crash Bash (approved, 4P), Worms Armageddon (approved, 4P), Twisted Metal 2 (caution),
+  Gran Turismo 2 (caution), Diablo (caution).
+- [x] **`mednafen-psx` backend** added to `KNOWN_BACKENDS` — Beetle PSX HW libretro core via RetroArch,
+  cycle-accurate, hardware renderer PGXP, `supportsNetplay: true`.
+- [x] **PSX adapter flags**: `pgxpEnabled` (`--pgxp`), `cdRomFastBoot` (`--fast-boot`),
+  `multitapEnabled` (`--multitap`), `analogControllerEnabled` (`--analog`) — DuckStation only;
+  `mednafen-psx` / `retroarch` routes through `buildRetroArchArgs`.
+- [x] **`mednafen-psx` in PSX fallback backends** (`fallbackBackendIds: ['mednafen-psx', 'retroarch']`).
+- [x] **PSXPage overhaul**: Guide tab (📖) with Emulator Backends, PSX Accessories, ROM Formats,
+  BIOS Setup, Netplay Tips, Controller Setup sections; `MULTITAP_GAMES` / `ANALOG_REQUIRED_GAMES`
+  sets with accessory badges; game list now sourced from `MOCK_GAMES` (auto-includes new titles);
+  updated banner mentions DuckStation + Mednafen PSX + RetroArch.
+- [x] **phase-22.test.ts** — two PSX template assertions updated to `≥ 16` / `latencyTarget > 0`
+  to accommodate the overhaul.
+
+### Tests
+
+- [x] `phase-41.test.ts` — 81 new tests:
+  - PSX mock game catalog (13 assertions)
+  - PSX session templates (12 assertions)
+  - PSX netplay whitelist (12 assertions)
+  - PSX game metadata (16 assertions)
+  - PSX adapter new flags (20 assertions)
+  - `mednafen-psx` backend registration (10 assertions)
+- [x] Total: 1393 lobby-server + 394 desktop = **1787 tests — all passing**.
+- [x] `roadmap.md` updated with Phase 41 milestones.
