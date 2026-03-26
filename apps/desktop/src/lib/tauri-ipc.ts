@@ -7,24 +7,18 @@
  * environments.
  *
  * ## Implementation status
- * The `src-tauri/` package and the corresponding Rust command handlers are not
- * yet part of the repository. This module defines the **intended command
- * surface** that the Tauri integration will expose and serves as the
- * specification for the Rust-side implementation.
+ * The `apps/desktop/src-tauri/` package contains the matching Rust command
+ * handlers (`src/commands.rs`) that implement the native side of each IPC
+ * call. All six commands are implemented:
+ *   - `scan_rom_directory` — native filesystem ROM scanner
+ *   - `pick_file` / `pick_directory` — native OS file/folder dialogs
+ *   - `launch_emulator` — netplay emulator launch with session token injection
+ *   - `launch_local` — single-player local launch
+ *   - `check_file_exists` — filesystem existence check
  *
  * When Tauri is available (`window.__TAURI__` is truthy), calls are routed via
  * `window.__TAURI__.invoke`. When it is not, the functions fall back to the
  * lobby-server HTTP API so the app remains functional in dev / browser mode.
- *
- * ## Carry-over blocker
- * Full Tauri integration is tracked as an explicit Phase 1 carry-over blocker.
- * The remaining work is:
- *   1. Scaffold `src-tauri/` with `tauri.conf.json`, `Cargo.toml`, and
- *      `src/main.rs`.
- *   2. Implement Rust handlers for each command listed below.
- *   3. Wire the Tauri build into the npm workspace (`npm run build:tauri`).
- *   4. Replace HTTP fallbacks with proper error messages once native features
- *      are confirmed present at runtime.
  */
 
 /** Base URL of the local HTTP API (used as fallback outside Tauri). */
