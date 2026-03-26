@@ -75,6 +75,8 @@ function buildOnlineWarning(level: OnlineSupportLevel, system: string): string {
   switch (level) {
     case 'local-only':
       return `Online play is not supported for ${label}. Rooms can be used for local coordination only.`;
+    case 'partial':
+      return `Online play for ${label} is partial — works well for approved titles; check the Netplay Whitelist.`;
     case 'experimental':
       return `Online play for ${label} is experimental — expect possible instability or desync.`;
     default:
@@ -143,7 +145,7 @@ export function runLaunchPreflight(opts: LaunchPreflightOptions): LaunchPrefligh
   // ── 4. Online support (online mode only) ───────────────────────────────────
   if (opts.mode === 'online') {
     const { level, note } = resolveOnlineSupport(systemKey, opts.backendId);
-    if (level === 'local-only' || level === 'experimental') {
+    if (level === 'local-only' || level === 'experimental' || level === 'partial') {
       warn(`online-${level}`, note || buildOnlineWarning(level, systemKey));
     } else {
       pass('online-supported');

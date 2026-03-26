@@ -13,7 +13,7 @@ import { getAchievementCapability, systemSupportsAchievements } from './achievem
 // ─────────────────────────────────────────────────────────────────────────────
 
 /** Indicates the level of online / room-play support for a system. */
-export type OnlineSupportLevel = 'supported' | 'experimental' | 'local-only';
+export type OnlineSupportLevel = 'supported' | 'partial' | 'experimental' | 'local-only';
 
 export interface OnlineSupportDescriptor {
   level: OnlineSupportLevel;
@@ -79,7 +79,7 @@ export const SYSTEM_ONLINE_SUPPORT: Record<string, OnlineSupportLevel> = {
   gb:         'experimental',
   gbc:        'experimental',
   gba:        'experimental',
-  n64:        'experimental',
+  n64:        'partial',
   nds:        'experimental',  // WFC via Wiimmfi relay; local wireless via download play
   gc:         'experimental',
   wii:        'experimental',
@@ -95,6 +95,7 @@ export const SYSTEM_ONLINE_SUPPORT: Record<string, OnlineSupportLevel> = {
 
 const ONLINE_LABELS: Record<OnlineSupportLevel, string> = {
   supported:    'Online Ready',
+  partial:      'Partial Online',
   experimental: 'Experimental',
   'local-only': 'Local Only',
 };
@@ -105,7 +106,7 @@ const ONLINE_NOTES: Record<string, string> = {
   gb:         'Game Boy Link Cable emulation — experimental relay.',
   gbc:        'Game Boy Color Link Cable emulation — experimental relay.',
   gba:        'GBA Link Cable emulation is experimental via mGBA.',
-  n64:        'N64 online via Mupen64Plus is experimental — lag may occur.',
+  n64:        'N64 online via Mupen64Plus — works well for party titles like MK64, Smash, and Bomberman. Expansion Pak games (Perfect Dark, Star Fox VS) require the plugin enabled.',
   nds:        'WFC games use Wiimmfi; local wireless uses the Download Play relay.',
   gc:         'GameCube online via Dolphin is experimental.',
   wii:        'Wii online via Dolphin is experimental — Wiimmfi required for some titles.',
@@ -256,6 +257,7 @@ export function resolveGameCapability(
 export function onlineSupportIcon(level: OnlineSupportLevel): string {
   switch (level) {
     case 'supported':    return '🌐';
+    case 'partial':      return '🌍';
     case 'experimental': return '⚡';
     case 'local-only':   return '🔌';
   }
@@ -268,6 +270,7 @@ export function onlineSupportIcon(level: OnlineSupportLevel): string {
 export function onlineSupportSummary(level: OnlineSupportLevel): string {
   switch (level) {
     case 'supported':    return 'Online Ready — reliable netplay for this system.';
+    case 'partial':      return 'Partial Online — works well for select titles; check the Netplay Whitelist.';
     case 'experimental': return 'Experimental — online play may be unstable for this system.';
     case 'local-only':   return 'Local Only — no true online netplay. Room used for coordination.';
   }
@@ -279,6 +282,7 @@ export function onlineSupportSummary(level: OnlineSupportLevel): string {
 export function onlineSupportBadgeColor(level: OnlineSupportLevel): { bg: string; text: string } {
   switch (level) {
     case 'supported':    return { bg: 'rgba(22,163,74,0.15)',  text: '#4ade80' };
+    case 'partial':      return { bg: 'rgba(34,197,94,0.12)',  text: '#86efac' };
     case 'experimental': return { bg: 'rgba(245,158,11,0.15)', text: '#fbbf24' };
     case 'local-only':   return { bg: 'rgba(99,102,241,0.15)', text: '#a5b4fc' };
   }
