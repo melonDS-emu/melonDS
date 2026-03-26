@@ -98,6 +98,55 @@ export const NETPLAY_WHITELIST: NetplayEntry[] = [
     reason: 'FMV-heavy; streaming decompression can drift at high latency. Keep sessions under 4 hours.',
     recommendedMaxPlayers: 2,
   },
+  {
+    gameId: 'psx-crash-bandicoot',
+    system: 'psx',
+    rating: 'approved',
+    reason: 'Single-player platformer; fully deterministic movement. Excellent for synchronized co-viewing and race challenges.',
+    recommendedMaxPlayers: 2,
+  },
+  {
+    gameId: 'psx-tony-hawks-pro-skater-2',
+    system: 'psx',
+    rating: 'approved',
+    reason: 'Deterministic score-attack sessions; very low desync rate at ≤ 100 ms.',
+    recommendedMaxPlayers: 2,
+  },
+  {
+    gameId: 'psx-crash-bash',
+    system: 'psx',
+    rating: 'approved',
+    reason: 'Minigame-based party game; short bursts are tolerant of moderate latency. Multitap required for 4P.',
+    recommendedMaxPlayers: 4,
+  },
+  {
+    gameId: 'psx-worms-armageddon',
+    system: 'psx',
+    rating: 'approved',
+    reason: 'Turn-based strategy; extremely latency-tolerant. Reliable at up to 200 ms one-way.',
+    recommendedMaxPlayers: 4,
+  },
+  {
+    gameId: 'psx-twisted-metal-2',
+    system: 'psx',
+    rating: 'caution',
+    reason: 'Physics determinism holds in 1v1; 4-player sessions may desync at > 120 ms due to collision resolution.',
+    recommendedMaxPlayers: 2,
+  },
+  {
+    gameId: 'psx-gran-turismo-2',
+    system: 'psx',
+    rating: 'caution',
+    reason: 'Physics simulation is partially non-deterministic; desyncs reported at > 80 ms. Analog controller required.',
+    recommendedMaxPlayers: 2,
+  },
+  {
+    gameId: 'psx-diablo',
+    system: 'psx',
+    rating: 'caution',
+    reason: 'No multiplayer mode on PS1 — online session is spectate / co-viewing only.',
+    recommendedMaxPlayers: 2,
+  },
 
   // ── NES ────────────────────────────────────────────────────────────────────
   {

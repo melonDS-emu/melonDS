@@ -1871,6 +1871,84 @@ export const DEFAULT_TEMPLATES: SessionTemplateConfig[] = [
     latencyTarget: 100,
   },
 
+  // --- Crash Team Racing ---
+  {
+    id: 'psx-crash-team-racing-4p',
+    gameId: 'psx-crash-team-racing',
+    system: 'psx',
+    emulatorBackendId: 'duckstation',
+    playerCount: 4,
+    controllerMappings: defaultMappings(4),
+    saveRules: DEFAULT_SAVE_RULES,
+    netplayMode: 'online-relay',
+    latencyTarget: 80,
+  },
+
+  // --- Final Fantasy VII ---
+  {
+    id: 'psx-final-fantasy-vii-1p',
+    gameId: 'psx-final-fantasy-vii',
+    system: 'psx',
+    emulatorBackendId: 'duckstation',
+    playerCount: 1,
+    controllerMappings: defaultMappings(1),
+    saveRules: DEFAULT_SAVE_RULES,
+    netplayMode: 'online-relay',
+    latencyTarget: 150,
+  },
+
+  // --- Resident Evil 2 ---
+  {
+    id: 'psx-resident-evil-2-1p',
+    gameId: 'psx-resident-evil-2',
+    system: 'psx',
+    emulatorBackendId: 'duckstation',
+    playerCount: 1,
+    controllerMappings: defaultMappings(1),
+    saveRules: DEFAULT_SAVE_RULES,
+    netplayMode: 'online-relay',
+    latencyTarget: 100,
+  },
+
+  // --- Spyro 2: Ripto's Rage ---
+  {
+    id: 'psx-spyro-2-1p',
+    gameId: 'psx-spyro-2',
+    system: 'psx',
+    emulatorBackendId: 'duckstation',
+    playerCount: 1,
+    controllerMappings: defaultMappings(1),
+    saveRules: DEFAULT_SAVE_RULES,
+    netplayMode: 'online-relay',
+    latencyTarget: 100,
+  },
+
+  // --- Gran Turismo 2 ---
+  {
+    id: 'psx-gran-turismo-2-2p',
+    gameId: 'psx-gran-turismo-2',
+    system: 'psx',
+    emulatorBackendId: 'duckstation',
+    playerCount: 2,
+    controllerMappings: defaultMappings(2),
+    saveRules: DEFAULT_SAVE_RULES,
+    netplayMode: 'online-relay',
+    latencyTarget: 80,
+  },
+
+  // --- Diablo ---
+  {
+    id: 'psx-diablo-1p',
+    gameId: 'psx-diablo',
+    system: 'psx',
+    emulatorBackendId: 'duckstation',
+    playerCount: 1,
+    controllerMappings: defaultMappings(1),
+    saveRules: DEFAULT_SAVE_RULES,
+    netplayMode: 'online-relay',
+    latencyTarget: 100,
+  },
+
   // =========================================================================
   // Sony PlayStation 2 (PS2) templates
   // =========================================================================

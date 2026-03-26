@@ -101,6 +101,30 @@ export interface AdapterOptions {
    * Maps to Mupen64Plus `--savetype <type>` flag.
    */
   n64SaveType?: 'eeprom-4k' | 'eeprom-16k' | 'sram' | 'flash';
+  /**
+   * PSX-specific: enable PGXP (Parallel/Precision Geometry Transform Pipeline).
+   * Corrects 3-D perspective on polygons, eliminating the characteristic PS1 texture warping.
+   * Supported by DuckStation natively via `--pgxp`.
+   */
+  pgxpEnabled?: boolean;
+  /**
+   * PSX-specific: skip the BIOS boot animation and jump directly into the game.
+   * Maps to DuckStation `--fast-boot` flag.
+   * Not available when using Mednafen PSX (accuracy-focused emulator always runs the full BIOS).
+   */
+  cdRomFastBoot?: boolean;
+  /**
+   * PSX-specific: enable the PlayStation Multitap accessory, allowing 3 or 4 controllers.
+   * Required for 3-P and 4-P titles (e.g. Crash Bash, Crash Team Racing).
+   * Maps to DuckStation `--multitap` flag.
+   */
+  multitapEnabled?: boolean;
+  /**
+   * PSX-specific: use DualShock analog controller mode instead of the default digital pad.
+   * Needed for games that read the analog sticks directly (e.g. Ape Escape, Gran Turismo 2).
+   * Maps to DuckStation `--analog` flag.
+   */
+  analogControllerEnabled?: boolean;
 }
 
 /**
@@ -532,15 +556,19 @@ export function createSystemAdapter(system: string, backendId?: string): SystemA
       return {
         system: 'psx',
         preferredBackendId: 'duckstation',
-        fallbackBackendIds: ['retroarch'],
+        fallbackBackendIds: ['mednafen-psx', 'retroarch'],
         buildLaunchArgs: (romPath, options) => {
-          if (effectivePsxBackend === 'retroarch') {
+          if (effectivePsxBackend === 'retroarch' || effectivePsxBackend === 'mednafen-psx') {
             return buildRetroArchArgs(romPath, options);
           }
-          // DuckStation: relay-only; no built-in netplay CLI flags
+          // DuckStation: relay-only; no built-in P2P netplay CLI flags
           const args = [romPath];
           if (options.fullscreen) args.push('--fullscreen');
           if (options.debug) args.push('--verbose');
+          if (options.pgxpEnabled) args.push('--pgxp');
+          if (options.cdRomFastBoot) args.push('--fast-boot');
+          if (options.multitapEnabled) args.push('--multitap');
+          if (options.analogControllerEnabled) args.push('--analog');
           return args;
         },
         getSavePath: (gameId, baseDir) => `${baseDir}/psx/${gameId}`,
