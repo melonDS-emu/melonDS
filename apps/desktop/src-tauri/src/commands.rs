@@ -113,18 +113,18 @@ fn infer_title(filename: &str) -> String {
         .replace('.', " ");
     // Strip region / dump tags (e.g. "(USA)", "[!]", "(Rev 1)")
     let mut cleaned = String::with_capacity(title.len());
-    let mut depth_round = 0i32;
-    let mut depth_square = 0i32;
+    let mut depth_round: u32 = 0;
+    let mut depth_square: u32 = 0;
     for ch in title.chars() {
         match ch {
             '(' => depth_round += 1,
             ')' => {
-                depth_round = (depth_round - 1).max(0);
+                depth_round = depth_round.saturating_sub(1);
                 continue;
             }
             '[' => depth_square += 1,
             ']' => {
-                depth_square = (depth_square - 1).max(0);
+                depth_square = depth_square.saturating_sub(1);
                 continue;
             }
             _ if depth_round > 0 || depth_square > 0 => continue,
@@ -443,6 +443,9 @@ fn build_backend_args(cmd: &mut Command, params: &LaunchParams) {
             if params.fullscreen {
                 cmd.arg("--fullscreen");
             }
+            if let Some(ref save_dir) = params.save_directory {
+                cmd.args(["--save-dir", save_dir]);
+            }
         }
 
         // ---- GB/GBC/GBA: VBA-M (link cable via TCP) ----
@@ -526,6 +529,9 @@ fn build_backend_args(cmd: &mut Command, params: &LaunchParams) {
             if let Some(port) = params.netplay_port {
                 cmd.args(["--port", &port.to_string()]);
             }
+            if let Some(ref save_dir) = params.save_directory {
+                cmd.args(["--appendconfig", &format!("savefile_directory={}", save_dir)]);
+            }
         }
 
         // ---- Wii U: Cemu ----
@@ -563,22 +569,6 @@ fn build_backend_args(cmd: &mut Command, params: &LaunchParams) {
         // ---- Unknown backend: pass ROM path only ----
         _ => {
             cmd.arg(&params.rom_path);
-        }
-    }
-
-    // Append save directory if provided (for backends that support it).
-    if let Some(ref save_dir) = params.save_directory {
-        match backend {
-            "mgba" => {
-                cmd.args(["--save-dir", save_dir]);
-            }
-            "retroarch" => {
-                cmd.args(["--appendconfig", &format!("savefile_directory={}", save_dir)]);
-            }
-            _ => {
-                // Most backends don't have a standard save-dir flag;
-                // save paths are handled via environment or config files.
-            }
         }
     }
 }
