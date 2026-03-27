@@ -225,6 +225,27 @@ export interface AdapterOptions {
    * Passed as --resolution-scale <n> when Ryujinx supports it.
    */
   switchResolutionScale?: 1 | 2 | 3;
+  /**
+   * PS2-specific: hardware renderer for PCSX2.
+   * - 'Vulkan': Best performance on modern GPUs (default).
+   * - 'OpenGL': Good compatibility fallback.
+   * - 'Software': Most accurate; very slow.
+   * Maps to PCSX2 --renderer=<value> flag.
+   */
+  ps2HwRenderer?: 'Vulkan' | 'OpenGL' | 'Software';
+  /**
+   * PS2-specific: region override for PCSX2.
+   * - 'NTSC-U': North America
+   * - 'NTSC-J': Japan
+   * - 'PAL':    Europe
+   * Maps to PCSX2 --region=<value> flag.
+   */
+  ps2Region?: 'NTSC-U' | 'NTSC-J' | 'PAL';
+  /**
+   * PS2-specific: skip the PS2 BIOS splash screen.
+   * Maps to PCSX2 --fast-boot flag.
+   */
+  ps2FastBoot?: boolean;
 }
 
 /**
@@ -735,6 +756,14 @@ export function createSystemAdapter(system: string, backendId?: string): SystemA
           const args: string[] = [];
           if (options.fullscreen) args.push('--fullscreen');
           if (options.debug) args.push('--verbose');
+          // Hardware renderer (default: Vulkan)
+          if (options.ps2HwRenderer) args.push(`--renderer=${options.ps2HwRenderer}`);
+          // Region override (NTSC-U/NTSC-J/PAL)
+          if (options.ps2Region) args.push(`--region=${options.ps2Region}`);
+          // Fast boot skips the PS2 BIOS splash
+          if (options.ps2FastBoot) args.push('--fast-boot');
+          // Multitap: enables 8-port multitap for 3–8 player games
+          if (options.multitapEnabled) args.push('--multitap');
           args.push('--', romPath);
           return args;
         },
@@ -812,6 +841,36 @@ export function createSystemAdapter(system: string, backendId?: string): SystemA
           return args;
         },
         getSavePath: (gameId, baseDir) => `${baseDir}/switch/${gameId}`,
+      };
+    }
+
+    case 'ps3': {
+      return {
+        system: 'ps3',
+        preferredBackendId: 'rpcs3',
+        fallbackBackendIds: [],
+        buildLaunchArgs: (romPath, options) => {
+          // RPCS3: relay at TCP level via RPCN; no built-in P2P CLI flags
+          const args = ['--no-gui', romPath];
+          if (options.fullscreen) args.push('--fullscreen');
+          if (options.debug) args.push('--verbose');
+          if (options.compatibilityFlags) args.push(...options.compatibilityFlags);
+          return args;
+        },
+        getSavePath: (gameId, baseDir) => `${baseDir}/ps3/${gameId}`,
+      };
+    }
+
+    case 'sega32x': {
+      // Sega 32X uses RetroArch with the PicoDrive core for both 32X and combo Sega CD+32X discs.
+      // PicoDrive handles 32X ROMs (.32x) as well as Sega CD+32X combos.
+      // Netplay uses the standard RetroArch --host / --connect relay flags.
+      return {
+        system: 'sega32x',
+        preferredBackendId: 'retroarch',
+        fallbackBackendIds: [],
+        buildLaunchArgs: (romPath, options) => buildRetroArchArgs(romPath, options),
+        getSavePath: (gameId, baseDir) => `${baseDir}/sega32x/${gameId}`,
       };
     }
 

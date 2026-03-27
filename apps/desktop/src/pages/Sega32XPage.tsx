@@ -18,7 +18,7 @@ const SYSTEM_COLOR = '#CC0000';
 const SYSTEM_COLOR_DARK = '#880000';
 const SYSTEM_COLOR_MID = 'rgba(204,0,0,0.18)';
 
-type ActiveTab = 'lobby' | 'leaderboard';
+type ActiveTab = 'lobby' | 'leaderboard' | 'guide';
 type GenreFilter = 'all' | 'Platformer' | 'Action' | 'Shoot-em-up' | 'Fighting' | 'Sports' | 'Racing' | 'Beat-em-up';
 
 interface Game32X {
@@ -462,12 +462,50 @@ function LobbyPanel({ games }: { games: Game32X[] }) {
 // Sega32XPage
 // ---------------------------------------------------------------------------
 
+function Sega32XGuidePanel() {
+  return (
+    <div className="space-y-6 max-w-2xl">
+      <section>
+        <h3 className="text-base font-bold text-white mb-2">🖥️ Emulator Backends</h3>
+        <div className="space-y-2 text-xs" style={{ color: 'var(--color-oasis-text-muted)' }}>
+          <p><span className="font-semibold text-white">RetroArch (PicoDrive)</span> — Primary backend for Sega 32X. Handles both .32x ROMs and combo Sega CD+32X discs.</p>
+        </div>
+      </section>
+      <section>
+        <h3 className="text-base font-bold text-white mb-2">📀 ROM Formats</h3>
+        <p className="text-xs" style={{ color: 'var(--color-oasis-text-muted)' }}>
+          Supported: <span className="font-mono text-white">.32x</span>, <span className="font-mono text-white">.bin</span>, combo <span className="font-mono text-white">.md + .32x</span>
+        </p>
+      </section>
+      <section>
+        <h3 className="text-base font-bold text-white mb-2">💾 BIOS Setup</h3>
+        <div className="space-y-1 text-xs" style={{ color: 'var(--color-oasis-text-muted)' }}>
+          <p>32X BIOS files (optional but recommended):</p>
+          <p><span className="font-mono text-blue-400">32X_G_BIOS.BIN</span> (Master SH2)</p>
+          <p><span className="font-mono text-blue-400">32X_S_BIOS.BIN</span> (Slave SH2)</p>
+          <p>Place in RetroArch system directory.</p>
+        </div>
+      </section>
+      <section>
+        <h3 className="text-base font-bold text-white mb-2">🌐 Netplay Tips</h3>
+        <ul className="space-y-1 text-xs list-disc list-inside" style={{ color: 'var(--color-oasis-text-muted)' }}>
+          <li>2-player relay via RetroArch PicoDrive — no port forwarding needed.</li>
+          <li>Fighting games (Cosmic Carnage): target ≤ 80 ms.</li>
+          <li>Sports/action games: 120 ms is generally acceptable.</li>
+          <li>Both players need identical ROM files for session stability.</li>
+        </ul>
+      </section>
+    </div>
+  );
+}
+
 export default function Sega32XPage() {
   const [activeTab, setActiveTab] = useState<ActiveTab>('lobby');
 
   const tabs: { id: ActiveTab; label: string }[] = [
     { id: 'lobby', label: '🎮 Lobby' },
     { id: 'leaderboard', label: '🏆 Leaderboard' },
+    { id: 'guide', label: '📖 Guide' },
   ];
 
   return (
@@ -512,6 +550,7 @@ export default function Sega32XPage() {
       {/* Tab content */}
       {activeTab === 'lobby' && <LobbyPanel games={GAMES_32X} />}
       {activeTab === 'leaderboard' && <LeaderboardPanel />}
+      {activeTab === 'guide' && <Sega32XGuidePanel />}
     </div>
   );
 }
