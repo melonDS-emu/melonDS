@@ -68,7 +68,9 @@ export function getBackendSaveExtensions(backendId: string): {
     case 'lime3ds':
       return { sramExtensions: ['.sav'], stateExtensions: ['.cst'] };
     case 'flycast':
-      return { sramExtensions: ['.bin', '.vms'], stateExtensions: ['.fcs'] };
+      // Flycast SRAM: .bin (VMU raw image), .vms (VMU save file)
+      // Flycast states: .state (standalone) / .state<N> (RetroArch slot saves)
+      return { sramExtensions: ['.bin', '.vms'], stateExtensions: ['.state', '.state1', '.state2', '.state3', '.state4', '.state5', '.state6', '.state7', '.state8', '.state9'] };
     case 'duckstation':
       return { sramExtensions: ['.mcr', '.mcs', '.srm'], stateExtensions: ['.save'] };
     case 'pcsx2':

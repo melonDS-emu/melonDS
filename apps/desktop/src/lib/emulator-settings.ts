@@ -54,7 +54,7 @@ export const SYSTEM_BACKEND_MAP: Record<string, string> = {
   psx: 'duckstation',
   ps2: 'pcsx2',
   psp: 'ppsspp',
-  dreamcast: 'flycast',
+  dreamcast: 'retroarch',  // retroarch + flycast_libretro is the recommended netplay path
 };
 
 // ---------------------------------------------------------------------------

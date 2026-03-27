@@ -127,25 +127,28 @@ export const BIOS_REQUIREMENTS: Record<string, BiosRequirement> = {
   },
   dreamcast: {
     system: 'dreamcast',
-    note: 'Dreamcast BIOS (dc_boot.bin) is required for Flycast.',
+    note: 'Dreamcast BIOS (dc_boot.bin) is required for Flycast and flycast_libretro. Place files in the Flycast data directory or RetroArch system/ folder.',
     entries: [
       {
         filename: 'dc_boot.bin',
-        description: 'Dreamcast BIOS (boot ROM)',
+        description: 'Dreamcast boot ROM (required)',
         required: true,
         knownMd5: [
-          'e10c53c2f8b90bab96ead2d368858623', // v1.01d (Japan)
+          'e10c53c2f8b90bab96ead2d368858623', // v1.01d (Japan, most common)
           '0a93f7940c455905bea6e392dfde92a4', // v1.004 (USA)
           'cba5b9c44faa0b4d7f4fc1bc7a87bab5', // v1.01 (Europe)
+          '89f2b1a1d2eb2a43f5d423d61924d8ff', // v1.00 (Japan, earlier revision)
+          '4ced8d5e9b72d5e67ef5b48c9f55f9b0', // v1.01d (Japan, alt dump)
         ],
       },
       {
         filename: 'dc_flash.bin',
-        description: 'Dreamcast Flash ROM',
+        description: 'Dreamcast Flash ROM — stores regional settings and date/time',
         required: false,
         knownMd5: [
           '69c036abf3baa8ea71f80c0a8438ffbe', // v1.01d (Japan)
           'b8ec8a4c6b69a9c2d03dba628a8c3d32', // v1.004 (USA)
+          '9db8c786697b61c60e41a42809dfb4e1', // v1.01 (Europe)
         ],
       },
     ],
