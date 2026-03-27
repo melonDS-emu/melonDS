@@ -315,7 +315,7 @@ function LeaderboardPanel({ mode }: { mode: SystemMode }) {
           style={{ background: mode === 'ngpc' ? 'rgba(232,184,0,0.08)' : 'rgba(200,160,0,0.08)', border: `1px solid ${colorMid}` }}
         >
           <RankBadge rank={i + 1} />
-          <span className="flex-1 text-sm font-semibold text-white">{r.displayName}</span>
+          <span className="flex-1 text-sm font-semibold" style={{ color }}>{r.displayName}</span>
           <span className="text-xs" style={{ color: 'var(--color-oasis-text-muted)' }}>
             {r.sessions} session{r.sessions !== 1 ? 's' : ''}
           </span>

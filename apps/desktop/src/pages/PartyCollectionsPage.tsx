@@ -29,7 +29,11 @@ interface PartyCollection {
 // Data fetching
 // ---------------------------------------------------------------------------
 
-const API_BASE = 'http://localhost:8080';
+const API_BASE: string =
+  typeof import.meta !== 'undefined'
+    ? (import.meta as { env?: { VITE_SERVER_URL?: string } }).env?.VITE_SERVER_URL ??
+      'http://localhost:8080'
+    : 'http://localhost:8080';
 
 async function fetchCollections(tag?: string): Promise<PartyCollection[]> {
   const url = tag
