@@ -33,7 +33,9 @@
   --gradient-nds:  linear-gradient(135deg, #e60012 0%, #7a0009 100%);
   --gradient-gc:   linear-gradient(135deg, #9333ea 0%, #4a1080 100%);
   --gradient-wii:  linear-gradient(135deg, #94a3b8 0%, #475569 100%);
+  --gradient-wiiu: linear-gradient(135deg, #009ac7 0%, #005580 100%);
   --gradient-3ds:  linear-gradient(135deg, #dc2626 0%, #7f1d1d 100%);
+  --gradient-switch: linear-gradient(135deg, #e4003a 0%, #800020 100%);
   --gradient-genesis: linear-gradient(135deg, #1d4ed8 0%, #1e3a8a 100%);
   --gradient-sms: linear-gradient(135deg, #003399 0%, #001a66 100%);
   --gradient-dreamcast: linear-gradient(135deg, #ea580c 0%, #7c2d12 100%);

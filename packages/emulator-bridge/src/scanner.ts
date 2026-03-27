@@ -45,6 +45,11 @@ export const ROM_EXTENSIONS: Record<string, string> = {
   '.cci': '3ds',    // raw 3DS card image
   '.cia': '3ds',    // 3DS installable content archive
   '.3dsx': '3ds',   // 3DS homebrew executable
+  // Nintendo Switch
+  '.nsp': 'switch', // Nintendo Submission Package (eShop title)
+  '.xci': 'switch', // Game Card Image (physical cartridge dump)
+  '.nca': 'switch', // Nintendo Content Archive (raw encrypted content)
+  '.nso': 'switch', // Nintendo Shared Object (Switch executable / homebrew)
 };
 
 export interface RomFileInfo {

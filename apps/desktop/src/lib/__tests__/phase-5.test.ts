@@ -34,7 +34,7 @@ Object.defineProperty(globalThis, 'localStorage', {
 describe('SYSTEM_COLORS', () => {
   const EXPECTED_SYSTEMS = [
     'NES', 'SNES', 'GB', 'GBC', 'GBA', 'N64', 'NDS',
-    'GC', '3DS', 'Wii', 'Wii U', 'Genesis', 'SMS', 'Dreamcast',
+    'GC', '3DS', 'Wii', 'Wii U', 'Switch', 'Genesis', 'SMS', 'Dreamcast',
     'PSX', 'PS2', 'PSP',
   ];
 

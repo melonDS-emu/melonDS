@@ -17,6 +17,7 @@ export const SYSTEM_COLORS: Record<string, string> = {
   PSX:  '#003087',
   PS2:  '#003087',
   PSP:  '#003087',
+  Switch: '#E4003A',
 };
 
 type BadgeSize = 'xs' | 'sm' | 'md';

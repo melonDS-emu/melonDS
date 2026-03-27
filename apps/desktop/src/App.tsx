@@ -23,6 +23,8 @@ import { NotificationsPage } from './pages/NotificationsPage';
 import { RetroAchievementsPage } from './pages/RetroAchievementsPage';
 import WiiPage from './pages/WiiPage';
 import WiiUPage from './pages/WiiUPage';
+import ThreeDSPage from './pages/ThreeDSPage';
+import SwitchPage from './pages/SwitchPage';
 import GameCubePage from './pages/GameCubePage';
 import GenesisPage from './pages/GenesisPage';
 import SMSPage from './pages/SMSPage';
@@ -71,6 +73,8 @@ export function App() {
         <Route path="/metroid" element={<MetroidPage />} />
         <Route path="/wii" element={<WiiPage />} />
         <Route path="/wiiu" element={<WiiUPage />} />
+        <Route path="/3ds" element={<ThreeDSPage />} />
+        <Route path="/switch" element={<SwitchPage />} />
         <Route path="/gc" element={<GameCubePage />} />
         <Route path="/genesis" element={<GenesisPage />} />
         <Route path="/sms" element={<SMSPage />} />
