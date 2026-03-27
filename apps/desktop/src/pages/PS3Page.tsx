@@ -17,7 +17,7 @@ const SYSTEM_COLOR = '#003087';
 const SYSTEM_COLOR_DARK = '#001a4d';
 const SYSTEM_COLOR_MID = 'rgba(0,48,135,0.18)';
 
-type ActiveTab = 'lobby' | 'leaderboard';
+type ActiveTab = 'lobby' | 'leaderboard' | 'guide';
 type GenreFilter = 'all' | 'Fighting' | 'Action' | 'Racing' | 'Sports' | 'Platformer' | 'Shooter' | 'Beat-em-up';
 
 interface PS3Game {
@@ -455,6 +455,55 @@ function LobbyPanel({ games }: { games: PS3Game[] }) {
 }
 
 // ---------------------------------------------------------------------------
+// Guide panel
+// ---------------------------------------------------------------------------
+
+function PS3GuidePanel() {
+  return (
+    <div className="space-y-6 max-w-2xl">
+      <section>
+        <h3 className="text-base font-bold text-white mb-2">🖥️ Emulator Backends</h3>
+        <div className="space-y-2 text-xs" style={{ color: 'var(--color-oasis-text-muted)' }}>
+          <p><span className="font-semibold text-white">RPCS3</span> — Primary backend. High compatibility with most PS3 titles. Uses Vulkan for best performance.</p>
+          <p>Download RPCS3: <span className="font-mono text-blue-400">rpcs3.net</span></p>
+          <p>Install (Linux): <span className="font-mono text-blue-400">flatpak install flathub net.rpcs3.RPCS3</span></p>
+        </div>
+      </section>
+      <section>
+        <h3 className="text-base font-bold text-white mb-2">🔑 RPCN Setup</h3>
+        <div className="space-y-1 text-xs" style={{ color: 'var(--color-oasis-text-muted)' }}>
+          <p>RPCN is a free fan-run PSN replacement for RPCS3.</p>
+          <p>Create a free account at <span className="font-mono text-blue-400">rpcs3.net/rpcn</span></p>
+          <p>Enable RPCN in RPCS3: <span className="font-mono">Network → Network Status: Connected → RPCN</span></p>
+          <p>All RetroOasis PS3 sessions route through RPCN relay — no port forwarding needed.</p>
+        </div>
+      </section>
+      <section>
+        <h3 className="text-base font-bold text-white mb-2">📀 ROM Formats</h3>
+        <p className="text-xs" style={{ color: 'var(--color-oasis-text-muted)' }}>
+          Supported: <span className="font-mono text-white">PS3 ISO folder</span>, <span className="font-mono text-white">.pkg</span> files, decrypted game folders
+        </p>
+      </section>
+      <section>
+        <h3 className="text-base font-bold text-white mb-2">🎮 Controller Setup</h3>
+        <p className="text-xs" style={{ color: 'var(--color-oasis-text-muted)' }}>
+          DualShock 3 via USB or DS4 via DS4Windows. Configure in RPCS3 Pad Settings.
+        </p>
+      </section>
+      <section>
+        <h3 className="text-base font-bold text-white mb-2">🌐 Netplay Tips</h3>
+        <ul className="space-y-1 text-xs list-disc list-inside" style={{ color: 'var(--color-oasis-text-muted)' }}>
+          <li>RPCS3 RPCN handles relay — no port forwarding needed.</li>
+          <li>Fighting games: target ≤ 60 ms for competitive sessions.</li>
+          <li>Co-op games: 120 ms is acceptable for most titles.</li>
+          <li>Check rpcs3.net/compatibility before starting — some titles have known issues.</li>
+        </ul>
+      </section>
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
 // PS3Page
 // ---------------------------------------------------------------------------
 
@@ -464,6 +513,7 @@ export default function PS3Page() {
   const tabs: { id: ActiveTab; label: string }[] = [
     { id: 'lobby', label: '🎮 Lobby' },
     { id: 'leaderboard', label: '🏆 Leaderboard' },
+    { id: 'guide', label: '📖 Guide' },
   ];
 
   return (
@@ -508,6 +558,7 @@ export default function PS3Page() {
       {/* Tab content */}
       {activeTab === 'lobby' && <LobbyPanel games={PS3_GAMES} />}
       {activeTab === 'leaderboard' && <LeaderboardPanel />}
+      {activeTab === 'guide' && <PS3GuidePanel />}
     </div>
   );
 }

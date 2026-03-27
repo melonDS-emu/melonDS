@@ -1136,3 +1136,46 @@ discovery utilities.
   - `mednafen-psx` backend registration (10 assertions)
 - [x] Total: 1393 lobby-server + 394 desktop = **1787 tests — all passing**.
 - [x] `roadmap.md` updated with Phase 41 milestones.
+
+---
+
+## Phase 44 — PS2/PS3/SegaCD/32X/GB/GBC Overhaul ✅
+
+### Deliverables
+
+- [x] **Enhanced PS2 adapter**: new flags `ps2HwRenderer` (`--renderer=`), `ps2Region` (`--region=`),
+  `ps2FastBoot` (`--fast-boot`), `multitapEnabled` (`--multitap`). New `AdapterOptions` fields declared.
+- [x] **PS3 adapter (RPCS3/RPCN)**: `--no-gui <rom>` launch pattern; relay via RPCN; `fullscreen`,
+  `debug`, `compatibilityFlags` supported.
+- [x] **Sega 32X adapter (RetroArch PicoDrive)**: delegates to `buildRetroArchArgs`; handles `.32x` and
+  combo Sega CD+32X discs.
+- [x] **6 new PS2 mock games**: Jak and Daxter, Tekken 5, Devil May Cry, SSX 3, TimeSplitters 2, ICO.
+- [x] **10 new PS3 mock games**: Street Fighter IV, Tekken 6, LittleBigPlanet, Castle Crashers,
+  Mortal Kombat 2011, WipEout HD, Gran Turismo 5, Borderlands, Uncharted 2, BlazBlue Calamity Trigger.
+- [x] **9 new Sega CD mock games**: Sonic CD, Final Fight CD, Lunar Silver Star, NBA Jam, Batman Returns,
+  Robo Aleste, Snatcher, Silpheed, Popful Mail.
+- [x] **6 new Sega 32X mock games**: Knuckles' Chaotix, Cosmic Carnage, Star Wars Arcade, NBA Jam TE,
+  DOOM, Tempo.
+- [x] **4 new GB mock games**: Pokémon Yellow, Link's Awakening, Wario Land, Metroid II.
+- [x] **3 new GBC mock games**: Oracle of Seasons, Oracle of Ages, Wario Land 3.
+- [x] **Session templates**: 6 PS2, 3 Sega CD (additional), 10 PS3, 7 Sega 32X, 4 GB, 3 GBC templates.
+- [x] **Game metadata**: entries for all new PS2, PS3, Sega CD, Sega 32X, GB, GBC titles.
+- [x] **Netplay whitelist**: PS2 (6 entries), PS3 (6 entries), Sega CD (4 entries), Sega 32X (4 entries),
+  GB (5 entries), GBC (4 entries).
+- [x] **PS2Page overhaul**: Guide tab (📖) with emulator setup, BIOS, ROM formats, Multitap, Netplay Tips;
+  game list sourced from `MOCK_GAMES` (auto-includes all PS2 titles).
+- [x] **PS3Page**: Guide tab added with RPCS3/RPCN setup, ROM formats, controller, netplay tips.
+- [x] **SegaCDPage**: Guide tab added with backend info, BIOS setup, ROM formats, netplay tips.
+- [x] **Sega32XPage**: Guide tab added with PicoDrive backend, ROM formats, BIOS setup, netplay tips.
+
+### Tests
+
+- [x] `phase-44.test.ts` — comprehensive test suite:
+  - PS2 adapter enhanced flags (12 assertions)
+  - PS3 adapter (10 assertions)
+  - Sega 32X adapter (5 assertions)
+  - Mock games — PS2, PS3, Sega CD, Sega 32X, GB, GBC (29 assertions)
+  - Session templates — PS2, Sega CD, PS3, Sega 32X, GB/GBC (26 assertions)
+  - Game metadata — PS2, PS3, Sega CD, Sega 32X, GB/GBC (22 assertions)
+  - Netplay whitelist — PS2, PS3, Sega CD, Sega 32X, GB/GBC (17 assertions)
+- [x] `roadmap.md` updated with Phase 44 milestones.

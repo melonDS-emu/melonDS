@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useLobby } from '../context/LobbyContext';
+import { MOCK_GAMES } from '../data/mock-games';
 import { HostRoomModal } from '../components/HostRoomModal';
 import { JoinRoomModal } from '../components/JoinRoomModal';
 
@@ -16,17 +17,7 @@ const API =
 const SYSTEM_COLOR = '#00439C';
 const SYSTEM_EMOJI = '💙';
 
-type ActiveTab = 'lobby' | 'leaderboard';
-
-interface PS2Game {
-  id: string;
-  title: string;
-  genre: string;
-  genreEmoji: string;
-  maxPlayers: number;
-  competitive?: boolean;
-  coopOnly?: boolean;
-}
+type ActiveTab = 'lobby' | 'leaderboard' | 'guide';
 
 interface PS2Ranking {
   displayName: string;
@@ -34,20 +25,15 @@ interface PS2Ranking {
 }
 
 // ---------------------------------------------------------------------------
-// Game definitions
+// Game data — sourced from MOCK_GAMES
 // ---------------------------------------------------------------------------
 
-const PS2_GAMES: PS2Game[] = [
-  { id: 'ps2-guitar-hero-2',           title: 'Guitar Hero II',                   genre: 'Rhythm',      genreEmoji: '🎸', maxPlayers: 2, coopOnly: true },
-  { id: 'ps2-burnout-3',               title: 'Burnout 3: Takedown',              genre: 'Racing',      genreEmoji: '💥', maxPlayers: 2, competitive: true },
-  { id: 'ps2-katamari-damacy',         title: 'Katamari Damacy',                  genre: 'Puzzle',      genreEmoji: '🌀', maxPlayers: 2, coopOnly: true },
-  { id: 'ps2-ratchet-clank-upa',       title: "Ratchet & Clank: UYA",             genre: 'Action',      genreEmoji: '🔧', maxPlayers: 2, competitive: true },
-  { id: 'ps2-need-for-speed-ug2',      title: 'Need for Speed: UG 2',             genre: 'Racing',      genreEmoji: '🏎️', maxPlayers: 2, competitive: true },
-  { id: 'ps2-wwe-smackdown-vs-raw',    title: 'WWE SmackDown! vs. RAW',           genre: 'Wrestling',   genreEmoji: '🤼', maxPlayers: 2, competitive: true },
-  { id: 'ps2-kingdom-hearts',          title: 'Kingdom Hearts',                   genre: 'Action RPG',  genreEmoji: '🔑', maxPlayers: 1 },
-  { id: 'ps2-shadow-of-the-colossus',  title: 'Shadow of the Colossus',           genre: 'Action',      genreEmoji: '🗿', maxPlayers: 1 },
-  { id: 'ps2-gta-san-andreas',         title: 'GTA: San Andreas',                 genre: 'Open World',  genreEmoji: '🏙️', maxPlayers: 1 },
-];
+const PS2_GAMES = MOCK_GAMES.filter((g) => g.system === 'PS2');
+
+type PS2Game = (typeof PS2_GAMES)[number];
+
+// Games that require PCSX2 multitap for full player count
+const MULTITAP_GAMES = new Set(['ps2-timesplitters-2']);
 
 // ---------------------------------------------------------------------------
 // API helpers
@@ -118,6 +104,10 @@ function PS2GameCard({
   onQuickMatch: (game: PS2Game) => void;
   openRooms: number;
 }) {
+  const isMultitap = MULTITAP_GAMES.has(game.id);
+  const isCompetitive = game.tags.some((t) => t === 'Versus' || t === 'Competitive');
+  const isCoop = game.tags.some((t) => t === 'Co-op');
+
   return (
     <div
       className="n-card rounded-2xl p-4 flex flex-col gap-3"
@@ -128,16 +118,17 @@ function PS2GameCard({
     >
       <div className="flex items-start justify-between gap-2">
         <div className="flex items-center gap-2">
-          <span className="text-2xl">{game.genreEmoji}</span>
+          <span className="text-2xl">{game.coverEmoji}</span>
           <div>
             <p className="text-sm font-bold text-white leading-tight">{game.title}</p>
             <p className="text-xs mt-0.5" style={{ color: 'var(--color-oasis-text-muted)' }}>
-              {game.genre} · {game.maxPlayers === 1 ? '1P' : game.maxPlayers === 2 ? '2P' : `Up to ${game.maxPlayers}P`}
+              {game.maxPlayers === 1 ? '1P' : game.maxPlayers === 2 ? '2P' : `Up to ${game.maxPlayers}P`}
+              {isMultitap && ' · Multitap'}
             </p>
           </div>
         </div>
         <div className="flex flex-col items-end gap-1">
-          {game.competitive && (
+          {isCompetitive && (
             <span
               className="text-xs px-2 py-0.5 rounded-full font-semibold"
               style={{ background: 'rgba(251,146,60,0.15)', color: '#fb923c', border: '1px solid rgba(251,146,60,0.3)' }}
@@ -145,7 +136,7 @@ function PS2GameCard({
               Competitive
             </span>
           )}
-          {game.coopOnly && (
+          {isCoop && (
             <span
               className="text-xs px-2 py-0.5 rounded-full font-semibold"
               style={{ background: 'rgba(74,222,128,0.1)', color: '#4ade80', border: '1px solid rgba(74,222,128,0.25)' }}
@@ -163,6 +154,10 @@ function PS2GameCard({
           )}
         </div>
       </div>
+
+      <p className="text-xs" style={{ color: 'var(--color-oasis-text-muted)' }}>
+        {game.description}
+      </p>
 
       <div className="flex gap-2 mt-auto">
         <button
@@ -237,6 +232,54 @@ function LeaderboardPanel() {
 }
 
 // ---------------------------------------------------------------------------
+// Guide panel
+// ---------------------------------------------------------------------------
+
+function GuidePanel() {
+  return (
+    <div className="space-y-6 max-w-2xl">
+      <section>
+        <h3 className="text-base font-bold text-white mb-2">🖥️ Emulator Backends</h3>
+        <div className="space-y-2 text-xs" style={{ color: 'var(--color-oasis-text-muted)' }}>
+          <p><span className="font-semibold text-white">PCSX2</span> — Primary backend. High accuracy, Vulkan/OpenGL renderer, fast boot. Best for most titles.</p>
+          <p><span className="font-semibold text-white">RetroArch (PCSX2 core)</span> — Fallback via RetroArch if standalone PCSX2 is unavailable.</p>
+          <p>Download PCSX2: <span className="font-mono text-blue-400">pcsx2.net</span></p>
+        </div>
+      </section>
+      <section>
+        <h3 className="text-base font-bold text-white mb-2">💾 BIOS Setup</h3>
+        <div className="space-y-1 text-xs" style={{ color: 'var(--color-oasis-text-muted)' }}>
+          <p>PS2 BIOS is required for full compatibility.</p>
+          <p>Common filename: <span className="font-mono text-blue-400">SCPH-70012.bin</span> (NTSC-U)</p>
+          <p>Place in PCSX2 bios directory (usually <span className="font-mono">~/.config/PCSX2/bios/</span>).</p>
+        </div>
+      </section>
+      <section>
+        <h3 className="text-base font-bold text-white mb-2">📀 ROM Formats</h3>
+        <p className="text-xs" style={{ color: 'var(--color-oasis-text-muted)' }}>
+          Supported: <span className="font-mono text-white">.iso</span>, <span className="font-mono text-white">.bin/.cue</span>, <span className="font-mono text-white">.chd</span>
+        </p>
+      </section>
+      <section>
+        <h3 className="text-base font-bold text-white mb-2">🎮 Multitap</h3>
+        <p className="text-xs" style={{ color: 'var(--color-oasis-text-muted)' }}>
+          Games marked <span className="font-semibold text-white">Multitap</span> require the <span className="font-mono">--multitap</span> flag for 3–8 player sessions. RetroOasis passes this automatically.
+        </p>
+      </section>
+      <section>
+        <h3 className="text-base font-bold text-white mb-2">🌐 Netplay Tips</h3>
+        <ul className="space-y-1 text-xs list-disc list-inside" style={{ color: 'var(--color-oasis-text-muted)' }}>
+          <li>PCSX2 relay sessions work best under 100 ms for action and fighting games.</li>
+          <li>Enable Vulkan renderer for best performance on modern GPUs.</li>
+          <li>Fast boot (<span className="font-mono">--fast-boot</span>) skips the PS2 BIOS splash — enabled by default.</li>
+          <li>No port forwarding needed — RetroOasis TCP relay handles all connections.</li>
+        </ul>
+      </section>
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
 // Lobby panel
 // ---------------------------------------------------------------------------
 
@@ -267,7 +310,6 @@ function LobbyPanel({ games }: { games: PS2Game[] }) {
     },
     [publicRooms],
   );
-
 
   return (
     <div className="space-y-6">
@@ -324,6 +366,7 @@ export default function PS2Page() {
   const tabs: { id: ActiveTab; label: string }[] = [
     { id: 'lobby', label: '🎮 Lobby' },
     { id: 'leaderboard', label: '🏆 Leaderboard' },
+    { id: 'guide', label: '📖 Guide' },
   ];
 
   return (
@@ -334,7 +377,7 @@ export default function PS2Page() {
         <div>
           <h1 className="text-3xl font-black text-white">Sony PlayStation 2</h1>
           <p className="text-sm mt-1" style={{ color: 'var(--color-oasis-text-muted)' }}>
-            Online relay sessions via PCSX2 · Up to 4 players · No port forwarding needed
+            Online relay sessions via PCSX2 · Up to 8 players · No port forwarding needed
           </p>
         </div>
       </div>
@@ -360,6 +403,7 @@ export default function PS2Page() {
       {/* Tab content */}
       {activeTab === 'lobby' && <LobbyPanel games={PS2_GAMES} />}
       {activeTab === 'leaderboard' && <LeaderboardPanel />}
+      {activeTab === 'guide' && <GuidePanel />}
     </div>
   );
 }

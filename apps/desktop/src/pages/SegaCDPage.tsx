@@ -18,7 +18,7 @@ const SYSTEM_COLOR = '#4B5EFC';
 const SYSTEM_COLOR_DARK = '#1A1A2E';
 const SYSTEM_COLOR_MID = 'rgba(75,94,252,0.18)';
 
-type ActiveTab = 'lobby' | 'leaderboard' | 'setup';
+type ActiveTab = 'lobby' | 'leaderboard' | 'setup' | 'guide';
 
 type ModeFilter = 'all' | 'multiplayer' | 'single';
 
@@ -595,6 +595,44 @@ function LobbyPanel({ games }: { games: SegaCDGame[] }) {
 // SegaCDPage
 // ---------------------------------------------------------------------------
 
+function SegaCDGuidePanel() {
+  return (
+    <div className="space-y-6 max-w-2xl">
+      <section>
+        <h3 className="text-base font-bold text-white mb-2">🖥️ Emulator Backends</h3>
+        <div className="space-y-2 text-xs" style={{ color: 'var(--color-oasis-text-muted)' }}>
+          <p><span className="font-semibold text-white">RetroArch (Genesis Plus GX)</span> — Primary backend for Sega CD. Best accuracy and CD audio emulation.</p>
+          <p><span className="font-semibold text-white">RetroArch (Picodrive)</span> — Alternative for combo Sega CD+32X discs.</p>
+        </div>
+      </section>
+      <section>
+        <h3 className="text-base font-bold text-white mb-2">💾 BIOS Setup</h3>
+        <div className="space-y-1 text-xs" style={{ color: 'var(--color-oasis-text-muted)' }}>
+          <p>Sega CD BIOS is required for all games.</p>
+          <p>US: <span className="font-mono text-blue-400">bios_CD_U.bin</span> (Sega CD Model 2)</p>
+          <p>EU: <span className="font-mono text-blue-400">bios_CD_E.bin</span></p>
+          <p>JP: <span className="font-mono text-blue-400">bios_CD_J.bin</span></p>
+          <p>Place in RetroArch system directory.</p>
+        </div>
+      </section>
+      <section>
+        <h3 className="text-base font-bold text-white mb-2">📀 ROM Formats</h3>
+        <p className="text-xs" style={{ color: 'var(--color-oasis-text-muted)' }}>
+          Supported: <span className="font-mono text-white">.bin/.cue</span>, <span className="font-mono text-white">.chd</span>, <span className="font-mono text-white">.iso</span>
+        </p>
+      </section>
+      <section>
+        <h3 className="text-base font-bold text-white mb-2">🌐 Netplay Tips</h3>
+        <ul className="space-y-1 text-xs list-disc list-inside" style={{ color: 'var(--color-oasis-text-muted)' }}>
+          <li>2-player co-op games work best under 100 ms via Genesis Plus GX relay.</li>
+          <li>CD audio tracks are emulated locally — no sync issues with music.</li>
+          <li>BIOS must be identical on both sides for reliable sessions.</li>
+        </ul>
+      </section>
+    </div>
+  );
+}
+
 export default function SegaCDPage() {
   const [activeTab, setActiveTab] = useState<ActiveTab>('lobby');
 
@@ -602,6 +640,7 @@ export default function SegaCDPage() {
     { id: 'lobby', label: '🎮 Lobby' },
     { id: 'leaderboard', label: '🏆 Leaderboard' },
     { id: 'setup', label: '⚙️ Setup' },
+    { id: 'guide', label: '📖 Guide' },
   ];
 
   return (
@@ -647,6 +686,7 @@ export default function SegaCDPage() {
       {activeTab === 'lobby' && <LobbyPanel games={SEGACD_GAMES} />}
       {activeTab === 'leaderboard' && <LeaderboardPanel />}
       {activeTab === 'setup' && <SetupGuide />}
+      {activeTab === 'guide' && <SegaCDGuidePanel />}
     </div>
   );
 }

@@ -1700,6 +1700,373 @@ export const DEFAULT_TEMPLATES: SessionTemplateConfig[] = [
     latencyTarget: 120,
   },
 
+  // --- NBA Jam (Sega CD) ---
+  {
+    id: 'segacd-nba-jam-2p',
+    gameId: 'segacd-nba-jam',
+    system: 'segacd',
+    emulatorBackendId: 'retroarch',
+    playerCount: 2,
+    controllerMappings: defaultMappings(2),
+    saveRules: NO_SAVE_RULES,
+    netplayMode: 'online-relay',
+    latencyTarget: 80,
+  },
+
+  // --- Batman Returns (Sega CD additional) ---
+  {
+    id: 'segacd-batman-returns-2p-v2',
+    gameId: 'segacd-batman-returns',
+    system: 'segacd',
+    emulatorBackendId: 'retroarch',
+    playerCount: 2,
+    controllerMappings: defaultMappings(2),
+    saveRules: NO_SAVE_RULES,
+    netplayMode: 'online-relay',
+    latencyTarget: 100,
+  },
+
+  // --- Robo Aleste (Sega CD additional) ---
+  {
+    id: 'segacd-robo-aleste-2p-v2',
+    gameId: 'segacd-robo-aleste',
+    system: 'segacd',
+    emulatorBackendId: 'retroarch',
+    playerCount: 2,
+    controllerMappings: defaultMappings(2),
+    saveRules: NO_SAVE_RULES,
+    netplayMode: 'online-relay',
+    latencyTarget: 100,
+  },
+
+  // =========================================================================
+  // Sony PlayStation 3 (PS3) templates — RPCS3 / RPCN relay
+  // =========================================================================
+
+  // --- PS3 default ---
+  {
+    id: 'ps3-default',
+    gameId: 'ps3-default',
+    system: 'ps3',
+    emulatorBackendId: 'rpcs3',
+    playerCount: 4,
+    controllerMappings: defaultMappings(4),
+    saveRules: DEFAULT_SAVE_RULES,
+    netplayMode: 'online-relay',
+    latencyTarget: 120,
+  },
+
+  // --- Street Fighter IV ---
+  {
+    id: 'ps3-street-fighter-iv-2p',
+    gameId: 'ps3-street-fighter-iv',
+    system: 'ps3',
+    emulatorBackendId: 'rpcs3',
+    playerCount: 2,
+    controllerMappings: defaultMappings(2),
+    saveRules: NO_SAVE_RULES,
+    netplayMode: 'online-relay',
+    latencyTarget: 60,
+  },
+
+  // --- Tekken 6 ---
+  {
+    id: 'ps3-tekken-6-2p',
+    gameId: 'ps3-tekken-6',
+    system: 'ps3',
+    emulatorBackendId: 'rpcs3',
+    playerCount: 2,
+    controllerMappings: defaultMappings(2),
+    saveRules: NO_SAVE_RULES,
+    netplayMode: 'online-relay',
+    latencyTarget: 80,
+  },
+
+  // --- LittleBigPlanet ---
+  {
+    id: 'ps3-little-big-planet-4p',
+    gameId: 'ps3-little-big-planet',
+    system: 'ps3',
+    emulatorBackendId: 'rpcs3',
+    playerCount: 4,
+    controllerMappings: defaultMappings(4),
+    saveRules: DEFAULT_SAVE_RULES,
+    netplayMode: 'online-relay',
+    latencyTarget: 120,
+  },
+
+  // --- Castle Crashers ---
+  {
+    id: 'ps3-castle-crashers-4p',
+    gameId: 'ps3-castle-crashers',
+    system: 'ps3',
+    emulatorBackendId: 'rpcs3',
+    playerCount: 4,
+    controllerMappings: defaultMappings(4),
+    saveRules: DEFAULT_SAVE_RULES,
+    netplayMode: 'online-relay',
+    latencyTarget: 100,
+  },
+
+  // --- Mortal Kombat 2011 ---
+  {
+    id: 'ps3-mortal-kombat-2011-2p',
+    gameId: 'ps3-mortal-kombat-2011',
+    system: 'ps3',
+    emulatorBackendId: 'rpcs3',
+    playerCount: 2,
+    controllerMappings: defaultMappings(2),
+    saveRules: NO_SAVE_RULES,
+    netplayMode: 'online-relay',
+    latencyTarget: 80,
+  },
+
+  // --- Gran Turismo 5 ---
+  {
+    id: 'ps3-gran-turismo-5-16p',
+    gameId: 'ps3-gran-turismo-5',
+    system: 'ps3',
+    emulatorBackendId: 'rpcs3',
+    playerCount: 16,
+    controllerMappings: defaultMappings(16),
+    saveRules: DEFAULT_SAVE_RULES,
+    netplayMode: 'online-relay',
+    latencyTarget: 120,
+  },
+
+  // --- WipEout HD ---
+  {
+    id: 'ps3-wipeout-hd-8p',
+    gameId: 'ps3-wipeout-hd',
+    system: 'ps3',
+    emulatorBackendId: 'rpcs3',
+    playerCount: 8,
+    controllerMappings: defaultMappings(8),
+    saveRules: NO_SAVE_RULES,
+    netplayMode: 'online-relay',
+    latencyTarget: 80,
+  },
+
+  // --- Borderlands ---
+  {
+    id: 'ps3-borderlands-4p',
+    gameId: 'ps3-borderlands',
+    system: 'ps3',
+    emulatorBackendId: 'rpcs3',
+    playerCount: 4,
+    controllerMappings: defaultMappings(4),
+    saveRules: DEFAULT_SAVE_RULES,
+    netplayMode: 'online-relay',
+    latencyTarget: 120,
+  },
+
+  // --- BlazBlue: Calamity Trigger ---
+  {
+    id: 'ps3-blazblue-calamity-trigger-2p',
+    gameId: 'ps3-blazblue-calamity-trigger',
+    system: 'ps3',
+    emulatorBackendId: 'rpcs3',
+    playerCount: 2,
+    controllerMappings: defaultMappings(2),
+    saveRules: NO_SAVE_RULES,
+    netplayMode: 'online-relay',
+    latencyTarget: 60,
+  },
+
+  // =========================================================================
+  // Sega 32X templates — RetroArch PicoDrive
+  // =========================================================================
+
+  // --- Sega 32X default ---
+  {
+    id: 'sega32x-default-2p',
+    gameId: 'sega32x-default',
+    system: 'sega32x',
+    emulatorBackendId: 'retroarch',
+    playerCount: 2,
+    controllerMappings: defaultMappings(2),
+    saveRules: DEFAULT_SAVE_RULES,
+    netplayMode: 'online-relay',
+    latencyTarget: 120,
+  },
+
+  // --- Knuckles' Chaotix ---
+  {
+    id: 'sega32x-knuckles-chaotix-2p',
+    gameId: 'sega32x-knuckles-chaotix',
+    system: 'sega32x',
+    emulatorBackendId: 'retroarch',
+    playerCount: 2,
+    controllerMappings: defaultMappings(2),
+    saveRules: NO_SAVE_RULES,
+    netplayMode: 'online-relay',
+    latencyTarget: 120,
+  },
+
+  // --- Cosmic Carnage ---
+  {
+    id: 'sega32x-cosmic-carnage-2p',
+    gameId: 'sega32x-cosmic-carnage',
+    system: 'sega32x',
+    emulatorBackendId: 'retroarch',
+    playerCount: 2,
+    controllerMappings: defaultMappings(2),
+    saveRules: NO_SAVE_RULES,
+    netplayMode: 'online-relay',
+    latencyTarget: 80,
+  },
+
+  // --- Star Wars Arcade ---
+  {
+    id: 'sega32x-star-wars-arcade-2p',
+    gameId: 'sega32x-star-wars-arcade',
+    system: 'sega32x',
+    emulatorBackendId: 'retroarch',
+    playerCount: 2,
+    controllerMappings: defaultMappings(2),
+    saveRules: NO_SAVE_RULES,
+    netplayMode: 'online-relay',
+    latencyTarget: 100,
+  },
+
+  // --- NBA Jam Tournament Edition ---
+  {
+    id: 'sega32x-nba-jam-te-2p',
+    gameId: 'sega32x-nba-jam-te',
+    system: 'sega32x',
+    emulatorBackendId: 'retroarch',
+    playerCount: 2,
+    controllerMappings: defaultMappings(2),
+    saveRules: NO_SAVE_RULES,
+    netplayMode: 'online-relay',
+    latencyTarget: 80,
+  },
+
+  // --- DOOM (32X) ---
+  {
+    id: 'sega32x-doom-1p',
+    gameId: 'sega32x-doom',
+    system: 'sega32x',
+    emulatorBackendId: 'retroarch',
+    playerCount: 1,
+    controllerMappings: defaultMappings(1),
+    saveRules: DEFAULT_SAVE_RULES,
+    netplayMode: 'online-relay',
+    latencyTarget: 100,
+  },
+
+  // --- Tempo ---
+  {
+    id: 'sega32x-tempo-1p',
+    gameId: 'sega32x-tempo',
+    system: 'sega32x',
+    emulatorBackendId: 'retroarch',
+    playerCount: 1,
+    controllerMappings: defaultMappings(1),
+    saveRules: DEFAULT_SAVE_RULES,
+    netplayMode: 'online-relay',
+    latencyTarget: 100,
+  },
+
+  // =========================================================================
+  // GB additional templates — mGBA
+  // =========================================================================
+
+  // --- Pokemon Yellow ---
+  {
+    id: 'gb-pokemon-yellow-2p',
+    gameId: 'gb-pokemon-yellow',
+    system: 'gb',
+    emulatorBackendId: 'mgba',
+    playerCount: 2,
+    controllerMappings: defaultMappings(2),
+    saveRules: DEFAULT_SAVE_RULES,
+    netplayMode: 'online-relay',
+    latencyTarget: 200,
+  },
+
+  // --- Link's Awakening ---
+  {
+    id: 'gb-links-awakening-1p',
+    gameId: 'gb-links-awakening',
+    system: 'gb',
+    emulatorBackendId: 'mgba',
+    playerCount: 1,
+    controllerMappings: defaultMappings(1),
+    saveRules: DEFAULT_SAVE_RULES,
+    netplayMode: 'online-relay',
+    latencyTarget: 200,
+  },
+
+  // --- Wario Land ---
+  {
+    id: 'gb-wario-land-1p',
+    gameId: 'gb-wario-land',
+    system: 'gb',
+    emulatorBackendId: 'mgba',
+    playerCount: 1,
+    controllerMappings: defaultMappings(1),
+    saveRules: DEFAULT_SAVE_RULES,
+    netplayMode: 'online-relay',
+    latencyTarget: 200,
+  },
+
+  // --- Metroid II ---
+  {
+    id: 'gb-metroid-ii-1p',
+    gameId: 'gb-metroid-ii',
+    system: 'gb',
+    emulatorBackendId: 'mgba',
+    playerCount: 1,
+    controllerMappings: defaultMappings(1),
+    saveRules: DEFAULT_SAVE_RULES,
+    netplayMode: 'online-relay',
+    latencyTarget: 200,
+  },
+
+  // =========================================================================
+  // GBC additional templates — mGBA
+  // =========================================================================
+
+  // --- Zelda: Oracle of Seasons ---
+  {
+    id: 'gbc-zelda-oracle-of-seasons-1p',
+    gameId: 'gbc-zelda-oracle-of-seasons',
+    system: 'gbc',
+    emulatorBackendId: 'mgba',
+    playerCount: 1,
+    controllerMappings: defaultMappings(1),
+    saveRules: DEFAULT_SAVE_RULES,
+    netplayMode: 'online-relay',
+    latencyTarget: 200,
+  },
+
+  // --- Zelda: Oracle of Ages ---
+  {
+    id: 'gbc-zelda-oracle-of-ages-1p',
+    gameId: 'gbc-zelda-oracle-of-ages',
+    system: 'gbc',
+    emulatorBackendId: 'mgba',
+    playerCount: 1,
+    controllerMappings: defaultMappings(1),
+    saveRules: DEFAULT_SAVE_RULES,
+    netplayMode: 'online-relay',
+    latencyTarget: 200,
+  },
+
+  // --- Wario Land 3 ---
+  {
+    id: 'gbc-wario-land-3-1p',
+    gameId: 'gbc-wario-land-3',
+    system: 'gbc',
+    emulatorBackendId: 'mgba',
+    playerCount: 1,
+    controllerMappings: defaultMappings(1),
+    saveRules: DEFAULT_SAVE_RULES,
+    netplayMode: 'online-relay',
+    latencyTarget: 200,
+  },
+
   // =========================================================================
   // Sega Master System — RetroArch (Genesis Plus GX core)
   // All sessions use online-relay netplay via RetroArch's built-in
@@ -2393,6 +2760,84 @@ export const DEFAULT_TEMPLATES: SessionTemplateConfig[] = [
     saveRules: DEFAULT_SAVE_RULES,
     netplayMode: 'online-relay',
     latencyTarget: 120,
+  },
+
+  // --- Jak and Daxter ---
+  {
+    id: 'ps2-jak-and-daxter-1p',
+    gameId: 'ps2-jak-and-daxter',
+    system: 'ps2',
+    emulatorBackendId: 'pcsx2',
+    playerCount: 1,
+    controllerMappings: defaultMappings(1),
+    saveRules: DEFAULT_SAVE_RULES,
+    netplayMode: 'online-relay',
+    latencyTarget: 100,
+  },
+
+  // --- Tekken 5 ---
+  {
+    id: 'ps2-tekken-5-2p',
+    gameId: 'ps2-tekken-5',
+    system: 'ps2',
+    emulatorBackendId: 'pcsx2',
+    playerCount: 2,
+    controllerMappings: defaultMappings(2),
+    saveRules: NO_SAVE_RULES,
+    netplayMode: 'online-relay',
+    latencyTarget: 80,
+  },
+
+  // --- Devil May Cry ---
+  {
+    id: 'ps2-devil-may-cry-1p',
+    gameId: 'ps2-devil-may-cry',
+    system: 'ps2',
+    emulatorBackendId: 'pcsx2',
+    playerCount: 1,
+    controllerMappings: defaultMappings(1),
+    saveRules: DEFAULT_SAVE_RULES,
+    netplayMode: 'online-relay',
+    latencyTarget: 100,
+  },
+
+  // --- SSX 3 ---
+  {
+    id: 'ps2-ssx3-2p',
+    gameId: 'ps2-ssx3',
+    system: 'ps2',
+    emulatorBackendId: 'pcsx2',
+    playerCount: 2,
+    controllerMappings: defaultMappings(2),
+    saveRules: NO_SAVE_RULES,
+    netplayMode: 'online-relay',
+    latencyTarget: 100,
+  },
+
+  // --- TimeSplitters 2 ---
+  {
+    id: 'ps2-timesplitters-2-4p',
+    gameId: 'ps2-timesplitters-2',
+    system: 'ps2',
+    emulatorBackendId: 'pcsx2',
+    playerCount: 4,
+    controllerMappings: defaultMappings(4),
+    saveRules: NO_SAVE_RULES,
+    netplayMode: 'online-relay',
+    latencyTarget: 100,
+  },
+
+  // --- ICO ---
+  {
+    id: 'ps2-ico-1p',
+    gameId: 'ps2-ico',
+    system: 'ps2',
+    emulatorBackendId: 'pcsx2',
+    playerCount: 1,
+    controllerMappings: defaultMappings(1),
+    saveRules: DEFAULT_SAVE_RULES,
+    netplayMode: 'online-relay',
+    latencyTarget: 100,
   },
 
   // =========================================================================
