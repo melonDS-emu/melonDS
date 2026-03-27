@@ -13,6 +13,7 @@ export type SupportedSystem =
   | '3ds'
   | 'switch'
   | 'genesis'
+  | 'segacd'
   | 'sms'
   | 'dreamcast'
   | 'psx'
@@ -131,12 +132,21 @@ export const SYSTEM_INFO: Record<SupportedSystem, SystemInfo> = {
   },
   genesis: {
     id: 'genesis',
-    name: 'SEGA Genesis',
+    name: 'SEGA Genesis / Mega Drive',
     shortName: 'Genesis',
     generation: 4,
     maxLocalPlayers: 2,
     supportsLink: false,
     color: '#0066CC',
+  },
+  segacd: {
+    id: 'segacd',
+    name: 'SEGA CD / Mega-CD',
+    shortName: 'Sega CD',
+    generation: 4,
+    maxLocalPlayers: 2,
+    supportsLink: false,
+    color: '#1A1A2E',
   },
   sms: {
     id: 'sms',

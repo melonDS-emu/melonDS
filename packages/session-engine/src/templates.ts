@@ -1480,6 +1480,227 @@ export const DEFAULT_TEMPLATES: SessionTemplateConfig[] = [
   },
 
   // =========================================================================
+  // SEGA Genesis — additional titles (overhauled)
+  // =========================================================================
+
+  // --- Streets of Rage 3 ---
+  {
+    id: 'genesis-streets-of-rage-3-2p',
+    gameId: 'genesis-streets-of-rage-3',
+    system: 'genesis',
+    emulatorBackendId: 'retroarch',
+    playerCount: 2,
+    controllerMappings: defaultMappings(2),
+    saveRules: DEFAULT_SAVE_RULES,
+    netplayMode: 'online-relay',
+    latencyTarget: 100,
+  },
+
+  // --- X-Men 2: Clone Wars ---
+  {
+    id: 'genesis-x-men-2-clone-wars-2p',
+    gameId: 'genesis-x-men-2-clone-wars',
+    system: 'genesis',
+    emulatorBackendId: 'retroarch',
+    playerCount: 2,
+    controllerMappings: defaultMappings(2),
+    saveRules: DEFAULT_SAVE_RULES,
+    netplayMode: 'online-relay',
+    latencyTarget: 100,
+  },
+
+  // --- Road Rash II ---
+  {
+    id: 'genesis-road-rash-ii-2p',
+    gameId: 'genesis-road-rash-ii',
+    system: 'genesis',
+    emulatorBackendId: 'retroarch',
+    playerCount: 2,
+    controllerMappings: defaultMappings(2),
+    saveRules: DEFAULT_SAVE_RULES,
+    netplayMode: 'online-relay',
+    latencyTarget: 100,
+  },
+
+  // --- Super Street Fighter II ---
+  {
+    id: 'genesis-super-street-fighter-ii-2p',
+    gameId: 'genesis-super-street-fighter-ii',
+    system: 'genesis',
+    emulatorBackendId: 'retroarch',
+    playerCount: 2,
+    controllerMappings: defaultMappings(2),
+    saveRules: DEFAULT_SAVE_RULES,
+    netplayMode: 'online-relay',
+    latencyTarget: 100,
+  },
+
+  // --- Battletoads & Double Dragon ---
+  {
+    id: 'genesis-battletoads-double-dragon-2p',
+    gameId: 'genesis-battletoads-double-dragon',
+    system: 'genesis',
+    emulatorBackendId: 'retroarch',
+    playerCount: 2,
+    controllerMappings: defaultMappings(2),
+    saveRules: DEFAULT_SAVE_RULES,
+    netplayMode: 'online-relay',
+    latencyTarget: 100,
+  },
+
+  // --- Mutant League Football ---
+  {
+    id: 'genesis-mutant-league-football-2p',
+    gameId: 'genesis-mutant-league-football',
+    system: 'genesis',
+    emulatorBackendId: 'retroarch',
+    playerCount: 2,
+    controllerMappings: defaultMappings(2),
+    saveRules: DEFAULT_SAVE_RULES,
+    netplayMode: 'online-relay',
+    latencyTarget: 100,
+  },
+
+  // --- Sonic the Hedgehog 3 ---
+  {
+    id: 'genesis-sonic-3-2p',
+    gameId: 'genesis-sonic-3',
+    system: 'genesis',
+    emulatorBackendId: 'retroarch',
+    playerCount: 2,
+    controllerMappings: defaultMappings(2),
+    saveRules: DEFAULT_SAVE_RULES,
+    netplayMode: 'online-relay',
+    latencyTarget: 100,
+  },
+
+  // =========================================================================
+  // SEGA CD / Mega-CD — RetroArch (Genesis Plus GX core)
+  // Genesis Plus GX handles Sega CD disc images natively. Requires a region-
+  // appropriate BIOS image in the RetroArch system directory.
+  // Supported formats: .cue/.bin pairs and .chd (Compressed Hunks of Data).
+  // All sessions use online-relay netplay; CD audio streams are not relayed
+  // but BGM is handled locally by each client's BIOS.
+  // =========================================================================
+
+  // --- Default / fallback template ---
+  {
+    id: 'segacd-default-2p',
+    gameId: 'segacd-default',
+    system: 'segacd',
+    emulatorBackendId: 'retroarch',
+    playerCount: 2,
+    controllerMappings: defaultMappings(2),
+    saveRules: DEFAULT_SAVE_RULES,
+    netplayMode: 'online-relay',
+    latencyTarget: 120,
+  },
+
+  // --- Sonic CD ---
+  {
+    id: 'segacd-sonic-cd-1p',
+    gameId: 'segacd-sonic-cd',
+    system: 'segacd',
+    emulatorBackendId: 'retroarch',
+    playerCount: 1,
+    controllerMappings: defaultMappings(1),
+    saveRules: DEFAULT_SAVE_RULES,
+    netplayMode: 'online-relay',
+    latencyTarget: 120,
+  },
+
+  // --- Final Fight CD ---
+  {
+    id: 'segacd-final-fight-cd-2p',
+    gameId: 'segacd-final-fight-cd',
+    system: 'segacd',
+    emulatorBackendId: 'retroarch',
+    playerCount: 2,
+    controllerMappings: defaultMappings(2),
+    saveRules: DEFAULT_SAVE_RULES,
+    netplayMode: 'online-relay',
+    latencyTarget: 120,
+  },
+
+  // --- Batman Returns ---
+  {
+    id: 'segacd-batman-returns-2p',
+    gameId: 'segacd-batman-returns',
+    system: 'segacd',
+    emulatorBackendId: 'retroarch',
+    playerCount: 2,
+    controllerMappings: defaultMappings(2),
+    saveRules: DEFAULT_SAVE_RULES,
+    netplayMode: 'online-relay',
+    latencyTarget: 120,
+  },
+
+  // --- Robo Aleste ---
+  {
+    id: 'segacd-robo-aleste-2p',
+    gameId: 'segacd-robo-aleste',
+    system: 'segacd',
+    emulatorBackendId: 'retroarch',
+    playerCount: 2,
+    controllerMappings: defaultMappings(2),
+    saveRules: DEFAULT_SAVE_RULES,
+    netplayMode: 'online-relay',
+    latencyTarget: 120,
+  },
+
+  // --- Lunar: The Silver Star ---
+  {
+    id: 'segacd-lunar-silver-star-1p',
+    gameId: 'segacd-lunar-silver-star',
+    system: 'segacd',
+    emulatorBackendId: 'retroarch',
+    playerCount: 1,
+    controllerMappings: defaultMappings(1),
+    saveRules: DEFAULT_SAVE_RULES,
+    netplayMode: 'online-relay',
+    latencyTarget: 120,
+  },
+
+  // --- Snatcher ---
+  {
+    id: 'segacd-snatcher-1p',
+    gameId: 'segacd-snatcher',
+    system: 'segacd',
+    emulatorBackendId: 'retroarch',
+    playerCount: 1,
+    controllerMappings: defaultMappings(1),
+    saveRules: DEFAULT_SAVE_RULES,
+    netplayMode: 'online-relay',
+    latencyTarget: 120,
+  },
+
+  // --- Silpheed ---
+  {
+    id: 'segacd-silpheed-1p',
+    gameId: 'segacd-silpheed',
+    system: 'segacd',
+    emulatorBackendId: 'retroarch',
+    playerCount: 1,
+    controllerMappings: defaultMappings(1),
+    saveRules: DEFAULT_SAVE_RULES,
+    netplayMode: 'online-relay',
+    latencyTarget: 120,
+  },
+
+  // --- Popful Mail ---
+  {
+    id: 'segacd-popful-mail-1p',
+    gameId: 'segacd-popful-mail',
+    system: 'segacd',
+    emulatorBackendId: 'retroarch',
+    playerCount: 1,
+    controllerMappings: defaultMappings(1),
+    saveRules: DEFAULT_SAVE_RULES,
+    netplayMode: 'online-relay',
+    latencyTarget: 120,
+  },
+
+  // =========================================================================
   // Sega Master System — RetroArch (Genesis Plus GX core)
   // All sessions use online-relay netplay via RetroArch's built-in
   // --host / --connect flags. Recommended core: genesis_plus_gx_libretro.so

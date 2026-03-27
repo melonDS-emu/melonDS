@@ -27,6 +27,7 @@ import ThreeDSPage from './pages/ThreeDSPage';
 import SwitchPage from './pages/SwitchPage';
 import GameCubePage from './pages/GameCubePage';
 import GenesisPage from './pages/GenesisPage';
+import SegaCDPage from './pages/SegaCDPage';
 import SMSPage from './pages/SMSPage';
 import DreamcastPage from './pages/DreamcastPage';
 import PSXPage from './pages/PSXPage';
@@ -77,6 +78,7 @@ export function App() {
         <Route path="/switch" element={<SwitchPage />} />
         <Route path="/gc" element={<GameCubePage />} />
         <Route path="/genesis" element={<GenesisPage />} />
+        <Route path="/segacd" element={<SegaCDPage />} />
         <Route path="/sms" element={<SMSPage />} />
         <Route path="/dreamcast" element={<DreamcastPage />} />
         <Route path="/psx" element={<PSXPage />} />
