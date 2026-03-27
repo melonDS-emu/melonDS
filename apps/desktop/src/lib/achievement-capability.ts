@@ -85,8 +85,8 @@ export const ACHIEVEMENT_CAPABILITIES: Record<string, AchievementCapability> = {
   },
   wii: {
     system: 'wii',
-    level: 'none',
-    notes: 'Wii not supported by RetroAchievements.org',
+    level: 'partial',
+    notes: 'Partial support via RetroArch+Dolphin — select titles only',
   },
   wiiu: {
     system: 'wiiu',

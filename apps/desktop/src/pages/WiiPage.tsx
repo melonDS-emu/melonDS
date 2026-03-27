@@ -1,7 +1,10 @@
 import { useState, useEffect, useCallback } from 'react';
+import { Link } from 'react-router-dom';
 import { useLobby } from '../context/LobbyContext';
 import { HostRoomModal } from '../components/HostRoomModal';
 import { JoinRoomModal } from '../components/JoinRoomModal';
+import { fetchRetroGameDefs, fetchRetroGameProgress, gamesWithAchievements, gameIdToTitle, type RetroGameAchievementDef } from '../lib/retro-achievement-service';
+import { isRAConnected, getRACredentials } from '../lib/retro-achievements-settings';
 
 // ---------------------------------------------------------------------------
 // Constants
@@ -13,7 +16,7 @@ const API =
       'http://localhost:8080'
     : 'http://localhost:8080';
 
-type ActiveTab = 'lobby' | 'leaderboard';
+type ActiveTab = 'lobby' | 'leaderboard' | 'achievements';
 
 interface WiiGame {
   id: string;
@@ -313,6 +316,128 @@ function LobbyPanel({ games }: { games: WiiGame[] }) {
 }
 
 // ---------------------------------------------------------------------------
+// Achievements panel
+// ---------------------------------------------------------------------------
+
+const WII_ACHIEVEMENT_GAMES = gamesWithAchievements().filter((id) => id.startsWith('wii-'));
+
+function WiiAchievementsPanel() {
+  const raConnected = isRAConnected();
+  const { username } = getRACredentials();
+  const [selectedGame, setSelectedGame] = useState<string>(WII_ACHIEVEMENT_GAMES[0] ?? '');
+  const [defs, setDefs] = useState<RetroGameAchievementDef[]>([]);
+  const [earnedIds, setEarnedIds] = useState<Set<string>>(new Set());
+  const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    if (!selectedGame) return;
+    setLoading(true);
+    Promise.all([
+      fetchRetroGameDefs(selectedGame),
+      raConnected ? fetchRetroGameProgress(username, selectedGame) : Promise.resolve(null),
+    ])
+      .then(([gameDefs, progress]) => {
+        setDefs(gameDefs);
+        setEarnedIds(new Set((progress?.earned ?? []).map((e) => e.achievementId)));
+      })
+      .catch(() => { setDefs([]); setEarnedIds(new Set()); })
+      .finally(() => setLoading(false));
+  }, [selectedGame, raConnected, username]);
+
+  if (!raConnected) {
+    return (
+      <div
+        className="rounded-2xl p-6 text-center space-y-3"
+        style={{ background: 'rgba(228,228,228,0.05)', border: '1px solid rgba(228,228,228,0.12)' }}
+      >
+        <p className="text-3xl">🏅</p>
+        <p className="font-semibold text-white">RetroAchievements not connected</p>
+        <p className="text-sm" style={{ color: 'var(--color-oasis-text-muted)' }}>
+          <Link to="/settings" className="underline" style={{ color: 'var(--color-oasis-accent-light)' }}>
+            Sign in to RetroAchievements
+          </Link>{' '}
+          to track your Wii progress.
+        </p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-4">
+      {/* Game selector */}
+      <div className="flex flex-wrap gap-2">
+        {WII_ACHIEVEMENT_GAMES.map((id) => (
+          <button
+            key={id}
+            onClick={() => setSelectedGame(id)}
+            className="px-3 py-1.5 rounded-xl text-xs font-semibold transition-all"
+            style={
+              selectedGame === id
+                ? { background: 'rgba(228,228,228,0.15)', color: '#e4e4e4', border: '1px solid rgba(228,228,228,0.4)' }
+                : { background: 'rgba(228,228,228,0.05)', color: 'var(--color-oasis-text-muted)', border: '1px solid rgba(228,228,228,0.1)' }
+            }
+          >
+            {gameIdToTitle(id)}
+          </button>
+        ))}
+      </div>
+
+      {loading ? (
+        <div className="flex items-center justify-center py-12">
+          <div className="animate-spin text-3xl">🐬</div>
+        </div>
+      ) : defs.length === 0 ? (
+        <div className="text-center py-12" style={{ color: 'var(--color-oasis-text-muted)' }}>
+          <p className="text-3xl mb-2">🏅</p>
+          <p className="font-semibold">No achievements defined for this game yet.</p>
+        </div>
+      ) : (
+        <div className="space-y-2">
+          <p className="text-xs" style={{ color: 'var(--color-oasis-text-muted)' }}>
+            {earnedIds.size} / {defs.length} unlocked
+          </p>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+            {defs.map((def) => {
+              const unlocked = earnedIds.has(def.id);
+              return (
+                <div
+                  key={def.id}
+                  className="rounded-xl p-3 flex gap-3 items-start"
+                  style={{
+                    background: unlocked ? 'rgba(228,228,228,0.08)' : 'rgba(228,228,228,0.03)',
+                    border: unlocked ? '1px solid rgba(228,228,228,0.3)' : '1px solid rgba(228,228,228,0.08)',
+                    opacity: unlocked ? 1 : 0.5,
+                  }}
+                >
+                  <span className="text-2xl">{def.badge}</span>
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-center gap-2">
+                      <p className="text-sm font-semibold text-white">{def.title}</p>
+                      <span
+                        className="text-[10px] font-bold px-1.5 py-0.5 rounded-full"
+                        style={{
+                          background: unlocked ? 'rgba(228,228,228,0.2)' : 'rgba(228,228,228,0.06)',
+                          color: unlocked ? '#e4e4e4' : 'var(--color-oasis-text-muted)',
+                        }}
+                      >
+                        {def.points}pts
+                      </span>
+                    </div>
+                    <p className="text-xs mt-0.5" style={{ color: 'var(--color-oasis-text-muted)' }}>
+                      {def.description}
+                    </p>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
 // WiiPage
 // ---------------------------------------------------------------------------
 
@@ -322,6 +447,7 @@ export default function WiiPage() {
   const tabs: { id: ActiveTab; label: string }[] = [
     { id: 'lobby', label: '🎮 Lobby' },
     { id: 'leaderboard', label: '🏆 Leaderboard' },
+    { id: 'achievements', label: '🏅 Achievements' },
   ];
 
   return (
@@ -358,6 +484,7 @@ export default function WiiPage() {
       {/* Tab content */}
       {activeTab === 'lobby' && <LobbyPanel games={WII_GAMES} />}
       {activeTab === 'leaderboard' && <LeaderboardPanel />}
+      {activeTab === 'achievements' && <WiiAchievementsPanel />}
     </div>
   );
 }
