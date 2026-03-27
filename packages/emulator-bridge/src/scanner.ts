@@ -29,6 +29,8 @@ export const ROM_EXTENSIONS: Record<string, string> = {
   '.sms': 'sms',    // Sega Master System ROM
   '.gg':  'sms',    // Game Gear (shares Genesis Plus GX core)
   '.sg':  'sms',    // SG-1000 (predecessor, same core)
+  // Sega 32X
+  '.32x': 'sega32x',  // Sega 32X ROM
   // SEGA Genesis / Mega Drive
   '.md':  'genesis',
   '.gen': 'genesis',
@@ -54,6 +56,12 @@ export const ROM_EXTENSIONS: Record<string, string> = {
   '.xci': 'switch', // Game Card Image (physical cartridge dump)
   '.nca': 'switch', // Nintendo Content Archive (raw encrypted content)
   '.nso': 'switch', // Nintendo Shared Object (Switch executable / homebrew)
+  // SNK Neo Geo Pocket / Neo Geo Pocket Color
+  '.ngp': 'ngp',    // Neo Geo Pocket ROM
+  '.ngc': 'ngpc',   // Neo Geo Pocket Color ROM
+  // Sony PlayStation 3
+  '.pkg': 'ps3',    // PS3 PKG package
+  '.ps3': 'ps3',    // PS3 disc image
 };
 
 export interface RomFileInfo {
