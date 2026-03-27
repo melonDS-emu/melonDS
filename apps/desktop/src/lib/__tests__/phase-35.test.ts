@@ -148,7 +148,7 @@ describe('systemSupportsAchievements — dreamcast', () => {
     expect(systemSupportsAchievements('sms')).toBe(true);
   });
 
-  it('returns false for wii (no support)', () => {
-    expect(systemSupportsAchievements('wii')).toBe(false);
+  it('returns true for wii (partial support)', () => {
+    expect(systemSupportsAchievements('wii')).toBe(true);
   });
 });

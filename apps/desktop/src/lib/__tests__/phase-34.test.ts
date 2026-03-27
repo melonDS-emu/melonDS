@@ -60,15 +60,15 @@ describe('ACHIEVEMENT_CAPABILITIES — registry coverage', () => {
     }
   });
 
-  it('covers all "partial" systems: nds, dreamcast, ps2, psp', () => {
-    const partial = ['nds', 'dreamcast', 'ps2', 'psp'];
+  it('covers all "partial" systems: nds, dreamcast, ps2, psp, wii', () => {
+    const partial = ['nds', 'dreamcast', 'ps2', 'psp', 'wii'];
     for (const sys of partial) {
       expect(ACHIEVEMENT_CAPABILITIES[sys]?.level, `${sys} should be partial`).toBe('partial');
     }
   });
 
-  it('covers all "none" systems: gc, wii, wiiu, 3ds', () => {
-    const none = ['gc', 'wii', 'wiiu', '3ds'];
+  it('covers all "none" systems: gc, wiiu, 3ds', () => {
+    const none = ['gc', 'wiiu', '3ds'];
     for (const sys of none) {
       expect(ACHIEVEMENT_CAPABILITIES[sys]?.level, `${sys} should be none`).toBe('none');
     }
