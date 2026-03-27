@@ -67,7 +67,7 @@ jobs:
         shell: ${{ matrix.os }} {0}
 
     steps:
-    - uses: actions/checkout@v4
+    - uses: actions/checkout@v6
       name: Check out sources
 
     - name: Start ${{ matrix.os_name }} VM

@@ -30,7 +30,7 @@ jobs:
     runs-on: ${{ matrix.arch.runner }}
 
     steps:
-    - uses: actions/checkout@v4
+    - uses: actions/checkout@v6
       name: Check out sources
     - name: Install dependencies
       run: |
