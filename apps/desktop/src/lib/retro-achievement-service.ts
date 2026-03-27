@@ -205,6 +205,8 @@ export function gameIdToSystem(gameId: string): string {
   if (gameId.startsWith('gc-')) return 'GameCube';
   if (gameId.startsWith('wii-')) return 'Wii';
   if (gameId.startsWith('3ds-')) return '3DS';
+  if (gameId.startsWith('wiiu-')) return 'Wii U';
+  if (gameId.startsWith('switch-')) return 'Switch';
   if (gameId.startsWith('dc-')) return 'Dreamcast';
   if (gameId.startsWith('psx-')) return 'PSX';
   if (gameId.startsWith('ps2-')) return 'PS2';

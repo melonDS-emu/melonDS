@@ -98,6 +98,11 @@ export const ACHIEVEMENT_CAPABILITIES: Record<string, AchievementCapability> = {
     level: 'none',
     notes: '3DS not supported by RetroAchievements.org',
   },
+  switch: {
+    system: 'switch',
+    level: 'none',
+    notes: 'Nintendo Switch not supported by RetroAchievements.org',
+  },
 };
 
 export function getAchievementCapability(system: string): AchievementCapability {

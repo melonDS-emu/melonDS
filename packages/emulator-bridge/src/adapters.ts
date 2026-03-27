@@ -153,6 +153,78 @@ export interface AdapterOptions {
    * Default when omitted: Flycast uses its configured default (usually VGA).
    */
   dcCableType?: 'vga' | 'rgb' | 'composite';
+  /**
+   * Wii U-specific: GamePad controller mode for asymmetric multiplayer.
+   * - 'gamepad':  Emulate the Wii U GamePad (second screen + touch input via mouse).
+   * - 'pro':      Use a standard Pro Controller layout (no GamePad second-screen).
+   * - 'wiimote':  Emulate a Wiimote (for games that support Wii-mode play on Wii U).
+   * Cemu maps this to its controller profile configuration; no CLI flag equivalent.
+   */
+  wiiuGamepadMode?: 'gamepad' | 'pro' | 'wiimote';
+  /**
+   * Wii U-specific: enable the Pro Controller input profile.
+   * When true, Cemu uses an Xbox/PS gamepad mapped as a Wii U Pro Controller
+   * rather than emulating the GamePad.  Use for games that support Pro Controller.
+   */
+  wiiuProControllerEnabled?: boolean;
+  /**
+   * Wii U-specific: force HDMI colour output mode.
+   * - 'rgb':    Full-range RGB (TV mode); standard for most displays.
+   * - 'yuv':    YUV 4:2:0 (broadcast TV format); use if colours look washed out.
+   * Cemu graphics pack or config option; no CLI flag.
+   */
+  wiiuHdmiMode?: 'rgb' | 'yuv';
+  /**
+   * 3DS-specific: screen layout mode for Citra/Lime3DS.
+   * - 'default':      Top screen above bottom (hardware layout).
+   * - 'single':       Top screen only (good for 2D games without touch input).
+   * - 'large':        Top screen large, bottom screen small corner overlay.
+   * - 'side-by-side': Top and bottom screens placed horizontally side by side.
+   * Maps to Citra Display Settings → Layout.
+   */
+  threeDsLayout?: 'default' | 'single' | 'large' | 'side-by-side';
+  /**
+   * 3DS-specific: force a system region for the emulated 3DS.
+   * - 'auto':   Auto-detect from ROM (default).
+   * - 'jpn':    Japan
+   * - 'usa':    North America
+   * - 'eur':    Europe
+   * - 'aus':    Australia
+   * - 'kor':    Korea
+   * - 'twn':    Taiwan / China
+   * Maps to Citra System → Region configuration.
+   */
+  threeDsRegion?: 'auto' | 'jpn' | 'usa' | 'eur' | 'aus' | 'kor' | 'twn';
+  /**
+   * 3DS-specific: enable stereoscopic 3D rendering.
+   * - 'off':          No 3D effect (fastest).
+   * - 'anaglyph':     Red/cyan anaglyph glasses.
+   * - 'interlaced':   For passive 3D monitors.
+   * - 'side-by-side': For VR headsets or side-by-side 3D displays.
+   * Maps to Citra Display Settings → Stereoscopy.
+   */
+  threeDsStereoscopic?: 'off' | 'anaglyph' | 'interlaced' | 'side-by-side';
+  /**
+   * Switch-specific: path to the Ryujinx prod.keys file (title key derivation).
+   * Required for decrypting NSP/XCI game files.  If omitted, Ryujinx uses its
+   * configured key directory ($HOME/.config/Ryujinx/system/prod.keys).
+   */
+  switchProdKeys?: string;
+  /**
+   * Switch-specific: enable Ryujinx LDN (Local Device Network) mode.
+   * When true, Ryujinx emulates the Switch's local-wireless stack, allowing
+   * players on the same LAN (or over a VPN) to discover and join each other
+   * as if using local wireless mode on real hardware.
+   */
+  switchLdnEnabled?: boolean;
+  /**
+   * Switch-specific: Resolution scale multiplier for Ryujinx.
+   * - 1: Native (720p handheld / 1080p docked)
+   * - 2: 1440p handheld / 2160p (4K) docked
+   * - 3: 2160p (4K) handheld
+   * Passed as --resolution-scale <n> when Ryujinx supports it.
+   */
+  switchResolutionScale?: 1 | 2 | 3;
 }
 
 /**
@@ -531,6 +603,21 @@ export function createSystemAdapter(system: string, backendId?: string): SystemA
             args.push('--multiplayer-server', options.netplayHost);
             args.push('--multiplayer-port', String(options.netplayPort));
           }
+          // Layout mode (Citra/Lime3DS --layout-option flag)
+          if (options.threeDsLayout && options.threeDsLayout !== 'default') {
+            const layoutMap: Record<string, string> = {
+              single: '1',
+              large: '2',
+              'side-by-side': '3',
+            };
+            const layoutVal = layoutMap[options.threeDsLayout];
+            if (layoutVal) args.push('--layout-option', layoutVal);
+          }
+          // Region override
+          if (options.threeDsRegion && options.threeDsRegion !== 'auto') {
+            args.push('--region', options.threeDsRegion);
+          }
+          if (options.compatibilityFlags) args.push(...options.compatibilityFlags);
           return args;
         },
         getSavePath: (gameId, baseDir) => `${baseDir}/3ds/${gameId}`,
@@ -677,9 +764,39 @@ export function createSystemAdapter(system: string, backendId?: string): SystemA
           const args = ['-g', romPath];
           if (options.fullscreen) args.push('-f');
           if (options.debug) args.push('--verbose');
+          // GamePad mode: no CLI flag — handled via Cemu controller config; documented for UI
+          // Pro Controller: no CLI flag — controller profile selection in Cemu UI
+          // Performance preset: no Cemu CLI equivalent; documented for UI
+          if (options.performancePreset === 'accurate') args.push('--cpu-mode', 'interpreter');
+          if (options.compatibilityFlags) args.push(...options.compatibilityFlags);
           return args;
         },
         getSavePath: (gameId, baseDir) => `${baseDir}/wiiu/${gameId}`,
+      };
+    }
+
+    case 'switch': {
+      const effectiveSwitchBackend = backendId ?? 'ryujinx';
+      return {
+        system: 'switch',
+        preferredBackendId: 'ryujinx',
+        fallbackBackendIds: ['retroarch'],
+        buildLaunchArgs: (romPath, options) => {
+          if (effectiveSwitchBackend === 'retroarch') {
+            return buildRetroArchArgs(romPath, options);
+          }
+          // Ryujinx: ROM path as first positional argument
+          const args = [romPath];
+          if (options.fullscreen) args.push('--fullscreen');
+          // LDN local-wireless netplay (Ryujinx built-in)
+          if (options.switchLdnEnabled) args.push('--multiplayer-mode', 'ldn');
+          // Resolution scale (Ryujinx config; no standard CLI flag yet — pass as compatibility flag if needed)
+          // prod.keys path override
+          if (options.switchProdKeys) args.push('--prod-keys', options.switchProdKeys);
+          if (options.compatibilityFlags) args.push(...options.compatibilityFlags);
+          return args;
+        },
+        getSavePath: (gameId, baseDir) => `${baseDir}/switch/${gameId}`,
       };
     }
 

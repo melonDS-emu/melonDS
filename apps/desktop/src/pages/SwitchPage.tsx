@@ -14,11 +14,11 @@ const API =
       'http://localhost:8080'
     : 'http://localhost:8080';
 
-const SYSTEM_COLOR = '#009AC7';
+const SYSTEM_COLOR = '#E4003A';
 
 type ActiveTab = 'lobby' | 'guide' | 'leaderboard';
 
-interface WiiURanking {
+interface SwitchRanking {
   displayName: string;
   sessions: number;
 }
@@ -27,25 +27,25 @@ interface WiiURanking {
 // Derived game list from shared mock catalog
 // ---------------------------------------------------------------------------
 
-const WIIU_GAMES = MOCK_GAMES.filter((g) => g.system === 'Wii U');
+const SWITCH_GAMES = MOCK_GAMES.filter((g) => g.system === 'Switch');
 
-// Games that heavily rely on GamePad asymmetry — shown with a special badge
-const ASYMMETRIC_IDS = new Set([
-  'wiiu-nintendo-land',
-  'wiiu-mario-party-10',
-  'wiiu-captain-toad-treasure-tracker',
-  'wiiu-star-fox-zero',
+// Games that support LDN (local-wireless) multiplayer via Ryujinx
+const LDN_IDS = new Set([
+  'switch-mario-kart-8-deluxe',
+  'switch-super-smash-bros-ultimate',
+  'switch-splatoon-3',
+  'switch-mario-party-superstars',
+  'switch-animal-crossing-new-horizons',
+  'switch-luigi-mansion-3',
 ]);
 
-// Games with prominent 2-player co-op
+// Games with online co-op
 const COOP_IDS = new Set([
-  'wiiu-new-super-mario-bros-u',
-  'wiiu-donkey-kong-country-tf',
-  'wiiu-bayonetta-2',
-  'wiiu-hyrule-warriors',
-  'wiiu-yoshis-woolly-world',
-  'wiiu-super-mario-3d-world',
-  'wiiu-pikmin-3',
+  'switch-animal-crossing-new-horizons',
+  'switch-luigi-mansion-3',
+  'switch-kirby-forgotten-land',
+  'switch-pikmin-4',
+  'switch-splatoon-3',
 ]);
 
 // ---------------------------------------------------------------------------
@@ -100,116 +100,133 @@ function GuideSection({
 // Guide Tab
 // ---------------------------------------------------------------------------
 
-function WiiUGuide() {
+function SwitchGuide() {
   return (
     <div className="space-y-2">
-      {/* Banner */}
+      {/* Alpha banner */}
+      <div
+        className="rounded-lg p-4 mb-4 text-sm"
+        style={{ background: '#ff990033', border: '1px solid #ff990066' }}
+      >
+        <p className="font-semibold text-yellow-300 mb-1">⚠️ Early Support — Active Development</p>
+        <p className="text-gray-300 text-xs">
+          Nintendo Switch emulation via Ryujinx (RyuBing community fork) is functional for many titles
+          but still maturing. Expect occasional crashes and version-specific compatibility. Always keep
+          Ryujinx updated to the latest nightly build.
+        </p>
+      </div>
+
+      {/* Emulator banner */}
       <div
         className="rounded-lg p-4 mb-4 text-sm text-white"
-        style={{ background: `linear-gradient(135deg, ${SYSTEM_COLOR}22, ${SYSTEM_COLOR}44)`, border: `1px solid ${SYSTEM_COLOR}55` }}
+        style={{
+          background: `linear-gradient(135deg, ${SYSTEM_COLOR}22, ${SYSTEM_COLOR}44)`,
+          border: `1px solid ${SYSTEM_COLOR}55`,
+        }}
       >
-        <p className="font-semibold mb-1">Powered by Cemu — open source since 2022</p>
+        <p className="font-semibold mb-1">Powered by Ryujinx — RyuBing community fork</p>
         <p className="text-gray-300 text-xs">
-          Cemu emulates the Wii U with high accuracy. Most of the Wii U library runs at full speed.
-          Relay netplay bridges at the TCP level — no Cemu-specific netplay CLI flags are needed.
+          The original Ryujinx project was discontinued in October 2024. The RyuBing community fork
+          continues active development at git.ryujinx.app/ryubing/ryujinx and is the recommended
+          Switch emulator for RetroOasis sessions.
         </p>
       </div>
 
       <GuideSection title="Emulator Setup" emoji="⚙️">
         <ol className="list-decimal list-inside space-y-1 text-sm text-gray-300">
-          <li>Download Cemu from <span className="text-cyan-400">cemu.info</span> or install via Flatpak (<code className="text-xs bg-gray-700 px-1 rounded">flatpak install flathub info.cemu.Cemu</code>)</li>
-          <li>Obtain <strong>keys.txt</strong> (Wii U title keys) from your own console — place it in the Cemu <code className="text-xs bg-gray-700 px-1 rounded">mlc01/usr/title/</code> directory</li>
-          <li>Dump game files from your own Wii U hardware using <strong>Dumpling</strong> homebrew app</li>
-          <li>Supported formats: <code className="text-xs bg-gray-700 px-1 rounded">.wud</code> / <code className="text-xs bg-gray-700 px-1 rounded">.wux</code> / <code className="text-xs bg-gray-700 px-1 rounded">.rpx</code> / <code className="text-xs bg-gray-700 px-1 rounded">.wua</code> — WUA is the most convenient single-file format</li>
-          <li>Launch a game once in Cemu to generate shader caches (first launch is slow — subsequent launches are fast)</li>
+          <li>Download Ryujinx (RyuBing) from <span className="text-red-300">git.ryujinx.app/ryubing/ryujinx/releases</span></li>
+          <li>Obtain <strong>prod.keys</strong> and <strong>title.keys</strong> from your own Nintendo Switch console</li>
+          <li>Place key files in <code className="text-xs bg-gray-700 px-1 rounded">~/.config/Ryujinx/system/</code> (Linux/macOS) or <code className="text-xs bg-gray-700 px-1 rounded">%APPDATA%\Ryujinx\system\</code> (Windows)</li>
+          <li>Dump firmware from your Switch using Hekate/Atmosphere — install it via Ryujinx Tools → Install Firmware</li>
+          <li>Dump game cartridges to <code className="text-xs bg-gray-700 px-1 rounded">.xci</code> or eShop titles to <code className="text-xs bg-gray-700 px-1 rounded">.nsp</code> format using NXDumpTool on your console</li>
+          <li>Enable PPTC (Persistent Profile-Guided Tiered Cache) in Ryujinx for faster shader compilation</li>
         </ol>
       </GuideSection>
 
-      <GuideSection title="Graphics & Performance" emoji="🖥️">
-        <ul className="space-y-1 text-sm text-gray-300">
-          <li><span className="text-cyan-300 font-medium">Backend:</span> Use Vulkan for best performance; OpenGL is the fallback for older GPUs</li>
-          <li><span className="text-cyan-300 font-medium">Resolution:</span> 2× (1440p) is the sweet spot; 4K is possible on high-end GPUs</li>
-          <li><span className="text-cyan-300 font-medium">Shader cache:</span> Enable async shader compilation to reduce in-game stutter on first play</li>
-          <li><span className="text-cyan-300 font-medium">Graphics packs:</span> Community-made enhancements at ActualMandM/cemu_graphic_packs — resolution mods and anti-aliasing fixes</li>
-          <li><span className="text-cyan-300 font-medium">CPU mode:</span> Tricore recompiler (default) is recommended; dual-core is faster but less compatible</li>
-        </ul>
-      </GuideSection>
-
-      <GuideSection title="Controller Setup" emoji="🎮">
-        <div className="space-y-3 text-sm text-gray-300">
-          <div>
-            <p className="font-medium text-white mb-1">Wii U Pro Controller (recommended for most games)</p>
-            <p>Map an Xbox or PlayStation gamepad as a Wii U Pro Controller in Cemu Input Settings → Emulate Controller → Wii U Pro Controller. ABXY buttons are swapped relative to Xbox layout — configure to match your preference.</p>
+      <GuideSection title="LDN Multiplayer (Local-Wireless Netplay)" emoji="📶">
+        <p className="text-sm text-gray-300 mb-3">
+          Ryujinx's LDN (Local Device Network) mode emulates the Switch's local-wireless multiplayer
+          system. Players on the same LAN (or over a VPN/relay) can discover and join each other as if
+          playing on real hardware in the same room.
+        </p>
+        <div className="space-y-2 text-sm">
+          <div className="bg-gray-700 rounded p-3">
+            <p className="text-white font-medium mb-1">Enable LDN</p>
+            <ol className="list-decimal list-inside space-y-1 text-gray-300">
+              <li>Open Ryujinx → Options → Settings → Multiplayer</li>
+              <li>Set <strong>Mode</strong> to <em>LDN (Local Wireless)</em></li>
+              <li>All players in the session must enable LDN with matching game versions</li>
+            </ol>
           </div>
-          <div>
-            <p className="font-medium text-white mb-1">Wii U GamePad (asymmetric multiplayer)</p>
-            <p>Cemu emulates the GamePad screen in a second window. The GamePad player controls the second window; the TV player uses the main Cemu window. Mouse controls touch input for the GamePad screen — or use a USB touchscreen.</p>
-          </div>
-          <div>
-            <p className="font-medium text-white mb-1">Wiimote (Wii-mode games)</p>
-            <p>Enable Wii Remote emulation in Input Settings for games that use Wii mode. MotionPlus emulation maps to your controller's gyroscope if supported.</p>
+          <div className="bg-gray-700 rounded p-3">
+            <p className="text-white font-medium mb-1">RetroOasis Relay</p>
+            <p className="text-gray-300">For cross-internet sessions, RetroOasis routes TCP through its relay at the network level. Launch your game normally — the relay handles connectivity. All players need the room code from the host.</p>
           </div>
         </div>
-      </GuideSection>
-
-      <GuideSection title="Netplay Setup" emoji="🌐">
-        <ul className="space-y-1 text-sm text-gray-300">
-          <li><span className="text-cyan-300 font-medium">RetroOasis relay:</span> TCP relay bridges at network level — just host a room and launch Cemu normally</li>
-          <li><span className="text-cyan-300 font-medium">Pretendo Network:</span> Community Nintendo Network revival — set DNS to <code className="text-xs bg-gray-700 px-1 rounded">94.23.2.42</code> for online services in supported titles</li>
-          <li><span className="text-cyan-300 font-medium">Latency target:</span> Under 100 ms for kart/platformer; under 80 ms for fighting games (Smash 4)</li>
-          <li><span className="text-cyan-300 font-medium">Wired connection:</span> Use Ethernet on the host for the most stable relay sessions</li>
-          <li><span className="text-cyan-300 font-medium">Asymmetric games:</span> GamePad player requires a second monitor or window — configure Cemu to show GamePad on a secondary display</li>
-        </ul>
       </GuideSection>
 
       <GuideSection title="ROM Formats" emoji="💾">
         <div className="grid grid-cols-2 gap-3 text-sm">
           {[
-            { ext: '.wua', desc: 'All-in-one archive — best single-file format (Cemu 1.27+)' },
-            { ext: '.wud', desc: 'Raw disc image — largest size, highest compatibility' },
-            { ext: '.wux', desc: 'Compressed disc image — saves space, widely supported' },
-            { ext: '.rpx', desc: 'Game executable — requires full game directory structure' },
+            { ext: '.xci', desc: 'Game Card Image — physical cartridge dump (preferred)' },
+            { ext: '.nsp', desc: 'Nintendo Submission Package — eShop / installed title' },
+            { ext: '.nca', desc: 'Nintendo Content Archive — raw encrypted content' },
+            { ext: '.nso', desc: 'Nintendo Shared Object — homebrew executable' },
           ].map(({ ext, desc }) => (
             <div key={ext} className="bg-gray-700 rounded p-2">
-              <code className="text-cyan-300 text-xs font-mono">{ext}</code>
+              <code className="text-red-300 text-xs font-mono">{ext}</code>
               <p className="text-gray-400 text-xs mt-1">{desc}</p>
             </div>
           ))}
         </div>
       </GuideSection>
 
+      <GuideSection title="Performance Tips" emoji="⚡">
+        <ul className="space-y-1 text-sm text-gray-300">
+          <li><span className="text-red-300 font-medium">Vulkan backend:</span> Recommended for most GPUs; lower driver overhead than OpenGL</li>
+          <li><span className="text-red-300 font-medium">PPTC cache:</span> Enable in Settings → System — dramatically reduces compile stutter after the first session</li>
+          <li><span className="text-red-300 font-medium">Resolution scale:</span> 2× (1440p) is the recommended sweet spot; 3× (2160p) for high-end GPUs</li>
+          <li><span className="text-red-300 font-medium">Shader cache:</span> Community caches available for popular titles — place in Ryujinx's shader cache directory</li>
+          <li><span className="text-red-300 font-medium">Memory manager:</span> Host Unchecked mode gives the best performance on trusted game files</li>
+          <li><span className="text-red-300 font-medium">DLC:</span> Install DLC NSPs in Ryujinx File → Install to NAND before loading the base game</li>
+        </ul>
+      </GuideSection>
+
+      <GuideSection title="Controller Setup" emoji="🎮">
+        <ul className="space-y-1 text-sm text-gray-300">
+          <li><span className="text-red-300 font-medium">Xbox/PS controllers:</span> Map to Joy-Con or Pro Controller in Ryujinx Input Settings — standard layout works out of the box</li>
+          <li><span className="text-red-300 font-medium">Joy-Con pair:</span> Ryujinx can emulate a Joy-Con pair; left stick and D-Pad split is configured per player</li>
+          <li><span className="text-red-300 font-medium">Pro Controller:</span> Most games recommend mapping to "Nintendo Switch Pro Controller" profile in Ryujinx</li>
+          <li><span className="text-red-300 font-medium">Motion controls:</span> Gyro input supported for controllers with motion sensors (DualSense, Switch Joy-Con via Bluetooth)</li>
+          <li><span className="text-red-300 font-medium">Amiibo:</span> Virtual Amiibo emulation via Ryujinx Tools → Manage Amiibo — no physical Amiibo required</li>
+        </ul>
+      </GuideSection>
+
       <GuideSection title="Best Multiplayer Games" emoji="🏆">
         <div className="space-y-2 text-sm text-gray-300">
           {[
-            { title: 'Mario Kart 8', badge: '4P Racing', why: 'Anti-gravity tracks, 200cc mode, and relay-stable physics' },
-            { title: 'Super Smash Bros. for Wii U', badge: '8P Fighting', why: '8-player Smash on giant stages — the biggest Smash ever' },
-            { title: 'Splatoon', badge: '4P Shooter', why: 'Ink-based Turf War is uniquely satisfying and relay-friendly' },
-            { title: 'Super Mario 3D World', badge: '4P Platformer', why: 'Cat Mario co-op chaos — one of the best co-op platformers' },
-            { title: 'Nintendo Land', badge: '5P Asymmetric', why: 'GamePad vs 4 Wiimote players — the definitive GamePad showcase' },
-            { title: 'Hyrule Warriors', badge: '2P Co-op', why: 'Split TV/GamePad co-op; a great Zelda crossover brawler' },
+            { title: 'Mario Kart 8 Deluxe', badge: '8P Racing', why: '96 courses, 200cc, battle mode — relay sessions stable under 80 ms via LDN' },
+            { title: 'Super Smash Bros. Ultimate', badge: '8P Fighting', why: 'Every fighter ever — definitive platform fighter; LDN keeps inputs tight' },
+            { title: 'Splatoon 3', badge: '4v4 + Co-op', why: 'Turf War and Salmon Run both work via LDN; best Switch online experience' },
+            { title: 'Mario Party Superstars', badge: '4P Party', why: 'Classic N64 boards + 100 mini-games — fully online, very relay-tolerant' },
+            { title: 'Animal Crossing: New Horizons', badge: '8P Chill', why: 'Island visits work at any latency; great for relaxed social sessions' },
+            { title: 'Pokémon Scarlet / Violet', badge: '4P Open World', why: 'Union Circle 4P exploration and Tera Raid Battles — best Pokémon online yet' },
           ].map(({ title, badge, why }) => (
             <div key={title} className="flex gap-2 items-start">
-              <span className="text-cyan-400 font-medium min-w-0 flex-none">▸</span>
+              <span className="text-red-400 font-medium flex-none">▸</span>
               <div>
                 <span className="text-white font-medium">{title}</span>
-                <span className="ml-2 text-xs px-1.5 py-0.5 rounded" style={{ background: SYSTEM_COLOR + '33', color: SYSTEM_COLOR }}>{badge}</span>
+                <span
+                  className="ml-2 text-xs px-1.5 py-0.5 rounded"
+                  style={{ background: SYSTEM_COLOR + '33', color: SYSTEM_COLOR }}
+                >
+                  {badge}
+                </span>
                 <p className="text-gray-400 text-xs mt-0.5">{why}</p>
               </div>
             </div>
           ))}
         </div>
-      </GuideSection>
-
-      <GuideSection title="Asymmetric GamePad Tips" emoji="📱">
-        <p className="text-sm text-gray-300 mb-2">
-          The Wii U GamePad was the console's signature feature — a second screen with touch input. In Cemu, the GamePad renders in a separate window.
-        </p>
-        <ul className="space-y-1 text-sm text-gray-300">
-          <li><span className="text-yellow-300">Nintendo Land</span> — One player is the hunter on the GamePad (top-down map view); four players co-operate on the TV</li>
-          <li><span className="text-yellow-300">Mario Party 10</span> — Bowser Party mode: GamePad player controls Bowser against four Wiimote players</li>
-          <li><span className="text-yellow-300">Captain Toad</span> — GamePad player can stun enemies with blowdarts while the TV player controls Toad</li>
-          <li><span className="text-yellow-300">Star Fox Zero</span> — TV shows third-person Arwing view; GamePad shows cockpit first-person aiming</li>
-        </ul>
       </GuideSection>
     </div>
   );
@@ -219,18 +236,18 @@ function WiiUGuide() {
 // Main component
 // ---------------------------------------------------------------------------
 
-export default function WiiUPage() {
+export default function SwitchPage() {
   const { publicRooms, createRoom, joinByCode } = useLobby();
   const [activeTab, setActiveTab] = useState<ActiveTab>('lobby');
   const [selectedGameId, setSelectedGameId] = useState<string | null>(null);
   const [showHost, setShowHost] = useState(false);
   const [showJoin, setShowJoin] = useState(false);
-  const [rankings, setRankings] = useState<WiiURanking[]>([]);
+  const [rankings, setRankings] = useState<SwitchRanking[]>([]);
   const [rankingsError, setRankingsError] = useState<string | null>(null);
 
   useEffect(() => {
     if (activeTab !== 'leaderboard') return;
-    apiFetch<{ rankings: WiiURanking[] }>('/api/rankings/wiiu')
+    apiFetch<{ rankings: SwitchRanking[] }>('/api/rankings/switch')
       .then((data) => setRankings(data.rankings ?? []))
       .catch((err: unknown) =>
         setRankingsError(err instanceof Error ? err.message : 'Failed to load leaderboard'),
@@ -247,7 +264,9 @@ export default function WiiUPage() {
     setShowHost(true);
   }, []);
 
-  const wiiuRooms = publicRooms.filter((r) => r.system?.toLowerCase() === 'wii u');
+  const switchRooms = publicRooms.filter(
+    (r) => r.system?.toLowerCase() === 'switch',
+  );
 
   const TABS: { id: ActiveTab; label: string }[] = [
     { id: 'lobby', label: '🎮 Lobby' },
@@ -259,15 +278,21 @@ export default function WiiUPage() {
     <div className="p-6 max-w-5xl mx-auto">
       {/* Header */}
       <div className="flex items-center gap-3 mb-6">
-        <span className="text-4xl">⊞</span>
+        <span className="text-4xl">🔴</span>
         <div>
           <h1 className="text-2xl font-bold" style={{ color: SYSTEM_COLOR }}>
-            Nintendo Wii U
+            Nintendo Switch
           </h1>
           <p className="text-sm text-gray-400">
-            HD Nintendo gaming with GamePad asymmetry — Cemu emulator · Vulkan · Pretendo Network
+            Hybrid console gaming — Ryujinx (RyuBing) · LDN local-wireless netplay · Relay sessions
           </p>
         </div>
+        <span
+          className="ml-auto text-xs font-medium px-2 py-1 rounded"
+          style={{ background: '#ff990033', color: '#ff9900', border: '1px solid #ff990066' }}
+        >
+          Early Support
+        </span>
       </div>
 
       {/* Tabs */}
@@ -291,11 +316,11 @@ export default function WiiUPage() {
       {/* Lobby tab */}
       {activeTab === 'lobby' && (
         <>
-          {wiiuRooms.length > 0 && (
+          {switchRooms.length > 0 && (
             <section className="mb-6">
               <h2 className="text-lg font-semibold text-white mb-3">🔴 Live Rooms</h2>
               <div className="space-y-2">
-                {wiiuRooms.map((room) => (
+                {switchRooms.map((room) => (
                   <div
                     key={room.id}
                     className="bg-gray-800 rounded-lg p-4 flex items-center justify-between"
@@ -321,9 +346,9 @@ export default function WiiUPage() {
           )}
 
           <section>
-            <h2 className="text-lg font-semibold text-white mb-3">🎮 Wii U Games</h2>
+            <h2 className="text-lg font-semibold text-white mb-3">🔴 Switch Games</h2>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {WIIU_GAMES.map((game) => (
+              {SWITCH_GAMES.map((game) => (
                 <div key={game.id} className="bg-gray-800 rounded-lg p-4 flex flex-col gap-3">
                   <div className="flex items-start gap-3">
                     <span className="text-3xl">{game.coverEmoji}</span>
@@ -334,8 +359,8 @@ export default function WiiUPage() {
                         {game.badges?.map((b) => (
                           <span key={b} className="text-xs px-1.5 py-0.5 rounded bg-gray-700 text-gray-300">{b}</span>
                         ))}
-                        {ASYMMETRIC_IDS.has(game.id) && (
-                          <span className="text-xs px-1.5 py-0.5 rounded bg-purple-900 text-purple-300">GamePad Asymmetric</span>
+                        {LDN_IDS.has(game.id) && (
+                          <span className="text-xs px-1.5 py-0.5 rounded bg-blue-900 text-blue-300">LDN Netplay</span>
                         )}
                         {COOP_IDS.has(game.id) && (
                           <span className="text-xs px-1.5 py-0.5 rounded bg-green-900 text-green-300">Co-op</span>
@@ -372,12 +397,12 @@ export default function WiiUPage() {
       )}
 
       {/* Guide tab */}
-      {activeTab === 'guide' && <WiiUGuide />}
+      {activeTab === 'guide' && <SwitchGuide />}
 
       {/* Leaderboard tab */}
       {activeTab === 'leaderboard' && (
         <section>
-          <h2 className="text-lg font-semibold text-white mb-3">🏆 Wii U Leaderboard</h2>
+          <h2 className="text-lg font-semibold text-white mb-3">🏆 Switch Leaderboard</h2>
           {rankingsError ? (
             <p className="text-red-400 text-sm">{rankingsError}</p>
           ) : rankings.length === 0 ? (

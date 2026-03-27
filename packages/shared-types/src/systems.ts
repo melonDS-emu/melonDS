@@ -11,6 +11,7 @@ export type SupportedSystem =
   | 'wii'
   | 'wiiu'
   | '3ds'
+  | 'switch'
   | 'genesis'
   | 'sms'
   | 'dreamcast'
@@ -181,5 +182,14 @@ export const SYSTEM_INFO: Record<SupportedSystem, SystemInfo> = {
     maxLocalPlayers: 6,
     supportsLink: false,
     color: '#1C1C1C',
+  },
+  switch: {
+    id: 'switch',
+    name: 'Nintendo Switch',
+    shortName: 'Switch',
+    generation: 9,
+    maxLocalPlayers: 8,
+    supportsLink: false,
+    color: '#E4003A',
   },
 };

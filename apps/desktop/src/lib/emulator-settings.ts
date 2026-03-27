@@ -31,6 +31,7 @@ export const EMULATOR_NAMES: Record<string, string> = {
   duckstation: 'DuckStation',
   flycast: 'Flycast',
   cemu: 'Cemu',
+  ryujinx: 'Ryujinx',
 };
 
 // ---------------------------------------------------------------------------
@@ -55,6 +56,7 @@ export const SYSTEM_BACKEND_MAP: Record<string, string> = {
   ps2: 'pcsx2',
   psp: 'ppsspp',
   dreamcast: 'retroarch',  // retroarch + flycast_libretro is the recommended netplay path
+  switch: 'ryujinx',       // Ryujinx (RyuBing community fork) with LDN local-wireless netplay
 };
 
 // ---------------------------------------------------------------------------

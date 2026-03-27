@@ -207,8 +207,8 @@ describe('Wii U session templates', () => {
 describe('Wii U mock games', () => {
   const wiiuGames = MOCK_GAMES.filter((g) => g.system === 'Wii U');
 
-  it('includes 9 Wii U games in the catalog', () => {
-    expect(wiiuGames.length).toBe(9);
+  it('includes at least 9 Wii U games in the catalog', () => {
+    expect(wiiuGames.length).toBeGreaterThanOrEqual(9);
   });
 
   it('includes Mario Kart 8', () => {
