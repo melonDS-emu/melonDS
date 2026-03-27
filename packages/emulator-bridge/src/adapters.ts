@@ -125,6 +125,34 @@ export interface AdapterOptions {
    * Maps to DuckStation `--analog` flag.
    */
   analogControllerEnabled?: boolean;
+  /**
+   * Dreamcast-specific: force a region for the emulated console.
+   * Flycast / flycast_libretro auto-detects region from the disc header, but some region-locked
+   * titles (or region-free hacks) benefit from an explicit override.
+   * Maps to Flycast `--region=<value>` flag or the `flycast_region` RetroArch core option.
+   *  - 'ntsc-j': Japan
+   *  - 'ntsc-u': North America
+   *  - 'pal':    Europe (50 Hz)
+   */
+  dcRegion?: 'ntsc-j' | 'ntsc-u' | 'pal';
+  /**
+   * Dreamcast-specific: enable VMU (Visual Memory Unit) emulation.
+   * When true, Flycast creates virtual VMU save files in the save directory.
+   * Defaults to true; set false to disable for standalone / single-player sessions
+   * where VMU I/O adds unnecessary overhead.
+   * Maps to Flycast `--vmu=<0|1>` flag.
+   */
+  vmuEnabled?: boolean;
+  /**
+   * Dreamcast-specific: select the video output cable type.
+   * Affects the display mode negotiated by the emulated console.
+   *  - 'vga':       VGA output — 480p progressive; highest quality; not compatible with all games
+   *  - 'rgb':       RGB SCART (480i interlaced) — good colour accuracy
+   *  - 'composite': Composite (480i) — widest compatibility, lower quality
+   * Maps to Flycast `--cable-type=<value>` flag.
+   * Default when omitted: Flycast uses its configured default (usually VGA).
+   */
+  dcCableType?: 'vga' | 'rgb' | 'composite';
 }
 
 /**
@@ -196,6 +224,9 @@ function buildRetroArchArgs(romPath: string, options: AdapterOptions): string[] 
  *                         (relay netplay via RetroArch --host/--connect)
  *                         --fullscreen  (fullscreen mode)
  *                         --verbose  (debug output)
+ *                         --region=ntsc-u|ntsc-j|pal  (force console region)
+ *                         --cable-type=vga|rgb|composite  (output cable type)
+ *                         --vmu=0|1  (disable/enable VMU emulation)
  *  - DuckStation:         <rom>  (no built-in netplay; relay-only)
  *                         --fullscreen  (fullscreen mode)
  *                         --verbose  (debug output)
@@ -220,6 +251,7 @@ function buildRetroArchArgs(romPath: string, options: AdapterOptions): string[] 
  *  - Mupen64Plus: --verbose
  *  - melonDS:   --verbose
  *  - Dolphin:   --debugger  opens the integrated debugger
+ *  - Flycast:   --verbose  enables debug output; --no-dynarec forces interpreter mode
  *  - Citra:     no dedicated debug flag; use RetroArch with citra_libretro for verbose output
  *
  * @param system    The system identifier (e.g. 'gb', 'gba', 'n64').
@@ -531,21 +563,33 @@ export function createSystemAdapter(system: string, backendId?: string): SystemA
     }
 
     case 'dreamcast': {
-      // Flycast: standalone or via RetroArch with flycast_libretro
-      // Netplay: relay at TCP level; Flycast has experimental online but relay is recommended
+      // RetroArch + flycast_libretro is the preferred netplay path.
+      // Standalone Flycast is supported as a fallback for local / rollback sessions.
+      // Relay netplay: TCP-level bridging; use RetroArch --host/--connect flags.
+      // Standalone Flycast 2.x supports experimental rollback netcode (NAOMI/DC).
+      const effectiveDcBackend = backendId ?? 'retroarch';
       return {
         system: 'dreamcast',
         preferredBackendId: 'retroarch',
         fallbackBackendIds: ['flycast'],
         buildLaunchArgs: (romPath, options) => {
-          const effectiveDcBackend = backendId ?? 'retroarch';
-          if (effectiveDcBackend === 'flycast') {
-            const args = [romPath];
-            if (options.fullscreen) args.push('--fullscreen');
-            if (options.debug) args.push('--verbose');
-            return args;
+          if (effectiveDcBackend === 'retroarch') {
+            return buildRetroArchArgs(romPath, options);
           }
-          return buildRetroArchArgs(romPath, options);
+          // ── Standalone Flycast ────────────────────────────────────────────
+          const args = [romPath];
+          if (options.fullscreen) args.push('--fullscreen');
+          if (options.debug) args.push('--verbose');
+          // Region override (auto-detected from disc when omitted)
+          if (options.dcRegion) args.push(`--region=${options.dcRegion}`);
+          // Cable type (VGA / RGB / composite)
+          if (options.dcCableType) args.push(`--cable-type=${options.dcCableType}`);
+          // VMU emulation toggle (enabled by default in Flycast)
+          if (options.vmuEnabled === false) args.push('--vmu=0');
+          // Performance preset: interpreter mode for debugging accuracy
+          if (options.performancePreset === 'accurate') args.push('--no-dynarec');
+          if (options.compatibilityFlags) args.push(...options.compatibilityFlags);
+          return args;
         },
         getSavePath: (gameId, baseDir) => `${baseDir}/dreamcast/${gameId}`,
       };

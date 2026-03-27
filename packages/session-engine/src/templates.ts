@@ -1643,7 +1643,7 @@ export const DEFAULT_TEMPLATES: SessionTemplateConfig[] = [
     controllerMappings: defaultMappings(4),
     saveRules: DEFAULT_SAVE_RULES,
     netplayMode: 'online-relay',
-    latencyTarget: 120,
+    latencyTarget: 80,  // arena fighter; transformation combos need tight sync
   },
 
   // --- Marvel vs. Capcom 2 ---
@@ -1656,7 +1656,7 @@ export const DEFAULT_TEMPLATES: SessionTemplateConfig[] = [
     controllerMappings: defaultMappings(2),
     saveRules: DEFAULT_SAVE_RULES,
     netplayMode: 'online-relay',
-    latencyTarget: 120,
+    latencyTarget: 60,  // frame-critical tag fighter; hi-lo mix requires low latency
   },
 
   // --- Soul Calibur ---
@@ -1669,7 +1669,7 @@ export const DEFAULT_TEMPLATES: SessionTemplateConfig[] = [
     controllerMappings: defaultMappings(2),
     saveRules: DEFAULT_SAVE_RULES,
     netplayMode: 'online-relay',
-    latencyTarget: 120,
+    latencyTarget: 60,  // 3D weapons fighter; Guard Impact timing is frame-exact
   },
 
   // --- Crazy Taxi ---
@@ -1682,7 +1682,7 @@ export const DEFAULT_TEMPLATES: SessionTemplateConfig[] = [
     controllerMappings: defaultMappings(2),
     saveRules: DEFAULT_SAVE_RULES,
     netplayMode: 'online-relay',
-    latencyTarget: 120,
+    latencyTarget: 100,  // score-attack; latency-tolerant for casual race comparison
   },
 
   // --- Virtua Tennis ---
@@ -1695,7 +1695,7 @@ export const DEFAULT_TEMPLATES: SessionTemplateConfig[] = [
     controllerMappings: defaultMappings(4),
     saveRules: DEFAULT_SAVE_RULES,
     netplayMode: 'online-relay',
-    latencyTarget: 120,
+    latencyTarget: 100,  // sports; swing timing tolerates moderate latency
   },
 
   // --- NBA 2K2 ---
@@ -1708,7 +1708,7 @@ export const DEFAULT_TEMPLATES: SessionTemplateConfig[] = [
     controllerMappings: defaultMappings(2),
     saveRules: DEFAULT_SAVE_RULES,
     netplayMode: 'online-relay',
-    latencyTarget: 120,
+    latencyTarget: 80,  // simulation; AI branching needs reasonable sync
   },
 
   // --- Project Justice ---
@@ -1721,7 +1721,7 @@ export const DEFAULT_TEMPLATES: SessionTemplateConfig[] = [
     controllerMappings: defaultMappings(2),
     saveRules: DEFAULT_SAVE_RULES,
     netplayMode: 'online-relay',
-    latencyTarget: 120,
+    latencyTarget: 80,  // 3D team fighter; Rival Break timing benefits from low latency
   },
 
   // --- Jet Grind Radio ---
@@ -1734,7 +1734,98 @@ export const DEFAULT_TEMPLATES: SessionTemplateConfig[] = [
     controllerMappings: defaultMappings(2),
     saveRules: DEFAULT_SAVE_RULES,
     netplayMode: 'online-relay',
-    latencyTarget: 120,
+    latencyTarget: 80,  // tag-battle timing sensitive; trick inputs best under 80 ms
+  },
+
+  // --- Dead or Alive 2 ---
+  {
+    id: 'dreamcast-dead-or-alive-2-2p',
+    gameId: 'dc-dead-or-alive-2',
+    system: 'dreamcast',
+    emulatorBackendId: 'retroarch',
+    playerCount: 2,
+    controllerMappings: defaultMappings(2),
+    saveRules: DEFAULT_SAVE_RULES,
+    netplayMode: 'online-relay',
+    latencyTarget: 60,  // hold/counter timing is frame-sensitive
+  },
+
+  // --- Capcom vs. SNK ---
+  {
+    id: 'dreamcast-capcom-vs-snk-2p',
+    gameId: 'dc-capcom-vs-snk',
+    system: 'dreamcast',
+    emulatorBackendId: 'retroarch',
+    playerCount: 2,
+    controllerMappings: defaultMappings(2),
+    saveRules: DEFAULT_SAVE_RULES,
+    netplayMode: 'online-relay',
+    latencyTarget: 80,  // 2D crossover fighter; combo execution needs solid sync
+  },
+
+  // --- Ikaruga ---
+  {
+    id: 'dreamcast-ikaruga-2p',
+    gameId: 'dc-ikaruga',
+    system: 'dreamcast',
+    emulatorBackendId: 'retroarch',
+    playerCount: 2,
+    controllerMappings: defaultMappings(2),
+    saveRules: DEFAULT_SAVE_RULES,
+    netplayMode: 'online-relay',
+    latencyTarget: 100,  // co-op shooter; bullet patterns deterministic; tolerant of 100 ms
+  },
+
+  // --- Cannon Spike ---
+  {
+    id: 'dreamcast-cannon-spike-2p',
+    gameId: 'dc-cannon-spike',
+    system: 'dreamcast',
+    emulatorBackendId: 'retroarch',
+    playerCount: 2,
+    controllerMappings: defaultMappings(2),
+    saveRules: DEFAULT_SAVE_RULES,
+    netplayMode: 'online-relay',
+    latencyTarget: 100,  // arcade co-op; deterministic; tolerates moderate latency
+  },
+
+  // --- Tech Romancer ---
+  {
+    id: 'dreamcast-tech-romancer-2p',
+    gameId: 'dc-tech-romancer',
+    system: 'dreamcast',
+    emulatorBackendId: 'retroarch',
+    playerCount: 2,
+    controllerMappings: defaultMappings(2),
+    saveRules: DEFAULT_SAVE_RULES,
+    netplayMode: 'online-relay',
+    latencyTarget: 80,  // 3D mech fighter; guard cancel and Hyper Mode timing benefit from < 80 ms
+  },
+
+  // --- Toy Racer ---
+  {
+    id: 'dreamcast-toy-racer-4p',
+    gameId: 'dc-toy-racer',
+    system: 'dreamcast',
+    emulatorBackendId: 'retroarch',
+    playerCount: 4,
+    controllerMappings: defaultMappings(4),
+    saveRules: DEFAULT_SAVE_RULES,
+    netplayMode: 'online-relay',
+    latencyTarget: 100,  // kart racer; originally designed for DC online; tolerant physics
+  },
+
+  // --- Gauntlet Legends ---
+  {
+    id: 'dreamcast-gauntlet-legends-4p',
+    gameId: 'dc-gauntlet-legends',
+    system: 'dreamcast',
+    emulatorBackendId: 'retroarch',
+    playerCount: 4,
+    controllerMappings: defaultMappings(4),
+    saveRules: DEFAULT_SAVE_RULES,
+    netplayMode: 'online-relay',
+    latencyTarget: 100,  // co-op dungeon crawler; moderate latency tolerance
   },
 
   // =========================================================================
