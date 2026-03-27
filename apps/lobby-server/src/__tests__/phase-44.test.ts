@@ -216,6 +216,12 @@ describe('PS2 mock games — new additions', () => {
     const game = ps2Games.find((g) => g.id === 'ps2-tekken-5');
     expect(game?.maxPlayers).toBe(2);
   });
+
+  it('all PS2 games have a non-empty description', () => {
+    for (const game of ps2Games) {
+      expect(game.description, `${game.id} missing description`).toBeTruthy();
+    }
+  });
 });
 
 describe('PS3 mock games', () => {

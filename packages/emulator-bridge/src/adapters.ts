@@ -845,10 +845,6 @@ export function createSystemAdapter(system: string, backendId?: string): SystemA
     }
 
     case 'ps3': {
-      const effectivePs3Backend = backendId ?? 'rpcs3';
-      // effectivePs3Backend is reserved for future backend-conditional logic (e.g., retroarch fallback).
-      // Voided here to suppress the unused-variable warning until that logic is added.
-      void effectivePs3Backend;
       return {
         system: 'ps3',
         preferredBackendId: 'rpcs3',
