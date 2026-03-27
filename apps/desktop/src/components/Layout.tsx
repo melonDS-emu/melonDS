@@ -20,6 +20,7 @@ const NAV_ITEMS = [
   { path: '/3ds',           label: '3DS',          icon: '🎴', group: 'systems' },
   { path: '/gc',            label: 'GameCube',     icon: '⬡',  group: 'systems' },
   { path: '/genesis',       label: 'Genesis',      icon: '⬢',  group: 'systems' },
+  { path: '/segacd',        label: 'Sega CD',      icon: '💿', group: 'systems' },
   { path: '/sms',           label: 'Master System', icon: '⊡',  group: 'systems' },
   { path: '/dreamcast',     label: 'Dreamcast',    icon: '◎',  group: 'systems' },
   { path: '/psx',           label: 'PlayStation',  icon: '□',  group: 'systems' },

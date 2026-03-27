@@ -14,15 +14,15 @@ const API =
       'http://localhost:8080'
     : 'http://localhost:8080';
 
-const SYSTEM_COLOR = '#0066CC';
-const SYSTEM_COLOR_DARK = '#003366';
-const SYSTEM_COLOR_MID = 'rgba(0,102,204,0.18)';
+const SYSTEM_COLOR = '#4B5EFC';
+const SYSTEM_COLOR_DARK = '#1A1A2E';
+const SYSTEM_COLOR_MID = 'rgba(75,94,252,0.18)';
 
-type ActiveTab = 'lobby' | 'leaderboard';
+type ActiveTab = 'lobby' | 'leaderboard' | 'setup';
 
-type GenreFilter = 'all' | 'Fighting' | 'Beat-em-up' | 'Platformer' | 'Run-and-Gun' | 'Sports' | 'Adventure' | 'Racing';
+type ModeFilter = 'all' | 'multiplayer' | 'single';
 
-interface GenesisGame {
+interface SegaCDGame {
   id: string;
   title: string;
   genre: string;
@@ -32,44 +32,128 @@ interface GenesisGame {
   coopOnly?: boolean;
   singleOnly?: boolean;
   year?: number;
+  cdAudio?: boolean;
+  description?: string;
 }
 
-interface GenesisRanking {
+interface SegaCDRanking {
   displayName: string;
   sessions: number;
 }
 
 // ---------------------------------------------------------------------------
-// Game definitions (overhauled — 16 games)
+// Game definitions
 // ---------------------------------------------------------------------------
 
-const GENESIS_GAMES: GenesisGame[] = [
-  // Fighting
-  { id: 'genesis-mortal-kombat-3',            title: 'Mortal Kombat 3',             genre: 'Fighting',    genreEmoji: '🩸', maxPlayers: 2, competitive: true,  year: 1995 },
-  { id: 'genesis-super-street-fighter-ii',    title: 'Super Street Fighter II',     genre: 'Fighting',    genreEmoji: '👊', maxPlayers: 2, competitive: true,  year: 1994 },
-  // Beat-em-up
-  { id: 'genesis-streets-of-rage-2',          title: 'Streets of Rage 2',           genre: 'Beat-em-up',  genreEmoji: '🥊', maxPlayers: 2, coopOnly: true,    year: 1992 },
-  { id: 'genesis-streets-of-rage-3',          title: 'Streets of Rage 3',           genre: 'Beat-em-up',  genreEmoji: '🥊', maxPlayers: 2, coopOnly: true,    year: 1994 },
-  { id: 'genesis-golden-axe',                 title: 'Golden Axe',                  genre: 'Beat-em-up',  genreEmoji: '⚔️', maxPlayers: 2, coopOnly: true,    year: 1989 },
-  { id: 'genesis-x-men-2-clone-wars',         title: 'X-Men 2: Clone Wars',         genre: 'Beat-em-up',  genreEmoji: '⚡', maxPlayers: 2, coopOnly: true,    year: 1995 },
-  { id: 'genesis-battletoads-double-dragon',  title: 'Battletoads & Double Dragon', genre: 'Beat-em-up',  genreEmoji: '🐸', maxPlayers: 2, coopOnly: true,    year: 1993 },
-  // Platformer
-  { id: 'genesis-sonic-the-hedgehog-2',       title: 'Sonic the Hedgehog 2',        genre: 'Platformer',  genreEmoji: '💨', maxPlayers: 2, competitive: true, year: 1992 },
-  { id: 'genesis-sonic-3',                    title: 'Sonic the Hedgehog 3',        genre: 'Platformer',  genreEmoji: '💨', maxPlayers: 2, competitive: true, year: 1994 },
-  { id: 'genesis-earthworm-jim-2',            title: 'Earthworm Jim 2',             genre: 'Platformer',  genreEmoji: '🐛', maxPlayers: 2, competitive: true, year: 1995 },
-  // Run-and-Gun
-  { id: 'genesis-contra-hard-corps',          title: 'Contra: Hard Corps',          genre: 'Run-and-Gun', genreEmoji: '🔫', maxPlayers: 2, coopOnly: true,    year: 1994 },
-  { id: 'genesis-gunstar-heroes',             title: 'Gunstar Heroes',              genre: 'Run-and-Gun', genreEmoji: '💥', maxPlayers: 2, coopOnly: true,    year: 1993 },
-  // Sports
-  { id: 'genesis-nba-jam',                    title: 'NBA Jam',                     genre: 'Sports',      genreEmoji: '🏀', maxPlayers: 2, competitive: true, year: 1993 },
-  { id: 'genesis-mutant-league-football',     title: 'Mutant League Football',      genre: 'Sports',      genreEmoji: '🏈', maxPlayers: 2, competitive: true, year: 1993 },
-  // Adventure
-  { id: 'genesis-toejam-and-earl',            title: 'ToeJam & Earl',               genre: 'Adventure',   genreEmoji: '👽', maxPlayers: 2, coopOnly: true,    year: 1991 },
-  // Racing
-  { id: 'genesis-road-rash-ii',               title: 'Road Rash II',                genre: 'Racing',      genreEmoji: '🏍️', maxPlayers: 2, competitive: true, year: 1993 },
+const SEGACD_GAMES: SegaCDGame[] = [
+  // Multiplayer
+  {
+    id: 'segacd-final-fight-cd',
+    title: 'Final Fight CD',
+    genre: 'Beat-em-up',
+    genreEmoji: '🥊',
+    maxPlayers: 2,
+    coopOnly: true,
+    year: 1993,
+    cdAudio: true,
+    description: 'The definitive console port — CD version restores Guy and all censored content.',
+  },
+  {
+    id: 'segacd-batman-returns',
+    title: 'Batman Returns',
+    genre: 'Beat-em-up',
+    genreEmoji: '🦇',
+    maxPlayers: 2,
+    coopOnly: true,
+    year: 1993,
+    cdAudio: true,
+    description: 'Co-op brawler with Danny Elfman\'s original film score streaming from CD.',
+  },
+  {
+    id: 'segacd-robo-aleste',
+    title: 'Robo Aleste',
+    genre: 'Shoot-em-up',
+    genreEmoji: '🤖',
+    maxPlayers: 2,
+    coopOnly: true,
+    year: 1992,
+    cdAudio: true,
+    description: 'Vertical shooter set in feudal Japan with two-player simultaneous mode.',
+  },
+  // Single-player highlights
+  {
+    id: 'segacd-sonic-cd',
+    title: 'Sonic CD',
+    genre: 'Platformer',
+    genreEmoji: '💿',
+    maxPlayers: 1,
+    singleOnly: true,
+    year: 1993,
+    cdAudio: true,
+    description: 'Sonic\'s time-travel adventure — widely considered the best Sonic game of the era.',
+  },
+  {
+    id: 'segacd-lunar-silver-star',
+    title: 'Lunar: The Silver Star',
+    genre: 'RPG',
+    genreEmoji: '🌙',
+    maxPlayers: 1,
+    singleOnly: true,
+    year: 1993,
+    cdAudio: true,
+    description: 'Landmark RPG with voiced cutscenes and full CD audio soundtrack.',
+  },
+  {
+    id: 'segacd-snatcher',
+    title: 'Snatcher',
+    genre: 'Adventure',
+    genreEmoji: '🔍',
+    maxPlayers: 1,
+    singleOnly: true,
+    year: 1994,
+    cdAudio: true,
+    description: 'Hideo Kojima\'s cyberpunk noir adventure — English localisation exclusive to Sega CD.',
+  },
+  {
+    id: 'segacd-silpheed',
+    title: 'Silpheed',
+    genre: 'Shoot-em-up',
+    genreEmoji: '🚀',
+    maxPlayers: 1,
+    singleOnly: true,
+    year: 1993,
+    cdAudio: true,
+    description: 'Pseudo-3D space shooter that pushed the CD-ROM\'s FMV streaming capabilities.',
+  },
+  {
+    id: 'segacd-popful-mail',
+    title: 'Popful Mail',
+    genre: 'Action RPG',
+    genreEmoji: '✉️',
+    maxPlayers: 1,
+    singleOnly: true,
+    year: 1994,
+    cdAudio: true,
+    description: 'Falcom action RPG localised by Working Designs with full voice acting.',
+  },
+  {
+    id: 'segacd-keio-flying-squadron',
+    title: 'Keio Flying Squadron',
+    genre: 'Shoot-em-up',
+    genreEmoji: '🐉',
+    maxPlayers: 1,
+    singleOnly: true,
+    year: 1993,
+    cdAudio: true,
+    description: 'Colourful horizontal shooter featuring a tanuki riding a dragon.',
+  },
 ];
 
-const ALL_GENRES: GenreFilter[] = ['all', 'Fighting', 'Beat-em-up', 'Platformer', 'Run-and-Gun', 'Sports', 'Adventure', 'Racing'];
+const ALL_MODE_FILTERS: { id: ModeFilter; label: string }[] = [
+  { id: 'all', label: 'All Games' },
+  { id: 'multiplayer', label: 'Multiplayer' },
+  { id: 'single', label: 'Single Player' },
+];
 
 // ---------------------------------------------------------------------------
 // API helpers
@@ -104,39 +188,50 @@ function RankBadge({ rank }: { rank: number }) {
 // Info banner
 // ---------------------------------------------------------------------------
 
-function GenesisBanner() {
+function SegaCDBanner() {
   return (
     <div
       className="rounded-2xl p-4 flex items-start gap-3"
-      style={{ backgroundColor: 'rgba(0,102,204,0.08)', border: `1px solid ${SYSTEM_COLOR_MID}` }}
+      style={{ backgroundColor: 'rgba(75,94,252,0.08)', border: `1px solid ${SYSTEM_COLOR_MID}` }}
     >
-      <span className="text-xl mt-0.5">🔵</span>
-      <div className="space-y-1">
-        <p className="text-sm font-bold" style={{ color: '#60a5fa' }}>
-          SEGA Genesis / Mega Drive · Relay Netplay via RetroArch + Genesis Plus GX
+      <span className="text-xl mt-0.5">💿</span>
+      <div className="space-y-1.5">
+        <p className="text-sm font-bold" style={{ color: '#818cf8' }}>
+          SEGA CD / Mega-CD · Relay Netplay via RetroArch + Genesis Plus GX
         </p>
         <p className="text-xs" style={{ color: 'var(--color-oasis-text-muted)' }}>
-          All sessions use RetroOasis TCP relay netplay — no port forwarding required.
-          ROM files{' '}
-          {['.md', '.bin', '.gen', '.smd'].map((ext) => (
+          The same Genesis Plus GX core handles Sega CD disc images natively. Supported
+          formats:
+          {['.cue', '.chd', '.img'].map((ext) => (
             <code
               key={ext}
               className="mx-0.5 px-1 rounded"
-              style={{ background: 'rgba(0,102,204,0.18)', color: '#93c5fd' }}
+              style={{ background: 'rgba(75,94,252,0.18)', color: '#a5b4fc' }}
             >
               {ext}
             </code>
-          ))}{' '}
-          are auto-detected from your library. Recommended core:
-          <code className="ml-1 px-1 rounded" style={{ background: 'rgba(0,102,204,0.18)', color: '#93c5fd' }}>
-            genesis_plus_gx_libretro.so
-          </code>
+          ))}
         </p>
         <p className="text-xs" style={{ color: 'var(--color-oasis-text-muted)' }}>
-          Looking for CD-ROM games?{' '}
-          <Link to="/segacd" className="underline" style={{ color: '#60a5fa' }}>
-            Visit the Sega CD page →
-          </Link>
+          A region-appropriate BIOS image is required:{' '}
+          {['bios_CD_U.bin', 'bios_CD_E.bin', 'bios_CD_J.bin'].map((b) => (
+            <code
+              key={b}
+              className="mx-0.5 px-1 rounded"
+              style={{ background: 'rgba(75,94,252,0.18)', color: '#a5b4fc' }}
+            >
+              {b}
+            </code>
+          ))}{' '}
+          — place it in your RetroArch system directory.
+        </p>
+        <p className="text-xs" style={{ color: 'var(--color-oasis-text-muted)' }}>
+          CD audio streams locally on each client; relay netplay syncs game state only.
+          Visit the{' '}
+          <Link to="/genesis" className="underline" style={{ color: '#818cf8' }}>
+            Genesis page
+          </Link>{' '}
+          for cartridge-based games.
         </p>
       </div>
     </div>
@@ -144,38 +239,68 @@ function GenesisBanner() {
 }
 
 // ---------------------------------------------------------------------------
-// Genre filter bar
+// Setup guide tab
 // ---------------------------------------------------------------------------
 
-function GenreFilterBar({
-  active,
-  onChange,
-  counts,
-}: {
-  active: GenreFilter;
-  onChange: (g: GenreFilter) => void;
-  counts: Record<string, number>;
-}) {
+function SetupGuide() {
+  const steps = [
+    {
+      step: 1,
+      title: 'Install RetroArch',
+      body: 'Download RetroArch from retroarch.com or install via your package manager (e.g. sudo apt install retroarch). On macOS: brew install retroarch.',
+    },
+    {
+      step: 2,
+      title: 'Download the Genesis Plus GX core',
+      body: 'In RetroArch go to Main Menu → Load Core → Download a Core → SEGA - Mega Drive / Genesis (Genesis Plus GX). The core handles both Genesis cartridges and Sega CD disc images.',
+    },
+    {
+      step: 3,
+      title: 'Obtain a Sega CD BIOS',
+      body: 'You need a BIOS image matching your region — bios_CD_U.bin (USA), bios_CD_E.bin (Europe), or bios_CD_J.bin (Japan). Place it in your RetroArch system directory (typically ~/.config/retroarch/system/).',
+    },
+    {
+      step: 4,
+      title: 'Prepare your disc images',
+      body: 'CHD files (.chd) are recommended — they are single-file compressed images. CUE/BIN pairs also work; keep all .bin track files in the same directory as the .cue sheet. Load the .chd or .cue file in RetroArch.',
+    },
+    {
+      step: 5,
+      title: 'Set your RetroArch path in RetroOasis',
+      body: 'Open Settings → Emulator Paths and point the RetroArch executable field to your retroarch binary. RetroOasis will pass the core and ROM path automatically when you host or join a session.',
+    },
+    {
+      step: 6,
+      title: 'Host or join a room',
+      body: 'On the Lobby tab, click Host Room to create a new relay session, or Quick Match to find an open room. RetroOasis handles all netplay flags — no manual port forwarding required.',
+    },
+  ];
+
   return (
-    <div className="flex flex-wrap gap-2">
-      {ALL_GENRES.map((g) => {
-        const count = g === 'all' ? GENESIS_GAMES.length : (counts[g] ?? 0);
-        const isActive = active === g;
-        return (
-          <button
-            key={g}
-            onClick={() => onChange(g)}
-            className="px-3 py-1 rounded-full text-xs font-semibold transition-all"
-            style={
-              isActive
-                ? { background: SYSTEM_COLOR, color: '#fff' }
-                : { background: SYSTEM_COLOR_MID, color: '#93c5fd', border: `1px solid ${SYSTEM_COLOR_MID}` }
-            }
+    <div className="space-y-4">
+      <p className="text-sm" style={{ color: 'var(--color-oasis-text-muted)' }}>
+        Follow these steps to get Sega CD games running on RetroOasis.
+      </p>
+      <div className="space-y-3">
+        {steps.map(({ step, title, body }) => (
+          <div
+            key={step}
+            className="rounded-xl p-4 flex gap-3"
+            style={{ background: 'rgba(75,94,252,0.07)', border: `1px solid ${SYSTEM_COLOR_MID}` }}
           >
-            {g === 'all' ? 'All' : g} {count > 0 && <span className="opacity-70">({count})</span>}
-          </button>
-        );
-      })}
+            <div
+              className="w-7 h-7 rounded-full flex items-center justify-center text-xs font-black shrink-0 mt-0.5"
+              style={{ background: SYSTEM_COLOR, color: '#fff' }}
+            >
+              {step}
+            </div>
+            <div>
+              <p className="text-sm font-bold text-white">{title}</p>
+              <p className="text-xs mt-1" style={{ color: 'var(--color-oasis-text-muted)' }}>{body}</p>
+            </div>
+          </div>
+        ))}
+      </div>
     </div>
   );
 }
@@ -184,22 +309,22 @@ function GenreFilterBar({
 // Game card
 // ---------------------------------------------------------------------------
 
-function GenesisGameCard({
+function SegaCDGameCard({
   game,
   onHost,
   onQuickMatch,
   openRooms,
 }: {
-  game: GenesisGame;
-  onHost: (game: GenesisGame) => void;
-  onQuickMatch: (game: GenesisGame) => void;
+  game: SegaCDGame;
+  onHost: (game: SegaCDGame) => void;
+  onQuickMatch: (game: SegaCDGame) => void;
   openRooms: number;
 }) {
   return (
     <div
       className="n-card rounded-2xl p-4 flex flex-col gap-3"
       style={{
-        background: `linear-gradient(135deg, rgba(0,102,204,0.12), rgba(0,51,102,0.06))`,
+        background: 'linear-gradient(135deg, rgba(75,94,252,0.1), rgba(26,26,46,0.08))',
         border: `1px solid ${SYSTEM_COLOR_MID}`,
       }}
     >
@@ -209,8 +334,11 @@ function GenesisGameCard({
           <div className="min-w-0">
             <p className="text-sm font-bold text-white leading-tight truncate">{game.title}</p>
             <p className="text-xs mt-0.5" style={{ color: 'var(--color-oasis-text-muted)' }}>
-              {game.genre} · {game.maxPlayers === 2 ? '2P' : `Up to ${game.maxPlayers}P`}
+              {game.genre} · {game.maxPlayers === 1 ? '1P' : '2P'}
               {game.year && ` · ${game.year}`}
+              {game.cdAudio && (
+                <span className="ml-1" title="CD audio soundtrack">💿</span>
+              )}
             </p>
           </div>
         </div>
@@ -231,16 +359,30 @@ function GenesisGameCard({
               Co-op
             </span>
           )}
+          {game.singleOnly && (
+            <span
+              className="text-xs px-2 py-0.5 rounded-full font-semibold whitespace-nowrap"
+              style={{ background: 'rgba(148,163,184,0.1)', color: '#94a3b8', border: '1px solid rgba(148,163,184,0.2)' }}
+            >
+              Solo
+            </span>
+          )}
           {openRooms > 0 && (
             <span
               className="text-xs px-2 py-0.5 rounded-full font-semibold whitespace-nowrap"
-              style={{ background: 'rgba(96,165,250,0.1)', color: '#60a5fa', border: '1px solid rgba(96,165,250,0.25)' }}
+              style={{ background: 'rgba(129,140,248,0.12)', color: '#818cf8', border: '1px solid rgba(129,140,248,0.25)' }}
             >
               {openRooms} open
             </span>
           )}
         </div>
       </div>
+
+      {game.description && (
+        <p className="text-xs leading-relaxed" style={{ color: 'var(--color-oasis-text-muted)' }}>
+          {game.description}
+        </p>
+      )}
 
       <div className="flex gap-2 mt-auto">
         <button
@@ -253,7 +395,7 @@ function GenesisGameCard({
         <button
           onClick={() => onHost(game)}
           className="flex-1 px-3 py-1.5 rounded-xl text-xs font-bold transition-all hover:scale-105"
-          style={{ background: SYSTEM_COLOR_MID, border: `1px solid rgba(0,102,204,0.35)`, color: '#60a5fa' }}
+          style={{ background: SYSTEM_COLOR_MID, border: `1px solid rgba(75,94,252,0.35)`, color: '#818cf8' }}
         >
           🎮 Host Room
         </button>
@@ -267,11 +409,11 @@ function GenesisGameCard({
 // ---------------------------------------------------------------------------
 
 function LeaderboardPanel() {
-  const [rankings, setRankings] = useState<GenesisRanking[]>([]);
+  const [rankings, setRankings] = useState<SegaCDRanking[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    apiFetch<{ leaderboard: GenesisRanking[] }>('/api/leaderboard?orderBy=sessions&limit=10')
+    apiFetch<{ leaderboard: SegaCDRanking[] }>('/api/leaderboard?system=segacd&orderBy=sessions&limit=10')
       .then((d) => setRankings(d.leaderboard ?? []))
       .catch(() => setRankings([]))
       .finally(() => setLoading(false));
@@ -280,7 +422,7 @@ function LeaderboardPanel() {
   if (loading) {
     return (
       <div className="flex items-center justify-center py-16">
-        <div className="animate-spin text-3xl">🔵</div>
+        <div className="animate-spin text-3xl">💿</div>
       </div>
     );
   }
@@ -290,7 +432,7 @@ function LeaderboardPanel() {
       <div className="text-center py-16" style={{ color: 'var(--color-oasis-text-muted)' }}>
         <p className="text-4xl mb-3">🏆</p>
         <p className="font-semibold">No rankings yet</p>
-        <p className="text-sm mt-1">Play some Genesis sessions to appear here!</p>
+        <p className="text-sm mt-1">Play some Sega CD sessions to appear here!</p>
       </div>
     );
   }
@@ -301,7 +443,7 @@ function LeaderboardPanel() {
         <div
           key={r.displayName}
           className="flex items-center gap-3 rounded-xl px-4 py-3"
-          style={{ background: 'rgba(0,102,204,0.08)', border: `1px solid ${SYSTEM_COLOR_MID}` }}
+          style={{ background: 'rgba(75,94,252,0.08)', border: `1px solid ${SYSTEM_COLOR_MID}` }}
         >
           <RankBadge rank={i + 1} />
           <span className="flex-1 text-sm font-semibold text-white">{r.displayName}</span>
@@ -318,27 +460,20 @@ function LeaderboardPanel() {
 // Lobby panel
 // ---------------------------------------------------------------------------
 
-function LobbyPanel({ games }: { games: GenesisGame[] }) {
+function LobbyPanel({ games }: { games: SegaCDGame[] }) {
   const { publicRooms, createRoom, joinByCode } = useLobby();
   const displayName = localStorage.getItem('retro-oasis-display-name') ?? '';
-  const [hostGame, setHostGame] = useState<GenesisGame | null>(null);
+  const [hostGame, setHostGame] = useState<SegaCDGame | null>(null);
   const [showJoin, setShowJoin] = useState(false);
   const [joinCode, setJoinCode] = useState('');
   const [notification, setNotification] = useState('');
-  const [genreFilter, setGenreFilter] = useState<GenreFilter>('all');
+  const [modeFilter, setModeFilter] = useState<ModeFilter>('all');
 
-  const genreCounts = useMemo(() => {
-    const counts: Record<string, number> = {};
-    for (const g of games) {
-      counts[g.genre] = (counts[g.genre] ?? 0) + 1;
-    }
-    return counts;
-  }, [games]);
-
-  const filteredGames = useMemo(
-    () => (genreFilter === 'all' ? games : games.filter((g) => g.genre === genreFilter)),
-    [games, genreFilter],
-  );
+  const filteredGames = useMemo(() => {
+    if (modeFilter === 'multiplayer') return games.filter((g) => !g.singleOnly);
+    if (modeFilter === 'single') return games.filter((g) => g.singleOnly);
+    return games;
+  }, [games, modeFilter]);
 
   const openRoomsFor = useCallback(
     (gameId: string) => publicRooms.filter((r) => r.gameId === gameId && r.status === 'waiting').length,
@@ -351,7 +486,7 @@ function LobbyPanel({ games }: { games: GenesisGame[] }) {
   );
 
   const handleQuickMatch = useCallback(
-    async (game: GenesisGame) => {
+    async (game: SegaCDGame) => {
       const open = publicRooms.find((r) => r.gameId === game.id && r.status === 'waiting');
       if (open) {
         setJoinCode(open.roomCode);
@@ -367,33 +502,48 @@ function LobbyPanel({ games }: { games: GenesisGame[] }) {
 
   return (
     <div className="space-y-5">
-      <GenesisBanner />
+      <SegaCDBanner />
 
       {/* Stats row */}
       <div className="flex gap-3 flex-wrap">
         {[
           { label: 'Games', value: games.length },
           { label: 'Open Rooms', value: totalOpenRooms },
-          { label: 'Players Online', value: publicRooms.filter((r) => r.status === 'waiting').reduce((n, r) => n + (r.players?.length ?? 0), 0) },
+          { label: 'CD Audio Titles', value: games.filter((g) => g.cdAudio).length },
         ].map(({ label, value }) => (
           <div
             key={label}
             className="flex-1 min-w-[80px] rounded-xl px-3 py-2 text-center"
-            style={{ background: 'rgba(0,102,204,0.08)', border: `1px solid ${SYSTEM_COLOR_MID}` }}
+            style={{ background: 'rgba(75,94,252,0.08)', border: `1px solid ${SYSTEM_COLOR_MID}` }}
           >
-            <p className="text-lg font-black" style={{ color: '#60a5fa' }}>{value}</p>
+            <p className="text-lg font-black" style={{ color: '#818cf8' }}>{value}</p>
             <p className="text-xs" style={{ color: 'var(--color-oasis-text-muted)' }}>{label}</p>
           </div>
         ))}
       </div>
 
-      {/* Genre filter */}
-      <GenreFilterBar active={genreFilter} onChange={setGenreFilter} counts={genreCounts} />
+      {/* Mode filter */}
+      <div className="flex gap-2 flex-wrap">
+        {ALL_MODE_FILTERS.map(({ id, label }) => (
+          <button
+            key={id}
+            onClick={() => setModeFilter(id)}
+            className="px-3 py-1 rounded-full text-xs font-semibold transition-all"
+            style={
+              modeFilter === id
+                ? { background: SYSTEM_COLOR, color: '#fff' }
+                : { background: SYSTEM_COLOR_MID, color: '#a5b4fc', border: `1px solid ${SYSTEM_COLOR_MID}` }
+            }
+          >
+            {label}
+          </button>
+        ))}
+      </div>
 
       {notification && (
         <div
           className="rounded-xl px-4 py-3 text-sm font-semibold"
-          style={{ background: 'rgba(0,102,204,0.1)', color: '#60a5fa', border: `1px solid rgba(0,102,204,0.3)` }}
+          style={{ background: 'rgba(75,94,252,0.1)', color: '#818cf8', border: `1px solid rgba(75,94,252,0.3)` }}
         >
           ℹ️ {notification}
         </div>
@@ -401,7 +551,7 @@ function LobbyPanel({ games }: { games: GenesisGame[] }) {
 
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
         {filteredGames.map((game) => (
-          <GenesisGameCard
+          <SegaCDGameCard
             key={game.id}
             game={game}
             onHost={setHostGame}
@@ -413,7 +563,7 @@ function LobbyPanel({ games }: { games: GenesisGame[] }) {
 
       {filteredGames.length === 0 && (
         <div className="text-center py-12" style={{ color: 'var(--color-oasis-text-muted)' }}>
-          No games found for this genre filter.
+          No games found for this filter.
         </div>
       )}
 
@@ -442,15 +592,16 @@ function LobbyPanel({ games }: { games: GenesisGame[] }) {
 }
 
 // ---------------------------------------------------------------------------
-// GenesisPage
+// SegaCDPage
 // ---------------------------------------------------------------------------
 
-export default function GenesisPage() {
+export default function SegaCDPage() {
   const [activeTab, setActiveTab] = useState<ActiveTab>('lobby');
 
   const tabs: { id: ActiveTab; label: string }[] = [
     { id: 'lobby', label: '🎮 Lobby' },
     { id: 'leaderboard', label: '🏆 Leaderboard' },
+    { id: 'setup', label: '⚙️ Setup' },
   ];
 
   return (
@@ -461,15 +612,15 @@ export default function GenesisPage() {
           className="w-16 h-16 rounded-2xl flex items-center justify-center text-3xl shrink-0"
           style={{ background: `linear-gradient(135deg, ${SYSTEM_COLOR}, ${SYSTEM_COLOR_DARK})` }}
         >
-          ⬢
+          💿
         </div>
         <div>
-          <h1 className="text-3xl font-black text-white">SEGA Genesis</h1>
+          <h1 className="text-3xl font-black text-white">SEGA CD</h1>
           <p className="text-sm mt-0.5" style={{ color: 'var(--color-oasis-text-muted)' }}>
-            Also known as the Mega Drive · Generation 4 · Online relay via RetroArch + Genesis Plus GX
+            Also known as the Mega-CD · CD-ROM add-on for the Genesis / Mega Drive · 1992–1996
           </p>
           <p className="text-xs mt-0.5" style={{ color: 'var(--color-oasis-text-muted)' }}>
-            {GENESIS_GAMES.length} games · 2 players · No port forwarding needed
+            {SEGACD_GAMES.length} games · Relay netplay via RetroArch + Genesis Plus GX · BIOS required
           </p>
         </div>
       </div>
@@ -483,7 +634,7 @@ export default function GenesisPage() {
             className="px-5 py-2.5 text-sm font-semibold rounded-t-xl transition-all"
             style={
               activeTab === tab.id
-                ? { background: 'rgba(0,102,204,0.15)', color: '#60a5fa', borderBottom: `2px solid ${SYSTEM_COLOR}` }
+                ? { background: 'rgba(75,94,252,0.15)', color: '#818cf8', borderBottom: `2px solid ${SYSTEM_COLOR}` }
                 : { color: 'var(--color-oasis-text-muted)' }
             }
           >
@@ -493,8 +644,9 @@ export default function GenesisPage() {
       </div>
 
       {/* Tab content */}
-      {activeTab === 'lobby' && <LobbyPanel games={GENESIS_GAMES} />}
+      {activeTab === 'lobby' && <LobbyPanel games={SEGACD_GAMES} />}
       {activeTab === 'leaderboard' && <LeaderboardPanel />}
+      {activeTab === 'setup' && <SetupGuide />}
     </div>
   );
 }

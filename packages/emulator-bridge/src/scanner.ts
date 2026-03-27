@@ -34,6 +34,10 @@ export const ROM_EXTENSIONS: Record<string, string> = {
   '.gen': 'genesis',
   '.bin': 'genesis',
   '.smd': 'genesis',
+  // SEGA CD / Mega-CD
+  '.cue': 'segacd',   // CUE sheet (paired with .bin track files)
+  '.chd': 'segacd',   // Compressed Hunks of Data (CD image)
+  '.img': 'segacd',   // raw CD image (DiscJuggler / CDRwin)
   // GameCube
   '.gcm': 'gc',     // raw GameCube disc image
   '.gcz': 'gc',     // Dolphin compressed GameCube image

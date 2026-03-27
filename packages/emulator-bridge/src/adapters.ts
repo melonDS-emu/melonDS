@@ -636,6 +636,21 @@ export function createSystemAdapter(system: string, backendId?: string): SystemA
       };
     }
 
+    case 'segacd': {
+      // SEGA CD / Mega-CD uses RetroArch with the Genesis Plus GX core.
+      // Genesis Plus GX natively supports Sega CD disc images (.cue/.bin pairs and .chd).
+      // Requires a Sega CD BIOS image (bios_CD_U.bin / bios_CD_E.bin / bios_CD_J.bin)
+      // placed in the RetroArch system directory.
+      // Netplay uses the standard RetroArch --host / --connect relay flags.
+      return {
+        system: 'segacd',
+        preferredBackendId: 'retroarch',
+        fallbackBackendIds: [],
+        buildLaunchArgs: (romPath, options) => buildRetroArchArgs(romPath, options),
+        getSavePath: (gameId, baseDir) => `${baseDir}/segacd/${gameId}`,
+      };
+    }
+
     case 'sms': {
       // Sega Master System / Game Gear uses RetroArch with the Genesis Plus GX core.
       // Genesis Plus GX supports SMS, Game Gear, and SG-1000 in addition to Genesis/MD.
