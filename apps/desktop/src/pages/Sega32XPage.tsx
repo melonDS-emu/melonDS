@@ -14,14 +14,14 @@ const API =
       'http://localhost:8080'
     : 'http://localhost:8080';
 
-const SYSTEM_COLOR = '#003399';
-const SYSTEM_COLOR_DARK = '#001a66';
-const SYSTEM_COLOR_MID = 'rgba(0,51,153,0.18)';
+const SYSTEM_COLOR = '#CC0000';
+const SYSTEM_COLOR_DARK = '#880000';
+const SYSTEM_COLOR_MID = 'rgba(204,0,0,0.18)';
 
 type ActiveTab = 'lobby' | 'leaderboard';
-type GenreFilter = 'all' | 'Platformer' | 'Action' | 'Shoot-em-up' | 'RPG' | 'Action-RPG' | 'Sports' | 'Racing';
+type GenreFilter = 'all' | 'Platformer' | 'Action' | 'Shoot-em-up' | 'Fighting' | 'Sports' | 'Racing' | 'Beat-em-up';
 
-interface SMSGame {
+interface Game32X {
   id: string;
   title: string;
   genre: string;
@@ -33,46 +33,42 @@ interface SMSGame {
   year?: number;
 }
 
-interface SMSRanking {
+interface Ranking32X {
   displayName: string;
   sessions: number;
 }
 
 // ---------------------------------------------------------------------------
-// Game definitions (overhauled — 20 games)
+// Game definitions
 // ---------------------------------------------------------------------------
 
-const SMS_GAMES: SMSGame[] = [
+const GAMES_32X: Game32X[] = [
   // Platformer
-  { id: 'sms-alex-kidd-in-miracle-world',      title: 'Alex Kidd in Miracle World',      genre: 'Platformer',  genreEmoji: '👊', maxPlayers: 1, singleOnly: true,   year: 1986 },
-  { id: 'sms-sonic-the-hedgehog',              title: 'Sonic the Hedgehog',              genre: 'Platformer',  genreEmoji: '💨', maxPlayers: 1, singleOnly: true,   year: 1991 },
-  { id: 'sms-sonic-the-hedgehog-2',            title: 'Sonic the Hedgehog 2',            genre: 'Platformer',  genreEmoji: '💨', maxPlayers: 1, singleOnly: true,   year: 1992 },
-  { id: 'sms-wonder-boy-iii',                  title: "Wonder Boy III: The Dragon's Trap", genre: 'Action-RPG', genreEmoji: '🐉', maxPlayers: 1, singleOnly: true,   year: 1989 },
-  { id: 'sms-castle-of-illusion',              title: 'Castle of Illusion',              genre: 'Platformer',  genreEmoji: '🏰', maxPlayers: 1, singleOnly: true,   year: 1990 },
+  { id: '32x-knuckles-chaotix',           title: "Knuckles' Chaotix",         genre: 'Platformer',  genreEmoji: '💎', maxPlayers: 2, coopOnly: true,    year: 1995 },
+  { id: '32x-sonic-mars',                 title: 'Sonic Mars (Unreleased)',    genre: 'Platformer',  genreEmoji: '💨', maxPlayers: 1, singleOnly: true,  year: 1995 },
   // Action
-  { id: 'sms-shinobi',                         title: 'Shinobi',                         genre: 'Action',      genreEmoji: '🥷', maxPlayers: 1, singleOnly: true,   year: 1988 },
-  { id: 'sms-golden-axe-warrior',              title: 'Golden Axe Warrior',              genre: 'Action-RPG',  genreEmoji: '⚔️', maxPlayers: 1, singleOnly: true,   year: 1991 },
-  { id: 'sms-kung-fu-kid',                     title: 'Kung Fu Kid',                     genre: 'Action',      genreEmoji: '🥋', maxPlayers: 1, singleOnly: true,   year: 1987 },
+  { id: '32x-doom',                       title: 'DOOM',                      genre: 'Action',      genreEmoji: '🔫', maxPlayers: 1, singleOnly: true,  year: 1994 },
+  { id: '32x-shadow-squadron',            title: 'Shadow Squadron',            genre: 'Action',      genreEmoji: '🚀', maxPlayers: 1, singleOnly: true,  year: 1994 },
+  { id: '32x-star-wars-arcade',           title: 'Star Wars Arcade',          genre: 'Action',      genreEmoji: '⭐', maxPlayers: 2, competitive: true, year: 1994 },
+  { id: '32x-bc-racers',                  title: 'BC Racers',                 genre: 'Action',      genreEmoji: '🦕', maxPlayers: 2, competitive: true, year: 1994 },
   // Shoot-em-up
-  { id: 'sms-r-type',                          title: 'R-Type',                          genre: 'Shoot-em-up', genreEmoji: '🚀', maxPlayers: 1, singleOnly: true,   year: 1988 },
-  { id: 'sms-after-burner',                    title: 'After Burner',                    genre: 'Shoot-em-up', genreEmoji: '✈️', maxPlayers: 1, singleOnly: true,   year: 1988 },
-  { id: 'sms-space-harrier',                   title: 'Space Harrier',                   genre: 'Shoot-em-up', genreEmoji: '🌌', maxPlayers: 1, singleOnly: true,   year: 1986 },
-  // RPG
-  { id: 'sms-phantasy-star',                   title: 'Phantasy Star',                   genre: 'RPG',         genreEmoji: '🌟', maxPlayers: 1, singleOnly: true,   year: 1987 },
-  { id: 'sms-ys-the-vanished-omens',           title: 'Ys: The Vanished Omens',          genre: 'Action-RPG',  genreEmoji: '🗡️', maxPlayers: 1, singleOnly: true,   year: 1988 },
-  // Sports (2-player competitive)
-  { id: 'sms-tennis',                          title: 'Tennis',                          genre: 'Sports',      genreEmoji: '🎾', maxPlayers: 2, competitive: true,  year: 1986 },
-  { id: 'sms-great-golf',                      title: 'Great Golf',                      genre: 'Sports',      genreEmoji: '⛳', maxPlayers: 2, competitive: true,  year: 1987 },
-  { id: 'sms-volleyball',                      title: 'Volleyball',                      genre: 'Sports',      genreEmoji: '🏐', maxPlayers: 2, competitive: true,  year: 1987 },
-  // Racing (2-player)
-  { id: 'sms-hang-on',                         title: 'Hang-On',                         genre: 'Racing',      genreEmoji: '🏍️', maxPlayers: 2, competitive: true,  year: 1985 },
-  { id: 'sms-super-monaco-gp',                 title: 'Super Monaco GP',                 genre: 'Racing',      genreEmoji: '🏎️', maxPlayers: 2, competitive: true,  year: 1990 },
-  // Action (2-player)
-  { id: 'sms-double-dragon',                   title: 'Double Dragon',                   genre: 'Action',      genreEmoji: '🥊', maxPlayers: 2, coopOnly: true,     year: 1988 },
-  { id: 'sms-rampage',                         title: 'Rampage',                         genre: 'Action',      genreEmoji: '🦍', maxPlayers: 2, coopOnly: true,     year: 1988 },
+  { id: '32x-space-harrier',              title: 'Space Harrier',             genre: 'Shoot-em-up', genreEmoji: '🌌', maxPlayers: 1, singleOnly: true,  year: 1994 },
+  { id: '32x-after-burner-complete',      title: 'After Burner Complete',     genre: 'Shoot-em-up', genreEmoji: '✈️', maxPlayers: 1, singleOnly: true,  year: 1994 },
+  { id: '32x-kolibri',                    title: 'Kolibri',                   genre: 'Shoot-em-up', genreEmoji: '🐦', maxPlayers: 2, competitive: true, year: 1995 },
+  // Fighting
+  { id: '32x-mortal-kombat-ii',           title: 'Mortal Kombat II',          genre: 'Fighting',    genreEmoji: '🩸', maxPlayers: 2, competitive: true, year: 1994 },
+  { id: '32x-WWF-raw',                    title: 'WWF Raw',                   genre: 'Fighting',    genreEmoji: '🥊', maxPlayers: 4, competitive: true, year: 1994 },
+  // Beat-em-up
+  { id: '32x-golden-axe-the-duel',        title: 'Golden Axe: The Duel',      genre: 'Beat-em-up',  genreEmoji: '⚔️', maxPlayers: 2, competitive: true, year: 1995 },
+  // Sports
+  { id: '32x-nba-jam-tournament-edition', title: 'NBA Jam Tournament Edition', genre: 'Sports',     genreEmoji: '🏀', maxPlayers: 4, competitive: true, year: 1994 },
+  { id: '32x-golf-magazine',              title: 'Golf Magazine: 36 Great Holes', genre: 'Sports',  genreEmoji: '⛳', maxPlayers: 4, competitive: true, year: 1994 },
+  // Racing
+  { id: '32x-virtua-racing-deluxe',       title: 'Virtua Racing Deluxe',      genre: 'Racing',      genreEmoji: '🏎️', maxPlayers: 2, competitive: true, year: 1994 },
+  { id: '32x-motocross-championship',     title: 'Motocross Championship',    genre: 'Racing',      genreEmoji: '🏍️', maxPlayers: 1, singleOnly: true,  year: 1994 },
 ];
 
-const ALL_GENRES: GenreFilter[] = ['all', 'Platformer', 'Action', 'Action-RPG', 'Shoot-em-up', 'RPG', 'Sports', 'Racing'];
+const ALL_GENRES: GenreFilter[] = ['all', 'Platformer', 'Action', 'Shoot-em-up', 'Fighting', 'Beat-em-up', 'Sports', 'Racing'];
 
 // ---------------------------------------------------------------------------
 // API helpers
@@ -91,7 +87,7 @@ async function apiFetch<T>(path: string, opts?: RequestInit): Promise<T> {
 }
 
 // ---------------------------------------------------------------------------
-// Rank badge helper
+// Rank badge
 // ---------------------------------------------------------------------------
 
 function RankBadge({ rank }: { rank: number }) {
@@ -104,48 +100,52 @@ function RankBadge({ rank }: { rank: number }) {
 }
 
 // ---------------------------------------------------------------------------
-// SMS info banner
+// Info banner
 // ---------------------------------------------------------------------------
 
-function SMSBanner() {
+function Banner32X() {
   return (
     <div
       className="rounded-2xl p-4 flex items-start gap-3"
-      style={{ backgroundColor: 'rgba(0,51,153,0.08)', border: `1px solid ${SYSTEM_COLOR_MID}` }}
+      style={{ backgroundColor: 'rgba(204,0,0,0.08)', border: `1px solid ${SYSTEM_COLOR_MID}` }}
     >
-      <span className="text-xl mt-0.5">🕹️</span>
+      <span className="text-xl mt-0.5">🔴</span>
       <div className="space-y-1">
-        <p className="text-sm font-bold" style={{ color: '#93c5fd' }}>
-          Sega Master System · Relay Netplay via RetroArch + Genesis Plus GX
+        <p className="text-sm font-bold" style={{ color: '#fca5a5' }}>
+          Sega 32X · Relay Netplay via RetroArch + PicoDrive
         </p>
         <p className="text-xs" style={{ color: 'var(--color-oasis-text-muted)' }}>
           All sessions use RetroOasis TCP relay netplay — no port forwarding required. ROM files{' '}
-          {['.sms', '.gg', '.sg'].map((ext) => (
-            <code
-              key={ext}
-              className="mx-0.5 px-1 rounded"
-              style={{ background: SYSTEM_COLOR_MID, color: '#93c5fd' }}
-            >
-              {ext}
-            </code>
-          ))}{' '}
+          <code className="mx-0.5 px-1 rounded" style={{ background: SYSTEM_COLOR_MID, color: '#fca5a5' }}>
+            .32x
+          </code>{' '}
           are auto-detected from your library. Recommended core:{' '}
-          <code className="ml-0.5 px-1 rounded" style={{ background: SYSTEM_COLOR_MID, color: '#93c5fd' }}>
-            genesis_plus_gx_libretro.so
+          <code className="ml-0.5 px-1 rounded" style={{ background: SYSTEM_COLOR_MID, color: '#fca5a5' }}>
+            picodrive_libretro.so
           </code>
         </p>
         <p className="text-xs" style={{ color: 'var(--color-oasis-text-muted)' }}>
-          Looking for the 32X add-on?{' '}
-          <Link to="/32x" className="underline" style={{ color: '#93c5fd' }}>
-            Visit the Sega 32X page →
-          </Link>
-          {' '}· Genesis games?{' '}
-          <Link to="/genesis" className="underline" style={{ color: '#93c5fd' }}>
+          32X BIOS required:{' '}
+          {['32X_M_BIOS.BIN', '32X_S_BIOS.BIN'].map((f) => (
+            <code key={f} className="mx-0.5 px-1 rounded" style={{ background: SYSTEM_COLOR_MID, color: '#fca5a5' }}>
+              {f}
+            </code>
+          ))}{' '}
+          — place in your RetroArch{' '}
+          <code className="mx-0.5 px-1 rounded" style={{ background: SYSTEM_COLOR_MID, color: '#fca5a5' }}>
+            system/
+          </code>{' '}
+          directory.
+        </p>
+        <p className="text-xs" style={{ color: 'var(--color-oasis-text-muted)' }}>
+          Looking for Genesis games?{' '}
+          <Link to="/genesis" className="underline" style={{ color: '#fca5a5' }}>
             Visit the Genesis page →
           </Link>
-        </p>
-        <p className="text-xs font-semibold" style={{ color: '#fbbf24' }}>
-          ℹ️ Relay spectate sessions available. Most SMS titles are single-player — watch or take turns!
+          {' '}· Master System?{' '}
+          <Link to="/sms" className="underline" style={{ color: '#fca5a5' }}>
+            Visit the SMS page →
+          </Link>
         </p>
       </div>
     </div>
@@ -168,7 +168,7 @@ function GenreFilterBar({
   return (
     <div className="flex flex-wrap gap-2">
       {ALL_GENRES.map((g) => {
-        const count = g === 'all' ? SMS_GAMES.length : (counts[g] ?? 0);
+        const count = g === 'all' ? GAMES_32X.length : (counts[g] ?? 0);
         const isActive = active === g;
         return (
           <button
@@ -178,7 +178,7 @@ function GenreFilterBar({
             style={
               isActive
                 ? { background: SYSTEM_COLOR, color: '#fff' }
-                : { background: SYSTEM_COLOR_MID, color: '#93c5fd', border: `1px solid ${SYSTEM_COLOR_MID}` }
+                : { background: SYSTEM_COLOR_MID, color: '#fca5a5', border: `1px solid ${SYSTEM_COLOR_MID}` }
             }
           >
             {g === 'all' ? 'All' : g} {count > 0 && <span className="opacity-70">({count})</span>}
@@ -193,22 +193,22 @@ function GenreFilterBar({
 // Game card
 // ---------------------------------------------------------------------------
 
-function SMSGameCard({
+function GameCard32X({
   game,
   onHost,
   onQuickMatch,
   openRooms,
 }: {
-  game: SMSGame;
-  onHost: (game: SMSGame) => void;
-  onQuickMatch: (game: SMSGame) => void;
+  game: Game32X;
+  onHost: (game: Game32X) => void;
+  onQuickMatch: (game: Game32X) => void;
   openRooms: number;
 }) {
   return (
     <div
       className="n-card rounded-2xl p-4 flex flex-col gap-3"
       style={{
-        background: `linear-gradient(135deg, rgba(0,51,153,0.12), rgba(0,26,102,0.06))`,
+        background: `linear-gradient(135deg, rgba(204,0,0,0.12), rgba(100,0,0,0.06))`,
         border: `1px solid ${SYSTEM_COLOR_MID}`,
       }}
     >
@@ -270,7 +270,7 @@ function SMSGameCard({
         <button
           onClick={() => onHost(game)}
           className="flex-1 px-3 py-1.5 rounded-xl text-xs font-bold transition-all hover:scale-105"
-          style={{ background: SYSTEM_COLOR_MID, border: `1px solid rgba(0,51,153,0.35)`, color: '#93c5fd' }}
+          style={{ background: SYSTEM_COLOR_MID, border: `1px solid rgba(204,0,0,0.35)`, color: '#fca5a5' }}
         >
           🎮 Host Room
         </button>
@@ -284,11 +284,11 @@ function SMSGameCard({
 // ---------------------------------------------------------------------------
 
 function LeaderboardPanel() {
-  const [rankings, setRankings] = useState<SMSRanking[]>([]);
+  const [rankings, setRankings] = useState<Ranking32X[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    apiFetch<{ leaderboard: SMSRanking[] }>('/api/leaderboard?orderBy=sessions&limit=10')
+    apiFetch<{ leaderboard: Ranking32X[] }>('/api/leaderboard?orderBy=sessions&limit=10')
       .then((d) => setRankings(d.leaderboard ?? []))
       .catch(() => setRankings([]))
       .finally(() => setLoading(false));
@@ -297,7 +297,7 @@ function LeaderboardPanel() {
   if (loading) {
     return (
       <div className="flex items-center justify-center py-16">
-        <div className="animate-spin text-3xl">🕹️</div>
+        <div className="animate-spin text-3xl">🔴</div>
       </div>
     );
   }
@@ -307,7 +307,7 @@ function LeaderboardPanel() {
       <div className="text-center py-16" style={{ color: 'var(--color-oasis-text-muted)' }}>
         <p className="text-4xl mb-3">🏆</p>
         <p className="font-semibold">No rankings yet</p>
-        <p className="text-sm mt-1">Play some Master System sessions to appear here!</p>
+        <p className="text-sm mt-1">Play some 32X sessions to appear here!</p>
       </div>
     );
   }
@@ -318,7 +318,7 @@ function LeaderboardPanel() {
         <div
           key={r.displayName}
           className="flex items-center gap-3 rounded-xl px-4 py-3"
-          style={{ background: 'rgba(0,51,153,0.08)', border: `1px solid ${SYSTEM_COLOR_MID}` }}
+          style={{ background: 'rgba(204,0,0,0.08)', border: `1px solid ${SYSTEM_COLOR_MID}` }}
         >
           <RankBadge rank={i + 1} />
           <span className="flex-1 text-sm font-semibold text-white">{r.displayName}</span>
@@ -335,10 +335,10 @@ function LeaderboardPanel() {
 // Lobby panel
 // ---------------------------------------------------------------------------
 
-function LobbyPanel({ games }: { games: SMSGame[] }) {
+function LobbyPanel({ games }: { games: Game32X[] }) {
   const { publicRooms, createRoom, joinByCode } = useLobby();
   const displayName = localStorage.getItem('retro-oasis-display-name') ?? '';
-  const [hostGame, setHostGame] = useState<SMSGame | null>(null);
+  const [hostGame, setHostGame] = useState<Game32X | null>(null);
   const [showJoin, setShowJoin] = useState(false);
   const [joinCode, setJoinCode] = useState('');
   const [notification, setNotification] = useState('');
@@ -358,8 +358,7 @@ function LobbyPanel({ games }: { games: SMSGame[] }) {
   );
 
   const openRoomsFor = useCallback(
-    (gameId: string) =>
-      publicRooms.filter((r) => r.gameId === gameId && r.status === 'waiting').length,
+    (gameId: string) => publicRooms.filter((r) => r.gameId === gameId && r.status === 'waiting').length,
     [publicRooms],
   );
 
@@ -369,7 +368,7 @@ function LobbyPanel({ games }: { games: SMSGame[] }) {
   );
 
   const handleQuickMatch = useCallback(
-    async (game: SMSGame) => {
+    async (game: Game32X) => {
       const open = publicRooms.find((r) => r.gameId === game.id && r.status === 'waiting');
       if (open) {
         setJoinCode(open.roomCode);
@@ -385,7 +384,7 @@ function LobbyPanel({ games }: { games: SMSGame[] }) {
 
   return (
     <div className="space-y-5">
-      <SMSBanner />
+      <Banner32X />
 
       {/* Stats row */}
       <div className="flex gap-3 flex-wrap">
@@ -397,9 +396,9 @@ function LobbyPanel({ games }: { games: SMSGame[] }) {
           <div
             key={label}
             className="flex-1 min-w-[80px] rounded-xl px-3 py-2 text-center"
-            style={{ background: 'rgba(0,51,153,0.08)', border: `1px solid ${SYSTEM_COLOR_MID}` }}
+            style={{ background: 'rgba(204,0,0,0.08)', border: `1px solid ${SYSTEM_COLOR_MID}` }}
           >
-            <p className="text-lg font-black" style={{ color: '#93c5fd' }}>{value}</p>
+            <p className="text-lg font-black" style={{ color: '#fca5a5' }}>{value}</p>
             <p className="text-xs" style={{ color: 'var(--color-oasis-text-muted)' }}>{label}</p>
           </div>
         ))}
@@ -411,11 +410,7 @@ function LobbyPanel({ games }: { games: SMSGame[] }) {
       {notification && (
         <div
           className="rounded-xl px-4 py-3 text-sm font-semibold"
-          style={{
-            background: 'rgba(0,51,153,0.1)',
-            color: '#93c5fd',
-            border: `1px solid rgba(0,51,153,0.3)`,
-          }}
+          style={{ background: 'rgba(204,0,0,0.1)', color: '#fca5a5', border: `1px solid rgba(204,0,0,0.3)` }}
         >
           ℹ️ {notification}
         </div>
@@ -423,7 +418,7 @@ function LobbyPanel({ games }: { games: SMSGame[] }) {
 
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
         {filteredGames.map((game) => (
-          <SMSGameCard
+          <GameCard32X
             key={game.id}
             game={game}
             onHost={setHostGame}
@@ -448,19 +443,13 @@ function LobbyPanel({ games }: { games: SMSGame[] }) {
       {hostGame && (
         <HostRoomModal
           preselectedGameId={hostGame.id}
-          onConfirm={(payload, dn) => {
-            createRoom(payload, dn);
-            setHostGame(null);
-          }}
+          onConfirm={(payload, dn) => { createRoom(payload, dn); setHostGame(null); }}
           onClose={() => setHostGame(null)}
         />
       )}
       {showJoin && (
         <JoinRoomModal
-          onConfirm={(code, dn) => {
-            joinByCode(code, dn);
-            setShowJoin(false);
-          }}
+          onConfirm={(code, dn) => { joinByCode(code, dn); setShowJoin(false); }}
           onClose={() => setShowJoin(false)}
           initialCode={joinCode}
         />
@@ -470,10 +459,10 @@ function LobbyPanel({ games }: { games: SMSGame[] }) {
 }
 
 // ---------------------------------------------------------------------------
-// SMSPage
+// Sega32XPage
 // ---------------------------------------------------------------------------
 
-export default function SMSPage() {
+export default function Sega32XPage() {
   const [activeTab, setActiveTab] = useState<ActiveTab>('lobby');
 
   const tabs: { id: ActiveTab; label: string }[] = [
@@ -489,15 +478,15 @@ export default function SMSPage() {
           className="w-16 h-16 rounded-2xl flex items-center justify-center text-3xl shrink-0"
           style={{ background: `linear-gradient(135deg, ${SYSTEM_COLOR}, ${SYSTEM_COLOR_DARK})` }}
         >
-          ⊡
+          🔴
         </div>
         <div>
-          <h1 className="text-3xl font-black text-white">Sega Master System</h1>
+          <h1 className="text-3xl font-black text-white">Sega 32X</h1>
           <p className="text-sm mt-0.5" style={{ color: 'var(--color-oasis-text-muted)' }}>
-            Generation 3 · Online relay via RetroArch + Genesis Plus GX
+            Genesis add-on · Generation 5 · Online relay via RetroArch + PicoDrive
           </p>
           <p className="text-xs mt-0.5" style={{ color: 'var(--color-oasis-text-muted)' }}>
-            {SMS_GAMES.length} games · Up to 2 players · No port forwarding needed
+            {GAMES_32X.length} games · Up to 4 players · No port forwarding needed
           </p>
         </div>
       </div>
@@ -511,11 +500,7 @@ export default function SMSPage() {
             className="px-5 py-2.5 text-sm font-semibold rounded-t-xl transition-all"
             style={
               activeTab === tab.id
-                ? {
-                    background: 'rgba(0,51,153,0.15)',
-                    color: '#93c5fd',
-                    borderBottom: `2px solid ${SYSTEM_COLOR}`,
-                  }
+                ? { background: 'rgba(204,0,0,0.15)', color: '#fca5a5', borderBottom: `2px solid ${SYSTEM_COLOR}` }
                 : { color: 'var(--color-oasis-text-muted)' }
             }
           >
@@ -525,7 +510,7 @@ export default function SMSPage() {
       </div>
 
       {/* Tab content */}
-      {activeTab === 'lobby' && <LobbyPanel games={SMS_GAMES} />}
+      {activeTab === 'lobby' && <LobbyPanel games={GAMES_32X} />}
       {activeTab === 'leaderboard' && <LeaderboardPanel />}
     </div>
   );

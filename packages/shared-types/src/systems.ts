@@ -1,4 +1,4 @@
-/** Supported systems (Nintendo + SEGA + Sony) */
+/** Supported systems (Nintendo + SEGA + Sony + SNK) */
 export type SupportedSystem =
   | 'nes'
   | 'snes'
@@ -15,10 +15,14 @@ export type SupportedSystem =
   | 'genesis'
   | 'segacd'
   | 'sms'
+  | 'sega32x'
   | 'dreamcast'
   | 'psx'
   | 'ps2'
-  | 'psp';
+  | 'ps3'
+  | 'psp'
+  | 'ngp'
+  | 'ngpc';
 
 export interface SystemInfo {
   id: SupportedSystem;
@@ -157,6 +161,15 @@ export const SYSTEM_INFO: Record<SupportedSystem, SystemInfo> = {
     supportsLink: false,
     color: '#003399',
   },
+  sega32x: {
+    id: 'sega32x',
+    name: 'Sega 32X',
+    shortName: '32X',
+    generation: 5,
+    maxLocalPlayers: 2,
+    supportsLink: false,
+    color: '#CC0000',
+  },
   dreamcast: {
     id: 'dreamcast',
     name: 'SEGA Dreamcast',
@@ -184,6 +197,15 @@ export const SYSTEM_INFO: Record<SupportedSystem, SystemInfo> = {
     supportsLink: false,
     color: '#00439C',
   },
+  ps3: {
+    id: 'ps3',
+    name: 'Sony PlayStation 3',
+    shortName: 'PS3',
+    generation: 7,
+    maxLocalPlayers: 4,
+    supportsLink: false,
+    color: '#003087',
+  },
   psp: {
     id: 'psp',
     name: 'Sony PlayStation Portable',
@@ -201,5 +223,23 @@ export const SYSTEM_INFO: Record<SupportedSystem, SystemInfo> = {
     maxLocalPlayers: 8,
     supportsLink: false,
     color: '#E4003A',
+  },
+  ngp: {
+    id: 'ngp',
+    name: 'SNK Neo Geo Pocket',
+    shortName: 'NGP',
+    generation: 5,
+    maxLocalPlayers: 2,
+    supportsLink: true,
+    color: '#C8A000',
+  },
+  ngpc: {
+    id: 'ngpc',
+    name: 'SNK Neo Geo Pocket Color',
+    shortName: 'NGPC',
+    generation: 5,
+    maxLocalPlayers: 2,
+    supportsLink: true,
+    color: '#E8B800',
   },
 };

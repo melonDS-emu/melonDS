@@ -1,5 +1,4 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
-import { Link } from 'react-router-dom';
 import { useLobby } from '../context/LobbyContext';
 import { HostRoomModal } from '../components/HostRoomModal';
 import { JoinRoomModal } from '../components/JoinRoomModal';
@@ -14,14 +13,17 @@ const API =
       'http://localhost:8080'
     : 'http://localhost:8080';
 
-const SYSTEM_COLOR = '#003399';
-const SYSTEM_COLOR_DARK = '#001a66';
-const SYSTEM_COLOR_MID = 'rgba(0,51,153,0.18)';
+// NGP = monochrome, NGPC = color; unified page with a system toggle
+const NGP_COLOR = '#C8A000';
+const NGP_COLOR_DARK = '#805A00';
+const NGPC_COLOR = '#E8B800';
+const NGPC_COLOR_DARK = '#A07000';
 
 type ActiveTab = 'lobby' | 'leaderboard';
-type GenreFilter = 'all' | 'Platformer' | 'Action' | 'Shoot-em-up' | 'RPG' | 'Action-RPG' | 'Sports' | 'Racing';
+type SystemMode = 'ngp' | 'ngpc';
+type GenreFilter = 'all' | 'Fighting' | 'Action' | 'Sports' | 'Puzzle' | 'RPG' | 'Shoot-em-up';
 
-interface SMSGame {
+interface NGPGame {
   id: string;
   title: string;
   genre: string;
@@ -29,50 +31,45 @@ interface SMSGame {
   maxPlayers: number;
   singleOnly?: boolean;
   competitive?: boolean;
-  coopOnly?: boolean;
+  system: 'ngp' | 'ngpc' | 'both';
   year?: number;
 }
 
-interface SMSRanking {
+interface NGPRanking {
   displayName: string;
   sessions: number;
 }
 
 // ---------------------------------------------------------------------------
-// Game definitions (overhauled — 20 games)
+// Game definitions
 // ---------------------------------------------------------------------------
 
-const SMS_GAMES: SMSGame[] = [
-  // Platformer
-  { id: 'sms-alex-kidd-in-miracle-world',      title: 'Alex Kidd in Miracle World',      genre: 'Platformer',  genreEmoji: '👊', maxPlayers: 1, singleOnly: true,   year: 1986 },
-  { id: 'sms-sonic-the-hedgehog',              title: 'Sonic the Hedgehog',              genre: 'Platformer',  genreEmoji: '💨', maxPlayers: 1, singleOnly: true,   year: 1991 },
-  { id: 'sms-sonic-the-hedgehog-2',            title: 'Sonic the Hedgehog 2',            genre: 'Platformer',  genreEmoji: '💨', maxPlayers: 1, singleOnly: true,   year: 1992 },
-  { id: 'sms-wonder-boy-iii',                  title: "Wonder Boy III: The Dragon's Trap", genre: 'Action-RPG', genreEmoji: '🐉', maxPlayers: 1, singleOnly: true,   year: 1989 },
-  { id: 'sms-castle-of-illusion',              title: 'Castle of Illusion',              genre: 'Platformer',  genreEmoji: '🏰', maxPlayers: 1, singleOnly: true,   year: 1990 },
+const NGP_GAMES: NGPGame[] = [
+  // Fighting — the heart of the NGP library
+  { id: 'ngp-king-of-fighters-r2',         title: 'The King of Fighters R-2',    genre: 'Fighting',    genreEmoji: '👊', maxPlayers: 2, competitive: true, system: 'ngpc', year: 1999 },
+  { id: 'ngp-snk-vs-capcom-match-of-millennium', title: 'SNK vs. Capcom: Match of the Millennium', genre: 'Fighting', genreEmoji: '⚔️', maxPlayers: 2, competitive: true, system: 'ngpc', year: 1999 },
+  { id: 'ngp-king-of-fighters-r1',         title: 'The King of Fighters R-1',    genre: 'Fighting',    genreEmoji: '👊', maxPlayers: 2, competitive: true, system: 'ngp',  year: 1998 },
+  { id: 'ngp-fatal-fury-first-contact',    title: 'Fatal Fury: First Contact',   genre: 'Fighting',    genreEmoji: '💥', maxPlayers: 2, competitive: true, system: 'ngpc', year: 1999 },
+  { id: 'ngp-samurai-shodown-2',           title: 'Samurai Shodown! 2',          genre: 'Fighting',    genreEmoji: '🗡️', maxPlayers: 2, competitive: true, system: 'ngpc', year: 1999 },
   // Action
-  { id: 'sms-shinobi',                         title: 'Shinobi',                         genre: 'Action',      genreEmoji: '🥷', maxPlayers: 1, singleOnly: true,   year: 1988 },
-  { id: 'sms-golden-axe-warrior',              title: 'Golden Axe Warrior',              genre: 'Action-RPG',  genreEmoji: '⚔️', maxPlayers: 1, singleOnly: true,   year: 1991 },
-  { id: 'sms-kung-fu-kid',                     title: 'Kung Fu Kid',                     genre: 'Action',      genreEmoji: '🥋', maxPlayers: 1, singleOnly: true,   year: 1987 },
+  { id: 'ngp-sonic-pocket-adventure',      title: 'Sonic Pocket Adventure',      genre: 'Action',      genreEmoji: '💨', maxPlayers: 2, competitive: true, system: 'ngpc', year: 1999 },
+  { id: 'ngp-metal-slug-1st-mission',      title: 'Metal Slug: 1st Mission',     genre: 'Action',      genreEmoji: '🔫', maxPlayers: 1, singleOnly: true,  system: 'ngp',  year: 1999 },
+  { id: 'ngp-metal-slug-2nd-mission',      title: 'Metal Slug: 2nd Mission',     genre: 'Action',      genreEmoji: '🔫', maxPlayers: 1, singleOnly: true,  system: 'ngpc', year: 2000 },
+  { id: 'ngp-biomotor-unitron',            title: 'BioMotor Unitron',            genre: 'RPG',         genreEmoji: '🤖', maxPlayers: 2, competitive: true, system: 'ngpc', year: 1999 },
   // Shoot-em-up
-  { id: 'sms-r-type',                          title: 'R-Type',                          genre: 'Shoot-em-up', genreEmoji: '🚀', maxPlayers: 1, singleOnly: true,   year: 1988 },
-  { id: 'sms-after-burner',                    title: 'After Burner',                    genre: 'Shoot-em-up', genreEmoji: '✈️', maxPlayers: 1, singleOnly: true,   year: 1988 },
-  { id: 'sms-space-harrier',                   title: 'Space Harrier',                   genre: 'Shoot-em-up', genreEmoji: '🌌', maxPlayers: 1, singleOnly: true,   year: 1986 },
+  { id: 'ngp-dive-alert',                  title: 'Dive Alert',                  genre: 'Shoot-em-up', genreEmoji: '🌊', maxPlayers: 1, singleOnly: true,  system: 'ngpc', year: 1999 },
+  // Sports
+  { id: 'ngp-baseball-stars-color',        title: 'Baseball Stars Color',        genre: 'Sports',      genreEmoji: '⚾', maxPlayers: 2, competitive: true, system: 'ngpc', year: 1999 },
+  { id: 'ngp-pocket-tennis-color',         title: 'Pocket Tennis Color',         genre: 'Sports',      genreEmoji: '🎾', maxPlayers: 2, competitive: true, system: 'ngpc', year: 1999 },
+  { id: 'ngp-pocket-golf',                 title: 'Pocket Golf',                 genre: 'Sports',      genreEmoji: '⛳', maxPlayers: 2, competitive: true, system: 'ngp',  year: 1998 },
+  // Puzzle
+  { id: 'ngp-puzzle-link',                 title: 'Puzzle Link',                 genre: 'Puzzle',      genreEmoji: '🧩', maxPlayers: 2, competitive: true, system: 'ngp',  year: 1998 },
+  { id: 'ngp-bust-a-move-pocket',          title: 'Bust-A-Move Pocket',          genre: 'Puzzle',      genreEmoji: '🫧', maxPlayers: 2, competitive: true, system: 'ngpc', year: 1999 },
   // RPG
-  { id: 'sms-phantasy-star',                   title: 'Phantasy Star',                   genre: 'RPG',         genreEmoji: '🌟', maxPlayers: 1, singleOnly: true,   year: 1987 },
-  { id: 'sms-ys-the-vanished-omens',           title: 'Ys: The Vanished Omens',          genre: 'Action-RPG',  genreEmoji: '🗡️', maxPlayers: 1, singleOnly: true,   year: 1988 },
-  // Sports (2-player competitive)
-  { id: 'sms-tennis',                          title: 'Tennis',                          genre: 'Sports',      genreEmoji: '🎾', maxPlayers: 2, competitive: true,  year: 1986 },
-  { id: 'sms-great-golf',                      title: 'Great Golf',                      genre: 'Sports',      genreEmoji: '⛳', maxPlayers: 2, competitive: true,  year: 1987 },
-  { id: 'sms-volleyball',                      title: 'Volleyball',                      genre: 'Sports',      genreEmoji: '🏐', maxPlayers: 2, competitive: true,  year: 1987 },
-  // Racing (2-player)
-  { id: 'sms-hang-on',                         title: 'Hang-On',                         genre: 'Racing',      genreEmoji: '🏍️', maxPlayers: 2, competitive: true,  year: 1985 },
-  { id: 'sms-super-monaco-gp',                 title: 'Super Monaco GP',                 genre: 'Racing',      genreEmoji: '🏎️', maxPlayers: 2, competitive: true,  year: 1990 },
-  // Action (2-player)
-  { id: 'sms-double-dragon',                   title: 'Double Dragon',                   genre: 'Action',      genreEmoji: '🥊', maxPlayers: 2, coopOnly: true,     year: 1988 },
-  { id: 'sms-rampage',                         title: 'Rampage',                         genre: 'Action',      genreEmoji: '🦍', maxPlayers: 2, coopOnly: true,     year: 1988 },
+  { id: 'ngp-faselei',                     title: 'Faselei!',                    genre: 'RPG',         genreEmoji: '🤖', maxPlayers: 1, singleOnly: true,  system: 'ngpc', year: 1999 },
 ];
 
-const ALL_GENRES: GenreFilter[] = ['all', 'Platformer', 'Action', 'Action-RPG', 'Shoot-em-up', 'RPG', 'Sports', 'Racing'];
+const ALL_GENRES: GenreFilter[] = ['all', 'Fighting', 'Action', 'Shoot-em-up', 'RPG', 'Sports', 'Puzzle'];
 
 // ---------------------------------------------------------------------------
 // API helpers
@@ -91,7 +88,7 @@ async function apiFetch<T>(path: string, opts?: RequestInit): Promise<T> {
 }
 
 // ---------------------------------------------------------------------------
-// Rank badge helper
+// Rank badge
 // ---------------------------------------------------------------------------
 
 function RankBadge({ rank }: { rank: number }) {
@@ -104,48 +101,36 @@ function RankBadge({ rank }: { rank: number }) {
 }
 
 // ---------------------------------------------------------------------------
-// SMS info banner
+// Info banner
 // ---------------------------------------------------------------------------
 
-function SMSBanner() {
+function NGPBanner({ mode }: { mode: SystemMode }) {
+  const color = mode === 'ngpc' ? NGPC_COLOR : NGP_COLOR;
+  const colorMid = mode === 'ngpc' ? 'rgba(232,184,0,0.18)' : 'rgba(200,160,0,0.18)';
+  const ext = mode === 'ngpc' ? '.ngc' : '.ngp';
+
   return (
     <div
       className="rounded-2xl p-4 flex items-start gap-3"
-      style={{ backgroundColor: 'rgba(0,51,153,0.08)', border: `1px solid ${SYSTEM_COLOR_MID}` }}
+      style={{ backgroundColor: mode === 'ngpc' ? 'rgba(232,184,0,0.08)' : 'rgba(200,160,0,0.08)', border: `1px solid ${colorMid}` }}
     >
-      <span className="text-xl mt-0.5">🕹️</span>
+      <span className="text-xl mt-0.5">{mode === 'ngpc' ? '🌈' : '⬛'}</span>
       <div className="space-y-1">
-        <p className="text-sm font-bold" style={{ color: '#93c5fd' }}>
-          Sega Master System · Relay Netplay via RetroArch + Genesis Plus GX
+        <p className="text-sm font-bold" style={{ color }}>
+          SNK Neo Geo Pocket {mode === 'ngpc' ? 'Color' : ''} · Relay Netplay via RetroArch + Beetle NeoPop
         </p>
         <p className="text-xs" style={{ color: 'var(--color-oasis-text-muted)' }}>
           All sessions use RetroOasis TCP relay netplay — no port forwarding required. ROM files{' '}
-          {['.sms', '.gg', '.sg'].map((ext) => (
-            <code
-              key={ext}
-              className="mx-0.5 px-1 rounded"
-              style={{ background: SYSTEM_COLOR_MID, color: '#93c5fd' }}
-            >
-              {ext}
-            </code>
-          ))}{' '}
+          <code className="mx-0.5 px-1 rounded" style={{ background: colorMid, color }}>
+            {ext}
+          </code>{' '}
           are auto-detected from your library. Recommended core:{' '}
-          <code className="ml-0.5 px-1 rounded" style={{ background: SYSTEM_COLOR_MID, color: '#93c5fd' }}>
-            genesis_plus_gx_libretro.so
+          <code className="ml-0.5 px-1 rounded" style={{ background: colorMid, color }}>
+            mednafen_ngp_libretro.so
           </code>
         </p>
-        <p className="text-xs" style={{ color: 'var(--color-oasis-text-muted)' }}>
-          Looking for the 32X add-on?{' '}
-          <Link to="/32x" className="underline" style={{ color: '#93c5fd' }}>
-            Visit the Sega 32X page →
-          </Link>
-          {' '}· Genesis games?{' '}
-          <Link to="/genesis" className="underline" style={{ color: '#93c5fd' }}>
-            Visit the Genesis page →
-          </Link>
-        </p>
         <p className="text-xs font-semibold" style={{ color: '#fbbf24' }}>
-          ℹ️ Relay spectate sessions available. Most SMS titles are single-player — watch or take turns!
+          ℹ️ Link cable multiplayer supported — head-to-head via relay for fighting and sports games!
         </p>
       </div>
     </div>
@@ -160,16 +145,21 @@ function GenreFilterBar({
   active,
   onChange,
   counts,
+  mode,
 }: {
   active: GenreFilter;
   onChange: (g: GenreFilter) => void;
   counts: Record<string, number>;
+  mode: SystemMode;
 }) {
+  const color = mode === 'ngpc' ? NGPC_COLOR : NGP_COLOR;
+  const colorMid = mode === 'ngpc' ? 'rgba(232,184,0,0.18)' : 'rgba(200,160,0,0.18)';
+
   return (
     <div className="flex flex-wrap gap-2">
       {ALL_GENRES.map((g) => {
-        const count = g === 'all' ? SMS_GAMES.length : (counts[g] ?? 0);
         const isActive = active === g;
+        const count = g === 'all' ? counts['__total'] ?? 0 : (counts[g] ?? 0);
         return (
           <button
             key={g}
@@ -177,8 +167,8 @@ function GenreFilterBar({
             className="px-3 py-1 rounded-full text-xs font-semibold transition-all"
             style={
               isActive
-                ? { background: SYSTEM_COLOR, color: '#fff' }
-                : { background: SYSTEM_COLOR_MID, color: '#93c5fd', border: `1px solid ${SYSTEM_COLOR_MID}` }
+                ? { background: color, color: '#0a0a0a' }
+                : { background: colorMid, color, border: `1px solid ${colorMid}` }
             }
           >
             {g === 'all' ? 'All' : g} {count > 0 && <span className="opacity-70">({count})</span>}
@@ -193,23 +183,31 @@ function GenreFilterBar({
 // Game card
 // ---------------------------------------------------------------------------
 
-function SMSGameCard({
+function NGPGameCard({
   game,
   onHost,
   onQuickMatch,
   openRooms,
+  mode,
 }: {
-  game: SMSGame;
-  onHost: (game: SMSGame) => void;
-  onQuickMatch: (game: SMSGame) => void;
+  game: NGPGame;
+  onHost: (game: NGPGame) => void;
+  onQuickMatch: (game: NGPGame) => void;
   openRooms: number;
+  mode: SystemMode;
 }) {
+  const color = mode === 'ngpc' ? NGPC_COLOR : NGP_COLOR;
+  const colorDark = mode === 'ngpc' ? NGPC_COLOR_DARK : NGP_COLOR_DARK;
+  const colorMid = mode === 'ngpc' ? 'rgba(232,184,0,0.18)' : 'rgba(200,160,0,0.18)';
+
   return (
     <div
       className="n-card rounded-2xl p-4 flex flex-col gap-3"
       style={{
-        background: `linear-gradient(135deg, rgba(0,51,153,0.12), rgba(0,26,102,0.06))`,
-        border: `1px solid ${SYSTEM_COLOR_MID}`,
+        background: mode === 'ngpc'
+          ? 'linear-gradient(135deg, rgba(232,184,0,0.12), rgba(160,112,0,0.06))'
+          : 'linear-gradient(135deg, rgba(200,160,0,0.12), rgba(128,90,0,0.06))',
+        border: `1px solid ${colorMid}`,
       }}
     >
       <div className="flex items-start justify-between gap-2">
@@ -240,14 +238,6 @@ function SMSGameCard({
               Competitive
             </span>
           )}
-          {game.coopOnly && (
-            <span
-              className="text-xs px-2 py-0.5 rounded-full font-semibold whitespace-nowrap"
-              style={{ background: 'rgba(74,222,128,0.1)', color: '#4ade80', border: '1px solid rgba(74,222,128,0.25)' }}
-            >
-              Co-op
-            </span>
-          )}
           {openRooms > 0 && (
             <span
               className="text-xs px-2 py-0.5 rounded-full font-semibold whitespace-nowrap"
@@ -263,14 +253,14 @@ function SMSGameCard({
         <button
           onClick={() => onQuickMatch(game)}
           className="flex-1 px-3 py-1.5 rounded-xl text-xs font-bold transition-all hover:scale-105"
-          style={{ background: `linear-gradient(90deg, ${SYSTEM_COLOR}, ${SYSTEM_COLOR_DARK})`, color: '#fff' }}
+          style={{ background: `linear-gradient(90deg, ${color}, ${colorDark})`, color: '#0a0a0a' }}
         >
           ⚡ Quick Match
         </button>
         <button
           onClick={() => onHost(game)}
           className="flex-1 px-3 py-1.5 rounded-xl text-xs font-bold transition-all hover:scale-105"
-          style={{ background: SYSTEM_COLOR_MID, border: `1px solid rgba(0,51,153,0.35)`, color: '#93c5fd' }}
+          style={{ background: colorMid, border: `1px solid ${colorMid}`, color }}
         >
           🎮 Host Room
         </button>
@@ -283,12 +273,14 @@ function SMSGameCard({
 // Leaderboard panel
 // ---------------------------------------------------------------------------
 
-function LeaderboardPanel() {
-  const [rankings, setRankings] = useState<SMSRanking[]>([]);
+function LeaderboardPanel({ mode }: { mode: SystemMode }) {
+  const [rankings, setRankings] = useState<NGPRanking[]>([]);
   const [loading, setLoading] = useState(true);
+  const color = mode === 'ngpc' ? NGPC_COLOR : NGP_COLOR;
+  const colorMid = mode === 'ngpc' ? 'rgba(232,184,0,0.18)' : 'rgba(200,160,0,0.18)';
 
   useEffect(() => {
-    apiFetch<{ leaderboard: SMSRanking[] }>('/api/leaderboard?orderBy=sessions&limit=10')
+    apiFetch<{ leaderboard: NGPRanking[] }>('/api/leaderboard?orderBy=sessions&limit=10')
       .then((d) => setRankings(d.leaderboard ?? []))
       .catch(() => setRankings([]))
       .finally(() => setLoading(false));
@@ -297,7 +289,7 @@ function LeaderboardPanel() {
   if (loading) {
     return (
       <div className="flex items-center justify-center py-16">
-        <div className="animate-spin text-3xl">🕹️</div>
+        <div className="animate-spin text-3xl">{mode === 'ngpc' ? '🌈' : '⬛'}</div>
       </div>
     );
   }
@@ -307,7 +299,9 @@ function LeaderboardPanel() {
       <div className="text-center py-16" style={{ color: 'var(--color-oasis-text-muted)' }}>
         <p className="text-4xl mb-3">🏆</p>
         <p className="font-semibold">No rankings yet</p>
-        <p className="text-sm mt-1">Play some Master System sessions to appear here!</p>
+        <p className="text-sm mt-1">
+          Play some Neo Geo Pocket {mode === 'ngpc' ? 'Color' : ''} sessions to appear here!
+        </p>
       </div>
     );
   }
@@ -318,7 +312,7 @@ function LeaderboardPanel() {
         <div
           key={r.displayName}
           className="flex items-center gap-3 rounded-xl px-4 py-3"
-          style={{ background: 'rgba(0,51,153,0.08)', border: `1px solid ${SYSTEM_COLOR_MID}` }}
+          style={{ background: mode === 'ngpc' ? 'rgba(232,184,0,0.08)' : 'rgba(200,160,0,0.08)', border: `1px solid ${colorMid}` }}
         >
           <RankBadge rank={i + 1} />
           <span className="flex-1 text-sm font-semibold text-white">{r.displayName}</span>
@@ -335,41 +329,45 @@ function LeaderboardPanel() {
 // Lobby panel
 // ---------------------------------------------------------------------------
 
-function LobbyPanel({ games }: { games: SMSGame[] }) {
+function LobbyPanel({ mode }: { mode: SystemMode }) {
   const { publicRooms, createRoom, joinByCode } = useLobby();
   const displayName = localStorage.getItem('retro-oasis-display-name') ?? '';
-  const [hostGame, setHostGame] = useState<SMSGame | null>(null);
+  const [hostGame, setHostGame] = useState<NGPGame | null>(null);
   const [showJoin, setShowJoin] = useState(false);
   const [joinCode, setJoinCode] = useState('');
   const [notification, setNotification] = useState('');
   const [genreFilter, setGenreFilter] = useState<GenreFilter>('all');
 
+  const systemGames = useMemo(
+    () => NGP_GAMES.filter((g) => g.system === mode || g.system === 'both'),
+    [mode],
+  );
+
   const genreCounts = useMemo(() => {
-    const counts: Record<string, number> = {};
-    for (const g of games) {
+    const counts: Record<string, number> = { __total: systemGames.length };
+    for (const g of systemGames) {
       counts[g.genre] = (counts[g.genre] ?? 0) + 1;
     }
     return counts;
-  }, [games]);
+  }, [systemGames]);
 
   const filteredGames = useMemo(
-    () => (genreFilter === 'all' ? games : games.filter((g) => g.genre === genreFilter)),
-    [games, genreFilter],
+    () => (genreFilter === 'all' ? systemGames : systemGames.filter((g) => g.genre === genreFilter)),
+    [systemGames, genreFilter],
   );
 
   const openRoomsFor = useCallback(
-    (gameId: string) =>
-      publicRooms.filter((r) => r.gameId === gameId && r.status === 'waiting').length,
+    (gameId: string) => publicRooms.filter((r) => r.gameId === gameId && r.status === 'waiting').length,
     [publicRooms],
   );
 
   const totalOpenRooms = useMemo(
-    () => publicRooms.filter((r) => r.status === 'waiting' && games.some((g) => g.id === r.gameId)).length,
-    [publicRooms, games],
+    () => publicRooms.filter((r) => r.status === 'waiting' && systemGames.some((g) => g.id === r.gameId)).length,
+    [publicRooms, systemGames],
   );
 
   const handleQuickMatch = useCallback(
-    async (game: SMSGame) => {
+    async (game: NGPGame) => {
       const open = publicRooms.find((r) => r.gameId === game.id && r.status === 'waiting');
       if (open) {
         setJoinCode(open.roomCode);
@@ -383,39 +381,38 @@ function LobbyPanel({ games }: { games: SMSGame[] }) {
     [publicRooms],
   );
 
+  const color = mode === 'ngpc' ? NGPC_COLOR : NGP_COLOR;
+  const colorMid = mode === 'ngpc' ? 'rgba(232,184,0,0.18)' : 'rgba(200,160,0,0.18)';
+
   return (
     <div className="space-y-5">
-      <SMSBanner />
+      <NGPBanner mode={mode} />
 
       {/* Stats row */}
       <div className="flex gap-3 flex-wrap">
         {[
-          { label: 'Games', value: games.length },
+          { label: 'Games', value: systemGames.length },
           { label: 'Open Rooms', value: totalOpenRooms },
           { label: 'Players Online', value: publicRooms.filter((r) => r.status === 'waiting').reduce((n, r) => n + (r.players?.length ?? 0), 0) },
         ].map(({ label, value }) => (
           <div
             key={label}
             className="flex-1 min-w-[80px] rounded-xl px-3 py-2 text-center"
-            style={{ background: 'rgba(0,51,153,0.08)', border: `1px solid ${SYSTEM_COLOR_MID}` }}
+            style={{ background: mode === 'ngpc' ? 'rgba(232,184,0,0.08)' : 'rgba(200,160,0,0.08)', border: `1px solid ${colorMid}` }}
           >
-            <p className="text-lg font-black" style={{ color: '#93c5fd' }}>{value}</p>
+            <p className="text-lg font-black" style={{ color }}>{value}</p>
             <p className="text-xs" style={{ color: 'var(--color-oasis-text-muted)' }}>{label}</p>
           </div>
         ))}
       </div>
 
       {/* Genre filter */}
-      <GenreFilterBar active={genreFilter} onChange={setGenreFilter} counts={genreCounts} />
+      <GenreFilterBar active={genreFilter} onChange={setGenreFilter} counts={genreCounts} mode={mode} />
 
       {notification && (
         <div
           className="rounded-xl px-4 py-3 text-sm font-semibold"
-          style={{
-            background: 'rgba(0,51,153,0.1)',
-            color: '#93c5fd',
-            border: `1px solid rgba(0,51,153,0.3)`,
-          }}
+          style={{ background: mode === 'ngpc' ? 'rgba(232,184,0,0.1)' : 'rgba(200,160,0,0.1)', color, border: `1px solid ${colorMid}` }}
         >
           ℹ️ {notification}
         </div>
@@ -423,12 +420,13 @@ function LobbyPanel({ games }: { games: SMSGame[] }) {
 
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
         {filteredGames.map((game) => (
-          <SMSGameCard
+          <NGPGameCard
             key={game.id}
             game={game}
             onHost={setHostGame}
             onQuickMatch={handleQuickMatch}
             openRooms={openRoomsFor(game.id)}
+            mode={mode}
           />
         ))}
       </div>
@@ -448,19 +446,13 @@ function LobbyPanel({ games }: { games: SMSGame[] }) {
       {hostGame && (
         <HostRoomModal
           preselectedGameId={hostGame.id}
-          onConfirm={(payload, dn) => {
-            createRoom(payload, dn);
-            setHostGame(null);
-          }}
+          onConfirm={(payload, dn) => { createRoom(payload, dn); setHostGame(null); }}
           onClose={() => setHostGame(null)}
         />
       )}
       {showJoin && (
         <JoinRoomModal
-          onConfirm={(code, dn) => {
-            joinByCode(code, dn);
-            setShowJoin(false);
-          }}
+          onConfirm={(code, dn) => { joinByCode(code, dn); setShowJoin(false); }}
           onClose={() => setShowJoin(false)}
           initialCode={joinCode}
         />
@@ -470,16 +462,20 @@ function LobbyPanel({ games }: { games: SMSGame[] }) {
 }
 
 // ---------------------------------------------------------------------------
-// SMSPage
+// NGPPage (combined NGP + NGPC)
 // ---------------------------------------------------------------------------
 
-export default function SMSPage() {
+export default function NGPPage() {
   const [activeTab, setActiveTab] = useState<ActiveTab>('lobby');
+  const [systemMode, setSystemMode] = useState<SystemMode>('ngpc');
 
   const tabs: { id: ActiveTab; label: string }[] = [
     { id: 'lobby', label: '🎮 Lobby' },
     { id: 'leaderboard', label: '🏆 Leaderboard' },
   ];
+
+  const color = systemMode === 'ngpc' ? NGPC_COLOR : NGP_COLOR;
+  const colorMid = systemMode === 'ngpc' ? 'rgba(232,184,0,0.18)' : 'rgba(200,160,0,0.18)';
 
   return (
     <div className="max-w-5xl mx-auto p-6 space-y-8">
@@ -487,23 +483,44 @@ export default function SMSPage() {
       <div className="flex items-center gap-4">
         <div
           className="w-16 h-16 rounded-2xl flex items-center justify-center text-3xl shrink-0"
-          style={{ background: `linear-gradient(135deg, ${SYSTEM_COLOR}, ${SYSTEM_COLOR_DARK})` }}
+          style={{
+            background: systemMode === 'ngpc'
+              ? `linear-gradient(135deg, ${NGPC_COLOR}, ${NGPC_COLOR_DARK})`
+              : `linear-gradient(135deg, ${NGP_COLOR}, ${NGP_COLOR_DARK})`,
+          }}
         >
-          ⊡
+          {systemMode === 'ngpc' ? '🌈' : '⬛'}
         </div>
-        <div>
-          <h1 className="text-3xl font-black text-white">Sega Master System</h1>
+        <div className="flex-1 min-w-0">
+          <h1 className="text-3xl font-black text-white">Neo Geo Pocket</h1>
           <p className="text-sm mt-0.5" style={{ color: 'var(--color-oasis-text-muted)' }}>
-            Generation 3 · Online relay via RetroArch + Genesis Plus GX
+            SNK · Generation 5 · Online relay via RetroArch + Beetle NeoPop
           </p>
           <p className="text-xs mt-0.5" style={{ color: 'var(--color-oasis-text-muted)' }}>
-            {SMS_GAMES.length} games · Up to 2 players · No port forwarding needed
+            Link cable multiplayer supported · No port forwarding needed
           </p>
+        </div>
+        {/* System mode toggle */}
+        <div className="flex rounded-xl overflow-hidden shrink-0" style={{ border: `1px solid ${colorMid}` }}>
+          {(['ngp', 'ngpc'] as SystemMode[]).map((m) => (
+            <button
+              key={m}
+              onClick={() => setSystemMode(m)}
+              className="px-3 py-1.5 text-xs font-bold transition-all"
+              style={
+                systemMode === m
+                  ? { background: color, color: '#0a0a0a' }
+                  : { color: 'var(--color-oasis-text-muted)' }
+              }
+            >
+              {m === 'ngp' ? 'NGP' : 'NGPC'}
+            </button>
+          ))}
         </div>
       </div>
 
       {/* Tab bar */}
-      <div className="flex gap-2 border-b" style={{ borderColor: SYSTEM_COLOR_MID }}>
+      <div className="flex gap-2 border-b" style={{ borderColor: colorMid }}>
         {tabs.map((tab) => (
           <button
             key={tab.id}
@@ -511,11 +528,7 @@ export default function SMSPage() {
             className="px-5 py-2.5 text-sm font-semibold rounded-t-xl transition-all"
             style={
               activeTab === tab.id
-                ? {
-                    background: 'rgba(0,51,153,0.15)',
-                    color: '#93c5fd',
-                    borderBottom: `2px solid ${SYSTEM_COLOR}`,
-                  }
+                ? { background: systemMode === 'ngpc' ? 'rgba(232,184,0,0.15)' : 'rgba(200,160,0,0.15)', color, borderBottom: `2px solid ${color}` }
                 : { color: 'var(--color-oasis-text-muted)' }
             }
           >
@@ -525,8 +538,8 @@ export default function SMSPage() {
       </div>
 
       {/* Tab content */}
-      {activeTab === 'lobby' && <LobbyPanel games={SMS_GAMES} />}
-      {activeTab === 'leaderboard' && <LeaderboardPanel />}
+      {activeTab === 'lobby' && <LobbyPanel mode={systemMode} />}
+      {activeTab === 'leaderboard' && <LeaderboardPanel mode={systemMode} />}
     </div>
   );
 }

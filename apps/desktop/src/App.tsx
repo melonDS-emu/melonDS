@@ -28,11 +28,14 @@ import SwitchPage from './pages/SwitchPage';
 import GameCubePage from './pages/GameCubePage';
 import GenesisPage from './pages/GenesisPage';
 import SegaCDPage from './pages/SegaCDPage';
+import Sega32XPage from './pages/Sega32XPage';
 import SMSPage from './pages/SMSPage';
 import DreamcastPage from './pages/DreamcastPage';
 import PSXPage from './pages/PSXPage';
 import PS2Page from './pages/PS2Page';
+import PS3Page from './pages/PS3Page';
 import PSPPage from './pages/PSPPage';
+import NGPPage from './pages/NGPPage';
 import NESPage from './pages/NESPage';
 import SNESPage from './pages/SNESPage';
 import GBAPage from './pages/GBAPage';
@@ -79,11 +82,14 @@ export function App() {
         <Route path="/gc" element={<GameCubePage />} />
         <Route path="/genesis" element={<GenesisPage />} />
         <Route path="/segacd" element={<SegaCDPage />} />
+        <Route path="/32x" element={<Sega32XPage />} />
         <Route path="/sms" element={<SMSPage />} />
         <Route path="/dreamcast" element={<DreamcastPage />} />
         <Route path="/psx" element={<PSXPage />} />
         <Route path="/ps2" element={<PS2Page />} />
+        <Route path="/ps3" element={<PS3Page />} />
         <Route path="/psp" element={<PSPPage />} />
+        <Route path="/ngp" element={<NGPPage />} />
         <Route path="/nes" element={<NESPage />} />
         <Route path="/snes" element={<SNESPage />} />
         <Route path="/gba" element={<GBAPage />} />
