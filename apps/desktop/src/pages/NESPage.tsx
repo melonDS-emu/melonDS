@@ -1,147 +1,170 @@
 import { useState, useEffect, useCallback } from 'react';
+import { Link } from 'react-router-dom';
 import { useNavigate } from 'react-router-dom';
 import { useLobby } from '../context/LobbyContext';
 import type { MockGame } from '../data/mock-games';
 import { MOCK_GAMES } from '../data/mock-games';
+import { HostRoomModal } from '../components/HostRoomModal';
 import { JoinRoomModal } from '../components/JoinRoomModal';
+import {
+  fetchRetroGameDefs,
+  fetchRetroGameProgress,
+  gamesWithAchievements,
+  gameIdToTitle,
+  type RetroGameAchievementDef,
+} from '../lib/retro-achievement-service';
+import { isRAConnected, getRACredentials } from '../lib/retro-achievements-settings';
+
+// ---------------------------------------------------------------------------
+// Constants
+// ---------------------------------------------------------------------------
 
 const NES_GAMES = MOCK_GAMES.filter((g) => g.system === 'NES');
+const NES_COLOR = '#e60012';
 
-const SERVER_URL =
+const API =
   typeof import.meta !== 'undefined'
     ? (import.meta as { env?: { VITE_SERVER_URL?: string } }).env?.VITE_SERVER_URL ??
       'http://localhost:8080'
     : 'http://localhost:8080';
+
+type ActiveTab = 'lobby' | 'leaderboard' | 'achievements';
 
 interface NesRanking {
   displayName: string;
   sessions: number;
 }
 
-type ActiveTab = 'lobby' | 'leaderboard';
+// ---------------------------------------------------------------------------
+// Helpers
+// ---------------------------------------------------------------------------
+
+async function apiFetch<T>(path: string): Promise<T> {
+  const res = await fetch(`${API}${path}`, { headers: { 'Content-Type': 'application/json' } });
+  if (!res.ok) throw new Error('Request failed');
+  return res.json() as Promise<T>;
+}
 
 function RankBadge({ rank }: { rank: number }) {
-  if (rank === 1) return <span style={{ fontSize: 18 }}>🥇</span>;
-  if (rank === 2) return <span style={{ fontSize: 18 }}>🥈</span>;
-  if (rank === 3) return <span style={{ fontSize: 18 }}>🥉</span>;
+  const medals: Record<number, string> = { 1: '🥇', 2: '🥈', 3: '🥉' };
   return (
-    <span
-      style={{
-        display: 'inline-flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        width: 24,
-        height: 24,
-        borderRadius: '50%',
-        background: '#333',
-        color: '#ccc',
-        fontSize: 12,
-        fontWeight: 700,
-      }}
-    >
-      {rank}
+    <span className="text-lg w-8 text-center" title={`Rank #${rank}`}>
+      {medals[rank] ?? `#${rank}`}
     </span>
   );
 }
 
-function NESBanner() {
+// ---------------------------------------------------------------------------
+// Info banner
+// ---------------------------------------------------------------------------
+
+function FCEUXBanner() {
   return (
     <div
-      style={{
-        background: 'linear-gradient(135deg, #E60012 0%, #b8000e 100%)',
-        borderRadius: 12,
-        padding: '16px 20px',
-        marginBottom: 20,
-        color: '#fff',
-        fontSize: 13,
-      }}
+      className="rounded-2xl p-4 flex items-start gap-3"
+      style={{ background: 'rgba(230,0,18,0.08)', border: '1px solid rgba(230,0,18,0.25)' }}
     >
-      <strong>🎮 NES · FCEUX Emulator</strong>
-      <span style={{ margin: '0 8px', opacity: 0.6 }}>·</span>
-      <span>2-player online relay</span>
-      <span style={{ margin: '0 8px', opacity: 0.6 }}>·</span>
-      <span>Automatic .nes ROM detection</span>
-      <p style={{ marginTop: 6, marginBottom: 0, opacity: 0.85, fontSize: 12 }}>
-        FCEUX handles netplay via relay. Fallback to Nestopia UE or RetroArch (fceumm core) for extra compatibility.
-      </p>
+      <span className="text-xl mt-0.5">🎮</span>
+      <div>
+        <p className="text-sm font-bold" style={{ color: NES_COLOR }}>
+          FCEUX Emulator · 2-Player Online Relay
+        </p>
+        <p className="text-xs mt-0.5" style={{ color: 'var(--color-oasis-text-muted)' }}>
+          FCEUX provides relay-based netplay for 2-player sessions. Automatic{' '}
+          <span className="font-semibold text-white">.nes</span> ROM detection from your library.
+          Fallback to Nestopia UE or RetroArch (fceumm core) for extra compatibility.
+        </p>
+      </div>
     </div>
   );
 }
 
+// ---------------------------------------------------------------------------
+// Game card
+// ---------------------------------------------------------------------------
+
 function NESGameCard({
   game,
   openRooms,
+  onHost,
   onQuickMatch,
-  onHostRoom,
 }: {
   game: MockGame;
   openRooms: number;
+  onHost: (game: MockGame) => void;
   onQuickMatch: (game: MockGame) => void;
-  onHostRoom: (game: MockGame) => void;
 }) {
+  const multiPlayer = game.maxPlayers > 1;
+
   return (
     <div
-      style={{
-        background: '#1a1a1a',
-        borderRadius: 10,
-        padding: 16,
-        display: 'flex',
-        flexDirection: 'column',
-        gap: 8,
-        border: '1px solid #2a2a2a',
-      }}
+      className="n-card rounded-2xl p-4 flex flex-col gap-3"
+      style={{ background: 'linear-gradient(135deg, rgba(230,0,18,0.07), rgba(230,0,18,0.02))', border: '1px solid rgba(230,0,18,0.15)' }}
     >
-      <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-        <span style={{ fontSize: 32 }}>{game.coverEmoji}</span>
-        <div>
-          <div style={{ fontWeight: 700, fontSize: 14 }}>{game.title}</div>
-          <div style={{ color: '#888', fontSize: 12 }}>{game.maxPlayers === 1 ? '1 Player' : `Up to ${game.maxPlayers} players`}</div>
+      {/* Header row */}
+      <div className="flex items-start justify-between gap-2">
+        <div className="flex items-center gap-3">
+          <span className="text-3xl leading-none">{game.coverEmoji}</span>
+          <div>
+            <p className="text-sm font-bold text-white leading-tight">{game.title}</p>
+            <p className="text-xs mt-0.5" style={{ color: 'var(--color-oasis-text-muted)' }}>
+              {game.maxPlayers === 1 ? 'Single Player' : `Up to ${game.maxPlayers}P`}
+            </p>
+          </div>
+        </div>
+        <div className="flex flex-col items-end gap-1 shrink-0">
+          {openRooms > 0 && (
+            <span
+              className="text-xs px-2 py-0.5 rounded-full font-semibold"
+              style={{ background: 'rgba(0,209,112,0.12)', color: '#00d170', border: '1px solid rgba(0,209,112,0.3)' }}
+            >
+              {openRooms} open
+            </span>
+          )}
         </div>
       </div>
-      <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+
+      {/* Description */}
+      <p className="text-xs leading-relaxed" style={{ color: 'var(--color-oasis-text-muted)' }}>
+        {game.description}
+      </p>
+
+      {/* Tags + badges */}
+      <div className="flex flex-wrap gap-1.5">
         {game.tags.map((t) => (
-          <span key={t} style={{ background: '#2a2a2a', borderRadius: 4, padding: '2px 6px', fontSize: 11, color: '#aaa' }}>
+          <span
+            key={t}
+            className="text-xs px-2 py-0.5 rounded-full"
+            style={{ background: 'rgba(255,255,255,0.06)', color: 'var(--color-oasis-text-muted)', border: '1px solid rgba(255,255,255,0.08)' }}
+          >
             {t}
           </span>
         ))}
-        {openRooms > 0 && (
-          <span style={{ background: '#1a3a1a', borderRadius: 4, padding: '2px 6px', fontSize: 11, color: '#4caf50' }}>
-            {openRooms} open
+        {game.badges.map((b) => (
+          <span
+            key={b}
+            className="text-xs px-2 py-0.5 rounded-full font-semibold"
+            style={{ background: 'rgba(230,0,18,0.12)', color: '#ff6b7a', border: '1px solid rgba(230,0,18,0.25)' }}
+          >
+            {b}
           </span>
-        )}
+        ))}
       </div>
-      <div style={{ color: '#888', fontSize: 12, lineHeight: 1.4 }}>{game.description}</div>
-      {game.maxPlayers > 1 && (
-        <div style={{ display: 'flex', gap: 8, marginTop: 4 }}>
+
+      {/* Actions */}
+      {multiPlayer && (
+        <div className="flex gap-2 mt-auto">
           <button
             onClick={() => onQuickMatch(game)}
-            style={{
-              flex: 1,
-              padding: '8px 0',
-              borderRadius: 6,
-              border: 'none',
-              background: 'linear-gradient(135deg, #E60012, #b8000e)',
-              color: '#fff',
-              fontWeight: 700,
-              fontSize: 13,
-              cursor: 'pointer',
-            }}
+            className="flex-1 px-3 py-1.5 rounded-xl text-xs font-bold transition-all hover:scale-105"
+            style={{ background: `linear-gradient(90deg, ${NES_COLOR}, #b8000e)`, color: '#fff' }}
           >
             ⚡ Quick Match
           </button>
           <button
-            onClick={() => onHostRoom(game)}
-            style={{
-              flex: 1,
-              padding: '8px 0',
-              borderRadius: 6,
-              border: '1px solid #E60012',
-              background: 'transparent',
-              color: '#E60012',
-              fontWeight: 700,
-              fontSize: 13,
-              cursor: 'pointer',
-            }}
+            onClick={() => onHost(game)}
+            className="flex-1 px-3 py-1.5 rounded-xl text-xs font-bold transition-all hover:scale-105"
+            style={{ background: 'rgba(230,0,18,0.08)', border: `1px solid rgba(230,0,18,0.35)`, color: NES_COLOR }}
           >
             🎮 Host Room
           </button>
@@ -151,90 +174,270 @@ function NESGameCard({
   );
 }
 
-function LeaderboardPanel() {
-  const [rankings, setRankings] = useState<NesRanking[]>([]);
+// ---------------------------------------------------------------------------
+// Lobby panel
+// ---------------------------------------------------------------------------
 
-  useEffect(() => {
-    fetch(`${SERVER_URL}/api/leaderboard?orderBy=sessions&limit=10`)
-      .then((r) => r.json())
-      .then((data: { leaderboard: NesRanking[] }) => setRankings(data.leaderboard ?? []))
-      .catch(() => {});
-  }, []);
+function LobbyPanel({ onJoin }: { onJoin: (code: string) => void }) {
+  const { publicRooms, createRoom } = useLobby();
+  const [hostGame, setHostGame] = useState<MockGame | null>(null);
+
+  const openRoomsFor = useCallback(
+    (gameId: string) => publicRooms.filter((r) => r.gameId === gameId && r.status === 'waiting').length,
+    [publicRooms],
+  );
+
+  const handleQuickMatch = useCallback(
+    async (game: MockGame) => {
+      const open = publicRooms.find((r) => r.gameId === game.id && r.status === 'waiting');
+      if (open) {
+        onJoin(open.roomCode);
+        return;
+      }
+      try {
+        const data = await apiFetch<{ rooms?: Array<{ roomCode: string }> }>(
+          `/api/rooms?gameId=${encodeURIComponent(game.id)}`,
+        );
+        const rooms = data.rooms ?? [];
+        if (rooms.length > 0) {
+          onJoin(rooms[0].roomCode);
+        } else {
+          setHostGame(game);
+        }
+      } catch {
+        setHostGame(game);
+      }
+    },
+    [publicRooms, onJoin],
+  );
+
+  const displayName = localStorage.getItem('retro-oasis-display-name') ?? '';
 
   return (
-    <div style={{ maxWidth: 500 }}>
-      <h3 style={{ margin: '0 0 16px', fontSize: 16, color: '#E60012' }}>🏆 Top NES Players</h3>
-      {rankings.length === 0 && <p style={{ color: '#666', fontSize: 13 }}>No rankings yet. Be the first to play!</p>}
+    <div className="space-y-6">
+      <FCEUXBanner />
+
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+        {NES_GAMES.map((game) => (
+          <NESGameCard
+            key={game.id}
+            game={game}
+            openRooms={openRoomsFor(game.id)}
+            onHost={setHostGame}
+            onQuickMatch={handleQuickMatch}
+          />
+        ))}
+      </div>
+
+      {!displayName && (
+        <p className="text-center text-sm" style={{ color: 'var(--color-oasis-text-muted)' }}>
+          Set a display name in{' '}
+          <Link to="/settings" className="underline" style={{ color: NES_COLOR }}>
+            Settings
+          </Link>{' '}
+          to host or join rooms.
+        </p>
+      )}
+
+      {hostGame && (
+        <HostRoomModal
+          preselectedGameId={hostGame.id}
+          onConfirm={(payload, dn) => { createRoom(payload, dn); setHostGame(null); }}
+          onClose={() => setHostGame(null)}
+        />
+      )}
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Leaderboard panel
+// ---------------------------------------------------------------------------
+
+function LeaderboardPanel() {
+  const [rankings, setRankings] = useState<NesRanking[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    apiFetch<{ leaderboard: NesRanking[] }>('/api/leaderboard?orderBy=sessions&limit=10')
+      .then((d) => setRankings(d.leaderboard ?? []))
+      .catch(() => setRankings([]))
+      .finally(() => setLoading(false));
+  }, []);
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center py-16">
+        <div className="animate-spin text-3xl">🎮</div>
+      </div>
+    );
+  }
+
+  if (rankings.length === 0) {
+    return (
+      <div className="text-center py-16" style={{ color: 'var(--color-oasis-text-muted)' }}>
+        <p className="text-4xl mb-3">🏆</p>
+        <p className="font-semibold">No rankings yet</p>
+        <p className="text-sm mt-1">Play some NES sessions to appear here!</p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-2 max-w-lg">
+      <p className="text-xs mb-4" style={{ color: 'var(--color-oasis-text-muted)' }}>
+        Top players ranked by session count
+      </p>
       {rankings.map((r, i) => (
         <div
           key={r.displayName}
-          style={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: 12,
-            padding: '10px 0',
-            borderBottom: '1px solid #1a1a1a',
-          }}
+          className="flex items-center gap-3 rounded-xl px-4 py-3"
+          style={{ background: 'rgba(230,0,18,0.05)', border: '1px solid rgba(230,0,18,0.12)' }}
         >
           <RankBadge rank={i + 1} />
-          <span style={{ flex: 1, fontWeight: 600 }}>{r.displayName}</span>
-          <span style={{ color: '#888', fontSize: 13 }}>{r.sessions} sessions</span>
+          <span className="flex-1 text-sm font-semibold text-white">{r.displayName}</span>
+          <span className="text-xs" style={{ color: 'var(--color-oasis-text-muted)' }}>
+            {r.sessions} session{r.sessions !== 1 ? 's' : ''}
+          </span>
         </div>
       ))}
     </div>
   );
 }
 
-function LobbyPanel({ onJoin }: { onJoin: (roomCode: string) => void }) {
-  const { createRoom } = useLobby();
+// ---------------------------------------------------------------------------
+// Achievements panel
+// ---------------------------------------------------------------------------
 
-  const handleQuickMatch = useCallback(
-    async (game: MockGame) => {
-      const displayName = localStorage.getItem('retro-oasis-display-name') ?? 'Player';
-      try {
-        const res = await fetch(`${SERVER_URL}/api/rooms?gameId=${encodeURIComponent(game.id)}`);
-        const data = (await res.json()) as { rooms?: Array<{ roomCode: string }> };
-        const rooms = data.rooms ?? [];
-        if (rooms.length > 0) {
-          onJoin(rooms[0].roomCode);
-        } else {
-          createRoom({ name: `${game.title} Room`, gameId: game.id, gameTitle: game.title, system: game.system, isPublic: true, maxPlayers: game.maxPlayers }, displayName);
-        }
-      } catch {
-        createRoom({ name: `${game.title} Room`, gameId: game.id, gameTitle: game.title, system: game.system, isPublic: true, maxPlayers: game.maxPlayers }, displayName);
-      }
-    },
-    [createRoom, onJoin],
-  );
+const NES_ACHIEVEMENT_GAMES = gamesWithAchievements().filter((id) => id.startsWith('nes-'));
 
-  const handleHostRoom = useCallback(
-    (game: MockGame) => {
-      const displayName = localStorage.getItem('retro-oasis-display-name') ?? 'Player';
-      createRoom({ name: `${game.title} Room`, gameId: game.id, gameTitle: game.title, system: game.system, isPublic: true, maxPlayers: game.maxPlayers }, displayName);
-    },
-    [createRoom],
-  );
+function AchievementsPanel() {
+  const raConnected = isRAConnected();
+  const { username } = getRACredentials();
+  const [selectedGame, setSelectedGame] = useState<string>(NES_ACHIEVEMENT_GAMES[0] ?? '');
+  const [defs, setDefs] = useState<RetroGameAchievementDef[]>([]);
+  const [earnedIds, setEarnedIds] = useState<Set<string>>(new Set());
+  const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    if (!selectedGame) return;
+    setLoading(true);
+    Promise.all([
+      fetchRetroGameDefs(selectedGame),
+      raConnected ? fetchRetroGameProgress(username, selectedGame) : Promise.resolve(null),
+    ])
+      .then(([gameDefs, progress]) => {
+        setDefs(gameDefs);
+        setEarnedIds(new Set((progress?.earned ?? []).map((e) => e.achievementId)));
+      })
+      .catch(() => { setDefs([]); setEarnedIds(new Set()); })
+      .finally(() => setLoading(false));
+  }, [selectedGame, raConnected, username]);
+
+  if (!raConnected) {
+    return (
+      <div
+        className="rounded-2xl p-6 text-center space-y-3"
+        style={{ background: 'rgba(230,0,18,0.05)', border: '1px solid rgba(230,0,18,0.15)' }}
+      >
+        <p className="text-3xl">🏅</p>
+        <p className="font-semibold text-white">RetroAchievements not connected</p>
+        <p className="text-sm" style={{ color: 'var(--color-oasis-text-muted)' }}>
+          <Link to="/settings" className="underline" style={{ color: NES_COLOR }}>
+            Sign in to RetroAchievements
+          </Link>{' '}
+          to track your NES progress.
+        </p>
+      </div>
+    );
+  }
+
+  if (NES_ACHIEVEMENT_GAMES.length === 0) {
+    return (
+      <div className="text-center py-12" style={{ color: 'var(--color-oasis-text-muted)' }}>
+        <p className="text-3xl mb-2">🏅</p>
+        <p className="font-semibold">No achievement data available for NES yet.</p>
+      </div>
+    );
+  }
 
   return (
-    <div
-      style={{
-        display: 'grid',
-        gridTemplateColumns: 'repeat(auto-fill, minmax(260px, 1fr))',
-        gap: 16,
-      }}
-    >
-      {NES_GAMES.map((game) => (
-        <NESGameCard
-          key={game.id}
-          game={game}
-          openRooms={0}
-          onQuickMatch={handleQuickMatch}
-          onHostRoom={handleHostRoom}
-        />
-      ))}
+    <div className="space-y-4">
+      <div className="flex flex-wrap gap-2">
+        {NES_ACHIEVEMENT_GAMES.map((id) => (
+          <button
+            key={id}
+            onClick={() => setSelectedGame(id)}
+            className="px-3 py-1.5 rounded-xl text-xs font-semibold transition-all"
+            style={
+              selectedGame === id
+                ? { background: 'rgba(230,0,18,0.15)', color: NES_COLOR, border: '1px solid rgba(230,0,18,0.4)' }
+                : { background: 'rgba(255,255,255,0.04)', color: 'var(--color-oasis-text-muted)', border: '1px solid rgba(255,255,255,0.08)' }
+            }
+          >
+            {gameIdToTitle(id)}
+          </button>
+        ))}
+      </div>
+
+      {loading ? (
+        <div className="flex items-center justify-center py-12">
+          <div className="animate-spin text-3xl">🎮</div>
+        </div>
+      ) : defs.length === 0 ? (
+        <div className="text-center py-12" style={{ color: 'var(--color-oasis-text-muted)' }}>
+          <p className="text-3xl mb-2">🏅</p>
+          <p className="font-semibold">No achievements defined for this game yet.</p>
+        </div>
+      ) : (
+        <div className="space-y-2">
+          <p className="text-xs" style={{ color: 'var(--color-oasis-text-muted)' }}>
+            {earnedIds.size} / {defs.length} unlocked
+          </p>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+            {defs.map((def) => {
+              const unlocked = earnedIds.has(def.id);
+              return (
+                <div
+                  key={def.id}
+                  className="rounded-xl p-3 flex gap-3 items-start"
+                  style={{
+                    background: unlocked ? 'rgba(230,0,18,0.08)' : 'rgba(255,255,255,0.02)',
+                    border: unlocked ? '1px solid rgba(230,0,18,0.3)' : '1px solid rgba(255,255,255,0.06)',
+                    opacity: unlocked ? 1 : 0.55,
+                  }}
+                >
+                  <span className="text-2xl">{def.badge}</span>
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-center gap-2">
+                      <p className="text-sm font-semibold text-white">{def.title}</p>
+                      <span
+                        className="text-[10px] font-bold px-1.5 py-0.5 rounded-full"
+                        style={{
+                          background: unlocked ? 'rgba(230,0,18,0.2)' : 'rgba(255,255,255,0.06)',
+                          color: unlocked ? NES_COLOR : 'var(--color-oasis-text-muted)',
+                        }}
+                      >
+                        {def.points}pts
+                      </span>
+                    </div>
+                    <p className="text-xs mt-0.5" style={{ color: 'var(--color-oasis-text-muted)' }}>
+                      {def.description}
+                    </p>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
     </div>
   );
 }
+
+// ---------------------------------------------------------------------------
+// NESPage
+// ---------------------------------------------------------------------------
 
 export default function NESPage() {
   const [activeTab, setActiveTab] = useState<ActiveTab>('lobby');
@@ -246,37 +449,75 @@ export default function NESPage() {
     if (currentRoom) navigate(`/lobby/${currentRoom.id}`);
   }, [currentRoom, navigate]);
 
+  const tabs: { id: ActiveTab; label: string }[] = [
+    { id: 'lobby', label: '🎮 Lobby' },
+    { id: 'leaderboard', label: '🏆 Leaderboard' },
+    { id: 'achievements', label: '🏅 Achievements' },
+  ];
+
+  const multiplayerCount = NES_GAMES.filter((g) => g.maxPlayers > 1).length;
+
   return (
-    <div style={{ padding: 24, maxWidth: 960, margin: '0 auto' }}>
-      <h1 style={{ margin: '0 0 4px', fontSize: 24, fontWeight: 800 }}>🎮 Nintendo Entertainment System</h1>
-      <p style={{ margin: '0 0 20px', color: '#888', fontSize: 14 }}>Classic NES games — play online with 2-player relay netplay</p>
+    <div className="max-w-5xl mx-auto p-6 space-y-8">
+      {/* Hero header */}
+      <div
+        className="rounded-3xl p-6 flex items-center gap-5"
+        style={{ background: 'linear-gradient(135deg, rgba(230,0,18,0.18) 0%, rgba(230,0,18,0.05) 60%, transparent 100%)', border: '1px solid rgba(230,0,18,0.2)' }}
+      >
+        <div
+          className="w-16 h-16 rounded-2xl flex items-center justify-center text-3xl shrink-0"
+          style={{ background: 'linear-gradient(135deg, #e60012, #7a0009)' }}
+        >
+          🎮
+        </div>
+        <div className="flex-1 min-w-0">
+          <h1 className="text-3xl font-black text-white leading-tight">
+            Nintendo Entertainment System
+          </h1>
+          <p className="text-sm mt-1" style={{ color: 'var(--color-oasis-text-muted)' }}>
+            FCEUX · 2-player online relay · No port forwarding needed
+          </p>
+        </div>
+        <div className="hidden sm:flex flex-col items-end gap-1 shrink-0">
+          <div className="flex items-center gap-2">
+            <span className="text-xs font-semibold" style={{ color: 'var(--color-oasis-text-muted)' }}>
+              {NES_GAMES.length} games
+            </span>
+            <span
+              className="text-xs px-2 py-0.5 rounded-full font-semibold"
+              style={{ background: 'rgba(230,0,18,0.15)', color: NES_COLOR }}
+            >
+              {multiplayerCount} multiplayer
+            </span>
+          </div>
+          <span className="text-xs" style={{ color: 'var(--color-oasis-text-muted)' }}>
+            3rd Generation · 1983
+          </span>
+        </div>
+      </div>
 
-      <NESBanner />
-
-      <div style={{ display: 'flex', gap: 8, marginBottom: 20 }}>
-        {(['lobby', 'leaderboard'] as ActiveTab[]).map((tab) => (
+      {/* Tab bar */}
+      <div className="flex gap-2 border-b" style={{ borderColor: 'rgba(230,0,18,0.15)' }}>
+        {tabs.map((tab) => (
           <button
-            key={tab}
-            onClick={() => setActiveTab(tab)}
-            style={{
-              padding: '8px 18px',
-              borderRadius: 6,
-              border: activeTab === tab ? '2px solid #E60012' : '1px solid #333',
-              background: activeTab === tab ? '#E60012' : 'transparent',
-              color: activeTab === tab ? '#fff' : '#aaa',
-              fontWeight: 700,
-              fontSize: 13,
-              cursor: 'pointer',
-              textTransform: 'capitalize',
-            }}
+            key={tab.id}
+            onClick={() => setActiveTab(tab.id)}
+            className="px-5 py-2.5 text-sm font-semibold rounded-t-xl transition-all"
+            style={
+              activeTab === tab.id
+                ? { background: 'rgba(230,0,18,0.1)', color: NES_COLOR, borderBottom: `2px solid ${NES_COLOR}` }
+                : { color: 'var(--color-oasis-text-muted)' }
+            }
           >
-            {tab === 'lobby' ? '🎮 Lobby' : '🏆 Leaderboard'}
+            {tab.label}
           </button>
         ))}
       </div>
 
+      {/* Tab content */}
       {activeTab === 'lobby' && <LobbyPanel onJoin={(code) => setJoinCode(code)} />}
       {activeTab === 'leaderboard' && <LeaderboardPanel />}
+      {activeTab === 'achievements' && <AchievementsPanel />}
 
       {joinCode && (
         <JoinRoomModal
