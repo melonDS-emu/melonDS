@@ -11,7 +11,6 @@
  * be set manually via the Settings page or the game detail page.
  */
 
-import { getRomDirectory } from './rom-settings';
 import { tauriCheckFileExists } from './tauri-ipc';
 
 const ASSOCIATIONS_KEY = 'retro-oasis-rom-associations';

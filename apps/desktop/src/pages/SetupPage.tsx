@@ -53,9 +53,9 @@ const STEP_SUBTITLES: Record<SetupStep, string> = {
 function ProgressDots({ current }: { current: number }) {
   return (
     <div className="flex items-center justify-center gap-2 mb-8">
-      {STEP_LABELS.map((_, i) => (
+      {STEP_LABELS.map((step, i) => (
         <span
-          key={i}
+          key={step}
           className="rounded-full transition-all"
           style={{
             width: i === current ? 24 : 8,

@@ -251,9 +251,9 @@ function SmokeTestsTab() {
       <SystemFilter systems={systems} active={sysFilter} onChange={setSysFilter} />
 
       <div className="flex flex-col gap-2">
-        {visible.map((entry, i) => (
+        {visible.map((entry) => (
           <div
-            key={i}
+            key={entry.gameId}
             className="flex items-center justify-between px-4 py-2 rounded-lg"
             style={{ background: 'var(--color-oasis-card)', border: '1px solid var(--color-oasis-border)' }}
           >

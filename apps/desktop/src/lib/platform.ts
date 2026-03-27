@@ -3,7 +3,7 @@ export type DesktopPlatform = "windows" | "macos" | "linux" | "unknown";
 function readNavigatorPlatform(): string {
   if (typeof navigator === 'undefined') return '';
 
-  const uaDataPlatform = navigator.userAgentData?.platform;
+  const uaDataPlatform = (navigator as Navigator & { userAgentData?: { platform?: string } }).userAgentData?.platform;
   if (typeof uaDataPlatform === 'string' && uaDataPlatform.trim()) {
     return uaDataPlatform;
   }

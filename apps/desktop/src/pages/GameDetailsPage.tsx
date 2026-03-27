@@ -44,7 +44,11 @@ interface GamePatch {
   tags: string[];
 }
 
-const API_BASE = 'http://localhost:8080';
+const API_BASE: string =
+  typeof import.meta !== 'undefined'
+    ? (import.meta as { env?: { VITE_SERVER_URL?: string } }).env?.VITE_SERVER_URL ??
+      'http://localhost:8080'
+    : 'http://localhost:8080';
 
 async function fetchGameMetadata(gameId: string): Promise<GameMetadata | null> {
   try {
@@ -546,7 +550,7 @@ export function GameDetailsPage() {
             </p>
             <ul className="list-disc list-inside space-y-1">
               {metadata.onboardingTips.map((tip, i) => (
-                <li key={i} className="text-xs" style={{ color: 'var(--color-oasis-text-muted)' }}>
+                <li key={`tip-${i}-${tip}`} className="text-xs" style={{ color: 'var(--color-oasis-text-muted)' }}>
                   {tip}
                 </li>
               ))}
@@ -565,7 +569,7 @@ export function GameDetailsPage() {
             </p>
             <ul className="list-disc list-inside space-y-1">
               {metadata.netplayTips.map((tip, i) => (
-                <li key={i} className="text-xs" style={{ color: '#93c5fd', opacity: 0.85 }}>
+                <li key={`ntip-${i}-${tip}`} className="text-xs" style={{ color: '#93c5fd', opacity: 0.85 }}>
                   {tip}
                 </li>
               ))}

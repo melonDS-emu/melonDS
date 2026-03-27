@@ -46,7 +46,7 @@ export function HomePage() {
   }, [connectionState, listRooms]);
 
   useEffect(() => {
-    fetchLeaderboard('sessions', 5).then(setTopPlayers).catch(() => {});
+    fetchLeaderboard('sessions', 5).then(setTopPlayers).catch(() => { /* leaderboard unavailable offline */ });
   }, []);
 
   useEffect(() => {
@@ -54,8 +54,8 @@ export function HomePage() {
   }, []);
 
   useEffect(() => {
-    fetchCurrentEvents().then((d) => setActiveEvents(d.active)).catch(() => {});
-    fetchFeaturedGames().then(setFeaturedGames).catch(() => {});
+    fetchCurrentEvents().then((d) => setActiveEvents(d.active)).catch(() => { /* events unavailable offline */ });
+    fetchFeaturedGames().then(setFeaturedGames).catch(() => { /* featured games unavailable offline */ });
   }, []);
 
   useEffect(() => {
