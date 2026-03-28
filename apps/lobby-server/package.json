@@ -1,0 +1,27 @@
+{
+  "name": "@retro-oasis/lobby-server",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "tsx watch src/index.ts",
+    "start": "tsx src/index.ts",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@retro-oasis/emulator-bridge": "*",
+    "@retro-oasis/game-db": "*",
+    "@retro-oasis/presence-client": "*",
+    "@retro-oasis/save-system": "*",
+    "better-sqlite3": "^12.6.2",
+    "ws": "^8.17.1"
+  },
+  "devDependencies": {
+    "@types/better-sqlite3": "^7.6.13",
+    "@types/node": "^25.4.0",
+    "@types/ws": "^8.5.10",
+    "tsx": "^4.7.0",
+    "typescript": "^5.4.0",
+    "vitest": "^4.0.18"
+  }
+}

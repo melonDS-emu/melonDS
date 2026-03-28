@@ -1,0 +1,16 @@
+{
+  "name": "@retro-oasis/game-db",
+  "version": "0.1.0",
+  "private": true,
+  "main": "./src/index.ts",
+  "types": "./src/index.ts",
+  "scripts": {
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@retro-oasis/shared-types": "*"
+  },
+  "devDependencies": {
+    "typescript": "^5.4.0"
+  }
+}

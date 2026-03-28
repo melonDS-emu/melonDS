@@ -1,0 +1,280 @@
+import { randomUUID } from 'crypto';
+import type { Room, RoomPlayer, RoomSpectator, LobbyStatus, ConnectionQuality } from './types';
+
+function generateRoomCode(): string {
+  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+  let code = '';
+  for (let i = 0; i < 6; i++) {
+    code += chars[Math.floor(Math.random() * chars.length)];
+  }
+  return code;
+}
+
+/**
+ * In-memory lobby/room manager.
+ * In production, this would be backed by Redis or a database.
+ */
+export class LobbyManager {
+  private rooms: Map<string, Room> = new Map();
+
+  createRoom(
+    hostId: string,
+    name: string,
+    gameId: string,
+    gameTitle: string,
+    system: string,
+    isPublic: boolean,
+    maxPlayers: number,
+    displayName: string,
+    theme?: string,
+    rankMode?: 'casual' | 'ranked',
+  ): Room {
+    const roomId = randomUUID();
+    const roomCode = generateRoomCode();
+
+    const host: RoomPlayer = {
+      id: hostId,
+      displayName,
+      readyState: 'ready',
+      slot: 0,
+      isHost: true,
+      joinedAt: new Date().toISOString(),
+      connectionQuality: 'unknown',
+    };
+
+    const room: Room = {
+      id: roomId,
+      name,
+      hostId,
+      gameId,
+      gameTitle,
+      system,
+      isPublic,
+      roomCode,
+      maxPlayers,
+      players: [host],
+      spectators: [],
+      status: 'waiting',
+      createdAt: new Date().toISOString(),
+      theme,
+      rankMode: rankMode ?? 'casual',
+    };
+
+    this.rooms.set(roomId, room);
+    return room;
+  }
+
+  joinRoom(roomId: string, playerId: string, displayName: string): Room | null {
+    const room = this.rooms.get(roomId);
+    if (!room) return null;
+    if (room.status !== 'waiting') return null;
+    if (room.players.length >= room.maxPlayers) return null;
+    if (room.players.some((p) => p.id === playerId)) return room;
+
+    const player: RoomPlayer = {
+      id: playerId,
+      displayName,
+      readyState: 'not-ready',
+      slot: room.players.length,
+      isHost: false,
+      joinedAt: new Date().toISOString(),
+      connectionQuality: 'unknown',
+    };
+
+    room.players.push(player);
+    return room;
+  }
+
+  joinAsSpectator(roomId: string, spectatorId: string, displayName: string): Room | null {
+    const room = this.rooms.get(roomId);
+    if (!room) return null;
+    if (room.status === 'closed') return null;
+    if (room.spectators.some((s) => s.id === spectatorId)) return room;
+
+    const spectator: RoomSpectator = {
+      id: spectatorId,
+      displayName,
+      joinedAt: new Date().toISOString(),
+    };
+
+    room.spectators.push(spectator);
+    return room;
+  }
+
+  joinByCode(roomCode: string, playerId: string, displayName: string): Room | null {
+    const normalised = roomCode.toUpperCase();
+    for (const room of this.rooms.values()) {
+      if (room.roomCode === normalised) {
+        return this.joinRoom(room.id, playerId, displayName);
+      }
+    }
+    return null;
+  }
+
+  joinByCodeAsSpectator(roomCode: string, spectatorId: string, displayName: string): Room | null {
+    const normalised = roomCode.toUpperCase();
+    for (const room of this.rooms.values()) {
+      if (room.roomCode === normalised) {
+        return this.joinAsSpectator(room.id, spectatorId, displayName);
+      }
+    }
+    return null;
+  }
+
+  leaveRoom(roomId: string, playerId: string): Room | null {
+    const room = this.rooms.get(roomId);
+    if (!room) return null;
+
+    // Check if this is a spectator leaving
+    const spectatorIndex = room.spectators.findIndex((s) => s.id === playerId);
+    if (spectatorIndex !== -1) {
+      room.spectators.splice(spectatorIndex, 1);
+      return room;
+    }
+
+    room.players = room.players.filter((p) => p.id !== playerId);
+
+    if (room.players.length === 0) {
+      this.rooms.delete(roomId);
+      return null;
+    }
+
+    // Transfer host if host left
+    if (room.hostId === playerId) {
+      room.hostId = room.players[0].id;
+      room.players[0].isHost = true;
+    }
+
+    // Renumber slots so they remain contiguous (0, 1, 2, …) after a departure.
+    room.players.forEach((p, index) => {
+      p.slot = index;
+    });
+
+    return room;
+  }
+
+  toggleReady(roomId: string, playerId: string): Room | null {
+    const room = this.rooms.get(roomId);
+    if (!room) return null;
+
+    const player = room.players.find((p) => p.id === playerId);
+    if (!player) return null;
+
+    player.readyState = player.readyState === 'ready' ? 'not-ready' : 'ready';
+    return room;
+  }
+
+  startGame(roomId: string, playerId: string): Room | null {
+    const room = this.rooms.get(roomId);
+    if (!room) return null;
+    if (room.status !== 'waiting') return null;
+    if (room.hostId !== playerId) return null;
+
+    const allReady = room.players.every((p) => p.readyState === 'ready');
+    if (!allReady) return null;
+
+    room.status = 'in-game';
+    return room;
+  }
+
+  updateConnectionQuality(
+    roomId: string,
+    playerId: string,
+    quality: ConnectionQuality,
+    latencyMs: number
+  ): void {
+    const room = this.rooms.get(roomId);
+    if (!room) return;
+    const player = room.players.find((p) => p.id === playerId);
+    if (!player) return;
+    player.connectionQuality = quality;
+    player.latencyMs = latencyMs;
+  }
+
+  listPublicRooms(): Room[] {
+    return Array.from(this.rooms.values()).filter(
+      (r) => r.isPublic && r.status === 'waiting'
+    );
+  }
+
+  getRoom(roomId: string): Room | null {
+    return this.rooms.get(roomId) ?? null;
+  }
+
+  /**
+   * Allow a player to rejoin an in-progress room they previously left or were
+   * disconnected from. The room must be 'in-game' and must not already be at
+   * capacity.  The player is assigned the next available slot and starts in a
+   * 'ready' state (they were already ready when the game launched).
+   */
+  rejoinRoom(roomId: string, playerId: string, displayName: string): Room | null {
+    const room = this.rooms.get(roomId);
+    if (!room) return null;
+    if (room.status !== 'in-game') return null;
+    if (room.players.some((p) => p.id === playerId)) return room;
+    if (room.players.length >= room.maxPlayers) return null;
+
+    const player: RoomPlayer = {
+      id: playerId,
+      displayName,
+      readyState: 'ready',
+      slot: room.players.length,
+      isHost: false,
+      joinedAt: new Date().toISOString(),
+      connectionQuality: 'unknown',
+    };
+
+    room.players.push(player);
+    return room;
+  }
+
+  /**
+   * Look up an in-progress room by code and rejoin it (reconnect flow).
+   */
+  rejoinByCode(roomCode: string, playerId: string, displayName: string): Room | null {
+    const normalised = roomCode.toUpperCase();
+    for (const room of this.rooms.values()) {
+      if (room.roomCode === normalised) {
+        return this.rejoinRoom(room.id, playerId, displayName);
+      }
+    }
+    return null;
+  }
+
+  /** Find any rooms where this player is an active participant. */
+  getRoomsForPlayer(playerId: string): Room[] {
+    const matches: Room[] = [];
+    for (const room of this.rooms.values()) {
+      if (room.players.some((p) => p.id === playerId)) {
+        matches.push(room);
+      }
+    }
+    return matches;
+  }
+
+  /** Get all player IDs in a room (for broadcasting), including spectators. */
+  getRoomPlayerIds(roomId: string): string[] {
+    const room = this.rooms.get(roomId);
+    if (!room) return [];
+    const playerIds = room.players.map((p) => p.id);
+    const spectatorIds = room.spectators.map((s) => s.id);
+    return [...playerIds, ...spectatorIds];
+  }
+
+  /**
+   * Remove a player from all rooms they are in (called on disconnect).
+   * Returns a map of roomId → updated Room (or null if room was deleted).
+   */
+  disconnectPlayer(playerId: string): Map<string, Room | null> {
+    const affected = new Map<string, Room | null>();
+    for (const [roomId, room] of this.rooms.entries()) {
+      const isPlayer = room.players.some((p) => p.id === playerId);
+      const isSpectator = room.spectators.some((s) => s.id === playerId);
+      if (isPlayer || isSpectator) {
+        const updated = this.leaveRoom(roomId, playerId);
+        affected.set(roomId, updated);
+      }
+    }
+    return affected;
+  }
+}

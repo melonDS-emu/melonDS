@@ -25,3 +25,21 @@ CMakeCache.txt
 freebios/FreeBIOS_Data.h
 freebios/bios*
 freebios/build/
+
+# Node.js / TypeScript
+node_modules/
+dist/
+.turbo/
+*.tsbuildinfo
+.env
+.env.local
+.env.*.local
+
+# Tauri
+apps/desktop/src-tauri/target/
+apps/desktop/src-tauri/gen/
+
+# Misc
+*.log
+coverage/
+*.db

@@ -1,0 +1,17 @@
+{
+  "name": "retro-oasis",
+  "version": "0.1.0",
+  "private": true,
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "scripts": {
+    "dev:desktop": "npm run dev -w @retro-oasis/desktop",
+    "dev:server": "npm run dev -w @retro-oasis/lobby-server",
+    "build:desktop": "npm run build -w @retro-oasis/desktop",
+    "build:tauri": "npm run tauri:build -w @retro-oasis/desktop",
+    "dev:tauri": "npm run tauri:dev -w @retro-oasis/desktop",
+    "typecheck": "npm run typecheck --workspaces --if-present"
+  }
+}

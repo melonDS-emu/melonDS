@@ -1,0 +1,362 @@
+/**
+ * SQLite database initialisation.
+ *
+ * Opens (or creates) the database file specified by `DB_PATH` env var.
+ * Defaults to an in-memory database so the server works out-of-the-box
+ * without any configuration.  Set DB_PATH to a file path for persistence
+ * across restarts, e.g. `DB_PATH=/var/data/retro-oasis.db`.
+ *
+ * All tables are created with IF NOT EXISTS so this module is safe to import
+ * in tests (each test gets its own in-memory instance via `openDatabase()`).
+ */
+
+import Database from 'better-sqlite3';
+import type { Database as DatabaseType } from 'better-sqlite3';
+
+export type { DatabaseType };
+
+/**
+ * Open a SQLite database and apply the RetroOasis schema.
+ *
+ * @param path Filesystem path or `:memory:` for an in-memory database.
+ */
+export function openDatabase(path = ':memory:'): DatabaseType {
+  const db = new Database(path);
+
+  // Enable WAL mode for better concurrent read/write performance.
+  db.pragma('journal_mode = WAL');
+  db.pragma('foreign_keys = ON');
+
+  db.exec(`
+    -- -----------------------------------------------------------------------
+    -- Player identity
+    -- -----------------------------------------------------------------------
+    CREATE TABLE IF NOT EXISTS players (
+      id          TEXT PRIMARY KEY,
+      display_name TEXT NOT NULL,
+      created_at  TEXT NOT NULL,
+      last_seen_at TEXT NOT NULL
+    );
+
+    -- -----------------------------------------------------------------------
+    -- Rooms
+    -- -----------------------------------------------------------------------
+    CREATE TABLE IF NOT EXISTS rooms (
+      id          TEXT PRIMARY KEY,
+      name        TEXT NOT NULL,
+      host_id     TEXT NOT NULL,
+      game_id     TEXT NOT NULL,
+      game_title  TEXT NOT NULL,
+      system      TEXT NOT NULL,
+      is_public   INTEGER NOT NULL DEFAULT 1,
+      room_code   TEXT NOT NULL UNIQUE,
+      max_players INTEGER NOT NULL DEFAULT 4,
+      status      TEXT NOT NULL DEFAULT 'waiting',
+      relay_port  INTEGER,
+      theme       TEXT,
+      created_at  TEXT NOT NULL
+    );
+
+    CREATE TABLE IF NOT EXISTS room_players (
+      room_id           TEXT NOT NULL,
+      player_id         TEXT NOT NULL,
+      display_name      TEXT NOT NULL,
+      ready_state       TEXT NOT NULL DEFAULT 'not-ready',
+      slot              INTEGER NOT NULL DEFAULT 0,
+      is_host           INTEGER NOT NULL DEFAULT 0,
+      joined_at         TEXT NOT NULL,
+      connection_quality TEXT NOT NULL DEFAULT 'unknown',
+      latency_ms        INTEGER,
+      PRIMARY KEY (room_id, player_id),
+      FOREIGN KEY (room_id) REFERENCES rooms(id) ON DELETE CASCADE
+    );
+
+    CREATE TABLE IF NOT EXISTS room_spectators (
+      room_id      TEXT NOT NULL,
+      spectator_id TEXT NOT NULL,
+      display_name TEXT NOT NULL,
+      joined_at    TEXT NOT NULL,
+      PRIMARY KEY (room_id, spectator_id),
+      FOREIGN KEY (room_id) REFERENCES rooms(id) ON DELETE CASCADE
+    );
+
+    -- -----------------------------------------------------------------------
+    -- Session history
+    -- -----------------------------------------------------------------------
+    CREATE TABLE IF NOT EXISTS sessions (
+      id           TEXT PRIMARY KEY,
+      room_id      TEXT NOT NULL,
+      game_id      TEXT NOT NULL,
+      game_title   TEXT NOT NULL,
+      system       TEXT NOT NULL,
+      started_at   TEXT NOT NULL,
+      ended_at     TEXT,
+      duration_secs INTEGER,
+      player_count INTEGER NOT NULL DEFAULT 0
+    );
+
+    CREATE TABLE IF NOT EXISTS session_players (
+      session_id    TEXT NOT NULL,
+      display_name  TEXT NOT NULL,
+      PRIMARY KEY (session_id, display_name),
+      FOREIGN KEY (session_id) REFERENCES sessions(id) ON DELETE CASCADE
+    );
+
+    -- -----------------------------------------------------------------------
+    -- Save sync
+    -- -----------------------------------------------------------------------
+    CREATE TABLE IF NOT EXISTS saves (
+      id         TEXT PRIMARY KEY,
+      game_id    TEXT NOT NULL,
+      name       TEXT NOT NULL,
+      data       TEXT NOT NULL,
+      mime_type  TEXT NOT NULL DEFAULT 'application/octet-stream',
+      created_at TEXT NOT NULL,
+      updated_at TEXT NOT NULL,
+      version    INTEGER NOT NULL DEFAULT 1,
+      UNIQUE (game_id, name)
+    );
+
+    -- -----------------------------------------------------------------------
+    -- Save backups  (pre-session snapshots, last-known-good, manual)
+    -- -----------------------------------------------------------------------
+    CREATE TABLE IF NOT EXISTS save_backups (
+      id              TEXT PRIMARY KEY,
+      game_id         TEXT NOT NULL,
+      save_name       TEXT NOT NULL,
+      data            TEXT NOT NULL,
+      mime_type       TEXT NOT NULL DEFAULT 'application/octet-stream',
+      reason          TEXT NOT NULL DEFAULT 'manual',
+      is_last_known_good INTEGER NOT NULL DEFAULT 0,
+      save_version    INTEGER NOT NULL DEFAULT 0,
+      created_at      TEXT NOT NULL
+    );
+
+    -- -----------------------------------------------------------------------
+    -- Friends & friend requests
+    -- -----------------------------------------------------------------------
+    CREATE TABLE IF NOT EXISTS friends (
+      user_id    TEXT NOT NULL,
+      friend_id  TEXT NOT NULL,
+      created_at TEXT NOT NULL,
+      PRIMARY KEY (user_id, friend_id)
+    );
+
+    CREATE TABLE IF NOT EXISTS friend_requests (
+      id          TEXT PRIMARY KEY,
+      from_id     TEXT NOT NULL,
+      to_id       TEXT NOT NULL,
+      status      TEXT NOT NULL DEFAULT 'pending',
+      created_at  TEXT NOT NULL,
+      updated_at  TEXT NOT NULL,
+      UNIQUE (from_id, to_id)
+    );
+
+    -- -----------------------------------------------------------------------
+    -- Matchmaking
+    -- -----------------------------------------------------------------------
+    CREATE TABLE IF NOT EXISTS matchmaking_queue (
+      player_id    TEXT PRIMARY KEY,
+      display_name TEXT NOT NULL,
+      game_id      TEXT NOT NULL,
+      game_title   TEXT NOT NULL,
+      system       TEXT NOT NULL,
+      max_players  INTEGER NOT NULL,
+      joined_at    TEXT NOT NULL
+    );
+
+    -- -----------------------------------------------------------------------
+    -- Achievement persistence (Phase 9)
+    -- -----------------------------------------------------------------------
+    CREATE TABLE IF NOT EXISTS player_achievements (
+      player_id      TEXT NOT NULL,
+      achievement_id TEXT NOT NULL,
+      unlocked_at    TEXT NOT NULL,
+      PRIMARY KEY (player_id, achievement_id)
+    );
+
+    CREATE TABLE IF NOT EXISTS player_achievement_meta (
+      player_id        TEXT PRIMARY KEY,
+      display_name     TEXT NOT NULL,
+      last_checked_at  TEXT NOT NULL
+    );
+
+    -- -----------------------------------------------------------------------
+    -- Tournament persistence (Phase 11)
+    -- -----------------------------------------------------------------------
+    CREATE TABLE IF NOT EXISTS tournaments (
+      id          TEXT PRIMARY KEY,
+      name        TEXT NOT NULL,
+      game_id     TEXT NOT NULL,
+      game_title  TEXT NOT NULL,
+      system      TEXT NOT NULL,
+      status      TEXT NOT NULL DEFAULT 'pending',
+      winner      TEXT,
+      created_at  TEXT NOT NULL,
+      updated_at  TEXT NOT NULL
+    );
+
+    CREATE TABLE IF NOT EXISTS tournament_players (
+      tournament_id TEXT NOT NULL,
+      display_name  TEXT NOT NULL,
+      seed          INTEGER NOT NULL,
+      PRIMARY KEY (tournament_id, display_name),
+      FOREIGN KEY (tournament_id) REFERENCES tournaments(id) ON DELETE CASCADE
+    );
+
+    CREATE TABLE IF NOT EXISTS tournament_matches (
+      id            TEXT PRIMARY KEY,
+      tournament_id TEXT NOT NULL,
+      round         INTEGER NOT NULL,
+      slot          INTEGER NOT NULL,
+      player_a      TEXT,
+      player_b      TEXT,
+      winner        TEXT,
+      status        TEXT NOT NULL DEFAULT 'pending',
+      FOREIGN KEY (tournament_id) REFERENCES tournaments(id) ON DELETE CASCADE
+    );
+  `);
+
+  // Phase 13 migration: add theme column to rooms if it doesn't already exist.
+  try {
+    db.exec(`ALTER TABLE rooms ADD COLUMN theme TEXT;`);
+  } catch {
+    // Column already exists — safe to ignore.
+  }
+
+  // Phase 14 migration: direct messages table.
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS direct_messages (
+      id          TEXT PRIMARY KEY,
+      from_player TEXT NOT NULL,
+      to_player   TEXT NOT NULL,
+      content     TEXT NOT NULL,
+      sent_at     TEXT NOT NULL,
+      read_at     TEXT
+    );
+    CREATE INDEX IF NOT EXISTS idx_dm_from_to ON direct_messages (from_player, to_player);
+    CREATE INDEX IF NOT EXISTS idx_dm_to_unread ON direct_messages (to_player, read_at);
+  `);
+
+  // Phase 15 migrations: game reviews, global/per-game rankings, rank_mode on rooms.
+  db.exec(`
+    -- Game ratings & reviews
+    CREATE TABLE IF NOT EXISTS game_reviews (
+      id          TEXT PRIMARY KEY,
+      game_id     TEXT NOT NULL,
+      game_title  TEXT NOT NULL,
+      player_id   TEXT NOT NULL,
+      player_name TEXT NOT NULL,
+      rating      INTEGER NOT NULL,
+      text        TEXT,
+      created_at  TEXT NOT NULL,
+      updated_at  TEXT NOT NULL,
+      UNIQUE (game_id, player_id)
+    );
+    CREATE INDEX IF NOT EXISTS idx_reviews_game ON game_reviews (game_id);
+    CREATE INDEX IF NOT EXISTS idx_reviews_player ON game_reviews (player_id);
+
+    -- Global ELO rankings
+    CREATE TABLE IF NOT EXISTS global_rankings (
+      player_id    TEXT PRIMARY KEY,
+      player_name  TEXT NOT NULL,
+      elo          INTEGER NOT NULL DEFAULT 1000,
+      wins         INTEGER NOT NULL DEFAULT 0,
+      losses       INTEGER NOT NULL DEFAULT 0,
+      draws        INTEGER NOT NULL DEFAULT 0,
+      games_played INTEGER NOT NULL DEFAULT 0,
+      updated_at   TEXT NOT NULL
+    );
+
+    -- Per-game ELO rankings
+    CREATE TABLE IF NOT EXISTS game_rankings (
+      game_id      TEXT NOT NULL,
+      game_title   TEXT NOT NULL,
+      player_id    TEXT NOT NULL,
+      player_name  TEXT NOT NULL,
+      elo          INTEGER NOT NULL DEFAULT 1000,
+      wins         INTEGER NOT NULL DEFAULT 0,
+      losses       INTEGER NOT NULL DEFAULT 0,
+      games_played INTEGER NOT NULL DEFAULT 0,
+      updated_at   TEXT NOT NULL,
+      PRIMARY KEY (game_id, player_id)
+    );
+  `);
+
+  // Phase 15 migration: add rank_mode column to rooms if it doesn't already exist.
+  try {
+    db.exec(`ALTER TABLE rooms ADD COLUMN rank_mode TEXT NOT NULL DEFAULT 'casual';`);
+  } catch {
+    // Column already exists — safe to ignore.
+  }
+
+  // Phase 24 migration: retro achievement progress table.
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS retro_achievement_progress (
+      player_id      TEXT NOT NULL,
+      achievement_id TEXT NOT NULL,
+      game_id        TEXT NOT NULL,
+      earned_at      TEXT NOT NULL,
+      session_id     TEXT,
+      PRIMARY KEY (player_id, achievement_id)
+    );
+    CREATE INDEX IF NOT EXISTS idx_retro_progress_player ON retro_achievement_progress (player_id);
+    CREATE INDEX IF NOT EXISTS idx_retro_progress_game ON retro_achievement_progress (player_id, game_id);
+  `);
+
+  // Phase 11 (cloud/account) migration: accounts, account sessions, and moderation reports.
+  db.exec(`
+    -- Optional user accounts (email + password, links to anonymous identity token)
+    CREATE TABLE IF NOT EXISTS accounts (
+      id                     TEXT PRIMARY KEY,
+      email                  TEXT NOT NULL UNIQUE,
+      display_name           TEXT NOT NULL,
+      password_hash          TEXT NOT NULL,
+      linked_identity_token  TEXT,
+      created_at             TEXT NOT NULL,
+      last_login_at          TEXT,
+      is_verified            INTEGER NOT NULL DEFAULT 0
+    );
+    CREATE INDEX IF NOT EXISTS idx_accounts_email ON accounts (email);
+
+    -- Server-side session tokens for authenticated accounts
+    CREATE TABLE IF NOT EXISTS account_sessions (
+      token       TEXT PRIMARY KEY,
+      account_id  TEXT NOT NULL,
+      created_at  TEXT NOT NULL,
+      expires_at  TEXT NOT NULL,
+      FOREIGN KEY (account_id) REFERENCES accounts(id) ON DELETE CASCADE
+    );
+    CREATE INDEX IF NOT EXISTS idx_sessions_account ON account_sessions (account_id);
+
+    -- Lightweight moderation / reporting for public rooms
+    CREATE TABLE IF NOT EXISTS moderation_reports (
+      id             TEXT PRIMARY KEY,
+      reporter_id    TEXT NOT NULL,
+      reporter_name  TEXT NOT NULL,
+      target_id      TEXT NOT NULL,
+      target_type    TEXT NOT NULL,
+      reason         TEXT NOT NULL,
+      description    TEXT NOT NULL DEFAULT '',
+      status         TEXT NOT NULL DEFAULT 'pending',
+      created_at     TEXT NOT NULL,
+      reviewed_at    TEXT,
+      resolved_note  TEXT
+    );
+    CREATE INDEX IF NOT EXISTS idx_reports_target ON moderation_reports (target_id);
+    CREATE INDEX IF NOT EXISTS idx_reports_status ON moderation_reports (status);
+  `);
+
+  return db;
+}
+
+/** Singleton database instance, initialised from DB_PATH env var. */
+let _db: DatabaseType | null = null;
+
+export function getDatabase(): DatabaseType {
+  if (!_db) {
+    const path = process.env.DB_PATH ?? ':memory:';
+    _db = openDatabase(path);
+  }
+  return _db;
+}
