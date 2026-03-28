@@ -115,7 +115,7 @@ void NetInit()
 }
 
 
-bool createEmuInstance()
+bool createEmuInstance(InstanceStartupOptions options)
 {
     int id = -1;
     for (int i = 0; i < kMaxEmuInstances; i++)
@@ -130,7 +130,7 @@ bool createEmuInstance()
     if (id == -1)
         return false;
 
-    auto inst = new EmuInstance(id);
+    auto inst = new EmuInstance(id, options);
     emuInstances[id] = inst;
 
     return true;
@@ -364,7 +364,12 @@ int main(int argc, char** argv)
 
     NetInit();
 
-    createEmuInstance();
+    InstanceStartupOptions instanceOptions;
+#ifdef GDBSTUB_ENABLED
+    instanceOptions.arm9BreakOnStart = options->arm9BreakOnStart;
+    instanceOptions.arm7BreakOnStart = options->arm7BreakOnStart;
+#endif
+    createEmuInstance(instanceOptions);
 
     {
         MainWindow* win = emuInstances[0]->getMainWindow();
