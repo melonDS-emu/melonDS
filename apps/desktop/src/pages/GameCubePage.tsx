@@ -326,14 +326,30 @@ export default function GameCubePage() {
 
   return (
     <div className="max-w-5xl mx-auto p-6 space-y-8">
-      {/* Header */}
-      <div className="flex items-center gap-4">
-        <span className="text-5xl">🟣</span>
-        <div>
-          <h1 className="text-3xl font-black text-white">Nintendo GameCube</h1>
+      {/* Hero header */}
+      <div
+        className="rounded-3xl p-6 flex items-center gap-5"
+        style={{ background: 'linear-gradient(135deg, rgba(123,47,190,0.18) 0%, rgba(123,47,190,0.05) 60%, transparent 100%)', border: '1px solid rgba(123,47,190,0.2)' }}
+      >
+        <div
+          className="w-16 h-16 rounded-2xl flex items-center justify-center text-3xl shrink-0"
+          style={{ background: 'linear-gradient(135deg, #7b2fbe, #3a0e6e)' }}
+        >
+          🟣
+        </div>
+        <div className="flex-1 min-w-0">
+          <h1 className="text-3xl font-black text-white leading-tight">Nintendo GameCube</h1>
           <p className="text-sm mt-1" style={{ color: 'var(--color-oasis-text-muted)' }}>
-            Online relay sessions via Dolphin · Up to 4 players · No port forwarding needed
+            Dolphin emulator · Up to 4-player relay netplay · No port forwarding needed
           </p>
+        </div>
+        <div className="hidden sm:flex flex-col items-end gap-1 shrink-0">
+          <span className="text-xs font-semibold" style={{ color: 'var(--color-oasis-text-muted)' }}>
+            {GC_GAMES.length} games
+          </span>
+          <span className="text-xs" style={{ color: 'var(--color-oasis-text-muted)' }}>
+            6th Generation · 2001
+          </span>
         </div>
       </div>
 

@@ -455,22 +455,38 @@ export default function GenesisPage() {
 
   return (
     <div className="max-w-5xl mx-auto p-6 space-y-8">
-      {/* Header */}
-      <div className="flex items-center gap-4">
+      {/* Hero header */}
+      <div
+        className="rounded-3xl p-6 flex items-center gap-5"
+        style={{ background: 'linear-gradient(135deg, rgba(0,102,204,0.18) 0%, rgba(0,102,204,0.05) 60%, transparent 100%)', border: `1px solid ${SYSTEM_COLOR_MID}` }}
+      >
         <div
           className="w-16 h-16 rounded-2xl flex items-center justify-center text-3xl shrink-0"
           style={{ background: `linear-gradient(135deg, ${SYSTEM_COLOR}, ${SYSTEM_COLOR_DARK})` }}
         >
           ⬢
         </div>
-        <div>
-          <h1 className="text-3xl font-black text-white">SEGA Genesis</h1>
-          <p className="text-sm mt-0.5" style={{ color: 'var(--color-oasis-text-muted)' }}>
-            Also known as the Mega Drive · Generation 4 · Online relay via RetroArch + Genesis Plus GX
+        <div className="flex-1 min-w-0">
+          <h1 className="text-3xl font-black text-white leading-tight">SEGA Genesis</h1>
+          <p className="text-sm mt-1" style={{ color: 'var(--color-oasis-text-muted)' }}>
+            Also known as the Mega Drive · Online relay via RetroArch + Genesis Plus GX
           </p>
-          <p className="text-xs mt-0.5" style={{ color: 'var(--color-oasis-text-muted)' }}>
-            {GENESIS_GAMES.length} games · 2 players · No port forwarding needed
-          </p>
+        </div>
+        <div className="hidden sm:flex flex-col items-end gap-1 shrink-0">
+          <div className="flex items-center gap-2">
+            <span className="text-xs font-semibold" style={{ color: 'var(--color-oasis-text-muted)' }}>
+              {GENESIS_GAMES.length} games
+            </span>
+            <span
+              className="text-xs px-2 py-0.5 rounded-full font-semibold"
+              style={{ background: 'rgba(0,102,204,0.15)', color: '#60a5fa' }}
+            >
+              2 players
+            </span>
+          </div>
+          <span className="text-xs" style={{ color: 'var(--color-oasis-text-muted)' }}>
+            4th Generation · 1988
+          </span>
         </div>
       </div>
 

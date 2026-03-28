@@ -479,8 +479,11 @@ export default function NGPPage() {
 
   return (
     <div className="max-w-5xl mx-auto p-6 space-y-8">
-      {/* Header */}
-      <div className="flex items-center gap-4">
+      {/* Hero header */}
+      <div
+        className="rounded-3xl p-6 flex items-center gap-5"
+        style={{ background: `linear-gradient(135deg, rgba(232,184,0,0.14) 0%, rgba(232,184,0,0.04) 60%, transparent 100%)`, border: `1px solid ${colorMid}` }}
+      >
         <div
           className="w-16 h-16 rounded-2xl flex items-center justify-center text-3xl shrink-0"
           style={{
@@ -492,12 +495,9 @@ export default function NGPPage() {
           {systemMode === 'ngpc' ? '🌈' : '⬛'}
         </div>
         <div className="flex-1 min-w-0">
-          <h1 className="text-3xl font-black text-white">Neo Geo Pocket</h1>
-          <p className="text-sm mt-0.5" style={{ color: 'var(--color-oasis-text-muted)' }}>
-            SNK · Generation 5 · Online relay via RetroArch + Beetle NeoPop
-          </p>
-          <p className="text-xs mt-0.5" style={{ color: 'var(--color-oasis-text-muted)' }}>
-            Link cable multiplayer supported · No port forwarding needed
+          <h1 className="text-3xl font-black text-white leading-tight">Neo Geo Pocket</h1>
+          <p className="text-sm mt-1" style={{ color: 'var(--color-oasis-text-muted)' }}>
+            SNK · Online relay via RetroArch + Beetle NeoPop · Link cable multiplayer
           </p>
         </div>
         {/* System mode toggle */}

@@ -15,6 +15,7 @@ const API =
     : 'http://localhost:8080';
 
 const SYSTEM_COLOR = '#00439C';
+const SYSTEM_COLOR_DARK = '#001a4d';
 const SYSTEM_EMOJI = '💙';
 
 type ActiveTab = 'lobby' | 'leaderboard' | 'guide';
@@ -371,14 +372,30 @@ export default function PS2Page() {
 
   return (
     <div className="max-w-5xl mx-auto p-6 space-y-8">
-      {/* Header */}
-      <div className="flex items-center gap-4">
-        <span className="text-5xl">{SYSTEM_EMOJI}</span>
-        <div>
-          <h1 className="text-3xl font-black text-white">Sony PlayStation 2</h1>
+      {/* Hero header */}
+      <div
+        className="rounded-3xl p-6 flex items-center gap-5"
+        style={{ background: 'linear-gradient(135deg, rgba(0,67,156,0.18) 0%, rgba(0,67,156,0.05) 60%, transparent 100%)', border: '1px solid rgba(0,67,156,0.2)' }}
+      >
+        <div
+          className="w-16 h-16 rounded-2xl flex items-center justify-center text-3xl shrink-0"
+          style={{ background: `linear-gradient(135deg, ${SYSTEM_COLOR}, ${SYSTEM_COLOR_DARK})` }}
+        >
+          {SYSTEM_EMOJI}
+        </div>
+        <div className="flex-1 min-w-0">
+          <h1 className="text-3xl font-black text-white leading-tight">Sony PlayStation 2</h1>
           <p className="text-sm mt-1" style={{ color: 'var(--color-oasis-text-muted)' }}>
-            Online relay sessions via PCSX2 · Up to 8 players · No port forwarding needed
+            PCSX2 · Up to 8-player relay sessions · No port forwarding needed
           </p>
+        </div>
+        <div className="hidden sm:flex flex-col items-end gap-1 shrink-0">
+          <span className="text-xs font-semibold" style={{ color: 'var(--color-oasis-text-muted)' }}>
+            {PS2_GAMES.length} games
+          </span>
+          <span className="text-xs" style={{ color: 'var(--color-oasis-text-muted)' }}>
+            6th Generation · 2000
+          </span>
         </div>
       </div>
 

@@ -518,22 +518,30 @@ export default function PS3Page() {
 
   return (
     <div className="max-w-5xl mx-auto p-6 space-y-8">
-      {/* Header */}
-      <div className="flex items-center gap-4">
+      {/* Hero header */}
+      <div
+        className="rounded-3xl p-6 flex items-center gap-5"
+        style={{ background: `linear-gradient(135deg, rgba(0,48,135,0.18) 0%, rgba(0,48,135,0.05) 60%, transparent 100%)`, border: `1px solid ${SYSTEM_COLOR_MID}` }}
+      >
         <div
           className="w-16 h-16 rounded-2xl flex items-center justify-center text-3xl shrink-0"
           style={{ background: `linear-gradient(135deg, ${SYSTEM_COLOR}, ${SYSTEM_COLOR_DARK})` }}
         >
           🔵
         </div>
-        <div>
-          <h1 className="text-3xl font-black text-white">PlayStation 3</h1>
-          <p className="text-sm mt-0.5" style={{ color: 'var(--color-oasis-text-muted)' }}>
-            Sony · Generation 7 · RPCS3 emulator + RPCN online
+        <div className="flex-1 min-w-0">
+          <h1 className="text-3xl font-black text-white leading-tight">PlayStation 3</h1>
+          <p className="text-sm mt-1" style={{ color: 'var(--color-oasis-text-muted)' }}>
+            RPCS3 emulator · RPCN online · Up to 40 players · No port forwarding needed
           </p>
-          <p className="text-xs mt-0.5" style={{ color: 'var(--color-oasis-text-muted)' }}>
-            {PS3_GAMES.length} games · Up to 40 players · RPCN or relay sessions
-          </p>
+        </div>
+        <div className="hidden sm:flex flex-col items-end gap-1 shrink-0">
+          <span className="text-xs font-semibold" style={{ color: 'var(--color-oasis-text-muted)' }}>
+            {PS3_GAMES.length} games
+          </span>
+          <span className="text-xs" style={{ color: 'var(--color-oasis-text-muted)' }}>
+            7th Generation · 2006
+          </span>
         </div>
       </div>
 

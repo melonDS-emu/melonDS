@@ -15,8 +15,9 @@ const API =
     : 'http://localhost:8080';
 
 const SYSTEM_COLOR = '#009AC7';
+const SYSTEM_COLOR_DARK = '#005a75';
 
-type ActiveTab = 'lobby' | 'guide' | 'leaderboard';
+type ActiveTab = 'lobby' | 'leaderboard' | 'guide';
 
 interface WiiURanking {
   displayName: string;
@@ -87,8 +88,11 @@ function GuideSection({
   children: React.ReactNode;
 }) {
   return (
-    <div className="bg-gray-800 rounded-lg p-5 mb-4">
-      <h3 className="text-base font-semibold text-white mb-3">
+    <div
+      className="rounded-2xl p-5 mb-4"
+      style={{ background: 'rgba(0,154,199,0.05)', border: '1px solid rgba(0,154,199,0.15)' }}
+    >
+      <h3 className="text-sm font-bold mb-3" style={{ color: SYSTEM_COLOR }}>
         {emoji} {title}
       </h3>
       {children}
@@ -250,38 +254,52 @@ export default function WiiUPage() {
   const wiiuRooms = publicRooms.filter((r) => r.system?.toLowerCase() === 'wii u');
 
   const TABS: { id: ActiveTab; label: string }[] = [
-    { id: 'lobby', label: '🎮 Lobby' },
-    { id: 'guide', label: '📖 Guide' },
+    { id: 'lobby',       label: '🎮 Lobby' },
     { id: 'leaderboard', label: '🏆 Leaderboard' },
+    { id: 'guide',       label: '📖 Guide' },
   ];
 
   return (
-    <div className="p-6 max-w-5xl mx-auto">
-      {/* Header */}
-      <div className="flex items-center gap-3 mb-6">
-        <span className="text-4xl">⊞</span>
-        <div>
-          <h1 className="text-2xl font-bold" style={{ color: SYSTEM_COLOR }}>
-            Nintendo Wii U
-          </h1>
-          <p className="text-sm text-gray-400">
-            HD Nintendo gaming with GamePad asymmetry — Cemu emulator · Vulkan · Pretendo Network
+    <div className="max-w-5xl mx-auto p-6 space-y-8">
+      {/* Hero header */}
+      <div
+        className="rounded-3xl p-6 flex items-center gap-5"
+        style={{ background: 'linear-gradient(135deg, rgba(0,154,199,0.18) 0%, rgba(0,154,199,0.05) 60%, transparent 100%)', border: '1px solid rgba(0,154,199,0.2)' }}
+      >
+        <div
+          className="w-16 h-16 rounded-2xl flex items-center justify-center text-3xl shrink-0"
+          style={{ background: `linear-gradient(135deg, ${SYSTEM_COLOR}, ${SYSTEM_COLOR_DARK})` }}
+        >
+          ⊞
+        </div>
+        <div className="flex-1 min-w-0">
+          <h1 className="text-3xl font-black text-white leading-tight">Nintendo Wii U</h1>
+          <p className="text-sm mt-1" style={{ color: 'var(--color-oasis-text-muted)' }}>
+            Cemu emulator · Vulkan · GamePad asymmetry · Pretendo Network
           </p>
+        </div>
+        <div className="hidden sm:flex flex-col items-end gap-1 shrink-0">
+          <span className="text-xs font-semibold" style={{ color: 'var(--color-oasis-text-muted)' }}>
+            {WIIU_GAMES.length} games
+          </span>
+          <span className="text-xs" style={{ color: 'var(--color-oasis-text-muted)' }}>
+            8th Generation · 2012
+          </span>
         </div>
       </div>
 
-      {/* Tabs */}
-      <div className="flex gap-2 mb-6">
+      {/* Tab bar */}
+      <div className="flex gap-2 border-b" style={{ borderColor: 'rgba(0,154,199,0.15)' }}>
         {TABS.map((tab) => (
           <button
             key={tab.id}
             onClick={() => setActiveTab(tab.id)}
-            className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+            className="px-5 py-2.5 text-sm font-semibold rounded-t-xl transition-all"
+            style={
               activeTab === tab.id
-                ? 'text-white'
-                : 'bg-gray-800 text-gray-400 hover:bg-gray-700'
-            }`}
-            style={activeTab === tab.id ? { backgroundColor: SYSTEM_COLOR } : undefined}
+                ? { background: 'rgba(0,154,199,0.1)', color: SYSTEM_COLOR, borderBottom: `2px solid ${SYSTEM_COLOR}` }
+                : { color: 'var(--color-oasis-text-muted)' }
+            }
           >
             {tab.label}
           </button>
@@ -290,85 +308,106 @@ export default function WiiUPage() {
 
       {/* Lobby tab */}
       {activeTab === 'lobby' && (
-        <>
+        <div className="space-y-6">
           {wiiuRooms.length > 0 && (
-            <section className="mb-6">
-              <h2 className="text-lg font-semibold text-white mb-3">🔴 Live Rooms</h2>
-              <div className="space-y-2">
-                {wiiuRooms.map((room) => (
-                  <div
-                    key={room.id}
-                    className="bg-gray-800 rounded-lg p-4 flex items-center justify-between"
-                  >
-                    <div>
-                      <span className="font-medium text-white">{room.name}</span>
-                      <span className="ml-2 text-sm text-gray-400">{room.gameTitle}</span>
-                    </div>
-                    <div className="flex items-center gap-3 text-sm text-gray-400">
-                      <span>{room.players.length}/{room.maxPlayers} players</span>
-                      <button
-                        onClick={() => setShowJoin(true)}
-                        className="px-3 py-1 rounded text-white text-xs font-medium"
-                        style={{ backgroundColor: SYSTEM_COLOR }}
-                      >
-                        Join
-                      </button>
-                    </div>
+            <div className="space-y-2">
+              <p className="text-xs font-semibold" style={{ color: 'var(--color-oasis-text-muted)' }}>🔵 Live Rooms</p>
+              {wiiuRooms.map((room) => (
+                <div
+                  key={room.id}
+                  className="rounded-xl p-4 flex items-center justify-between"
+                  style={{ background: 'rgba(0,154,199,0.06)', border: '1px solid rgba(0,154,199,0.15)' }}
+                >
+                  <div>
+                    <span className="font-medium text-white">{room.name}</span>
+                    <span className="ml-2 text-sm" style={{ color: 'var(--color-oasis-text-muted)' }}>{room.gameTitle}</span>
                   </div>
-                ))}
-              </div>
-            </section>
-          )}
-
-          <section>
-            <h2 className="text-lg font-semibold text-white mb-3">🎮 Wii U Games</h2>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {WIIU_GAMES.map((game) => (
-                <div key={game.id} className="bg-gray-800 rounded-lg p-4 flex flex-col gap-3">
-                  <div className="flex items-start gap-3">
-                    <span className="text-3xl">{game.coverEmoji}</span>
-                    <div className="flex-1 min-w-0">
-                      <p className="font-medium text-white leading-tight">{game.title}</p>
-                      <p className="text-xs text-gray-400 mt-0.5 line-clamp-2">{game.description}</p>
-                      <div className="flex flex-wrap gap-1 mt-2">
-                        {game.badges?.map((b) => (
-                          <span key={b} className="text-xs px-1.5 py-0.5 rounded bg-gray-700 text-gray-300">{b}</span>
-                        ))}
-                        {ASYMMETRIC_IDS.has(game.id) && (
-                          <span className="text-xs px-1.5 py-0.5 rounded bg-purple-900 text-purple-300">GamePad Asymmetric</span>
-                        )}
-                        {COOP_IDS.has(game.id) && (
-                          <span className="text-xs px-1.5 py-0.5 rounded bg-green-900 text-green-300">Co-op</span>
-                        )}
-                      </div>
-                    </div>
-                    <span
-                      className="text-xs font-bold px-2 py-1 rounded shrink-0"
-                      style={{ backgroundColor: SYSTEM_COLOR + '33', color: SYSTEM_COLOR }}
-                    >
-                      {game.maxPlayers}P
-                    </span>
-                  </div>
-                  <div className="flex gap-2">
+                  <div className="flex items-center gap-3 text-sm" style={{ color: 'var(--color-oasis-text-muted)' }}>
+                    <span>{room.players.length}/{room.maxPlayers} players</span>
                     <button
-                      onClick={() => handleQuickMatch(game.id)}
-                      className="flex-1 px-3 py-2 rounded text-white text-sm font-medium hover:opacity-90"
-                      style={{ backgroundColor: SYSTEM_COLOR }}
+                      onClick={() => setShowJoin(true)}
+                      className="px-3 py-1.5 rounded-xl text-white text-xs font-bold transition-all hover:scale-105"
+                      style={{ background: `linear-gradient(90deg, ${SYSTEM_COLOR}, ${SYSTEM_COLOR_DARK})` }}
                     >
-                      Quick Match
-                    </button>
-                    <button
-                      onClick={() => handleHost(game.id)}
-                      className="flex-1 px-3 py-2 rounded bg-gray-700 text-white text-sm font-medium hover:bg-gray-600"
-                    >
-                      Host Room
+                      Join
                     </button>
                   </div>
                 </div>
               ))}
             </div>
-          </section>
-        </>
+          )}
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+            {WIIU_GAMES.map((game) => (
+              <div
+                key={game.id}
+                className="n-card rounded-2xl p-4 flex flex-col gap-3"
+                style={{ background: 'linear-gradient(135deg, rgba(0,154,199,0.07), rgba(0,154,199,0.02))', border: '1px solid rgba(0,154,199,0.15)' }}
+              >
+                <div className="flex items-start justify-between gap-2">
+                  <div className="flex items-center gap-2">
+                    <span className="text-3xl leading-none">{game.coverEmoji}</span>
+                    <div className="min-w-0">
+                      <p className="text-sm font-bold text-white leading-tight">{game.title}</p>
+                      <p className="text-xs mt-0.5 line-clamp-2" style={{ color: 'var(--color-oasis-text-muted)' }}>{game.description}</p>
+                    </div>
+                  </div>
+                  <span
+                    className="text-xs font-bold px-2 py-0.5 rounded-full shrink-0"
+                    style={{ background: 'rgba(0,154,199,0.15)', color: SYSTEM_COLOR }}
+                  >
+                    {game.maxPlayers}P
+                  </span>
+                </div>
+                <div className="flex flex-wrap gap-1.5">
+                  {game.badges?.map((b) => (
+                    <span
+                      key={b}
+                      className="text-xs px-2 py-0.5 rounded-full"
+                      style={{ background: 'rgba(255,255,255,0.06)', color: 'var(--color-oasis-text-muted)', border: '1px solid rgba(255,255,255,0.08)' }}
+                    >
+                      {b}
+                    </span>
+                  ))}
+                  {ASYMMETRIC_IDS.has(game.id) && (
+                    <span
+                      className="text-xs px-2 py-0.5 rounded-full font-semibold"
+                      style={{ background: 'rgba(123,47,190,0.12)', color: '#c084fc', border: '1px solid rgba(123,47,190,0.3)' }}
+                    >
+                      📱 GamePad Asymmetric
+                    </span>
+                  )}
+                  {COOP_IDS.has(game.id) && (
+                    <span
+                      className="text-xs px-2 py-0.5 rounded-full font-semibold"
+                      style={{ background: 'rgba(74,222,128,0.1)', color: '#4ade80', border: '1px solid rgba(74,222,128,0.25)' }}
+                    >
+                      Co-op
+                    </span>
+                  )}
+                </div>
+                {game.maxPlayers > 1 && (
+                  <div className="flex gap-2 mt-auto">
+                    <button
+                      onClick={() => handleQuickMatch(game.id)}
+                      className="flex-1 px-3 py-1.5 rounded-xl text-xs font-bold transition-all hover:scale-105"
+                      style={{ background: `linear-gradient(90deg, ${SYSTEM_COLOR}, ${SYSTEM_COLOR_DARK})`, color: '#fff' }}
+                    >
+                      ⚡ Quick Match
+                    </button>
+                    <button
+                      onClick={() => handleHost(game.id)}
+                      className="flex-1 px-3 py-1.5 rounded-xl text-xs font-bold transition-all hover:scale-105"
+                      style={{ background: 'rgba(0,154,199,0.08)', border: '1px solid rgba(0,154,199,0.35)', color: SYSTEM_COLOR }}
+                    >
+                      🎮 Host Room
+                    </button>
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
+        </div>
       )}
 
       {/* Guide tab */}
@@ -376,24 +415,32 @@ export default function WiiUPage() {
 
       {/* Leaderboard tab */}
       {activeTab === 'leaderboard' && (
-        <section>
-          <h2 className="text-lg font-semibold text-white mb-3">🏆 Wii U Leaderboard</h2>
+        <div className="space-y-2 max-w-lg">
+          <p className="text-xs mb-4" style={{ color: 'var(--color-oasis-text-muted)' }}>
+            Top players ranked by session count
+          </p>
           {rankingsError ? (
-            <p className="text-red-400 text-sm">{rankingsError}</p>
+            <p className="text-sm" style={{ color: 'var(--color-oasis-text-muted)' }}>{rankingsError}</p>
           ) : rankings.length === 0 ? (
-            <p className="text-gray-400 text-sm">No rankings yet — be the first to play!</p>
-          ) : (
-            <div className="space-y-2">
-              {rankings.map((r, i) => (
-                <div key={r.displayName} className="bg-gray-800 rounded-lg p-3 flex items-center gap-3">
-                  <RankBadge rank={i + 1} />
-                  <span className="flex-1 text-white font-medium">{r.displayName}</span>
-                  <span className="text-gray-400 text-sm">{r.sessions} sessions</span>
-                </div>
-              ))}
+            <div className="text-center py-16" style={{ color: 'var(--color-oasis-text-muted)' }}>
+              <p className="text-4xl mb-3">🏆</p>
+              <p className="font-semibold">No rankings yet</p>
+              <p className="text-sm mt-1">Play some Wii U sessions to appear here!</p>
             </div>
+          ) : (
+            rankings.map((r, i) => (
+              <div
+                key={r.displayName}
+                className="flex items-center gap-3 rounded-xl px-4 py-3"
+                style={{ background: 'rgba(0,154,199,0.05)', border: '1px solid rgba(0,154,199,0.12)' }}
+              >
+                <RankBadge rank={i + 1} />
+                <span className="flex-1 text-sm font-semibold text-white">{r.displayName}</span>
+                <span className="text-xs" style={{ color: 'var(--color-oasis-text-muted)' }}>{r.sessions} sessions</span>
+              </div>
+            ))
           )}
-        </section>
+        </div>
       )}
 
       {showHost && selectedGameId && (

@@ -13,6 +13,8 @@ const API =
       'http://localhost:8080'
     : 'http://localhost:8080';
 
+const SYSTEM_COLOR = '#5E5E5E';
+const SYSTEM_COLOR_DARK = '#1a1a1a';
 const SYSTEM_EMOJI = '⬛';
 
 type ActiveTab = 'lobby' | 'leaderboard';
@@ -327,19 +329,35 @@ export default function PSPPage() {
 
   return (
     <div className="max-w-5xl mx-auto p-6 space-y-8">
-      {/* Header */}
-      <div className="flex items-center gap-4">
-        <span className="text-5xl">{SYSTEM_EMOJI}</span>
-        <div>
-          <h1 className="text-3xl font-black text-white">Sony PlayStation Portable</h1>
+      {/* Hero header */}
+      <div
+        className="rounded-3xl p-6 flex items-center gap-5"
+        style={{ background: 'linear-gradient(135deg, rgba(94,94,94,0.18) 0%, rgba(94,94,94,0.05) 60%, transparent 100%)', border: '1px solid rgba(94,94,94,0.25)' }}
+      >
+        <div
+          className="w-16 h-16 rounded-2xl flex items-center justify-center text-3xl shrink-0"
+          style={{ background: `linear-gradient(135deg, ${SYSTEM_COLOR}, ${SYSTEM_COLOR_DARK})` }}
+        >
+          {SYSTEM_EMOJI}
+        </div>
+        <div className="flex-1 min-w-0">
+          <h1 className="text-3xl font-black text-white leading-tight">Sony PlayStation Portable</h1>
           <p className="text-sm mt-1" style={{ color: 'var(--color-oasis-text-muted)' }}>
-            Online relay sessions via PPSSPP ad-hoc server · Up to 8 players · No port forwarding needed
+            PPSSPP · Ad-hoc server relay · Up to 8 players · No port forwarding needed
           </p>
+        </div>
+        <div className="hidden sm:flex flex-col items-end gap-1 shrink-0">
+          <span className="text-xs font-semibold" style={{ color: 'var(--color-oasis-text-muted)' }}>
+            {PSP_GAMES.length} games
+          </span>
+          <span className="text-xs" style={{ color: 'var(--color-oasis-text-muted)' }}>
+            7th Generation · 2005
+          </span>
         </div>
       </div>
 
       {/* Tab bar */}
-      <div className="flex gap-2 border-b" style={{ borderColor: 'rgba(100,100,100,0.2)' }}>
+      <div className="flex gap-2 border-b" style={{ borderColor: 'rgba(94,94,94,0.2)' }}>
         {tabs.map((tab) => (
           <button
             key={tab.id}
@@ -347,7 +365,7 @@ export default function PSPPage() {
             className="px-5 py-2.5 text-sm font-semibold rounded-t-xl transition-all"
             style={
               activeTab === tab.id
-                ? { background: 'rgba(60,60,60,0.25)', color: '#a3a3a3', borderBottom: `2px solid #555555` }
+                ? { background: 'rgba(94,94,94,0.15)', color: '#a3a3a3', borderBottom: `2px solid ${SYSTEM_COLOR}` }
                 : { color: 'var(--color-oasis-text-muted)' }
             }
           >
