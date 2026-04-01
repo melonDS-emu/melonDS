@@ -1,0 +1,57 @@
+{
+  "version": 3,
+  "configurePresets": [
+    {
+      "name": "release-native",
+      "displayName": "Release (Native CPU)",
+      "description": "Optimized Release build for the local machine. Uses LTO, -march=native and -fno-semantic-interposition. NOT portable.",
+      "generator": "Ninja",
+      "binaryDir": "${sourceDir}/build-release-native",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Release",
+        "ENABLE_LTO_RELEASE": "ON",
+        "ENABLE_OGLRENDERER": "ON",
+        "ENABLE_JIT": "ON"
+      }
+    },
+    {
+      "name": "debug",
+      "displayName": "Debug",
+      "description": "Debug build with symbols and -Og.",
+      "generator": "Ninja",
+      "binaryDir": "${sourceDir}/build-debug",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Debug",
+        "ENABLE_LTO_RELEASE": "OFF",
+        "ENABLE_JIT": "ON"
+      }
+    },
+    {
+      "name": "release-portable",
+      "displayName": "Release (Portable)",
+      "description": "Release build without -march=native. Safe to distribute to other machines.",
+      "generator": "Ninja",
+      "binaryDir": "${sourceDir}/build-release-portable",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Release",
+        "ENABLE_LTO_RELEASE": "ON",
+        "ENABLE_OGLRENDERER": "ON",
+        "ENABLE_JIT": "ON"
+      }
+    }
+  ],
+  "buildPresets": [
+    {
+      "name": "release-native",
+      "configurePreset": "release-native"
+    },
+    {
+      "name": "debug",
+      "configurePreset": "debug"
+    },
+    {
+      "name": "release-portable",
+      "configurePreset": "release-portable"
+    }
+  ]
+}
