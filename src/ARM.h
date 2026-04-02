@@ -41,14 +41,14 @@ inline u32 ROR(u32 x, u32 n)
 
 inline s32 MulCyclesU(u32 val)
 {
-    s32 n = __builtin_clz(val);
+    s32 n = __builtin_clz(val | 1);
     return 4 - (n >> 3);
 }
 
 inline s32 MulCyclesS(s32 val)
 {
     val ^= (val >> 31);
-    s32 n = __builtin_clz(val);
+    s32 n = __builtin_clz(val | 1);
     return 4 - (n >> 3);
 }
 
