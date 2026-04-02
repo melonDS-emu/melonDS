@@ -35,6 +35,14 @@ ARMv4::ARMv4(melonDS::NDS& nds, std::optional<GDBArgs> gdb, bool jit) : ARM(1, j
 {
 }
 
+void ARMv4::Reset()
+{
+    // TODO unify these, add to savestate, etc
+    CodeRegion = 0xFFFFFFFF;
+
+    ARM::Reset();
+}
+
 
 void ARMv4::JumpTo(u32 addr, bool restorecpsr)
 {
@@ -51,6 +59,7 @@ void ARMv4::JumpTo(u32 addr, bool restorecpsr)
 
     CodeRegion = addr >> 24;
     CodeCycles = addr >> 15; // cheato
+    NextCodeFetchSeq = false;
 
     if (addr & 0x1)
     {
@@ -59,9 +68,9 @@ void ARMv4::JumpTo(u32 addr, bool restorecpsr)
 
         //if (newregion != oldregion) SetupCodeMem(addr);
 
-        NextInstr[0] = CodeRead16(addr);
-        NextInstr[1] = CodeRead16(addr+2);
-        Cycles += NDS.ARM7MemTimings[CodeCycles][0] + NDS.ARM7MemTimings[CodeCycles][1];
+        NextInstr[0] = CodeRead16(addr);   AddCycles_C();
+        NextInstr[1] = CodeRead16(addr+2); AddCycles_C();
+        //Cycles += NDS.ARM7MemTimings[CodeCycles][0] + NDS.ARM7MemTimings[CodeCycles][1];
 
         CPSR |= 0x20;
     }
@@ -72,9 +81,9 @@ void ARMv4::JumpTo(u32 addr, bool restorecpsr)
 
         //if (newregion != oldregion) SetupCodeMem(addr);
 
-        NextInstr[0] = CodeRead32(addr);
-        NextInstr[1] = CodeRead32(addr+4);
-        Cycles += NDS.ARM7MemTimings[CodeCycles][2] + NDS.ARM7MemTimings[CodeCycles][3];
+        NextInstr[0] = CodeRead32(addr);   AddCycles_C();
+        NextInstr[1] = CodeRead32(addr+4); AddCycles_C();
+        //Cycles += NDS.ARM7MemTimings[CodeCycles][2] + NDS.ARM7MemTimings[CodeCycles][3];
 
         CPSR &= ~0x20;
     }
@@ -240,18 +249,45 @@ void ARMv4::FillPipeline()
 
 u16 ARMv4::CodeRead16(const u32 addr)
 {
+    u32 rgn = addr & ~0x3FFF;
+    if (rgn != CodeRegion)
+    {
+        NDS.ARM7GetMemInfo(rgn, CodeMem);
+        //CodeMemTimings[0] = CodeMem.Cycles_N16;
+        //CodeMemTimings[1] = CodeMem.Cycles_S16;
+        CodeRegion = rgn;
+    }
+
+    //CodeCycles = NextCodeFetchSeq ? CodeMem.Cycles_S16 : CodeMem.Cycles_N16;
+    if (!NextCodeFetchSeq)
+        CodeCycles = CodeMem.Cycles_N16;
+    else if ((addr & 0x1F) || !(CodeMem.Region & Mem7_MainRAM))
+        CodeCycles = CodeMem.Cycles_S16;
+
     return NDS.ARM7Read16(addr);
 }
 
 u32 ARMv4::CodeRead32(const u32 addr)
 {
+    u32 rgn = addr & ~0x3FFF;
+    if (rgn != CodeRegion)
+    {
+        NDS.ARM7GetMemInfo(rgn, CodeMem);
+        //CodeMemTimings[0] = CodeMem.Cycles_N32;
+        //CodeMemTimings[1] = CodeMem.Cycles_S32;
+        CodeRegion = rgn;
+    }
+
+    //CodeCycles = NextCodeFetchSeq ? CodeMem.Cycles_S32 : CodeMem.Cycles_N32;
+    if (!NextCodeFetchSeq)
+        CodeCycles = CodeMem.Cycles_N32;
+    else if ((addr & 0x1F) || !(CodeMem.Region & Mem7_MainRAM))
+        CodeCycles = CodeMem.Cycles_S32;
+
     return NDS.ARM7Read32(addr);
 }
 
-void ARMv4::Prefetch(bool branch)
-{
-    //
-}
+//
 
 void ARMv4::DataRead8(const u32 addr, u32* val)
 {
@@ -311,13 +347,21 @@ void ARMv4::DataWrite32S(const u32 addr, const u32 val)
 void ARMv4::AddCycles_C()
 {
     // code only. this code fetch is sequential.
-    Cycles += NDS.ARM7MemTimings[CodeCycles][(CPSR&0x20)?1:3];
+    //Cycles += NDS.ARM7MemTimings[CodeCycles][(CPSR&0x20)?1:3];
+    Cycles += CodeCycles;
+    NextCodeFetchSeq = true;
 }
 
 void ARMv4::AddCycles_CI(s32 num)
 {
     // code+internal. results in a nonseq code fetch.
-    Cycles += NDS.ARM7MemTimings[CodeCycles][(CPSR&0x20)?0:2] + num;
+    //Cycles += NDS.ARM7MemTimings[CodeCycles][(CPSR&0x20)?0:2] + num;
+    // TODO: the main RAM parallelization might be incorrect if done against a sequential fetch
+    if (CodeMem.Region & Mem7_MainRAM)
+        Cycles += std::max(CodeCycles + num - 3, std::max(CodeCycles, num));
+    else
+        Cycles += CodeCycles + num;
+    NextCodeFetchSeq = false;
 }
 
 void ARMv4::AddCycles_CDI()
@@ -345,6 +389,8 @@ void ARMv4::AddCycles_CDI()
     {
         Cycles += numC + numD + 1;
     }
+
+    NextCodeFetchSeq = false;
 }
 
 void ARMv4::AddCycles_CD()
@@ -368,6 +414,8 @@ void ARMv4::AddCycles_CD()
     {
         Cycles += numC + numD;
     }
+
+    NextCodeFetchSeq = false;
 }
 
 }

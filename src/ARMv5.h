@@ -446,7 +446,7 @@ public:
 #endif
 
 protected:
-    void Prefetch(bool branch) override;
+    //void Prefetch(bool branch) override;
 };
 
 }

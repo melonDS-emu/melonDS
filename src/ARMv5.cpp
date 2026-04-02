@@ -380,11 +380,6 @@ u32 ARMv5::CodeRead32(const u32 addr, bool const branch)
     return NDS.ARM9Read32(addr);
 }
 
-void ARMv5::Prefetch(bool branch)
-{
-    //
-}
-
 
 void ARMv5::DataRead8(const u32 addr, u32* val)
 {

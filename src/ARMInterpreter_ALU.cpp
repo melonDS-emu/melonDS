@@ -778,12 +778,7 @@ void A_MUL(ARM* cpu)
     if (cpu->Num == 0)
         cycles = (cpu->CurInstr & (1<<20)) ? 3 : 1;
     else
-    {
-        if      ((rs & 0xFFFFFF00) == 0x00000000 || (rs & 0xFFFFFF00) == 0xFFFFFF00) cycles = 1;
-        else if ((rs & 0xFFFF0000) == 0x00000000 || (rs & 0xFFFF0000) == 0xFFFF0000) cycles = 2;
-        else if ((rs & 0xFF000000) == 0x00000000 || (rs & 0xFF000000) == 0xFF000000) cycles = 3;
-        else cycles = 4;
-    }
+        cycles = MulCyclesS((s32)rs);
 
     cpu->AddCycles_CI(cycles);
 }
@@ -808,12 +803,7 @@ void A_MLA(ARM* cpu)
     if (cpu->Num == 0)
         cycles = (cpu->CurInstr & (1<<20)) ? 3 : 1;
     else
-    {
-        if      ((rs & 0xFFFFFF00) == 0x00000000 || (rs & 0xFFFFFF00) == 0xFFFFFF00) cycles = 2;
-        else if ((rs & 0xFFFF0000) == 0x00000000 || (rs & 0xFFFF0000) == 0xFFFF0000) cycles = 3;
-        else if ((rs & 0xFF000000) == 0x00000000 || (rs & 0xFF000000) == 0xFF000000) cycles = 4;
-        else cycles = 5;
-    }
+        cycles = 1 + MulCyclesS((s32)rs);
 
     cpu->AddCycles_CI(cycles);
 }
@@ -838,12 +828,7 @@ void A_UMULL(ARM* cpu)
     if (cpu->Num == 0)
         cycles = (cpu->CurInstr & (1<<20)) ? 3 : 1;
     else
-    {
-        if      ((rs & 0xFFFFFF00) == 0x00000000) cycles = 2;
-        else if ((rs & 0xFFFF0000) == 0x00000000) cycles = 3;
-        else if ((rs & 0xFF000000) == 0x00000000) cycles = 4;
-        else cycles = 5;
-    }
+        cycles = 1 + MulCyclesU(rs);
 
     cpu->AddCycles_CI(cycles);
 }
@@ -871,12 +856,7 @@ void A_UMLAL(ARM* cpu)
     if (cpu->Num == 0)
         cycles = (cpu->CurInstr & (1<<20)) ? 3 : 1;
     else
-    {
-        if      ((rs & 0xFFFFFF00) == 0x00000000) cycles = 2;
-        else if ((rs & 0xFFFF0000) == 0x00000000) cycles = 3;
-        else if ((rs & 0xFF000000) == 0x00000000) cycles = 4;
-        else cycles = 5;
-    }
+        cycles = 2 + MulCyclesU(rs);
 
     cpu->AddCycles_CI(cycles);
 }
@@ -901,12 +881,7 @@ void A_SMULL(ARM* cpu)
     if (cpu->Num == 0)
         cycles = (cpu->CurInstr & (1<<20)) ? 3 : 1;
     else
-    {
-        if      ((rs & 0xFFFFFF00) == 0x00000000 || (rs & 0xFFFFFF00) == 0xFFFFFF00) cycles = 2;
-        else if ((rs & 0xFFFF0000) == 0x00000000 || (rs & 0xFFFF0000) == 0xFFFF0000) cycles = 3;
-        else if ((rs & 0xFF000000) == 0x00000000 || (rs & 0xFF000000) == 0xFF000000) cycles = 4;
-        else cycles = 5;
-    }
+        cycles = 1 + MulCyclesS((s32)rs);
 
     cpu->AddCycles_CI(cycles);
 }
@@ -934,12 +909,7 @@ void A_SMLAL(ARM* cpu)
     if (cpu->Num == 0)
         cycles = (cpu->CurInstr & (1<<20)) ? 3 : 1;
     else
-    {
-        if      ((rs & 0xFFFFFF00) == 0x00000000 || (rs & 0xFFFFFF00) == 0xFFFFFF00) cycles = 2;
-        else if ((rs & 0xFFFF0000) == 0x00000000 || (rs & 0xFFFF0000) == 0xFFFF0000) cycles = 3;
-        else if ((rs & 0xFF000000) == 0x00000000 || (rs & 0xFF000000) == 0xFF000000) cycles = 4;
-        else cycles = 5;
-    }
+        cycles = 2 + MulCyclesS((s32)rs);
 
     cpu->AddCycles_CI(cycles);
 }
@@ -1468,10 +1438,7 @@ void T_MUL_REG(ARM* cpu)
     else
     {
         cpu->SetC(0); // carry flag destroyed, they say. whatever that means...
-        if      (a & 0xFF000000) cycles += 4;
-        else if (a & 0x00FF0000) cycles += 3;
-        else if (a & 0x0000FF00) cycles += 2;
-        else                     cycles += 1;
+        cycles = MulCyclesS((s32)a);
     }
     cpu->AddCycles_CI(cycles);
 }

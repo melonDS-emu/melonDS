@@ -272,7 +272,7 @@ void NDS::InitTimings()
     SetARM7RegionTimings(0x02000, 0x03000, Mem7_MainRAM, 16, 8, 1); // main RAM
     SetARM7RegionTimings(0x03000, 0x04000, Mem7_WRAM,    32, 1, 1); // ARM7/shared WRAM
     SetARM7RegionTimings(0x04000, 0x04800, Mem7_IO,      32, 1, 1); // IO
-    SetARM7RegionTimings(0x06000, 0x07000, Mem7_VRAM,    16, 1, 1); // ARM7 VRAM
+    SetARM7RegionTimings(0x06000, 0x07000, Mem7_VRAM_C,    16, 1, 1); // ARM7 VRAM
 
     // handled later: GBA slot, wifi
 }
@@ -2866,23 +2866,32 @@ bool NDS::ARM7GetMemRegion(u32 addr, bool write, MemRegion* region)
 
 void NDS::ARM7GetMemInfo(const u32 addr, MemInfo& info)
 {
+    // TODO: merge this with ARM7GetMemRegion()?
+    // TODO: return a pointer to the struct instead of copying all the info
     switch (addr & 0xFF000000)
     {
     case 0x00000000:
-        // TODO
+        if (addr < 0x4000)
+        {
+            if (addr >= ARM7BIOSProt || ARM7.R[15] < ARM7BIOSProt)
+            {
+                info = {Mem7_BIOS, 1, 1, 1, 1};
+                return;
+            }
+
+            // TODO: signal in some way that we need to return all FF?
+        }
         break;
 
     case 0x02000000:
-        info = {Mem7_MainRAM, 8, 1, 9, 1};
+        info = {Mem7_MainRAM, 8, 1, 9, 2};
         return;
 
     case 0x03000000:
-        // TODO need to distinguish shared WRAM from ARM7 WRAM
-        // also this is wrong
-        if (SWRAM_ARM7.Mem)
-            info = {Mem7_WRAM, 1, 1, 1, 1};
-        else
-            info = {Mem7_WRAM, 1, 1, 1, 1};
+        // all WRAM is considered as the same memory region
+        if (addr < 0x03800000 && !SWRAM_ARM7.Mem)
+            break;
+        info = {Mem7_WRAM, 1, 1, 1, 1};
         return;
 
     case 0x04000000:
@@ -2890,8 +2899,13 @@ void NDS::ARM7GetMemInfo(const u32 addr, MemInfo& info)
         return;
 
     case 0x06000000:
-        // TODO
-        break;
+        {
+            // each VRAM bank is considered a separate region
+            // TODO make nicer
+            u32 mask = GPU.VRAMMap_ARM7[(addr >> 17) & 0x1];
+            info = {mask<<4, 1, 1, 2, 2};
+        }
+        return;
 
     case 0x08000000:
     case 0x09000000:

@@ -103,7 +103,8 @@ void Compiler::Comp_JumpTo(u32 addr, bool forceNonConstantCycles)
         u32 codeRegion = addr >> 24;
         u32 codeCycles = addr >> 15; // cheato
 
-        cpu7->CodeRegion = codeRegion;
+        // TODO FIX ME
+        //cpu7->CodeRegion = codeRegion;
         cpu7->CodeCycles = codeCycles;
 
         if (Exit)
@@ -138,7 +139,7 @@ void Compiler::Comp_JumpTo(u32 addr, bool forceNonConstantCycles)
             CurCPU->R[15] = compileTimePC;
         }
 
-        cpu7->CodeRegion = R15 >> 24;
+        //cpu7->CodeRegion = R15 >> 24;
         cpu7->CodeCycles = addr >> 15;
     }
 

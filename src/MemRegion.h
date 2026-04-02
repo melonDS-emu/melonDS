@@ -45,7 +45,8 @@ enum
     Mem7_IO         = 0x00000008,
     Mem7_Wifi0      = 0x00000010,
     Mem7_Wifi1      = 0x00000020,
-    Mem7_VRAM       = 0x00000040,
+    Mem7_VRAM_C     = 0x00000040,
+    Mem7_VRAM_D     = 0x00000080,
     Mem7_GBAROM     = 0x00000100,
     Mem7_GBARAM     = 0x00000200,
 

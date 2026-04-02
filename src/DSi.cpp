@@ -1357,12 +1357,12 @@ void DSi::UpdateVRAMTimings()
     if (SCFG_EXT[0] & (1<<13))
     {
         SetARM9RegionTimings(0x06000, 0x07000, Mem9_VRAM, 32, 1, 1);
-        SetARM7RegionTimings(0x06000, 0x07000, Mem7_VRAM, 32, 1, 1);
+        SetARM7RegionTimings(0x06000, 0x07000, Mem7_VRAM_C, 32, 1, 1);
     }
     else
     {
         SetARM9RegionTimings(0x06000, 0x07000, Mem9_VRAM, 16, 1, 1);
-        SetARM7RegionTimings(0x06000, 0x07000, Mem7_VRAM, 16, 1, 1);
+        SetARM7RegionTimings(0x06000, 0x07000, Mem7_VRAM_C, 16, 1, 1);
     }
 }
 

@@ -33,9 +33,23 @@
 
 namespace melonDS
 {
+
 inline u32 ROR(u32 x, u32 n)
 {
     return (x >> (n&0x1F)) | (x << ((32-n)&0x1F));
+}
+
+inline s32 MulCyclesU(u32 val)
+{
+    s32 n = __builtin_clz(val);
+    return 4 - (n >> 3);
+}
+
+inline s32 MulCyclesS(s32 val)
+{
+    val ^= (val >> 31);
+    s32 n = __builtin_clz(val);
+    return 4 - (n >> 3);
 }
 
 enum
@@ -202,7 +216,7 @@ public:
     melonDS::NDS& NDS;
 
 protected:
-    virtual void Prefetch(bool branch) = 0;
+    //virtual void Prefetch(bool branch) = 0;
 
 #ifdef GDBSTUB_ENABLED
     bool IsSingleStep;

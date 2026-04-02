@@ -28,6 +28,7 @@ class ARMv4 : public ARM
 {
 public:
     ARMv4(melonDS::NDS& nds, std::optional<GDBArgs> gdb, bool jit);
+    void Reset() override;
 
     void FillPipeline() override;
 
@@ -53,7 +54,16 @@ public:
     void AddCycles_CD() override;
 
 protected:
-    void Prefetch(bool branch) override;
+    //void Prefetch(bool branch) override;
+
+private:
+    u32 CodeRegion;
+
+    // TODO change to just pointer?
+    //MemRegion CodeMem;
+    MemInfo CodeMem;
+    //u8 CodeMemTimings[2];
+    bool NextCodeFetchSeq;
 };
 
 }
