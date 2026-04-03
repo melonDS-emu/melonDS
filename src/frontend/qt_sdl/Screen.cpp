@@ -192,13 +192,10 @@ QSize ScreenPanel::screenGetMinSize(int factor = 1)
     int w = 256 * factor;
     int h = 192 * factor;
 
-    if (screenSizing == screenSizing_TopOnly
-        || screenSizing == screenSizing_BotOnly)
+    if (screenLayout_SingleScreen)
     {
         return QSize(w, h);
-    }
-
-    if (screenLayout == screenLayout_Default)
+    } else if (screenLayout == screenLayout_Default)
     {
         if (isHori)
             return QSize(h, w+gap+w);
@@ -211,13 +208,8 @@ QSize ScreenPanel::screenGetMinSize(int factor = 1)
             return QSize(h+gap+h, w);
         else
             return QSize(w+gap+w, h);
-    }
-    else // hybrid
-    {
-        if (isHori)
-            return QSize(h+gap+h, 3*w + (int)ceil((4*gap) / 3.0));
-        else
-            return QSize(3*w + (int)ceil((4*gap) / 3.0), h+gap+h);
+    } else { //Hybrid or Large Screen
+        return QSize(3*w, 2*h);
     }
 }
 

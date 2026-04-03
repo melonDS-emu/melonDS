@@ -523,7 +523,7 @@ MainWindow::MainWindow(int id, EmuInstance* inst, QWidget* parent) :
                 QMenu * submenu = menu->addMenu("Screen layout");
                 grpScreenLayout = new QActionGroup(submenu);
 
-                const char *screenlayout[] = {"Default", "Single Screen", "Large Screen", "Side by Side"};
+                const char *screenlayout[] = {"Default", "Single Screen", "Large Screen", "Side by Side", "Hybrid Screen"};
 
                 for (int i = 0; i < screenLayout_MAX; i++)
                 {
@@ -2082,7 +2082,6 @@ void MainWindow::onChangeScreenLayout(QAction* act)
 {
     int layout = act->data().toInt();
     windowCfg.SetInt("ScreenLayout", layout);
-
     emit screenLayoutChange();
 }
 
@@ -2113,12 +2112,6 @@ void MainWindow::onChangeScreenSwap(bool checked)
         sizing = screenSizing_TopOnly;
         actScreenSizing[screenSizing_BotOnly]->setChecked(false);
         actScreenSizing[sizing]->setChecked(true);
-    }
-    else if (sizing == screenSizing_EmphTop){
-        sizing = screenSizing_EmphBot;
-    }
-    else if (sizing == screenSizing_EmphBot){
-        sizing = screenSizing_EmphTop;
     }
     windowCfg.SetInt("ScreenSizing", sizing);
 

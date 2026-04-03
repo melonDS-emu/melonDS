@@ -25,6 +25,7 @@ enum ScreenLayoutType
     screenLayout_SingleScreen,
     screenLayout_LargeScreen,
     screenLayout_SideBySide,
+    screenLayout_HybridScreen,
     screenLayout_MAX,
 };
 
