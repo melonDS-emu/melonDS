@@ -19,7 +19,7 @@
 #include <string.h>
 #include <cmath>
 #include <algorithm>
-
+#include "Platform.h"
 #include "ScreenLayout.h"
 
 
@@ -394,8 +394,37 @@ void ScreenLayout::Setup(int screenWidth, int screenHeight,
                 refpoints[secOffset+1][0] *= secScale;
                 refpoints[secOffset+1][1] *= secScale;
 
-                //if (small)
 
+
+                int primHeight = refpoints[primOffset+1][1] - refpoints[primOffset+0][1];
+                int primWidth = refpoints[primOffset+1][0] - refpoints[primOffset+0][0];
+                int secHeight = refpoints[secOffset+1][1] - refpoints[secOffset+0][1];
+                int secWidth = refpoints[secOffset+1][0] - refpoints[secOffset+0][0];
+                float primDeltaX = 0;
+                float primDeltaY = 0;
+                float secDeltaX = 0;
+                float secDeltaY = 0;
+                if (smallScreenPosition == smallScreenPos_TopRight){
+                    secDeltaY = -((primHeight/2.f)-(secHeight/2.f));
+                    //melonDS::Platform::Log(melonDS::Platform::LogLevel::Debug, "primHeight: %i, primWidth: %i, secHeight: %i, secWidth: %i\n", primHeight, primWidth, secHeight, secWidth);
+                } else if (smallScreenPosition == smallScreenPos_BottomRight){
+                    secDeltaY = (primHeight/2.f)-(secHeight/2.f);
+                } else if (smallScreenPosition == smallScreenPos_TopLeft){
+                    primDeltaX = secWidth;
+                    secDeltaX = (-primWidth);
+                    secDeltaY = -((primHeight/2.f)-(secHeight/2.f));
+                } else if (smallScreenPosition == smallScreenPos_MiddleLeft){
+                    secDeltaX = (-primWidth);
+                    primDeltaX = secWidth;
+                } else if (smallScreenPosition == smallScreenPos_BottomLeft){
+                    primDeltaX = secWidth;
+                    secDeltaX = (-primWidth);
+                    secDeltaY = (primHeight/2.f)-(secHeight/2.f);
+                }
+                M23_Translate(primMtx, primDeltaX, primDeltaY);
+                M23_Translate(secMtx, secDeltaX, secDeltaY);
+                botTrans[2] += secDeltaX;
+                botTrans[3] += secDeltaY;
 
 
                 botScale = (!swapScreens) ? secScale : primScale;
