@@ -83,6 +83,7 @@ public:
                ScreenLayoutType screenLayout,
                ScreenRotation rotation,
                ScreenSizing sizing,
+               SmallScreenPosition smallScreenPosition,
                int screenGap,
                bool integerScale,
                bool swapScreens,

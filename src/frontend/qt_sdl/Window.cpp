@@ -769,6 +769,7 @@ MainWindow::MainWindow(int id, EmuInstance* inst, QWidget* parent) :
 
         actScreenLayout[windowCfg.GetInt("ScreenLayout")]->setChecked(true);
         actScreenSizing[windowCfg.GetInt("ScreenSizing")]->setChecked(true);
+        actSmallScreenPos[windowCfg.GetInt("SmallScreenPosition")]->setChecked(true);
         actIntegerScaling->setChecked(windowCfg.GetBool("IntegerScaling"));
 
         actScreenSwap->setChecked(windowCfg.GetBool("ScreenSwap"));
@@ -2087,10 +2088,10 @@ void MainWindow::onChangeScreenLayout(QAction* act)
 
 void MainWindow::onChangeSmallScreenPos(QAction* act)
 {
-    // int layout = act->data().toInt();
-    // windowCfg.SetInt("ScreenLayout", layout);
+    int smallScreenPos = act->data().toInt();
+    windowCfg.SetInt("SmallScreenPosition", smallScreenPos);
 
-    // emit screenLayoutChange();
+    emit screenLayoutChange();
 }
 
 void MainWindow::onChangeScreenSwap(bool checked)

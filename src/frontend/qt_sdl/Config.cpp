@@ -200,6 +200,7 @@ LegacyEntry LegacyFile[] =
     {"ScreenRotation", 0, "Window0.ScreenRotation", true},
     {"ScreenGap",      0, "Window0.ScreenGap", true},
     {"ScreenLayout",   0, "Window0.ScreenLayout", true},
+    {"SmallScreenPosition", 0, "Window0.SmallScreenPosition", true},
     {"ScreenSwap",     1, "Window0.ScreenSwap", true},
     {"ScreenSizing",   0, "Window0.ScreenSizing", true},
     {"IntegerScaling", 1, "Window0.IntegerScaling", true},

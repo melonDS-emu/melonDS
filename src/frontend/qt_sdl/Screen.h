@@ -85,6 +85,7 @@ protected:
     int screenRotation;
     int screenGap;
     int screenLayout;
+    int smallScreenPosition;
     bool screenSwap;
     int screenSizing;
     bool integerScaling;

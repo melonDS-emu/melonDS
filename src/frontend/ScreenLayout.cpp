@@ -124,6 +124,7 @@ void ScreenLayout::Setup(int screenWidth, int screenHeight,
     ScreenLayoutType screenLayout,
     ScreenRotation rotation,
     ScreenSizing sizing,
+    SmallScreenPosition smallScreenPosition,
     int screenGap,
     bool integerScale,
     bool swapScreens,
@@ -392,6 +393,10 @@ void ScreenLayout::Setup(int screenWidth, int screenHeight,
                 refpoints[secOffset+0][1] *= secScale;
                 refpoints[secOffset+1][0] *= secScale;
                 refpoints[secOffset+1][1] *= secScale;
+
+                //if (small)
+
+
 
                 botScale = (!swapScreens) ? secScale : primScale;
             }
