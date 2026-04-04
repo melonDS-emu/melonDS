@@ -64,6 +64,15 @@ private:
     MemInfo CodeMem;
     //u8 CodeMemTimings[2];
     bool NextCodeFetchSeq;
+
+    // mainRAM burst tracking
+    u32 MainRAMStartAddr;
+    u64 MainRAMTerminate;
+
+    void BeginMainRAMBurst(int begin, int term);
+    void TerminateMainRAMBurst();
+
+    void DoDataAccessTimings(const u32 addr, bool write, int width);
 };
 
 }

@@ -50,6 +50,11 @@ enum
     Mem7_GBAROM     = 0x00000100,
     Mem7_GBARAM     = 0x00000200,
 
+    // generic region masks for certain types of memory
+
+    Mem7_VRAM = (Mem7_VRAM_C | Mem7_VRAM_D),
+    Mem7_InternalRAM = (Mem7_BIOS | Mem7_WRAM | Mem7_IO | Mem7_VRAM),
+
     // TODO: add DSi regions!
 };
 
