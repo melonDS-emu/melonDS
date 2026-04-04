@@ -423,10 +423,15 @@ void ScreenLayout::Setup(int screenWidth, int screenHeight,
                 }
                 M23_Translate(primMtx, primDeltaX, primDeltaY);
                 M23_Translate(secMtx, secDeltaX, secDeltaY);
-                botTrans[2] += secDeltaX;
-                botTrans[3] += secDeltaY;
 
-
+                //Translate bottomTouch Matrices
+                if (!swapScreens){
+                    botTrans[2] += secDeltaX;
+                    botTrans[3] += secDeltaY;
+                }  else {
+                    botTrans[2] += primDeltaX;
+                    botTrans[3] += primDeltaY;
+                }        
                 botScale = (!swapScreens) ? secScale : primScale;
             }
         }
