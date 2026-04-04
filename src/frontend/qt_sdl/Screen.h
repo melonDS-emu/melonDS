@@ -57,7 +57,8 @@ class ScreenPanel : public QWidget
 public:
     explicit ScreenPanel(QWidget* parent);
     virtual ~ScreenPanel();
-
+    int cursorPos[2] = {127, 95};
+    bool cursorEnable = true;
     void setFilter(bool filter);
 
     void setMouseHide(bool enable, int delay);
@@ -222,7 +223,7 @@ private:
     GLuint screenVertexBuffer, screenVertexArray;
     GLuint screenTexture;
     GLuint screenShaderProgram;
-    GLint screenShaderTransformULoc, screenShaderScreenSizeULoc;
+    GLint screenShaderTransformULoc, screenShaderScreenSizeULoc, screenShaderCursorLoc, screenShaderCursorEnableLoc;
 
     QMutex screenSettingsLock;
     WindowInfo windowInfo;

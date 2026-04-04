@@ -815,11 +815,24 @@ void ScreenPanelNative::paintEvent(QPaintEvent* event)
             memcpy(screen[1].scanLine(0), bottomBuffer, 256 * 192 * 4);
         }
         bufferLock.unlock();
-
         QRect screenrc(0, 0, 256, 192);
+
+        //Crosshair Painter
+        QPainter cPainter(&screen[1]);
+        cPainter.setPen(Qt::black);
+        cPainter.setBrush(Qt::black);
+        cPainter.drawRect(cursorPos[0]-4, cursorPos[1]-1, 8, 2);
+        cPainter.drawRect(cursorPos[0]-1, cursorPos[1]-4, 2, 8);
+        cPainter.setPen(Qt::white);
+        cPainter.drawLine(cursorPos[0]-3, cursorPos[1], cursorPos[0]+3, cursorPos[1]);
+        cPainter.drawLine(cursorPos[0], cursorPos[1]-3, cursorPos[0], cursorPos[1]+3);
+        cPainter.end();
 
         for (int i = 0; i < numScreens; i++)
         {
+            if (filter){
+                painter.setRenderHint(QPainter::SmoothPixmapTransform);
+            }
             painter.setTransform(screenTrans[i]);
             painter.drawImage(screenrc, screen[screenKind[i]]);
         }
@@ -932,7 +945,8 @@ void ScreenPanelGL::initOpenGL()
     glUseProgram(screenShaderProgram);
     glUniform1i(glGetUniformLocation(screenShaderProgram, "TopScreenTex"), 0);
     glUniform1i(glGetUniformLocation(screenShaderProgram, "BottomScreenTex"), 1);
-
+    screenShaderCursorLoc = glGetUniformLocation(screenShaderProgram, "cursorPos");
+    screenShaderCursorEnableLoc = glGetUniformLocation(screenShaderProgram, "cursorEnable");
     screenShaderScreenSizeULoc = glGetUniformLocation(screenShaderProgram, "uScreenSize");
     screenShaderTransformULoc = glGetUniformLocation(screenShaderProgram, "uTransform");
 
@@ -1164,6 +1178,13 @@ void ScreenPanelGL::drawScreen()
 
         for (int i = 0; i < numScreens; i++)
         {
+
+            if (i == 1 && cursorEnable){
+                glUniform1i(screenShaderCursorEnableLoc, 1);
+                glUniform2f(screenShaderCursorLoc, cursorPos[0]/256.f, cursorPos[1]/192.f);
+            } else {
+                glUniform1f(screenShaderCursorEnableLoc, 0);
+            }
             glUniformMatrix2x3fv(screenShaderTransformULoc, 1, GL_TRUE, screenMatrix[i]);
             glDrawArrays(GL_TRIANGLES, screenKind[i] == 0 ? 0 : 2 * 3, 2 * 3);
         }

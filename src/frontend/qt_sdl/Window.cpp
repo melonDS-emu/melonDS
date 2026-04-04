@@ -894,7 +894,7 @@ void MainWindow::createScreenPanel()
     setCentralWidget(panel);
 
     if (hasMenu)
-        actScreenFiltering->setEnabled(hasOGL);
+        actScreenFiltering->setEnabled(true);
     panel->osdSetEnabled(showOSD);
 
     connect(emuThread, SIGNAL(windowUpdate()), panel, SLOT(repaint()));

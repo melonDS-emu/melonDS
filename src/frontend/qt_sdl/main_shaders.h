@@ -28,7 +28,7 @@ in vec2 vPosition;
 in vec3 vTexcoord;
 
 smooth out vec3 fTexcoord;
-
+out vec2 pixelUnit;
 void main()
 {
     vec4 fpos;
@@ -42,21 +42,58 @@ void main()
 
     gl_Position = fpos;
     fTexcoord = vTexcoord;
+    pixelUnit.x = 1/256.0;
+    pixelUnit.y = 1/192.0;
 }
 )";
 
 const char* kScreenFS = R"(#version 140
 
 uniform sampler2DArray ScreenTex;
-
+uniform vec2 cursorPos;
+uniform bool cursorEnable;
 smooth in vec3 fTexcoord;
-
+in vec2 pixelUnit;
 out vec4 oColor;
 
 void main()
 {
-    vec4 pixel = texture(ScreenTex, fTexcoord);
 
+    vec4 pixel = texture(ScreenTex, fTexcoord);
+    if (cursorEnable){
+        //Black Outline
+        if (fTexcoord.x <= (cursorPos.x + (1.5*pixelUnit.x)) && 
+            fTexcoord.x >= (cursorPos.x - (1.5*pixelUnit.x))) {
+            if (fTexcoord.y <= (cursorPos.y + (4.5*pixelUnit.y)) && 
+                fTexcoord.y >= (cursorPos.y - (4.5*pixelUnit.y))) {
+                pixel = vec4(0.0, 0.0, 0.0, 1.0);
+            }
+        }
+
+        if (fTexcoord.y <= (cursorPos.y + (1.5*pixelUnit.y)) && 
+            fTexcoord.y >= (cursorPos.y - (1.5*pixelUnit.y))) {
+            if (fTexcoord.x <= (cursorPos.x + (4.5*pixelUnit.x)) && 
+                fTexcoord.x >= (cursorPos.x - (4.5*pixelUnit.x))) {
+                pixel = vec4(0.0, 0.0, 0.0, 1.0);
+            }
+        }
+        //White Cross
+        if (fTexcoord.x <= (cursorPos.x + (0.5*pixelUnit.x)) && 
+            fTexcoord.x >= (cursorPos.x - (0.5*pixelUnit.x))) {
+            if (fTexcoord.y <= (cursorPos.y + (3.5*pixelUnit.y)) && 
+                fTexcoord.y >= (cursorPos.y - (3.5*pixelUnit.y))) {
+                pixel = vec4(1.0, 1.0, 1.0, 1.0);
+            }
+        }
+
+        if (fTexcoord.y <= (cursorPos.y + (0.5*pixelUnit.y)) && 
+            fTexcoord.y >= (cursorPos.y - (0.5*pixelUnit.y))) {
+            if (fTexcoord.x <= (cursorPos.x + (3.5*pixelUnit.x)) && 
+                fTexcoord.x >= (cursorPos.x - (3.5*pixelUnit.x))) {
+                pixel = vec4(1.0, 1.0, 1.0, 1.0);
+            }
+        }
+    }
     oColor = vec4(pixel.rgb, 1.0);
 }
 )";
