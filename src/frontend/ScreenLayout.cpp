@@ -148,7 +148,7 @@ void ScreenLayout::Setup(int screenWidth, int screenHeight,
         {0, 0}, {256, 192}
     };
 
-    bool inVerticalLayout = screenLayout == screenLayout_Default;
+    bool inVerticalLayout = (screenLayout == screenLayout_Default)||(screenLayout == screenLayout_LargeScreen && (smallScreenPosition == smallScreenPos_Above || smallScreenPosition == smallScreenPos_Below));
     float botScale = 1;
     float hybScale = 1;
     float botTrans[4] = {0};
@@ -420,6 +420,9 @@ void ScreenLayout::Setup(int screenWidth, int screenHeight,
                     primDeltaX = secWidth;
                     secDeltaX = (-primWidth);
                     secDeltaY = (primHeight/2.f)-(secHeight/2.f);
+                } else if (smallScreenPosition == smallScreenPos_Above){
+                    primDeltaY = secHeight;
+                    secDeltaY = (-primHeight);
                 }
                 M23_Translate(primMtx, primDeltaX, primDeltaY);
                 M23_Translate(secMtx, secDeltaX, secDeltaY);
