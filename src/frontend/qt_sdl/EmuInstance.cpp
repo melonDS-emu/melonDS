@@ -21,6 +21,7 @@
 #include <string.h>
 
 #include <codecvt>
+#include <filesystem>
 #include <locale>
 #include <memory>
 #include <tuple>
@@ -807,6 +808,87 @@ bool EmuInstance::saveState(const std::string& filename)
 
     Platform::CloseFile(file);
 
+    return true;
+}
+
+int EmuInstance::findOldestSavestateSlot()
+{
+    for (int i = 1; i <= 8; i++)
+    {
+        if (!savestateExists(i))
+            return i;
+    }
+
+    int result = 1;
+    auto oldestTime = std::filesystem::file_time_type::max();
+
+    for (int i = 1; i <= 8; i++)
+    {
+        std::error_code mtimeError;
+        auto mtime = std::filesystem::last_write_time(getSavestateName(i), mtimeError);
+        if (!mtimeError && mtime < oldestTime)
+        {
+            oldestTime = mtime;
+            result = i;
+        }
+    }
+
+    return result;
+}
+
+int EmuInstance::findNewestSavestateSlot()
+{
+    int result = -1;
+    auto newestTime = std::filesystem::file_time_type::min();
+
+    for (int i = 1; i <= 8; i++)
+    {
+        std::error_code mtimeError;
+        auto mtime = std::filesystem::last_write_time(getSavestateName(i), mtimeError);
+        if (!mtimeError && mtime > newestTime)
+        {
+            newestTime = mtime;
+            result = i;
+        }
+    }
+
+    return result;
+}
+
+bool EmuInstance::quickSaveState()
+{
+    if (!nds)
+        return false;
+
+    int slot = findOldestSavestateSlot();
+    std::string filename = getSavestateName(slot);
+    if (!saveState(filename))
+        return false;
+
+    osdAddMessage(0, "State saved to slot %d", slot);
+    return true;
+}
+
+bool EmuInstance::quickLoadState()
+{
+    if (!nds)
+        return false;
+
+    int slot = findNewestSavestateSlot();
+    if (slot < 0)
+    {
+        osdAddMessage(0xFFA0A0, "No quick save states found");
+        return false;
+    }
+
+    std::string filename = getSavestateName(slot);
+    if (!loadState(filename))
+    {
+        osdAddMessage(0xFFA0A0, "Quick state load failed");
+        return false;
+    }
+
+    osdAddMessage(0, "State loaded from slot %d", slot);
     return true;
 }
 

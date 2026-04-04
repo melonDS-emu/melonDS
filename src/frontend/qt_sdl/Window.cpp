@@ -2286,6 +2286,14 @@ void MainWindow::onEmuPause(bool pause)
     actPause->setChecked(pause);
 }
 
+void MainWindow::onSavestateChange()
+{
+    if (!hasMenu) return;
+
+    for (int i = 1; i < 9; i++)
+        actLoadState[i]->setEnabled(emuInstance->savestateExists(i));
+}
+
 void MainWindow::onEmuReset()
 {
     if (!hasMenu) return;

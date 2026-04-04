@@ -178,6 +178,7 @@ private slots:
     void onEmuStop();
     void onEmuPause(bool pause);
     void onEmuReset();
+    void onSavestateChange();
 
     void onUpdateVideoSettings(bool glchange);
 
