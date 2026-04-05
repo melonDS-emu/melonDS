@@ -142,7 +142,7 @@ public:
                          melonDS::u32 (&animatedIconRef)[64][32*32],
                          std::vector<int> &animatedSequenceRef);
 
-    static const char* buttonNames[12];
+    static const char* buttonNames[18];
     static const char* hotkeyNames[HK_MAX];
 
     void inputInit();
