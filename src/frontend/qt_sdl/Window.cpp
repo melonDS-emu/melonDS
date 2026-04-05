@@ -80,7 +80,7 @@
 #include "CameraManager.h"
 #include "Window.h"
 #include "AboutDialog.h"
-
+#include "Cursor.h"
 using namespace melonDS;
 
 
@@ -255,9 +255,9 @@ MainWindow::MainWindow(int id, EmuInstance* inst, QWidget* parent) :
         sigaction(SIGINT, &sa, 0);
     }
 #endif
-
-    showOSD = windowCfg.GetBool("ShowOSD");
-
+    vCursor = new Cursor();
+    vCursor->setEmuInstance(emuInstance);
+    showOSD = windowCfg.GetBool("ShowOSD"); 
     setWindowTitle("melonDS " MELONDS_VERSION);
     setAttribute(Qt::WA_DeleteOnClose);
     setAcceptDrops(true);
@@ -957,6 +957,8 @@ void MainWindow::releaseGL()
 void MainWindow::drawScreen()
 {
     if (!panel) return;
+    vCursor->update();
+    panel->vCursor = vCursor;
     return panel->drawScreen();
 }
 

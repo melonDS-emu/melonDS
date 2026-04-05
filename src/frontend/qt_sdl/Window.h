@@ -37,9 +37,9 @@
 #include "Config.h"
 #include "MPInterface.h"
 
-
 class EmuInstance;
 class EmuThread;
+class Cursor;
 
 const int kMaxRecentROMs = 10;
 
@@ -216,7 +216,7 @@ private:
 
     EmuInstance* emuInstance;
     EmuThread* emuThread;
-
+    Cursor* vCursor;
     Config::Table& globalCfg;
     Config::Table& localCfg;
     Config::Table windowCfg;

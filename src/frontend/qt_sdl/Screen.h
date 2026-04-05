@@ -37,7 +37,7 @@
 
 class MainWindow;
 class EmuInstance;
-
+class Cursor;
 
 const struct { int id; float ratio; const char* label; } aspectRatios[] =
 {
@@ -57,10 +57,9 @@ class ScreenPanel : public QWidget
 public:
     explicit ScreenPanel(QWidget* parent);
     virtual ~ScreenPanel();
-    int cursorPos[2] = {127, 95};
     bool cursorEnable = true;
     void setFilter(bool filter);
-
+    Cursor* vCursor;
     void setMouseHide(bool enable, int delay);
 
     QTimer* setupMouseTimer();
