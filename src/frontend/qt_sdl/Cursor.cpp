@@ -28,7 +28,7 @@ void Cursor::update(){
     normStylusDirection[1] = std::min(normStylusDirection[1], 1.0f);
 
     float speed = 192.0f/33;
-    melonDS::Platform::Log(melonDS::Platform::LogLevel::Debug, "Stylus: Up: %d, Down: %d, Left: %d, Right: %d\n", emuInstance->stylusInput[0], emuInstance->stylusInput[1], emuInstance->stylusInput[2], emuInstance->stylusInput[3]);
+    // melonDS::Platform::Log(melonDS::Platform::LogLevel::Debug, "Stylus: Up: %d, Down: %d, Left: %d, Right: %d\n", emuInstance->stylusInput[0], emuInstance->stylusInput[1], emuInstance->stylusInput[2], emuInstance->stylusInput[3]);
 
     rawCursorPos[0] += normStylusDirection[0]*speed;
     rawCursorPos[1] += normStylusDirection[1]*speed;

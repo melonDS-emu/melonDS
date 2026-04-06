@@ -383,7 +383,6 @@ void EmuInstance::keyReleaseAll()
 
 bool EmuInstance::joystickButtonDown(int val)
 {
-    //Stylus Values are stored in a separate variable
     if (val == -1) return false;
 
     bool hasbtn = ((val & 0xFFFF) != 0xFFFF);
@@ -402,32 +401,15 @@ bool EmuInstance::joystickButtonDown(int val)
             else if (hatdir == 0x2) pressed = (hatval & SDL_HAT_RIGHT);
             else if (hatdir == 0x8) pressed = (hatval & SDL_HAT_LEFT);
 
-            
-                if (val > 11 && val < 16){ //Stylus Direction
-                    if (pressed){
-                        stylusInput[val-12] = 32767;
-                    } else {
-                        stylusInput[val-12] = 0;
-                    }
-                } else if (val == 16 || val == 17) { //Stylus Mod or Touch
-                    if (pressed){
-                        stylusInput[val-12] = 1;
-                    } else {
-                        stylusInput[val-12] = 0;
-                    }
-                } else {
-                    if (pressed){
-                        return true;
-                    }
-                }
-        } 
-    }
-    else
-    {
-        int btnnum = val & 0xFFFF;
-        Uint8 btnval = SDL_JoystickGetButton(joystick, btnnum);
+            if (pressed) return true;
+        }
+        else
+        {
+            int btnnum = val & 0xFFFF;
+            Uint8 btnval = SDL_JoystickGetButton(joystick, btnnum);
 
-        if (btnval) return true;
+            if (btnval) return true;
+        }
     }
 
     if (val & 0x10000)
@@ -439,56 +421,15 @@ bool EmuInstance::joystickButtonDown(int val)
         switch (axisdir)
         {
             case 0: // positive
-                if (val > 11 && val < 16){ //Stylus Direction
-                    stylusInput[val-12] = std::abs(axisval);
-                } else if (val == 16 || val == 17) { //Stylus Mod or Touch
-                    if (axisval > 16384){
-                        stylusInput[val-12] = 1;
-                    } else {
-                        stylusInput[val-12] = 0;
-                    }
-                } else {
-                    if (axisval > 16384){
-                        return true;
-                    }
-                }
+                if (axisval > 16384) return true;
                 break;
 
             case 1: // negative
-                if (val > 11 && val < 16){ //Stylus Direction
-                    stylusInput[val-12] = std::abs(axisval);
-                } else if (val == 16 || val == 17) { //Stylus Mod or Touch
-                    if (axisval < -16384){
-                        stylusInput[val-12] = 1;
-                    } else {
-                        stylusInput[val-12] = 0;
-                    }
-                } else {
-                    if (axisval < -16384){
-                        return true;
-                    }
-                }
+                if (axisval < -16384) return true;
                 break;
 
             case 2: // trigger
-                // Uses 10% Deadzone (3277)
-                if (val > 11 && val < 16){ //Stylus Direction
-                    if (axisval > 3277){
-                        stylusInput[val-12] = 32767;
-                    } else {
-                        stylusInput[val-12] = 0;
-                    }
-                } else if (val == 16 || val == 17) { //Stylus Mod or Touch
-                    if (axisval > 3277){
-                        stylusInput[val-12] = 1;
-                    } else {
-                        stylusInput[val-12] = 0;
-                    }
-                } else {
-                    if (axisval > 3277){
-                        return true;
-                    }
-                }
+                if (axisval > 0) return true;
                 break;
         }
     }
