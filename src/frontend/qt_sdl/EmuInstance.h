@@ -351,8 +351,8 @@ private:
     std::string micDeviceName;
     std::string micWavPath;
 
-    int keyMapping[12];
-    int joyMapping[12];
+    int keyMapping[18];
+    int joyMapping[18];
     int hkKeyMapping[HK_MAX];
     int hkJoyMapping[HK_MAX];
 

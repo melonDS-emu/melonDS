@@ -125,7 +125,7 @@ void EmuInstance::inputLoadConfig()
     Config::Table keycfg = localCfg.GetTable("Keyboard");
     Config::Table joycfg = localCfg.GetTable("Joystick");
 
-    for (int i = 0; i < 12; i++)
+    for (int i = 0; i < 18; i++)
     {
         keyMapping[i] = keycfg.GetInt(buttonNames[i]);
         joyMapping[i] = joycfg.GetInt(buttonNames[i]);
@@ -332,7 +332,7 @@ void EmuInstance::onKeyPress(QKeyEvent* event)
     if (event->modifiers() != Qt::KeypadModifier)
         keyKP &= ~event->modifiers();
 
-    for (int i = 0; i < 12; i++)
+    for (int i = 0; i < 18; i++)
         if (keyKP == keyMapping[i])
             keyInputMask &= ~(1<<i);
 
@@ -348,7 +348,7 @@ void EmuInstance::onKeyRelease(QKeyEvent* event)
     if (event->modifiers() != Qt::KeypadModifier)
         keyKP &= ~event->modifiers();
 
-    for (int i = 0; i < 12; i++)
+    for (int i = 0; i < 18; i++)
         if (keyKP == keyMapping[i])
             keyInputMask |= (1<<i);
 
