@@ -354,7 +354,7 @@ MainWindow::MainWindow(int id, EmuInstance* inst, QWidget* parent) :
             {
                 QMenu * submenu = menu->addMenu("Save state");
 
-                for (int i = 1; i < 9; i++)
+                for (int i = 1; i <= kMaxSavestateSlots; i++)
                 {
                     actSaveState[i] = submenu->addAction(QString("%1").arg(i));
                     actSaveState[i]->setShortcut(QKeySequence(Qt::ShiftModifier | (Qt::Key_F1 + i - 1)));
@@ -370,7 +370,7 @@ MainWindow::MainWindow(int id, EmuInstance* inst, QWidget* parent) :
             {
                 QMenu * submenu = menu->addMenu("Load state");
 
-                for (int i = 1; i < 9; i++)
+                for (int i = 1; i <= kMaxSavestateSlots; i++)
                 {
                     actLoadState[i] = submenu->addAction(QString("%1").arg(i));
                     actLoadState[i]->setShortcut(QKeySequence(Qt::Key_F1 + i - 1));
@@ -713,7 +713,7 @@ MainWindow::MainWindow(int id, EmuInstance* inst, QWidget* parent) :
                 act->setEnabled(false);
         }
 
-        for (int i = 0; i < 9; i++)
+        for (int i = 0; i <= kMaxSavestateSlots; i++)
         {
             actSaveState[i]->setEnabled(false);
             actLoadState[i]->setEnabled(false);
@@ -2235,7 +2235,7 @@ void MainWindow::onScreenEmphasisToggled()
 
 void MainWindow::updateSavestateMenuTimestamps()
 {
-    for (int i = 1; i < 9; i++)
+    for (int i = 1; i <= kMaxSavestateSlots; i++)
     {
         std::string statePath = emuInstance->getSavestateName(i);
         std::error_code timeError;
@@ -2262,7 +2262,7 @@ void MainWindow::onEmuStart()
 {
     if (!hasMenu) return;
 
-    for (int i = 1; i < 9; i++)
+    for (int i = 1; i <= kMaxSavestateSlots; i++)
     {
         actSaveState[i]->setEnabled(true);
         actLoadState[i]->setEnabled(emuInstance->savestateExists(i));
@@ -2290,7 +2290,7 @@ void MainWindow::onEmuStop()
 {
     if (!hasMenu) return;
 
-    for (int i = 0; i < 9; i++)
+    for (int i = 0; i <= kMaxSavestateSlots; i++)
     {
         actSaveState[i]->setEnabled(false);
         actLoadState[i]->setEnabled(false);
@@ -2319,7 +2319,7 @@ void MainWindow::onSavestateChange()
 {
     if (!hasMenu) return;
 
-    for (int i = 1; i < 9; i++)
+    for (int i = 1; i <= kMaxSavestateSlots; i++)
         actLoadState[i]->setEnabled(emuInstance->savestateExists(i));
 
     updateSavestateMenuTimestamps();

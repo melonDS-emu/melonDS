@@ -30,6 +30,7 @@
 #include "SaveManager.h"
 
 const int kMaxWindows = 4;
+const int kMaxSavestateSlots = 8;
 
 enum
 {

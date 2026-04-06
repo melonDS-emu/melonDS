@@ -813,7 +813,7 @@ bool EmuInstance::saveState(const std::string& filename)
 
 int EmuInstance::findOldestSavestateSlot()
 {
-    for (int i = 1; i <= 8; i++)
+    for (int i = 1; i <= kMaxSavestateSlots; i++)
     {
         if (!savestateExists(i))
             return i;
@@ -822,7 +822,7 @@ int EmuInstance::findOldestSavestateSlot()
     int result = 1;
     auto oldestTime = std::filesystem::file_time_type::max();
 
-    for (int i = 1; i <= 8; i++)
+    for (int i = 1; i <= kMaxSavestateSlots; i++)
     {
         std::error_code mtimeError;
         auto mtime = std::filesystem::last_write_time(getSavestateName(i), mtimeError);
@@ -841,7 +841,7 @@ int EmuInstance::findNewestSavestateSlot()
     int result = -1;
     auto newestTime = std::filesystem::file_time_type::min();
 
-    for (int i = 1; i <= 8; i++)
+    for (int i = 1; i <= kMaxSavestateSlots; i++)
     {
         std::error_code mtimeError;
         auto mtime = std::filesystem::last_write_time(getSavestateName(i), mtimeError);
