@@ -248,7 +248,7 @@ private:
 
     void openJoystick();
     void closeJoystick();
-    bool joystickButtonDown(int val);
+    bool joystickButtonDown(int val, int index);
 
     void inputProcess();
 

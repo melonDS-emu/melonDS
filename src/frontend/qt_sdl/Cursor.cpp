@@ -29,6 +29,7 @@ void Cursor::update(){
 
     float speed = 192.0f/33;
     // melonDS::Platform::Log(melonDS::Platform::LogLevel::Debug, "Stylus: Up: %d, Down: %d, Left: %d, Right: %d\n", emuInstance->stylusInput[0], emuInstance->stylusInput[1], emuInstance->stylusInput[2], emuInstance->stylusInput[3]);
+    melonDS::Platform::Log(melonDS::Platform::LogLevel::Debug, "Normalized Stylus: X: %f, Y: %f\n", normStylusDirection[0], normStylusDirection[1]);
 
     rawCursorPos[0] += normStylusDirection[0]*speed;
     rawCursorPos[1] += normStylusDirection[1]*speed;
@@ -82,8 +83,8 @@ void Cursor::update(){
 }
 
 void Cursor::clamp(){
-  rawCursorPos[0] = std::clamp(rawCursorPos[0], 0.0f, 256.0f);
-  rawCursorPos[1] = std::clamp(rawCursorPos[1], 0.0f, 192.0f);
+  rawCursorPos[0] = std::clamp(rawCursorPos[0], 0.0f, 255.0f);
+  rawCursorPos[1] = std::clamp(rawCursorPos[1], 0.0f, 191.0f);
 }
 
 void Cursor::touchScreen(){

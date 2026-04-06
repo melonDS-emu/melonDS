@@ -381,8 +381,9 @@ void EmuInstance::keyReleaseAll()
     keyHotkeyMask = 0;
 }
 
-bool EmuInstance::joystickButtonDown(int val)
+bool EmuInstance::joystickButtonDown(int val, int index)
 {
+    //Stylus Values are stored in a separate variable
     if (val == -1) return false;
 
     bool hasbtn = ((val & 0xFFFF) != 0xFFFF);
@@ -401,7 +402,23 @@ bool EmuInstance::joystickButtonDown(int val)
             else if (hatdir == 0x2) pressed = (hatval & SDL_HAT_RIGHT);
             else if (hatdir == 0x8) pressed = (hatval & SDL_HAT_LEFT);
 
-            if (pressed) return true;
+            if (index > 11 && index < 16){ //Stylus Direction
+                if (pressed){
+                    stylusInput[index-12] = 32767;
+                } else {
+                    stylusInput[index-12] = 0;
+                }
+            } else if (index == 16 || index == 17) { //Stylus Mod or Touch
+                if (pressed){
+                    stylusInput[index-12] = 1;
+                } else {
+                    stylusInput[index-12] = 0;
+                }
+            } else {
+                if (pressed){
+                    return true;
+                }
+            } 
         }
         else
         {
@@ -417,20 +434,67 @@ bool EmuInstance::joystickButtonDown(int val)
         int axisnum = (val >> 24) & 0xF;
         int axisdir = (val >> 20) & 0xF;
         Sint16 axisval = SDL_JoystickGetAxis(joystick, axisnum);
-
-        switch (axisdir)
-        {
-            case 0: // positive
-                if (axisval > 16384) return true;
-                break;
-
-            case 1: // negative
-                if (axisval < -16384) return true;
-                break;
-
-            case 2: // trigger
-                if (axisval > 0) return true;
-                break;
+        if (axisdir == 2){ // trigger
+                // Uses 10% Deadzone (3277)
+                if (index > 11 && index < 16){ //Stylus Direction
+                    if (axisval > 3277){
+                        stylusInput[index-12] = 32767;
+                    } else {
+                        stylusInput[index-12] = 0;
+                    }
+                } else if (index == 16 || index == 17) { //Stylus Mod or Touch
+                    if (axisval > 3277){
+                        stylusInput[index-12] = 1;
+                    } else {
+                        stylusInput[index-12] = 0;
+                    }
+                } else {
+                    if (axisval > 3277){
+                        return true;
+                    }
+                }
+        } else {
+            //Note: Both the negative and positive axis return the same value (signed integer representing x/y coordinate)
+            //      Use axisdir to see if the value matches the sign attached to the current input
+            if (index > 11 && index < 16){ //Stylus Up, Down, Left or Right
+                if (axisdir == 0){ //Positive Axis Direction
+                    if (axisval > 0){ //Value is in same direction
+                        stylusInput[index-12] = std::abs(axisval);
+                    } else {
+                        stylusInput[index-12] = 0;
+                    }
+                } else { //Negative Axis Direction
+                    if (axisval < 0){ //Value is in same direction
+                        stylusInput[index-12] = std::abs(axisval);
+                    } else {
+                        stylusInput[index-12] = 0;
+                    }
+                }
+            } else if (index == 16 || index == 17) { //Stylus Mod or Touch
+                if (axisdir == 0){ //Positive Axis Direction
+                    if (axisval > 16384){ //Matching Value
+                        stylusInput[index-12] = 1;
+                    } else {
+                        stylusInput[index-12] = 0;
+                    }
+                } else { //Negative Axis Direction
+                    if (axisval < -16384){ //Matching Value
+                        stylusInput[index-12] = 1;
+                    } else {
+                        stylusInput[index-12] = 0;
+                    }
+                }
+            } else {
+                if (axisdir == 0){ //Positive Axis Direction
+                    if (axisval > 16384){ //Matching Value
+                        return true;
+                    } 
+                } else { //Negative Axis Direction
+                    if (axisval < -16384){ //Matching Value
+                        return true;
+                    }
+                }
+            }
         }
     }
 
@@ -459,8 +523,12 @@ void EmuInstance::inputProcess()
     if (joystick)
     {
         for (int i = 0; i < 18; i++)
-            if (joystickButtonDown(joyMapping[i]))
-                joyInputMask &= ~(1 << i);
+            if (joystickButtonDown(joyMapping[i], i)){
+                if (i < 12){
+                    joyInputMask &= ~(1 << i);
+                }
+            }
+                
     }
 
     inputMask = keyInputMask & joyInputMask;
@@ -469,7 +537,7 @@ void EmuInstance::inputProcess()
     if (joystick)
     {
         for (int i = 0; i < HK_MAX; i++)
-            if (joystickButtonDown(hkJoyMapping[i]))
+            if (joystickButtonDown(hkJoyMapping[i], i))
                 joyHotkeyMask |= (1 << i);
     }
 
