@@ -757,6 +757,8 @@ void T_POP(ARM* cpu)
     u32 base = cpu->R[13];
     bool first = true;
 
+    cpu->AddCycles_CI(1);
+
     for (int i = 0; i < 8; i++)
     {
         if (cpu->CurInstr & (1<<i))
@@ -779,7 +781,7 @@ void T_POP(ARM* cpu)
     }
 
     cpu->R[13] = base;
-    cpu->AddCycles_CDI();
+    //cpu->AddCycles_CDI();
 }
 
 void T_STMIA(ARM* cpu)
@@ -808,6 +810,8 @@ void T_LDMIA(ARM* cpu)
     u32 base = cpu->R[(cpu->CurInstr >> 8) & 0x7];
     bool first = true;
 
+    cpu->AddCycles_CI(1);
+
     for (int i = 0; i < 8; i++)
     {
         if (cpu->CurInstr & (1<<i))
@@ -822,7 +826,7 @@ void T_LDMIA(ARM* cpu)
     if (!(cpu->CurInstr & (1<<((cpu->CurInstr >> 8) & 0x7))))
         cpu->R[(cpu->CurInstr >> 8) & 0x7] = base;
 
-    cpu->AddCycles_CDI();
+    //cpu->AddCycles_CDI();
 }
 
 
