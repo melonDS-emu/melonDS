@@ -39,7 +39,7 @@ void Cursor::update(){
     float responsecurve = 200.0f / 100.0f; //Attach to Gui
     float speedupratio = 200.0f / 100.0f; //Attach to Gui
     float joystickScaled[2] = {0.0f};
-    
+
     float radialLength = std::sqrt((normStylusDirection[0] * normStylusDirection[0]) + (normStylusDirection[1] * normStylusDirection[1]));
     if (radialLength > deadzone) {
         // Get X and Y as a relation to the radial length
@@ -68,7 +68,7 @@ void Cursor::update(){
     
     // If touchButton pressed, and wasnt touching, send signal
     // if (wasTouching) and touchButton not pressed, send release
-    if (!wasTouching && emuInstance->stylusInput[5]){
+    if (emuInstance->stylusInput[5]){
       touchScreen();
       wasTouching = true;
     } else if (wasTouching && !emuInstance->stylusInput[5]){ //if (wasTouching) and touchButton not pressed, send release
