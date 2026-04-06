@@ -49,12 +49,11 @@ public:
     void DataWrite32(const u32 addr, const u32 val) override;
     void DataWrite32S(const u32 addr, const u32 val) override;
 
-    //void DataRead32M(u32 addr, u32* data, u32 len) override;
-
     void AddCycles_C() override;
     void AddCycles_CI(s32 num) override;
     void AddCycles_CDI() override;
     void AddCycles_CD() override;
+    void AddCycles_Store() override;
 
 protected:
     //void Prefetch(bool branch) override;
@@ -70,6 +69,8 @@ private:
 
     MemInfo DataMem;
 
+    //u32 LastReadRegion;
+
     // mainRAM burst tracking
     // TODO better variable names
     u32 MainRAMStartAddr;
@@ -80,6 +81,7 @@ private:
     void BeginMainRAMBurst(int begin, int term);
     void TerminateMainRAMBurst();
 
+    void DoCodeAccessTimings(const u32 addr, int width);
     void DoDataAccessTimings(const u32 addr, bool write, int width);
     void DoDataAccessTimingsSeq(const u32 addr, bool write);
 };

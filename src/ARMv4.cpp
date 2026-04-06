@@ -269,14 +269,12 @@ void ARMv4::TerminateMainRAMBurst()
         NDS.ARM7Timestamp = MainRAMTerminate;
 }
 
-u16 ARMv4::CodeRead16(const u32 addr)
+void ARMv4::DoCodeAccessTimings(const u32 addr, int width)
 {
     u32 rgn = addr & ~0x3FFF;
     if (rgn != CodeRegion)
     {
         NDS.ARM7GetMemInfo(rgn, CodeMem);
-        //CodeMemTimings[0] = CodeMem.Cycles_N16;
-        //CodeMemTimings[1] = CodeMem.Cycles_S16;
         CodeRegion = rgn;
     }
 
@@ -285,81 +283,48 @@ u16 ARMv4::CodeRead16(const u32 addr)
         // TODO: assess whether the 241-cycle burst length limit really matters
         // in the case of code fetches it would only apply in very specific cases
         // and in the case of data fetches it would never apply
-        //if ((NDS.ARM7Timestamp - MainRAMStart) >= 244)
         if (MainRAMCycles >= 241)
             NextCodeFetchSeq = false;
         else
         if ((MainRAMStartAddr & 0x1F) >= 0x1A && (addr & 0x1F) == 0)
             NextCodeFetchSeq = false;
 
+        int cy = (width == 32) ? 2 : 1;
+
         if (!NextCodeFetchSeq)
         {
-            BeginMainRAMBurst(5, 3);
+            BeginMainRAMBurst(4 + cy, 3);
             MainRAMStartAddr = addr;
         }
         else
         {
-            NDS.ARM7Timestamp++;
-            MainRAMCycles++;
-            MainRAMTerminate++;
+            NDS.ARM7Timestamp += cy;
+            MainRAMCycles += cy;
+            MainRAMTerminate += cy;
         }
     }
     else
     {
         if (!NextCodeFetchSeq)
-        {
-            //TerminateMainRAMBurst();
-            NDS.ARM7Timestamp += CodeMem.Cycles_N16;
-        }
+            NDS.ARM7Timestamp += (width == 32) ? CodeMem.Cycles_N32 : CodeMem.Cycles_N16;
         else
-            NDS.ARM7Timestamp += CodeMem.Cycles_S16;
+            NDS.ARM7Timestamp += (width == 32) ? CodeMem.Cycles_S32 : CodeMem.Cycles_S16;
     }
+
+    NextCodeFetchSeq = true;
+    //LastReadRegion = CodeMem.Region;
+}
+
+u16 ARMv4::CodeRead16(const u32 addr)
+{
+    DoCodeAccessTimings(addr, 16);
 
     return NDS.ARM7Read16(addr);
 }
 
 u32 ARMv4::CodeRead32(const u32 addr)
 {
-    u32 rgn = addr & ~0x3FFF;
-    if (rgn != CodeRegion)
-    {
-        NDS.ARM7GetMemInfo(rgn, CodeMem);
-        //CodeMemTimings[0] = CodeMem.Cycles_N32;
-        //CodeMemTimings[1] = CodeMem.Cycles_S32;
-        CodeRegion = rgn;
-    }
-
-    if (CodeMem.Region & Mem7_MainRAM)
-    {
-        //if ((NDS.ARM7Timestamp - MainRAMStart) >= 244)
-        if (MainRAMCycles >= 241)
-            NextCodeFetchSeq = false;
-        else
-        if ((MainRAMStartAddr & 0x1F) >= 0x1A && (addr & 0x1F) == 0)
-            NextCodeFetchSeq = false;
-
-        if (!NextCodeFetchSeq)
-        {
-            BeginMainRAMBurst(6, 3);
-            MainRAMStartAddr = addr;
-        }
-        else
-        {
-            NDS.ARM7Timestamp += 2;
-            MainRAMCycles++;
-            MainRAMTerminate += 2;
-        }
-    }
-    else
-    {
-        if (!NextCodeFetchSeq)
-        {
-            //TerminateMainRAMBurst();
-            NDS.ARM7Timestamp += CodeMem.Cycles_N32;
-        }
-        else
-            NDS.ARM7Timestamp += CodeMem.Cycles_S32;
-    }
+    DoCodeAccessTimings(addr, 32);
 
     return NDS.ARM7Read32(addr);
 }
@@ -390,23 +355,17 @@ void ARMv4::DoDataAccessTimings(const u32 addr, bool write, int width)
     }
     else
     {
-        //TerminateMainRAMBurst();
         NDS.ARM7Timestamp += (width == 32) ? DataMem.Cycles_N32 : DataMem.Cycles_N16;
-
-        // writing to the same region code runs from, adds one cycle of latency
-        // only for internal memory
-        // TODO: should not apply to SWPB/SWP
-        if (write && (DataMem.Region & CodeMem.Region & Mem7_InternalRAM))
-            NDS.ARM7Timestamp++;
     }
 
     NextCodeFetchSeq = false;
+    //if (!write) LastReadRegion = DataMem.Region;
 }
 
 void ARMv4::DoDataAccessTimingsSeq(const u32 addr, bool write)
 {
     bool seq = true;
-    if (!(addr & 0x3FFFF))
+    if (!(addr & 0x3FFF))
     {
         u32 oldregion = DataMem.Region;
         NDS.ARM7GetMemInfo(addr, DataMem);
@@ -441,17 +400,13 @@ void ARMv4::DoDataAccessTimingsSeq(const u32 addr, bool write)
         if (seq)
             NDS.ARM7Timestamp += DataMem.Cycles_S32;
         else
-        {
             NDS.ARM7Timestamp += DataMem.Cycles_N32;
-            if (write && (DataMem.Region & CodeMem.Region & Mem7_InternalRAM))
-                NDS.ARM7Timestamp++;
-        }
     }
 }
 
 void ARMv4::DataRead8(const u32 addr, u32* val)
 {
-    DoDataAccessTimings(addr, false, 8);
+    DoDataAccessTimings(addr, 0, 8);
 
     *val = NDS.ARM7Read8(addr);
     DataRegion = addr;
@@ -460,7 +415,7 @@ void ARMv4::DataRead8(const u32 addr, u32* val)
 
 void ARMv4::DataRead16(const u32 addr, u32* val)
 {
-    DoDataAccessTimings(addr, false, 16);
+    DoDataAccessTimings(addr, 0, 16);
 
     *val = NDS.ARM7Read16(addr & ~1);
     DataRegion = addr;
@@ -469,7 +424,7 @@ void ARMv4::DataRead16(const u32 addr, u32* val)
 
 void ARMv4::DataRead32(const u32 addr, u32* val)
 {
-    DoDataAccessTimings(addr, false, 32);
+    DoDataAccessTimings(addr, 0, 32);
 
     *val = NDS.ARM7Read32(addr & ~3);
     DataRegion = addr;
@@ -478,7 +433,7 @@ void ARMv4::DataRead32(const u32 addr, u32* val)
 
 void ARMv4::DataRead32S(const u32 addr, u32* val)
 {
-    DoDataAccessTimingsSeq(addr, false);
+    DoDataAccessTimingsSeq(addr, 0);
 
     *val = NDS.ARM7Read32(addr & ~3);
     //DataCycles += NDS.ARM7MemTimings[addr >> 15][3];
@@ -486,7 +441,7 @@ void ARMv4::DataRead32S(const u32 addr, u32* val)
 
 void ARMv4::DataWrite8(const u32 addr, const u8 val)
 {
-    DoDataAccessTimings(addr, true, 8);
+    DoDataAccessTimings(addr, 1, 8);
 
     NDS.ARM7Write8(addr, val);
     DataRegion = addr;
@@ -495,7 +450,7 @@ void ARMv4::DataWrite8(const u32 addr, const u8 val)
 
 void ARMv4::DataWrite16(const u32 addr, const u16 val)
 {
-    DoDataAccessTimings(addr, true, 16);
+    DoDataAccessTimings(addr, 1, 16);
 
     NDS.ARM7Write16(addr & ~1, val);
     DataRegion = addr;
@@ -504,7 +459,7 @@ void ARMv4::DataWrite16(const u32 addr, const u16 val)
 
 void ARMv4::DataWrite32(const u32 addr, const u32 val)
 {
-    DoDataAccessTimings(addr, true, 32);
+    DoDataAccessTimings(addr, 1, 32);
 
     NDS.ARM7Write32(addr & ~3, val);
     DataRegion = addr;
@@ -513,41 +468,11 @@ void ARMv4::DataWrite32(const u32 addr, const u32 val)
 
 void ARMv4::DataWrite32S(const u32 addr, const u32 val)
 {
-    DoDataAccessTimingsSeq(addr, true);
+    DoDataAccessTimingsSeq(addr, 1);
 
     NDS.ARM7Write32(addr & ~3, val);
     //DataCycles += NDS.ARM7MemTimings[addr >> 15][3];
 }
-
-/*void ARMv4::DataRead32M(u32 addr, u32* data, u32 len)
-{
-    addr &= ~3;
-    DoDataAccessTimings(addr, false, 32);
-    u32 rgn = DataMem.Region;
-    u32 endaddr = addr + len;
-
-    for (;;)
-    {
-        // TODO fastmem optimization
-        *data = NDS.ARM7Read32(addr);
-        data++;
-        addr += 4;
-        if (addr >= endaddr)
-            break;
-
-        if (!(addr & 0x3FFF))
-        {
-            NDS.ARM7GetMemInfo(addr, DataMem);
-            if (DataMem.Region != rgn)
-            {
-                DoDataAccessTimings(addr, false, 32);
-                continue;
-            }
-        }
-
-        DoDataAccessTimingsSeq(addr, false);
-    }
-}*/
 
 
 void ARMv4::AddCycles_C()
@@ -626,6 +551,15 @@ void ARMv4::AddCycles_CD()
     }
 
     NextCodeFetchSeq = false;
+}
+
+void ARMv4::AddCycles_Store()
+{
+    // writing to the same region we're running code from, adds one cycle of latency
+    // only for internal memory
+    // this doesn't apply to SWP/SWPB
+    if (DataMem.Region & CodeMem.Region & Mem7_InternalRAM)
+        NDS.ARM7Timestamp++;
 }
 
 }

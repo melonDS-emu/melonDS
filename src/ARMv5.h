@@ -97,6 +97,11 @@ public:
         //    Cycles += numC + numD;
     }
 
+    void AddCycles_Store() override
+    {
+        AddCycles_CD();
+    }
+
     void GetCodeMemRegion(const u32 addr, MemRegion* region);
 
     void CP15Reset();

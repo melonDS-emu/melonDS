@@ -67,7 +67,7 @@ namespace melonDS::ARMInterpreter
         storeval += 4; \
     cpu->DataWrite32(offset, storeval); \
     if (cpu->CurInstr & (1<<21)) cpu->R[(cpu->CurInstr>>16) & 0xF] = offset; \
-    cpu->AddCycles_CD();
+    cpu->AddCycles_Store();
 
 // TODO: user mode (bit21)
 #define A_STR_POST \
@@ -77,20 +77,20 @@ namespace melonDS::ARMInterpreter
         storeval += 4; \
     cpu->DataWrite32(addr, storeval); \
     cpu->R[(cpu->CurInstr>>16) & 0xF] += offset; \
-    cpu->AddCycles_CD();
+    cpu->AddCycles_Store();
 
 #define A_STRB \
     offset += cpu->R[(cpu->CurInstr>>16) & 0xF]; \
     cpu->DataWrite8(offset, cpu->R[(cpu->CurInstr>>12) & 0xF]); \
     if (cpu->CurInstr & (1<<21)) cpu->R[(cpu->CurInstr>>16) & 0xF] = offset; \
-    cpu->AddCycles_CD();
+    cpu->AddCycles_Store();
 
 // TODO: user mode (bit21)
 #define A_STRB_POST \
     u32 addr = cpu->R[(cpu->CurInstr>>16) & 0xF]; \
     cpu->DataWrite8(addr, cpu->R[(cpu->CurInstr>>12) & 0xF]); \
     cpu->R[(cpu->CurInstr>>16) & 0xF] += offset; \
-    cpu->AddCycles_CD();
+    cpu->AddCycles_Store();
 
 #define A_LDR \
     offset += cpu->R[(cpu->CurInstr>>16) & 0xF]; \
@@ -227,13 +227,13 @@ A_IMPLEMENT_WB_LDRSTR(LDRB)
     offset += cpu->R[(cpu->CurInstr>>16) & 0xF]; \
     cpu->DataWrite16(offset, cpu->R[(cpu->CurInstr>>12) & 0xF]); \
     if (cpu->CurInstr & (1<<21)) cpu->R[(cpu->CurInstr>>16) & 0xF] = offset; \
-    cpu->AddCycles_CD();
+    cpu->AddCycles_Store();
 
 #define A_STRH_POST \
     u32 addr = cpu->R[(cpu->CurInstr>>16) & 0xF]; \
     cpu->DataWrite16(addr, cpu->R[(cpu->CurInstr>>12) & 0xF]); \
     cpu->R[(cpu->CurInstr>>16) & 0xF] += offset; \
-    cpu->AddCycles_CD();
+    cpu->AddCycles_Store();
 
 // TODO: CHECK LDRD/STRD TIMINGS!!
 
@@ -555,8 +555,7 @@ void A_STM(ARM* cpu)
     if ((cpu->CurInstr & (1<<23)) && (cpu->CurInstr & (1<<21)))
         cpu->R[baseid] = base;
 
-    // TODO REMOVE ME
-    if (!cpu->Num) cpu->AddCycles_CD();
+    cpu->AddCycles_Store();
 }
 
 
@@ -580,7 +579,7 @@ void T_STR_REG(ARM* cpu)
     u32 addr = cpu->R[(cpu->CurInstr >> 3) & 0x7] + cpu->R[(cpu->CurInstr >> 6) & 0x7];
     cpu->DataWrite32(addr, cpu->R[cpu->CurInstr & 0x7]);
 
-    cpu->AddCycles_CD();
+    cpu->AddCycles_Store();
 }
 
 void T_STRB_REG(ARM* cpu)
@@ -588,7 +587,7 @@ void T_STRB_REG(ARM* cpu)
     u32 addr = cpu->R[(cpu->CurInstr >> 3) & 0x7] + cpu->R[(cpu->CurInstr >> 6) & 0x7];
     cpu->DataWrite8(addr, cpu->R[cpu->CurInstr & 0x7]);
 
-    cpu->AddCycles_CD();
+    cpu->AddCycles_Store();
 }
 
 void T_LDR_REG(ARM* cpu)
@@ -616,7 +615,7 @@ void T_STRH_REG(ARM* cpu)
     u32 addr = cpu->R[(cpu->CurInstr >> 3) & 0x7] + cpu->R[(cpu->CurInstr >> 6) & 0x7];
     cpu->DataWrite16(addr, cpu->R[cpu->CurInstr & 0x7]);
 
-    cpu->AddCycles_CD();
+    cpu->AddCycles_Store();
 }
 
 void T_LDRSB_REG(ARM* cpu)
@@ -652,7 +651,7 @@ void T_STR_IMM(ARM* cpu)
     offset += cpu->R[(cpu->CurInstr >> 3) & 0x7];
 
     cpu->DataWrite32(offset, cpu->R[cpu->CurInstr & 0x7]);
-    cpu->AddCycles_CD();
+    cpu->AddCycles_Store();
 }
 
 void T_LDR_IMM(ARM* cpu)
@@ -672,7 +671,7 @@ void T_STRB_IMM(ARM* cpu)
     offset += cpu->R[(cpu->CurInstr >> 3) & 0x7];
 
     cpu->DataWrite8(offset, cpu->R[cpu->CurInstr & 0x7]);
-    cpu->AddCycles_CD();
+    cpu->AddCycles_Store();
 }
 
 void T_LDRB_IMM(ARM* cpu)
@@ -691,7 +690,7 @@ void T_STRH_IMM(ARM* cpu)
     offset += cpu->R[(cpu->CurInstr >> 3) & 0x7];
 
     cpu->DataWrite16(offset, cpu->R[cpu->CurInstr & 0x7]);
-    cpu->AddCycles_CD();
+    cpu->AddCycles_Store();
 }
 
 void T_LDRH_IMM(ARM* cpu)
@@ -710,7 +709,7 @@ void T_STR_SPREL(ARM* cpu)
     offset += cpu->R[13];
 
     cpu->DataWrite32(offset, cpu->R[(cpu->CurInstr >> 8) & 0x7]);
-    cpu->AddCycles_CD();
+    cpu->AddCycles_Store();
 }
 
 void T_LDR_SPREL(ARM* cpu)
@@ -749,15 +748,13 @@ void T_PUSH(ARM* cpu)
         else       cpu->DataWrite32S(base, cpu->R[14]);
     }
 
-    cpu->AddCycles_CD();
+    cpu->AddCycles_Store();
 }
 
 void T_POP(ARM* cpu)
 {
     u32 base = cpu->R[13];
     bool first = true;
-
-    cpu->AddCycles_CI(1);
 
     for (int i = 0; i < 8; i++)
     {
@@ -770,18 +767,21 @@ void T_POP(ARM* cpu)
         }
     }
 
+    u32 pc;
     if (cpu->CurInstr & (1<<8))
     {
-        u32 pc;
         if (first) cpu->DataRead32 (base, &pc);
         else       cpu->DataRead32S(base, &pc);
         if (cpu->Num==1) pc |= 0x1;
-        cpu->JumpTo(pc);
         base += 4;
     }
 
     cpu->R[13] = base;
+    cpu->AddCycles_CI(1);
     //cpu->AddCycles_CDI();
+
+    if (cpu->CurInstr & (1<<8))
+        cpu->JumpTo(pc);
 }
 
 void T_STMIA(ARM* cpu)
@@ -802,15 +802,13 @@ void T_STMIA(ARM* cpu)
 
     // TODO: check "Rb included in Rlist" case
     cpu->R[(cpu->CurInstr >> 8) & 0x7] = base;
-    cpu->AddCycles_CD();
+    cpu->AddCycles_Store();
 }
 
 void T_LDMIA(ARM* cpu)
 {
     u32 base = cpu->R[(cpu->CurInstr >> 8) & 0x7];
     bool first = true;
-
-    cpu->AddCycles_CI(1);
 
     for (int i = 0; i < 8; i++)
     {
@@ -826,6 +824,7 @@ void T_LDMIA(ARM* cpu)
     if (!(cpu->CurInstr & (1<<((cpu->CurInstr >> 8) & 0x7))))
         cpu->R[(cpu->CurInstr >> 8) & 0x7] = base;
 
+    cpu->AddCycles_CI(1);
     //cpu->AddCycles_CDI();
 }
 
