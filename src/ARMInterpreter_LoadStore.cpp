@@ -397,10 +397,25 @@ void A_LDM(ARM* cpu)
     u32 wbbase;
     u32 preinc = (cpu->CurInstr & (1<<24));
     bool first = true;
+    u32 reglist = cpu->CurInstr & 0xFFFF;
+
+    //cpu->AddCycles_CI(1);
+
+    if (!reglist)
+    {
+        // TODO: adjust base reg?
+        if (!cpu->Num)
+        {
+            cpu->AddCycles_CI(1);
+            return;
+        }
+        else
+            reglist = (1<<15);
+    }
 
     if (!(cpu->CurInstr & (1<<23)))
     {
-        base -= 4 * __builtin_popcount(cpu->CurInstr & 0xFFFF);
+        base -= 4 * __builtin_popcount(reglist);
 
         if (cpu->CurInstr & (1<<21))
         {
@@ -411,12 +426,12 @@ void A_LDM(ARM* cpu)
         preinc = !preinc;
     }
 
-    if ((cpu->CurInstr & (1<<22)) && !(cpu->CurInstr & (1<<15)))
+    if ((cpu->CurInstr & (1<<22)) && !(reglist & (1<<15)))
         cpu->UpdateMode(cpu->CPSR, (cpu->CPSR&~0x1F)|0x10, true);
 
     for (int i = 0; i < 15; i++)
     {
-        if (cpu->CurInstr & (1<<i))
+        if (reglist & (1<<i))
         {
             if (preinc) base += 4;
             if (first) cpu->DataRead32 (base, &cpu->R[i]);
@@ -427,7 +442,7 @@ void A_LDM(ARM* cpu)
     }
 
     u32 pc = 0;
-    if (cpu->CurInstr & (1<<15))
+    if (reglist & (1<<15))
     {
         if (preinc) base += 4;
         if (first) cpu->DataRead32 (base, &pc);
@@ -444,12 +459,11 @@ void A_LDM(ARM* cpu)
         if (cpu->CurInstr & (1<<23))
             wbbase = base;
 
-        if (cpu->CurInstr & (1 << baseid))
+        if (reglist & (1 << baseid))
         {
             if (cpu->Num == 0)
             {
-                u32 rlist = cpu->CurInstr & 0xFFFF;
-                if ((!(rlist & ~(1 << baseid))) || (rlist & ~((2 << baseid) - 1)))
+                if ((!(reglist & ~(1 << baseid))) || (reglist & ~((2 << baseid) - 1)))
                     cpu->R[baseid] = wbbase;
             }
         }
@@ -457,13 +471,16 @@ void A_LDM(ARM* cpu)
             cpu->R[baseid] = wbbase;
     }
 
-    if ((cpu->CurInstr & (1<<22)) && !(cpu->CurInstr & (1<<15)))
+    if ((cpu->CurInstr & (1<<22)) && !(reglist & (1<<15)))
         cpu->UpdateMode((cpu->CPSR&~0x1F)|0x10, cpu->CPSR, true);
 
-    if (cpu->CurInstr & (1<<15))
+    cpu->AddCycles_CI(1);
+
+    if (reglist & (1<<15))
         cpu->JumpTo(pc, cpu->CurInstr & (1<<22));
 
-    cpu->AddCycles_CDI();
+    // TODO REMOVE ME
+    if (!cpu->Num) cpu->AddCycles_CDI();
 }
 
 void A_STM(ARM* cpu)
@@ -473,10 +490,24 @@ void A_STM(ARM* cpu)
     u32 oldbase = base;
     u32 preinc = (cpu->CurInstr & (1<<24));
     bool first = true;
+    u32 reglist = cpu->CurInstr & 0xFFFF;
+
+    if (!reglist)
+    {
+        // TODO: adjust base reg?
+        if (!cpu->Num)
+        {
+            // CHECKME
+            cpu->AddCycles_CI(1);
+            return;
+        }
+        else
+            reglist = (1<<15);
+    }
 
     if (!(cpu->CurInstr & (1<<23)))
     {
-        base -= 4 * __builtin_popcount(cpu->CurInstr & 0xFFFF);
+        base -= 4 * __builtin_popcount(reglist);
 
         if (cpu->CurInstr & (1<<21))
             cpu->R[baseid] = base;
@@ -498,13 +529,13 @@ void A_STM(ARM* cpu)
 
     for (u32 i = 0; i < 16; i++)
     {
-        if (cpu->CurInstr & (1<<i))
+        if (reglist & (1<<i))
         {
             if (preinc) base += 4;
 
             if (i == baseid && !isbanked)
             {
-                if ((cpu->Num == 0) || (!(cpu->CurInstr & ((1<<i)-1))))
+                if ((cpu->Num == 0) || (!(reglist & ((1<<i)-1))))
                     first ? cpu->DataWrite32(base, oldbase) : cpu->DataWrite32S(base, oldbase);
                 else
                     first ? cpu->DataWrite32(base, base) : cpu->DataWrite32S(base, base); // checkme
@@ -524,7 +555,8 @@ void A_STM(ARM* cpu)
     if ((cpu->CurInstr & (1<<23)) && (cpu->CurInstr & (1<<21)))
         cpu->R[baseid] = base;
 
-    cpu->AddCycles_CD();
+    // TODO REMOVE ME
+    if (!cpu->Num) cpu->AddCycles_CD();
 }
 
 

@@ -162,6 +162,8 @@ public:
     virtual void DataWrite32(const u32 addr, const u32 val) = 0;
     virtual void DataWrite32S(const u32 addr, const u32 val) = 0;
 
+    //virtual void DataRead32M(u32 addr, u32* data, u32 len) = 0;
+
     virtual void AddCycles_C() = 0;
     virtual void AddCycles_CI(s32 numI) = 0;
     virtual void AddCycles_CDI() = 0;
