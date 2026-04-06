@@ -304,6 +304,9 @@ public:
     bool fastForwardToggled;
     bool slowmoToggled;
     bool doAudioSync;
+    //Stylus Direction: Up, Down, Left, Right, Mod, Touch
+    //First 4 indices are 0-32768, Next two are 0-1
+    uint stylusInput[6] = {0};
 private:
 
     std::unique_ptr<melonDS::Savestate> backupState;

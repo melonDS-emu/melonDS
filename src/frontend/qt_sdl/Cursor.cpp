@@ -2,16 +2,39 @@
 #include <cmath>
 #include <algorithm>
 #include "EmuInstance.h"
+#include "Platform.h"
 
 void Cursor::update(){
   if (emuInstance != nullptr){
     //Get inputs directional input
-    rawCursorPos[0] += 0.05;
-    rawCursorPos[1] += 0.05;
+
+    //Compare Left vs Right
+    if (emuInstance->stylusInput[2] > emuInstance->stylusInput[3]){
+      normStylusDirection[0] = -(emuInstance->stylusInput[2]/32767.0f);
+    } else if (emuInstance->stylusInput[3] > emuInstance->stylusInput[2]) {
+      normStylusDirection[0] = (emuInstance->stylusInput[3]/32767.0f);
+    } else {
+      normStylusDirection[0] = 0;
+    }
+    //Compare Up vs Down
+    if (emuInstance->stylusInput[0] > emuInstance->stylusInput[1]){
+      normStylusDirection[1] = -(emuInstance->stylusInput[0]/32767.0f);
+    } else if (emuInstance->stylusInput[1] > emuInstance->stylusInput[0]){
+      normStylusDirection[1] = (emuInstance->stylusInput[1]/32767.0f);
+    } else {
+      normStylusDirection[1] = 0;
+    }
+    normStylusDirection[0] = std::min(normStylusDirection[0], 1.0f);
+    normStylusDirection[1] = std::min(normStylusDirection[1], 1.0f);
+
+    float speed = 192.0f/33;
+    melonDS::Platform::Log(melonDS::Platform::LogLevel::Debug, "Stylus: Up: %d, Down: %d, Left: %d, Right: %d\n", emuInstance->stylusInput[0], emuInstance->stylusInput[1], emuInstance->stylusInput[2], emuInstance->stylusInput[3]);
+
+    rawCursorPos[0] += normStylusDirection[0]*speed;
+    rawCursorPos[1] += normStylusDirection[1]*speed;
     //Clamp to region and ready position information for touchscreen
     clamp();
     updateCursorPos();
-
 
     /* Refactored Coded from Retroarch Fork
     int maxSpeed = config.JoystickCursorMaxSpeed();    
@@ -44,16 +67,23 @@ void Cursor::update(){
     _joystickCursorPosition = clamp(_joystickCursorPosition, vec2(1.0), NDS_SCREEN_SIZE<float> - 1.0f); 
     */
 
-    //If touchButton pressed, send signal
+    
 
     //if (wasTouching) and touchButton not pressed, send release
-
+    //If touchButton pressed, and wasnt touching, send signal
+    if (!wasTouching && emuInstance->stylusInput[5]){
+      touchScreen();
+      wasTouching = true;
+    } else if (wasTouching && !emuInstance->stylusInput[5]){
+      release();
+      wasTouching = false;
+    }
   }
 }
 
 void Cursor::clamp(){
-  rawCursorPos[0] = std::clamp(rawCursorPos[0], 0.0f, 255.0f);
-  rawCursorPos[1] = std::clamp(rawCursorPos[1], 0.0f, 191.0f);
+  rawCursorPos[0] = std::clamp(rawCursorPos[0], 0.0f, 256.0f);
+  rawCursorPos[1] = std::clamp(rawCursorPos[1], 0.0f, 192.0f);
 }
 
 void Cursor::touchScreen(){

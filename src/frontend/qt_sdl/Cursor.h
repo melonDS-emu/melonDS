@@ -27,6 +27,7 @@ public:
   void update();
   void setEmuInstance(EmuInstance* emuInstance);
   int cursorPos[2];
+  float normStylusDirection[2];
 private:
   EmuInstance* emuInstance = nullptr;
   float rawCursorPos[2];
