@@ -199,6 +199,8 @@ private:
     QStringList pickROM(bool gba);
     void updateCartInserted(bool gba);
 
+    void updateSavestateMenuTimestamps();
+
     void createScreenPanel();
 
     bool lanWarning(bool host);

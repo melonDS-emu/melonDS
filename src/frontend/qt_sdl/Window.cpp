@@ -23,6 +23,7 @@
 #include <string.h>
 
 #include <optional>
+#include <filesystem>
 #include <vector>
 #include <string>
 #include <algorithm>
@@ -2232,6 +2233,31 @@ void MainWindow::onScreenEmphasisToggled()
     emit screenLayoutChange();
 }
 
+void MainWindow::updateSavestateMenuTimestamps()
+{
+    for (int i = 1; i < 9; i++)
+    {
+        std::string statePath = emuInstance->getSavestateName(i);
+        std::error_code timeError;
+        auto modificationTime = std::filesystem::last_write_time(statePath, timeError);
+        if (!timeError)
+        {
+            auto systemTimePoint = std::chrono::time_point_cast<std::chrono::system_clock::duration>(modificationTime - std::filesystem::file_time_type::clock::now() + std::chrono::system_clock::now());
+            std::time_t rawTime = std::chrono::system_clock::to_time_t(systemTimePoint);
+            char timeBuffer[64];
+            std::strftime(timeBuffer, sizeof(timeBuffer), "%Y-%m-%d %H:%M:%S", std::localtime(&rawTime));
+            QString formattedTime = QString("   %1").arg(timeBuffer);
+            actSaveState[i]->setText(QString("%1%2").arg(i).arg(formattedTime));
+            actLoadState[i]->setText(QString("%1%2").arg(i).arg(formattedTime));
+        }
+        else
+        {
+            actSaveState[i]->setText(QString("%1").arg(i));
+            actLoadState[i]->setText(QString("%1").arg(i));
+        }
+    }
+}
+
 void MainWindow::onEmuStart()
 {
     if (!hasMenu) return;
@@ -2241,6 +2267,9 @@ void MainWindow::onEmuStart()
         actSaveState[i]->setEnabled(true);
         actLoadState[i]->setEnabled(emuInstance->savestateExists(i));
     }
+
+    updateSavestateMenuTimestamps();
+
     actSaveState[0]->setEnabled(true);
     actLoadState[0]->setEnabled(true);
     actUndoStateLoad->setEnabled(false);
@@ -2292,6 +2321,8 @@ void MainWindow::onSavestateChange()
 
     for (int i = 1; i < 9; i++)
         actLoadState[i]->setEnabled(emuInstance->savestateExists(i));
+
+    updateSavestateMenuTimestamps();
 }
 
 void MainWindow::onEmuReset()
