@@ -8,7 +8,7 @@ void Cursor::update(){
   if (emuInstance != nullptr){
     //Get inputs directional input
 
-    //Compare Left vs Right
+    //Compare Left vs Right Values
     if (emuInstance->stylusInput[2] > emuInstance->stylusInput[3]){
       normStylusDirection[0] = -(emuInstance->stylusInput[2]/32767.0f);
     } else if (emuInstance->stylusInput[3] > emuInstance->stylusInput[2]) {
@@ -16,7 +16,8 @@ void Cursor::update(){
     } else {
       normStylusDirection[0] = 0;
     }
-    //Compare Up vs Down
+
+    //Compare Up vs Down Values
     if (emuInstance->stylusInput[0] > emuInstance->stylusInput[1]){
       normStylusDirection[1] = -(emuInstance->stylusInput[0]/32767.0f);
     } else if (emuInstance->stylusInput[1] > emuInstance->stylusInput[0]){
@@ -26,56 +27,51 @@ void Cursor::update(){
     }
     normStylusDirection[0] = std::min(normStylusDirection[0], 1.0f);
     normStylusDirection[1] = std::min(normStylusDirection[1], 1.0f);
-
-    float speed = 192.0f/33;
     // melonDS::Platform::Log(melonDS::Platform::LogLevel::Debug, "Stylus: Up: %d, Down: %d, Left: %d, Right: %d\n", emuInstance->stylusInput[0], emuInstance->stylusInput[1], emuInstance->stylusInput[2], emuInstance->stylusInput[3]);
-    melonDS::Platform::Log(melonDS::Platform::LogLevel::Debug, "Normalized Stylus: X: %f, Y: %f\n", normStylusDirection[0], normStylusDirection[1]);
+    // melonDS::Platform::Log(melonDS::Platform::LogLevel::Debug, "Normalized Stylus: X: %f, Y: %f\n", normStylusDirection[0], normStylusDirection[1]);
 
-    rawCursorPos[0] += normStylusDirection[0]*speed;
-    rawCursorPos[1] += normStylusDirection[1]*speed;
-    //Clamp to region and ready position information for touchscreen
-    clamp();
-    updateCursorPos();
+    int maxSpeed = 50;  //Attach to Gui
+    float multiplier = 0.5f * pow(4.0f, maxSpeed / 100.0f); //Attach to Gui. 0 is 0.5x, 100 is 2.0x speed
+    float heightSpeed = (192.0f / 33.0f) * multiplier;
 
-    /* Refactored Coded from Retroarch Fork
-    int maxSpeed = config.JoystickCursorMaxSpeed();    
-    //float multiplier = 0.5f * pow(4.0f, maxSpeed / 100.0f);
-    //float widthSpeed = (NDS_SCREEN_WIDTH / 33.0) * multiplier; //Currently unused
-    float heightSpeed = (NDS_SCREEN_HEIGHT / 33.0) * multiplier;
-    float deadzone = config.JoystickCursorDeadzone() / 100.0f;
-    bool speedup_enabled = config.JoystickSpeedupEnabled();
-    float responsecurve = config.JoystickCursorResponse() / 100.0f;
-    float speedupratio = config.JoystickCursorSpeedup() / 100.0f;
-    vec2 joystickNorm = ((vec2)_joystickRawDirection/32767.0f);
-    vec2 joystickScaled = vec2(0.0f);
-    float radialLength = std::sqrt((joystickNorm.x * joystickNorm.x) + (joystickNorm.y * joystickNorm.y));
+    float deadzone = 5.0f / 100.0f; //Attach to Gui
+    bool speedup_enabled = emuInstance->stylusInput[4]; 
+    float responsecurve = 200.0f / 100.0f; //Attach to Gui
+    float speedupratio = 200.0f / 100.0f; //Attach to Gui
+    float joystickScaled[2] = {0.0f};
+    
+    float radialLength = std::sqrt((normStylusDirection[0] * normStylusDirection[0]) + (normStylusDirection[1] * normStylusDirection[1]));
     if (radialLength > deadzone) {
         // Get X and Y as a relation to the radial length
-        vec2 dir = joystickNorm/radialLength;
+        float rComponents[2];
+        rComponents[0] = normStylusDirection[0]/radialLength;
+        rComponents[1] = normStylusDirection[1]/radialLength;
         // Apply deadzone and response curve
         float scaledLength = (radialLength - deadzone) / (1.0f - deadzone);
         float curvedLength = std::pow(std::min<float>(1.0f, scaledLength), responsecurve);
         // Final output
         float finalLength = speedup_enabled ? curvedLength * speedupratio : curvedLength;
-        joystickScaled = dir * finalLength;  
+        joystickScaled[0] = rComponents[0] * finalLength;
+        joystickScaled[1] = rComponents[1] * finalLength;
     } else {
-        joystickScaled = vec2(0.0f);
+        joystickScaled[2] = {0.0f};
     }
     //The code below sets the cursor position to the position of the joystick (absolute)
-    //_joystickCursorPosition = vec2((NDS_SCREEN_WIDTH/2.0f)+(std::min<float>(1.0,(joystickNorm.x/0.7071))*(NDS_SCREEN_WIDTH/2.0f)), (NDS_SCREEN_HEIGHT/2.0f)+(std::min<float>(1.0,(joystickNorm.y/0.7071))*(NDS_SCREEN_HEIGHT/2.0f)));
+    //_joystickCursorPosition = vec2((NDS_SCREEN_WIDTH/2.0f)+(std::min<float>(1.0,(normStylusDirection[0]/0.7071))*(NDS_SCREEN_WIDTH/2.0f)), (NDS_SCREEN_HEIGHT/2.0f)+(std::min<float>(1.0,(normStylusDirection[1]/0.7071))*(NDS_SCREEN_HEIGHT/2.0f)));
+  
+    rawCursorPos[0] += joystickScaled[0]*heightSpeed;
+    rawCursorPos[1] += joystickScaled[1]*heightSpeed;
 
-    _joystickCursorPosition +=  joystickScaled*heightSpeed;
-    _joystickCursorPosition = clamp(_joystickCursorPosition, vec2(1.0), NDS_SCREEN_SIZE<float> - 1.0f); 
-    */
-
+    //Clamp to region and ready position information for touchscreen
+    clamp();
+    updateCursorPos();
     
-
-    //if (wasTouching) and touchButton not pressed, send release
-    //If touchButton pressed, and wasnt touching, send signal
+    // If touchButton pressed, and wasnt touching, send signal
+    // if (wasTouching) and touchButton not pressed, send release
     if (!wasTouching && emuInstance->stylusInput[5]){
       touchScreen();
       wasTouching = true;
-    } else if (wasTouching && !emuInstance->stylusInput[5]){
+    } else if (wasTouching && !emuInstance->stylusInput[5]){ //if (wasTouching) and touchButton not pressed, send release
       release();
       wasTouching = false;
     }
