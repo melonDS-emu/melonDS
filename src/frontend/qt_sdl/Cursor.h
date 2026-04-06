@@ -18,7 +18,7 @@
 
 #ifndef CURSOR_H
 #define CURSOR_H
-
+#include <queue>
 class EmuInstance;
 
 class Cursor
@@ -36,6 +36,14 @@ private:
   void clamp();
   void updateCursorPos();
   bool wasTouching;
+
+  //Swipe in direction of x and y over the course of specified frames. Expects integer values between -1 and 1
+  void swipe(float x, float y, int frames);
+  void runMacro();
+  bool inMacro;
+  std::deque<std::array<float, 2>> macroPositions;
+  int macroFrames;
+  bool macroBtnPressed;
 };
 
 #endif // CURSOR_H

@@ -522,12 +522,24 @@ void EmuInstance::inputProcess()
     joyInputMask = 0xFFF;
     if (joystick)
     {
-        for (int i = 0; i < 18; i++)
+        //Scan Stylus inputs first
+        for (int i = 12; i < 18; i++){
+            joystickButtonDown(joyMapping[i], i);
+        }
+        for (int i = 0; i < 12; i++){
             if (joystickButtonDown(joyMapping[i], i)){
-                if (i < 12){
+                if (stylusInput[4] == 1 && (i == 0 || i == 1 || i == 10 || i == 11)){
+                        modButtons[i] = 1;
+                } else {
                     joyInputMask &= ~(1 << i);
                 }
-            }
+            } else {
+                if (i == 0 || i == 1 || i == 10 || i == 11){
+                    modButtons[i] = 0;
+                }
+            } 
+                    
+        }
                 
     }
 

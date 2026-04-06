@@ -307,6 +307,8 @@ public:
     //Stylus Direction: Up, Down, Left, Right, Mod, Touch
     //First 4 indices are 0-32768, Next two are 0-1
     uint stylusInput[6] = {0};
+    //Face Button with Mod held. A (0), B (1), X (10), Y (11)
+    uint modButtons[12] = {0};
 private:
 
     std::unique_ptr<melonDS::Savestate> backupState;
