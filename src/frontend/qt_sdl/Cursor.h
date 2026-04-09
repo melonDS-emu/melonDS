@@ -26,6 +26,7 @@ class Cursor
 public:
   void update();
   void setEmuInstance(EmuInstance* emuInstance);
+  void setRotation(int rot);
   int cursorPos[2];
   float normStylusDirection[2];
 private:
@@ -46,7 +47,8 @@ private:
   bool macroBtnPressed;
   int stylusModDelay;
   bool hitMaxSpeed;
-  bool flicked;
+  bool alreadyFlicked;
+  int rotation;
 };
 
 #endif // CURSOR_H

@@ -10,32 +10,32 @@ void Cursor::update(){
     if (inMacro){
       runMacro();
     } else {
-      //Swipe Gestures
-      if (emuInstance->modButtons[0]){
-        if (!macroBtnPressed){
-          swipe(1,0,4);
-          return;
-        }
-      } else if (emuInstance->modButtons[1]){
-        if (!macroBtnPressed){
-          swipe(0,1,4);
-          return;      
-        }
-      } else if (emuInstance->modButtons[10]){
-        if (!macroBtnPressed){
-          swipe(0,-1,4);
-          return;
-        }
-      } else if (emuInstance->modButtons[11]){
-        if (!macroBtnPressed){
-          swipe(-1,0,4);
-          return;
-        }
-      } else {
-        if (macroBtnPressed){
-          macroBtnPressed = false;
-        }
-      }
+      // //Swipe Gestures
+      // if (emuInstance->modButtons[0]){
+      //   if (!macroBtnPressed){
+      //     swipe(1,0,4);
+      //     return;
+      //   }
+      // } else if (emuInstance->modButtons[1]){
+      //   if (!macroBtnPressed){
+      //     swipe(0,1,4);
+      //     return;      
+      //   }
+      // } else if (emuInstance->modButtons[10]){
+      //   if (!macroBtnPressed){
+      //     swipe(0,-1,4);
+      //     return;
+      //   }
+      // } else if (emuInstance->modButtons[11]){
+      //   if (!macroBtnPressed){
+      //     swipe(-1,0,4);
+      //     return;
+      //   }
+      // } else {
+      //   if (macroBtnPressed){
+      //     macroBtnPressed = false;
+      //   }
+      // }
 
 
 
@@ -58,6 +58,8 @@ void Cursor::update(){
       }
       normStylusDirection[0] = std::min(normStylusDirection[0], 1.0f);
       normStylusDirection[1] = std::min(normStylusDirection[1], 1.0f);
+
+      // Logs
       // melonDS::Platform::Log(melonDS::Platform::LogLevel::Debug, "Stylus: Up: %d, Down: %d, Left: %d, Right: %d\n", emuInstance->stylusInput[0], emuInstance->stylusInput[1], emuInstance->stylusInput[2], emuInstance->stylusInput[3]);
       // melonDS::Platform::Log(melonDS::Platform::LogLevel::Debug, "Normalized Stylus: X: %f, Y: %f\n", normStylusDirection[0], normStylusDirection[1]);
 
@@ -70,7 +72,7 @@ void Cursor::update(){
       float responsecurve = 200.0f / 100.0f; //Attach to Gui
       float speedupratio = 300.0f / 100.0f; //Attach to Gui
       float joystickScaled[2] = {0.0f};
-      bool stylusModEnabled = stylusModPressed && !stylusModDelay && !flicked;
+      bool stylusModEnabled = stylusModPressed && !stylusModDelay;
       float radialLength = std::sqrt((normStylusDirection[0] * normStylusDirection[0]) + (normStylusDirection[1] * normStylusDirection[1]));
       float finalLength;
       float curvedLength;
@@ -91,7 +93,29 @@ void Cursor::update(){
       }
       //The code below sets the cursor position to the position of the joystick (absolute)
       //_joystickCursorPosition = vec2((NDS_SCREEN_WIDTH/2.0f)+(std::min<float>(1.0,(normStylusDirection[0]/0.7071))*(NDS_SCREEN_WIDTH/2.0f)), (NDS_SCREEN_HEIGHT/2.0f)+(std::min<float>(1.0,(normStylusDirection[1]/0.7071))*(NDS_SCREEN_HEIGHT/2.0f)));
-    
+      // qDebug("Current Rotation: %d", rotation);
+
+      float tempX = joystickScaled[0];
+      float tempY = joystickScaled[1];
+
+      switch (rotation)
+      {
+          case 1: // 90° clockwise
+              joystickScaled[0] =  tempY;
+              joystickScaled[1] = -tempX;
+              break;
+          case 2: // 180°
+              joystickScaled[0] = -tempX;
+              joystickScaled[1] = -tempY;
+              break;
+          case 3: // 270° clockwise
+              joystickScaled[0] = -tempY;
+              joystickScaled[1] =  tempX;
+              break;
+          default: // 0° / no rotation
+              break;
+      }
+
       rawCursorPos[0] += joystickScaled[0]*heightSpeed;
       rawCursorPos[1] += joystickScaled[1]*heightSpeed;
 
@@ -106,22 +130,23 @@ void Cursor::update(){
         if (curvedLength < 0.9 && wasTouching  && hitMaxSpeed){ //Flicked but button still held
           release();
           hitMaxSpeed = false;
-          //stylusModDelay = 4;
+          stylusModDelay = 10;
           wasTouching = false;
-          flicked = true;
+          // alreadyFlicked = true; // Uncomment to have Stylus Mod not click the screen more than once
         } else {
-          touchScreen();
-          wasTouching = true;
-          if (curvedLength == 1){
-            hitMaxSpeed = true;
+          if (!alreadyFlicked){
+            touchScreen();
+            wasTouching = true;
+            if (curvedLength == 1){
+              hitMaxSpeed = true;
+            }
           }
         }
       } else if (!stylusModEnabled && wasTouching && hitMaxSpeed){ //Let go of button before joystick
         release();
         hitMaxSpeed = false;
-        //stylusModDelay = 20;
+        stylusModDelay = 10;
         wasTouching = false;
-        flicked = true;
       } else if (emuInstance->stylusInput[5]){
         touchScreen();
         wasTouching = true;
@@ -132,7 +157,10 @@ void Cursor::update(){
       if (stylusModDelay > 0){
         stylusModDelay--;
       }
-      flicked = false;
+      if (!stylusModEnabled){
+        alreadyFlicked = false;
+      }
+      
     }
   }
 }
@@ -192,4 +220,8 @@ void Cursor::runMacro(){
     macroPositions.clear();
     inMacro = false;
   }
+}
+
+void Cursor::setRotation(int rot){
+  rotation = rot;
 }

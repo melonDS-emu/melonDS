@@ -451,21 +451,21 @@ bool EmuInstance::joystickButtonDown(int val, int index)
         int axisdir = (val >> 20) & 0xF;
         Sint16 axisval = SDL_JoystickGetAxis(joystick, axisnum);
         if (axisdir == 2){ // trigger
-                // Uses 10% Deadzone (3277)
+                // Uses 50% deadzone
                 if (index > 11 && index < 16){ //Stylus Direction
-                    if (axisval > -26214){
+                    if (axisval > 0){
                         stylusInput[index-12] = 32767;
                     } else {
                         stylusInput[index-12] = 0;
                     }
                 } else if (index == 16 || index == 17) { //Stylus Mod or Touch
-                    if (axisval > -26214){
+                    if (axisval > 0){
                         stylusInput[index-12] = 1;
                     } else {
                         stylusInput[index-12] = 0;
                     }
                 } else {
-                    if (axisval > -26214){
+                    if (axisval > 0){
                         return true;
                     }
                 }
