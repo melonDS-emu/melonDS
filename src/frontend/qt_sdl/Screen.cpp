@@ -193,8 +193,7 @@ QSize ScreenPanel::screenGetMinSize(int factor = 1)
 
     int w = 256 * factor;
     int h = 192 * factor;
-
-    if (screenLayout_SingleScreen)
+    if (screenLayout == screenLayout_SingleScreen)
     {
         return QSize(w, h);
     } else if (screenLayout == screenLayout_Default)
@@ -218,7 +217,7 @@ QSize ScreenPanel::screenGetMinSize(int factor = 1)
 void ScreenPanel::onScreenLayoutChanged()
 {
     loadConfig();
-
+    qDebug("Screen Layout Changed");
     setMinimumSize(screenGetMinSize());
     setupScreenLayout();
 }
