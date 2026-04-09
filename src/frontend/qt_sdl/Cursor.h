@@ -44,6 +44,9 @@ private:
   std::deque<std::array<float, 2>> macroPositions;
   int macroFrames;
   bool macroBtnPressed;
+  int stylusModDelay;
+  bool hitMaxSpeed;
+  bool flicked;
 };
 
 #endif // CURSOR_H

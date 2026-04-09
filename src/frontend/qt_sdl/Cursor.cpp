@@ -13,22 +13,22 @@ void Cursor::update(){
       //Swipe Gestures
       if (emuInstance->modButtons[0]){
         if (!macroBtnPressed){
-          swipe(1,0,3);
+          swipe(1,0,4);
           return;
         }
       } else if (emuInstance->modButtons[1]){
         if (!macroBtnPressed){
-          swipe(0,1,3);
+          swipe(0,1,4);
           return;      
         }
       } else if (emuInstance->modButtons[10]){
         if (!macroBtnPressed){
-          swipe(0,-1,3);
+          swipe(0,-1,4);
           return;
         }
       } else if (emuInstance->modButtons[11]){
         if (!macroBtnPressed){
-          swipe(-1,0,3);
+          swipe(-1,0,4);
           return;
         }
       } else {
@@ -66,12 +66,14 @@ void Cursor::update(){
       float heightSpeed = (192.0f / 33.0f) * multiplier;
 
       float deadzone = 5.0f / 100.0f; //Attach to Gui
-      bool speedup_enabled = emuInstance->stylusInput[4]; 
+      bool stylusModPressed = emuInstance->stylusInput[4]; 
       float responsecurve = 200.0f / 100.0f; //Attach to Gui
-      float speedupratio = 200.0f / 100.0f; //Attach to Gui
+      float speedupratio = 300.0f / 100.0f; //Attach to Gui
       float joystickScaled[2] = {0.0f};
-
+      bool stylusModEnabled = stylusModPressed && !stylusModDelay && !flicked;
       float radialLength = std::sqrt((normStylusDirection[0] * normStylusDirection[0]) + (normStylusDirection[1] * normStylusDirection[1]));
+      float finalLength;
+      float curvedLength;
       if (radialLength > deadzone) {
           // Get X and Y as a relation to the radial length
           float rComponents[2];
@@ -79,9 +81,9 @@ void Cursor::update(){
           rComponents[1] = normStylusDirection[1]/radialLength;
           // Apply deadzone and response curve
           float scaledLength = (radialLength - deadzone) / (1.0f - deadzone);
-          float curvedLength = std::pow(std::min<float>(1.0f, scaledLength), responsecurve);
+          curvedLength = std::pow(std::min<float>(1.0f, scaledLength), responsecurve);
           // Final output
-          float finalLength = speedup_enabled ? curvedLength * speedupratio : curvedLength;
+          finalLength = stylusModPressed ? curvedLength * speedupratio : curvedLength;
           joystickScaled[0] = rComponents[0] * finalLength;
           joystickScaled[1] = rComponents[1] * finalLength;
       } else {
@@ -99,13 +101,38 @@ void Cursor::update(){
       
       // If touchButton pressed, and wasnt touching, send signal
       // if (wasTouching) and touchButton not pressed, send release
-      if (emuInstance->stylusInput[5]){
+      // qDebug("Stylus Mod Enabled: %d, Stylus Mod Pressed: %d, Stylus Mod Delay: %d, Hit Max Speed: %d", stylusModEnabled, stylusModPressed, stylusModDelay, hitMaxSpeed);
+      if (stylusModEnabled){
+        if (curvedLength < 0.9 && wasTouching  && hitMaxSpeed){ //Flicked but button still held
+          release();
+          hitMaxSpeed = false;
+          //stylusModDelay = 4;
+          wasTouching = false;
+          flicked = true;
+        } else {
+          touchScreen();
+          wasTouching = true;
+          if (curvedLength == 1){
+            hitMaxSpeed = true;
+          }
+        }
+      } else if (!stylusModEnabled && wasTouching && hitMaxSpeed){ //Let go of button before joystick
+        release();
+        hitMaxSpeed = false;
+        //stylusModDelay = 20;
+        wasTouching = false;
+        flicked = true;
+      } else if (emuInstance->stylusInput[5]){
         touchScreen();
         wasTouching = true;
       } else if (wasTouching && !emuInstance->stylusInput[5]){ //if (wasTouching) and touchButton not pressed, send release
         release();
         wasTouching = false;
       }
+      if (stylusModDelay > 0){
+        stylusModDelay--;
+      }
+      flicked = false;
     }
   }
 }
@@ -142,9 +169,10 @@ void Cursor::swipe(float x, float y, int frames){
     x = x * 0.707;
     y = y * 0.707;
   }
-  for (int i = 0; i <= frames; i++){
-    macroPositions.push_back({rawCursorPos[0]+(x)*((i)*distancePerFrame),rawCursorPos[1]+(y)*((i)*distancePerFrame)});
-  }
+for (int i = 0; i <= frames; i++){
+    float offset = (i - frames / 2.0f) * distancePerFrame;
+    macroPositions.push_back({rawCursorPos[0]+(x)*offset, rawCursorPos[1]+(y)*offset});
+}
   macroPositions.push_back({rawCursorPos[0], rawCursorPos[1]});
   runMacro();
 }
