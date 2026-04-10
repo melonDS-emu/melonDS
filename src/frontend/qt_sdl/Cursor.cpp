@@ -9,15 +9,13 @@ void Cursor::update(){
     if (inMacro){
       runMacro();
     } else {
-      //Swipe Gestures
+      //Macros
       if (emuInstance->modButtons[0]){
         circle(0);
         return;
       } else if (emuInstance->modButtons[1]){
-        if (!macroBtnPressed){
-
-          return;
-        }
+        rub();
+        return;
       } else if (emuInstance->modButtons[10]){
         if (!macroBtnPressed){
 
@@ -236,6 +234,31 @@ void Cursor::circle(int direction){
   macroFrames = macroPositions.size();
   runMacro();
 }
+
+void Cursor::rub(){
+  macroBtnPressed = true;
+  inMacro = true;
+  wasTouching = true;
+  macroType = 2;
+  float radius = 192.0f/6.0f;
+  if (justFinishedMacro != 2){ //Set the original position if just starting
+    macroInitPos = {rawCursorPos[0],  rawCursorPos[1]};
+  } else { // If in loop, get the initial starting point again
+    rawCursorPos[0] = macroInitPos[0];
+    rawCursorPos[1] = macroInitPos[1];
+  }
+  macroPositions.push_back({rawCursorPos[0]+(0.0f*radius),      rawCursorPos[1]});
+  macroPositions.push_back({rawCursorPos[0]+(0.5f*radius),      rawCursorPos[1]});
+  macroPositions.push_back({rawCursorPos[0]+(1.0f*radius),      rawCursorPos[1]});
+  macroPositions.push_back({rawCursorPos[0]+(0.5f*radius),      rawCursorPos[1]});
+  macroPositions.push_back({rawCursorPos[0]+(0.0f*radius),      rawCursorPos[1]});
+  macroPositions.push_back({rawCursorPos[0]+(-0.5f*radius),      rawCursorPos[1]});
+  macroPositions.push_back({rawCursorPos[0]+(-1.0f*radius),      rawCursorPos[1]});
+  macroPositions.push_back({rawCursorPos[0]+(-0.5f*radius),      rawCursorPos[1]});
+  macroFrames = macroPositions.size();
+  runMacro();
+}
+
 
 void Cursor::runMacro(){
     rawCursorPos[0] = macroPositions.front()[0];
