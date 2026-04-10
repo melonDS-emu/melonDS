@@ -19,6 +19,7 @@
 #ifndef CURSOR_H
 #define CURSOR_H
 #include <queue>
+#include <array>
 class EmuInstance;
 
 class Cursor
@@ -39,15 +40,21 @@ private:
   bool wasTouching;
 
   //Swipe in direction of x and y over the course of specified frames. Expects integer values between -1 and 1
-  void swipe(float x, float y, int frames);
+  // void swipe(float x, float y, int frames);
+  void circle(int direction); //0 is clockwise, 1 is counter clockwise
+  void rub();
   void runMacro();
   bool inMacro;
   std::deque<std::array<float, 2>> macroPositions;
   int macroFrames;
   bool macroBtnPressed;
+  int macroType;
+  int justFinishedMacro;
+  std::array<float, 2> macroInitPos;
   int stylusModDelay;
   bool hitMaxSpeed;
   bool alreadyFlicked;
+  bool joystickNegativeEdge; //Auto flick on joystick release
   int rotation;
 };
 
