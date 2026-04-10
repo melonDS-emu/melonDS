@@ -30,7 +30,7 @@ jobs:
     runs-on: ${{ matrix.arch.runner }}
 
     steps:
-    - uses: actions/checkout@v4
+    - uses: actions/checkout@v6
       name: Check out sources
     - name: Install dependencies
       run: |
@@ -43,7 +43,7 @@ jobs:
       run: |
         cmake --build build
         DESTDIR=AppDir cmake --install build
-    - uses: actions/upload-artifact@v4
+    - uses: actions/upload-artifact@v7
       with:
         name: melonDS-ubuntu-${{ matrix.arch.name }}
         path: AppDir/usr/bin/melonDS
@@ -59,7 +59,7 @@ jobs:
         QMAKE: /usr/lib/qt6/bin/qmake
       run: |
         ./linuxdeploy-${{ matrix.arch.name }}.AppImage --appdir AppDir --plugin qt --output appimage
-    - uses: actions/upload-artifact@v4
+    - uses: actions/upload-artifact@v7
       with:
         name: melonDS-appimage-${{ matrix.arch.name }}
         path: melonDS*.AppImage

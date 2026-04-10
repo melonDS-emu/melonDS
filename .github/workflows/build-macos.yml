@@ -29,7 +29,7 @@ jobs:
 
     steps:
       - name: Check out sources
-        uses: actions/checkout@v3
+        uses: actions/checkout@v6
       - name: Install dependencies for package building
         run: |
           brew install autoconf automake autoconf-archive libtool python-setuptools
@@ -57,7 +57,7 @@ jobs:
           cd build/release-mac-${{ matrix.arch }}
           zip -r -y ../../macOS-${{ matrix.arch }}.zip melonDS.app
       - name: Upload artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: macOS-${{ matrix.arch }}
           path: macOS-${{ matrix.arch }}.zip
@@ -95,7 +95,7 @@ jobs:
           codesign -s - --deep melonDS.app
           zip -r -y macOS-universal.zip melonDS.app
       - name: Upload artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: macOS-universal
           path: macOS-universal.zip
