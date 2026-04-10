@@ -25,9 +25,6 @@ jobs:
         include:
           - os: freebsd
             os_name: FreeBSD
-            # CMake's autorcc for Qt tries to lock files, so we need to
-            # start lockd for NFS, otherwise the build will fail.
-            prepare_vm: service lockd onestart
             install_deps: >
               pkg install -y cmake kf6-extra-cmake-modules pkgconf ninja
               qt6-base qt6-multimedia qt6-svg sdl2 libarchive zstd enet
@@ -91,14 +88,14 @@ jobs:
       run: ${{ matrix.install_deps }}
 
     - name: Configure
-      run: |
-        cd $GITHUB_WORKSPACE
-        cmake -B build -G Ninja -DMELONDS_EMBED_BUILD_INFO=ON
+      run: >
+        cmake -S $GITHUB_WORKSPACE -B /tmp/build -G Ninja
+        -DMELONDS_EMBED_BUILD_INFO=ON
 
     - name: Build
       run: |
-        cd $GITHUB_WORKSPACE
-        cmake --build build
+        cmake --build /tmp/build
+        cp -RP /tmp/build $GITHUB_WORKSPACE/
 
     - name: Upload binary
       uses: actions/upload-artifact@v7
