@@ -20,6 +20,7 @@
 #define CURSOR_H
 #include <queue>
 #include <array>
+#include <vector>
 class EmuInstance;
 
 class Cursor
@@ -44,6 +45,7 @@ private:
   void circle(int direction); //0 is clockwise, 1 is counter clockwise
   void rub();
   void runMacro();
+  std::vector<std::array<float, 2>> rotateVector(std::vector<std::array<float, 2>> input);
   bool inMacro;
   std::deque<std::array<float, 2>> macroPositions;
   int macroFrames;

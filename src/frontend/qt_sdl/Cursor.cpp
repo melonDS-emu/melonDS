@@ -3,12 +3,21 @@
 #include <algorithm>
 #include "EmuInstance.h"
 #include "Platform.h"
+
+
+
 void Cursor::update(){
   if (emuInstance != nullptr){
     //Get inputs directional input
     if (inMacro){
       runMacro();
     } else {
+      //Reset the cursor position if macro was just played
+      if (justFinishedMacro > 0){
+        justFinishedMacro = 0;
+        rawCursorPos[0] = macroInitPos[0];
+        rawCursorPos[1] = macroInitPos[1];
+      }
       //Macros
       if (emuInstance->modButtons[0]){
         circle(0);
@@ -29,14 +38,6 @@ void Cursor::update(){
           macroBtnPressed = false;
         }
       }
-
-      if (justFinishedMacro > 0){
-        justFinishedMacro = 0;
-        rawCursorPos[0] = macroInitPos[0];
-        rawCursorPos[1] = macroInitPos[1];
-      }
-
-
 
       //Compare Left vs Right Values
       if (emuInstance->stylusInput[2] > emuInstance->stylusInput[3]){
@@ -88,7 +89,6 @@ void Cursor::update(){
       }
       //The code below sets the cursor position to the position of the joystick (absolute)
       //_joystickCursorPosition = vec2((NDS_SCREEN_WIDTH/2.0f)+(std::min<float>(1.0,(normStylusDirection[0]/0.7071))*(NDS_SCREEN_WIDTH/2.0f)), (NDS_SCREEN_HEIGHT/2.0f)+(std::min<float>(1.0,(normStylusDirection[1]/0.7071))*(NDS_SCREEN_HEIGHT/2.0f)));
-      // qDebug("Current Rotation: %d", rotation);
 
       float tempX = joystickScaled[0];
       float tempY = joystickScaled[1];
@@ -120,7 +120,6 @@ void Cursor::update(){
       
       // If touchButton pressed, and wasnt touching, send signal
       // if (wasTouching) and touchButton not pressed, send release
-      // qDebug("Stylus Mod Enabled: %d, Stylus Mod Pressed: %d, Stylus Mod Delay: %d, Hit Max Speed: %d", stylusModEnabled, stylusModPressed, stylusModDelay, hitMaxSpeed);
       if (stylusModEnabled){
         if (curvedLength < 0.9 && wasTouching  && hitMaxSpeed && joystickNegativeEdge){ //Flicked but button still held
           release();
@@ -181,25 +180,6 @@ void Cursor::updateCursorPos(){
   cursorPos[1] = std::floor(rawCursorPos[1]);
 }
 
-// void Cursor::swipe(float x, float y, int frames){
-//   macroBtnPressed = true;
-//   inMacro = true;
-//   float swipeDistance = 192.0f/2; //Default swipe is 1/2 the height
-//   macroFrames = frames+1;
-//   float distancePerFrame = swipeDistance/frames;
-//   int total = std::abs(x) + std::abs(y);
-//   if (total == 2){
-//     x = x * 0.707;
-//     y = y * 0.707;
-//   }
-// for (int i = 0; i <= frames; i++){
-//     float offset = (i - frames / 2.0f) * distancePerFrame;
-//     macroPositions.push_back({rawCursorPos[0]+(x)*offset, rawCursorPos[1]+(y)*offset});
-// }
-//   macroPositions.push_back({rawCursorPos[0], rawCursorPos[1]});
-//   runMacro();
-// }
-
 void Cursor::circle(int direction){
   macroBtnPressed = true;
   inMacro = true;
@@ -208,29 +188,39 @@ void Cursor::circle(int direction){
   float radius = 192.0f/4.0f;
   if (justFinishedMacro != 1){ //Set the original position if just starting
     macroInitPos = {rawCursorPos[0],  rawCursorPos[1]};
-  } else { // If in loop, get the initial starting point again
-    rawCursorPos[0] = macroInitPos[0];
-    rawCursorPos[1] = macroInitPos[1];
   }
+
+
+  std::vector<std::array<float, 2>> offsetArray;
   if (direction == 0){
-    macroPositions.push_back({rawCursorPos[0]+(0.0f*radius),      rawCursorPos[1]+(-1.0f*radius)});
-    macroPositions.push_back({rawCursorPos[0]+(0.7071f*radius),   rawCursorPos[1]+(-0.7071f*radius)});
-    macroPositions.push_back({rawCursorPos[0]+(1.0f*radius),      rawCursorPos[1]+(0.0f*radius)});
-    macroPositions.push_back({rawCursorPos[0]+(0.7071f*radius),   rawCursorPos[1]+(0.7071f*radius)});
-    macroPositions.push_back({rawCursorPos[0]+(0.0f*radius),      rawCursorPos[1]+(1.0f*radius)});
-    macroPositions.push_back({rawCursorPos[0]+(-0.7071f*radius),  rawCursorPos[1]+(0.7071f*radius)});
-    macroPositions.push_back({rawCursorPos[0]+(-1.0f*radius),     rawCursorPos[1]+(0.0f*radius)});
-    macroPositions.push_back({rawCursorPos[0]+(-0.7071f*radius),  rawCursorPos[1]+(-0.7071f*radius)});
+    offsetArray.push_back({(0.0f*radius),      (-1.0f*radius)});
+    offsetArray.push_back({(0.7071f*radius),   (-0.7071f*radius)});
+    offsetArray.push_back({(1.0f*radius),      (0.0f*radius)});
+    offsetArray.push_back({(0.7071f*radius),   (0.7071f*radius)});
+    offsetArray.push_back({(0.0f*radius),      (1.0f*radius)});
+    offsetArray.push_back({(-0.7071f*radius),  (0.7071f*radius)});
+    offsetArray.push_back({(-1.0f*radius),     (0.0f*radius)});
+    offsetArray.push_back({(-0.7071f*radius),  (-0.7071f*radius)});
   } else {
-    macroPositions.push_back({rawCursorPos[0]+(0.0f*radius),      rawCursorPos[1]+(-1.0f*radius)});
-    macroPositions.push_back({rawCursorPos[0]+(-0.7071f*radius),  rawCursorPos[1]+(-0.7071f*radius)});
-    macroPositions.push_back({rawCursorPos[0]+(-1.0f*radius),     rawCursorPos[1]+(0.0f*radius)});
-    macroPositions.push_back({rawCursorPos[0]+(-0.7071f*radius),  rawCursorPos[1]+(0.7071f*radius)});
-    macroPositions.push_back({rawCursorPos[0]+(0.0f*radius),      rawCursorPos[1]+(1.0f*radius)});
-    macroPositions.push_back({rawCursorPos[0]+(0.7071f*radius),   rawCursorPos[1]+(0.7071f*radius)});
-    macroPositions.push_back({rawCursorPos[0]+(1.0f*radius),      rawCursorPos[1]+(0.0f*radius)});
-    macroPositions.push_back({rawCursorPos[0]+(0.7071f*radius),   rawCursorPos[1]+(-0.7071f*radius)});
+    offsetArray.push_back({(0.0f*radius),      (-1.0f*radius)});
+    offsetArray.push_back({(-0.7071f*radius),  (-0.7071f*radius)});
+    offsetArray.push_back({(-1.0f*radius),     (0.0f*radius)});
+    offsetArray.push_back({(-0.7071f*radius),  (0.7071f*radius)});
+    offsetArray.push_back({(0.0f*radius),      (1.0f*radius)});
+    offsetArray.push_back({(0.7071f*radius),   (0.7071f*radius)});
+    offsetArray.push_back({(1.0f*radius),      (0.0f*radius)});
+    offsetArray.push_back({(0.7071f*radius),   (-0.7071f*radius)});
   }
+  offsetArray = rotateVector(offsetArray);
+
+  macroPositions.push_back({rawCursorPos[0]+offsetArray[0][0], rawCursorPos[1]+offsetArray[0][1]});
+  macroPositions.push_back({rawCursorPos[0]+offsetArray[1][0], rawCursorPos[1]+offsetArray[1][1]});
+  macroPositions.push_back({rawCursorPos[0]+offsetArray[2][0], rawCursorPos[1]+offsetArray[2][1]});
+  macroPositions.push_back({rawCursorPos[0]+offsetArray[3][0], rawCursorPos[1]+offsetArray[3][1]});
+  macroPositions.push_back({rawCursorPos[0]+offsetArray[4][0], rawCursorPos[1]+offsetArray[4][1]});
+  macroPositions.push_back({rawCursorPos[0]+offsetArray[5][0], rawCursorPos[1]+offsetArray[5][1]});
+  macroPositions.push_back({rawCursorPos[0]+offsetArray[6][0], rawCursorPos[1]+offsetArray[6][1]});
+  macroPositions.push_back({rawCursorPos[0]+offsetArray[7][0], rawCursorPos[1]+offsetArray[7][1]});
   macroFrames = macroPositions.size();
   runMacro();
 }
@@ -243,18 +233,27 @@ void Cursor::rub(){
   float radius = 192.0f/6.0f;
   if (justFinishedMacro != 2){ //Set the original position if just starting
     macroInitPos = {rawCursorPos[0],  rawCursorPos[1]};
-  } else { // If in loop, get the initial starting point again
-    rawCursorPos[0] = macroInitPos[0];
-    rawCursorPos[1] = macroInitPos[1];
   }
-  macroPositions.push_back({rawCursorPos[0]+(0.0f*radius),      rawCursorPos[1]});
-  macroPositions.push_back({rawCursorPos[0]+(0.5f*radius),      rawCursorPos[1]});
-  macroPositions.push_back({rawCursorPos[0]+(1.0f*radius),      rawCursorPos[1]});
-  macroPositions.push_back({rawCursorPos[0]+(0.5f*radius),      rawCursorPos[1]});
-  macroPositions.push_back({rawCursorPos[0]+(0.0f*radius),      rawCursorPos[1]});
-  macroPositions.push_back({rawCursorPos[0]+(-0.5f*radius),      rawCursorPos[1]});
-  macroPositions.push_back({rawCursorPos[0]+(-1.0f*radius),      rawCursorPos[1]});
-  macroPositions.push_back({rawCursorPos[0]+(-0.5f*radius),      rawCursorPos[1]});
+  std::vector<std::array<float, 2>> offsetArray;
+  offsetArray.push_back({(0.0f*radius),   0});
+  offsetArray.push_back({(0.5f*radius),   0});
+  offsetArray.push_back({(1.0f*radius),   0});
+  offsetArray.push_back({(0.5f*radius),   0});
+  offsetArray.push_back({(0.0f*radius),   0});
+  offsetArray.push_back({(-0.5f*radius),  0});
+  offsetArray.push_back({(-1.0f*radius),  0});
+  offsetArray.push_back({(-0.5f*radius),  0});
+  offsetArray = rotateVector(offsetArray);
+  
+
+  macroPositions.push_back({rawCursorPos[0]+offsetArray[0][0], rawCursorPos[1]+offsetArray[0][1]});
+  macroPositions.push_back({rawCursorPos[0]+offsetArray[1][0], rawCursorPos[1]+offsetArray[1][1]});
+  macroPositions.push_back({rawCursorPos[0]+offsetArray[2][0], rawCursorPos[1]+offsetArray[2][1]});
+  macroPositions.push_back({rawCursorPos[0]+offsetArray[3][0], rawCursorPos[1]+offsetArray[3][1]});
+  macroPositions.push_back({rawCursorPos[0]+offsetArray[4][0], rawCursorPos[1]+offsetArray[4][1]});
+  macroPositions.push_back({rawCursorPos[0]+offsetArray[5][0], rawCursorPos[1]+offsetArray[5][1]});
+  macroPositions.push_back({rawCursorPos[0]+offsetArray[6][0], rawCursorPos[1]+offsetArray[6][1]});
+  macroPositions.push_back({rawCursorPos[0]+offsetArray[7][0], rawCursorPos[1]+offsetArray[7][1]});
   macroFrames = macroPositions.size();
   runMacro();
 }
@@ -277,4 +276,29 @@ void Cursor::runMacro(){
 
 void Cursor::setRotation(int rot){
   rotation = rot;
+}
+
+std::vector<std::array<float, 2>> Cursor::rotateVector(std::vector<std::array<float, 2>> input){
+  for (auto& currArray : input){
+      float tempX = currArray[0];
+      float tempY = currArray[1];
+      switch (rotation)
+      {
+          case 1: // 90°
+              currArray[0] =  tempY;
+              currArray[1] = -tempX;
+              break;
+          case 2: // 180°
+              currArray[0] = -tempX;
+              currArray[1] = -tempY;
+              break;
+          case 3: // 270°
+              currArray[0] = -tempY;
+              currArray[1] =  tempX;
+              break;
+          default: // 0°
+              break;
+    }
+  }
+  return input;
 }
