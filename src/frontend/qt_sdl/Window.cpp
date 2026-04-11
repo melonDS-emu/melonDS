@@ -958,7 +958,6 @@ void MainWindow::drawScreen()
 {
     if (!panel) return;
     vCursor->setRotation(this->getWindowConfig().GetInt("ScreenRotation"));
-    vCursor->update();
     panel->vCursor = vCursor;
     return panel->drawScreen();
 }

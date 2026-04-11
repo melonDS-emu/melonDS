@@ -29,7 +29,7 @@
 #include <QScreen>
 #include <QCloseEvent>
 #include <QTimer>
-
+#include <QElapsedTimer>
 #include "glad/glad.h"
 #include "ScreenLayout.h"
 #include "duckstation/gl/context.h"
@@ -61,7 +61,7 @@ public:
     void setFilter(bool filter);
     Cursor* vCursor;
     void setMouseHide(bool enable, int delay);
-
+    QElapsedTimer* cursorTimer;
     QTimer* setupMouseTimer();
     void updateMouseTimer();
     QTimer* mouseTimer;

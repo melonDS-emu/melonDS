@@ -78,7 +78,8 @@ ScreenPanel::ScreenPanel(QWidget* parent) : QWidget(parent)
 
     mouseHide = false;
     mouseHideDelay = 0;
-
+    cursorTimer = new QElapsedTimer();
+    //cursorTimer->start(); Uncomment to get timer for virtual cursor
     QTimer* mouseTimer = setupMouseTimer();
     connect(mouseTimer, &QTimer::timeout, [=] { if (mouseHide) setCursor(Qt::BlankCursor);});
 
@@ -807,6 +808,9 @@ void ScreenPanelNative::paintEvent(QPaintEvent* event)
     
     if (emuThread->emuIsActive())
     {
+        if (emuThread->emuIsRunning()){
+            vCursor->update();
+        }
         emuInstance->renderLock.lock();
 
         bufferLock.lock();
@@ -1142,6 +1146,9 @@ void ScreenPanelGL::drawScreen()
 
     if (emuThread->emuIsActive())
     {
+        if (emuThread->emuIsRunning()){
+            vCursor->update();
+        }
         auto nds = emuInstance->getNDS();
 
         glUseProgram(screenShaderProgram);
@@ -1177,7 +1184,6 @@ void ScreenPanelGL::drawScreen()
 
         glBindBuffer(GL_ARRAY_BUFFER, screenVertexBuffer);
         glBindVertexArray(screenVertexArray);
-
         for (int i = 0; i < numScreens; i++)
         {
 
