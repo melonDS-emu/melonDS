@@ -58,49 +58,11 @@ public:
     void DataWrite32(const u32 addr, const u32 val) override;
     void DataWrite32S(const u32 addr, const u32 val) override;
 
-    void AddCycles_C() override
-    {
-        // code only. always nonseq 32-bit for ARM9.
-        s32 numC = (R[15] & 0x2) ? 1 : CodeCycles;
-        Cycles += numC;
-    }
-
-    void AddCycles_CI(s32 numI) override
-    {
-        // code+internal
-        s32 numC = (R[15] & 0x2) ? 0 : CodeCycles;
-        Cycles += numC + numI;
-    }
-
-    void AddCycles_CDI() override
-    {
-        // LDR/LDM cycles. ARM9 seems to skip the internal cycle there.
-        // TODO: ITCM data fetches shouldn't be parallelized, they say
-        s32 numC = (R[15] & 0x2) ? 0 : CodeCycles;
-        s32 numD = DataCycles;
-
-        //if (DataRegion != CodeRegion)
-            Cycles += std::max(numC + numD - 6, std::max(numC, numD));
-        //else
-        //    Cycles += numC + numD;
-    }
-
-    void AddCycles_CD() override
-    {
-        // TODO: ITCM data fetches shouldn't be parallelized, they say
-        s32 numC = (R[15] & 0x2) ? 0 : CodeCycles;
-        s32 numD = DataCycles;
-
-        //if (DataRegion != CodeRegion)
-            Cycles += std::max(numC + numD - 6, std::max(numC, numD));
-        //else
-        //    Cycles += numC + numD;
-    }
-
-    void AddCycles_Store() override
-    {
-        AddCycles_CD();
-    }
+    void AddCycles_C() override;
+    void AddCycles_CI(s32 numI) override;
+    void AddCycles_CDI() override;
+    void AddCycles_CD() override;
+    void AddCycles_Store() override;
 
     void GetCodeMemRegion(const u32 addr, MemRegion* region);
 
@@ -450,8 +412,28 @@ public:
     void WriteMem(u32 addr, int size, u32 v) override;
 #endif
 
-protected:
-    //void Prefetch(bool branch) override;
+private:
+    u32 CodeRegion;
+
+    // TODO change to just pointer?
+    MemInfo CodeMem;
+
+    MemInfo DataMem;
+
+    u64 BusTimestamp;
+
+    // mainRAM burst tracking
+    // TODO better variable names
+    u32 MainRAMStartAddr;
+    u32 MainRAMCycles;
+    u64 MainRAMTerminate;
+
+    void BeginMainRAMBurst(int begin, int term);
+    void TerminateMainRAMBurst();
+
+    void DoCodeAccessTimings(const u32 addr);
+    void DoDataAccessTimings(const u32 addr, bool write, int width);
+    void DoDataAccessTimingsSeq(const u32 addr, bool write);
 };
 
 }

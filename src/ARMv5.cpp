@@ -55,6 +55,16 @@ ARMv5::~ARMv5()
 
 void ARMv5::Reset()
 {
+    // TODO unify these, add to savestate, etc
+    CodeRegion = 0xFFFFFFFF;
+
+    BusTimestamp = 0;
+
+    MainRAMStartAddr = 0;
+    //MainRAMStart = 0;
+    MainRAMCycles = 0;
+    MainRAMTerminate = 0;
+
     PU_Map = PU_PrivMap;
 
     ARM::Reset();
@@ -257,8 +267,6 @@ void ARMv5::Execute()
                 // actually execute
                 u32 icode = (CurInstr >> 6) & 0x3FF;
                 ARMInterpreter::THUMBInstrTable[icode](this);
-                if ((CurInstr&0xFFFF)==0x46C0)
-                    printf("instr %08X cycles = %d (%d) (%lld)\n", R[15], CodeCycles, Cycles, NDS.ARM9Timestamp);
             }
             else
             {
@@ -303,8 +311,8 @@ void ARMv5::Execute()
 
         }
 
-        NDS.ARM9Timestamp += Cycles;
-        Cycles = 0;
+        //NDS.ARM9Timestamp += Cycles;
+        //Cycles = 0;
     }
 
     if (Halted == 2)
@@ -340,13 +348,78 @@ void ARMv5::FillPipeline()
     }
 }
 
+void ARMv5::BeginMainRAMBurst(int begin, int term)
+{
+    TerminateMainRAMBurst();
+
+    begin <<= NDS.ARM9ClockShift;
+    term <<= NDS.ARM9ClockShift;
+
+    BusTimestamp += begin;
+    MainRAMCycles = begin;
+    MainRAMTerminate = BusTimestamp + term;
+}
+
+void ARMv5::TerminateMainRAMBurst()
+{
+    if (BusTimestamp < MainRAMTerminate)
+        BusTimestamp = MainRAMTerminate;
+}
+
+void ARMv5::DoCodeAccessTimings(const u32 addr)
+{
+    u32 rgn = addr & ~0xFFF;
+    if (rgn != CodeRegion)
+    {
+        NDS.ARM9GetMemInfo(rgn, CodeMem);
+        CodeRegion = rgn;
+    }
+
+    if (!(addr & 0xFFF))
+    {
+        printf("BARG  %08X, %016llX %016llX\n",
+               addr, NDS.ARM9Timestamp, BusTimestamp);
+    }
+
+    // align the ARM9 to the start of this instruction
+    if (NDS.ARM9Timestamp < BusTimestamp)
+        NDS.ARM9Timestamp = BusTimestamp;
+    else
+    {
+        BusTimestamp = NDS.ARM9Timestamp;
+        u64 align = (1ULL << NDS.ARM9ClockShift) - 1;
+        BusTimestamp = (BusTimestamp + align) & ~align;
+    }
+
+    // when using the bus, apply buffering delay: 3 cycles on DS, 2 cycles on DSi
+    // TODO make nicer!
+    if (NDS.ARM9ClockShift > 1)
+        BusTimestamp += 8;
+    else
+        BusTimestamp += 6;
+
+    // ARM9 code fetches are always nonsequential
+
+    if (CodeMem.Region & Mem9_MainRAM)
+    {
+        BeginMainRAMBurst(6, 3);
+        //MainRAMStartAddr = addr;
+    }
+    else
+    {
+        BusTimestamp += (CodeMem.Cycles_N32 << NDS.ARM9ClockShift);
+    }
+}
+
 // TCM are handled here.
 
 u32 ARMv5::CodeRead32(const u32 addr, bool const branch)
 {
     if (addr < ITCMSize)
     {
-        CodeCycles = 1;
+        //CodeCycles = 1;
+        CodeMem.Region = Mem9_ITCM;
+        NDS.ARM9Timestamp++;
         return *(u32*)&ITCM[addr & (ITCMPhysicalSize - 1)];
     }
 
@@ -355,17 +428,17 @@ u32 ARMv5::CodeRead32(const u32 addr, bool const branch)
     if (!NDS.IsJITEnabled())
 #endif
     {
-        if (CP15Control & CP15_CACHE_CR_ICACHEENABLE)
+        /*if (CP15Control & CP15_CACHE_CR_ICACHEENABLE)
         {
             if (IsAddressICachable(addr))
             {
                 return ICacheLookup(addr);
             }
-        }
+        }*/
     }
 #endif
 
-    CodeCycles = RegionCodeCycles;
+    /*CodeCycles = RegionCodeCycles;
 
     if (CodeCycles == 0xFF) // cached memory. hax
     {
@@ -375,7 +448,12 @@ u32 ARMv5::CodeRead32(const u32 addr, bool const branch)
             CodeCycles = 1;
     }
 
-    if (CodeMem.Mem) return *(u32*)&CodeMem.Mem[addr & CodeMem.Mask];
+    if (CodeMem.Mem) return *(u32*)&CodeMem.Mem[addr & CodeMem.Mask];*/
+
+    DoCodeAccessTimings(addr);
+
+    // count atleast one internal cycle for this instruction
+    NDS.ARM9Timestamp++;
 
     return NDS.ARM9Read32(addr);
 }
@@ -733,9 +811,54 @@ void ARMv5::DataWrite32S(const u32 addr, const u32 val)
     DataCycles += MemTimings[addr >> BUSCYCLES_MAP_GRANULARITY_LOG2][BUSCYCLES_S32];
 }
 
+void ARMv5::AddCycles_C()
+{
+    // code only. always nonseq 32-bit for ARM9.
+    //s32 numC = (R[15] & 0x2) ? 1 : CodeCycles;
+    //Cycles += numC;
+}
+
+void ARMv5::AddCycles_CI(s32 numI)
+{
+    // code+internal
+    //s32 numC = (R[15] & 0x2) ? 0 : CodeCycles;
+    //Cycles += numC + numI;
+    NDS.ARM9Timestamp += numI;
+}
+
+void ARMv5::AddCycles_CDI()
+{
+    // LDR/LDM cycles. ARM9 seems to skip the internal cycle there.
+    // TODO: ITCM data fetches shouldn't be parallelized, they say
+    s32 numC = (R[15] & 0x2) ? 0 : CodeCycles;
+    s32 numD = DataCycles;
+
+    //if (DataRegion != CodeRegion)
+    Cycles += std::max(numC + numD - 6, std::max(numC, numD));
+    //else
+    //    Cycles += numC + numD;
+}
+
+void ARMv5::AddCycles_CD()
+{
+    // TODO: ITCM data fetches shouldn't be parallelized, they say
+    s32 numC = (R[15] & 0x2) ? 0 : CodeCycles;
+    s32 numD = DataCycles;
+
+    //if (DataRegion != CodeRegion)
+    Cycles += std::max(numC + numD - 6, std::max(numC, numD));
+    //else
+    //    Cycles += numC + numD;
+}
+
+void ARMv5::AddCycles_Store()
+{
+    AddCycles_CD();
+}
+
 void ARMv5::GetCodeMemRegion(const u32 addr, MemRegion* region)
 {
-    NDS.ARM9GetMemRegion(addr, false, &CodeMem);
+    //NDS.ARM9GetMemRegion(addr, false, &CodeMem);
 }
 
 #ifdef GDBSTUB_ENABLED

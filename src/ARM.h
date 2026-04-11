@@ -202,7 +202,7 @@ public:
 
     u32 ExceptionBase;
 
-    MemRegion CodeMem;
+    //MemRegion CodeMem;
 
 #ifdef JIT_ENABLED
     u32 FastBlockLookupStart, FastBlockLookupSize;

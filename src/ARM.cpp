@@ -169,7 +169,7 @@ void ARM::Reset()
 
     ExceptionBase = Num ? 0x00000000 : 0xFFFF0000;
 
-    CodeMem.Mem = NULL;
+    //CodeMem.Mem = NULL;
 
 #ifdef JIT_ENABLED
     FastBlockLookup = NULL;
@@ -252,7 +252,7 @@ void ARM::SetupCodeMem(u32 addr)
 {
     if (!Num)
     {
-        ((ARMv5*)this)->GetCodeMemRegion(addr, &CodeMem);
+        //((ARMv5*)this)->GetCodeMemRegion(addr, &CodeMem);
     }
     else
     {

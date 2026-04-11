@@ -406,7 +406,7 @@ void ARMv4::DoDataAccessTimingsSeq(const u32 addr, bool write)
 
 void ARMv4::DataRead8(const u32 addr, u32* val)
 {
-    DoDataAccessTimings(addr, 0, 8);
+    DoDataAccessTimings(addr, false, 8);
 
     *val = NDS.ARM7Read8(addr);
     DataRegion = addr;
@@ -415,7 +415,7 @@ void ARMv4::DataRead8(const u32 addr, u32* val)
 
 void ARMv4::DataRead16(const u32 addr, u32* val)
 {
-    DoDataAccessTimings(addr, 0, 16);
+    DoDataAccessTimings(addr, false, 16);
 
     *val = NDS.ARM7Read16(addr & ~1);
     DataRegion = addr;
@@ -424,7 +424,7 @@ void ARMv4::DataRead16(const u32 addr, u32* val)
 
 void ARMv4::DataRead32(const u32 addr, u32* val)
 {
-    DoDataAccessTimings(addr, 0, 32);
+    DoDataAccessTimings(addr, false, 32);
 
     *val = NDS.ARM7Read32(addr & ~3);
     DataRegion = addr;
@@ -433,7 +433,7 @@ void ARMv4::DataRead32(const u32 addr, u32* val)
 
 void ARMv4::DataRead32S(const u32 addr, u32* val)
 {
-    DoDataAccessTimingsSeq(addr, 0);
+    DoDataAccessTimingsSeq(addr, false);
 
     *val = NDS.ARM7Read32(addr & ~3);
     //DataCycles += NDS.ARM7MemTimings[addr >> 15][3];
@@ -441,7 +441,7 @@ void ARMv4::DataRead32S(const u32 addr, u32* val)
 
 void ARMv4::DataWrite8(const u32 addr, const u8 val)
 {
-    DoDataAccessTimings(addr, 1, 8);
+    DoDataAccessTimings(addr, true, 8);
 
     NDS.ARM7Write8(addr, val);
     DataRegion = addr;
@@ -450,7 +450,7 @@ void ARMv4::DataWrite8(const u32 addr, const u8 val)
 
 void ARMv4::DataWrite16(const u32 addr, const u16 val)
 {
-    DoDataAccessTimings(addr, 1, 16);
+    DoDataAccessTimings(addr, true, 16);
 
     NDS.ARM7Write16(addr & ~1, val);
     DataRegion = addr;
@@ -459,7 +459,7 @@ void ARMv4::DataWrite16(const u32 addr, const u16 val)
 
 void ARMv4::DataWrite32(const u32 addr, const u32 val)
 {
-    DoDataAccessTimings(addr, 1, 32);
+    DoDataAccessTimings(addr, true, 32);
 
     NDS.ARM7Write32(addr & ~3, val);
     DataRegion = addr;
@@ -468,7 +468,7 @@ void ARMv4::DataWrite32(const u32 addr, const u32 val)
 
 void ARMv4::DataWrite32S(const u32 addr, const u32 val)
 {
-    DoDataAccessTimingsSeq(addr, 1);
+    DoDataAccessTimingsSeq(addr, true);
 
     NDS.ARM7Write32(addr & ~3, val);
     //DataCycles += NDS.ARM7MemTimings[addr >> 15][3];

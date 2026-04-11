@@ -399,8 +399,6 @@ void A_LDM(ARM* cpu)
     bool first = true;
     u32 reglist = cpu->CurInstr & 0xFFFF;
 
-    //cpu->AddCycles_CI(1);
-
     if (!reglist)
     {
         // TODO: adjust base reg?

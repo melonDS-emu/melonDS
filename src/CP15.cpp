@@ -375,10 +375,10 @@ u32 ARMv5::ICacheLookup(const u32 addr)
                 // retreive the data from memory, even if the data was cached
                 // See arm946e-s Rev 1 technical manual, 2.3.15 "Register 15, test State Register")
                 CodeCycles = NDS.ARM9MemTimings[tag >> 14][2];
-                if (CodeMem.Mem)
+                /*if (CodeMem.Mem)
                 {
                     return *(u32*)&CodeMem.Mem[(addr & CodeMem.Mask) & ~3];
-                } else
+                } else*/
                 {
                     return NDS.ARM9Read32(addr & ~3);
                 }
@@ -394,10 +394,10 @@ u32 ARMv5::ICacheLookup(const u32 addr)
     if (CP15BISTTestStateRegister & CP15_BIST_TR_DISABLE_ICACHE_LINEFILL) [[unlikely]]
     {
         CodeCycles = NDS.ARM9MemTimings[tag >> 14][2];
-        if (CodeMem.Mem)
+        /*if (CodeMem.Mem)
         {
             return *(u32*)&CodeMem.Mem[(addr & CodeMem.Mask) & ~3];
-        } else
+        } else*/
         {
             return NDS.ARM9Read32(addr & ~3);
         }
@@ -433,11 +433,11 @@ u32 ARMv5::ICacheLookup(const u32 addr)
 
     u32* ptr = (u32 *)&ICache[line << ICACHE_LINELENGTH_LOG2];
 
-    if (CodeMem.Mem)
+    /*if (CodeMem.Mem)
     {
         memcpy(ptr, &CodeMem.Mem[tag & CodeMem.Mask], ICACHE_LINELENGTH);
     }
-    else
+    else*/
     {
         for (int i = 0; i < ICACHE_LINELENGTH; i+=sizeof(u32))
             ptr[i >> 2] = NDS.ARM9Read32(tag+i);
