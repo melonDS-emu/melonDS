@@ -217,7 +217,6 @@ QSize ScreenPanel::screenGetMinSize(int factor = 1)
 void ScreenPanel::onScreenLayoutChanged()
 {
     loadConfig();
-    qDebug("Screen Layout Changed");
     setMinimumSize(screenGetMinSize());
     setupScreenLayout();
 }
