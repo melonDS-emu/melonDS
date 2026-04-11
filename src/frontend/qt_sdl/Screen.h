@@ -29,7 +29,7 @@
 #include <QScreen>
 #include <QCloseEvent>
 #include <QTimer>
-
+#include <QElapsedTimer>
 #include "glad/glad.h"
 #include "ScreenLayout.h"
 #include "duckstation/gl/context.h"
@@ -37,7 +37,7 @@
 
 class MainWindow;
 class EmuInstance;
-
+class Cursor;
 
 const struct { int id; float ratio; const char* label; } aspectRatios[] =
 {
@@ -57,11 +57,10 @@ class ScreenPanel : public QWidget
 public:
     explicit ScreenPanel(QWidget* parent);
     virtual ~ScreenPanel();
-
     void setFilter(bool filter);
-
+    Cursor* vCursor;
     void setMouseHide(bool enable, int delay);
-
+    QElapsedTimer* cursorTimer;
     QTimer* setupMouseTimer();
     void updateMouseTimer();
     QTimer* mouseTimer;
@@ -223,7 +222,7 @@ private:
     GLuint screenVertexBuffer, screenVertexArray;
     GLuint screenTexture;
     GLuint screenShaderProgram;
-    GLint screenShaderTransformULoc, screenShaderScreenSizeULoc;
+    GLint screenShaderTransformULoc, screenShaderScreenSizeULoc, screenShaderCursorLoc, screenShaderCursorEnableLoc;
 
     QMutex screenSettingsLock;
     WindowInfo windowInfo;
