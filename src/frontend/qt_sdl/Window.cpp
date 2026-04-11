@@ -523,7 +523,7 @@ MainWindow::MainWindow(int id, EmuInstance* inst, QWidget* parent) :
                 QMenu * submenu = menu->addMenu("Screen layout");
                 grpScreenLayout = new QActionGroup(submenu);
 
-                const char *screenlayout[] = {"Default", "Single Screen", "Large Screen", "Side by Side", "Hybrid Screen"};
+                const char *screenlayout[] = {"Default", "Single Screen", "Large Screen", "Side by Side", "Hybrid Screen", "Book", "Reverse Book"};
 
                 for (int i = 0; i < screenLayout_MAX; i++)
                 {
@@ -557,26 +557,7 @@ MainWindow::MainWindow(int id, EmuInstance* inst, QWidget* parent) :
                 connect(grpSmallScreenPos, &QActionGroup::triggered, this, &MainWindow::onChangeSmallScreenPos);
 
                 connect(actScreenSwap, &QAction::triggered, this, &MainWindow::onChangeScreenSwap);
-            }
-            {
-                QMenu * submenu = menu->addMenu("Screen sizing");
-                grpScreenSizing = new QActionGroup(submenu);
-
-                const char *screensizing[] = {"Even", "Emphasize top", "Emphasize bottom", "Auto", "Top only",
-                                              "Bottom only"};
-
-                for (int i = 0; i < screenSizing_MAX; i++)
-                {
-                    actScreenSizing[i] = submenu->addAction(QString(screensizing[i]));
-                    actScreenSizing[i]->setActionGroup(grpScreenSizing);
-                    actScreenSizing[i]->setData(QVariant(i));
-                    actScreenSizing[i]->setCheckable(true);
-                }
-
-                connect(grpScreenSizing, &QActionGroup::triggered, this, &MainWindow::onChangeScreenSizing);
-
-                submenu->addSeparator();
-
+                
                 actIntegerScaling = submenu->addAction("Force integer scaling");
                 actIntegerScaling->setCheckable(true);
                 connect(actIntegerScaling, &QAction::triggered, this, &MainWindow::onChangeIntegerScaling);
@@ -768,7 +749,6 @@ MainWindow::MainWindow(int id, EmuInstance* inst, QWidget* parent) :
         }
 
         actScreenLayout[windowCfg.GetInt("ScreenLayout")]->setChecked(true);
-        actScreenSizing[windowCfg.GetInt("ScreenSizing")]->setChecked(true);
         actSmallScreenPos[windowCfg.GetInt("SmallScreenPosition")]->setChecked(true);
         actIntegerScaling->setChecked(windowCfg.GetBool("IntegerScaling"));
 
@@ -2104,15 +2084,11 @@ void MainWindow::onChangeScreenSwap(bool checked)
     {
         // Bottom Screen.
         sizing = screenSizing_BotOnly;
-        actScreenSizing[screenSizing_TopOnly]->setChecked(false);
-        actScreenSizing[sizing]->setChecked(true);
     }
     else if (sizing == screenSizing_BotOnly)
     {
         // Top Screen.
         sizing = screenSizing_TopOnly;
-        actScreenSizing[screenSizing_BotOnly]->setChecked(false);
-        actScreenSizing[sizing]->setChecked(true);
     }
     windowCfg.SetInt("ScreenSizing", sizing);
 
@@ -2253,7 +2229,6 @@ void MainWindow::onScreenEmphasisToggled()
         currentSizing = screenSizing_EmphTop;
     }
     windowCfg.SetInt("ScreenSizing", currentSizing);
-    actScreenSizing[currentSizing]->setChecked(true);
 
     emit screenLayoutChange();
 }

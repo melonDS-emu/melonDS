@@ -141,6 +141,13 @@ void ScreenLayout::Setup(int screenWidth, int screenHeight,
         HybPrevTouchScreen = 0;
     }
 
+    if (screenLayout == screenLayout_Book) {
+        screenLayout = screenLayout_Default;
+        rotation = screenRot_270Deg;
+    } else if (screenLayout == screenLayout_ReverseBook){
+        screenLayout = screenLayout_Default;
+        rotation = screenRot_90Deg;
+    }
     float refpoints[6][2] =
     {
         {0, 0}, {256, 192},
@@ -228,7 +235,7 @@ void ScreenLayout::Setup(int screenWidth, int screenHeight,
             float offsetTop; 
             float offsetBot;
             bool moveV;
-            if (screenLayout == screenLayout_LargeScreen && (smallScreenPosition == smallScreenPos_Above || smallScreenPosition == smallScreenPos_Below)){
+            if (screenLayout == screenLayout_LargeScreen && (smallScreenPosition == smallScreenPos_Above || smallScreenPosition == smallScreenPos_Below) || screenLayout == screenLayout_Default){
                 moveV = true;
             } else {
                 moveV = false;
