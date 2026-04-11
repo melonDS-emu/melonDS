@@ -76,6 +76,7 @@ void EmuThread::attachWindow(MainWindow* window)
     connect(this, SIGNAL(windowEmuReset()), window, SLOT(onEmuReset()));
     connect(this, SIGNAL(autoScreenSizingChange(int)), window->panel, SLOT(onAutoScreenSizingChanged(int)));
     connect(this, SIGNAL(windowFullscreenToggle()), window, SLOT(onFullscreenToggled()));
+    connect(this, SIGNAL(screenLayoutToggle()), window, SLOT(onScreenLayoutToggled()));
     connect(this, SIGNAL(screenEmphasisToggle()), window, SLOT(onScreenEmphasisToggled()));
 
     if (window->winHasMenu())
@@ -94,6 +95,7 @@ void EmuThread::detachWindow(MainWindow* window)
     disconnect(this, SIGNAL(windowEmuReset()), window, SLOT(onEmuReset()));
     disconnect(this, SIGNAL(autoScreenSizingChange(int)), window->panel, SLOT(onAutoScreenSizingChanged(int)));
     disconnect(this, SIGNAL(windowFullscreenToggle()), window, SLOT(onFullscreenToggled()));
+    disconnect(this, SIGNAL(screenLayoutToggle()), window, SLOT(onScreenLayoutToggled()));
     disconnect(this, SIGNAL(screenEmphasisToggle()), window, SLOT(onScreenEmphasisToggled()));
 
     if (window->winHasMenu())
@@ -165,6 +167,7 @@ void EmuThread::run()
 
         if (emuInstance->hotkeyPressed(HK_FullscreenToggle)) emit windowFullscreenToggle();
 
+        if (emuInstance->hotkeyPressed(HK_SwapScreenLayouts)) emit screenLayoutToggle();
         if (emuInstance->hotkeyPressed(HK_SwapScreens)) emit swapScreensToggle();
         if (emuInstance->hotkeyPressed(HK_SwapScreenEmphasis)) emit screenEmphasisToggle();
 
