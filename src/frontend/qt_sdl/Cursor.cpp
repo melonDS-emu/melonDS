@@ -280,6 +280,16 @@ void Cursor::runMacro(){
 
 void Cursor::setRotation(int rot){
   rotation = rot;
+  if (layout == 2){
+    rotation = 0;
+  } else if (layout == 5){
+    rotation = 3;
+  } else if (layout == 6){
+    rotation = 1;
+  }
+}
+void Cursor::setLayout(int lay){
+  layout = lay;
 }
 
 std::vector<std::array<float, 2>> Cursor::rotateVector(std::vector<std::array<float, 2>> input){

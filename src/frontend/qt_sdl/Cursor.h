@@ -29,6 +29,7 @@ public:
   void update();
   void setEmuInstance(EmuInstance* emuInstance);
   void setRotation(int rot);
+  void setLayout(int layout);
   int cursorPos[2];
   float normStylusDirection[2];
   bool cursorEnabled = true;
@@ -59,6 +60,7 @@ private:
   bool alreadyFlicked;
   bool joystickNegativeEdge; //Auto flick on joystick release
   int rotation;
+  int layout;
 };
 
 #endif // CURSOR_H

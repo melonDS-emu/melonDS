@@ -959,6 +959,7 @@ void MainWindow::releaseGL()
 void MainWindow::drawScreen()
 {
     if (!panel) return;
+    vCursor->setLayout(this->getWindowConfig().GetInt("ScreenLayout"));
     vCursor->setRotation(this->getWindowConfig().GetInt("ScreenRotation"));
     panel->vCursor = vCursor;
     return panel->drawScreen();
