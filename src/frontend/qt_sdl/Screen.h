@@ -57,7 +57,6 @@ class ScreenPanel : public QWidget
 public:
     explicit ScreenPanel(QWidget* parent);
     virtual ~ScreenPanel();
-    bool cursorEnable = true;
     void setFilter(bool filter);
     Cursor* vCursor;
     void setMouseHide(bool enable, int delay);

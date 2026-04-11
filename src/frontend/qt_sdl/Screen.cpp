@@ -824,15 +824,17 @@ void ScreenPanelNative::paintEvent(QPaintEvent* event)
 
 
         //Crosshair Painter
-        QPainter cPainter(&screen[1]);
-        cPainter.setPen(Qt::black);
-        cPainter.setBrush(Qt::black);
-        cPainter.drawRect(vCursor->cursorPos[0]-4, vCursor->cursorPos[1]-1, 8, 2);
-        cPainter.drawRect(vCursor->cursorPos[0]-1, vCursor->cursorPos[1]-4, 2, 8);
-        cPainter.setPen(Qt::white);
-        cPainter.drawLine(vCursor->cursorPos[0]-3, vCursor->cursorPos[1], vCursor->cursorPos[0]+3, vCursor->cursorPos[1]);
-        cPainter.drawLine(vCursor->cursorPos[0], vCursor->cursorPos[1]-3, vCursor->cursorPos[0], vCursor->cursorPos[1]+3);
-        cPainter.end();
+        if (vCursor->cursorEnabled){
+            QPainter cPainter(&screen[1]);
+            cPainter.setPen(Qt::black);
+            cPainter.setBrush(Qt::black);
+            cPainter.drawRect(vCursor->cursorPos[0]-4, vCursor->cursorPos[1]-1, 8, 2);
+            cPainter.drawRect(vCursor->cursorPos[0]-1, vCursor->cursorPos[1]-4, 2, 8);
+            cPainter.setPen(Qt::white);
+            cPainter.drawLine(vCursor->cursorPos[0]-3, vCursor->cursorPos[1], vCursor->cursorPos[0]+3, vCursor->cursorPos[1]);
+            cPainter.drawLine(vCursor->cursorPos[0], vCursor->cursorPos[1]-3, vCursor->cursorPos[0], vCursor->cursorPos[1]+3);
+            cPainter.end();
+        }
 
         for (int i = 0; i < numScreens; i++)
         {
@@ -1187,7 +1189,7 @@ void ScreenPanelGL::drawScreen()
         for (int i = 0; i < numScreens; i++)
         {
 
-            if (i == 1 && cursorEnable){
+            if (i == 1 && vCursor->cursorEnabled){
                 glUniform1i(screenShaderCursorEnableLoc, 1);
                 glUniform2f(screenShaderCursorLoc, vCursor->cursorPos[0]/256.f, vCursor->cursorPos[1]/192.f);
             } else {

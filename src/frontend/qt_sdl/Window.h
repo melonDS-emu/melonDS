@@ -168,6 +168,7 @@ private slots:
     void onChangeIntegerScaling(bool checked);
     void onOpenNewWindow();
     void onChangeScreenFiltering(bool checked);
+    void onChangeHideVirtualCursor(bool checked);
     void onChangeShowOSD(bool checked);
     void onChangeLimitFramerate(bool checked);
     void onChangeAudioSync(bool checked);
@@ -203,7 +204,6 @@ private:
     bool lanWarning(bool host);
 
     bool showOSD;
-
     bool hasOGL;
 
     bool pauseOnLostFocus;
@@ -291,6 +291,7 @@ public:
     QAction* actNewWindow;
     QAction* actScreenFiltering;
     QAction* actShowOSD;
+    QAction* actHideVirtualCursor;
     QAction* actLimitFramerate;
     QAction* actAudioSync;
 

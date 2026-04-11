@@ -31,9 +31,10 @@ public:
   void setRotation(int rot);
   int cursorPos[2];
   float normStylusDirection[2];
+  bool cursorEnabled = true;
 private:
   EmuInstance* emuInstance = nullptr;
-  float rawCursorPos[2];
+  float rawCursorPos[2] = {127, 95};
   void touchScreen();
   void release();
   void clamp();

@@ -611,6 +611,10 @@ MainWindow::MainWindow(int id, EmuInstance* inst, QWidget* parent) :
             actShowOSD = menu->addAction("Show OSD");
             actShowOSD->setCheckable(true);
             connect(actShowOSD, &QAction::triggered, this, &MainWindow::onChangeShowOSD);
+            
+            actHideVirtualCursor = menu->addAction("Hide Virtual Cursor");
+            actHideVirtualCursor->setCheckable(true);
+            connect(actHideVirtualCursor, &QAction::triggered, this, &MainWindow::onChangeHideVirtualCursor);
         }
         {
             QMenu * menu = menubar->addMenu("Config");
@@ -2146,6 +2150,13 @@ void MainWindow::onChangeShowOSD(bool checked)
     showOSD = checked;
     panel->osdSetEnabled(showOSD);
     windowCfg.SetBool("ShowOSD", showOSD);
+}
+
+void MainWindow::onChangeHideVirtualCursor(bool checked)
+{
+    vCursor->cursorEnabled = !checked;
+    windowCfg.SetBool("HideVirtualCursor", checked);
+
 }
 
 void MainWindow::onChangeLimitFramerate(bool checked)
