@@ -514,6 +514,8 @@ void NDS::Reset()
     ARM9.Reset();
     ARM7.Reset();
 
+    ARM9.SetClockShift(ARM9ClockShift);
+
     CPUStop = 0;
 
     memset(Timers, 0, 8*sizeof(Timer));
@@ -2366,7 +2368,7 @@ void NDS::ARM9GetMemInfo(const u32 addr, MemInfo& info)
     switch (addr & 0xFF000000)
     {
     case 0x02000000:
-        info = {Mem9_MainRAM, 8, 1, 9, 1};
+        info = {Mem9_MainRAM, 8, 1, 9, 2};
         return;
 
     case 0x03000000:
@@ -2382,12 +2384,54 @@ void NDS::ARM9GetMemInfo(const u32 addr, MemInfo& info)
     case 0x05000000:
         if (!(PowerControl9 & ((addr & 0x400) ? (1<<9) : (1<<1))))
             break;
-        info = {Mem9_Pal, 1, 1, 2, 1};
+        info = {Mem9_Pal, 1, 1, 2, 2};
         return;
 
     case 0x06000000:
-        // TODO
-        break;
+        {
+            // TODO: make this nicer, not require decoding every time
+            // also, support DSi timings
+            u32 mask = 0;
+            switch (addr & 0xE00000)
+            {
+                case 0x000000: mask = GPU.VRAMMap_ABG[(addr >> 14) & 0x1F]; break;
+                case 0x200000: mask = GPU.VRAMMap_BBG[(addr >> 14) & 0x7]; break;
+                case 0x400000: mask = GPU.VRAMMap_AOBJ[(addr >> 14) & 0xF]; break;
+                case 0x600000: mask = GPU.VRAMMap_BOBJ[(addr >> 14) & 0x7]; break;
+                default:
+                    switch (addr & 0xFC000)
+                    {
+                        case 0x00000: case 0x04000: case 0x08000: case 0x0C000:
+                        case 0x10000: case 0x14000: case 0x18000: case 0x1C000:
+                            mask = (1<<0);
+                            break;
+                        case 0x20000: case 0x24000: case 0x28000: case 0x2C000:
+                        case 0x30000: case 0x34000: case 0x38000: case 0x3C000:
+                            mask = (1<<1);
+                            break;
+                        case 0x40000: case 0x44000: case 0x48000: case 0x4C000:
+                        case 0x50000: case 0x54000: case 0x58000: case 0x5C000:
+                            mask = (1<<2);
+                            break;
+                        case 0x60000: case 0x64000: case 0x68000: case 0x6C000:
+                        case 0x70000: case 0x74000: case 0x78000: case 0x7C000:
+                            mask = (1<<3);
+                            break;
+                        case 0x80000: case 0x84000: case 0x88000: case 0x8C000:
+                            mask = (1<<4);
+                            break;
+                        case 0x90000: mask = (1<<5); break;
+                        case 0x94000: mask = (1<<6); break;
+                        case 0x98000:
+                        case 0x9C000: mask = (1<<7); break;
+                        case 0xA0000: mask = (1<<8); break;
+                    }
+                    mask &= GPU.VRAMMap_LCDC;
+                    break;
+            }
+            info = {mask << 8, 1, 1, 2, 2};
+        }
+        return;
 
     case 0x07000000:
         if (!(PowerControl9 & ((addr & 0x400) ? (1<<9) : (1<<1))))

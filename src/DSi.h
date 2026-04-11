@@ -121,6 +121,7 @@ public:
     void ARM9Write32(u32 addr, u32 val) override;
 
     bool ARM9GetMemRegion(const u32 addr, const bool write, MemRegion* region) override;
+    void ARM9GetMemInfo(const u32 addr, MemInfo& info) override;
 
     u8 ARM7Read8(u32 addr) override;
     u16 ARM7Read16(u32 addr) override;
@@ -130,6 +131,7 @@ public:
     void ARM7Write32(u32 addr, u32 val) override;
 
     bool ARM7GetMemRegion(u32 addr, bool write, MemRegion* region) override;
+    void ARM7GetMemInfo(const u32 addr, MemInfo& info) override;
 
     u8 ARM9IORead8(u32 addr) override;
     u16 ARM9IORead16(u32 addr) override;

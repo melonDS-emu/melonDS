@@ -826,7 +826,7 @@ void A_UMULL(ARM* cpu)
 
     u32 cycles;
     if (cpu->Num == 0)
-        cycles = (cpu->CurInstr & (1<<20)) ? 3 : 1;
+        cycles = (cpu->CurInstr & (1<<20)) ? 4 : 2;
     else
         cycles = 1 + MulCyclesU(rs);
 
@@ -854,7 +854,7 @@ void A_UMLAL(ARM* cpu)
 
     u32 cycles;
     if (cpu->Num == 0)
-        cycles = (cpu->CurInstr & (1<<20)) ? 3 : 1;
+        cycles = (cpu->CurInstr & (1<<20)) ? 4 : 2;
     else
         cycles = 2 + MulCyclesU(rs);
 
@@ -879,7 +879,7 @@ void A_SMULL(ARM* cpu)
 
     u32 cycles;
     if (cpu->Num == 0)
-        cycles = (cpu->CurInstr & (1<<20)) ? 3 : 1;
+        cycles = (cpu->CurInstr & (1<<20)) ? 4 : 2;
     else
         cycles = 1 + MulCyclesS((s32)rs);
 
@@ -907,7 +907,7 @@ void A_SMLAL(ARM* cpu)
 
     u32 cycles;
     if (cpu->Num == 0)
-        cycles = (cpu->CurInstr & (1<<20)) ? 3 : 1;
+        cycles = (cpu->CurInstr & (1<<20)) ? 4 : 2;
     else
         cycles = 2 + MulCyclesS((s32)rs);
 

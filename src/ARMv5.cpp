@@ -58,6 +58,12 @@ void ARMv5::Reset()
     // TODO unify these, add to savestate, etc
     CodeRegion = 0xFFFFFFFF;
 
+    // DS-mode settings
+    // for DSi mode, those will be changed later
+    ClockShift = 1;
+    ClockAlign = 1;
+    BusAccessDelay = 3;
+
     BusTimestamp = 0;
 
     MainRAMStartAddr = 0;
@@ -74,6 +80,27 @@ void ARMv5::DoSavestate(Savestate* file)
 {
     ARM::DoSavestate(file);
     CP15DoSavestate(file);
+}
+
+
+void ARMv5::SetClockShift(int shift)
+{
+    // adjust timestamps back to 33MHz base
+    NDS.ARM9Timestamp = (NDS.ARM9Timestamp + ClockAlign) >> ClockShift;
+    NDS.ARM9Target = (NDS.ARM9Target + ClockAlign) >> ClockShift;
+    BusTimestamp = (BusTimestamp + ClockAlign) >> ClockShift;
+    MainRAMTerminate = (MainRAMTerminate + ClockAlign) >> ClockShift;
+
+    // apply new parameters
+    ClockShift = shift;
+    ClockAlign = (1 << shift) - 1;
+    BusAccessDelay = ((shift > 1) ? 2 : 3) << shift;
+
+    // adjust timestamps again
+    NDS.ARM9Timestamp <<= ClockShift;
+    NDS.ARM9Target <<= ClockShift;
+    BusTimestamp <<= ClockShift;
+    MainRAMTerminate <<= ClockShift;
 }
 
 
@@ -352,8 +379,8 @@ void ARMv5::BeginMainRAMBurst(int begin, int term)
 {
     TerminateMainRAMBurst();
 
-    begin <<= NDS.ARM9ClockShift;
-    term <<= NDS.ARM9ClockShift;
+    begin <<= ClockShift;
+    term <<= ClockShift;
 
     BusTimestamp += begin;
     MainRAMCycles = begin;
@@ -382,21 +409,17 @@ void ARMv5::DoCodeAccessTimings(const u32 addr)
     }
 
     // align the ARM9 to the start of this instruction
-    if (NDS.ARM9Timestamp < BusTimestamp)
-        NDS.ARM9Timestamp = BusTimestamp;
-    else
+    //if (NDS.ARM9Timestamp < BusTimestamp)
+    //    NDS.ARM9Timestamp = BusTimestamp;
+    //else
+    if (BusTimestamp < NDS.ARM9Timestamp)
     {
         BusTimestamp = NDS.ARM9Timestamp;
-        u64 align = (1ULL << NDS.ARM9ClockShift) - 1;
-        BusTimestamp = (BusTimestamp + align) & ~align;
+        BusTimestamp = (BusTimestamp + ClockAlign) & ~ClockAlign;
     }
 
     // when using the bus, apply buffering delay: 3 cycles on DS, 2 cycles on DSi
-    // TODO make nicer!
-    if (NDS.ARM9ClockShift > 1)
-        BusTimestamp += 8;
-    else
-        BusTimestamp += 6;
+    BusTimestamp += BusAccessDelay;
 
     // ARM9 code fetches are always nonsequential
 
@@ -407,8 +430,11 @@ void ARMv5::DoCodeAccessTimings(const u32 addr)
     }
     else
     {
-        BusTimestamp += (CodeMem.Cycles_N32 << NDS.ARM9ClockShift);
+        BusTimestamp += (CodeMem.Cycles_N32 << ClockShift);
     }
+
+    // when loading code from the bus, the ARM9 can run up to two internal cycles in parallel
+    NDS.ARM9Timestamp = BusTimestamp - 2;
 }
 
 // TCM are handled here.
@@ -459,6 +485,79 @@ u32 ARMv5::CodeRead32(const u32 addr, bool const branch)
 }
 
 
+void ARMv5::DoDataAccessTimings(const u32 addr, bool write, int width)
+{
+    NDS.ARM9GetMemInfo(addr, DataMem);
+    if (DataMem.Region & Mem9_MainRAM)
+    {
+        int begin, term;
+        if (write)
+        {
+            switch (width)
+            {
+                case 8: begin = 4; term = 4; break;
+                case 16: begin = 3; term = 5; break;
+                case 32: begin = 4; term = 5; break;
+            }
+        }
+        else
+        {
+            begin = (width == 32) ? 6 : 5;
+            term = 3;
+        }
+
+        BeginMainRAMBurst(begin, term);
+        MainRAMStartAddr = addr;
+    }
+    else
+    {
+        NDS.ARM9Timestamp += ((width == 32) ? DataMem.Cycles_N32 : DataMem.Cycles_N16) << ClockShift;
+    }
+}
+
+void ARMv5::DoDataAccessTimingsSeq(const u32 addr, bool write)
+{
+    bool seq = true;
+    if (!(addr & 0xFFF))
+    {
+        u32 oldregion = DataMem.Region;
+        NDS.ARM9GetMemInfo(addr, DataMem);
+        if (DataMem.Region != oldregion)
+            seq = false;
+    }
+
+    if (DataMem.Region & Mem9_MainRAM)
+    {
+        if (!write)
+        {
+            if ((MainRAMStartAddr & 0x1F) >= 0x1A && (addr & 0x1F) == 0)
+                seq = false;
+        }
+
+        if (!seq)
+        {
+            if (write)
+                BeginMainRAMBurst(4, 5);
+            else
+                BeginMainRAMBurst(6, 3);
+            MainRAMStartAddr = addr;
+        }
+        else
+        {
+            int cy = 2 << ClockShift;
+            NDS.ARM9Timestamp += cy;
+            MainRAMTerminate += cy;
+        }
+    }
+    else
+    {
+        if (seq)
+            NDS.ARM9Timestamp += DataMem.Cycles_S32 << ClockShift;
+        else
+            NDS.ARM9Timestamp += DataMem.Cycles_N32 << ClockShift;
+    }
+}
+
 void ARMv5::DataRead8(const u32 addr, u32* val)
 {
     if (!(PU_Map[addr>>CP15_MAP_ENTRYSIZE_LOG2] & CP15_MAP_READABLE))
@@ -472,13 +571,17 @@ void ARMv5::DataRead8(const u32 addr, u32* val)
 
     if (addr < ITCMSize)
     {
-        DataCycles = 1;
+        //DataCycles = 1;
+        DataMem.Region = Mem9_ITCM;
+        NDS.ARM9Timestamp++;
         *val = *(u8*)&ITCM[addr & (ITCMPhysicalSize - 1)];
         return;
     }
     if ((addr & DTCMMask) == DTCMBase)
     {
-        DataCycles = 1;
+        //DataCycles = 1;
+        DataMem.Region = Mem9_DTCM;
+        NDS.ARM9Timestamp++;
         *val = *(u8*)&DTCM[addr & (DTCMPhysicalSize - 1)];
         return;
     }
@@ -488,19 +591,21 @@ void ARMv5::DataRead8(const u32 addr, u32* val)
     if (!NDS.IsJITEnabled())
 #endif
     {
-        if (CP15Control & CP15_CACHE_CR_DCACHEENABLE)
+        /*if (CP15Control & CP15_CACHE_CR_DCACHEENABLE)
         {
             if (IsAddressDCachable(addr))
             {
                 *val = (DCacheLookup(addr) >> (8 * (addr & 3))) & 0xff;
                 return;
             }
-        }
+        }*/
     }
 #endif
 
+    DoDataAccessTimings(addr, false, 8);
+
     *val = NDS.ARM9Read8(addr);
-    DataCycles = MemTimings[addr >> BUSCYCLES_MAP_GRANULARITY_LOG2][BUSCYCLES_S16];
+    //DataCycles = MemTimings[addr >> BUSCYCLES_MAP_GRANULARITY_LOG2][BUSCYCLES_S16];
 }
 
 void ARMv5::DataRead16(const u32 addr, u32* val)
@@ -516,13 +621,17 @@ void ARMv5::DataRead16(const u32 addr, u32* val)
 
     if (addr < ITCMSize)
     {
-        DataCycles = 1;
+        //DataCycles = 1;
+        DataMem.Region = Mem9_ITCM;
+        NDS.ARM9Timestamp++;
         *val = *(u16*)&ITCM[addr & (ITCMPhysicalSize - 2)];
         return;
     }
     if ((addr & DTCMMask) == DTCMBase)
     {
-        DataCycles = 1;
+        //DataCycles = 1;
+        DataMem.Region = Mem9_DTCM;
+        NDS.ARM9Timestamp++;
         *val = *(u16*)&DTCM[addr & (DTCMPhysicalSize - 2)];
         return;
     }
@@ -532,19 +641,21 @@ void ARMv5::DataRead16(const u32 addr, u32* val)
     if (!NDS.IsJITEnabled())
 #endif
     {
-        if (CP15Control & CP15_CACHE_CR_DCACHEENABLE)
+        /*if (CP15Control & CP15_CACHE_CR_DCACHEENABLE)
         {
             if (IsAddressDCachable(addr))
             {
                 *val = (DCacheLookup(addr) >> (8* (addr & 2))) & 0xffff;
                 return;
             }
-        }
+        }*/
     }
 #endif
 
+    DoDataAccessTimings(addr, false, 16);
+
     *val = NDS.ARM9Read16(addr & ~1);
-    DataCycles = MemTimings[addr >> BUSCYCLES_MAP_GRANULARITY_LOG2][BUSCYCLES_S16];
+    //DataCycles = MemTimings[addr >> BUSCYCLES_MAP_GRANULARITY_LOG2][BUSCYCLES_S16];
 }
 
 void ARMv5::DataRead32(const u32 addr, u32* val)
@@ -560,13 +671,17 @@ void ARMv5::DataRead32(const u32 addr, u32* val)
 
     if (addr < ITCMSize)
     {
-        DataCycles = 1;
+        //DataCycles = 1;
+        DataMem.Region = Mem9_ITCM;
+        NDS.ARM9Timestamp++;
         *val = *(u32*)&ITCM[addr & (ITCMPhysicalSize - 4)];
         return;
     }
     if ((addr & DTCMMask) == DTCMBase)
     {
-        DataCycles = 1;
+        //DataCycles = 1;
+        DataMem.Region = Mem9_DTCM;
+        NDS.ARM9Timestamp++;
         *val = *(u32*)&DTCM[addr & (DTCMPhysicalSize - 4)];
         return;
     }
@@ -576,32 +691,38 @@ void ARMv5::DataRead32(const u32 addr, u32* val)
     if (!NDS.IsJITEnabled())
 #endif
     {
-        if (CP15Control & CP15_CACHE_CR_DCACHEENABLE)
+        /*if (CP15Control & CP15_CACHE_CR_DCACHEENABLE)
         {
             if (IsAddressDCachable(addr))
             {
                 *val = DCacheLookup(addr);
                 return;
             }
-        }
+        }*/
     }
 #endif
 
+    DoDataAccessTimings(addr, false, 32);
+
     *val = NDS.ARM9Read32(addr & ~0x03);
-    DataCycles = MemTimings[addr >> BUSCYCLES_MAP_GRANULARITY_LOG2][BUSCYCLES_N32];
+    //DataCycles = MemTimings[addr >> BUSCYCLES_MAP_GRANULARITY_LOG2][BUSCYCLES_N32];
 }
 
 void ARMv5::DataRead32S(const u32 addr, u32* val)
 {
     if (addr < ITCMSize)
     {
-        DataCycles += 1;
+        //DataCycles += 1;
+        DataMem.Region = Mem9_ITCM;
+        NDS.ARM9Timestamp++;
         *val = *(u32*)&ITCM[addr & (ITCMPhysicalSize - 4)];
         return;
     }
     if ((addr & DTCMMask) == DTCMBase)
     {
-        DataCycles += 1;
+        //DataCycles += 1;
+        DataMem.Region = Mem9_DTCM;
+        NDS.ARM9Timestamp++;
         *val = *(u32*)&DTCM[addr & (DTCMPhysicalSize - 4)];
         return;
     }
@@ -611,7 +732,7 @@ void ARMv5::DataRead32S(const u32 addr, u32* val)
     if (!NDS.IsJITEnabled())
 #endif
     {
-        if (CP15Control & CP15_CACHE_CR_DCACHEENABLE)
+        /*if (CP15Control & CP15_CACHE_CR_DCACHEENABLE)
         {
             if (IsAddressDCachable(addr))
             {
@@ -621,12 +742,14 @@ void ARMv5::DataRead32S(const u32 addr, u32* val)
                 DataCycles += cycles;
                 return;
             }
-        }
+        }*/
     }
 #endif
 
+    DoDataAccessTimingsSeq(addr, false);
+
     *val = NDS.ARM9Read32(addr & ~0x03);
-    DataCycles += MemTimings[addr >> BUSCYCLES_MAP_GRANULARITY_LOG2][BUSCYCLES_S32];
+    //DataCycles += MemTimings[addr >> BUSCYCLES_MAP_GRANULARITY_LOG2][BUSCYCLES_S32];
 }
 
 void ARMv5::DataWrite8(const u32 addr, const u8 val)
@@ -641,7 +764,9 @@ void ARMv5::DataWrite8(const u32 addr, const u8 val)
 
     if (addr < ITCMSize)
     {
-        DataCycles = 1;
+        //DataCycles = 1;
+        DataMem.Region = Mem9_ITCM;
+        NDS.ARM9Timestamp++;
         *(u8*)&ITCM[addr & (ITCMPhysicalSize - 1)] = val;
 #ifdef JIT_ENABLED
         NDS.JIT.CheckAndInvalidate<0, ARMJIT_Memory::memregion_ITCM>(addr);
@@ -650,7 +775,9 @@ void ARMv5::DataWrite8(const u32 addr, const u8 val)
     }
     if ((addr & DTCMMask) == DTCMBase)
     {
-        DataCycles = 1;
+        //DataCycles = 1;
+        DataMem.Region = Mem9_DTCM;
+        NDS.ARM9Timestamp++;
         *(u8*)&DTCM[addr & (DTCMPhysicalSize - 1)] = val;
         return;
     }
@@ -660,19 +787,21 @@ void ARMv5::DataWrite8(const u32 addr, const u8 val)
     if (!NDS.IsJITEnabled())
 #endif
     {
-        if (CP15Control & CP15_CACHE_CR_DCACHEENABLE)
+        /*if (CP15Control & CP15_CACHE_CR_DCACHEENABLE)
         {
             if (IsAddressDCachable(addr))
             {
                 if (DCacheWrite8(addr, val))
                     return;
             }
-        }
+        }*/
     }
 #endif
 
+    DoDataAccessTimings(addr, true, 8);
+
     NDS.ARM9Write8(addr, val);
-    DataCycles = MemTimings[addr >> BUSCYCLES_MAP_GRANULARITY_LOG2][BUSCYCLES_S16];
+    //DataCycles = MemTimings[addr >> BUSCYCLES_MAP_GRANULARITY_LOG2][BUSCYCLES_S16];
 }
 
 void ARMv5::DataWrite16(const u32 addr, const u16 val)
@@ -687,7 +816,9 @@ void ARMv5::DataWrite16(const u32 addr, const u16 val)
 
     if (addr < ITCMSize)
     {
-        DataCycles = 1;
+        //DataCycles = 1;
+        DataMem.Region = Mem9_ITCM;
+        NDS.ARM9Timestamp++;
         *(u16*)&ITCM[addr & (ITCMPhysicalSize - 2)] = val;
 #ifdef JIT_ENABLED
         NDS.JIT.CheckAndInvalidate<0, ARMJIT_Memory::memregion_ITCM>(addr);
@@ -696,7 +827,9 @@ void ARMv5::DataWrite16(const u32 addr, const u16 val)
     }
     if ((addr & DTCMMask) == DTCMBase)
     {
-        DataCycles = 1;
+        //DataCycles = 1;
+        DataMem.Region = Mem9_DTCM;
+        NDS.ARM9Timestamp++;
         *(u16*)&DTCM[addr & (DTCMPhysicalSize - 2)] = val;
         return;
     }
@@ -706,19 +839,21 @@ void ARMv5::DataWrite16(const u32 addr, const u16 val)
     if (!NDS.IsJITEnabled())
 #endif
     {
-        if (CP15Control & CP15_CACHE_CR_DCACHEENABLE)
+        /*if (CP15Control & CP15_CACHE_CR_DCACHEENABLE)
         {
             if (IsAddressDCachable(addr))
             {
                 if (DCacheWrite16(addr, val))
                     return;
             }
-        }
+        }*/
     }
 #endif
 
+    DoDataAccessTimings(addr, true, 16);
+
     NDS.ARM9Write16(addr & ~1, val);
-    DataCycles = MemTimings[addr >> BUSCYCLES_MAP_GRANULARITY_LOG2][BUSCYCLES_S16];
+    //DataCycles = MemTimings[addr >> BUSCYCLES_MAP_GRANULARITY_LOG2][BUSCYCLES_S16];
 }
 
 void ARMv5::DataWrite32(const u32 addr, const u32 val)
@@ -733,7 +868,9 @@ void ARMv5::DataWrite32(const u32 addr, const u32 val)
 
     if (addr < ITCMSize)
     {
-        DataCycles = 1;
+        //DataCycles = 1;
+        DataMem.Region = Mem9_ITCM;
+        NDS.ARM9Timestamp++;
         *(u32*)&ITCM[addr & (ITCMPhysicalSize - 4)] = val;
 #ifdef JIT_ENABLED
         NDS.JIT.CheckAndInvalidate<0, ARMJIT_Memory::memregion_ITCM>(addr);
@@ -742,7 +879,9 @@ void ARMv5::DataWrite32(const u32 addr, const u32 val)
     }
     if ((addr & DTCMMask) == DTCMBase)
     {
-        DataCycles = 1;
+        //DataCycles = 1;
+        DataMem.Region = Mem9_DTCM;
+        NDS.ARM9Timestamp++;
         *(u32*)&DTCM[addr & (DTCMPhysicalSize - 4)] = val;
         return;
     }
@@ -752,26 +891,30 @@ void ARMv5::DataWrite32(const u32 addr, const u32 val)
     if (!NDS.IsJITEnabled())
 #endif
     {
-        if (CP15Control & CP15_CACHE_CR_DCACHEENABLE)
+        /*if (CP15Control & CP15_CACHE_CR_DCACHEENABLE)
         {
             if (IsAddressDCachable(addr))
             {
                 if (DCacheWrite32(addr, val))
                     return;
             }
-        }
+        }*/
     }
 #endif
 
+    DoDataAccessTimings(addr, true, 32);
+
     NDS.ARM9Write32(addr & ~3, val);
-    DataCycles = MemTimings[addr >> BUSCYCLES_MAP_GRANULARITY_LOG2][BUSCYCLES_N32];
+    //DataCycles = MemTimings[addr >> BUSCYCLES_MAP_GRANULARITY_LOG2][BUSCYCLES_N32];
 }
 
 void ARMv5::DataWrite32S(const u32 addr, const u32 val)
 {
     if (addr < ITCMSize)
     {
-        DataCycles += 1;
+        //DataCycles += 1;
+        DataMem.Region = Mem9_ITCM;
+        NDS.ARM9Timestamp++;
         *(u32*)&ITCM[addr & (ITCMPhysicalSize - 4)] = val;
 #ifdef JIT_ENABLED
         NDS.JIT.CheckAndInvalidate<0, ARMJIT_Memory::memregion_ITCM>(addr);
@@ -780,7 +923,9 @@ void ARMv5::DataWrite32S(const u32 addr, const u32 val)
     }
     if ((addr & DTCMMask) == DTCMBase)
     {
-        DataCycles += 1;
+        //DataCycles += 1;
+        DataMem.Region = Mem9_DTCM;
+        NDS.ARM9Timestamp++;
         *(u32*)&DTCM[addr & (DTCMPhysicalSize - 4)] = val;
         return;
     }
@@ -790,7 +935,7 @@ void ARMv5::DataWrite32S(const u32 addr, const u32 val)
     if (!NDS.IsJITEnabled())
 #endif
     {
-        if (CP15Control & CP15_CACHE_CR_DCACHEENABLE)
+        /*if (CP15Control & CP15_CACHE_CR_DCACHEENABLE)
         {
             if (IsAddressDCachable(addr))
             {
@@ -803,13 +948,16 @@ void ARMv5::DataWrite32S(const u32 addr, const u32 val)
                 }
                 DataCycles = cycles;
             }
-        }
+        }*/
     }
 #endif
 
+    DoDataAccessTimingsSeq(addr, true);
+
     NDS.ARM9Write32(addr & ~3, val);
-    DataCycles += MemTimings[addr >> BUSCYCLES_MAP_GRANULARITY_LOG2][BUSCYCLES_S32];
+    //DataCycles += MemTimings[addr >> BUSCYCLES_MAP_GRANULARITY_LOG2][BUSCYCLES_S32];
 }
+
 
 void ARMv5::AddCycles_C()
 {

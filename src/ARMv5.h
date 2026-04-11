@@ -34,6 +34,8 @@ public:
 
     void DoSavestate(Savestate* file) override;
 
+    void SetClockShift(int shift);
+
     void UpdateRegionTimings(u32 addrstart, u32 addrend);
 
     void FillPipeline() override;
@@ -419,6 +421,10 @@ private:
     MemInfo CodeMem;
 
     MemInfo DataMem;
+
+    u8 ClockShift;
+    u8 ClockAlign;
+    u8 BusAccessDelay;
 
     u64 BusTimestamp;
 

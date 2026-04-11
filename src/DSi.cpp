@@ -1399,7 +1399,7 @@ void DSi::CheckDSiLoaderHack()
 
 void DSi::SetScfgClock9(u16 val)
 {
-    ARM9Timestamp >>= ARM9ClockShift;
+    /*ARM9Timestamp >>= ARM9ClockShift;
     ARM9Target    >>= ARM9ClockShift;
 
     Log(LogLevel::Debug, "CLOCK9=%04X\n", val);
@@ -1410,7 +1410,17 @@ void DSi::SetScfgClock9(u16 val)
 
     ARM9Timestamp <<= ARM9ClockShift;
     ARM9Target    <<= ARM9ClockShift;
-    ARM9.UpdateRegionTimings(0x00000, 0x100000);
+
+    ARM9.SetClockShift(ARM9ClockShift);
+    ARM9.UpdateRegionTimings(0x00000, 0x100000);*/
+
+    Log(LogLevel::Debug, "CLOCK9=%04X\n", val);
+    SCFG_Clock9 = val & 0x0187;
+
+    if (SCFG_Clock9 & (1<<0)) ARM9ClockShift = 2;
+    else                      ARM9ClockShift = 1;
+
+    ARM9.SetClockShift(ARM9ClockShift);
 }
 
 void DSi::SetScfgMC(u16 val, u16 mask)
@@ -1958,6 +1968,23 @@ bool DSi::ARM9GetMemRegion(const u32 addr, const bool write, MemRegion* region)
     return false;
 }
 
+void DSi::ARM9GetMemInfo(const u32 addr, MemInfo& info)
+{
+    // TODO: NWRAM
+    switch (addr & 0xFF000000)
+    {
+        case 0x0C000000:
+            if (MainRAMMask & 0xC00000)
+            {
+                info = {Mem9_MainRAM, 8, 1, 9, 2};
+                return;
+            }
+            break;
+    }
+
+    return NDS::ARM9GetMemInfo(addr, info);
+}
+
 
 
 u8 DSi::ARM7Read8(u32 addr)
@@ -2431,6 +2458,23 @@ bool DSi::ARM7GetMemRegion(u32 addr, bool write, MemRegion* region)
 
     region->Mem = NULL;
     return false;
+}
+
+void DSi::ARM7GetMemInfo(const u32 addr, MemInfo& info)
+{
+    // TODO: NWRAM
+    switch (addr & 0xFF000000)
+    {
+        case 0x0C000000:
+            if (MainRAMMask & 0xC00000)
+            {
+                info = {Mem7_MainRAM, 8, 1, 9, 2};
+                return;
+            }
+            break;
+    }
+
+    return NDS::ARM7GetMemInfo(addr, info);
 }
 
 
