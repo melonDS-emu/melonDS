@@ -178,6 +178,7 @@ private slots:
     void onEmuStop();
     void onEmuPause(bool pause);
     void onEmuReset();
+    void onSavestateChange();
 
     void onUpdateVideoSettings(bool glchange);
 
@@ -197,6 +198,8 @@ private:
     QString pickFileFromArchive(QString archiveFileName);
     QStringList pickROM(bool gba);
     void updateCartInserted(bool gba);
+
+    void updateSavestateMenuTimestamps();
 
     void createScreenPanel();
 
