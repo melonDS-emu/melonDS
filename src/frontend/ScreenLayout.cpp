@@ -21,7 +21,7 @@
 #include <algorithm>
 #include "Platform.h"
 #include "ScreenLayout.h"
-
+#include <qDebug>
 
 void M23_Identity(float* m)
 {
@@ -148,7 +148,28 @@ void ScreenLayout::Setup(int screenWidth, int screenHeight,
         {0, 0}, {256, 192}
     };
 
-    bool inVerticalLayout = (screenLayout == screenLayout_Default)||(screenLayout == screenLayout_LargeScreen && (smallScreenPosition == smallScreenPos_Above || smallScreenPosition == smallScreenPos_Below));
+    bool inVerticalLayout = 
+    (
+        (
+            (
+            screenLayout == screenLayout_Default
+            || (screenLayout == screenLayout_LargeScreen && (smallScreenPosition == smallScreenPos_Above || smallScreenPosition == smallScreenPos_Below))
+            )
+        && (rotation == screenRot_0Deg || rotation == screenRot_180Deg)
+        ) ||
+        (
+            (
+                screenLayout == screenLayout_HybridScreen
+                || screenLayout == screenLayout_SideBySide
+                || (screenLayout == screenLayout_LargeScreen && !(smallScreenPosition == smallScreenPos_Above || smallScreenPosition == smallScreenPos_Below))
+                || screenLayout == screenLayout_HybridScreen
+            )
+            && (rotation == screenRot_90Deg || rotation == screenRot_270Deg)
+        ) 
+    ); 
+    qDebug("InVerticalLayout = %d", inVerticalLayout);
+    //Hybrid Screen || Large screen and not what iis above ||  and 90 or 270
+
     float botScale = 1;
     float hybScale = 1;
     float botTrans[4] = {0};
@@ -223,7 +244,7 @@ void ScreenLayout::Setup(int screenWidth, int screenHeight,
             }
             float offsetTop; 
             float offsetBot;
-            bool moveV = inVerticalLayout;
+            bool moveV = false;
             if (!swapScreens){
                 offsetTop = -((moveV ? 192.0 : 256.0 * topAspect) / 2.0 + screenGap / 2.0);
                 offsetBot = (moveV ? 192.0 : 256.0 * botAspect) / 2.0 + screenGap / 2.0;
