@@ -36,6 +36,8 @@ using namespace melonDS::Platform;
 std::unique_ptr<DSi_NAND::NANDImage> TitleManagerDialog::nand = nullptr;
 TitleManagerDialog* TitleManagerDialog::currentDlg = nullptr;
 
+const std::vector<u32> allTitles = {0x00030004, 0x00030005, 0x0003000f, 0x00030015, 0x00030017 };
+std::vector<u32> titlelist;
 
 TitleManagerDialog::TitleManagerDialog(QWidget* parent, DSi_NAND::NANDImage& image) : QDialog(parent), ui(new Ui::TitleManagerDialog), nandmount(image)
 {
@@ -46,21 +48,15 @@ TitleManagerDialog::TitleManagerDialog(QWidget* parent, DSi_NAND::NANDImage& ima
 
     ui->lstTitleList->setIconSize(QSize(32, 32));
 
-    const u32 category = 0x00030004;
-    std::vector<u32> titlelist;
-    nandmount.ListTitles(category, titlelist);
+  
 
-    for (std::vector<u32>::iterator it = titlelist.begin(); it != titlelist.end(); it++)
-    {
-        u32 titleid = *it;
-        createTitleItem(category, titleid);
-    }
-
-    ui->lstTitleList->sortItems();
+    Config::Table cfg = Config::GetGlobalTable();
+    generateTitleList(allTitles, titlelist, cfg.GetBool("DSi.ShowSystemTitles"));
 
     ui->btnImportTitleData->setEnabled(false);
     ui->btnExportTitleData->setEnabled(false);
     ui->btnDeleteTitle->setEnabled(false);
+    ui->checkBoxShowSystemTitles->setChecked(cfg.GetBool("DSi.ShowSystemTitles"));
 
     {
         QMenu* menu = new QMenu(ui->btnImportTitleData);
@@ -96,6 +92,7 @@ TitleManagerDialog::TitleManagerDialog(QWidget* parent, DSi_NAND::NANDImage& ima
         connect(actExportTitleData[2], &QAction::triggered, this, &TitleManagerDialog::onExportTitleData);
 
         ui->btnExportTitleData->setMenu(menu);
+        
     }
 }
 
@@ -104,6 +101,31 @@ TitleManagerDialog::~TitleManagerDialog()
     delete ui;
 }
 
+void TitleManagerDialog::generateTitleList(std::vector<u32> allTitles, std::vector<u32> titlelist, bool showSystemTitles) 
+{
+    ui->lstTitleList->clear();
+    std::vector<u32> currTitlelist;
+    if (!showSystemTitles) {
+        nandmount.ListTitles(allTitles[0], currTitlelist);
+        for (std::vector<u32>::iterator it = currTitlelist.begin(); it != currTitlelist.end(); it++)
+            {
+                u32 titleid = *it;
+                createTitleItem(allTitles[0], titleid);
+            }
+    } else {
+        for (int i = 0; i < allTitles.size(); i++)
+        {
+            nandmount.ListTitles(allTitles[i], currTitlelist);
+            for (std::vector<u32>::iterator it = currTitlelist.begin(); it != currTitlelist.end(); it++)
+            {
+                u32 titleid = *it;
+                createTitleItem(allTitles[i], titleid);
+            }
+            currTitlelist.clear();
+        }  
+    }
+    ui->lstTitleList->sortItems();
+}
 void TitleManagerDialog::createTitleItem(u32 category, u32 titleid)
 {
     u32 version;
@@ -119,17 +141,26 @@ void TitleManagerDialog::createTitleItem(u32 category, u32 titleid)
 
     // TODO: make it possible to select other languages?
     QString title = QString::fromUtf16(banner.EnglishTitle, 128);
-    title = title.left(title.indexOf(QChar('\0')));
-    title.replace("\n", " · ");
+    if (category != 0x0003000f) {
+        title = title.left(title.indexOf(QChar('\0')));
+        title.replace("\n", " · ");
+    } else {
+        title = "Non executable data file";
+    }
 
     char gamecode[5];
     *(u32*)&gamecode[0] = *(u32*)&header.GameCode[0];
     gamecode[4] = '\0';
     char extra[128];
-    snprintf(extra, sizeof(extra), "\n(title ID: %s · %08x/%08x · version %08x)", gamecode, category, titleid, version);
-
+     if (category != 0x0003000f) {
+        snprintf(extra, sizeof(extra), "\n(title ID: %s · %08x/%08x · version %08x)", gamecode, category, titleid, version);
+     } else {
+        snprintf(extra, sizeof(extra), "\n(title ID: %08x/%08x · version %08x)", category, titleid, version);
+     }
     QListWidgetItem* item = new QListWidgetItem(title + QString(extra));
-    item->setIcon(icon);
+    if (category != 0x0003000f) {
+        item->setIcon(icon);
+    }
     item->setData(Qt::UserRole, QVariant((qulonglong)(((u64)category<<32) | (u64)titleid)));
     item->setData(Qt::UserRole+1, QVariant(header.DSiPublicSavSize)); // public.sav size
     item->setData(Qt::UserRole+2, QVariant(header.DSiPrivateSavSize)); // private.sav size
@@ -428,7 +459,7 @@ void TitleImportDialog::accept()
     Platform::FileRead(titleid, 8, 1, f);
     Platform::CloseFile(f);
 
-    if (titleid[1] != 0x00030004)
+    if (!std::count(allTitles.begin(), allTitles.end(), titleid[1]))
     {
         QMessageBox::critical(this,
                               "Import title - melonDS",
@@ -436,6 +467,15 @@ void TitleImportDialog::accept()
         return;
     }
 
+    if (titleid[1] == 0x00030005 || titleid[1] == 0x0003000f || titleid[1] == 0x00030015 || titleid[1] == 0x00030017)
+    {
+        if (QMessageBox::question(this,
+                                  "Import title - melonDS",
+                                  "The selected file is a system title.\nAre you sure you would like to continue?",
+                                  QMessageBox::StandardButtons(QMessageBox::Yes|QMessageBox::No),
+                                  QMessageBox::No) != QMessageBox::Yes)
+            return;
+    } 
     if (tmdfromfile)
     {
         path = ui->txtTmdFile->text();
@@ -564,6 +604,13 @@ void TitleImportDialog::on_btnTmdBrowse_clicked()
     if (file.isEmpty()) return;
 
     ui->txtTmdFile->setText(file);
+}
+
+void TitleManagerDialog::on_checkBoxShowSystemTitles_stateChanged()
+{
+    Config::Table cfg = Config::GetGlobalTable();
+    cfg.SetBool("DSi.ShowSystemTitles", ui->checkBoxShowSystemTitles->isChecked());
+    generateTitleList(allTitles, titlelist, ui->checkBoxShowSystemTitles->isChecked());
 }
 
 void TitleImportDialog::onChangeTmdSource(int id)
