@@ -244,12 +244,15 @@ void ScreenPanel::mousePressEvent(QMouseEvent* event)
 
     int x = event->pos().x();
     int y = event->pos().y();
+    int xClamp = x;
+    int yClamp = y;
 
-    if (layout.GetTouchCoords(x, y, false))
-    {
-        touching = true;
-        emuInstance->touchScreen(x, y);
-    }
+    bool inTouchCoords = layout.GetTouchCoords(x, y, false);
+    bool inTouchCoordsClamp = layout.GetTouchCoords(xClamp, yClamp, true);
+
+    touching = true;
+    emuInstance->touchScreen(xClamp, yClamp);
+
 }
 
 void ScreenPanel::mouseReleaseEvent(QMouseEvent* event)
@@ -273,12 +276,14 @@ void ScreenPanel::mouseMoveEvent(QMouseEvent* event)
 
     int x = event->pos().x();
     int y = event->pos().y();
+    int xClamp = x;
+    int yClamp = y;
+
     bool inTouchCoords = layout.GetTouchCoords(x, y, false);
-    if (inTouchCoords)
-    {
-        vCursor->setDeviceInUse(1);
-        vCursor->setRawCursorPos(x, y); 
-    }
+    bool inTouchCoordsClamp = layout.GetTouchCoords(xClamp, yClamp, true);
+    
+    vCursor->setDeviceInUse(1);
+    vCursor->setRawCursorPos(xClamp, yClamp); 
     if (vCursor->cursorEnabled && inTouchCoords){
         setCursor(Qt::BlankCursor);
     } else {
@@ -286,7 +291,7 @@ void ScreenPanel::mouseMoveEvent(QMouseEvent* event)
     }
     if (!touching) return;
 
-    emuInstance->touchScreen(x, y);
+    emuInstance->touchScreen(xClamp, yClamp);
 }
 
 void ScreenPanel::tabletEvent(QTabletEvent* event)
