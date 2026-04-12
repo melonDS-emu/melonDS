@@ -426,7 +426,11 @@ private:
     u8 ClockAlign;
     u8 BusAccessDelay;
 
-    u64 BusTimestamp;
+    //u64 DTCMTimestamp;
+    //u64 BusTimestamp;
+    u64 CodeTimestamp;  // ITCM/icache and internal cycles
+    u64 DataTimestamp;  // DTCM/dcache
+    // NDS.ARM9Timestamp == bus access
 
     // mainRAM burst tracking
     // TODO better variable names

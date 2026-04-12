@@ -235,7 +235,7 @@ A_IMPLEMENT_WB_LDRSTR(LDRB)
     cpu->R[(cpu->CurInstr>>16) & 0xF] += offset; \
     cpu->AddCycles_Store();
 
-// TODO: CHECK LDRD/STRD TIMINGS!!
+
 
 #define A_LDRD \
     if (cpu->Num != 0) return; \
@@ -243,8 +243,9 @@ A_IMPLEMENT_WB_LDRSTR(LDRB)
     if (cpu->CurInstr & (1<<21)) cpu->R[(cpu->CurInstr>>16) & 0xF] = offset; \
     u32 r = (cpu->CurInstr>>12) & 0xF; \
     if (r&1) { r--; printf("!! MISALIGNED LDRD %d\n", r+1); } \
-    cpu->DataRead32 (offset  , &cpu->R[r  ]); \
-    cpu->DataRead32S(offset+4, &cpu->R[r+1]); \
+    cpu->DataRead32(offset  , &cpu->R[r  ]); \
+    cpu->AddCycles_CI(1); \
+    cpu->DataRead32(offset+4, &cpu->R[r+1]); \
     cpu->AddCycles_CDI();
 
 #define A_LDRD_POST \
@@ -253,8 +254,9 @@ A_IMPLEMENT_WB_LDRSTR(LDRB)
     cpu->R[(cpu->CurInstr>>16) & 0xF] += offset; \
     u32 r = (cpu->CurInstr>>12) & 0xF; \
     if (r&1) { r--; printf("!! MISALIGNED LDRD_POST %d\n", r+1); } \
-    cpu->DataRead32 (addr  , &cpu->R[r  ]); \
-    cpu->DataRead32S(addr+4, &cpu->R[r+1]); \
+    cpu->DataRead32(addr  , &cpu->R[r  ]); \
+    cpu->AddCycles_CI(1); \
+    cpu->DataRead32(addr+4, &cpu->R[r+1]); \
     cpu->AddCycles_CDI();
 
 #define A_STRD \

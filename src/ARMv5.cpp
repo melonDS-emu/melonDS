@@ -64,7 +64,10 @@ void ARMv5::Reset()
     ClockAlign = 1;
     BusAccessDelay = 3;
 
-    BusTimestamp = 0;
+    //DTCMTimestamp = 0;
+    //BusTimestamp = 0;
+    CodeTimestamp = 0;
+    DataTimestamp = 0;
 
     MainRAMStartAddr = 0;
     //MainRAMStart = 0;
@@ -88,7 +91,10 @@ void ARMv5::SetClockShift(int shift)
     // adjust timestamps back to 33MHz base
     NDS.ARM9Timestamp = (NDS.ARM9Timestamp + ClockAlign) >> ClockShift;
     NDS.ARM9Target = (NDS.ARM9Target + ClockAlign) >> ClockShift;
-    BusTimestamp = (BusTimestamp + ClockAlign) >> ClockShift;
+    //DTCMTimestamp = (DTCMTimestamp + ClockAlign) >> ClockShift;
+    //BusTimestamp = (BusTimestamp + ClockAlign) >> ClockShift;
+    CodeTimestamp = (CodeTimestamp + ClockAlign) >> ClockShift;
+    DataTimestamp = (DataTimestamp + ClockAlign) >> ClockShift;
     MainRAMTerminate = (MainRAMTerminate + ClockAlign) >> ClockShift;
 
     // apply new parameters
@@ -99,7 +105,10 @@ void ARMv5::SetClockShift(int shift)
     // adjust timestamps again
     NDS.ARM9Timestamp <<= ClockShift;
     NDS.ARM9Target <<= ClockShift;
-    BusTimestamp <<= ClockShift;
+    //DTCMTimestamp <<= ClockShift;
+    //BusTimestamp <<= ClockShift;
+    CodeTimestamp <<= ClockShift;
+    DataTimestamp <<= ClockShift;
     MainRAMTerminate <<= ClockShift;
 }
 
@@ -382,15 +391,15 @@ void ARMv5::BeginMainRAMBurst(int begin, int term)
     begin <<= ClockShift;
     term <<= ClockShift;
 
-    BusTimestamp += begin;
+    NDS.ARM9Timestamp += begin;
     MainRAMCycles = begin;
-    MainRAMTerminate = BusTimestamp + term;
+    MainRAMTerminate = NDS.ARM9Timestamp + term;
 }
 
 void ARMv5::TerminateMainRAMBurst()
 {
-    if (BusTimestamp < MainRAMTerminate)
-        BusTimestamp = MainRAMTerminate;
+    if (NDS.ARM9Timestamp < MainRAMTerminate)
+        NDS.ARM9Timestamp = MainRAMTerminate;
 }
 
 void ARMv5::DoCodeAccessTimings(const u32 addr)
@@ -402,24 +411,22 @@ void ARMv5::DoCodeAccessTimings(const u32 addr)
         CodeRegion = rgn;
     }
 
-    if (!(addr & 0xFFF))
+    /*if (!(addr & 0xFFF))
     {
         printf("BARG  %08X, %016llX %016llX\n",
                addr, NDS.ARM9Timestamp, BusTimestamp);
-    }
+    }*/
 
     // align the ARM9 to the start of this instruction
     //if (NDS.ARM9Timestamp < BusTimestamp)
     //    NDS.ARM9Timestamp = BusTimestamp;
     //else
-    if (BusTimestamp < NDS.ARM9Timestamp)
-    {
-        BusTimestamp = NDS.ARM9Timestamp;
-        BusTimestamp = (BusTimestamp + ClockAlign) & ~ClockAlign;
-    }
+    //if (NDS.ARM9Timestamp < CodeTimestamp)
+    //    NDS.ARM9Timestamp = CodeTimestamp;
 
     // when using the bus, apply buffering delay: 3 cycles on DS, 2 cycles on DSi
-    BusTimestamp += BusAccessDelay;
+    NDS.ARM9Timestamp = (NDS.ARM9Timestamp + ClockAlign) & ~ClockAlign;
+    NDS.ARM9Timestamp += BusAccessDelay;
 
     // ARM9 code fetches are always nonsequential
 
@@ -430,22 +437,32 @@ void ARMv5::DoCodeAccessTimings(const u32 addr)
     }
     else
     {
-        BusTimestamp += (CodeMem.Cycles_N32 << ClockShift);
+        NDS.ARM9Timestamp += (CodeMem.Cycles_N32 << ClockShift);
     }
 
     // when loading code from the bus, the ARM9 can run up to two internal cycles in parallel
-    NDS.ARM9Timestamp = BusTimestamp - 2;
+    CodeTimestamp = NDS.ARM9Timestamp - 2;
+    DataTimestamp = CodeTimestamp;
 }
 
 // TCM are handled here.
 
 u32 ARMv5::CodeRead32(const u32 addr, bool const branch)
 {
+    /*if (NDS.ARM9Timestamp < DTCMTimestamp)
+        NDS.ARM9Timestamp = DTCMTimestamp;
+    else
+        DTCMTimestamp = NDS.ARM9Timestamp;*/
+    CodeTimestamp = std::max(CodeTimestamp, DataTimestamp);
+    DataTimestamp = CodeTimestamp;
+    if (NDS.ARM9Timestamp < CodeTimestamp)
+        NDS.ARM9Timestamp = CodeTimestamp;
+
     if (addr < ITCMSize)
     {
         //CodeCycles = 1;
         CodeMem.Region = Mem9_ITCM;
-        NDS.ARM9Timestamp++;
+        CodeTimestamp++;
         return *(u32*)&ITCM[addr & (ITCMPhysicalSize - 1)];
     }
 
@@ -479,7 +496,7 @@ u32 ARMv5::CodeRead32(const u32 addr, bool const branch)
     DoCodeAccessTimings(addr);
 
     // count atleast one internal cycle for this instruction
-    NDS.ARM9Timestamp++;
+    CodeTimestamp++;
 
     return NDS.ARM9Read32(addr);
 }
@@ -487,6 +504,22 @@ u32 ARMv5::CodeRead32(const u32 addr, bool const branch)
 
 void ARMv5::DoDataAccessTimings(const u32 addr, bool write, int width)
 {
+    if (CodeMem.Region & Mem9_CPUInstrMem)
+    {
+        // if the code fetch was from internal memory, we need to get the bus ready
+        // TODO flag for doing this forcefully
+
+        /*if (BusTimestamp < NDS.ARM9Timestamp)
+        {
+            BusTimestamp = NDS.ARM9Timestamp;
+            BusTimestamp = (BusTimestamp + ClockAlign) & ~ClockAlign;
+        }*/
+
+        // when using the bus, apply buffering delay: 3 cycles on DS, 2 cycles on DSi
+        NDS.ARM9Timestamp = (NDS.ARM9Timestamp + ClockAlign) & ~ClockAlign;
+        NDS.ARM9Timestamp += BusAccessDelay;
+    }
+
     NDS.ARM9GetMemInfo(addr, DataMem);
     if (DataMem.Region & Mem9_MainRAM)
     {
@@ -573,7 +606,7 @@ void ARMv5::DataRead8(const u32 addr, u32* val)
     {
         //DataCycles = 1;
         DataMem.Region = Mem9_ITCM;
-        NDS.ARM9Timestamp++;
+        CodeTimestamp++;
         *val = *(u8*)&ITCM[addr & (ITCMPhysicalSize - 1)];
         return;
     }
@@ -581,7 +614,7 @@ void ARMv5::DataRead8(const u32 addr, u32* val)
     {
         //DataCycles = 1;
         DataMem.Region = Mem9_DTCM;
-        NDS.ARM9Timestamp++;
+        DataTimestamp++;
         *val = *(u8*)&DTCM[addr & (DTCMPhysicalSize - 1)];
         return;
     }
@@ -623,7 +656,7 @@ void ARMv5::DataRead16(const u32 addr, u32* val)
     {
         //DataCycles = 1;
         DataMem.Region = Mem9_ITCM;
-        NDS.ARM9Timestamp++;
+        CodeTimestamp++;
         *val = *(u16*)&ITCM[addr & (ITCMPhysicalSize - 2)];
         return;
     }
@@ -631,7 +664,7 @@ void ARMv5::DataRead16(const u32 addr, u32* val)
     {
         //DataCycles = 1;
         DataMem.Region = Mem9_DTCM;
-        NDS.ARM9Timestamp++;
+        DataTimestamp++;
         *val = *(u16*)&DTCM[addr & (DTCMPhysicalSize - 2)];
         return;
     }
@@ -673,7 +706,7 @@ void ARMv5::DataRead32(const u32 addr, u32* val)
     {
         //DataCycles = 1;
         DataMem.Region = Mem9_ITCM;
-        NDS.ARM9Timestamp++;
+        CodeTimestamp++;
         *val = *(u32*)&ITCM[addr & (ITCMPhysicalSize - 4)];
         return;
     }
@@ -681,7 +714,7 @@ void ARMv5::DataRead32(const u32 addr, u32* val)
     {
         //DataCycles = 1;
         DataMem.Region = Mem9_DTCM;
-        NDS.ARM9Timestamp++;
+        DataTimestamp++;
         *val = *(u32*)&DTCM[addr & (DTCMPhysicalSize - 4)];
         return;
     }
@@ -714,7 +747,7 @@ void ARMv5::DataRead32S(const u32 addr, u32* val)
     {
         //DataCycles += 1;
         DataMem.Region = Mem9_ITCM;
-        NDS.ARM9Timestamp++;
+        CodeTimestamp++;
         *val = *(u32*)&ITCM[addr & (ITCMPhysicalSize - 4)];
         return;
     }
@@ -722,7 +755,7 @@ void ARMv5::DataRead32S(const u32 addr, u32* val)
     {
         //DataCycles += 1;
         DataMem.Region = Mem9_DTCM;
-        NDS.ARM9Timestamp++;
+        DataTimestamp++;
         *val = *(u32*)&DTCM[addr & (DTCMPhysicalSize - 4)];
         return;
     }
@@ -766,7 +799,7 @@ void ARMv5::DataWrite8(const u32 addr, const u8 val)
     {
         //DataCycles = 1;
         DataMem.Region = Mem9_ITCM;
-        NDS.ARM9Timestamp++;
+        CodeTimestamp++;
         *(u8*)&ITCM[addr & (ITCMPhysicalSize - 1)] = val;
 #ifdef JIT_ENABLED
         NDS.JIT.CheckAndInvalidate<0, ARMJIT_Memory::memregion_ITCM>(addr);
@@ -777,7 +810,7 @@ void ARMv5::DataWrite8(const u32 addr, const u8 val)
     {
         //DataCycles = 1;
         DataMem.Region = Mem9_DTCM;
-        NDS.ARM9Timestamp++;
+        DataTimestamp++;
         *(u8*)&DTCM[addr & (DTCMPhysicalSize - 1)] = val;
         return;
     }
@@ -818,7 +851,7 @@ void ARMv5::DataWrite16(const u32 addr, const u16 val)
     {
         //DataCycles = 1;
         DataMem.Region = Mem9_ITCM;
-        NDS.ARM9Timestamp++;
+        CodeTimestamp++;
         *(u16*)&ITCM[addr & (ITCMPhysicalSize - 2)] = val;
 #ifdef JIT_ENABLED
         NDS.JIT.CheckAndInvalidate<0, ARMJIT_Memory::memregion_ITCM>(addr);
@@ -829,7 +862,7 @@ void ARMv5::DataWrite16(const u32 addr, const u16 val)
     {
         //DataCycles = 1;
         DataMem.Region = Mem9_DTCM;
-        NDS.ARM9Timestamp++;
+        DataTimestamp++;
         *(u16*)&DTCM[addr & (DTCMPhysicalSize - 2)] = val;
         return;
     }
@@ -870,7 +903,7 @@ void ARMv5::DataWrite32(const u32 addr, const u32 val)
     {
         //DataCycles = 1;
         DataMem.Region = Mem9_ITCM;
-        NDS.ARM9Timestamp++;
+        CodeTimestamp++;
         *(u32*)&ITCM[addr & (ITCMPhysicalSize - 4)] = val;
 #ifdef JIT_ENABLED
         NDS.JIT.CheckAndInvalidate<0, ARMJIT_Memory::memregion_ITCM>(addr);
@@ -881,7 +914,7 @@ void ARMv5::DataWrite32(const u32 addr, const u32 val)
     {
         //DataCycles = 1;
         DataMem.Region = Mem9_DTCM;
-        NDS.ARM9Timestamp++;
+        DataTimestamp++;
         *(u32*)&DTCM[addr & (DTCMPhysicalSize - 4)] = val;
         return;
     }
@@ -914,7 +947,7 @@ void ARMv5::DataWrite32S(const u32 addr, const u32 val)
     {
         //DataCycles += 1;
         DataMem.Region = Mem9_ITCM;
-        NDS.ARM9Timestamp++;
+        CodeTimestamp++;
         *(u32*)&ITCM[addr & (ITCMPhysicalSize - 4)] = val;
 #ifdef JIT_ENABLED
         NDS.JIT.CheckAndInvalidate<0, ARMJIT_Memory::memregion_ITCM>(addr);
@@ -925,7 +958,7 @@ void ARMv5::DataWrite32S(const u32 addr, const u32 val)
     {
         //DataCycles += 1;
         DataMem.Region = Mem9_DTCM;
-        NDS.ARM9Timestamp++;
+        DataTimestamp++;
         *(u32*)&DTCM[addr & (DTCMPhysicalSize - 4)] = val;
         return;
     }
@@ -971,7 +1004,7 @@ void ARMv5::AddCycles_CI(s32 numI)
     // code+internal
     //s32 numC = (R[15] & 0x2) ? 0 : CodeCycles;
     //Cycles += numC + numI;
-    NDS.ARM9Timestamp += numI;
+    CodeTimestamp += numI;
 }
 
 void ARMv5::AddCycles_CDI()

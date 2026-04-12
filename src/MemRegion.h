@@ -52,6 +52,11 @@ enum
 
     // generic region masks for certain types of memory
 
+    Mem9_CPUInstrMem = Mem9_ITCM,
+    Mem9_CPUDataMem = Mem9_DTCM,
+    Mem9_CPUMem = (Mem9_CPUInstrMem | Mem9_CPUDataMem),
+    Mem9_InternalRAM = (Mem9_BIOS | Mem9_WRAM | Mem9_IO | Mem9_Pal | Mem9_VRAM | Mem9_OAM),
+
     Mem7_VRAM = (Mem7_VRAM_C | Mem7_VRAM_D),
     Mem7_InternalRAM = (Mem7_BIOS | Mem7_WRAM | Mem7_IO | Mem7_VRAM),
 
