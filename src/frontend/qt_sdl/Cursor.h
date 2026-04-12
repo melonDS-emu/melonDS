@@ -27,6 +27,8 @@ class Cursor
 {
 public:
   void update();
+  void setRawCursorPos(float x, float y);
+  void setDeviceInUse(int device);
   void setEmuInstance(EmuInstance* emuInstance);
   void setRotation(int rot);
   void setLayout(int layout);
@@ -61,6 +63,7 @@ private:
   bool joystickNegativeEdge; //Auto flick on joystick release
   int rotation;
   int layout;
+  int deviceInUse; //0 is Gamepad, 1 is Mouse, 2 is tablet
 };
 
 #endif // CURSOR_H

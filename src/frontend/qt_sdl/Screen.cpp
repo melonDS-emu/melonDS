@@ -75,13 +75,12 @@ ScreenPanel::ScreenPanel(QWidget* parent) : QWidget(parent)
     }
 
     emuInstance = mainWindow->getEmuInstance();
-
     mouseHide = false;
     mouseHideDelay = 0;
     cursorTimer = new QElapsedTimer();
     //cursorTimer->start(); Uncomment to get timer for virtual cursor
     QTimer* mouseTimer = setupMouseTimer();
-    connect(mouseTimer, &QTimer::timeout, [=] { if (mouseHide) setCursor(Qt::BlankCursor);});
+    connect(mouseTimer, &QTimer::timeout, [=] { if (mouseHide && !vCursor->cursorEnabled) setCursor(Qt::BlankCursor);});
 
     osdEnabled = false;
     osdID = 1;
@@ -268,21 +267,26 @@ void ScreenPanel::mouseReleaseEvent(QMouseEvent* event)
 
 void ScreenPanel::mouseMoveEvent(QMouseEvent* event)
 {
-    event->accept();
-
-    showCursor();
-
+    event->accept();    
     if (!emuInstance->emuIsActive()) return;
     //if (!(event->buttons() & Qt::LeftButton)) return;
-    if (!touching) return;
 
     int x = event->pos().x();
     int y = event->pos().y();
-
-    if (layout.GetTouchCoords(x, y, true))
+    bool inTouchCoords = layout.GetTouchCoords(x, y, false);
+    if (inTouchCoords)
     {
-        emuInstance->touchScreen(x, y);
+        vCursor->setDeviceInUse(1);
+        vCursor->setRawCursorPos(x, y); 
     }
+    if (vCursor->cursorEnabled && inTouchCoords){
+        setCursor(Qt::BlankCursor);
+    } else {
+        showCursor();
+    }
+    if (!touching) return;
+
+    emuInstance->touchScreen(x, y);
 }
 
 void ScreenPanel::tabletEvent(QTabletEvent* event)
