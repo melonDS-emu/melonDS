@@ -368,7 +368,7 @@ void Cursor::ggstrum(int direction){
     sign = -1;
     startingY = 126;
   }
-  macroInitPos = {rawCursorPos[0],  rawCursorPos[1]};
+  macroInitPos = {82,  101};
   macroPositions.push_back({82, startingY+(sign*0.00f*distance)});
   macroPositions.push_back({82, startingY+(sign*0.50f*distance)});
   macroPositions.push_back({82, startingY+(sign*1.00f*distance)});
@@ -383,7 +383,7 @@ void Cursor::ggwhammy(){
   macroType = 3;
   float distance = 50;
   if (justFinishedMacro != 3){ // Set the original position if just starting
-    macroInitPos = {rawCursorPos[0],  rawCursorPos[1]};
+    macroInitPos = {82,  101};
   }
 
   macroPositions.push_back({82, 76+(0.00f*distance)});
@@ -403,7 +403,7 @@ void Cursor::ggstarpower(){
   inMacro = true;
   wasTouching = true;
   macroType = 4; // Unused by any looping macros
-  macroInitPos = {rawCursorPos[0],  rawCursorPos[1]};
+  macroInitPos = {82,  101};
   macroPositions.push_back({134, 16});
   macroFrames = macroPositions.size();
   runMacro();
