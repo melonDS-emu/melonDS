@@ -80,7 +80,7 @@ ScreenPanel::ScreenPanel(QWidget* parent) : QWidget(parent)
     cursorTimer = new QElapsedTimer();
     //cursorTimer->start(); Uncomment to get timer for virtual cursor
     QTimer* mouseTimer = setupMouseTimer();
-    connect(mouseTimer, &QTimer::timeout, [=] { if (mouseHide && !vCursor->cursorEnabled) setCursor(Qt::BlankCursor);});
+    connect(mouseTimer, &QTimer::timeout, [=] { if (mouseHide) setCursor(Qt::BlankCursor);});
 
     osdEnabled = false;
     osdID = 1;
