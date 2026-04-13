@@ -49,6 +49,12 @@ private:
   void circle(int direction); //0 is clockwise, 1 is counter clockwise
   void rub();
   void runMacro();
+
+  //Guitar Hero ("Guitar Grip") Macros
+  void ggstrum(int direction);
+  void ggwhammy();
+  void ggstarpower();
+
   std::vector<std::array<float, 2>> rotateVector(std::vector<std::array<float, 2>> input);
   bool inMacro;
   std::deque<std::array<float, 2>> macroPositions;

@@ -56,6 +56,10 @@ enum
     HK_GuitarGripRed,
     HK_GuitarGripYellow,
     HK_GuitarGripBlue,
+    HK_GuitarGripStrum1,
+    HK_GuitarGripStrum2,
+    HK_GuitarGripWhammy,
+    HK_GuitarGripStarPower,
     HK_MAX
 };
 
@@ -169,6 +173,10 @@ public:
 
     QMutex renderLock;
 
+    bool hotkeyDown(int id)     { return hotkeyMask    & (1<<id); }
+    bool hotkeyPressed(int id)  { return hotkeyPress   & (1<<id); }
+    bool hotkeyReleased(int id) { return hotkeyRelease & (1<<id); }
+
 private:
     static int lastSep(const std::string& path);
     std::string getAssetPath(bool gba, const std::string& configpath, const std::string& ext, const std::string& file);
@@ -251,10 +259,6 @@ private:
     bool joystickButtonDown(int val, int index);
 
     void inputProcess();
-
-    bool hotkeyDown(int id)     { return hotkeyMask    & (1<<id); }
-    bool hotkeyPressed(int id)  { return hotkeyPress   & (1<<id); }
-    bool hotkeyReleased(int id) { return hotkeyRelease & (1<<id); }
 
     void loadRTCData();
     void saveRTCData();

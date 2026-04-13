@@ -34,6 +34,24 @@ void Cursor::update(){
         } else if (emuInstance->modButtons[11]){
           circle(1);
           return;
+        } else if (emuInstance->hotkeyPressed(HK_GuitarGripStrum1)){
+          if (!macroBtnPressed){
+            ggstrum(0);
+            return;
+          }
+        } else if (emuInstance->hotkeyPressed(HK_GuitarGripStrum2)){
+          if (!macroBtnPressed){
+            ggstrum(1);
+            return;
+          }
+        } else if (emuInstance->hotkeyDown(HK_GuitarGripWhammy)){
+          ggwhammy();
+          return;
+        } else if (emuInstance->hotkeyPressed(HK_GuitarGripStarPower)){
+          if (!macroBtnPressed){
+            ggstarpower();
+            return;
+          }
         } else {
           if (macroBtnPressed){
             macroBtnPressed = false;
@@ -331,4 +349,62 @@ std::vector<std::array<float, 2>> Cursor::rotateVector(std::vector<std::array<fl
     }
   }
   return input;
+}
+
+//Game Specific Macros
+
+void Cursor::ggstrum(int direction){
+  macroBtnPressed = true;
+  inMacro = true;
+  wasTouching = true;
+  macroType = 4; // Unused by any looping macros
+  float distance = 50;
+  int startingY;
+  int sign;
+  if (direction == 0){
+    sign = 1;
+    startingY = 76;
+  } else {
+    sign = -1;
+    startingY = 126;
+  }
+  macroInitPos = {rawCursorPos[0],  rawCursorPos[1]};
+  macroPositions.push_back({82, startingY+(sign*0.00f*distance)});
+  macroPositions.push_back({82, startingY+(sign*0.50f*distance)});
+  macroPositions.push_back({82, startingY+(sign*1.00f*distance)});
+  macroFrames = macroPositions.size();
+  runMacro();
+}
+
+void Cursor::ggwhammy(){
+  macroBtnPressed = true;
+  inMacro = true;
+  wasTouching = true;
+  macroType = 3;
+  float distance = 50;
+  if (justFinishedMacro != 3){ // Set the original position if just starting
+    macroInitPos = {rawCursorPos[0],  rawCursorPos[1]};
+  }
+
+  macroPositions.push_back({82, 76+(0.00f*distance)});
+  macroPositions.push_back({82, 76+(0.25f*distance)});
+  macroPositions.push_back({82, 76+(0.50f*distance)});
+  macroPositions.push_back({82, 76+(0.75f*distance)});
+  macroPositions.push_back({82, 76+(1.00f*distance)});
+  macroPositions.push_back({82, 76+(0.75f*distance)});
+  macroPositions.push_back({82, 76+(0.50f*distance)});
+  macroPositions.push_back({82, 76+(0.25f*distance)});
+  macroFrames = macroPositions.size();
+  runMacro();
+}
+
+void Cursor::ggstarpower(){
+  macroBtnPressed = true;
+  inMacro = true;
+  wasTouching = true;
+  macroType = 4; // Unused by any looping macros
+  macroInitPos = {rawCursorPos[0],  rawCursorPos[1]};
+  macroPositions.push_back({134, 16});
+  macroFrames = macroPositions.size();
+  runMacro();
 }
