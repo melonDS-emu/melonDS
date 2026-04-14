@@ -275,7 +275,10 @@ void ScreenPanel::mouseReleaseEvent(QMouseEvent* event)
 void ScreenPanel::mouseMoveEvent(QMouseEvent* event)
 {
     event->accept();    
-    if (!emuInstance->emuIsActive()) return;
+    if (!emuInstance->emuIsActive()){
+        showCursor();
+        return;
+    }
     //if (!(event->buttons() & Qt::LeftButton)) return;
 
     int x = event->pos().x();

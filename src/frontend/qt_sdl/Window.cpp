@@ -541,21 +541,6 @@ MainWindow::MainWindow(int id, EmuInstance* inst, QWidget* parent) :
                 actScreenSwap = submenu->addAction("Swap screens");
                 actScreenSwap->setCheckable(true);
 
-                QMenu * smallScreenMenu = submenu->addMenu("Small Screen Position");
-                grpSmallScreenPos = new QActionGroup(smallScreenMenu);
-
-                const char *smallScreenPos[] = {"Top Right", "Middle Right", "Bottom Right", "Top Left", "Middle Left", "Bottom Left", "Above", "Below"};
-
-                for (int i = 0; i < smallScreenPos_MAX; i++)
-                {
-                    actSmallScreenPos[i] = smallScreenMenu->addAction(QString(smallScreenPos[i]));
-                    actSmallScreenPos[i]->setActionGroup(grpSmallScreenPos);
-                    actSmallScreenPos[i]->setData(QVariant(i));
-                    actSmallScreenPos[i]->setCheckable(true);
-                }
-
-                connect(grpSmallScreenPos, &QActionGroup::triggered, this, &MainWindow::onChangeSmallScreenPos);
-
                 QMenu * largeScreenMenu = submenu->addMenu("Large Screen Scaling");
                 grpLargeScreenScale = new QActionGroup(largeScreenMenu);
 
@@ -571,6 +556,20 @@ MainWindow::MainWindow(int id, EmuInstance* inst, QWidget* parent) :
 
                 connect(grpLargeScreenScale, &QActionGroup::triggered, this, &MainWindow::onChangeLargeScreenScale);
 
+                QMenu * smallScreenMenu = submenu->addMenu("Small Screen Position");
+                grpSmallScreenPos = new QActionGroup(smallScreenMenu);
+
+                const char *smallScreenPos[] = {"Top Right", "Middle Right", "Bottom Right", "Top Left", "Middle Left", "Bottom Left", "Above", "Below"};
+
+                for (int i = 0; i < smallScreenPos_MAX; i++)
+                {
+                    actSmallScreenPos[i] = smallScreenMenu->addAction(QString(smallScreenPos[i]));
+                    actSmallScreenPos[i]->setActionGroup(grpSmallScreenPos);
+                    actSmallScreenPos[i]->setData(QVariant(i));
+                    actSmallScreenPos[i]->setCheckable(true);
+                }
+
+                connect(grpSmallScreenPos, &QActionGroup::triggered, this, &MainWindow::onChangeSmallScreenPos);
 
                 connect(actScreenSwap, &QAction::triggered, this, &MainWindow::onChangeScreenSwap);
                 
