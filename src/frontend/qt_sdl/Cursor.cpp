@@ -183,6 +183,16 @@ void Cursor::update(){
       //Update cursor based on mouse position
       clamp();
       updateCursorPos();
+
+      // Handle stylus touch button presses
+      if (emuInstance->stylusInput[5]){
+        touchScreen();
+        wasTouching = true;
+      } else if (wasTouching && !emuInstance->stylusInput[5]){
+        release();
+        wasTouching = false;
+      }
+
       setDeviceInUse(0);
     }
   }
