@@ -53,7 +53,6 @@ private:
   //Guitar Hero ("Guitar Grip") Macros
   void ggstrum(int direction);
   void ggwhammy();
-  void ggstarpower();
 
   std::vector<std::array<float, 2>> rotateVector(std::vector<std::array<float, 2>> input);
   bool inMacro;

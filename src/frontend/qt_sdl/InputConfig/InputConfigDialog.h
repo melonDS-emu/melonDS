@@ -39,7 +39,6 @@ static constexpr std::initializer_list<int> hk_addons =
     HK_GuitarGripStrum1,
     HK_GuitarGripStrum2,
     HK_GuitarGripWhammy,
-    HK_GuitarGripStarPower,
 };
 
 static constexpr std::initializer_list<const char*> hk_addons_labels =
@@ -53,7 +52,6 @@ static constexpr std::initializer_list<const char*> hk_addons_labels =
     "[Guitar Grip] Strum 1",
     "[Guitar Grip] Strum 2",
     "[Guitar Grip] Whammy",
-    "[Guitar Grip] Star Power",
 };
 
 static_assert(hk_addons.size() == hk_addons_labels.size());

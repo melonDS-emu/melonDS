@@ -64,7 +64,7 @@ DefaultList<int> DefaultInts =
     {"MP.AudioMode", 1},
     {"MP.RecvTimeout", 25},
     {"Instance*.Audio.Volume", 256},
-    {"Mic.InputType", 1},
+    {"Mic.InputType", 2},
     {"Mouse.HideSeconds", 5},
     {"Instance*.DSi.Battery.Level", 0xF},
 #ifdef GDBSTUB_ENABLED

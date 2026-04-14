@@ -59,7 +59,6 @@ enum
     HK_GuitarGripStrum1,
     HK_GuitarGripStrum2,
     HK_GuitarGripWhammy,
-    HK_GuitarGripStarPower,
     HK_MAX
 };
 

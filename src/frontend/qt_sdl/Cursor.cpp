@@ -47,11 +47,6 @@ void Cursor::update(){
         } else if (emuInstance->hotkeyDown(HK_GuitarGripWhammy)){
           ggwhammy();
           return;
-        } else if (emuInstance->hotkeyPressed(HK_GuitarGripStarPower)){
-          if (!macroBtnPressed){
-            ggstarpower();
-            return;
-          }
         } else {
           if (macroBtnPressed){
             macroBtnPressed = false;
@@ -404,17 +399,6 @@ void Cursor::ggwhammy(){
   macroPositions.push_back({82, 76+(0.75f*distance)});
   macroPositions.push_back({82, 76+(0.50f*distance)});
   macroPositions.push_back({82, 76+(0.25f*distance)});
-  macroFrames = macroPositions.size();
-  runMacro();
-}
-
-void Cursor::ggstarpower(){
-  macroBtnPressed = true;
-  inMacro = true;
-  wasTouching = true;
-  macroType = 4; // Unused by any looping macros
-  macroInitPos = {82,  101};
-  macroPositions.push_back({134, 16});
   macroFrames = macroPositions.size();
   runMacro();
 }
