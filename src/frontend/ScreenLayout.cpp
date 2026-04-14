@@ -378,21 +378,37 @@ void ScreenLayout::Setup(int screenWidth, int screenHeight,
 
                 if (integerScale)
                     primScale = floorf(primScale);
+                if (largeScreenScale == largeScreenScale_Auto){
+                    if (inVerticalLayout)
+                    {
+                        if (screenHeight - primVSize * primScale < secVSize)
+                            primScale = std::min(screenWidth / primHSize, (screenHeight - secVSize) / primVSize);
+                        else
+                            secScale = std::min((screenHeight - primVSize * primScale) / secVSize, screenWidth / secHSize);
+                    }
+                    else
+                    {
+                        if (screenWidth - primHSize * primScale < secHSize)
+                            primScale = std::min((screenWidth - secHSize) / primHSize, screenHeight / primVSize);
+                        else
+                            secScale = std::min((screenWidth - primHSize * primScale) / secHSize, screenHeight / secVSize);
+                    }
+                } else {
+                    float largeScale = largeScreenScale + 1;
+                    // If one screen is 2x the other, prim is 2/3 the width, sec is 1/3.
+                    // If scaled by height, prim is the height, sec is 1/2 the height 
+                    
+                    //Check whether the height from scaling based on width exceeds screenHeight.
+                    float heightTest = ((((largeScale/(largeScale+1.0f))*screenWidth)/secHSize)*secVSize);
+                    if (heightTest > screenHeight){
+                        primScale = (screenHeight)/secVSize;
+                        secScale = ((1.0f/largeScale)*screenHeight)/secVSize;
+                    } else {
+                        primScale = ((largeScale/(largeScale+1.0f))*screenWidth)/secHSize;
+                        secScale = ((1.0f/(largeScale+1.0f))*screenWidth)/secHSize;
+                    }
+                }
 
-                if (inVerticalLayout)
-                {
-                    if (screenHeight - primVSize * primScale < secVSize)
-                        primScale = std::min(screenWidth / primHSize, (screenHeight - secVSize) / primVSize);
-                    else
-                        secScale = std::min((screenHeight - primVSize * primScale) / secVSize, screenWidth / secHSize);
-                }
-                else
-                {
-                    if (screenWidth - primHSize * primScale < secHSize)
-                        primScale = std::min((screenWidth - secHSize) / primHSize, screenHeight / primVSize);
-                    else
-                        secScale = std::min((screenWidth - primHSize * primScale) / secHSize, screenHeight / secVSize);
-                }
 
                 if (integerScale)
                 {

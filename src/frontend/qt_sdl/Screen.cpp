@@ -212,7 +212,9 @@ QSize ScreenPanel::screenGetMinSize(int factor = 1)
             return QSize(h+gap+h, w);
         else
             return QSize(w+gap+w, h);
-    } else { //Hybrid or Large Screen
+    } else if (screenLayout == screenLayout_LargeScreen) {
+        return QSize((largeScreenScale+2)*w, (largeScreenScale+1)*h);
+    } else { //Hybrid
         return QSize(3*w, 2*h);
     }
 }
