@@ -556,6 +556,22 @@ MainWindow::MainWindow(int id, EmuInstance* inst, QWidget* parent) :
 
                 connect(grpSmallScreenPos, &QActionGroup::triggered, this, &MainWindow::onChangeSmallScreenPos);
 
+                QMenu * largeScreenMenu = submenu->addMenu("Large Screen Scaling");
+                grpLargeScreenScale = new QActionGroup(largeScreenMenu);
+
+                const char *largeScreenScale[] = {"Auto", "2x", "3x", "4x"};
+
+                for (int i = 0; i < largeScreenScale_MAX; i++)
+                {
+                    actLargeScreenScale[i] = largeScreenMenu->addAction(QString(largeScreenScale[i]));
+                    actLargeScreenScale[i]->setActionGroup(grpLargeScreenScale);
+                    actLargeScreenScale[i]->setData(QVariant(i));
+                    actLargeScreenScale[i]->setCheckable(true);
+                }
+
+                connect(grpLargeScreenScale, &QActionGroup::triggered, this, &MainWindow::onChangeLargeScreenScale);
+
+
                 connect(actScreenSwap, &QAction::triggered, this, &MainWindow::onChangeScreenSwap);
                 
                 actIntegerScaling = submenu->addAction("Force integer scaling");
@@ -754,6 +770,7 @@ MainWindow::MainWindow(int id, EmuInstance* inst, QWidget* parent) :
 
         actScreenLayout[windowCfg.GetInt("ScreenLayout")]->setChecked(true);
         actSmallScreenPos[windowCfg.GetInt("SmallScreenPosition")]->setChecked(true);
+        actLargeScreenScale[windowCfg.GetInt("LargeScreenScale")]->setChecked(true);
         actIntegerScaling->setChecked(windowCfg.GetBool("IntegerScaling"));
 
         actScreenSwap->setChecked(windowCfg.GetBool("ScreenSwap"));
@@ -2081,6 +2098,13 @@ void MainWindow::onChangeSmallScreenPos(QAction* act)
     emit screenLayoutChange();
 }
 
+void MainWindow::onChangeLargeScreenScale(QAction* act)
+{
+    int largeScreenScale = act->data().toInt();
+    windowCfg.SetInt("LargeScreenScale", largeScreenScale);
+
+    emit screenLayoutChange();
+}
 void MainWindow::onChangeScreenSwap(bool checked)
 {
     windowCfg.SetBool("ScreenSwap", checked);

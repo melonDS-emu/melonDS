@@ -44,6 +44,15 @@ enum SmallScreenPosition
     smallScreenPos_MAX,
 };
 
+enum LargeScreenScale
+{
+    largeScreenScale_Auto,
+    largeScreenScale_2X,
+    largeScreenScale_3X,
+    largeScreenScale_4X,
+    largeScreenScale_MAX,
+};
+
 enum ScreenRotation
 {
     screenRot_0Deg,
@@ -86,6 +95,7 @@ public:
                ScreenRotation rotation,
                ScreenSizing sizing,
                SmallScreenPosition smallScreenPosition,
+               LargeScreenScale largeScreenScale,
                int screenGap,
                bool integerScale,
                bool swapScreens,

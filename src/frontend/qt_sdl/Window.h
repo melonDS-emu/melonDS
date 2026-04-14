@@ -163,6 +163,7 @@ private slots:
     void onChangeScreenGap(QAction* act);
     void onChangeScreenLayout(QAction* act);
     void onChangeSmallScreenPos(QAction* act);
+    void onChangeLargeScreenScale(QAction* act);
     void onChangeScreenSwap(bool checked);
     void onChangeScreenSizing(QAction* act);
     void onChangeScreenAspect(QAction* act);
@@ -281,8 +282,10 @@ public:
     QAction* actScreenGap[6];
     QActionGroup* grpScreenLayout;
     QActionGroup* grpSmallScreenPos;
+    QActionGroup* grpLargeScreenScale;
     QAction* actScreenLayout[screenLayout_MAX];
     QAction* actSmallScreenPos[smallScreenPos_MAX];
+    QAction* actLargeScreenScale[largeScreenScale_MAX];
     QAction* actScreenSwap;
     QActionGroup* grpScreenSizing;
     QAction* actScreenSizing[screenSizing_MAX];

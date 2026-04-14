@@ -126,6 +126,7 @@ void ScreenPanel::loadConfig()
     screenGap = cfg.GetInt("ScreenGap");
     screenLayout = cfg.GetInt("ScreenLayout");
     smallScreenPosition = cfg.GetInt("SmallScreenPosition");
+    largeScreenScale = cfg.GetInt("LargeScreenScale");
     screenSwap = cfg.GetBool("ScreenSwap");
     screenSizing = cfg.GetInt("ScreenSizing");
     integerScaling = cfg.GetBool("IntegerScaling");
@@ -175,6 +176,7 @@ void ScreenPanel::setupScreenLayout()
                 static_cast<ScreenRotation>(screenRotation),
                 static_cast<ScreenSizing>(sizing),
                 static_cast<SmallScreenPosition>(smallScreenPosition),
+                static_cast<LargeScreenScale>(largeScreenScale),
                 screenGap,
                 integerScaling != 0,
                 screenSwap != 0,
