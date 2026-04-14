@@ -83,7 +83,7 @@ void Cursor::update(){
         float multiplier = 0.5f * pow(4.0f, maxSpeed / 100.0f); // 0 is 0.5x speed, 100 is 2.0x speed.
         float heightSpeed = (192.0f / 33.0f) * multiplier;
 
-        float deadzone = 15.0f / 100.0f;
+        float deadzone = 5.0f / 100.0f;
         bool stylusModPressed = emuInstance->stylusInput[4]; 
         float responsecurve = 200.0f / 100.0f;
         float speedupratio = 400.0f / 100.0f;
