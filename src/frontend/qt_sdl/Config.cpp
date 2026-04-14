@@ -64,6 +64,8 @@ DefaultList<int> DefaultInts =
     {"MP.AudioMode", 1},
     {"MP.RecvTimeout", 25},
     {"Instance*.Audio.Volume", 256},
+    {"Instance*.Window*.LargeScreenScale", 1},
+    {"Instance*.Window*.SmallScreenPosition", 1},
     {"Mic.InputType", 2},
     {"Mouse.HideSeconds", 5},
     {"Instance*.DSi.Battery.Level", 0xF},
@@ -96,6 +98,7 @@ RangeList IntRanges =
 DefaultList<bool> DefaultBools =
 {
     {"Screen.Filter", true},
+    {"Mouse.Hide", true},
     {"3D.Soft.Threaded", true},
     {"3D.GL.HiresCoordinates", true},
     {"LimitFPS", true},

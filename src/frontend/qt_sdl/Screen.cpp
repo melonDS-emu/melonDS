@@ -212,8 +212,14 @@ QSize ScreenPanel::screenGetMinSize(int factor = 1)
             return QSize(h+gap+h, w);
         else
             return QSize(w+gap+w, h);
-    } else if (screenLayout == screenLayout_LargeScreen) {
-        return QSize((largeScreenScale+2)*w, (largeScreenScale+1)*h);
+    } else if (screenLayout == screenLayout_LargeScreen){
+        if (smallScreenPosition != smallScreenPos_Above && smallScreenPosition != smallScreenPos_Below){
+            return QSize((largeScreenScale+2)*w+gap, (largeScreenScale+1)*h);
+        } else {
+            return QSize((largeScreenScale+1)*w, (largeScreenScale+2)*h+gap);
+        }
+    } else if (screenLayout == screenLayout_Book || screenLayout == screenLayout_ReverseBook){
+        return QSize((2*h)+gap, w);
     } else { //Hybrid
         return QSize(3*w, 2*h);
     }

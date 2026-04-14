@@ -399,14 +399,26 @@ void ScreenLayout::Setup(int screenWidth, int screenHeight,
                     // If scaled by height, prim is the height, sec is 1/2 the height 
                     
                     //Check whether the height from scaling based on width exceeds screenHeight.
-                    float heightTest = ((((largeScale/(largeScale+1.0f))*screenWidth)/secHSize)*secVSize);
-                    if (heightTest > screenHeight){
-                        primScale = (screenHeight)/secVSize;
-                        secScale = ((1.0f/largeScale)*screenHeight)/secVSize;
+                    if (smallScreenPosition != smallScreenPos_Above && smallScreenPosition != smallScreenPos_Below){
+                        float heightTest = ((((largeScale/(largeScale+1.0f))*screenWidth)/secHSize)*secVSize);
+                        if (heightTest > screenHeight){
+                            primScale = (screenHeight)/secVSize;
+                            secScale = ((1.0f/largeScale)*screenHeight)/secVSize;
+                        } else {
+                            primScale = ((largeScale/(largeScale+1.0f))*screenWidth)/secHSize;
+                            secScale = ((1.0f/(largeScale+1.0f))*screenWidth)/secHSize;
+                        }
                     } else {
-                        primScale = ((largeScale/(largeScale+1.0f))*screenWidth)/secHSize;
-                        secScale = ((1.0f/(largeScale+1.0f))*screenWidth)/secHSize;
+                        float widthTest = ((((largeScale/(largeScale+1.0f))*screenHeight)/secVSize)*secHSize);
+                        if (widthTest > screenWidth){
+                            primScale = (screenWidth)/secHSize;
+                            secScale = ((1.0f/largeScale)*screenWidth)/secHSize;
+                        } else {
+                            primScale = ((largeScale/(largeScale+1.0f))*screenHeight)/secVSize;
+                            secScale = ((1.0f/(largeScale+1.0f))*screenHeight)/secVSize;
+                        }
                     }
+
                 }
 
 
