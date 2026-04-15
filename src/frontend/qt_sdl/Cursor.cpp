@@ -8,6 +8,9 @@
 
 void Cursor::update(){
   if (emuInstance != nullptr){
+    for (int i = 0; i < 6; i++){
+      stylusInput[i] = std::max(emuInstance->stylusJInput[i], emuInstance->stylusKInput[i]);
+    } 
     if (deviceInUse == 0){
       if (inMacro){
         runMacro();
@@ -54,19 +57,19 @@ void Cursor::update(){
         }
 
         // Compare Left vs Right Values
-        if (emuInstance->stylusInput[2] > emuInstance->stylusInput[3]){
-          normStylusDirection[0] = -(emuInstance->stylusInput[2]/32767.0f);
-        } else if (emuInstance->stylusInput[3] > emuInstance->stylusInput[2]) {
-          normStylusDirection[0] = (emuInstance->stylusInput[3]/32767.0f);
+        if (stylusInput[2] > stylusInput[3]){
+          normStylusDirection[0] = -(stylusInput[2]/32767.0f);
+        } else if (stylusInput[3] > stylusInput[2]) {
+          normStylusDirection[0] = (stylusInput[3]/32767.0f);
         } else {
           normStylusDirection[0] = 0;
         }
 
         // Compare Up vs Down Values
-        if (emuInstance->stylusInput[0] > emuInstance->stylusInput[1]){
-          normStylusDirection[1] = -(emuInstance->stylusInput[0]/32767.0f);
-        } else if (emuInstance->stylusInput[1] > emuInstance->stylusInput[0]){
-          normStylusDirection[1] = (emuInstance->stylusInput[1]/32767.0f);
+        if (stylusInput[0] > stylusInput[1]){
+          normStylusDirection[1] = -(stylusInput[0]/32767.0f);
+        } else if (stylusInput[1] > stylusInput[0]){
+          normStylusDirection[1] = (stylusInput[1]/32767.0f);
         } else {
           normStylusDirection[1] = 0;
         }
@@ -79,7 +82,7 @@ void Cursor::update(){
         float heightSpeed = (192.0f / 33.0f) * multiplier;
 
         float deadzone = 5.0f / 100.0f;
-        bool stylusModPressed = emuInstance->stylusInput[4]; 
+        bool stylusModPressed = stylusInput[4]; 
         float responsecurve = 200.0f / 100.0f;
         float speedupratio = 400.0f / 100.0f;
         float joystickScaled[2] = {0.0f};
@@ -158,10 +161,10 @@ void Cursor::update(){
         }
 
         // Handle stylus touch button presses
-        if (emuInstance->stylusInput[5]){
+        if (stylusInput[5]){
           touchScreen();
           wasTouching = true;
-        } else if (wasTouching && !emuInstance->stylusInput[5]){
+        } else if (wasTouching && !stylusInput[5]){
           release();
           wasTouching = false;
         }
@@ -180,10 +183,10 @@ void Cursor::update(){
       updateCursorPos();
 
       // Handle stylus touch button presses
-      if (emuInstance->stylusInput[5]){
+      if (stylusInput[5]){
         touchScreen();
         wasTouching = true;
-      } else if (wasTouching && !emuInstance->stylusInput[5]){
+      } else if (wasTouching && !stylusInput[5]){
         release();
         wasTouching = false;
       }

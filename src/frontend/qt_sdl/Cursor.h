@@ -43,7 +43,7 @@ private:
   void clamp();
   void updateCursorPos();
   bool wasTouching;
-
+  int stylusInput[6] = {0};
   //Swipe in direction of x and y over the course of specified frames. Expects integer values between -1 and 1
   // void swipe(float x, float y, int frames);
   void circle(int direction); //0 is clockwise, 1 is counter clockwise
