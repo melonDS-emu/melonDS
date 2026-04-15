@@ -243,11 +243,22 @@ void ScreenLayout::Setup(int screenWidth, int screenHeight,
             }
   
             if (!swapScreens){
-                offsetTop = -((moveV ? 192.0 : 256.0 * topAspect) / 2.0 + screenGap / 2.0);
-                offsetBot = (moveV ? 192.0 : 256.0 * botAspect) / 2.0 + screenGap / 2.0;
+                if (screenLayout == screenLayout_LargeScreen && (smallScreenPosition == smallScreenPos_TopLeft || smallScreenPosition == smallScreenPos_MiddleLeft ||smallScreenPosition == smallScreenPos_BottomLeft || smallScreenPosition == smallScreenPos_Above)){
+                    offsetTop = ((moveV ? 192.0 : 256.0 * topAspect) / 2.0 + screenGap / 2.0);
+                    offsetBot = -(moveV ? 192.0 : 256.0 * botAspect) / 2.0 + screenGap / 2.0;
+                } else {
+                    offsetTop = -((moveV ? 192.0 : 256.0 * topAspect) / 2.0 + screenGap / 2.0);
+                    offsetBot = (moveV ? 192.0 : 256.0 * botAspect) / 2.0 + screenGap / 2.0;
+                }
+
             } else {
-                offsetTop = ((moveV ? 192.0 : 256.0 * topAspect) / 2.0 + screenGap / 2.0);
-                offsetBot = -(moveV ? 192.0 : 256.0 * botAspect) / 2.0 + screenGap / 2.0;
+                if (screenLayout == screenLayout_LargeScreen && (smallScreenPosition == smallScreenPos_TopLeft || smallScreenPosition == smallScreenPos_MiddleLeft ||smallScreenPosition == smallScreenPos_BottomLeft || smallScreenPosition == smallScreenPos_Above)){
+                    offsetTop = -((moveV ? 192.0 : 256.0 * topAspect) / 2.0 + screenGap / 2.0);
+                    offsetBot = (moveV ? 192.0 : 256.0 * botAspect) / 2.0 + screenGap / 2.0;
+                } else {
+                    offsetTop = ((moveV ? 192.0 : 256.0 * topAspect) / 2.0 + screenGap / 2.0);
+                    offsetBot = -(moveV ? 192.0 : 256.0 * botAspect) / 2.0 + screenGap / 2.0;
+                }
             }
 
 
@@ -450,25 +461,10 @@ void ScreenLayout::Setup(int screenWidth, int screenHeight,
                 float primDeltaY = 0;
                 float secDeltaX = 0;
                 float secDeltaY = 0;
-                if (smallScreenPosition == smallScreenPos_TopRight){
+                if (smallScreenPosition == smallScreenPos_TopRight || smallScreenPosition == smallScreenPos_TopLeft){
                     secDeltaY = -((primHeight/2.f)-(secHeight/2.f));
-                    //melonDS::Platform::Log(melonDS::Platform::LogLevel::Debug, "primHeight: %i, primWidth: %i, secHeight: %i, secWidth: %i\n", primHeight, primWidth, secHeight, secWidth);
-                } else if (smallScreenPosition == smallScreenPos_BottomRight){
+                } else if (smallScreenPosition == smallScreenPos_BottomRight || smallScreenPosition == smallScreenPos_BottomLeft){
                     secDeltaY = (primHeight/2.f)-(secHeight/2.f);
-                } else if (smallScreenPosition == smallScreenPos_TopLeft){
-                    primDeltaX = secWidth;
-                    secDeltaX = (-primWidth);
-                    secDeltaY = -((primHeight/2.f)-(secHeight/2.f));
-                } else if (smallScreenPosition == smallScreenPos_MiddleLeft){
-                    secDeltaX = (-primWidth);
-                    primDeltaX = secWidth;
-                } else if (smallScreenPosition == smallScreenPos_BottomLeft){
-                    primDeltaX = secWidth;
-                    secDeltaX = (-primWidth);
-                    secDeltaY = (primHeight/2.f)-(secHeight/2.f);
-                } else if (smallScreenPosition == smallScreenPos_Above){
-                    primDeltaY = secHeight;
-                    secDeltaY = (-primHeight);
                 }
                 M23_Translate(primMtx, primDeltaX, primDeltaY);
                 M23_Translate(secMtx, secDeltaX, secDeltaY);
