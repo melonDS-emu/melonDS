@@ -245,19 +245,18 @@ void ScreenLayout::Setup(int screenWidth, int screenHeight,
             if (!swapScreens){
                 if (screenLayout == screenLayout_LargeScreen && (smallScreenPosition == smallScreenPos_TopLeft || smallScreenPosition == smallScreenPos_MiddleLeft ||smallScreenPosition == smallScreenPos_BottomLeft || smallScreenPosition == smallScreenPos_Above)){
                     offsetTop = ((moveV ? 192.0 : 256.0 * topAspect) / 2.0 + screenGap / 2.0);
-                    offsetBot = -(moveV ? 192.0 : 256.0 * botAspect) / 2.0 + screenGap / 2.0;
+                    offsetBot = -((moveV ? 192.0 : 256.0 * botAspect) / 2.0 + screenGap / 2.0);
                 } else {
                     offsetTop = -((moveV ? 192.0 : 256.0 * topAspect) / 2.0 + screenGap / 2.0);
                     offsetBot = (moveV ? 192.0 : 256.0 * botAspect) / 2.0 + screenGap / 2.0;
                 }
-
             } else {
                 if (screenLayout == screenLayout_LargeScreen && (smallScreenPosition == smallScreenPos_TopLeft || smallScreenPosition == smallScreenPos_MiddleLeft ||smallScreenPosition == smallScreenPos_BottomLeft || smallScreenPosition == smallScreenPos_Above)){
                     offsetTop = -((moveV ? 192.0 : 256.0 * topAspect) / 2.0 + screenGap / 2.0);
                     offsetBot = (moveV ? 192.0 : 256.0 * botAspect) / 2.0 + screenGap / 2.0;
                 } else {
                     offsetTop = ((moveV ? 192.0 : 256.0 * topAspect) / 2.0 + screenGap / 2.0);
-                    offsetBot = -(moveV ? 192.0 : 256.0 * botAspect) / 2.0 + screenGap / 2.0;
+                    offsetBot = -((moveV ? 192.0 : 256.0 * botAspect) / 2.0 + screenGap / 2.0);
                 }
             }
 
@@ -386,7 +385,6 @@ void ScreenLayout::Setup(int screenWidth, int screenHeight,
 
                 float primScale = std::min(screenWidth / primHSize, screenHeight / primVSize);
                 float secScale = 1.f;
-
                 if (integerScale)
                     primScale = floorf(primScale);
                 if (largeScreenScale == largeScreenScale_Auto){
@@ -429,6 +427,7 @@ void ScreenLayout::Setup(int screenWidth, int screenHeight,
                             secScale = ((1.0f/(largeScale+1.0f))*screenHeight)/secVSize;
                         }
                     }
+
 
                 }
 
