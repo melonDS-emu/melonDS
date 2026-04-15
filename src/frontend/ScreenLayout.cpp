@@ -148,6 +148,8 @@ void ScreenLayout::Setup(int screenWidth, int screenHeight,
     } else if (screenLayout == screenLayout_ReverseBook){
         screenLayout = screenLayout_Default;
         rotation = screenRot_90Deg;
+    } else if (screenLayout == screenLayout_LargeScreen){
+        rotation = screenRot_0Deg;
     }
     float refpoints[6][2] =
     {
@@ -179,9 +181,7 @@ void ScreenLayout::Setup(int screenWidth, int screenHeight,
     {
         float rotmtx[6];
         M23_Identity(rotmtx);
-        if (screenLayout != screenLayout_LargeScreen){
-            M23_RotateFast(rotmtx, rotation);
-        }
+        M23_RotateFast(rotmtx, rotation);
         M23_Multiply(TopScreenMtx, rotmtx, TopScreenMtx);
         M23_Multiply(BotScreenMtx, rotmtx, BotScreenMtx);
         M23_Multiply(HybScreenMtx, rotmtx, HybScreenMtx);
@@ -427,10 +427,7 @@ void ScreenLayout::Setup(int screenWidth, int screenHeight,
                             secScale = ((1.0f/(largeScale+1.0f))*screenHeight)/secVSize;
                         }
                     }
-
-
                 }
-
 
                 if (integerScale)
                 {
@@ -521,9 +518,7 @@ void ScreenLayout::Setup(int screenWidth, int screenHeight,
 
         float rotmtx[6];
         M23_Identity(rotmtx);
-        if (screenLayout != screenLayout_LargeScreen){
-            M23_RotateFast(rotmtx, (4-rotation) & 3);
-        }
+        M23_RotateFast(rotmtx, (4-rotation) & 3);
         M23_Multiply(TouchMtx, rotmtx, TouchMtx);
 
         M23_Scale(TouchMtx, 1.f/botAspect, 1);

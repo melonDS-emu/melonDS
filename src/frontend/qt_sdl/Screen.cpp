@@ -213,10 +213,11 @@ QSize ScreenPanel::screenGetMinSize(int factor = 1)
         else
             return QSize(w+gap+w, h);
     } else if (screenLayout == screenLayout_LargeScreen){
+        int largeScale = largeScreenScale + 1; //Just put this here so that if largeScreenScale_2X, then largeScale = 2; 
         if (smallScreenPosition != smallScreenPos_Above && smallScreenPosition != smallScreenPos_Below){
-            return QSize((largeScreenScale+2)*w+gap, (largeScreenScale+1)*h);
+            return QSize((largeScale+1)*w+(gap*((largeScale+1)/2.0f)), (largeScale)*h);
         } else {
-            return QSize((largeScreenScale+1)*w, (largeScreenScale+2)*h+gap);
+            return QSize((largeScale)*w, (largeScale+1)*h+(gap*((largeScale+1)/2.0f)));
         }
     } else if (screenLayout == screenLayout_Book || screenLayout == screenLayout_ReverseBook){
         return QSize((2*h)+gap, w);
