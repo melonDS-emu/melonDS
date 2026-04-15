@@ -69,6 +69,9 @@ void ARMv5::Reset()
     CodeTimestamp = 0;
     DataTimestamp = 0;
 
+    ICacheStreamTag = 0xFFFFFFFF;
+    memset(ICacheStreamTime, 0, sizeof(ICacheStreamTime));
+
     MainRAMStartAddr = 0;
     //MainRAMStart = 0;
     MainRAMCycles = 0;
@@ -95,6 +98,8 @@ void ARMv5::SetClockShift(int shift)
     //BusTimestamp = (BusTimestamp + ClockAlign) >> ClockShift;
     CodeTimestamp = (CodeTimestamp + ClockAlign) >> ClockShift;
     DataTimestamp = (DataTimestamp + ClockAlign) >> ClockShift;
+    for (int i = 0; i < 8; i++)
+        ICacheStreamTime[i] = (ICacheStreamTime[i] + ClockAlign) >> ClockShift;
     MainRAMTerminate = (MainRAMTerminate + ClockAlign) >> ClockShift;
 
     // apply new parameters
@@ -109,10 +114,12 @@ void ARMv5::SetClockShift(int shift)
     //BusTimestamp <<= ClockShift;
     CodeTimestamp <<= ClockShift;
     DataTimestamp <<= ClockShift;
+    for (int i = 0; i < 8; i++)
+        ICacheStreamTime[i] <<= ClockShift;
     MainRAMTerminate <<= ClockShift;
 }
 
-
+u64 barg = 0;
 void ARMv5::JumpTo(u32 addr, bool restorecpsr)
 {
     if (restorecpsr)
@@ -126,6 +133,18 @@ void ARMv5::JumpTo(u32 addr, bool restorecpsr)
     // aging cart debug crap
     //if (addr == 0x0201764C) printf("capture test %d: R1=%08X\n", R[6], R[1]);
     //if (addr == 0x020175D8) printf("capture test %d: res=%08X\n", R[6], R[0]);
+    if (R[15]==0x02000CC4)
+    {
+        printf("BLARG GO! addr=%08X bus=%016llX code=%016llX data=%016llX\n",
+               addr, NDS.ARM9Timestamp, CodeTimestamp, DataTimestamp);
+        barg = NDS.ARM9Timestamp;
+    }
+    if (addr==0x02000CC0)
+    {
+        printf("BLARG RET! addr=%08X bus=%016llX code=%016llX data=%016llX\n",
+               addr, NDS.ARM9Timestamp, CodeTimestamp, DataTimestamp);
+        printf("RETURN %08X BARG=%016llX\n", R[15], NDS.ARM9Timestamp-barg);
+    }
 
     u32 oldregion = R[15] >> 24;
     u32 newregion = addr >> 24;
@@ -441,7 +460,7 @@ void ARMv5::DoCodeAccessTimings(const u32 addr)
     }
 
     // when loading code from the bus, the ARM9 can run up to two internal cycles in parallel
-    CodeTimestamp = NDS.ARM9Timestamp - 2;
+    CodeTimestamp = NDS.ARM9Timestamp - 1;
     DataTimestamp = CodeTimestamp;
 }
 
@@ -453,16 +472,26 @@ u32 ARMv5::CodeRead32(const u32 addr, bool const branch)
         NDS.ARM9Timestamp = DTCMTimestamp;
     else
         DTCMTimestamp = NDS.ARM9Timestamp;*/
-    CodeTimestamp = std::max(CodeTimestamp, DataTimestamp);
+    //CodeTimestamp = std::max(CodeTimestamp, DataTimestamp);
+    CodeTimestamp = std::max(NDS.ARM9Timestamp, std::max(CodeTimestamp, DataTimestamp));
     DataTimestamp = CodeTimestamp;
     if (NDS.ARM9Timestamp < CodeTimestamp)
         NDS.ARM9Timestamp = CodeTimestamp;
+
+    /*if (!(addr & 0xFFF))
+    {
+        printf("BLARG! addr=%08X bus=%016llX code=%016llX data=%016llX\n",
+               addr, NDS.ARM9Timestamp, CodeTimestamp, DataTimestamp);
+    }*/
+
+    // always count one CPU cycle for this instruction
+    CodeTimestamp++;
 
     if (addr < ITCMSize)
     {
         //CodeCycles = 1;
         CodeMem.Region = Mem9_ITCM;
-        CodeTimestamp++;
+        //CodeTimestamp++;
         return *(u32*)&ITCM[addr & (ITCMPhysicalSize - 1)];
     }
 
@@ -471,13 +500,16 @@ u32 ARMv5::CodeRead32(const u32 addr, bool const branch)
     if (!NDS.IsJITEnabled())
 #endif
     {
-        /*if (CP15Control & CP15_CACHE_CR_ICACHEENABLE)
+        if (CP15Control & CP15_CACHE_CR_ICACHEENABLE)
         {
             if (IsAddressICachable(addr))
             {
-                return ICacheLookup(addr);
+                //if (branch || !(addr & (ICACHE_LINELENGTH-1)))
+                    return ICacheLookup(addr);
+                //else
+                //    return ICacheLookupFast(addr);
             }
-        }*/
+        }
     }
 #endif
 
@@ -496,7 +528,7 @@ u32 ARMv5::CodeRead32(const u32 addr, bool const branch)
     DoCodeAccessTimings(addr);
 
     // count atleast one internal cycle for this instruction
-    CodeTimestamp++;
+    //CodeTimestamp++;
 
     return NDS.ARM9Read32(addr);
 }
@@ -508,6 +540,7 @@ void ARMv5::DoDataAccessTimings(const u32 addr, bool write, int width)
     {
         // if the code fetch was from internal memory, we need to get the bus ready
         // TODO flag for doing this forcefully
+        // TODO what about cache misses?
 
         /*if (BusTimestamp < NDS.ARM9Timestamp)
         {

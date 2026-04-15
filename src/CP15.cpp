@@ -360,21 +360,53 @@ u32 ARMv5::RandomLineIndex()
 
 u32 ARMv5::ICacheLookup(const u32 addr)
 {
-    const u32 tag = (addr & ~(ICACHE_LINELENGTH - 1));
+    const u32 tag = (addr & ~(ICACHE_LINELENGTH-1));
     const u32 id = ((addr >> ICACHE_LINELENGTH_LOG2) & (ICACHE_LINESPERSET-1)) << ICACHE_SETS_LOG2;
+    const u32 lineoff = (addr & (ICACHE_LINELENGTH-1)) >> 2;
+
+    //if ((addr&0xFFF00000)==0x02F00000)
+     //   printf("ICACHE = %08X / %016llX / %016llX / %08X\n",
+       //        addr, NDS.ARM9Timestamp, ICacheStreamTime[lineoff], ICacheStreamTag);
 
     for (int set = 0; set < ICACHE_SETS; set++)
     {
         if ((ICacheTags[id+set] & ~(CACHE_FLAG_DIRTY_MASK | CACHE_FLAG_SET_MASK)) == (tag | CACHE_FLAG_VALID))
         {
-            CodeCycles = 1;
+            //CodeCycles = 1;
+            CodeMem.Region = Mem9_ICache;
+            //CodeTimestamp++;
             u32 *cacheLine = (u32 *)&ICache[(id+set) << ICACHE_LINELENGTH_LOG2];
+
+            // adjust timings for cache streaming
+            // * if we are fetching the next word, just wait for that
+            // * otherwise, wait for the end of the line fill
+            if (tag == ICacheStreamTag)
+            {
+                u64 time = ICacheStreamTime[lineoff];
+                //if (NDS.ARM9Timestamp >= time) printf("BARG!! %08X %d\n", addr, lineoff);
+                if (NDS.ARM9Timestamp >= time)
+                    time = ICacheStreamTime[7];
+                if (time > NDS.ARM9Timestamp)
+                {
+                    NDS.ARM9Timestamp = time;
+                    CodeTimestamp = NDS.ARM9Timestamp - 1;
+                    DataTimestamp = NDS.ARM9Timestamp;
+                }
+                //if (lineoff == 7)
+                if (NDS.ARM9Timestamp >= ICacheStreamTime[7])
+                    ICacheStreamTag = 0xFFFFFFFF;
+            }
+
+            // TODO below is prolly not right!
+#if 0
             if (CP15BISTTestStateRegister & CP15_BIST_TR_DISABLE_ICACHE_STREAMING) [[unlikely]]
             {
                 // Disabled ICACHE Streaming:
                 // retreive the data from memory, even if the data was cached
                 // See arm946e-s Rev 1 technical manual, 2.3.15 "Register 15, test State Register")
                 CodeCycles = NDS.ARM9MemTimings[tag >> 14][2];
+                // TODO FIX ME
+                printf("BLARGPISS1\n");
                 /*if (CodeMem.Mem)
                 {
                     return *(u32*)&CodeMem.Mem[(addr & CodeMem.Mask) & ~3];
@@ -383,7 +415,8 @@ u32 ARMv5::ICacheLookup(const u32 addr)
                     return NDS.ARM9Read32(addr & ~3);
                 }
             }
-            return cacheLine[(addr & (ICACHE_LINELENGTH -1)) >> 2];
+#endif
+            return cacheLine[lineoff];
         }
     }
 
@@ -394,6 +427,8 @@ u32 ARMv5::ICacheLookup(const u32 addr)
     if (CP15BISTTestStateRegister & CP15_BIST_TR_DISABLE_ICACHE_LINEFILL) [[unlikely]]
     {
         CodeCycles = NDS.ARM9MemTimings[tag >> 14][2];
+        // TODO FIX ME
+        printf("BLARGPISS2\n");
         /*if (CodeMem.Mem)
         {
             return *(u32*)&CodeMem.Mem[(addr & CodeMem.Mask) & ~3];
@@ -422,7 +457,8 @@ u32 ARMv5::ICacheLookup(const u32 addr)
             // load into locked up cache
             // into the selected set
             line = ICacheLockDown & (ICACHE_SETS-1);
-        } else
+        }
+        else
         {
             u8 minSet = ICacheLockDown & (ICACHE_SETS-1);
             line = line | minSet;
@@ -432,6 +468,62 @@ u32 ARMv5::ICacheLookup(const u32 addr)
     line += id;
 
     u32* ptr = (u32 *)&ICache[line << ICACHE_LINELENGTH_LOG2];
+
+    // determine bus timings for a line fill
+    // cache streaming: we stop when meeting the requested offset
+    if (true)
+    {
+        if (ICacheStreamTag != 0xFFFFFFFF)
+        {
+            //printf("there was a fill not finished: %016llX %016llX\n",
+            //       ICacheStreamTime[7], NDS.ARM9Timestamp);
+            u64 time = ICacheStreamTime[7];
+            if (time > NDS.ARM9Timestamp)
+                NDS.ARM9Timestamp = time;
+        }
+
+        NDS.ARM9GetMemInfo(tag, CodeMem);
+        //int len = ICACHE_LINELENGTH >> 2;
+
+        ICacheStreamTag = tag;
+
+        // CHECKME: do we need to worry about extra alignment here?
+        // when using the bus, apply buffering delay: 3 cycles on DS, 2 cycles on DSi
+        NDS.ARM9Timestamp = (NDS.ARM9Timestamp + ClockAlign) & ~ClockAlign;
+        NDS.ARM9Timestamp += BusAccessDelay;
+
+        if (CodeMem.Region & Mem9_MainRAM)
+        {
+            //BeginMainRAMBurst(6 + (2 * lineoff), 3);
+            //BeginMainRAMBurst(6, 3);
+            TerminateMainRAMBurst();
+            NDS.ARM9Timestamp += (6 << ClockShift);
+
+            for (int i = 0; i < 8; i++)
+                ICacheStreamTime[i] = NDS.ARM9Timestamp + ((2 * i) << ClockShift);
+
+            //NDS.ARM9Timestamp = ICacheStreamTime[lineoff];
+            //MainRAMCycles = NDS.ARM9Timestamp;
+            MainRAMTerminate = ICacheStreamTime[7] + (3 << ClockShift);
+        }
+        else
+        {
+            //NDS.ARM9Timestamp += ((CodeMem.Cycles_N32 + (CodeMem.Cycles_S32 * lineoff)) << ClockShift);
+            NDS.ARM9Timestamp += (CodeMem.Cycles_N32 << ClockShift);
+
+            for (int i = 0; i < 8; i++)
+                ICacheStreamTime[i] = NDS.ARM9Timestamp + ((CodeMem.Cycles_S32 * i) << ClockShift);
+
+            //NDS.ARM9Timestamp = ICacheStreamTime[lineoff];
+        }
+
+        NDS.ARM9Timestamp = ICacheStreamTime[lineoff];
+        CodeTimestamp = NDS.ARM9Timestamp - 1;
+        DataTimestamp = NDS.ARM9Timestamp;
+        //CodeTimestamp++;
+    }
+
+    //CodeMem.Region |= Mem9_ICache;
 
     /*if (CodeMem.Mem)
     {
@@ -448,8 +540,16 @@ u32 ARMv5::ICacheLookup(const u32 addr)
     // ouch :/
     //printf("cache miss %08X: %d/%d\n", addr, NDS::ARM9MemTimings[addr >> 14][2], NDS::ARM9MemTimings[addr >> 14][3]);
     //                      first N32                                  remaining S32
-    CodeCycles = (NDS.ARM9MemTimings[tag >> 14][2] + (NDS.ARM9MemTimings[tag >> 14][3] * ((DCACHE_LINELENGTH / 4) - 1))) << NDS.ARM9ClockShift;
-    return ptr[(addr & (ICACHE_LINELENGTH-1)) >> 2];
+    //CodeCycles = (NDS.ARM9MemTimings[tag >> 14][2] + (NDS.ARM9MemTimings[tag >> 14][3] * ((DCACHE_LINELENGTH / 4) - 1))) << NDS.ARM9ClockShift;
+    return ptr[lineoff];
+}
+
+u32 ARMv5::ICacheLookupFast(const u32 addr)
+{
+    // fast instruction cache lookup
+    // this assumes that we're hitting a cache line that is already fetched, or being fetched
+
+    return -1;
 }
 
 void ARMv5::ICacheInvalidateByAddr(const u32 addr)

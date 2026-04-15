@@ -119,6 +119,8 @@ public:
      */
     u32 ICacheLookup(const u32 addr);
 
+    u32 ICacheLookupFast(const u32 addr);
+
     /**
      * @brief Check if an address is within a instruction cachable
      * region
@@ -431,6 +433,10 @@ private:
     u64 CodeTimestamp;  // ITCM/icache and internal cycles
     u64 DataTimestamp;  // DTCM/dcache
     // NDS.ARM9Timestamp == bus access
+
+    // ICache streaming
+    u32 ICacheStreamTag;
+    u64 ICacheStreamTime[8];
 
     // mainRAM burst tracking
     // TODO better variable names

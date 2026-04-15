@@ -38,6 +38,8 @@ enum
     Mem9_VRAM       = 0x00000100,
     Mem9_GBAROM     = 0x00020000,
     Mem9_GBARAM     = 0x00040000,
+    Mem9_ICache     = 0x40000000,
+    Mem9_DCache     = 0x80000000,
 
     Mem7_BIOS       = 0x00000001,
     Mem7_MainRAM    = 0x00000002,
@@ -52,8 +54,8 @@ enum
 
     // generic region masks for certain types of memory
 
-    Mem9_CPUInstrMem = Mem9_ITCM,
-    Mem9_CPUDataMem = Mem9_DTCM,
+    Mem9_CPUInstrMem = (Mem9_ITCM | Mem9_ICache),
+    Mem9_CPUDataMem = (Mem9_DTCM | Mem9_DCache),
     Mem9_CPUMem = (Mem9_CPUInstrMem | Mem9_CPUDataMem),
     Mem9_InternalRAM = (Mem9_BIOS | Mem9_WRAM | Mem9_IO | Mem9_Pal | Mem9_VRAM | Mem9_OAM),
 
