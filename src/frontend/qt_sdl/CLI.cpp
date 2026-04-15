@@ -47,8 +47,6 @@ CommandLineOptions* ManageArgs(QApplication& melon)
     parser.addOption(QCommandLineOption("xgt", "Extract the game title of specified rom"));
     parser.addOption(QCommandLineOption("xgc", "Extract the game code of specified rom"));
     parser.addOption(QCommandLineOption("xi", "Extract the icon of specified rom"));
-    parser.addOption(QCommandLineOption("xai", "Extract the animated icon of specified rom"));
-
 #ifdef ARCHIVE_SUPPORT_ENABLED
     parser.addOption(QCommandLineOption({"a", "archive-file"}, "Specify file to load inside an archive given (NDS)", "rom"));
     parser.addOption(QCommandLineOption({"A", "archive-file-gba"}, "Specify file to load inside an archive given (GBA)", "rom"));

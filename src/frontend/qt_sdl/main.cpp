@@ -400,35 +400,35 @@ int main(int argc, char** argv)
             const NDSBanner* banner = cart->Banner();
             
             if (options->headlessValue == "xtja"){
-                std::cout << QString::fromUtf16(banner->JapaneseTitle).toStdString();
+                std::cout << QString::fromUtf16(banner->JapaneseTitle).toStdString() << "\n";
             } else if (options->headlessValue == "xten") {
-                std::cout << QString::fromUtf16(banner->EnglishTitle).toStdString();
+                std::cout << QString::fromUtf16(banner->EnglishTitle).toStdString() << "\n";
             } else if (options->headlessValue == "xtfr") {
-                std::cout << QString::fromUtf16(banner->FrenchTitle).toStdString();
+                std::cout << QString::fromUtf16(banner->FrenchTitle).toStdString() << "\n";
             } else if (options->headlessValue == "xtge") {
-                std::cout << QString::fromUtf16(banner->GermanTitle).toStdString();
+                std::cout << QString::fromUtf16(banner->GermanTitle).toStdString() << "\n";
             } else if (options->headlessValue == "xtit") {
-                std::cout << QString::fromUtf16(banner->ItalianTitle).toStdString();
+                std::cout << QString::fromUtf16(banner->ItalianTitle).toStdString() << "\n";
             } else if (options->headlessValue == "xtes") {
-                std::cout << QString::fromUtf16(banner->SpanishTitle).toStdString();
+                std::cout << QString::fromUtf16(banner->SpanishTitle).toStdString() << "\n";
             } else if (options->headlessValue == "xtko") {
                 if (banner->Version > 2){
-                    std::cout << QString::fromUtf16(banner->KoreanTitle).toStdString();
+                    std::cout << QString::fromUtf16(banner->KoreanTitle).toStdString() << "\n";
                 }
             } else if (options->headlessValue == "xtzh") {
                 if (banner->Version > 1){
-                    std::cout << QString::fromUtf16(banner->ChineseTitle).toStdString();
+                    std::cout << QString::fromUtf16(banner->ChineseTitle).toStdString() << "\n";
                 }
             } else if (options->headlessValue == "xgt") {
-                std::cout << QString::fromLatin1(header.GameTitle, 12).toStdString();
+                std::cout << QString::fromLatin1(header.GameTitle, 12).toStdString() << "\n";
             } else if (options->headlessValue == "xgc") {
-                std::cout << QString::fromLatin1(header.GameCode, 4).toStdString();
+                std::cout << QString::fromLatin1(header.GameCode, 4).toStdString() << "\n";
             } else if (options->headlessValue == "xi") {
                 u32 iconData[32 * 32];
                 win->getEmuInstance()->romIcon(banner->Icon, banner->Palette, iconData);
                 QImage iconImage = QImage(reinterpret_cast<u8*>(iconData), 32, 32, QImage::Format_RGBA8888).copy();
                 iconImage.save(QString::fromLatin1(header.GameCode, 4) + ".png", "PNG");
-                std::cout << QString::fromLatin1(header.GameCode, 4).toStdString() << ".png saved.";
+                std::cout << QString::fromLatin1(header.GameCode, 4).toStdString() << ".png saved." << "\n";
             } else {
                 qDebug() << "Warning: Invalid arguments used. Exiting...";
             }
