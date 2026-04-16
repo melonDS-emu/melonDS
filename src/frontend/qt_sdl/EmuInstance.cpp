@@ -1209,6 +1209,15 @@ void EmuInstance::setDateTime()
                          time.time().hour(), time.time().minute(), time.time().second());
 }
 
+void EmuInstance::syncRTC()
+{
+    if (!localCfg.GetBool("RTC.SyncToHost"))
+        return;
+
+    setDateTime();
+}
+
+
 bool EmuInstance::updateConsole() noexcept
 {
     // update the console type

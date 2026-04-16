@@ -46,7 +46,7 @@ public:
         }
 
         currentDlg = new DateTimeDialog(parent);
-        currentDlg->open();
+        currentDlg->show();
         return currentDlg;
     }
     static void closeDlg()
