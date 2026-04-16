@@ -441,7 +441,7 @@ private:
     // mainRAM burst tracking
     // TODO better variable names
     u32 MainRAMStartAddr;
-    u32 MainRAMCycles;
+    //u32 MainRAMCycles;
     u64 MainRAMTerminate;
 
     void BeginMainRAMBurst(int begin, int term);
@@ -450,6 +450,8 @@ private:
     void DoCodeAccessTimings(const u32 addr);
     void DoDataAccessTimings(const u32 addr, bool write, int width);
     void DoDataAccessTimingsSeq(const u32 addr, bool write);
+
+    void ThumbCodeLatch();
 };
 
 }

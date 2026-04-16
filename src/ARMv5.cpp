@@ -74,7 +74,7 @@ void ARMv5::Reset()
 
     MainRAMStartAddr = 0;
     //MainRAMStart = 0;
-    MainRAMCycles = 0;
+    //MainRAMCycles = 0;
     MainRAMTerminate = 0;
 
     PU_Map = PU_PrivMap;
@@ -119,7 +119,7 @@ void ARMv5::SetClockShift(int shift)
     MainRAMTerminate <<= ClockShift;
 }
 
-u64 barg = 0;
+u64 barg = 0; bool balard = false;
 void ARMv5::JumpTo(u32 addr, bool restorecpsr)
 {
     if (restorecpsr)
@@ -133,17 +133,22 @@ void ARMv5::JumpTo(u32 addr, bool restorecpsr)
     // aging cart debug crap
     //if (addr == 0x0201764C) printf("capture test %d: R1=%08X\n", R[6], R[1]);
     //if (addr == 0x020175D8) printf("capture test %d: res=%08X\n", R[6], R[0]);
-    if (R[15]==0x02000CC4)
+    //if (R[15]==0x02000CC4)
+    if (R[15]==0x02000CD8)
     {
         printf("BLARG GO! addr=%08X bus=%016llX code=%016llX data=%016llX\n",
                addr, NDS.ARM9Timestamp, CodeTimestamp, DataTimestamp);
         barg = NDS.ARM9Timestamp;
+        if (addr==0x0CF00001) balard=true;
     }
-    if (addr==0x02000CC0)
+    //if (addr==0x02000CC0)
+    if (addr==0x02000CD4)
     {
         printf("BLARG RET! addr=%08X bus=%016llX code=%016llX data=%016llX\n",
                addr, NDS.ARM9Timestamp, CodeTimestamp, DataTimestamp);
-        printf("RETURN %08X BARG=%016llX\n", R[15], NDS.ARM9Timestamp-barg);
+        printf("RETURN %08X BARG=%016llX (%016llx - %016llX)\n",
+               R[15], NDS.ARM9Timestamp-barg, NDS.ARM9Timestamp, barg);
+        balard = false;
     }
 
     u32 oldregion = R[15] >> 24;
@@ -164,15 +169,16 @@ void ARMv5::JumpTo(u32 addr, bool restorecpsr)
         if (addr & 0x2)
         {
             NextInstr[0] = CodeRead32(addr-2, true) >> 16;
-            Cycles += CodeCycles;
+            //Cycles += CodeCycles;
             NextInstr[1] = CodeRead32(addr+2, false);
-            Cycles += CodeCycles;
+            //Cycles += CodeCycles;
         }
         else
         {
             NextInstr[0] = CodeRead32(addr, true);
             NextInstr[1] = NextInstr[0] >> 16;
-            Cycles += CodeCycles;
+            ThumbCodeLatch();
+            //Cycles += CodeCycles;
         }
 
         CPSR |= 0x20;
@@ -185,9 +191,9 @@ void ARMv5::JumpTo(u32 addr, bool restorecpsr)
         if (newregion != oldregion) SetupCodeMem(addr);
 
         NextInstr[0] = CodeRead32(addr, true);
-        Cycles += CodeCycles;
+        //Cycles += CodeCycles;
         NextInstr[1] = CodeRead32(addr+4, false);
-        Cycles += CodeCycles;
+        //Cycles += CodeCycles;
 
         CPSR &= ~0x20;
     }
@@ -238,7 +244,7 @@ void ARMv5::DataAbort()
     JumpTo(ExceptionBase + 0x10);
 }
 
-
+u64 cu = 0;
 template <CPUExecuteMode mode>
 void ARMv5::Execute()
 {
@@ -316,7 +322,7 @@ void ARMv5::Execute()
                 R[15] += 2;
                 CurInstr = NextInstr[0];
                 NextInstr[0] = NextInstr[1];
-                if (R[15] & 0x2) { NextInstr[1] >>= 16; CodeCycles = 1; }
+                if (R[15] & 0x2) { NextInstr[1] >>= 16; ThumbCodeLatch(); }
                 else             NextInstr[1] = CodeRead32(R[15], false);
 
                 // actually execute
@@ -346,6 +352,14 @@ void ARMv5::Execute()
                 }
                 else
                     AddCycles_C();
+            }
+
+            if (balard)
+            {
+                printf("-- BALARD! addr=%08X bus=%016llX code=%016llX data=%016llX-- cy=%d mem=%08X %d rgn=%08X\n",
+                       R[15], NDS.ARM9Timestamp, CodeTimestamp, DataTimestamp, NDS.ARM9Timestamp-cu,
+                       CodeMem.Region, CodeMem.Cycles_N32, CodeRegion);
+                cu = NDS.ARM9Timestamp;
             }
 
             // TODO optimize this shit!!!
@@ -411,7 +425,7 @@ void ARMv5::BeginMainRAMBurst(int begin, int term)
     term <<= ClockShift;
 
     NDS.ARM9Timestamp += begin;
-    MainRAMCycles = begin;
+    //MainRAMCycles = begin;
     MainRAMTerminate = NDS.ARM9Timestamp + term;
 }
 
@@ -423,12 +437,12 @@ void ARMv5::TerminateMainRAMBurst()
 
 void ARMv5::DoCodeAccessTimings(const u32 addr)
 {
-    u32 rgn = addr & ~0xFFF;
+    /*u32 rgn = addr & ~0xFFF;
     if (rgn != CodeRegion)
     {
         NDS.ARM9GetMemInfo(rgn, CodeMem);
         CodeRegion = rgn;
-    }
+    }*/
 
     /*if (!(addr & 0xFFF))
     {
@@ -495,6 +509,13 @@ u32 ARMv5::CodeRead32(const u32 addr, bool const branch)
         return *(u32*)&ITCM[addr & (ITCMPhysicalSize - 1)];
     }
 
+    u32 rgn = addr & ~0xFFF;
+    if (rgn != CodeRegion)
+    {
+        NDS.ARM9GetMemInfo(rgn, CodeMem);
+        CodeRegion = rgn;
+    }
+
 #if !DISABLE_ICACHE
 #ifdef JIT_ENABLED
     if (!NDS.IsJITEnabled())
@@ -531,6 +552,17 @@ u32 ARMv5::CodeRead32(const u32 addr, bool const branch)
     //CodeTimestamp++;
 
     return NDS.ARM9Read32(addr);
+}
+
+void ARMv5::ThumbCodeLatch()
+{
+    /*CodeTimestamp = std::max(NDS.ARM9Timestamp, std::max(CodeTimestamp, DataTimestamp));
+    DataTimestamp = CodeTimestamp;
+    if (NDS.ARM9Timestamp < CodeTimestamp)
+        NDS.ARM9Timestamp = CodeTimestamp;*/
+
+    // instructions read from the THUMB latch always count one cycle
+    CodeTimestamp++;
 }
 
 

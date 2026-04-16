@@ -518,7 +518,7 @@ u32 ARMv5::ICacheLookup(const u32 addr)
         }
 
         NDS.ARM9Timestamp = ICacheStreamTime[lineoff];
-        CodeTimestamp = NDS.ARM9Timestamp - 1;
+        CodeTimestamp = NDS.ARM9Timestamp;// - 1;
         DataTimestamp = NDS.ARM9Timestamp;
         //CodeTimestamp++;
     }
