@@ -149,6 +149,7 @@ void EmuThread::run()
     bool slowmo = false;
     emuInstance->fastForwardToggled = false;
     emuInstance->slowmoToggled = false;
+    emuInstance->speedStepToggled = false;
 
     while (emuStatus != emuStatus_Exit)
     {
@@ -335,6 +336,7 @@ void EmuThread::run()
             
             if (emuInstance->hotkeyPressed(HK_FastForwardToggle)) emuInstance->fastForwardToggled = !emuInstance->fastForwardToggled;
             if (emuInstance->hotkeyPressed(HK_SlowMoToggle)) emuInstance->slowmoToggled = !emuInstance->slowmoToggled;
+            if (emuInstance->hotkeyPressed(HK_SpeedStep)) emuInstance->speedStepToggled = !emuInstance->speedStepToggled;
 
             if (emuInstance->hotkeyPressed(HK_AudioMuteToggle)) emuInstance->toggleAudioMute();
 
@@ -360,6 +362,7 @@ void EmuThread::run()
 
             if (slowmo) emuInstance->curFPS = emuInstance->slowmoFPS;
             else if (fastforward) emuInstance->curFPS = emuInstance->fastForwardFPS;
+            else if (emuInstance->speedStepToggled) emuInstance->curFPS = emuInstance->targetFPS * 2.0;
             else if (!emuInstance->doLimitFPS && !emuInstance->doAudioSync) emuInstance->curFPS = 1000.0;
             else emuInstance->curFPS = emuInstance->targetFPS;
 
