@@ -21,7 +21,6 @@
 #include <algorithm>
 #include "Platform.h"
 #include "ScreenLayout.h"
-#include <qDebug>
 
 void M23_Identity(float* m)
 {
