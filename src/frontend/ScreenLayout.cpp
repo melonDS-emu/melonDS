@@ -19,9 +19,8 @@
 #include <string.h>
 #include <cmath>
 #include <algorithm>
-
+#include "Platform.h"
 #include "ScreenLayout.h"
-
 
 void M23_Identity(float* m)
 {
@@ -124,15 +123,17 @@ void ScreenLayout::Setup(int screenWidth, int screenHeight,
     ScreenLayoutType screenLayout,
     ScreenRotation rotation,
     ScreenSizing sizing,
+    SmallScreenPosition smallScreenPosition,
+    LargeScreenScale largeScreenScale,
     int screenGap,
     bool integerScale,
     bool swapScreens,
     float topAspect, float botAspect)
 {
-    HybEnable = screenLayout == 3;
+    HybEnable = screenLayout == screenLayout_HybridScreen;
     if (HybEnable)
     {
-        screenLayout = screenLayout_Natural;
+        screenLayout = screenLayout_Default;
         sizing = screenSizing_Even;
         HybScreen = swapScreens ? 1 : 0;
         swapScreens = false;
@@ -140,6 +141,15 @@ void ScreenLayout::Setup(int screenWidth, int screenHeight,
         HybPrevTouchScreen = 0;
     }
 
+    if (screenLayout == screenLayout_Book) {
+        screenLayout = screenLayout_Default;
+        rotation = screenRot_270Deg;
+    } else if (screenLayout == screenLayout_ReverseBook){
+        screenLayout = screenLayout_Default;
+        rotation = screenRot_90Deg;
+    } else if (screenLayout == screenLayout_LargeScreen){
+        rotation = screenRot_0Deg;
+    }
     float refpoints[6][2] =
     {
         {0, 0}, {256, 192},
@@ -147,9 +157,9 @@ void ScreenLayout::Setup(int screenWidth, int screenHeight,
         {0, 0}, {256, 192}
     };
 
-    int layout = screenLayout == screenLayout_Natural
-        ? rotation % 2
-        : screenLayout - 1;
+    bool inVerticalLayout = (screenLayout == screenLayout_Default && (rotation == screenRot_0Deg || rotation == screenRot_180Deg)) ||
+    (screenLayout == screenLayout_HybridScreen || screenLayout == screenLayout_SideBySide) && (rotation == screenRot_90Deg || rotation == screenRot_270Deg) ||
+    (screenLayout == screenLayout_LargeScreen && (smallScreenPosition == smallScreenPos_Above || smallScreenPosition == smallScreenPos_Below));
 
     float botScale = 1;
     float hybScale = 1;
@@ -170,7 +180,6 @@ void ScreenLayout::Setup(int screenWidth, int screenHeight,
     {
         float rotmtx[6];
         M23_Identity(rotmtx);
-
         M23_RotateFast(rotmtx, rotation);
         M23_Multiply(TopScreenMtx, rotmtx, TopScreenMtx);
         M23_Multiply(BotScreenMtx, rotmtx, BotScreenMtx);
@@ -185,11 +194,11 @@ void ScreenLayout::Setup(int screenWidth, int screenHeight,
     int posRefPointOffset = 0;
     int posRefPointCount = HybEnable ? 6 : 4;
 
-    if (sizing == screenSizing_TopOnly || sizing == screenSizing_BotOnly)
+    if (screenLayout == screenLayout_SingleScreen)
     {
-        float* mtx = sizing == screenSizing_TopOnly ? TopScreenMtx : BotScreenMtx;
-        int primOffset = sizing == screenSizing_TopOnly ? 0 : 2;
-        int secOffset = sizing == screenSizing_BotOnly ? 2 : 0;
+        float* mtx = swapScreens == false ? TopScreenMtx : BotScreenMtx;
+        int primOffset = swapScreens == false ? 0 : 2;
+        int secOffset = swapScreens == true ? 2 : 0;
 
         float hSize = fabsf(refpoints[primOffset][0] - refpoints[primOffset+1][0]);
         float vSize = fabsf(refpoints[primOffset][1] - refpoints[primOffset+1][1]);
@@ -198,8 +207,8 @@ void ScreenLayout::Setup(int screenWidth, int screenHeight,
         if (integerScale)
             scale = floorf(scale);
 
-        TopEnable = sizing == screenSizing_TopOnly;
-        BotEnable = sizing == screenSizing_BotOnly;
+        TopEnable = swapScreens == false;
+        BotEnable = swapScreens == true;
         botScale = scale;
 
         M23_Scale(mtx, scale);
@@ -217,21 +226,42 @@ void ScreenLayout::Setup(int screenWidth, int screenHeight,
 
         // move screens apart
         {
-            int idx = layout == 0 ? 1 : 0;
-
-            bool moveV = rotation % 2 == layout;
-
-            float offsetBot = (moveV ? 192.0 : 256.0 * botAspect) / 2.0 + screenGap / 2.0;
-            float offsetTop = -((moveV ? 192.0 : 256.0 * topAspect) / 2.0 + screenGap / 2.0);
-
-            if ((rotation == 1 || rotation == 2) ^ swapScreens)
-            {
-                offsetTop *= -1;
-                offsetBot *= -1;
+            int idx;
+            if (inVerticalLayout){
+                idx = 1;
+            } else {
+                idx = 0;
+            }
+            float offsetTop; 
+            float offsetBot;
+            bool moveV;
+            if (screenLayout == screenLayout_LargeScreen && (smallScreenPosition == smallScreenPos_Above || smallScreenPosition == smallScreenPos_Below) || screenLayout == screenLayout_Default){
+                moveV = true;
+            } else {
+                moveV = false;
+            }
+  
+            if (!swapScreens){
+                if (screenLayout == screenLayout_LargeScreen && (smallScreenPosition == smallScreenPos_TopLeft || smallScreenPosition == smallScreenPos_MiddleLeft ||smallScreenPosition == smallScreenPos_BottomLeft || smallScreenPosition == smallScreenPos_Above)){
+                    offsetTop = ((moveV ? 192.0 : 256.0 * topAspect) / 2.0 + screenGap / 2.0);
+                    offsetBot = -((moveV ? 192.0 : 256.0 * botAspect) / 2.0 + screenGap / 2.0);
+                } else {
+                    offsetTop = -((moveV ? 192.0 : 256.0 * topAspect) / 2.0 + screenGap / 2.0);
+                    offsetBot = (moveV ? 192.0 : 256.0 * botAspect) / 2.0 + screenGap / 2.0;
+                }
+            } else {
+                if (screenLayout == screenLayout_LargeScreen && (smallScreenPosition == smallScreenPos_TopLeft || smallScreenPosition == smallScreenPos_MiddleLeft ||smallScreenPosition == smallScreenPos_BottomLeft || smallScreenPosition == smallScreenPos_Above)){
+                    offsetTop = -((moveV ? 192.0 : 256.0 * topAspect) / 2.0 + screenGap / 2.0);
+                    offsetBot = (moveV ? 192.0 : 256.0 * botAspect) / 2.0 + screenGap / 2.0;
+                } else {
+                    offsetTop = ((moveV ? 192.0 : 256.0 * topAspect) / 2.0 + screenGap / 2.0);
+                    offsetBot = -((moveV ? 192.0 : 256.0 * botAspect) / 2.0 + screenGap / 2.0);
+                }
             }
 
-            M23_Translate(TopScreenMtx, (idx==0)?offsetTop:0, (idx==1)?offsetTop:0);
-            M23_Translate(BotScreenMtx, (idx==0)?offsetBot:0, (idx==1)?offsetBot:0);
+
+            M23_Translate(TopScreenMtx, (idx == 0)? offsetTop : 0, (idx == 1) ? offsetTop : 0);
+            M23_Translate(BotScreenMtx, (idx == 0)? offsetBot : 0, (idx == 1) ? offsetBot : 0);
 
             refpoints[0][idx] += offsetTop;
             refpoints[1][idx] += offsetTop;
@@ -243,7 +273,7 @@ void ScreenLayout::Setup(int screenWidth, int screenHeight,
 
         // scale
         {
-            if (sizing == screenSizing_Even)
+            if (screenLayout != screenLayout_LargeScreen)
             {
                 float minX = refpoints[0][0], maxX = minX;
                 float minY = refpoints[0][1], maxY = minY;
@@ -261,10 +291,10 @@ void ScreenLayout::Setup(int screenWidth, int screenHeight,
 
                 if (HybEnable)
                 {
-                    hybScale = layout == 0
+                    hybScale = inVerticalLayout
                         ? (4 * vSize) / (3 * hSize)
                         : (4 * hSize) / (3 * vSize);
-                    if (layout == 0)
+                    if (inVerticalLayout)
                         hSize += (vSize * 4) / 3;
                     else
                         vSize += (hSize * 4) / 3;
@@ -293,22 +323,28 @@ void ScreenLayout::Setup(int screenWidth, int screenHeight,
                 // move screens aside
                 if (HybEnable)
                 {
-                    float hybWidth = layout == 0
+                    float hybWidth = inVerticalLayout
                         ? (scale * vSize * 4) / 3
                         : (scale * hSize * 4) / 3;
 
                     if (rotation > screenRot_90Deg)
                         hybWidth *= -1;
 
-                    M23_Translate(TopScreenMtx, (layout==0)?hybWidth:0, (layout==1)?hybWidth:0);
-                    M23_Translate(BotScreenMtx, (layout==0)?hybWidth:0, (layout==1)?hybWidth:0);
-                    refpoints[0][layout] += hybWidth;
-                    refpoints[1][layout] += hybWidth;
-                    refpoints[2][layout] += hybWidth;
-                    refpoints[3][layout] += hybWidth;
-
-                    botTrans[2+layout] += hybWidth;
-
+                    M23_Translate(TopScreenMtx, (inVerticalLayout)?hybWidth:0, (!inVerticalLayout)?hybWidth:0);
+                    M23_Translate(BotScreenMtx, (inVerticalLayout)?hybWidth:0, (!inVerticalLayout)?hybWidth:0);
+                    if (inVerticalLayout){
+                        refpoints[0][0] += hybWidth;
+                        refpoints[1][0] += hybWidth;
+                        refpoints[2][0] += hybWidth;
+                        refpoints[3][0] += hybWidth;
+                        botTrans[2+0] += hybWidth;
+                    } else {
+                        refpoints[0][1] += hybWidth;
+                        refpoints[1][1] += hybWidth;
+                        refpoints[2][1] += hybWidth;
+                        refpoints[3][1] += hybWidth;
+                        botTrans[2+1] += hybWidth;
+                    }
                     hybTrans[0] = scale * (rotation == screenRot_0Deg || rotation == screenRot_270Deg ? minX : maxX);
                     hybTrans[1] = scale * (rotation == screenRot_0Deg || rotation == screenRot_90Deg ? minY : maxY);
                     M23_Translate(HybScreenMtx, hybTrans[0], hybTrans[1]);
@@ -317,12 +353,13 @@ void ScreenLayout::Setup(int screenWidth, int screenHeight,
                     M23_Transform(HybScreenMtx, refpoints[5][0], refpoints[5][1]);
                 }
             }
-            else
-            {
-                int primOffset = (sizing == screenSizing_EmphTop) ? 0 : 2;
-                int secOffset = (sizing == screenSizing_EmphTop) ? 2 : 0;
-                float* primMtx = (sizing == screenSizing_EmphTop) ? TopScreenMtx : BotScreenMtx;
-                float* secMtx = (sizing == screenSizing_EmphTop) ? BotScreenMtx : TopScreenMtx;
+            else // if (screenlayout == screenLayout_LargeScreen)
+            {   
+                //Same as deprecated emphasize top
+                int primOffset = (!swapScreens)? 0 : 2;
+                int secOffset = (!swapScreens)? 2 : 0;
+                float* primMtx = (!swapScreens)? TopScreenMtx : BotScreenMtx;
+                float* secMtx = (!swapScreens)? BotScreenMtx : TopScreenMtx;
 
                 float primMinX = refpoints[primOffset][0], primMaxX = primMinX;
                 float primMinY = refpoints[primOffset][1], primMaxY = primMinY;
@@ -339,31 +376,56 @@ void ScreenLayout::Setup(int screenWidth, int screenHeight,
                 secMaxX = std::max(secMaxX, refpoints[secOffset+1][0]);
                 secMaxY = std::max(secMaxY, refpoints[secOffset+1][1]);
 
-                float primHSize = layout == 1 ? std::max(primMaxX, -primMinX) : primMaxX - primMinX;
-                float primVSize = layout == 0 ? std::max(primMaxY, -primMinY) : primMaxY - primMinY;
+                float primHSize = !inVerticalLayout ? std::max(primMaxX, -primMinX) : primMaxX - primMinX;
+                float primVSize = inVerticalLayout ? std::max(primMaxY, -primMinY) : primMaxY - primMinY;
 
-                float secHSize = layout == 1 ? std::max(secMaxX, -secMinX) : secMaxX - secMinX;
-                float secVSize = layout == 0 ? std::max(secMaxY, -secMinY) : secMaxY - secMinY;
+                float secHSize = !inVerticalLayout ? std::max(secMaxX, -secMinX) : secMaxX - secMinX;
+                float secVSize = inVerticalLayout ? std::max(secMaxY, -secMinY) : secMaxY - secMinY;
 
                 float primScale = std::min(screenWidth / primHSize, screenHeight / primVSize);
                 float secScale = 1.f;
-
                 if (integerScale)
                     primScale = floorf(primScale);
-
-                if (layout == 0)
-                {
-                    if (screenHeight - primVSize * primScale < secVSize)
-                        primScale = std::min(screenWidth / primHSize, (screenHeight - secVSize) / primVSize);
+                if (largeScreenScale == largeScreenScale_Auto){
+                    if (inVerticalLayout)
+                    {
+                        if (screenHeight - primVSize * primScale < secVSize)
+                            primScale = std::min(screenWidth / primHSize, (screenHeight - secVSize) / primVSize);
+                        else
+                            secScale = std::min((screenHeight - primVSize * primScale) / secVSize, screenWidth / secHSize);
+                    }
                     else
-                        secScale = std::min((screenHeight - primVSize * primScale) / secVSize, screenWidth / secHSize);
-                }
-                else
-                {
-                    if (screenWidth - primHSize * primScale < secHSize)
-                        primScale = std::min((screenWidth - secHSize) / primHSize, screenHeight / primVSize);
-                    else
-                        secScale = std::min((screenWidth - primHSize * primScale) / secHSize, screenHeight / secVSize);
+                    {
+                        if (screenWidth - primHSize * primScale < secHSize)
+                            primScale = std::min((screenWidth - secHSize) / primHSize, screenHeight / primVSize);
+                        else
+                            secScale = std::min((screenWidth - primHSize * primScale) / secHSize, screenHeight / secVSize);
+                    }
+                } else {
+                    float largeScale = largeScreenScale + 1;
+                    // If one screen is 2x the other, prim is 2/3 the width, sec is 1/3.
+                    // If scaled by height, prim is the height, sec is 1/2 the height 
+                    
+                    //Check whether the height from scaling based on width exceeds screenHeight.
+                    if (smallScreenPosition != smallScreenPos_Above && smallScreenPosition != smallScreenPos_Below){
+                        float heightTest = ((((largeScale/(largeScale+1.0f))*screenWidth)/secHSize)*secVSize);
+                        if (heightTest > screenHeight){
+                            primScale = (screenHeight)/secVSize;
+                            secScale = ((1.0f/largeScale)*screenHeight)/secVSize;
+                        } else {
+                            primScale = ((largeScale/(largeScale+1.0f))*screenWidth)/secHSize;
+                            secScale = ((1.0f/(largeScale+1.0f))*screenWidth)/secHSize;
+                        }
+                    } else {
+                        float widthTest = ((((largeScale/(largeScale+1.0f))*screenHeight)/secVSize)*secHSize);
+                        if (widthTest > screenWidth){
+                            primScale = (screenWidth)/secHSize;
+                            secScale = ((1.0f/largeScale)*screenWidth)/secHSize;
+                        } else {
+                            primScale = ((largeScale/(largeScale+1.0f))*screenHeight)/secVSize;
+                            secScale = ((1.0f/(largeScale+1.0f))*screenHeight)/secVSize;
+                        }
+                    }
                 }
 
                 if (integerScale)
@@ -384,7 +446,33 @@ void ScreenLayout::Setup(int screenWidth, int screenHeight,
                 refpoints[secOffset+1][0] *= secScale;
                 refpoints[secOffset+1][1] *= secScale;
 
-                botScale = (sizing == screenSizing_EmphTop) ? secScale : primScale;
+
+
+                int primHeight = refpoints[primOffset+1][1] - refpoints[primOffset+0][1];
+                int primWidth = refpoints[primOffset+1][0] - refpoints[primOffset+0][0];
+                int secHeight = refpoints[secOffset+1][1] - refpoints[secOffset+0][1];
+                int secWidth = refpoints[secOffset+1][0] - refpoints[secOffset+0][0];
+                float primDeltaX = 0;
+                float primDeltaY = 0;
+                float secDeltaX = 0;
+                float secDeltaY = 0;
+                if (smallScreenPosition == smallScreenPos_TopRight || smallScreenPosition == smallScreenPos_TopLeft){
+                    secDeltaY = -((primHeight/2.f)-(secHeight/2.f));
+                } else if (smallScreenPosition == smallScreenPos_BottomRight || smallScreenPosition == smallScreenPos_BottomLeft){
+                    secDeltaY = (primHeight/2.f)-(secHeight/2.f);
+                }
+                M23_Translate(primMtx, primDeltaX, primDeltaY);
+                M23_Translate(secMtx, secDeltaX, secDeltaY);
+
+                //Translate bottomTouch Matrices
+                if (!swapScreens){
+                    botTrans[2] += secDeltaX;
+                    botTrans[3] += secDeltaY;
+                }  else {
+                    botTrans[2] += primDeltaX;
+                    botTrans[3] += primDeltaY;
+                }        
+                botScale = (!swapScreens) ? secScale : primScale;
             }
         }
     }

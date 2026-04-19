@@ -64,7 +64,9 @@ DefaultList<int> DefaultInts =
     {"MP.AudioMode", 1},
     {"MP.RecvTimeout", 25},
     {"Instance*.Audio.Volume", 256},
-    {"Mic.InputType", 1},
+    {"Instance*.Window*.LargeScreenScale", 1},
+    {"Instance*.Window*.SmallScreenPosition", 1},
+    {"Mic.InputType", 2},
     {"Mouse.HideSeconds", 5},
     {"Instance*.DSi.Battery.Level", 0xF},
 #ifdef GDBSTUB_ENABLED
@@ -96,6 +98,7 @@ RangeList IntRanges =
 DefaultList<bool> DefaultBools =
 {
     {"Screen.Filter", true},
+    {"Mouse.Hide", true},
     {"3D.Soft.Threaded", true},
     {"3D.GL.HiresCoordinates", true},
     {"LimitFPS", true},
@@ -201,6 +204,7 @@ LegacyEntry LegacyFile[] =
     {"ScreenRotation", 0, "Window0.ScreenRotation", true},
     {"ScreenGap",      0, "Window0.ScreenGap", true},
     {"ScreenLayout",   0, "Window0.ScreenLayout", true},
+    {"SmallScreenPosition", 0, "Window0.SmallScreenPosition", true},
     {"ScreenSwap",     1, "Window0.ScreenSwap", true},
     {"ScreenSizing",   0, "Window0.ScreenSizing", true},
     {"IntegerScaling", 1, "Window0.IntegerScaling", true},

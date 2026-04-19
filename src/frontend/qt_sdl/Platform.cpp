@@ -307,9 +307,16 @@ u64 FileLength(FileHandle* file)
     return len;
 }
 
+void setMuteLogs(bool newValue){
+    muteLogs = newValue;
+}
+bool getMuteLogs(){
+    return muteLogs;
+}
+
 void Log(LogLevel level, const char* fmt, ...)
 {
-    if (fmt == nullptr)
+    if (fmt == nullptr || muteLogs == true)
         return;
 
     va_list args;

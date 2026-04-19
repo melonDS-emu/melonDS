@@ -66,7 +66,6 @@
 #include "RAMInfoDialog.h"
 #include "TitleManagerDialog.h"
 #include "PowerManagement/PowerManagementDialog.h"
-
 #include "Platform.h"
 #include "Config.h"
 #include "version.h"
@@ -81,7 +80,7 @@
 #include "CameraManager.h"
 #include "Window.h"
 #include "AboutDialog.h"
-
+#include "Cursor.h"
 using namespace melonDS;
 
 
@@ -256,9 +255,9 @@ MainWindow::MainWindow(int id, EmuInstance* inst, QWidget* parent) :
         sigaction(SIGINT, &sa, 0);
     }
 #endif
-
-    showOSD = windowCfg.GetBool("ShowOSD");
-
+    vCursor = new Cursor();
+    vCursor->setEmuInstance(emuInstance);
+    showOSD = windowCfg.GetBool("ShowOSD"); 
     setWindowTitle("melonDS " MELONDS_VERSION);
     setAttribute(Qt::WA_DeleteOnClose);
     setAcceptDrops(true);
@@ -524,7 +523,7 @@ MainWindow::MainWindow(int id, EmuInstance* inst, QWidget* parent) :
                 QMenu * submenu = menu->addMenu("Screen layout");
                 grpScreenLayout = new QActionGroup(submenu);
 
-                const char *screenlayout[] = {"Natural", "Vertical", "Horizontal", "Hybrid"};
+                const char *screenlayout[] = {"Default", "Single Screen", "Large Screen", "Side by Side", "Hybrid Screen", "Book", "Reverse Book"};
 
                 for (int i = 0; i < screenLayout_MAX; i++)
                 {
@@ -538,29 +537,42 @@ MainWindow::MainWindow(int id, EmuInstance* inst, QWidget* parent) :
 
                 submenu->addSeparator();
 
+
                 actScreenSwap = submenu->addAction("Swap screens");
                 actScreenSwap->setCheckable(true);
-                connect(actScreenSwap, &QAction::triggered, this, &MainWindow::onChangeScreenSwap);
-            }
-            {
-                QMenu * submenu = menu->addMenu("Screen sizing");
-                grpScreenSizing = new QActionGroup(submenu);
 
-                const char *screensizing[] = {"Even", "Emphasize top", "Emphasize bottom", "Auto", "Top only",
-                                              "Bottom only"};
+                QMenu * largeScreenMenu = submenu->addMenu("Large Screen Scaling");
+                grpLargeScreenScale = new QActionGroup(largeScreenMenu);
 
-                for (int i = 0; i < screenSizing_MAX; i++)
+                const char *largeScreenScale[] = {"Auto", "2x", "3x", "4x"};
+
+                for (int i = 0; i < largeScreenScale_MAX; i++)
                 {
-                    actScreenSizing[i] = submenu->addAction(QString(screensizing[i]));
-                    actScreenSizing[i]->setActionGroup(grpScreenSizing);
-                    actScreenSizing[i]->setData(QVariant(i));
-                    actScreenSizing[i]->setCheckable(true);
+                    actLargeScreenScale[i] = largeScreenMenu->addAction(QString(largeScreenScale[i]));
+                    actLargeScreenScale[i]->setActionGroup(grpLargeScreenScale);
+                    actLargeScreenScale[i]->setData(QVariant(i));
+                    actLargeScreenScale[i]->setCheckable(true);
                 }
 
-                connect(grpScreenSizing, &QActionGroup::triggered, this, &MainWindow::onChangeScreenSizing);
+                connect(grpLargeScreenScale, &QActionGroup::triggered, this, &MainWindow::onChangeLargeScreenScale);
 
-                submenu->addSeparator();
+                QMenu * smallScreenMenu = submenu->addMenu("Small Screen Position");
+                grpSmallScreenPos = new QActionGroup(smallScreenMenu);
 
+                const char *smallScreenPos[] = {"Top Right", "Middle Right", "Bottom Right", "Top Left", "Middle Left", "Bottom Left", "Above", "Below"};
+
+                for (int i = 0; i < smallScreenPos_MAX; i++)
+                {
+                    actSmallScreenPos[i] = smallScreenMenu->addAction(QString(smallScreenPos[i]));
+                    actSmallScreenPos[i]->setActionGroup(grpSmallScreenPos);
+                    actSmallScreenPos[i]->setData(QVariant(i));
+                    actSmallScreenPos[i]->setCheckable(true);
+                }
+
+                connect(grpSmallScreenPos, &QActionGroup::triggered, this, &MainWindow::onChangeSmallScreenPos);
+
+                connect(actScreenSwap, &QAction::triggered, this, &MainWindow::onChangeScreenSwap);
+                
                 actIntegerScaling = submenu->addAction("Force integer scaling");
                 actIntegerScaling->setCheckable(true);
                 connect(actIntegerScaling, &QAction::triggered, this, &MainWindow::onChangeIntegerScaling);
@@ -612,6 +624,10 @@ MainWindow::MainWindow(int id, EmuInstance* inst, QWidget* parent) :
             actShowOSD = menu->addAction("Show OSD");
             actShowOSD->setCheckable(true);
             connect(actShowOSD, &QAction::triggered, this, &MainWindow::onChangeShowOSD);
+            
+            actHideVirtualCursor = menu->addAction("Hide Virtual Cursor");
+            actHideVirtualCursor->setCheckable(true);
+            connect(actHideVirtualCursor, &QAction::triggered, this, &MainWindow::onChangeHideVirtualCursor);
         }
         {
             QMenu * menu = menubar->addMenu("Config");
@@ -695,7 +711,9 @@ MainWindow::MainWindow(int id, EmuInstance* inst, QWidget* parent) :
         // if the window was closed in fullscreen do not restore this
         setWindowState(windowState() & ~Qt::WindowFullScreen);
     }
-    show();
+    if (!options->headless){
+        show();
+    }
 
     panel = nullptr;
     createScreenPanel();
@@ -750,7 +768,8 @@ MainWindow::MainWindow(int id, EmuInstance* inst, QWidget* parent) :
         }
 
         actScreenLayout[windowCfg.GetInt("ScreenLayout")]->setChecked(true);
-        actScreenSizing[windowCfg.GetInt("ScreenSizing")]->setChecked(true);
+        actSmallScreenPos[windowCfg.GetInt("SmallScreenPosition")]->setChecked(true);
+        actLargeScreenScale[windowCfg.GetInt("LargeScreenScale")]->setChecked(true);
         actIntegerScaling->setChecked(windowCfg.GetBool("IntegerScaling"));
 
         actScreenSwap->setChecked(windowCfg.GetBool("ScreenSwap"));
@@ -893,7 +912,7 @@ void MainWindow::createScreenPanel()
     setCentralWidget(panel);
 
     if (hasMenu)
-        actScreenFiltering->setEnabled(hasOGL);
+        actScreenFiltering->setEnabled(true);
     panel->osdSetEnabled(showOSD);
 
     connect(emuThread, SIGNAL(windowUpdate()), panel, SLOT(repaint()));
@@ -956,6 +975,9 @@ void MainWindow::releaseGL()
 void MainWindow::drawScreen()
 {
     if (!panel) return;
+    vCursor->setLayout(this->getWindowConfig().GetInt("ScreenLayout"));
+    vCursor->setRotation(this->getWindowConfig().GetInt("ScreenRotation"));
+    panel->vCursor = vCursor;
     return panel->drawScreen();
 }
 
@@ -2073,10 +2095,24 @@ void MainWindow::onChangeScreenLayout(QAction* act)
 {
     int layout = act->data().toInt();
     windowCfg.SetInt("ScreenLayout", layout);
+    emit screenLayoutChange();
+}
+
+void MainWindow::onChangeSmallScreenPos(QAction* act)
+{
+    int smallScreenPos = act->data().toInt();
+    windowCfg.SetInt("SmallScreenPosition", smallScreenPos);
 
     emit screenLayoutChange();
 }
 
+void MainWindow::onChangeLargeScreenScale(QAction* act)
+{
+    int largeScreenScale = act->data().toInt();
+    windowCfg.SetInt("LargeScreenScale", largeScreenScale);
+
+    emit screenLayoutChange();
+}
 void MainWindow::onChangeScreenSwap(bool checked)
 {
     windowCfg.SetBool("ScreenSwap", checked);
@@ -2087,15 +2123,11 @@ void MainWindow::onChangeScreenSwap(bool checked)
     {
         // Bottom Screen.
         sizing = screenSizing_BotOnly;
-        actScreenSizing[screenSizing_TopOnly]->setChecked(false);
-        actScreenSizing[sizing]->setChecked(true);
     }
     else if (sizing == screenSizing_BotOnly)
     {
         // Top Screen.
         sizing = screenSizing_TopOnly;
-        actScreenSizing[screenSizing_BotOnly]->setChecked(false);
-        actScreenSizing[sizing]->setChecked(true);
     }
     windowCfg.SetInt("ScreenSizing", sizing);
 
@@ -2152,6 +2184,13 @@ void MainWindow::onChangeShowOSD(bool checked)
     showOSD = checked;
     panel->osdSetEnabled(showOSD);
     windowCfg.SetBool("ShowOSD", showOSD);
+}
+
+void MainWindow::onChangeHideVirtualCursor(bool checked)
+{
+    vCursor->cursorEnabled = !checked;
+    windowCfg.SetBool("HideVirtualCursor", checked);
+
 }
 
 void MainWindow::onChangeLimitFramerate(bool checked)
@@ -2236,7 +2275,6 @@ void MainWindow::onScreenEmphasisToggled()
         currentSizing = screenSizing_EmphTop;
     }
     windowCfg.SetInt("ScreenSizing", currentSizing);
-    actScreenSizing[currentSizing]->setChecked(true);
 
     emit screenLayoutChange();
 }

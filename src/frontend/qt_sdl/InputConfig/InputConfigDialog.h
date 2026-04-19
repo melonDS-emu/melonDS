@@ -26,7 +26,7 @@
 #include "Config.h"
 #include "EmuInstance.h"
 
-static constexpr int keypad_num = 12;
+static constexpr int keypad_num = 18;
 
 static constexpr std::initializer_list<int> hk_addons =
 {
@@ -36,6 +36,9 @@ static constexpr std::initializer_list<int> hk_addons =
     HK_GuitarGripRed,
     HK_GuitarGripYellow,
     HK_GuitarGripBlue,
+    HK_GuitarGripStrum1,
+    HK_GuitarGripStrum2,
+    HK_GuitarGripWhammy,
 };
 
 static constexpr std::initializer_list<const char*> hk_addons_labels =
@@ -46,6 +49,9 @@ static constexpr std::initializer_list<const char*> hk_addons_labels =
     "[Guitar Grip] Red",
     "[Guitar Grip] Yellow",
     "[Guitar Grip] Blue",
+    "[Guitar Grip] Strum 1",
+    "[Guitar Grip] Strum 2",
+    "[Guitar Grip] Whammy",
 };
 
 static_assert(hk_addons.size() == hk_addons_labels.size());
@@ -145,7 +151,7 @@ private:
 
     EmuInstance* emuInstance;
 
-    int keypadKeyMap[12], keypadJoyMap[12];
+    int keypadKeyMap[18], keypadJoyMap[18];
     int addonsKeyMap[hk_addons.size()], addonsJoyMap[hk_addons.size()];
     int hkGeneralKeyMap[hk_general.size()], hkGeneralJoyMap[hk_general.size()];
     int joystickID;

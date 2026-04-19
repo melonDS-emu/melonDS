@@ -37,9 +37,9 @@
 #include "Config.h"
 #include "MPInterface.h"
 
-
 class EmuInstance;
 class EmuThread;
+class Cursor;
 
 const int kMaxRecentROMs = 10;
 
@@ -163,12 +163,15 @@ private slots:
     void onChangeScreenRotation(QAction* act);
     void onChangeScreenGap(QAction* act);
     void onChangeScreenLayout(QAction* act);
+    void onChangeSmallScreenPos(QAction* act);
+    void onChangeLargeScreenScale(QAction* act);
     void onChangeScreenSwap(bool checked);
     void onChangeScreenSizing(QAction* act);
     void onChangeScreenAspect(QAction* act);
     void onChangeIntegerScaling(bool checked);
     void onOpenNewWindow();
     void onChangeScreenFiltering(bool checked);
+    void onChangeHideVirtualCursor(bool checked);
     void onChangeShowOSD(bool checked);
     void onChangeLimitFramerate(bool checked);
     void onChangeAudioSync(bool checked);
@@ -204,7 +207,6 @@ private:
     bool lanWarning(bool host);
 
     bool showOSD;
-
     bool hasOGL;
 
     bool pauseOnLostFocus;
@@ -217,7 +219,7 @@ private:
 
     EmuInstance* emuInstance;
     EmuThread* emuThread;
-
+    Cursor* vCursor;
     Config::Table& globalCfg;
     Config::Table& localCfg;
     Config::Table windowCfg;
@@ -280,7 +282,11 @@ public:
     QActionGroup* grpScreenGap;
     QAction* actScreenGap[6];
     QActionGroup* grpScreenLayout;
+    QActionGroup* grpSmallScreenPos;
+    QActionGroup* grpLargeScreenScale;
     QAction* actScreenLayout[screenLayout_MAX];
+    QAction* actSmallScreenPos[smallScreenPos_MAX];
+    QAction* actLargeScreenScale[largeScreenScale_MAX];
     QAction* actScreenSwap;
     QActionGroup* grpScreenSizing;
     QAction* actScreenSizing[screenSizing_MAX];
@@ -292,6 +298,7 @@ public:
     QAction* actNewWindow;
     QAction* actScreenFiltering;
     QAction* actShowOSD;
+    QAction* actHideVirtualCursor;
     QAction* actLimitFramerate;
     QAction* actAudioSync;
 

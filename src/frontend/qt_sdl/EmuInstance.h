@@ -56,6 +56,9 @@ enum
     HK_GuitarGripRed,
     HK_GuitarGripYellow,
     HK_GuitarGripBlue,
+    HK_GuitarGripStrum1,
+    HK_GuitarGripStrum2,
+    HK_GuitarGripWhammy,
     HK_MAX
 };
 
@@ -142,7 +145,7 @@ public:
                          melonDS::u32 (&animatedIconRef)[64][32*32],
                          std::vector<int> &animatedSequenceRef);
 
-    static const char* buttonNames[12];
+    static const char* buttonNames[18];
     static const char* hotkeyNames[HK_MAX];
 
     void inputInit();
@@ -168,6 +171,10 @@ public:
     int micReadInput(melonDS::s16* data, int maxlength);
 
     QMutex renderLock;
+
+    bool hotkeyDown(int id)     { return hotkeyMask    & (1<<id); }
+    bool hotkeyPressed(int id)  { return hotkeyPress   & (1<<id); }
+    bool hotkeyReleased(int id) { return hotkeyRelease & (1<<id); }
 
 private:
     static int lastSep(const std::string& path);
@@ -248,13 +255,9 @@ private:
 
     void openJoystick();
     void closeJoystick();
-    bool joystickButtonDown(int val);
+    bool joystickButtonDown(int val, int index);
 
     void inputProcess();
-
-    bool hotkeyDown(int id)     { return hotkeyMask    & (1<<id); }
-    bool hotkeyPressed(int id)  { return hotkeyPress   & (1<<id); }
-    bool hotkeyReleased(int id) { return hotkeyRelease & (1<<id); }
 
     void loadRTCData();
     void saveRTCData();
@@ -305,6 +308,12 @@ public:
     bool fastForwardToggled;
     bool slowmoToggled;
     bool doAudioSync;
+    //Stylus Direction: Up, Down, Left, Right, Mod, Touch
+    //First 4 indices are 0-32768, Next two are 0-1
+    uint stylusKInput[6] = {0}; //Keyboard
+    uint stylusJInput[6] = {0}; //Joystick
+    //Face Button with Stylus Mod held (Nintendo Layout). A (0), B (1), X (10), Y (11)
+    uint modButtons[12] = {0};
 private:
 
     std::unique_ptr<melonDS::Savestate> backupState;
@@ -352,8 +361,8 @@ private:
     std::string micDeviceName;
     std::string micWavPath;
 
-    int keyMapping[12];
-    int joyMapping[12];
+    int keyMapping[18];
+    int joyMapping[18];
     int hkKeyMapping[HK_MAX];
     int hkJoyMapping[HK_MAX];
 

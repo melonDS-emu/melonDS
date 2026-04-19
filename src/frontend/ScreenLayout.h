@@ -21,11 +21,36 @@
 
 enum ScreenLayoutType
 {
-    screenLayout_Natural, // top screen above bottom screen always
-    screenLayout_Vertical,
-    screenLayout_Horizontal,
-    screenLayout_Hybrid,
+    screenLayout_Default, // top screen above bottom screen always
+    screenLayout_SingleScreen,
+    screenLayout_LargeScreen,
+    screenLayout_SideBySide,
+    screenLayout_HybridScreen,
+    screenLayout_Book,
+    screenLayout_ReverseBook,
     screenLayout_MAX,
+};
+
+enum SmallScreenPosition
+{
+    smallScreenPos_TopRight,
+    smallScreenPos_MiddleRight,
+    smallScreenPos_BottomRight,
+    smallScreenPos_TopLeft,
+    smallScreenPos_MiddleLeft,
+    smallScreenPos_BottomLeft,
+    smallScreenPos_Above,
+    smallScreenPos_Below,
+    smallScreenPos_MAX,
+};
+
+enum LargeScreenScale
+{
+    largeScreenScale_Auto,
+    largeScreenScale_2X,
+    largeScreenScale_3X,
+    largeScreenScale_4X,
+    largeScreenScale_MAX,
 };
 
 enum ScreenRotation
@@ -69,6 +94,8 @@ public:
                ScreenLayoutType screenLayout,
                ScreenRotation rotation,
                ScreenSizing sizing,
+               SmallScreenPosition smallScreenPosition,
+               LargeScreenScale largeScreenScale,
                int screenGap,
                bool integerScale,
                bool swapScreens,

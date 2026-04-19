@@ -24,7 +24,7 @@
 #include <QApplication>
 #include <QEvent>
 #include <QElapsedTimer>
-
+#include <CLI.h>
 #include "EmuInstance.h"
 #include "Window.h"
 #include "EmuThread.h"
@@ -63,4 +63,5 @@ void broadcastInstanceCommand(int cmd, QVariant& param, int sourceinst);
 
 void setMPInterface(melonDS::MPInterfaceType type);
 
+inline CLI::CommandLineOptions* options;
 #endif // MAIN_H

@@ -19,7 +19,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-
+#include <QDebug>
 #include <QApplication>
 #include <QCommandLineParser>
 #include <QStringList>
@@ -38,12 +38,15 @@ CommandLineOptions* ManageArgs(QApplication& melon)
     QCommandLineParser parser;
     parser.addHelpOption();
 
-    parser.addPositionalArgument("nds", "Nintendo DS ROM (or an archive file which contains it) to load into Slot-1");
-    parser.addPositionalArgument("gba", "GBA ROM (or an archive file which contains it) to load into Slot-2");
+    parser.addPositionalArgument("arg1", "First argument");
+    parser.addPositionalArgument("arg2", "Second argument");
 
-    parser.addOption(QCommandLineOption({"b", "boot"}, "Whether to boot firmware on startup. Defaults to \"auto\" (boot if NDS rom given)", "auto/always/never", "auto"));
-    parser.addOption(QCommandLineOption({"f", "fullscreen"}, "Start melonDS in fullscreen mode"));
-
+    parser.addOption(QCommandLineOption({"b","boot"}, "Whether to boot firmware on startup. Defaults to \"auto\" (boot if NDS rom given)", "auto/always/never", "auto"));
+    parser.addOption(QCommandLineOption({"f","fullscreen"}, "Start melonDS in fullscreen mode"));
+    parser.addOption(QCommandLineOption("xt", "Extract the title of specified rom in specified language. This is split into the MainTitle;Subtitle;Publisher. Supported language codes: ja, en, fr, ge, it, es, ko, zh. If no language code is given, it defaults to english"));
+    parser.addOption(QCommandLineOption("xgt", "Extract the game title of specified rom"));
+    parser.addOption(QCommandLineOption("xgc", "Extract the game code of specified rom"));
+    parser.addOption(QCommandLineOption("xi", "Extract the icon of specified rom"));
 #ifdef ARCHIVE_SUPPORT_ENABLED
     parser.addOption(QCommandLineOption({"a", "archive-file"}, "Specify file to load inside an archive given (NDS)", "rom"));
     parser.addOption(QCommandLineOption({"A", "archive-file-gba"}, "Specify file to load inside an archive given (GBA)", "rom"));
@@ -51,11 +54,66 @@ CommandLineOptions* ManageArgs(QApplication& melon)
 
     parser.process(melon);
 
-    CommandLineOptions* options = new CommandLineOptions;
-
-    options->fullscreen = parser.isSet("fullscreen");
-
+    CommandLineOptions* options = new CommandLineOptions();
+    options->fullscreen = false;
+    options->headless = false;
+    options->boot = false;
     QStringList posargs = parser.positionalArguments();
+
+
+    if (parser.isSet("xt")){
+        if (posargs.size() == 2){
+            melonDS::Platform::setMuteLogs(true);
+            options->headless = true;
+            options->dsRomPath = posargs[0];
+            options->headlessValue = "xt"+posargs[1];
+            return options;
+        } else if (posargs.size() == 1){
+            melonDS::Platform::setMuteLogs(true);
+            options->headless = true;
+            options->dsRomPath = posargs[0];
+            options->headlessValue = "xten";
+            return options;
+        } else {
+            Log(LogLevel::Error, "Error: Incorrect amount of arguments\n");
+            exit(1);
+        }
+    } else if (parser.isSet("xgt")){
+        if (posargs.size() == 1){
+            melonDS::Platform::setMuteLogs(true);
+            options->headless = true;
+            options->dsRomPath = posargs[0];
+            options->headlessValue = "xgt";
+            return options;
+        } else {
+            Log(LogLevel::Error, "Error: Incorrect amount of arguments\n");
+            exit(1);
+        }
+    } else if (parser.isSet("xgc")){
+        if (posargs.size() == 1){
+            melonDS::Platform::setMuteLogs(true);
+            options->headless = true;
+            options->dsRomPath = posargs[0];
+            options->headlessValue = "xgc";
+            return options;
+        } else {
+            Log(LogLevel::Error, "Error: Incorrect amount of arguments\n");
+            exit(1);
+        }
+    } else if (parser.isSet("xi")){
+        if (posargs.size() == 1){
+            melonDS::Platform::setMuteLogs(true);
+            options->headless = true;
+            options->dsRomPath = posargs[0];
+            options->headlessValue = "xi";
+            return options;
+        } else {
+            Log(LogLevel::Error, "Error: Incorrect amount of arguments\n");
+            exit(1);
+        }
+    }
+    
+    options->fullscreen = parser.isSet("fullscreen");
     switch (posargs.size())
     {
         default:
@@ -87,6 +145,7 @@ CommandLineOptions* ManageArgs(QApplication& melon)
         exit(1);
     }
 
+    qDebug() << "boot -> options = " << options->boot;
 #ifdef ARCHIVE_SUPPORT_ENABLED
     if (parser.isSet("archive-file"))
     {

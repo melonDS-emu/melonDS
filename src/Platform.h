@@ -248,6 +248,9 @@ enum LogLevel
 };
 
 void Log(LogLevel level, const char* fmt, ...);
+static bool muteLogs = false;
+void setMuteLogs(bool newValue);
+bool getMuteLogs();
 
 struct Thread;
 Thread* Thread_Create(std::function<void()> func);

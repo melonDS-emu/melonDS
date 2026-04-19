@@ -27,7 +27,7 @@
 
 using namespace melonDS;
 
-const char* EmuInstance::buttonNames[12] =
+const char* EmuInstance::buttonNames[18] =
 {
     "A",
     "B",
@@ -40,7 +40,13 @@ const char* EmuInstance::buttonNames[12] =
     "R",
     "L",
     "X",
-    "Y"
+    "Y",
+    "StyUp",
+    "StyDown",
+    "StyLeft",
+    "StyRight",
+    "StyMod",
+    "StyTouch"
 };
 
 const char* EmuInstance::hotkeyNames[HK_MAX] =
@@ -67,7 +73,10 @@ const char* EmuInstance::hotkeyNames[HK_MAX] =
     "HK_GuitarGripGreen",
     "HK_GuitarGripRed",
     "HK_GuitarGripYellow",
-    "HK_GuitarGripBlue"
+    "HK_GuitarGripBlue",
+    "HK_GuitarGripStrum1",
+    "HK_GuitarGripStrum2",
+    "HK_GuitarGripWhammy"
 };
 
 std::shared_ptr<SDL_mutex> EmuInstance::joyMutexGlobal = nullptr;
@@ -119,7 +128,7 @@ void EmuInstance::inputLoadConfig()
     Config::Table keycfg = localCfg.GetTable("Keyboard");
     Config::Table joycfg = localCfg.GetTable("Joystick");
 
-    for (int i = 0; i < 12; i++)
+    for (int i = 0; i < 18; i++)
     {
         keyMapping[i] = keycfg.GetInt(buttonNames[i]);
         joyMapping[i] = joycfg.GetInt(buttonNames[i]);
@@ -326,9 +335,18 @@ void EmuInstance::onKeyPress(QKeyEvent* event)
     if (event->modifiers() != Qt::KeypadModifier)
         keyKP &= ~event->modifiers();
 
-    for (int i = 0; i < 12; i++)
-        if (keyKP == keyMapping[i])
-            keyInputMask &= ~(1<<i);
+    for (int i = 0; i < 18; i++){
+        if (keyKP == keyMapping[i]){
+            if (i > 11 && i < 16){
+                stylusKInput[i-12] = 32767;
+            } else if (i == 16 || i == 17){
+                stylusKInput[i-12] = 1;
+            } else {
+                keyInputMask &= ~(1<<i);
+            }
+        }
+    }
+
 
     for (int i = 0; i < HK_MAX; i++)
         if (keyHK == hkKeyMapping[i])
@@ -342,9 +360,18 @@ void EmuInstance::onKeyRelease(QKeyEvent* event)
     if (event->modifiers() != Qt::KeypadModifier)
         keyKP &= ~event->modifiers();
 
-    for (int i = 0; i < 12; i++)
-        if (keyKP == keyMapping[i])
-            keyInputMask |= (1<<i);
+    for (int i = 0; i < 18; i++){
+        if (keyKP == keyMapping[i]){
+            if (i > 11 && i < 16){
+                stylusKInput[i-12] = 0;
+            } else if (i == 16 || i == 17){
+                stylusKInput[i-12] = 0;
+            } else {
+                keyInputMask |= (1<<i);
+            }
+        }
+    }
+
 
     for (int i = 0; i < HK_MAX; i++)
         if (keyHK == hkKeyMapping[i])
@@ -357,8 +384,9 @@ void EmuInstance::keyReleaseAll()
     keyHotkeyMask = 0;
 }
 
-bool EmuInstance::joystickButtonDown(int val)
+bool EmuInstance::joystickButtonDown(int val, int index)
 {
+    //Stylus Values are stored in a separate variable
     if (val == -1) return false;
 
     bool hasbtn = ((val & 0xFFFF) != 0xFFFF);
@@ -377,14 +405,46 @@ bool EmuInstance::joystickButtonDown(int val)
             else if (hatdir == 0x2) pressed = (hatval & SDL_HAT_RIGHT);
             else if (hatdir == 0x8) pressed = (hatval & SDL_HAT_LEFT);
 
-            if (pressed) return true;
+            if (index > 11 && index < 16){ //Stylus Direction
+                if (pressed){
+                    stylusJInput[index-12] = 32767;
+                } else {
+                    stylusJInput[index-12] = 0;
+                }
+            } else if (index == 16 || index == 17) { //Stylus Mod or Touch
+                if (pressed){
+                    stylusJInput[index-12] = 1;
+                } else {
+                    stylusJInput[index-12] = 0;
+                }
+            } else {
+                if (pressed){
+                    return true;
+                }
+            } 
         }
         else
         {
             int btnnum = val & 0xFFFF;
             Uint8 btnval = SDL_JoystickGetButton(joystick, btnnum);
 
-            if (btnval) return true;
+            if (index > 11 && index < 16){ //Stylus Direction
+                if (btnval){
+                    stylusJInput[index-12] = 32767;
+                } else {
+                    stylusJInput[index-12] = 0;
+                }
+            } else if (index == 16 || index == 17) { //Stylus Mod or Touch
+                if (btnval){
+                    stylusJInput[index-12] = 1;
+                } else {
+                    stylusJInput[index-12] = 0;
+                }
+            } else {
+                if (btnval){
+                    return true;
+                }
+            } 
         }
     }
 
@@ -393,20 +453,67 @@ bool EmuInstance::joystickButtonDown(int val)
         int axisnum = (val >> 24) & 0xF;
         int axisdir = (val >> 20) & 0xF;
         Sint16 axisval = SDL_JoystickGetAxis(joystick, axisnum);
-
-        switch (axisdir)
-        {
-            case 0: // positive
-                if (axisval > 16384) return true;
-                break;
-
-            case 1: // negative
-                if (axisval < -16384) return true;
-                break;
-
-            case 2: // trigger
-                if (axisval > 0) return true;
-                break;
+        if (axisdir == 2){ // trigger
+                // Uses 50% deadzone
+                if (index > 11 && index < 16){ //Stylus Direction
+                    if (axisval > 0){
+                        stylusJInput[index-12] = 32767;
+                    } else {
+                        stylusJInput[index-12] = 0;
+                    }
+                } else if (index == 16 || index == 17) { //Stylus Mod or Touch
+                    if (axisval > 0){
+                        stylusJInput[index-12] = 1;
+                    } else {
+                        stylusJInput[index-12] = 0;
+                    }
+                } else {
+                    if (axisval > 0){
+                        return true;
+                    }
+                }
+        } else {
+            //Note: Both the negative and positive axis return the same value (signed integer representing x/y coordinate)
+            //      Use axisdir to see if the value matches the sign attached to the current input
+            if (index > 11 && index < 16){ //Stylus Up, Down, Left or Right
+                if (axisdir == 0){ //Positive Axis Direction
+                    if (axisval > 0){ //Value is in same direction
+                        stylusJInput[index-12] = std::abs(axisval);
+                    } else {
+                        stylusJInput[index-12] = 0;
+                    }
+                } else { //Negative Axis Direction
+                    if (axisval < 0){ //Value is in same direction
+                        stylusJInput[index-12] = std::abs(axisval);
+                    } else {
+                        stylusJInput[index-12] = 0;
+                    }
+                }
+            } else if (index == 16 || index == 17) { //Stylus Mod or Touch
+                if (axisdir == 0){ //Positive Axis Direction
+                    if (axisval > 16384){ //Matching Value
+                        stylusJInput[index-12] = 1;
+                    } else {
+                        stylusJInput[index-12] = 0;
+                    }
+                } else { //Negative Axis Direction
+                    if (axisval < -16384){ //Matching Value
+                        stylusJInput[index-12] = 1;
+                    } else {
+                        stylusJInput[index-12] = 0;
+                    }
+                }
+            } else {
+                if (axisdir == 0){ //Positive Axis Direction
+                    if (axisval > 16384){ //Matching Value
+                        return true;
+                    } 
+                } else { //Negative Axis Direction
+                    if (axisval < -16384){ //Matching Value
+                        return true;
+                    }
+                }
+            }
         }
     }
 
@@ -434,9 +541,25 @@ void EmuInstance::inputProcess()
     joyInputMask = 0xFFF;
     if (joystick)
     {
-        for (int i = 0; i < 12; i++)
-            if (joystickButtonDown(joyMapping[i]))
-                joyInputMask &= ~(1 << i);
+        //Scan Stylus inputs first
+        for (int i = 12; i < 18; i++){
+            joystickButtonDown(joyMapping[i], i);
+        }
+        for (int i = 0; i < 12; i++){
+            if (joystickButtonDown(joyMapping[i], i)){
+                if (stylusJInput[4] == 1 && (i == 0 || i == 1 || i == 10 || i == 11)){
+                        modButtons[i] = 1;
+                } else {
+                    joyInputMask &= ~(1 << i);
+                }
+            } else {
+                if (i == 0 || i == 1 || i == 10 || i == 11){
+                    modButtons[i] = 0;
+                }
+            } 
+                    
+        }
+                
     }
 
     inputMask = keyInputMask & joyInputMask;
@@ -445,7 +568,7 @@ void EmuInstance::inputProcess()
     if (joystick)
     {
         for (int i = 0; i < HK_MAX; i++)
-            if (joystickButtonDown(hkJoyMapping[i]))
+            if (joystickButtonDown(hkJoyMapping[i], i))
                 joyHotkeyMask |= (1 << i);
     }
 
