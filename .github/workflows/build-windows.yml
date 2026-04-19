@@ -17,41 +17,44 @@ env:
 
 jobs:
   build:
-    runs-on: windows-2025
-    defaults:
-      run:
-        shell: msys2 {0}
+    strategy:
+      fail-fast: false
+      matrix:
+        arch:
+          - name: x86_64
+            image: windows-2025
+          - name: arm64
+            image: windows-11-arm
+
+    name: ${{ matrix.arch.name }}
+    runs-on: ${{ matrix.arch.image }}
     env:
       VCPKG_BINARY_SOURCES: clear;files,${{ github.workspace }}/vcpkg_cache,readwrite
     steps:
     - name: Check out sources
       uses: actions/checkout@v6
-    - name: Set up MSYS2
-      uses: msys2/setup-msys2@v2
-      with:
-        msystem: ucrt64
-        update: true
-        pacboy: gcc:p cmake:p ninja:p make:p
     - name: Restore vcpkg cache
       uses: actions/cache/restore@v4
       with:
         path: ${{ github.workspace }}/vcpkg_cache
-        key: vcpkg-x86_64-mingw-${{ hashFiles('vcpkg.json') }}
-        restore-keys: vcpkg-x86_64-mingw-
+        key: vcpkg-${{ matrix.arch.name }}-windows-${{ hashFiles('vcpkg.json') }}
+        restore-keys: vcpkg-${{ matrix.arch.name }}-windows-
     - name: Set up vcpkg
       uses: lukka/run-vcpkg@v11
       with:
         vcpkgJsonGlob: vcpkg.json
-    - name: Configure
-      run: cmake --preset=release-mingw-x86_64 -DMELONDS_EMBED_BUILD_INFO=ON
     - name: Build
-      run: cmake --build --preset=release-mingw-x86_64
+      uses: lukka/run-cmake@v10
+      with:
+        configurePreset: release-windows-${{ matrix.arch.name }}
+        configurePresetAdditionalArgs: "['-DENABLE_DEBUG_DEPS=OFF', '-DMELONDS_EMBED_BUILD_INFO=ON']"
+        buildPreset: release-windows-${{ matrix.arch.name }}
     - uses: actions/upload-artifact@v7
       with:
-        name: melonDS-windows-x86_64
-        path: .\build\release-mingw-x86_64\melonDS.exe
+        name: melonDS-windows-${{ matrix.arch.name }}
+        path: .\build\release-windows-${{ matrix.arch.name }}\melonDS.exe
     - name: Save vcpkg cache
       uses: actions/cache/save@v4
       with:
         path: ${{ github.workspace }}/vcpkg_cache
-        key: vcpkg-x86_64-mingw-${{ hashFiles('vcpkg.json') }}
+        key: vcpkg-${{ matrix.arch.name }}-windows-${{ hashFiles('vcpkg.json') }}
