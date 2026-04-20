@@ -517,7 +517,31 @@ MainWindow::MainWindow(int id, EmuInstance* inst, QWidget* parent) :
                     actScreenGap[i]->setData(QVariant(data));
                     actScreenGap[i]->setCheckable(true);
                 }
+                
+                submenu->addSeparator();
 
+                actScreenGap[6] = submenu->addAction(QString("Custom"));
+                actScreenGap[6]->setActionGroup(grpScreenGap);
+                actScreenGap[6]->setCheckable(true);
+                
+                actScreenGapTextbox = new QLineEdit(QString("0"), submenu);
+                actScreenGapTextbox->setValidator(new QIntValidator(screengap[0], screengap[5]));
+                actScreenGapTextbox->setFixedWidth(submenu->width());
+
+                QWidgetAction* customGapWidget = new QWidgetAction(submenu);
+                customGapWidget->setDefaultWidget(actScreenGapTextbox);
+                submenu->addAction(customGapWidget);
+
+                connect(actScreenGapTextbox, &QLineEdit::editingFinished, [&]()
+                {
+                    if (!actScreenGapTextbox->text().isEmpty()) 
+                    {
+                        const int customGap = actScreenGapTextbox->text().toInt();
+                        actScreenGap[6]->setData(QVariant(customGap));
+                        actScreenGap[6]->setChecked(true);
+                        onChangeScreenGap(actScreenGap[6]);
+                    }
+                });
                 connect(grpScreenGap, &QActionGroup::triggered, this, &MainWindow::onChangeScreenGap);
             }
             {
@@ -740,12 +764,16 @@ MainWindow::MainWindow(int id, EmuInstance* inst, QWidget* parent) :
         actScreenRotation[windowCfg.GetInt("ScreenRotation")]->setChecked(true);
 
         int screenGap = windowCfg.GetInt("ScreenGap");
-        for (int i = 0; i < 6; i++)
+
+        if (!actScreenGap[6]->isChecked())
         {
-            if (actScreenGap[i]->data().toInt() == screenGap)
+            for (int i = 0; i < 6; i++)
             {
-                actScreenGap[i]->setChecked(true);
-                break;
+                if (actScreenGap[i]->data().toInt() == screenGap)
+                {
+                    actScreenGap[i]->setChecked(true);
+                    break;
+                }
             }
         }
 
