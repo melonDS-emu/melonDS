@@ -271,6 +271,12 @@ int main(int argc, char** argv)
     sysTimer.start();
     srand(time(nullptr));
 
+#ifdef _WIN32
+    AttachConsole(ATTACH_PARENT_PROCESS);
+    freopen("CONOUT$", "w", stdout);
+    freopen("CONOUT$", "w", stderr);
+#endif
+
     for (int i = 0; i < kMaxEmuInstances; i++)
         emuInstances[i] = nullptr;
 
