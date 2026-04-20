@@ -472,7 +472,7 @@ ARMJIT::ARMJIT(melonDS::NDS& nds, std::optional<JITArgs> jit) noexcept :
         NDS(nds),
         Memory(nds),
         JITCompiler(nds),
-        MaxBlockSize(jit.has_value() ? std::clamp(jit->MaxBlockSize, 1u, 32u) : 32),
+        MaxBlockSize(jit.has_value() ? std::clamp(jit->MaxBlockSize, 1u, MaxSupportedBlockSize) : MaxSupportedBlockSize),
         LiteralOptimizations(jit.has_value() ? jit->LiteralOptimizations : false),
         BranchOptimizations(jit.has_value() ? jit->BranchOptimizations : false),
         FastMemory((jit.has_value() ? jit->FastMemory : false) && ARMJIT_Memory::IsFastMemSupported())
@@ -495,7 +495,7 @@ void ARMJIT::RetireJitBlock(JitBlock* block) noexcept
 void ARMJIT::SetJITArgs(JITArgs args) noexcept
 {
     args.FastMemory = args.FastMemory && ARMJIT_Memory::IsFastMemSupported();
-    args.MaxBlockSize = std::clamp(args.MaxBlockSize, 1u, 32u);
+    args.MaxBlockSize = std::clamp(args.MaxBlockSize, 1u, MaxSupportedBlockSize);
 
     if (MaxBlockSize != args.MaxBlockSize
         || LiteralOptimizations != args.LiteralOptimizations
@@ -565,24 +565,24 @@ void ARMJIT::CompileBlock(ARM* cpu) noexcept
         map.erase(existingBlockIt);
     }
 
-    FetchedInstr instrs[MaxBlockSize];
+    FetchedInstr instrs[MaxSupportedBlockSize];
     int i = 0;
     u32 r15 = cpu->R[15];
 
-    u32 addressRanges[MaxBlockSize];
-    u32 addressMasks[MaxBlockSize];
-    memset(addressMasks, 0, MaxBlockSize * sizeof(u32));
+    u32 addressRanges[MaxSupportedBlockSize];
+    u32 addressMasks[MaxSupportedBlockSize] {};
+    
     u32 numAddressRanges = 0;
 
     u32 numLiterals = 0;
-    u32 literalLoadAddrs[MaxBlockSize];
+    u32 literalLoadAddrs[MaxSupportedBlockSize];
     // they are going to be hashed
-    u32 literalValues[MaxBlockSize];
-    u32 instrValues[MaxBlockSize];
+    u32 literalValues[MaxSupportedBlockSize];
+    u32 instrValues[MaxSupportedBlockSize];
     // due to instruction merging i might not reflect the amount of actual instructions
     u32 numInstrs = 0;
 
-    u32 writeAddrs[MaxBlockSize];
+    u32 writeAddrs[MaxSupportedBlockSize];
     u32 numWriteAddrs = 0, writeAddrsTranslated = 0;
 
     cpu->FillPipeline();
