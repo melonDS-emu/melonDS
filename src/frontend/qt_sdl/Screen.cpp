@@ -1198,7 +1198,7 @@ void ScreenPanelGL::drawScreen()
 
         for (int i = 0; i < numScreens; i++)
         {
-            if (i == 1 && vCursor->cursorEnabled){
+            if (screenKind[i] == 1 && vCursor->cursorEnabled){
                 glUniform1i(screenShaderCursorEnableLoc, 1);
                 glUniform2f(screenShaderCursorLoc, vCursor->cursorPos[0]/256.f, vCursor->cursorPos[1]/192.f);
             } else {
