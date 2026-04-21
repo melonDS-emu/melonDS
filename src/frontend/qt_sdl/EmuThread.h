@@ -154,6 +154,7 @@ signals:
     void autoScreenSizingChange(int sizing);
 
     void windowFullscreenToggle();
+    void windowBorderToggle();
 
     void swapScreensToggle();
     void screenEmphasisToggle();
