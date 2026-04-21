@@ -61,34 +61,34 @@ void main()
     vec4 pixel = texture(ScreenTex, fTexcoord);
     if (cursorEnable){
         //Black Outline
-        if (fTexcoord.x <= (cursorPos.x + (1.5*pixelUnit.x)) && 
-            fTexcoord.x >= (cursorPos.x - (1.5*pixelUnit.x))) {
-            if (fTexcoord.y <= (cursorPos.y + (4.5*pixelUnit.y)) && 
-                fTexcoord.y >= (cursorPos.y - (4.5*pixelUnit.y))) {
+        if (fTexcoord.x <= (cursorPos.x + (2.0*pixelUnit.x)) && 
+            fTexcoord.x >= (cursorPos.x - (1.0*pixelUnit.x))) {
+            if (fTexcoord.y <= (cursorPos.y + (5.0*pixelUnit.y)) && 
+                fTexcoord.y >= (cursorPos.y - (4.0*pixelUnit.y))) {
                 pixel = vec4(0.0, 0.0, 0.0, 1.0);
             }
         }
 
-        if (fTexcoord.y <= (cursorPos.y + (1.5*pixelUnit.y)) && 
-            fTexcoord.y >= (cursorPos.y - (1.5*pixelUnit.y))) {
-            if (fTexcoord.x <= (cursorPos.x + (4.5*pixelUnit.x)) && 
-                fTexcoord.x >= (cursorPos.x - (4.5*pixelUnit.x))) {
+        if (fTexcoord.y <= (cursorPos.y + (2.0*pixelUnit.y)) && 
+            fTexcoord.y >= (cursorPos.y - (1.0*pixelUnit.y))) {
+            if (fTexcoord.x <= (cursorPos.x + (5.0*pixelUnit.x)) && 
+                fTexcoord.x >= (cursorPos.x - (4.0*pixelUnit.x))) {
                 pixel = vec4(0.0, 0.0, 0.0, 1.0);
             }
         }
         //White Cross
-        if (fTexcoord.x <= (cursorPos.x + (0.5*pixelUnit.x)) && 
-            fTexcoord.x >= (cursorPos.x - (0.5*pixelUnit.x))) {
-            if (fTexcoord.y <= (cursorPos.y + (3.5*pixelUnit.y)) && 
-                fTexcoord.y >= (cursorPos.y - (3.5*pixelUnit.y))) {
+        if (fTexcoord.x <= (cursorPos.x + (1.0*pixelUnit.x)) && 
+            fTexcoord.x >= (cursorPos.x - (0.0*pixelUnit.x))) {
+            if (fTexcoord.y <= (cursorPos.y + (4.0*pixelUnit.y)) && 
+                fTexcoord.y >= (cursorPos.y - (3.0*pixelUnit.y))) {
                 pixel = vec4(1.0, 1.0, 1.0, 1.0);
             }
         }
 
-        if (fTexcoord.y <= (cursorPos.y + (0.5*pixelUnit.y)) && 
-            fTexcoord.y >= (cursorPos.y - (0.5*pixelUnit.y))) {
-            if (fTexcoord.x <= (cursorPos.x + (3.5*pixelUnit.x)) && 
-                fTexcoord.x >= (cursorPos.x - (3.5*pixelUnit.x))) {
+        if (fTexcoord.y <= (cursorPos.y + (1.0*pixelUnit.y)) && 
+            fTexcoord.y >= (cursorPos.y - (0.0*pixelUnit.y))) {
+            if (fTexcoord.x <= (cursorPos.x + (4.0*pixelUnit.x)) && 
+                fTexcoord.x >= (cursorPos.x - (3.0*pixelUnit.x))) {
                 pixel = vec4(1.0, 1.0, 1.0, 1.0);
             }
         }
