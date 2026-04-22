@@ -81,6 +81,7 @@
 #include "CameraManager.h"
 #include "Window.h"
 #include "AboutDialog.h"
+#include "Cursor.h"
 
 using namespace melonDS;
 
@@ -257,8 +258,9 @@ MainWindow::MainWindow(int id, EmuInstance* inst, QWidget* parent) :
     }
 #endif
 
-    showOSD = windowCfg.GetBool("ShowOSD");
-
+    vCursor = new Cursor();
+    vCursor->setEmuInstance(emuInstance);
+    showOSD = windowCfg.GetBool("ShowOSD"); 
     setWindowTitle("melonDS " MELONDS_VERSION);
     setAttribute(Qt::WA_DeleteOnClose);
     setAcceptDrops(true);
@@ -612,6 +614,10 @@ MainWindow::MainWindow(int id, EmuInstance* inst, QWidget* parent) :
             actShowOSD = menu->addAction("Show OSD");
             actShowOSD->setCheckable(true);
             connect(actShowOSD, &QAction::triggered, this, &MainWindow::onChangeShowOSD);
+            
+            actHideVirtualCursor = menu->addAction("Hide Virtual Cursor");
+            actHideVirtualCursor->setCheckable(true);
+            connect(actHideVirtualCursor, &QAction::triggered, this, &MainWindow::onChangeHideVirtualCursor);
         }
         {
             QMenu * menu = menubar->addMenu("Config");
@@ -956,6 +962,9 @@ void MainWindow::releaseGL()
 void MainWindow::drawScreen()
 {
     if (!panel) return;
+    vCursor->setLayout(this->getWindowConfig().GetInt("ScreenLayout"));
+    vCursor->setRotation(this->getWindowConfig().GetInt("ScreenRotation"));
+    panel->vCursor = vCursor;
     return panel->drawScreen();
 }
 
@@ -2152,6 +2161,13 @@ void MainWindow::onChangeShowOSD(bool checked)
     showOSD = checked;
     panel->osdSetEnabled(showOSD);
     windowCfg.SetBool("ShowOSD", showOSD);
+}
+
+void MainWindow::onChangeHideVirtualCursor(bool checked)
+{
+    vCursor->cursorEnabled = !checked;
+    windowCfg.SetBool("HideVirtualCursor", checked);
+
 }
 
 void MainWindow::onChangeLimitFramerate(bool checked)
