@@ -85,6 +85,7 @@ RangeList IntRanges =
     {"Mic.InputType", {0, micInputType_MAX-1}},
     {"Instance*.Window*.ScreenRotation", {0, screenRot_MAX-1}},
     {"Instance*.Window*.ScreenGap", {0, 500}},
+    {"Instance*.Window*.HybridRatio", {0, 960}},
     {"Instance*.Window*.ScreenLayout", {0, screenLayout_MAX-1}},
     {"Instance*.Window*.ScreenSizing", {0, screenSizing_MAX-1}},
     {"Instance*.Window*.ScreenAspectTop", {0, AspectRatiosNum-1}},
