@@ -9,6 +9,11 @@ All headers are aggregated by `MelonPrimePatch.h` (included by `MelonPrime.cpp` 
 
 All patch code is wrapped in `#ifdef MELONPRIME_DS … #endif`.
 
+When a patch needs code inside files that do **not** start with `MelonPrime`,
+keep the added code behind `#ifdef MELONPRIME_DS … #endif`.  If the addition is
+more than a tiny call site, put the MelonPrime-specific body in a
+`MelonPrime*.inc` file and include that file from the guarded region.
+
 ---
 
 ## File structure

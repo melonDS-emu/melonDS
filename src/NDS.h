@@ -257,6 +257,12 @@ private:
 #endif
 
 public: // TODO: Encapsulate the rest of these members
+#ifdef MELONPRIME_DS
+#define MELONPRIME_ARM9_INSTRUCTION_HOOK_NDS_PUBLIC_TYPES
+#include "frontend/qt_sdl/MelonPrimeArm9InstructionHook.inc"
+#undef MELONPRIME_ARM9_INSTRUCTION_HOOK_NDS_PUBLIC_TYPES
+#endif
+
     void* UserData;
 
     int ConsoleType;
@@ -330,6 +336,12 @@ public: // TODO: Encapsulate the rest of these members
     GBACart::GBACartSlot GBACartSlot;
     melonDS::GPU GPU;
     melonDS::AREngine AREngine;
+
+#ifdef MELONPRIME_DS
+#define MELONPRIME_ARM9_INSTRUCTION_HOOK_NDS_FIELDS
+#include "frontend/qt_sdl/MelonPrimeArm9InstructionHook.inc"
+#undef MELONPRIME_ARM9_INSTRUCTION_HOOK_NDS_FIELDS
+#endif
 
     const u32 ARM7WRAMSize = 0x10000;
     u8* ARM7WRAM;
@@ -451,6 +463,12 @@ public: // TODO: Encapsulate the rest of these members
     void NocashPrint(u32 cpu, u32 addr, bool appendNewline = true);
 
     void MonitorARM9Jump(u32 addr);
+
+#ifdef MELONPRIME_DS
+#define MELONPRIME_ARM9_INSTRUCTION_HOOK_NDS_METHODS
+#include "frontend/qt_sdl/MelonPrimeArm9InstructionHook.inc"
+#undef MELONPRIME_ARM9_INSTRUCTION_HOOK_NDS_METHODS
+#endif
 
     virtual bool DMAsInMode(u32 cpu, u32 mode) const;
     virtual bool DMAsRunning(u32 cpu) const;

@@ -160,6 +160,7 @@ if (ENABLE_JIT)
 endif()
 
 target_include_directories(core INTERFACE "${CMAKE_CURRENT_SOURCE_DIR}")
+target_compile_definitions(core PUBLIC MELONPRIME_DS)
 
 set(MELONDS_VERSION_SUFFIX "$ENV{MELONDS_VERSION_SUFFIX}" CACHE STRING "Suffix to add to displayed melonDS version")
 option(MELONDS_EMBED_BUILD_INFO "Embed detailed build info into the binary" OFF)

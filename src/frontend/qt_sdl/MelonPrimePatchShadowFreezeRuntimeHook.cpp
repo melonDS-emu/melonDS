@@ -4,6 +4,7 @@
 #include "Config.h"
 #include "NDS.h"
 
+#include <algorithm>
 #include <cstddef>
 #include <cstdint>
 #include <limits>
@@ -119,13 +120,69 @@ static int32_t ReadS32(melonDS::NDS* nds, uint32_t address)
     return static_cast<int32_t>(nds->ARM9Read32(address));
 }
 
-static uint64_t SquareSigned64ToU64(int64_t value)
+static bool AddSquareChecked(uint64_t& sum, int64_t value)
 {
+    if (value == std::numeric_limits<int64_t>::min())
+        return false;
+
     const uint64_t absValue = (value < 0)
         ? static_cast<uint64_t>(-value)
         : static_cast<uint64_t>(value);
 
-    return absValue * absValue;
+    if (absValue != 0 && absValue > std::numeric_limits<uint64_t>::max() / absValue)
+        return false;
+
+    const uint64_t square = absValue * absValue;
+    if (sum > std::numeric_limits<uint64_t>::max() - square)
+        return false;
+
+    sum += square;
+    return true;
+}
+
+static bool AddI64Checked(int64_t& sum, int64_t value)
+{
+    if (value > 0 && sum > std::numeric_limits<int64_t>::max() - value)
+        return false;
+    if (value < 0 && sum < std::numeric_limits<int64_t>::min() - value)
+        return false;
+
+    sum += value;
+    return true;
+}
+
+static bool MulI64Checked(int64_t left, int64_t right, int64_t& out)
+{
+    if (left == 0 || right == 0)
+    {
+        out = 0;
+        return true;
+    }
+
+    const int64_t min = std::numeric_limits<int64_t>::min();
+    const int64_t max = std::numeric_limits<int64_t>::max();
+
+    if (left > 0)
+    {
+        if ((right > 0 && left > max / right) ||
+            (right < 0 && right < min / left))
+            return false;
+    }
+    else
+    {
+        if ((right > 0 && left < min / right) ||
+            (right < 0 && left < max / right))
+            return false;
+    }
+
+    out = left * right;
+    return true;
+}
+
+static bool AddProductChecked(int64_t& sum, int64_t left, int64_t right)
+{
+    int64_t product = 0;
+    return MulI64Checked(left, right, product) && AddI64Checked(sum, product);
 }
 
 static uint64_t IsqrtU64(uint64_t value)
@@ -213,7 +270,12 @@ static bool ComputeFull3DIceWaveDotQ12(
     const int64_t dy = static_cast<int64_t>(targetY) - static_cast<int64_t>(beamY);
     const int64_t dz = static_cast<int64_t>(targetZ) - static_cast<int64_t>(beamZ);
 
-    const uint64_t lenSq = SquareSigned64ToU64(dx) + SquareSigned64ToU64(dy) + SquareSigned64ToU64(dz);
+    uint64_t lenSq = 0;
+    if (!AddSquareChecked(lenSq, dx) ||
+        !AddSquareChecked(lenSq, dy) ||
+        !AddSquareChecked(lenSq, dz))
+        return false;
+
     if (lenSq == 0)
         return false;
 
@@ -223,10 +285,11 @@ static bool ComputeFull3DIceWaveDotQ12(
 
     // dx/dy/dz and Direction are fx32/Q12. Direction is normalized in Q12.
     // dotNumerator is Q24. Dividing by len(Q12) yields Q12, matching the cos table.
-    const int64_t dotNumerator =
-        dx * static_cast<int64_t>(dirX) +
-        dy * static_cast<int64_t>(dirY) +
-        dz * static_cast<int64_t>(dirZ);
+    int64_t dotNumerator = 0;
+    if (!AddProductChecked(dotNumerator, dx, static_cast<int64_t>(dirX)) ||
+        !AddProductChecked(dotNumerator, dy, static_cast<int64_t>(dirY)) ||
+        !AddProductChecked(dotNumerator, dz, static_cast<int64_t>(dirZ)))
+        return false;
 
     outDotQ12 = ClampToS32(dotNumerator / static_cast<int64_t>(len));
     return true;
@@ -292,6 +355,72 @@ bool ShadowFreezeRuntimeHook_CheckAndRedirect(
     //   fallthrough hit
     redirectExecAddr = (fullDotQ12 > thresholdQ12) ? hook->HitAddress : hook->MissAddress;
     return true;
+}
+
+static bool ShadowFreezeRuntimeHook_NDSCallback(
+    melonDS::NDS* nds,
+    void* userdata,
+    uint32_t arm9ExecAddr,
+    const uint32_t regs[16],
+    uint32_t& redirectExecAddr)
+{
+    auto* context = static_cast<ShadowFreezeRuntimeHookContext*>(userdata);
+    if (!context || !context->Cfg)
+        return false;
+
+    return ShadowFreezeRuntimeHook_CheckAndRedirect(
+        nds,
+        *context->Cfg,
+        context->RomGroupIndex,
+        arm9ExecAddr,
+        regs,
+        redirectExecAddr);
+}
+
+void ShadowFreezeRuntimeHook_Install(
+    melonDS::NDS* nds,
+    ShadowFreezeRuntimeHookContext& context,
+    Config::Table& cfg,
+    uint8_t romGroupIndex)
+{
+    if (!nds || romGroupIndex >= 7)
+    {
+        context.Cfg = nullptr;
+        context.RomGroupIndex = 0xFFu;
+
+        if (nds)
+            nds->ClearARM9InstructionHook();
+        return;
+    }
+
+    context.Cfg = &cfg;
+    context.RomGroupIndex = romGroupIndex;
+
+    const IceWaveRomHooks& hooks = kRomHooks[romGroupIndex];
+    uint32_t addresses[melonDS::NDS::ARM9InstructionHookMaxAddresses] {};
+    const uint32_t count = static_cast<uint32_t>(std::min(
+        hooks.Count,
+        static_cast<std::size_t>(melonDS::NDS::ARM9InstructionHookMaxAddresses)));
+
+    for (uint32_t i = 0; i < count; ++i)
+        addresses[i] = hooks.Hooks[i].DecisionAddress;
+
+    nds->SetARM9InstructionHook(
+        ShadowFreezeRuntimeHook_NDSCallback,
+        &context,
+        addresses,
+        count);
+}
+
+void ShadowFreezeRuntimeHook_Uninstall(
+    melonDS::NDS* nds,
+    ShadowFreezeRuntimeHookContext& context)
+{
+    context.Cfg = nullptr;
+    context.RomGroupIndex = 0xFFu;
+
+    if (nds)
+        nds->ClearARM9InstructionHook();
 }
 
 bool ShadowFreezeRuntimeHook_CheckAndRedirectFromPipelinedR15(

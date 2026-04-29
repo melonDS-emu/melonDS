@@ -20,6 +20,9 @@
 #include <stdio.h>
 #include <string.h>
 #include <inttypes.h>
+#ifdef MELONPRIME_DS
+#include <algorithm>
+#endif
 #include "NDS.h"
 #include "ARM.h"
 #include "NDSCart.h"
@@ -140,6 +143,12 @@ NDS::~NDS() noexcept
     UnregisterEventFuncs(Event_Sqrt);
     // The destructor for each component is automatically called by the compiler
 }
+
+#ifdef MELONPRIME_DS
+#define MELONPRIME_ARM9_INSTRUCTION_HOOK_NDS_CPP
+#include "frontend/qt_sdl/MelonPrimeArm9InstructionHook.inc"
+#undef MELONPRIME_ARM9_INSTRUCTION_HOOK_NDS_CPP
+#endif
 
 
 void NDS::SetARM9RegionTimings(u32 addrstart, u32 addrend, u32 region, int buswidth, int nonseq, int seq)

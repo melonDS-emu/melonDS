@@ -611,7 +611,7 @@ namespace Config
         {"Instance*.Metroid.Visual.HudBombLeftIconShow",   true},
         {"Instance*.Metroid.Visual.HudBombLeftIconColorOverlay", true},
         {"Instance*.Metroid.BugFix.WifiBitset",        true},
-        {"Instance*.Metroid.BugFix.FixShadowFreeze",   true},
+        {"Instance*.Metroid.BugFix.FixShadowFreeze",   false},
         {"Instance*.Metroid.BugFix.UseFirmwareLanguage", false},
         {"Instance*.Metroid.Visual.InGameAspectRatio", true},
         {"Instance*.Metroid.Visual.OsdColor",            false},

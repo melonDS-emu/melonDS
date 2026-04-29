@@ -688,6 +688,12 @@ void Compiler::CreateMethod(const char* namefmt, void* start, ...)
 }
 #endif
 
+#ifdef MELONPRIME_DS
+#define MELONPRIME_ARM9_INSTRUCTION_HOOK_JIT_X64_TRAMPOLINE
+#include "../frontend/qt_sdl/MelonPrimeArm9InstructionHook.inc"
+#undef MELONPRIME_ARM9_INSTRUCTION_HOOK_JIT_X64_TRAMPOLINE
+#endif
+
 JitBlockEntry Compiler::CompileBlock(ARM* cpu, bool thumb, FetchedInstr instrs[], int instrsCount, bool hasMemoryInstr)
 {
     if (NearSize - (GetCodePtr() - NearStart) < 1024 * 32) // guess...
@@ -724,6 +730,12 @@ JitBlockEntry Compiler::CompileBlock(ARM* cpu, bool thumb, FetchedInstr instrs[]
         CompileFunc comp = Thumb
             ? T_Comp[CurInstr.Info.Kind]
             : A_Comp[CurInstr.Info.Kind];
+
+#ifdef MELONPRIME_DS
+#define MELONPRIME_ARM9_INSTRUCTION_HOOK_JIT_X64_COMPILE_LOOP
+#include "../frontend/qt_sdl/MelonPrimeArm9InstructionHook.inc"
+#undef MELONPRIME_ARM9_INSTRUCTION_HOOK_JIT_X64_COMPILE_LOOP
+#endif
 
         bool isConditional = Thumb ? CurInstr.Info.Kind == ARMInstrInfo::tk_BCOND : CurInstr.Cond() < 0xE;
         if (comp == NULL || (CurInstr.BranchFlags & branch_FollowCondTaken) || (i == instrsCount - 1 && (!CurInstr.Info.Branches() || isConditional)))
@@ -838,6 +850,12 @@ JitBlockEntry Compiler::CompileBlock(ARM* cpu, bool thumb, FetchedInstr instrs[]
 
     return res;
 }
+
+#ifdef MELONPRIME_DS
+#define MELONPRIME_ARM9_INSTRUCTION_HOOK_JIT_X64_METHOD
+#include "../frontend/qt_sdl/MelonPrimeArm9InstructionHook.inc"
+#undef MELONPRIME_ARM9_INSTRUCTION_HOOK_JIT_X64_METHOD
+#endif
 
 void Compiler::Comp_AddCycles_C(bool forceNonConstant)
 {

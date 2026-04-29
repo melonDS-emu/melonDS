@@ -12,6 +12,8 @@
 
 #ifdef MELONPRIME_CUSTOM_HUD
 #include "MelonPrimeHudRender.h"
+#endif
+#if defined(MELONPRIME_CUSTOM_HUD) || defined(MELONPRIME_DS)
 #include "MelonPrimePatch.h"
 #endif
 
@@ -188,6 +190,7 @@ namespace MelonPrime {
         CustomHud_ResetPatchState();
 #endif
 #ifdef MELONPRIME_DS
+        ShadowFreezeRuntimeHook_Uninstall(emuInstance->getNDS(), m_shadowFreezeHookContext);
         InGameAspectRatio_ResetPatchState();
         OsdColor_ResetPatchState();
         FixWifi_ResetPatchState();
@@ -217,6 +220,7 @@ namespace MelonPrime {
         CustomHud_ResetPatchState();
 #endif
 #ifdef MELONPRIME_DS
+        ShadowFreezeRuntimeHook_Uninstall(emuInstance->getNDS(), m_shadowFreezeHookContext);
         InGameAspectRatio_ResetPatchState();
         OsdColor_ResetPatchState();
         FixWifi_ResetPatchState();

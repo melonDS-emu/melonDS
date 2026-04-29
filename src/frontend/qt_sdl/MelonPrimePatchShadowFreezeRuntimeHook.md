@@ -143,6 +143,7 @@ KR1_0
 ## 推奨
 
 MelonPrimeDS の標準機能として入れるなら、まず runtime hook no-cave 版を使う。
+ただしデフォルトは false にしておき、必要なユーザーだけ有効化する。
 
 ```text
 Metroid.BugFix.FixShadowFreeze = true

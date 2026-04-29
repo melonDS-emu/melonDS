@@ -3,6 +3,9 @@
 #include "NDS.h"
 #include "MelonPrimeDef.h"
 #include "MelonPrimeGameRomAddrTable.h"
+#ifdef MELONPRIME_DS
+#include "MelonPrimePatchShadowFreezeRuntimeHook.h"
+#endif
 
 #include <array>
 
@@ -82,6 +85,14 @@ namespace MelonPrime {
             melonDS::u8* ram = emuInstance->getNDS()->MainRAM;
             m_ptrs.inGame = GetRamPointer<uint16_t>(ram, m_addrHot.inGame);
         }
+
+#ifdef MELONPRIME_DS
+        ShadowFreezeRuntimeHook_Install(
+            emuInstance->getNDS(),
+            m_shadowFreezeHookContext,
+            localCfg,
+            m_currentRom.romGroupIndex);
+#endif
 
         char message[256];
         snprintf(message, sizeof(message), "MPH Rom Detected: %s", romInfo->name);

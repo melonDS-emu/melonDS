@@ -685,7 +685,13 @@ void ARMv5::Execute()
                 NextInstr[1] = CodeRead32(R[15], false);
 
                 // actually execute
+#ifdef MELONPRIME_DS
+#define MELONPRIME_ARM9_INSTRUCTION_HOOK_ARM_INTERPRETER_EXECUTE
+#include "frontend/qt_sdl/MelonPrimeArm9InstructionHook.inc"
+#undef MELONPRIME_ARM9_INSTRUCTION_HOOK_ARM_INTERPRETER_EXECUTE
+#else
                 if (CheckCondition(CurInstr >> 28))
+#endif
                 {
                     u32 icode = ((CurInstr >> 4) & 0xF) | ((CurInstr >> 16) & 0xFF0);
                     ARMInterpreter::ARMInstrTable[icode](this);

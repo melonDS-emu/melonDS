@@ -18,6 +18,9 @@ class ScreenPanel;  // P-3: forward decl for cached panel pointer
 #include "MelonPrimeCompilerHints.h"  // Centralised macros (was inline here)
 #include "MelonPrimeGameSettings.h"
 #include "MelonPrimeGameRomAddrTable.h"
+#ifdef MELONPRIME_DS
+#include "MelonPrimePatchShadowFreezeRuntimeHook.h"
+#endif
 
 class EmuInstance;
 namespace melonDS { class NDS; }
@@ -311,6 +314,9 @@ namespace MelonPrime {
         // --- Cold: Init-only data (pushed to end) ---
         GameAddressesHot m_addrHot{};
         RomAddresses m_currentRom{};
+#ifdef MELONPRIME_DS
+        ShadowFreezeRuntimeHookContext m_shadowFreezeHookContext{};
+#endif
         uint8_t      m_appliedFlags = 0;
         melonDS::u8  m_playerPosition = 0;
         uint8_t      m_hunterID = 0;

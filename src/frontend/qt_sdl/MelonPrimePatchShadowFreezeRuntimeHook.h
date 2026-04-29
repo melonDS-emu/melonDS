@@ -10,6 +10,22 @@ namespace melonDS { class NDS; }
 
 namespace MelonPrime {
 
+struct ShadowFreezeRuntimeHookContext
+{
+    Config::Table* Cfg = nullptr;
+    uint8_t RomGroupIndex = 0xFFu;
+};
+
+void ShadowFreezeRuntimeHook_Install(
+    melonDS::NDS* nds,
+    ShadowFreezeRuntimeHookContext& context,
+    Config::Table& cfg,
+    uint8_t romGroupIndex);
+
+void ShadowFreezeRuntimeHook_Uninstall(
+    melonDS::NDS* nds,
+    ShadowFreezeRuntimeHookContext& context);
+
 // Cave-free / ARM9-code-injection-free Shadow Freeze fix.
 //
 // Intended use:

@@ -195,6 +195,11 @@ public:
 
     void LoadCPSR();
     void SaveCPSR(bool flagClean = true);
+#ifdef MELONPRIME_DS
+#define MELONPRIME_ARM9_INSTRUCTION_HOOK_JIT_X64_DECLS
+#include "../frontend/qt_sdl/MelonPrimeArm9InstructionHook.inc"
+#undef MELONPRIME_ARM9_INSTRUCTION_HOOK_JIT_X64_DECLS
+#endif
 
     bool FlagsNZRequired()
     { return CurInstr.SetFlags & 0xC; }
