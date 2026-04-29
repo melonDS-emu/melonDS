@@ -682,7 +682,7 @@ MainWindow::MainWindow(int id, EmuInstance* inst, QWidget* parent) :
 
             menu->addSeparator();
 
-            actMetroidFixSF = menu->addAction("Fix Shadow Freeze");
+            actMetroidFixSF = menu->addAction("Disable SF (Shadow Freeze)");
             actMetroidFixSF->setCheckable(true);
             connect(actMetroidFixSF, &QAction::triggered, this, &MainWindow::onChangeMetroidFixSF);
         }
