@@ -136,12 +136,6 @@ namespace MelonPrime {
         AIMBLK_NOT_IN_GAME = 1u << 3,
     };
 
-    enum AppliedFlag : uint8_t {
-        APPLIED_HEADPHONE = 1u << 0,
-        APPLIED_VOL_SFX   = 1u << 1,
-        APPLIED_VOL_MUSIC = 1u << 2,
-        APPLIED_ALL_ONCE  = APPLIED_HEADPHONE | APPLIED_VOL_SFX | APPLIED_VOL_MUSIC,
-    };
 
 #ifdef _WIN32
     struct FilterDeleter {
@@ -313,7 +307,6 @@ namespace MelonPrime {
         // --- Cold: Init-only data (pushed to end) ---
         GameAddressesHot m_addrHot{};
         RomAddresses m_currentRom{};
-        uint8_t      m_appliedFlags = 0;
         melonDS::u8  m_playerPosition = 0;
         uint8_t      m_hunterID = 0;
 

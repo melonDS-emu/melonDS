@@ -19,9 +19,9 @@ namespace MelonPrime {
     public:
         MelonPrimeGameSettings() = delete;
 
-        static bool ApplyHeadphoneOnce(melonDS::NDS* nds, Config::Table& cfg, melonDS::u32 addr, uint8_t& flags, uint8_t bit);
-        static bool ApplySfxVolumeOnce(melonDS::NDS* nds, Config::Table& cfg, melonDS::u32 addr, uint8_t& flags, uint8_t bit);
-        static bool ApplyMusicVolumeOnce(melonDS::NDS* nds, Config::Table& cfg, melonDS::u32 addr, uint8_t& flags, uint8_t bit);
+        static bool ApplyHeadphone(melonDS::NDS* nds, Config::Table& cfg, melonDS::u32 addr);
+        static bool ApplySfxVolume(melonDS::NDS* nds, Config::Table& cfg, melonDS::u32 addr);
+        static bool ApplyMusicVolume(melonDS::NDS* nds, Config::Table& cfg, melonDS::u32 addr);
         static bool ApplyLicenseColorStrict(melonDS::NDS* nds, Config::Table& cfg, melonDS::u32 addr);
         static bool ApplySelectedHunterStrict(melonDS::NDS* nds, Config::Table& cfg, melonDS::u32 addr);
         static bool UseDsName(melonDS::NDS* nds, Config::Table& cfg, melonDS::u32 addr);

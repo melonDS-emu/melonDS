@@ -263,10 +263,7 @@ namespace MelonPrime {
 
         auto* nds = emuInstance->getNDS();
 
-        if (!(m_appliedFlags & APPLIED_HEADPHONE)) {
-            MelonPrimeGameSettings::ApplyHeadphoneOnce(
-                nds, localCfg, m_currentRom.operationAndSound, m_appliedFlags, APPLIED_HEADPHONE);
-        }
+        MelonPrimeGameSettings::ApplyHeadphone(nds, localCfg, m_currentRom.operationAndSound);
 
         MelonPrimeGameSettings::ApplyMphSensitivity(
             nds, localCfg, m_currentRom.sensitivity,
@@ -282,14 +279,8 @@ namespace MelonPrime {
         MelonPrimeGameSettings::ApplySelectedHunterStrict(nds, localCfg, m_currentRom.mainHunter);
         MelonPrimeGameSettings::ApplyLicenseColorStrict(nds, localCfg, m_currentRom.rankColor);
 
-        if (!(m_appliedFlags & APPLIED_VOL_SFX)) {
-            MelonPrimeGameSettings::ApplySfxVolumeOnce(
-                nds, localCfg, m_currentRom.volSfx8Bit, m_appliedFlags, APPLIED_VOL_SFX);
-        }
-        if (!(m_appliedFlags & APPLIED_VOL_MUSIC)) {
-            MelonPrimeGameSettings::ApplyMusicVolumeOnce(
-                nds, localCfg, m_currentRom.volMusic8Bit, m_appliedFlags, APPLIED_VOL_MUSIC);
-        }
+        MelonPrimeGameSettings::ApplySfxVolume(nds, localCfg, m_currentRom.volSfx8Bit);
+        MelonPrimeGameSettings::ApplyMusicVolume(nds, localCfg, m_currentRom.volMusic8Bit);
     }
 
 } // namespace MelonPrime

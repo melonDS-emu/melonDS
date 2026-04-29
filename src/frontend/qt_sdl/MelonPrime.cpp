@@ -180,7 +180,6 @@ namespace MelonPrime {
     {
         m_flags.packed = 0;
         m_isLayoutChangePending = true;
-        m_appliedFlags = 0;
         m_isWeaponCheckActive = false;
 #ifdef _WIN32
         m_isNativeFilterInstalled = false;
@@ -267,7 +266,6 @@ namespace MelonPrime {
         ReloadConfigFlags();
         ApplyJoy2KeySupportAndQtFilter(m_flags.test(StateFlags::BIT_JOY2KEY));
 
-        m_appliedFlags &= ~APPLIED_ALL_ONCE;
         m_flags.clear(StateFlags::BIT_BLOCK_STYLUS);
 
         RecalcAimSensitivityCache(localCfg);

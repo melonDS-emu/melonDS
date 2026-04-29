@@ -15,18 +15,16 @@ namespace MelonPrime {
         return static_cast<uint16_t>(std::min(static_cast<uint32_t>(val + 0.5), 0xFFFFu));
     }
 
-    bool MelonPrimeGameSettings::ApplyHeadphoneOnce(
-        melonDS::NDS* nds, Config::Table& localCfg, melonDS::u32 addr, uint8_t& flags, uint8_t bit)
+    bool MelonPrimeGameSettings::ApplyHeadphone(
+        melonDS::NDS* nds, Config::Table& localCfg, melonDS::u32 addr)
     {
-        if (!nds || (flags & bit)) return false;
-        if (!localCfg.GetBool(CfgKey::Headphone)) return false;
+        if (!nds || !localCfg.GetBool(CfgKey::Headphone)) return false;
 
         const uint8_t oldVal = nds->ARM9Read8(addr);
         constexpr uint8_t kMask = 0x18;
-        if ((oldVal & kMask) == kMask) { flags |= bit; return false; }
+        if ((oldVal & kMask) == kMask) return false;
 
         nds->ARM9Write8(addr, oldVal | kMask);
-        flags |= bit;
         return true;
     }
 
@@ -76,33 +74,31 @@ namespace MelonPrime {
         return true;
     }
 
-    bool MelonPrimeGameSettings::ApplySfxVolumeOnce(
-        melonDS::NDS* nds, Config::Table& localCfg, melonDS::u32 addr, uint8_t& flags, uint8_t bit)
+    bool MelonPrimeGameSettings::ApplySfxVolume(
+        melonDS::NDS* nds, Config::Table& localCfg, melonDS::u32 addr)
     {
-        if (!nds || (flags & bit) || !localCfg.GetBool(CfgKey::SfxVolApply)) return false;
+        if (!nds || !localCfg.GetBool(CfgKey::SfxVolApply)) return false;
 
         const uint8_t oldVal = nds->ARM9Read8(addr);
         const uint8_t steps = static_cast<uint8_t>(std::clamp(localCfg.GetInt(CfgKey::SfxVol), 0, 9));
         const uint8_t newVal = (oldVal & 0xC0) | ((steps & 0x0F) << 2) | 0x03;
 
-        if (newVal == oldVal) { flags |= bit; return false; }
+        if (newVal == oldVal) return false;
         nds->ARM9Write8(addr, newVal);
-        flags |= bit;
         return true;
     }
 
-    bool MelonPrimeGameSettings::ApplyMusicVolumeOnce(
-        melonDS::NDS* nds, Config::Table& localCfg, melonDS::u32 addr, uint8_t& flags, uint8_t bit)
+    bool MelonPrimeGameSettings::ApplyMusicVolume(
+        melonDS::NDS* nds, Config::Table& localCfg, melonDS::u32 addr)
     {
-        if (!nds || (flags & bit) || !localCfg.GetBool(CfgKey::MusicVolApply)) return false;
+        if (!nds || !localCfg.GetBool(CfgKey::MusicVolApply)) return false;
 
         const uint8_t oldVal = nds->ARM9Read8(addr);
         const uint8_t steps = static_cast<uint8_t>(std::clamp(localCfg.GetInt(CfgKey::MusicVol), 0, 9));
         const uint8_t newVal = (oldVal & ~0x3C) | ((steps & 0x0F) << 2);
 
-        if (newVal == oldVal) { flags |= bit; return false; }
+        if (newVal == oldVal) return false;
         nds->ARM9Write8(addr, newVal);
-        flags |= bit;
         return true;
     }
 
