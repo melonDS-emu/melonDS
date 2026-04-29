@@ -36,7 +36,7 @@ using namespace melonDS::Platform;
 std::unique_ptr<DSi_NAND::NANDImage> TitleManagerDialog::nand = nullptr;
 TitleManagerDialog* TitleManagerDialog::currentDlg = nullptr;
 
-const std::vector<u32> allTitles = {0x00030004, 0x00030005, 0x0003000f, 0x00030015, 0x00030017 };
+const std::vector<u32> allTitles = { 0x00030004, 0x00030005, 0x0003000f, 0x00030015, 0x00030017 };
 std::vector<u32> titlelist;
 
 TitleManagerDialog::TitleManagerDialog(QWidget* parent, DSi_NAND::NANDImage& image) : QDialog(parent), ui(new Ui::TitleManagerDialog), nandmount(image)
@@ -92,7 +92,6 @@ TitleManagerDialog::TitleManagerDialog(QWidget* parent, DSi_NAND::NANDImage& ima
         connect(actExportTitleData[2], &QAction::triggered, this, &TitleManagerDialog::onExportTitleData);
 
         ui->btnExportTitleData->setMenu(menu);
-        
     }
 }
 
@@ -105,14 +104,17 @@ void TitleManagerDialog::generateTitleList(std::vector<u32> allTitles, std::vect
 {
     ui->lstTitleList->clear();
     std::vector<u32> currTitlelist;
-    if (!showSystemTitles) {
+    if (!showSystemTitles)
+    {
         nandmount.ListTitles(allTitles[0], currTitlelist);
         for (std::vector<u32>::iterator it = currTitlelist.begin(); it != currTitlelist.end(); it++)
             {
                 u32 titleid = *it;
                 createTitleItem(allTitles[0], titleid);
             }
-    } else {
+    }
+    else 
+    {
         for (int i = 0; i < allTitles.size(); i++)
         {
             nandmount.ListTitles(allTitles[i], currTitlelist);
@@ -141,10 +143,13 @@ void TitleManagerDialog::createTitleItem(u32 category, u32 titleid)
 
     // TODO: make it possible to select other languages?
     QString title = QString::fromUtf16(banner.EnglishTitle, 128);
-    if (category != 0x0003000f) {
+    if (category != 0x0003000f) 
+    {
         title = title.left(title.indexOf(QChar('\0')));
         title.replace("\n", " · ");
-    } else {
+    } 
+    else 
+    {
         title = "Non executable data file";
     }
 
@@ -152,13 +157,17 @@ void TitleManagerDialog::createTitleItem(u32 category, u32 titleid)
     *(u32*)&gamecode[0] = *(u32*)&header.GameCode[0];
     gamecode[4] = '\0';
     char extra[128];
-     if (category != 0x0003000f) {
+     if (category != 0x0003000f)
+    {
         snprintf(extra, sizeof(extra), "\n(title ID: %s · %08x/%08x · version %08x)", gamecode, category, titleid, version);
-     } else {
+    }
+    else
+    {
         snprintf(extra, sizeof(extra), "\n(title ID: %08x/%08x · version %08x)", category, titleid, version);
-     }
+    }
     QListWidgetItem* item = new QListWidgetItem(title + QString(extra));
-    if (category != 0x0003000f) {
+    if (category != 0x0003000f) 
+    {
         item->setIcon(icon);
     }
     item->setData(Qt::UserRole, QVariant((qulonglong)(((u64)category<<32) | (u64)titleid)));
