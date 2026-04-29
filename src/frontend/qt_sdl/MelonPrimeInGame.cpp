@@ -272,13 +272,11 @@ namespace MelonPrime {
             nds, localCfg, m_currentRom.sensitivity,
             m_currentRom.baseInGameSensi, m_flags.test(StateFlags::BIT_IN_GAME_INIT));
 
-        if (!(m_appliedFlags & APPLIED_UNLOCK)) {
-            MelonPrimeGameSettings::ApplyUnlockHuntersMaps(
-                nds, localCfg, m_appliedFlags, APPLIED_UNLOCK,
-                m_currentRom.unlockMapsHunters, m_currentRom.unlockMapsHunters2,
-                m_currentRom.unlockMapsHunters3, m_currentRom.unlockMapsHunters4,
-                m_currentRom.unlockMapsHunters5);
-        }
+        MelonPrimeGameSettings::ApplyUnlockHuntersMaps(
+            nds, localCfg,
+            m_currentRom.unlockMapsHunters, m_currentRom.unlockMapsHunters2,
+            m_currentRom.unlockMapsHunters3, m_currentRom.unlockMapsHunters4,
+            m_currentRom.unlockMapsHunters5);
 
         MelonPrimeGameSettings::UseDsName(nds, localCfg, m_currentRom.dsNameFlagAndMicVolume);
         MelonPrimeGameSettings::ApplySelectedHunterStrict(nds, localCfg, m_currentRom.mainHunter);

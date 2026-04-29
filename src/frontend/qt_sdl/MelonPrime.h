@@ -138,10 +138,9 @@ namespace MelonPrime {
 
     enum AppliedFlag : uint8_t {
         APPLIED_HEADPHONE = 1u << 0,
-        APPLIED_UNLOCK = 1u << 1,
-        APPLIED_VOL_SFX = 1u << 2,
-        APPLIED_VOL_MUSIC = 1u << 3,
-        APPLIED_ALL_ONCE = APPLIED_HEADPHONE | APPLIED_UNLOCK | APPLIED_VOL_SFX | APPLIED_VOL_MUSIC,
+        APPLIED_VOL_SFX   = 1u << 1,
+        APPLIED_VOL_MUSIC = 1u << 2,
+        APPLIED_ALL_ONCE  = APPLIED_HEADPHONE | APPLIED_VOL_SFX | APPLIED_VOL_MUSIC,
     };
 
 #ifdef _WIN32

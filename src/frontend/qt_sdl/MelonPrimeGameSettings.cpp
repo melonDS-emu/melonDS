@@ -116,19 +116,21 @@ namespace MelonPrime {
     }
 
     bool MelonPrimeGameSettings::ApplyUnlockHuntersMaps(
-        melonDS::NDS* nds, Config::Table& localCfg, uint8_t& flags, uint8_t bit,
+        melonDS::NDS* nds, Config::Table& localCfg,
         melonDS::u32 a1, melonDS::u32 a2, melonDS::u32 a3, melonDS::u32 a4, melonDS::u32 a5)
     {
-        if ((flags & bit) || !localCfg.GetBool(CfgKey::DataUnlock)) return false;
+        if (!localCfg.GetBool(CfgKey::DataUnlock)) return false;
 
-        nds->ARM9Write8(a1, nds->ARM9Read8(a1) | 0x03);
-        nds->ARM9Write32(a2, 0x07FFFFFF);
-        nds->ARM9Write8(a3, 0x7F);
-        nds->ARM9Write32(a4, 0xFFFFFFFF);
-        nds->ARM9Write8(a5, 0x7F);
-
-        flags |= bit;
-        return true;
+        // Read-before-write: only write if the value was reset by the game.
+        // On most frames nothing has changed so this is effectively a no-op.
+        bool changed = false;
+        const uint8_t v1 = nds->ARM9Read8(a1);
+        if ((v1 & 0x03) != 0x03)               { nds->ARM9Write8(a1, v1 | 0x03);  changed = true; }
+        if (nds->ARM9Read32(a2) != 0x07FFFFFFu) { nds->ARM9Write32(a2, 0x07FFFFFFu); changed = true; }
+        if (nds->ARM9Read8(a3)  != 0x7F)        { nds->ARM9Write8(a3, 0x7F);       changed = true; }
+        if (nds->ARM9Read32(a4) != 0xFFFFFFFFu) { nds->ARM9Write32(a4, 0xFFFFFFFFu); changed = true; }
+        if (nds->ARM9Read8(a5)  != 0x7F)        { nds->ARM9Write8(a5, 0x7F);       changed = true; }
+        return changed;
     }
 
     melonDS::u32 MelonPrimeGameSettings::CalculatePlayerAddress(
