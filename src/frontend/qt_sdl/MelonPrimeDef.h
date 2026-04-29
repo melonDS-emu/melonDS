@@ -34,6 +34,7 @@ namespace MelonPrime {
         inline constexpr const char* HunterSel       = "Metroid.HunterLicense.Hunter.Selected";
         inline constexpr const char* UseFwName       = "Metroid.Use.Firmware.Name";
         inline constexpr const char* DataUnlock      = "Metroid.Data.Unlock";
+        inline constexpr const char* FixShadowFreeze = "Metroid.BugFix.FixShadowFreeze";
     }
 
 

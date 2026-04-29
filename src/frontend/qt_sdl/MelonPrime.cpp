@@ -190,7 +190,7 @@ namespace MelonPrime {
         CustomHud_ResetPatchState();
 #endif
 #ifdef MELONPRIME_DS
-        ShadowFreezeRuntimeHook_Uninstall(emuInstance->getNDS(), m_shadowFreezeHookContext);
+        ShadowFreezeRuntimeHook_Uninstall(emuInstance->getNDS());
         InGameAspectRatio_ResetPatchState();
         OsdColor_ResetPatchState();
         FixWifi_ResetPatchState();
@@ -220,7 +220,7 @@ namespace MelonPrime {
         CustomHud_ResetPatchState();
 #endif
 #ifdef MELONPRIME_DS
-        ShadowFreezeRuntimeHook_Uninstall(emuInstance->getNDS(), m_shadowFreezeHookContext);
+        ShadowFreezeRuntimeHook_Uninstall(emuInstance->getNDS());
         InGameAspectRatio_ResetPatchState();
         OsdColor_ResetPatchState();
         FixWifi_ResetPatchState();

@@ -10,37 +10,21 @@ namespace melonDS { class NDS; }
 
 namespace MelonPrime {
 
-struct ShadowFreezeRuntimeHookContext
-{
-    Config::Table* Cfg = nullptr;
-    uint8_t RomGroupIndex = 0xFFu;
-};
-
+// Cave-free / ROM-write-free Shadow Freeze fix.
+//
+// Install registers the ARM9 pre-instruction hook for the given ROM version.
+// Uninstall clears it.  Both are safe to call multiple times.
 void ShadowFreezeRuntimeHook_Install(
     melonDS::NDS* nds,
-    ShadowFreezeRuntimeHookContext& context,
     Config::Table& cfg,
     uint8_t romGroupIndex);
 
-void ShadowFreezeRuntimeHook_Uninstall(
-    melonDS::NDS* nds,
-    ShadowFreezeRuntimeHookContext& context);
+void ShadowFreezeRuntimeHook_Uninstall(melonDS::NDS* nds);
 
-// Cave-free / ARM9-code-injection-free Shadow Freeze fix.
-//
-// Intended use:
-//   Call from an ARM9 pre-instruction hook before executing the current ARM
-//   instruction.  Pass the real instruction address about to execute.
-//
-// Behavior:
-//   - Leaves the game's original lateral range check untouched.
-//   - Replaces only the final Ice Wave angle decision with a C++ full-3D check.
-//   - Does not write to ARM9 memory.
-//   - Does not use E200/cave code.
-//
-// Result:
-//   range = lateral distance
-//   angle = full 3D angle
+// Direct check, intended to be called from an ARM9 pre-instruction hook.
+// Pass the real instruction address currently about to execute, not the pipelined
+// ARM R15 value.  When it returns true, skip normal execution of that instruction
+// and jump to redirectExecAddr instead.
 //
 // ROM group order:
 //   JP1_0=0, JP1_1=1, US1_0=2, US1_1=3, EU1_0=4, EU1_1=5, KR1_0=6.

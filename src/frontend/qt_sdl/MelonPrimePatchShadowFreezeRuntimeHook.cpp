@@ -16,22 +16,14 @@ namespace {
 // ROM group order:
 //   JP1_0=0, JP1_1=1, US1_0=2, US1_1=3, EU1_0=4, EU1_1=5, KR1_0=6
 //
-// Hook position:
-//   The hook is placed at the conditional branch after the original dot/cos compare.
-//   At this point, the original lateral-distance range check has already passed.
-//   We skip the original conditional branch and choose hit/miss in C++ using the
-//   full 3D between vector.
+// Cave-free / ARM9-write-free runtime hook.
+// The hook is placed at the conditional branch after the original dot/cos compare.
+// At that point, the original lateral-distance range check has already passed.
+// We skip the original branch and choose hit/miss in C++ using the full 3D vector.
 //
-// Required live registers at the decision instruction:
-//   r1 = cos threshold, sign-extended Q12
-//   r6 = target CPlayer*
-//   r7 = CBeamProjectile*
-//
-// Target positions:
-//   Body       : player + 0x1C
-//   Halfturret : *(player + 0xF24) + 0x30
-
-static constexpr uint32_t kExpectedDecisionInstruction = 0xDA00000Au; // ble miss, all known versions
+// Important KR1_0 difference:
+//   JP/US/EU decision sites keep target player in r6, beam in r7, threshold in r1.
+//   KR1_0 decision sites keep target player in r5, beam in r6, threshold in r10.
 
 enum class IceWaveTargetKind : uint8_t
 {
@@ -45,6 +37,9 @@ struct IceWaveDecisionHook
     uint32_t HitAddress;
     uint32_t MissAddress;
     IceWaveTargetKind Kind;
+    uint8_t PlayerReg;
+    uint8_t BeamReg;
+    uint8_t ThresholdReg;
 };
 
 struct IceWaveRomHooks
@@ -54,41 +49,43 @@ struct IceWaveRomHooks
 };
 
 static constexpr IceWaveDecisionHook kHooks_JP1_0[] = {
-    {0x0203E5FCu, 0x0203E600u, 0x0203E62Cu, IceWaveTargetKind::Body},
-    {0x0203E734u, 0x0203E738u, 0x0203E764u, IceWaveTargetKind::Halfturret},
+    {0x0203E5FCu, 0x0203E600u, 0x0203E62Cu, IceWaveTargetKind::Body,       6, 7, 1},
+    {0x0203E734u, 0x0203E738u, 0x0203E764u, IceWaveTargetKind::Halfturret, 6, 7, 1},
 };
 
 static constexpr IceWaveDecisionHook kHooks_JP1_1[] = {
-    {0x0203E5FCu, 0x0203E600u, 0x0203E62Cu, IceWaveTargetKind::Body},
-    {0x0203E734u, 0x0203E738u, 0x0203E764u, IceWaveTargetKind::Halfturret},
+    {0x0203E5FCu, 0x0203E600u, 0x0203E62Cu, IceWaveTargetKind::Body,       6, 7, 1},
+    {0x0203E734u, 0x0203E738u, 0x0203E764u, IceWaveTargetKind::Halfturret, 6, 7, 1},
 };
 
 static constexpr IceWaveDecisionHook kHooks_US1_0[] = {
-    {0x0203E4B4u, 0x0203E4B8u, 0x0203E4E4u, IceWaveTargetKind::Body},
-    {0x0203E5ECu, 0x0203E5F0u, 0x0203E61Cu, IceWaveTargetKind::Halfturret},
+    {0x0203E4B4u, 0x0203E4B8u, 0x0203E4E4u, IceWaveTargetKind::Body,       6, 7, 1},
+    {0x0203E5ECu, 0x0203E5F0u, 0x0203E61Cu, IceWaveTargetKind::Halfturret, 6, 7, 1},
 };
 
 static constexpr IceWaveDecisionHook kHooks_US1_1[] = {
-    {0x0203E3E4u, 0x0203E3E8u, 0x0203E414u, IceWaveTargetKind::Body},
-    {0x0203E51Cu, 0x0203E520u, 0x0203E54Cu, IceWaveTargetKind::Halfturret},
+    {0x0203E3E4u, 0x0203E3E8u, 0x0203E414u, IceWaveTargetKind::Body,       6, 7, 1},
+    {0x0203E51Cu, 0x0203E520u, 0x0203E54Cu, IceWaveTargetKind::Halfturret, 6, 7, 1},
 };
 
 static constexpr IceWaveDecisionHook kHooks_EU1_0[] = {
-    {0x0203E3DCu, 0x0203E3E0u, 0x0203E40Cu, IceWaveTargetKind::Body},
-    {0x0203E514u, 0x0203E518u, 0x0203E544u, IceWaveTargetKind::Halfturret},
+    {0x0203E3DCu, 0x0203E3E0u, 0x0203E40Cu, IceWaveTargetKind::Body,       6, 7, 1},
+    {0x0203E514u, 0x0203E518u, 0x0203E544u, IceWaveTargetKind::Halfturret, 6, 7, 1},
 };
 
 static constexpr IceWaveDecisionHook kHooks_EU1_1[] = {
-    {0x0203E3E4u, 0x0203E3E8u, 0x0203E414u, IceWaveTargetKind::Body},
-    {0x0203E51Cu, 0x0203E520u, 0x0203E54Cu, IceWaveTargetKind::Halfturret},
+    {0x0203E3E4u, 0x0203E3E8u, 0x0203E414u, IceWaveTargetKind::Body,       6, 7, 1},
+    {0x0203E51Cu, 0x0203E520u, 0x0203E54Cu, IceWaveTargetKind::Halfturret, 6, 7, 1},
 };
 
 static constexpr IceWaveDecisionHook kHooks_KR1_0[] = {
-    {0x0203D95Cu, 0x0203D960u, 0x0203D98Cu, IceWaveTargetKind::Body},
-    {0x0203DA84u, 0x0203DA88u, 0x0203DAB4u, IceWaveTargetKind::Halfturret},
+    // 0203D94C cmp r0,r10 / 0203D950 ble 0203D980
+    {0x0203D950u, 0x0203D954u, 0x0203D980u, IceWaveTargetKind::Body,       5, 6, 10},
+    // 0203DA74 cmp r0,r10 / 0203DA78 ble 0203DAA8
+    {0x0203DA78u, 0x0203DA7Cu, 0x0203DAA8u, IceWaveTargetKind::Halfturret, 5, 6, 10},
 };
 
-static constexpr IceWaveRomHooks kRomHooks[7] = {
+static constexpr IceWaveRomHooks kRomHooks[] = {
     {kHooks_JP1_0, sizeof(kHooks_JP1_0) / sizeof(kHooks_JP1_0[0])},
     {kHooks_JP1_1, sizeof(kHooks_JP1_1) / sizeof(kHooks_JP1_1[0])},
     {kHooks_US1_0, sizeof(kHooks_US1_0) / sizeof(kHooks_US1_0[0])},
@@ -105,30 +102,30 @@ static bool IsMainRamAddress(uint32_t address)
 
 static bool IsMainRamRange(uint32_t address, uint32_t size)
 {
-    if (size == 0)
-        return false;
-
-    const uint32_t last = address + size - 1u;
-    if (last < address)
-        return false;
-
-    return IsMainRamAddress(address) && IsMainRamAddress(last);
+    return size != 0
+        && address >= 0x02000000u
+        && address <= 0x023FFFFFu
+        && size - 1u <= 0x023FFFFFu - address;
 }
 
-static int32_t ReadS32(melonDS::NDS* nds, uint32_t address)
+static uint32_t ReadU32LE(melonDS::NDS* nds, uint32_t address)
 {
-    return static_cast<int32_t>(nds->ARM9Read32(address));
+    return nds->ARM9Read32(address);
 }
 
-static bool AddSquareChecked(uint64_t& sum, int64_t value)
+static int32_t ReadS32LE(melonDS::NDS* nds, uint32_t address)
 {
-    if (value == std::numeric_limits<int64_t>::min())
-        return false;
+    return static_cast<int32_t>(ReadU32LE(nds, address));
+}
 
-    const uint64_t absValue = (value < 0)
-        ? static_cast<uint64_t>(-value)
-        : static_cast<uint64_t>(value);
+static uint64_t AbsI64ToU64(int64_t value)
+{
+    return value < 0 ? static_cast<uint64_t>(-value) : static_cast<uint64_t>(value);
+}
 
+static bool AddSquare(uint64_t& sum, int64_t value)
+{
+    const uint64_t absValue = AbsI64ToU64(value);
     if (absValue != 0 && absValue > std::numeric_limits<uint64_t>::max() / absValue)
         return false;
 
@@ -138,51 +135,6 @@ static bool AddSquareChecked(uint64_t& sum, int64_t value)
 
     sum += square;
     return true;
-}
-
-static bool AddI64Checked(int64_t& sum, int64_t value)
-{
-    if (value > 0 && sum > std::numeric_limits<int64_t>::max() - value)
-        return false;
-    if (value < 0 && sum < std::numeric_limits<int64_t>::min() - value)
-        return false;
-
-    sum += value;
-    return true;
-}
-
-static bool MulI64Checked(int64_t left, int64_t right, int64_t& out)
-{
-    if (left == 0 || right == 0)
-    {
-        out = 0;
-        return true;
-    }
-
-    const int64_t min = std::numeric_limits<int64_t>::min();
-    const int64_t max = std::numeric_limits<int64_t>::max();
-
-    if (left > 0)
-    {
-        if ((right > 0 && left > max / right) ||
-            (right < 0 && right < min / left))
-            return false;
-    }
-    else
-    {
-        if ((right > 0 && left < min / right) ||
-            (right < 0 && left < max / right))
-            return false;
-    }
-
-    out = left * right;
-    return true;
-}
-
-static bool AddProductChecked(int64_t& sum, int64_t left, int64_t right)
-{
-    int64_t product = 0;
-    return MulI64Checked(left, right, product) && AddI64Checked(sum, product);
 }
 
 static uint64_t IsqrtU64(uint64_t value)
@@ -231,7 +183,7 @@ static bool GetTargetPositionAddress(melonDS::NDS* nds, uint32_t player, IceWave
         return IsMainRamRange(outPositionAddress, 12u);
     }
 
-    const uint32_t halfturret = nds->ARM9Read32(player + 0xF24u);
+    const uint32_t halfturret = ReadU32LE(nds, player + 0xF24u);
     if (!IsMainRamRange(halfturret, 0x3Cu))
         return false;
 
@@ -251,45 +203,38 @@ static bool ComputeFull3DIceWaveDotQ12(
     const uint32_t beamDirectionAddress = beam + 0x70u;
     const uint32_t beamPositionAddress = beam + 0xA0u;
 
-    if (!IsMainRamRange(beamDirectionAddress, 12u) || !IsMainRamRange(beamPositionAddress, 12u))
-        return false;
+    const int32_t targetX = ReadS32LE(nds, targetPositionAddress + 0u);
+    const int32_t targetY = ReadS32LE(nds, targetPositionAddress + 4u);
+    const int32_t targetZ = ReadS32LE(nds, targetPositionAddress + 8u);
 
-    const int32_t targetX = ReadS32(nds, targetPositionAddress + 0u);
-    const int32_t targetY = ReadS32(nds, targetPositionAddress + 4u);
-    const int32_t targetZ = ReadS32(nds, targetPositionAddress + 8u);
+    const int32_t beamX = ReadS32LE(nds, beamPositionAddress + 0u);
+    const int32_t beamY = ReadS32LE(nds, beamPositionAddress + 4u);
+    const int32_t beamZ = ReadS32LE(nds, beamPositionAddress + 8u);
 
-    const int32_t beamX = ReadS32(nds, beamPositionAddress + 0u);
-    const int32_t beamY = ReadS32(nds, beamPositionAddress + 4u);
-    const int32_t beamZ = ReadS32(nds, beamPositionAddress + 8u);
-
-    const int32_t dirX = ReadS32(nds, beamDirectionAddress + 0u);
-    const int32_t dirY = ReadS32(nds, beamDirectionAddress + 4u);
-    const int32_t dirZ = ReadS32(nds, beamDirectionAddress + 8u);
+    const int32_t dirX = ReadS32LE(nds, beamDirectionAddress + 0u);
+    const int32_t dirY = ReadS32LE(nds, beamDirectionAddress + 4u);
+    const int32_t dirZ = ReadS32LE(nds, beamDirectionAddress + 8u);
 
     const int64_t dx = static_cast<int64_t>(targetX) - static_cast<int64_t>(beamX);
     const int64_t dy = static_cast<int64_t>(targetY) - static_cast<int64_t>(beamY);
     const int64_t dz = static_cast<int64_t>(targetZ) - static_cast<int64_t>(beamZ);
 
     uint64_t lenSq = 0;
-    if (!AddSquareChecked(lenSq, dx) ||
-        !AddSquareChecked(lenSq, dy) ||
-        !AddSquareChecked(lenSq, dz))
+    if (!AddSquare(lenSq, dx) || !AddSquare(lenSq, dy) || !AddSquare(lenSq, dz))
         return false;
-
     if (lenSq == 0)
         return false;
 
     const uint64_t len = IsqrtU64(lenSq);
-    if (len == 0)
+    if (len == 0 || len > static_cast<uint64_t>(std::numeric_limits<int64_t>::max()))
         return false;
 
-    // dx/dy/dz and Direction are fx32/Q12. Direction is normalized in Q12.
-    // dotNumerator is Q24. Dividing by len(Q12) yields Q12, matching the cos table.
-    int64_t dotNumerator = 0;
-    if (!AddProductChecked(dotNumerator, dx, static_cast<int64_t>(dirX)) ||
-        !AddProductChecked(dotNumerator, dy, static_cast<int64_t>(dirY)) ||
-        !AddProductChecked(dotNumerator, dz, static_cast<int64_t>(dirZ)))
-        return false;
+    // dx/dy/dz are fx32/Q12 and beam direction is normalized Q12.
+    // (delta * dir) is Q24; dividing by len(Q12) yields Q12.
+    const int64_t dotNumerator =
+        dx * static_cast<int64_t>(dirX) +
+        dy * static_cast<int64_t>(dirY) +
+        dz * static_cast<int64_t>(dirZ);
 
     outDotQ12 = ClampToS32(dotNumerator / static_cast<int64_t>(len));
     return true;
@@ -297,7 +242,7 @@ static bool ComputeFull3DIceWaveDotQ12(
 
 static const IceWaveDecisionHook* FindHook(uint8_t romGroupIndex, uint32_t arm9ExecAddr)
 {
-    if (romGroupIndex >= 7)
+    if (romGroupIndex >= sizeof(kRomHooks) / sizeof(kRomHooks[0]))
         return nullptr;
 
     const IceWaveRomHooks& hooks = kRomHooks[romGroupIndex];
@@ -310,7 +255,62 @@ static const IceWaveDecisionHook* FindHook(uint8_t romGroupIndex, uint32_t arm9E
     return nullptr;
 }
 
+// File-static hook registration state (no context struct needed).
+static Config::Table* s_cfg = nullptr;
+static uint8_t s_romGroupIndex = 0xFFu;
+
+static bool HookCallback(
+    melonDS::NDS* nds,
+    void* /*userdata*/,
+    uint32_t arm9ExecAddr,
+    const uint32_t regs[16],
+    uint32_t& redirectExecAddr)
+{
+    redirectExecAddr = 0;
+    if (!s_cfg)
+        return false;
+    return ShadowFreezeRuntimeHook_CheckAndRedirect(
+        nds, *s_cfg, s_romGroupIndex, arm9ExecAddr, regs, redirectExecAddr);
+}
+
 } // anonymous namespace
+
+void ShadowFreezeRuntimeHook_Install(
+    melonDS::NDS* nds,
+    Config::Table& cfg,
+    uint8_t romGroupIndex)
+{
+    if (!nds || romGroupIndex >= sizeof(kRomHooks) / sizeof(kRomHooks[0]))
+    {
+        s_cfg = nullptr;
+        s_romGroupIndex = 0xFFu;
+        if (nds)
+            nds->ClearARM9InstructionHook();
+        return;
+    }
+
+    s_cfg = &cfg;
+    s_romGroupIndex = romGroupIndex;
+
+    const IceWaveRomHooks& romHooks = kRomHooks[romGroupIndex];
+    const uint32_t count = static_cast<uint32_t>(
+        std::min(romHooks.Count,
+                 static_cast<std::size_t>(melonDS::NDS::ARM9InstructionHookMaxAddresses)));
+
+    uint32_t addresses[melonDS::NDS::ARM9InstructionHookMaxAddresses] = {};
+    for (uint32_t i = 0; i < count; ++i)
+        addresses[i] = romHooks.Hooks[i].DecisionAddress;
+
+    nds->SetARM9InstructionHook(HookCallback, nullptr, addresses, count);
+}
+
+void ShadowFreezeRuntimeHook_Uninstall(melonDS::NDS* nds)
+{
+    s_cfg = nullptr;
+    s_romGroupIndex = 0xFFu;
+    if (nds)
+        nds->ClearARM9InstructionHook();
+}
 
 bool ShadowFreezeRuntimeHook_CheckAndRedirect(
     melonDS::NDS* nds,
@@ -332,14 +332,12 @@ bool ShadowFreezeRuntimeHook_CheckAndRedirect(
     if (!hook)
         return false;
 
-    // Extra guard: only take over the original `ble miss` decision instruction.
-    // If another AR patch or ROM variant changed this word, let the CPU execute normally.
-    if (nds->ARM9Read32(arm9ExecAddr) != kExpectedDecisionInstruction)
-        return false;
+    const uint32_t player = regs[hook->PlayerReg];
+    const uint32_t beam = regs[hook->BeamReg];
+    const int32_t thresholdQ12 = static_cast<int32_t>(regs[hook->ThresholdReg]);
 
-    const uint32_t player = regs[6];
-    const uint32_t beam = regs[7];
-    const int32_t thresholdQ12 = static_cast<int32_t>(regs[1]);
+    if (!IsMainRamAddress(player) || !IsMainRamAddress(beam))
+        return false;
 
     uint32_t targetPositionAddress = 0;
     if (!GetTargetPositionAddress(nds, player, hook->Kind, targetPositionAddress))
@@ -349,78 +347,12 @@ bool ShadowFreezeRuntimeHook_CheckAndRedirect(
     if (!ComputeFull3DIceWaveDotQ12(nds, beam, targetPositionAddress, fullDotQ12))
         return false;
 
-    // Original semantics:
+    // Original logic:
     //   cmp dot, threshold
     //   ble miss
     //   fallthrough hit
     redirectExecAddr = (fullDotQ12 > thresholdQ12) ? hook->HitAddress : hook->MissAddress;
     return true;
-}
-
-static bool ShadowFreezeRuntimeHook_NDSCallback(
-    melonDS::NDS* nds,
-    void* userdata,
-    uint32_t arm9ExecAddr,
-    const uint32_t regs[16],
-    uint32_t& redirectExecAddr)
-{
-    auto* context = static_cast<ShadowFreezeRuntimeHookContext*>(userdata);
-    if (!context || !context->Cfg)
-        return false;
-
-    return ShadowFreezeRuntimeHook_CheckAndRedirect(
-        nds,
-        *context->Cfg,
-        context->RomGroupIndex,
-        arm9ExecAddr,
-        regs,
-        redirectExecAddr);
-}
-
-void ShadowFreezeRuntimeHook_Install(
-    melonDS::NDS* nds,
-    ShadowFreezeRuntimeHookContext& context,
-    Config::Table& cfg,
-    uint8_t romGroupIndex)
-{
-    if (!nds || romGroupIndex >= 7)
-    {
-        context.Cfg = nullptr;
-        context.RomGroupIndex = 0xFFu;
-
-        if (nds)
-            nds->ClearARM9InstructionHook();
-        return;
-    }
-
-    context.Cfg = &cfg;
-    context.RomGroupIndex = romGroupIndex;
-
-    const IceWaveRomHooks& hooks = kRomHooks[romGroupIndex];
-    uint32_t addresses[melonDS::NDS::ARM9InstructionHookMaxAddresses] {};
-    const uint32_t count = static_cast<uint32_t>(std::min(
-        hooks.Count,
-        static_cast<std::size_t>(melonDS::NDS::ARM9InstructionHookMaxAddresses)));
-
-    for (uint32_t i = 0; i < count; ++i)
-        addresses[i] = hooks.Hooks[i].DecisionAddress;
-
-    nds->SetARM9InstructionHook(
-        ShadowFreezeRuntimeHook_NDSCallback,
-        &context,
-        addresses,
-        count);
-}
-
-void ShadowFreezeRuntimeHook_Uninstall(
-    melonDS::NDS* nds,
-    ShadowFreezeRuntimeHookContext& context)
-{
-    context.Cfg = nullptr;
-    context.RomGroupIndex = 0xFFu;
-
-    if (nds)
-        nds->ClearARM9InstructionHook();
 }
 
 bool ShadowFreezeRuntimeHook_CheckAndRedirectFromPipelinedR15(
@@ -445,7 +377,8 @@ bool ShadowFreezeRuntimeHook_CheckAndRedirectFromPipelinedR15(
 
 void ShadowFreezeRuntimeHook_ResetPatchState()
 {
-    // No persistent state and no memory writes.
+    s_cfg = nullptr;
+    s_romGroupIndex = 0xFFu;
 }
 
 } // namespace MelonPrime

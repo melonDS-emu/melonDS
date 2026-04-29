@@ -89,7 +89,6 @@ namespace MelonPrime {
 #ifdef MELONPRIME_DS
         ShadowFreezeRuntimeHook_Install(
             emuInstance->getNDS(),
-            m_shadowFreezeHookContext,
             localCfg,
             m_currentRom.romGroupIndex);
 #endif
