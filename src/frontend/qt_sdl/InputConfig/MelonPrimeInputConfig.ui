@@ -247,6 +247,23 @@ Replaced with byte-indexed bitset matching JP1.1 / US1.1 / EU1.1 / KR1.0 behavio
 												</property>
 											</widget>
 										</item>
+										<item>
+											<widget class="QCheckBox" name="cbMetroidFixShadowFreeze">
+												<property name="text">
+													<string>Shadow Freeze Fix (Ice Wave full 3D angle check)</string>
+												</property>
+											</widget>
+										</item>
+										<item>
+											<widget class="QLabel" name="lblMetroidFixShadowFreezeDesc">
+												<property name="text">
+													<string>Fixes the Shadow Freeze issue by replacing Ice Wave's final hit/miss angle decision with a full 3D check while keeping the original lateral range check.</string>
+												</property>
+												<property name="wordWrap">
+													<bool>true</bool>
+												</property>
+											</widget>
+										</item>
 									</layout>
 								</widget>
 							</item>

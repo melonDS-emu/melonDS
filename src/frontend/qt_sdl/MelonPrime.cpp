@@ -192,6 +192,7 @@ namespace MelonPrime {
         OsdColor_ResetPatchState();
         FixWifi_ResetPatchState();
         UseFirmwareLanguage_ResetPatchState();
+        ShadowFreezeRuntimeHook_ResetPatchState();
 #endif
 
         ReloadConfigFlags();
@@ -220,6 +221,7 @@ namespace MelonPrime {
         OsdColor_ResetPatchState();
         FixWifi_ResetPatchState();
         UseFirmwareLanguage_ResetPatchState();
+        ShadowFreezeRuntimeHook_ResetPatchState();
 #endif
     }
 

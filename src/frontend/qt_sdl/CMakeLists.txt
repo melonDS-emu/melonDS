@@ -91,6 +91,7 @@ set(SOURCES_QT_SDL
     MelonPrimePatchNoDoubleTapJump.cpp
     MelonPrimePatchFixWifi.cpp
     MelonPrimePatchUseFirmwareLanguage.cpp
+    MelonPrimePatchShadowFreezeRuntimeHook.cpp
 
 
 )

@@ -6,5 +6,6 @@
 #include "MelonPrimePatchNoDoubleTapJump.h"
 #include "MelonPrimePatchFixWifi.h"
 #include "MelonPrimePatchUseFirmwareLanguage.h"
+#include "MelonPrimePatchShadowFreezeRuntimeHook.h"
 
 #endif // MELON_PRIME_PATCH_H
