@@ -83,23 +83,24 @@ static constexpr PatchWord kWords[] = {
     {0x8F0u, 0xE1A00000u, 0x01500001u},
 };
 
-static bool s_applied = false;
-
 void FixWifi_ApplyOnce(melonDS::NDS* nds, Config::Table& cfg, uint8_t romGroupIndex)
 {
-    if (s_applied) return;
     if (!cfg.GetBool("Metroid.BugFix.WifiBitset")) return;
     if (romGroupIndex >= 7 || kBase[romGroupIndex] == 0xFFFFFFFFu) return;
 
     const uint32_t base = kBase[romGroupIndex];
+
+    // Canary check: if the first word already matches, all 51 words are assumed
+    // correct and we skip the entire write pass (no-op on most frames).
+    if (nds->ARM9Read32(base + kWords[0].offset) == kWords[0].applyVal) return;
+
     for (const auto& w : kWords)
         nds->ARM9Write32(base + w.offset, w.applyVal);
-    s_applied = true;
 }
 
 void FixWifi_ResetPatchState()
 {
-    s_applied = false;
+    // No persistent state — canary check handles re-detection automatically.
 }
 
 } // namespace MelonPrime
