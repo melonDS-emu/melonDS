@@ -81,6 +81,9 @@
 #include "CameraManager.h"
 #include "Window.h"
 #include "AboutDialog.h"
+#ifdef MELONPRIME_DS
+#include "MelonPrimePatchShadowFreezeRuntimeHook.h"
+#endif
 
 using namespace melonDS;
 
@@ -676,6 +679,12 @@ MainWindow::MainWindow(int id, EmuInstance* inst, QWidget* parent) :
 
             actInputConfig = menu->addAction("Other settings");
             connect(actInputConfig, &QAction::triggered, this, &MainWindow::onOpenMetroidOtherSettings);
+
+            menu->addSeparator();
+
+            actMetroidFixSF = menu->addAction("Fix Shadow Freeze");
+            actMetroidFixSF->setCheckable(true);
+            connect(actMetroidFixSF, &QAction::triggered, this, &MainWindow::onChangeMetroidFixSF);
         }
         /* } MelonPrimeDS */
 #endif // MELONPRIME_DS
@@ -787,6 +796,9 @@ MainWindow::MainWindow(int id, EmuInstance* inst, QWidget* parent) :
 
         actLimitFramerate->setChecked(emuInstance->doLimitFPS);
         actAudioSync->setChecked(emuInstance->doAudioSync);
+#ifdef MELONPRIME_DS
+        actMetroidFixSF->setChecked(localCfg.GetBool("Metroid.BugFix.FixShadowFreeze"));
+#endif
 
         if (emuInstance->instanceID > 0)
         {
@@ -1934,12 +1946,20 @@ void MainWindow::onOpenMetroidOtherSettings()
 
     connect(dlg, &InputConfigDialog::finished, this, &MainWindow::onInputConfigFinished);
 }
+void MainWindow::onChangeMetroidFixSF(bool checked)
+{
+    localCfg.SetBool("Metroid.BugFix.FixShadowFreeze", checked);
+    MelonPrime::ShadowFreezeRuntimeHook_NotifyConfigChanged();
+}
 /* } MelonPrimeDS*/
 #endif // MELONPRIME_DS
 
 void MainWindow::onInputConfigFinished(int res)
 {
     emuThread->emuUnpause();
+#ifdef MELONPRIME_DS
+    actMetroidFixSF->setChecked(localCfg.GetBool("Metroid.BugFix.FixShadowFreeze"));
+#endif
 }
 
 void MainWindow::onOpenVideoSettings()

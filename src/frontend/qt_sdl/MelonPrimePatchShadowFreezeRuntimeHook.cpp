@@ -5,8 +5,10 @@
 #include "NDS.h"
 
 #include <algorithm>
+#include <atomic>
 #include <cstddef>
 #include <cstdint>
+#include <cstring>
 #include <limits>
 
 namespace MelonPrime {
@@ -108,14 +110,17 @@ static bool IsMainRamRange(uint32_t address, uint32_t size)
         && size - 1u <= 0x023FFFFFu - address;
 }
 
-static uint32_t ReadU32LE(melonDS::NDS* nds, uint32_t address)
+// Direct MainRAM read — callers must ensure IsMainRamRange(address, 4) is true.
+static uint32_t ReadMainRam32(melonDS::NDS* nds, uint32_t address)
 {
-    return nds->ARM9Read32(address);
+    uint32_t v;
+    std::memcpy(&v, nds->MainRAM + (address & 0x3FFFFFu), sizeof(v));
+    return v;
 }
 
-static int32_t ReadS32LE(melonDS::NDS* nds, uint32_t address)
+static int32_t ReadMainRamS32(melonDS::NDS* nds, uint32_t address)
 {
-    return static_cast<int32_t>(ReadU32LE(nds, address));
+    return static_cast<int32_t>(ReadMainRam32(nds, address));
 }
 
 static uint64_t AbsI64ToU64(int64_t value)
@@ -183,7 +188,7 @@ static bool GetTargetPositionAddress(melonDS::NDS* nds, uint32_t player, IceWave
         return IsMainRamRange(outPositionAddress, 12u);
     }
 
-    const uint32_t halfturret = ReadU32LE(nds, player + 0xF24u);
+    const uint32_t halfturret = ReadMainRam32(nds, player + 0xF24u);
     if (!IsMainRamRange(halfturret, 0x3Cu))
         return false;
 
@@ -203,17 +208,17 @@ static bool ComputeFull3DIceWaveDotQ12(
     const uint32_t beamDirectionAddress = beam + 0x70u;
     const uint32_t beamPositionAddress = beam + 0xA0u;
 
-    const int32_t targetX = ReadS32LE(nds, targetPositionAddress + 0u);
-    const int32_t targetY = ReadS32LE(nds, targetPositionAddress + 4u);
-    const int32_t targetZ = ReadS32LE(nds, targetPositionAddress + 8u);
+    const int32_t targetX = ReadMainRamS32(nds, targetPositionAddress + 0u);
+    const int32_t targetY = ReadMainRamS32(nds, targetPositionAddress + 4u);
+    const int32_t targetZ = ReadMainRamS32(nds, targetPositionAddress + 8u);
 
-    const int32_t beamX = ReadS32LE(nds, beamPositionAddress + 0u);
-    const int32_t beamY = ReadS32LE(nds, beamPositionAddress + 4u);
-    const int32_t beamZ = ReadS32LE(nds, beamPositionAddress + 8u);
+    const int32_t beamX = ReadMainRamS32(nds, beamPositionAddress + 0u);
+    const int32_t beamY = ReadMainRamS32(nds, beamPositionAddress + 4u);
+    const int32_t beamZ = ReadMainRamS32(nds, beamPositionAddress + 8u);
 
-    const int32_t dirX = ReadS32LE(nds, beamDirectionAddress + 0u);
-    const int32_t dirY = ReadS32LE(nds, beamDirectionAddress + 4u);
-    const int32_t dirZ = ReadS32LE(nds, beamDirectionAddress + 8u);
+    const int32_t dirX = ReadMainRamS32(nds, beamDirectionAddress + 0u);
+    const int32_t dirY = ReadMainRamS32(nds, beamDirectionAddress + 4u);
+    const int32_t dirZ = ReadMainRamS32(nds, beamDirectionAddress + 8u);
 
     const int64_t dx = static_cast<int64_t>(targetX) - static_cast<int64_t>(beamX);
     const int64_t dy = static_cast<int64_t>(targetY) - static_cast<int64_t>(beamY);
@@ -259,6 +264,45 @@ static const IceWaveDecisionHook* FindHook(uint8_t romGroupIndex, uint32_t arm9E
 static Config::Table* s_cfg = nullptr;
 static uint8_t s_romGroupIndex = 0xFFu;
 
+// Config generation cache: avoids a GetBool map lookup on every hook invocation.
+// s_configGen is written by the GUI thread (NotifyConfigChanged) and read by the
+// emu thread (HookCallback).  Atomic acquire/release is sufficient.
+static std::atomic<uint32_t> s_configGen{1};
+static uint32_t s_configGenSeen = 0;  // emu thread only
+static bool s_enabledCached = false;  // emu thread only
+
+// Core hook logic shared by both the callback and the public direct entry point.
+static bool ApplyHook(
+    melonDS::NDS* nds,
+    uint8_t romGroupIndex,
+    uint32_t arm9ExecAddr,
+    const uint32_t regs[16],
+    uint32_t& redirectExecAddr)
+{
+    const IceWaveDecisionHook* hook = FindHook(romGroupIndex, arm9ExecAddr);
+    if (!hook)
+        return false;
+
+    const uint32_t player      = regs[hook->PlayerReg];
+    const uint32_t beam        = regs[hook->BeamReg];
+    const int32_t thresholdQ12 = static_cast<int32_t>(regs[hook->ThresholdReg]);
+
+    if (!IsMainRamAddress(player) || !IsMainRamAddress(beam))
+        return false;
+
+    uint32_t targetPositionAddress = 0;
+    if (!GetTargetPositionAddress(nds, player, hook->Kind, targetPositionAddress))
+        return false;
+
+    int32_t fullDotQ12 = 0;
+    if (!ComputeFull3DIceWaveDotQ12(nds, beam, targetPositionAddress, fullDotQ12))
+        return false;
+
+    // Original: cmp dot, threshold / ble miss / fallthrough hit
+    redirectExecAddr = (fullDotQ12 > thresholdQ12) ? hook->HitAddress : hook->MissAddress;
+    return true;
+}
+
 static bool HookCallback(
     melonDS::NDS* nds,
     void* /*userdata*/,
@@ -269,8 +313,18 @@ static bool HookCallback(
     redirectExecAddr = 0;
     if (!s_cfg)
         return false;
-    return ShadowFreezeRuntimeHook_CheckAndRedirect(
-        nds, *s_cfg, s_romGroupIndex, arm9ExecAddr, regs, redirectExecAddr);
+
+    // Refresh enabled cache when the config generation changes (settings saved).
+    const uint32_t gen = s_configGen.load(std::memory_order_acquire);
+    if (s_configGenSeen != gen)
+    {
+        s_enabledCached = s_cfg->GetBool("Metroid.BugFix.FixShadowFreeze");
+        s_configGenSeen = gen;
+    }
+    if (!s_enabledCached)
+        return false;
+
+    return ApplyHook(nds, s_romGroupIndex, arm9ExecAddr, regs, redirectExecAddr);
 }
 
 } // anonymous namespace
@@ -291,6 +345,7 @@ void ShadowFreezeRuntimeHook_Install(
 
     s_cfg = &cfg;
     s_romGroupIndex = romGroupIndex;
+    s_configGenSeen = 0;  // force cache refresh on first invocation
 
     const IceWaveRomHooks& romHooks = kRomHooks[romGroupIndex];
     const uint32_t count = static_cast<uint32_t>(
@@ -328,31 +383,7 @@ bool ShadowFreezeRuntimeHook_CheckAndRedirect(
     if (!cfg.GetBool("Metroid.BugFix.FixShadowFreeze"))
         return false;
 
-    const IceWaveDecisionHook* hook = FindHook(romGroupIndex, arm9ExecAddr);
-    if (!hook)
-        return false;
-
-    const uint32_t player = regs[hook->PlayerReg];
-    const uint32_t beam = regs[hook->BeamReg];
-    const int32_t thresholdQ12 = static_cast<int32_t>(regs[hook->ThresholdReg]);
-
-    if (!IsMainRamAddress(player) || !IsMainRamAddress(beam))
-        return false;
-
-    uint32_t targetPositionAddress = 0;
-    if (!GetTargetPositionAddress(nds, player, hook->Kind, targetPositionAddress))
-        return false;
-
-    int32_t fullDotQ12 = 0;
-    if (!ComputeFull3DIceWaveDotQ12(nds, beam, targetPositionAddress, fullDotQ12))
-        return false;
-
-    // Original logic:
-    //   cmp dot, threshold
-    //   ble miss
-    //   fallthrough hit
-    redirectExecAddr = (fullDotQ12 > thresholdQ12) ? hook->HitAddress : hook->MissAddress;
-    return true;
+    return ApplyHook(nds, romGroupIndex, arm9ExecAddr, regs, redirectExecAddr);
 }
 
 bool ShadowFreezeRuntimeHook_CheckAndRedirectFromPipelinedR15(
@@ -379,6 +410,13 @@ void ShadowFreezeRuntimeHook_ResetPatchState()
 {
     s_cfg = nullptr;
     s_romGroupIndex = 0xFFu;
+    s_configGenSeen = 0;
+    s_enabledCached = false;
+}
+
+void ShadowFreezeRuntimeHook_NotifyConfigChanged()
+{
+    s_configGen.fetch_add(1, std::memory_order_release);
 }
 
 } // namespace MelonPrime

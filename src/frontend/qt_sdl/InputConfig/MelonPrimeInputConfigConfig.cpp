@@ -152,6 +152,7 @@ void MelonPrimeInputConfig::saveConfig()
     MelonPrime::CustomHud_InvalidateConfigCache();
 #ifdef MELONPRIME_DS
     MelonPrime::OsdColor_InvalidatePatch();
+    MelonPrime::ShadowFreezeRuntimeHook_NotifyConfigChanged();
 #endif
 }
 

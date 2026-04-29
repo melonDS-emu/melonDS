@@ -188,6 +188,7 @@ private slots:
     /* MelonPrimeDS */
     void onOpenMetroidInputSettings();
     void onOpenMetroidOtherSettings();
+    void onChangeMetroidFixSF(bool checked);
 #endif // MELONPRIME_DS
 
 private:
@@ -299,6 +300,9 @@ public:
     QAction* actShowOSD;
     QAction* actLimitFramerate;
     QAction* actAudioSync;
+#ifdef MELONPRIME_DS
+    QAction* actMetroidFixSF;
+#endif
 
     QAction* actAbout;
 };

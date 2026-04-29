@@ -47,6 +47,9 @@ bool ShadowFreezeRuntimeHook_CheckAndRedirectFromPipelinedR15(
 
 void ShadowFreezeRuntimeHook_ResetPatchState();
 
+// Call after saving settings so the callback refreshes its cached enabled state.
+void ShadowFreezeRuntimeHook_NotifyConfigChanged();
+
 } // namespace MelonPrime
 
 #endif // MELONPRIME_DS
