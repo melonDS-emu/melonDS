@@ -97,15 +97,16 @@ namespace melonDS::ARMInterpreter
     u32 val; cpu->DataRead32(offset, &val); \
     val = ROR(val, ((offset&0x3)<<3)); \
     if (cpu->CurInstr & (1<<21)) cpu->R[(cpu->CurInstr>>16) & 0xF] = offset; \
-    cpu->AddCycles_CDI(); \
-    if (((cpu->CurInstr>>12) & 0xF) == 15) \
+    u32 rd = (cpu->CurInstr>>12) & 0xF; \
+    cpu->AddCycles_Load(rd); \
+    if (rd == 15) \
     { \
         if (cpu->Num==1) val &= ~0x1; \
         cpu->JumpTo(val); \
     } \
     else \
     { \
-        cpu->R[(cpu->CurInstr>>12) & 0xF] = val; \
+        cpu->R[rd] = val; \
     }
 
 // TODO: user mode
@@ -114,33 +115,36 @@ namespace melonDS::ARMInterpreter
     u32 val; cpu->DataRead32(addr, &val); \
     val = ROR(val, ((addr&0x3)<<3)); \
     cpu->R[(cpu->CurInstr>>16) & 0xF] += offset; \
-    cpu->AddCycles_CDI(); \
-    if (((cpu->CurInstr>>12) & 0xF) == 15) \
+    u32 rd = (cpu->CurInstr>>12) & 0xF; \
+    cpu->AddCycles_Load(rd); \
+    if (rd == 15) \
     { \
         if (cpu->Num==1) val &= ~0x1; \
         cpu->JumpTo(val); \
     } \
     else \
     { \
-        cpu->R[(cpu->CurInstr>>12) & 0xF] = val; \
+        cpu->R[rd] = val; \
     }
 
 #define A_LDRB \
     offset += cpu->R[(cpu->CurInstr>>16) & 0xF]; \
     u32 val; cpu->DataRead8(offset, &val); \
     if (cpu->CurInstr & (1<<21)) cpu->R[(cpu->CurInstr>>16) & 0xF] = offset; \
-    cpu->AddCycles_CDI(); \
-    cpu->R[(cpu->CurInstr>>12) & 0xF] = val; \
-    if (((cpu->CurInstr>>12) & 0xF) == 15) printf("!! LDRB PC %08X\n", cpu->R[15]); \
+    u32 rd = (cpu->CurInstr>>12) & 0xF; \
+    cpu->AddCycles_Load(rd); \
+    cpu->R[rd] = val; \
+    if (rd == 15) printf("!! LDRB PC %08X\n", cpu->R[15]); \
 
 // TODO: user mode
 #define A_LDRB_POST \
     u32 addr = cpu->R[(cpu->CurInstr>>16) & 0xF]; \
     u32 val; cpu->DataRead8(addr, &val); \
     cpu->R[(cpu->CurInstr>>16) & 0xF] += offset; \
-    cpu->AddCycles_CDI(); \
-    cpu->R[(cpu->CurInstr>>12) & 0xF] = val; \
-    if (((cpu->CurInstr>>12) & 0xF) == 15) printf("!! LDRB PC %08X\n", cpu->R[15]); \
+    u32 rd = (cpu->CurInstr>>12) & 0xF; \
+    cpu->AddCycles_Load(rd); \
+    cpu->R[rd] = val; \
+    if (rd == 15) printf("!! LDRB PC %08X\n", cpu->R[15]); \
 
 
 
@@ -282,48 +286,54 @@ A_IMPLEMENT_WB_LDRSTR(LDRB)
 #define A_LDRH \
     offset += cpu->R[(cpu->CurInstr>>16) & 0xF]; \
     if (cpu->CurInstr & (1<<21)) cpu->R[(cpu->CurInstr>>16) & 0xF] = offset; \
-    cpu->DataRead16(offset, &cpu->R[(cpu->CurInstr>>12) & 0xF]); \
-    cpu->AddCycles_CDI(); \
-    if (((cpu->CurInstr>>12) & 0xF) == 15) printf("!! LDRH PC %08X\n", cpu->R[15]); \
+    u32 rd = (cpu->CurInstr>>12) & 0xF; \
+    cpu->DataRead16(offset, &cpu->R[rd]); \
+    cpu->AddCycles_Load(rd); \
+    if (rd == 15) printf("!! LDRH PC %08X\n", cpu->R[15]); \
 
 #define A_LDRH_POST \
     u32 addr = cpu->R[(cpu->CurInstr>>16) & 0xF]; \
     cpu->R[(cpu->CurInstr>>16) & 0xF] += offset; \
-    cpu->DataRead16(addr, &cpu->R[(cpu->CurInstr>>12) & 0xF]); \
-    cpu->AddCycles_CDI(); \
-    if (((cpu->CurInstr>>12) & 0xF) == 15) printf("!! LDRH PC %08X\n", cpu->R[15]); \
+    u32 rd = (cpu->CurInstr>>12) & 0xF; \
+    cpu->DataRead16(addr, &cpu->R[rd]); \
+    cpu->AddCycles_Load(rd); \
+    if (rd == 15) printf("!! LDRH PC %08X\n", cpu->R[15]); \
 
 #define A_LDRSB \
     offset += cpu->R[(cpu->CurInstr>>16) & 0xF]; \
     if (cpu->CurInstr & (1<<21)) cpu->R[(cpu->CurInstr>>16) & 0xF] = offset; \
-    cpu->DataRead8(offset, &cpu->R[(cpu->CurInstr>>12) & 0xF]); \
-    cpu->R[(cpu->CurInstr>>12) & 0xF] = (s32)(s8)cpu->R[(cpu->CurInstr>>12) & 0xF]; \
-    cpu->AddCycles_CDI(); \
-    if (((cpu->CurInstr>>12) & 0xF) == 15) printf("!! LDRSB PC %08X\n", cpu->R[15]); \
+    u32 rd = (cpu->CurInstr>>12) & 0xF; \
+    cpu->DataRead8(offset, &cpu->R[rd]); \
+    cpu->R[rd] = (s32)(s8)cpu->R[rd]; \
+    cpu->AddCycles_Load(rd); \
+    if (rd == 15) printf("!! LDRSB PC %08X\n", cpu->R[15]); \
 
 #define A_LDRSB_POST \
     u32 addr = cpu->R[(cpu->CurInstr>>16) & 0xF]; \
     cpu->R[(cpu->CurInstr>>16) & 0xF] += offset; \
-    cpu->DataRead8(addr, &cpu->R[(cpu->CurInstr>>12) & 0xF]); \
-    cpu->R[(cpu->CurInstr>>12) & 0xF] = (s32)(s8)cpu->R[(cpu->CurInstr>>12) & 0xF]; \
-    cpu->AddCycles_CDI(); \
-    if (((cpu->CurInstr>>12) & 0xF) == 15) printf("!! LDRSB PC %08X\n", cpu->R[15]); \
+    u32 rd = (cpu->CurInstr>>12) & 0xF; \
+    cpu->DataRead8(addr, &cpu->R[rd]); \
+    cpu->R[rd] = (s32)(s8)cpu->R[rd]; \
+    cpu->AddCycles_Load(rd); \
+    if (rd == 15) printf("!! LDRSB PC %08X\n", cpu->R[15]); \
 
 #define A_LDRSH \
     offset += cpu->R[(cpu->CurInstr>>16) & 0xF]; \
     if (cpu->CurInstr & (1<<21)) cpu->R[(cpu->CurInstr>>16) & 0xF] = offset; \
-    cpu->DataRead16(offset, &cpu->R[(cpu->CurInstr>>12) & 0xF]); \
-    cpu->R[(cpu->CurInstr>>12) & 0xF] = (s32)(s16)cpu->R[(cpu->CurInstr>>12) & 0xF]; \
-    cpu->AddCycles_CDI(); \
-    if (((cpu->CurInstr>>12) & 0xF) == 15) printf("!! LDRSH PC %08X\n", cpu->R[15]); \
+    u32 rd = (cpu->CurInstr>>12) & 0xF; \
+    cpu->DataRead16(offset, &cpu->R[rd]); \
+    cpu->R[rd] = (s32)(s16)cpu->R[rd]; \
+    cpu->AddCycles_Load(rd); \
+    if (rd == 15) printf("!! LDRSH PC %08X\n", cpu->R[15]); \
 
 #define A_LDRSH_POST \
     u32 addr = cpu->R[(cpu->CurInstr>>16) & 0xF]; \
     cpu->R[(cpu->CurInstr>>16) & 0xF] += offset; \
-    cpu->DataRead16(addr, &cpu->R[(cpu->CurInstr>>12) & 0xF]); \
-    cpu->R[(cpu->CurInstr>>12) & 0xF] = (s32)(s16)cpu->R[(cpu->CurInstr>>12) & 0xF]; \
-    cpu->AddCycles_CDI(); \
-    if (((cpu->CurInstr>>12) & 0xF) == 15) printf("!! LDRSH PC %08X\n", cpu->R[15]); \
+    u32 rd = (cpu->CurInstr>>12) & 0xF; \
+    cpu->DataRead16(addr, &cpu->R[rd]); \
+    cpu->R[rd] = (s32)(s16)cpu->R[rd]; \
+    cpu->AddCycles_Load(rd); \
+    if (rd == 15) printf("!! LDRSH PC %08X\n", cpu->R[15]); \
 
 
 #define A_IMPLEMENT_HD_LDRSTR(x) \

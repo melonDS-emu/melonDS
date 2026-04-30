@@ -72,6 +72,8 @@ void ARMv5::Reset()
     ICacheStreamTag = 0xFFFFFFFF;
     memset(ICacheStreamTime, 0, sizeof(ICacheStreamTime));
 
+    BusReady = false;
+
     MainRAMStartAddr = 0;
     //MainRAMStart = 0;
     //MainRAMCycles = 0;
@@ -460,6 +462,7 @@ void ARMv5::DoCodeAccessTimings(const u32 addr)
     // when using the bus, apply buffering delay: 3 cycles on DS, 2 cycles on DSi
     NDS.ARM9Timestamp = (NDS.ARM9Timestamp + ClockAlign) & ~ClockAlign;
     NDS.ARM9Timestamp += BusAccessDelay;
+    BusReady = true;
 
     // ARM9 code fetches are always nonsequential
 
@@ -475,13 +478,15 @@ void ARMv5::DoCodeAccessTimings(const u32 addr)
 
     // when loading code from the bus, the ARM9 can run up to two internal cycles in parallel
     CodeTimestamp = NDS.ARM9Timestamp - 1;
-    DataTimestamp = CodeTimestamp;
+    DataTimestamp = NDS.ARM9Timestamp - 2;
 }
 
 // TCM are handled here.
 
 u32 ARMv5::CodeRead32(const u32 addr, bool const branch)
 {
+    BusReady = false;
+
     /*if (NDS.ARM9Timestamp < DTCMTimestamp)
         NDS.ARM9Timestamp = DTCMTimestamp;
     else
@@ -556,19 +561,22 @@ u32 ARMv5::CodeRead32(const u32 addr, bool const branch)
 
 void ARMv5::ThumbCodeLatch()
 {
+    BusReady = false;
+
     /*CodeTimestamp = std::max(NDS.ARM9Timestamp, std::max(CodeTimestamp, DataTimestamp));
     DataTimestamp = CodeTimestamp;
     if (NDS.ARM9Timestamp < CodeTimestamp)
         NDS.ARM9Timestamp = CodeTimestamp;*/
 
     // instructions read from the THUMB latch always count one cycle
+    //DataTimestamp = CodeTimestamp;
     CodeTimestamp++;
 }
 
 
 void ARMv5::DoDataAccessTimings(const u32 addr, bool write, int width)
 {
-    if (CodeMem.Region & Mem9_CPUInstrMem)
+    //if (CodeMem.Region & Mem9_CPUInstrMem)
     {
         // if the code fetch was from internal memory, we need to get the bus ready
         // TODO flag for doing this forcefully
@@ -582,7 +590,9 @@ void ARMv5::DoDataAccessTimings(const u32 addr, bool write, int width)
 
         // when using the bus, apply buffering delay: 3 cycles on DS, 2 cycles on DSi
         NDS.ARM9Timestamp = (NDS.ARM9Timestamp + ClockAlign) & ~ClockAlign;
-        NDS.ARM9Timestamp += BusAccessDelay;
+        if (!BusReady)
+            NDS.ARM9Timestamp += BusAccessDelay;
+        BusReady = true;
     }
 
     NDS.ARM9GetMemInfo(addr, DataMem);
@@ -1095,6 +1105,27 @@ void ARMv5::AddCycles_CD()
     Cycles += std::max(numC + numD - 6, std::max(numC, numD));
     //else
     //    Cycles += numC + numD;
+}
+
+void ARMv5::AddCycles_Load(u32 rd)
+{
+    // add extra cycles if the destination register is interlocked
+    // (ie. if it's used as an input by the next instruction)
+    // PC is always interlocked
+    // TODO: interlock for other registers
+    if (rd == 15)
+    {
+        //if (CodeMem.Region & ~Mem9_CPUMem)
+        if (CodeMem.Region & DataMem.Region & ~Mem9_CPUMem)
+        {
+            NDS.ARM9Timestamp = (NDS.ARM9Timestamp + ClockAlign) & ~ClockAlign;
+            NDS.ARM9Timestamp += BusAccessDelay;
+            //CodeTimestamp = NDS.ARM9Timestamp;
+            //DataTimestamp = NDS.ARM9Timestamp;
+        }
+        else
+            CodeTimestamp += 2;
+    }
 }
 
 void ARMv5::AddCycles_Store()

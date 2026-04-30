@@ -166,6 +166,7 @@ public:
     virtual void AddCycles_CI(s32 numI) = 0;
     virtual void AddCycles_CDI() = 0;
     virtual void AddCycles_CD() = 0;
+    virtual void AddCycles_Load(u32 rd) = 0;
     virtual void AddCycles_Store() = 0;
 
     void CheckGdbIncoming();

@@ -53,6 +53,7 @@ public:
     void AddCycles_CI(s32 num) override;
     void AddCycles_CDI() override;
     void AddCycles_CD() override;
+    void AddCycles_Load(u32 rd) override;
     void AddCycles_Store() override;
 
 protected:

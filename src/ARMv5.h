@@ -64,6 +64,7 @@ public:
     void AddCycles_CI(s32 numI) override;
     void AddCycles_CDI() override;
     void AddCycles_CD() override;
+    void AddCycles_Load(u32 rd) override;
     void AddCycles_Store() override;
 
     void GetCodeMemRegion(const u32 addr, MemRegion* region);
@@ -437,6 +438,8 @@ private:
     // ICache streaming
     u32 ICacheStreamTag;
     u64 ICacheStreamTime[8];
+
+    bool BusReady;
 
     // mainRAM burst tracking
     // TODO better variable names

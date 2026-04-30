@@ -553,6 +553,13 @@ void ARMv4::AddCycles_CD()
     NextCodeFetchSeq = false;
 }
 
+void ARMv4::AddCycles_Load(u32 rd)
+{
+    // add one internal cycle
+    NDS.ARM7Timestamp++;
+    NextCodeFetchSeq = false;
+}
+
 void ARMv4::AddCycles_Store()
 {
     // writing to the same region we're running code from, adds one cycle of latency
