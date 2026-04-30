@@ -281,9 +281,10 @@ u64 FileWriteFormatted(FileHandle* file, const char* fmt, ...)
 
     va_list args;
     va_start(args, fmt);
-    u64 ret = vfprintf(reinterpret_cast<FILE *>(file), fmt, args);
+    const QByteArray formatted = QString::vasprintf(fmt, args).toUtf8();
+    reinterpret_cast<QFile*>(file)->write(formatted);
     va_end(args);
-    return ret;
+    return formatted.size();
 }
 
 u64 FileLength(FileHandle* file)
