@@ -136,6 +136,7 @@ void MelonPrimeInputConfig::setupSensitivityAndToggles(Config::Table& instcfg)
     // Bug fixes
     ui->cbMetroidFixWifiBitset->setChecked(instcfg.GetBool("Metroid.BugFix.WifiBitset"));
     ui->cbMetroidFixShadowFreeze->setChecked(instcfg.GetBool("Metroid.BugFix.FixShadowFreeze"));
+    ui->cbMetroidFixNoxusBladePersistence->setChecked(instcfg.GetBool("Metroid.BugFix.FixNoxusBladePersistence"));
     ui->cbMetroidUseFirmwareLanguage->setChecked(instcfg.GetBool("Metroid.BugFix.UseFirmwareLanguage"));
 
     // In-game scaling

@@ -4,7 +4,7 @@
 #include "MelonPrimeDef.h"
 #include "MelonPrimeGameRomAddrTable.h"
 #ifdef MELONPRIME_DS
-#include "MelonPrimePatchShadowFreezeRuntimeHook.h"
+#include "MelonPrimeArm9Hook.h"
 #endif
 
 #include <array>
@@ -19,7 +19,7 @@ namespace MelonPrime {
             RomGroup    group;
         };
 
-        static const std::array<RomInfo, 16> ROM_INFO_TABLE = { {
+        static const std::array<RomInfo, 17> ROM_INFO_TABLE = { {
             { RomVersions::US1_1,           "US1.1",           RomGroup::US1_1 },
             { RomVersions::US1_1_ENCRYPTED, "US1.1 ENCRYPTED", RomGroup::US1_1 },
             { RomVersions::US1_0,           "US1.0",           RomGroup::US1_0 },
@@ -88,7 +88,7 @@ namespace MelonPrime {
         }
 
 #ifdef MELONPRIME_DS
-        ShadowFreezeRuntimeHook_Install(
+        ARM9Hook_Install(
             emuInstance->getNDS(),
             localCfg,
             m_currentRom.romGroupIndex);

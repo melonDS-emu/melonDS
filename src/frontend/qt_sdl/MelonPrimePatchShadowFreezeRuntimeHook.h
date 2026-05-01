@@ -12,22 +12,30 @@ namespace MelonPrime {
 
 // Cave-free / ROM-write-free Shadow Freeze fix.
 //
-// Install registers the ARM9 pre-instruction hook for the given ROM version.
-// Uninstall clears it.  Both are safe to call multiple times.
-void ShadowFreezeRuntimeHook_Install(
-    melonDS::NDS* nds,
-    Config::Table& cfg,
-    uint8_t romGroupIndex);
-
-void ShadowFreezeRuntimeHook_Uninstall(melonDS::NDS* nds);
-
-// Direct check, intended to be called from an ARM9 pre-instruction hook.
-// Pass the real instruction address currently about to execute, not the pipelined
-// ARM R15 value.  When it returns true, skip normal execution of that instruction
-// and jump to redirectExecAddr instead.
+// Hook registration is managed by MelonPrimeArm9Hook (the shared ARM9 dispatcher).
+// The functions below are the per-module API used by that dispatcher.
 //
-// ROM group order:
-//   JP1_0=0, JP1_1=1, US1_0=2, US1_1=3, EU1_0=4, EU1_1=5, KR1_0=6.
+// ROM group order: JP1_0=0, JP1_1=1, US1_0=2, US1_1=3, EU1_0=4, EU1_1=5, KR1_0=6.
+
+// Dispatcher API — called by MelonPrimeArm9Hook Install/Uninstall.
+uint32_t ShadowFreezeRuntimeHook_GetAddresses(
+    uint8_t romGroupIndex,
+    uint32_t* out,
+    uint32_t maxCount);
+
+void ShadowFreezeRuntimeHook_SetState(Config::Table* cfg, uint8_t romGroupIndex);
+void ShadowFreezeRuntimeHook_ClearState();
+
+// Fast dispatch path called from the shared ARM9 HookCallback.
+// Uses cached config state.  Returns true and sets redirectExecAddr when redirecting.
+bool ShadowFreezeRuntimeHook_DispatchCheckAndRedirect(
+    melonDS::NDS* nds,
+    uint32_t arm9ExecAddr,
+    const uint32_t regs[16],
+    uint32_t& redirectExecAddr);
+
+// Direct check for callers that hold an explicit Config::Table reference.
+// Pass the real instruction address currently about to execute, not pipelined R15.
 bool ShadowFreezeRuntimeHook_CheckAndRedirect(
     melonDS::NDS* nds,
     Config::Table& cfg,
@@ -36,8 +44,6 @@ bool ShadowFreezeRuntimeHook_CheckAndRedirect(
     const uint32_t regs[16],
     uint32_t& redirectExecAddr);
 
-// Optional helper for implementations that only have the usual ARM pipelined R15.
-// In ARM state, the executing instruction address is normally R15 - 8.
 bool ShadowFreezeRuntimeHook_CheckAndRedirectFromPipelinedR15(
     melonDS::NDS* nds,
     Config::Table& cfg,
@@ -46,8 +52,6 @@ bool ShadowFreezeRuntimeHook_CheckAndRedirectFromPipelinedR15(
     uint32_t& redirectExecAddr);
 
 void ShadowFreezeRuntimeHook_ResetPatchState();
-
-// Call after saving settings so the callback refreshes its cached enabled state.
 void ShadowFreezeRuntimeHook_NotifyConfigChanged();
 
 } // namespace MelonPrime

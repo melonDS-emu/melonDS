@@ -92,6 +92,8 @@ set(SOURCES_QT_SDL
     MelonPrimePatchFixWifi.cpp
     MelonPrimePatchUseFirmwareLanguage.cpp
     MelonPrimePatchShadowFreezeRuntimeHook.cpp
+    MelonPrimePatchFixNoxusBladePersistence.cpp
+    MelonPrimeArm9Hook.cpp
 
 
 )

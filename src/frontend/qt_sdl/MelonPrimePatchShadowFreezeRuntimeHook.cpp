@@ -303,9 +303,36 @@ static bool ApplyHook(
     return true;
 }
 
-static bool HookCallback(
+} // anonymous namespace
+
+uint32_t ShadowFreezeRuntimeHook_GetAddresses(
+    uint8_t romGroupIndex, uint32_t* out, uint32_t maxCount)
+{
+    if (romGroupIndex >= sizeof(kRomHooks) / sizeof(kRomHooks[0]) || maxCount == 0)
+        return 0;
+
+    const IceWaveRomHooks& hooks = kRomHooks[romGroupIndex];
+    uint32_t count = 0;
+    for (std::size_t i = 0; i < hooks.Count && count < maxCount; ++i)
+        out[count++] = hooks.Hooks[i].DecisionAddress;
+    return count;
+}
+
+void ShadowFreezeRuntimeHook_SetState(Config::Table* cfg, uint8_t romGroupIndex)
+{
+    s_cfg           = cfg;
+    s_romGroupIndex = romGroupIndex;
+    s_configGenSeen = 0;
+}
+
+void ShadowFreezeRuntimeHook_ClearState()
+{
+    s_cfg           = nullptr;
+    s_romGroupIndex = 0xFFu;
+}
+
+bool ShadowFreezeRuntimeHook_DispatchCheckAndRedirect(
     melonDS::NDS* nds,
-    void* /*userdata*/,
     uint32_t arm9ExecAddr,
     const uint32_t regs[16],
     uint32_t& redirectExecAddr)
@@ -314,7 +341,6 @@ static bool HookCallback(
     if (!s_cfg)
         return false;
 
-    // Refresh enabled cache when the config generation changes (settings saved).
     const uint32_t gen = s_configGen.load(std::memory_order_acquire);
     if (s_configGenSeen != gen)
     {
@@ -325,46 +351,6 @@ static bool HookCallback(
         return false;
 
     return ApplyHook(nds, s_romGroupIndex, arm9ExecAddr, regs, redirectExecAddr);
-}
-
-} // anonymous namespace
-
-void ShadowFreezeRuntimeHook_Install(
-    melonDS::NDS* nds,
-    Config::Table& cfg,
-    uint8_t romGroupIndex)
-{
-    if (!nds || romGroupIndex >= sizeof(kRomHooks) / sizeof(kRomHooks[0]))
-    {
-        s_cfg = nullptr;
-        s_romGroupIndex = 0xFFu;
-        if (nds)
-            nds->ClearARM9InstructionHook();
-        return;
-    }
-
-    s_cfg = &cfg;
-    s_romGroupIndex = romGroupIndex;
-    s_configGenSeen = 0;  // force cache refresh on first invocation
-
-    const IceWaveRomHooks& romHooks = kRomHooks[romGroupIndex];
-    const uint32_t count = static_cast<uint32_t>(
-        std::min(romHooks.Count,
-                 static_cast<std::size_t>(melonDS::NDS::ARM9InstructionHookMaxAddresses)));
-
-    uint32_t addresses[melonDS::NDS::ARM9InstructionHookMaxAddresses] = {};
-    for (uint32_t i = 0; i < count; ++i)
-        addresses[i] = romHooks.Hooks[i].DecisionAddress;
-
-    nds->SetARM9InstructionHook(HookCallback, nullptr, addresses, count);
-}
-
-void ShadowFreezeRuntimeHook_Uninstall(melonDS::NDS* nds)
-{
-    s_cfg = nullptr;
-    s_romGroupIndex = 0xFFu;
-    if (nds)
-        nds->ClearARM9InstructionHook();
 }
 
 bool ShadowFreezeRuntimeHook_CheckAndRedirect(
