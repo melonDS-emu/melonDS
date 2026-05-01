@@ -27,6 +27,7 @@ namespace MelonPrime {
             { RomVersions::EU1_1,           "EU1.1",           RomGroup::EU1_1 },
             { RomVersions::EU1_1_ENCRYPTED, "EU1.1 ENCRYPTED", RomGroup::EU1_1 },
             { RomVersions::EU1_1_BALANCED,  "EU1.1 BALANCED",  RomGroup::EU1_1 },
+            { RomVersions::EU1_1_BALANCED_V1_2_11, "EU1.1 BALANCED V1.2.11", RomGroup::EU1_1 },
             { RomVersions::EU1_1_RUSSIANED, "EU1.1 RUSSIANED", RomGroup::EU1_1 },
             { RomVersions::EU1_0,           "EU1.0",           RomGroup::EU1_0 },
             { RomVersions::EU1_0_ENCRYPTED, "EU1.0 ENCRYPTED", RomGroup::EU1_0 },

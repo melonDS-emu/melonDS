@@ -1976,6 +1976,7 @@ bool EmuInstance::loadROM(QStringList filepath, bool reset, QString& errorstr)
     case MelonPrime::RomVersions::JP1_1:
     case MelonPrime::RomVersions::KR1_0:
     case MelonPrime::RomVersions::EU1_1_BALANCED:
+    case MelonPrime::RomVersions::EU1_1_BALANCED_V1_2_11:
     case MelonPrime::RomVersions::EU1_1_RUSSIANED:
     case MelonPrime::RomVersions::US1_0_ENCRYPTED:
     case MelonPrime::RomVersions::US1_1_ENCRYPTED:
