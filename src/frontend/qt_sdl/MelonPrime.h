@@ -166,6 +166,17 @@ namespace MelonPrime {
         [[nodiscard]] bool ShouldForceSoftwareRenderer() const;
         [[nodiscard]] uint16_t GetInputMaskFast() const { return m_inputMaskFast; }
 
+#ifdef MELONPRIME_DS
+        static uint32_t NativeAimDeltaHook_GetAddresses(
+            uint8_t romGroupIndex,
+            uint32_t* out,
+            uint32_t maxCount);
+        void NativeAimDeltaHook_DispatchCheck(
+            melonDS::NDS* nds,
+            uint32_t arm9ExecAddr,
+            uint32_t regs[16]);
+#endif
+
 #ifdef MELONPRIME_CUSTOM_HUD
         [[nodiscard]] const RomAddresses& GetCurrentRom() const { return m_currentRom; }
         [[nodiscard]] const GameAddressesHot& GetAddrHot() const { return m_addrHot; }
@@ -247,6 +258,9 @@ namespace MelonPrime {
         // ProcessAimInputMouse reads these every frame right after residuals.
         bool     m_disableMphAimSmoothing = false;
         bool     m_enableAimAccumulator = false;
+        bool     m_enableNativeAimDeltaHook = false;
+        int16_t  m_nativeAimDeltaX = 0;
+        int16_t  m_nativeAimDeltaY = 0;
 
         // Warm scalars (checked per frame but not in aim hot path)
         bool     m_isRunningHook = false;

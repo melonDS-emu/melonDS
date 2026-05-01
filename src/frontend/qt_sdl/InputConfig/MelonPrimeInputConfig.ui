@@ -196,7 +196,12 @@
 												<property name="text"><string>Enable Aim Sub-pixel Accumulator (Carry fractional mouse movement across frames. Enable for smoother low-sensitivity aiming)</string></property>
 											</widget>
 										</item>
-										<item row="8" column="0">
+										<item row="8" column="0" colspan="2">
+											<widget class="QCheckBox" name="cbMetroidEnableNativeAimDeltaHook">
+												<property name="text"><string>Enable Native Aim Delta Hook (lower latency when MPH aim smoothing is disabled)</string></property>
+											</widget>
+										</item>
+										<item row="9" column="0">
 											<widget class="QPushButton" name="metroidResetSensitivityValues">
 												<property name="text">
 													<string>Reset sensitivity values</string>

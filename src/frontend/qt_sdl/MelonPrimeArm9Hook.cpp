@@ -1,6 +1,7 @@
 #ifdef MELONPRIME_DS
 
 #include "MelonPrimeArm9Hook.h"
+#include "MelonPrime.h"
 #include "MelonPrimePatchShadowFreezeRuntimeHook.h"
 #include "MelonPrimePatchFixNoxusBladePersistence.h"
 #include "NDS.h"
@@ -13,12 +14,15 @@ namespace {
 
 static bool DispatcherCallback(
     melonDS::NDS* nds,
-    void* /*userdata*/,
+    void* userdata,
     uint32_t arm9ExecAddr,
-    const uint32_t regs[16],
+    uint32_t regs[16],
     uint32_t& redirectExecAddr)
 {
     redirectExecAddr = 0;
+
+    if (auto* core = static_cast<MelonPrimeCore*>(userdata))
+        core->NativeAimDeltaHook_DispatchCheck(nds, arm9ExecAddr, regs);
 
     // Side-effect hook: runs regardless of whether a redirect follows.
     FixNoxusBladePersistence_DispatchCheck(nds, arm9ExecAddr, regs);
@@ -33,7 +37,8 @@ static bool DispatcherCallback(
 void ARM9Hook_Install(
     melonDS::NDS* nds,
     Config::Table& cfg,
-    uint8_t romGroupIndex)
+    uint8_t romGroupIndex,
+    MelonPrimeCore* core)
 {
     if (!nds)
     {
@@ -48,6 +53,11 @@ void ARM9Hook_Install(
     uint32_t addresses[melonDS::NDS::ARM9InstructionHookMaxAddresses] = {};
     uint32_t count = 0;
 
+    count += MelonPrimeCore::NativeAimDeltaHook_GetAddresses(
+        romGroupIndex,
+        addresses + count,
+        melonDS::NDS::ARM9InstructionHookMaxAddresses - count);
+
     count += ShadowFreezeRuntimeHook_GetAddresses(
         romGroupIndex,
         addresses + count,
@@ -60,7 +70,7 @@ void ARM9Hook_Install(
 
     if (count > 0)
     {
-        nds->SetARM9InstructionHook(DispatcherCallback, nullptr, addresses, count);
+        nds->SetARM9InstructionHook(DispatcherCallback, core, addresses, count);
 
         // Force JIT cache invalidation for every registered address.
         // The death cleanup code (NoxusBlade hook) may have been JIT-compiled

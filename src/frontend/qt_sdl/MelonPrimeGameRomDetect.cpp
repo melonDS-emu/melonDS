@@ -91,7 +91,8 @@ namespace MelonPrime {
         ARM9Hook_Install(
             emuInstance->getNDS(),
             localCfg,
-            m_currentRom.romGroupIndex);
+            m_currentRom.romGroupIndex,
+            this);
 #endif
 
         char message[256];

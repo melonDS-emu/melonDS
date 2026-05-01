@@ -56,6 +56,7 @@ namespace MelonPrime {
 
         m_disableMphAimSmoothing = localCfg.GetBool(CfgKey::DisableMphAimSmoothing);
         m_enableAimAccumulator = localCfg.GetBool(CfgKey::AimAccumulator);
+        m_enableNativeAimDeltaHook = localCfg.GetBool(CfgKey::NativeAimDeltaHook);
 
         screenSyncMode = localCfg.GetInt(CfgKey::ScreenSyncMode);
     }
@@ -174,6 +175,8 @@ namespace MelonPrime {
         // Old residuals were computed with previous scale factors.
         m_aimResidualX = 0;
         m_aimResidualY = 0;
+        m_nativeAimDeltaX = 0;
+        m_nativeAimDeltaY = 0;
     }
 
     void MelonPrimeCore::OnEmuStart()
@@ -202,6 +205,8 @@ namespace MelonPrime {
         InputReset();
         m_aimResidualX = 0;
         m_aimResidualY = 0;
+        m_nativeAimDeltaX = 0;
+        m_nativeAimDeltaY = 0;
 
         // P-3: Cache panel pointer (avoids 3-level pointer chase every frame)
         if (auto* mw = emuInstance->getMainWindow())

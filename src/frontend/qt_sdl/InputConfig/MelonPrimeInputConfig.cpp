@@ -126,6 +126,7 @@ void MelonPrimeInputConfig::setupSensitivityAndToggles(Config::Table& instcfg)
     ui->cbMetroidEnableStylusMode->setChecked(instcfg.GetBool("Metroid.Enable.stylusMode"));
     ui->cbMetroidDisableMphAimSmoothing->setChecked(instcfg.GetBool("Metroid.Aim.Disable.MphAimSmoothing"));
     ui->cbMetroidEnableAimAccumulator->setChecked(instcfg.GetBool("Metroid.Aim.Enable.Accumulator"));
+    ui->cbMetroidEnableNativeAimDeltaHook->setChecked(instcfg.GetBool("Metroid.Aim.Enable.NativeDeltaHook"));
     updateAimControlsForStylusMode(ui->cbMetroidEnableStylusMode->isChecked());
 
     // Screen Sync Mode
@@ -156,6 +157,7 @@ void MelonPrimeInputConfig::updateAimControlsForStylusMode(bool stylusEnabled)
     ui->metroidAimAdjustSpinBox->setEnabled(enableAimControls);
     ui->metroidAimAdjustLabel->setEnabled(enableAimControls);
     ui->cbMetroidEnableAimAccumulator->setEnabled(enableAimControls);
+    ui->cbMetroidEnableNativeAimDeltaHook->setEnabled(enableAimControls);
 }
 
 void MelonPrimeInputConfig::setupCollapsibleSections(Config::Table& instcfg)

@@ -10,20 +10,24 @@ namespace melonDS { class NDS; }
 
 namespace MelonPrime {
 
+class MelonPrimeCore;
+
 // Combined ARM9 instruction hook dispatcher.
 //
 // Owns the single SetARM9InstructionHook slot and dispatches to all registered
 // MelonPrime runtime hooks in priority order:
 //
-//   1. FixNoxusBladePersistence  — side effect only, never redirects
-//   2. ShadowFreezeRuntimeHook   — may redirect execution
+//   1. NativeAimDeltaHook        — register side effect only, never redirects
+//   2. FixNoxusBladePersistence  — RAM side effect only, never redirects
+//   3. ShadowFreezeRuntimeHook   — may redirect execution
 //
 // Call Install once after ROM detection.  Call Uninstall on emu stop/reset.
 
 void ARM9Hook_Install(
     melonDS::NDS* nds,
     Config::Table& cfg,
-    uint8_t romGroupIndex);
+    uint8_t romGroupIndex,
+    MelonPrimeCore* core);
 
 void ARM9Hook_Uninstall(melonDS::NDS* nds);
 

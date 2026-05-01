@@ -21,6 +21,7 @@ namespace MelonPrime {
         inline constexpr const char* AimAdjust       = "Metroid.Aim.Adjust";
         inline constexpr const char* DisableMphAimSmoothing = "Metroid.Aim.Disable.MphAimSmoothing";
         inline constexpr const char* AimAccumulator = "Metroid.Aim.Enable.Accumulator";
+        inline constexpr const char* NativeAimDeltaHook = "Metroid.Aim.Enable.NativeDeltaHook";
         inline constexpr const char* ScreenSyncMode = "Metroid.Screen.SyncMode";
         inline constexpr const char* MphSens         = "Metroid.Sensitivity.Mph";
         inline constexpr const char* Headphone       = "Metroid.Apply.Headphone";
