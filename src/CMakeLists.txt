@@ -12,6 +12,7 @@ add_library(core STATIC
     ARMInterpreter_ALU.cpp
     ARMInterpreter_Branch.cpp
     ARMInterpreter_LoadStore.cpp
+    ARMCachedInt/ARMCachedInt.cpp
     CP15.cpp
     CRC32.cpp
     DMA.cpp
