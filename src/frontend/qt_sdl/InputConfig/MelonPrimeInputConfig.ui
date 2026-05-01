@@ -115,11 +115,17 @@
 											</widget>
 										</item>
 										<item row="3" column="0" colspan="2">
+											<widget class="QCheckBox" name="cbMetroidEnableNativeAimDeltaHook">
+												<property name="text"><string>Enable Native Aim Delta Hook</string></property>
+												<property name="styleSheet"><string>QCheckBox { margin-left: 24px; }</string></property>
+											</widget>
+										</item>
+										<item row="4" column="0" colspan="2">
 											<widget class="QCheckBox" name="cbMetroidEnableStylusMode">
 												<property name="text"><string>Enable Stylus Mode (Leave this unchecked unless you want to play with the stylus)</string></property>
 											</widget>
 										</item>
-										<item row="4" column="0">
+										<item row="5" column="0">
 											<widget class="QSpinBox" name="metroidAimSensitvitySpinBox">
 												<property name="minimum">
 													<number>0</number>
@@ -132,14 +138,14 @@
 												</property>
 											</widget>
 										</item>
-										<item row="4" column="1">
+										<item row="5" column="1">
 											<widget class="QLabel" name="metroidAimSensitvityLabel">
 												<property name="text">
 													<string>Aim sensitivity (default: 63)</string>
 												</property>
 											</widget>
 										</item>
-										<item row="5" column="0">
+										<item row="6" column="0">
 											<widget class="QDoubleSpinBox" name="metroidAimYAxisScaleSpinBox">
 												<property name="minimum">
 													<double>0.000001</double>
@@ -158,14 +164,14 @@
 												</property>
 											</widget>
 										</item>
-										<item row="5" column="1">
+										<item row="6" column="1">
 											<widget class="QLabel" name="metroidAimYAxisScaleLabel">
 												<property name="text">
 													<string>Aim Y-Axis Scale (default: 1.5)</string>
 												</property>
 											</widget>
 										</item>
-										<item row="6" column="0">
+										<item row="7" column="0">
 											<widget class="QDoubleSpinBox" name="metroidAimAdjustSpinBox">
 												<property name="minimum">
 													<double>0.000000</double>
@@ -184,21 +190,16 @@
 												</property>
 											</widget>
 										</item>
-										<item row="6" column="1">
+										<item row="7" column="1">
 											<widget class="QLabel" name="metroidAimAdjustLabel">
 												<property name="text">
 													<string notr="true">&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;&lt;b&gt;Input threshold (deadzone + snap)&lt;/b&gt; (recommended: 0.01 [default] or 0.5): |x|&amp;lt;a → 0, a ≤ |x|&amp;lt;1 → ±1, |x|≥1 → as is (a=0: off = all values under 1 ignored, no snap)&lt;br/&gt;When your aim isn't going the way you want, try lowering this value.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
 												</property>
 											</widget>
 										</item>
-										<item row="7" column="0" colspan="2">
+										<item row="8" column="0" colspan="2">
 											<widget class="QCheckBox" name="cbMetroidEnableAimAccumulator">
 												<property name="text"><string>Enable Aim Sub-pixel Accumulator (Carry fractional mouse movement across frames. Enable for smoother low-sensitivity aiming)</string></property>
-											</widget>
-										</item>
-										<item row="8" column="0" colspan="2">
-											<widget class="QCheckBox" name="cbMetroidEnableNativeAimDeltaHook">
-												<property name="text"><string>Enable Native Aim Delta Hook (lower latency when MPH aim smoothing is disabled)</string></property>
 											</widget>
 										</item>
 										<item row="9" column="0">

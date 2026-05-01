@@ -106,6 +106,7 @@ private slots:
     void on_cbMetroidUseFirmwareName_stateChanged(int state);
     void on_cbMetroidEnableCustomHud_stateChanged(int state);
     void on_cbMetroidEnableStylusMode_stateChanged(int state);
+    void on_cbMetroidDisableMphAimSmoothing_stateChanged(int state);
     void on_btnEditHudLayout_clicked();
     void applyVisualPreview();
 

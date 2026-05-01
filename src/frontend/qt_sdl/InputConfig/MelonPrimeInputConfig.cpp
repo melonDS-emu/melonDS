@@ -157,7 +157,8 @@ void MelonPrimeInputConfig::updateAimControlsForStylusMode(bool stylusEnabled)
     ui->metroidAimAdjustSpinBox->setEnabled(enableAimControls);
     ui->metroidAimAdjustLabel->setEnabled(enableAimControls);
     ui->cbMetroidEnableAimAccumulator->setEnabled(enableAimControls);
-    ui->cbMetroidEnableNativeAimDeltaHook->setEnabled(enableAimControls);
+    ui->cbMetroidEnableNativeAimDeltaHook->setEnabled(
+        enableAimControls && ui->cbMetroidDisableMphAimSmoothing->isChecked());
 }
 
 void MelonPrimeInputConfig::setupCollapsibleSections(Config::Table& instcfg)
@@ -327,6 +328,11 @@ void MelonPrimeInputConfig::on_cbMetroidEnableCustomHud_stateChanged(int state)
 void MelonPrimeInputConfig::on_cbMetroidEnableStylusMode_stateChanged(int state)
 {
     updateAimControlsForStylusMode(state != 0);
+}
+
+void MelonPrimeInputConfig::on_cbMetroidDisableMphAimSmoothing_stateChanged(int)
+{
+    updateAimControlsForStylusMode(ui->cbMetroidEnableStylusMode->isChecked());
 }
 
 void MelonPrimeInputConfig::on_btnEditHudLayout_clicked()
