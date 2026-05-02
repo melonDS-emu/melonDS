@@ -193,10 +193,12 @@ namespace MelonPrime {
 #endif
 #ifdef MELONPRIME_DS
         ARM9Hook_Uninstall(emuInstance->getNDS());
+        CurrentAimCopyForce_RestoreOnce(emuInstance->getNDS(), m_currentRom.romGroupIndex);
         InGameAspectRatio_ResetPatchState();
         OsdColor_ResetPatchState();
         FixWifi_ResetPatchState();
         UseFirmwareLanguage_ResetPatchState();
+        CurrentAimCopyForce_ResetPatchState();
         ARM9Hook_ResetPatchState();
 #endif
 
@@ -225,10 +227,12 @@ namespace MelonPrime {
 #endif
 #ifdef MELONPRIME_DS
         ARM9Hook_Uninstall(emuInstance->getNDS());
+        CurrentAimCopyForce_RestoreOnce(emuInstance->getNDS(), m_currentRom.romGroupIndex);
         InGameAspectRatio_ResetPatchState();
         OsdColor_ResetPatchState();
         FixWifi_ResetPatchState();
         UseFirmwareLanguage_ResetPatchState();
+        CurrentAimCopyForce_ResetPatchState();
         ARM9Hook_ResetPatchState();
 #endif
     }
@@ -379,6 +383,9 @@ namespace MelonPrime {
                 CustomHud_EnsurePatchRestored(
                     emuInstance, localCfg, m_currentRom, m_playerPosition, false);
 #endif
+#ifdef MELONPRIME_DS
+                CurrentAimCopyForce_RestoreOnce(emuInstance->getNDS(), m_currentRom.romGroupIndex);
+#endif
                 OsdColor_RestoreOnce(emuInstance->getNDS(), m_currentRom);
             }
 
@@ -510,6 +517,10 @@ namespace MelonPrime {
         // Apply patches that need game-join context (player struct resolved)
         InGameAspectRatio_ApplyOnce(emuInstance, localCfg, m_currentRom);
         OsdColor_ApplyOnce(emuInstance, localCfg, m_currentRom);
+        CurrentAimCopyForce_ApplyOnce(
+            emuInstance->getNDS(),
+            localCfg,
+            m_currentRom.romGroupIndex);
 #endif
 #ifdef MELONPRIME_CUSTOM_HUD
         // Cache battle settings for HUD display

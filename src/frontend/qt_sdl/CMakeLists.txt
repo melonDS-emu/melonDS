@@ -93,6 +93,7 @@ set(SOURCES_QT_SDL
     MelonPrimePatchUseFirmwareLanguage.cpp
     MelonPrimePatchShadowFreezeRuntimeHook.cpp
     MelonPrimePatchFixNoxusBladePersistence.cpp
+    MelonPrimePatchCurrentAimCopyForce.cpp
     MelonPrimeArm9Hook.cpp
 
 
