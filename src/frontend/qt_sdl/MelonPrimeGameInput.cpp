@@ -390,17 +390,16 @@ namespace MelonPrime {
                     return;
                 }
 
-                // Direct write — no << ampShift needed.
-                // >> 12 already produces the same scale as the old >> 14 << 2.
-                // Note: PREFETCH_WRITE for aimX/aimY issued at top of HandleInGameLogic
-                //       with proper lead time (~50-100 instructions). Inner prefetches
-                //       here (2 instructions before write) are too late to help and removed.
                 if (m_enableNativeAimDeltaHook) {
                     m_nativeAimDeltaX = outX;
                     m_nativeAimDeltaY = outY;
                 }
-                *m_ptrs.aimX = static_cast<uint16_t>(outX);
-                *m_ptrs.aimY = static_cast<uint16_t>(outY);
+                else {
+                    // Direct write fallback — no << ampShift needed.
+                    // >> 12 already produces the same scale as the old >> 14 << 2.
+                    *m_ptrs.aimX = static_cast<uint16_t>(outX);
+                    *m_ptrs.aimY = static_cast<uint16_t>(outY);
+                }
             }
             else {
                 // =========================================================
