@@ -637,7 +637,14 @@ The EU ROM has a hidden Japanese option — setting your DS firmware to Japanese
 								<layout class="QVBoxLayout">
 									<item>
 										<widget class="QCheckBox" name="cbMetroidApplyJoy2KeySupport">
-											<property name="text"><string>Enable Joy2KeySupport (slightly increase input delay)</string></property>
+											<property name="text"><string>Enable Joy2KeySupport (enable this if keys sometimes get stuck; slightly increases input delay)</string></property>
+										</widget>
+									</item>
+									<item>
+										<widget class="QLabel" name="lblMetroidJoy2KeySupportDesc">
+											<property name="text"><string>Compatibility mode for external controller-to-keyboard/mouse tools such as JoyToKey, Steam Input, reWASD, or similar remappers. It can help when mapped keys sometimes stay pressed after release. If you use a normal keyboard and mouse directly, disabling this may reduce input latency slightly.</string></property>
+											<property name="wordWrap"><bool>true</bool></property>
+											<property name="styleSheet"><string>QLabel { margin-left: 20px; }</string></property>
 										</widget>
 									</item>
 									</layout>
