@@ -160,6 +160,8 @@ void MelonPrimeInputConfig::updateAimControlsForStylusMode(bool stylusEnabled)
     ui->cbMetroidEnableAimAccumulator->setEnabled(enableAimControls);
     ui->cbMetroidEnableNativeAimDeltaHook->setEnabled(
         enableAimControls && ui->cbMetroidDisableMphAimSmoothing->isChecked());
+    ui->lblMetroidNativeAimDeltaHookDesc->setEnabled(
+        enableAimControls && ui->cbMetroidDisableMphAimSmoothing->isChecked());
     ui->cbMetroidEnableInstantAimFollow->setEnabled(enableAimControls);
     ui->lblMetroidInstantAimFollowDesc->setEnabled(enableAimControls);
 }
