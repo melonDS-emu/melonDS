@@ -9,28 +9,48 @@
     void* ARM9InstructionHookUserData = nullptr;
     u32 ARM9InstructionHookAddresses[ARM9InstructionHookMaxAddresses] {};
     u32 ARM9InstructionHookAddrCount = 0;
+    u32 ARM9InstructionHookAddrHashMask = 0;
 
 #elif defined(MELONPRIME_ARM9_INSTRUCTION_HOOK_NDS_METHODS)
 
     void SetARM9InstructionHook(ARM9InstructionHookFn hook, void* userdata, const u32* addresses, u32 addressCount) noexcept;
     void ClearARM9InstructionHook() noexcept;
 
-    [[nodiscard]] bool ARM9InstructionHookMatches(u32 arm9ExecAddr) const noexcept
+    [[nodiscard]] bool ARM9InstructionHookAddressMatches(u32 arm9ExecAddr) const noexcept
     {
-        if (!ARM9InstructionHook)
+        if ((ARM9InstructionHookAddrHashMask & (1u << ((arm9ExecAddr >> 2) & 31u))) == 0)
             return false;
 
-        for (u32 i = 0; i < ARM9InstructionHookAddrCount; ++i)
-            if (ARM9InstructionHookAddresses[i] == arm9ExecAddr)
-                return true;
+        switch (ARM9InstructionHookAddrCount)
+        {
+        case 4:
+            return arm9ExecAddr == ARM9InstructionHookAddresses[0]
+                || arm9ExecAddr == ARM9InstructionHookAddresses[1]
+                || arm9ExecAddr == ARM9InstructionHookAddresses[2]
+                || arm9ExecAddr == ARM9InstructionHookAddresses[3];
+        case 3:
+            return arm9ExecAddr == ARM9InstructionHookAddresses[0]
+                || arm9ExecAddr == ARM9InstructionHookAddresses[1]
+                || arm9ExecAddr == ARM9InstructionHookAddresses[2];
+        case 2:
+            return arm9ExecAddr == ARM9InstructionHookAddresses[0]
+                || arm9ExecAddr == ARM9InstructionHookAddresses[1];
+        case 1:
+            return arm9ExecAddr == ARM9InstructionHookAddresses[0];
+        default:
+            return false;
+        }
+    }
 
-        return false;
+    [[nodiscard]] bool ARM9InstructionHookMatches(u32 arm9ExecAddr) const noexcept
+    {
+        return ARM9InstructionHook && ARM9InstructionHookAddressMatches(arm9ExecAddr);
     }
 
     [[nodiscard]] bool ARM9InstructionHookCheckAndRedirect(u32 arm9ExecAddr, u32 regs[16], u32& redirectExecAddr) noexcept
     {
         return ARM9InstructionHook
-            && ARM9InstructionHookMatches(arm9ExecAddr)
+            && ARM9InstructionHookAddressMatches(arm9ExecAddr)
             && ARM9InstructionHook(this, ARM9InstructionHookUserData, arm9ExecAddr, regs, redirectExecAddr);
     }
 
@@ -46,6 +66,10 @@ void NDS::SetARM9InstructionHook(ARM9InstructionHookFn hook, void* userdata, con
         ARM9InstructionHookAddresses[i] = addresses ? addresses[i] : 0;
     for (u32 i = ARM9InstructionHookAddrCount; i < ARM9InstructionHookMaxAddresses; ++i)
         ARM9InstructionHookAddresses[i] = 0;
+
+    ARM9InstructionHookAddrHashMask = 0;
+    for (u32 i = 0; i < ARM9InstructionHookAddrCount; ++i)
+        ARM9InstructionHookAddrHashMask |= 1u << ((ARM9InstructionHookAddresses[i] >> 2) & 31u);
 
 #ifdef JIT_ENABLED
     JIT.ResetBlockCache();

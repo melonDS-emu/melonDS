@@ -57,26 +57,27 @@ static bool IsMainRamRange(uint32_t address, uint32_t size)
         && size - 1u <= 0x023FFFFFu - address;
 }
 
+static const DeathCleanupHook* FindHook(
+    const DeathCleanupHook* hooks,
+    std::size_t count,
+    uint32_t arm9ExecAddr)
+{
+    for (std::size_t i = 0; i < count; ++i)
+    {
+        if (hooks[i].Address == arm9ExecAddr)
+            return &hooks[i];
+    }
+
+    return nullptr;
+}
+
 static bool ApplyHookInternal(
     melonDS::NDS* nds,
     uint32_t arm9ExecAddr,
-    uint8_t romGroupIndex,
+    const DeathCleanupHook* hook,
     const uint32_t regs[16])
 {
-    if (romGroupIndex >= sizeof(kRomHooks) / sizeof(kRomHooks[0]))
-        return false;
-
-    const RomDeathCleanupHooks& rh = kRomHooks[romGroupIndex];
-    const DeathCleanupHook* hook = nullptr;
-    for (std::size_t i = 0; i < rh.Count; ++i)
-    {
-        if (rh.Hooks[i].Address == arm9ExecAddr)
-        {
-            hook = &rh.Hooks[i];
-            break;
-        }
-    }
-    if (!hook)
+    if (!hook || hook->Address != arm9ExecAddr)
         return false;
 
     const uint32_t player = regs[hook->PlayerReg];
@@ -94,7 +95,8 @@ static bool ApplyHookInternal(
 
 // File-static hook state — set/cleared by the shared dispatcher.
 static Config::Table* s_cfg            = nullptr;
-static uint8_t        s_romGroupIndex  = 0xFFu;
+static const DeathCleanupHook* s_activeHooks = nullptr;
+static std::size_t s_activeHookCount = 0;
 
 // Config generation cache: avoids GetBool map lookup on every hook invocation.
 static std::atomic<uint32_t> s_configGen{1};
@@ -119,14 +121,29 @@ uint32_t FixNoxusBladePersistence_GetAddresses(
 void FixNoxusBladePersistence_SetState(Config::Table* cfg, uint8_t romGroupIndex)
 {
     s_cfg           = cfg;
-    s_romGroupIndex = romGroupIndex;
-    s_configGenSeen = 0; // force cache refresh on first invocation
+
+    if (romGroupIndex < sizeof(kRomHooks) / sizeof(kRomHooks[0]))
+    {
+        s_activeHooks = kRomHooks[romGroupIndex].Hooks;
+        s_activeHookCount = kRomHooks[romGroupIndex].Count;
+    }
+    else
+    {
+        s_activeHooks = nullptr;
+        s_activeHookCount = 0;
+    }
+
+    const uint32_t gen = s_configGen.load(std::memory_order_acquire);
+    s_enabledCached = cfg && cfg->GetBool("Metroid.BugFix.FixNoxusBladePersistence");
+    s_configGenSeen = gen;
 }
 
 void FixNoxusBladePersistence_ClearState()
 {
     s_cfg           = nullptr;
-    s_romGroupIndex = 0xFFu;
+    s_activeHooks = nullptr;
+    s_activeHookCount = 0;
+    s_enabledCached = false;
 }
 
 void FixNoxusBladePersistence_DispatchCheck(
@@ -146,13 +163,15 @@ void FixNoxusBladePersistence_DispatchCheck(
     if (!s_enabledCached)
         return;
 
-    ApplyHookInternal(nds, arm9ExecAddr, s_romGroupIndex, regs);
+    const DeathCleanupHook* hook = FindHook(s_activeHooks, s_activeHookCount, arm9ExecAddr);
+    ApplyHookInternal(nds, arm9ExecAddr, hook, regs);
 }
 
 void FixNoxusBladePersistence_ResetPatchState()
 {
     s_cfg           = nullptr;
-    s_romGroupIndex = 0xFFu;
+    s_activeHooks = nullptr;
+    s_activeHookCount = 0;
     s_configGenSeen = 0;
     s_enabledCached = false;
 }

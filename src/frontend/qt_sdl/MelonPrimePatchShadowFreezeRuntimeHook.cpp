@@ -245,24 +245,33 @@ static bool ComputeFull3DIceWaveDotQ12(
     return true;
 }
 
+static const IceWaveDecisionHook* FindHookIn(
+    const IceWaveDecisionHook* hooks,
+    std::size_t count,
+    uint32_t arm9ExecAddr)
+{
+    for (std::size_t i = 0; i < count; ++i)
+    {
+        if (hooks[i].DecisionAddress == arm9ExecAddr)
+            return &hooks[i];
+    }
+
+    return nullptr;
+}
+
 static const IceWaveDecisionHook* FindHook(uint8_t romGroupIndex, uint32_t arm9ExecAddr)
 {
     if (romGroupIndex >= sizeof(kRomHooks) / sizeof(kRomHooks[0]))
         return nullptr;
 
     const IceWaveRomHooks& hooks = kRomHooks[romGroupIndex];
-    for (std::size_t i = 0; i < hooks.Count; ++i)
-    {
-        if (hooks.Hooks[i].DecisionAddress == arm9ExecAddr)
-            return &hooks.Hooks[i];
-    }
-
-    return nullptr;
+    return FindHookIn(hooks.Hooks, hooks.Count, arm9ExecAddr);
 }
 
 // File-static hook registration state (no context struct needed).
 static Config::Table* s_cfg = nullptr;
-static uint8_t s_romGroupIndex = 0xFFu;
+static const IceWaveDecisionHook* s_activeHooks = nullptr;
+static std::size_t s_activeHookCount = 0;
 
 // Config generation cache: avoids a GetBool map lookup on every hook invocation.
 // s_configGen is written by the GUI thread (NotifyConfigChanged) and read by the
@@ -272,14 +281,12 @@ static uint32_t s_configGenSeen = 0;  // emu thread only
 static bool s_enabledCached = false;  // emu thread only
 
 // Core hook logic shared by both the callback and the public direct entry point.
-static bool ApplyHook(
+static bool ApplyHookForDecision(
     melonDS::NDS* nds,
-    uint8_t romGroupIndex,
-    uint32_t arm9ExecAddr,
+    const IceWaveDecisionHook* hook,
     const uint32_t regs[16],
     uint32_t& redirectExecAddr)
 {
-    const IceWaveDecisionHook* hook = FindHook(romGroupIndex, arm9ExecAddr);
     if (!hook)
         return false;
 
@@ -303,6 +310,20 @@ static bool ApplyHook(
     return true;
 }
 
+static bool ApplyHook(
+    melonDS::NDS* nds,
+    uint8_t romGroupIndex,
+    uint32_t arm9ExecAddr,
+    const uint32_t regs[16],
+    uint32_t& redirectExecAddr)
+{
+    return ApplyHookForDecision(
+        nds,
+        FindHook(romGroupIndex, arm9ExecAddr),
+        regs,
+        redirectExecAddr);
+}
+
 } // anonymous namespace
 
 uint32_t ShadowFreezeRuntimeHook_GetAddresses(
@@ -321,14 +342,29 @@ uint32_t ShadowFreezeRuntimeHook_GetAddresses(
 void ShadowFreezeRuntimeHook_SetState(Config::Table* cfg, uint8_t romGroupIndex)
 {
     s_cfg           = cfg;
-    s_romGroupIndex = romGroupIndex;
-    s_configGenSeen = 0;
+
+    if (romGroupIndex < sizeof(kRomHooks) / sizeof(kRomHooks[0]))
+    {
+        s_activeHooks = kRomHooks[romGroupIndex].Hooks;
+        s_activeHookCount = kRomHooks[romGroupIndex].Count;
+    }
+    else
+    {
+        s_activeHooks = nullptr;
+        s_activeHookCount = 0;
+    }
+
+    const uint32_t gen = s_configGen.load(std::memory_order_acquire);
+    s_enabledCached = cfg && cfg->GetBool("Metroid.BugFix.FixShadowFreeze");
+    s_configGenSeen = gen;
 }
 
 void ShadowFreezeRuntimeHook_ClearState()
 {
     s_cfg           = nullptr;
-    s_romGroupIndex = 0xFFu;
+    s_activeHooks = nullptr;
+    s_activeHookCount = 0;
+    s_enabledCached = false;
 }
 
 bool ShadowFreezeRuntimeHook_DispatchCheckAndRedirect(
@@ -350,7 +386,11 @@ bool ShadowFreezeRuntimeHook_DispatchCheckAndRedirect(
     if (!s_enabledCached)
         return false;
 
-    return ApplyHook(nds, s_romGroupIndex, arm9ExecAddr, regs, redirectExecAddr);
+    return ApplyHookForDecision(
+        nds,
+        FindHookIn(s_activeHooks, s_activeHookCount, arm9ExecAddr),
+        regs,
+        redirectExecAddr);
 }
 
 bool ShadowFreezeRuntimeHook_CheckAndRedirect(
@@ -395,7 +435,8 @@ bool ShadowFreezeRuntimeHook_CheckAndRedirectFromPipelinedR15(
 void ShadowFreezeRuntimeHook_ResetPatchState()
 {
     s_cfg = nullptr;
-    s_romGroupIndex = 0xFFu;
+    s_activeHooks = nullptr;
+    s_activeHookCount = 0;
     s_configGenSeen = 0;
     s_enabledCached = false;
 }
