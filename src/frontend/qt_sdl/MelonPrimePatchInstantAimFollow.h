@@ -1,5 +1,5 @@
-#ifndef MELON_PRIME_PATCH_CURRENT_AIM_COPY_FORCE_H
-#define MELON_PRIME_PATCH_CURRENT_AIM_COPY_FORCE_H
+#ifndef MELON_PRIME_PATCH_INSTANT_AIM_FOLLOW_H
+#define MELON_PRIME_PATCH_INSTANT_AIM_FOLLOW_H
 
 #ifdef MELONPRIME_DS
 
@@ -10,18 +10,18 @@ namespace melonDS { class NDS; }
 
 namespace MelonPrime {
 
-void CurrentAimCopyForce_ApplyOnce(
+void InstantAimFollow_ApplyOnce(
     melonDS::NDS* nds,
     Config::Table& cfg,
     uint8_t romGroupIndex);
 
-void CurrentAimCopyForce_RestoreOnce(
+void InstantAimFollow_RestoreOnce(
     melonDS::NDS* nds,
     uint8_t romGroupIndex);
 
-void CurrentAimCopyForce_ResetPatchState();
+void InstantAimFollow_ResetPatchState();
 
 } // namespace MelonPrime
 
 #endif // MELONPRIME_DS
-#endif // MELON_PRIME_PATCH_CURRENT_AIM_COPY_FORCE_H
+#endif // MELON_PRIME_PATCH_INSTANT_AIM_FOLLOW_H

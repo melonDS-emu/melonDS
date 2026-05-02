@@ -193,12 +193,12 @@ namespace MelonPrime {
 #endif
 #ifdef MELONPRIME_DS
         ARM9Hook_Uninstall(emuInstance->getNDS());
-        CurrentAimCopyForce_RestoreOnce(emuInstance->getNDS(), m_currentRom.romGroupIndex);
+        InstantAimFollow_RestoreOnce(emuInstance->getNDS(), m_currentRom.romGroupIndex);
         InGameAspectRatio_ResetPatchState();
         OsdColor_ResetPatchState();
         FixWifi_ResetPatchState();
         UseFirmwareLanguage_ResetPatchState();
-        CurrentAimCopyForce_ResetPatchState();
+        InstantAimFollow_ResetPatchState();
         ARM9Hook_ResetPatchState();
 #endif
 
@@ -227,12 +227,12 @@ namespace MelonPrime {
 #endif
 #ifdef MELONPRIME_DS
         ARM9Hook_Uninstall(emuInstance->getNDS());
-        CurrentAimCopyForce_RestoreOnce(emuInstance->getNDS(), m_currentRom.romGroupIndex);
+        InstantAimFollow_RestoreOnce(emuInstance->getNDS(), m_currentRom.romGroupIndex);
         InGameAspectRatio_ResetPatchState();
         OsdColor_ResetPatchState();
         FixWifi_ResetPatchState();
         UseFirmwareLanguage_ResetPatchState();
-        CurrentAimCopyForce_ResetPatchState();
+        InstantAimFollow_ResetPatchState();
         ARM9Hook_ResetPatchState();
 #endif
     }
@@ -384,7 +384,7 @@ namespace MelonPrime {
                     emuInstance, localCfg, m_currentRom, m_playerPosition, false);
 #endif
 #ifdef MELONPRIME_DS
-                CurrentAimCopyForce_RestoreOnce(emuInstance->getNDS(), m_currentRom.romGroupIndex);
+                InstantAimFollow_RestoreOnce(emuInstance->getNDS(), m_currentRom.romGroupIndex);
 #endif
                 OsdColor_RestoreOnce(emuInstance->getNDS(), m_currentRom);
             }
@@ -517,7 +517,7 @@ namespace MelonPrime {
         // Apply patches that need game-join context (player struct resolved)
         InGameAspectRatio_ApplyOnce(emuInstance, localCfg, m_currentRom);
         OsdColor_ApplyOnce(emuInstance, localCfg, m_currentRom);
-        CurrentAimCopyForce_ApplyOnce(
+        InstantAimFollow_ApplyOnce(
             emuInstance->getNDS(),
             localCfg,
             m_currentRom.romGroupIndex);

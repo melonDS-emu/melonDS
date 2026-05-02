@@ -121,13 +121,13 @@
 											</widget>
 										</item>
 										<item row="4" column="0" colspan="2">
-											<widget class="QCheckBox" name="cbMetroidEnableCurrentAimCopyForce">
-												<property name="text"><string>Enable Current Aim Copy Force</string></property>
+											<widget class="QCheckBox" name="cbMetroidEnableInstantAimFollow">
+												<property name="text"><string>Enable Instant Aim Follow</string></property>
 											</widget>
 										</item>
 										<item row="5" column="0" colspan="2">
-											<widget class="QLabel" name="lblMetroidCurrentAimCopyForceDesc">
-												<property name="text"><string>The game normally moves currentAim only about 10% toward targetAim each update, which can feel like mouse lag. This patch forces currentAim to copy targetAim immediately.</string></property>
+											<widget class="QLabel" name="lblMetroidInstantAimFollowDesc">
+												<property name="text"><string>The game normally moves currentAim only about 10% toward targetAim each update, which can feel like mouse lag. This patch makes currentAim follow targetAim instantly.</string></property>
 												<property name="wordWrap"><bool>true</bool></property>
 												<property name="styleSheet"><string>QLabel { margin-left: 20px; }</string></property>
 											</widget>

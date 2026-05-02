@@ -542,7 +542,7 @@ namespace Config
         {"Instance*.Metroid.Aim.Disable.MphAimSmoothing", false},
         {"Instance*.Metroid.Aim.Enable.Accumulator", false},
         {"Instance*.Metroid.Aim.Enable.NativeDeltaHook", false},
-        {"Instance*.Metroid.Aim.Enable.CurrentAimCopyForce", false},
+        {"Instance*.Metroid.Aim.Enable.InstantAimFollow", false},
         /* MelonPrimeDS Crosshair bools { */
         {"Instance*.Metroid.Visual.CustomHUD", false},
         // Per-element default-HUD hide patches (DisableDefaultHud section).

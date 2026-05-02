@@ -1,6 +1,6 @@
 #ifdef MELONPRIME_DS
 
-#include "MelonPrimePatchCurrentAimCopyForce.h"
+#include "MelonPrimePatchInstantAimFollow.h"
 #include "Config.h"
 #include "MelonPrimeDef.h"
 #include "NDS.h"
@@ -108,16 +108,16 @@ static void WritePatch(melonDS::NDS* nds, uint8_t romGroupIndex, bool apply)
 
 } // namespace
 
-void CurrentAimCopyForce_ApplyOnce(
+void InstantAimFollow_ApplyOnce(
     melonDS::NDS* nds,
     Config::Table& cfg,
     uint8_t romGroupIndex)
 {
-    const bool shouldApply = cfg.GetBool(CfgKey::CurrentAimCopyForce);
+    const bool shouldApply = cfg.GetBool(CfgKey::InstantAimFollow);
 
     if (!shouldApply)
     {
-        CurrentAimCopyForce_RestoreOnce(nds, s_appliedRomGroupIndex);
+        InstantAimFollow_RestoreOnce(nds, s_appliedRomGroupIndex);
         return;
     }
 
@@ -126,7 +126,7 @@ void CurrentAimCopyForce_ApplyOnce(
     if (s_applied && s_appliedRomGroupIndex == romGroupIndex)
         return;
     if (s_applied)
-        CurrentAimCopyForce_RestoreOnce(nds, s_appliedRomGroupIndex);
+        InstantAimFollow_RestoreOnce(nds, s_appliedRomGroupIndex);
     if (!CanWritePatch(nds, romGroupIndex, true))
         return;
 
@@ -135,7 +135,7 @@ void CurrentAimCopyForce_ApplyOnce(
     s_appliedRomGroupIndex = romGroupIndex;
 }
 
-void CurrentAimCopyForce_RestoreOnce(
+void InstantAimFollow_RestoreOnce(
     melonDS::NDS* nds,
     uint8_t romGroupIndex)
 {
@@ -153,7 +153,7 @@ void CurrentAimCopyForce_RestoreOnce(
     s_appliedRomGroupIndex = 0xFFu;
 }
 
-void CurrentAimCopyForce_ResetPatchState()
+void InstantAimFollow_ResetPatchState()
 {
     s_applied = false;
     s_appliedRomGroupIndex = 0xFFu;
