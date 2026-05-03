@@ -16,7 +16,7 @@ namespace MelonPrime {
 // CPlayer+0x860 clear.  Preserves the original instruction stream and only
 // adds one side effect:
 //
-//   if (CPlayer.HunterId == Noxus) CPlayer+0x704 = 0
+//   CPlayer+0x704 = 0
 //
 // CPlayer+0x704 is the alt attack timer used by the timer-based Noxus blade
 // hit branch.  If it survives death, the Vhoscythe blade hit state can persist
