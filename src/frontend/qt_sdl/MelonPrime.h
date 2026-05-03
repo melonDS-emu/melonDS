@@ -354,9 +354,8 @@ namespace MelonPrime {
             m_aimBlockBits = (m_aimBlockBits & ~bitMask) | (enable ? bitMask : 0u);
         }
 
-        [[nodiscard]] FORCE_INLINE bool IsSamusMorphBallAltForm() const noexcept {
-            return m_flags.test(StateFlags::BIT_IS_SAMUS)
-                && m_ptrs.isAltForm
+        [[nodiscard]] FORCE_INLINE bool IsPlayerAltForm() const noexcept {
+            return m_ptrs.isAltForm
                 && *m_ptrs.isAltForm == 0x02;
         }
 

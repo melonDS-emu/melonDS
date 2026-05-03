@@ -397,11 +397,11 @@ namespace MelonPrime {
                     return;
                 }
 
-                // Samus morph ball movement does not reliably run the native
-                // aim update hook path. Keep the old RAM-write path there so
-                // mouse movement still drives the ball while the hook is on.
+                // Alt-form movement does not reliably run the native aim
+                // update hook path. Keep the old RAM-write path there so mouse
+                // movement still drives alt forms while the hook is on.
                 const bool useNativeAimDeltaHook =
-                    m_enableNativeAimDeltaHook && !IsSamusMorphBallAltForm();
+                    m_enableNativeAimDeltaHook && !IsPlayerAltForm();
                 if (useNativeAimDeltaHook) {
                     m_nativeAimDeltaX = outX;
                     m_nativeAimDeltaY = outY;

@@ -87,7 +87,7 @@
             return;
         if (!m_enableNativeAimDeltaHook || !m_disableMphAimSmoothing || isStylusMode)
             return;
-        if (IsSamusMorphBallAltForm())
+        if (IsPlayerAltForm())
             return;
         if ((m_aimBlockBits | static_cast<uint32_t>(m_isLayoutChangePending)) != 0)
             return;
