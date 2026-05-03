@@ -16,6 +16,13 @@ enum BattleMode : uint8_t {
     MODE_SURVIVAL      = 8,
 };
 
+static inline uint8_t NormalizeGoalKey(uint8_t xx)
+{
+    // Goal value is encoded in bits[5:2]. Other bits are flags and must not
+    // affect the score/lives/octolith/node lookup tables.
+    return static_cast<uint8_t>(xx & 0x3C);
+}
+
 // XX → goal: direct map from document (no index calculation)
 static int LookupBattleGoal(uint8_t xx)
 {
@@ -88,6 +95,8 @@ static int LookupTimeLimitMin(uint8_t XX)
 
 static int LookupGoal(uint8_t mode, uint8_t xx)
 {
+    xx = NormalizeGoalKey(xx);
+
     switch (mode) {
     case MODE_BATTLE:       return LookupBattleGoal(xx);
     case MODE_SURVIVAL:     return LookupSurvivalGoal(xx);
@@ -139,7 +148,7 @@ void CustomHud_OnMatchJoin(melonDS::u8* ram, const RomAddresses& rom)
     }
 
     uint32_t settings = Read32(ram, rom.battleSettings);
-    uint8_t xx = (settings >> 20) & 0xFE; // bit 0 is a flag bit, mask it out
+    uint8_t xx = NormalizeGoalKey(static_cast<uint8_t>(settings >> 20));
     b.keyXX = xx;
 
     // Time limit in minutes: battleSettings+4 format 0000XXYZ, XX=time limit index
@@ -225,7 +234,7 @@ static bool ComputeMatchStatusState(melonDS::u8* ram, const RomAddresses& rom, u
     uint32_t ts4Local = match ? 0u : Read32(ram, rom.battleSettings + 4); uint8_t teamNibble = match ? match->teamNibble : static_cast<uint8_t>(ts4Local & 0x0F); bool isTeamGame = match ? match->isTeamGame : ((ts4Local & 0x10) != 0);
     auto teamSum = [&](uint32_t baseAddr) -> int { if (isTeamGame && playerPos < 4) { uint8_t myTeam = (teamNibble >> playerPos) & 1; int sum = 0; for (int p = 0; p < 4; ++p) if (((teamNibble >> p) & 1) == myTeam) sum += static_cast<int>(Read32(ram, baseAddr + p * 4)); return sum; } return static_cast<int>(Read32(ram, baseAddr + playerOfs)); };
     switch (mode) { case MODE_BATTLE: case MODE_NODES: case MODE_BOUNTY: case MODE_CAPTURE: currentValue = teamSum(rom.basePoint); break; case MODE_SURVIVAL: currentValue = teamSum(rom.basePoint - 0xB0); break; case MODE_DEFENDER: case MODE_PRIME_HUNTER: currentValue = teamSum(rom.basePoint - 0x180) / 60; break; default: return false; }
-    if (!match) { uint32_t settings = Read32(ram, rom.battleSettings); xx = (settings >> 20) & 0xFE; switch (mode) { case MODE_BATTLE: case MODE_NODES: case MODE_BOUNTY: case MODE_CAPTURE: goalValue = LookupGoal(mode, xx); break; case MODE_SURVIVAL: goalValue = LookupGoal(mode, xx); break; case MODE_DEFENDER: case MODE_PRIME_HUNTER: { uint32_t timeSetting = Read32(ram, rom.battleSettings + 4); uint8_t timeGoalRaw = static_cast<uint8_t>(((timeSetting >> 5) & 0x0F) << 1); goalValue = LookupTimeGoalSec(timeGoalRaw); isTimeMode = true; break; } default: return false; } }
+    if (!match) { uint32_t settings = Read32(ram, rom.battleSettings); xx = NormalizeGoalKey(static_cast<uint8_t>(settings >> 20)); switch (mode) { case MODE_BATTLE: case MODE_NODES: case MODE_BOUNTY: case MODE_CAPTURE: goalValue = LookupGoal(mode, xx); break; case MODE_SURVIVAL: goalValue = LookupGoal(mode, xx); break; case MODE_DEFENDER: case MODE_PRIME_HUNTER: { uint32_t timeSetting = Read32(ram, rom.battleSettings + 4); uint8_t timeGoalRaw = static_cast<uint8_t>(((timeSetting >> 5) & 0x0F) << 1); goalValue = LookupTimeGoalSec(timeGoalRaw); isTimeMode = true; break; } default: return false; } }
     if (mode == MODE_SURVIVAL && goalValue > 0) { currentValue = goalValue - currentValue; if (currentValue < 0) currentValue = 0; }
     outState = { mode, xx, currentValue, goalValue, isTimeMode }; return true;
 }
