@@ -354,6 +354,12 @@ namespace MelonPrime {
             m_aimBlockBits = (m_aimBlockBits & ~bitMask) | (enable ? bitMask : 0u);
         }
 
+        [[nodiscard]] FORCE_INLINE bool IsSamusMorphBallAltForm() const noexcept {
+            return m_flags.test(StateFlags::BIT_IS_SAMUS)
+                && m_ptrs.isAltForm
+                && *m_ptrs.isAltForm == 0x02;
+        }
+
         template <typename T>
         [[nodiscard]] FORCE_INLINE T* GetRamPointer(melonDS::u8* ram, melonDS::u32 addr) {
             return reinterpret_cast<T*>(&ram[addr & 0x3FFFFF]);

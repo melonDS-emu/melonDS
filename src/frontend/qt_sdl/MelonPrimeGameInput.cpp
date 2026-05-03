@@ -397,7 +397,12 @@ namespace MelonPrime {
                     return;
                 }
 
-                if (m_enableNativeAimDeltaHook) {
+                // Samus morph ball movement does not reliably run the native
+                // aim update hook path. Keep the old RAM-write path there so
+                // mouse movement still drives the ball while the hook is on.
+                const bool useNativeAimDeltaHook =
+                    m_enableNativeAimDeltaHook && !IsSamusMorphBallAltForm();
+                if (useNativeAimDeltaHook) {
                     m_nativeAimDeltaX = outX;
                     m_nativeAimDeltaY = outY;
                 }

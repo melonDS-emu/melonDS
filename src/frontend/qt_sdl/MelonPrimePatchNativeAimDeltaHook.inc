@@ -87,6 +87,8 @@
             return;
         if (!m_enableNativeAimDeltaHook || !m_disableMphAimSmoothing || isStylusMode)
             return;
+        if (IsSamusMorphBallAltForm())
+            return;
         if ((m_aimBlockBits | static_cast<uint32_t>(m_isLayoutChangePending)) != 0)
             return;
         if (!m_flags.test(StateFlags::BIT_LAST_FOCUSED))
