@@ -3,6 +3,8 @@
 #include "MelonPrimeRawWinInternal.h"
 #include <cstring>
 #include <algorithm>
+#include <memory>
+#include <new>
 
 #ifdef _MSC_VER
 #include <intrin.h>
@@ -176,11 +178,24 @@ namespace MelonPrime {
 
         for (;;) {
             UINT size = sizeof(buffer);
+            uint8_t* batchBuffer = buffer;
             UINT count = s_fnBestGetRawInputBuffer(
                 reinterpret_cast<PRAWINPUT>(buffer), &size, sizeof(RAWINPUTHEADER));
+            std::unique_ptr<uint8_t[]> overflowBuffer;
+            if (UNLIKELY(count == UINT(-1))) {
+                if (size <= sizeof(buffer)) break;
+
+                overflowBuffer.reset(new (std::nothrow) uint8_t[size]);
+                if (!overflowBuffer) break;
+
+                batchBuffer = overflowBuffer.get();
+                UINT retrySize = size;
+                count = s_fnBestGetRawInputBuffer(
+                    reinterpret_cast<PRAWINPUT>(batchBuffer), &retrySize, sizeof(RAWINPUTHEADER));
+            }
             if (count == 0 || count == UINT(-1)) break;
 
-            const RAWINPUT* raw = reinterpret_cast<const RAWINPUT*>(buffer);
+            const RAWINPUT* raw = reinterpret_cast<const RAWINPUT*>(batchBuffer);
             for (UINT i = 0; i < count; ++i) {
                 // P-6: LIKELY -- 8000Hz mouse generates ~133 events/frame vs 0-2 keyboard
                 if (LIKELY(raw->header.dwType == RIM_TYPEMOUSE)) {
@@ -231,7 +246,7 @@ namespace MelonPrime {
             // Without this, Windows may fail to retire internal buffer entries,
             // causing GetRawInputBuffer to return 0 on subsequent calls
             // → key events dropped → stuck keys / unresponsive keys.
-            PRAWINPUT pri = reinterpret_cast<PRAWINPUT>(buffer);
+            PRAWINPUT pri = reinterpret_cast<PRAWINPUT>(batchBuffer);
             DefRawInputProc(&pri, static_cast<INT>(count), sizeof(RAWINPUTHEADER));
         }
 
@@ -537,13 +552,13 @@ namespace MelonPrime {
     void InputState::snapshotInputFrameNoEdges(FrameHotkeyState& outHk,
         int& outMouseX, int& outMouseY) noexcept
     {
-        // No-edge snapshots are used only by re-entrant frame advances, so there
-        // is no short-click edge to preserve. Clear stale held bits first.
+        // No-edge snapshots are used only by re-entrant frame advances. They
+        // should reflect physical held state, not the one-frame click cache.
+        // Clear stale held bits first.
         (void)clearStuckMouseButtons();
         (void)clearStuckKeys();
 
         auto snap = takeSnapshot();  // acquire fence inside
-        snap.mouse |= m_mouseButtonPresses.load(std::memory_order_acquire);
 
         const int64_t curX = m_accumMouseX.load(std::memory_order_relaxed);
         const int64_t curY = m_accumMouseY.load(std::memory_order_relaxed);

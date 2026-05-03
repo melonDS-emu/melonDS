@@ -110,7 +110,7 @@ namespace MelonPrime {
     //   - wheelDelta = 0         : never consumed mid-frame
     // =========================================================================
     template <bool kReentrant>
-    FORCE_INLINE void MelonPrimeCore::UpdateInputStateImpl()
+    FORCE_INLINE void MelonPrimeCore::UpdateInputStateImpl(const bool focused)
     {
 #ifdef _WIN32
         auto* const rawFilter = m_rawFilter.get();
@@ -129,13 +129,14 @@ namespace MelonPrime {
             }
         }
 
-        if (!isFocused) {
+        if (!focused) {
             m_input.down = 0;
             m_input.press = 0;
             m_input.moveIndex = 0;
             m_input.mouseX = 0;
             m_input.mouseY = 0;
             m_input.wheelDelta = 0;
+            m_snapState = 0;
             return;
         }
 
@@ -168,8 +169,8 @@ namespace MelonPrime {
             m_input.wheelDelta = 0;
     }
 
-    HOT_FUNCTION void MelonPrimeCore::UpdateInputState()          { UpdateInputStateImpl<false>(); }
-    HOT_FUNCTION void MelonPrimeCore::UpdateInputStateReentrant() { UpdateInputStateImpl<true>();  }
+    HOT_FUNCTION void MelonPrimeCore::UpdateInputState(const bool focused)          { UpdateInputStateImpl<false>(focused); }
+    HOT_FUNCTION void MelonPrimeCore::UpdateInputStateReentrant(const bool focused) { UpdateInputStateImpl<true>(focused);  }
 
     // OPT-Z2: Unified move + button mask update.
     //

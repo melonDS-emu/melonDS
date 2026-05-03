@@ -9,6 +9,7 @@
 #include <memory>
 #include <cmath>
 #include <cstring>
+#include <atomic>
 
 class QPoint;
 class ScreenPanel;  // P-3: forward decl for cached panel pointer
@@ -186,7 +187,7 @@ namespace MelonPrime {
 #endif
 
         bool isCursorMode = true;
-        bool isFocused = false;
+        std::atomic_bool isFocused{ false };
         bool isClipWanted = false;
         bool isStylusMode = false;
         bool m_snapTapMode = false;     // Cached from BIT_SNAP_TAP; avoids bitmask test in hot path
@@ -365,9 +366,9 @@ namespace MelonPrime {
         // =================================================================
         // Methods
         // =================================================================
-        HOT_FUNCTION void UpdateInputState();
-        HOT_FUNCTION void UpdateInputStateReentrant();  // re-entrant FrameAdvance path
-        template <bool kReentrant> FORCE_INLINE void UpdateInputStateImpl();
+        HOT_FUNCTION void UpdateInputState(bool focused);
+        HOT_FUNCTION void UpdateInputStateReentrant(bool focused);  // re-entrant FrameAdvance path
+        template <bool kReentrant> FORCE_INLINE void UpdateInputStateImpl(bool focused);
         HOT_FUNCTION void HandleInGameLogic();
         template <bool kInputMaskReset> FORCE_INLINE void ProcessMoveAndButtonsFastImpl();
         HOT_FUNCTION void ProcessMoveAndButtonsFast();

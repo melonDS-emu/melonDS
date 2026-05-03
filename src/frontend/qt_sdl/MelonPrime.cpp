@@ -331,7 +331,8 @@ namespace MelonPrime {
         if (UNLIKELY(m_isRunningHook)) {
             // Re-entrant path (called during FrameAdvanceOnce within weapon switch, morph, etc.)
             // Use the lean updater: no press-map scan, no wheel fetch.
-            UpdateInputStateReentrant();
+            const bool focused = isFocused.load(std::memory_order_acquire);
+            UpdateInputStateReentrant(focused);
             ProcessMoveAndButtonsFast();
 
             const bool isStylusMode = this->isStylusMode;
@@ -351,12 +352,13 @@ namespace MelonPrime {
         // P-43: Cache isFocused in local variable.
         // After UpdateInputState / HandleGlobalHotkeys / HandleInGameLogic
         // (member function calls), the compiler must assume any member could
-        // have changed, forcing a reload from memory. isFocused is set by the
-        // GUI thread and never modified on the emu thread, so caching is safe.
-        const bool focused = isFocused;
+        // have changed, forcing a reload from memory. isFocused is written by
+        // the GUI thread, so load once and use that value consistently for this
+        // frame's input snapshot and focus transition.
+        const bool focused = isFocused.load(std::memory_order_acquire);
 
         // Poll moved into UpdateInputState via PollAndSnapshot
-        UpdateInputState();
+        UpdateInputState(focused);
         InputReset();
         m_flags.clear(StateFlags::BIT_BLOCK_STYLUS);
 

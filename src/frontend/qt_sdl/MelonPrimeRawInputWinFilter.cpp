@@ -330,8 +330,17 @@ namespace MelonPrime {
     void RawInputWinFilter::resetMouseButtons() { m_state->resetMouseButtons(); }
 
     // P-9: Combined reset — single call replaces resetAllKeys + resetMouseButtons.
-    // Route to InputState::resetAll() so the implementation and comment stay aligned.
-    void RawInputWinFilter::resetAll() { m_state->resetAll(); }
+    //
+    // Hidden-window mode can have WM_INPUT messages queued after the last
+    // snapshot. Drain/capture them before clearing state so an old DOWN cannot
+    // be replayed into m_state on the next DeferredDrain/Poll cycle.
+    void RawInputWinFilter::resetAll()
+    {
+        if (!m_joy2KeySupport) {
+            drainPendingMessages();
+        }
+        m_state->resetAll();
+    }
     void RawInputWinFilter::resetHotkeyEdges() { m_state->resetHotkeyEdges(); }
     void RawInputWinFilter::fetchMouseDelta(int& outX, int& outY) { m_state->fetchMouseDelta(outX, outY); }
 
