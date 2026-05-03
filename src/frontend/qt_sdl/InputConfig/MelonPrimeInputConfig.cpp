@@ -127,7 +127,9 @@ void MelonPrimeInputConfig::setupSensitivityAndToggles(Config::Table& instcfg)
     ui->cbMetroidDisableMphAimSmoothing->setChecked(instcfg.GetBool("Metroid.Aim.Disable.MphAimSmoothing"));
     ui->cbMetroidEnableAimAccumulator->setChecked(instcfg.GetBool("Metroid.Aim.Enable.Accumulator"));
     ui->cbMetroidEnableNativeAimDeltaHook->setChecked(instcfg.GetBool("Metroid.Aim.Enable.NativeDeltaHook"));
-    ui->cbMetroidEnableInstantAimFollow->setChecked(instcfg.GetBool("Metroid.Aim.Enable.InstantAimFollow"));
+    // Original public behavior:
+    // ui->cbMetroidEnableInstantAimFollow->setChecked(instcfg.GetBool("Metroid.Aim.Enable.InstantAimFollow"));
+    ui->cbMetroidEnableInstantAimFollow->setChecked(false);
     updateAimControlsForStylusMode(ui->cbMetroidEnableStylusMode->isChecked());
 
     // Screen Sync Mode
@@ -162,8 +164,11 @@ void MelonPrimeInputConfig::updateAimControlsForStylusMode(bool stylusEnabled)
         enableAimControls && ui->cbMetroidDisableMphAimSmoothing->isChecked());
     ui->lblMetroidNativeAimDeltaHookDesc->setEnabled(
         enableAimControls && ui->cbMetroidDisableMphAimSmoothing->isChecked());
-    ui->cbMetroidEnableInstantAimFollow->setEnabled(enableAimControls);
-    ui->lblMetroidInstantAimFollowDesc->setEnabled(enableAimControls);
+    // Original public behavior:
+    // ui->cbMetroidEnableInstantAimFollow->setEnabled(enableAimControls);
+    // ui->lblMetroidInstantAimFollowDesc->setEnabled(enableAimControls);
+    ui->cbMetroidEnableInstantAimFollow->setEnabled(false);
+    ui->lblMetroidInstantAimFollowDesc->setEnabled(false);
 }
 
 void MelonPrimeInputConfig::setupCollapsibleSections(Config::Table& instcfg)
@@ -196,6 +201,8 @@ void MelonPrimeInputConfig::setupCollapsibleSections(Config::Table& instcfg)
     setupToggle(ui->btnToggleVideo,       ui->sectionVideo,       "VIDEO QUALITY",    "Metroid.UI.SectionVideo");
     setupToggle(ui->btnToggleVolume,      ui->sectionVolume,      "VOLUME",           "Metroid.UI.SectionVolume");
     setupToggle(ui->btnToggleLicense,     ui->sectionLicense,     "LICENSE APPLY",    "Metroid.UI.SectionLicense");
+    // Restore note: remove this toggle if the DEVELOPER ONLY section is removed.
+    setupToggle(ui->btnToggleDeveloperOnly, ui->sectionDeveloperOnly, "DEVELOPER ONLY", "Metroid.UI.SectionDeveloperOnly");
 }
 
 

@@ -648,6 +648,8 @@ namespace Config
         {"Instance*.Metroid.UI.SectionVideo",          true},
         {"Instance*.Metroid.UI.SectionVolume",         true},
         {"Instance*.Metroid.UI.SectionLicense",        true},
+        // Restore note: remove this entry if the DEVELOPER ONLY section is removed.
+        {"Instance*.Metroid.UI.SectionDeveloperOnly",  false},
         /* MelonPrimeDS Bottom Screen Overlay bool { */
         {"Instance*.Metroid.Visual.BtmOverlayEnable", true},
         {"Instance*.Metroid.Visual.BtmOverlayRadarColorUseHunter", false},

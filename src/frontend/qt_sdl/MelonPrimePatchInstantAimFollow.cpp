@@ -69,6 +69,8 @@ static constexpr PatchWord kPatchWords[][5] = {
 };
 
 static constexpr uint8_t kPatchWordCounts[] = { 5, 5, 5, 5, 5, 5, 1 };
+// Restore note: remove this gate, or set it to true, when making Instant Aim Follow public again.
+static constexpr bool kInstantAimFollowAvailable = false;
 static bool s_applied = false;
 static uint8_t s_appliedRomGroupIndex = 0xFFu;
 
@@ -113,7 +115,9 @@ void InstantAimFollow_ApplyOnce(
     Config::Table& cfg,
     uint8_t romGroupIndex)
 {
-    const bool shouldApply = cfg.GetBool(CfgKey::InstantAimFollow);
+    // Original public behavior:
+    // const bool shouldApply = cfg.GetBool(CfgKey::InstantAimFollow);
+    const bool shouldApply = kInstantAimFollowAvailable && cfg.GetBool(CfgKey::InstantAimFollow);
 
     if (!shouldApply)
     {

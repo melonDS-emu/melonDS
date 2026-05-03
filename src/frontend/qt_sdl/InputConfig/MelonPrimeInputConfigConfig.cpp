@@ -83,7 +83,9 @@ void MelonPrimeInputConfig::saveConfig()
     instcfg.SetBool("Metroid.Aim.Disable.MphAimSmoothing", ui->cbMetroidDisableMphAimSmoothing->checkState() == Qt::Checked);
     instcfg.SetBool("Metroid.Aim.Enable.Accumulator", ui->cbMetroidEnableAimAccumulator->checkState() == Qt::Checked);
     instcfg.SetBool("Metroid.Aim.Enable.NativeDeltaHook", ui->cbMetroidEnableNativeAimDeltaHook->checkState() == Qt::Checked);
-    instcfg.SetBool("Metroid.Aim.Enable.InstantAimFollow", ui->cbMetroidEnableInstantAimFollow->checkState() == Qt::Checked);
+    // Original public behavior:
+    // instcfg.SetBool("Metroid.Aim.Enable.InstantAimFollow", ui->cbMetroidEnableInstantAimFollow->checkState() == Qt::Checked);
+    instcfg.SetBool("Metroid.Aim.Enable.InstantAimFollow", false);
 
     // Screen Sync Mode
     instcfg.SetInt("Metroid.Screen.SyncMode", ui->comboMetroidScreenSyncMode->currentIndex());
@@ -146,6 +148,8 @@ void MelonPrimeInputConfig::saveConfig()
     instcfg.SetBool("Metroid.UI.SectionVideo",          ui->btnToggleVideo->isChecked());
     instcfg.SetBool("Metroid.UI.SectionVolume",         ui->btnToggleVolume->isChecked());
     instcfg.SetBool("Metroid.UI.SectionLicense",        ui->btnToggleLicense->isChecked());
+    // Restore note: remove this entry if the DEVELOPER ONLY section is removed.
+    instcfg.SetBool("Metroid.UI.SectionDeveloperOnly",  ui->btnToggleDeveloperOnly->isChecked());
 
     // HUD section toggle states (programmatic sections)
     for (auto& [btn, cfgKey] : m_hudToggles)

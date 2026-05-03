@@ -127,18 +127,6 @@
 												<property name="styleSheet"><string>QLabel { margin-left: 48px; }</string></property>
 											</widget>
 										</item>
-										<item row="5" column="0" colspan="2">
-											<widget class="QCheckBox" name="cbMetroidEnableInstantAimFollow">
-												<property name="text"><string>Enable Instant Aim Follow</string></property>
-											</widget>
-										</item>
-										<item row="6" column="0" colspan="2">
-											<widget class="QLabel" name="lblMetroidInstantAimFollowDesc">
-												<property name="text"><string>The game normally moves currentAim only about 10% toward targetAim each update, which can feel like mouse lag. This patch makes currentAim follow targetAim instantly.</string></property>
-												<property name="wordWrap"><bool>true</bool></property>
-												<property name="styleSheet"><string>QLabel { margin-left: 20px; }</string></property>
-											</widget>
-										</item>
 										<item row="7" column="0" colspan="2">
 											<widget class="QCheckBox" name="cbMetroidEnableStylusMode">
 												<property name="text"><string>Enable Stylus Mode (Leave this unchecked unless you want to play with the stylus)</string></property>
@@ -770,6 +758,45 @@ The EU ROM has a hidden Japanese option — setting your DS firmware to Japanese
 											<property name="text"><string>Auto: Automatically applies the aspect ratio patch to match the current Aspect Ratio setting (4:3 = off, 5:3/16:9/21:9 = auto-applied, window = off).</string></property>
 											<property name="wordWrap"><bool>true</bool></property>
 											<property name="indent"><number>20</number></property>
+										</widget>
+									</item>
+								</layout>
+								</widget>
+							</item>
+
+							<item><widget class="QPushButton" name="btnToggleDeveloperOnly">
+								<property name="text"><string>▶ DEVELOPER ONLY</string></property>
+								<property name="checkable"><bool>true</bool></property>
+								<property name="checked"><bool>false</bool></property>
+								<property name="flat"><bool>true</bool></property>
+								<property name="styleSheet"><string>QPushButton { text-align: left; font-weight: bold; padding: 4px; } QPushButton::checked { font-weight: bold; }</string></property>
+							</widget></item>
+							<item>
+								<widget class="QWidget" name="sectionDeveloperOnly">
+								<layout class="QVBoxLayout" name="vboxDeveloperOnly">
+									<property name="leftMargin"><number>8</number></property>
+									<property name="topMargin"><number>2</number></property>
+									<property name="rightMargin"><number>0</number></property>
+									<property name="bottomMargin"><number>4</number></property>
+									<item>
+										<widget class="QLabel" name="lblMetroidDeveloperOnlyDesc">
+											<property name="text"><string>Features in this section are still in development and are not ready for public release. They may or may not be released.</string></property>
+											<property name="wordWrap"><bool>true</bool></property>
+										</widget>
+									</item>
+									<item>
+										<widget class="QCheckBox" name="cbMetroidEnableInstantAimFollow">
+											<property name="enabled"><bool>false</bool></property>
+											<property name="text"><string>Enable Instant Aim Follow</string></property>
+											<property name="toolTip"><string>Developer-only option. Currently disabled.</string></property>
+										</widget>
+									</item>
+									<item>
+										<widget class="QLabel" name="lblMetroidInstantAimFollowDesc">
+											<property name="enabled"><bool>false</bool></property>
+											<property name="text"><string>The game normally moves currentAim only about 10% toward targetAim each update, which can feel like mouse lag. This patch makes currentAim follow targetAim instantly. Currently disabled for normal builds.</string></property>
+											<property name="wordWrap"><bool>true</bool></property>
+											<property name="styleSheet"><string>QLabel { margin-left: 20px; }</string></property>
 										</widget>
 									</item>
 								</layout>
