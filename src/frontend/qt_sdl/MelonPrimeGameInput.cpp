@@ -128,6 +128,7 @@ namespace MelonPrime {
                 m_didFrameAdvanceSinceSnapshot = false;
             }
         }
+#endif
 
         if (!focused) {
             m_input.down = 0;
@@ -137,9 +138,14 @@ namespace MelonPrime {
             m_input.mouseY = 0;
             m_input.wheelDelta = 0;
             m_snapState = 0;
+            // Re-entrant FrameAdvance does not call InputReset before rebuilding
+            // the fast DS mask. Release it here so stale non-movement bits
+            // cannot survive a focus loss.
+            m_inputMaskFast = 0xFFFF;
             return;
         }
 
+#ifdef _WIN32
         const uint64_t hotDownMask = hk.down | emuInstance->joyHotkeyMask;
         if constexpr (!kReentrant)
             m_input.press = ProjectPressMask(hk.pressed | emuInstance->joyHotkeyPress);
