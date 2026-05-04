@@ -544,6 +544,7 @@ namespace Config
         {"Instance*.Metroid.Aim.Enable.NativeDeltaHook", false},
         {"Instance*.Metroid.Aim.Enable.InstantAimFollow", false},
         {"Instance*.Metroid.Input.Enable.ImmediateInputEdgeOverlay", false},
+        {"Instance*.Metroid.Input.Enable.DirectAltFormTransform",    false},
         /* MelonPrimeDS Crosshair bools { */
         {"Instance*.Metroid.Visual.CustomHUD", false},
         // Per-element default-HUD hide patches (DisableDefaultHud section).

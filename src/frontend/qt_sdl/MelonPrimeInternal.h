@@ -21,6 +21,14 @@ namespace MelonPrime {
         constexpr uint8_t  AIM_ADDR_INC    = 0x48;
         constexpr uint32_t RAM_MASK        = 0x3FFFFF;
 
+        // Synthetic morph binding written into player+0x3A0 by DirectAltFormTransform.
+        // Uses the NDS Select button (bit 2 = 0x0004) with a pressed-edge selector
+        // (0x40000), matching the convention of morph-bomb and other edge-style bindings.
+        // Select is unused in Touch R/L presets; Dual R/L uses it for Zoom (conflict
+        // detected at runtime and handled by falling back to touch simulation).
+        constexpr uint32_t MORPH_SYNTHETIC_BINDING = 0x00040004u;
+        constexpr uint16_t MORPH_SYNTHETIC_BIT     = 0x0004u;
+
         namespace UI {
             constexpr QPoint SCAN_VISOR_BUTTON{ 128, 173 };
             constexpr QPoint OK              { 128, 142 };

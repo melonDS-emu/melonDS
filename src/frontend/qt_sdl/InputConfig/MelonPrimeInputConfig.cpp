@@ -136,6 +136,7 @@ void MelonPrimeInputConfig::setupSensitivityAndToggles(Config::Table& instcfg)
     ui->cbMetroidEnableAimAccumulator->setChecked(instcfg.GetBool("Metroid.Aim.Enable.Accumulator"));
     ui->cbMetroidEnableNativeAimDeltaHook->setChecked(instcfg.GetBool("Metroid.Aim.Enable.NativeDeltaHook"));
     ui->cbMetroidEnableImmediateInputEdgeOverlay->setChecked(instcfg.GetBool("Metroid.Input.Enable.ImmediateInputEdgeOverlay"));
+    ui->cbMetroidEnableDirectAltFormTransform->setChecked(instcfg.GetBool("Metroid.Input.Enable.DirectAltFormTransform"));
     // Original public behavior:
     // ui->cbMetroidEnableInstantAimFollow->setChecked(instcfg.GetBool("Metroid.Aim.Enable.InstantAimFollow"));
     ui->cbMetroidEnableInstantAimFollow->setChecked(
@@ -187,6 +188,8 @@ void MelonPrimeInputConfig::updateAimControlsForStylusMode(bool stylusEnabled)
     ui->lblMetroidNativeAimDeltaHookDesc->setEnabled(enableAimHooks);
     ui->cbMetroidEnableImmediateInputEdgeOverlay->setEnabled(enableAimControls);
     ui->lblMetroidImmediateInputEdgeOverlayDesc->setEnabled(enableAimControls);
+    ui->cbMetroidEnableDirectAltFormTransform->setEnabled(enableAimControls);
+    ui->lblMetroidDirectAltFormTransformDesc->setEnabled(enableAimControls);
     // Original public behavior:
     // ui->cbMetroidEnableInstantAimFollow->setEnabled(enableAimControls);
     // ui->lblMetroidInstantAimFollowDesc->setEnabled(enableAimControls);

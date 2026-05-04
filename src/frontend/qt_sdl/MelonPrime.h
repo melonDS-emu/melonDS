@@ -185,6 +185,16 @@ namespace MelonPrime {
             melonDS::NDS* nds,
             uint32_t arm9ExecAddr,
             uint32_t regs[16]);
+
+        static uint32_t TransformGateHook_GetAddresses(
+            uint8_t romGroupIndex,
+            uint32_t* out,
+            uint32_t maxCount);
+        bool TransformGateHook_DispatchCheckAndRedirect(
+            melonDS::NDS* nds,
+            uint32_t arm9ExecAddr,
+            uint32_t regs[16],
+            uint32_t& redirectExecAddr);
 #endif
 
 #ifdef MELONPRIME_CUSTOM_HUD
@@ -270,6 +280,7 @@ namespace MelonPrime {
         bool     m_enableAimAccumulator = false;
         bool     m_enableNativeAimDeltaHook = false;
         bool     m_enableImmediateInputEdgeOverlay = false;
+        bool     m_enableDirectAltFormTransform = false;
         int16_t  m_nativeAimDeltaX = 0;
         int16_t  m_nativeAimDeltaY = 0;
         uint16_t m_immediateOverlayPrevHeld = 0;

@@ -58,6 +58,7 @@ namespace MelonPrime {
         m_enableAimAccumulator = localCfg.GetBool(CfgKey::AimAccumulator);
         m_enableNativeAimDeltaHook = localCfg.GetBool(CfgKey::NativeAimDeltaHook);
         m_enableImmediateInputEdgeOverlay = localCfg.GetBool(CfgKey::ImmediateInputEdgeOverlay);
+        m_enableDirectAltFormTransform    = localCfg.GetBool(CfgKey::DirectAltFormTransform);
 
         screenSyncMode = localCfg.GetInt(CfgKey::ScreenSyncMode);
     }
@@ -469,6 +470,7 @@ namespace MelonPrime {
         m_playerPosition = Read8(mainRAM, m_currentRom.playerPos);
 
         const uint32_t offP = static_cast<uint32_t>(m_playerPosition) * Consts::PLAYER_ADDR_INC;
+
         const uint32_t offA = static_cast<uint32_t>(m_playerPosition) * Consts::AIM_ADDR_INC;
 
         m_addrHot.isAltForm = m_currentRom.baseIsAltForm + offP;

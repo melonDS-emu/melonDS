@@ -19,6 +19,7 @@ enum DispatchMask : uint8_t
     Dispatch_ShadowFreeze               = 1u << 1,
     Dispatch_NoxusBlade                 = 1u << 2,
     Dispatch_ImmediateInputEdgeOverlay  = 1u << 3,
+    Dispatch_TransformGate              = 1u << 4,
 };
 
 struct DispatchEntry
@@ -121,7 +122,17 @@ static bool DispatcherCallback(
     if ((mask & Dispatch_NoxusBlade) != 0)
         FixNoxusBladePersistence_DispatchCheck(nds, arm9ExecAddr, regs);
 
-    // Redirect hook: may change execution address.
+    // Redirect hooks: may change execution address.
+    if ((mask & Dispatch_TransformGate) != 0)
+    {
+        if (auto* core = static_cast<MelonPrimeCore*>(userdata))
+        {
+            if (core->TransformGateHook_DispatchCheckAndRedirect(
+                    nds, arm9ExecAddr, regs, redirectExecAddr))
+                return true;
+        }
+    }
+
     if ((mask & Dispatch_ShadowFreeze) != 0)
     {
         return ShadowFreezeRuntimeHook_DispatchCheckAndRedirect(
@@ -181,6 +192,13 @@ void ARM9Hook_Install(
         melonDS::NDS::ARM9InstructionHookMaxAddresses);
     for (uint32_t i = 0; i < moduleCount; ++i)
         AddDispatchAddress(moduleAddresses[i], Dispatch_ImmediateInputEdgeOverlay);
+
+    moduleCount = MelonPrimeCore::TransformGateHook_GetAddresses(
+        romGroupIndex,
+        moduleAddresses,
+        melonDS::NDS::ARM9InstructionHookMaxAddresses);
+    for (uint32_t i = 0; i < moduleCount; ++i)
+        AddDispatchAddress(moduleAddresses[i], Dispatch_TransformGate);
 
     uint32_t addresses[melonDS::NDS::ARM9InstructionHookMaxAddresses] = {};
     const uint32_t count = s_dispatchCount;

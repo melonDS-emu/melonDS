@@ -95,6 +95,7 @@ void MelonPrimeInputConfig::saveConfig()
     instcfg.SetBool("Metroid.Aim.Enable.Accumulator", ui->cbMetroidEnableAimAccumulator->checkState() == Qt::Checked);
     instcfg.SetBool("Metroid.Aim.Enable.NativeDeltaHook", ui->cbMetroidEnableNativeAimDeltaHook->checkState() == Qt::Checked);
     instcfg.SetBool("Metroid.Input.Enable.ImmediateInputEdgeOverlay", ui->cbMetroidEnableImmediateInputEdgeOverlay->checkState() == Qt::Checked);
+    instcfg.SetBool("Metroid.Input.Enable.DirectAltFormTransform",    ui->cbMetroidEnableDirectAltFormTransform->checkState() == Qt::Checked);
     // Original public behavior:
     // instcfg.SetBool("Metroid.Aim.Enable.InstantAimFollow", ui->cbMetroidEnableInstantAimFollow->checkState() == Qt::Checked);
     instcfg.SetBool(
