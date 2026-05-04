@@ -769,16 +769,13 @@ The EU ROM has a hidden Japanese option — setting your DS firmware to Japanese
 									</item>
 									<item>
 										<widget class="QCheckBox" name="cbMetroidFixNoxusBladePersistence">
-											<property name="enabled"><bool>false</bool></property>
 											<property name="text">
 												<string>Fix Noxus Blade Persistence on Death</string>
 											</property>
-											<property name="toolTip"><string>Developer-only option. Currently disabled.</string></property>
 										</widget>
 									</item>
 									<item>
 										<widget class="QLabel" name="lblMetroidFixNoxusBladePersistenceDesc">
-											<property name="enabled"><bool>false</bool></property>
 											<property name="text">
 												<string>Fixes a bug where Noxus&apos;s Vhoscythe/blade attack continues dealing damage after death and respawn. When Noxus dies mid-blade-attack, the alt attack timer is not cleared, causing the blade hit detection to remain active after revival. This fix clears the timer at the moment of death.</string>
 											</property>
@@ -790,9 +787,8 @@ The EU ROM has a hidden Japanese option — setting your DS firmware to Japanese
 									</item>
 									<item>
 										<widget class="QLabel" name="lblMetroidFixNoxusBladePersistenceWarning">
-											<property name="enabled"><bool>false</bool></property>
 											<property name="text">
-												<string>Currently disabled: this fix is unstable and the blade may still remain active in some cases, especially in the Korean version.</string>
+												<string/>
 											</property>
 											<property name="wordWrap">
 												<bool>true</bool>
