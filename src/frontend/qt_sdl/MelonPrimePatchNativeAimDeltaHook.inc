@@ -4,21 +4,44 @@
 
         struct NativeAimDeltaHookInfo {
             uint32_t hookPc;
+            uint8_t playerReg;
             uint8_t horizontalReg;
             uint8_t verticalReg;
             uint32_t localPlayerPtrAddr;
+            bool isAltFormPath;
         };
 
         // ROM group order:
         // JP1_0=0, JP1_1=1, US1_0=2, US1_1=3, EU1_0=4, EU1_1=5, KR1_0=6
-        static constexpr NativeAimDeltaHookInfo kNativeAimDeltaHooks[] = {
-            { 0x02024318u, 4, 6, 0x020BE790u },
-            { 0x02024318u, 4, 6, 0x020BE750u },
-            { 0x0202433Cu, 4, 6, 0x020BCA70u },
-            { 0x0202433Cu, 4, 6, 0x020BD2D0u },
-            { 0x02024334u, 4, 6, 0x020BD2F0u },
-            { 0x0202433Cu, 4, 6, 0x020BD370u },
-            { 0x0200D208u, 5, 6, 0x020B6240u },
+        static constexpr NativeAimDeltaHookInfo kNativeAimDeltaHooks[][2] = {
+            {
+                { 0x02024318u, 10, 4, 6, 0x020BE790u, false },
+                { 0x020220F8u,  5, 6, 7, 0x020BE790u, true  },
+            },
+            {
+                { 0x02024318u, 10, 4, 6, 0x020BE750u, false },
+                { 0x020220F8u,  5, 6, 7, 0x020BE750u, true  },
+            },
+            {
+                { 0x0202433Cu, 10, 4, 6, 0x020BCA70u, false },
+                { 0x0202211Cu,  5, 6, 7, 0x020BCA70u, true  },
+            },
+            {
+                { 0x0202433Cu, 10, 4, 6, 0x020BD2D0u, false },
+                { 0x0202211Cu,  5, 6, 7, 0x020BD2D0u, true  },
+            },
+            {
+                { 0x02024334u, 10, 4, 6, 0x020BD2F0u, false },
+                { 0x02022114u,  5, 6, 7, 0x020BD2F0u, true  },
+            },
+            {
+                { 0x0202433Cu, 10, 4, 6, 0x020BD370u, false },
+                { 0x0202211Cu,  5, 6, 7, 0x020BD370u, true  },
+            },
+            {
+                { 0x0200D208u, 10, 5, 6, 0x020B6240u, false },
+                { 0x0200FBA0u,  7, 9, 8, 0x020B6240u, true  },
+            },
         };
 
         [[nodiscard]] static FORCE_INLINE bool NativeAimDeltaHook_IsMainRamRange(
@@ -58,8 +81,11 @@
             if (romGroupIndex >= sizeof(kNativeAimDeltaHooks) / sizeof(kNativeAimDeltaHooks[0]))
                 return nullptr;
 
-            const auto& info = kNativeAimDeltaHooks[romGroupIndex];
-            return (info.hookPc == arm9ExecAddr) ? &info : nullptr;
+            for (const auto& info : kNativeAimDeltaHooks[romGroupIndex]) {
+                if (info.hookPc == arm9ExecAddr)
+                    return &info;
+            }
+            return nullptr;
         }
 
     } // anonymous namespace
@@ -74,8 +100,13 @@
         if (romGroupIndex >= sizeof(kNativeAimDeltaHooks) / sizeof(kNativeAimDeltaHooks[0]))
             return 0;
 
-        out[0] = kNativeAimDeltaHooks[romGroupIndex].hookPc;
-        return 1;
+        uint32_t count = 0;
+        for (const auto& info : kNativeAimDeltaHooks[romGroupIndex]) {
+            if (count >= maxCount)
+                break;
+            out[count++] = info.hookPc;
+        }
+        return count;
     }
 
     void MelonPrimeCore::NativeAimDeltaHook_DispatchCheck(
@@ -87,8 +118,6 @@
             return;
         if (!m_enableNativeAimDeltaHook || !m_disableMphAimSmoothing || isStylusMode)
             return;
-        if (IsPlayerAltForm())
-            return;
         if ((m_aimBlockBits | static_cast<uint32_t>(m_isLayoutChangePending)) != 0)
             return;
         if (!m_flags.test(StateFlags::BIT_LAST_FOCUSED))
@@ -98,8 +127,10 @@
             NativeAimDeltaHook_Find(m_currentRom.romGroupIndex, arm9ExecAddr);
         if (!info)
             return;
+        if (IsPlayerAltForm() != info->isAltFormPath)
+            return;
 
-        const uint32_t player = regs[10];
+        const uint32_t player = regs[info->playerReg];
         uint32_t localPlayer = 0;
         if (!NativeAimDeltaHook_ReadMainRam32(nds, info->localPlayerPtrAddr, localPlayer))
             return;
