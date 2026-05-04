@@ -127,6 +127,18 @@
 												<property name="styleSheet"><string>QLabel { margin-left: 48px; }</string></property>
 											</widget>
 										</item>
+										<item row="5" column="0" colspan="2">
+											<widget class="QCheckBox" name="cbMetroidEnableImmediateInputEdgeOverlay">
+												<property name="text"><string>Enable Immediate Input Edge Overlay</string></property>
+											</widget>
+										</item>
+										<item row="6" column="0" colspan="2">
+											<widget class="QLabel" name="lblMetroidImmediateInputEdgeOverlayDesc">
+												<property name="text"><string>Generate pressed/released edges on the emulator side and overlay them into MPH's internal input state before player actions are processed. Covers fire, jump, zoom, and movement. Button masks are read from the player's current control-preset binding table, so all presets (Touch R/L, Dual R/L) are supported automatically.</string></property>
+												<property name="wordWrap"><bool>true</bool></property>
+												<property name="styleSheet"><string>QLabel { margin-left: 24px; }</string></property>
+											</widget>
+										</item>
 										<item row="7" column="0" colspan="2">
 											<widget class="QCheckBox" name="cbMetroidEnableStylusMode">
 												<property name="text"><string>Enable Stylus Mode (Leave this unchecked unless you want to play with the stylus)</string></property>

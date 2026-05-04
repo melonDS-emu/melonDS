@@ -57,6 +57,7 @@ namespace MelonPrime {
         m_disableMphAimSmoothing = localCfg.GetBool(CfgKey::DisableMphAimSmoothing);
         m_enableAimAccumulator = localCfg.GetBool(CfgKey::AimAccumulator);
         m_enableNativeAimDeltaHook = localCfg.GetBool(CfgKey::NativeAimDeltaHook);
+        m_enableImmediateInputEdgeOverlay = localCfg.GetBool(CfgKey::ImmediateInputEdgeOverlay);
 
         screenSyncMode = localCfg.GetInt(CfgKey::ScreenSyncMode);
     }
@@ -209,6 +210,7 @@ namespace MelonPrime {
         m_aimResidualY = 0;
         m_nativeAimDeltaX = 0;
         m_nativeAimDeltaY = 0;
+        m_immediateOverlayPrevHeld = 0;
 
         // P-3: Cache panel pointer (avoids 3-level pointer chase every frame)
         if (auto* mw = emuInstance->getMainWindow())
@@ -381,6 +383,7 @@ namespace MelonPrime {
             }
             else if (m_flags.test(StateFlags::BIT_IN_GAME_INIT)) {
                 m_flags.clear(StateFlags::BIT_IN_GAME_INIT);
+                m_immediateOverlayPrevHeld = 0;
 #ifdef MELONPRIME_CUSTOM_HUD
                 CustomHud_EnsurePatchRestored(
                     emuInstance, localCfg, m_currentRom, m_playerPosition, false);
@@ -462,6 +465,7 @@ namespace MelonPrime {
         // mainRAM fetched here (cold path) instead of every frame in RunFrameHook
         melonDS::u8* const mainRAM = emuInstance->getNDS()->MainRAM;
         m_flags.set(StateFlags::BIT_IN_GAME_INIT);
+        m_immediateOverlayPrevHeld = 0;
         m_playerPosition = Read8(mainRAM, m_currentRom.playerPos);
 
         const uint32_t offP = static_cast<uint32_t>(m_playerPosition) * Consts::PLAYER_ADDR_INC;

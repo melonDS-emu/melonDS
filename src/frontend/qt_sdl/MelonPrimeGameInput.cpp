@@ -312,6 +312,7 @@ namespace MelonPrime {
     }
 
 #include "MelonPrimePatchNativeAimDeltaHook.inc"
+#include "MelonPrimePatchImmediateInputEdgeOverlay.inc"
 
     // =========================================================================
     // ProcessAimInputMouse

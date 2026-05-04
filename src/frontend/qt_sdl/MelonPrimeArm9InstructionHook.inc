@@ -1,7 +1,7 @@
 #if defined(MELONPRIME_ARM9_INSTRUCTION_HOOK_NDS_PUBLIC_TYPES)
 
     using ARM9InstructionHookFn = bool (*)(NDS* nds, void* userdata, u32 arm9ExecAddr, u32 regs[16], u32& redirectExecAddr);
-    static constexpr u32 ARM9InstructionHookMaxAddresses = 4;
+    static constexpr u32 ARM9InstructionHookMaxAddresses = 8;
 
 #elif defined(MELONPRIME_ARM9_INSTRUCTION_HOOK_NDS_FIELDS)
 
@@ -23,6 +23,36 @@
 
         switch (ARM9InstructionHookAddrCount)
         {
+        case 8:
+            return arm9ExecAddr == ARM9InstructionHookAddresses[0]
+                || arm9ExecAddr == ARM9InstructionHookAddresses[1]
+                || arm9ExecAddr == ARM9InstructionHookAddresses[2]
+                || arm9ExecAddr == ARM9InstructionHookAddresses[3]
+                || arm9ExecAddr == ARM9InstructionHookAddresses[4]
+                || arm9ExecAddr == ARM9InstructionHookAddresses[5]
+                || arm9ExecAddr == ARM9InstructionHookAddresses[6]
+                || arm9ExecAddr == ARM9InstructionHookAddresses[7];
+        case 7:
+            return arm9ExecAddr == ARM9InstructionHookAddresses[0]
+                || arm9ExecAddr == ARM9InstructionHookAddresses[1]
+                || arm9ExecAddr == ARM9InstructionHookAddresses[2]
+                || arm9ExecAddr == ARM9InstructionHookAddresses[3]
+                || arm9ExecAddr == ARM9InstructionHookAddresses[4]
+                || arm9ExecAddr == ARM9InstructionHookAddresses[5]
+                || arm9ExecAddr == ARM9InstructionHookAddresses[6];
+        case 6:
+            return arm9ExecAddr == ARM9InstructionHookAddresses[0]
+                || arm9ExecAddr == ARM9InstructionHookAddresses[1]
+                || arm9ExecAddr == ARM9InstructionHookAddresses[2]
+                || arm9ExecAddr == ARM9InstructionHookAddresses[3]
+                || arm9ExecAddr == ARM9InstructionHookAddresses[4]
+                || arm9ExecAddr == ARM9InstructionHookAddresses[5];
+        case 5:
+            return arm9ExecAddr == ARM9InstructionHookAddresses[0]
+                || arm9ExecAddr == ARM9InstructionHookAddresses[1]
+                || arm9ExecAddr == ARM9InstructionHookAddresses[2]
+                || arm9ExecAddr == ARM9InstructionHookAddresses[3]
+                || arm9ExecAddr == ARM9InstructionHookAddresses[4];
         case 4:
             return arm9ExecAddr == ARM9InstructionHookAddresses[0]
                 || arm9ExecAddr == ARM9InstructionHookAddresses[1]

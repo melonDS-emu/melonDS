@@ -15,9 +15,10 @@ namespace {
 
 enum DispatchMask : uint8_t
 {
-    Dispatch_NativeAimDelta = 1u << 0,
-    Dispatch_ShadowFreeze   = 1u << 1,
-    Dispatch_NoxusBlade     = 1u << 2,
+    Dispatch_NativeAimDelta             = 1u << 0,
+    Dispatch_ShadowFreeze               = 1u << 1,
+    Dispatch_NoxusBlade                 = 1u << 2,
+    Dispatch_ImmediateInputEdgeOverlay  = 1u << 3,
 };
 
 struct DispatchEntry
@@ -57,6 +58,18 @@ static void AddDispatchAddress(uint32_t address, uint8_t mask) noexcept
 {
     switch (s_dispatchCount)
     {
+    case 8:
+        if (s_dispatchEntries[7].Address == arm9ExecAddr) return s_dispatchEntries[7].Mask;
+        [[fallthrough]];
+    case 7:
+        if (s_dispatchEntries[6].Address == arm9ExecAddr) return s_dispatchEntries[6].Mask;
+        [[fallthrough]];
+    case 6:
+        if (s_dispatchEntries[5].Address == arm9ExecAddr) return s_dispatchEntries[5].Mask;
+        [[fallthrough]];
+    case 5:
+        if (s_dispatchEntries[4].Address == arm9ExecAddr) return s_dispatchEntries[4].Mask;
+        [[fallthrough]];
     case 4:
         if (s_dispatchEntries[0].Address == arm9ExecAddr) return s_dispatchEntries[0].Mask;
         if (s_dispatchEntries[1].Address == arm9ExecAddr) return s_dispatchEntries[1].Mask;
@@ -96,6 +109,12 @@ static bool DispatcherCallback(
     {
         if (auto* core = static_cast<MelonPrimeCore*>(userdata))
             core->NativeAimDeltaHook_DispatchCheck(nds, arm9ExecAddr, regs);
+    }
+
+    if ((mask & Dispatch_ImmediateInputEdgeOverlay) != 0)
+    {
+        if (auto* core = static_cast<MelonPrimeCore*>(userdata))
+            core->ImmediateInputEdgeOverlay_DispatchCheck(nds, arm9ExecAddr, regs);
     }
 
     // Side-effect hook: runs regardless of whether a redirect follows.
@@ -155,6 +174,13 @@ void ARM9Hook_Install(
         melonDS::NDS::ARM9InstructionHookMaxAddresses);
     for (uint32_t i = 0; i < moduleCount; ++i)
         AddDispatchAddress(moduleAddresses[i], Dispatch_NoxusBlade);
+
+    moduleCount = MelonPrimeCore::ImmediateInputEdgeOverlay_GetAddresses(
+        romGroupIndex,
+        moduleAddresses,
+        melonDS::NDS::ARM9InstructionHookMaxAddresses);
+    for (uint32_t i = 0; i < moduleCount; ++i)
+        AddDispatchAddress(moduleAddresses[i], Dispatch_ImmediateInputEdgeOverlay);
 
     uint32_t addresses[melonDS::NDS::ARM9InstructionHookMaxAddresses] = {};
     const uint32_t count = s_dispatchCount;
