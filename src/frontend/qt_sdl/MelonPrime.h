@@ -284,6 +284,7 @@ namespace MelonPrime {
         int16_t  m_nativeAimDeltaX = 0;
         int16_t  m_nativeAimDeltaY = 0;
         uint16_t m_immediateOverlayPrevHeld = 0;
+        uint8_t  m_directTransformPendingFrames = 0;
 
         // Warm scalars (checked per frame but not in aim hot path)
         bool     m_isRunningHook = false;

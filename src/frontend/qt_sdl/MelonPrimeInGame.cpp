@@ -119,9 +119,11 @@ namespace MelonPrime {
         if (isStylusMode) m_flags.set(StateFlags::BIT_BLOCK_STYLUS);
         auto* nds = emuInstance->getNDS();
 
-        if (m_enableDirectAltFormTransform) {
+        if (m_enableDirectAltFormTransform && !isStylusMode) {
             // TransformGateHook redirects Gate A/B into the game's native
-            // TransformRequest path for every supported ROM, including KR1_0.
+            // TransformRequest path. Keep a short pending window so a press is
+            // not lost if the game reaches the transform gate a few frames late.
+            m_directTransformPendingFrames = 10;
             return;
         }
 

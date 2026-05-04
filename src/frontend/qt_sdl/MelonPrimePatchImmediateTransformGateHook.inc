@@ -12,10 +12,11 @@
         //   gate_cmp_addr + 0x00:  cmp r0,#0             ; ← HOOK HERE
         //   gate_cmp_addr + 0x04:  bne  <transform call>  ; fires if r0 != 0
         //
-        // When IB_MORPH is pressed for the local player, redirect to the same
-        // native call path the bne would have taken. This avoids relying on
-        // player+0x3A0, which is normally zero, and lets TransformRequest run
-        // every original state guard and hunter-specific setup.
+        // When an emulator-side transform request is pending for the local
+        // player, redirect to the same native call path the bne would have
+        // taken. This avoids relying on player+0x3A0, which is normally zero,
+        // and lets TransformRequest run every original state guard and
+        // hunter-specific setup.
 
         struct TransformGateEntry
         {
@@ -151,10 +152,12 @@
         if (playerInRegs != localPlayer)
             return false;
 
-        // IB_MORPH is an edge request. Consume it here so Gate A and Gate B
-        // cannot both dispatch the same host-frame press.
-        if (!(m_input.press & IB_MORPH))
+        // The request is held for a few frames by HandleRareMorph so a host
+        // edge is not lost when the game skips this gate on the exact press
+        // frame. Consume it here so Gate A and Gate B cannot both dispatch it.
+        if (m_directTransformPendingFrames == 0 && !(m_input.press & IB_MORPH))
             return false;
+        m_directTransformPendingFrames = 0;
         m_input.press &= ~IB_MORPH;
 
         redirectExecAddr = entry->TransformCallAddr;

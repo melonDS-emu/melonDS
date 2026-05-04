@@ -59,6 +59,8 @@ namespace MelonPrime {
         m_enableNativeAimDeltaHook = localCfg.GetBool(CfgKey::NativeAimDeltaHook);
         m_enableImmediateInputEdgeOverlay = localCfg.GetBool(CfgKey::ImmediateInputEdgeOverlay);
         m_enableDirectAltFormTransform    = localCfg.GetBool(CfgKey::DirectAltFormTransform);
+        if (!m_enableDirectAltFormTransform)
+            m_directTransformPendingFrames = 0;
 
         screenSyncMode = localCfg.GetInt(CfgKey::ScreenSyncMode);
     }
@@ -212,6 +214,7 @@ namespace MelonPrime {
         m_nativeAimDeltaX = 0;
         m_nativeAimDeltaY = 0;
         m_immediateOverlayPrevHeld = 0;
+        m_directTransformPendingFrames = 0;
 
         // P-3: Cache panel pointer (avoids 3-level pointer chase every frame)
         if (auto* mw = emuInstance->getMainWindow())
@@ -221,6 +224,7 @@ namespace MelonPrime {
     void MelonPrimeCore::OnEmuStop()
     {
         m_flags.clear(StateFlags::BIT_IN_GAME);
+        m_directTransformPendingFrames = 0;
 #ifdef MELONPRIME_CUSTOM_HUD
         if (m_flags.test(StateFlags::BIT_ROM_DETECTED)) {
             CustomHud_EnsurePatchRestored(
@@ -385,6 +389,7 @@ namespace MelonPrime {
             else if (m_flags.test(StateFlags::BIT_IN_GAME_INIT)) {
                 m_flags.clear(StateFlags::BIT_IN_GAME_INIT);
                 m_immediateOverlayPrevHeld = 0;
+                m_directTransformPendingFrames = 0;
 #ifdef MELONPRIME_CUSTOM_HUD
                 CustomHud_EnsurePatchRestored(
                     emuInstance, localCfg, m_currentRom, m_playerPosition, false);
@@ -442,6 +447,7 @@ namespace MelonPrime {
                     m_input.down = 0;
                     m_input.press = 0;
                     m_input.moveIndex = 0;
+                    m_directTransformPendingFrames = 0;
 #ifdef _WIN32
                     // P-9: Single call replaces resetAllKeys + resetMouseButtons
                     // (one fence instead of two)
@@ -450,6 +456,18 @@ namespace MelonPrime {
                     }
 #endif
                 }
+            }
+        }
+        if (m_directTransformPendingFrames != 0) {
+            if (!focused
+                || !m_flags.test(StateFlags::BIT_IN_GAME)
+                || !m_enableDirectAltFormTransform
+                || isStylusMode)
+            {
+                m_directTransformPendingFrames = 0;
+            }
+            else {
+                --m_directTransformPendingFrames;
             }
         }
         m_isRunningHook = false;
@@ -467,6 +485,7 @@ namespace MelonPrime {
         melonDS::u8* const mainRAM = emuInstance->getNDS()->MainRAM;
         m_flags.set(StateFlags::BIT_IN_GAME_INIT);
         m_immediateOverlayPrevHeld = 0;
+        m_directTransformPendingFrames = 0;
         m_playerPosition = Read8(mainRAM, m_currentRom.playerPos);
 
         const uint32_t offP = static_cast<uint32_t>(m_playerPosition) * Consts::PLAYER_ADDR_INC;
