@@ -26,38 +26,76 @@ UI:
 Metroid Settings の Sensitivity から Instant Aim Follow を外した
 Metroid Settings の一番下に DEVELOPER ONLY セクションを追加
 Instant Aim Follow を DEVELOPER ONLY 内へ移動
-チェックボックスと説明文を disabled にしてグレーアウト表示
+通常ビルドではチェックボックスと説明文を disabled にしてグレーアウト表示
+開発ビルドでは DEVELOPER ONLY 内のチェックボックスを操作可能にする
 ```
 
 保存:
 
 ```text
-Metroid.Aim.Enable.InstantAimFollow は保存時に常に false を書く
+通常ビルドでは Metroid.Aim.Enable.InstantAimFollow を保存時に false に丸める
+開発ビルドでは UI のチェック状態を保存する
 ```
 
 実行時:
 
 ```text
-MelonPrimePatchInstantAimFollow.cpp に kInstantAimFollowAvailable = false を追加
-cfg が true でも InstantAimFollow_ApplyOnce は patch を apply しない
+MelonPrimePatchInstantAimFollow.cpp の kInstantAimFollowAvailable をビルドオプションで切り替える
+通常ビルドでは cfg が true でも InstantAimFollow_ApplyOnce は patch を apply しない
+開発ビルドでは cfg が true のときだけ InstantAimFollow_ApplyOnce が patch を apply する
 すでに apply 済みの場合は RestoreOnce 側へ倒す
 ```
 
 関連ファイル:
 
 ```text
+src/frontend/qt_sdl/CMakeLists.txt
 InputConfig/MelonPrimeInputConfig.ui
 InputConfig/MelonPrimeInputConfig.cpp
 InputConfig/MelonPrimeInputConfigConfig.cpp
 Config.cpp
 MelonPrimePatchInstantAimFollow.cpp
+MelonPrimePatchFixNoxusBladePersistence.cpp
+```
+
+## 開発ビルドで有効化する方法
+
+`DEVELOPER ONLY` セクション内の実験機能は、通常ビルドでは UI・保存・実行時 patch のすべてで無効化される。
+
+開発時だけ有効化したい場合は、configure 時に次の CMake オプションを渡す。
+
+```text
+-DMELONPRIME_ENABLE_DEVELOPER_FEATURES=ON
+```
+
+MSYS bash からの例:
+
+```bash
+cd /c/Users/Admin/Documents/git/melonPrimeDS
+/mingw64/bin/cmake.exe -S . -B build/release-mingw-x86_64 -DMELONPRIME_ENABLE_DEVELOPER_FEATURES=ON
+/mingw64/bin/cmake.exe --build --preset=release-mingw-x86_64 --parallel 1
+```
+
+通常ビルドへ戻す場合:
+
+```bash
+cd /c/Users/Admin/Documents/git/melonPrimeDS
+/mingw64/bin/cmake.exe -S . -B build/release-mingw-x86_64 -DMELONPRIME_ENABLE_DEVELOPER_FEATURES=OFF
+/mingw64/bin/cmake.exe --build --preset=release-mingw-x86_64 --parallel 1
+```
+
+このオプションは現在、次の developer-only 機能に効く。
+
+```text
+Metroid.Aim.Enable.InstantAimFollow
+Metroid.BugFix.FixNoxusBladePersistence
 ```
 
 ## 再有効化する場合
 
-再び検証する場合は、まず developer-only のまま `kInstantAimFollowAvailable` を true に戻す。
+再び検証するだけなら、developer-only のまま `MELONPRIME_ENABLE_DEVELOPER_FEATURES=ON` でビルドする。
 
-その上で、UI の disabled 状態と保存時 false 固定をどう扱うかを別途決める。
+公開する場合は、UI の disabled 状態、保存時 false 丸め、実行時 gate をどう扱うかを別途決める。
 
 公開する場合は、少なくとも次を確認する。
 
@@ -83,10 +121,14 @@ MelonPrimePatchInstantAimFollow.cpp
 現在:
 
 ```cpp
+#ifdef MELONPRIME_ENABLE_DEVELOPER_FEATURES
+static constexpr bool kInstantAimFollowAvailable = true;
+#else
 static constexpr bool kInstantAimFollowAvailable = false;
+#endif
 ```
 
-通常設定へ戻す場合は、この定数を削除するか、少なくとも `true` にする。
+通常公開設定へ戻す場合は、このビルドオプション gate を削除するか、少なくとも常に `true` にする。
 
 `InstantAimFollow_ApplyOnce` は次の形へ戻す。
 
@@ -107,7 +149,8 @@ InputConfig/MelonPrimeInputConfig.cpp
 現在:
 
 ```cpp
-ui->cbMetroidEnableInstantAimFollow->setChecked(false);
+ui->cbMetroidEnableInstantAimFollow->setChecked(
+    kDeveloperOnlyFeaturesEnabled && instcfg.GetBool("Metroid.Aim.Enable.InstantAimFollow"));
 ```
 
 戻す:
@@ -128,8 +171,8 @@ InputConfig/MelonPrimeInputConfig.cpp
 現在:
 
 ```cpp
-ui->cbMetroidEnableInstantAimFollow->setEnabled(false);
-ui->lblMetroidInstantAimFollowDesc->setEnabled(false);
+ui->cbMetroidEnableInstantAimFollow->setEnabled(kDeveloperOnlyFeaturesEnabled && enableAimControls);
+ui->lblMetroidInstantAimFollowDesc->setEnabled(kDeveloperOnlyFeaturesEnabled && enableAimControls);
 ```
 
 戻す:
@@ -150,7 +193,10 @@ InputConfig/MelonPrimeInputConfigConfig.cpp
 現在:
 
 ```cpp
-instcfg.SetBool("Metroid.Aim.Enable.InstantAimFollow", false);
+instcfg.SetBool(
+    "Metroid.Aim.Enable.InstantAimFollow",
+    kDeveloperOnlyFeaturesEnabled
+        && ui->cbMetroidEnableInstantAimFollow->checkState() == Qt::Checked);
 ```
 
 戻す:

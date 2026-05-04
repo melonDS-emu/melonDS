@@ -46,6 +46,14 @@
 
 using namespace melonDS;
 
+namespace {
+#ifdef MELONPRIME_ENABLE_DEVELOPER_FEATURES
+    constexpr bool kDeveloperOnlyFeaturesEnabled = true;
+#else
+    constexpr bool kDeveloperOnlyFeaturesEnabled = false;
+#endif
+}
+
 MelonPrimeInputConfig::MelonPrimeInputConfig(EmuInstance* emu, QWidget* parent) :
     QWidget(parent),
     ui(new Ui::MelonPrimeInputConfig),
@@ -129,7 +137,8 @@ void MelonPrimeInputConfig::setupSensitivityAndToggles(Config::Table& instcfg)
     ui->cbMetroidEnableNativeAimDeltaHook->setChecked(instcfg.GetBool("Metroid.Aim.Enable.NativeDeltaHook"));
     // Original public behavior:
     // ui->cbMetroidEnableInstantAimFollow->setChecked(instcfg.GetBool("Metroid.Aim.Enable.InstantAimFollow"));
-    ui->cbMetroidEnableInstantAimFollow->setChecked(false);
+    ui->cbMetroidEnableInstantAimFollow->setChecked(
+        kDeveloperOnlyFeaturesEnabled && instcfg.GetBool("Metroid.Aim.Enable.InstantAimFollow"));
     updateAimControlsForStylusMode(ui->cbMetroidEnableStylusMode->isChecked());
 
     // Screen Sync Mode
@@ -140,10 +149,19 @@ void MelonPrimeInputConfig::setupSensitivityAndToggles(Config::Table& instcfg)
     // Bug fixes
     ui->cbMetroidFixWifiBitset->setChecked(instcfg.GetBool("Metroid.BugFix.WifiBitset"));
     ui->cbMetroidFixShadowFreeze->setChecked(instcfg.GetBool("Metroid.BugFix.FixShadowFreeze"));
-    ui->cbMetroidFixNoxusBladePersistence->setChecked(false);
-    ui->cbMetroidFixNoxusBladePersistence->setEnabled(false);
-    ui->lblMetroidFixNoxusBladePersistenceDesc->setEnabled(false);
-    ui->lblMetroidFixNoxusBladePersistenceWarning->setEnabled(false);
+    ui->cbMetroidFixNoxusBladePersistence->setChecked(
+        kDeveloperOnlyFeaturesEnabled && instcfg.GetBool("Metroid.BugFix.FixNoxusBladePersistence"));
+    ui->cbMetroidFixNoxusBladePersistence->setEnabled(kDeveloperOnlyFeaturesEnabled);
+    ui->lblMetroidFixNoxusBladePersistenceDesc->setEnabled(kDeveloperOnlyFeaturesEnabled);
+    ui->lblMetroidFixNoxusBladePersistenceWarning->setEnabled(kDeveloperOnlyFeaturesEnabled);
+    if constexpr (kDeveloperOnlyFeaturesEnabled) {
+        ui->cbMetroidFixNoxusBladePersistence->setToolTip("Developer-only option enabled in this build.");
+        ui->lblMetroidFixNoxusBladePersistenceWarning->setText(
+            "Developer build only: this fix is unstable and the blade may still remain active in some cases, especially in the Korean version.");
+        ui->cbMetroidEnableInstantAimFollow->setToolTip("Developer-only option enabled in this build.");
+        ui->lblMetroidInstantAimFollowDesc->setText(
+            "The game normally moves currentAim only about 10% toward targetAim each update, which can feel like mouse lag. This patch makes currentAim follow targetAim instantly. Developer build only.");
+    }
     ui->cbMetroidUseFirmwareLanguage->setChecked(instcfg.GetBool("Metroid.BugFix.UseFirmwareLanguage"));
 
     // In-game scaling
@@ -170,8 +188,8 @@ void MelonPrimeInputConfig::updateAimControlsForStylusMode(bool stylusEnabled)
     // Original public behavior:
     // ui->cbMetroidEnableInstantAimFollow->setEnabled(enableAimControls);
     // ui->lblMetroidInstantAimFollowDesc->setEnabled(enableAimControls);
-    ui->cbMetroidEnableInstantAimFollow->setEnabled(false);
-    ui->lblMetroidInstantAimFollowDesc->setEnabled(false);
+    ui->cbMetroidEnableInstantAimFollow->setEnabled(kDeveloperOnlyFeaturesEnabled && enableAimControls);
+    ui->lblMetroidInstantAimFollowDesc->setEnabled(kDeveloperOnlyFeaturesEnabled && enableAimControls);
 }
 
 void MelonPrimeInputConfig::setupCollapsibleSections(Config::Table& instcfg)

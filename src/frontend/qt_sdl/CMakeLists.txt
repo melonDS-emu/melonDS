@@ -100,9 +100,15 @@ set(SOURCES_QT_SDL
 )
 
 option(USE_QT6 "Use Qt 6 instead of Qt 5" ON)
+option(MELONPRIME_ENABLE_DEVELOPER_FEATURES "Enable MelonPrime developer-only settings and patches" OFF)
 
 if (USE_QT6)
     find_package(Qt6 COMPONENTS Core Gui Widgets Network Multimedia OpenGL OpenGLWidgets Svg REQUIRED)
+    if (WIN32 AND MINGW AND TARGET WrapRt::WrapRt)
+        # Qt's FindWrapRt can pick up MSYS /usr/lib/librt.a during a MinGW
+        # configure, but Windows targets do not need librt and cannot link it.
+        set_property(TARGET WrapRt::WrapRt PROPERTY INTERFACE_LINK_LIBRARIES "")
+    endif()
     set(QT_LINK_LIBS Qt6::Core Qt6::Gui Qt6::Widgets Qt6::Network Qt6::Multimedia Qt6::OpenGL Qt6::OpenGLWidgets)
 else()
     find_package(Qt5 COMPONENTS Core Gui Widgets Network Multimedia Svg REQUIRED)
@@ -160,6 +166,10 @@ else()
 endif()
 
 add_executable(melonDS ${SOURCES_QT_SDL})
+
+if (MELONPRIME_ENABLE_DEVELOPER_FEATURES)
+    target_compile_definitions(melonDS PRIVATE MELONPRIME_ENABLE_DEVELOPER_FEATURES)
+endif()
 
 add_subdirectory("../../net"
     ${CMAKE_BINARY_DIR}/net)

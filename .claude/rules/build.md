@@ -4,6 +4,9 @@
 - Main feature flags in `src/frontend/qt_sdl/CMakeLists.txt`:
   - `MELONPRIME_DS`
   - `MELONPRIME_CUSTOM_HUD`
+- MelonPrimeDS development builds should configure with `MELONPRIME_ENABLE_DEVELOPER_FEATURES=ON`
+  - This enables the `DEVELOPER ONLY` settings section for local development and patch verification
+  - Release/distribution builds should explicitly configure this option `OFF`
 - `MelonPrimeHudRender.cpp` and `InputConfig/MelonPrimeInputConfig.cpp` are explicitly built as part of the frontend
   - `MelonPrimeHudRender*.inc` files are unity include fragments pulled in by `MelonPrimeHudRender.cpp`; do not add them to `CMakeLists.txt`
 - `MelonPrimeHudConfigOnScreen.cpp` is a unity-build include (pulled in by `MelonPrimeHudRender.cpp`); do not add it to `CMakeLists.txt`
@@ -15,7 +18,9 @@
 ## Windows Build Command
 Windows-only AI build command. Do not rebuild, bootstrap, or reinstall `vcpkg/` unless the user explicitly asks for it.
 
-Use MSYS bash and the existing CMake preset. Put `/mingw64/bin` first in `PATH`; Qt's `moc.exe` depends on MinGW DLLs such as `libgcc_s_seh-1.dll` and `libstdc++-6.dll`, and can fail with `Process failed with return value 3221225781` if they are not discoverable.
+Use MSYS bash and the existing CMake build preset. Put `/mingw64/bin` first in `PATH`; Qt's `moc.exe` depends on MinGW DLLs such as `libgcc_s_seh-1.dll` and `libstdc++-6.dll`, and can fail with `Process failed with return value 3221225781` if they are not discoverable.
+
+For MelonPrimeDS development, run CMake configure before building and pass `-DMELONPRIME_ENABLE_DEVELOPER_FEATURES=ON`. Use `-S . -B build/release-mingw-x86_64` for configure because the MinGW configure preset can be disabled when launched from a Windows-hosted shell.
 
 **Important**: Claude Code's Bash tool runs in bash (not PowerShell). The `& '...'` syntax is PowerShell-only and fails in bash with `syntax error near unexpected token '&'`. Always wrap the command with `powershell.exe -Command "..."`.
 
@@ -24,13 +29,13 @@ Also include `/usr/bin` in PATH so standard utilities like `tail` are available 
 For verbose output:
 
 ```bash
-powershell.exe -Command "& 'C:\msys64\usr\bin\bash.exe' -lc \"export PATH='/mingw64/bin:/usr/bin:/c/Program Files/Python312:/c/Program Files/Python312/Scripts:/c/Users/Admin/Documents/git/melonPrimeDS/build/release-mingw-x86_64/vcpkg_installed/x64-mingw-static-release/tools/Qt6/bin:/c/Users/Admin/Documents/git/melonPrimeDS/build/release-mingw-x86_64/vcpkg_installed/x64-mingw-static-release/bin:\$PATH'; /mingw64/bin/cmake.exe --build --preset=release-mingw-x86_64 --parallel 1 --verbose 2>&1\""
+powershell.exe -Command "& 'C:\msys64\usr\bin\bash.exe' -lc \"cd /c/Users/Admin/Documents/git/melonPrimeDS && export PATH='/mingw64/bin:/usr/bin:/c/Program Files/Python312:/c/Program Files/Python312/Scripts:/c/Users/Admin/Documents/git/melonPrimeDS/build/release-mingw-x86_64/vcpkg_installed/x64-mingw-static-release/tools/Qt6/bin:/c/Users/Admin/Documents/git/melonPrimeDS/build/release-mingw-x86_64/vcpkg_installed/x64-mingw-static-release/bin:\$PATH'; /mingw64/bin/cmake.exe -S . -B build/release-mingw-x86_64 -DMELONPRIME_ENABLE_DEVELOPER_FEATURES=ON && /mingw64/bin/cmake.exe --build --preset=release-mingw-x86_64 --parallel 1 --verbose 2>&1\""
 ```
 
 For short output:
 
 ```bash
-powershell.exe -Command "& 'C:\msys64\usr\bin\bash.exe' -lc \"export PATH='/mingw64/bin:/usr/bin:/c/Program Files/Python312:/c/Program Files/Python312/Scripts:/c/Users/Admin/Documents/git/melonPrimeDS/build/release-mingw-x86_64/vcpkg_installed/x64-mingw-static-release/tools/Qt6/bin:/c/Users/Admin/Documents/git/melonPrimeDS/build/release-mingw-x86_64/vcpkg_installed/x64-mingw-static-release/bin:\$PATH'; /mingw64/bin/cmake.exe --build --preset=release-mingw-x86_64 --parallel 1 2>&1 | tail -20\""
+powershell.exe -Command "& 'C:\msys64\usr\bin\bash.exe' -lc \"cd /c/Users/Admin/Documents/git/melonPrimeDS && export PATH='/mingw64/bin:/usr/bin:/c/Program Files/Python312:/c/Program Files/Python312/Scripts:/c/Users/Admin/Documents/git/melonPrimeDS/build/release-mingw-x86_64/vcpkg_installed/x64-mingw-static-release/tools/Qt6/bin:/c/Users/Admin/Documents/git/melonPrimeDS/build/release-mingw-x86_64/vcpkg_installed/x64-mingw-static-release/bin:\$PATH'; /mingw64/bin/cmake.exe -S . -B build/release-mingw-x86_64 -DMELONPRIME_ENABLE_DEVELOPER_FEATURES=ON && /mingw64/bin/cmake.exe --build --preset=release-mingw-x86_64 --parallel 1 2>&1 | tail -20\""
 ```
 
 When building manually from the `C:\msys64\mingw64.exe` console:
@@ -38,6 +43,7 @@ When building manually from the `C:\msys64\mingw64.exe` console:
 ```bash
 export PATH="/c/Program Files/Python312:/c/Program Files/Python312/Scripts:$PATH"
 cd /c/Users/Admin/Documents/git/melonPrimeDS
+cmake -S . -B build/release-mingw-x86_64 -DMELONPRIME_ENABLE_DEVELOPER_FEATURES=ON
 cmake --build --preset=release-mingw-x86_64 --parallel 2
 ```
 

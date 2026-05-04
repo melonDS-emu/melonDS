@@ -44,7 +44,11 @@ static constexpr RomDeathCleanupHooks kRomHooks[] = {
     {kHooks_KR1_0, 1},
 };
 
+#ifdef MELONPRIME_ENABLE_DEVELOPER_FEATURES
+static constexpr bool kFixNoxusBladePersistenceAvailable = true;
+#else
 static constexpr bool kFixNoxusBladePersistenceAvailable = false;
+#endif
 static constexpr uint32_t kOffAltAttackTimer    = 0x704u;
 
 static bool IsMainRamRange(uint32_t address, uint32_t size)

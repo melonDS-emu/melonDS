@@ -70,7 +70,11 @@ static constexpr PatchWord kPatchWords[][5] = {
 
 static constexpr uint8_t kPatchWordCounts[] = { 5, 5, 5, 5, 5, 5, 1 };
 // Restore note: remove this gate, or set it to true, when making Instant Aim Follow public again.
+#ifdef MELONPRIME_ENABLE_DEVELOPER_FEATURES
+static constexpr bool kInstantAimFollowAvailable = true;
+#else
 static constexpr bool kInstantAimFollowAvailable = false;
+#endif
 static bool s_applied = false;
 static uint8_t s_appliedRomGroupIndex = 0xFFu;
 
