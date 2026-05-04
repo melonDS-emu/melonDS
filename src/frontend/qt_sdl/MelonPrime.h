@@ -382,6 +382,11 @@ namespace MelonPrime {
                 && *m_ptrs.isAltForm == 0x02;
         }
 
+        [[nodiscard]] FORCE_INLINE bool IsPlayerTransforming() const noexcept {
+            return m_ptrs.jumpFlag
+                && ((*m_ptrs.jumpFlag & 0x10) != 0);
+        }
+
         template <typename T>
         [[nodiscard]] FORCE_INLINE T* GetRamPointer(melonDS::u8* ram, melonDS::u32 addr) {
             return reinterpret_cast<T*>(&ram[addr & 0x3FFFFF]);
