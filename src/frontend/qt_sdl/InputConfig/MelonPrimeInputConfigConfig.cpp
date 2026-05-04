@@ -65,7 +65,8 @@ void MelonPrimeInputConfig::saveConfig()
     instcfg.SetBool("Metroid.BugFix.FixShadowFreeze", ui->cbMetroidFixShadowFreeze->checkState() == Qt::Checked);
     instcfg.SetBool(
         "Metroid.BugFix.FixNoxusBladePersistence",
-        ui->cbMetroidFixNoxusBladePersistence->checkState() == Qt::Checked);
+        kDeveloperOnlyFeaturesEnabled
+            && ui->cbMetroidFixNoxusBladePersistence->checkState() == Qt::Checked);
     instcfg.SetBool("Metroid.BugFix.UseFirmwareLanguage", ui->cbMetroidUseFirmwareLanguage->checkState() == Qt::Checked);
 
     // SnapTap

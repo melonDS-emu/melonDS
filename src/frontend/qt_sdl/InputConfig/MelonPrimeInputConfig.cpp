@@ -150,8 +150,14 @@ void MelonPrimeInputConfig::setupSensitivityAndToggles(Config::Table& instcfg)
     ui->cbMetroidFixWifiBitset->setChecked(instcfg.GetBool("Metroid.BugFix.WifiBitset"));
     ui->cbMetroidFixShadowFreeze->setChecked(instcfg.GetBool("Metroid.BugFix.FixShadowFreeze"));
     ui->cbMetroidFixNoxusBladePersistence->setChecked(
-        instcfg.GetBool("Metroid.BugFix.FixNoxusBladePersistence"));
+        kDeveloperOnlyFeaturesEnabled && instcfg.GetBool("Metroid.BugFix.FixNoxusBladePersistence"));
+    ui->cbMetroidFixNoxusBladePersistence->setEnabled(kDeveloperOnlyFeaturesEnabled);
+    ui->lblMetroidFixNoxusBladePersistenceDesc->setEnabled(kDeveloperOnlyFeaturesEnabled);
+    ui->lblMetroidFixNoxusBladePersistenceWarning->setEnabled(kDeveloperOnlyFeaturesEnabled);
     if constexpr (kDeveloperOnlyFeaturesEnabled) {
+        ui->cbMetroidFixNoxusBladePersistence->setToolTip("Developer-only option enabled in this build.");
+        ui->lblMetroidFixNoxusBladePersistenceWarning->setText(
+            "Developer build only: this fix is unstable and the blade may still remain active in some cases, especially in the Korean version.");
         ui->cbMetroidEnableInstantAimFollow->setToolTip("Developer-only option enabled in this build.");
         ui->lblMetroidInstantAimFollowDesc->setText(
             "The game normally moves currentAim only about 10% toward targetAim each update, which can feel like mouse lag. This patch makes currentAim follow targetAim instantly. Developer build only.");
