@@ -6,6 +6,8 @@
 #include "MelonPrimePatchNoDoubleTapJump.h"
 #include "MelonPrimePatchFixWifi.h"
 #include "MelonPrimePatchUseFirmwareLanguage.h"
+#include "MelonPrimePatchShowHeadshotOnline.h"
+#include "MelonPrimePatchShowEnemyHpMeterOnline.h"
 #include "MelonPrimePatchShadowFreezeRuntimeHook.h"
 #include "MelonPrimePatchFixNoxusBladePersistence.h"
 #include "MelonPrimePatchInstantAimFollow.h"

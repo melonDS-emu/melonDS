@@ -91,6 +91,8 @@ set(SOURCES_QT_SDL
     MelonPrimePatchNoDoubleTapJump.cpp
     MelonPrimePatchFixWifi.cpp
     MelonPrimePatchUseFirmwareLanguage.cpp
+    MelonPrimePatchShowHeadshotOnline.cpp
+    MelonPrimePatchShowEnemyHpMeterOnline.cpp
     MelonPrimePatchShadowFreezeRuntimeHook.cpp
     MelonPrimePatchFixNoxusBladePersistence.cpp
     MelonPrimePatchInstantAimFollow.cpp

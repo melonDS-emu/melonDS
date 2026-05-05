@@ -618,6 +618,8 @@ namespace Config
         {"Instance*.Metroid.BugFix.FixShadowFreeze",   false},
         {"Instance*.Metroid.BugFix.FixNoxusBladePersistence", false},
         {"Instance*.Metroid.BugFix.UseFirmwareLanguage", false},
+        {"Instance*.Metroid.GameFeature.ShowHeadshotOnline", false},
+        {"Instance*.Metroid.GameFeature.ShowEnemyHpMeterOnline", false},
         {"Instance*.Metroid.Visual.InGameAspectRatio", true},
         {"Instance*.Metroid.Visual.OsdColor",            false},
         {"Instance*.Metroid.Visual.OsdColorApplyGlobal", false},

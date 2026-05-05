@@ -165,6 +165,8 @@ void MelonPrimeInputConfig::setupSensitivityAndToggles(Config::Table& instcfg)
             "The game normally moves currentAim only about 10% toward targetAim each update, which can feel like mouse lag. This patch makes currentAim follow targetAim instantly. Developer build only.");
     }
     ui->cbMetroidUseFirmwareLanguage->setChecked(instcfg.GetBool("Metroid.BugFix.UseFirmwareLanguage"));
+    ui->cbMetroidShowHeadshotOnline->setChecked(instcfg.GetBool("Metroid.GameFeature.ShowHeadshotOnline"));
+    ui->cbMetroidShowEnemyHpMeterOnline->setChecked(instcfg.GetBool("Metroid.GameFeature.ShowEnemyHpMeterOnline"));
 
     // In-game scaling
     ui->cbMetroidInGameAspectRatio->setChecked(instcfg.GetBool("Metroid.Visual.InGameAspectRatio"));

@@ -345,6 +345,40 @@ The EU ROM has a hidden Japanese option — setting your DS firmware to Japanese
 												</property>
 											</widget>
 										</item>
+										<item>
+											<widget class="QCheckBox" name="cbMetroidShowHeadshotOnline">
+												<property name="text">
+													<string>Show Headshot Notification Online</string>
+												</property>
+											</widget>
+										</item>
+										<item>
+											<widget class="QLabel" name="lblMetroidShowHeadshotOnlineDesc">
+												<property name="text">
+													<string>Forces the standalone HEADSHOT notification to appear during Wi-Fi/online matches.</string>
+												</property>
+												<property name="wordWrap">
+													<bool>true</bool>
+												</property>
+											</widget>
+										</item>
+										<item>
+											<widget class="QCheckBox" name="cbMetroidShowEnemyHpMeterOnline">
+												<property name="text">
+													<string>Show Enemy HP Meter Online</string>
+												</property>
+											</widget>
+										</item>
+										<item>
+											<widget class="QLabel" name="lblMetroidShowEnemyHpMeterOnlineDesc">
+												<property name="text">
+													<string>HP information is generally not updated, so it is unreliable. You can use it as a rough indicator of who you hit.</string>
+												</property>
+												<property name="wordWrap">
+													<bool>true</bool>
+												</property>
+											</widget>
+										</item>
 									</layout>
 								</widget>
 							</item>

@@ -68,6 +68,8 @@ void MelonPrimeInputConfig::saveConfig()
         kDeveloperOnlyFeaturesEnabled
             && ui->cbMetroidFixNoxusBladePersistence->checkState() == Qt::Checked);
     instcfg.SetBool("Metroid.BugFix.UseFirmwareLanguage", ui->cbMetroidUseFirmwareLanguage->checkState() == Qt::Checked);
+    instcfg.SetBool("Metroid.GameFeature.ShowHeadshotOnline", ui->cbMetroidShowHeadshotOnline->checkState() == Qt::Checked);
+    instcfg.SetBool("Metroid.GameFeature.ShowEnemyHpMeterOnline", ui->cbMetroidShowEnemyHpMeterOnline->checkState() == Qt::Checked);
 
     // SnapTap
     instcfg.SetBool("Metroid.Operation.SnapTap", ui->cbMetroidEnableSnapTap->checkState() == Qt::Checked);

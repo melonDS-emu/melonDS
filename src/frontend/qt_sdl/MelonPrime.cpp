@@ -198,10 +198,14 @@ namespace MelonPrime {
 #ifdef MELONPRIME_DS
         ARM9Hook_Uninstall(emuInstance->getNDS());
         InstantAimFollow_RestoreOnce(emuInstance->getNDS(), m_currentRom.romGroupIndex);
+        ShowHeadshotOnline_RestoreOnce(emuInstance->getNDS(), m_currentRom.romGroupIndex);
+        ShowEnemyHpMeterOnline_RestoreOnce(emuInstance->getNDS(), m_currentRom.romGroupIndex);
         InGameAspectRatio_ResetPatchState();
         OsdColor_ResetPatchState();
         FixWifi_ResetPatchState();
         UseFirmwareLanguage_ResetPatchState();
+        ShowHeadshotOnline_ResetPatchState();
+        ShowEnemyHpMeterOnline_ResetPatchState();
         InstantAimFollow_ResetPatchState();
         ARM9Hook_ResetPatchState();
 #endif
@@ -235,10 +239,14 @@ namespace MelonPrime {
 #ifdef MELONPRIME_DS
         ARM9Hook_Uninstall(emuInstance->getNDS());
         InstantAimFollow_RestoreOnce(emuInstance->getNDS(), m_currentRom.romGroupIndex);
+        ShowHeadshotOnline_RestoreOnce(emuInstance->getNDS(), m_currentRom.romGroupIndex);
+        ShowEnemyHpMeterOnline_RestoreOnce(emuInstance->getNDS(), m_currentRom.romGroupIndex);
         InGameAspectRatio_ResetPatchState();
         OsdColor_ResetPatchState();
         FixWifi_ResetPatchState();
         UseFirmwareLanguage_ResetPatchState();
+        ShowHeadshotOnline_ResetPatchState();
+        ShowEnemyHpMeterOnline_ResetPatchState();
         InstantAimFollow_ResetPatchState();
         ARM9Hook_ResetPatchState();
 #endif
@@ -385,6 +393,14 @@ namespace MelonPrime {
 
             if (LIKELY(isInGame)) {
                 OsdColor_ApplyOnce(emuInstance, localCfg, m_currentRom);
+                ShowHeadshotOnline_ApplyOnce(
+                    emuInstance->getNDS(),
+                    localCfg,
+                    m_currentRom.romGroupIndex);
+                ShowEnemyHpMeterOnline_ApplyOnce(
+                    emuInstance->getNDS(),
+                    localCfg,
+                    m_currentRom.romGroupIndex);
             }
             else if (m_flags.test(StateFlags::BIT_IN_GAME_INIT)) {
                 m_flags.clear(StateFlags::BIT_IN_GAME_INIT);
@@ -396,6 +412,8 @@ namespace MelonPrime {
 #endif
 #ifdef MELONPRIME_DS
                 InstantAimFollow_RestoreOnce(emuInstance->getNDS(), m_currentRom.romGroupIndex);
+                ShowHeadshotOnline_RestoreOnce(emuInstance->getNDS(), m_currentRom.romGroupIndex);
+                ShowEnemyHpMeterOnline_RestoreOnce(emuInstance->getNDS(), m_currentRom.romGroupIndex);
 #endif
                 OsdColor_RestoreOnce(emuInstance->getNDS(), m_currentRom);
             }
@@ -545,6 +563,14 @@ namespace MelonPrime {
         InGameAspectRatio_ApplyOnce(emuInstance, localCfg, m_currentRom);
         OsdColor_ApplyOnce(emuInstance, localCfg, m_currentRom);
         InstantAimFollow_ApplyOnce(
+            emuInstance->getNDS(),
+            localCfg,
+            m_currentRom.romGroupIndex);
+        ShowHeadshotOnline_ApplyOnce(
+            emuInstance->getNDS(),
+            localCfg,
+            m_currentRom.romGroupIndex);
+        ShowEnemyHpMeterOnline_ApplyOnce(
             emuInstance->getNDS(),
             localCfg,
             m_currentRom.romGroupIndex);
