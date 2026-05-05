@@ -161,6 +161,7 @@ EmuInstance::~EmuInstance()
     emuThread->emuExit();
     emuThread->wait();
     delete emuThread;
+    emuThread = nullptr;
 
     net.UnregisterInstance(instanceID);
 
@@ -344,6 +345,8 @@ void EmuInstance::osdAddMessage(unsigned int color, const char* fmt, ...)
 
 bool EmuInstance::emuIsActive()
 {
+    if (emuThread == nullptr)
+        return false;
     return emuThread->emuIsActive();
 }
 
