@@ -751,7 +751,7 @@ MainWindow::MainWindow(int id, EmuInstance* inst, QWidget* parent) :
         actStop->setEnabled(false);
         actFrameStep->setEnabled(false);
 
-        actDateTime->setEnabled(true);
+        //actDateTime->setEnabled(true);
         actPowerManagement->setEnabled(false);
 
         actEnableCheats->setEnabled(false);
@@ -1765,6 +1765,15 @@ void MainWindow::onFrameStep()
 void MainWindow::onOpenDateTime()
 {
     DateTimeDialog* dlg = DateTimeDialog::openDlg(this);
+    connect(dlg, &DateTimeDialog::finished, this, &MainWindow::onDateTimeDialogFinished);
+}
+
+void MainWindow::onDateTimeDialogFinished(int res)
+{
+    if (!res) return;
+    if (!emuThread->emuIsActive()) return;
+
+    emuInstance->setDateTime();
 }
 
 void MainWindow::onOpenPowerManagement()
@@ -2327,7 +2336,7 @@ void MainWindow::onEmuStart()
     actStop->setEnabled(true);
     actFrameStep->setEnabled(true);
 
-    actDateTime->setEnabled(false);
+    //actDateTime->setEnabled(false);
     actPowerManagement->setEnabled(true);
 
     actTitleManager->setEnabled(false);
@@ -2349,7 +2358,7 @@ void MainWindow::onEmuStop()
     actStop->setEnabled(false);
     actFrameStep->setEnabled(false);
 
-    actDateTime->setEnabled(true);
+    //actDateTime->setEnabled(true);
     actPowerManagement->setEnabled(false);
 
     actTitleManager->setEnabled(!globalCfg.GetString("DSi.NANDPath").empty());

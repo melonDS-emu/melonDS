@@ -327,6 +327,7 @@ private:
     void loadRTCData();
     void saveRTCData();
     void setDateTime();
+    void syncRTC();
 
     bool deleting;
 

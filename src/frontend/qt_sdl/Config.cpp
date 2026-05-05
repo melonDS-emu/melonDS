@@ -526,6 +526,7 @@ namespace Config
     #endif
     #endif
         {"DSi.DSP.HLE", true},
+        {"Instance*.RTC.SyncToHost", true},
 
     #ifdef MELONPRIME_DS
         /* MelonPrimeDS { */

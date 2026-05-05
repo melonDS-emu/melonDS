@@ -309,7 +309,7 @@ swi_interrupt_wait:
 
   // See if we should return immediately or halt
   cmp check_immediately, #0
-  blne swi_interrupt_check_first
+  bne swi_interrupt_check_first
   
   // Perform this loop until the interrupt is risen
  0:
@@ -337,11 +337,11 @@ swi_interrupt_check_first:
   // Check for IRQ
   bl interrupt_check
   // If set exit.
-  bne swi_complete
+  //bne swi_complete
 
 #if defined(TARGET_ARM7) && defined(PLATFORM_TWL)
   bl interrupt_check_aux
-  bne swi_complete
+  //bne swi_complete
 #endif
 
   // If not wait for interrupt.
