@@ -5,12 +5,17 @@ on:
   push:
     branches:
       - master
+      - ci/*
+  pull_request:
+    branches:
+      - master
 
 env:
   VCPKG_COMMIT: 55fab67aea1027f7179ae6b5c54a5ba9091c16aa
   MELONDS_GIT_BRANCH: ${{ github.ref }}
   MELONDS_GIT_HASH: ${{ github.sha }}
   MELONDS_BUILD_PROVIDER: GitHub Actions
+#  MELONDS_VERSION_SUFFIX: " RC"
   VCPKG_MAX_CONCURRENCY: 8
   CMAKE_BUILD_PARALLEL_LEVEL: 8
   VCPKG_BINARY_SOURCES: clear;files,${{ github.workspace }}/vcpkg_binary_cache,readwrite
@@ -25,7 +30,7 @@ jobs:
 
     steps:
     - name: Check out sources
-      uses: actions/checkout@v4
+      uses: actions/checkout@v6
       with:
         fetch-depth: 1
 
@@ -108,7 +113,7 @@ jobs:
         NINJA_STATUS: "[%f/%t %o/s %es] "
 
     - name: Upload artifact
-      uses: actions/upload-artifact@v4
+      uses: actions/upload-artifact@v7
       with:
         name: melonDS-windows-x86_64
         path: ./build/release-mingw-x86_64/melonDS.exe
