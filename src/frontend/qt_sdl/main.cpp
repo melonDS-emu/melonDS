@@ -291,6 +291,7 @@ int main(int argc, char** argv)
     qputenv("QT_QPA_PLATFORM", "windows:darkmode=2");
 #endif
 
+#ifdef _WIN32
     // argc and argv are passed as UTF8 by SDL's WinMain function
     // QT checks for the original value in local encoding though
     // to see whether it is unmodified to activate its hack that
