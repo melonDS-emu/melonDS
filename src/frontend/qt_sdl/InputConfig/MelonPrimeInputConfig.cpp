@@ -293,7 +293,7 @@ void MelonPrimeInputConfig::on_metroidResetSensitivityValues_clicked()
 {
     ui->metroidMphSensitvitySpinBox->setValue(-3);
     ui->metroidAimSensitvitySpinBox->setValue(63);
-    ui->metroidAimYAxisScaleSpinBox->setValue(1.500000);
+    ui->metroidAimYAxisScaleSpinBox->setValue(1.514700);
     ui->metroidAimAdjustSpinBox->setValue(0.010000);
 }
 

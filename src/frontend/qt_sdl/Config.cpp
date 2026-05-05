@@ -711,7 +711,7 @@ namespace Config
         {"SlowmoFPS", 30.0},
     #ifdef MELONPRIME_DS
         {"Instance*.Metroid.Sensitivity.Mph", -3.000},
-        {"Instance*.Metroid.Sensitivity.AimYAxisScale", 1.500000},
+        {"Instance*.Metroid.Sensitivity.AimYAxisScale", 1.514700},
         {"Instance*.Metroid.Aim.Adjust", 0.010000},
         /* MelonPrimeDS Crosshair opacities { */
         {"Instance*.Metroid.Visual.CrosshairOutlineOpacity", 0.5},

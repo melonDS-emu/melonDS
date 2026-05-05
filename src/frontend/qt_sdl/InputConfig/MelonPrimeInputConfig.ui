@@ -191,15 +191,16 @@
 													<number>6</number>
 												</property>
 												<property name="value">
-													<double>1.500000</double>
+													<double>1.514700</double>
 												</property>
 											</widget>
 										</item>
 										<item row="11" column="1">
 											<widget class="QLabel" name="metroidAimYAxisScaleLabel">
 												<property name="text">
-													<string>Aim Y-Axis Scale (default: 1.5)</string>
+													<string>Aim Y-Axis Scale (default: 1.5147 = MPH native; option: 1.9429 = perfectly matches X/Y angular velocity)</string>
 												</property>
+												<property name="wordWrap"><bool>true</bool></property>
 											</widget>
 										</item>
 										<item row="12" column="0">
