@@ -222,7 +222,17 @@ private:
     GLuint screenVertexBuffer, screenVertexArray;
     GLuint screenTexture[2];
     GLuint screenShaderProgram;
-    GLint screenShaderTransformULoc, screenShaderScreenSizeULoc;
+
+    GLuint simplepresent_program;
+    GLuint area_sample_program;
+    GLuint fxaa_program;
+    GLuint smaa_pass0_program;
+    GLuint smaa_pass1_program;
+    GLuint smaa_pass2_program;
+
+    GLint screenShaderTransformULoc, screenShaderScreenSizeULoc, screenTexULoc;
+    GLint i_resolutionULoc, o_resolutionULoc, areaTexULoc, searchTexULoc, smaa_inputULoc, convertColorsULoc;
+    void attachScreenUniforms();
 
     QMutex screenSettingsLock;
     WindowInfo windowInfo;

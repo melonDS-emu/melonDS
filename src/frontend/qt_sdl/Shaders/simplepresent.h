@@ -39,7 +39,7 @@ void main()
 const char* simplepresent_FS = R"(#version 140
 
 uniform sampler2D ScreenTex;
-
+uniform int convert_colors;
 smooth in vec2 fTexcoord;
 
 out vec4 oColor;
