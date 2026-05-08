@@ -21,7 +21,7 @@
 
 const char* fxaa_VS = R"(#version 140
 in vec2 vPosition;
-in vec2 vTexcoord;
+in vec3 vTexcoord;
 out vec2 fTexcoord;
 
 uniform vec4 i_resolution;
@@ -29,7 +29,7 @@ uniform vec4 i_resolution;
 void main()
 {
    gl_Position = vec4(vPosition, 0.0, 1.0);
-   fTexcoord = vTexcoord;
+   fTexcoord = vTexcoord.xy;
 }
 
 

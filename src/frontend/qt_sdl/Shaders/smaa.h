@@ -1397,7 +1397,7 @@ uniform vec4 i_resolution;
 #define SMAA_EDT 1.0
 
 in vec2 vPosition;
-in vec2 vTexcoord;
+in vec3 vTexcoord;
 out vec2 fTexcoord;
 out vec4 offset[3];
 
@@ -1408,8 +1408,8 @@ out vec4 offset[3];
 const char* smaa_pass0_post_VS = R"(#version 140
 void main() {
     gl_Position = vec4(vPosition, 0.0, 1.0);
-    fTexcoord = vTexcoord;
-    SMAAEdgeDetectionVS(vTexcoord, offset);
+    fTexcoord = vTexcoord.xy;
+    SMAAEdgeDetectionVS(vTexcoord.xy, offset);
 }
 )";
 
@@ -1458,7 +1458,7 @@ uniform vec4 i_resolution;
 #define SMAA_EDT 1.0
 
 in vec2 vPosition;
-in vec2 vTexcoord;
+in vec3 vTexcoord;
 out vec2 fTexcoord;
 out vec2 pixcoord;
 out vec4 offset[3];
@@ -1469,8 +1469,8 @@ out vec4 offset[3];
 const char* smaa_pass1_post_VS = R"(#version 140
 void main() {
     gl_Position = vec4(vPosition, 0.0, 1.0);
-    fTexcoord = vTexcoord;
-    SMAABlendingWeightCalculationVS(vTexcoord, pixcoord, offset);
+    fTexcoord = vTexcoord.xy;
+    SMAABlendingWeightCalculationVS(vTexcoord.xy, pixcoord, offset);
 }
 )";
 const char* smaa_pass1_pre_FS = R"(#version 140
@@ -1516,7 +1516,7 @@ uniform vec4 i_resolution;
 #define SMAA_GLSL_3
 
 in vec2 vPosition;
-in vec2 vTexcoord;
+in vec3 vTexcoord;
 out vec2 fTexcoord;
 out vec4 offset;
 
@@ -1527,8 +1527,8 @@ out vec4 offset;
 const char* smaa_pass2_post_VS = R"(#version 140
 void main() {
     gl_Position = vec4(vPosition, 0.0, 1.0);
-    fTexcoord = vTexcoord;
-    SMAANeighborhoodBlendingVS(vTexcoord, offset);
+    fTexcoord = vTexcoord.xy;
+    SMAANeighborhoodBlendingVS(vTexcoord.xy, offset);
 }
 )";
 

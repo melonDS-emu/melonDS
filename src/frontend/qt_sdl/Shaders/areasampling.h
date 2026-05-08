@@ -25,7 +25,7 @@ uniform vec2 uScreenSize;
 uniform mat2x3 uTransform;
 
 in vec2 vPosition;
-in vec2 vTexcoord;
+in vec3 vTexcoord;
 
 smooth out vec2 fTexcoord;
 
@@ -41,7 +41,7 @@ void main()
     fpos.w = 1.0;
 
     gl_Position = fpos;
-    fTexcoord = vTexcoord;
+    fTexcoord = vTexcoord.xy;
 }
 )";
 

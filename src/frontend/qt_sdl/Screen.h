@@ -220,7 +220,7 @@ private:
     bool glInited;
 
     GLuint screenVertexBuffer, screenVertexArray;
-    GLuint screenTexture;
+    GLuint screenTexture[2];
     GLuint screenShaderProgram;
     GLint screenShaderTransformULoc, screenShaderScreenSizeULoc;
 

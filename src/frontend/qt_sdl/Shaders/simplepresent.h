@@ -24,14 +24,14 @@ const char* simplepresent_VS = R"(#version 140
 uniform vec2 uScreenSize;
 
 in vec2 vPosition;
-in vec2 vTexcoord;
+in vec3 vTexcoord;
 
 smooth out vec2 fTexcoord;
 
 void main()
 {
     gl_Position = vec4(vPosition, 0.0, 1.0);
-    fTexcoord = vTexcoord;
+    fTexcoord = vTexcoord.xy;
 }
 
 )";
