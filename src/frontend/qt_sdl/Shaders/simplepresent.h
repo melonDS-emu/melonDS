@@ -16,13 +16,12 @@
     with melonDS. If not, see http://www.gnu.org/licenses/.
 */
 
-#ifndef MAIN_SHADERS_H
-#define MAIN_SHADERS_H
+#ifndef SIMPLEPRESENT_H
+#define SIMPLEPRESENT_H
 
-const char* kScreenVS = R"(#version 140
+const char* simplepresent_VS = R"(#version 140
 
 uniform vec2 uScreenSize;
-uniform mat2x3 uTransform;
 
 in vec2 vPosition;
 in vec2 vTexcoord;
@@ -31,21 +30,13 @@ smooth out vec2 fTexcoord;
 
 void main()
 {
-    vec4 fpos;
-
-    fpos.xy = vec3(vPosition, 1.0) * uTransform;
-
-    fpos.xy = ((fpos.xy * 2.0) / uScreenSize) - 1.0;
-    fpos.y *= -1;
-    fpos.z = 0.0;
-    fpos.w = 1.0;
-
-    gl_Position = fpos;
+    gl_Position = vec4(vPosition, 0.0, 1.0);
     fTexcoord = vTexcoord;
 }
+
 )";
 
-const char* kScreenFS = R"(#version 140
+const char* simplepresent_FS = R"(#version 140
 
 uniform sampler2D ScreenTex;
 
@@ -74,4 +65,4 @@ void main()
 }
 )";
 
-#endif // MAIN_SHADERS_H
+#endif // SIMPLEPRESENT_H

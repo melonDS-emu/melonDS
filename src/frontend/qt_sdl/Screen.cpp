@@ -929,6 +929,42 @@ void ScreenPanelGL::initOpenGL()
                                          {{"vPosition", 0}, {"vTexcoord", 1}},
                                          {{"oColor", 0}});
 
+
+    // Compile Post Processsing Shaders
+    OpenGL::CompileVertexFragmentProgram(simplepresent_program,
+                                            kScreenVS, kScreenFS,
+                                            "ScreenShader",
+                                            {{"vPosition", 0}, {"vTexcoord", 1}},
+                                            {{"oColor", 0}});
+    OpenGL::CompileVertexFragmentProgram(area_sample_program,
+                                         kScreenVS, kScreenFS,
+                                         "ScreenShader",
+                                         {{"vPosition", 0}, {"vTexcoord", 1}},
+                                         {{"oColor", 0}});
+    OpenGL::CompileVertexFragmentProgram(fxaa_program,
+                                         kScreenVS, kScreenFS,
+                                         "ScreenShader",
+                                         {{"vPosition", 0}, {"vTexcoord", 1}},
+                                         {{"oColor", 0}});
+    OpenGL::CompileVertexFragmentProgram(smaa_pass0_program,
+                                         kScreenVS, kScreenFS,
+                                         "ScreenShader",
+                                         {{"vPosition", 0}, {"vTexcoord", 1}},
+                                         {{"oColor", 0}});
+    OpenGL::CompileVertexFragmentProgram(smaa_pass1_program,
+                                         kScreenVS, kScreenFS,
+                                         "ScreenShader",
+                                         {{"vPosition", 0}, {"vTexcoord", 1}},
+                                         {{"oColor", 0}});
+    OpenGL::CompileVertexFragmentProgram(smaa_pass2_program,
+                                         kScreenVS, kScreenFS,
+                                         "ScreenShader",
+                                         {{"vPosition", 0}, {"vTexcoord", 1}},
+                                         {{"oColor", 0}});
+
+
+    //
+
     glUseProgram(screenShaderProgram);
     glUniform1i(glGetUniformLocation(screenShaderProgram, "TopScreenTex"), 0);
     glUniform1i(glGetUniformLocation(screenShaderProgram, "BottomScreenTex"), 1);
@@ -972,7 +1008,6 @@ void ScreenPanelGL::initOpenGL()
     glTexParameteri(GL_TEXTURE_2D_ARRAY, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
     glTexParameteri(GL_TEXTURE_2D_ARRAY, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
     glTexImage3D(GL_TEXTURE_2D_ARRAY, 0, GL_RGBA, 256, 192, 2, 0, GL_BGRA, GL_UNSIGNED_BYTE, nullptr);
-
 
     OpenGL::CompileVertexFragmentProgram(osdShader,
                                          kScreenVS_OSD, kScreenFS_OSD,
