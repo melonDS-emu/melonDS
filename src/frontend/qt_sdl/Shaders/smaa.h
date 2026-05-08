@@ -19,7 +19,7 @@
 #ifndef SMAA_H
 #define SMAA_H
 
-const char* smaa_hlsl = R"(#version 140
+const char* smaa_hlsl = R"(
 /**
  * Copyright (C) 2013 Jorge Jimenez (jorge@iryoku.com)
  * Copyright (C) 2013 Jose I. Echevarria (joseignacioechevarria@gmail.com)
@@ -1405,7 +1405,7 @@ out vec4 offset[3];
 //#include "SMAA.hlsl"
 )";
 
-const char* smaa_pass0_post_VS = R"(#version 140
+const char* smaa_pass0_post_VS = R"(
 void main() {
     gl_Position = vec4(vPosition, 0.0, 1.0);
     fTexcoord = vTexcoord.xy;
@@ -1434,7 +1434,7 @@ uniform sampler2D ScreenTex;
 //#include "SMAA.hlsl"
 )";
 
-const char* smaa_pass0_post_FS = R"(#version 140
+const char* smaa_pass0_post_FS = R"(
 void main() {
     if (SMAA_EDT == 0.0) {
         oColor = vec4(SMAALumaEdgeDetectionPS(fTexcoord, offset, ScreenTex), 0.0, 0.0);
@@ -1466,7 +1466,7 @@ out vec4 offset[3];
 #define SMAA_INCLUDE_PS 0
 //#include "SMAA.hlsl"
 )";
-const char* smaa_pass1_post_VS = R"(#version 140
+const char* smaa_pass1_post_VS = R"(
 void main() {
     gl_Position = vec4(vPosition, 0.0, 1.0);
     fTexcoord = vTexcoord.xy;
@@ -1497,7 +1497,7 @@ uniform sampler2D searchTex;
 //#include "SMAA.hlsl"
 )";
 
-const char* smaa_pass1_post_FS = R"(#version 140
+const char* smaa_pass1_post_FS = R"(
 void main() {
     vec4 subsampleIndices = vec4(0.0);
     oColor = SMAABlendingWeightCalculationPS(fTexcoord, pixcoord, offset, ScreenTex, areaTex, searchTex, subsampleIndices);
@@ -1524,7 +1524,7 @@ out vec4 offset;
 //#include "SMAA.hlsl"
 )";
 
-const char* smaa_pass2_post_VS = R"(#version 140
+const char* smaa_pass2_post_VS = R"(
 void main() {
     gl_Position = vec4(vPosition, 0.0, 1.0);
     fTexcoord = vTexcoord.xy;
@@ -1553,7 +1553,7 @@ uniform sampler2D SMAA_Input;
 //#include "SMAA.hlsl"
 )";
 
-const char* smaa_pass2_post_FS = R"(#version 140
+const char* smaa_pass2_post_FS = R"(
 vec3 LinearTosRGB(vec3 c) {
     return mix(c * 12.92, 1.055 * pow(c, vec3(1.0/2.4)) - 0.055, step(0.0031308, c));
 }

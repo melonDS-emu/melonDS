@@ -222,7 +222,8 @@ private:
     GLuint screenVertexBuffer, screenVertexArray;
     GLuint screenTexture[2];
     GLuint screenShaderProgram;
-
+    std::array<float, 60> screenVertices;
+    std::array<float, 60> passThroughVertices;
     GLuint simplepresent_program;
     GLuint area_sample_program;
     GLuint fxaa_program;
@@ -230,6 +231,21 @@ private:
     GLuint smaa_pass1_program;
     GLuint smaa_pass2_program;
 
+
+    //Post Processing Objects
+    GLuint textureFBO;
+    std::array<GLuint, 5> intermediateTexture;
+    GLuint antialiasFBOTexture;
+    GLuint areatex;
+    GLuint searchtex;
+
+
+    void AllocateSMAATextures();
+    void AllocatePPTextures();
+
+    float textureWidth;
+    float textureHeight;
+    
     GLint screenShaderTransformULoc, screenShaderScreenSizeULoc, screenTexULoc;
     GLint i_resolutionULoc, o_resolutionULoc, areaTexULoc, searchTexULoc, smaa_inputULoc, convertColorsULoc;
     void attachScreenUniforms(GLuint shaderProgram);

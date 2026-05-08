@@ -951,36 +951,56 @@ void ScreenPanelGL::initOpenGL()
 
 
     // Compile Post Processsing Shaders
-    // OpenGL::CompileVertexFragmentProgram(simplepresent_program,
-    //                                         simplepresent_VS, simplepresent_FS,
-    //                                         "ScreenShader",
-    //                                         {{"vPosition", 0}, {"vTexcoord", 1}},
-    //                                         {{"oColor", 0}});
+    OpenGL::CompileVertexFragmentProgram(simplepresent_program,
+                                            simplepresent_VS, simplepresent_FS,
+                                            "ScreenShader",
+                                            {{"vPosition", 0}, {"vTexcoord", 1}},
+                                            {{"oColor", 0}});
     OpenGL::CompileVertexFragmentProgram(area_sample_program,
                                          areasampling_VS, areasampling_FS,
                                          "AreaSampleScreenShader",
                                          {{"vPosition", 0}, {"vTexcoord", 1}},
                                          {{"oColor", 0}});
-    // OpenGL::CompileVertexFragmentProgram(fxaa_program,
-    //                                      fxaa_VS, fxaa_FS,
-    //                                      "ScreenShader",
-    //                                      {{"vPosition", 0}, {"vTexcoord", 1}},
-    //                                      {{"oColor", 0}});
-    // OpenGL::CompileVertexFragmentProgram(smaa_pass0_program,
-    //                                      kScreenVS, kScreenFS,
-    //                                      "ScreenShader",
-    //                                      {{"vPosition", 0}, {"vTexcoord", 1}},
-    //                                      {{"oColor", 0}});
-    // OpenGL::CompileVertexFragmentProgram(smaa_pass1_program,
-    //                                      kScreenVS, kScreenFS,
-    //                                      "ScreenShader",
-    //                                      {{"vPosition", 0}, {"vTexcoord", 1}},
-    //                                      {{"oColor", 0}});
-    // OpenGL::CompileVertexFragmentProgram(smaa_pass2_program,
-    //                                      kScreenVS, kScreenFS,
-    //                                      "ScreenShader",
-    //                                      {{"vPosition", 0}, {"vTexcoord", 1}},
-    //                                      {{"oColor", 0}});
+    OpenGL::CompileVertexFragmentProgram(fxaa_program,
+                                         fxaa_VS, fxaa_FS,
+                                         "FxaaShader",
+                                         {{"vPosition", 0}, {"vTexcoord", 1}},
+                                         {{"oColor", 0}});
+
+    std::string smaa_pass0_VS = smaa_pass0_pre_VS;
+    smaa_pass0_VS += smaa_hlsl;
+    smaa_pass0_VS += smaa_pass0_post_VS;
+    std::string smaa_pass0_FS = smaa_pass0_pre_FS;
+    smaa_pass0_FS += smaa_hlsl;
+    smaa_pass0_FS += smaa_pass0_post_FS;
+    std::string smaa_pass1_VS = smaa_pass1_pre_VS;
+    smaa_pass1_VS += smaa_hlsl;
+    smaa_pass1_VS += smaa_pass1_post_VS;
+    std::string smaa_pass1_FS = smaa_pass1_pre_FS;
+    smaa_pass1_FS += smaa_hlsl;
+    smaa_pass1_FS += smaa_pass1_post_FS;
+    std::string smaa_pass2_VS = smaa_pass2_pre_VS;
+    smaa_pass2_VS += smaa_hlsl;
+    smaa_pass2_VS += smaa_pass2_post_VS;
+    std::string smaa_pass2_FS = smaa_pass2_pre_FS;
+    smaa_pass2_FS += smaa_hlsl;
+    smaa_pass2_FS += smaa_pass2_post_FS;
+
+    OpenGL::CompileVertexFragmentProgram(smaa_pass0_program,
+                                         smaa_pass0_VS, smaa_pass0_FS,
+                                         "SmaaPass0Shader",
+                                         {{"vPosition", 0}, {"vTexcoord", 1}},
+                                         {{"oColor", 0}});
+    OpenGL::CompileVertexFragmentProgram(smaa_pass1_program,
+                                         smaa_pass1_VS, smaa_pass1_FS,
+                                         "SmaaPass1Shader",
+                                         {{"vPosition", 0}, {"vTexcoord", 1}},
+                                         {{"oColor", 0}});
+    OpenGL::CompileVertexFragmentProgram(smaa_pass2_program,
+                                         smaa_pass2_VS, smaa_pass2_FS,
+                                         "SmaaPass2Shader",
+                                         {{"vPosition", 0}, {"vTexcoord", 1}},
+                                         {{"oColor", 0}});
 
 
     //
@@ -989,7 +1009,7 @@ void ScreenPanelGL::initOpenGL()
     attachScreenUniforms(screenShaderProgram);
     glUniform1i(screenTexULoc, 0);
 
-    const float vertices[] =
+    screenVertices =
     {
         // Top Screen
         0.f,   0.f,    0.f, 0.f, 0.f,
@@ -1008,9 +1028,28 @@ void ScreenPanelGL::initOpenGL()
         256.f, 0.f,    1.f, 0.f, 1.f
     };
 
+    passThroughVertices =
+    {
+        // Top Screen
+        -1.f,  1.f, 0.f, 0.f, 0.f,    //Left Top
+        -1.f, -1.f, 0.f, 1.f, 0.f,    //Left Bottom 
+        1.f, -1.f, 1.f, 1.f, 0.f,    //Right Bottom
+        -1.f,  1.f, 0.f, 0.f, 0.f,    //Left Top
+        1.f, -1.f, 1.f, 1.f, 0.f,    //Right Bottom
+        1.f,  1.f, 1.f, 0.f, 0.f,    //Right Top
+
+        // Bottom Screen
+        -1.f,  1.f, 0.f, 0.f, 1.f,    //Left Top
+        -1.f, -1.f, 0.f, 1.f, 1.f,    //Left Bottom 
+        1.f, -1.f, 1.f, 1.f, 1.f,    //Right Bottom
+        -1.f,  1.f, 0.f, 0.f, 1.f,    //Left Top
+        1.f, -1.f, 1.f, 1.f, 1.f,    //Right Bottom
+        1.f,  1.f, 1.f, 0.f, 1.f    //Right Top
+    };
+
     glGenBuffers(1, &screenVertexBuffer);
     glBindBuffer(GL_ARRAY_BUFFER, screenVertexBuffer);
-    glBufferData(GL_ARRAY_BUFFER, sizeof(vertices), vertices, GL_STATIC_DRAW);
+    glBufferData(GL_ARRAY_BUFFER, sizeof(screenVertices), screenVertices.data(), GL_STATIC_DRAW);
 
     glGenVertexArrays(1, &screenVertexArray);
     glBindVertexArray(screenVertexArray);
@@ -1036,6 +1075,7 @@ void ScreenPanelGL::initOpenGL()
     glTexParameteri(GL_TEXTURE, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
     glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, 256, 192, 0, GL_BGRA, GL_UNSIGNED_BYTE, nullptr);
     
+    AllocateSMAATextures();
     OpenGL::CompileVertexFragmentProgram(osdShader,
                                          kScreenVS_OSD, kScreenFS_OSD,
                                          "OSDShader",
@@ -1163,6 +1203,57 @@ void ScreenPanelGL::osdDeleteItem(OSDItem* item)
     ScreenPanel::osdDeleteItem(item);
 }
 
+void ScreenPanelGL::AllocatePPTextures(){
+    for (int i = 0; i < 5; i++){
+        if (intermediateTexture[i] != 0){
+            glDeleteTextures(1, &intermediateTexture[i]);
+            intermediateTexture[i] = 0;
+        }
+        glGenTextures(1,&intermediateTexture[i]);
+        glBindTexture(GL_TEXTURE_2D, intermediateTexture[i]);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA16F, textureWidth, textureHeight, 0, GL_RGBA16F, GL_UNSIGNED_BYTE, nullptr);
+        glBindTexture(GL_TEXTURE_2D, 0);
+    }
+    if (antialiasFBOTexture != 0){
+        glDeleteTextures(1, &antialiasFBOTexture);
+        antialiasFBOTexture = 0;
+    }
+    glGenTextures(1,&antialiasFBOTexture);
+    glBindTexture(GL_TEXTURE_2D, antialiasFBOTexture);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA16F, textureWidth, textureHeight, 0, GL_RGBA16F, GL_UNSIGNED_BYTE, nullptr);
+    glBindTexture(GL_TEXTURE_2D, 0);
+}
+
+void ScreenPanelGL::AllocateSMAATextures(){
+    //Load AreaTex and SearchTex  to OGLTexture Objects 
+    glGenTextures(1, &areatex);
+    glGenTextures(1, &searchtex);
+    
+    glBindTexture(GL_TEXTURE_2D, areatex);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RG8, AREATEX_WIDTH, AREATEX_HEIGHT, 0, GL_RG, GL_UNSIGNED_BYTE, areaTexBytes);
+
+    glBindTexture(GL_TEXTURE_2D, searchtex);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_R8, SEARCHTEX_WIDTH, SEARCHTEX_HEIGHT, 0, GL_RED, GL_UNSIGNED_BYTE, searchTexBytes);
+
+    glBindTexture(GL_TEXTURE_2D, 0);  
+}
+
 void ScreenPanelGL::drawScreen()
 {
     if (!glContext) return;
@@ -1174,6 +1265,9 @@ void ScreenPanelGL::drawScreen()
     int w = windowInfo.surface_width;
     int h = windowInfo.surface_height;
     float factor = windowInfo.surface_scale;
+    int scalefactor = emuInstance->getGlobalConfig().GetInt("3D.GL.ScaleFactor");
+    textureWidth = 256.f * scalefactor;
+    textureHeight = 192.f * scalefactor;
 
     glBindFramebuffer(GL_FRAMEBUFFER, 0);
     glDisable(GL_DEPTH_TEST);
@@ -1189,13 +1283,9 @@ void ScreenPanelGL::drawScreen()
     if (emuThread->emuIsActive())
     {
         auto nds = emuInstance->getNDS();
-
-        glUseProgram(area_sample_program);
-        attachScreenUniforms(area_sample_program);
-        glUniform2f(screenShaderScreenSizeULoc, w / factor, h / factor);
         int scalefactor = emuInstance->getGlobalConfig().GetInt("3D.GL.ScaleFactor");
-        float textureWidth = 256.f * scalefactor;
-        float textureHeight = 192.f * scalefactor;
+        textureWidth = 256.f * scalefactor;
+        textureHeight = 192.f * scalefactor;
 
 
         // 3x2 Array of Top/Bottom/Hybrid and Width/Height
@@ -1252,7 +1342,9 @@ void ScreenPanelGL::drawScreen()
 
         glBindBuffer(GL_ARRAY_BUFFER, screenVertexBuffer);
         glBindVertexArray(screenVertexArray);
-
+        glUseProgram(fxaa_program);
+        attachScreenUniforms(fxaa_program);
+        glUniform2f(screenShaderScreenSizeULoc, w / factor, h / factor);
         for (int i = 0; i < numScreens; i++)
         {
             glActiveTexture(GL_TEXTURE0);
@@ -1261,11 +1353,13 @@ void ScreenPanelGL::drawScreen()
             } else {
                 glBindTexture(GL_TEXTURE_2D, texidBottom);
             }
+            // glBindTexture(GL_TEXTURE_2D, areatex);
             glUniform4f(i_resolutionULoc, textureWidth, textureHeight, 1.f / textureWidth, 1.f / textureHeight);
             glUniform4f(o_resolutionULoc, outputDimensions[i][0], outputDimensions[i][1], 1.f / outputDimensions[i][0], 1.f / outputDimensions[i][1]);
             glUniform1i(convertColorsULoc, 0);
             glUniform1i(screenTexULoc, 0);
             glUniformMatrix2x3fv(screenShaderTransformULoc, 1, GL_TRUE, screenMatrix[i]);
+            glBufferData(GL_ARRAY_BUFFER, sizeof(passThroughVertices), passThroughVertices.data(), GL_STATIC_DRAW);
             glDrawArrays(GL_TRIANGLES, screenKind[i] == 0 ? 0 : 2 * 3, 2 * 3);
         }
 
