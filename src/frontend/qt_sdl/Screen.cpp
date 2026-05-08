@@ -924,16 +924,16 @@ void ScreenPanelGL::setSwapInterval(int intv)
     glContext->SetSwapInterval(intv);
 }
 
-void ScreenPanelGL::attachScreenUniforms(){
-    screenTexULoc = glGetUniformLocation(screenShaderProgram, "ScreenTex");
-    screenShaderScreenSizeULoc = glGetUniformLocation(screenShaderProgram, "uScreenSize");
-    screenShaderTransformULoc = glGetUniformLocation(screenShaderProgram, "uTransform");
-    convertColorsULoc = glGetUniformLocation(screenShaderProgram, "convert_colors");
-    i_resolutionULoc = glGetUniformLocation(screenShaderProgram, "i_resolution");
-    o_resolutionULoc = glGetUniformLocation(screenShaderProgram, "o_resolution");
-    areaTexULoc = glGetUniformLocation(screenShaderProgram, "areaTex");
-    searchTexULoc = glGetUniformLocation(screenShaderProgram, "searchTex");
-    smaa_inputULoc = glGetUniformLocation(screenShaderProgram, "smaa_input");
+void ScreenPanelGL::attachScreenUniforms(GLuint shaderProgram){
+    screenTexULoc = glGetUniformLocation(shaderProgram, "ScreenTex");
+    screenShaderScreenSizeULoc = glGetUniformLocation(shaderProgram, "uScreenSize");
+    screenShaderTransformULoc = glGetUniformLocation(shaderProgram, "uTransform");
+    convertColorsULoc = glGetUniformLocation(shaderProgram, "convert_colors");
+    i_resolutionULoc = glGetUniformLocation(shaderProgram, "i_resolution");
+    o_resolutionULoc = glGetUniformLocation(shaderProgram, "o_resolution");
+    areaTexULoc = glGetUniformLocation(shaderProgram, "areaTex");
+    searchTexULoc = glGetUniformLocation(shaderProgram, "searchTex");
+    smaa_inputULoc = glGetUniformLocation(shaderProgram, "smaa_input");
 }
 
 void ScreenPanelGL::initOpenGL()
@@ -956,11 +956,11 @@ void ScreenPanelGL::initOpenGL()
     //                                         "ScreenShader",
     //                                         {{"vPosition", 0}, {"vTexcoord", 1}},
     //                                         {{"oColor", 0}});
-    // OpenGL::CompileVertexFragmentProgram(area_sample_program,
-    //                                      areasampling_VS, areasampling_FS,
-    //                                      "ScreenShader",
-    //                                      {{"vPosition", 0}, {"vTexcoord", 1}},
-    //                                      {{"oColor", 0}});
+    OpenGL::CompileVertexFragmentProgram(area_sample_program,
+                                         areasampling_VS, areasampling_FS,
+                                         "AreaSampleScreenShader",
+                                         {{"vPosition", 0}, {"vTexcoord", 1}},
+                                         {{"oColor", 0}});
     // OpenGL::CompileVertexFragmentProgram(fxaa_program,
     //                                      fxaa_VS, fxaa_FS,
     //                                      "ScreenShader",
@@ -986,7 +986,7 @@ void ScreenPanelGL::initOpenGL()
     //
 
     glUseProgram(screenShaderProgram);
-    attachScreenUniforms();
+    attachScreenUniforms(screenShaderProgram);
     glUniform1i(screenTexULoc, 0);
 
     const float vertices[] =
@@ -1190,9 +1190,25 @@ void ScreenPanelGL::drawScreen()
     {
         auto nds = emuInstance->getNDS();
 
-        glUseProgram(screenShaderProgram);
-        attachScreenUniforms();
+        glUseProgram(area_sample_program);
+        attachScreenUniforms(area_sample_program);
         glUniform2f(screenShaderScreenSizeULoc, w / factor, h / factor);
+        int scalefactor = emuInstance->getGlobalConfig().GetInt("3D.GL.ScaleFactor");
+        float textureWidth = 256.f * scalefactor;
+        float textureHeight = 192.f * scalefactor;
+
+
+        // 3x2 Array of Top/Bottom/Hybrid and Width/Height
+        float outputDimensions[3][2]; 
+        outputDimensions[0][0] = 256.f * screenMatrix[0][0];  
+        outputDimensions[0][1] = 192.f * screenMatrix[0][3];
+        outputDimensions[1][0] = 256.f * screenMatrix[1][0];
+        outputDimensions[1][1] = 192.f * screenMatrix[1][3];
+        outputDimensions[2][0] = 256.f * screenMatrix[2][0];
+        outputDimensions[2][1] = 192.f * screenMatrix[2][3];
+
+
+
 
         GLint filter = this->filter ? GL_LINEAR : GL_NEAREST;
         void* topbuf; void* bottombuf;
@@ -1245,7 +1261,10 @@ void ScreenPanelGL::drawScreen()
             } else {
                 glBindTexture(GL_TEXTURE_2D, texidBottom);
             }
+            glUniform4f(i_resolutionULoc, textureWidth, textureHeight, 1.f / textureWidth, 1.f / textureHeight);
+            glUniform4f(o_resolutionULoc, outputDimensions[i][0], outputDimensions[i][1], 1.f / outputDimensions[i][0], 1.f / outputDimensions[i][1]);
             glUniform1i(convertColorsULoc, 0);
+            glUniform1i(screenTexULoc, 0);
             glUniformMatrix2x3fv(screenShaderTransformULoc, 1, GL_TRUE, screenMatrix[i]);
             glDrawArrays(GL_TRIANGLES, screenKind[i] == 0 ? 0 : 2 * 3, 2 * 3);
         }

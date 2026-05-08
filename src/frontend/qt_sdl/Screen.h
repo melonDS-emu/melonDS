@@ -232,7 +232,7 @@ private:
 
     GLint screenShaderTransformULoc, screenShaderScreenSizeULoc, screenTexULoc;
     GLint i_resolutionULoc, o_resolutionULoc, areaTexULoc, searchTexULoc, smaa_inputULoc, convertColorsULoc;
-    void attachScreenUniforms();
+    void attachScreenUniforms(GLuint shaderProgram);
 
     QMutex screenSettingsLock;
     WindowInfo windowInfo;
