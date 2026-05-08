@@ -153,11 +153,13 @@ bool GLRenderer::Init()
     glTexParams(GL_TEXTURE_2D_ARRAY, GL_REPEAT);
     glGenFramebuffers(1, &CaptureVRAMFB);
 
-    glGenTextures(2, FPOutputTex);
+    glGenTextures(4, FPOutputTex);
     for (int i = 0; i < 2; i++)
     {
-        glBindTexture(GL_TEXTURE_2D_ARRAY, FPOutputTex[i]);
-        glTexParams(GL_TEXTURE_2D_ARRAY, GL_CLAMP_TO_EDGE);
+        glBindTexture(GL_TEXTURE_2D, FPOutputTex[i*2]);
+        glTexParams(GL_TEXTURE_2D, GL_CLAMP_TO_EDGE);
+        glBindTexture(GL_TEXTURE_2D, FPOutputTex[i*2+1]);
+        glTexParams(GL_TEXTURE_2D, GL_CLAMP_TO_EDGE);
     }
 
     glGenTextures(1, &CaptureOutput256Tex);
@@ -260,7 +262,7 @@ GLRenderer::~GLRenderer()
     glDeleteFramebuffers(2, FPOutputFB);
     glDeleteTextures(1, &AuxInputTex);
     glDeleteTextures(1, &CaptureVRAMTex);
-    glDeleteTextures(2, FPOutputTex);
+    glDeleteTextures(4, FPOutputTex);
 
     delete[] AuxInputBuffer[0];
     delete[] AuxInputBuffer[1];
@@ -383,12 +385,16 @@ void GLRenderer::SetScaleFactor(int scale)
 
     for (int i = 0; i < 2; i++)
     {
-        glBindTexture(GL_TEXTURE_2D_ARRAY, FPOutputTex[i]);
-        glTexImage3D(GL_TEXTURE_2D_ARRAY, 0, GL_RGBA, ScreenW, ScreenH, 2, 0, GL_RGBA, GL_UNSIGNED_BYTE, nullptr);
+        glBindTexture(GL_TEXTURE_2D, FPOutputTex[i*2]);
+        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, ScreenW, ScreenH, 0, GL_RGBA, GL_UNSIGNED_BYTE, nullptr);
+        glBindTexture(GL_TEXTURE_2D, FPOutputTex[i*2+1]);
+        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, ScreenW, ScreenH, 0, GL_RGBA, GL_UNSIGNED_BYTE, nullptr);
 
         glBindFramebuffer(GL_FRAMEBUFFER, FPOutputFB[i]);
-        glFramebufferTextureLayer(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, FPOutputTex[i], 0, 0);
-        glFramebufferTextureLayer(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT1, FPOutputTex[i], 0, 1);
+
+        
+        glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, FPOutputTex[i*2], 0);
+        glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT1, GL_TEXTURE_2D, FPOutputTex[i*2+1], 0);
         glDrawBuffers(2, fbassign2);
     }
 
@@ -914,10 +920,10 @@ void GLRenderer::SyncVRAMCapture(u32 bank, u32 start, u32 len, bool complete)
 
 bool GLRenderer::GetFramebuffers(void** top, void** bottom)
 {
-    // since we use an array texture, we only need one of the pointer fields
+    // Frontbuf alternates between 0 and 1. 0 and 2 are reserved for top screen, 1 and 3 are reserved for bottom
     int frontbuf = BackBuffer ^ 1;
-    *top = &FPOutputTex[frontbuf];
-    *bottom = nullptr;
+    *top = &FPOutputTex[frontbuf*2];
+    *bottom =  &FPOutputTex[frontbuf*2+1];
     return false;
 }
 
