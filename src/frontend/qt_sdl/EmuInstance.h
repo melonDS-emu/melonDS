@@ -81,6 +81,8 @@ enum
 bool isRightModKey(QKeyEvent* event);
 int getEventKeyVal(QKeyEvent* event);
 
+class SoulLinkServer;
+
 class EmuInstance
 {
 public:
@@ -264,6 +266,8 @@ private:
     bool deleting;
 
     int instanceID;
+
+    SoulLinkServer* soulLinkServer;
 
     EmuThread* emuThread;
 

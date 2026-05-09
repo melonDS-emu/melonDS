@@ -49,6 +49,7 @@
 #include "main.h"
 
 #include "NDSCart/CartSD.h"
+#include "SoulLinkServer.h"
 
 using std::make_unique;
 using std::pair;
@@ -133,6 +134,9 @@ EmuInstance::EmuInstance(int inst) : deleting(false),
 
     emuThread = new EmuThread(this);
 
+    soulLinkServer = new SoulLinkServer(this);
+    soulLinkServer->start();
+
     numWindows = 0;
     mainWindow = nullptr;
     for (int i = 0; i < kMaxWindows; i++)
@@ -162,6 +166,9 @@ EmuInstance::~EmuInstance()
     emuThread->wait();
     delete emuThread;
     emuThread = nullptr;
+
+    delete soulLinkServer;
+    soulLinkServer = nullptr;
 
     net.UnregisterInstance(instanceID);
 
