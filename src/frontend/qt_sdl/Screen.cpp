@@ -29,6 +29,7 @@
 
 #include "OpenGLSupport.h"
 #include "PlatformOGL.h"
+#include "ScreenLayout.h"
 #include "duckstation/gl/context.h"
 
 #include "main.h"
@@ -1303,7 +1304,6 @@ void ScreenPanelGL::drawScreen()
     int w = windowInfo.surface_width;
     int h = windowInfo.surface_height;
     float factor = windowInfo.surface_scale;
-    int scalefactor = emuInstance->getGlobalConfig().GetInt("3D.GL.ScaleFactor");
 
     glBindFramebuffer(GL_FRAMEBUFFER, 0);
     glDisable(GL_DEPTH_TEST);
@@ -1320,20 +1320,23 @@ void ScreenPanelGL::drawScreen()
     {
         auto nds = emuInstance->getNDS();
         int scalefactor = emuInstance->getGlobalConfig().GetInt("3D.GL.ScaleFactor");
-
-
+        bool isRotated = screenRotation == screenRot_90Deg || screenRotation == screenRot_270Deg;
+        
         // 3x2 Array of Top/Bottom/Hybrid and Width/Height that gives the dimensions for each screen on output
-        float outputDimensions[3][2]; 
-        outputDimensions[0][0] = 256.f * screenMatrix[0][0];  
-        outputDimensions[0][1] = 192.f * screenMatrix[0][3];
-        outputDimensions[1][0] = 256.f * screenMatrix[1][0];
-        outputDimensions[1][1] = 192.f * screenMatrix[1][3];
-        outputDimensions[2][0] = 256.f * screenMatrix[2][0];
-        outputDimensions[2][1] = 192.f * screenMatrix[2][3];
-
-
-
-
+        // This always gives width/height in landscape orientation, since the rotation only occurs when outputting to the screen
+        float outputDimensions[3][2];
+        std::array<float, 3> scale;
+        if (isRotated){
+            scale = {std::abs(screenMatrix[0][1]), std::abs(screenMatrix[1][1]), std::abs(screenMatrix[2][1])};
+        } else {
+            scale = {std::abs(screenMatrix[0][0]), std::abs(screenMatrix[1][0]), std::abs(screenMatrix[2][0])};
+        }
+        outputDimensions[0][0] = 256.f *  scale[0];  
+        outputDimensions[0][1] = 192.f *  scale[0];
+        outputDimensions[1][0] = 256.f *  scale[1];
+        outputDimensions[1][1] = 192.f *  scale[1];
+        outputDimensions[2][0] = 256.f *  scale[2];
+        outputDimensions[2][1] = 192.f *  scale[2];
         GLint filter = this->filter ? GL_LINEAR : GL_NEAREST;
         void* topbuf; void* bottombuf;
         GLuint texidTop;
@@ -1379,14 +1382,25 @@ void ScreenPanelGL::drawScreen()
         }
         prevTextureHeight = textureHeight;
         screenSettingsLock.lock();
+        int scalingMode = 0; // 0 is Nearest Neighbor, 1 is Legacy Filtering, 2 is High Quality Scaling (Upsampling via Gamma Corrected Bilinear, Downsampling is Gamma Corrected Area Sampling)
+        int antialiasingMode = 1; //0 is none, 1 is FXAA, 2 is SMAA
 
         glBindBuffer(GL_ARRAY_BUFFER, screenVertexBuffer);
         glBindVertexArray(screenVertexArray);
-        glUseProgram(area_sample_program);
-        attachScreenUniforms(area_sample_program);
-        glUniform2f(screenShaderScreenSizeULoc, w / factor, h / factor);
         for (int i = 0; i < numScreens; i++)
         {
+            bool isDownsampling = false;
+            if (isRotated){
+                if (textureHeight > outputDimensions[i][0]){
+                    isDownsampling = true;
+                }
+            } else {
+                if (textureHeight > outputDimensions[i][1]){
+                    isDownsampling = true;
+                }
+            }
+            glUseProgram(area_sample_program);
+            attachScreenUniforms(area_sample_program);
             glActiveTexture(GL_TEXTURE0);
             if (screenKind[i] == 0){
                 glBindTexture(GL_TEXTURE_2D, texidTop);
@@ -1394,12 +1408,13 @@ void ScreenPanelGL::drawScreen()
                 glBindTexture(GL_TEXTURE_2D, texidBottom);
             }
             // glBindTexture(GL_TEXTURE_2D, areatex);
+            glUniform2f(screenShaderScreenSizeULoc, w / factor, h / factor);
             glUniform4f(i_resolutionULoc, textureWidth, textureHeight, 1.f / textureWidth, 1.f / textureHeight);
             glUniform4f(o_resolutionULoc, outputDimensions[i][0], outputDimensions[i][1], 1.f / outputDimensions[i][0], 1.f / outputDimensions[i][1]);
             glUniform1i(convertColorsULoc, 0);
             glUniform1i(screenTexULoc, 0);
             glUniformMatrix2x3fv(screenShaderTransformULoc, 1, GL_TRUE, screenMatrix[i]);
-            glBufferData(GL_ARRAY_BUFFER, sizeof(screenVertices), screenVertices.data(), GL_STATIC_DRAW);
+            glBufferData(GL_ARRAY_BUFFER, sizeof(screenFlipVertices), screenFlipVertices.data(), GL_STATIC_DRAW);
             glDrawArrays(GL_TRIANGLES, screenKind[i] == 0 ? 0 : 2 * 3, 2 * 3);
         }
 
