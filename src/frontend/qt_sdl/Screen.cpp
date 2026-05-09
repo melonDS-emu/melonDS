@@ -1012,6 +1012,25 @@ void ScreenPanelGL::initOpenGL()
     screenVertices =
     {
         // Top Screen
+        0.f,   0.f,    0.f, 1.f, 0.f,
+        0.f,   192.f,  0.f, 0.f, 0.f,
+        256.f, 192.f,  1.f, 0.f, 0.f,
+        0.f,   0.f,    0.f, 1.f, 0.f,
+        256.f, 192.f,  1.f, 0.f, 0.f,
+        256.f, 0.f,    1.f, 1.f, 0.f,
+
+        // Bottom Screen
+        0.f,   0.f,    0.f, 1.f, 1.f,
+        0.f,   192.f,  0.f, 0.f, 1.f,
+        256.f, 192.f,  1.f, 0.f, 1.f,
+        0.f,   0.f,    0.f, 1.f, 1.f,
+        256.f, 192.f,  1.f, 0.f, 1.f,
+        256.f, 0.f,    1.f, 1.f, 1.f
+    };
+    
+    screenFlipVertices =
+    {
+        // Top Screen
         0.f,   0.f,    0.f, 0.f, 0.f,
         0.f,   192.f,  0.f, 1.f, 0.f,
         256.f, 192.f,  1.f, 1.f, 0.f,
@@ -1028,7 +1047,7 @@ void ScreenPanelGL::initOpenGL()
         256.f, 0.f,    1.f, 0.f, 1.f
     };
 
-    passThroughVertices =
+    passVertices =
     {
         // Top Screen
         -1.f,  1.f, 0.f, 0.f, 0.f,    //Left Top
@@ -1047,9 +1066,28 @@ void ScreenPanelGL::initOpenGL()
         1.f,  1.f, 1.f, 0.f, 1.f    //Right Top
     };
 
+    passFlipVertices =
+    {
+        // Top Screen
+        -1.f,  1.f, 0.f, 1.f, 0.f,    //Left Top
+        -1.f, -1.f, 0.f, 0.f, 0.f,    //Left Bottom 
+        1.f, -1.f, 1.f, 0.f, 0.f,    //Right Bottom
+        -1.f,  1.f, 0.f, 1.f, 0.f,    //Left Top
+        1.f, -1.f, 1.f, 0.f, 0.f,    //Right Bottom
+        1.f,  1.f, 1.f, 1.f, 0.f,    //Right Top
+
+        // Bottom Screen
+        -1.f,  1.f, 0.f, 1.f, 1.f,    //Left Top
+        -1.f, -1.f, 0.f, 0.f, 1.f,    //Left Bottom 
+        1.f, -1.f, 1.f, 0.f, 1.f,    //Right Bottom
+        -1.f,  1.f, 0.f, 1.f, 1.f,    //Left Top
+        1.f, -1.f, 1.f, 0.f, 1.f,    //Right Bottom
+        1.f,  1.f, 1.f, 1.f, 1.f    //Right Top
+    };
+
     glGenBuffers(1, &screenVertexBuffer);
     glBindBuffer(GL_ARRAY_BUFFER, screenVertexBuffer);
-    glBufferData(GL_ARRAY_BUFFER, sizeof(screenVertices), screenVertices.data(), GL_STATIC_DRAW);
+    glBufferData(GL_ARRAY_BUFFER, sizeof(screenFlipVertices), screenFlipVertices.data(), GL_STATIC_DRAW);
 
     glGenVertexArrays(1, &screenVertexArray);
     glBindVertexArray(screenVertexArray);
@@ -1266,8 +1304,6 @@ void ScreenPanelGL::drawScreen()
     int h = windowInfo.surface_height;
     float factor = windowInfo.surface_scale;
     int scalefactor = emuInstance->getGlobalConfig().GetInt("3D.GL.ScaleFactor");
-    textureWidth = 256.f * scalefactor;
-    textureHeight = 192.f * scalefactor;
 
     glBindFramebuffer(GL_FRAMEBUFFER, 0);
     glDisable(GL_DEPTH_TEST);
@@ -1275,7 +1311,7 @@ void ScreenPanelGL::drawScreen()
     glDisable(GL_BLEND);
     glDisable(GL_SCISSOR_TEST);
     glDisable(GL_STENCIL_TEST);
-    glClearColor(0, 0, 0, 1);
+    glClearColor(0, 0, 0, 0);
     glClear(GL_COLOR_BUFFER_BIT);
 
     glViewport(0, 0, w, h);
@@ -1284,11 +1320,9 @@ void ScreenPanelGL::drawScreen()
     {
         auto nds = emuInstance->getNDS();
         int scalefactor = emuInstance->getGlobalConfig().GetInt("3D.GL.ScaleFactor");
-        textureWidth = 256.f * scalefactor;
-        textureHeight = 192.f * scalefactor;
 
 
-        // 3x2 Array of Top/Bottom/Hybrid and Width/Height
+        // 3x2 Array of Top/Bottom/Hybrid and Width/Height that gives the dimensions for each screen on output
         float outputDimensions[3][2]; 
         outputDimensions[0][0] = 256.f * screenMatrix[0][0];  
         outputDimensions[0][1] = 192.f * screenMatrix[0][3];
@@ -1312,17 +1346,17 @@ void ScreenPanelGL::drawScreen()
 
             glActiveTexture(GL_TEXTURE0);
             glBindTexture(GL_TEXTURE_2D, screenTexture[0]);
-            glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, 256, 192, GL_BGRA,
-                            GL_UNSIGNED_BYTE, topbuf);
+            glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, 256, 192, 0, GL_BGRA, GL_UNSIGNED_BYTE, topbuf);
             glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, filter);
             glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, filter);
             glBindTexture(GL_TEXTURE_2D, screenTexture[1]);
-            glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, 256, 192, GL_BGRA,
-                            GL_UNSIGNED_BYTE, bottombuf);
+            glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, 256, 192, 0, GL_BGRA, GL_UNSIGNED_BYTE, bottombuf);
             glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, filter);
             glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, filter);
             texidTop = screenTexture[0];
             texidBottom = screenTexture[1];
+            textureWidth = 256.f;
+            textureHeight = 192.f;
         }
         else // OpenGL Renderer
         {
@@ -1336,14 +1370,20 @@ void ScreenPanelGL::drawScreen()
             glBindTexture(GL_TEXTURE_2D, texidBottom);
             glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, filter);
             glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, filter);
+            textureWidth = 256.f * scalefactor;
+            textureHeight = 192.f * scalefactor;
         }
-
+        if (prevTextureHeight != textureHeight){
+            AllocatePPTextures();
+            Platform::Log(Platform::LogLevel::Info, "Reallocated Post Processing Textures\n");
+        }
+        prevTextureHeight = textureHeight;
         screenSettingsLock.lock();
 
         glBindBuffer(GL_ARRAY_BUFFER, screenVertexBuffer);
         glBindVertexArray(screenVertexArray);
-        glUseProgram(fxaa_program);
-        attachScreenUniforms(fxaa_program);
+        glUseProgram(area_sample_program);
+        attachScreenUniforms(area_sample_program);
         glUniform2f(screenShaderScreenSizeULoc, w / factor, h / factor);
         for (int i = 0; i < numScreens; i++)
         {
@@ -1359,7 +1399,7 @@ void ScreenPanelGL::drawScreen()
             glUniform1i(convertColorsULoc, 0);
             glUniform1i(screenTexULoc, 0);
             glUniformMatrix2x3fv(screenShaderTransformULoc, 1, GL_TRUE, screenMatrix[i]);
-            glBufferData(GL_ARRAY_BUFFER, sizeof(passThroughVertices), passThroughVertices.data(), GL_STATIC_DRAW);
+            glBufferData(GL_ARRAY_BUFFER, sizeof(screenVertices), screenVertices.data(), GL_STATIC_DRAW);
             glDrawArrays(GL_TRIANGLES, screenKind[i] == 0 ? 0 : 2 * 3, 2 * 3);
         }
 

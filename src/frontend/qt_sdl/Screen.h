@@ -223,7 +223,9 @@ private:
     GLuint screenTexture[2];
     GLuint screenShaderProgram;
     std::array<float, 60> screenVertices;
-    std::array<float, 60> passThroughVertices;
+    std::array<float, 60> screenFlipVertices;
+    std::array<float, 60> passVertices;
+    std::array<float, 60> passFlipVertices;
     GLuint simplepresent_program;
     GLuint area_sample_program;
     GLuint fxaa_program;
@@ -243,12 +245,17 @@ private:
     void AllocateSMAATextures();
     void AllocatePPTextures();
 
+    // Variable to track whether Post Processing Textures need to be reallocated
+    float prevTextureHeight;
+
     float textureWidth;
     float textureHeight;
-    
+
     GLint screenShaderTransformULoc, screenShaderScreenSizeULoc, screenTexULoc;
     GLint i_resolutionULoc, o_resolutionULoc, areaTexULoc, searchTexULoc, smaa_inputULoc, convertColorsULoc;
     void attachScreenUniforms(GLuint shaderProgram);
+
+
 
     QMutex screenSettingsLock;
     WindowInfo windowInfo;
