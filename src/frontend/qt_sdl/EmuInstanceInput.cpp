@@ -181,6 +181,8 @@ float EmuInstance::inputMotionQuery(melonDS::Platform::MotionQueryType type)
                     return -values[2];
                 case melonDS::Platform::MotionAccelerationZ:
                     return values[1];
+                default:
+                    break;
                 }
             }
         }
@@ -201,6 +203,8 @@ float EmuInstance::inputMotionQuery(melonDS::Platform::MotionQueryType type)
                     return -values[2];
                 case melonDS::Platform::MotionRotationZ:
                     return values[1];
+                default:
+                    break;
                 }
             }
         }
