@@ -6,8 +6,8 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>482</width>
-    <height>516</height>
+    <width>538</width>
+    <height>525</height>
    </rect>
   </property>
   <property name="sizePolicy">
@@ -43,6 +43,9 @@
         <property name="text">
          <string>[japanese title]</string>
         </property>
+        <property name="textInteractionFlags">
+         <set>Qt::TextInteractionFlag::LinksAccessibleByMouse|Qt::TextInteractionFlag::TextSelectableByKeyboard|Qt::TextInteractionFlag::TextSelectableByMouse</set>
+        </property>
        </widget>
       </item>
       <item row="1" column="0">
@@ -61,6 +64,9 @@
        <widget class="QLabel" name="englishTitle">
         <property name="text">
          <string>[english title]</string>
+        </property>
+        <property name="textInteractionFlags">
+         <set>Qt::TextInteractionFlag::LinksAccessibleByMouse|Qt::TextInteractionFlag::TextSelectableByKeyboard|Qt::TextInteractionFlag::TextSelectableByMouse</set>
         </property>
        </widget>
       </item>
@@ -81,6 +87,9 @@
         <property name="text">
          <string>[french title]</string>
         </property>
+        <property name="textInteractionFlags">
+         <set>Qt::TextInteractionFlag::LinksAccessibleByMouse|Qt::TextInteractionFlag::TextSelectableByKeyboard|Qt::TextInteractionFlag::TextSelectableByMouse</set>
+        </property>
        </widget>
       </item>
       <item row="3" column="0">
@@ -99,6 +108,9 @@
        <widget class="QLabel" name="germanTitle">
         <property name="text">
          <string>[german title]</string>
+        </property>
+        <property name="textInteractionFlags">
+         <set>Qt::TextInteractionFlag::LinksAccessibleByMouse|Qt::TextInteractionFlag::TextSelectableByKeyboard|Qt::TextInteractionFlag::TextSelectableByMouse</set>
         </property>
        </widget>
       </item>
@@ -119,6 +131,9 @@
         <property name="text">
          <string>[italian title]</string>
         </property>
+        <property name="textInteractionFlags">
+         <set>Qt::TextInteractionFlag::LinksAccessibleByMouse|Qt::TextInteractionFlag::TextSelectableByKeyboard|Qt::TextInteractionFlag::TextSelectableByMouse</set>
+        </property>
        </widget>
       </item>
       <item row="5" column="0">
@@ -137,6 +152,9 @@
        <widget class="QLabel" name="spanishTitle">
         <property name="text">
          <string>[spanish title]</string>
+        </property>
+        <property name="textInteractionFlags">
+         <set>Qt::TextInteractionFlag::LinksAccessibleByMouse|Qt::TextInteractionFlag::TextSelectableByKeyboard|Qt::TextInteractionFlag::TextSelectableByMouse</set>
         </property>
        </widget>
       </item>
@@ -157,6 +175,9 @@
         <property name="text">
          <string>[chinese title]</string>
         </property>
+        <property name="textInteractionFlags">
+         <set>Qt::TextInteractionFlag::LinksAccessibleByMouse|Qt::TextInteractionFlag::TextSelectableByKeyboard|Qt::TextInteractionFlag::TextSelectableByMouse</set>
+        </property>
        </widget>
       </item>
       <item row="7" column="0">
@@ -175,6 +196,9 @@
        <widget class="QLabel" name="koreanTitle">
         <property name="text">
          <string>[korean title]</string>
+        </property>
+        <property name="textInteractionFlags">
+         <set>Qt::TextInteractionFlag::LinksAccessibleByMouse|Qt::TextInteractionFlag::TextSelectableByKeyboard|Qt::TextInteractionFlag::TextSelectableByMouse</set>
         </property>
        </widget>
       </item>
@@ -204,6 +228,9 @@
         <property name="text">
          <string>[arm9 rom offset]</string>
         </property>
+        <property name="textInteractionFlags">
+         <set>Qt::TextInteractionFlag::LinksAccessibleByMouse|Qt::TextInteractionFlag::TextSelectableByKeyboard|Qt::TextInteractionFlag::TextSelectableByMouse</set>
+        </property>
        </widget>
       </item>
       <item row="1" column="0">
@@ -222,6 +249,9 @@
        <widget class="QLabel" name="arm9EntryAddress">
         <property name="text">
          <string>[arm9 entry address]</string>
+        </property>
+        <property name="textInteractionFlags">
+         <set>Qt::TextInteractionFlag::LinksAccessibleByMouse|Qt::TextInteractionFlag::TextSelectableByKeyboard|Qt::TextInteractionFlag::TextSelectableByMouse</set>
         </property>
        </widget>
       </item>
@@ -242,6 +272,9 @@
         <property name="text">
          <string>[arm9 ram address]</string>
         </property>
+        <property name="textInteractionFlags">
+         <set>Qt::TextInteractionFlag::LinksAccessibleByMouse|Qt::TextInteractionFlag::TextSelectableByKeyboard|Qt::TextInteractionFlag::TextSelectableByMouse</set>
+        </property>
        </widget>
       </item>
       <item row="3" column="0">
@@ -260,6 +293,9 @@
        <widget class="QLabel" name="arm9Size">
         <property name="text">
          <string>[arm9 size]</string>
+        </property>
+        <property name="textInteractionFlags">
+         <set>Qt::TextInteractionFlag::LinksAccessibleByMouse|Qt::TextInteractionFlag::TextSelectableByKeyboard|Qt::TextInteractionFlag::TextSelectableByMouse</set>
         </property>
        </widget>
       </item>
@@ -280,6 +316,9 @@
         <property name="text">
          <string>[arm7 rom offset]</string>
         </property>
+        <property name="textInteractionFlags">
+         <set>Qt::TextInteractionFlag::LinksAccessibleByMouse|Qt::TextInteractionFlag::TextSelectableByKeyboard|Qt::TextInteractionFlag::TextSelectableByMouse</set>
+        </property>
        </widget>
       </item>
       <item row="5" column="0">
@@ -298,6 +337,9 @@
        <widget class="QLabel" name="arm7EntryAddress">
         <property name="text">
          <string>[arm7 entry address]</string>
+        </property>
+        <property name="textInteractionFlags">
+         <set>Qt::TextInteractionFlag::LinksAccessibleByMouse|Qt::TextInteractionFlag::TextSelectableByKeyboard|Qt::TextInteractionFlag::TextSelectableByMouse</set>
         </property>
        </widget>
       </item>
@@ -318,6 +360,9 @@
         <property name="text">
          <string>[arm7 ram address]</string>
         </property>
+        <property name="textInteractionFlags">
+         <set>Qt::TextInteractionFlag::LinksAccessibleByMouse|Qt::TextInteractionFlag::TextSelectableByKeyboard|Qt::TextInteractionFlag::TextSelectableByMouse</set>
+        </property>
        </widget>
       </item>
       <item row="7" column="0">
@@ -336,6 +381,9 @@
        <widget class="QLabel" name="arm7Size">
         <property name="text">
          <string>[arm7 size]</string>
+        </property>
+        <property name="textInteractionFlags">
+         <set>Qt::TextInteractionFlag::LinksAccessibleByMouse|Qt::TextInteractionFlag::TextSelectableByKeyboard|Qt::TextInteractionFlag::TextSelectableByMouse</set>
         </property>
        </widget>
       </item>
@@ -365,6 +413,9 @@
         <property name="text">
          <string>[fnt offset]</string>
         </property>
+        <property name="textInteractionFlags">
+         <set>Qt::TextInteractionFlag::LinksAccessibleByMouse|Qt::TextInteractionFlag::TextSelectableByKeyboard|Qt::TextInteractionFlag::TextSelectableByMouse</set>
+        </property>
        </widget>
       </item>
       <item row="1" column="0">
@@ -383,6 +434,9 @@
        <widget class="QLabel" name="fntSize">
         <property name="text">
          <string>[fnt size]</string>
+        </property>
+        <property name="textInteractionFlags">
+         <set>Qt::TextInteractionFlag::LinksAccessibleByMouse|Qt::TextInteractionFlag::TextSelectableByKeyboard|Qt::TextInteractionFlag::TextSelectableByMouse</set>
         </property>
        </widget>
       </item>
@@ -403,6 +457,9 @@
         <property name="text">
          <string>[fat offset]</string>
         </property>
+        <property name="textInteractionFlags">
+         <set>Qt::TextInteractionFlag::LinksAccessibleByMouse|Qt::TextInteractionFlag::TextSelectableByKeyboard|Qt::TextInteractionFlag::TextSelectableByMouse</set>
+        </property>
        </widget>
       </item>
       <item row="3" column="0">
@@ -421,6 +478,9 @@
        <widget class="QLabel" name="fatSize">
         <property name="text">
          <string>[fat size]</string>
+        </property>
+        <property name="textInteractionFlags">
+         <set>Qt::TextInteractionFlag::LinksAccessibleByMouse|Qt::TextInteractionFlag::TextSelectableByKeyboard|Qt::TextInteractionFlag::TextSelectableByMouse</set>
         </property>
        </widget>
       </item>
@@ -450,6 +510,9 @@
         <property name="text">
          <string>[game title]</string>
         </property>
+        <property name="textInteractionFlags">
+         <set>Qt::TextInteractionFlag::LinksAccessibleByMouse|Qt::TextInteractionFlag::TextSelectableByKeyboard|Qt::TextInteractionFlag::TextSelectableByMouse</set>
+        </property>
        </widget>
       </item>
       <item row="1" column="0">
@@ -468,6 +531,9 @@
        <widget class="QLabel" name="gameCode">
         <property name="text">
          <string>[game code]</string>
+        </property>
+        <property name="textInteractionFlags">
+         <set>Qt::TextInteractionFlag::LinksAccessibleByMouse|Qt::TextInteractionFlag::TextSelectableByKeyboard|Qt::TextInteractionFlag::TextSelectableByMouse</set>
         </property>
        </widget>
       </item>
@@ -488,6 +554,9 @@
         <property name="text">
          <string>[maker code]</string>
         </property>
+        <property name="textInteractionFlags">
+         <set>Qt::TextInteractionFlag::LinksAccessibleByMouse|Qt::TextInteractionFlag::TextSelectableByKeyboard|Qt::TextInteractionFlag::TextSelectableByMouse</set>
+        </property>
        </widget>
       </item>
       <item row="3" column="0">
@@ -507,6 +576,9 @@
         <property name="text">
          <string>[card size]</string>
         </property>
+        <property name="textInteractionFlags">
+         <set>Qt::TextInteractionFlag::LinksAccessibleByMouse|Qt::TextInteractionFlag::TextSelectableByKeyboard|Qt::TextInteractionFlag::TextSelectableByMouse</set>
+        </property>
        </widget>
       </item>
      </layout>
@@ -515,10 +587,10 @@
    <item row="4" column="0" colspan="2">
     <widget class="QDialogButtonBox" name="buttonBox">
      <property name="orientation">
-      <enum>Qt::Horizontal</enum>
+      <enum>Qt::Orientation::Horizontal</enum>
      </property>
      <property name="standardButtons">
-      <set>QDialogButtonBox::Ok</set>
+      <set>QDialogButtonBox::StandardButton::Ok</set>
      </property>
     </widget>
    </item>
@@ -528,10 +600,10 @@
       <item row="0" column="2">
        <widget class="QFrame" name="frame">
         <property name="frameShape">
-         <enum>QFrame::Box</enum>
+         <enum>QFrame::Shape::Box</enum>
         </property>
         <property name="frameShadow">
-         <enum>QFrame::Plain</enum>
+         <enum>QFrame::Shadow::Plain</enum>
         </property>
         <property name="lineWidth">
          <number>1</number>
@@ -684,7 +756,7 @@
             <string/>
            </property>
            <property name="alignment">
-            <set>Qt::AlignCenter</set>
+            <set>Qt::AlignmentFlag::AlignCenter</set>
            </property>
            <property name="flat">
             <bool>false</bool>
@@ -729,7 +801,10 @@
                <string>[title]</string>
               </property>
               <property name="alignment">
-               <set>Qt::AlignCenter</set>
+               <set>Qt::AlignmentFlag::AlignCenter</set>
+              </property>
+              <property name="textInteractionFlags">
+               <set>Qt::TextInteractionFlag::LinksAccessibleByMouse</set>
               </property>
              </widget>
             </item>
@@ -756,6 +831,9 @@
               <property name="text">
                <string>[icon]</string>
               </property>
+              <property name="textInteractionFlags">
+               <set>Qt::TextInteractionFlag::LinksAccessibleByMouse</set>
+              </property>
              </widget>
             </item>
            </layout>
@@ -767,7 +845,7 @@
       <item row="0" column="0" rowspan="2">
        <spacer name="horizontalSpacer">
         <property name="orientation">
-         <enum>Qt::Horizontal</enum>
+         <enum>Qt::Orientation::Horizontal</enum>
         </property>
         <property name="sizeHint" stdset="0">
          <size>
@@ -780,7 +858,7 @@
       <item row="0" column="4" rowspan="2">
        <spacer name="horizontalSpacer_3">
         <property name="orientation">
-         <enum>Qt::Horizontal</enum>
+         <enum>Qt::Orientation::Horizontal</enum>
         </property>
         <property name="sizeHint" stdset="0">
          <size>
@@ -790,7 +868,7 @@
         </property>
        </spacer>
       </item>
-      <item row="0" column="3" alignment="Qt::AlignHCenter">
+      <item row="0" column="3" alignment="Qt::AlignmentFlag::AlignHCenter">
        <widget class="QGroupBox" name="dsiIconBox">
         <property name="sizePolicy">
          <sizepolicy hsizetype="Fixed" vsizetype="Fixed">
@@ -812,7 +890,7 @@
          <string/>
         </property>
         <property name="alignment">
-         <set>Qt::AlignCenter</set>
+         <set>Qt::AlignmentFlag::AlignCenter</set>
         </property>
         <property name="flat">
          <bool>false</bool>
@@ -857,7 +935,7 @@
             <string>[dsi icon]</string>
            </property>
            <property name="alignment">
-            <set>Qt::AlignCenter</set>
+            <set>Qt::AlignmentFlag::AlignCenter</set>
            </property>
           </widget>
          </item>
