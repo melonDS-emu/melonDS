@@ -2199,6 +2199,11 @@ void MainWindow::toggleFullscreen()
 {
     if (!isFullScreen())
     {
+        if (QApplication::activeModalWidget() || QApplication::activePopupWidget())
+        {
+            // Block entering fullscreen while a dialog/popup is active
+            return;
+        }
         showFullScreen();
         if (hasMenu)
             menuBar()->setFixedHeight(0); // Don't use hide() as menubar actions stop working
