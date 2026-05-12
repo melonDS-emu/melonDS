@@ -64,4 +64,59 @@ void main()
 }
 )";
 
+//Shader for lua overlays.
+const char* kScreenVS_overlay = R"(#version 140
+
+uniform vec2 uScreenSize;
+uniform mat2x3 uTransform;
+
+in vec2 vPosition;
+in vec2 vTexcoord;
+
+smooth out vec2 fTexcoord;
+
+void main()
+{
+    vec4 fpos;
+
+    fpos.xy = vec3(vPosition, 1.0) * uTransform;
+
+    fpos.xy = ((fpos.xy * 2.0) / uScreenSize) - 1.0;
+    fpos.y *= -1;
+    fpos.z = 0.0;
+    fpos.w = 1.0;
+
+    gl_Position = fpos;
+    fTexcoord = vTexcoord;
+}
+)";
+
+
+const char* kScreenFS_overlay = R"(#version 140
+
+uniform sampler2D OverlayTex;
+
+smooth in vec2 fTexcoord;
+
+uniform vec2 uOverlayPos;
+uniform vec2 uOverlaySize;
+
+out vec4 oColor;
+
+void main()
+{
+    vec2 uv = (fTexcoord*vec2(256.0, 192.0) - uOverlayPos)/uOverlaySize;
+
+    vec4 pixel = texture(OverlayTex, uv);
+    pixel.rgb *= pixel.a;
+
+    if (uv.x < 0.0 || uv.x > 1.0 || uv.y < 0.0 || uv.y > 1.0) 
+    {
+        oColor = vec4(0.0, 0.0, 0.0, 0.0);
+    } else {
+        oColor = pixel.bgra;
+    }
+}
+)";
+
 #endif // OSD_SHADERS_H
