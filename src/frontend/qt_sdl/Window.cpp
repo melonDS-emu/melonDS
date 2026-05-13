@@ -1552,10 +1552,8 @@ void MainWindow::onEjectGBACart()
     updateCartInserted(true);
 }
 
-void MainWindow::onSaveState()
+void MainWindow::saveStateSlot(int slot)
 {
-    int slot = ((QAction*)sender())->data().toInt();
-
     QString filename;
     if (slot > 0)
     {
@@ -1566,9 +1564,9 @@ void MainWindow::onSaveState()
         // TODO: specific 'last directory' for savestate files?
         emuThread->emuPause();
         filename = QFileDialog::getSaveFileName(this,
-                                                         "Save state",
-                                                         globalCfg.GetQString("LastROMFolder"),
-                                                         "melonDS savestates (*.mln);;Any file (*.*)");
+                                                "Save state",
+                                                globalCfg.GetQString("LastROMFolder"),
+                                                "melonDS savestates (*.mln);;Any file (*.*)");
         emuThread->emuUnpause();
         if (filename.isEmpty())
             return;
@@ -1579,7 +1577,15 @@ void MainWindow::onSaveState()
         if (slot > 0) emuInstance->osdAddMessage(0, "State saved to slot %d", slot);
         else          emuInstance->osdAddMessage(0, "State saved to file");
 
-        actLoadState[slot]->setEnabled(true);
+        // Only enable "Load state slot N" action when saving to a slot.
+        // Also guard against null/out-of-range pointers.
+        if (slot > 0)
+        {
+            // If actLoadState is a fixed-size array, this is safe to guard loosely:
+            // (Adjust upper bound if you know exact slot count)
+            if (slot >= 0 && slot < 10 && actLoadState[slot])
+                actLoadState[slot]->setEnabled(true);
+        }
     }
     else
     {
@@ -1587,10 +1593,8 @@ void MainWindow::onSaveState()
     }
 }
 
-void MainWindow::onLoadState()
+void MainWindow::loadStateSlot(int slot)
 {
-    int slot = ((QAction*)sender())->data().toInt();
-
     QString filename;
     if (slot > 0)
     {
@@ -1601,9 +1605,9 @@ void MainWindow::onLoadState()
         // TODO: specific 'last directory' for savestate files?
         emuThread->emuPause();
         filename = QFileDialog::getOpenFileName(this,
-                                                         "Load state",
-                                                         globalCfg.GetQString("LastROMFolder"),
-                                                         "melonDS savestates (*.ml*);;Any file (*.*)");
+                                                "Load state",
+                                                globalCfg.GetQString("LastROMFolder"),
+                                                "melonDS savestates (*.ml*);;Any file (*.*)");
         emuThread->emuUnpause();
         if (filename.isEmpty())
             return;
@@ -1613,7 +1617,6 @@ void MainWindow::onLoadState()
     {
         if (slot > 0) emuInstance->osdAddMessage(0xFFA0A0, "State slot %d is empty", slot);
         else          emuInstance->osdAddMessage(0xFFA0A0, "State file does not exist");
-
         return;
     }
 
@@ -1622,12 +1625,37 @@ void MainWindow::onLoadState()
         if (slot > 0) emuInstance->osdAddMessage(0, "State loaded from slot %d", slot);
         else          emuInstance->osdAddMessage(0, "State loaded from file");
 
-        actUndoStateLoad->setEnabled(true);
+        if (actUndoStateLoad)
+            actUndoStateLoad->setEnabled(true);
     }
     else
     {
         emuInstance->osdAddMessage(0xFFA0A0, "State load failed");
     }
+}
+
+void MainWindow::onSaveState()
+{
+    int slot = ((QAction*)sender())->data().toInt();
+    saveStateSlot(slot);
+}
+
+void MainWindow::onLoadState()
+{
+    int slot = ((QAction*)sender())->data().toInt();
+    loadStateSlot(slot);
+}
+
+void MainWindow::onQuickSaveState()
+{
+    constexpr int kQuickSlot = 1;
+    saveStateSlot(kQuickSlot);
+}
+
+void MainWindow::onQuickLoadState()
+{
+    constexpr int kQuickSlot = 1;
+    loadStateSlot(kQuickSlot);
 }
 
 void MainWindow::onUndoStateLoad()
