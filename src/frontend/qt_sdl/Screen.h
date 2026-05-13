@@ -221,6 +221,8 @@ private:
 
     GLuint screenVertexBuffer, screenVertexArray;
     GLuint screenTexture[2];
+    // Nearest and Linear Sampler
+    GLuint samplers[2];
     GLuint screenShaderProgram;
     std::array<float, 60> screenVertices;
     std::array<float, 60> screenFlipVertices;

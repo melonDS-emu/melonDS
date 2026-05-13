@@ -21,8 +21,6 @@
 
 const char* simplepresent_VS = R"(#version 140
 
-uniform vec2 uScreenSize;
-
 in vec2 vPosition;
 in vec3 vTexcoord;
 
