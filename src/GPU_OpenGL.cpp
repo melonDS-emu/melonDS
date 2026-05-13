@@ -389,10 +389,7 @@ void GLRenderer::SetScaleFactor(int scale)
         glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, ScreenW, ScreenH, 0, GL_RGBA, GL_UNSIGNED_BYTE, nullptr);
         glBindTexture(GL_TEXTURE_2D, FPOutputTex[i*2+1]);
         glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, ScreenW, ScreenH, 0, GL_RGBA, GL_UNSIGNED_BYTE, nullptr);
-
         glBindFramebuffer(GL_FRAMEBUFFER, FPOutputFB[i]);
-
-        
         glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, FPOutputTex[i*2], 0);
         glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT1, GL_TEXTURE_2D, FPOutputTex[i*2+1], 0);
         glDrawBuffers(2, fbassign2);
