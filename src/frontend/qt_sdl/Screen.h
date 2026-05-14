@@ -230,6 +230,7 @@ private:
     std::array<float, 60> passFlipVertices;
     GLuint simplepresent_program;
     GLuint area_sample_program;
+    GLuint sharp_bilinear_program;
     GLuint fxaa_program;
     GLuint smaa_pass0_program;
     GLuint smaa_pass1_program;

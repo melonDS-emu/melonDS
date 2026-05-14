@@ -48,6 +48,7 @@
 #include "shaders/fxaa.h"
 #include "shaders/smaa.h"
 #include "shaders/areasampling.h"
+#include "shaders/sharpbilinear.h"
 #include "shaders/smaa_textures/areatex.h"
 #include "shaders/smaa_textures/searchtex.h"
 #include "font.h"
@@ -962,6 +963,11 @@ void ScreenPanelGL::initOpenGL()
                                          "AreaSampleScreenShader",
                                          {{"vPosition", 0}, {"vTexcoord", 1}},
                                          {{"oColor", 0}});
+    OpenGL::CompileVertexFragmentProgram(sharp_bilinear_program,
+                                         sharpbilinear_VS, sharpbilinear_FS,
+                                         "SharpBilinearScreenShader",
+                                         {{"vPosition", 0}, {"vTexcoord", 1}},
+                                         {{"oColor", 0}});
     OpenGL::CompileVertexFragmentProgram(fxaa_program,
                                          fxaa_VS, fxaa_FS,
                                          "FxaaShader",
@@ -1420,9 +1426,11 @@ void ScreenPanelGL::drawScreen()
         prevTextureHeight = textureHeight;
         screenSettingsLock.lock();
 
-
-        int scalingMode = 2; // 0 is Nearest Neighbor, 1 is Legacy Filtering, 2 is High Quality Scaling (Upsampling via Gamma Corrected Bilinear, Downsampling is Gamma Corrected Area Sampling)
-        int antialiasingMode = 2; // 0 is none, 1 is FXAA, 2 is SMAA
+        // 0 is Nearest Neighbor, 1 is Bilinear Filtering, 2 is Bilinear Upscale, Area Sampling Downscale, 3 is Sharp Bilinear.
+        // Every opiton above is gamma corrected
+        int scalingMode = 2;
+        // 0 is none, 1 is FXAA, 2 is SMAA
+        int antialiasingMode = 2;
         glBindBuffer(GL_ARRAY_BUFFER, screenVertexBuffer);
         glBindVertexArray(screenVertexArray);
         GLint oldFBO;
@@ -1591,24 +1599,40 @@ void ScreenPanelGL::drawScreen()
                     glBufferData(GL_ARRAY_BUFFER, sizeof(screenVertices), screenVertices.data(), GL_STATIC_DRAW);
                     glDrawArrays(GL_TRIANGLES, screenKind[i] == 0 ? 0 : 2 * 3, 2 * 3);
                 }
+            } else if (scalingMode == 3) {
+                glBindFramebuffer(GL_FRAMEBUFFER, oldFBO);
+                glViewport(0, 0,w, h);
+                glUseProgram(sharp_bilinear_program);
+                attachScreenUniforms(sharp_bilinear_program);
+                glActiveTexture(GL_TEXTURE0);
+                glBindTexture(GL_TEXTURE_2D, antialiasFBOTexture);
+                glBindSampler(0, samplers[1]);
+                glUniform1i(screenTexULoc, 0);
+                glUniform1i(convertColorsULoc, 2);
+                glUniform4f(i_resolutionULoc, textureWidth, textureHeight, 1.f / textureWidth, 1.f / textureHeight);
+                glUniform4f(o_resolutionULoc, outputDimensions[i][0], outputDimensions[i][1], 1.f / outputDimensions[i][0], 1.f / outputDimensions[i][1]);
+                glUniform2f(screenShaderScreenSizeULoc, w / factor, h / factor);
+                glUniformMatrix2x3fv(screenShaderTransformULoc, 1, GL_TRUE, screenMatrix[i]);
+                glBufferData(GL_ARRAY_BUFFER, sizeof(screenVertices), screenVertices.data(), GL_STATIC_DRAW);
+                glDrawArrays(GL_TRIANGLES, screenKind[i] == 0 ? 0 : 2 * 3, 2 * 3);
             } else {
-                    glBindFramebuffer(GL_FRAMEBUFFER, oldFBO);
-                    glViewport(0, 0,w, h);
-                    glUseProgram(screenShaderProgram);
-                    attachScreenUniforms(screenShaderProgram);
-                    glActiveTexture(GL_TEXTURE0);
-                    glBindTexture(GL_TEXTURE_2D, antialiasFBOTexture);
-                    if (scalingMode == 1){
-                        glBindSampler(0, samplers[1]);
-                    } else {
-                        glBindSampler(0, samplers[0]);
-                    }
-                    glUniform1i(screenTexULoc, 0);
-                    glUniform1i(convertColorsULoc, 2);
-                    glUniform2f(screenShaderScreenSizeULoc, w / factor, h / factor);
-                    glUniformMatrix2x3fv(screenShaderTransformULoc, 1, GL_TRUE, screenMatrix[i]);
-                    glBufferData(GL_ARRAY_BUFFER, sizeof(screenVertices), screenVertices.data(), GL_STATIC_DRAW);
-                    glDrawArrays(GL_TRIANGLES, screenKind[i] == 0 ? 0 : 2 * 3, 2 * 3);
+                glBindFramebuffer(GL_FRAMEBUFFER, oldFBO);
+                glViewport(0, 0,w, h);
+                glUseProgram(screenShaderProgram);
+                attachScreenUniforms(screenShaderProgram);
+                glActiveTexture(GL_TEXTURE0);
+                glBindTexture(GL_TEXTURE_2D, antialiasFBOTexture);
+                if (scalingMode == 1){
+                    glBindSampler(0, samplers[1]);
+                } else {
+                    glBindSampler(0, samplers[0]);
+                }
+                glUniform1i(screenTexULoc, 0);
+                glUniform1i(convertColorsULoc, 2);
+                glUniform2f(screenShaderScreenSizeULoc, w / factor, h / factor);
+                glUniformMatrix2x3fv(screenShaderTransformULoc, 1, GL_TRUE, screenMatrix[i]);
+                glBufferData(GL_ARRAY_BUFFER, sizeof(screenVertices), screenVertices.data(), GL_STATIC_DRAW);
+                glDrawArrays(GL_TRIANGLES, screenKind[i] == 0 ? 0 : 2 * 3, 2 * 3);
             }
             glBindSampler(0, 0);
             glBindSampler(1, 0);
