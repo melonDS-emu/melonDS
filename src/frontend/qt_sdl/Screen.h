@@ -37,7 +37,7 @@
 
 class MainWindow;
 class EmuInstance;
-
+class Cursor;
 
 const struct { int id; float ratio; const char* label; } aspectRatios[] =
 {
@@ -59,7 +59,8 @@ public:
     virtual ~ScreenPanel();
 
     void setFilter(bool filter);
-
+    
+    Cursor* vCursor;
     void setMouseHide(bool enable, int delay);
 
     QTimer* setupMouseTimer();
@@ -222,7 +223,7 @@ private:
     GLuint screenVertexBuffer, screenVertexArray;
     GLuint screenTexture;
     GLuint screenShaderProgram;
-    GLint screenShaderTransformULoc, screenShaderScreenSizeULoc;
+    GLint screenShaderTransformULoc, screenShaderScreenSizeULoc, screenShaderCursorLoc, screenShaderCursorEnableLoc;
 
     QMutex screenSettingsLock;
     WindowInfo windowInfo;
