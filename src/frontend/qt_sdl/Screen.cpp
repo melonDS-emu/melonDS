@@ -1426,11 +1426,11 @@ void ScreenPanelGL::drawScreen()
         prevTextureHeight = textureHeight;
         screenSettingsLock.lock();
 
-        // 0 is Nearest Neighbor, 1 is Bilinear Filtering, 2 is Bilinear Upscale, Area Sampling Downscale, 3 is Sharp Bilinear.
-        // Every opiton above is gamma corrected
-        int scalingMode = 2;
+        // 0 is Nearest Neighbor, 1 is Bilinear Filtering, 2 is Adaptive (Bilinear Upscale, Area Sampling Downscale), 3 is Sharp Bilinear.
+        // Every option above is gamma corrected
+        int scalingMode = emuInstance->getGlobalConfig().GetInt("Screen.Resampling");
         // 0 is none, 1 is FXAA, 2 is SMAA
-        int antialiasingMode = 2;
+        int antialiasingMode = emuInstance->getGlobalConfig().GetInt("Screen.Antialiasing");
         glBindBuffer(GL_ARRAY_BUFFER, screenVertexBuffer);
         glBindVertexArray(screenVertexArray);
         GLint oldFBO;
@@ -1634,6 +1634,7 @@ void ScreenPanelGL::drawScreen()
                 glBufferData(GL_ARRAY_BUFFER, sizeof(screenVertices), screenVertices.data(), GL_STATIC_DRAW);
                 glDrawArrays(GL_TRIANGLES, screenKind[i] == 0 ? 0 : 2 * 3, 2 * 3);
             }
+            // Unbind Samplers
             glBindSampler(0, 0);
             glBindSampler(1, 0);
             glBindSampler(2, 0);
