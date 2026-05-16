@@ -1469,7 +1469,6 @@ void ScreenPanelGL::drawScreen()
                 glBufferData(GL_ARRAY_BUFFER, sizeof(passFlipVertices), passFlipVertices.data(), GL_STATIC_DRAW);
                 glDrawArrays(GL_TRIANGLES, screenKind[i] == 0 ? 0 : 2 * 3, 2 * 3);
 
-                glViewport(0, 0,textureWidth, textureHeight);
                 glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, antialiasFBOTexture, 0);
                 glClear(GL_COLOR_BUFFER_BIT);
                 glUseProgram(fxaa_program);
@@ -1483,7 +1482,6 @@ void ScreenPanelGL::drawScreen()
                 glBufferData(GL_ARRAY_BUFFER, sizeof(passVertices), passVertices.data(), GL_STATIC_DRAW);
                 glDrawArrays(GL_TRIANGLES, screenKind[i] == 0 ? 0 : 2 * 3, 2 * 3);
             } else if (antialiasingMode == 2){
-                // Input
                 glBindFramebuffer(GL_FRAMEBUFFER, textureFBO);
                 glViewport(0, 0,textureWidth, textureHeight);
                 glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, intermediateTexture[0], 0);
@@ -1498,7 +1496,6 @@ void ScreenPanelGL::drawScreen()
                 glBufferData(GL_ARRAY_BUFFER, sizeof(passFlipVertices), passFlipVertices.data(), GL_STATIC_DRAW);
                 glDrawArrays(GL_TRIANGLES, screenKind[i] == 0 ? 0 : 2 * 3, 2 * 3);
 
-                glViewport(0, 0,textureWidth, textureHeight);
                 glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, intermediateTexture[1], 0);
                 glClear(GL_COLOR_BUFFER_BIT);
                 glUseProgram(smaa_pass0_program);
@@ -1511,8 +1508,6 @@ void ScreenPanelGL::drawScreen()
                 glBufferData(GL_ARRAY_BUFFER, sizeof(passVertices), passVertices.data(), GL_STATIC_DRAW);
                 glDrawArrays(GL_TRIANGLES, screenKind[i] == 0 ? 0 : 2 * 3, 2 * 3);
 
-
-                glViewport(0, 0,textureWidth, textureHeight);
                 glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, intermediateTexture[2], 0);
                 glClear(GL_COLOR_BUFFER_BIT);
                 glUseProgram(smaa_pass1_program);
@@ -1534,7 +1529,6 @@ void ScreenPanelGL::drawScreen()
                 glBufferData(GL_ARRAY_BUFFER, sizeof(passVertices), passVertices.data(), GL_STATIC_DRAW);
                 glDrawArrays(GL_TRIANGLES, screenKind[i] == 0 ? 0 : 2 * 3, 2 * 3);
 
-                glViewport(0, 0,textureWidth, textureHeight);
                 glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, antialiasFBOTexture, 0);
                 glClear(GL_COLOR_BUFFER_BIT);
                 glUseProgram(smaa_pass2_program);
@@ -1570,7 +1564,7 @@ void ScreenPanelGL::drawScreen()
             if (scalingMode == 2){
                 if (isDownsampling){
                     glBindFramebuffer(GL_FRAMEBUFFER, oldFBO);
-                    glViewport(0, 0,w, h);
+                    glViewport(0, 0, w, h);
                     glUseProgram(area_sample_program);
                     attachScreenUniforms(area_sample_program);
                     glActiveTexture(GL_TEXTURE0);
@@ -1586,7 +1580,7 @@ void ScreenPanelGL::drawScreen()
                     glDrawArrays(GL_TRIANGLES, screenKind[i] == 0 ? 0 : 2 * 3, 2 * 3);
                 } else {
                     glBindFramebuffer(GL_FRAMEBUFFER, oldFBO);
-                    glViewport(0, 0,w, h);
+                    glViewport(0, 0, w, h);
                     glUseProgram(screenShaderProgram);
                     attachScreenUniforms(screenShaderProgram);
                     glActiveTexture(GL_TEXTURE0);
@@ -1601,7 +1595,7 @@ void ScreenPanelGL::drawScreen()
                 }
             } else if (scalingMode == 3) {
                 glBindFramebuffer(GL_FRAMEBUFFER, oldFBO);
-                glViewport(0, 0,w, h);
+                glViewport(0, 0, w, h);
                 glUseProgram(sharp_bilinear_program);
                 attachScreenUniforms(sharp_bilinear_program);
                 glActiveTexture(GL_TEXTURE0);
@@ -1617,7 +1611,7 @@ void ScreenPanelGL::drawScreen()
                 glDrawArrays(GL_TRIANGLES, screenKind[i] == 0 ? 0 : 2 * 3, 2 * 3);
             } else {
                 glBindFramebuffer(GL_FRAMEBUFFER, oldFBO);
-                glViewport(0, 0,w, h);
+                glViewport(0, 0, w, h);
                 glUseProgram(screenShaderProgram);
                 attachScreenUniforms(screenShaderProgram);
                 glActiveTexture(GL_TEXTURE0);
