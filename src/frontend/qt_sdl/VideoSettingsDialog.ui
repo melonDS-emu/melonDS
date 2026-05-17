@@ -35,7 +35,7 @@
       <item row="2" column="0">
        <widget class="QLabel" name="label_4">
         <property name="text">
-         <string>Output Resampling:</string>
+         <string>Output resampling:</string>
         </property>
        </widget>
       </item>
@@ -52,7 +52,7 @@
       <item row="4" column="0">
        <widget class="QLabel" name="label_5">
         <property name="text">
-         <string>Anti-Aliasing:</string>
+         <string>Anti-aliasing:</string>
         </property>
        </widget>
       </item>
@@ -72,8 +72,11 @@
       </item>
       <item row="3" column="0">
        <widget class="QComboBox" name="cbxOutputResampling">
+        <property name="toolTip">
+         <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;The method by which the game output is scaled to the screen. &lt;/p&gt;&lt;p&gt;&lt;span style=&quot; font-weight:700;&quot;&gt;Nearest&lt;/span&gt; doesn't do any interpolation between pixels. At non-integer scales, it will create uneven pixels.&lt;/p&gt;&lt;p&gt;&lt;span style=&quot; font-weight:700;&quot;&gt;Bilinear&lt;/span&gt; uses linear interpolation between pixels.&lt;/p&gt;&lt;p&gt;&lt;span style=&quot; font-weight:700;&quot;&gt;Adaptive&lt;/span&gt; uses bilinear filtering for upscaling and area sampling for downscaling. When internal resolution is above the output resolution, it acts similar to SSAA, properly downscaling the image without introducing aliasing.&lt;/p&gt;&lt;p&gt;&lt;span style=&quot; font-weight:700;&quot;&gt;Sharp Bilinear&lt;/span&gt; uses nearest neighbor to integer scale above the output resolution, followed by a bilinear downscale. This is used to retain the pixelated look of nearest neighbor without getting uneven pixels at non-integer scales.&lt;/p&gt;&lt;p&gt;All of the options are gamma corrected.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+        </property>
         <property name="whatsThis">
-         <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;The method by which the game output is scaled to the screen. &lt;/p&gt;&lt;p&gt;Adaptive uses bilinear filtering for upscaling and area sampling for downscaling. When internal resolution is above the output resolution, adaptive acts similar to SSAA, reducing aliasing and retaining more detail.&lt;/p&gt;&lt;p&gt;Sharp Bilinear uses nearest neighbor to integer scale above the output resolution, followed by a bilinear downscale. This is used to retain the pixelated look of nearest neighbor without getting uneven pixels at non-integer scales. Set Internal Resolution to 1x if using this&lt;/p&gt;&lt;p&gt;All of the above options are gamma corrected.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+         <string/>
         </property>
        </widget>
       </item>
@@ -86,8 +89,11 @@
       </item>
       <item row="5" column="0">
        <widget class="QComboBox" name="cbxAntiAliasing">
+        <property name="toolTip">
+         <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Reduces the amount of aliasing resulting in smoother edges.&lt;/p&gt;&lt;p&gt;&lt;span style=&quot; font-weight:700;&quot;&gt;FXAA&lt;/span&gt; is a very fast and lightweight antialiasing filter but is more aggressive and may slightly blur the final image.&lt;/p&gt;&lt;p&gt;&lt;span style=&quot; font-weight:700;&quot;&gt;SMAA&lt;/span&gt; is a slightly heavier but higher quality antialiasing filter that is more selective about which edges it smooths.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+        </property>
         <property name="whatsThis">
-         <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Reduces the amount of aliasing resulting in smoother edges. FXAA is lower quality but faster and cheaper. SMAA is higher quality.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+         <string/>
         </property>
        </widget>
       </item>
