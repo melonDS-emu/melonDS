@@ -23,6 +23,7 @@
 #include <string.h>
 
 #include <optional>
+#include <filesystem>
 #include <vector>
 #include <string>
 #include <algorithm>
@@ -353,7 +354,7 @@ MainWindow::MainWindow(int id, EmuInstance* inst, QWidget* parent) :
             {
                 QMenu * submenu = menu->addMenu("Save state");
 
-                for (int i = 1; i < 9; i++)
+                for (int i = 1; i <= kMaxSavestateSlots; i++)
                 {
                     actSaveState[i] = submenu->addAction(QString("%1").arg(i));
                     actSaveState[i]->setShortcut(QKeySequence(Qt::ShiftModifier | (Qt::Key_F1 + i - 1)));
@@ -369,7 +370,7 @@ MainWindow::MainWindow(int id, EmuInstance* inst, QWidget* parent) :
             {
                 QMenu * submenu = menu->addMenu("Load state");
 
-                for (int i = 1; i < 9; i++)
+                for (int i = 1; i <= kMaxSavestateSlots; i++)
                 {
                     actLoadState[i] = submenu->addAction(QString("%1").arg(i));
                     actLoadState[i]->setShortcut(QKeySequence(Qt::Key_F1 + i - 1));
@@ -712,7 +713,7 @@ MainWindow::MainWindow(int id, EmuInstance* inst, QWidget* parent) :
                 act->setEnabled(false);
         }
 
-        for (int i = 0; i < 9; i++)
+        for (int i = 0; i <= kMaxSavestateSlots; i++)
         {
             actSaveState[i]->setEnabled(false);
             actLoadState[i]->setEnabled(false);
@@ -2241,15 +2242,42 @@ void MainWindow::onScreenEmphasisToggled()
     emit screenLayoutChange();
 }
 
+void MainWindow::updateSavestateMenuTimestamps()
+{
+    for (int i = 1; i <= kMaxSavestateSlots; i++)
+    {
+        std::string statePath = emuInstance->getSavestateName(i);
+        std::error_code timeError;
+        auto modificationTime = std::filesystem::last_write_time(statePath, timeError);
+        if (!timeError)
+        {
+            auto clockDiff = modificationTime - std::filesystem::file_time_type::clock::now();
+            auto systemTimePoint = std::chrono::time_point_cast<std::chrono::system_clock::duration>(std::chrono::system_clock::now() + clockDiff);
+            QDateTime dt = QDateTime::fromSecsSinceEpoch(std::chrono::system_clock::to_time_t(systemTimePoint));
+            QString formattedTime = QString("   %1").arg(dt.toString("yyyy-MM-dd hh:mm:ss"));
+            actSaveState[i]->setText(QString("%1%2").arg(i).arg(formattedTime));
+            actLoadState[i]->setText(QString("%1%2").arg(i).arg(formattedTime));
+        }
+        else
+        {
+            actSaveState[i]->setText(QString("%1").arg(i));
+            actLoadState[i]->setText(QString("%1").arg(i));
+        }
+    }
+}
+
 void MainWindow::onEmuStart()
 {
     if (!hasMenu) return;
 
-    for (int i = 1; i < 9; i++)
+    for (int i = 1; i <= kMaxSavestateSlots; i++)
     {
         actSaveState[i]->setEnabled(true);
         actLoadState[i]->setEnabled(emuInstance->savestateExists(i));
     }
+
+    updateSavestateMenuTimestamps();
+
     actSaveState[0]->setEnabled(true);
     actLoadState[0]->setEnabled(true);
     actUndoStateLoad->setEnabled(false);
@@ -2270,7 +2298,7 @@ void MainWindow::onEmuStop()
 {
     if (!hasMenu) return;
 
-    for (int i = 0; i < 9; i++)
+    for (int i = 0; i <= kMaxSavestateSlots; i++)
     {
         actSaveState[i]->setEnabled(false);
         actLoadState[i]->setEnabled(false);
@@ -2293,6 +2321,16 @@ void MainWindow::onEmuPause(bool pause)
     if (!hasMenu) return;
 
     actPause->setChecked(pause);
+}
+
+void MainWindow::onSavestateChange()
+{
+    if (!hasMenu) return;
+
+    for (int i = 1; i <= kMaxSavestateSlots; i++)
+        actLoadState[i]->setEnabled(emuInstance->savestateExists(i));
+
+    updateSavestateMenuTimestamps();
 }
 
 void MainWindow::onEmuReset()
