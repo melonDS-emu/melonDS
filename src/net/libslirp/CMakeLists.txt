@@ -58,6 +58,7 @@ target_compile_definitions(slirp PRIVATE "G_LOG_DOMAIN=\"Slirp\"")
 
 if (WIN32)
 	target_link_libraries(slirp PRIVATE ws2_32 iphlpapi)
+	target_compile_definitions(slirp PRIVATE -D_WINSOCK_DEPRECATED_NO_WARNINGS)
 elseif(HAIKU)
 	target_Link_libraries(slirp PRIVATE network)
 elseif(APPLE)

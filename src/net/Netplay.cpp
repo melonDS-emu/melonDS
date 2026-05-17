@@ -441,7 +441,7 @@ printf("[MC] start blob type=%d len=%d\n", type, len);
         u8* dst = Blobs[type];
         if (!dst) return;
         if (BlobLens[type] != len) return;
-        printf("[MC] recv blob data, type=%d pos=%08X len=%08X data=%08lX\n", type, pos, len, pkt->dataLength-16);
+        printf("[MC] recv blob data, type=%d pos=%08X len=%08X data=%08zX\n", type, pos, len, pkt->dataLength-16);
         memcpy(&dst[pos], &buf[16], pkt->dataLength-16);
     }
     else if (buf[0] == 0x03)

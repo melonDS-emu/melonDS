@@ -15,6 +15,10 @@
 #include <io.h>
 #define open _open
 #define close _close
+#define strdup _strdup
+#define lseek _lseek
+#define read _read
+#define stricmp _stricmp
 typedef ptrdiff_t ssize_t;
 #endif
 
