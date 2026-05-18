@@ -280,6 +280,7 @@ bool ARDatabaseDAT::LoadCheatCodes(EntryInfo& info, ARDatabaseEntry& entry)
             }
 
             ARCode code;
+            code.Parent = curcat;
             code.Name = itemname;
             code.Description = itemdesc;
             code.Enabled = !!(itemflags & (1<<24));
