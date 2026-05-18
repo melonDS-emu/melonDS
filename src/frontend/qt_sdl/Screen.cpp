@@ -1009,9 +1009,6 @@ void ScreenPanelGL::initOpenGL()
                                          {{"vPosition", 0}, {"vTexcoord", 1}},
                                          {{"oColor", 0}});
 
-
-    //
-
     glUseProgram(screenShaderProgram);
     attachScreenUniforms(screenShaderProgram);
     glUniform1i(screenTexULoc, 0);
@@ -1106,18 +1103,18 @@ void ScreenPanelGL::initOpenGL()
     glGenTextures(2, screenTexture);
     glActiveTexture(GL_TEXTURE0);
 
-    glBindTexture(GL_TEXTURE, screenTexture[0]);
-    glTexParameteri(GL_TEXTURE, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
-    glTexParameteri(GL_TEXTURE, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
-    glTexParameteri(GL_TEXTURE, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-    glTexParameteri(GL_TEXTURE, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+    glBindTexture(GL_TEXTURE_2D, screenTexture[0]);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
     glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, 256, 192, 0, GL_BGRA, GL_UNSIGNED_BYTE, nullptr);
 
-    glBindTexture(GL_TEXTURE, screenTexture[1]);
-    glTexParameteri(GL_TEXTURE, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
-    glTexParameteri(GL_TEXTURE, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
-    glTexParameteri(GL_TEXTURE, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-    glTexParameteri(GL_TEXTURE, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+    glBindTexture(GL_TEXTURE_2D, screenTexture[1]);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
     glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, 256, 192, 0, GL_BGRA, GL_UNSIGNED_BYTE, nullptr);
     
     glGenSamplers(2, samplers);
@@ -1195,7 +1192,21 @@ void ScreenPanelGL::deinitOpenGL()
     glDeleteVertexArrays(1, &screenVertexArray);
     glDeleteBuffers(1, &screenVertexBuffer);
 
+    for (int i = 0; i < 5; i++){
+        glDeleteTextures(1, &intermediateTexture[i]);
+    }
+    glDeleteTextures(1, &antialiasFBOTexture);
+    glDeleteTextures(1, &areatex);
+    glDeleteTextures(1, &searchtex);
+
     glDeleteProgram(screenShaderProgram);
+    glDeleteProgram(simplepresent_program);
+    glDeleteProgram(area_sample_program);
+    glDeleteProgram(sharp_bilinear_program);
+    glDeleteProgram(fxaa_program);
+    glDeleteProgram(smaa_pass0_program);
+    glDeleteProgram(smaa_pass1_program);
+    glDeleteProgram(smaa_pass2_program);
 
 
     for (const auto& [key, tex] : osdTextures)
