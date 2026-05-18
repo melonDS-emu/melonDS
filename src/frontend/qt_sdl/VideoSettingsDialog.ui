@@ -7,7 +7,7 @@
     <x>0</x>
     <y>0</y>
     <width>514</width>
-    <height>316</height>
+    <height>365</height>
    </rect>
   </property>
   <property name="sizePolicy">
@@ -32,20 +32,27 @@
       <string>OpenGL renderer</string>
      </property>
      <layout class="QGridLayout" name="gridLayout_4">
-      <item row="0" column="0">
-       <widget class="QLabel" name="label_3">
+      <item row="2" column="0">
+       <widget class="QLabel" name="label_4">
         <property name="text">
-         <string>Internal resolution:</string>
+         <string>Output resampling:</string>
         </property>
        </widget>
       </item>
-      <item row="2" column="0">
+      <item row="6" column="0">
        <widget class="QCheckBox" name="cbBetterPolygons">
         <property name="whatsThis">
          <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Enabling this may help reduce distortion on quads and more complex polygons, but may also reduce performance.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
         </property>
         <property name="text">
          <string>Improved polygon splitting</string>
+        </property>
+       </widget>
+      </item>
+      <item row="4" column="0">
+       <widget class="QLabel" name="label_5">
+        <property name="text">
+         <string>Anti-aliasing:</string>
         </property>
        </widget>
       </item>
@@ -56,10 +63,37 @@
         </property>
        </widget>
       </item>
-      <item row="3" column="0">
+      <item row="7" column="0">
        <widget class="QCheckBox" name="cbxComputeHiResCoords">
         <property name="text">
          <string>Use high resolution coordinates</string>
+        </property>
+       </widget>
+      </item>
+      <item row="3" column="0">
+       <widget class="QComboBox" name="cbxOutputResampling">
+        <property name="toolTip">
+         <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;The method by which the game output is scaled to the screen. &lt;/p&gt;&lt;p&gt;&lt;span style=&quot; font-weight:700;&quot;&gt;Nearest&lt;/span&gt; doesn't do any interpolation between pixels. At non-integer scales, it will create uneven pixels.&lt;/p&gt;&lt;p&gt;&lt;span style=&quot; font-weight:700;&quot;&gt;Bilinear&lt;/span&gt; uses linear interpolation between pixels.&lt;/p&gt;&lt;p&gt;&lt;span style=&quot; font-weight:700;&quot;&gt;Adaptive&lt;/span&gt; uses bilinear filtering for upscaling and area sampling for downscaling. When internal resolution is above the output resolution, it acts similar to SSAA, properly downscaling the image without introducing aliasing.&lt;/p&gt;&lt;p&gt;&lt;span style=&quot; font-weight:700;&quot;&gt;Sharp Bilinear&lt;/span&gt; uses nearest neighbor to integer scale above the output resolution, followed by a bilinear downscale. This is used to retain the pixelated look of nearest neighbor without getting uneven pixels at non-integer scales.&lt;/p&gt;&lt;p&gt;All of the options are gamma corrected.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+        </property>
+        <property name="whatsThis">
+         <string/>
+        </property>
+       </widget>
+      </item>
+      <item row="0" column="0">
+       <widget class="QLabel" name="label_3">
+        <property name="text">
+         <string>Internal resolution:</string>
+        </property>
+       </widget>
+      </item>
+      <item row="5" column="0">
+       <widget class="QComboBox" name="cbxAntiAliasing">
+        <property name="toolTip">
+         <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Reduces the amount of aliasing resulting in smoother edges.&lt;/p&gt;&lt;p&gt;&lt;span style=&quot; font-weight:700;&quot;&gt;FXAA&lt;/span&gt; is a very fast and lightweight antialiasing filter but is more aggressive and may slightly blur the final image.&lt;/p&gt;&lt;p&gt;&lt;span style=&quot; font-weight:700;&quot;&gt;SMAA&lt;/span&gt; is a slightly heavier but higher quality antialiasing filter that is more selective about which edges it smooths.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+        </property>
+        <property name="whatsThis">
+         <string/>
         </property>
        </widget>
       </item>
@@ -213,6 +247,8 @@
   <tabstop>sbVSyncInterval</tabstop>
   <tabstop>cbSoftwareThreaded</tabstop>
   <tabstop>cbxGLResolution</tabstop>
+  <tabstop>cbxOutputResampling</tabstop>
+  <tabstop>cbxAntiAliasing</tabstop>
   <tabstop>cbBetterPolygons</tabstop>
  </tabstops>
  <resources/>

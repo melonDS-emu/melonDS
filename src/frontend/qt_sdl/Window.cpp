@@ -605,9 +605,6 @@ MainWindow::MainWindow(int id, EmuInstance* inst, QWidget* parent) :
 
             menu->addSeparator();
 
-            actScreenFiltering = menu->addAction("Screen filtering");
-            actScreenFiltering->setCheckable(true);
-            connect(actScreenFiltering, &QAction::triggered, this, &MainWindow::onChangeScreenFiltering);
 
             actShowOSD = menu->addAction("Show OSD");
             actShowOSD->setCheckable(true);
@@ -765,7 +762,6 @@ MainWindow::MainWindow(int id, EmuInstance* inst, QWidget* parent) :
                 actScreenAspectBot[i]->setChecked(true);
         }
 
-        actScreenFiltering->setChecked(windowCfg.GetBool("ScreenFilter"));
         actShowOSD->setChecked(showOSD);
 
         actLimitFramerate->setChecked(emuInstance->doLimitFPS);
@@ -892,8 +888,6 @@ void MainWindow::createScreenPanel()
     }
     setCentralWidget(panel);
 
-    if (hasMenu)
-        actScreenFiltering->setEnabled(hasOGL);
     panel->osdSetEnabled(showOSD);
 
     connect(emuThread, SIGNAL(windowUpdate()), panel, SLOT(repaint()));
