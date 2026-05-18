@@ -127,6 +127,8 @@ void ScreenPanel::loadConfig()
     screenSwap = cfg.GetBool("ScreenSwap");
     screenSizing = cfg.GetInt("ScreenSizing");
     integerScaling = cfg.GetBool("IntegerScaling");
+    screenWeightTop = cfg.GetInt("ScreenWeightTop");
+    screenWeightBot = cfg.GetInt("ScreenWeightBot");
     screenAspectTop = cfg.GetInt("ScreenAspectTop");
     screenAspectBot = cfg.GetInt("ScreenAspectBot");
 }
@@ -175,6 +177,8 @@ void ScreenPanel::setupScreenLayout()
                 screenGap,
                 integerScaling != 0,
                 screenSwap != 0,
+                screenWeightTop,
+                screenWeightBot,
                 aspectTop,
                 aspectBot);
 

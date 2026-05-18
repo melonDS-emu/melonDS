@@ -88,6 +88,7 @@ protected:
     bool screenSwap;
     int screenSizing;
     bool integerScaling;
+    int screenWeightTop, screenWeightBot;
     int screenAspectTop, screenAspectBot;
 
     int autoScreenSizing;
