@@ -42,6 +42,7 @@ public:
     ~ComputeRenderer3D() override;
     bool Init() override;
     void Reset() override;
+    [[nodiscard]] int GetScaleFactor() const noexcept override { return ScaleFactor; }
 
     void SetRenderSettings(int scale, bool highResolutionCoordinates);
 
