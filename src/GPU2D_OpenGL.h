@@ -198,6 +198,7 @@ private:
     u32 BGVRAMRange[4][4];
 
     bool LayerConfigDirty;
+    u8 DeferredLayerPrerenderDirty;
 
     int LastSpriteLine;
     u16 OAM[512];
