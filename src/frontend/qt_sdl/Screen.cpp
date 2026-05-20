@@ -1128,6 +1128,7 @@ void ScreenPanelGL::initOpenGL()
     }
 
     AllocateSMAATextures();
+    AllocatePPTextures();
     glGenFramebuffers(1, &textureFBO);
 
     OpenGL::CompileVertexFragmentProgram(osdShader,
@@ -1272,9 +1273,6 @@ void ScreenPanelGL::osdDeleteItem(OSDItem* item)
 }
 
 void ScreenPanelGL::AllocatePPTextures(){
-    GLint oldTex;
-    glGetIntegerv(GL_TEXTURE_BINDING_2D, &oldTex);
-
     for (int i = 0; i < 5; i++){
         if (intermediateTexture[i] != 0){
             glDeleteTextures(1, &intermediateTexture[i]);
@@ -1300,7 +1298,7 @@ void ScreenPanelGL::AllocatePPTextures(){
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
     glTexStorage2D(GL_TEXTURE_2D, 1, GL_RGBA16F, textureWidth, textureHeight);
     
-    glBindTexture(GL_TEXTURE_2D, oldTex);
+    glBindTexture(GL_TEXTURE_2D, 0);
 }
 
 std::vector<unsigned char> flipVertically(const unsigned char* data, int width, int height, int channels)
@@ -1326,9 +1324,6 @@ void ScreenPanelGL::AllocateSMAATextures(){
     std::vector<unsigned char> areaTexBytesFlipped = flipVertically(areaTexBytes, AREATEX_WIDTH, AREATEX_HEIGHT, 2);
     std::vector<unsigned char> searchTexBytesFlipped = flipVertically(searchTexBytes, SEARCHTEX_WIDTH, SEARCHTEX_HEIGHT, 1);
 
-    GLint oldTex;
-    glGetIntegerv(GL_TEXTURE_BINDING_2D, &oldTex);
-
     glBindTexture(GL_TEXTURE_2D, areatex);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
@@ -1343,7 +1338,7 @@ void ScreenPanelGL::AllocateSMAATextures(){
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
     glTexImage2D(GL_TEXTURE_2D, 0, GL_R8, SEARCHTEX_WIDTH, SEARCHTEX_HEIGHT, 0, GL_RED, GL_UNSIGNED_BYTE, searchTexBytesFlipped.data());
 
-    glBindTexture(GL_TEXTURE_2D, oldTex);  
+    glBindTexture(GL_TEXTURE_2D, 0);  
 }
 
 void ScreenPanelGL::drawScreen()
@@ -1444,8 +1439,6 @@ void ScreenPanelGL::drawScreen()
         int antialiasingMode = emuInstance->getGlobalConfig().GetInt("Screen.Antialiasing");
         glBindBuffer(GL_ARRAY_BUFFER, screenVertexBuffer);
         glBindVertexArray(screenVertexArray);
-        GLint oldFBO;
-        glGetIntegerv(GL_FRAMEBUFFER_BINDING, &oldFBO);
         for (int i = 0; i < numScreens; i++)
         {
             bool isDownsampling = false;
@@ -1574,7 +1567,7 @@ void ScreenPanelGL::drawScreen()
 
             if (scalingMode == 2){
                 if (isDownsampling){
-                    glBindFramebuffer(GL_FRAMEBUFFER, oldFBO);
+                    glBindFramebuffer(GL_FRAMEBUFFER, 0);
                     glViewport(0, 0, w, h);
                     glUseProgram(area_sample_program);
                     attachScreenUniforms(area_sample_program);
@@ -1590,7 +1583,7 @@ void ScreenPanelGL::drawScreen()
                     glBufferData(GL_ARRAY_BUFFER, sizeof(screenVertices), screenVertices.data(), GL_STATIC_DRAW);
                     glDrawArrays(GL_TRIANGLES, screenKind[i] == 0 ? 0 : 2 * 3, 2 * 3);
                 } else {
-                    glBindFramebuffer(GL_FRAMEBUFFER, oldFBO);
+                    glBindFramebuffer(GL_FRAMEBUFFER, 0);
                     glViewport(0, 0, w, h);
                     glUseProgram(screenShaderProgram);
                     attachScreenUniforms(screenShaderProgram);
@@ -1605,7 +1598,7 @@ void ScreenPanelGL::drawScreen()
                     glDrawArrays(GL_TRIANGLES, screenKind[i] == 0 ? 0 : 2 * 3, 2 * 3);
                 }
             } else if (scalingMode == 3) {
-                glBindFramebuffer(GL_FRAMEBUFFER, oldFBO);
+                glBindFramebuffer(GL_FRAMEBUFFER, 0);
                 glViewport(0, 0, w, h);
                 glUseProgram(sharp_bilinear_program);
                 attachScreenUniforms(sharp_bilinear_program);
@@ -1621,7 +1614,7 @@ void ScreenPanelGL::drawScreen()
                 glBufferData(GL_ARRAY_BUFFER, sizeof(screenVertices), screenVertices.data(), GL_STATIC_DRAW);
                 glDrawArrays(GL_TRIANGLES, screenKind[i] == 0 ? 0 : 2 * 3, 2 * 3);
             } else {
-                glBindFramebuffer(GL_FRAMEBUFFER, oldFBO);
+                glBindFramebuffer(GL_FRAMEBUFFER, 0);
                 glViewport(0, 0, w, h);
                 glUseProgram(screenShaderProgram);
                 attachScreenUniforms(screenShaderProgram);
