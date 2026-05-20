@@ -1299,6 +1299,7 @@ void ScreenPanelGL::AllocatePPTextures(){
     glTexStorage2D(GL_TEXTURE_2D, 1, GL_RGBA16F, textureWidth, textureHeight);
     
     glBindTexture(GL_TEXTURE_2D, 0);
+    Log(LogLevel::Info, "Reallocated Post Processing Textures\n");
 }
 
 std::vector<unsigned char> flipVertically(const unsigned char* data, int width, int height, int channels)
@@ -1339,6 +1340,7 @@ void ScreenPanelGL::AllocateSMAATextures(){
     glTexImage2D(GL_TEXTURE_2D, 0, GL_R8, SEARCHTEX_WIDTH, SEARCHTEX_HEIGHT, 0, GL_RED, GL_UNSIGNED_BYTE, searchTexBytesFlipped.data());
 
     glBindTexture(GL_TEXTURE_2D, 0);  
+    Log(LogLevel::Info, "Reallocated SMAA Textures\n");
 }
 
 void ScreenPanelGL::drawScreen()
@@ -1427,7 +1429,7 @@ void ScreenPanelGL::drawScreen()
         }
         if (prevTextureHeight != textureHeight){
             AllocatePPTextures();
-            Platform::Log(Platform::LogLevel::Info, "Reallocated Post Processing Textures\n");
+            Log(LogLevel::Info, "Texture Dimensions Changed\n");
         }
         prevTextureHeight = textureHeight;
         screenSettingsLock.lock();
@@ -1486,6 +1488,7 @@ void ScreenPanelGL::drawScreen()
                 glBufferData(GL_ARRAY_BUFFER, sizeof(passVertices), passVertices.data(), GL_STATIC_DRAW);
                 glDrawArrays(GL_TRIANGLES, screenKind[i] == 0 ? 0 : 2 * 3, 2 * 3);
             } else if (antialiasingMode == 2){
+                // Gamma Space Render Texture
                 glBindFramebuffer(GL_FRAMEBUFFER, textureFBO);
                 glViewport(0, 0,textureWidth, textureHeight);
                 glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, intermediateTexture[0], 0);
@@ -1496,10 +1499,24 @@ void ScreenPanelGL::drawScreen()
                 glBindTexture(GL_TEXTURE_2D, texidCurrent);
                 glBindSampler(0, samplers[1]);
                 glUniform1i(screenTexULoc, 0);
-                glUniform1i(convertColorsULoc, 1);
+                glUniform1i(convertColorsULoc, 0);
                 glBufferData(GL_ARRAY_BUFFER, sizeof(passFlipVertices), passFlipVertices.data(), GL_STATIC_DRAW);
                 glDrawArrays(GL_TRIANGLES, screenKind[i] == 0 ? 0 : 2 * 3, 2 * 3);
 
+                // Linear Space Render Texture
+                glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, intermediateTexture[3], 0);
+                glClear(GL_COLOR_BUFFER_BIT);
+                glUseProgram(simplepresent_program);
+                attachScreenUniforms(simplepresent_program);
+                glActiveTexture(GL_TEXTURE0);
+                glBindTexture(GL_TEXTURE_2D, intermediateTexture[0]);
+                glBindSampler(0, samplers[1]);
+                glUniform1i(screenTexULoc, 0);
+                glUniform1i(convertColorsULoc, 1);
+                glBufferData(GL_ARRAY_BUFFER, sizeof(passVertices), passVertices.data(), GL_STATIC_DRAW);
+                glDrawArrays(GL_TRIANGLES, screenKind[i] == 0 ? 0 : 2 * 3, 2 * 3);
+
+                // Edge Detection
                 glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, intermediateTexture[1], 0);
                 glClear(GL_COLOR_BUFFER_BIT);
                 glUseProgram(smaa_pass0_program);
@@ -1512,6 +1529,7 @@ void ScreenPanelGL::drawScreen()
                 glBufferData(GL_ARRAY_BUFFER, sizeof(passVertices), passVertices.data(), GL_STATIC_DRAW);
                 glDrawArrays(GL_TRIANGLES, screenKind[i] == 0 ? 0 : 2 * 3, 2 * 3);
 
+                // Blending Weight Calculation
                 glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, intermediateTexture[2], 0);
                 glClear(GL_COLOR_BUFFER_BIT);
                 glUseProgram(smaa_pass1_program);
@@ -1529,10 +1547,10 @@ void ScreenPanelGL::drawScreen()
                 glUniform1i(areaTexULoc, 1);
                 glUniform1i(searchTexULoc, 2);
                 glUniform4f(i_resolutionULoc, textureWidth, textureHeight, 1.f / textureWidth, 1.f / textureHeight);
-                glUniform1i(convertColorsULoc, 0);
                 glBufferData(GL_ARRAY_BUFFER, sizeof(passVertices), passVertices.data(), GL_STATIC_DRAW);
                 glDrawArrays(GL_TRIANGLES, screenKind[i] == 0 ? 0 : 2 * 3, 2 * 3);
 
+                // Neighborhood Blending
                 glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, antialiasFBOTexture, 0);
                 glClear(GL_COLOR_BUFFER_BIT);
                 glUseProgram(smaa_pass2_program);
@@ -1541,11 +1559,10 @@ void ScreenPanelGL::drawScreen()
                 glBindTexture(GL_TEXTURE_2D, intermediateTexture[2]);
                 glBindSampler(0, samplers[1]);
                 glActiveTexture(GL_TEXTURE1);
-                glBindTexture(GL_TEXTURE_2D, intermediateTexture[0]);
+                glBindTexture(GL_TEXTURE_2D, intermediateTexture[3]);
                 glBindSampler(1, samplers[1]);
                 glUniform1i(screenTexULoc, 0);
                 glUniform1i(smaa_inputULoc, 1);
-                glUniform1i(convertColorsULoc, 0);
                 glUniform4f(i_resolutionULoc, textureWidth, textureHeight, 1.f / textureWidth, 1.f / textureHeight);
                 glBufferData(GL_ARRAY_BUFFER, sizeof(passVertices), passVertices.data(), GL_STATIC_DRAW);
                 glDrawArrays(GL_TRIANGLES, screenKind[i] == 0 ? 0 : 2 * 3, 2 * 3);

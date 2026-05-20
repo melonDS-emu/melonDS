@@ -1642,7 +1642,6 @@ const char* smaa_pass2_pre_FS = R"(#version 140
 // Neighborhood Blending Shader (Third Pass)
 
 uniform vec4 i_resolution;
-uniform int convert_colors;
 #define SMAA_RT_METRICS vec4(i_resolution.z, i_resolution.w, i_resolution.x, i_resolution.y)
 #define SMAA_GLSL_3
 #define SMAA_FLIP_Y 1
@@ -1658,16 +1657,8 @@ uniform sampler2D SMAA_Input;
 )";
 
 const char* smaa_pass2_post_FS = R"(
-vec3 LinearTosRGB(vec3 c) {
-    return mix(c * 12.92, 1.055 * pow(c, vec3(1.0/2.4)) - 0.055, step(0.0031308, c));
-}
-
 void main() {
-    vec4 pixel = SMAANeighborhoodBlendingPS(fTexcoord, offset, SMAA_Input, ScreenTex);
-    if (convert_colors == 2){
-        pixel = vec4(LinearTosRGB(pixel.rgb), pixel.a);
-    }
-    oColor = pixel;
+    oColor = SMAANeighborhoodBlendingPS(fTexcoord, offset, SMAA_Input, ScreenTex);
 }
 )";
 
