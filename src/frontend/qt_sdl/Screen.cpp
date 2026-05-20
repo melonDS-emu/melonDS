@@ -1129,6 +1129,7 @@ void ScreenPanelGL::initOpenGL()
 
     AllocateSMAATextures();
     AllocatePPTextures();
+    prevTextureHeight = 0;
     glGenFramebuffers(1, &textureFBO);
 
     OpenGL::CompileVertexFragmentProgram(osdShader,
@@ -1346,6 +1347,7 @@ void ScreenPanelGL::AllocateSMAATextures(){
 void ScreenPanelGL::drawScreen()
 {
     if (!glContext) return;
+    if (!glInited) return;
 
     auto emuThread = emuInstance->getEmuThread();
 
@@ -1429,7 +1431,6 @@ void ScreenPanelGL::drawScreen()
         }
         if (prevTextureHeight != textureHeight){
             AllocatePPTextures();
-            Log(LogLevel::Info, "Texture Dimensions Changed\n");
         }
         prevTextureHeight = textureHeight;
         screenSettingsLock.lock();
