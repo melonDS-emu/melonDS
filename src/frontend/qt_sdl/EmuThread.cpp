@@ -77,6 +77,9 @@ void EmuThread::attachWindow(MainWindow* window)
     connect(this, SIGNAL(autoScreenSizingChange(int)), window->panel, SLOT(onAutoScreenSizingChanged(int)));
     connect(this, SIGNAL(windowFullscreenToggle()), window, SLOT(onFullscreenToggled()));
     connect(this, SIGNAL(screenEmphasisToggle()), window, SLOT(onScreenEmphasisToggled()));
+    connect(this, SIGNAL(windowQuickSaveState()), window, SLOT(onQuickSaveState()));
+    connect(this, SIGNAL(windowQuickLoadState()), window, SLOT(onQuickLoadState()));
+
 
     if (window->winHasMenu())
     {
@@ -95,6 +98,9 @@ void EmuThread::detachWindow(MainWindow* window)
     disconnect(this, SIGNAL(autoScreenSizingChange(int)), window->panel, SLOT(onAutoScreenSizingChanged(int)));
     disconnect(this, SIGNAL(windowFullscreenToggle()), window, SLOT(onFullscreenToggled()));
     disconnect(this, SIGNAL(screenEmphasisToggle()), window, SLOT(onScreenEmphasisToggled()));
+    disconnect(this, SIGNAL(windowQuickSaveState()), window, SLOT(onQuickSaveState()));
+    disconnect(this, SIGNAL(windowQuickLoadState()), window, SLOT(onQuickLoadState()));
+
 
     if (window->winHasMenu())
     {
@@ -164,6 +170,10 @@ void EmuThread::run()
         if (emuInstance->hotkeyPressed(HK_FrameStep)) emuFrameStep();
 
         if (emuInstance->hotkeyPressed(HK_FullscreenToggle)) emit windowFullscreenToggle();
+
+        if (emuInstance->hotkeyPressed(HK_QuickSaveState)) emit windowQuickSaveState();
+        if (emuInstance->hotkeyPressed(HK_QuickLoadState)) emit windowQuickLoadState();
+
 
         if (emuInstance->hotkeyPressed(HK_SwapScreens)) emit swapScreensToggle();
         if (emuInstance->hotkeyPressed(HK_SwapScreenEmphasis)) emit screenEmphasisToggle();
