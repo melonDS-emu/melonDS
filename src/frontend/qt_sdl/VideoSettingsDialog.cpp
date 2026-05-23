@@ -24,6 +24,7 @@
 #include "Config.h"
 #include "GPU.h"
 #include "main.h"
+#include "SupportedRenderers.h"
 
 #include "VideoSettingsDialog.h"
 #include "ui_VideoSettingsDialog.h"
@@ -39,11 +40,39 @@ VideoSettingsDialog* VideoSettingsDialog::currentDlg = nullptr;
 
 void VideoSettingsDialog::setEnabled()
 {
+    bool baseGl = SupportedRenderers::instance->baseGl;
+    bool computeGl = SupportedRenderers::instance->computeGl;
+
     auto& cfg = emuInstance->getGlobalConfig();
     int renderer = cfg.GetInt("3D.Renderer");
+    int oglDisplay = cfg.GetBool("Screen.UseGL");
 
+    if (!computeGl)
+    {
+        ui->rb3DCompute->setEnabled(false);
+        if (renderer == renderer3D_OpenGLCompute) // fallback to software renderer
+        {
+            ui->rb3DSoftware->setChecked(true);
+            renderer = renderer3D_Software;
+        }
+    }
+
+    if (!baseGl) // fallback to software renderer
+    {
+        renderer = renderer3D_Software;
+        oglDisplay = false;
+        
+        ui->rb3DOpenGL->setEnabled(false);
+        ui->cbGLDisplay->setChecked(false);
+        ui->rb3DSoftware->setChecked(true);
+    }
+
+    cfg.SetInt("3D.Renderer", renderer);
+    cfg.SetBool("Screen.UseGL", oglDisplay);
     bool softwareRenderer = renderer == renderer3D_Software;
-    ui->cbGLDisplay->setEnabled(softwareRenderer);
+    
+    ui->cbGLDisplay->setEnabled(softwareRenderer && baseGl);
+    setVsyncControlEnable(oglDisplay || !softwareRenderer);
     ui->cbSoftwareThreaded->setEnabled(softwareRenderer);
     ui->cbxGLResolution->setEnabled(!softwareRenderer);
     ui->cbBetterPolygons->setEnabled(renderer == renderer3D_OpenGL);
@@ -146,6 +175,7 @@ void VideoSettingsDialog::on_VideoSettingsDialog_rejected()
 
 void VideoSettingsDialog::setVsyncControlEnable(bool hasOGL)
 {
+    ui->label_2->setEnabled(hasOGL);
     ui->cbVSync->setEnabled(hasOGL);
     ui->sbVSyncInterval->setEnabled(hasOGL);
 }
