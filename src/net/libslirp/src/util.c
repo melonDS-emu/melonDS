@@ -26,27 +26,102 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
  * THE SOFTWARE.
  */
-#include "util.h"
+
+/* slirp.h is not included here. However, if TARGET_WINVER is set,
+ * ensure that WINVER and _WIN32_WINNT are also properly set.
+ */
+#include "winver.h"
 
 #include <glib.h>
 #include <fcntl.h>
 #include <stdint.h>
+/* Windows: If errno.h is not included, then errno is a preprocessor define
+ * for WSAGetLastError(). errno.h redefines errno as a thread safe function,
+ * i.e. "*errno()", which allows us to assign errno a value. */
+#include <errno.h>
+
+#include "util.h"
+#include "debug.h"
 
 #if defined(_WIN32)
 int slirp_inet_aton(const char *cp, struct in_addr *ia)
 {
-    uint32_t addr = inet_addr(cp);
-    if (addr == 0xffffffff) {
-        return 0;
-    }
-    ia->s_addr = addr;
-    return 1;
-}
+    uint32_t addr;
+    int valid_addr;
+
+#if WINVER >= 0x0601
+    valid_addr = inet_pton(AF_INET, cp, &addr) > 0;
+#else
+    addr = inet_addr(cp);
+    valid_addr = (addr != 0xffffffff);
 #endif
 
-void slirp_set_nonblock(int fd)
+    if (valid_addr) {
+        ia->s_addr = addr;
+        return 1;
+    }
+
+    /* Invalid address. */
+    return 0;
+}
+
+#if WINVER < 0x0601
+/* Something older than Windows 7 and TARGET_WINVER obviously was set. There
+ * are more than a few calls to inet_pton() and inet_ntop(), so provide suitable
+ * stubs with renames. */
+
+int slirp_inet_pton(int af, const char *src, void *dst)
 {
-#ifndef _WIN32
+  struct sockaddr_storage ss;
+  int size = (int) sizeof(ss);
+  char src_copy[INET6_ADDRSTRLEN + 1];
+
+  ZeroMemory(&ss, sizeof(ss));
+  strncpy (src_copy, src, INET6_ADDRSTRLEN);
+  src_copy[INET6_ADDRSTRLEN] = '\0';
+
+  if (WSAStringToAddress(src_copy, af, NULL, (struct sockaddr *)&ss, &size) == 0) {
+    switch(af) {
+      case AF_INET:
+        *((struct in_addr *) dst) = ((const struct sockaddr_in *) &ss)->sin_addr;
+        return 1;
+      case AF_INET6:
+        *((struct in6_addr *) dst) = ((const struct sockaddr_in6 *) &ss)->sin6_addr;
+        return 1;
+    }
+  }
+
+  return 0;
+}
+
+const char *slirp_inet_ntop(int af, const void *src, char *dst, socklen_t size)
+{
+  struct sockaddr_storage ss;
+  DWORD s = (DWORD) size;
+
+  ZeroMemory(&ss, sizeof(ss));
+  ss.ss_family = af;
+
+  switch(af) {
+    case AF_INET:
+      ((struct sockaddr_in *) &ss)->sin_addr = *((const struct in_addr *) src);
+      break;
+    case AF_INET6:
+      ((struct sockaddr_in6 *) &ss)->sin6_addr = *((const struct in6_addr *) src);
+      break;
+    default:
+      return NULL;
+  }
+
+  return (WSAAddressToString((struct sockaddr *)&ss, sizeof(ss), NULL, dst, &s) == 0) ? dst : NULL;
+}
+#endif
+#endif
+
+
+void slirp_set_nonblock(slirp_os_socket fd)
+{
+#if !defined(_WIN32)
     int f;
     f = fcntl(fd, F_GETFL);
     assert(f != -1);
@@ -58,14 +133,18 @@ void slirp_set_nonblock(int fd)
 #endif
 }
 
-static void slirp_set_cloexec(int fd)
+static void slirp_set_cloexec(slirp_os_socket fd)
 {
-#ifndef _WIN32
+#if !defined(_WIN32)
     int f;
     f = fcntl(fd, F_GETFD);
     assert(f != -1);
     f = fcntl(fd, F_SETFD, f | FD_CLOEXEC);
     assert(f != -1);
+#else
+#ifdef GLIB_UNUSED_PARAM
+    GLIB_UNUSED_PARAM(fd);
+#endif
 #endif
 }
 
@@ -73,9 +152,9 @@ static void slirp_set_cloexec(int fd)
  * Opens a socket with FD_CLOEXEC set
  * On failure errno contains the reason.
  */
-int slirp_socket(int domain, int type, int protocol)
+slirp_os_socket slirp_socket(int domain, int type, int protocol)
 {
-    int ret;
+    slirp_os_socket ret;
 
 #ifdef SOCK_CLOEXEC
     ret = socket(domain, type | SOCK_CLOEXEC, protocol);
@@ -84,15 +163,15 @@ int slirp_socket(int domain, int type, int protocol)
     }
 #endif
     ret = socket(domain, type, protocol);
-    if (ret >= 0) {
+    if (have_valid_socket(ret)) {
         slirp_set_cloexec(ret);
     }
 
     return ret;
 }
 
-#ifdef _WIN32
-static int socket_error(void)
+#if defined(_WIN32)
+static int win32_socket_error(void)
 {
     switch (WSAGetLastError()) {
     case 0:
@@ -169,181 +248,182 @@ static int socket_error(void)
 }
 
 #undef ioctlsocket
-int slirp_ioctlsocket_wrap(int fd, int req, void *val)
+int slirp_ioctlsocket_wrap(slirp_os_socket fd, int req, void *val)
 {
     int ret;
     ret = ioctlsocket(fd, req, val);
-    if (ret < 0) {
-        errno = socket_error();
+    if (ret == SOCKET_ERROR) {
+        errno = win32_socket_error();
     }
     return ret;
 }
 
 #undef closesocket
-int slirp_closesocket_wrap(int fd)
+int slirp_closesocket_wrap(slirp_os_socket fd)
 {
     int ret;
     ret = closesocket(fd);
-    if (ret < 0) {
-        errno = socket_error();
+    if (ret == SOCKET_ERROR) {
+        errno = win32_socket_error();
     }
     return ret;
 }
 
 #undef connect
-int slirp_connect_wrap(int sockfd, const struct sockaddr *addr, int addrlen)
+int slirp_connect_wrap(slirp_os_socket sockfd, const struct sockaddr *addr, int addrlen)
 {
     int ret;
     ret = connect(sockfd, addr, addrlen);
-    if (ret < 0) {
-        errno = socket_error();
+    if (ret == SOCKET_ERROR) {
+        errno = win32_socket_error();
     }
     return ret;
 }
 
 #undef listen
-int slirp_listen_wrap(int sockfd, int backlog)
+int slirp_listen_wrap(slirp_os_socket sockfd, int backlog)
 {
     int ret;
     ret = listen(sockfd, backlog);
-    if (ret < 0) {
-        errno = socket_error();
+    if (ret == SOCKET_ERROR) {
+        errno = win32_socket_error();
     }
     return ret;
 }
 
 #undef bind
-int slirp_bind_wrap(int sockfd, const struct sockaddr *addr, int addrlen)
+int slirp_bind_wrap(slirp_os_socket sockfd, const struct sockaddr *addr, int addrlen)
 {
     int ret;
     ret = bind(sockfd, addr, addrlen);
-    if (ret < 0) {
-        errno = socket_error();
+    if (ret == SOCKET_ERROR) {
+        errno = win32_socket_error();
     }
     return ret;
 }
 
 #undef socket
-int slirp_socket_wrap(int domain, int type, int protocol)
+slirp_os_socket slirp_socket_wrap(int domain, int type, int protocol)
 {
-    int ret;
+    slirp_os_socket ret;
     ret = socket(domain, type, protocol);
-    if (ret < 0) {
-        errno = socket_error();
+    if (ret == INVALID_SOCKET) {
+        errno = win32_socket_error();
     }
     return ret;
 }
 
 #undef accept
-int slirp_accept_wrap(int sockfd, struct sockaddr *addr, int *addrlen)
+slirp_os_socket slirp_accept_wrap(slirp_os_socket sockfd, struct sockaddr *addr, int *addrlen)
 {
-    int ret;
+    slirp_os_socket ret;
     ret = accept(sockfd, addr, addrlen);
-    if (ret < 0) {
-        errno = socket_error();
+    if (ret == INVALID_SOCKET) {
+        errno = win32_socket_error();
     }
     return ret;
 }
 
 #undef shutdown
-int slirp_shutdown_wrap(int sockfd, int how)
+int slirp_shutdown_wrap(slirp_os_socket sockfd, int how)
 {
     int ret;
     ret = shutdown(sockfd, how);
-    if (ret < 0) {
-        errno = socket_error();
+    if (ret == SOCKET_ERROR) {
+        errno = win32_socket_error();
     }
     return ret;
 }
 
 #undef getsockopt
-int slirp_getsockopt_wrap(int sockfd, int level, int optname, void *optval,
+int slirp_getsockopt_wrap(slirp_os_socket sockfd, int level, int optname, void *optval,
                           int *optlen)
 {
     int ret;
     ret = getsockopt(sockfd, level, optname, optval, optlen);
-    if (ret < 0) {
-        errno = socket_error();
+    if (ret == SOCKET_ERROR) {
+        errno = win32_socket_error();
     }
     return ret;
 }
 
 #undef setsockopt
-int slirp_setsockopt_wrap(int sockfd, int level, int optname,
+int slirp_setsockopt_wrap(slirp_os_socket sockfd, int level, int optname,
                           const void *optval, int optlen)
 {
     int ret;
     ret = setsockopt(sockfd, level, optname, optval, optlen);
-    if (ret < 0) {
-        errno = socket_error();
+    if (ret == SOCKET_ERROR) {
+        errno = win32_socket_error();
     }
     return ret;
 }
 
 #undef getpeername
-int slirp_getpeername_wrap(int sockfd, struct sockaddr *addr, int *addrlen)
+int slirp_getpeername_wrap(slirp_os_socket sockfd, struct sockaddr *addr, int *addrlen)
 {
     int ret;
     ret = getpeername(sockfd, addr, addrlen);
-    if (ret < 0) {
-        errno = socket_error();
+    if (ret == SOCKET_ERROR) {
+        errno = win32_socket_error();
     }
     return ret;
 }
 
 #undef getsockname
-int slirp_getsockname_wrap(int sockfd, struct sockaddr *addr, int *addrlen)
+int slirp_getsockname_wrap(slirp_os_socket sockfd, struct sockaddr *addr, int *addrlen)
 {
     int ret;
     ret = getsockname(sockfd, addr, addrlen);
-    if (ret < 0) {
-        errno = socket_error();
+    if (ret == SOCKET_ERROR) {
+        errno = win32_socket_error();
     }
     return ret;
 }
 
 #undef send
-slirp_ssize_t slirp_send_wrap(int sockfd, const void *buf, size_t len, int flags)
+slirp_ssize_t slirp_send_wrap(slirp_os_socket sockfd, const void *buf, size_t len, int flags)
 {
     int ret;
+
     ret = send(sockfd, buf, len, flags);
-    if (ret < 0) {
-        errno = socket_error();
+    if (ret == SOCKET_ERROR) {
+        errno = win32_socket_error();
     }
     return ret;
 }
 
 #undef sendto
-slirp_ssize_t slirp_sendto_wrap(int sockfd, const void *buf, size_t len, int flags,
-                          const struct sockaddr *addr, int addrlen)
+slirp_ssize_t slirp_sendto_wrap(slirp_os_socket sockfd, const void *buf, size_t len, int flags,
+                                const struct sockaddr *addr, int addrlen)
 {
     int ret;
     ret = sendto(sockfd, buf, len, flags, addr, addrlen);
-    if (ret < 0) {
-        errno = socket_error();
+    if (ret == SOCKET_ERROR) {
+        errno = win32_socket_error();
     }
     return ret;
 }
 
 #undef recv
-slirp_ssize_t slirp_recv_wrap(int sockfd, void *buf, size_t len, int flags)
+slirp_ssize_t slirp_recv_wrap(slirp_os_socket sockfd, void *buf, size_t len, int flags)
 {
     int ret;
     ret = recv(sockfd, buf, len, flags);
-    if (ret < 0) {
-        errno = socket_error();
+    if (ret == SOCKET_ERROR) {
+        errno = win32_socket_error();
     }
     return ret;
 }
 
 #undef recvfrom
-slirp_ssize_t slirp_recvfrom_wrap(int sockfd, void *buf, size_t len, int flags,
-                            struct sockaddr *addr, int *addrlen)
+slirp_ssize_t slirp_recvfrom_wrap(slirp_os_socket sockfd, void *buf, size_t len, int flags,
+                                  struct sockaddr *addr, int *addrlen)
 {
     int ret;
     ret = recvfrom(sockfd, buf, len, flags, addr, addrlen);
-    if (ret < 0) {
-        errno = socket_error();
+    if (ret == SOCKET_ERROR) {
+        errno = win32_socket_error();
     }
     return ret;
 }
@@ -361,7 +441,7 @@ void slirp_pstrcpy(char *buf, int buf_size, const char *str)
         c = *str++;
         if (c == 0 || q >= buf + buf_size - 1)
             break;
-        *q++ = c;
+        *q++ = (char) c;
     }
     *q = '\0';
 }
@@ -438,4 +518,17 @@ const char *slirp_ether_ntoa(const uint8_t *addr, char *out_str,
                addr[0], addr[1], addr[2], addr[3], addr[4], addr[5]);
 
     return out_str;
+}
+
+/* Programatically set and reset debugging flags in slirp_debug vice
+ * setting them via the SLIRP_DEBUG environment variable. */
+
+void slirp_set_debug(unsigned int flags)
+{
+  slirp_debug |= flags;
+}
+
+void slirp_reset_debug(unsigned int flags)
+{
+  slirp_debug &= ~flags;
 }

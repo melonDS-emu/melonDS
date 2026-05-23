@@ -45,6 +45,18 @@ running CI etc.
 Alternatively, you may send patches to slirp@lists.freedesktop.org
 mailing list.
 
+## Debugging
+
+To make slirp emit debugging prints, one can use for instance:
+
+```
+export G_MESSAGES_DEBUG=Slirp
+export SLIRP_DEBUG=call
+```
+
+`SLIRP_DEBUG` can contain a colons/spaces/commas-separated list of `call`,
+`misc`, `error`, `tftp`, `verbose_call`
+
 ## Versioning
 
 We intend to use [libtool's

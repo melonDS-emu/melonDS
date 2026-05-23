@@ -33,7 +33,7 @@ void arp_table_add(Slirp *slirp, uint32_t ip_addr,
     const uint32_t broadcast_addr =
         ~slirp->vnetwork_mask.s_addr | slirp->vnetwork_addr.s_addr;
     ArpTable *arptbl = &slirp->arp_table;
-    int i;
+    size_t i;
     char ethaddr_str[ETH_ADDRSTRLEN];
     char addr[INET_ADDRSTRLEN];
 
@@ -69,7 +69,7 @@ bool arp_table_search(Slirp *slirp, uint32_t ip_addr,
     const uint32_t broadcast_addr =
         ~slirp->vnetwork_mask.s_addr | slirp->vnetwork_addr.s_addr;
     ArpTable *arptbl = &slirp->arp_table;
-    int i;
+    size_t i;
     char ethaddr_str[ETH_ADDRSTRLEN];
     char addr[INET_ADDRSTRLEN];
 
