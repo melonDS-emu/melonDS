@@ -664,6 +664,7 @@
 	border: 1px solid #a2a2a2;
 	border-left-color: #797979;
 	letter-spacing: -0.5px;
+	color: black;
 	background-color: qlineargradient(
 		x1: 0, y1: 0,
 		x2: 0, y2: 1,
