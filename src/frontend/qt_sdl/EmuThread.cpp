@@ -52,6 +52,7 @@
 #include "GPU_OpenGL.h"
 
 #include "Savestate.h"
+#include "RichPresence.h"
 
 #include "EmuInstance.h"
 
@@ -149,6 +150,14 @@ void EmuThread::run()
     bool slowmo = false;
     emuInstance->fastForwardToggled = false;
     emuInstance->slowmoToggled = false;
+
+    RichPresence richPresence;
+    bool richPresenceInitialized = false;
+    double lastRichPresenceTime = 0.0;
+    if (Config::GetLocalTable(emuInstance->instanceID).GetBool("EnableRichPresence")) {
+        richPresence.Init();
+        richPresenceInitialized = true;
+    }
 
     while (emuStatus != emuStatus_Exit)
     {
@@ -298,6 +307,20 @@ void EmuThread::run()
             // RTC sync
             emuInstance->syncRTC();
 
+            if (richPresenceInitialized) 
+            {
+                double currentTime = SDL_GetPerformanceCounter() * perfCountsSec;
+                if (currentTime - lastRichPresenceTime > 2.5) 
+                {
+                    lastRichPresenceTime = currentTime;
+
+                    std::string gameName = emuInstance->baseROMName;
+                    if (gameName != "")
+                        richPresence.Update("", "Playing: " + gameName);
+
+                }
+                richPresence.RunCallbacks();
+            }
 
             // emulate
             u32 nlines;

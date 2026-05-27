@@ -45,6 +45,8 @@ add_library(core STATIC
     NDS.cpp
     NDSCart.cpp
     Platform.h
+    RichPresence.cpp
+    RichPresence.h
     ROMList.h
     ROMList.cpp
     FreeBIOS.h
@@ -181,6 +183,9 @@ add_subdirectory(teakra EXCLUDE_FROM_ALL)
 # Workaround for building teakra with -O0 on Windows either failing or hanging forever
 target_compile_options(teakra PRIVATE "$<$<CONFIG:DEBUG>:-Og>")
 target_link_libraries(core PRIVATE teakra)
+
+add_subdirectory(discord-rpc)
+target_link_libraries(core PRIVATE discord-rpc)
 
 if (NOT MSVC)
     # MSVC has its own compiler flag syntax; if we ever support it,
