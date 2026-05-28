@@ -27,6 +27,7 @@ set(SOURCES_QT_SDL
     FirmwareSettingsDialog.cpp
     PathSettingsDialog.cpp
     RichPresenceSettingsDialog.cpp
+    RichPresence.cpp
     MPSettingsDialog.cpp
     WifiSettingsDialog.cpp
     InterfaceSettingsDialog.cpp
@@ -99,6 +100,9 @@ add_subdirectory("../../net"
     ${CMAKE_BINARY_DIR}/net)
 
 target_link_libraries(melonDS PRIVATE net-utils)
+
+add_subdirectory(discord-rpc)
+target_link_libraries(melonDS PRIVATE discord-rpc)
 
 if (WIN32)
     target_link_libraries(melonDS PUBLIC opengl32)
