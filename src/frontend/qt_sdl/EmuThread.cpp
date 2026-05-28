@@ -317,7 +317,8 @@ void EmuThread::run()
                     std::string gameName = emuInstance->baseROMName;
                     if (gameName != "")
                         richPresence.Update("", "Playing: " + gameName);
-
+                    else
+                        richPresence.Update("", "In DS firmware");
                 }
                 richPresence.RunCallbacks();
             }
