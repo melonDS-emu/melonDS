@@ -253,14 +253,14 @@ void EmuThread::run()
 
             // process input and hotkeys
             emuInstance->nds->SetKeyMask(emuInstance->inputMask);
-		// --- PS4 TOUCHPAD NATIVE INTEGRATION ---
+		// --- GAMEPAD TOUCHPAD NATIVE INTEGRATION ---
 SDL_PumpEvents(); // Refresh SDL's internal hardware state
 
 // Open the primary controller (0). If it is already open, this just borrows the connection.
 SDL_GameController* pad = SDL_GameControllerOpen(0);
 if (pad) {
     if (SDL_GameControllerGetNumTouchpads(pad) > 0) {
-        static bool ps4WasTouching = false;
+        static bool padWasTouching = false;
         Uint8 touchState = 0;
         float px = 0.0f, py = 0.0f, pressure = 0.0f;
 
@@ -275,17 +275,17 @@ if (pad) {
             // Clamp boundaries to prevent emulator crashes
             if (emuInstance->touchX > 255) emuInstance->touchX = 255;
             if (emuInstance->touchY > 191) emuInstance->touchY = 191;
-            ps4WasTouching = true;
-        } else if (ps4WasTouching) {
+            padWasTouching = true;
+        } else if (padWasTouching) {
             // Finger was lifted this exact frame
             emuInstance->isTouching = false;
-            ps4WasTouching = false;
+            padWasTouching = false;
         }
     }
     // Drop our temporary connection to prevent memory leaks
     SDL_GameControllerClose(pad); 
 }
-// --- END PS4 TOUCHPAD INTEGRATION ---
+// --- END GAMEPAD TOUCHPAD INTEGRATION ---
             if (emuInstance->isTouching)
                 emuInstance->nds->TouchScreen(emuInstance->touchX, emuInstance->touchY);
             else
