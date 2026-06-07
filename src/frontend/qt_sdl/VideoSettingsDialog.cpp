@@ -35,17 +35,20 @@ inline bool VideoSettingsDialog::UsesGL()
     return cfg.GetBool("Screen.UseGL") || (cfg.GetInt("3D.Renderer") != renderer3D_Software);
 }
 
+
 VideoSettingsDialog* VideoSettingsDialog::currentDlg = nullptr;
 
 void VideoSettingsDialog::setEnabled()
 {
     auto& cfg = emuInstance->getGlobalConfig();
     int renderer = cfg.GetInt("3D.Renderer");
-
+    bool GLDisplay = cfg.GetBool("Screen.UseGL") || (cfg.GetInt("3D.Renderer") != renderer3D_Software);
     bool softwareRenderer = renderer == renderer3D_Software;
     ui->cbGLDisplay->setEnabled(softwareRenderer);
     ui->cbSoftwareThreaded->setEnabled(softwareRenderer);
     ui->cbxGLResolution->setEnabled(!softwareRenderer);
+    ui->cbxOutputResampling->setEnabled(GLDisplay);
+    ui->cbxAntiAliasing->setEnabled(GLDisplay);
     ui->cbBetterPolygons->setEnabled(renderer == renderer3D_OpenGL);
     ui->cbxComputeHiResCoords->setEnabled(renderer == renderer3D_OpenGLCompute);
 }
@@ -60,6 +63,8 @@ VideoSettingsDialog::VideoSettingsDialog(QWidget* parent) : QDialog(parent), ui(
     auto& cfg = emuInstance->getGlobalConfig();
     oldRenderer = cfg.GetInt("3D.Renderer");
     oldGLDisplay = cfg.GetBool("Screen.UseGL");
+    oldResampling = cfg.GetInt("Screen.Resampling");
+    oldAntialiasing = cfg.GetInt("Screen.Antialiasing");
     oldVSync = cfg.GetBool("Screen.VSync");
     oldVSyncInterval = cfg.GetInt("Screen.VSyncInterval");
     oldSoftThreaded = cfg.GetBool("3D.Soft.Threaded");
@@ -96,7 +101,10 @@ VideoSettingsDialog::VideoSettingsDialog(QWidget* parent) : QDialog(parent), ui(
     for (int i = 1; i <= 16; i++)
         ui->cbxGLResolution->addItem(QString("%1x native (%2x%3)").arg(i).arg(256*i).arg(192*i));
     ui->cbxGLResolution->setCurrentIndex(oldGLScale-1);
-
+    ui->cbxAntiAliasing->addItems({"None", "FXAA", "SMAA"});
+    ui->cbxAntiAliasing->setCurrentIndex(oldAntialiasing);
+    ui->cbxOutputResampling->addItems({"Nearest", "Bilinear", "Adaptive", "Sharp Bilinear"});
+    ui->cbxOutputResampling->setCurrentIndex(oldResampling);
     ui->cbBetterPolygons->setChecked(oldGLBetterPolygons != 0);
     ui->cbxComputeHiResCoords->setChecked(oldHiresCoordinates != 0);
 
@@ -132,6 +140,8 @@ void VideoSettingsDialog::on_VideoSettingsDialog_rejected()
     auto& cfg = emuInstance->getGlobalConfig();
     cfg.SetInt("3D.Renderer", oldRenderer);
     cfg.SetBool("Screen.UseGL", oldGLDisplay);
+    cfg.SetInt("Screen.Resampling", oldResampling);
+    cfg.SetInt("Screen.Antialiasing", oldAntialiasing);
     cfg.SetBool("Screen.VSync", oldVSync);
     cfg.SetInt("Screen.VSyncInterval", oldVSyncInterval);
     cfg.SetBool("3D.Soft.Threaded", oldSoftThreaded);
@@ -170,7 +180,7 @@ void VideoSettingsDialog::on_cbGLDisplay_stateChanged(int state)
     cfg.SetBool("Screen.UseGL", (state != 0));
 
     setVsyncControlEnable(UsesGL());
-
+    setEnabled();
     emit updateVideoSettings(old_gl != UsesGL());
 }
 
@@ -213,6 +223,24 @@ void VideoSettingsDialog::on_cbxGLResolution_currentIndexChanged(int idx)
 
     emit updateVideoSettings(false);
 }
+
+void VideoSettingsDialog::on_cbxOutputResampling_currentIndexChanged(int idx)
+{
+    auto& cfg = emuInstance->getGlobalConfig();
+    cfg.SetInt("Screen.Resampling", idx);
+
+    emit updateVideoSettings(false);
+}
+
+
+void VideoSettingsDialog::on_cbxAntiAliasing_currentIndexChanged(int idx)
+{
+    auto& cfg = emuInstance->getGlobalConfig();
+    cfg.SetInt("Screen.Antialiasing", idx);
+
+    emit updateVideoSettings(false);
+}
+
 
 void VideoSettingsDialog::on_cbBetterPolygons_stateChanged(int state)
 {
