@@ -68,6 +68,7 @@ AudioSettingsDialog::AudioSettingsDialog(QWidget* parent) : QDialog(parent), ui(
     ui->slVolume->blockSignals(state);
 
     ui->chkSyncDSiVolume->setChecked(oldDSiSync);
+    ui->cbMuteFastForward->setChecked(cfg.GetBool("MuteFastForward"));
 
     // Setup volume slider accordingly
     if (emuActive && emuInstance->getNDS()->ConsoleType == 1)
@@ -159,6 +160,7 @@ void AudioSettingsDialog::onConsoleReset()
 void AudioSettingsDialog::on_AudioSettingsDialog_accepted()
 {
     auto& cfg = emuInstance->getGlobalConfig();
+    cfg.SetBool("MuteFastForward", ui->cbMuteFastForward->isChecked());
     cfg.SetQString("Mic.Device", ui->cbMic->currentText());
     cfg.SetInt("Mic.InputType", grpMicMode->checkedId());
     cfg.SetQString("Mic.WavPath", ui->txtMicWavPath->text());
