@@ -231,13 +231,13 @@ bool ARDatabaseDAT::LoadCheatCodes(EntryInfo& info, ARDatabaseEntry& entry)
                 return false;
             }
 
-            ARCodeCat cat = {
-                    .Parent = &entry.RootCat,
-                    .Name = itemname,
-                    .Description = itemdesc,
-                    .OnlyOneCodeEnabled = !!(itemflags & (1<<24)),
-                    .Children = {}
-            };
+            ARCodeCat cat{};
+            cat.Parent = &entry.RootCat;
+            cat.Name = itemname;
+            cat.Description = itemdesc;
+            cat.OnlyOneCodeEnabled = (itemflags & (1u << 24)) != 0;
+            // cat.Children is empty due to value-initialization
+
             entry.RootCat.Children.emplace_back(cat);
             curcat = &std::get<ARCodeCat>(entry.RootCat.Children.back());
 
