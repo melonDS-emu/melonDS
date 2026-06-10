@@ -72,6 +72,7 @@ DefaultList<int> DefaultInts =
     {"Instance*.Gdb.ARM9.Port", 3333},
 #endif
     {"LAN.HostNumPlayers", 16},
+    {"Instance*.Window*.Filter2D", 0},
 };
 
 RangeList IntRanges =
@@ -91,6 +92,7 @@ RangeList IntRanges =
     {"Instance*.Window*.ScreenAspectBot", {0, AspectRatiosNum-1}},
     {"MP.AudioMode", {0, 2}},
     {"LAN.HostNumPlayers", {2, 16}},
+    {"Instance*.Window*.Filter2D", {0, 2}},
 };
 
 DefaultList<bool> DefaultBools =
@@ -118,7 +120,9 @@ DefaultList<std::string> DefaultStrings =
 {
     {"DLDI.ImagePath",                  "dldi.bin"},
     {"DSi.SD.ImagePath",                "dsisd.bin"},
-    {"Instance*.Firmware.Username",     "melonDS"}
+    {"Instance*.Firmware.Username",     "melonDS"},
+    {"Instance*.Window*.ShaderPresetPath", ""},
+    {"Instance*.Window*.ShaderParams", ""}
 };
 
 DefaultList<double> DefaultDoubles =

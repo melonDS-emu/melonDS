@@ -58,6 +58,8 @@
 #include "ROMInfoDialog.h"
 #include "RAMInfoDialog.h"
 #include "TitleManagerDialog.h"
+#include "ShaderConfigDialog.h"
+#include "ShaderParser.h"
 #include "PowerManagement/PowerManagementDialog.h"
 
 #include "Platform.h"
@@ -570,6 +572,9 @@ MainWindow::MainWindow(int id, EmuInstance* inst, QWidget* parent) :
             actScreenFiltering = menu->addAction("Screen filtering");
             actScreenFiltering->setCheckable(true);
             connect(actScreenFiltering, &QAction::triggered, this, &MainWindow::onChangeScreenFiltering);
+            
+            actFilters = menu->addAction("Filters");
+            connect(actFilters, &QAction::triggered, this, &MainWindow::onOpenFilterConfig);
 
             actShowOSD = menu->addAction("Show OSD");
             actShowOSD->setCheckable(true);
@@ -728,6 +733,7 @@ MainWindow::MainWindow(int id, EmuInstance* inst, QWidget* parent) :
         }
 
         actScreenFiltering->setChecked(windowCfg.GetBool("ScreenFilter"));
+        
         actShowOSD->setChecked(showOSD);
 
         actLimitFramerate->setChecked(emuInstance->doLimitFPS);
@@ -2321,3 +2327,21 @@ void MainWindow::onUpdateVideoSettings(bool glchange)
         emuThread->emuUnpause();
     }
 }
+
+void MainWindow::onOpenFilterConfig()
+{
+    ShaderManager* sm = panel->getShaderManager();
+    if (!sm)
+    {
+        QMessageBox::warning(this, "Shader Configuration", "Shaders are only available when 'Screen filtering' (OpenGL renderer) is enabled.\n\nPlease enable it in Config -> Video settings.");
+        return;
+    }
+
+    ShaderParser parser("res/slang-shaders");
+    std::vector<FrontendShader> presets = parser.GetPresets();
+
+    ShaderConfigDialog* dlg = new ShaderConfigDialog(sm, presets, this);
+    dlg->setAttribute(Qt::WA_DeleteOnClose);
+    dlg->show();
+}
+

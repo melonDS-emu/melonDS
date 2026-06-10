@@ -33,7 +33,7 @@
 #include "glad/glad.h"
 #include "ScreenLayout.h"
 #include "duckstation/gl/context.h"
-
+#include "ShaderManager.h"
 
 class MainWindow;
 class EmuInstance;
@@ -71,6 +71,7 @@ public:
     void osdAddMessage(unsigned int color, const char* msg);
 
     virtual void drawScreen() {}// = 0;
+    virtual ShaderManager* getShaderManager() { return nullptr; }
 
 private slots:
     void onScreenLayoutChanged();
@@ -202,6 +203,8 @@ public:
 
     void drawScreen() override;
 
+    ShaderManager* getShaderManager() override { return shaderManager.get(); }
+
     GL::Context* getContext() { return glContext.get(); }
 
     void transferLayout();
@@ -218,6 +221,8 @@ private:
 
     std::unique_ptr<GL::Context> glContext;
     bool glInited;
+
+    std::unique_ptr<ShaderManager> shaderManager;
 
     GLuint screenVertexBuffer, screenVertexArray;
     GLuint screenTexture;

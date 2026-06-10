@@ -25,3 +25,7 @@ CMakeCache.txt
 freebios/FreeBIOS_Data.h
 freebios/bios*
 freebios/build/
+
+vcpkg/
+vcpkg_installed/
+vcpkg_fedora.json
