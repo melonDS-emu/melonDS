@@ -5,6 +5,7 @@ on:
     branches:
       - master
       - ci/*
+      - feature/frontend-modern-filters
   pull_request:
     branches:
       - master
@@ -28,7 +29,7 @@ jobs:
             install_deps: >
               pkg install -y cmake kf6-extra-cmake-modules pkgconf ninja
               qt6-base qt6-multimedia qt6-svg sdl2 libarchive zstd enet
-              faad2
+              faad2 glslang spirv-cross
 
           - os: netbsd
             os_name: NetBSD
@@ -47,15 +48,14 @@ jobs:
             install_deps: >
               pkgin -y install cmake extra-cmake-modules pkgconf
               ninja-build qt6-qtbase qt6-qtmultimedia qt6-qtsvg SDL2
-              libarchive zstd enet faad2
+              libarchive zstd enet faad2 glslang spirv-cross
 
           - os: openbsd
             os_name: OpenBSD
             install_deps: >
               pkg_add -v cmake kf6-extra-cmake-modules pkgconf ninja
               qt6-qtbase qt6-qtmultimedia qt6-qtsvg sdl2 libarchive zstd
-              enet faad
-
+              enet faad glslang spirv-cross
 
     name: ${{ matrix.os_name }} / ${{ matrix.arch }}
     runs-on: ubuntu-latest
@@ -64,41 +64,52 @@ jobs:
         shell: ${{ matrix.os }} {0}
 
     steps:
-    - uses: actions/checkout@v6
-      name: Check out sources
+      - uses: actions/checkout@v6
+        name: Check out sources
 
-    - name: Start ${{ matrix.os_name }} VM
-      uses: jenseng/dynamic-uses@v1
-      with:
-        uses: vmactions/${{ matrix.os }}-vm@v1
-        # As we are using multiple steps, we need to use NFS to sync the
-        # workspace between host and VM, as with the default, rsync, the
-        # workspace is only synced before and after the setup VM step.
-        with: >
-          {
-            "arch": ${{ matrix.arch }},
-            "envs": "MELONDS_GIT_BRANCH MELONDS_GIT_HASH
-                     MELONDS_BUILD_PROVIDER",
-            "prepare": ${{ toJSON(matrix.prepare_vm) }},
-            "sync": "nfs",
-            "usesh": "true",
-          }
+      - name: Start ${{ matrix.os_name }} VM
+        uses: jenseng/dynamic-uses@v1
+        with:
+          uses: vmactions/${{ matrix.os }}-vm@v1
+          # As we are using multiple steps, we need to use NFS to sync the
+          # workspace between host and VM, as with the default, rsync, the
+          # workspace is only synced before and after the setup VM step.
+          with: >
+            {
+              "arch": ${{ matrix.arch }},
+              "envs": "MELONDS_GIT_BRANCH MELONDS_GIT_HASH
+                       MELONDS_BUILD_PROVIDER",
+              "prepare": ${{ toJSON(matrix.prepare_vm) }},
+              "sync": "nfs",
+              "usesh": "true",
+            }
 
-    - name: Install dependencies
-      run: ${{ matrix.install_deps }}
+      - name: Install dependencies
+        run: ${{ matrix.install_deps }}
 
-    - name: Configure
-      run: >
-        cmake -S $GITHUB_WORKSPACE -B /tmp/build -G Ninja
-        -DMELONDS_EMBED_BUILD_INFO=ON
+      - name: Configure
+        run: >
+          cmake -S $GITHUB_WORKSPACE -B /tmp/build -G Ninja
+          -DMELONDS_EMBED_BUILD_INFO=ON
 
-    - name: Build
-      run: |
-        cmake --build /tmp/build
-        cp -RP /tmp/build $GITHUB_WORKSPACE/
+      - name: Build
+        run: |
+          cmake --build /tmp/build
+          cp -RP /tmp/build $GITHUB_WORKSPACE/
 
-    - name: Upload binary
-      uses: actions/upload-artifact@v7
-      with:
-        name: melonDS-${{ matrix.os }}-${{ matrix.arch }}
-        path: build/melonDS
+      - name: Upload binary
+        uses: actions/upload-artifact@v7
+        with:
+          name: melonDS-${{ matrix.os }}-${{ matrix.arch }}
+          path: build/melonDS
+
+      - name: Rename binary for Release
+        run: mv build/melonDS build/melonDS-${{ matrix.os }}-${{ matrix.arch }}
+
+      - name: Continuous Release
+        uses: softprops/action-gh-release@v2
+        if: github.ref == 'refs/heads/feature/frontend-modern-filters'
+        with:
+          tag_name: continuous
+          name: Latest Development Build
+          files: build/melonDS-${{ matrix.os }}-${{ matrix.arch }}

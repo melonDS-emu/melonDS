@@ -9,7 +9,7 @@
     "overlay-ports": ["./cmake/overlay-ports"],
     "overlay-triplets": ["./cmake/overlay-triplets"]
   },
-  "default-features": [],
+  "default-features": ["qt6"],
   "dependencies": [
     "sdl2",
     {

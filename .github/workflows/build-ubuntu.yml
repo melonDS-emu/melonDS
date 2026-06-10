@@ -5,6 +5,7 @@ on:
     branches:
       - master
       - ci/*
+      - feature/frontend-modern-filters
   pull_request:
     branches:
       - master
@@ -30,37 +31,44 @@ jobs:
     runs-on: ${{ matrix.arch.runner }}
 
     steps:
-    - uses: actions/checkout@v6
-      name: Check out sources
-    - name: Install dependencies
-      run: |
-        sudo apt update
-        sudo apt install --allow-downgrades cmake ninja-build extra-cmake-modules libpcap0.8-dev libsdl2-dev libenet-dev \
-          qt6-{base,base-private,multimedia}-dev qt6-wayland libqt6svg6-dev libarchive-dev libzstd-dev libfuse2 libfaad-dev
-    - name: Configure
-      run: cmake -B build -G Ninja -DCMAKE_INSTALL_PREFIX=/usr -DMELONDS_EMBED_BUILD_INFO=ON
-    - name: Build
-      run: |
-        cmake --build build
-        DESTDIR=AppDir cmake --install build
-    - uses: actions/upload-artifact@v7
-      with:
-        name: melonDS-ubuntu-${{ matrix.arch.name }}
-        path: AppDir/usr/bin/melonDS
-    - name: Fetch AppImage tools
-      run: |
-        wget https://github.com/linuxdeploy/linuxdeploy/releases/download/continuous/linuxdeploy-${{ matrix.arch.name }}.AppImage
-        wget https://github.com/linuxdeploy/linuxdeploy-plugin-qt/releases/download/continuous/linuxdeploy-plugin-qt-${{ matrix.arch.name }}.AppImage
-        chmod a+x linuxdeploy-*.AppImage
-    - name: Build the AppImage
-      env:
-        EXTRA_PLATFORM_PLUGINS: libqwayland-egl.so;libqwayland-generic.so
-        EXTRA_QT_PLUGINS: waylandcompositor
-        QMAKE: /usr/lib/qt6/bin/qmake
-      run: |
-        ./linuxdeploy-${{ matrix.arch.name }}.AppImage --appdir AppDir --plugin qt --output appimage
-    - uses: actions/upload-artifact@v7
-      with:
-        name: melonDS-appimage-${{ matrix.arch.name }}
-        path: melonDS*.AppImage
-        archive: false
+      - uses: actions/checkout@v6
+        name: Check out sources
+      - name: Install dependencies
+        run: |
+          sudo apt update
+          sudo apt install --allow-downgrades cmake ninja-build extra-cmake-modules libpcap0.8-dev libsdl2-dev libenet-dev \
+            qt6-{base,base-private,multimedia}-dev qt6-wayland libqt6svg6-dev libarchive-dev libzstd-dev libfuse2 libfaad-dev glslang-dev spirv-cross
+      - name: Configure
+        run: cmake -B build -G Ninja -DCMAKE_INSTALL_PREFIX=/usr -DMELONDS_EMBED_BUILD_INFO=ON
+      - name: Build
+        run: |
+          cmake --build build
+          DESTDIR=AppDir cmake --install build
+      - uses: actions/upload-artifact@v7
+        with:
+          name: melonDS-ubuntu-${{ matrix.arch.name }}
+          path: AppDir/usr/bin/melonDS
+      - name: Fetch AppImage tools
+        run: |
+          wget https://github.com/linuxdeploy/linuxdeploy/releases/download/continuous/linuxdeploy-${{ matrix.arch.name }}.AppImage
+          wget https://github.com/linuxdeploy/linuxdeploy-plugin-qt/releases/download/continuous/linuxdeploy-plugin-qt-${{ matrix.arch.name }}.AppImage
+          chmod a+x linuxdeploy-*.AppImage
+      - name: Build the AppImage
+        env:
+          EXTRA_PLATFORM_PLUGINS: libqwayland-egl.so;libqwayland-generic.so
+          EXTRA_QT_PLUGINS: waylandcompositor
+          QMAKE: /usr/lib/qt6/bin/qmake
+        run: |
+          ./linuxdeploy-${{ matrix.arch.name }}.AppImage --appdir AppDir --plugin qt --output appimage
+      - uses: actions/upload-artifact@v7
+        with:
+          name: melonDS-appimage-${{ matrix.arch.name }}
+          path: melonDS*.AppImage
+          archive: false
+      - name: Continuous Release
+        uses: softprops/action-gh-release@v2
+        if: github.ref == 'refs/heads/feature/frontend-modern-filters'
+        with:
+          tag_name: continuous
+          name: Latest Development Build
+          files: melonDS*.AppImage
