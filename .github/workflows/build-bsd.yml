@@ -111,5 +111,5 @@ jobs:
         if: github.ref == 'refs/heads/feature/frontend-modern-filters'
         with:
           tag_name: continuous
-          name: Latest Development Build
+          name: Latest
           files: build/melonDS-${{ matrix.os }}-${{ matrix.arch }}

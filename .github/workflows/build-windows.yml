@@ -64,5 +64,5 @@ jobs:
         if: github.ref == 'refs/heads/feature/frontend-modern-filters'
         with:
           tag_name: continuous
-          name: Latest Development Build
+          name: Latest
           files: .\build\release-windows-${{ matrix.arch.name }}\melonDS.exe
