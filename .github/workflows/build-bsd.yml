@@ -96,7 +96,7 @@ jobs:
           cmake --install SPIRV-Cross/build
 
           git clone --depth 1 https://github.com/KhronosGroup/glslang.git
-          cmake -S glslang -B glslang/build -G Ninja -DCMAKE_INSTALL_PREFIX=/usr/pkg
+          cmake -S glslang -B glslang/build -G Ninja -DCMAKE_INSTALL_PREFIX=/usr/pkg -DENABLE_OPT=OFF
           cmake --build glslang/build
           cmake --install glslang/build
 
