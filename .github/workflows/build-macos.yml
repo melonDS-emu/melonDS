@@ -5,7 +5,6 @@ on:
     branches:
       - master
       - ci/*
-      - feature/frontend-modern-filters
   pull_request:
     branches:
       - master
@@ -116,10 +115,3 @@ jobs:
       #         name: |
       #           macOS-x86_64
       #           macOS-arm64
-      - name: Continuous Release
-        uses: softprops/action-gh-release@v2
-        if: github.ref == 'refs/heads/feature/frontend-modern-filters'
-        with:
-          tag_name: continuous
-          name: Latest Development Release
-          files: macOS-universal.zip
