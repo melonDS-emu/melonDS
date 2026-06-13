@@ -572,7 +572,7 @@ MainWindow::MainWindow(int id, EmuInstance* inst, QWidget* parent) :
             actScreenFiltering = menu->addAction("Screen filtering");
             actScreenFiltering->setCheckable(true);
             connect(actScreenFiltering, &QAction::triggered, this, &MainWindow::onChangeScreenFiltering);
-            
+
             actFilters = menu->addAction("Filters");
             connect(actFilters, &QAction::triggered, this, &MainWindow::onOpenFilterConfig);
 
@@ -733,7 +733,7 @@ MainWindow::MainWindow(int id, EmuInstance* inst, QWidget* parent) :
         }
 
         actScreenFiltering->setChecked(windowCfg.GetBool("ScreenFilter"));
-        
+
         actShowOSD->setChecked(showOSD);
 
         actLimitFramerate->setChecked(emuInstance->doLimitFPS);
@@ -2311,7 +2311,7 @@ void MainWindow::onUpdateVideoSettings(bool glchange)
 
     if (glchange)
     {
-        if (hasOGL) 
+        if (hasOGL)
         {
             emuThread->initContext(windowID);
             for (auto child: childwins)
@@ -2337,11 +2337,16 @@ void MainWindow::onOpenFilterConfig()
         return;
     }
 
-    ShaderParser parser("res/slang-shaders");
+    QString shaderPath = QCoreApplication::applicationDirPath() + "/res/slang-shaders";
+    if (!QDir(shaderPath).exists()) {
+            shaderPath = QCoreApplication::applicationDirPath() + "/../res/slang-shaders";
+    }
+    std::string pathStd = shaderPath.toStdString();
+
+    ShaderParser parser(pathStd.c_str());
     std::vector<FrontendShader> presets = parser.GetPresets();
 
     ShaderConfigDialog* dlg = new ShaderConfigDialog(sm, presets, this);
     dlg->setAttribute(Qt::WA_DeleteOnClose);
     dlg->show();
 }
-

@@ -116,8 +116,13 @@ jobs:
           name: melonDS-${{ matrix.os }}-${{ matrix.arch }}
           path: build/melonDS
 
-      - name: Rename binary for Release
-        run: mv build/melonDS build/melonDS-${{ matrix.os }}-${{ matrix.arch }}
+      - name: Package Release
+        run: |
+          mkdir -p package/res
+          cp build/melonDS package/melonDS
+          cp -r res/slang-shaders package/res/
+          cd package
+          zip -r ../melonDS-${{ matrix.os }}-${{ matrix.arch }}.zip *
 
       - name: Continuous Release
         uses: softprops/action-gh-release@v2
@@ -125,4 +130,4 @@ jobs:
         with:
           tag_name: continuous
           name: Latest Development Release
-          files: build/melonDS-${{ matrix.os }}-${{ matrix.arch }}
+          files: melonDS-${{ matrix.os }}-${{ matrix.arch }}.zip

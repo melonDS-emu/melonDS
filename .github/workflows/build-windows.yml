@@ -50,10 +50,17 @@ jobs:
           configurePreset: release-windows-${{ matrix.arch.name }}
           configurePresetAdditionalArgs: "['-DENABLE_DEBUG_DEPS=OFF', '-DMELONDS_EMBED_BUILD_INFO=ON']"
           buildPreset: release-windows-${{ matrix.arch.name }}
+      - name: Package Release
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force -Path package
+          Copy-Item -Path .\build\release-windows-${{ matrix.arch.name }}\melonDS.exe -Destination package\
+          Copy-Item -Path .\res -Destination package\res -Recurse
+          Compress-Archive -Path package\* -DestinationPath melonDS-windows-${{ matrix.arch.name }}.zip
       - uses: actions/upload-artifact@v7
         with:
           name: melonDS-windows-${{ matrix.arch.name }}
-          path: .\build\release-windows-${{ matrix.arch.name }}\melonDS.exe
+          path: melonDS-windows-${{ matrix.arch.name }}.zip
       - name: Save vcpkg cache
         uses: actions/cache/save@v4
         with:
@@ -65,4 +72,4 @@ jobs:
         with:
           tag_name: continuous
           name: Latest Development Release
-          files: .\build\release-windows-${{ matrix.arch.name }}\melonDS.exe
+          files: melonDS-windows-${{ matrix.arch.name }}.zip

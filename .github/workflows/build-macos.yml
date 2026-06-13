@@ -57,6 +57,8 @@ jobs:
         shell: bash
         run: |
           cd build/release-mac-${{ matrix.arch }}
+          mkdir -p melonDS.app/Contents/MacOS/res
+          cp -r ../../res/slang-shaders melonDS.app/Contents/MacOS/res/
           zip -r -y ../../macOS-${{ matrix.arch }}.zip melonDS.app
       - name: Upload artifact
         uses: actions/upload-artifact@v7
