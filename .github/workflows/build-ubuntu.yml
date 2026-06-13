@@ -33,6 +33,8 @@ jobs:
     steps:
       - uses: actions/checkout@v6
         name: Check out sources
+        with:
+          submodules: recursive
       - name: Install dependencies
         run: |
           sudo apt update

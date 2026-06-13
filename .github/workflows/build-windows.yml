@@ -34,6 +34,8 @@ jobs:
     steps:
       - name: Check out sources
         uses: actions/checkout@v6
+        with:
+          submodules: recursive
       - name: Restore vcpkg cache
         uses: actions/cache/restore@v4
         with:

@@ -66,6 +66,8 @@ jobs:
     steps:
       - uses: actions/checkout@v6
         name: Check out sources
+        with:
+          submodules: recursive
 
       - name: Start ${{ matrix.os_name }} VM
         uses: jenseng/dynamic-uses@v1
