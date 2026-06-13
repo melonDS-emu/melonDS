@@ -38,6 +38,17 @@ jobs:
           sudo apt update
           sudo apt install --allow-downgrades cmake ninja-build extra-cmake-modules libpcap0.8-dev libsdl2-dev libenet-dev \
             qt6-{base,base-private,multimedia}-dev qt6-wayland libqt6svg6-dev libarchive-dev libzstd-dev libfuse2 libfaad-dev glslang-dev spirv-cross
+      - name: Build Khronos dependencies (Ubuntu 22.04 apt fallback)
+        run: |
+          git clone --depth 1 https://github.com/KhronosGroup/SPIRV-Cross.git
+          cmake -S SPIRV-Cross -B SPIRV-Cross/build -G Ninja -DCMAKE_INSTALL_PREFIX=/usr -DSPIRV_CROSS_SHARED=ON
+          sudo cmake --build SPIRV-Cross/build
+          sudo cmake --install SPIRV-Cross/build
+
+          git clone --depth 1 https://github.com/KhronosGroup/glslang.git
+          cmake -S glslang -B glslang/build -G Ninja -DCMAKE_INSTALL_PREFIX=/usr -DENABLE_OPT=OFF
+          sudo cmake --build glslang/build
+          sudo cmake --install glslang/build
       - name: Configure
         run: cmake -B build -G Ninja -DCMAKE_INSTALL_PREFIX=/usr -DMELONDS_EMBED_BUILD_INFO=ON
       - name: Build
@@ -70,5 +81,5 @@ jobs:
         if: github.ref == 'refs/heads/feature/frontend-modern-filters'
         with:
           tag_name: continuous
-          name: Latest
+          name: Latest Development Release
           files: melonDS*.AppImage

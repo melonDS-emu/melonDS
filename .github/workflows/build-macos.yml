@@ -117,5 +117,5 @@ jobs:
         if: github.ref == 'refs/heads/feature/frontend-modern-filters'
         with:
           tag_name: continuous
-          name: Latest
+          name: Latest Development Release
           files: macOS-universal.zip
