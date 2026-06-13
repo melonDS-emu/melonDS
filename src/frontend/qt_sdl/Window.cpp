@@ -2341,6 +2341,12 @@ void MainWindow::onOpenFilterConfig()
     if (!QDir(shaderPath).exists()) {
             shaderPath = QCoreApplication::applicationDirPath() + "/../res/slang-shaders";
     }
+    #ifdef Q_OS_MAC
+        if (!QDir(shaderPath).exists()) {
+            shaderPath = QCoreApplication::applicationDirPath() + "/../Resources/res/slang-shaders";
+        }
+    #endif
+
     std::string pathStd = shaderPath.toStdString();
 
     ShaderParser parser(pathStd.c_str());
