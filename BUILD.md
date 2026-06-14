@@ -24,8 +24,27 @@
    cmake -B build
    cmake --build build -j$(nproc --all)
    ```
+4. melonDS should now be in the `build` folder.
+   Run it as follows:
+   ```bash
+   ./build/melonDS
+   ```
 
 ## Windows
+
+### Option A: WSL (Windows Subsystem for Linux)
+
+Windows Subsystem for Linux (WSL) allows you to run a Linux environment directly on Windows. It is recommended to use WSL2, which has better performance and compatibility than WSL1. 
+
+With WSL, you can build melonDS using the same instructions as for Linux, and run it directly from WSL with GUI support (WSLg) on Windows 11.
+
+1. Install WSL and a Linux distribution (Ubuntu is recommended) from the Microsoft Store.
+2. Follow the [Linux](#linux) instructions for your chosen distribution.
+   Note that for WSL Ubuntu 22.04, you need to install the following packages instead of the ones listed in the Linux section:
+   * 22.04: `sudo apt install qt6-base-dev qt6-base-private-dev qt6-multimedia-dev libqt6svg6-dev`
+
+### Option B: MSYS2 (native Windows build)
+
 1. Install [MSYS2](https://www.msys2.org/)
 2. Open the MSYS2 terminal from the Start menu:
    * For x64 systems (most common), use **MSYS2 UCRT64**
