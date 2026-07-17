@@ -56,6 +56,15 @@ void VideoSettingsDialog::setEnabled()
     computeRenderer |= renderer == renderer3D_VulkanFull;
 #endif
     ui->cbxComputeHiResCoords->setEnabled(computeRenderer);
+
+    // the dither/texture-filter enhancements are implemented in the full
+    // Vulkan renderer only
+    bool vulkanRenderer = false;
+#ifdef VKRENDERER_ENABLED
+    vulkanRenderer = renderer == renderer3D_VulkanFull;
+#endif
+    ui->cbDither->setEnabled(vulkanRenderer);
+    ui->cbTexFilter->setEnabled(vulkanRenderer);
 }
 
 VideoSettingsDialog::VideoSettingsDialog(QWidget* parent) : QDialog(parent), ui(new Ui::VideoSettingsDialog)
@@ -74,6 +83,8 @@ VideoSettingsDialog::VideoSettingsDialog(QWidget* parent) : QDialog(parent), ui(
     oldGLScale = cfg.GetInt("3D.GL.ScaleFactor");
     oldGLBetterPolygons = cfg.GetBool("3D.GL.BetterPolygons");
     oldHiresCoordinates = cfg.GetBool("3D.GL.HiresCoordinates");
+    oldDither = cfg.GetBool("3D.GL.Dither");
+    oldTexFilter = cfg.GetBool("3D.GL.TexFilter");
 
     grp3DRenderer = new QButtonGroup(this);
     grp3DRenderer->addButton(ui->rb3DSoftware, renderer3D_Software);
@@ -127,6 +138,8 @@ VideoSettingsDialog::VideoSettingsDialog(QWidget* parent) : QDialog(parent), ui(
 
     ui->cbBetterPolygons->setChecked(oldGLBetterPolygons != 0);
     ui->cbxComputeHiResCoords->setChecked(oldHiresCoordinates != 0);
+    ui->cbDither->setChecked(oldDither != 0);
+    ui->cbTexFilter->setChecked(oldTexFilter != 0);
 
     if (!oldVSync)
         ui->sbVSyncInterval->setEnabled(false);
@@ -166,6 +179,8 @@ void VideoSettingsDialog::on_VideoSettingsDialog_rejected()
     cfg.SetInt("3D.GL.ScaleFactor", oldGLScale);
     cfg.SetBool("3D.GL.BetterPolygons", oldGLBetterPolygons);
     cfg.SetBool("3D.GL.HiresCoordinates", oldHiresCoordinates);
+    cfg.SetBool("3D.GL.Dither", oldDither);
+    cfg.SetBool("3D.GL.TexFilter", oldTexFilter);
 
     emit updateVideoSettings(old_gl != UsesGL());
 
@@ -254,6 +269,22 @@ void VideoSettingsDialog::on_cbxComputeHiResCoords_stateChanged(int state)
 {
     auto& cfg = emuInstance->getGlobalConfig();
     cfg.SetBool("3D.GL.HiresCoordinates", (state != 0));
+
+    emit updateVideoSettings(false);
+}
+
+void VideoSettingsDialog::on_cbDither_stateChanged(int state)
+{
+    auto& cfg = emuInstance->getGlobalConfig();
+    cfg.SetBool("3D.GL.Dither", (state != 0));
+
+    emit updateVideoSettings(false);
+}
+
+void VideoSettingsDialog::on_cbTexFilter_stateChanged(int state)
+{
+    auto& cfg = emuInstance->getGlobalConfig();
+    cfg.SetBool("3D.GL.TexFilter", (state != 0));
 
     emit updateVideoSettings(false);
 }

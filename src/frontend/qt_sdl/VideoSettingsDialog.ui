@@ -133,6 +133,26 @@
        </widget>
       </item>
       <item>
+       <widget class="QCheckBox" name="cbDither">
+        <property name="whatsThis">
+         <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Dither the final image to smooth the DS's 6-bit colour banding on gradients. Purely at the output; does not affect rendering accuracy. Vulkan renderer only.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+        </property>
+        <property name="text">
+         <string>Dither output</string>
+        </property>
+       </widget>
+      </item>
+      <item>
+       <widget class="QCheckBox" name="cbTexFilter">
+        <property name="whatsThis">
+         <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Bilinear-filter magnified textures so upscaled surfaces are smooth rather than blocky. Softens the DS's sharp nearest-neighbour look. Vulkan renderer only.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+        </property>
+        <property name="text">
+         <string>Smooth textures</string>
+        </property>
+       </widget>
+      </item>
+      <item>
        <spacer name="optionsSpacer">
         <property name="orientation">
          <enum>Qt::Orientation::Vertical</enum>
