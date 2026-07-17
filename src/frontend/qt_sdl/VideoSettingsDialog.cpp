@@ -103,14 +103,14 @@ VideoSettingsDialog::VideoSettingsDialog(QWidget* parent) : QDialog(parent), ui(
 #ifdef __APPLE__
     // macOS caps OpenGL below 4.3, so the GL compute renderer can never work there
     ui->rb3DCompute->setEnabled(false);
-    ui->rb3DCompute->setToolTip(tr("The OpenGL compute renderer requires OpenGL 4.3, which macOS does not support.\nUse the Vulkan (Compute shader) renderer instead."));
+    ui->rb3DCompute->setToolTip(tr("The OpenGL compute renderer requires OpenGL 4.3, which macOS does not support.\nUse the Vulkan renderer instead."));
 #endif
 
 #ifdef VKRENDERER_ENABLED
     if (!melonDS::VK::IsRuntimeAvailable())
     {
-        ui->rb3DVulkan->setEnabled(false);
-        ui->rb3DVulkan->setToolTip(tr("No Vulkan runtime was found on this system."));
+        ui->rb3DVulkanFull->setEnabled(false);
+        ui->rb3DVulkanFull->setToolTip(tr("No Vulkan runtime was found on this system."));
     }
 #endif
 
