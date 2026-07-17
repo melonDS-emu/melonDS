@@ -74,6 +74,8 @@ If everything went well, melonDS.app should now be in the `build` directory.
 If you want an app bundle that can be distributed to other computers without needing to install dependencies through Homebrew, you can additionally run `
 ../tools/mac-libs.rb .` after the build is completed, or add `-DMACOS_BUNDLE_LIBS=ON` to the first CMake command.
 
+When the Vulkan renderer is enabled, `libMoltenVK.dylib` is copied into the bundle automatically if it can be found (from `external/moltenvk` as staged by `tools/fetch-moltenvk.sh`, a Vulkan SDK, or Homebrew), so the Vulkan renderer keeps working on systems without a Vulkan runtime installed.
+
 ## Nix (macOS/Linux)
 
 melonDS provides a Nix flake with support for both macOS and Linux. The [Nix package manager](https://nixos.org) needs to be installed to use it.

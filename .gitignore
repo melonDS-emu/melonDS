@@ -25,3 +25,6 @@ CMakeCache.txt
 freebios/FreeBIOS_Data.h
 freebios/bios*
 freebios/build/
+
+# fetched MoltenVK release for bundling (tools/fetch-moltenvk.sh)
+external/

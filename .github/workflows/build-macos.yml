@@ -46,6 +46,8 @@ jobs:
         uses: lukka/run-vcpkg@v11
         with:
           vcpkgJsonGlob: vcpkg.json
+      - name: Fetch MoltenVK
+        run: ./tools/fetch-moltenvk.sh
       - name: Build
         uses: lukka/run-cmake@v10
         with:

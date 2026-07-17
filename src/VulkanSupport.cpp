@@ -56,6 +56,10 @@ static void* OpenLibrary()
 #elif defined(__APPLE__)
     const char* candidates[] =
     {
+        // the copy shipped inside the app bundle wins, so releases behave
+        // the same regardless of what is installed on the system
+        "@executable_path/../Frameworks/libvulkan.1.dylib",
+        "@executable_path/../Frameworks/libMoltenVK.dylib",
         "libvulkan.dylib",
         "libvulkan.1.dylib",
         "libMoltenVK.dylib",
@@ -63,8 +67,6 @@ static void* OpenLibrary()
         "/usr/local/lib/libvulkan.1.dylib",
         "/opt/homebrew/lib/libMoltenVK.dylib",
         "/usr/local/lib/libMoltenVK.dylib",
-        "@executable_path/../Frameworks/libvulkan.1.dylib",
-        "@executable_path/../Frameworks/libMoltenVK.dylib",
     };
     for (const char* name : candidates)
     {

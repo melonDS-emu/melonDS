@@ -252,6 +252,28 @@ if (APPLE)
             COMMAND ${CMAKE_SOURCE_DIR}/tools/mac-libs.rb ${DMGARG} ${CMAKE_BINARY_DIR}
             COMMENT "Bundling macOS libraries...")
     endif()
+
+    if (ENABLE_VKRENDERER)
+        # The Vulkan compute renderer loads MoltenVK at runtime (it is not
+        # linked), so ship it inside the bundle to keep the app
+        # self-contained. tools/fetch-moltenvk.sh stages the official
+        # universal dylib in external/moltenvk (used by CI); otherwise fall
+        # back to a Vulkan SDK or Homebrew copy.
+        find_library(MOLTENVK_LIBRARY
+            NAMES MoltenVK
+            HINTS "${CMAKE_SOURCE_DIR}/external/moltenvk" "$ENV{VULKAN_SDK}/lib"
+            PATHS /opt/homebrew/lib /usr/local/lib)
+
+        if (MOLTENVK_LIBRARY)
+            message(STATUS "Bundling MoltenVK: ${MOLTENVK_LIBRARY}")
+            add_custom_command(TARGET melonDS POST_BUILD
+                COMMAND ${CMAKE_COMMAND} -E make_directory "$<TARGET_BUNDLE_CONTENT_DIR:melonDS>/Frameworks"
+                COMMAND ${CMAKE_COMMAND} -E copy_if_different "${MOLTENVK_LIBRARY}" "$<TARGET_BUNDLE_CONTENT_DIR:melonDS>/Frameworks/libMoltenVK.dylib"
+                COMMENT "Bundling MoltenVK...")
+        else()
+            message(WARNING "MoltenVK not found - the Vulkan renderer will only work with a system-wide Vulkan runtime. Run tools/fetch-moltenvk.sh or install molten-vk to bundle it.")
+        endif()
+    endif()
 endif()
 
 if (UNIX AND NOT APPLE)
