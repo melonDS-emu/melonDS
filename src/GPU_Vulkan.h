@@ -31,10 +31,13 @@
 namespace melonDS
 {
 
-// Vulkan port of GLRenderer (src/GPU_OpenGL.{h,cpp}): the full-Vulkan
-// renderer parent. Owns two VulkanRenderer2D units (engine A/B) and a
-// ComputeRenderer3D_Vulkan running in native-output mode (its framebuffer
-// stays a Vulkan image, never round-tripping through GL), all sharing one
+// Vulkan port of GLRenderer (src/GPU_OpenGL.{h,cpp}): the parent renderer
+// that runs all NDS rendering (3D, 2D, compositing, capture) on Vulkan.
+// Presentation is the one exception and still hands off to GL (see the
+// "Presentation" note below). Owns two VulkanRenderer2D units (engine A/B)
+// and a ComputeRenderer3D_Vulkan running in native-output mode (its
+// framebuffer stays a Vulkan image, never round-tripping through GL for the
+// render itself), all sharing one
 // VK::Context and one queue.
 //
 // Frame model: a synchronous, once-per-frame command buffer. The parent
