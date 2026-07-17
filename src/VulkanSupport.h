@@ -125,6 +125,7 @@ bool IsRuntimeAvailable();
     x(vkCmdBindVertexBuffers) \
     x(vkCmdSetViewport) \
     x(vkCmdSetScissor) \
+    x(vkCmdClearAttachments) \
     x(vkCmdCopyImage) \
     x(vkCmdBlitImage)
 
