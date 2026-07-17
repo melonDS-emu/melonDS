@@ -1,0 +1,35 @@
+name: Vulkan (Linux)
+
+# Compile-coverage for the Vulkan renderer against a real, non-MoltenVK
+# Vulkan/glslang stack. The renderer is developed on macOS/MoltenVK; this
+# leg catches any Apple- or MoltenVK-specific assumption that would not
+# build against upstream Vulkan headers and glslang on Linux.
+
+on:
+  push:
+    branches:
+      - master
+      - ci/*
+  pull_request:
+    branches:
+      - master
+
+jobs:
+  vulkan-build:
+    name: x86_64 (ENABLE_VKRENDERER)
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v6
+        name: Check out sources
+      - name: Install dependencies
+        run: |
+          sudo apt update
+          sudo apt install --allow-downgrades cmake ninja-build extra-cmake-modules \
+            libpcap0.8-dev libsdl2-dev libenet-dev \
+            qt6-{base,base-private,multimedia}-dev qt6-wayland libqt6svg6-dev \
+            libarchive-dev libzstd-dev libfaad-dev \
+            libvulkan-dev glslang-tools glslang-dev spirv-tools
+      - name: Configure (Vulkan renderer on)
+        run: cmake -B build -G Ninja -DENABLE_VKRENDERER=ON -DMELONDS_EMBED_BUILD_INFO=ON
+      - name: Build
+        run: cmake --build build
