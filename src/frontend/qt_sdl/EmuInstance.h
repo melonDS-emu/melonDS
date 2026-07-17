@@ -74,6 +74,9 @@ enum
 #ifdef OGLRENDERER_ENABLED
     renderer3D_OpenGL,
     renderer3D_OpenGLCompute,
+#ifdef VKRENDERER_ENABLED
+    renderer3D_VulkanCompute,
+#endif
 #endif
     renderer3D_Max,
 };

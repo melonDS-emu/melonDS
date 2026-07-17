@@ -108,6 +108,41 @@ if (ENABLE_OGLRENDERER)
     target_compile_definitions(core PUBLIC OGLRENDERER_ENABLED)
 endif()
 
+if (ENABLE_VKRENDERER)
+    # Vulkan is loaded dynamically at runtime; only headers are needed to build.
+    find_package(VulkanHeaders CONFIG QUIET)
+    if (NOT TARGET Vulkan::Headers)
+        find_path(VULKAN_INCLUDE_DIR vulkan/vulkan.h REQUIRED)
+    endif()
+
+    # glslang compiles the compute shaders to SPIR-V at runtime
+    find_package(glslang CONFIG REQUIRED)
+
+    target_sources(core PRIVATE
+        VulkanSupport.cpp
+        VulkanSupport.h
+        GPU3D_ComputeVulkan.cpp
+        GPU3D_ComputeVulkan.h
+        GPU3D_TexcacheVulkan.cpp
+        GPU3D_TexcacheVulkan.h)
+
+    if (TARGET Vulkan::Headers)
+        target_link_libraries(core PUBLIC Vulkan::Headers)
+    else()
+        target_include_directories(core PUBLIC "${VULKAN_INCLUDE_DIR}")
+    endif()
+
+    target_link_libraries(core PRIVATE glslang::glslang)
+    if (TARGET glslang::SPIRV)
+        target_link_libraries(core PRIVATE glslang::SPIRV)
+    endif()
+    if (TARGET glslang::glslang-default-resource-limits)
+        target_link_libraries(core PRIVATE glslang::glslang-default-resource-limits)
+    endif()
+
+    target_compile_definitions(core PUBLIC VKRENDERER_ENABLED)
+endif()
+
 if (ENABLE_JIT)
     enable_language(ASM)
 

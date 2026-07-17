@@ -24,14 +24,24 @@
 #include "GPU2D_OpenGL.h"
 #include "GPU3D_OpenGL.h"
 #include "GPU3D_Compute.h"
+#ifdef VKRENDERER_ENABLED
+#include "GPU3D_ComputeVulkan.h"
+#endif
 
 namespace melonDS
 {
 
+enum class Renderer3DType
+{
+    OpenGL,        // classic rasteriser (OpenGL 3.2)
+    Compute,       // compute-shader rasteriser (OpenGL 4.3)
+    ComputeVulkan, // compute-shader rasteriser (Vulkan), 2D still composited in GL
+};
+
 class GLRenderer : public Renderer
 {
 public:
-    GLRenderer(melonDS::NDS& nds, bool compute);
+    GLRenderer(melonDS::NDS& nds, Renderer3DType type3D);
     ~GLRenderer() override;
     bool Init() override;
     void Reset() override;
@@ -59,8 +69,11 @@ private:
     friend class GLRenderer2D;
     friend class GLRenderer3D;
     friend class ComputeRenderer3D;
+#ifdef VKRENDERER_ENABLED
+    friend class ComputeRenderer3D_Vulkan;
+#endif
 
-    bool IsCompute;
+    Renderer3DType Type3D;
 
     int ScaleFactor;
     int ScreenW, ScreenH;

@@ -67,6 +67,16 @@ cmake_dependent_option(ENABLE_JIT "Enable JIT recompiler" ON
 cmake_dependent_option(ENABLE_JIT_PROFILING "Enable JIT profiling with VTune" OFF "ENABLE_JIT" OFF)
 option(ENABLE_OGLRENDERER "Enable OpenGL renderer" ON)
 
+# The Vulkan compute renderer brings the modern (compute shader) renderer to
+# platforms without OpenGL 4.3, most importantly macOS (via MoltenVK). It
+# composites through the OpenGL renderer, so it depends on it.
+if (APPLE)
+    set(VKRENDERER_DEFAULT ON)
+else()
+    set(VKRENDERER_DEFAULT OFF)
+endif()
+cmake_dependent_option(ENABLE_VKRENDERER "Enable Vulkan compute renderer" ${VKRENDERER_DEFAULT} "ENABLE_OGLRENDERER" OFF)
+
 check_ipo_supported(RESULT IPO_SUPPORTED)
 cmake_dependent_option(ENABLE_LTO_RELEASE "Enable link-time optimizations for release builds" ON "IPO_SUPPORTED" OFF)
 cmake_dependent_option(ENABLE_LTO "Enable link-time optimizations" OFF "IPO_SUPPORTED" OFF)

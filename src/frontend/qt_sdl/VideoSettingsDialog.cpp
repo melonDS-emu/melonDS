@@ -47,7 +47,11 @@ void VideoSettingsDialog::setEnabled()
     ui->cbSoftwareThreaded->setEnabled(softwareRenderer);
     ui->cbxGLResolution->setEnabled(!softwareRenderer);
     ui->cbBetterPolygons->setEnabled(renderer == renderer3D_OpenGL);
-    ui->cbxComputeHiResCoords->setEnabled(renderer == renderer3D_OpenGLCompute);
+    bool computeRenderer = renderer == renderer3D_OpenGLCompute;
+#ifdef VKRENDERER_ENABLED
+    computeRenderer |= renderer == renderer3D_VulkanCompute;
+#endif
+    ui->cbxComputeHiResCoords->setEnabled(computeRenderer);
 }
 
 VideoSettingsDialog::VideoSettingsDialog(QWidget* parent) : QDialog(parent), ui(new Ui::VideoSettingsDialog)
@@ -71,6 +75,11 @@ VideoSettingsDialog::VideoSettingsDialog(QWidget* parent) : QDialog(parent), ui(
     grp3DRenderer->addButton(ui->rb3DSoftware, renderer3D_Software);
     grp3DRenderer->addButton(ui->rb3DOpenGL,   renderer3D_OpenGL);
     grp3DRenderer->addButton(ui->rb3DCompute,  renderer3D_OpenGLCompute);
+#ifdef VKRENDERER_ENABLED
+    grp3DRenderer->addButton(ui->rb3DVulkan,   renderer3D_VulkanCompute);
+#else
+    ui->rb3DVulkan->hide();
+#endif
 #if QT_VERSION < QT_VERSION_CHECK(5, 15, 0)
     connect(grp3DRenderer, SIGNAL(buttonClicked(int)), this, SLOT(onChange3DRenderer(int)));
 #else

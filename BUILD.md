@@ -57,6 +57,7 @@ If everything went well, melonDS should now be in the `build` folder. For dynami
 ## macOS
 1. Install the [Homebrew Package Manager](https://brew.sh)
 2. Install dependencies: `brew install git pkg-config cmake sdl2 qt@6 libarchive enet zstd faad2`
+   * For the Vulkan (compute shader) renderer, additionally: `brew install vulkan-headers vulkan-loader molten-vk glslang`
 3. Download the melonDS repository and prepare:
    ```zsh
    git clone https://github.com/melonDS-emu/melonDS

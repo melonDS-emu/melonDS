@@ -29,6 +29,14 @@
 			"platform": "linux"
 		},
 		"faad2",
+		{
+			"name": "vulkan-headers",
+			"platform": "osx"
+		},
+		{
+			"name": "glslang",
+			"platform": "osx"
+		},
 		"pkgconf",
 		{ "name": "pkgconf", "host": true },
 		{ "name": "dirent", "platform": "windows" }

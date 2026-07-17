@@ -867,11 +867,16 @@ void EmuThread::updateRenderer()
                 nds->SetRenderer(std::make_unique<SoftRenderer>(*nds));
                 break;
             case renderer3D_OpenGL:
-                nds->SetRenderer(std::make_unique<GLRenderer>(*nds, false));
+                nds->SetRenderer(std::make_unique<GLRenderer>(*nds, Renderer3DType::OpenGL));
                 break;
             case renderer3D_OpenGLCompute:
-                nds->SetRenderer(std::make_unique<GLRenderer>(*nds, true));
+                nds->SetRenderer(std::make_unique<GLRenderer>(*nds, Renderer3DType::Compute));
                 break;
+#ifdef VKRENDERER_ENABLED
+            case renderer3D_VulkanCompute:
+                nds->SetRenderer(std::make_unique<GLRenderer>(*nds, Renderer3DType::ComputeVulkan));
+                break;
+#endif
             default: __builtin_unreachable();
         }
     }

@@ -33,7 +33,7 @@ using Platform::LogLevel;
 #include "OpenGL_shaders/CaptureDownscaleFS.h"
 
 
-GLRenderer::GLRenderer(melonDS::NDS& nds, bool compute)
+GLRenderer::GLRenderer(melonDS::NDS& nds, Renderer3DType type3D)
     : Renderer(nds.GPU)
 {
     AuxInputBuffer[0] = new u16[256 * 256];
@@ -43,11 +43,21 @@ GLRenderer::GLRenderer(melonDS::NDS& nds, bool compute)
     Rend2D_B = std::make_unique<GLRenderer2D>(GPU.GPU2D_B, *this);
 
     // TODO, eventually: figure out a nicer way to support different 3D renderers?
-    IsCompute = compute;
-    if (IsCompute)
+    Type3D = type3D;
+    switch (Type3D)
+    {
+    case Renderer3DType::Compute:
         Rend3D = std::make_unique<ComputeRenderer3D>(GPU.GPU3D, *this);
-    else
+        break;
+#ifdef VKRENDERER_ENABLED
+    case Renderer3DType::ComputeVulkan:
+        Rend3D = std::make_unique<ComputeRenderer3D_Vulkan>(GPU.GPU3D, *this);
+        break;
+#endif
+    default:
         Rend3D = std::make_unique<GLRenderer3D>(GPU.GPU3D, *this);
+        break;
+    }
 
     ScaleFactor = 0;
 }
@@ -329,11 +339,18 @@ void GLRenderer::SetRenderSettings(RendererSettings& settings)
     rend2d = dynamic_cast<GLRenderer2D*>(Rend2D_B.get());
     rend2d->SetScaleFactor(settings.ScaleFactor);
 
-    if (IsCompute)
+    if (Type3D == Renderer3DType::Compute)
     {
         auto rend3d = dynamic_cast<ComputeRenderer3D *>(Rend3D.get());
         rend3d->SetRenderSettings(settings.ScaleFactor, settings.HiresCoordinates);
     }
+#ifdef VKRENDERER_ENABLED
+    else if (Type3D == Renderer3DType::ComputeVulkan)
+    {
+        auto rend3d = dynamic_cast<ComputeRenderer3D_Vulkan *>(Rend3D.get());
+        rend3d->SetRenderSettings(settings.ScaleFactor, settings.HiresCoordinates);
+    }
+#endif
     else
     {
         auto rend3d = dynamic_cast<GLRenderer3D *>(Rend3D.get());
