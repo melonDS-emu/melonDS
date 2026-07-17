@@ -50,6 +50,9 @@
 #include "DSi_I2C.h"
 #include "GPU_Soft.h"
 #include "GPU_OpenGL.h"
+#ifdef VKRENDERER_ENABLED
+#include "GPU_Vulkan.h"
+#endif
 
 #include "Savestate.h"
 
@@ -873,8 +876,8 @@ void EmuThread::updateRenderer()
 #if defined(__APPLE__) && defined(VKRENDERER_ENABLED)
                 // macOS can't provide the OpenGL 4.3 context this renderer needs
                 // (e.g. a config carried over from another platform);
-                // transparently substitute its Vulkan port
-                nds->SetRenderer(std::make_unique<GLRenderer>(*nds, Renderer3DType::ComputeVulkan));
+                // transparently substitute the Vulkan renderer
+                nds->SetRenderer(std::make_unique<VulkanRenderer>(*nds));
 #else
                 nds->SetRenderer(std::make_unique<GLRenderer>(*nds, Renderer3DType::Compute));
 #endif
@@ -882,6 +885,9 @@ void EmuThread::updateRenderer()
 #ifdef VKRENDERER_ENABLED
             case renderer3D_VulkanCompute:
                 nds->SetRenderer(std::make_unique<GLRenderer>(*nds, Renderer3DType::ComputeVulkan));
+                break;
+            case renderer3D_VulkanFull:
+                nds->SetRenderer(std::make_unique<VulkanRenderer>(*nds));
                 break;
 #endif
             default: __builtin_unreachable();

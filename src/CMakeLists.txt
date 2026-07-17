@@ -126,7 +126,9 @@ if (ENABLE_VKRENDERER)
         GPU3D_TexcacheVulkan.cpp
         GPU3D_TexcacheVulkan.h
         GPU2D_Vulkan.cpp
-        GPU2D_Vulkan.h)
+        GPU2D_Vulkan.h
+        GPU_Vulkan.cpp
+        GPU_Vulkan.h)
 
     if (TARGET Vulkan::Headers)
         target_link_libraries(core PUBLIC Vulkan::Headers)

@@ -44,7 +44,10 @@ class GLRenderer;
 class ComputeRenderer3D_Vulkan : public Renderer3D
 {
 public:
-    ComputeRenderer3D_Vulkan(melonDS::GPU3D& gpu3D, GLRenderer& parent);
+    // parent is only used for the GL-interop path (hybrid GLRenderer +
+    // ComputeVulkan 3D); pass nullptr when SetVulkanNativeOutput(true) is
+    // used (the all-Vulkan parent never dereferences it)
+    ComputeRenderer3D_Vulkan(melonDS::GPU3D& gpu3D, GLRenderer* parent);
     ~ComputeRenderer3D_Vulkan() override;
     bool Init() override;
     void Reset() override;
@@ -67,7 +70,7 @@ public:
     void ShaderCompileStep(int& current, int& count) override;
 
 private:
-    GLRenderer& Parent;
+    GLRenderer* Parent;
 
     VK::Context Ctx;
 

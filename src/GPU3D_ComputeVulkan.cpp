@@ -38,7 +38,7 @@ using Platform::LogLevel;
 static VulkanTexArray* const kCaptureTex128 = (VulkanTexArray*)(uintptr_t)-1;
 static VulkanTexArray* const kCaptureTex256 = (VulkanTexArray*)(uintptr_t)-2;
 
-ComputeRenderer3D_Vulkan::ComputeRenderer3D_Vulkan(melonDS::GPU3D& gpu3D, GLRenderer& parent)
+ComputeRenderer3D_Vulkan::ComputeRenderer3D_Vulkan(melonDS::GPU3D& gpu3D, GLRenderer* parent)
     : Renderer3D(gpu3D), Parent(parent), Texcache(gpu3D.GPU, TexcacheVulkanLoader(&Ctx))
 {
     ScaleFactor = 0;
@@ -723,7 +723,8 @@ void ComputeRenderer3D_Vulkan::SetRenderSettings(int scale, bool highResolutionC
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
     glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8, ScreenWidth, ScreenHeight, 0, GL_RGBA, GL_UNSIGNED_BYTE, nullptr);
 
-    Parent.OutputTex3D = OutputGLTex;
+    if (Parent)
+        Parent->OutputTex3D = OutputGLTex;
 }
 
 void ComputeRenderer3D_Vulkan::SetupAttrs(SpanSetupY* span, Polygon* poly, int from, int to)

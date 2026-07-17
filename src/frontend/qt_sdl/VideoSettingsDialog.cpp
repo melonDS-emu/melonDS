@@ -53,6 +53,7 @@ void VideoSettingsDialog::setEnabled()
     bool computeRenderer = renderer == renderer3D_OpenGLCompute;
 #ifdef VKRENDERER_ENABLED
     computeRenderer |= renderer == renderer3D_VulkanCompute;
+    computeRenderer |= renderer == renderer3D_VulkanFull;
 #endif
     ui->cbxComputeHiResCoords->setEnabled(computeRenderer);
 }
@@ -79,16 +80,21 @@ VideoSettingsDialog::VideoSettingsDialog(QWidget* parent) : QDialog(parent), ui(
     grp3DRenderer->addButton(ui->rb3DOpenGL,   renderer3D_OpenGL);
     grp3DRenderer->addButton(ui->rb3DCompute,  renderer3D_OpenGLCompute);
 #ifdef VKRENDERER_ENABLED
-    grp3DRenderer->addButton(ui->rb3DVulkan,   renderer3D_VulkanCompute);
+    grp3DRenderer->addButton(ui->rb3DVulkanFull, renderer3D_VulkanFull);
 #else
-    ui->rb3DVulkan->hide();
+    ui->rb3DVulkanFull->hide();
 #endif
+    // the hybrid renderer (Vulkan 3D + OpenGL 2D) was a stepping stone to
+    // the full Vulkan renderer, which supersedes it; keep it working for a
+    // config that still selects it, but drop it from the menu
+    ui->rb3DVulkan->hide();
 #if QT_VERSION < QT_VERSION_CHECK(5, 15, 0)
     connect(grp3DRenderer, SIGNAL(buttonClicked(int)), this, SLOT(onChange3DRenderer(int)));
 #else
     connect(grp3DRenderer, SIGNAL(idClicked(int)), this, SLOT(onChange3DRenderer(int)));
 #endif
-    grp3DRenderer->button(oldRenderer)->setChecked(true);
+    if (auto* btn = grp3DRenderer->button(oldRenderer))
+        btn->setChecked(true);
 
 #ifndef OGLRENDERER_ENABLED
     ui->rb3DOpenGL->setEnabled(false);

@@ -51,7 +51,7 @@ GLRenderer::GLRenderer(melonDS::NDS& nds, Renderer3DType type3D)
         break;
 #ifdef VKRENDERER_ENABLED
     case Renderer3DType::ComputeVulkan:
-        Rend3D = std::make_unique<ComputeRenderer3D_Vulkan>(GPU.GPU3D, *this);
+        Rend3D = std::make_unique<ComputeRenderer3D_Vulkan>(GPU.GPU3D, this);
         break;
 #endif
     default:

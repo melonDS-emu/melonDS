@@ -75,7 +75,8 @@ enum
     renderer3D_OpenGL,
     renderer3D_OpenGLCompute,
 #ifdef VKRENDERER_ENABLED
-    renderer3D_VulkanCompute,
+    renderer3D_VulkanCompute,  // hybrid: Vulkan 3D compute + OpenGL 2D compositor
+    renderer3D_VulkanFull,     // all-Vulkan: 2D, compositing and capture on Vulkan too
 #endif
 #endif
     renderer3D_Max,

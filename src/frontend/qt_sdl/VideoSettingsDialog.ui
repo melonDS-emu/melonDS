@@ -203,10 +203,20 @@
       <item row="4" column="0">
        <widget class="QRadioButton" name="rb3DVulkan">
         <property name="whatsThis">
-         <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;The Vulkan compute renderer is a port of the OpenGL compute renderer. It works on systems without OpenGL 4.3, such as macOS.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+         <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;The Vulkan compute renderer runs the 3D engine on Vulkan and composites the 2D layers with OpenGL. It works on systems without OpenGL 4.3, such as macOS.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
         </property>
         <property name="text">
-         <string>Vulkan (Compute shader)</string>
+         <string>Vulkan (3D compute, GL 2D)</string>
+        </property>
+       </widget>
+      </item>
+      <item row="5" column="0">
+       <widget class="QRadioButton" name="rb3DVulkanFull">
+        <property name="whatsThis">
+         <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;The Vulkan renderer runs the 3D engine, 2D compositing and display capture on Vulkan. It works on systems without OpenGL 4.3, such as macOS.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+        </property>
+        <property name="text">
+         <string>Vulkan</string>
         </property>
        </widget>
       </item>
