@@ -17,7 +17,9 @@ on:
 jobs:
   vulkan-build:
     name: x86_64 (ENABLE_VKRENDERER)
-    runs-on: ubuntu-22.04
+    # 24.04 ships a glslang new enough for the glslang/Public/ResourceLimits.h
+    # API the renderer uses (22.04's glslang predates it)
+    runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v6
         name: Check out sources
