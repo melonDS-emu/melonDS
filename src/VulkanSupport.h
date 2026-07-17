@@ -207,8 +207,15 @@ public:
 
     // single-color-attachment render pass; the attachment stays in
     // COLOR_ATTACHMENT_OPTIMAL and is either cleared or loaded
-    bool CreateRenderPass(VkRenderPass& out, VkFormat format, bool clear);
+    bool CreateRenderPass(VkRenderPass& out, VkFormat format, bool clear,
+                          u32 colorAttachmentCount = 1, bool depth = false);
     bool CreateFramebuffer(VkFramebuffer& out, VkRenderPass renderPass, const Image& target, u32 layer);
+    // multi-attachment variant: explicit views (color attachments then
+    // optionally a depth view), explicit size
+    bool CreateFramebufferMulti(VkFramebuffer& out, VkRenderPass renderPass,
+                                const std::vector<VkImageView>& views, u32 width, u32 height);
+    // single-layer view into an (array) image, caller destroys
+    bool CreateLayerView(VkImageView& out, const Image& img, u32 layer);
 
     struct GraphicsPipelineConfig
     {
@@ -222,6 +229,12 @@ public:
         bool Blend = false;
         VkBlendFactor SrcBlend = VK_BLEND_FACTOR_SRC_ALPHA;
         VkBlendFactor DstBlend = VK_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA;
+        u32 ColorAttachmentCount = 1;
+        // per-attachment write masks; empty = write all channels
+        std::vector<VkColorComponentFlags> ColorWriteMasks;
+        bool DepthTest = false;
+        bool DepthWrite = false;
+        VkCompareOp DepthCompare = VK_COMPARE_OP_LESS;
     };
     // viewport/scissor are dynamic state, set them when recording
     bool CreateGraphicsPipeline(VkPipeline& out, const GraphicsPipelineConfig& config);

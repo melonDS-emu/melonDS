@@ -487,7 +487,8 @@ bool Context::CreateImage(Image& img, VkFormat format, u32 width, u32 height, u3
     viewInfo.image = img.Img;
     viewInfo.viewType = array2D ? VK_IMAGE_VIEW_TYPE_2D_ARRAY : VK_IMAGE_VIEW_TYPE_2D;
     viewInfo.format = format;
-    viewInfo.subresourceRange = {VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, layers};
+    viewInfo.subresourceRange = {(VkImageAspectFlags)(format == VK_FORMAT_D16_UNORM
+        ? VK_IMAGE_ASPECT_DEPTH_BIT : VK_IMAGE_ASPECT_COLOR_BIT), 0, 1, 0, layers};
     if (vkCreateImageView(Device, &viewInfo, nullptr, &img.View) != VK_SUCCESS)
     {
         DestroyImage(img);
@@ -651,32 +652,77 @@ bool Context::CompileShader(VkShaderModule& out, ShaderStage stage, const std::s
     return true;
 }
 
-bool Context::CreateRenderPass(VkRenderPass& out, VkFormat format, bool clear)
+bool Context::CreateRenderPass(VkRenderPass& out, VkFormat format, bool clear,
+                               u32 colorAttachmentCount, bool depth)
 {
-    VkAttachmentDescription attachment = {};
-    attachment.format = format;
-    attachment.samples = VK_SAMPLE_COUNT_1_BIT;
-    attachment.loadOp = clear ? VK_ATTACHMENT_LOAD_OP_CLEAR : VK_ATTACHMENT_LOAD_OP_LOAD;
-    attachment.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
-    attachment.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
-    attachment.stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
-    attachment.initialLayout = clear ? VK_IMAGE_LAYOUT_UNDEFINED : VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
-    attachment.finalLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
-
-    VkAttachmentReference colorRef = {0, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL};
+    std::vector<VkAttachmentDescription> attachments;
+    std::vector<VkAttachmentReference> colorRefs;
+    for (u32 i = 0; i < colorAttachmentCount; i++)
+    {
+        VkAttachmentDescription a = {};
+        a.format = format;
+        a.samples = VK_SAMPLE_COUNT_1_BIT;
+        a.loadOp = clear ? VK_ATTACHMENT_LOAD_OP_CLEAR : VK_ATTACHMENT_LOAD_OP_LOAD;
+        a.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
+        a.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
+        a.stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
+        a.initialLayout = clear ? VK_IMAGE_LAYOUT_UNDEFINED : VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+        a.finalLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+        attachments.push_back(a);
+        colorRefs.push_back({i, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL});
+    }
+    VkAttachmentReference depthRef = {colorAttachmentCount, VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL};
+    if (depth)
+    {
+        VkAttachmentDescription a = {};
+        a.format = VK_FORMAT_D16_UNORM;
+        a.samples = VK_SAMPLE_COUNT_1_BIT;
+        a.loadOp = clear ? VK_ATTACHMENT_LOAD_OP_CLEAR : VK_ATTACHMENT_LOAD_OP_LOAD;
+        a.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
+        a.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
+        a.stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
+        a.initialLayout = clear ? VK_IMAGE_LAYOUT_UNDEFINED : VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
+        a.finalLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
+        attachments.push_back(a);
+    }
 
     VkSubpassDescription subpass = {};
     subpass.pipelineBindPoint = VK_PIPELINE_BIND_POINT_GRAPHICS;
-    subpass.colorAttachmentCount = 1;
-    subpass.pColorAttachments = &colorRef;
+    subpass.colorAttachmentCount = colorAttachmentCount;
+    subpass.pColorAttachments = colorRefs.data();
+    subpass.pDepthStencilAttachment = depth ? &depthRef : nullptr;
 
     VkRenderPassCreateInfo info = {VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO};
-    info.attachmentCount = 1;
-    info.pAttachments = &attachment;
+    info.attachmentCount = (u32)attachments.size();
+    info.pAttachments = attachments.data();
     info.subpassCount = 1;
     info.pSubpasses = &subpass;
 
     return vkCreateRenderPass(Device, &info, nullptr, &out) == VK_SUCCESS;
+}
+
+bool Context::CreateLayerView(VkImageView& out, const Image& img, u32 layer)
+{
+    VkImageViewCreateInfo viewInfo = {VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO};
+    viewInfo.image = img.Img;
+    viewInfo.viewType = VK_IMAGE_VIEW_TYPE_2D;
+    viewInfo.format = img.Format;
+    viewInfo.subresourceRange = {(VkImageAspectFlags)(img.Format == VK_FORMAT_D16_UNORM
+        ? VK_IMAGE_ASPECT_DEPTH_BIT : VK_IMAGE_ASPECT_COLOR_BIT), 0, 1, layer, 1};
+    return vkCreateImageView(Device, &viewInfo, nullptr, &out) == VK_SUCCESS;
+}
+
+bool Context::CreateFramebufferMulti(VkFramebuffer& out, VkRenderPass renderPass,
+                                     const std::vector<VkImageView>& views, u32 width, u32 height)
+{
+    VkFramebufferCreateInfo info = {VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO};
+    info.renderPass = renderPass;
+    info.attachmentCount = (u32)views.size();
+    info.pAttachments = views.data();
+    info.width = width;
+    info.height = height;
+    info.layers = 1;
+    return vkCreateFramebuffer(Device, &info, nullptr, &out) == VK_SUCCESS;
 }
 
 bool Context::CreateFramebuffer(VkFramebuffer& out, VkRenderPass renderPass, const Image& target, u32 layer)
@@ -751,20 +797,32 @@ bool Context::CreateGraphicsPipeline(VkPipeline& out, const GraphicsPipelineConf
     VkPipelineMultisampleStateCreateInfo multisample = {VK_STRUCTURE_TYPE_PIPELINE_MULTISAMPLE_STATE_CREATE_INFO};
     multisample.rasterizationSamples = VK_SAMPLE_COUNT_1_BIT;
 
-    VkPipelineColorBlendAttachmentState blendAttachment = {};
-    blendAttachment.blendEnable = config.Blend ? VK_TRUE : VK_FALSE;
-    blendAttachment.srcColorBlendFactor = config.SrcBlend;
-    blendAttachment.dstColorBlendFactor = config.DstBlend;
-    blendAttachment.colorBlendOp = VK_BLEND_OP_ADD;
-    blendAttachment.srcAlphaBlendFactor = config.SrcBlend;
-    blendAttachment.dstAlphaBlendFactor = config.DstBlend;
-    blendAttachment.alphaBlendOp = VK_BLEND_OP_ADD;
-    blendAttachment.colorWriteMask = VK_COLOR_COMPONENT_R_BIT | VK_COLOR_COMPONENT_G_BIT |
-                                     VK_COLOR_COMPONENT_B_BIT | VK_COLOR_COMPONENT_A_BIT;
+    std::vector<VkPipelineColorBlendAttachmentState> blendAttachments(config.ColorAttachmentCount);
+    for (u32 i = 0; i < config.ColorAttachmentCount; i++)
+    {
+        VkPipelineColorBlendAttachmentState& b = blendAttachments[i];
+        b = {};
+        b.blendEnable = config.Blend ? VK_TRUE : VK_FALSE;
+        b.srcColorBlendFactor = config.SrcBlend;
+        b.dstColorBlendFactor = config.DstBlend;
+        b.colorBlendOp = VK_BLEND_OP_ADD;
+        b.srcAlphaBlendFactor = config.SrcBlend;
+        b.dstAlphaBlendFactor = config.DstBlend;
+        b.alphaBlendOp = VK_BLEND_OP_ADD;
+        b.colorWriteMask = i < config.ColorWriteMasks.size()
+            ? config.ColorWriteMasks[i]
+            : (VK_COLOR_COMPONENT_R_BIT | VK_COLOR_COMPONENT_G_BIT |
+               VK_COLOR_COMPONENT_B_BIT | VK_COLOR_COMPONENT_A_BIT);
+    }
 
     VkPipelineColorBlendStateCreateInfo blend = {VK_STRUCTURE_TYPE_PIPELINE_COLOR_BLEND_STATE_CREATE_INFO};
-    blend.attachmentCount = 1;
-    blend.pAttachments = &blendAttachment;
+    blend.attachmentCount = config.ColorAttachmentCount;
+    blend.pAttachments = blendAttachments.data();
+
+    VkPipelineDepthStencilStateCreateInfo depthState = {VK_STRUCTURE_TYPE_PIPELINE_DEPTH_STENCIL_STATE_CREATE_INFO};
+    depthState.depthTestEnable = config.DepthTest ? VK_TRUE : VK_FALSE;
+    depthState.depthWriteEnable = config.DepthWrite ? VK_TRUE : VK_FALSE;
+    depthState.depthCompareOp = config.DepthCompare;
 
     VkDynamicState dynamicStates[] = {VK_DYNAMIC_STATE_VIEWPORT, VK_DYNAMIC_STATE_SCISSOR};
     VkPipelineDynamicStateCreateInfo dynamic = {VK_STRUCTURE_TYPE_PIPELINE_DYNAMIC_STATE_CREATE_INFO};
@@ -780,6 +838,7 @@ bool Context::CreateGraphicsPipeline(VkPipeline& out, const GraphicsPipelineConf
     info.pRasterizationState = &raster;
     info.pMultisampleState = &multisample;
     info.pColorBlendState = &blend;
+    info.pDepthStencilState = &depthState;
     info.pDynamicState = &dynamic;
     info.layout = config.Layout;
     info.renderPass = config.RenderPass;
