@@ -46,6 +46,9 @@ def expand_load_path(lib, path)
     case path_type
       when "rpath"
         get_rpaths(lib).each do |rpath|
+          if (loader_relative = rpath.match(/^@loader_path(.*)/))
+            rpath = File.expand_path(File.join(File.dirname(lib), loader_relative[1]))
+          end
           file = File.join(rpath, file_name)
           return file, :rpath if File.exist? file
           if rpath.match(/^@executable_path(.*)/) != nil
@@ -120,9 +123,14 @@ end
 def fixup_libs(prog, orig_path)
   throw "fixup_libs: #{prog} doesn't exist" unless File.exist? prog
 
-  libs = get_load_libs(prog)
-    .map { |it| expand_load_path(orig_path, it) }
-    .select { |it| not system_lib? it[0] }
+  # keep the original load command string around: install_name_tool -change
+  # must be given exactly that string, not the resolved path
+  libs = get_load_libs(prog).map do |ref|
+    expanded = expand_load_path(orig_path, ref)
+    raise "fixup_libs: couldn't resolve #{ref} referenced by #{prog}" if expanded == nil
+    [ref, expanded]
+  end
+  libs = libs.select { |ref, expanded| not system_lib? expanded[0] }
 
   FileUtils.chmod("u+w", prog)
   strip prog
@@ -136,35 +144,34 @@ def fixup_libs(prog, orig_path)
     changes += [:id, File.join("@rpath", File.basename(prog))]
   end
 
-  libs.each do |lib|
+  libs.each do |ref, lib|
     libpath, libtype = lib
     if File.basename(libpath) == File.basename(prog)
-      if libtype == :absolute
-        changes += [:change, libpath, File.join("@rpath", File.basename(libpath))]
-      end
+      newref = File.join("@rpath", File.basename(libpath))
+      changes += [:change, ref, newref] unless ref == newref
       next
     end
-    
+
     is_framework, fwpath, fwname, fwlib = detect_framework(libpath)
 
     if is_framework
-      unless libtype == :rpath
-        changes += [:change, libpath, File.join("@rpath", fwname, fwlib)]
-      end
-      
+      newref = File.join("@rpath", fwname, fwlib)
+      changes += [:change, ref, newref] unless ref == newref
+
       next if File.exist? File.join(frameworks_dir, fwname)
       expath, _ = expand_load_path(orig_path, fwpath)
       FileUtils.cp_r(expath, frameworks_dir, preserve: true)
       FileUtils.chmod_R("u+w", File.join(frameworks_dir, fwname))
       fixup_libs File.join(frameworks_dir, fwname, fwlib), libpath
     else
+      # copy under the real file name; the reference may use a symlink name
+      # (e.g. Homebrew's @loader_path/libicudata.78.dylib -> libicudata.78.3.dylib)
       reallibpath = File.realpath(libpath)
       libname = File.basename(reallibpath)
       dest = File.join(frameworks_dir, libname)
 
-      if libtype == :absolute
-        changes += [:change, libpath, File.join("@rpath", libname)]
-      end
+      newref = File.join("@rpath", libname)
+      changes += [:change, ref, newref] unless ref == newref
 
       next if File.exist? dest
       expath, _ = expand_load_path(orig_path, reallibpath)
@@ -173,7 +180,7 @@ def fixup_libs(prog, orig_path)
       fixup_libs dest, reallibpath
     end
   end
-  
+
   install_name_tool(prog, *changes)
 end
 
@@ -265,6 +272,27 @@ want_plugins.each do |plug|
   FileUtils.mkdir_p(destdir)
   FileUtils.copy(pluginpath, destdir)
   fixup_libs File.join(bundle_plugins, plug), pluginpath
+end
+
+# sdl2-compat locates SDL3 with dlopen at runtime instead of linking it, so
+# the dependency walk above never sees it; stage it next to the bundled SDL2
+# where the @loader_path lookup will find it
+sdl2 = Dir.glob(File.join(frameworks_dir, "libSDL2*.dylib")).first
+if sdl2 && File.binread(sdl2).include?("libSDL3.dylib") &&
+   !File.exist?(File.join(frameworks_dir, "libSDL3.dylib"))
+  search_dirs = get_rpaths(executable) + $fallback_rpaths
+  sdl3 = search_dirs
+    .map { |dir| File.join(dir, "libSDL3.dylib") }
+    .find { |file| File.exist? file }
+  if sdl3
+    sdl3 = File.realpath(sdl3)
+    dest = File.join(frameworks_dir, "libSDL3.dylib")
+    FileUtils.copy sdl3, dest
+    FileUtils.chmod("u+w", dest)
+    fixup_libs dest, sdl3
+  else
+    puts "Warning: sdl2-compat needs libSDL3.dylib but it couldn't be found; the bundle won't be self-contained"
+  end
 end
 
 want_rpath = "@executable_path/../Frameworks"
