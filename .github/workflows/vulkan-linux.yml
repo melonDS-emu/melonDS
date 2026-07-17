@@ -30,6 +30,6 @@ jobs:
             libarchive-dev libzstd-dev libfaad-dev \
             libvulkan-dev glslang-tools glslang-dev spirv-tools
       - name: Configure (Vulkan renderer on)
-        run: cmake -B build -G Ninja -DENABLE_VKRENDERER=ON -DMELONDS_EMBED_BUILD_INFO=ON
+        run: cmake -B build -G Ninja -DENABLE_VKRENDERER=ON
       - name: Build
         run: cmake --build build
