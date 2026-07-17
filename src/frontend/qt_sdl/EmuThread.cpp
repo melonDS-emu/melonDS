@@ -870,7 +870,14 @@ void EmuThread::updateRenderer()
                 nds->SetRenderer(std::make_unique<GLRenderer>(*nds, Renderer3DType::OpenGL));
                 break;
             case renderer3D_OpenGLCompute:
+#if defined(__APPLE__) && defined(VKRENDERER_ENABLED)
+                // macOS can't provide the OpenGL 4.3 context this renderer needs
+                // (e.g. a config carried over from another platform);
+                // transparently substitute its Vulkan port
+                nds->SetRenderer(std::make_unique<GLRenderer>(*nds, Renderer3DType::ComputeVulkan));
+#else
                 nds->SetRenderer(std::make_unique<GLRenderer>(*nds, Renderer3DType::Compute));
+#endif
                 break;
 #ifdef VKRENDERER_ENABLED
             case renderer3D_VulkanCompute:

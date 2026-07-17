@@ -88,6 +88,25 @@ static void* GetLibSymbol(void* lib, const char* name)
 #endif
 }
 
+bool IsRuntimeAvailable()
+{
+    static int available = -1;
+    if (available == -1)
+    {
+        void* lib = OpenLibrary();
+        available = (lib && GetLibSymbol(lib, "vkGetInstanceProcAddr")) ? 1 : 0;
+        if (lib)
+        {
+#ifdef _WIN32
+            FreeLibrary((HMODULE)lib);
+#else
+            dlclose(lib);
+#endif
+        }
+    }
+    return available == 1;
+}
+
 bool Context::LoadLibrary()
 {
     if (LibVulkan)

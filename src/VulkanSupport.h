@@ -33,6 +33,10 @@ namespace melonDS
 namespace VK
 {
 
+// cheap probe for whether a Vulkan implementation can be loaded at all,
+// without creating an instance (used to grey out the renderer in settings)
+bool IsRuntimeAvailable();
+
 // The set of Vulkan entry points used by the compute renderer.
 // Loaded dynamically so melonDS keeps working on systems without
 // a Vulkan implementation (the renderer just reports itself
