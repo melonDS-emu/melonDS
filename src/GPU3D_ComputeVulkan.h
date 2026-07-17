@@ -62,6 +62,12 @@ public:
     const VK::Context::Image& GetOutputImage() const { return FramebufferImg; }
     VK::Context& GetContext() { return Ctx; }
 
+    // hand the parent renderer's display-capture output images (128- and
+    // 256-wide array textures) to the rasteriser so polygons that use a
+    // display capture as their texture sample the real capture instead of a
+    // transparent dummy. Pass VK_NULL_HANDLE to fall back to the dummy.
+    void SetCaptureImages(VkImageView cap128, VkImageView cap256);
+
     void RenderFrame() override;
     void RestartFrame() override;
     u32* GetLine(int line) override;
@@ -125,6 +131,10 @@ private:
     VK::Context::Image FramebufferImg;
     VK::Context::Image DummyTexture;           // 1x1 RGBA8UI array
     VK::Context::Image DummyCapture;           // 1x1 RGBA8 array
+
+    // parent renderer's capture output views (not owned); null => use dummy
+    VkImageView ExtCapture128 = VK_NULL_HANDLE;
+    VkImageView ExtCapture256 = VK_NULL_HANDLE;
 
     VkSampler Samplers[9] = {};
     VkSampler ClearBitmapSampler = VK_NULL_HANDLE;

@@ -562,12 +562,44 @@ void ComputeRenderer3D_Vulkan::UpdateStaticDescriptorSet()
     imageInfos[2] = {ClearBitmapSampler, ClearBitmapImg[1].View, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL};
     write(13, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, nullptr, &imageInfos[2]);
 
-    imageInfos[3] = {CaptureSampler, DummyCapture.View, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL};
+    // display-capture-as-texture: sample the parent renderer's real capture
+    // output when it has been handed to us (SetCaptureImages), otherwise a
+    // transparent dummy (hybrid mode, where captures live in GL, has none)
+    imageInfos[3] = {CaptureSampler, ExtCapture128 ? ExtCapture128 : DummyCapture.View, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL};
     write(14, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, nullptr, &imageInfos[3]);
-    imageInfos[4] = {CaptureSampler, DummyCapture.View, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL};
+    imageInfos[4] = {CaptureSampler, ExtCapture256 ? ExtCapture256 : DummyCapture.View, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL};
     write(15, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, nullptr, &imageInfos[4]);
 
     VK::vkUpdateDescriptorSets(Ctx.Device, 16, writes, 0, nullptr);
+}
+
+void ComputeRenderer3D_Vulkan::SetCaptureImages(VkImageView cap128, VkImageView cap256)
+{
+    ExtCapture128 = cap128;
+    ExtCapture256 = cap256;
+
+    // apply immediately if the static set already exists; otherwise the next
+    // UpdateStaticDescriptorSet (during SetRenderSettings) will pick them up.
+    // Caller (parent SetScaleFactor) holds the device idle, so updating the
+    // in-use set is safe.
+    if (SetStatic == VK_NULL_HANDLE)
+        return;
+
+    VkDescriptorImageInfo info128 = {CaptureSampler, cap128 ? cap128 : DummyCapture.View, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL};
+    VkDescriptorImageInfo info256 = {CaptureSampler, cap256 ? cap256 : DummyCapture.View, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL};
+
+    VkWriteDescriptorSet writes[2] = {};
+    writes[0].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+    writes[0].dstSet = SetStatic;
+    writes[0].dstBinding = 14;
+    writes[0].descriptorCount = 1;
+    writes[0].descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+    writes[0].pImageInfo = &info128;
+    writes[1] = writes[0];
+    writes[1].dstBinding = 15;
+    writes[1].pImageInfo = &info256;
+
+    VK::vkUpdateDescriptorSets(Ctx.Device, 2, writes, 0, nullptr);
 }
 
 VkDescriptorSet ComputeRenderer3D_Vulkan::GetTextureDescriptorSet(VkImageView view, VkSampler sampler)
@@ -1067,9 +1099,10 @@ void ComputeRenderer3D_Vulkan::RenderFrame()
 
                 if (capblock != -1)
                 {
-                    // TODO: display captures as textures aren't wired up to the
-                    // GL compositor's capture output yet; a transparent dummy
-                    // texture is sampled instead
+                    // the parent's capture output is sampled through bindings
+                    // 14/15 (SetCaptureImages) in the all-Vulkan renderer; in
+                    // the hybrid GL+ComputeVulkan mode those live in GL with no
+                    // Vulkan-importable handle, so a transparent dummy is used
                     if (texwidth == 128)
                     {
                         variant.Texture = kCaptureTex128;

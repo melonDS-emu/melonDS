@@ -667,6 +667,11 @@ void VulkanRenderer::SetScaleFactor(int scale)
     rend2dA->SetSharedResources(shared);
     rend2dB->SetSharedResources(shared);
 
+    // also feed the capture output to the 3D rasteriser, so polygons that
+    // use a display capture as their texture sample the real thing (closes
+    // the capture feedback loop, previously a transparent dummy in Vulkan)
+    rend3dVk->SetCaptureImages(CaptureOutput128Img.View, CaptureOutput256Img.View);
+
     {
         VkDescriptorBufferInfo bufInfo = {FPConfigRing.Buf.Buf, 0, sizeof(sFinalPassConfig)};
         VkDescriptorImageInfo imgInfos[3] = {
