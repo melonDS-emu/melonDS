@@ -596,13 +596,21 @@ void Context::UploadImageLayer(Image& img, const void* data, u32 width, u32 heig
     DestroyBuffer(staging);
 }
 
-bool Context::CompileComputeShader(VkShaderModule& out, const std::string& source, const char* name)
+bool Context::CompileShader(VkShaderModule& out, ShaderStage stage, const std::string& source, const char* name)
 {
-    glslang::TShader shader(EShLangCompute);
+    EShLanguage lang;
+    switch (stage)
+    {
+    case ShaderStage::Vertex:   lang = EShLangVertex; break;
+    case ShaderStage::Fragment: lang = EShLangFragment; break;
+    default:                    lang = EShLangCompute; break;
+    }
+
+    glslang::TShader shader(lang);
 
     const char* sources[] = {source.c_str()};
     shader.setStrings(sources, 1);
-    shader.setEnvInput(glslang::EShSourceGlsl, EShLangCompute, glslang::EShClientVulkan, 100);
+    shader.setEnvInput(glslang::EShSourceGlsl, lang, glslang::EShClientVulkan, 100);
     shader.setEnvClient(glslang::EShClientVulkan, glslang::EShTargetVulkan_1_1);
     shader.setEnvTarget(glslang::EShTargetSpv, glslang::EShTargetSpv_1_3);
 
@@ -623,7 +631,7 @@ bool Context::CompileComputeShader(VkShaderModule& out, const std::string& sourc
     std::vector<u32> spirv;
     glslang::SpvOptions options;
     options.disableOptimizer = false;
-    glslang::GlslangToSpv(*program.getIntermediate(EShLangCompute), spirv, &options);
+    glslang::GlslangToSpv(*program.getIntermediate(lang), spirv, &options);
 
     if (spirv.empty())
     {
@@ -641,6 +649,143 @@ bool Context::CompileComputeShader(VkShaderModule& out, const std::string& sourc
     }
 
     return true;
+}
+
+bool Context::CreateRenderPass(VkRenderPass& out, VkFormat format, bool clear)
+{
+    VkAttachmentDescription attachment = {};
+    attachment.format = format;
+    attachment.samples = VK_SAMPLE_COUNT_1_BIT;
+    attachment.loadOp = clear ? VK_ATTACHMENT_LOAD_OP_CLEAR : VK_ATTACHMENT_LOAD_OP_LOAD;
+    attachment.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
+    attachment.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
+    attachment.stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
+    attachment.initialLayout = clear ? VK_IMAGE_LAYOUT_UNDEFINED : VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+    attachment.finalLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+
+    VkAttachmentReference colorRef = {0, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL};
+
+    VkSubpassDescription subpass = {};
+    subpass.pipelineBindPoint = VK_PIPELINE_BIND_POINT_GRAPHICS;
+    subpass.colorAttachmentCount = 1;
+    subpass.pColorAttachments = &colorRef;
+
+    VkRenderPassCreateInfo info = {VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO};
+    info.attachmentCount = 1;
+    info.pAttachments = &attachment;
+    info.subpassCount = 1;
+    info.pSubpasses = &subpass;
+
+    return vkCreateRenderPass(Device, &info, nullptr, &out) == VK_SUCCESS;
+}
+
+bool Context::CreateFramebuffer(VkFramebuffer& out, VkRenderPass renderPass, const Image& target, u32 layer)
+{
+    // a framebuffer needs a single-layer view even for array images
+    VkImageView view = target.View;
+    VkImageView layerView = VK_NULL_HANDLE;
+    if (target.Layers > 1)
+    {
+        VkImageViewCreateInfo viewInfo = {VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO};
+        viewInfo.image = target.Img;
+        viewInfo.viewType = VK_IMAGE_VIEW_TYPE_2D;
+        viewInfo.format = target.Format;
+        viewInfo.subresourceRange = {VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, layer, 1};
+        if (vkCreateImageView(Device, &viewInfo, nullptr, &layerView) != VK_SUCCESS)
+            return false;
+        view = layerView;
+        // NOTE: caller owns the framebuffer; the layer view leaks with it by
+        // design here — track both if churn ever matters
+    }
+
+    VkFramebufferCreateInfo info = {VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO};
+    info.renderPass = renderPass;
+    info.attachmentCount = 1;
+    info.pAttachments = &view;
+    info.width = target.Width;
+    info.height = target.Height;
+    info.layers = 1;
+
+    return vkCreateFramebuffer(Device, &info, nullptr, &out) == VK_SUCCESS;
+}
+
+bool Context::CreateGraphicsPipeline(VkPipeline& out, const GraphicsPipelineConfig& config)
+{
+    VkPipelineShaderStageCreateInfo stages[2] = {};
+    stages[0].sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
+    stages[0].stage = VK_SHADER_STAGE_VERTEX_BIT;
+    stages[0].module = config.VertexShader;
+    stages[0].pName = "main";
+    stages[1].sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
+    stages[1].stage = VK_SHADER_STAGE_FRAGMENT_BIT;
+    stages[1].module = config.FragmentShader;
+    stages[1].pName = "main";
+
+    VkVertexInputBindingDescription binding = {};
+    binding.binding = 0;
+    binding.stride = config.VertexStride;
+    binding.inputRate = VK_VERTEX_INPUT_RATE_VERTEX;
+
+    VkPipelineVertexInputStateCreateInfo vertexInput = {VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO};
+    if (config.VertexStride > 0)
+    {
+        vertexInput.vertexBindingDescriptionCount = 1;
+        vertexInput.pVertexBindingDescriptions = &binding;
+        vertexInput.vertexAttributeDescriptionCount = (u32)config.VertexAttributes.size();
+        vertexInput.pVertexAttributeDescriptions = config.VertexAttributes.data();
+    }
+
+    VkPipelineInputAssemblyStateCreateInfo inputAssembly = {VK_STRUCTURE_TYPE_PIPELINE_INPUT_ASSEMBLY_STATE_CREATE_INFO};
+    inputAssembly.topology = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST;
+
+    VkPipelineViewportStateCreateInfo viewport = {VK_STRUCTURE_TYPE_PIPELINE_VIEWPORT_STATE_CREATE_INFO};
+    viewport.viewportCount = 1;
+    viewport.scissorCount = 1;
+
+    VkPipelineRasterizationStateCreateInfo raster = {VK_STRUCTURE_TYPE_PIPELINE_RASTERIZATION_STATE_CREATE_INFO};
+    raster.polygonMode = VK_POLYGON_MODE_FILL;
+    raster.cullMode = VK_CULL_MODE_NONE;
+    raster.frontFace = VK_FRONT_FACE_COUNTER_CLOCKWISE;
+    raster.lineWidth = 1.0f;
+
+    VkPipelineMultisampleStateCreateInfo multisample = {VK_STRUCTURE_TYPE_PIPELINE_MULTISAMPLE_STATE_CREATE_INFO};
+    multisample.rasterizationSamples = VK_SAMPLE_COUNT_1_BIT;
+
+    VkPipelineColorBlendAttachmentState blendAttachment = {};
+    blendAttachment.blendEnable = config.Blend ? VK_TRUE : VK_FALSE;
+    blendAttachment.srcColorBlendFactor = config.SrcBlend;
+    blendAttachment.dstColorBlendFactor = config.DstBlend;
+    blendAttachment.colorBlendOp = VK_BLEND_OP_ADD;
+    blendAttachment.srcAlphaBlendFactor = config.SrcBlend;
+    blendAttachment.dstAlphaBlendFactor = config.DstBlend;
+    blendAttachment.alphaBlendOp = VK_BLEND_OP_ADD;
+    blendAttachment.colorWriteMask = VK_COLOR_COMPONENT_R_BIT | VK_COLOR_COMPONENT_G_BIT |
+                                     VK_COLOR_COMPONENT_B_BIT | VK_COLOR_COMPONENT_A_BIT;
+
+    VkPipelineColorBlendStateCreateInfo blend = {VK_STRUCTURE_TYPE_PIPELINE_COLOR_BLEND_STATE_CREATE_INFO};
+    blend.attachmentCount = 1;
+    blend.pAttachments = &blendAttachment;
+
+    VkDynamicState dynamicStates[] = {VK_DYNAMIC_STATE_VIEWPORT, VK_DYNAMIC_STATE_SCISSOR};
+    VkPipelineDynamicStateCreateInfo dynamic = {VK_STRUCTURE_TYPE_PIPELINE_DYNAMIC_STATE_CREATE_INFO};
+    dynamic.dynamicStateCount = 2;
+    dynamic.pDynamicStates = dynamicStates;
+
+    VkGraphicsPipelineCreateInfo info = {VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO};
+    info.stageCount = 2;
+    info.pStages = stages;
+    info.pVertexInputState = &vertexInput;
+    info.pInputAssemblyState = &inputAssembly;
+    info.pViewportState = &viewport;
+    info.pRasterizationState = &raster;
+    info.pMultisampleState = &multisample;
+    info.pColorBlendState = &blend;
+    info.pDynamicState = &dynamic;
+    info.layout = config.Layout;
+    info.renderPass = config.RenderPass;
+    info.subpass = 0;
+
+    return vkCreateGraphicsPipelines(Device, VK_NULL_HANDLE, 1, &info, nullptr, &out) == VK_SUCCESS;
 }
 
 }

@@ -113,7 +113,20 @@ bool IsRuntimeAvailable();
     x(vkCmdCopyBuffer) \
     x(vkCmdCopyBufferToImage) \
     x(vkCmdCopyImageToBuffer) \
-    x(vkCmdFillBuffer)
+    x(vkCmdFillBuffer) \
+    x(vkCreateRenderPass) \
+    x(vkDestroyRenderPass) \
+    x(vkCreateFramebuffer) \
+    x(vkDestroyFramebuffer) \
+    x(vkCreateGraphicsPipelines) \
+    x(vkCmdBeginRenderPass) \
+    x(vkCmdEndRenderPass) \
+    x(vkCmdDraw) \
+    x(vkCmdBindVertexBuffers) \
+    x(vkCmdSetViewport) \
+    x(vkCmdSetScissor) \
+    x(vkCmdCopyImage) \
+    x(vkCmdBlitImage)
 
 #define VK_DECLARE_FUNC(name) extern PFN_##name name;
 VK_FOREACH_GLOBAL_FUNC(VK_DECLARE_FUNC)
@@ -184,8 +197,34 @@ public:
     VkCommandBuffer BeginOneShot();
     void EndOneShot(VkCommandBuffer cmd); // submits and waits
 
-    // compiles Vulkan-flavoured compute GLSL to SPIR-V and wraps it in a shader module
-    bool CompileComputeShader(VkShaderModule& out, const std::string& source, const char* name);
+    // compiles Vulkan-flavoured GLSL to SPIR-V and wraps it in a shader module
+    enum class ShaderStage { Vertex, Fragment, Compute };
+    bool CompileShader(VkShaderModule& out, ShaderStage stage, const std::string& source, const char* name);
+    bool CompileComputeShader(VkShaderModule& out, const std::string& source, const char* name)
+    {
+        return CompileShader(out, ShaderStage::Compute, source, name);
+    }
+
+    // single-color-attachment render pass; the attachment stays in
+    // COLOR_ATTACHMENT_OPTIMAL and is either cleared or loaded
+    bool CreateRenderPass(VkRenderPass& out, VkFormat format, bool clear);
+    bool CreateFramebuffer(VkFramebuffer& out, VkRenderPass renderPass, const Image& target, u32 layer);
+
+    struct GraphicsPipelineConfig
+    {
+        VkShaderModule VertexShader = VK_NULL_HANDLE;
+        VkShaderModule FragmentShader = VK_NULL_HANDLE;
+        VkPipelineLayout Layout = VK_NULL_HANDLE;
+        VkRenderPass RenderPass = VK_NULL_HANDLE;
+        // one interleaved vertex buffer binding; empty = no vertex input
+        u32 VertexStride = 0;
+        std::vector<VkVertexInputAttributeDescription> VertexAttributes;
+        bool Blend = false;
+        VkBlendFactor SrcBlend = VK_BLEND_FACTOR_SRC_ALPHA;
+        VkBlendFactor DstBlend = VK_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA;
+    };
+    // viewport/scissor are dynamic state, set them when recording
+    bool CreateGraphicsPipeline(VkPipeline& out, const GraphicsPipelineConfig& config);
 
     u32 FindMemoryType(u32 typeBits, VkMemoryPropertyFlags wanted);
 
