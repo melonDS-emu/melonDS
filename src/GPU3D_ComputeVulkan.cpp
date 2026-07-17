@@ -700,6 +700,18 @@ void ComputeRenderer3D_Vulkan::SetRenderSettings(int scale, bool highResolutionC
 
     UpdateStaticDescriptorSet();
 
+    if (VulkanNativeOutput)
+    {
+        // the all-Vulkan parent samples FramebufferImg directly; leave it in
+        // SHADER_READ_ONLY_OPTIMAL so the first frame's barrier is a no-op
+        VkCommandBuffer cmd = Ctx.BeginOneShot();
+        Ctx.TransitionImage(cmd, FramebufferImg, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
+            VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, 0,
+            VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT, VK_ACCESS_SHADER_READ_BIT);
+        Ctx.EndOneShot(cmd);
+        return;
+    }
+
     // (re)create the GL texture the compositor reads the 3D layer from
     if (OutputGLTex)
         glDeleteTextures(1, &OutputGLTex);
@@ -1327,6 +1339,15 @@ void ComputeRenderer3D_Vulkan::RenderFrame()
     beginInfo.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
     VK::vkBeginCommandBuffer(FrameCmd, &beginInfo);
 
+    if (VulkanNativeOutput)
+    {
+        // the storage-image final pass needs GENERAL; the 2D compositor left
+        // it in SHADER_READ_ONLY after sampling last frame's output
+        Ctx.TransitionImage(FrameCmd, FramebufferImg, VK_IMAGE_LAYOUT_GENERAL,
+            VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT, VK_ACCESS_SHADER_READ_BIT,
+            VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, VK_ACCESS_SHADER_WRITE_BIT);
+    }
+
     VK::vkCmdBindDescriptorSets(FrameCmd, VK_PIPELINE_BIND_POINT_COMPUTE, PipelineLayout,
         0, 1, &SetStatic, 0, nullptr);
     VK::vkCmdBindDescriptorSets(FrameCmd, VK_PIPELINE_BIND_POINT_COMPUTE, PipelineLayout,
@@ -1459,6 +1480,26 @@ void ComputeRenderer3D_Vulkan::RenderFrame()
 
     VK::vkCmdBindPipeline(FrameCmd, VK_PIPELINE_BIND_POINT_COMPUTE, ShaderFinalPass[finalPassShader]);
     VK::vkCmdDispatch(FrameCmd, ScreenWidth/32, ScreenHeight, 1);
+
+    if (VulkanNativeOutput)
+    {
+        // leave the output sampleable by the 2D compositor; the parent
+        // fence-waits on the same queue before recording its 2D work
+        Ctx.TransitionImage(FrameCmd, FramebufferImg, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
+            VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, VK_ACCESS_SHADER_WRITE_BIT,
+            VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT, VK_ACCESS_SHADER_READ_BIT);
+
+        VK::vkEndCommandBuffer(FrameCmd);
+
+        VkSubmitInfo submitInfo = {VK_STRUCTURE_TYPE_SUBMIT_INFO};
+        submitInfo.commandBufferCount = 1;
+        submitInfo.pCommandBuffers = &FrameCmd;
+        VK::vkQueueSubmit(Ctx.Queue, 1, &submitInfo, FrameFence);
+
+        VK::vkWaitForFences(Ctx.Device, 1, &FrameFence, VK_TRUE, UINT64_MAX);
+        VK::vkResetFences(Ctx.Device, 1, &FrameFence);
+        return;
+    }
 
     // read the frame back for the GL compositor
     Ctx.TransitionImage(FrameCmd, FramebufferImg, VK_IMAGE_LAYOUT_GENERAL,

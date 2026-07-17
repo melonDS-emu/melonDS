@@ -51,6 +51,14 @@ public:
 
     void SetRenderSettings(int scale, bool highResolutionCoordinates);
 
+    // when the parent is the all-Vulkan renderer, the 3D output stays a
+    // Vulkan image (no GL interop / readback). RenderFrame() then leaves
+    // FramebufferImg in SHADER_READ_ONLY_OPTIMAL, fence-waited, ready for
+    // the 2D compositor to sample. Must be set before SetRenderSettings().
+    void SetVulkanNativeOutput(bool native) { VulkanNativeOutput = native; }
+    const VK::Context::Image& GetOutputImage() const { return FramebufferImg; }
+    VK::Context& GetContext() { return Ctx; }
+
     void RenderFrame() override;
     void RestartFrame() override;
     u32* GetLine(int line) override;
@@ -242,6 +250,7 @@ private:
     u8 ClearBitmapDirty = 0;
 
     GLuint OutputGLTex = 0;
+    bool VulkanNativeOutput = false;
 
     int ScreenWidth = 0, ScreenHeight = 0;
     int TilesPerLine = 0, TileLines = 0;
