@@ -1456,6 +1456,7 @@ void ComputeRenderer3D_Vulkan::RenderFrame()
                 pc.InvTextureSize[0] = 1.f / variants[i].Width;
                 pc.InvTextureSize[1] = 1.f / variants[i].Height;
                 pc.CaptureYOffset = 0.f;
+                pc.FilterTex = TexFilter ? 1 : 0;
 
                 if (variants[i].Texture == nullptr)
                 {

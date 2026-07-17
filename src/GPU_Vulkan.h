@@ -89,6 +89,10 @@ private:
     int ScaleFactor;
     int ScreenW, ScreenH;
 
+    // optional additive enhancements (off => accuracy-exact)
+    bool EnableDither = false;
+    bool EnableTexFilter = false;
+
     // ---- per-frame command buffer plumbing ----
     // own submission, entirely separate from Rend3D's FrameCmd/FrameFence
     VkCommandBuffer FrameCmd = VK_NULL_HANDLE;
@@ -151,7 +155,8 @@ private:
         u32 uBrightFactorA;
         u32 uBrightFactorB;
         float uAuxColorFactor;
-        u32 __pad0[3];
+        u32 uDither;
+        u32 __pad0[2];
     } FinalPassConfig;
 
     VkDescriptorSetLayout FPSetLayout = VK_NULL_HANDLE;

@@ -91,6 +91,7 @@ layout(std140, set = 0, binding = 0) uniform ubFinalPassConfig
     int uBrightFactorA;
     int uBrightFactorB;
     float uAuxColorFactor;
+    int uDither;
 };
 
 layout(location = 0) smooth in vec3 fTexcoord;
@@ -155,6 +156,18 @@ void main()
 
     output_main = (output_main << 2) | (output_main >> 6);
     output_sub = (output_sub << 2) | (output_sub >> 6);
+
+    // optional ordered dither to mask the DS's 6-bit colour banding on
+    // gradients: nudge each pixel by up to a fraction of a 6-bit step so hard
+    // contours read as a soft transition. Purely at the output; off => exact.
+    if (uDither != 0)
+    {
+        const int bayer[16] = int[16](0,8,2,10, 12,4,14,6, 3,11,1,9, 15,7,13,5);
+        ivec2 fc = ivec2(gl_FragCoord.xy);
+        int d = (bayer[(fc.y & 3) * 4 + (fc.x & 3)] - 8) >> 2; // -2 .. +1
+        output_main = clamp(output_main + d, 0, 255);
+        output_sub = clamp(output_sub + d, 0, 255);
+    }
 
     int line = int(fTexcoord.y * 192);
     bool swapbit = uScreenSwap[line>>2][line&0x3];

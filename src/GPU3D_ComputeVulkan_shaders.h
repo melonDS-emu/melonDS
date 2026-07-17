@@ -1002,7 +1002,31 @@ layout (push_constant) uniform RasterPush
     int TexIsCapture;
     vec2 InvTextureSize;
     float CaptureYOffset;
+    int FilterTex;
 };
+
+#ifdef UseTexture
+// optional bilinear filtering of the (integer) DS texture. textureGather
+// pulls the 2x2 footprint honouring the sampler's wrap mode; we blend it
+// ourselves since integer samplers can't hardware-filter. Off => nearest.
+uvec4 SampleTextureBilinear(vec3 uvw, vec2 uvf)
+{
+    uvec4 gr = textureGather(CurrentTexture, uvw, 0);
+    uvec4 gg = textureGather(CurrentTexture, uvw, 1);
+    uvec4 gb = textureGather(CurrentTexture, uvw, 2);
+    uvec4 ga = textureGather(CurrentTexture, uvw, 3);
+    vec2 texSize = vec2(1.0) / InvTextureSize;
+    vec2 f = fract(uvf * texSize - 0.5);
+    // gather .xyzw = texels (0,1)(1,1)(1,0)(0,0)
+    vec4 c01 = vec4(gr.x, gg.x, gb.x, ga.x);
+    vec4 c11 = vec4(gr.y, gg.y, gb.y, ga.y);
+    vec4 c10 = vec4(gr.z, gg.z, gb.z, ga.z);
+    vec4 c00 = vec4(gr.w, gg.w, gb.w, ga.w);
+    vec4 top = mix(c01, c11, f.x);
+    vec4 bot = mix(c00, c10, f.x);
+    return uvec4(mix(bot, top, f.y) + 0.5);
+}
+#endif
 
 void main()
 {
@@ -1142,6 +1166,8 @@ void main()
                 else
                     texcolor = uvec4(texture(Capture256Texture, vec3(uvf, polygon.TextureLayer)) * vec4(63,63,63,31));
             }
+            else if (FilterTex != 0)
+                texcolor = SampleTextureBilinear(vec3(uvf, polygon.TextureLayer), uvf);
             else
                 texcolor = texture(CurrentTexture, vec3(uvf, polygon.TextureLayer));
 

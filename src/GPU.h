@@ -828,6 +828,11 @@ struct RendererSettings
 
     // "improved polygon splitting" (regular OpenGL renderer)
     bool BetterPolygons;
+
+    // optional additive enhancements (Vulkan renderer); leave the
+    // accuracy-exact rendering untouched when off
+    bool Dither;     // ordered dither at the final output to mask 6-bit banding
+    bool TexFilter;  // bilinear-filter magnified textures
 };
 
 class Renderer

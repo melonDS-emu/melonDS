@@ -571,7 +571,11 @@ void VulkanRenderer::SetRenderSettings(RendererSettings& settings)
     // needs both 2D units' freshly-resized output views to (re)build the
     // FinalPass/Capture descriptor sets -- so 3D must resize first, then
     // the 2D units, then this renderer last.
+    EnableDither = settings.Dither;
+    EnableTexFilter = settings.TexFilter;
+
     auto* rend3d = dynamic_cast<ComputeRenderer3D_Vulkan*>(Rend3D.get());
+    rend3d->SetTextureFilter(settings.TexFilter);
     rend3d->SetRenderSettings(settings.ScaleFactor, settings.HiresCoordinates);
 
     auto* rend2dA = dynamic_cast<VulkanRenderer2D*>(Rend2D_A.get());
@@ -1095,6 +1099,7 @@ void VulkanRenderer::RenderScreen(int ystart, int yend)
     else
     {
         FinalPassConfig.uScaleFactor = ScaleFactor;
+        FinalPassConfig.uDither = EnableDither ? 1 : 0;
         FinalPassConfig.uDispModeA = (DispCntA >> 16) & 0x3;
         FinalPassConfig.uDispModeB = (DispCntB >> 16) & 0x1;
         FinalPassConfig.uBrightModeA = (MasterBrightnessA >> 14) & 0x3;

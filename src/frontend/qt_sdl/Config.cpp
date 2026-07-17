@@ -98,6 +98,8 @@ DefaultList<bool> DefaultBools =
     {"Screen.Filter", true},
     {"3D.Soft.Threaded", true},
     {"3D.GL.HiresCoordinates", true},
+    {"3D.GL.Dither", false},
+    {"3D.GL.TexFilter", false},
     {"LimitFPS", true},
     {"Instance*.Window*.ShowOSD", true},
     {"Emu.DirectBoot", true},

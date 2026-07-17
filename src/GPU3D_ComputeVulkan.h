@@ -68,6 +68,10 @@ public:
     // transparent dummy. Pass VK_NULL_HANDLE to fall back to the dummy.
     void SetCaptureImages(VkImageView cap128, VkImageView cap256);
 
+    // optional bilinear texture filtering (manual, in the rasterise shader,
+    // since DS textures are integer-format). Off => nearest / accuracy-exact.
+    void SetTextureFilter(bool enable) { TexFilter = enable; }
+
     void RenderFrame() override;
     void RestartFrame() override;
     u32* GetLine(int line) override;
@@ -135,6 +139,8 @@ private:
     // parent renderer's capture output views (not owned); null => use dummy
     VkImageView ExtCapture128 = VK_NULL_HANDLE;
     VkImageView ExtCapture256 = VK_NULL_HANDLE;
+
+    bool TexFilter = false;
 
     VkSampler Samplers[9] = {};
     VkSampler ClearBitmapSampler = VK_NULL_HANDLE;
@@ -210,6 +216,7 @@ private:
         s32 TexIsCapture;
         float InvTextureSize[2];
         float CaptureYOffset;
+        s32 FilterTex;
     };
 
     int TileSize;
