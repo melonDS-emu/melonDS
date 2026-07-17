@@ -53,13 +53,7 @@ DefaultList<int> DefaultInts =
     {"Instance*.Window*.Width", 256},
     {"Instance*.Window*.Height", 384},
     {"Screen.VSyncInterval", 1},
-#if defined(__APPLE__) && defined(VKRENDERER_ENABLED)
-    // macOS gets no OpenGL 4.3, so the Vulkan compute renderer is the
-    // modern option there; elsewhere the software renderer stays default
-    {"3D.Renderer", renderer3D_VulkanCompute},
-#else
     {"3D.Renderer", renderer3D_Software},
-#endif
     {"3D.GL.ScaleFactor", 1},
 #ifdef JIT_ENABLED
     {"JIT.MaxBlockSize", 32},
