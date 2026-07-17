@@ -266,9 +266,14 @@ if (APPLE)
 
         if (MOLTENVK_LIBRARY)
             message(STATUS "Bundling MoltenVK: ${MOLTENVK_LIBRARY}")
+            # copy MoltenVK in and rewrite its install-name to an @rpath id, so
+            # a Homebrew/SDK source path doesn't linger in the shipped bundle
+            # (the loader dlopens it by bundle-relative path regardless, but a
+            # self-contained bundle should carry no external references)
             add_custom_command(TARGET melonDS POST_BUILD
                 COMMAND ${CMAKE_COMMAND} -E make_directory "$<TARGET_BUNDLE_CONTENT_DIR:melonDS>/Frameworks"
                 COMMAND ${CMAKE_COMMAND} -E copy_if_different "${MOLTENVK_LIBRARY}" "$<TARGET_BUNDLE_CONTENT_DIR:melonDS>/Frameworks/libMoltenVK.dylib"
+                COMMAND install_name_tool -id "@rpath/libMoltenVK.dylib" "$<TARGET_BUNDLE_CONTENT_DIR:melonDS>/Frameworks/libMoltenVK.dylib"
                 COMMENT "Bundling MoltenVK...")
         else()
             message(WARNING "MoltenVK not found - the Vulkan renderer will only work with a system-wide Vulkan runtime. Run tools/fetch-moltenvk.sh or install molten-vk to bundle it.")
