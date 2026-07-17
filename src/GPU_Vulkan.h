@@ -97,17 +97,23 @@ private:
     bool EnableTexFilter = false;
 
     // ---- per-frame command buffer plumbing ----
-    // own submission, entirely separate from Rend3D's FrameCmd/FrameFence
-    VkCommandBuffer FrameCmd = VK_NULL_HANDLE;
-    VkFence FrameFence = VK_NULL_HANDLE;
+    // own submission, entirely separate from Rend3D's FrameCmd/FrameFence.
+    // Double-buffered so frame N+1 records into the other slot while the GPU is
+    // still running frame N; frame N's fence is waited at N+1's VBlank present,
+    // after N+1's emulation has run, which is where CPU and GPU overlap.
+    VkCommandBuffer FrameCmd[2] = {VK_NULL_HANDLE, VK_NULL_HANDLE};
+    VkFence FrameFence[2] = {VK_NULL_HANDLE, VK_NULL_HANDLE};
+    bool SlotPending[2] = {false, false}; // submitted-but-not-yet-waited
+    int FrameSlot = 0;
     bool FrameStarted = false;
-    // == FrameCmd while recording a frame's bands; temporarily repointed at
-    // a one-shot command buffer while SyncVRAMCapture forces an out-of-band
-    // flush (see .cpp for why)
+    // == FrameCmd[FrameSlot] while recording a frame's bands; temporarily
+    // repointed at a one-shot command buffer while SyncVRAMCapture forces an
+    // out-of-band flush (see .cpp for why)
     VkCommandBuffer CurCmd = VK_NULL_HANDLE;
 
     void EnsureFrameStarted();
-    void SubmitAndWaitFrame(); // ends + submits + fence-waits FrameCmd; clears FrameStarted
+    void SubmitAndWaitFrame(); // ends + submits + fence-waits current slot; clears FrameStarted
+    void SubmitFramePipelined(); // ends + submits current slot without waiting (wait deferred)
 
     // generic per-frame linear allocator (vertex data, staging uploads),
     // mirrors VulkanRenderer2D::sRingBuffer
@@ -179,7 +185,11 @@ private:
     VkDescriptorPool FPDescPool = VK_NULL_HANDLE;
     VkDescriptorSet FPDescSet = VK_NULL_HANDLE;
 
-    VK::Context::Buffer FPReadbackBuffer;         // host visible, ScreenW*ScreenH*2 layers*4 bytes
+    // host visible, ScreenW*ScreenH*2 layers*4 bytes. Double-buffered in step
+    // with FrameSlot: frame N copies into [FrameSlot], the GL upload presents
+    // the previous slot (finished on the GPU), giving 1 frame of latency.
+    VK::Context::Buffer FPReadbackBuffer[2];
+    bool HavePrevFrame = false;
 
     // GL interop: presentation textures, mirrors GLRenderer::FPOutputTex
     // EXACTLY (GL_TEXTURE_2D_ARRAY, RGBA8, ScreenW x ScreenH x 2, layer0=top

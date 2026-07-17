@@ -148,6 +148,10 @@ private:
 
     VkCommandBuffer FrameCmd = VK_NULL_HANDLE;
     VkFence FrameFence = VK_NULL_HANDLE;
+    // native-output path pipelining: submit the compute frame without blocking
+    // and reclaim the fence at the start of the next RenderFrame, so the 2D
+    // compositor's next-frame wait no longer serialises behind this one
+    bool SubmitPending = false;
 
     struct SpanSetupY
     {

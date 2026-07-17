@@ -514,6 +514,12 @@ void ComputeRenderer3D_Vulkan::Reset()
 {
     if (Ctx.Valid)
         VK::vkDeviceWaitIdle(Ctx.Device);
+    if (SubmitPending)
+    {
+        // device is idle; drop the deferred fence so it starts clean
+        VK::vkResetFences(Ctx.Device, 1, &FrameFence);
+        SubmitPending = false;
+    }
     Texcache.Reset();
     ClearBitmapDirty = 0x3;
 }
@@ -978,6 +984,16 @@ struct VulkanRenderVariant
 void ComputeRenderer3D_Vulkan::RenderFrame()
 {
     assert(!NeedsShaderCompile());
+
+    // deferred wait: reclaim the previous native-output frame before touching
+    // any per-frame resource (texture cache, descriptor pool, command buffer).
+    // The previous 3D submit finished early on the queue, so this rarely blocks.
+    if (SubmitPending)
+    {
+        VK::vkWaitForFences(Ctx.Device, 1, &FrameFence, VK_TRUE, UINT64_MAX);
+        VK::vkResetFences(Ctx.Device, 1, &FrameFence);
+        SubmitPending = false;
+    }
 
     u8 clrBitmapDirty;
     if (!Texcache.Update(clrBitmapDirty) && GPU3D.RenderFrameIdentical)
@@ -1531,8 +1547,10 @@ void ComputeRenderer3D_Vulkan::RenderFrame()
         submitInfo.pCommandBuffers = &FrameCmd;
         VK::vkQueueSubmit(Ctx.Queue, 1, &submitInfo, FrameFence);
 
-        VK::vkWaitForFences(Ctx.Device, 1, &FrameFence, VK_TRUE, UINT64_MAX);
-        VK::vkResetFences(Ctx.Device, 1, &FrameFence);
+        // pipelined: do not wait here. The fence is reclaimed at the top of the
+        // next RenderFrame; same-queue ordering lets the 2D compositor sample
+        // the output image safely without a CPU stall.
+        SubmitPending = true;
         return;
     }
 

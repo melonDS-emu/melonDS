@@ -393,13 +393,14 @@ bool VulkanRenderer::Init()
         VkCommandBufferAllocateInfo allocInfo = {VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO};
         allocInfo.commandPool = Ctx->CmdPool;
         allocInfo.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
-        allocInfo.commandBufferCount = 1;
-        if (VK::vkAllocateCommandBuffers(Ctx->Device, &allocInfo, &FrameCmd) != VK_SUCCESS)
+        allocInfo.commandBufferCount = 2;
+        if (VK::vkAllocateCommandBuffers(Ctx->Device, &allocInfo, FrameCmd) != VK_SUCCESS)
             return false;
 
         VkFenceCreateInfo fenceInfo = {VK_STRUCTURE_TYPE_FENCE_CREATE_INFO};
-        if (VK::vkCreateFence(Ctx->Device, &fenceInfo, nullptr, &FrameFence) != VK_SUCCESS)
-            return false;
+        for (int i = 0; i < 2; i++)
+            if (VK::vkCreateFence(Ctx->Device, &fenceInfo, nullptr, &FrameFence[i]) != VK_SUCCESS)
+                return false;
     }
 
     // ---- GL interop presentation textures (mirrors GLRenderer::FPOutputTex) ----
@@ -442,8 +443,9 @@ VulkanRenderer::~VulkanRenderer()
 
         DestroyScaleDependentResources();
 
-        if (FrameFence) VK::vkDestroyFence(Ctx->Device, FrameFence, nullptr);
-        if (FrameCmd) VK::vkFreeCommandBuffers(Ctx->Device, Ctx->CmdPool, 1, &FrameCmd);
+        for (int i = 0; i < 2; i++)
+            if (FrameFence[i]) VK::vkDestroyFence(Ctx->Device, FrameFence[i], nullptr);
+        if (FrameCmd[0]) VK::vkFreeCommandBuffers(Ctx->Device, Ctx->CmdPool, 2, FrameCmd);
 
         if (FPDescPool) VK::vkDestroyDescriptorPool(Ctx->Device, FPDescPool, nullptr);
         if (CaptureDescPool) VK::vkDestroyDescriptorPool(Ctx->Device, CaptureDescPool, nullptr);
@@ -499,7 +501,8 @@ void VulkanRenderer::DestroyScaleDependentResources()
         if (FPOutputView[i]) { VK::vkDestroyImageView(Ctx->Device, FPOutputView[i], nullptr); FPOutputView[i] = VK_NULL_HANDLE; }
     }
     Ctx->DestroyImage(FPOutputImg);
-    Ctx->DestroyBuffer(FPReadbackBuffer);
+    Ctx->DestroyBuffer(FPReadbackBuffer[0]);
+    Ctx->DestroyBuffer(FPReadbackBuffer[1]);
 
     for (int i = 0; i < 4; i++)
     {
@@ -532,10 +535,23 @@ void VulkanRenderer::Reset()
     LastCapLine = 0;
     Aux0VRAMCap = -1;
 
+    // drain any pipelined-but-unwaited frames before discarding state
+    for (int i = 0; i < 2; i++)
+    {
+        if (SlotPending[i])
+        {
+            VK::vkWaitForFences(Ctx->Device, 1, &FrameFence[i], VK_TRUE, UINT64_MAX);
+            VK::vkResetFences(Ctx->Device, 1, &FrameFence[i]);
+            SlotPending[i] = false;
+        }
+    }
+    HavePrevFrame = false;
+    FrameSlot = 0;
+
     if (FrameStarted)
     {
         // nothing has been submitted yet; safe to discard
-        VK::vkResetCommandBuffer(FrameCmd, 0);
+        VK::vkResetCommandBuffer(FrameCmd[FrameSlot], 0);
         FrameStarted = false;
         CurCmd = VK_NULL_HANDLE;
     }
@@ -593,6 +609,20 @@ void VulkanRenderer::SetScaleFactor(int scale)
 
     VK::vkDeviceWaitIdle(Ctx->Device);
 
+    // deferred frames' fences are now signalled but unwaited; drop them so the
+    // recreated pipeline starts clean
+    for (int i = 0; i < 2; i++)
+    {
+        if (SlotPending[i])
+        {
+            VK::vkResetFences(Ctx->Device, 1, &FrameFence[i]);
+            SlotPending[i] = false;
+        }
+    }
+    FrameStarted = false;
+    HavePrevFrame = false;
+    FrameSlot = 0;
+
     DestroyScaleDependentResources();
 
     ScaleFactor = scale;
@@ -608,9 +638,11 @@ void VulkanRenderer::SetScaleFactor(int scale)
     Ctx->CreateFramebufferMulti(FPFramebuffer, FPRenderPass, {FPOutputView[0], FPOutputView[1]},
                                 (u32)ScreenW, (u32)ScreenH);
 
-    if (!Ctx->CreateBuffer(FPReadbackBuffer, (VkDeviceSize)ScreenW * ScreenH * 2 * 4,
-                           VK_BUFFER_USAGE_TRANSFER_DST_BIT, true))
-        Log(LogLevel::Error, "GPU_Vulkan: failed to create FinalPass readback buffer\n");
+    for (int i = 0; i < 2; i++)
+        if (!Ctx->CreateBuffer(FPReadbackBuffer[i], (VkDeviceSize)ScreenW * ScreenH * 2 * 4,
+                               VK_BUFFER_USAGE_TRANSFER_DST_BIT, true))
+            Log(LogLevel::Error, "GPU_Vulkan: failed to create FinalPass readback buffer\n");
+    HavePrevFrame = false;
 
     for (int i = 0; i < 2; i++)
     {
@@ -736,13 +768,24 @@ void VulkanRenderer::EnsureFrameStarted()
     if (FrameStarted)
         return;
 
-    VK::vkResetCommandBuffer(FrameCmd, 0);
+    int s = FrameSlot;
+
+    // reclaim this slot if a frame from 2 frames ago is still marked pending
+    // (normally already waited at that frame's present; this is the safety net)
+    if (SlotPending[s])
+    {
+        VK::vkWaitForFences(Ctx->Device, 1, &FrameFence[s], VK_TRUE, UINT64_MAX);
+        VK::vkResetFences(Ctx->Device, 1, &FrameFence[s]);
+        SlotPending[s] = false;
+    }
+
+    VK::vkResetCommandBuffer(FrameCmd[s], 0);
 
     VkCommandBufferBeginInfo beginInfo = {VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO};
     beginInfo.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
-    VK::vkBeginCommandBuffer(FrameCmd, &beginInfo);
+    VK::vkBeginCommandBuffer(FrameCmd[s], &beginInfo);
 
-    CurCmd = FrameCmd;
+    CurCmd = FrameCmd[s];
     FrameStarted = true;
 }
 
@@ -751,16 +794,38 @@ void VulkanRenderer::SubmitAndWaitFrame()
     if (!FrameStarted)
         return;
 
-    VK::vkEndCommandBuffer(FrameCmd);
+    int s = FrameSlot;
+    VK::vkEndCommandBuffer(FrameCmd[s]);
 
     VkSubmitInfo submitInfo = {VK_STRUCTURE_TYPE_SUBMIT_INFO};
     submitInfo.commandBufferCount = 1;
-    submitInfo.pCommandBuffers = &FrameCmd;
-    VK::vkQueueSubmit(Ctx->Queue, 1, &submitInfo, FrameFence);
+    submitInfo.pCommandBuffers = &FrameCmd[s];
+    VK::vkQueueSubmit(Ctx->Queue, 1, &submitInfo, FrameFence[s]);
 
-    VK::vkWaitForFences(Ctx->Device, 1, &FrameFence, VK_TRUE, UINT64_MAX);
-    VK::vkResetFences(Ctx->Device, 1, &FrameFence);
+    VK::vkWaitForFences(Ctx->Device, 1, &FrameFence[s], VK_TRUE, UINT64_MAX);
+    VK::vkResetFences(Ctx->Device, 1, &FrameFence[s]);
 
+    SlotPending[s] = false;
+    FrameStarted = false;
+    CurCmd = VK_NULL_HANDLE;
+}
+
+// Submit without blocking; the fence is reclaimed at the next VBlank present
+// (or the safety net in EnsureFrameStarted) so CPU frame N+1 overlaps GPU N.
+void VulkanRenderer::SubmitFramePipelined()
+{
+    if (!FrameStarted)
+        return;
+
+    int s = FrameSlot;
+    VK::vkEndCommandBuffer(FrameCmd[s]);
+
+    VkSubmitInfo submitInfo = {VK_STRUCTURE_TYPE_SUBMIT_INFO};
+    submitInfo.commandBufferCount = 1;
+    submitInfo.pCommandBuffers = &FrameCmd[s];
+    VK::vkQueueSubmit(Ctx->Queue, 1, &submitInfo, FrameFence[s]);
+
+    SlotPending[s] = true;
     FrameStarted = false;
     CurCmd = VK_NULL_HANDLE;
 }
@@ -916,8 +981,8 @@ void VulkanRenderer::DrawScanline(u32 line)
 
     auto* rend2dA = dynamic_cast<VulkanRenderer2D*>(Rend2D_A.get());
     auto* rend2dB = dynamic_cast<VulkanRenderer2D*>(Rend2D_B.get());
-    rend2dA->SetCommandBuffer(FrameCmd);
-    rend2dB->SetCommandBuffer(FrameCmd);
+    rend2dA->SetCommandBuffer(FrameCmd[FrameSlot]);
+    rend2dB->SetCommandBuffer(FrameCmd[FrameSlot]);
 
     u32 dispcnt_a_diff = DispCntA ^ GPU.GPU2D_A.DispCnt;
     u32 dispcnt_b_diff = DispCntB ^ GPU.GPU2D_B.DispCnt;
@@ -1044,8 +1109,8 @@ void VulkanRenderer::DrawSprites(u32 line)
 
     auto* rend2dA = dynamic_cast<VulkanRenderer2D*>(Rend2D_A.get());
     auto* rend2dB = dynamic_cast<VulkanRenderer2D*>(Rend2D_B.get());
-    rend2dA->SetCommandBuffer(FrameCmd);
-    rend2dB->SetCommandBuffer(FrameCmd);
+    rend2dA->SetCommandBuffer(FrameCmd[FrameSlot]);
+    rend2dB->SetCommandBuffer(FrameCmd[FrameSlot]);
     rend2dA->DrawSprites(line);
     rend2dB->DrawSprites(line);
 }
@@ -1161,8 +1226,8 @@ void VulkanRenderer::VBlank()
 
     auto* rend2dA = dynamic_cast<VulkanRenderer2D*>(Rend2D_A.get());
     auto* rend2dB = dynamic_cast<VulkanRenderer2D*>(Rend2D_B.get());
-    rend2dA->SetCommandBuffer(FrameCmd);
-    rend2dB->SetCommandBuffer(FrameCmd);
+    rend2dA->SetCommandBuffer(FrameCmd[FrameSlot]);
+    rend2dB->SetCommandBuffer(FrameCmd[FrameSlot]);
     rend2dA->VBlank();
     rend2dB->VBlank();
 
@@ -1180,32 +1245,61 @@ void VulkanRenderer::VBlank()
     // Renderer::SwapBuffers(), called by GPU.cpp at frame end)
     int backbuf = BackBuffer;
 
-    if (FPReadbackBuffer.Buf != VK_NULL_HANDLE)
+    // copy this frame's FinalPass output into this slot's readback buffer
+    int cur = FrameSlot;
+    if (FPReadbackBuffer[cur].Buf != VK_NULL_HANDLE)
     {
-        Ctx->TransitionImage(FrameCmd, FPOutputImg, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
+        Ctx->TransitionImage(FrameCmd[cur], FPOutputImg, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
             VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT, VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT,
             VK_PIPELINE_STAGE_TRANSFER_BIT, VK_ACCESS_TRANSFER_READ_BIT);
 
         VkBufferImageCopy region = {};
         region.imageSubresource = {VK_IMAGE_ASPECT_COLOR_BIT, 0, 0, 2};
         region.imageExtent = {(u32)ScreenW, (u32)ScreenH, 1};
-        VK::vkCmdCopyImageToBuffer(FrameCmd, FPOutputImg.Img, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
-                                   FPReadbackBuffer.Buf, 1, &region);
+        VK::vkCmdCopyImageToBuffer(FrameCmd[cur], FPOutputImg.Img, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
+                                   FPReadbackBuffer[cur].Buf, 1, &region);
 
-        Ctx->TransitionImage(FrameCmd, FPOutputImg, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
+        Ctx->TransitionImage(FrameCmd[cur], FPOutputImg, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
             VK_PIPELINE_STAGE_TRANSFER_BIT, VK_ACCESS_TRANSFER_READ_BIT,
             VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,
             VK_ACCESS_COLOR_ATTACHMENT_READ_BIT | VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT);
     }
 
-    SubmitAndWaitFrame();
-
-    if (FPReadbackBuffer.Map)
+    auto uploadToGL = [&](VK::Context::Buffer& rb)
     {
-        glBindTexture(GL_TEXTURE_2D_ARRAY, FPOutputTex[backbuf]);
-        glTexSubImage3D(GL_TEXTURE_2D_ARRAY, 0, 0, 0, 0, ScreenW, ScreenH, 2,
-                        GL_RGBA, GL_UNSIGNED_BYTE, FPReadbackBuffer.Map);
+        if (rb.Map)
+        {
+            glBindTexture(GL_TEXTURE_2D_ARRAY, FPOutputTex[backbuf]);
+            glTexSubImage3D(GL_TEXTURE_2D_ARRAY, 0, 0, 0, 0, ScreenW, ScreenH, 2,
+                            GL_RGBA, GL_UNSIGNED_BYTE, rb.Map);
+        }
+    };
+
+    if (!HavePrevFrame)
+    {
+        // first frame: no completed frame to show yet, so present this one
+        // synchronously to avoid flashing an uninitialised back buffer
+        SubmitAndWaitFrame();
+        uploadToGL(FPReadbackBuffer[cur]);
+        HavePrevFrame = true;
     }
+    else
+    {
+        // steady state: hand this frame to the GPU without blocking, then
+        // present the PREVIOUS slot (finished during this frame's emulation)
+        // with 1 frame of latency. Waiting it here is where CPU/GPU overlap.
+        SubmitFramePipelined();
+        int prev = cur ^ 1;
+        if (SlotPending[prev])
+        {
+            VK::vkWaitForFences(Ctx->Device, 1, &FrameFence[prev], VK_TRUE, UINT64_MAX);
+            VK::vkResetFences(Ctx->Device, 1, &FrameFence[prev]);
+            SlotPending[prev] = false;
+        }
+        uploadToGL(FPReadbackBuffer[prev]);
+    }
+
+    FrameSlot ^= 1;
 }
 
 void VulkanRenderer::VBlankEnd()

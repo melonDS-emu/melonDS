@@ -553,12 +553,19 @@ void Context::EndOneShot(VkCommandBuffer cmd)
 {
     vkEndCommandBuffer(cmd);
 
+    // wait only for this submission via a fence, not the whole queue:
+    // vkQueueWaitIdle drains every in-flight (pipelined) frame too
+    VkFence fence;
+    VkFenceCreateInfo fenceInfo = {VK_STRUCTURE_TYPE_FENCE_CREATE_INFO};
+    vkCreateFence(Device, &fenceInfo, nullptr, &fence);
+
     VkSubmitInfo submitInfo = {VK_STRUCTURE_TYPE_SUBMIT_INFO};
     submitInfo.commandBufferCount = 1;
     submitInfo.pCommandBuffers = &cmd;
-    vkQueueSubmit(Queue, 1, &submitInfo, VK_NULL_HANDLE);
-    vkQueueWaitIdle(Queue);
+    vkQueueSubmit(Queue, 1, &submitInfo, fence);
+    vkWaitForFences(Device, 1, &fence, VK_TRUE, UINT64_MAX);
 
+    vkDestroyFence(Device, fence, nullptr);
     vkFreeCommandBuffers(Device, CmdPool, 1, &cmd);
 }
 
