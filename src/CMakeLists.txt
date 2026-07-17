@@ -115,8 +115,11 @@ if (ENABLE_VKRENDERER)
         find_path(VULKAN_INCLUDE_DIR vulkan/vulkan.h REQUIRED)
     endif()
 
-    # glslang compiles the compute shaders to SPIR-V at runtime
-    find_package(glslang CONFIG REQUIRED)
+    # glslang compiles the compute shaders to SPIR-V at runtime. Prefer its
+    # CMake config package (Homebrew / vcpkg / Vulkan SDK); fall back to
+    # locating the libraries directly for distro packages (e.g. Ubuntu's
+    # glslang-dev) that ship the libs and headers but no glslangConfig.cmake.
+    find_package(glslang CONFIG QUIET)
 
     target_sources(core PRIVATE
         VulkanSupport.cpp
@@ -136,12 +139,34 @@ if (ENABLE_VKRENDERER)
         target_include_directories(core PUBLIC "${VULKAN_INCLUDE_DIR}")
     endif()
 
-    target_link_libraries(core PRIVATE glslang::glslang)
-    if (TARGET glslang::SPIRV)
-        target_link_libraries(core PRIVATE glslang::SPIRV)
-    endif()
-    if (TARGET glslang::glslang-default-resource-limits)
-        target_link_libraries(core PRIVATE glslang::glslang-default-resource-limits)
+    if (TARGET glslang::glslang)
+        target_link_libraries(core PRIVATE glslang::glslang)
+        if (TARGET glslang::SPIRV)
+            target_link_libraries(core PRIVATE glslang::SPIRV)
+        endif()
+        if (TARGET glslang::glslang-default-resource-limits)
+            target_link_libraries(core PRIVATE glslang::glslang-default-resource-limits)
+        endif()
+    else()
+        # no CMake config (distro packaging): locate the archives by name.
+        # SPIRV depends on glslang, so link SPIRV first for static libs.
+        find_library(GLSLANG_SPIRV_LIB SPIRV REQUIRED)
+        find_library(GLSLANG_LIB glslang REQUIRED)
+        target_link_libraries(core PRIVATE ${GLSLANG_SPIRV_LIB} ${GLSLANG_LIB})
+        # optional components some glslang versions split into separate libs,
+        # in rough dependency order (dependents before dependencies)
+        foreach (_glcomp glslang-default-resource-limits MachineIndependent
+                         GenericCodeGen OSDependent OGLCompiler SPVRemapper
+                         SPIRV-Tools-opt SPIRV-Tools)
+            find_library(GLSLANG_${_glcomp}_LIB ${_glcomp})
+            if (GLSLANG_${_glcomp}_LIB)
+                target_link_libraries(core PRIVATE ${GLSLANG_${_glcomp}_LIB})
+            endif()
+        endforeach()
+        find_path(GLSLANG_INCLUDE_DIR glslang/Public/ShaderLang.h)
+        if (GLSLANG_INCLUDE_DIR)
+            target_include_directories(core PRIVATE "${GLSLANG_INCLUDE_DIR}")
+        endif()
     endif()
 
     target_compile_definitions(core PUBLIC VKRENDERER_ENABLED)
