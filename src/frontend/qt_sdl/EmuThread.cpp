@@ -325,62 +325,6 @@ void EmuThread::run()
 
             emuInstance->drawScreen();
 
-            // TEMP diff-harness: dump the top screen's final framebuffer to a
-            // PPM at a target frame (env MELONDS_DIFF_FRAME / MELONDS_DIFF_OUT),
-            // for Vulkan-vs-Software comparison. Only meaningful at scale 1
-            // (native 256x192) for the accelerated path. Remove before merging.
-            {
-                static int diffTarget = -2;
-                static int diffCount = 0;
-                if (diffTarget == -2)
-                {
-                    const char* e = getenv("MELONDS_DIFF_FRAME");
-                    diffTarget = e ? atoi(e) : -1;
-                }
-                if (diffTarget >= 0 && diffCount++ == diffTarget)
-                {
-                    void* topbuf = nullptr; void* botbuf = nullptr;
-                    bool cpu = emuInstance->nds->GPU.GetFramebuffers(&topbuf, &botbuf);
-                    const int W = 256, H = 192;
-                    std::vector<u8> rgb((size_t)W*H*3);
-                    if (cpu && topbuf)
-                    {
-                        const u32* px = (const u32*)topbuf; // Format_RGB32: 0xffRRGGBB
-                        for (int i = 0; i < W*H; i++)
-                        {
-                            u32 c = px[i];
-                            rgb[i*3+0] = (c >> 16) & 0xFF;
-                            rgb[i*3+1] = (c >> 8) & 0xFF;
-                            rgb[i*3+2] = (c >> 0) & 0xFF;
-                        }
-                    }
-                    else if (!cpu && topbuf)
-                    {
-                        GLuint tex = *(GLuint*)topbuf;
-                        GLuint fbo = 0;
-                        glGenFramebuffers(1, &fbo);
-                        glBindFramebuffer(GL_READ_FRAMEBUFFER, fbo);
-                        glFramebufferTextureLayer(GL_READ_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, tex, 0, 0);
-                        std::vector<u8> rgba((size_t)W*H*4);
-                        glReadPixels(0, 0, W, H, GL_RGBA, GL_UNSIGNED_BYTE, rgba.data());
-                        glBindFramebuffer(GL_READ_FRAMEBUFFER, 0);
-                        glDeleteFramebuffers(1, &fbo);
-                        // the interop texture is already top-down; copy straight
-                        for (int i = 0; i < W*H; i++)
-                        {
-                            rgb[i*3+0] = rgba[i*4+0]; rgb[i*3+1] = rgba[i*4+1]; rgb[i*3+2] = rgba[i*4+2];
-                        }
-                    }
-                    if (const char* path = getenv("MELONDS_DIFF_OUT"))
-                    {
-                        FILE* f = fopen(path, "wb");
-                        if (f) { fprintf(f, "P6\n%d %d\n255\n", W, H); fwrite(rgb.data(), 1, rgb.size(), f); fclose(f); }
-                    }
-                    printf("diff-harness: dumped frame %d (%s)\n", diffTarget, cpu ? "software" : "accelerated");
-                    fflush(stdout);
-                }
-            }
-
 #ifdef MELONCAP
             MelonCap::Update();
 #endif // MELONCAP
