@@ -51,6 +51,7 @@ const std::string FinalPassVS{R"(
 layout(std140, set = 0, binding = 0) uniform ubFinalPassConfig
 {
     bvec4 uScreenSwap[48]; // one bool per scanline
+    ivec4 uVCount[48];
     int uScaleFactor;
     int uAuxLayer;
     int uDispModeA;
@@ -60,6 +61,8 @@ layout(std140, set = 0, binding = 0) uniform ubFinalPassConfig
     int uBrightFactorA;
     int uBrightFactorB;
     float uAuxColorFactor;
+    int uDither;
+    int uAuxUseVCount;
 };
 
 layout(location = 0) in vec2 vPosition;
@@ -82,6 +85,7 @@ layout(set = 0, binding = 3) uniform sampler2DArray AuxInputTex;
 layout(std140, set = 0, binding = 0) uniform ubFinalPassConfig
 {
     bvec4 uScreenSwap[48]; // one bool per scanline
+    ivec4 uVCount[48];
     int uScaleFactor;
     int uAuxLayer;
     int uDispModeA;
@@ -92,6 +96,7 @@ layout(std140, set = 0, binding = 0) uniform ubFinalPassConfig
     int uBrightFactorB;
     float uAuxColorFactor;
     int uDither;
+    int uAuxUseVCount;
 };
 
 layout(location = 0) smooth in vec3 fTexcoord;
@@ -117,6 +122,7 @@ ivec3 MasterBrightness(ivec3 color, int brightmode, int evy)
 
 void main()
 {
+    int line = int(fTexcoord.y * 192);
     ivec4 col_main = ivec4(texture(MainInputTexA, fTexcoord.xy, 0) * 255.0) >> 2;
     ivec4 col_sub = ivec4(texture(MainInputTexB, fTexcoord.xy, 0) * 255.0) >> 2;
 
@@ -135,7 +141,13 @@ void main()
     else
     {
         // VRAM display / mainmem FIFO
-        output_main = ivec3(texture(AuxInputTex, vec3(fTexcoord.xz, uAuxLayer)).rgb * uAuxColorFactor);
+        vec2 auxCoord = fTexcoord.xz;
+        if (uAuxUseVCount != 0)
+        {
+            int vcount = uVCount[line>>2][line&0x3];
+            auxCoord.y = (float(vcount) + fract(fTexcoord.y * 192.0)) / 256.0;
+        }
+        output_main = ivec3(texture(AuxInputTex, vec3(auxCoord, uAuxLayer)).rgb * uAuxColorFactor);
     }
 
     if (uDispModeB == 0)
@@ -169,7 +181,6 @@ void main()
         output_sub = clamp(output_sub + d, 0, 255);
     }
 
-    int line = int(fTexcoord.y * 192);
     bool swapbit = uScreenSwap[line>>2][line&0x3];
 
     if (!swapbit)
@@ -196,7 +207,9 @@ layout(std140, set = 0, binding = 0) uniform ubCaptureConfig
     int uDstMode;
     ivec2 uBlendFactors;
     vec4 uSrcAOffset[48];
+    ivec4 uVCount[48];
     float uSrcBColorFactor;
+    int uSrcBUseVCount;
 };
 
 layout(location = 0) in ivec2 vPosition;
@@ -228,7 +241,9 @@ layout(std140, set = 0, binding = 0) uniform ubCaptureConfig
     int uDstMode;
     ivec2 uBlendFactors;
     vec4 uSrcAOffset[48];
+    ivec4 uVCount[48];
     float uSrcBColorFactor;
+    int uSrcBUseVCount;
 };
 
 layout(location = 0) smooth in vec4 fTexcoord;
@@ -248,15 +263,21 @@ void main()
 {
     vec2 coordA = fTexcoord.xy;
     vec3 coordB = vec3(fTexcoord.xw, uSrcBLayer);
+    int line = int(fTexcoord.z);
+    int vcount = uVCount[line>>2][line&0x3];
+    float lineFrac = fract(fTexcoord.z);
     ivec4 cap_out;
 
     // apply scroll for 3D layer, if we're capturing that
     if (uSrcALayer == 1)
     {
-        int line = int(fTexcoord.z);
+        coordA.y = (float(vcount) + lineFrac) / 192.0;
         coordA.x += uSrcAOffset[line>>2][line&0x3];
         //coordA.x += GetSrcAPos(fTexcoord.z);
     }
+
+    if (uSrcBUseVCount != 0)
+        coordB.y = (float(vcount + uSrcBOffset) + lineFrac) / 256.0;
 
     if (uDstMode == 0)
     {

@@ -587,6 +587,7 @@ public:
 
     void StartFrame() noexcept;
     void FinishFrame(u32 lines) noexcept;
+    void PublishRendererFrame(u32 endLine) noexcept;
     void BlankFrame() noexcept;
     void StartScanline(u32 line) noexcept;
     void StartHBlank(u32 line) noexcept;
@@ -620,6 +621,7 @@ public:
 
     u16 VCount = 0;
     u16 TotalScanlines = 0;
+    bool RendererFramePublished = false;
     u16 DispStat[2] {};
     u8 VRAMCNT[9] {};
     u8 VRAMSTAT = 0;
@@ -856,8 +858,9 @@ public:
     virtual void Finish3DRendering() { Rend3D->FinishRendering(); }
     virtual void Restart3DRendering() { Rend3D->RestartFrame(); }
 
-    virtual void VBlank() = 0;
+    virtual void VBlank(u32 endLine) = 0;
     virtual void VBlankEnd() = 0;
+    virtual void FinishFrame(u32 endLine) {}
 
     virtual void AllocCapture(u32 bank, u32 start, u32 len) = 0;
     virtual void SyncVRAMCapture(u32 bank, u32 start, u32 len, bool complete) = 0;

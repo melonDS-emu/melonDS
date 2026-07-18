@@ -17,6 +17,7 @@
 */
 
 #include <string.h>
+#include <stdio.h>
 #include "NDS.h"
 #include "GPU_OpenGL.h"
 
@@ -38,6 +39,9 @@ GLRenderer::GLRenderer(melonDS::NDS& nds, Renderer3DType type3D)
 {
     AuxInputBuffer[0] = new u16[256 * 256];
     AuxInputBuffer[1] = new u16[256 * 192];
+    memset(AuxInputBuffer[0], 0, 256 * 256 * sizeof(u16));
+    memset(AuxInputBuffer[1], 0, 256 * 192 * sizeof(u16));
+    memset(AuxInputDirty, 1, sizeof(AuxInputDirty));
 
     Rend2D_A = std::make_unique<GLRenderer2D>(GPU.GPU2D_A, *this);
     Rend2D_B = std::make_unique<GLRenderer2D>(GPU.GPU2D_B, *this);
@@ -142,7 +146,7 @@ bool GLRenderer::Init()
     // capture vertex data: 2x position, 2x texcoord
     glGenBuffers(1, &CaptureVtxBuffer);
     glBindBuffer(GL_ARRAY_BUFFER, CaptureVtxBuffer);
-    glBufferData(GL_ARRAY_BUFFER, 2 * 6 * 4 * sizeof(u16), nullptr, GL_STREAM_DRAW);
+    glBufferData(GL_ARRAY_BUFFER, 192 * 6 * 4 * sizeof(u16), nullptr, GL_STREAM_DRAW);
 
     glGenVertexArrays(1, &CaptureVtxArray);
     glBindVertexArray(CaptureVtxArray);
@@ -295,6 +299,11 @@ void GLRenderer::Reset()
     memset(&CaptureConfig, 0, sizeof(CaptureConfig));
 
     AuxUsageMask = 0;
+    memset(AuxInputBuffer[0], 0, 256 * 256 * sizeof(u16));
+    memset(AuxInputBuffer[1], 0, 256 * 192 * sizeof(u16));
+    memset(AuxInputDirty, 1, sizeof(AuxInputDirty));
+    FrameReady = false;
+    FrameDirty = false;
 
     DispCntA = 0;
     DispCntB = 0;
@@ -365,6 +374,8 @@ void GLRenderer::SetScaleFactor(int scale)
         return;
 
     ScaleFactor = scale;
+    FrameReady = false;
+    FrameDirty = true;
     ScreenW = 256 * scale;
     ScreenH = 192 * scale;
 
@@ -415,6 +426,8 @@ void GLRenderer::SetScaleFactor(int scale)
 
 void GLRenderer::DrawScanline(u32 line)
 {
+    FrameDirty = true;
+
     u32 dispcnt_a_diff = DispCntA ^ GPU.GPU2D_A.DispCnt;
     u32 dispcnt_b_diff = DispCntB ^ GPU.GPU2D_B.DispCnt;
     u32 capturecnt_diff = CaptureCnt ^ GPU.CaptureCnt;
@@ -459,6 +472,8 @@ void GLRenderer::DrawScanline(u32 line)
     CaptureCnt = GPU.CaptureCnt;
 
     FinalPassConfig.uScreenSwap[line] = GPU.ScreenSwap;
+    FinalPassConfig.uVCount[line] = GPU.VCount;
+    CaptureConfig.uVCount[line] = GPU.VCount;
 
     u32 dispcnt = GPU.GPU2D_A.DispCnt;
     u32 dispmode = (dispcnt >> 16) & 0x3;
@@ -485,7 +500,7 @@ void GLRenderer::DrawScanline(u32 line)
         AuxUsageMask |= (1<<0);
 
         u32 vrambank = (dispcnt >> 18) & 0x3;
-        u32 vramoffset = line * 256;
+        u32 vramoffset = GPU.VCount * 256;
         u32 outoffset = line * 256;
         if (dispmode != 2)
         {
@@ -516,6 +531,8 @@ void GLRenderer::DrawScanline(u32 line)
                 adst[i] = 0;
             }
         }
+
+        AuxInputDirty[0][outoffset >> 8] = true;
     }
 
     if ((dispmode == 3) || (checkcap && (capB == 1)))
@@ -527,6 +544,7 @@ void GLRenderer::DrawScanline(u32 line)
         {
             adst[i] = GPU.DispFIFOBuffer[i];
         }
+        AuxInputDirty[1][line] = true;
     }
 }
 
@@ -565,6 +583,8 @@ void GLRenderer::RenderScreen(int ystart, int yend)
     }
     Aux0VRAMCap = vramcap;
 
+    FlushAuxInput(vramcap);
+
     if (!GPU.ScreensEnabled)
     {
         glClearColor(0, 0, 0, 1);
@@ -581,21 +601,7 @@ void GLRenderer::RenderScreen(int ystart, int yend)
         FinalPassConfig.uBrightModeB = (MasterBrightnessB >> 14) & 0x3;
         FinalPassConfig.uBrightFactorA = std::min(MasterBrightnessA & 0x1F, 16);
         FinalPassConfig.uBrightFactorB = std::min(MasterBrightnessB & 0x1F, 16);
-
-        if (AuxUsageMask)
-        {
-            glBindTexture(GL_TEXTURE_2D_ARRAY, AuxInputTex);
-            if ((AuxUsageMask & (1<<0)) && (vramcap == -1))
-            {
-                glTexSubImage3D(GL_TEXTURE_2D_ARRAY, 0, 0, 0, 0, 256, 256, 1, GL_RGBA,
-                                GL_UNSIGNED_SHORT_1_5_5_5_REV, AuxInputBuffer[0]);
-            }
-            if (AuxUsageMask & (1<<1))
-            {
-                glTexSubImage3D(GL_TEXTURE_2D_ARRAY, 0, 0, 0, 1, 256, 192, 1, GL_RGBA,
-                                GL_UNSIGNED_SHORT_1_5_5_5_REV, AuxInputBuffer[1]);
-            }
-        }
+        FinalPassConfig.uAuxUseVCount = 0;
 
         glActiveTexture(GL_TEXTURE0);
         glBindTexture(GL_TEXTURE_2D, OutputTex2D[0]);
@@ -610,6 +616,7 @@ void GLRenderer::RenderScreen(int ystart, int yend)
             glBindTexture(GL_TEXTURE_2D_ARRAY, CaptureOutput256Tex);
             FinalPassConfig.uAuxLayer = vramcap >> 2;
             FinalPassConfig.uAuxColorFactor = 63.75f;
+            FinalPassConfig.uAuxUseVCount = 1;
         }
         else if (modeA >= 2)
         {
@@ -629,23 +636,166 @@ void GLRenderer::RenderScreen(int ystart, int yend)
     glDisable(GL_SCISSOR_TEST);
 }
 
-void GLRenderer::VBlank()
+void GLRenderer::FlushAuxInput(int vramcap)
 {
-    Rend2D_A->VBlank();
-    Rend2D_B->VBlank();
+    bool bound = false;
 
-    RenderScreen(LastLine, 192);
+    for (int layer = 0; layer < 2; layer++)
+    {
+        if (!(AuxUsageMask & (1 << layer)))
+            continue;
+        if (layer == 0 && vramcap != -1)
+            continue;
 
+        const int rows = layer == 0 ? 256 : 192;
+        for (int start = 0; start < rows;)
+        {
+            while (start < rows && !AuxInputDirty[layer][start])
+                start++;
+            if (start >= rows)
+                break;
+
+            int end = start + 1;
+            while (end < rows && AuxInputDirty[layer][end])
+                end++;
+
+            if (!bound)
+            {
+                glActiveTexture(GL_TEXTURE2);
+                glBindTexture(GL_TEXTURE_2D_ARRAY, AuxInputTex);
+                bound = true;
+            }
+
+            glTexSubImage3D(GL_TEXTURE_2D_ARRAY, 0, 0, start, layer,
+                            256, end - start, 1, GL_RGBA,
+                            GL_UNSIGNED_SHORT_1_5_5_5_REV,
+                            &AuxInputBuffer[layer][start * 256]);
+            memset(&AuxInputDirty[layer][start], 0,
+                   (end - start) * sizeof(AuxInputDirty[layer][0]));
+            start = end;
+        }
+    }
+}
+
+void GLRenderer::VBlank(u32 endLine)
+{
+    endLine = std::min(endLine, 192u);
+    if (!FrameDirty)
+        return;
+
+    auto* rend2dA = dynamic_cast<GLRenderer2D*>(Rend2D_A.get());
+    auto* rend2dB = dynamic_cast<GLRenderer2D*>(Rend2D_B.get());
+    rend2dA->Flush(endLine);
+    rend2dB->Flush(endLine);
+
+    if (LastLine < (int)endLine)
+        RenderScreen(LastLine, endLine);
+
+    if (GPU.CaptureEnable && LastCapLine < (int)endLine)
+        DoCapture(LastCapLine, endLine);
+
+    LastLine = endLine;
     if (GPU.CaptureEnable)
-        DoCapture(LastCapLine, 192);
-
-    LastLine = 0;
-    LastCapLine = 0;
+        LastCapLine = endLine;
+    FrameDirty = false;
 }
 
 void GLRenderer::VBlankEnd()
 {
     AuxUsageMask = 0;
+    FrameDirty = true;
+}
+
+void GLRenderer::FinishFrame(u32 endLine)
+{
+    if (FrameReady)
+        return;
+
+    endLine = std::min(endLine, 192u);
+
+    auto* rend2dA = dynamic_cast<GLRenderer2D*>(Rend2D_A.get());
+    auto* rend2dB = dynamic_cast<GLRenderer2D*>(Rend2D_B.get());
+    rend2dA->FinishFrame(endLine);
+    rend2dB->FinishFrame(endLine);
+
+    if (FrameDirty)
+    {
+        if (LastLine < (int)endLine)
+            RenderScreen(LastLine, endLine);
+        if (GPU.CaptureEnable && LastCapLine < (int)endLine)
+            DoCapture(LastCapLine, endLine);
+    }
+
+    LastLine = 0;
+    LastCapLine = 0;
+    FrameDirty = false;
+
+    static int debugFrame = 0;
+    if (debugFrame < 1200)
+    {
+        std::vector<u32> pixels((size_t)ScreenW * ScreenH);
+        FILE* stats = fopen("/tmp/melonds-gl-frame-stats.csv", debugFrame ? "a" : "w");
+        glBindFramebuffer(GL_READ_FRAMEBUFFER, FPOutputFB[BackBuffer]);
+        for (int layer = 0; layer < 2; layer++)
+        {
+            glReadBuffer(GL_COLOR_ATTACHMENT0 + layer);
+            glReadPixels(0, 0, ScreenW, ScreenH, GL_RGBA, GL_UNSIGNED_BYTE, pixels.data());
+
+            u64 sum = 0;
+            u64 hash = 1469598103934665603ULL;
+            u32 black = 0;
+            for (int y = 0; y < 192; y++)
+            {
+                for (int x = 0; x < 256; x++)
+                {
+                    u32 pixel = pixels[((y * ScaleFactor) + (ScaleFactor / 2)) * ScreenW +
+                                       ((x * ScaleFactor) + (ScaleFactor / 2))];
+                    u32 rgb = pixel & 0x00FFFFFF;
+                    sum += (rgb & 0xFF) + ((rgb >> 8) & 0xFF) + ((rgb >> 16) & 0xFF);
+                    black += rgb == 0;
+                    hash = (hash ^ pixel) * 1099511628211ULL;
+                }
+            }
+            if (stats)
+                fprintf(stats, "%d,%d,%llu,%u,%llu\n", debugFrame, layer,
+                        (unsigned long long)sum, black, (unsigned long long)hash);
+
+            if (debugFrame == 900 || debugFrame == 901)
+            {
+                char path[128];
+                snprintf(path, sizeof(path), "/tmp/melonds-gl-%d-%d.ppm", debugFrame, layer);
+                FILE* image = fopen(path, "wb");
+                if (image)
+                {
+                    fprintf(image, "P6\n%d %d\n255\n", ScreenW, ScreenH);
+                    for (int y = ScreenH - 1; y >= 0; y--)
+                    {
+                        for (int x = 0; x < ScreenW; x++)
+                        {
+                            u32 pixel = pixels[y * ScreenW + x];
+                            fputc(pixel & 0xFF, image);
+                            fputc((pixel >> 8) & 0xFF, image);
+                            fputc((pixel >> 16) & 0xFF, image);
+                        }
+                    }
+                    fclose(image);
+                }
+            }
+        }
+        if (stats)
+            fclose(stats);
+        debugFrame++;
+    }
+    FrameReady = true;
+}
+
+void GLRenderer::SwapBuffers()
+{
+    if (!FrameReady)
+        return;
+
+    Renderer::SwapBuffers();
+    FrameReady = false;
 }
 
 
@@ -680,10 +830,7 @@ void GLRenderer::DoCapture(int ystart, int yend)
         dstheight = 64 * capsize;
     }
 
-    if (ystart >= dstheight)
-        return;
-    if (yend > dstheight)
-        yend = dstheight;
+    FlushAuxInput(Aux0VRAMCap);
 
     glUseProgram(CaptureShader);
 
@@ -693,13 +840,14 @@ void GLRenderer::DoCapture(int ystart, int yend)
     else
         inputA = OutputTex2D[0];
 
-    bool useSrcB = (dstmode == 1) || (dstmode == 2 && evb > 0);
+    bool useSrcB = (dstmode == 1) || (dstmode >= 2 && evb > 0);
 
     GLuint inputB = AuxInputTex;
     u32 layerB = srcB;
     CaptureConfig.uSrcBColorFactor = 248.f;
 
-    if (useSrcB && (Aux0VRAMCap != -1))
+    const bool useTrackedSrcB = useSrcB && !srcB && (Aux0VRAMCap != -1);
+    if (useTrackedSrcB)
     {
         // hi-res VRAM
         if (dstblock == srcBblock)
@@ -709,9 +857,6 @@ void GLRenderer::DoCapture(int ystart, int yend)
             // but we can't do that with OpenGL
             // so we need to blit it to a temporary framebuffer
 
-            int blitY0 = (srcBoffset * 64) + ystart;
-            int blitY1 = (srcBoffset * 64) + yend;
-
             if (dstoffset != srcBoffset)
                 Log(LogLevel::Error, "GPU_OpenGL: MISMATCHED VRAM OFFSETS ON SAME BANK!!! bank=%d src=%d dst=%d\n",
                        dstblock, srcBoffset, dstoffset);
@@ -719,23 +864,11 @@ void GLRenderer::DoCapture(int ystart, int yend)
             glBindFramebuffer(GL_READ_FRAMEBUFFER, CaptureOutput256FB[srcBblock]);
             glBindFramebuffer(GL_DRAW_FRAMEBUFFER, CaptureVRAMFB);
 
-            if (blitY1 > 256)
-            {
-                // wraparound
-                glBlitFramebuffer(0, blitY0*ScaleFactor, 256*ScaleFactor, 256*ScaleFactor,
-                                  0, blitY0*ScaleFactor, 256*ScaleFactor, 256*ScaleFactor,
-                                  GL_COLOR_BUFFER_BIT, GL_NEAREST);
-                glBlitFramebuffer(0, 0, 256*ScaleFactor, (blitY1-256)*ScaleFactor,
-                                  0, 0, 256*ScaleFactor, (blitY1-256)*ScaleFactor,
-                                  GL_COLOR_BUFFER_BIT, GL_NEAREST);
-            }
-            else
-            {
-                // straightforward
-                glBlitFramebuffer(0, blitY0*ScaleFactor, 256*ScaleFactor, blitY1*ScaleFactor,
-                                  0, blitY0*ScaleFactor, 256*ScaleFactor, blitY1*ScaleFactor,
-                                  GL_COLOR_BUFFER_BIT, GL_NEAREST);
-            }
+            // VCOUNT can be non-linear. Snapshot the whole source bank so
+            // every row selected by this band observes the pre-capture data.
+            glBlitFramebuffer(0, 0, 256*ScaleFactor, 256*ScaleFactor,
+                              0, 0, 256*ScaleFactor, 256*ScaleFactor,
+                              GL_COLOR_BUFFER_BIT, GL_NEAREST);
 
             inputB = CaptureVRAMTex;
             layerB = 0;
@@ -773,6 +906,7 @@ void GLRenderer::DoCapture(int ystart, int yend)
         CaptureConfig.uSrcBOffset = 0;
 
     CaptureConfig.uSrcBLayer = layerB;
+    CaptureConfig.uSrcBUseVCount = useTrackedSrcB;
 
     CaptureConfig.uDstMode = dstmode;
     CaptureConfig.uBlendFactors[0] = eva;
@@ -791,53 +925,36 @@ void GLRenderer::DoCapture(int ystart, int yend)
     glActiveTexture(GL_TEXTURE1);
     glBindTexture(GL_TEXTURE_2D_ARRAY, inputB);
 
-    u16 vtxbuf[12 * 4];
+    u16 vtxbuf[192 * 6 * 4];
     u16* vptr = vtxbuf;
-    int numvtx;
+    int numvtx = 0;
 
-    // y0/y1 = coordinates in destination buffer
-    // t0/t1 = coordinates in source buffers
-    if (capsize == 0) dstoffset = 0;
-    int y0 = (dstoffset * 64) + ystart;
-    int y1 = (dstoffset * 64) + yend;
-    int t0 = ystart;
-    int t1 = yend;
-
-    int bufferheight = (capsize == 0) ? 128 : 256;
-    if (y1 > bufferheight)
+    // VCOUNT can be rewritten during active display, so capture destination
+    // rows are not necessarily a linear scheduled-line band. Emit one quad
+    // per visible line while retaining scheduled coordinates for the 2D/FIFO
+    // sources; the shader remaps 3D/VRAM sources through uVCount.
+    for (int line = ystart; line < yend; line++)
     {
-        // wraparound
-        int y2 = bufferheight;
-        int t2 = t0 + (y2 - y0);
-        *vptr++ = 0;        *vptr++ = y2; *vptr++ = 0;         *vptr++ = t2;
-        *vptr++ = dstwidth; *vptr++ = y0; *vptr++ = dstwidth;  *vptr++ = t0;
-        *vptr++ = dstwidth; *vptr++ = y2; *vptr++ = dstwidth;  *vptr++ = t2;
-        *vptr++ = 0;        *vptr++ = y2; *vptr++ = 0;         *vptr++ = t2;
-        *vptr++ = 0;        *vptr++ = y0; *vptr++ = 0;         *vptr++ = t0;
-        *vptr++ = dstwidth; *vptr++ = y0; *vptr++ = dstwidth;  *vptr++ = t0;
+        const int vcount = CaptureConfig.uVCount[line];
+        if (vcount >= dstheight)
+            continue;
 
-        y2 = y1 - bufferheight;
-        *vptr++ = 0;        *vptr++ = y2; *vptr++ = 0;         *vptr++ = t1;
-        *vptr++ = dstwidth; *vptr++ = 0;  *vptr++ = dstwidth;  *vptr++ = t2;
-        *vptr++ = dstwidth; *vptr++ = y2; *vptr++ = dstwidth;  *vptr++ = t1;
-        *vptr++ = 0;        *vptr++ = y2; *vptr++ = 0;         *vptr++ = t1;
-        *vptr++ = 0;        *vptr++ = 0;  *vptr++ = 0;         *vptr++ = t2;
-        *vptr++ = dstwidth; *vptr++ = 0;  *vptr++ = dstwidth;  *vptr++ = t2;
+        const int y0 = capsize == 0 ? vcount : ((dstoffset * 64 + vcount) & 0xFF);
+        const int y1 = y0 + 1;
+        const int t0 = line;
+        const int t1 = line + 1;
 
-        numvtx = 12;
-    }
-    else
-    {
-        // straightforward
         *vptr++ = 0;        *vptr++ = y1; *vptr++ = 0;         *vptr++ = t1;
         *vptr++ = dstwidth; *vptr++ = y0; *vptr++ = dstwidth;  *vptr++ = t0;
         *vptr++ = dstwidth; *vptr++ = y1; *vptr++ = dstwidth;  *vptr++ = t1;
         *vptr++ = 0;        *vptr++ = y1; *vptr++ = 0;         *vptr++ = t1;
         *vptr++ = 0;        *vptr++ = y0; *vptr++ = 0;         *vptr++ = t0;
         *vptr++ = dstwidth; *vptr++ = y0; *vptr++ = dstwidth;  *vptr++ = t0;
-
-        numvtx = 6;
+        numvtx += 6;
     }
+
+    if (numvtx == 0)
+        return;
 
     glBindBuffer(GL_ARRAY_BUFFER, CaptureVtxBuffer);
     glBufferSubData(GL_ARRAY_BUFFER, 0, numvtx * 4 * sizeof(u16), vtxbuf);

@@ -1490,6 +1490,12 @@ void GLRenderer3D::RenderFrame()
 
 u32* GLRenderer3D::GetLine(int line)
 {
+    if (GPU3D.AbortFrame)
+    {
+        memset(ReadbackLine, 0, sizeof(ReadbackLine));
+        return ReadbackLine;
+    }
+
     if (!ReadbackValid)
     {
         glBindTexture(GL_TEXTURE_2D, ColorBufferTex);

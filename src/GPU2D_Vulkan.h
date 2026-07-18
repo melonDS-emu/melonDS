@@ -132,7 +132,9 @@ private:
     struct sRingBuffer
     {
         VK::Context::Buffer Buf;
+        std::vector<u8> Host;
         u32 Offset = 0;
+        bool Overflowed = false;
     };
 
     // ring of config versions, bound through a dynamic UBO offset so each
@@ -141,10 +143,12 @@ private:
     struct sConfigRing
     {
         VK::Context::Buffer Buf;
+        std::vector<u8> Host;
         u32 Stride = 0;
         u32 Slots = 0;
         u32 Next = 0;
         u32 CurOffset = 0;
+        bool Overflowed = false;
     };
 
     // resources shared between the two 2D units, created by InitShaders()
@@ -182,6 +186,8 @@ private:
     sConfigRing SpriteConfigRing;                   // binding 3, dynamic offset
     VK::Context::Buffer ScanlineConfigUBO;          // binding 1, band-disjoint direct writes
     VK::Context::Buffer SpriteScanlineConfigUBO;    // binding 4, band-disjoint direct writes
+    std::vector<u8> ScanlineConfigHost;
+    std::vector<u8> SpriteScanlineConfigHost;
 
     VK::Context::Image VRAMTexBG;                   // R8_UINT 1024 x bgheight
     VK::Context::Image VRAMTexOBJ;                  // R8_UINT 1024 x objheight
@@ -224,6 +230,7 @@ private:
     bool UseSoftware2D = false;
 
     u32 CompositeBands = 0;
+    bool SawVCountMismatch = false;
 
     VK::Context::Image DummyTex;                    // 1x1 RGBA8 stand-ins for unset
     VK::Context::Image DummyTexArray;               // shared resources / unassigned layers
@@ -341,6 +348,7 @@ private:
 
     u32 RingAlloc(sRingBuffer& ring, u32 size);
     void PushConfig(sConfigRing& ring, const void* data, u32 size);
+    void FlushMappedBuffers();
 
     VkDescriptorSet GetDescriptorSet(VkImageView vram, VkImageView pal,
                                      const VkImageView* bgViews, const VkSampler* bgSamplers);
@@ -356,9 +364,9 @@ private:
     void BeginTexUpload(VK::Context::Image& img);
     void EndTexUpload(VK::Context::Image& img);
     void DepthTargetBarrier();
-    void UploadTexRows(VK::Context::Image& img, const void* data,
+    bool UploadTexRows(VK::Context::Image& img, const void* data,
                        u32 rowStart, u32 rowCount, u32 bytesPerRow);
-    void UploadTexRectR8(VK::Context::Image& img, const void* data,
+    bool UploadTexRectR8(VK::Context::Image& img, const void* data,
                          u32 x, u32 rowStart, u32 width, u32 rowCount);
 
     // mirrors of the GLRenderer2D methods
@@ -366,6 +374,8 @@ private:
     bool IsScreenOn();
     void DrawSoftwareLine(u32 line);
     void FlushSoftwareLines(u32 endLine);
+    void Flush(u32 endLine);
+    void FinishFrame(u32 endLine);
 
     void UpdateAndRender(int line);
 

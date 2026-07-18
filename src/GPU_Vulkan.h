@@ -21,6 +21,7 @@
 
 #include <array>
 #include <map>
+#include <vector>
 
 #include "OpenGLSupport.h"
 #include "VulkanSupport.h"
@@ -73,8 +74,11 @@ public:
     void DrawScanline(u32 line) override;
     void DrawSprites(u32 line) override;
 
-    void VBlank() override;
+    void VBlank(u32 endLine) override;
     void VBlankEnd() override;
+    void FinishFrame(u32 endLine) override;
+
+    void SwapBuffers() override;
 
     void AllocCapture(u32 bank, u32 start, u32 len) override;
     void SyncVRAMCapture(u32 bank, u32 start, u32 len, bool complete) override;
@@ -110,6 +114,8 @@ private:
     bool SlotPending[2] = {false, false}; // submitted-but-not-yet-waited
     int FrameSlot = 0;
     bool FrameStarted = false;
+    bool FrameReady = false;
+    bool FrameDirty = false;
     // == FrameCmd[FrameSlot] while recording a frame's bands; temporarily
     // repointed at a one-shot command buffer while SyncVRAMCapture forces an
     // out-of-band flush (see .cpp for why)
@@ -118,13 +124,17 @@ private:
     void EnsureFrameStarted();
     void SubmitAndWaitFrame(); // ends + submits + fence-waits current slot; clears FrameStarted
     void SubmitFramePipelined(); // ends + submits current slot without waiting (wait deferred)
+    void PrepareMappedBuffersForSubmit();
+    void FlushMappedBuffers();
 
     // generic per-frame linear allocator (vertex data, staging uploads),
     // mirrors VulkanRenderer2D::sRingBuffer
     struct sRingBuffer
     {
         VK::Context::Buffer Buf;
+        std::vector<u8> Host;
         u32 Offset = 0;
+        bool Overflowed = false;
     };
     u32 RingAlloc(sRingBuffer& ring, u32 size);
 
@@ -135,10 +145,12 @@ private:
     struct sConfigRing
     {
         VK::Context::Buffer Buf;
+        std::vector<u8> Host;
         u32 Stride = 0;
         u32 Slots = 0;
         u32 Next = 0;
         u32 CurOffset = 0;
+        bool Overflowed = false;
     };
     bool InitConfigRing(sConfigRing& ring, u32 size, u32 slots);
     void PushConfig(sConfigRing& ring, const void* data, u32 size);
@@ -147,7 +159,7 @@ private:
     void EndColorTarget(VK::Context::Image& img);
     void BeginTexUpload(VK::Context::Image& img);
     void EndTexUpload(VK::Context::Image& img);
-    void UploadTexRows(VK::Context::Image& img, const void* data,
+    bool UploadTexRows(VK::Context::Image& img, const void* data,
                        u32 rowStart, u32 rowCount, u32 bytesPerRow, u32 layer);
 
     VkSampler SamplerNearestClamp = VK_NULL_HANDLE;
@@ -159,6 +171,7 @@ private:
     struct sFinalPassConfig
     {
         u32 uScreenSwap[192];
+        u32 uVCount[192];
         u32 uScaleFactor;
         u32 uAuxLayer;
         u32 uDispModeA;
@@ -169,7 +182,8 @@ private:
         u32 uBrightFactorB;
         float uAuxColorFactor;
         u32 uDither;
-        u32 __pad0[2];
+        u32 uAuxUseVCount;
+        u32 __pad0;
     } FinalPassConfig;
 
     VkDescriptorSetLayout FPSetLayout = VK_NULL_HANDLE;
@@ -187,7 +201,9 @@ private:
     VkFramebuffer FPFramebuffer = VK_NULL_HANDLE;
 
     VkDescriptorPool FPDescPool = VK_NULL_HANDLE;
-    VkDescriptorSet FPDescSet = VK_NULL_HANDLE;
+    // AuxInput and hi-res display capture are different array textures. Keep
+    // immutable descriptor variants so an in-flight frame is never updated.
+    VkDescriptorSet FPDescSet[2] = {VK_NULL_HANDLE, VK_NULL_HANDLE};
 
     // host visible, ScreenW*ScreenH*2 layers*4 bytes. Double-buffered in step
     // with FrameSlot: frame N copies into [FrameSlot], the GL upload presents
@@ -210,6 +226,7 @@ private:
     sRingBuffer AuxStagingRing;
 
     u16* AuxInputBuffer[2];
+    bool AuxInputDirty[2][256];
     u8 AuxUsageMask;
 
     // ---- Capture (GL: CaptureShader, CaptureOutput128/256, CaptureVRAM) ----
@@ -223,8 +240,10 @@ private:
         u32 uDstMode;
         u32 uBlendFactors[2];
         float uSrcAOffset[192];
+        u32 uVCount[192];
         float uSrcBColorFactor;
-        u32 __pad0[3];
+        u32 uSrcBUseVCount;
+        u32 __pad0[2];
     } CaptureConfig;
 
     VkDescriptorSetLayout CaptureSetLayout = VK_NULL_HANDLE;
@@ -284,6 +303,7 @@ private:
     void InvalidateCaptureDescCache();
 
     void RenderScreen(int ystart, int yend);
+    void FlushAuxInput(int vramcap);
     void DoCapture(int ystart, int yend);
     void DownscaleCapture(VkCommandBuffer cmd, int width, int height, int layer);
 

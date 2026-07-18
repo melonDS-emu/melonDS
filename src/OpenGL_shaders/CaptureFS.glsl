@@ -12,7 +12,9 @@ layout(std140) uniform ubCaptureConfig
     int uDstMode;
     ivec2 uBlendFactors;
     vec4 uSrcAOffset[48];
+    ivec4 uVCount[48];
     float uSrcBColorFactor;
+    int uSrcBUseVCount;
 };
 
 smooth in vec4 fTexcoord;
@@ -32,15 +34,21 @@ void main()
 {
     vec2 coordA = fTexcoord.xy;
     vec3 coordB = vec3(fTexcoord.xw, uSrcBLayer);
+    int line = int(fTexcoord.z);
+    int vcount = uVCount[line>>2][line&0x3];
+    float lineFrac = fract(fTexcoord.z);
     ivec4 cap_out;
 
     // apply scroll for 3D layer, if we're capturing that
     if (uSrcALayer == 1)
     {
-        int line = int(fTexcoord.z);
+        coordA.y = (float(vcount) + lineFrac) / 192.0;
         coordA.x += uSrcAOffset[line>>2][line&0x3];
         //coordA.x += GetSrcAPos(fTexcoord.z);
     }
+
+    if (uSrcBUseVCount != 0)
+        coordB.y = (float(vcount + uSrcBOffset) + lineFrac) / 256.0;
 
     if (uDstMode == 0)
     {

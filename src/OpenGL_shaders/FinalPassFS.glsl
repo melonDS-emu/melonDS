@@ -7,6 +7,7 @@ uniform sampler2DArray AuxInputTex;
 layout(std140) uniform ubFinalPassConfig
 {
     bvec4 uScreenSwap[48]; // one bool per scanline
+    ivec4 uVCount[48];
     int uScaleFactor;
     int uAuxLayer;
     int uDispModeA;
@@ -16,6 +17,7 @@ layout(std140) uniform ubFinalPassConfig
     int uBrightFactorA;
     int uBrightFactorB;
     float uAuxColorFactor;
+    int uAuxUseVCount;
 };
 
 smooth in vec3 fTexcoord;
@@ -41,6 +43,7 @@ ivec3 MasterBrightness(ivec3 color, int brightmode, int evy)
 
 void main()
 {
+    int line = int(fTexcoord.y * 192);
     ivec4 col_main = ivec4(texture(MainInputTexA, fTexcoord.xy, 0) * 255.0) >> 2;
     ivec4 col_sub = ivec4(texture(MainInputTexB, fTexcoord.xy, 0) * 255.0) >> 2;
 
@@ -59,7 +62,13 @@ void main()
     else
     {
         // VRAM display / mainmem FIFO
-        output_main = ivec3(texture(AuxInputTex, vec3(fTexcoord.xz, uAuxLayer)).rgb * uAuxColorFactor);
+        vec2 auxCoord = fTexcoord.xz;
+        if (uAuxUseVCount != 0)
+        {
+            int vcount = uVCount[line>>2][line&0x3];
+            auxCoord.y = (float(vcount) + fract(fTexcoord.y * 192.0)) / 256.0;
+        }
+        output_main = ivec3(texture(AuxInputTex, vec3(auxCoord, uAuxLayer)).rgb * uAuxColorFactor);
     }
 
     if (uDispModeB == 0)
@@ -81,7 +90,6 @@ void main()
     output_main = (output_main << 2) | (output_main >> 6);
     output_sub = (output_sub << 2) | (output_sub >> 6);
 
-    int line = int(fTexcoord.y * 192);
     bool swapbit = uScreenSwap[line>>2][line&0x3];
 
     if (!swapbit)

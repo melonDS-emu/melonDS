@@ -3,6 +3,7 @@
 layout(std140) uniform ubFinalPassConfig
 {
     bvec4 uScreenSwap[48]; // one bool per scanline
+    ivec4 uVCount[48];
     int uScaleFactor;
     int uAuxLayer;
     int uDispModeA;
@@ -12,6 +13,7 @@ layout(std140) uniform ubFinalPassConfig
     int uBrightFactorA;
     int uBrightFactorB;
     float uAuxColorFactor;
+    int uAuxUseVCount;
 };
 
 in vec2 vPosition;

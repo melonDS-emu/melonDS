@@ -122,6 +122,7 @@ private:
     bool UseSoftware2D = false;
 
     u32 CompositeBands = 0;
+    bool SawVCountMismatch = false;
 
     // std140 compliant config struct for the layer shader
     struct sLayerConfig
@@ -224,6 +225,8 @@ private:
     void DrawSoftwareLine(u32 line);
     void FlushSoftwareLines(u32 endLine);
     void SwitchToHardware(u32 line);
+    void Flush(u32 endLine);
+    void FinishFrame(u32 endLine);
 
     void UpdateAndRender(int line);
 

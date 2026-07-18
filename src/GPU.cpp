@@ -16,6 +16,7 @@
     with melonDS. If not, see http://www.gnu.org/licenses/.
 */
 
+#include <algorithm>
 #include <string.h>
 #include "NDS.h"
 #include "GPU.h"
@@ -133,6 +134,7 @@ void GPU::Reset() noexcept
     VCountOverride = false;
     NextVCount = 0;
     TotalScanlines = 0;
+    RendererFramePublished = false;
 
     DispStat[0] = 0;
     DispStat[1] = 0;
@@ -1135,7 +1137,17 @@ void GPU::StartFrame() noexcept
     RunFIFO = UsesDisplayFIFO() || NDS.DMAsInMode(0, 0x04);
 
     TotalScanlines = 0;
+    RendererFramePublished = false;
     StartScanline(0);
+}
+
+void GPU::PublishRendererFrame(u32 endLine) noexcept
+{
+    if (RendererFramePublished)
+        return;
+
+    Rend->FinishFrame(std::min(endLine, 192u));
+    RendererFramePublished = true;
 }
 
 void GPU::StartHBlank(u32 line) noexcept
@@ -1166,6 +1178,11 @@ void GPU::StartHBlank(u32 line) noexcept
     }
     else if (VCount == 262)
     {
+        // A VCOUNT write can skip the emulated VBlank transition. Finalize
+        // the scheduled display frame before pre-rendering next frame's
+        // sprite line 0.
+        PublishRendererFrame(line);
+
         // sprites are pre-rendered one scanline in advance
         Rend->DrawSprites(0);
     }
@@ -1184,6 +1201,7 @@ void GPU::StartHBlank(u32 line) noexcept
 
 void GPU::FinishFrame(u32 lines) noexcept
 {
+    PublishRendererFrame(lines - 1);
     Rend->SwapBuffers();
 
     TotalScanlines = lines;
@@ -1256,6 +1274,12 @@ void GPU::StartScanline(u32 line) noexcept
     else if (VCount == 194)
         NDS.StopDMAs(0, 0x03);
 
+    // This is tied to the scheduled frame boundary rather than VCount:
+    // software can rewrite VCount during active display.  The pre-blackmagic
+    // renderer used the same boundary to retire per-frame display state.
+    if (line == 0)
+        Rend->VBlankEnd();
+
     if ((VCount < 192) && RunFIFO)
         NDS.ScheduleEvent(Event_DisplayFIFO, false, 32, 0, 0);
 
@@ -1298,7 +1322,7 @@ void GPU::StartScanline(u32 line) noexcept
 
         GPU3D.VBlank();
 
-        Rend->VBlank();
+        Rend->VBlank(std::min(line, 192u));
 
         if (CaptureEnable)
         {
@@ -1333,6 +1357,12 @@ void GPU::StartScanline(u32 line) noexcept
         SetDispStatIRQ(1, 2);
     else
         DispStat[1] &= ~(1<<2);
+
+    // Final-pass renderers normally finish on the emulated 191->192
+    // transition. Tie a fallback to the physical/scheduled display boundary
+    // as well, because software can rewrite VCOUNT and skip that transition.
+    if (line == 192)
+        PublishRendererFrame(192);
 
     NDS.ScheduleEvent(Event_LCD, true, HBLANK_CYCLES, LCD_StartHBlank, line);
 }

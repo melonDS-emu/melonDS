@@ -17,6 +17,7 @@
 */
 
 #include <string.h>
+#include <stdio.h>
 #include <algorithm>
 
 #include "NDS.h"
@@ -35,6 +36,9 @@ VulkanRenderer::VulkanRenderer(melonDS::NDS& nds)
 {
     AuxInputBuffer[0] = new u16[256 * 256];
     AuxInputBuffer[1] = new u16[256 * 192];
+    memset(AuxInputBuffer[0], 0, 256 * 256 * sizeof(u16));
+    memset(AuxInputBuffer[1], 0, 256 * 192 * sizeof(u16));
+    memset(AuxInputDirty, 1, sizeof(AuxInputDirty));
 
     // the 3D renderer owns the shared VK::Context; it must be constructed
     // (and its context initialised, in Init()) before the 2D units, which
@@ -281,17 +285,19 @@ bool VulkanRenderer::Init()
 
     if (!Ctx->CreateBuffer(CaptureVertexRing.Buf, 256 * 1024, VK_BUFFER_USAGE_VERTEX_BUFFER_BIT, true))
         return false;
+    CaptureVertexRing.Host.resize(CaptureVertexRing.Buf.Size);
     if (!Ctx->CreateBuffer(AuxStagingRing.Buf, 512 * 1024, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, true))
         return false;
+    AuxStagingRing.Host.resize(AuxStagingRing.Buf.Size);
 
     // ---- config rings ----
 
     static_assert((sizeof(sFinalPassConfig) & 15) == 0);
     static_assert((sizeof(sCaptureConfig) & 15) == 0);
 
-    if (!InitConfigRing(FPConfigRing, sizeof(sFinalPassConfig), 64))
+    if (!InitConfigRing(FPConfigRing, sizeof(sFinalPassConfig), 256))
         return false;
-    if (!InitConfigRing(CaptureConfigRing, sizeof(sCaptureConfig), 64))
+    if (!InitConfigRing(CaptureConfigRing, sizeof(sCaptureConfig), 256))
         return false;
 
     // ---- AuxInput texture (VRAM-display / mainmem DISP FIFO); fixed size ----
@@ -334,21 +340,22 @@ bool VulkanRenderer::Init()
 
     {
         VkDescriptorPoolSize sizes[] = {
-            {VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC, 1},
-            {VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 3},
+            {VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC, 2},
+            {VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 6},
         };
         VkDescriptorPoolCreateInfo poolInfo = {VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO};
-        poolInfo.maxSets = 1;
+        poolInfo.maxSets = 2;
         poolInfo.poolSizeCount = 2;
         poolInfo.pPoolSizes = sizes;
         if (VK::vkCreateDescriptorPool(Ctx->Device, &poolInfo, nullptr, &FPDescPool) != VK_SUCCESS)
             return false;
 
+        VkDescriptorSetLayout layouts[2] = {FPSetLayout, FPSetLayout};
         VkDescriptorSetAllocateInfo allocInfo = {VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO};
         allocInfo.descriptorPool = FPDescPool;
-        allocInfo.descriptorSetCount = 1;
-        allocInfo.pSetLayouts = &FPSetLayout;
-        if (VK::vkAllocateDescriptorSets(Ctx->Device, &allocInfo, &FPDescSet) != VK_SUCCESS)
+        allocInfo.descriptorSetCount = 2;
+        allocInfo.pSetLayouts = layouts;
+        if (VK::vkAllocateDescriptorSets(Ctx->Device, &allocInfo, FPDescSet) != VK_SUCCESS)
             return false;
     }
 
@@ -523,6 +530,11 @@ void VulkanRenderer::Reset()
     memset(&CaptureConfig, 0, sizeof(CaptureConfig));
 
     AuxUsageMask = 0;
+    memset(AuxInputBuffer[0], 0, 256 * 256 * sizeof(u16));
+    memset(AuxInputBuffer[1], 0, 256 * 192 * sizeof(u16));
+    memset(AuxInputDirty, 1, sizeof(AuxInputDirty));
+    FrameReady = false;
+    FrameDirty = false;
 
     DispCntA = 0;
     DispCntB = 0;
@@ -620,6 +632,8 @@ void VulkanRenderer::SetScaleFactor(int scale)
         }
     }
     FrameStarted = false;
+    FrameReady = false;
+    FrameDirty = true;
     HavePrevFrame = false;
     FrameSlot = 0;
 
@@ -710,29 +724,44 @@ void VulkanRenderer::SetScaleFactor(int scale)
 
     {
         VkDescriptorBufferInfo bufInfo = {FPConfigRing.Buf.Buf, 0, sizeof(sFinalPassConfig)};
-        VkDescriptorImageInfo imgInfos[3] = {
-            {SamplerNearestClamp, rend2dA->GetOutput().View, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL},
-            {SamplerNearestClamp, rend2dB->GetOutput().View, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL},
+        VkDescriptorImageInfo mainInputs[2] = {
+            {SamplerNearestClamp, rend2dA->GetOutput().View,
+             VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL},
+            {SamplerNearestClamp, rend2dB->GetOutput().View,
+             VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL},
+        };
+        VkDescriptorImageInfo auxInputs[2] = {
             {SamplerNearestRepeat, AuxInputView, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL},
+            {SamplerNearestRepeat, CaptureOutput256Img.View,
+             VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL},
         };
 
-        VkWriteDescriptorSet writes[4] = {};
-        writes[0].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-        writes[0].dstSet = FPDescSet;
-        writes[0].dstBinding = 0;
-        writes[0].descriptorCount = 1;
-        writes[0].descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC;
-        writes[0].pBufferInfo = &bufInfo;
-        for (u32 i = 0; i < 3; i++)
+        for (u32 variant = 0; variant < 2; variant++)
         {
-            writes[1 + i].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-            writes[1 + i].dstSet = FPDescSet;
-            writes[1 + i].dstBinding = 1 + i;
-            writes[1 + i].descriptorCount = 1;
-            writes[1 + i].descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
-            writes[1 + i].pImageInfo = &imgInfos[i];
+            VkWriteDescriptorSet writes[4] = {};
+            writes[0].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+            writes[0].dstSet = FPDescSet[variant];
+            writes[0].dstBinding = 0;
+            writes[0].descriptorCount = 1;
+            writes[0].descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC;
+            writes[0].pBufferInfo = &bufInfo;
+            for (u32 i = 0; i < 2; i++)
+            {
+                writes[1 + i].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+                writes[1 + i].dstSet = FPDescSet[variant];
+                writes[1 + i].dstBinding = 1 + i;
+                writes[1 + i].descriptorCount = 1;
+                writes[1 + i].descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+                writes[1 + i].pImageInfo = &mainInputs[i];
+            }
+            writes[3].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+            writes[3].dstSet = FPDescSet[variant];
+            writes[3].dstBinding = 3;
+            writes[3].descriptorCount = 1;
+            writes[3].descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+            writes[3].pImageInfo = &auxInputs[variant];
+            VK::vkUpdateDescriptorSets(Ctx->Device, 4, writes, 0, nullptr);
         }
-        VK::vkUpdateDescriptorSets(Ctx->Device, 4, writes, 0, nullptr);
     }
 
     {
@@ -794,6 +823,8 @@ void VulkanRenderer::SubmitAndWaitFrame()
     if (!FrameStarted)
         return;
 
+    PrepareMappedBuffersForSubmit();
+
     int s = FrameSlot;
     VK::vkEndCommandBuffer(FrameCmd[s]);
 
@@ -817,6 +848,8 @@ void VulkanRenderer::SubmitFramePipelined()
     if (!FrameStarted)
         return;
 
+    PrepareMappedBuffersForSubmit();
+
     int s = FrameSlot;
     VK::vkEndCommandBuffer(FrameCmd[s]);
 
@@ -830,14 +863,44 @@ void VulkanRenderer::SubmitFramePipelined()
     CurCmd = VK_NULL_HANDLE;
 }
 
+void VulkanRenderer::PrepareMappedBuffersForSubmit()
+{
+    // Command buffers are double-buffered, but the mapped upload/config
+    // buffers are shared. Let the CPU build the next frame in private mirrors,
+    // then publish those mirrors only after the previous GPU consumer exits.
+    const int prev = FrameSlot ^ 1;
+    if (SlotPending[prev])
+    {
+        VK::vkWaitForFences(Ctx->Device, 1, &FrameFence[prev], VK_TRUE, UINT64_MAX);
+        VK::vkResetFences(Ctx->Device, 1, &FrameFence[prev]);
+        SlotPending[prev] = false;
+    }
+
+    auto* rend2dA = dynamic_cast<VulkanRenderer2D*>(Rend2D_A.get());
+    auto* rend2dB = dynamic_cast<VulkanRenderer2D*>(Rend2D_B.get());
+    rend2dA->FlushMappedBuffers();
+    rend2dB->FlushMappedBuffers();
+    FlushMappedBuffers();
+}
+
 
 // ---- Vulkan plumbing helpers -------------------------------------------
 
 u32 VulkanRenderer::RingAlloc(sRingBuffer& ring, u32 size)
 {
     size = (size + 255) & ~255u;
-    if (ring.Offset + size > ring.Buf.Size)
-        ring.Offset = 0;
+    if (size > ring.Buf.Size || ring.Offset > ring.Buf.Size - size)
+    {
+        if (!ring.Overflowed)
+        {
+            Log(LogLevel::Error,
+                "GPU_Vulkan: transient buffer exhausted (used=%u, request=%u, capacity=%llu)\n",
+                ring.Offset, size, (unsigned long long)ring.Buf.Size);
+            ring.Overflowed = true;
+        }
+        return ~0u;
+    }
+
     u32 offset = ring.Offset;
     ring.Offset += size;
     return offset;
@@ -855,15 +918,52 @@ bool VulkanRenderer::InitConfigRing(sConfigRing& ring, u32 size, u32 slots)
     if (!Ctx->CreateBuffer(ring.Buf, (VkDeviceSize)ring.Stride * slots,
                           VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, true))
         return false;
-    memset(ring.Buf.Map, 0, ring.Stride);
+    ring.Host.resize(ring.Buf.Size);
+    memset(ring.Host.data(), 0, ring.Host.size());
+    memset(ring.Buf.Map, 0, ring.Buf.Size);
     return true;
 }
 
 void VulkanRenderer::PushConfig(sConfigRing& ring, const void* data, u32 size)
 {
+    if (ring.Next >= ring.Slots)
+    {
+        if (!ring.Overflowed)
+        {
+            Log(LogLevel::Error,
+                "GPU_Vulkan: per-band config buffer exhausted (%u slots)\n",
+                ring.Slots);
+            ring.Overflowed = true;
+        }
+        return;
+    }
+
     ring.CurOffset = ring.Next * ring.Stride;
-    memcpy((u8*)ring.Buf.Map + ring.CurOffset, data, size);
-    ring.Next = (ring.Next + 1) % ring.Slots;
+    memcpy(ring.Host.data() + ring.CurOffset, data, size);
+    ring.Next++;
+}
+
+void VulkanRenderer::FlushMappedBuffers()
+{
+    auto flushRing = [](sRingBuffer& ring)
+    {
+        if (ring.Offset)
+            memcpy(ring.Buf.Map, ring.Host.data(), ring.Offset);
+        ring.Offset = 0;
+        ring.Overflowed = false;
+    };
+    auto flushConfig = [](sConfigRing& ring)
+    {
+        memcpy(ring.Buf.Map, ring.Host.data(), ring.Host.size());
+        ring.Next = 0;
+        ring.CurOffset = 0;
+        ring.Overflowed = false;
+    };
+
+    flushRing(AuxStagingRing);
+    flushRing(CaptureVertexRing);
+    flushConfig(FPConfigRing);
+    flushConfig(CaptureConfigRing);
 }
 
 void VulkanRenderer::BeginColorTarget(VK::Context::Image& img)
@@ -895,12 +995,14 @@ void VulkanRenderer::EndTexUpload(VK::Context::Image& img)
         VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT, VK_ACCESS_SHADER_READ_BIT);
 }
 
-void VulkanRenderer::UploadTexRows(VK::Context::Image& img, const void* data,
+bool VulkanRenderer::UploadTexRows(VK::Context::Image& img, const void* data,
                                    u32 rowStart, u32 rowCount, u32 bytesPerRow, u32 layer)
 {
     u32 size = rowCount * bytesPerRow;
     u32 offset = RingAlloc(AuxStagingRing, size);
-    memcpy((u8*)AuxStagingRing.Buf.Map + offset, data, size);
+    if (offset == ~0u)
+        return false;
+    memcpy(AuxStagingRing.Host.data() + offset, data, size);
 
     VkBufferImageCopy region = {};
     region.bufferOffset = offset;
@@ -909,6 +1011,7 @@ void VulkanRenderer::UploadTexRows(VK::Context::Image& img, const void* data,
     region.imageExtent = {img.Width, rowCount, 1};
     VK::vkCmdCopyBufferToImage(CurCmd, AuxStagingRing.Buf.Buf, img.Img,
                                VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, &region);
+    return true;
 }
 
 void VulkanRenderer::InvalidateCaptureDescCache()
@@ -977,6 +1080,8 @@ void VulkanRenderer::DrawScanline(u32 line)
     if (!Ctx->Valid)
         return;
 
+    FrameDirty = true;
+
     EnsureFrameStarted();
 
     auto* rend2dA = dynamic_cast<VulkanRenderer2D*>(Rend2D_A.get());
@@ -1030,6 +1135,8 @@ void VulkanRenderer::DrawScanline(u32 line)
     CaptureCnt = GPU.CaptureCnt;
 
     FinalPassConfig.uScreenSwap[line] = GPU.ScreenSwap;
+    FinalPassConfig.uVCount[line] = GPU.VCount;
+    CaptureConfig.uVCount[line] = GPU.VCount;
 
     u32 dispcnt = GPU.GPU2D_A.DispCnt;
     u32 dispmode = (dispcnt >> 16) & 0x3;
@@ -1056,7 +1163,7 @@ void VulkanRenderer::DrawScanline(u32 line)
         AuxUsageMask |= (1<<0);
 
         u32 vrambank = (dispcnt >> 18) & 0x3;
-        u32 vramoffset = line * 256;
+        u32 vramoffset = GPU.VCount * 256;
         u32 outoffset = line * 256;
         if (dispmode != 2)
         {
@@ -1085,6 +1192,8 @@ void VulkanRenderer::DrawScanline(u32 line)
             for (int i = 0; i < 256; i++)
                 adst[i] = 0;
         }
+
+        AuxInputDirty[0][outoffset >> 8] = true;
     }
 
     if ((dispmode == 3) || (checkcap && (capB == 1)))
@@ -1094,6 +1203,7 @@ void VulkanRenderer::DrawScanline(u32 line)
         u16* adst = &AuxInputBuffer[1][line * 256];
         for (int i = 0; i < 256; i++)
             adst[i] = GPU.DispFIFOBuffer[i];
+        AuxInputDirty[1][line] = true;
     }
 }
 
@@ -1132,9 +1242,18 @@ void VulkanRenderer::RenderScreen(int ystart, int yend)
     }
     Aux0VRAMCap = vramcap;
 
-    // FPOutputImg rests in COLOR_ATTACHMENT_OPTIMAL between bands (it is
-    // never sampled, only written then read back once at VBlank), so no
-    // barrier is needed here beyond what SetScaleFactor already set up
+    // Transfers and pipeline barriers are not valid inside a render pass.
+    // Publish only auxiliary rows changed since the preceding band.
+    FlushAuxInput(vramcap);
+
+    // Each band uses LOAD to preserve rows written by earlier bands. The
+    // layout stays unchanged, but those color writes still need an explicit
+    // memory dependency before the next render pass loads the attachment.
+    Ctx->TransitionImage(CurCmd, FPOutputImg, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
+        VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT, VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT,
+        VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,
+        VK_ACCESS_COLOR_ATTACHMENT_READ_BIT | VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT);
+
     VkRenderPassBeginInfo rpInfo = {VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO};
     rpInfo.renderPass = FPRenderPass;
     rpInfo.framebuffer = FPFramebuffer;
@@ -1171,30 +1290,16 @@ void VulkanRenderer::RenderScreen(int ystart, int yend)
         FinalPassConfig.uBrightModeB = (MasterBrightnessB >> 14) & 0x3;
         FinalPassConfig.uBrightFactorA = std::min(MasterBrightnessA & 0x1F, 16);
         FinalPassConfig.uBrightFactorB = std::min(MasterBrightnessB & 0x1F, 16);
-
-        if (AuxUsageMask)
-        {
-            bool uploading = false;
-            if ((AuxUsageMask & (1<<0)) && (vramcap == -1))
-            {
-                BeginTexUpload(AuxInputImg);
-                uploading = true;
-                UploadTexRows(AuxInputImg, AuxInputBuffer[0], 0, 256, 256 * 2, 0);
-            }
-            if (AuxUsageMask & (1<<1))
-            {
-                if (!uploading) { BeginTexUpload(AuxInputImg); uploading = true; }
-                UploadTexRows(AuxInputImg, AuxInputBuffer[1], 0, 192, 256 * 2, 1);
-            }
-            if (uploading)
-                EndTexUpload(AuxInputImg);
-        }
+        FinalPassConfig.uAuxUseVCount = 0;
 
         u32 modeA = (DispCntA >> 16) & 0x3;
+        VkDescriptorSet fpDescSet = FPDescSet[0];
         if ((modeA == 2) && (vramcap != -1))
         {
             FinalPassConfig.uAuxLayer = vramcap >> 2;
             FinalPassConfig.uAuxColorFactor = 63.75f;
+            FinalPassConfig.uAuxUseVCount = 1;
+            fpDescSet = FPDescSet[1];
         }
         else if (modeA >= 2)
         {
@@ -1207,7 +1312,7 @@ void VulkanRenderer::RenderScreen(int ystart, int yend)
         VK::vkCmdBindPipeline(CurCmd, VK_PIPELINE_BIND_POINT_GRAPHICS, FPPipeline);
         u32 dynOffset = FPConfigRing.CurOffset;
         VK::vkCmdBindDescriptorSets(CurCmd, VK_PIPELINE_BIND_POINT_GRAPHICS, FPPipelineLayout,
-                                    0, 1, &FPDescSet, 1, &dynOffset);
+                                    0, 1, &fpDescSet, 1, &dynOffset);
 
         VkDeviceSize bindOffset = 0;
         VK::vkCmdBindVertexBuffers(CurCmd, 0, 1, &FPVertexBuffer.Buf, &bindOffset);
@@ -1217,27 +1322,102 @@ void VulkanRenderer::RenderScreen(int ystart, int yend)
     VK::vkCmdEndRenderPass(CurCmd);
 }
 
-void VulkanRenderer::VBlank()
+void VulkanRenderer::FlushAuxInput(int vramcap)
 {
-    if (!Ctx->Valid)
+    bool uploading = false;
+
+    for (int layer = 0; layer < 2; layer++)
+    {
+        if (!(AuxUsageMask & (1 << layer)))
+            continue;
+        if (layer == 0 && vramcap != -1)
+            continue;
+
+        const int rows = layer == 0 ? 256 : 192;
+        for (int start = 0; start < rows;)
+        {
+            while (start < rows && !AuxInputDirty[layer][start])
+                start++;
+            if (start >= rows)
+                break;
+
+            int end = start + 1;
+            while (end < rows && AuxInputDirty[layer][end])
+                end++;
+
+            if (!uploading)
+            {
+                BeginTexUpload(AuxInputImg);
+                uploading = true;
+            }
+
+            if (UploadTexRows(AuxInputImg, &AuxInputBuffer[layer][start * 256],
+                              start, end - start, 256 * sizeof(u16), layer))
+            {
+                memset(&AuxInputDirty[layer][start], 0,
+                       (end - start) * sizeof(AuxInputDirty[layer][0]));
+            }
+            start = end;
+        }
+    }
+
+    if (uploading)
+        EndTexUpload(AuxInputImg);
+}
+
+void VulkanRenderer::VBlank(u32 endLine)
+{
+    if (!Ctx->Valid || !FrameDirty)
         return;
 
+    endLine = std::min(endLine, 192u);
     EnsureFrameStarted();
 
     auto* rend2dA = dynamic_cast<VulkanRenderer2D*>(Rend2D_A.get());
     auto* rend2dB = dynamic_cast<VulkanRenderer2D*>(Rend2D_B.get());
     rend2dA->SetCommandBuffer(FrameCmd[FrameSlot]);
     rend2dB->SetCommandBuffer(FrameCmd[FrameSlot]);
-    rend2dA->VBlank();
-    rend2dB->VBlank();
+    rend2dA->Flush(endLine);
+    rend2dB->Flush(endLine);
 
-    RenderScreen(LastLine, 192);
+    if (LastLine < (int)endLine)
+        RenderScreen(LastLine, endLine);
 
+    if (GPU.CaptureEnable && LastCapLine < (int)endLine)
+        DoCapture(LastCapLine, endLine);
+
+    LastLine = endLine;
     if (GPU.CaptureEnable)
-        DoCapture(LastCapLine, 192);
+        LastCapLine = endLine;
+    FrameDirty = false;
+}
+
+void VulkanRenderer::FinishFrame(u32 endLine)
+{
+    if (!Ctx->Valid || FrameReady)
+        return;
+
+    endLine = std::min(endLine, 192u);
+    EnsureFrameStarted();
+
+    auto* rend2dA = dynamic_cast<VulkanRenderer2D*>(Rend2D_A.get());
+    auto* rend2dB = dynamic_cast<VulkanRenderer2D*>(Rend2D_B.get());
+    rend2dA->SetCommandBuffer(FrameCmd[FrameSlot]);
+    rend2dB->SetCommandBuffer(FrameCmd[FrameSlot]);
+    rend2dA->FinishFrame(endLine);
+    rend2dB->FinishFrame(endLine);
+
+    if (FrameDirty)
+    {
+        if (LastLine < (int)endLine)
+            RenderScreen(LastLine, endLine);
+        if (GPU.CaptureEnable && LastCapLine < (int)endLine)
+            DoCapture(LastCapLine, endLine);
+    }
 
     LastLine = 0;
     LastCapLine = 0;
+    FrameDirty = false;
 
     // read back the finished FinalPass output and hand it to the GL
     // compositor as the BACK buffer (mirrors GLRenderer::RenderScreen
@@ -1259,6 +1439,12 @@ void VulkanRenderer::VBlank()
         VK::vkCmdCopyImageToBuffer(FrameCmd[cur], FPOutputImg.Img, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
                                    FPReadbackBuffer[cur].Buf, 1, &region);
 
+        VkMemoryBarrier hostBarrier = {VK_STRUCTURE_TYPE_MEMORY_BARRIER};
+        hostBarrier.srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
+        hostBarrier.dstAccessMask = VK_ACCESS_HOST_READ_BIT;
+        VK::vkCmdPipelineBarrier(FrameCmd[cur], VK_PIPELINE_STAGE_TRANSFER_BIT,
+            VK_PIPELINE_STAGE_HOST_BIT, 0, 1, &hostBarrier, 0, nullptr, 0, nullptr);
+
         Ctx->TransitionImage(FrameCmd[cur], FPOutputImg, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
             VK_PIPELINE_STAGE_TRANSFER_BIT, VK_ACCESS_TRANSFER_READ_BIT,
             VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,
@@ -1267,12 +1453,69 @@ void VulkanRenderer::VBlank()
 
     auto uploadToGL = [&](VK::Context::Buffer& rb)
     {
-        if (rb.Map)
+        if (!rb.Map)
+            return false;
+
+        glBindTexture(GL_TEXTURE_2D_ARRAY, FPOutputTex[backbuf]);
+        glTexSubImage3D(GL_TEXTURE_2D_ARRAY, 0, 0, 0, 0, ScreenW, ScreenH, 2,
+                        GL_RGBA, GL_UNSIGNED_BYTE, rb.Map);
+
+        static int debugFrame = 0;
+        if (debugFrame < 1200)
         {
-            glBindTexture(GL_TEXTURE_2D_ARRAY, FPOutputTex[backbuf]);
-            glTexSubImage3D(GL_TEXTURE_2D_ARRAY, 0, 0, 0, 0, ScreenW, ScreenH, 2,
-                            GL_RGBA, GL_UNSIGNED_BYTE, rb.Map);
+            FILE* stats = fopen("/tmp/melonds-vulkan-frame-stats.csv", debugFrame ? "a" : "w");
+            auto* pixels = static_cast<const u32*>(rb.Map);
+            const size_t layerSize = (size_t)ScreenW * ScreenH;
+            for (int layer = 0; layer < 2; layer++)
+            {
+                u64 sum = 0;
+                u64 hash = 1469598103934665603ULL;
+                u32 black = 0;
+                for (int y = 0; y < 192; y++)
+                {
+                    for (int x = 0; x < 256; x++)
+                    {
+                        u32 pixel = pixels[(layer * layerSize) +
+                                           (((y * ScaleFactor) + (ScaleFactor / 2)) * ScreenW) +
+                                           ((x * ScaleFactor) + (ScaleFactor / 2))];
+                        u32 rgb = pixel & 0x00FFFFFF;
+                        sum += (rgb & 0xFF) + ((rgb >> 8) & 0xFF) + ((rgb >> 16) & 0xFF);
+                        black += rgb == 0;
+                        hash = (hash ^ pixel) * 1099511628211ULL;
+                    }
+                }
+                if (stats)
+                    fprintf(stats, "%d,%d,%llu,%u,%llu\n", debugFrame, layer,
+                            (unsigned long long)sum, black, (unsigned long long)hash);
+
+                if (debugFrame == 900 || debugFrame == 901)
+                {
+                    char path[128];
+                    snprintf(path, sizeof(path), "/tmp/melonds-vulkan-%d-%d.ppm", debugFrame, layer);
+                    FILE* image = fopen(path, "wb");
+                    if (image)
+                    {
+                        fprintf(image, "P6\n%d %d\n255\n", ScreenW, ScreenH);
+                        const u32* layerPixels = pixels + layer * layerSize;
+                        for (int y = 0; y < ScreenH; y++)
+                        {
+                            for (int x = 0; x < ScreenW; x++)
+                            {
+                                u32 pixel = layerPixels[y * ScreenW + x];
+                                fputc(pixel & 0xFF, image);
+                                fputc((pixel >> 8) & 0xFF, image);
+                                fputc((pixel >> 16) & 0xFF, image);
+                            }
+                        }
+                        fclose(image);
+                    }
+                }
+            }
+            if (stats)
+                fclose(stats);
+            debugFrame++;
         }
+        return true;
     };
 
     if (!HavePrevFrame)
@@ -1280,7 +1523,7 @@ void VulkanRenderer::VBlank()
         // first frame: no completed frame to show yet, so present this one
         // synchronously to avoid flashing an uninitialised back buffer
         SubmitAndWaitFrame();
-        uploadToGL(FPReadbackBuffer[cur]);
+        FrameReady = uploadToGL(FPReadbackBuffer[cur]);
         HavePrevFrame = true;
     }
     else
@@ -1296,7 +1539,7 @@ void VulkanRenderer::VBlank()
             VK::vkResetFences(Ctx->Device, 1, &FrameFence[prev]);
             SlotPending[prev] = false;
         }
-        uploadToGL(FPReadbackBuffer[prev]);
+        FrameReady = uploadToGL(FPReadbackBuffer[prev]);
     }
 
     FrameSlot ^= 1;
@@ -1305,9 +1548,16 @@ void VulkanRenderer::VBlank()
 void VulkanRenderer::VBlankEnd()
 {
     AuxUsageMask = 0;
+    FrameDirty = true;
+}
 
-    // defensive: VBlank() already cleared this via SubmitAndWaitFrame()
-    FrameStarted = false;
+void VulkanRenderer::SwapBuffers()
+{
+    if (!FrameReady)
+        return;
+
+    Renderer::SwapBuffers();
+    FrameReady = false;
 }
 
 
@@ -1342,38 +1592,33 @@ void VulkanRenderer::DoCapture(int ystart, int yend)
         dstheight = 64 * capsize;
     }
 
-    if (ystart >= dstheight)
-        return;
-    if (yend > dstheight)
-        yend = dstheight;
-
     EnsureFrameStarted();
 
-    auto* rend2dA = dynamic_cast<VulkanRenderer2D*>(Rend2D_A.get());
+    FlushAuxInput(Aux0VRAMCap);
+
     auto* rend3dVk = dynamic_cast<ComputeRenderer3D_Vulkan*>(Rend3D.get());
 
+    auto* rend2dA = dynamic_cast<VulkanRenderer2D*>(Rend2D_A.get());
     VkImageView viewA = srcA ? rend3dVk->GetOutputImage().View : rend2dA->GetOutput().View;
 
-    bool useSrcB = (dstmode == 1) || (dstmode == 2 && evb > 0);
+    bool useSrcB = (dstmode == 1) || (dstmode >= 2 && evb > 0);
 
     VkImageView viewB = AuxInputView;
     u32 layerB = srcB;
     CaptureConfig.uSrcBColorFactor = 248.f;
 
-    if (useSrcB && (Aux0VRAMCap != -1))
+    const bool useTrackedSrcB = useSrcB && !srcB && (Aux0VRAMCap != -1);
+    if (useTrackedSrcB)
     {
         // hi-res VRAM
-        if (dstblock == srcBblock)
+        if (capsize != 0)
         {
-            // we are reading from the same block we are capturing to;
-            // on hardware this would read the old VRAM contents then write
-            // new stuff, so we copy the source block into a scratch image
-            // first (GL: blit CaptureOutput256FB -> CaptureVRAMFB)
-
-            int blitY0 = (srcBoffset * 64) + ystart;
-            int blitY1 = (srcBoffset * 64) + yend;
-
-            if (dstoffset != srcBoffset)
+            // CaptureOutput256Img contains all four banks. Rendering any one
+            // bank transitions the whole image to attachment layout, so a
+            // different bank cannot remain bound as shader-read input. A
+            // full scratch snapshot also handles non-linear VCOUNT rows and
+            // same-bank read-before-write feedback without mixed layouts.
+            if (dstblock == srcBblock && dstoffset != srcBoffset)
                 Log(LogLevel::Error, "GPU_Vulkan: MISMATCHED VRAM OFFSETS ON SAME BANK!!! bank=%d src=%d dst=%d\n",
                     dstblock, srcBoffset, dstoffset);
 
@@ -1384,40 +1629,13 @@ void VulkanRenderer::DoCapture(int ystart, int yend)
                 VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT, VK_ACCESS_SHADER_READ_BIT,
                 VK_PIPELINE_STAGE_TRANSFER_BIT, VK_ACCESS_TRANSFER_WRITE_BIT);
 
-            VkImageCopy regions[2] = {};
-            u32 numRegions;
-
-            if (blitY1 > 256)
-            {
-                // wraparound
-                regions[0].srcSubresource = {VK_IMAGE_ASPECT_COLOR_BIT, 0, srcBblock, 1};
-                regions[0].dstSubresource = {VK_IMAGE_ASPECT_COLOR_BIT, 0, 0, 1};
-                regions[0].srcOffset = {0, (s32)(blitY0 * ScaleFactor), 0};
-                regions[0].dstOffset = {0, (s32)(blitY0 * ScaleFactor), 0};
-                regions[0].extent = {(u32)(256 * ScaleFactor), (u32)((256 - blitY0) * ScaleFactor), 1};
-
-                regions[1].srcSubresource = {VK_IMAGE_ASPECT_COLOR_BIT, 0, srcBblock, 1};
-                regions[1].dstSubresource = {VK_IMAGE_ASPECT_COLOR_BIT, 0, 0, 1};
-                regions[1].srcOffset = {0, 0, 0};
-                regions[1].dstOffset = {0, 0, 0};
-                regions[1].extent = {(u32)(256 * ScaleFactor), (u32)((blitY1 - 256) * ScaleFactor), 1};
-
-                numRegions = 2;
-            }
-            else
-            {
-                // straightforward
-                regions[0].srcSubresource = {VK_IMAGE_ASPECT_COLOR_BIT, 0, srcBblock, 1};
-                regions[0].dstSubresource = {VK_IMAGE_ASPECT_COLOR_BIT, 0, 0, 1};
-                regions[0].srcOffset = {0, (s32)(blitY0 * ScaleFactor), 0};
-                regions[0].dstOffset = {0, (s32)(blitY0 * ScaleFactor), 0};
-                regions[0].extent = {(u32)(256 * ScaleFactor), (u32)((blitY1 - blitY0) * ScaleFactor), 1};
-
-                numRegions = 1;
-            }
+            VkImageCopy region = {};
+            region.srcSubresource = {VK_IMAGE_ASPECT_COLOR_BIT, 0, srcBblock, 1};
+            region.dstSubresource = {VK_IMAGE_ASPECT_COLOR_BIT, 0, 0, 1};
+            region.extent = {(u32)(256 * ScaleFactor), (u32)(256 * ScaleFactor), 1};
 
             VK::vkCmdCopyImage(CurCmd, CaptureOutput256Img.Img, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
-                               CaptureVRAMImg.Img, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, numRegions, regions);
+                               CaptureVRAMImg.Img, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, &region);
 
             Ctx->TransitionImage(CurCmd, CaptureOutput256Img, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
                 VK_PIPELINE_STAGE_TRANSFER_BIT, VK_ACCESS_TRANSFER_READ_BIT,
@@ -1431,7 +1649,8 @@ void VulkanRenderer::DoCapture(int ystart, int yend)
         }
         else
         {
-            // if it's a different bank, we can just use it as-is
+            // A 128-wide capture writes a separate image, so the tracked
+            // 256-wide source can stay bound directly.
             viewB = CaptureOutput256Img.View;
             layerB = srcBblock;
         }
@@ -1468,12 +1687,49 @@ void VulkanRenderer::DoCapture(int ystart, int yend)
         CaptureConfig.uSrcBOffset = 0;
 
     CaptureConfig.uSrcBLayer = layerB;
+    CaptureConfig.uSrcBUseVCount = useTrackedSrcB;
 
     CaptureConfig.uDstMode = dstmode;
     CaptureConfig.uBlendFactors[0] = eva;
     CaptureConfig.uBlendFactors[1] = evb;
 
     PushConfig(CaptureConfigRing, &CaptureConfig, sizeof(CaptureConfig));
+
+    s16 vtxbuf[192 * 6 * 4];
+    s16* vptr = vtxbuf;
+    int numvtx = 0;
+
+    // VCOUNT can be rewritten during active display. Capture writes use
+    // the emulated row, while 2D/FIFO inputs remain scheduled snapshots;
+    // the fragment shader remaps only direct-3D and tracked VRAM inputs.
+    for (int line = ystart; line < yend; line++)
+    {
+        const int vcount = CaptureConfig.uVCount[line];
+        if (vcount >= dstheight)
+            continue;
+
+        const int y0 = capsize == 0 ? vcount : ((dstoffset * 64 + vcount) & 0xFF);
+        const int y1 = y0 + 1;
+        const int t0 = line;
+        const int t1 = line + 1;
+
+        *vptr++ = 0;        *vptr++ = y1; *vptr++ = 0;         *vptr++ = t1;
+        *vptr++ = dstwidth; *vptr++ = y0; *vptr++ = dstwidth;  *vptr++ = t0;
+        *vptr++ = dstwidth; *vptr++ = y1; *vptr++ = dstwidth;  *vptr++ = t1;
+        *vptr++ = 0;        *vptr++ = y1; *vptr++ = 0;         *vptr++ = t1;
+        *vptr++ = 0;        *vptr++ = y0; *vptr++ = 0;         *vptr++ = t0;
+        *vptr++ = dstwidth; *vptr++ = y0; *vptr++ = dstwidth;  *vptr++ = t0;
+        numvtx += 6;
+    }
+
+    if (numvtx == 0)
+        return;
+
+    u32 vtxbytes = (u32)numvtx * 4 * sizeof(s16);
+    u32 vtxoffset = RingAlloc(CaptureVertexRing, vtxbytes);
+    if (vtxoffset == ~0u)
+        return;
+    memcpy(CaptureVertexRing.Host.data() + vtxoffset, vtxbuf, vtxbytes);
 
     BeginColorTarget(dstImg);
 
@@ -1492,58 +1748,6 @@ void VulkanRenderer::DoCapture(int ystart, int yend)
     u32 dynOffset = CaptureConfigRing.CurOffset;
     VK::vkCmdBindDescriptorSets(CurCmd, VK_PIPELINE_BIND_POINT_GRAPHICS, CapturePipelineLayout,
                                0, 1, &set, 1, &dynOffset);
-
-    // build vertex geometry: y0/y1 = coordinates in destination buffer,
-    // t0/t1 = coordinates in source buffers (verbatim from GLRenderer::DoCapture)
-    s16 vtxbuf[12 * 4];
-    s16* vptr = vtxbuf;
-    int numvtx;
-
-    int dstoffsetLocal = (capsize == 0) ? 0 : (int)dstoffset;
-    int y0 = (dstoffsetLocal * 64) + ystart;
-    int y1 = (dstoffsetLocal * 64) + yend;
-    int t0 = ystart;
-    int t1 = yend;
-
-    int bufferheight = (capsize == 0) ? 128 : 256;
-    if (y1 > bufferheight)
-    {
-        // wraparound
-        int y2 = bufferheight;
-        int t2 = t0 + (y2 - y0);
-        *vptr++ = 0;             *vptr++ = (s16)y2; *vptr++ = 0;              *vptr++ = (s16)t2;
-        *vptr++ = (s16)dstwidth; *vptr++ = (s16)y0; *vptr++ = (s16)dstwidth;  *vptr++ = (s16)t0;
-        *vptr++ = (s16)dstwidth; *vptr++ = (s16)y2; *vptr++ = (s16)dstwidth;  *vptr++ = (s16)t2;
-        *vptr++ = 0;             *vptr++ = (s16)y2; *vptr++ = 0;              *vptr++ = (s16)t2;
-        *vptr++ = 0;             *vptr++ = (s16)y0; *vptr++ = 0;              *vptr++ = (s16)t0;
-        *vptr++ = (s16)dstwidth; *vptr++ = (s16)y0; *vptr++ = (s16)dstwidth;  *vptr++ = (s16)t0;
-
-        y2 = y1 - bufferheight;
-        *vptr++ = 0;             *vptr++ = (s16)y2; *vptr++ = 0;              *vptr++ = (s16)t1;
-        *vptr++ = (s16)dstwidth; *vptr++ = 0;        *vptr++ = (s16)dstwidth;  *vptr++ = (s16)t2;
-        *vptr++ = (s16)dstwidth; *vptr++ = (s16)y2; *vptr++ = (s16)dstwidth;  *vptr++ = (s16)t1;
-        *vptr++ = 0;             *vptr++ = (s16)y2; *vptr++ = 0;              *vptr++ = (s16)t1;
-        *vptr++ = 0;             *vptr++ = 0;        *vptr++ = 0;              *vptr++ = (s16)t2;
-        *vptr++ = (s16)dstwidth; *vptr++ = 0;        *vptr++ = (s16)dstwidth;  *vptr++ = (s16)t2;
-
-        numvtx = 12;
-    }
-    else
-    {
-        // straightforward
-        *vptr++ = 0;             *vptr++ = (s16)y1; *vptr++ = 0;              *vptr++ = (s16)t1;
-        *vptr++ = (s16)dstwidth; *vptr++ = (s16)y0; *vptr++ = (s16)dstwidth;  *vptr++ = (s16)t0;
-        *vptr++ = (s16)dstwidth; *vptr++ = (s16)y1; *vptr++ = (s16)dstwidth;  *vptr++ = (s16)t1;
-        *vptr++ = 0;             *vptr++ = (s16)y1; *vptr++ = 0;              *vptr++ = (s16)t1;
-        *vptr++ = 0;             *vptr++ = (s16)y0; *vptr++ = 0;              *vptr++ = (s16)t0;
-        *vptr++ = (s16)dstwidth; *vptr++ = (s16)y0; *vptr++ = (s16)dstwidth;  *vptr++ = (s16)t0;
-
-        numvtx = 6;
-    }
-
-    u32 vtxbytes = (u32)numvtx * 4 * sizeof(s16);
-    u32 vtxoffset = RingAlloc(CaptureVertexRing, vtxbytes);
-    memcpy((u8*)CaptureVertexRing.Buf.Map + vtxoffset, vtxbuf, vtxbytes);
 
     VkDeviceSize bindOffset = vtxoffset;
     VK::vkCmdBindVertexBuffers(CurCmd, 0, 1, &CaptureVertexRing.Buf.Buf, &bindOffset);
@@ -1659,6 +1863,12 @@ void VulkanRenderer::SyncVRAMCapture(u32 bank, u32 start, u32 len, bool complete
             pos &= 3;
         }
     }
+
+    VkMemoryBarrier hostBarrier = {VK_STRUCTURE_TYPE_MEMORY_BARRIER};
+    hostBarrier.srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
+    hostBarrier.dstAccessMask = VK_ACCESS_HOST_READ_BIT;
+    VK::vkCmdPipelineBarrier(cmd, VK_PIPELINE_STAGE_TRANSFER_BIT,
+        VK_PIPELINE_STAGE_HOST_BIT, 0, 1, &hostBarrier, 0, nullptr, 0, nullptr);
 
     // return CaptureSyncImg to a rest layout; the next DownscaleCapture
     // call always uses a clearing render pass so any layout is fine here,

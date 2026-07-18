@@ -1596,6 +1596,12 @@ void ComputeRenderer3D_Vulkan::RestartFrame()
 
 u32* ComputeRenderer3D_Vulkan::GetLine(int line)
 {
+    if (GPU3D.AbortFrame)
+    {
+        memset(ReadbackLine, 0, sizeof(ReadbackLine));
+        return ReadbackLine;
+    }
+
     if (!ReadbackValid)
     {
         if (SubmitPending)

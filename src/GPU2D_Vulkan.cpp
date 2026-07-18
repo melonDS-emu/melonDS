@@ -384,12 +384,14 @@ bool VulkanRenderer2D::Init()
     // per-frame transient buffers: sprite vertex data (one slice per draw)
     // and staging memory for the mid-frame VRAM/palette uploads
 
-    if (!Ctx.CreateBuffer(VertexRing.Buf, 4 * 1024 * 1024,
+    if (!Ctx.CreateBuffer(VertexRing.Buf, 8 * 1024 * 1024,
                           VK_BUFFER_USAGE_VERTEX_BUFFER_BIT, true))
         return false;
+    VertexRing.Host.resize(VertexRing.Buf.Size);
     if (!Ctx.CreateBuffer(StagingRing.Buf, 8 * 1024 * 1024,
                           VK_BUFFER_USAGE_TRANSFER_SRC_BIT, true))
         return false;
+    StagingRing.Host.resize(StagingRing.Buf.Size);
 
     // fullscreen unit rect (the GL renderer borrows the parent's)
 
@@ -504,13 +506,15 @@ bool VulkanRenderer2D::Init()
             return false;
         // make the first slice defined for draws recorded before the
         // first config upload
-        memset(ring.Buf.Map, 0, ring.Stride);
+        ring.Host.resize(ring.Buf.Size);
+        memset(ring.Host.data(), 0, ring.Host.size());
+        memset(ring.Buf.Map, 0, ring.Buf.Size);
         return true;
     };
 
     if (!initRing(LayerConfigRing, sizeof(sLayerConfig), 256))
         return false;
-    if (!initRing(SpriteConfigRing, sizeof(sSpriteConfig), 64))
+    if (!initRing(SpriteConfigRing, sizeof(sSpriteConfig), 256))
         return false;
     if (!initRing(CompositorConfigRing, sizeof(sCompositorConfig), 256))
         return false;
@@ -520,9 +524,11 @@ bool VulkanRenderer2D::Init()
     if (!Ctx.CreateBuffer(ScanlineConfigUBO, sizeof(sScanlineConfig),
                           VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, true))
         return false;
+    ScanlineConfigHost.resize(ScanlineConfigUBO.Size);
     if (!Ctx.CreateBuffer(SpriteScanlineConfigUBO, sizeof(sSpriteScanlineConfig),
                           VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, true))
         return false;
+    SpriteScanlineConfigHost.resize(SpriteScanlineConfigUBO.Size);
 
     // descriptor pool; sets are cached per combination of variable
     // bindings, see GetDescriptorSet()
@@ -646,6 +652,7 @@ void VulkanRenderer2D::Reset()
     SoftFlushedLine = 0;
     UseSoftware2D = false;
     CompositeBands = 0;
+    SawVCountMismatch = false;
 
     memset(BGLayerFB, 0, sizeof(BGLayerFB));
     for (int i = 0; i < 4; i++)
@@ -787,12 +794,18 @@ u32 VulkanRenderer2D::RingAlloc(sRingBuffer& ring, u32 size)
     // 256-byte alignment satisfies both vertex binding and
     // vkCmdCopyBufferToImage offset requirements
     size = (size + 255) & ~255u;
-    if (ring.Offset + size > ring.Buf.Size)
+    if (size > ring.Buf.Size || ring.Offset > ring.Buf.Size - size)
     {
-        // wrap around; the parent fences full frames, so with a
-        // sanely-sized ring this only recycles memory from earlier frames
-        ring.Offset = 0;
+        if (!ring.Overflowed)
+        {
+            Log(LogLevel::Error,
+                "GPU2D_Vulkan: transient buffer exhausted (used=%u, request=%u, capacity=%llu)\n",
+                ring.Offset, size, (unsigned long long)ring.Buf.Size);
+            ring.Overflowed = true;
+        }
+        return ~0u;
     }
+
     u32 offset = ring.Offset;
     ring.Offset += size;
     return offset;
@@ -803,9 +816,48 @@ void VulkanRenderer2D::PushConfig(sConfigRing& ring, const void* data, u32 size)
     // GL updates these configs with glBufferSubData mid-frame and relies
     // on the driver to keep already-issued draws consistent; here each
     // upload takes a fresh ring slice, bound through a dynamic offset
+    if (ring.Next >= ring.Slots)
+    {
+        if (!ring.Overflowed)
+        {
+            Log(LogLevel::Error,
+                "GPU2D_Vulkan: per-band config buffer exhausted (%u slots)\n",
+                ring.Slots);
+            ring.Overflowed = true;
+        }
+        return;
+    }
+
     ring.CurOffset = ring.Next * ring.Stride;
-    memcpy((u8*)ring.Buf.Map + ring.CurOffset, data, size);
-    ring.Next = (ring.Next + 1) % ring.Slots;
+    memcpy(ring.Host.data() + ring.CurOffset, data, size);
+    ring.Next++;
+}
+
+void VulkanRenderer2D::FlushMappedBuffers()
+{
+    auto flushRing = [](sRingBuffer& ring)
+    {
+        if (ring.Offset)
+            memcpy(ring.Buf.Map, ring.Host.data(), ring.Offset);
+        ring.Offset = 0;
+        ring.Overflowed = false;
+    };
+    auto flushConfig = [](sConfigRing& ring)
+    {
+        memcpy(ring.Buf.Map, ring.Host.data(), ring.Host.size());
+        ring.Next = 0;
+        ring.CurOffset = 0;
+        ring.Overflowed = false;
+    };
+
+    flushRing(VertexRing);
+    flushRing(StagingRing);
+    flushConfig(LayerConfigRing);
+    flushConfig(SpriteConfigRing);
+    flushConfig(CompositorConfigRing);
+    memcpy(ScanlineConfigUBO.Map, ScanlineConfigHost.data(), ScanlineConfigHost.size());
+    memcpy(SpriteScanlineConfigUBO.Map, SpriteScanlineConfigHost.data(),
+           SpriteScanlineConfigHost.size());
 }
 
 VkDescriptorSet VulkanRenderer2D::GetDescriptorSet(VkImageView vram, VkImageView pal,
@@ -999,7 +1051,7 @@ void VulkanRenderer2D::DepthTargetBarrier()
         0, 0, nullptr, 0, nullptr, 1, &barrier);
 }
 
-void VulkanRenderer2D::UploadTexRows(VK::Context::Image& img, const void* data,
+bool VulkanRenderer2D::UploadTexRows(VK::Context::Image& img, const void* data,
                                      u32 rowStart, u32 rowCount, u32 bytesPerRow)
 {
     // the image must already be in TRANSFER_DST_OPTIMAL (BeginTexUpload).
@@ -1007,7 +1059,9 @@ void VulkanRenderer2D::UploadTexRows(VK::Context::Image& img, const void* data,
     // recorded earlier keep sampling the pre-upload contents
     u32 size = rowCount * bytesPerRow;
     u32 offset = RingAlloc(StagingRing, size);
-    memcpy((u8*)StagingRing.Buf.Map + offset, data, size);
+    if (offset == ~0u)
+        return false;
+    memcpy(StagingRing.Host.data() + offset, data, size);
 
     VkBufferImageCopy region = {};
     region.bufferOffset = offset;
@@ -1016,14 +1070,17 @@ void VulkanRenderer2D::UploadTexRows(VK::Context::Image& img, const void* data,
     region.imageExtent = {img.Width, rowCount, 1};
     VK::vkCmdCopyBufferToImage(CurCmd, StagingRing.Buf.Buf, img.Img,
                                VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, &region);
+    return true;
 }
 
-void VulkanRenderer2D::UploadTexRectR8(VK::Context::Image& img, const void* data,
+bool VulkanRenderer2D::UploadTexRectR8(VK::Context::Image& img, const void* data,
                                        u32 x, u32 rowStart, u32 width, u32 rowCount)
 {
     u32 size = width * rowCount;
     u32 offset = RingAlloc(StagingRing, size);
-    memcpy((u8*)StagingRing.Buf.Map + offset, data, size);
+    if (offset == ~0u)
+        return false;
+    memcpy(StagingRing.Host.data() + offset, data, size);
 
     VkBufferImageCopy region = {};
     region.bufferOffset = offset;
@@ -1032,6 +1089,7 @@ void VulkanRenderer2D::UploadTexRectR8(VK::Context::Image& img, const void* data
     region.imageExtent = {width, rowCount, 1};
     VK::vkCmdCopyBufferToImage(CurCmd, StagingRing.Buf.Buf, img.Img,
                                VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, &region);
+    return true;
 }
 
 
@@ -1425,30 +1483,45 @@ void VulkanRenderer2D::DrawScanline(u32 line)
     if (CurCmd == VK_NULL_HANDLE)
         return;
 
+    SawVCountMismatch |= line != GPU.VCount;
+
     if (UseSoftware2D)
         DrawSoftwareLine(line);
     else
         UpdateAndRender(line);
 }
 
-void VulkanRenderer2D::VBlank()
+void VulkanRenderer2D::Flush(u32 endLine)
 {
-    if (CurCmd != VK_NULL_HANDLE && UseSoftware2D)
+    if (CurCmd == VK_NULL_HANDLE)
+        return;
+
+    endLine = std::min(endLine, 192u);
+    if (UseSoftware2D)
+        FlushSoftwareLines(endLine);
+    else if (endLine > (u32)LastLine)
     {
-        FlushSoftwareLines(192);
-        SoftFlushedLine = 0;
+        DoRenderSprites(endLine);
+        RenderScreen(LastLine, endLine);
+        LastLine = endLine;
     }
+}
+
+void VulkanRenderer2D::FinishFrame(u32 endLine)
+{
+    Flush(endLine);
+
+    if (UseSoftware2D)
+        SoftFlushedLine = 0;
     else if (CurCmd != VK_NULL_HANDLE)
     {
-        DoRenderSprites(192);
-        RenderScreen(LastLine, 192);
 
         // The accelerated 2D design pre-renders whole BGs whenever their
         // source VRAM changes. A workload that streams BG data on most
         // scanlines can therefore turn one frame into hundreds of full GPU
         // passes. At modest scale factors, the scanline-accurate software
         // compositor is both faster and exact; 3D is read back once per frame.
-        if (ScaleFactor <= 4 && CompositeBands > 64)
+        if (ScaleFactor <= 4 && (CompositeBands > 64 || SawVCountMismatch))
         {
             SoftFallback->Reset();
             UseSoftware2D = true;
@@ -1459,12 +1532,15 @@ void VulkanRenderer2D::VBlank()
     LastLine = 0;
 
     CompositeBands = 0;
+    SawVCountMismatch = false;
 
-    // per-frame transient allocations restart here; the parent must have
-    // waited for the previous frame's command buffers before this frame's
-    // recording began
-    VertexRing.Offset = 0;
-    StagingRing.Offset = 0;
+    // Transient allocation offsets are reset when the parent publishes the
+    // CPU mirrors immediately before submitting this frame.
+}
+
+void VulkanRenderer2D::VBlank()
+{
+    FinishFrame(192);
 }
 
 void VulkanRenderer2D::VBlankEnd()
@@ -2223,7 +2299,10 @@ void VulkanRenderer2D::PrerenderSprites()
     if (set == VK_NULL_HANDLE) return;
 
     u32 vtxoffset = RingAlloc(VertexRing, vtxnum * 3 * sizeof(u16));
-    memcpy((u8*)VertexRing.Buf.Map + vtxoffset, SpritePreVtxData, vtxnum * 3 * sizeof(u16));
+    if (vtxoffset == ~0u)
+        return;
+    memcpy(VertexRing.Host.data() + vtxoffset, SpritePreVtxData,
+           vtxnum * 3 * sizeof(u16));
 
     BeginColorTarget(SpriteImg);
     BeginPass(RPColorLoad, SpriteFB, 1024, 512);
@@ -2282,7 +2361,7 @@ void VulkanRenderer2D::DoRenderSprites(int line)
     if (OBJLayerFB == VK_NULL_HANDLE)
         return;
 
-    memcpy((u8*)SpriteScanlineConfigUBO.Map + (ystart * sizeof(s32)),
+    memcpy(SpriteScanlineConfigHost.data() + (ystart * sizeof(s32)),
            &SpriteScanlineConfig.uMosaicLine[ystart],
            (yend - ystart) * sizeof(s32));
 
@@ -2401,7 +2480,10 @@ void VulkanRenderer2D::RenderSprites(bool window, int ystart, int yend)
     if (vtxnum == 0) return;
 
     u32 vtxoffset = RingAlloc(VertexRing, vtxnum * 5 * sizeof(u16));
-    memcpy((u8*)VertexRing.Buf.Map + vtxoffset, SpriteVtxData, vtxnum * 5 * sizeof(u16));
+    if (vtxoffset == ~0u)
+        return;
+    memcpy(VertexRing.Host.data() + vtxoffset, SpriteVtxData,
+           vtxnum * 5 * sizeof(u16));
 
     VkDeviceSize bindOffset = vtxoffset;
     VK::vkCmdBindVertexBuffers(CurCmd, 0, 1, &VertexRing.Buf.Buf, &bindOffset);
@@ -2444,9 +2526,9 @@ void VulkanRenderer2D::RenderScreen(int ystart, int yend)
         return;
     }
 
-    // upload the per-scanline config for this band (band-disjoint within
-    // a frame, so a direct write is safe)
-    memcpy((u8*)ScanlineConfigUBO.Map + (ystart * sizeof(sScanlineConfig::sScanline)),
+    // Save the per-scanline config for this band. It is published only after
+    // the prior frame's fence completes.
+    memcpy(ScanlineConfigHost.data() + (ystart * sizeof(sScanlineConfig::sScanline)),
            &ScanlineConfig.uScanline[ystart],
            (yend - ystart) * sizeof(sScanlineConfig::sScanline));
 

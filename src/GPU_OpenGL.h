@@ -54,8 +54,11 @@ public:
     void DrawScanline(u32 line) override;
     void DrawSprites(u32 line) override;
 
-    void VBlank() override;
+    void VBlank(u32 endLine) override;
     void VBlankEnd() override;
+    void FinishFrame(u32 endLine) override;
+
+    void SwapBuffers() override;
 
     void AllocCapture(u32 bank, u32 start, u32 len) override;
     void SyncVRAMCapture(u32 bank, u32 start, u32 len, bool complete) override;
@@ -90,6 +93,7 @@ private:
     struct sFinalPassConfig
     {
         u32 uScreenSwap[192];
+        u32 uVCount[192];
         u32 uScaleFactor;
         u32 uAuxLayer;
         u32 uDispModeA;
@@ -99,7 +103,8 @@ private:
         u32 uBrightFactorA;
         u32 uBrightFactorB;
         float uAuxColorFactor;
-        u32 __pad0[3];
+        u32 uAuxUseVCount;
+        u32 __pad0[2];
     } FinalPassConfig;
 
     GLuint FPShader;
@@ -126,8 +131,10 @@ private:
         u32 uDstMode;
         u32 uBlendFactors[2];
         float uSrcAOffset[192];
+        u32 uVCount[192];
         float uSrcBColorFactor;
-        u32 __pad0[3];
+        u32 uSrcBUseVCount;
+        u32 __pad0[2];
     } CaptureConfig;
 
     GLuint CaptureShader;
@@ -148,7 +155,11 @@ private:
     GLuint CaptureSyncTex;
 
     u16* AuxInputBuffer[2];
+    bool AuxInputDirty[2][256];
     u8 AuxUsageMask;
+
+    bool FrameReady = false;
+    bool FrameDirty = false;
 
     u32 DispCntA, DispCntB;
     u16 MasterBrightnessA, MasterBrightnessB;
@@ -162,6 +173,7 @@ private:
     void SetScaleFactor(int scale);
 
     void RenderScreen(int ystart, int yend);
+    void FlushAuxInput(int vramcap);
     void DoCapture(int ystart, int yend);
     void DownscaleCapture(int width, int height, int layer);
 };

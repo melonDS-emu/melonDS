@@ -415,6 +415,7 @@ void GLRenderer2D::Reset()
     SoftFlushedLine = 0;
     UseSoftware2D = false;
     CompositeBands = 0;
+    SawVCountMismatch = false;
 
     memset(BGLayerFB, 0, sizeof(BGLayerFB));
     memset(BGLayerTex, 0, sizeof(BGLayerTex));
@@ -924,23 +925,36 @@ void GLRenderer2D::SwitchToHardware(u32 line)
 
 void GLRenderer2D::DrawScanline(u32 line)
 {
+    SawVCountMismatch |= line != GPU.VCount;
+
     if (UseSoftware2D)
         DrawSoftwareLine(line);
     else
         UpdateAndRender(line);
 }
 
-void GLRenderer2D::VBlank()
+void GLRenderer2D::Flush(u32 endLine)
 {
+    endLine = std::min(endLine, 192u);
+
     if (UseSoftware2D)
+        FlushSoftwareLines(endLine);
+    else if (endLine > (u32)LastLine)
     {
-        FlushSoftwareLines(192);
-        SoftFlushedLine = 0;
+        DoRenderSprites(endLine);
+        RenderScreen(LastLine, endLine);
+        LastLine = endLine;
     }
+}
+
+void GLRenderer2D::FinishFrame(u32 endLine)
+{
+    Flush(endLine);
+
+    if (UseSoftware2D)
+        SoftFlushedLine = 0;
     else
     {
-        DoRenderSprites(192);
-        RenderScreen(LastLine, 192);
 
         // The accelerated 2D design pre-renders whole BGs whenever their
         // source VRAM changes. A game that deliberately streams BG data on
@@ -950,7 +964,8 @@ void GLRenderer2D::VBlank()
         // already-rendered 3D output is read back once and composited with it.
         const bool supportsFallback = GPU2D.Num == 1 || !(DispCnt & (1 << 3)) ||
                                       Parent.CanReadback3D();
-        if (supportsFallback && ScaleFactor <= 4)
+        if (supportsFallback && ScaleFactor <= 4 &&
+            (CompositeBands > 64 || SawVCountMismatch))
         {
             SoftFallback->Reset();
             UseSoftware2D = true;
@@ -961,6 +976,12 @@ void GLRenderer2D::VBlank()
     LastLine = 0;
 
     CompositeBands = 0;
+    SawVCountMismatch = false;
+}
+
+void GLRenderer2D::VBlank()
+{
+    FinishFrame(192);
 }
 
 void GLRenderer2D::VBlankEnd()
