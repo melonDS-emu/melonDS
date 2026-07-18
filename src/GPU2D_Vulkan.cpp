@@ -1358,10 +1358,22 @@ void VulkanRenderer2D::UpdateAndRender(int line)
 
 void VulkanRenderer2D::DrawSoftwareLine(u32 line)
 {
-    if (GPU2D.Num == 0 && (GPU2D.DispCnt & (1 << 3)))
-        SoftFallback->SetOutput3D(Parent.GetLine3D(line));
+    // The scheduled output line and emulated VCOUNT can differ when software
+    // writes VCOUNT. Match SoftRenderer: render state for VCOUNT, but store
+    // the result in the scheduled output line.
+    const u32 drawLine = GPU.VCount;
+    if (drawLine >= 192)
+    {
+        for (u32& color : SoftOutput)
+            color = 0xFF3F3F3F;
+    }
+    else
+    {
+        if (GPU2D.Num == 0 && (GPU2D.DispCnt & (1 << 3)))
+            SoftFallback->SetOutput3D(Parent.GetLine3D(drawLine));
 
-    SoftFallback->DrawScanline(line);
+        SoftFallback->DrawScanline(drawLine);
+    }
     memcpy(&SoftFrameBuffer[line * 256], SoftOutput, sizeof(SoftOutput));
 
     if (NeedPartialRender)

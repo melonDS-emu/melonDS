@@ -841,19 +841,32 @@ void GLRenderer2D::UpdateAndRender(int line)
 
 void GLRenderer2D::DrawSoftwareLine(u32 line)
 {
-    if (GPU2D.Num == 0 && (GPU2D.DispCnt & (1 << 3)))
+    // The scheduled output line and emulated VCOUNT can differ when software
+    // writes VCOUNT. Match SoftRenderer: render state for VCOUNT, but store
+    // the result in the scheduled output line.
+    const u32 drawLine = GPU.VCount;
+    if (drawLine >= 192)
     {
-        u32* output3D = Parent.GetLine3D(line);
-        if (!output3D)
+        for (u32& color : SoftOutput)
+            color = 0xFF3F3F3F;
+    }
+    else
+    {
+        if (GPU2D.Num == 0 && (GPU2D.DispCnt & (1 << 3)))
         {
-            SwitchToHardware(line);
-            UpdateAndRender(line);
-            return;
+            u32* output3D = Parent.GetLine3D(drawLine);
+            if (!output3D)
+            {
+                SwitchToHardware(line);
+                UpdateAndRender(line);
+                return;
+            }
+            SoftFallback->SetOutput3D(output3D);
         }
-        SoftFallback->SetOutput3D(output3D);
+
+        SoftFallback->DrawScanline(drawLine);
     }
 
-    SoftFallback->DrawScanline(line);
     memcpy(&SoftFrameBuffer[line * 256], SoftOutput, sizeof(SoftOutput));
 
     if (Parent.NeedPartialRender)
@@ -937,7 +950,7 @@ void GLRenderer2D::VBlank()
         // already-rendered 3D output is read back once and composited with it.
         const bool supportsFallback = GPU2D.Num == 1 || !(DispCnt & (1 << 3)) ||
                                       Parent.CanReadback3D();
-        if (supportsFallback && ScaleFactor <= 4 && CompositeBands > 64)
+        if (supportsFallback && ScaleFactor <= 4)
         {
             SoftFallback->Reset();
             UseSoftware2D = true;
