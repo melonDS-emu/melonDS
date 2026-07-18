@@ -20,12 +20,15 @@
 
 #include <array>
 #include <map>
+#include <memory>
+#include <vector>
 #include "VulkanSupport.h"
 #include "GPU2D.h"
 
 namespace melonDS
 {
 class VulkanRenderer;
+class SoftRenderer2D;
 
 // Vulkan port of GLRenderer2D (src/GPU2D_OpenGL.{h,cpp}).
 //
@@ -47,7 +50,7 @@ class VulkanRenderer;
 class VulkanRenderer2D : public Renderer2D
 {
 public:
-    VulkanRenderer2D(melonDS::GPU2D& gpu2D, VK::Context& ctx);
+    VulkanRenderer2D(melonDS::GPU2D& gpu2D, VulkanRenderer& parent, VK::Context& ctx);
     ~VulkanRenderer2D() override;
 
     // InitShaders() (or InitShaders(other)) must be called before Init():
@@ -106,6 +109,7 @@ public:
 
 private:
     friend class VulkanRenderer;
+    VulkanRenderer& Parent;
     VK::Context& Ctx;
 
     int ScaleFactor;
@@ -211,6 +215,15 @@ private:
 
     VK::Context::Image OutputImg;                   // RGBA8 ScreenW x ScreenH
     VkFramebuffer OutputFB = VK_NULL_HANDLE;
+
+    std::unique_ptr<SoftRenderer2D> SoftFallback;
+    alignas(8) u32 SoftOutput[256];
+    alignas(8) u32 SoftFrameBuffer[256 * 192];
+    std::vector<u32> SoftUploadBuffer;
+    u32 SoftFlushedLine = 0;
+    bool UseSoftware2D = false;
+
+    u32 CompositeBands = 0;
 
     VK::Context::Image DummyTex;                    // 1x1 RGBA8 stand-ins for unset
     VK::Context::Image DummyTexArray;               // shared resources / unassigned layers
@@ -345,10 +358,14 @@ private:
     void DepthTargetBarrier();
     void UploadTexRows(VK::Context::Image& img, const void* data,
                        u32 rowStart, u32 rowCount, u32 bytesPerRow);
+    void UploadTexRectR8(VK::Context::Image& img, const void* data,
+                         u32 x, u32 rowStart, u32 width, u32 rowCount);
 
     // mirrors of the GLRenderer2D methods
 
     bool IsScreenOn();
+    void DrawSoftwareLine(u32 line);
+    void FlushSoftwareLines(u32 endLine);
 
     void UpdateAndRender(int line);
 

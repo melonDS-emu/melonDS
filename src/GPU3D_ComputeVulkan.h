@@ -129,6 +129,8 @@ private:
     VK::Context::Buffer TileMemory[tilememoryLayer_Num];
 
     VK::Context::Buffer ReadbackBuffer;        // host visible, framebuffer readback
+    alignas(8) u32 ReadbackLine[256] {};
+    bool ReadbackValid = false;
 
     // images
     VK::Context::Image ClearBitmapImg[2];

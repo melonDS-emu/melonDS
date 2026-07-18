@@ -28,6 +28,7 @@ class SoftRenderer2D : public Renderer2D
 {
 public:
     SoftRenderer2D(melonDS::GPU2D& gpu2D, SoftRenderer& parent);
+    SoftRenderer2D(melonDS::GPU2D& gpu2D, u32* output2D);
     ~SoftRenderer2D() override;
     bool Init() override { return true; }
     void Reset() override;
@@ -36,9 +37,12 @@ public:
     void DrawSprites(u32 line) override;
     void VBlank() override {}
     void VBlankEnd() override {};
+    void SetOutput3D(u32* output3D) { ExternalOutput3D = output3D; }
 
 private:
-    SoftRenderer& Parent;
+    u32* Output2D;
+    u32** Output3D;
+    u32* ExternalOutput3D = nullptr;
 
     enum
     {

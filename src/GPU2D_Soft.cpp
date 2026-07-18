@@ -23,7 +23,13 @@ namespace melonDS
 {
 
 SoftRenderer2D::SoftRenderer2D(melonDS::GPU2D& gpu2D, SoftRenderer& parent)
-    : Renderer2D(gpu2D), Parent(parent)
+    : Renderer2D(gpu2D), Output2D(parent.Output2D[gpu2D.Num]), Output3D(&parent.Output3D)
+{
+    // mosaic table is initialized at compile-time
+}
+
+SoftRenderer2D::SoftRenderer2D(melonDS::GPU2D& gpu2D, u32* output2D)
+    : Renderer2D(gpu2D), Output2D(output2D), Output3D(nullptr)
 {
     // mosaic table is initialized at compile-time
 }
@@ -116,7 +122,7 @@ u32 SoftRenderer2D::ColorComposite(int i, u32 val1, u32 val2) const
 
 void SoftRenderer2D::DrawScanline(u32 line)
 {
-    u32* dst = Parent.Output2D[GPU2D.Num];
+    u32* dst = Output2D;
 
     if (!GPU2D.Enabled)
     {
@@ -370,9 +376,13 @@ void SoftRenderer2D::DrawPixel(u32* dst, u16 color, u32 flag)
 
 void SoftRenderer2D::DrawBG_3D()
 {
+    u32* output3D = Output3D ? *Output3D : ExternalOutput3D;
+    if (!output3D)
+        return;
+
     for (int i = 0; i < 256; i++)
     {
-        u32 c = Parent.Output3D[i];
+        u32 c = output3D[i];
 
         if ((c >> 24) == 0) continue;
         if (!(WindowMask[i] & 0x01)) continue;

@@ -19,7 +19,9 @@
 #include <assert.h>
 #include <string.h>
 #include <stddef.h>
+#include "GPU_Vulkan.h"
 #include "GPU2D_Vulkan.h"
+#include "GPU2D_Soft.h"
 #include "GPU2D_Vulkan_shaders.h"
 #include "GPU.h"
 #include "GPU3D.h"
@@ -32,12 +34,14 @@ using Platform::LogLevel;
 
 
 
-VulkanRenderer2D::VulkanRenderer2D(melonDS::GPU2D& gpu2D, VK::Context& ctx)
-    : Renderer2D(gpu2D), Ctx(ctx)
+VulkanRenderer2D::VulkanRenderer2D(melonDS::GPU2D& gpu2D, VulkanRenderer& parent,
+                                   VK::Context& ctx)
+    : Renderer2D(gpu2D), Parent(parent), Ctx(ctx)
 {
     ScaleFactor = 0;
     ScreenW = 0;
     ScreenH = 0;
+    SoftFallback = std::make_unique<SoftRenderer2D>(gpu2D, SoftOutput);
 }
 
 bool VulkanRenderer2D::CompilePipelineShader(VkShaderModule& out, VK::Context::ShaderStage stage,
@@ -637,6 +641,12 @@ void VulkanRenderer2D::InvalidateDescriptorCache()
 
 void VulkanRenderer2D::Reset()
 {
+    SoftFallback->Reset();
+    memset(SoftFrameBuffer, 0, sizeof(SoftFrameBuffer));
+    SoftFlushedLine = 0;
+    UseSoftware2D = false;
+    CompositeBands = 0;
+
     memset(BGLayerFB, 0, sizeof(BGLayerFB));
     for (int i = 0; i < 4; i++)
         BGLayerImg[i] = nullptr;
@@ -701,6 +711,7 @@ void VulkanRenderer2D::SetScaleFactor(int scale)
     ScaleFactor = scale;
     ScreenW = 256 * scale;
     ScreenH = 192 * scale;
+    SoftUploadBuffer.resize(ScreenW * ScreenH);
 
     // final (upscaled) sprite layer: a 2-layer array (color + flags)
     // rendered as two color attachments, plus a D16 depth buffer
@@ -722,7 +733,7 @@ void VulkanRenderer2D::SetScaleFactor(int scale)
 
     Ctx.CreateImage(OutputImg, VK_FORMAT_R8G8B8A8_UNORM, ScreenW, ScreenH, 1,
                     VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT |
-                    VK_IMAGE_USAGE_TRANSFER_SRC_BIT, false);
+                    VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT, false);
     Ctx.CreateFramebuffer(OutputFB, RPColorLoad, OutputImg, 0);
 
     // initial layouts: color targets sit in SHADER_READ_ONLY_OPTIMAL
@@ -1007,6 +1018,22 @@ void VulkanRenderer2D::UploadTexRows(VK::Context::Image& img, const void* data,
                                VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, &region);
 }
 
+void VulkanRenderer2D::UploadTexRectR8(VK::Context::Image& img, const void* data,
+                                       u32 x, u32 rowStart, u32 width, u32 rowCount)
+{
+    u32 size = width * rowCount;
+    u32 offset = RingAlloc(StagingRing, size);
+    memcpy((u8*)StagingRing.Buf.Map + offset, data, size);
+
+    VkBufferImageCopy region = {};
+    region.bufferOffset = offset;
+    region.imageSubresource = {VK_IMAGE_ASPECT_COLOR_BIT, 0, 0, 1};
+    region.imageOffset = {(s32)x, (s32)rowStart, 0};
+    region.imageExtent = {width, rowCount, 1};
+    VK::vkCmdCopyBufferToImage(CurCmd, StagingRing.Buf.Buf, img.Img,
+                               VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, &region);
+}
+
 
 // ---- mirrored GLRenderer2D logic -------------------------------------------
 
@@ -1038,7 +1065,6 @@ bool VulkanRenderer2D::IsScreenOn()
 
     return true;
 }
-
 
 void VulkanRenderer2D::UpdateAndRender(int line)
 {
@@ -1156,7 +1182,7 @@ void VulkanRenderer2D::UpdateAndRender(int line)
         if ((cfg.Type == 1 || cfg.Type == 3) && (cfg.PalOffset > 0))
         {
             u32 pal = cfg.PalOffset - 1;
-            if (bgExtPalDirty.CheckRange(pal, pal + 16))
+            if (bgExtPalDirty.CheckRange(pal, 16))
                 layer_pre_dirty |= (1 << layer);
         }
         else if (cfg.Type <= 4)
@@ -1165,6 +1191,12 @@ void VulkanRenderer2D::UpdateAndRender(int line)
                 layer_pre_dirty |= (1 << layer);
         }
     }
+
+    // Keep disabled BGs lazy. Their source texture remains coherent, and a
+    // newly-enabled BG is rebuilt before it can reach the compositor.
+    const u8 enabledBGs = GPU2D.LayerEnable & 0xF;
+    const u8 newlyEnabledBGs = enabledBGs & ~LayerEnable;
+    layer_pre_dirty = (layer_pre_dirty & enabledBGs) | newlyEnabledBGs;
 
     if (layer_pre_dirty)
         comp_dirty = true;
@@ -1183,6 +1215,7 @@ void VulkanRenderer2D::UpdateAndRender(int line)
 
     if (comp_dirty && (line > 0))
     {
+        CompositeBands++;
         RenderScreen(LastLine, line);
         LastLine = line;
     }
@@ -1221,30 +1254,40 @@ void VulkanRenderer2D::UpdateAndRender(int line)
 
         bool uploading = false;
 
-        int texlen = dirtybits >> 6;
-        for (int i = 0; i < texlen; )
+        for (int i = 0; i < dirtybits; )
         {
-            if (!bgDirty.Data[i])
+            if (!bgDirty[i])
             {
                 i++;
                 continue;
             }
-
-            int start = i * 32;
-            for (;;)
-            {
-                i++;
-                if (i >= texlen) break;
-                if (!bgDirty.Data[i]) break;
-            }
-            int end = i * 32;
 
             if (!uploading)
             {
                 BeginTexUpload(VRAMTexBG);
                 uploading = true;
             }
-            UploadTexRows(VRAMTexBG, &vram[start * 1024], start, end - start, 1024);
+
+            if (i & 1)
+            {
+                UploadTexRectR8(VRAMTexBG, &vram[i * 512], 512, i >> 1, 512, 1);
+                i++;
+                continue;
+            }
+
+            int start = i;
+            while ((i + 1) < dirtybits && bgDirty[i] && bgDirty[i + 1])
+                i += 2;
+
+            if (i > start)
+            {
+                UploadTexRectR8(VRAMTexBG, &vram[start * 512], 0, start >> 1,
+                                1024, (i - start) >> 1);
+                continue;
+            }
+
+            UploadTexRectR8(VRAMTexBG, &vram[i * 512], 0, i >> 1, 512, 1);
+            i++;
         }
 
         if (uploading)
@@ -1313,24 +1356,97 @@ void VulkanRenderer2D::UpdateAndRender(int line)
 }
 
 
+void VulkanRenderer2D::DrawSoftwareLine(u32 line)
+{
+    if (GPU2D.Num == 0 && (GPU2D.DispCnt & (1 << 3)))
+        SoftFallback->SetOutput3D(Parent.GetLine3D(line));
+
+    SoftFallback->DrawScanline(line);
+    memcpy(&SoftFrameBuffer[line * 256], SoftOutput, sizeof(SoftOutput));
+
+    if (NeedPartialRender)
+        FlushSoftwareLines(line + 1);
+}
+
+void VulkanRenderer2D::FlushSoftwareLines(u32 endLine)
+{
+    endLine = std::min(endLine, 192u);
+    if (SoftFlushedLine >= endLine)
+        return;
+
+    u32* dst = SoftUploadBuffer.data();
+    for (u32 line = SoftFlushedLine; line < endLine; line++)
+    {
+        u32* row = dst;
+        for (int x = 0; x < 256; x++)
+        {
+            u32 color = SoftFrameBuffer[(line * 256) + x];
+            color = ((color & 0x0000003F) << 2) |
+                    ((color & 0x00003F00) << 2) |
+                    ((color & 0x003F0000) << 2) |
+                    0xFF000000;
+            for (int sx = 0; sx < ScaleFactor; sx++)
+                *row++ = color;
+        }
+
+        const size_t rowBytes = ScreenW * sizeof(u32);
+        for (int sy = 0; sy < ScaleFactor; sy++)
+        {
+            if (sy > 0)
+                memcpy(dst, dst - ScreenW, rowBytes);
+            dst += ScreenW;
+        }
+    }
+
+    const size_t rowBytes = ScreenW * sizeof(u32);
+    const u32 uploadRows = (endLine - SoftFlushedLine) * ScaleFactor;
+
+    BeginTexUpload(OutputImg);
+    UploadTexRows(OutputImg, SoftUploadBuffer.data(), SoftFlushedLine * ScaleFactor,
+                  uploadRows, rowBytes);
+    EndTexUpload(OutputImg);
+    SoftFlushedLine = endLine;
+}
+
 void VulkanRenderer2D::DrawScanline(u32 line)
 {
     if (CurCmd == VK_NULL_HANDLE)
         return;
 
-    UpdateAndRender(line);
+    if (UseSoftware2D)
+        DrawSoftwareLine(line);
+    else
+        UpdateAndRender(line);
 }
 
 void VulkanRenderer2D::VBlank()
 {
-    if (CurCmd != VK_NULL_HANDLE)
+    if (CurCmd != VK_NULL_HANDLE && UseSoftware2D)
+    {
+        FlushSoftwareLines(192);
+        SoftFlushedLine = 0;
+    }
+    else if (CurCmd != VK_NULL_HANDLE)
     {
         DoRenderSprites(192);
         RenderScreen(LastLine, 192);
+
+        // The accelerated 2D design pre-renders whole BGs whenever their
+        // source VRAM changes. A workload that streams BG data on most
+        // scanlines can therefore turn one frame into hundreds of full GPU
+        // passes. At modest scale factors, the scanline-accurate software
+        // compositor is both faster and exact; 3D is read back once per frame.
+        if (ScaleFactor <= 4 && CompositeBands > 64)
+        {
+            SoftFallback->Reset();
+            UseSoftware2D = true;
+        }
     }
 
     LastSpriteLine = 0;
     LastLine = 0;
+
+    CompositeBands = 0;
 
     // per-frame transient allocations restart here; the parent must have
     // waited for the previous frame's command buffers before this frame's
@@ -2127,8 +2243,6 @@ void VulkanRenderer2D::PrerenderLayer(int layer)
     if (set == VK_NULL_HANDLE) return;
 
     BeginColorTarget(*BGLayerImg[layer]);
-    // the pool textures match the layer size exactly, and the fullscreen
-    // rect covers the whole target, so a clearing pass is fine here
     BeginPass(RPColorClear, BGLayerFB[layer], cfg.Size[0], cfg.Size[1]);
     SetViewportScissor(cfg.Size[0], cfg.Size[1], 0, cfg.Size[1]);
 
@@ -2365,6 +2479,12 @@ void VulkanRenderer2D::DrawSprites(u32 line)
     if (CurCmd == VK_NULL_HANDLE)
         return;
 
+    if (UseSoftware2D)
+    {
+        SoftFallback->DrawSprites(line);
+        return;
+    }
+
     u32 oammask = 1 << GPU2D.Num;
     bool dirty = false;
     bool screenon = IsScreenOn();
@@ -2399,30 +2519,43 @@ void VulkanRenderer2D::DrawSprites(u32 line)
 
     bool uploading = false;
 
-    int texlen = (GPU2D.Num ? 256 : 512) >> 6;
-    for (int i = 0; i < texlen; )
+    int dirtybits = GPU2D.Num ? 256 : 512;
+    for (int i = 0; i < dirtybits; )
     {
-        if (!objDirty.Data[i])
+        if (!objDirty[i])
         {
             i++;
             continue;
         }
-
-        int start = i * 32;
-        for (;;)
-        {
-            i++;
-            if (i >= texlen) break;
-            if (!objDirty.Data[i]) break;
-        }
-        int end = i * 32;
 
         if (!uploading)
         {
             BeginTexUpload(VRAMTexOBJ);
             uploading = true;
         }
-        UploadTexRows(VRAMTexOBJ, &vram[start * 1024], start, end - start, 1024);
+
+        if (i & 1)
+        {
+            UploadTexRectR8(VRAMTexOBJ, &vram[i * 512], 512, i >> 1, 512, 1);
+            i++;
+            dirty = true;
+            continue;
+        }
+
+        int start = i;
+        while ((i + 1) < dirtybits && objDirty[i] && objDirty[i + 1])
+            i += 2;
+
+        if (i > start)
+        {
+            UploadTexRectR8(VRAMTexOBJ, &vram[start * 512], 0, start >> 1,
+                            1024, (i - start) >> 1);
+        }
+        else
+        {
+            UploadTexRectR8(VRAMTexOBJ, &vram[i * 512], 0, i >> 1, 512, 1);
+            i++;
+        }
         dirty = true;
     }
 

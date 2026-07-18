@@ -23,6 +23,7 @@
 #include "OpenGLSupport.h"
 #include "GPU3D_TexcacheOpenGL.h"
 #include "NonStupidBitfield.h"
+#include <vector>
 
 namespace melonDS
 {
@@ -159,6 +160,10 @@ private:
     int ScreenW {}, ScreenH {};
 
     GLuint ColorBufferTex {}, DepthBufferTex {}, AttrBufferTex {};
+
+    std::vector<u32> ReadbackBuffer;
+    alignas(8) u32 ReadbackLine[256] {};
+    bool ReadbackValid = false;
 
     GLuint MainFramebuffer {};
 };

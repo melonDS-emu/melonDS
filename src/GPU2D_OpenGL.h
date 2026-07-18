@@ -20,12 +20,14 @@
 
 #include <memory>
 #include <optional>
+#include <vector>
 #include "OpenGLSupport.h"
 #include "GPU2D.h"
 
 namespace melonDS
 {
 class GLRenderer;
+class SoftRenderer2D;
 
 class GLRenderer2D : public Renderer2D
 {
@@ -92,6 +94,7 @@ private:
     GLuint VRAMTex_OBJ;
     GLuint PalTex_BG;
     GLuint PalTex_OBJ;
+    GLuint TextureUploadPBO = 0;
 
     GLuint MosaicTex;
 
@@ -110,6 +113,15 @@ private:
 
     GLuint OutputFB;
     GLuint OutputTex;
+
+    std::unique_ptr<SoftRenderer2D> SoftFallback;
+    alignas(8) u32 SoftOutput[256];
+    alignas(8) u32 SoftFrameBuffer[256 * 192];
+    std::vector<u32> SoftUploadBuffer;
+    u32 SoftFlushedLine = 0;
+    bool UseSoftware2D = false;
+
+    u32 CompositeBands = 0;
 
     // std140 compliant config struct for the layer shader
     struct sLayerConfig
@@ -209,6 +221,9 @@ private:
     u16 TempPalBuffer[256 * (1 + (4*16))];
 
     bool IsScreenOn();
+    void DrawSoftwareLine(u32 line);
+    void FlushSoftwareLines(u32 endLine);
+    void SwitchToHardware(u32 line);
 
     void UpdateAndRender(int line);
 
@@ -216,6 +231,8 @@ private:
     void UpdateLayerConfig();
     void UpdateOAM(int ystart, int yend);
     void UpdateCompositorConfig();
+    void UploadTexture2D(GLint x, GLint y, GLsizei width, GLsizei height,
+                         GLenum format, GLenum type, const void* data, GLsizeiptr size);
 
     void PrerenderSprites();
     void PrerenderLayer(int layer);

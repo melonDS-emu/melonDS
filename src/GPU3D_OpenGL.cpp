@@ -320,6 +320,7 @@ void GLRenderer3D::Reset()
 {
     Texcache.Reset();
     ClearBitmapDirty = 0x3;
+    ReadbackValid = false;
 }
 
 void GLRenderer3D::SetBetterPolygons(bool betterpolygons) noexcept
@@ -345,6 +346,8 @@ void GLRenderer3D::SetRenderSettings(int scale, bool betterpolygons) noexcept
 
     ScreenW = 256 * scale;
     ScreenH = 192 * scale;
+    ReadbackBuffer.resize(ScreenW * ScreenH);
+    ReadbackValid = false;
 
     glBindTexture(GL_TEXTURE_2D, ColorBufferTex);
     glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, ScreenW, ScreenH, 0, GL_RGBA, GL_UNSIGNED_BYTE, NULL);
@@ -1273,6 +1276,8 @@ void GLRenderer3D::RenderSceneChunk(int y, int h)
 
 void GLRenderer3D::RenderFrame()
 {
+    ReadbackValid = false;
+
     u8 clrBitmapDirty;
     if (!Texcache.Update(clrBitmapDirty) && GPU3D.RenderFrameIdentical)
     {
@@ -1485,7 +1490,40 @@ void GLRenderer3D::RenderFrame()
 
 u32* GLRenderer3D::GetLine(int line)
 {
-    return nullptr;
+    if (!ReadbackValid)
+    {
+        glBindTexture(GL_TEXTURE_2D, ColorBufferTex);
+        glGetTexImage(GL_TEXTURE_2D, 0, GL_RGBA, GL_UNSIGNED_BYTE,
+                      ReadbackBuffer.data());
+        ReadbackValid = true;
+    }
+
+    const u16 xpos = GPU3D.GetRenderXPos();
+    const u32 sourceY = line * ScaleFactor;
+    for (int x = 0; x < 256; x++)
+    {
+        int sourceX;
+        if (xpos & 0x100)
+            sourceX = x - (512 - xpos);
+        else
+            sourceX = x + xpos;
+
+        if (sourceX < 0 || sourceX >= 256)
+        {
+            ReadbackLine[x] = 0;
+            continue;
+        }
+
+        const u32 color = ReadbackBuffer[(sourceY * ScreenW) +
+                                         (sourceX * ScaleFactor)];
+        const u32 r = ((color & 0xFF) * 63 + 127) / 255;
+        const u32 g = (((color >> 8) & 0xFF) * 63 + 127) / 255;
+        const u32 b = (((color >> 16) & 0xFF) * 63 + 127) / 255;
+        const u32 a = (((color >> 24) & 0xFF) * 31 + 127) / 255;
+        ReadbackLine[x] = r | (g << 8) | (b << 16) | (a << 24);
+    }
+
+    return ReadbackLine;
 }
 
 }

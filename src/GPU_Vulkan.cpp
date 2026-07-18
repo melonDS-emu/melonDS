@@ -47,8 +47,8 @@ VulkanRenderer::VulkanRenderer(melonDS::NDS& nds)
     Ctx = &rend3d->GetContext();
     Rend3D = std::move(rend3d);
 
-    Rend2D_A = std::make_unique<VulkanRenderer2D>(GPU.GPU2D_A, *Ctx);
-    Rend2D_B = std::make_unique<VulkanRenderer2D>(GPU.GPU2D_B, *Ctx);
+    Rend2D_A = std::make_unique<VulkanRenderer2D>(GPU.GPU2D_A, *this, *Ctx);
+    Rend2D_B = std::make_unique<VulkanRenderer2D>(GPU.GPU2D_B, *this, *Ctx);
 
     ScaleFactor = 0;
 }

@@ -522,6 +522,7 @@ void ComputeRenderer3D_Vulkan::Reset()
     }
     Texcache.Reset();
     ClearBitmapDirty = 0x3;
+    ReadbackValid = false;
 }
 
 void ComputeRenderer3D_Vulkan::UpdateStaticDescriptorSet()
@@ -722,7 +723,8 @@ void ComputeRenderer3D_Vulkan::SetRenderSettings(int scale, bool highResolutionC
                      VK_BUFFER_USAGE_STORAGE_BUFFER_BIT, false);
 
     Ctx.CreateImage(FramebufferImg, VK_FORMAT_R8G8B8A8_UNORM, ScreenWidth, ScreenHeight, 1,
-                    VK_IMAGE_USAGE_STORAGE_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT, false);
+                    VK_IMAGE_USAGE_STORAGE_BIT | VK_IMAGE_USAGE_SAMPLED_BIT |
+                    VK_IMAGE_USAGE_TRANSFER_SRC_BIT, false);
 
     Ctx.CreateBuffer(ReadbackBuffer, (VkDeviceSize)ScreenWidth*ScreenHeight*4,
                      VK_BUFFER_USAGE_TRANSFER_DST_BIT, true);
@@ -984,6 +986,7 @@ struct VulkanRenderVariant
 void ComputeRenderer3D_Vulkan::RenderFrame()
 {
     assert(!NeedsShaderCompile());
+    ReadbackValid = false;
 
     // deferred wait: reclaim the previous native-output frame before touching
     // any per-frame resource (texture cache, descriptor pool, command buffer).
@@ -1593,7 +1596,66 @@ void ComputeRenderer3D_Vulkan::RestartFrame()
 
 u32* ComputeRenderer3D_Vulkan::GetLine(int line)
 {
-    return nullptr;
+    if (!ReadbackValid)
+    {
+        if (SubmitPending)
+        {
+            VK::vkWaitForFences(Ctx.Device, 1, &FrameFence, VK_TRUE, UINT64_MAX);
+            VK::vkResetFences(Ctx.Device, 1, &FrameFence);
+            SubmitPending = false;
+        }
+
+        VkCommandBuffer cmd = Ctx.BeginOneShot();
+        Ctx.TransitionImage(cmd, FramebufferImg, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
+            VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT, VK_ACCESS_SHADER_READ_BIT,
+            VK_PIPELINE_STAGE_TRANSFER_BIT, VK_ACCESS_TRANSFER_READ_BIT);
+
+        VkBufferImageCopy region = {};
+        region.imageSubresource = {VK_IMAGE_ASPECT_COLOR_BIT, 0, 0, 1};
+        region.imageExtent = {(u32)ScreenWidth, (u32)ScreenHeight, 1};
+        VK::vkCmdCopyImageToBuffer(cmd, FramebufferImg.Img,
+            VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, ReadbackBuffer.Buf, 1, &region);
+
+        VkMemoryBarrier hostBarrier = {VK_STRUCTURE_TYPE_MEMORY_BARRIER};
+        hostBarrier.srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
+        hostBarrier.dstAccessMask = VK_ACCESS_HOST_READ_BIT;
+        VK::vkCmdPipelineBarrier(cmd, VK_PIPELINE_STAGE_TRANSFER_BIT,
+            VK_PIPELINE_STAGE_HOST_BIT, 0, 1, &hostBarrier, 0, nullptr, 0, nullptr);
+
+        Ctx.TransitionImage(cmd, FramebufferImg, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
+            VK_PIPELINE_STAGE_TRANSFER_BIT, VK_ACCESS_TRANSFER_READ_BIT,
+            VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT, VK_ACCESS_SHADER_READ_BIT);
+        Ctx.EndOneShot(cmd);
+        ReadbackValid = true;
+    }
+
+    const u16 xpos = GPU3D.GetRenderXPos();
+    const u32 sourceY = line * ScaleFactor;
+    const u32* readback = (const u32*)ReadbackBuffer.Map;
+    for (int x = 0; x < 256; x++)
+    {
+        int sourceX;
+        if (xpos & 0x100)
+            sourceX = x - (512 - xpos);
+        else
+            sourceX = x + xpos;
+
+        if (sourceX < 0 || sourceX >= 256)
+        {
+            ReadbackLine[x] = 0;
+            continue;
+        }
+
+        const u32 color = readback[(sourceY * ScreenWidth) +
+                                   (sourceX * ScaleFactor)];
+        const u32 r = ((color & 0xFF) * 63 + 127) / 255;
+        const u32 g = (((color >> 8) & 0xFF) * 63 + 127) / 255;
+        const u32 b = (((color >> 16) & 0xFF) * 63 + 127) / 255;
+        const u32 a = (((color >> 24) & 0xFF) * 31 + 127) / 255;
+        ReadbackLine[x] = r | (g << 8) | (b << 16) | (a << 24);
+    }
+
+    return ReadbackLine;
 }
 
 }

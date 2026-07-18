@@ -75,6 +75,9 @@ private:
 
     Renderer3DType Type3D;
 
+    bool CanReadback3D() const { return Type3D == Renderer3DType::OpenGL; }
+    u32* GetLine3D(int line) { return Rend3D->GetLine(line); }
+
     int ScaleFactor;
     int ScreenW, ScreenH;
 

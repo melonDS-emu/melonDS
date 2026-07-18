@@ -85,6 +85,10 @@ public:
     void ShaderCompileStep(int& current, int& count) override;
 
 private:
+    friend class VulkanRenderer2D;
+
+    u32* GetLine3D(int line) { return Rend3D->GetLine(line); }
+
     // borrowed from Rend3D (which owns the VK::Context); shared with
     // Rend2D_A/B, set once construction of Rend3D has happened
     VK::Context* Ctx = nullptr;

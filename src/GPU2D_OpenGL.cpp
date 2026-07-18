@@ -19,6 +19,7 @@
 #include <assert.h>
 #include "GPU_OpenGL.h"
 #include "GPU2D_OpenGL.h"
+#include "GPU2D_Soft.h"
 #include "GPU.h"
 #include "GPU3D.h"
 
@@ -42,6 +43,7 @@ GLRenderer2D::GLRenderer2D(melonDS::GPU2D& gpu2D, GLRenderer& parent)
     : Renderer2D(gpu2D), Parent(parent)
 {
     ScaleFactor = 0;
+    SoftFallback = std::make_unique<SoftRenderer2D>(gpu2D, SoftOutput);
 }
 
 #define glDefaultTexParams(target) \
@@ -233,6 +235,12 @@ bool GLRenderer2D::Init()
 
     // generate textures to hold raw BG and OBJ VRAM and palettes
 
+    // Client-memory texture updates make Apple's OpenGL-over-Metal driver
+    // wait for all draws using the texture before it can retile the resource.
+    // Stream uploads through an orphaned PBO so the copy stays GPU ordered
+    // without turning every mid-frame VRAM change into a CPU/GPU round trip.
+    glGenBuffers(1, &TextureUploadPBO);
+
     int bgheight = (GPU2D.Num == 0) ? 512 : 128;
     int objheight = (GPU2D.Num == 0) ? 256 : 128;
 
@@ -375,6 +383,7 @@ GLRenderer2D::~GLRenderer2D()
 
     glDeleteBuffers(1, &LayerConfigUBO);
     glDeleteBuffers(1, &SpriteConfigUBO);
+    glDeleteBuffers(1, &TextureUploadPBO);
 
     glDeleteTextures(1, &VRAMTex_BG);
     glDeleteTextures(1, &VRAMTex_OBJ);
@@ -401,6 +410,12 @@ GLRenderer2D::~GLRenderer2D()
 
 void GLRenderer2D::Reset()
 {
+    SoftFallback->Reset();
+    memset(SoftFrameBuffer, 0, sizeof(SoftFrameBuffer));
+    SoftFlushedLine = 0;
+    UseSoftware2D = false;
+    CompositeBands = 0;
+
     memset(BGLayerFB, 0, sizeof(BGLayerFB));
     memset(BGLayerTex, 0, sizeof(BGLayerTex));
 
@@ -457,6 +472,7 @@ void GLRenderer2D::SetScaleFactor(int scale)
     ScaleFactor = scale;
     ScreenW = 256 * scale;
     ScreenH = 192 * scale;
+    SoftUploadBuffer.resize(ScreenW * ScreenH);
 
     const GLenum fbassign2[] = {GL_COLOR_ATTACHMENT0, GL_COLOR_ATTACHMENT1};
 
@@ -512,7 +528,6 @@ bool GLRenderer2D::IsScreenOn()
 
     return true;
 }
-
 
 void GLRenderer2D::UpdateAndRender(int line)
 {
@@ -630,7 +645,7 @@ void GLRenderer2D::UpdateAndRender(int line)
         if ((cfg.Type == 1 || cfg.Type == 3) && (cfg.PalOffset > 0))
         {
             u32 pal = cfg.PalOffset - 1;
-            if (bgExtPalDirty.CheckRange(pal, pal + 16))
+            if (bgExtPalDirty.CheckRange(pal, 16))
                 layer_pre_dirty |= (1 << layer);
         }
         else if (cfg.Type <= 4)
@@ -639,6 +654,13 @@ void GLRenderer2D::UpdateAndRender(int line)
                 layer_pre_dirty |= (1 << layer);
         }
     }
+
+    // Disabled BGs do not need to be rebuilt as VRAM changes. The VRAM
+    // texture itself stays coherent, and a newly-enabled BG is rebuilt from
+    // its latest contents before it can be composited.
+    const u8 enabledBGs = GPU2D.LayerEnable & 0xF;
+    const u8 newlyEnabledBGs = enabledBGs & ~LayerEnable;
+    layer_pre_dirty = (layer_pre_dirty & enabledBGs) | newlyEnabledBGs;
 
     if (layer_pre_dirty)
         comp_dirty = true;
@@ -657,6 +679,7 @@ void GLRenderer2D::UpdateAndRender(int line)
 
     if (comp_dirty && (line > 0))
     {
+        CompositeBands++;
         RenderScreen(LastLine, line);
         LastLine = line;
     }
@@ -694,29 +717,42 @@ void GLRenderer2D::UpdateAndRender(int line)
 
         glBindTexture(GL_TEXTURE_2D, VRAMTex_BG);
 
-        int texlen = dirtybits >> 6;
-        for (int i = 0; i < texlen; )
+        for (int i = 0; i < dirtybits; )
         {
-            if (!bgDirty.Data[i])
+            if (!bgDirty[i])
             {
                 i++;
                 continue;
             }
 
-            int start = i * 32;
-            for (;;)
+            // Dirty tracking is 512-byte granular while the upload texture
+            // is 1024 bytes wide. Preserve that granularity instead of
+            // expanding one dirty bit to an entire 32-row block.
+            if (i & 1)
             {
+                UploadTexture2D(512, i >> 1, 512, 1,
+                                GL_RED_INTEGER, GL_UNSIGNED_BYTE,
+                                &vram[i * 512], 512);
                 i++;
-                if (i >= texlen) break;
-                if (!bgDirty.Data[i]) break;
+                continue;
             }
-            int end = i * 32;
 
-            glTexSubImage2D(GL_TEXTURE_2D, 0,
-                            0, start,
-                            1024, end - start,
+            int start = i;
+            while ((i + 1) < dirtybits && bgDirty[i] && bgDirty[i + 1])
+                i += 2;
+
+            if (i > start)
+            {
+                UploadTexture2D(0, start >> 1, 1024, (i - start) >> 1,
+                                GL_RED_INTEGER, GL_UNSIGNED_BYTE,
+                                &vram[start * 512], (i - start) * 512);
+                continue;
+            }
+
+            UploadTexture2D(0, i >> 1, 512, 1,
                             GL_RED_INTEGER, GL_UNSIGNED_BYTE,
-                            &vram[start * 1024]);
+                            &vram[i * 512], 512);
+            i++;
         }
     }
 
@@ -733,8 +769,9 @@ void GLRenderer2D::UpdateAndRender(int line)
         }
 
         glBindTexture(GL_TEXTURE_2D, PalTex_BG);
-        glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, 256, 1+(4*16), GL_RGBA, GL_UNSIGNED_SHORT_1_5_5_5_REV,
-                        TempPalBuffer);
+        UploadTexture2D(0, 0, 256, 1+(4*16),
+                        GL_RGBA, GL_UNSIGNED_SHORT_1_5_5_5_REV,
+                        TempPalBuffer, sizeof(TempPalBuffer));
     }
 
     GPU.PaletteDirty &= ~palmask;
@@ -788,7 +825,9 @@ void GLRenderer2D::UpdateAndRender(int line)
 
         glActiveTexture(GL_TEXTURE1);
         glBindTexture(GL_TEXTURE_2D, PalTex_OBJ);
-        glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, 256, 1+16, GL_RGBA, GL_UNSIGNED_SHORT_1_5_5_5_REV, TempPalBuffer);
+        UploadTexture2D(0, 0, 256, 1+16,
+                        GL_RGBA, GL_UNSIGNED_SHORT_1_5_5_5_REV,
+                        TempPalBuffer, 256 * (1+16) * sizeof(u16));
 
         PrerenderSprites();
 
@@ -800,18 +839,115 @@ void GLRenderer2D::UpdateAndRender(int line)
 }
 
 
+void GLRenderer2D::DrawSoftwareLine(u32 line)
+{
+    if (GPU2D.Num == 0 && (GPU2D.DispCnt & (1 << 3)))
+    {
+        u32* output3D = Parent.GetLine3D(line);
+        if (!output3D)
+        {
+            SwitchToHardware(line);
+            UpdateAndRender(line);
+            return;
+        }
+        SoftFallback->SetOutput3D(output3D);
+    }
+
+    SoftFallback->DrawScanline(line);
+    memcpy(&SoftFrameBuffer[line * 256], SoftOutput, sizeof(SoftOutput));
+
+    if (Parent.NeedPartialRender)
+        FlushSoftwareLines(line + 1);
+}
+
+void GLRenderer2D::FlushSoftwareLines(u32 endLine)
+{
+    endLine = std::min(endLine, 192u);
+    if (SoftFlushedLine >= endLine)
+        return;
+
+    u32* dst = SoftUploadBuffer.data();
+    for (u32 line = SoftFlushedLine; line < endLine; line++)
+    {
+        u32* row = dst;
+        for (int x = 0; x < 256; x++)
+        {
+            u32 color = SoftFrameBuffer[(line * 256) + x];
+            color = ((color & 0x0000003F) << 2) |
+                    ((color & 0x00003F00) << 2) |
+                    ((color & 0x003F0000) << 2) |
+                    0xFF000000;
+            for (int sx = 0; sx < ScaleFactor; sx++)
+                *row++ = color;
+        }
+
+        const size_t rowBytes = ScreenW * sizeof(u32);
+        for (int sy = 0; sy < ScaleFactor; sy++)
+        {
+            if (sy > 0)
+                memcpy(dst, dst - ScreenW, rowBytes);
+            dst += ScreenW;
+        }
+    }
+
+    const size_t rowBytes = ScreenW * sizeof(u32);
+    const u32 uploadRows = (endLine - SoftFlushedLine) * ScaleFactor;
+
+    glActiveTexture(GL_TEXTURE0);
+    glBindTexture(GL_TEXTURE_2D, OutputTex);
+    UploadTexture2D(0, SoftFlushedLine * ScaleFactor, ScreenW, uploadRows,
+                    GL_RGBA, GL_UNSIGNED_BYTE, SoftUploadBuffer.data(),
+                    rowBytes * uploadRows);
+    SoftFlushedLine = endLine;
+}
+
+void GLRenderer2D::SwitchToHardware(u32 line)
+{
+    FlushSoftwareLines(line);
+    Reset();
+    LastLine = line;
+    LastSpriteLine = line;
+}
+
 void GLRenderer2D::DrawScanline(u32 line)
 {
-    UpdateAndRender(line);
+    if (UseSoftware2D)
+        DrawSoftwareLine(line);
+    else
+        UpdateAndRender(line);
 }
 
 void GLRenderer2D::VBlank()
 {
-    DoRenderSprites(192);
-    RenderScreen(LastLine, 192);
+    if (UseSoftware2D)
+    {
+        FlushSoftwareLines(192);
+        SoftFlushedLine = 0;
+    }
+    else
+    {
+        DoRenderSprites(192);
+        RenderScreen(LastLine, 192);
+
+        // The accelerated 2D design pre-renders whole BGs whenever their
+        // source VRAM changes. A game that deliberately streams BG data on
+        // most scanlines turns that into hundreds of full render passes.
+        // At modest scale factors, the existing scanline-accurate software
+        // compositor is both faster and exact. When engine A uses 3D, its
+        // already-rendered 3D output is read back once and composited with it.
+        const bool supportsFallback = GPU2D.Num == 1 || !(DispCnt & (1 << 3)) ||
+                                      Parent.CanReadback3D();
+        if (supportsFallback && ScaleFactor <= 4 && CompositeBands > 64)
+        {
+            SoftFallback->Reset();
+            UseSoftware2D = true;
+        }
+    }
 
     LastSpriteLine = 0;
     LastLine = 0;
+
+    CompositeBands = 0;
 }
 
 void GLRenderer2D::VBlankEnd()
@@ -1836,6 +1972,12 @@ void GLRenderer2D::RenderScreen(int ystart, int yend)
 
 void GLRenderer2D::DrawSprites(u32 line)
 {
+    if (UseSoftware2D)
+    {
+        SoftFallback->DrawSprites(line);
+        return;
+    }
+
     u32 oammask = 1 << GPU2D.Num;
     bool dirty = false;
     bool screenon = IsScreenOn();
@@ -1870,29 +2012,42 @@ void GLRenderer2D::DrawSprites(u32 line)
 
     glBindTexture(GL_TEXTURE_2D, VRAMTex_OBJ);
 
-    int texlen = (GPU2D.Num ? 256 : 512) >> 6;
-    for (int i = 0; i < texlen; )
+    int dirtybits = GPU2D.Num ? 256 : 512;
+    for (int i = 0; i < dirtybits; )
     {
-        if (!objDirty.Data[i])
+        if (!objDirty[i])
         {
             i++;
             continue;
         }
 
-        int start = i * 32;
-        for (;;)
+        if (i & 1)
         {
+            UploadTexture2D(512, i >> 1, 512, 1,
+                            GL_RED_INTEGER, GL_UNSIGNED_BYTE,
+                            &vram[i * 512], 512);
             i++;
-            if (i >= texlen) break;
-            if (!objDirty.Data[i]) break;
+            dirty = true;
+            continue;
         }
-        int end = i * 32;
 
-        glTexSubImage2D(GL_TEXTURE_2D, 0,
-                        0, start,
-                        1024, end - start,
-                        GL_RED_INTEGER, GL_UNSIGNED_BYTE,
-                        &vram[start * 1024]);
+        int start = i;
+        while ((i + 1) < dirtybits && objDirty[i] && objDirty[i + 1])
+            i += 2;
+
+        if (i > start)
+        {
+            UploadTexture2D(0, start >> 1, 1024, (i - start) >> 1,
+                            GL_RED_INTEGER, GL_UNSIGNED_BYTE,
+                            &vram[start * 512], (i - start) * 512);
+        }
+        else
+        {
+            UploadTexture2D(0, i >> 1, 512, 1,
+                            GL_RED_INTEGER, GL_UNSIGNED_BYTE,
+                            &vram[i * 512], 512);
+            i++;
+        }
         dirty = true;
     }
 
@@ -1908,6 +2063,15 @@ void GLRenderer2D::DrawSprites(u32 line)
     // so it will be able to do the actual sprite rendering
     if (dirty)
         SpriteDirty = true;
+}
+
+void GLRenderer2D::UploadTexture2D(GLint x, GLint y, GLsizei width, GLsizei height,
+                                   GLenum format, GLenum type, const void* data, GLsizeiptr size)
+{
+    glBindBuffer(GL_PIXEL_UNPACK_BUFFER, TextureUploadPBO);
+    glBufferData(GL_PIXEL_UNPACK_BUFFER, size, data, GL_STREAM_DRAW);
+    glTexSubImage2D(GL_TEXTURE_2D, 0, x, y, width, height, format, type, nullptr);
+    glBindBuffer(GL_PIXEL_UNPACK_BUFFER, 0);
 }
 
 }
