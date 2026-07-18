@@ -388,10 +388,11 @@ bool VulkanRenderer2D::Init()
                           VK_BUFFER_USAGE_VERTEX_BUFFER_BIT, true))
         return false;
     VertexRing.Host.resize(VertexRing.Buf.Size);
-    if (!Ctx.CreateBuffer(StagingRing.Buf, 8 * 1024 * 1024,
+    StagingPages.emplace_back();
+    if (!Ctx.CreateBuffer(StagingPages.back().Buf, 8 * 1024 * 1024,
                           VK_BUFFER_USAGE_TRANSFER_SRC_BIT, true))
         return false;
-    StagingRing.Host.resize(StagingRing.Buf.Size);
+    StagingPages.back().Host.resize(StagingPages.back().Buf.Size);
 
     // fullscreen unit rect (the GL renderer borrows the parent's)
 
@@ -600,13 +601,17 @@ VulkanRenderer2D::~VulkanRenderer2D()
         Ctx.DestroyImage(DummyTexArray);
 
         Ctx.DestroyBuffer(VertexRing.Buf);
-        Ctx.DestroyBuffer(StagingRing.Buf);
+        for (sRingBuffer& page : StagingPages)
+            Ctx.DestroyBuffer(page.Buf);
         Ctx.DestroyBuffer(RectVtxBuffer);
         Ctx.DestroyBuffer(LayerConfigRing.Buf);
         Ctx.DestroyBuffer(SpriteConfigRing.Buf);
         Ctx.DestroyBuffer(CompositorConfigRing.Buf);
         Ctx.DestroyBuffer(ScanlineConfigUBO);
         Ctx.DestroyBuffer(SpriteScanlineConfigUBO);
+
+        if (OwnsShared)
+            DeleteShaders();
     }
 
     delete[] SpritePreVtxData;
@@ -811,6 +816,65 @@ u32 VulkanRenderer2D::RingAlloc(sRingBuffer& ring, u32 size)
     return offset;
 }
 
+bool VulkanRenderer2D::StagingAlloc(u32 size, sRingBuffer*& page, u32& offset)
+{
+    const u32 alignedSize = (size + 255) & ~255u;
+    for (sRingBuffer& candidate : StagingPages)
+    {
+        if (alignedSize <= candidate.Buf.Size &&
+            candidate.Offset <= candidate.Buf.Size - alignedSize)
+        {
+            page = &candidate;
+            offset = candidate.Offset;
+            candidate.Offset += alignedSize;
+            return true;
+        }
+    }
+
+    const u32 pageSize = std::max(8u * 1024 * 1024, alignedSize);
+    StagingPages.emplace_back();
+    sRingBuffer& newPage = StagingPages.back();
+    if (!Ctx.CreateBuffer(newPage.Buf, pageSize,
+                          VK_BUFFER_USAGE_TRANSFER_SRC_BIT, true))
+    {
+        StagingPages.pop_back();
+        Log(LogLevel::Error,
+            "GPU2D_Vulkan: failed to allocate a %u-byte staging page\n",
+            pageSize);
+        return false;
+    }
+
+    newPage.Host.resize(newPage.Buf.Size);
+    newPage.Offset = alignedSize;
+    page = &newPage;
+    offset = 0;
+    return true;
+}
+
+void VulkanRenderer2D::RetryStagingUploads()
+{
+    if (GPU2D.Num == 0)
+    {
+        GPU.VRAMDirty_ABG.Reset();
+        GPU.VRAMDirty_AOBJ.Reset();
+        GPU.VRAMDirty_ABGExtPal.Reset();
+        GPU.VRAMDirty_AOBJExtPal.Reset();
+    }
+    else
+    {
+        GPU.VRAMDirty_BBG.Reset();
+        GPU.VRAMDirty_BOBJ.Reset();
+        GPU.VRAMDirty_BBGExtPal.Reset();
+        GPU.VRAMDirty_BOBJExtPal.Reset();
+    }
+
+    GPU.PaletteDirty |= 0x3 << (GPU2D.Num * 2);
+    GPU.OAMDirty |= 1 << GPU2D.Num;
+    LayerConfigDirty = true;
+    SpriteConfigDirty = true;
+    SpriteDirty = true;
+}
+
 void VulkanRenderer2D::PushConfig(sConfigRing& ring, const void* data, u32 size)
 {
     // GL updates these configs with glBufferSubData mid-frame and relies
@@ -851,7 +915,8 @@ void VulkanRenderer2D::FlushMappedBuffers()
     };
 
     flushRing(VertexRing);
-    flushRing(StagingRing);
+    for (sRingBuffer& page : StagingPages)
+        flushRing(page);
     flushConfig(LayerConfigRing);
     flushConfig(SpriteConfigRing);
     flushConfig(CompositorConfigRing);
@@ -1058,17 +1123,18 @@ bool VulkanRenderer2D::UploadTexRows(VK::Context::Image& img, const void* data,
     // each upload snapshots the data into a fresh staging slice so draws
     // recorded earlier keep sampling the pre-upload contents
     u32 size = rowCount * bytesPerRow;
-    u32 offset = RingAlloc(StagingRing, size);
-    if (offset == ~0u)
+    sRingBuffer* page;
+    u32 offset;
+    if (!StagingAlloc(size, page, offset))
         return false;
-    memcpy(StagingRing.Host.data() + offset, data, size);
+    memcpy(page->Host.data() + offset, data, size);
 
     VkBufferImageCopy region = {};
     region.bufferOffset = offset;
     region.imageSubresource = {VK_IMAGE_ASPECT_COLOR_BIT, 0, 0, 1};
     region.imageOffset = {0, (s32)rowStart, 0};
     region.imageExtent = {img.Width, rowCount, 1};
-    VK::vkCmdCopyBufferToImage(CurCmd, StagingRing.Buf.Buf, img.Img,
+    VK::vkCmdCopyBufferToImage(CurCmd, page->Buf.Buf, img.Img,
                                VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, &region);
     return true;
 }
@@ -1077,17 +1143,18 @@ bool VulkanRenderer2D::UploadTexRectR8(VK::Context::Image& img, const void* data
                                        u32 x, u32 rowStart, u32 width, u32 rowCount)
 {
     u32 size = width * rowCount;
-    u32 offset = RingAlloc(StagingRing, size);
-    if (offset == ~0u)
+    sRingBuffer* page;
+    u32 offset;
+    if (!StagingAlloc(size, page, offset))
         return false;
-    memcpy(StagingRing.Host.data() + offset, data, size);
+    memcpy(page->Host.data() + offset, data, size);
 
     VkBufferImageCopy region = {};
     region.bufferOffset = offset;
     region.imageSubresource = {VK_IMAGE_ASPECT_COLOR_BIT, 0, 0, 1};
     region.imageOffset = {(s32)x, (s32)rowStart, 0};
     region.imageExtent = {width, rowCount, 1};
-    VK::vkCmdCopyBufferToImage(CurCmd, StagingRing.Buf.Buf, img.Img,
+    VK::vkCmdCopyBufferToImage(CurCmd, page->Buf.Buf, img.Img,
                                VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, &region);
     return true;
 }
@@ -1300,6 +1367,7 @@ void VulkanRenderer2D::UpdateAndRender(int line)
     // update VRAM and palettes
     // (staging copies get recorded before the draws that sample them)
 
+    bool stagingUploadFailed = false;
     int dirtybits = GPU2D.Num ? 256 : 1024;
     if (bgDirty.CheckRange(0, dirtybits))
     {
@@ -1328,7 +1396,9 @@ void VulkanRenderer2D::UpdateAndRender(int line)
 
             if (i & 1)
             {
-                UploadTexRectR8(VRAMTexBG, &vram[i * 512], 512, i >> 1, 512, 1);
+                if (!UploadTexRectR8(VRAMTexBG, &vram[i * 512],
+                                     512, i >> 1, 512, 1))
+                    stagingUploadFailed = true;
                 i++;
                 continue;
             }
@@ -1339,12 +1409,15 @@ void VulkanRenderer2D::UpdateAndRender(int line)
 
             if (i > start)
             {
-                UploadTexRectR8(VRAMTexBG, &vram[start * 512], 0, start >> 1,
-                                1024, (i - start) >> 1);
+                if (!UploadTexRectR8(VRAMTexBG, &vram[start * 512],
+                                     0, start >> 1, 1024, (i - start) >> 1))
+                    stagingUploadFailed = true;
                 continue;
             }
 
-            UploadTexRectR8(VRAMTexBG, &vram[i * 512], 0, i >> 1, 512, 1);
+            if (!UploadTexRectR8(VRAMTexBG, &vram[i * 512],
+                                 0, i >> 1, 512, 1))
+                stagingUploadFailed = true;
             i++;
         }
 
@@ -1365,7 +1438,8 @@ void VulkanRenderer2D::UpdateAndRender(int line)
         }
 
         BeginTexUpload(PalTexBG);
-        UploadTexRows(PalTexBG, TempPalBuffer, 0, 1+(4*16), 256*2);
+        if (!UploadTexRows(PalTexBG, TempPalBuffer, 0, 1+(4*16), 256*2))
+            stagingUploadFailed = true;
         EndTexUpload(PalTexBG);
     }
 
@@ -1401,7 +1475,8 @@ void VulkanRenderer2D::UpdateAndRender(int line)
         }
 
         BeginTexUpload(PalTexOBJ);
-        UploadTexRows(PalTexOBJ, TempPalBuffer, 0, 1+16, 256*2);
+        if (!UploadTexRows(PalTexOBJ, TempPalBuffer, 0, 1+16, 256*2))
+            stagingUploadFailed = true;
         EndTexUpload(PalTexOBJ);
 
         PrerenderSprites();
@@ -1411,6 +1486,8 @@ void VulkanRenderer2D::UpdateAndRender(int line)
 
     LayerConfigDirty = false;
     SpriteDirty = false;
+    if (stagingUploadFailed)
+        RetryStagingUploads();
 }
 
 
@@ -1472,10 +1549,12 @@ void VulkanRenderer2D::FlushSoftwareLines(u32 endLine)
     const u32 uploadRows = (endLine - SoftFlushedLine) * ScaleFactor;
 
     BeginTexUpload(OutputImg);
-    UploadTexRows(OutputImg, SoftUploadBuffer.data(), SoftFlushedLine * ScaleFactor,
-                  uploadRows, rowBytes);
+    const bool uploaded = UploadTexRows(OutputImg, SoftUploadBuffer.data(),
+                                        SoftFlushedLine * ScaleFactor,
+                                        uploadRows, rowBytes);
     EndTexUpload(OutputImg);
-    SoftFlushedLine = endLine;
+    if (uploaded)
+        SoftFlushedLine = endLine;
 }
 
 void VulkanRenderer2D::DrawScanline(u32 line)
@@ -2581,6 +2660,7 @@ void VulkanRenderer2D::DrawSprites(u32 line)
 
     u32 oammask = 1 << GPU2D.Num;
     bool dirty = false;
+    bool stagingUploadFailed = false;
     bool screenon = IsScreenOn();
 
     SpriteScanlineConfig.uMosaicLine[line] = GPU2D.OBJMosaicLine;
@@ -2630,7 +2710,9 @@ void VulkanRenderer2D::DrawSprites(u32 line)
 
         if (i & 1)
         {
-            UploadTexRectR8(VRAMTexOBJ, &vram[i * 512], 512, i >> 1, 512, 1);
+            if (!UploadTexRectR8(VRAMTexOBJ, &vram[i * 512],
+                                 512, i >> 1, 512, 1))
+                stagingUploadFailed = true;
             i++;
             dirty = true;
             continue;
@@ -2642,12 +2724,15 @@ void VulkanRenderer2D::DrawSprites(u32 line)
 
         if (i > start)
         {
-            UploadTexRectR8(VRAMTexOBJ, &vram[start * 512], 0, start >> 1,
-                            1024, (i - start) >> 1);
+            if (!UploadTexRectR8(VRAMTexOBJ, &vram[start * 512],
+                                 0, start >> 1, 1024, (i - start) >> 1))
+                stagingUploadFailed = true;
         }
         else
         {
-            UploadTexRectR8(VRAMTexOBJ, &vram[i * 512], 0, i >> 1, 512, 1);
+            if (!UploadTexRectR8(VRAMTexOBJ, &vram[i * 512],
+                                 0, i >> 1, 512, 1))
+                stagingUploadFailed = true;
             i++;
         }
         dirty = true;
@@ -2668,6 +2753,8 @@ void VulkanRenderer2D::DrawSprites(u32 line)
     // so it will be able to do the actual sprite rendering
     if (dirty)
         SpriteDirty = true;
+    if (stagingUploadFailed)
+        RetryStagingUploads();
 }
 
 }

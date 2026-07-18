@@ -178,7 +178,7 @@ private:
     u16* SpriteVtxData = nullptr;
 
     sRingBuffer VertexRing;                         // sprite vertex data, one slice per draw
-    sRingBuffer StagingRing;                        // VRAM/palette upload staging
+    std::vector<sRingBuffer> StagingPages;          // VRAM/palette upload staging
     VK::Context::Buffer RectVtxBuffer;              // fullscreen unit rect, 6x vec2
 
     sConfigRing LayerConfigRing;                    // binding 0, dynamic offset
@@ -347,6 +347,8 @@ private:
     void InvalidateDescriptorCache();
 
     u32 RingAlloc(sRingBuffer& ring, u32 size);
+    bool StagingAlloc(u32 size, sRingBuffer*& page, u32& offset);
+    void RetryStagingUploads();
     void PushConfig(sConfigRing& ring, const void* data, u32 size);
     void FlushMappedBuffers();
 

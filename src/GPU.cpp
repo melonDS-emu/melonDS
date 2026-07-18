@@ -1275,8 +1275,8 @@ void GPU::StartScanline(u32 line) noexcept
         NDS.StopDMAs(0, 0x03);
 
     // This is tied to the scheduled frame boundary rather than VCount:
-    // software can rewrite VCount during active display.  The pre-blackmagic
-    // renderer used the same boundary to retire per-frame display state.
+    // software can rewrite VCount during active display. Renderers use this
+    // boundary to retire per-frame display state.
     if (line == 0)
         Rend->VBlankEnd();
 

@@ -17,7 +17,6 @@
 */
 
 #include <string.h>
-#include <stdio.h>
 #include "NDS.h"
 #include "GPU_OpenGL.h"
 
@@ -730,62 +729,6 @@ void GLRenderer::FinishFrame(u32 endLine)
     LastCapLine = 0;
     FrameDirty = false;
 
-    static int debugFrame = 0;
-    if (debugFrame < 1200)
-    {
-        std::vector<u32> pixels((size_t)ScreenW * ScreenH);
-        FILE* stats = fopen("/tmp/melonds-gl-frame-stats.csv", debugFrame ? "a" : "w");
-        glBindFramebuffer(GL_READ_FRAMEBUFFER, FPOutputFB[BackBuffer]);
-        for (int layer = 0; layer < 2; layer++)
-        {
-            glReadBuffer(GL_COLOR_ATTACHMENT0 + layer);
-            glReadPixels(0, 0, ScreenW, ScreenH, GL_RGBA, GL_UNSIGNED_BYTE, pixels.data());
-
-            u64 sum = 0;
-            u64 hash = 1469598103934665603ULL;
-            u32 black = 0;
-            for (int y = 0; y < 192; y++)
-            {
-                for (int x = 0; x < 256; x++)
-                {
-                    u32 pixel = pixels[((y * ScaleFactor) + (ScaleFactor / 2)) * ScreenW +
-                                       ((x * ScaleFactor) + (ScaleFactor / 2))];
-                    u32 rgb = pixel & 0x00FFFFFF;
-                    sum += (rgb & 0xFF) + ((rgb >> 8) & 0xFF) + ((rgb >> 16) & 0xFF);
-                    black += rgb == 0;
-                    hash = (hash ^ pixel) * 1099511628211ULL;
-                }
-            }
-            if (stats)
-                fprintf(stats, "%d,%d,%llu,%u,%llu\n", debugFrame, layer,
-                        (unsigned long long)sum, black, (unsigned long long)hash);
-
-            if (debugFrame == 900 || debugFrame == 901)
-            {
-                char path[128];
-                snprintf(path, sizeof(path), "/tmp/melonds-gl-%d-%d.ppm", debugFrame, layer);
-                FILE* image = fopen(path, "wb");
-                if (image)
-                {
-                    fprintf(image, "P6\n%d %d\n255\n", ScreenW, ScreenH);
-                    for (int y = ScreenH - 1; y >= 0; y--)
-                    {
-                        for (int x = 0; x < ScreenW; x++)
-                        {
-                            u32 pixel = pixels[y * ScreenW + x];
-                            fputc(pixel & 0xFF, image);
-                            fputc((pixel >> 8) & 0xFF, image);
-                            fputc((pixel >> 16) & 0xFF, image);
-                        }
-                    }
-                    fclose(image);
-                }
-            }
-        }
-        if (stats)
-            fclose(stats);
-        debugFrame++;
-    }
     FrameReady = true;
 }
 

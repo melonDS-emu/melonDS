@@ -16,8 +16,6 @@
     with melonDS. If not, see http://www.gnu.org/licenses/.
 */
 
-#include <stdio.h>
-
 #include "NDS.h"
 #include "GPU_Soft.h"
 #include "GPU_ColorOp.h"
@@ -92,56 +90,6 @@ void SoftRenderer::SetRenderSettings(RendererSettings& settings)
     auto rend3d = dynamic_cast<SoftRenderer3D*>(Rend3D.get());
     rend3d->SetThreaded(settings.Threaded);
 }
-
-void SoftRenderer::FinishFrame(u32 endLine)
-{
-    static int debugFrame = 0;
-    if (debugFrame >= 1200)
-        return;
-
-    FILE* stats = fopen("/tmp/melonds-soft-frame-stats.csv", debugFrame ? "a" : "w");
-    for (int layer = 0; layer < 2; layer++)
-    {
-        const u32* pixels = Framebuffer[BackBuffer][layer];
-        u64 sum = 0;
-        u64 hash = 1469598103934665603ULL;
-        u32 black = 0;
-        for (int i = 0; i < 256 * 192; i++)
-        {
-            u32 pixel = pixels[i];
-            u32 rgb = pixel & 0x00FFFFFF;
-            sum += (rgb & 0xFF) + ((rgb >> 8) & 0xFF) + ((rgb >> 16) & 0xFF);
-            black += rgb == 0;
-            hash = (hash ^ pixel) * 1099511628211ULL;
-        }
-        if (stats)
-            fprintf(stats, "%d,%d,%llu,%u,%llu\n", debugFrame, layer,
-                    (unsigned long long)sum, black, (unsigned long long)hash);
-
-        if (debugFrame == 900 || debugFrame == 901)
-        {
-            char path[128];
-            snprintf(path, sizeof(path), "/tmp/melonds-soft-%d-%d.ppm", debugFrame, layer);
-            FILE* image = fopen(path, "wb");
-            if (image)
-            {
-                fprintf(image, "P6\n256 192\n255\n");
-                for (int i = 0; i < 256 * 192; i++)
-                {
-                    u32 pixel = pixels[i];
-                    fputc(pixel & 0xFF, image);
-                    fputc((pixel >> 8) & 0xFF, image);
-                    fputc((pixel >> 16) & 0xFF, image);
-                }
-                fclose(image);
-            }
-        }
-    }
-    if (stats)
-        fclose(stats);
-    debugFrame++;
-}
-
 
 void SoftRenderer::DrawScanline(u32 line)
 {

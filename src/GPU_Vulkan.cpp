@@ -17,7 +17,6 @@
 */
 
 #include <string.h>
-#include <stdio.h>
 #include <algorithm>
 
 #include "NDS.h"
@@ -438,16 +437,17 @@ bool VulkanRenderer::Init()
 VulkanRenderer::~VulkanRenderer()
 {
     if (Ctx && Ctx->Valid)
-    {
         VK::vkDeviceWaitIdle(Ctx->Device);
 
-        // destroy the 2D units and 3D renderer first (base class unique_ptrs
-        // do this automatically on their own destruction, further down the
-        // implicit member-destruction order); make sure our own resources
-        // that they might reference (via SharedResources views) are torn
-        // down only after that has happened is not required here since we
-        // don't hold views owned by them, only vice versa
+    // Rend3D owns Ctx, while both 2D renderers borrow it. The base class
+    // declares Rend3D after the 2D renderers, so its implicit destruction
+    // order would invalidate their context references. Destroy the borrower
+    // that shares A's resources first, followed by their owner.
+    Rend2D_B.reset();
+    Rend2D_A.reset();
 
+    if (Ctx && Ctx->Valid)
+    {
         DestroyScaleDependentResources();
 
         for (int i = 0; i < 2; i++)
@@ -498,6 +498,9 @@ VulkanRenderer::~VulkanRenderer()
 
     delete[] AuxInputBuffer[0];
     delete[] AuxInputBuffer[1];
+
+    Rend3D.reset();
+    Ctx = nullptr;
 }
 
 void VulkanRenderer::DestroyScaleDependentResources()
@@ -1459,62 +1462,6 @@ void VulkanRenderer::FinishFrame(u32 endLine)
         glBindTexture(GL_TEXTURE_2D_ARRAY, FPOutputTex[backbuf]);
         glTexSubImage3D(GL_TEXTURE_2D_ARRAY, 0, 0, 0, 0, ScreenW, ScreenH, 2,
                         GL_RGBA, GL_UNSIGNED_BYTE, rb.Map);
-
-        static int debugFrame = 0;
-        if (debugFrame < 1200)
-        {
-            FILE* stats = fopen("/tmp/melonds-vulkan-frame-stats.csv", debugFrame ? "a" : "w");
-            auto* pixels = static_cast<const u32*>(rb.Map);
-            const size_t layerSize = (size_t)ScreenW * ScreenH;
-            for (int layer = 0; layer < 2; layer++)
-            {
-                u64 sum = 0;
-                u64 hash = 1469598103934665603ULL;
-                u32 black = 0;
-                for (int y = 0; y < 192; y++)
-                {
-                    for (int x = 0; x < 256; x++)
-                    {
-                        u32 pixel = pixels[(layer * layerSize) +
-                                           (((y * ScaleFactor) + (ScaleFactor / 2)) * ScreenW) +
-                                           ((x * ScaleFactor) + (ScaleFactor / 2))];
-                        u32 rgb = pixel & 0x00FFFFFF;
-                        sum += (rgb & 0xFF) + ((rgb >> 8) & 0xFF) + ((rgb >> 16) & 0xFF);
-                        black += rgb == 0;
-                        hash = (hash ^ pixel) * 1099511628211ULL;
-                    }
-                }
-                if (stats)
-                    fprintf(stats, "%d,%d,%llu,%u,%llu\n", debugFrame, layer,
-                            (unsigned long long)sum, black, (unsigned long long)hash);
-
-                if (debugFrame == 900 || debugFrame == 901)
-                {
-                    char path[128];
-                    snprintf(path, sizeof(path), "/tmp/melonds-vulkan-%d-%d.ppm", debugFrame, layer);
-                    FILE* image = fopen(path, "wb");
-                    if (image)
-                    {
-                        fprintf(image, "P6\n%d %d\n255\n", ScreenW, ScreenH);
-                        const u32* layerPixels = pixels + layer * layerSize;
-                        for (int y = 0; y < ScreenH; y++)
-                        {
-                            for (int x = 0; x < ScreenW; x++)
-                            {
-                                u32 pixel = layerPixels[y * ScreenW + x];
-                                fputc(pixel & 0xFF, image);
-                                fputc((pixel >> 8) & 0xFF, image);
-                                fputc((pixel >> 16) & 0xFF, image);
-                            }
-                        }
-                        fclose(image);
-                    }
-                }
-            }
-            if (stats)
-                fclose(stats);
-            debugFrame++;
-        }
         return true;
     };
 
