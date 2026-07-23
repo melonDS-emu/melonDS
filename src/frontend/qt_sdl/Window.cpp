@@ -486,7 +486,10 @@ MainWindow::MainWindow(int id, EmuInstance* inst, QWidget* parent) :
                 QMenu * submenu = menu->addMenu("Hybrid ratio");
                 grpHybridRatio = new QActionGroup(submenu);
 
-				const char *hybridRatio[] = {"2:1", "3:1", "4:1", "5:1", "6:1", "7:1", "5:2", "7:3", "9:4"};
+                // ScreenLayout uses the gap between the two smaller screens
+                // to determine the scale of the large hybrid screen. These
+                // gap values produce the corresponding display ratios.
+                const char *hybridRatio[] = {"2:1", "3:1", "4:1", "5:1", "6:1", "7:1", "5:2", "7:3", "9:4"};
                 const int screengap[] = {0, 192, 384, 576, 768, 960, 96, 64, 48};
 
                 for (int i = 0; i < 9; i++)
@@ -732,7 +735,7 @@ MainWindow::MainWindow(int id, EmuInstance* inst, QWidget* parent) :
         int hybridRatio = windowCfg.GetInt("HybridRatio");
         for (int i = 0; i < 9; i++)
         {
-            if (actHybridRatio[i]->data() == hybridRatio)
+            if (actHybridRatio[i]->data().toInt() == hybridRatio)
             {
                 actHybridRatio[i]->setChecked(true);
                 break;

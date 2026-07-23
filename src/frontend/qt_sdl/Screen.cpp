@@ -124,14 +124,16 @@ void ScreenPanel::loadConfig()
     screenRotation = cfg.GetInt("ScreenRotation");
     screenLayout = cfg.GetInt("ScreenLayout");
     screenGap = cfg.GetInt("ScreenGap");
-	hybridRatio = cfg.GetInt("HybridRatio");
+    hybridRatio = cfg.GetInt("HybridRatio");
     screenSwap = cfg.GetBool("ScreenSwap");
     screenSizing = cfg.GetInt("ScreenSizing");
     integerScaling = cfg.GetBool("IntegerScaling");
     screenAspectTop = cfg.GetInt("ScreenAspectTop");
     screenAspectBot = cfg.GetInt("ScreenAspectBot");
 
-	currentScreenGap = screenLayout != screenLayout_Hybrid ? screenGap : hybridRatio;
+    // Hybrid ratios are represented by layout gap values, but use a separate
+    // setting so changing the hybrid ratio does not alter the regular gap.
+    currentScreenGap = screenLayout != screenLayout_Hybrid ? screenGap : hybridRatio;
 }
 
 void ScreenPanel::setFilter(bool filter)
@@ -165,11 +167,56 @@ void ScreenPanel::setupScreenLayout()
             aspectBot = ratio.ratio;
     }
 
-    if (aspectTop == 0)
-        aspectTop = ((float) w / h) / (4.f / 3.f);
+    // A zero aspect multiplier represents the "window" option. Calculate the
+    // multiplier from the area available to each screen, rather than from the
+    // entire panel, so a two-screen layout can fill both panel dimensions.
+    if (aspectTop == 0 || aspectBot == 0)
+    {
+        const float windowAspect = static_cast<float>(w) / h;
+        const bool singleScreen = sizing == screenSizing_TopOnly
+            || sizing == screenSizing_BotOnly;
+        const bool rotated = screenRotation == screenRot_90Deg
+            || screenRotation == screenRot_270Deg;
 
-    if (aspectBot == 0)
-        aspectBot = ((float) w / h) / (4.f / 3.f);
+        float windowScreenAspect;
+        if (singleScreen)
+        {
+            // The aspect multiplier is applied before rotation.
+            windowScreenAspect = rotated
+                ? 192.f / (256.f * windowAspect)
+                : windowAspect * 192.f / 256.f;
+        }
+        else
+        {
+            const int layoutDirection = screenLayout == screenLayout_Natural
+                ? screenRotation % 2
+                : screenLayout - 1;
+
+            if (layoutDirection == 0)
+            {
+                // Screens are stacked along the window's Y axis.
+                windowScreenAspect = rotated
+                    ? (192.f / windowAspect - currentScreenGap) / 512.f
+                    : windowAspect * (384.f + currentScreenGap) / 256.f;
+            }
+            else
+            {
+                // Screens are arranged along the window's X axis.
+                windowScreenAspect = rotated
+                    ? (384.f + currentScreenGap) / (256.f * windowAspect)
+                    : (windowAspect * 192.f - currentScreenGap) / 512.f;
+            }
+        }
+
+        // Very large gaps or unusually narrow windows can otherwise produce
+        // a zero or negative width.
+        windowScreenAspect = std::max(windowScreenAspect, 1.f / 256.f);
+
+        if (aspectTop == 0)
+            aspectTop = windowScreenAspect;
+        if (aspectBot == 0)
+            aspectBot = windowScreenAspect;
+    }
 
     layout.Setup(w, h,
                 static_cast<ScreenLayoutType>(screenLayout),
