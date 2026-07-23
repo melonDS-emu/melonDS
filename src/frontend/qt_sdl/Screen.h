@@ -84,14 +84,14 @@ protected:
 
     int screenRotation;
     int screenGap;
-    int hybridRatio;
+    int HybridRatio;
     int screenLayout;
     bool screenSwap;
     int screenSizing;
     bool integerScaling;
     int screenAspectTop, screenAspectBot;
 
-    int currentScreenGap;
+    int CurrentScreenGap;
 
     int autoScreenSizing;
 

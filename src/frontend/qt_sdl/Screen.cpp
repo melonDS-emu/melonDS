@@ -124,7 +124,7 @@ void ScreenPanel::loadConfig()
     screenRotation = cfg.GetInt("ScreenRotation");
     screenLayout = cfg.GetInt("ScreenLayout");
     screenGap = cfg.GetInt("ScreenGap");
-    hybridRatio = cfg.GetInt("HybridRatio");
+    HybridRatio = cfg.GetInt("HybridRatio");
     screenSwap = cfg.GetBool("ScreenSwap");
     screenSizing = cfg.GetInt("ScreenSizing");
     integerScaling = cfg.GetBool("IntegerScaling");
@@ -133,7 +133,7 @@ void ScreenPanel::loadConfig()
 
     // Hybrid ratios are represented by layout gap values, but use a separate
     // setting so changing the hybrid ratio does not alter the regular gap.
-    currentScreenGap = screenLayout != screenLayout_Hybrid ? screenGap : hybridRatio;
+    CurrentScreenGap = screenLayout != screenLayout_Hybrid ? screenGap : HybridRatio;
 }
 
 void ScreenPanel::setFilter(bool filter)
@@ -196,15 +196,15 @@ void ScreenPanel::setupScreenLayout()
             {
                 // Screens are stacked along the window's Y axis.
                 windowScreenAspect = rotated
-                    ? (192.f / windowAspect - currentScreenGap) / 512.f
-                    : windowAspect * (384.f + currentScreenGap) / 256.f;
+                    ? (192.f / windowAspect - CurrentScreenGap) / 512.f
+                    : windowAspect * (384.f + CurrentScreenGap) / 256.f;
             }
             else
             {
                 // Screens are arranged along the window's X axis.
                 windowScreenAspect = rotated
-                    ? (384.f + currentScreenGap) / (256.f * windowAspect)
-                    : (windowAspect * 192.f - currentScreenGap) / 512.f;
+                    ? (384.f + CurrentScreenGap) / (256.f * windowAspect)
+                    : (windowAspect * 192.f - CurrentScreenGap) / 512.f;
             }
         }
 
@@ -222,7 +222,7 @@ void ScreenPanel::setupScreenLayout()
                 static_cast<ScreenLayoutType>(screenLayout),
                 static_cast<ScreenRotation>(screenRotation),
                 static_cast<ScreenSizing>(sizing),
-                currentScreenGap,
+                CurrentScreenGap,
                 integerScaling != 0,
                 screenSwap != 0,
                 aspectTop,
@@ -237,7 +237,7 @@ QSize ScreenPanel::screenGetMinSize(int factor = 1)
 {
     bool isHori = (screenRotation == screenRot_90Deg
         || screenRotation == screenRot_270Deg);
-    int gap = currentScreenGap * factor;
+    int gap = CurrentScreenGap * factor;
 
     int w = 256 * factor;
     int h = 192 * factor;
