@@ -52,6 +52,13 @@ T GetMSBit(T val)
     return val - (val >> 1);
 }
 
+// convenience function for updating part of a register
+template <typename T>
+void UpdateRegister(T& reg, T val, T mask)
+{
+    reg = (reg & ~mask) | (val & mask);
+}
+
 }
 
 #endif // MELONDS_UTILS_H

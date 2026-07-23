@@ -115,7 +115,7 @@ inline namespace toml_literals
 {
 
 TOML11_INLINE ::toml::value
-operator"" _toml(const char* str, std::size_t len)
+operator""_toml(const char* str, std::size_t len)
 {
     if(len == 0)
     {

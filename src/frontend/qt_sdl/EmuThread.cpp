@@ -308,6 +308,9 @@ void EmuThread::run()
                 }
             }
 
+            // RTC sync
+            emuInstance->syncRTC();
+
 
             // emulate
             u32 nlines;

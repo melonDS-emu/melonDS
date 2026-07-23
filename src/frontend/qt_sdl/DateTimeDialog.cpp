@@ -46,6 +46,8 @@ DateTimeDialog::DateTimeDialog(QWidget* parent) : QDialog(parent), ui(new Ui::Da
     startTimer(1000);
 
     ui->txtNewCustomTime->setEnabled(ui->chkChangeTime->isChecked());
+
+    ui->chkSyncTime->setChecked(cfg.GetBool("RTC.SyncToHost"));
 }
 
 DateTimeDialog::~DateTimeDialog()
@@ -72,6 +74,8 @@ void DateTimeDialog::done(int r)
         }
         else if (ui->chkResetTime->isChecked())
             cfg.SetInt64("RTC.Offset", 0);
+
+        cfg.SetBool("RTC.SyncToHost", ui->chkSyncTime->isChecked());
 
         Config::Save();
     }

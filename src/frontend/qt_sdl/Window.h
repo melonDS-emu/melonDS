@@ -150,6 +150,7 @@ private slots:
     void onFrameStep();
     void onOpenPowerManagement();
     void onOpenDateTime();
+    void onDateTimeDialogFinished(int res);
     void onEnableCheats(bool checked);
     void onSetupCheats();
     void onCheatsDialogFinished(int res);

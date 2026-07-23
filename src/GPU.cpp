@@ -654,9 +654,9 @@ void GPU::MapVRAM_CD(u32 bank, u8 cnt) noexcept
     u8 oldcnt = VRAMCNT[bank];
     VRAMCNT[bank] = cnt;
 
-    VRAMSTAT &= ~(1 << (bank-2));
-
     if (oldcnt == cnt) return;
+
+    VRAMSTAT &= ~(1 << (bank-2));
 
     u8 oldofs = (oldcnt >> 3) & 0x7;
     u8 ofs = (cnt >> 3) & 0x7;

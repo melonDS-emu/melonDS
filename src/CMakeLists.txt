@@ -41,11 +41,9 @@ add_library(core STATIC
     GPU3D_Soft.cpp
     GPU3D_Texcache.cpp
     GPU3D_Texcache.h
-    melonDLDI.h
     Mic.cpp
     NDS.cpp
     NDSCart.cpp
-    NDSCartR4.cpp
     Platform.h
     ROMList.h
     ROMList.cpp
@@ -66,6 +64,15 @@ add_library(core STATIC
     DSP_HLE/AACUcode.cpp
     DSP_HLE/G711Ucode.cpp
     DSP_HLE/GraphicsUcode.cpp
+
+    NDSCart/CartCommon.cpp
+    NDSCart/CartRetail.cpp
+    NDSCart/CartRetailNAND.cpp
+    NDSCart/CartRetailIR.cpp
+    NDSCart/CartRetailBT.cpp
+    NDSCart/CartSD.cpp
+    NDSCart/CartHomebrew.cpp
+    NDSCart/CartR4.cpp
 
     fatfs/ff.c
     fatfs/ffsystem.c

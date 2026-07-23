@@ -40,6 +40,10 @@
 #include "Net.h"
 #include "MPInterface.h"
 
+#ifdef RETROACHIEVEMENTS_ENABLED
+#include "../../RetroAchievements/RAClient.h"
+#endif
+
 #include "NDS.h"
 #include "DSi.h"
 #include "SPI.h"
@@ -48,9 +52,7 @@
 #include "FreeBIOS.h"
 #include "main.h"
 
-#ifdef RETROACHIEVEMENTS_ENABLED
-#include "../../RetroAchievements/RAClient.h"
-#endif
+#include "NDSCart/CartSD.h"
 
 using std::make_unique;
 using std::pair;
@@ -171,6 +173,7 @@ EmuInstance::~EmuInstance()
     ra->Shutdown();
     #endif
     delete emuThread;
+    emuThread = nullptr;
 
     net.UnregisterInstance(instanceID);
 
@@ -360,6 +363,8 @@ void EmuInstance::osdAddMessage(unsigned int color, const char* fmt, ...)
 
 bool EmuInstance::emuIsActive()
 {
+    if (emuThread == nullptr)
+        return false;
     return emuThread->emuIsActive();
 }
 
@@ -1224,6 +1229,15 @@ void EmuInstance::setDateTime()
     nds->RTC.SetDateTime(time.date().year(), time.date().month(), time.date().day(),
                          time.time().hour(), time.time().minute(), time.time().second());
 }
+
+void EmuInstance::syncRTC()
+{
+    if (!localCfg.GetBool("RTC.SyncToHost"))
+        return;
+
+    setDateTime();
+}
+
 
 bool EmuInstance::updateConsole() noexcept
 {

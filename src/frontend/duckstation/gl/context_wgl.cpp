@@ -96,7 +96,7 @@ bool ContextWGL::ChangeSurface(const WindowInfo& new_wi)
 
   if (was_current && !wglMakeCurrent(m_dc, m_rc))
   {
-    Log_ErrorPrintf("Failed to make context current again after surface change: 0x%08X", GetLastError());
+    Log_ErrorPrintf("Failed to make context current again after surface change: 0x%08lX", GetLastError());
     return false;
   }
 
@@ -120,7 +120,7 @@ bool ContextWGL::MakeCurrent()
 {
   if (!wglMakeCurrent(m_dc, m_rc))
   {
-    Log_ErrorPrintf("wglMakeCurrent() failed: 0x%08X", GetLastError());
+    Log_ErrorPrintf("wglMakeCurrent() failed: 0x%08lX", GetLastError());
     return false;
   }
 
@@ -185,7 +185,7 @@ HDC ContextWGL::GetDCAndSetPixelFormat(HWND hwnd)
   HDC hDC = ::GetDC(hwnd);
   if (!hDC)
   {
-    Log_ErrorPrintf("GetDC() failed: 0x%08X", GetLastError());
+    Log_ErrorPrintf("GetDC() failed: 0x%08lX", GetLastError());
     return {};
   }
 
@@ -194,7 +194,7 @@ HDC ContextWGL::GetDCAndSetPixelFormat(HWND hwnd)
     const int pf = ChoosePixelFormat(hDC, &pfd);
     if (pf == 0)
     {
-      Log_ErrorPrintf("ChoosePixelFormat() failed: 0x%08X", GetLastError());
+      Log_ErrorPrintf("ChoosePixelFormat() failed: 0x%08lX", GetLastError());
       ::ReleaseDC(hwnd, hDC);
       return {};
     }
@@ -204,7 +204,7 @@ HDC ContextWGL::GetDCAndSetPixelFormat(HWND hwnd)
 
   if (!SetPixelFormat(hDC, m_pixel_format.value(), &pfd))
   {
-    Log_ErrorPrintf("SetPixelFormat() failed: 0x%08X", GetLastError());
+    Log_ErrorPrintf("SetPixelFormat() failed: 0x%08lX", GetLastError());
     ::ReleaseDC(hwnd, hDC);
     return {};
   }
@@ -338,7 +338,7 @@ bool ContextWGL::CreateAnyContext(HGLRC share_context, bool make_current)
   m_rc = wglCreateContext(m_dc);
   if (!m_rc)
   {
-    Log_ErrorPrintf("wglCreateContext() failed: 0x%08X", GetLastError());
+    Log_ErrorPrintf("wglCreateContext() failed: 0x%08lX", GetLastError());
     return false;
   }
 
@@ -346,7 +346,7 @@ bool ContextWGL::CreateAnyContext(HGLRC share_context, bool make_current)
   {
     if (!wglMakeCurrent(m_dc, m_rc))
     {
-      Log_ErrorPrintf("wglMakeCurrent() failed: 0x%08X", GetLastError());
+      Log_ErrorPrintf("wglMakeCurrent() failed: 0x%08lX", GetLastError());
       return false;
     }
 
@@ -360,7 +360,7 @@ bool ContextWGL::CreateAnyContext(HGLRC share_context, bool make_current)
 
   if (share_context && !wglShareLists(share_context, m_rc))
   {
-    Log_ErrorPrintf("wglShareLists() failed: 0x%08X", GetLastError());
+    Log_ErrorPrintf("wglShareLists() failed: 0x%08lX", GetLastError());
     return false;
   }
 
@@ -432,7 +432,7 @@ bool ContextWGL::CreateVersionContext(const Version& version, HGLRC share_contex
   {
     if (!wglMakeCurrent(m_dc, make_current ? new_rc : nullptr))
     {
-      Log_ErrorPrintf("wglMakeCurrent() failed: 0x%08X", GetLastError());
+      Log_ErrorPrintf("wglMakeCurrent() failed: 0x%08lX", GetLastError());
       wglDeleteContext(new_rc);
       return false;
     }

@@ -24,15 +24,18 @@
 #include <memory>
 #include <variant>
 
+#ifdef RETROACHIEVEMENTS_ENABLED
+#include "RetroAchievements/RAClient.h"
+#endif
+
 #include "types.h"
 #include "Savestate.h"
 #include "NDS_Header.h"
 #include "FATStorage.h"
 #include "ROMList.h"
 
-#ifdef RETROACHIEVEMENTS_ENABLED
-#include "RetroAchievements/RAClient.h"
-#endif
+#include "NDSCart/CartCommon.h"
+
 
 namespace melonDS
 {
@@ -40,17 +43,6 @@ class NDS;
 }
 namespace melonDS::NDSCart
 {
-
-enum CartType
-{
-    Default = 0x001,
-    Retail = 0x101,
-    RetailNAND = 0x102,
-    RetailIR = 0x103,
-    RetailBT = 0x104,
-    Homebrew = 0x201,
-    UnlicensedR4 = 0x301
-};
 
 class NDSCartSlot;
 
@@ -76,6 +68,7 @@ struct NDSCartArgs
     u32 SRAMLength = 0;
 };
 
+<<<<<<< HEAD
 // CartCommon -- base code shared by all cart types
 class CartCommon
 {
@@ -365,14 +358,16 @@ private:
     bool BufferInitialized;
 };
 
+=======
+>>>>>>> upstream/master
 class NDSCartSlot
 {
 public:
-    explicit NDSCartSlot(melonDS::NDS& nds, std::unique_ptr<CartCommon>&& rom = nullptr) noexcept;
+    explicit NDSCartSlot(melonDS::NDS& nds, u32 num, std::unique_ptr<CartCommon>&& rom = nullptr) noexcept;
     ~NDSCartSlot() noexcept;
     void Reset() noexcept;
-    void ResetCart() noexcept;
     void DoSavestate(Savestate* file) noexcept;
+
     void DecryptSecureArea(u8* out) noexcept;
 
     /// Loads a Nintendo DS cart object into the cart slot.
@@ -392,6 +387,7 @@ public:
     void SetCart(std::unique_ptr<CartCommon>&& cart) noexcept;
     [[nodiscard]] CartCommon* GetCart() noexcept { return Cart.get(); }
     [[nodiscard]] const CartCommon* GetCart() const noexcept { return Cart.get(); }
+    bool CartInserted() const { return Cart != nullptr; }
 
     void SetupDirectBoot(const std::string& romname) noexcept;
 
@@ -413,38 +409,108 @@ public:
     /// @return The cart that was in the slot before it was ejected,
     /// or \c nullptr if the slot was already empty.
     std::unique_ptr<CartCommon> EjectCart() noexcept;
-    u32 ReadROMData() noexcept;
-    void WriteROMData(u32 val) noexcept;
-    void WriteSPICnt(u16 val) noexcept;
-    void WriteROMCnt(u32 val) noexcept;
-    [[nodiscard]] u8 ReadSPIData() const noexcept;
-    void WriteSPIData(u8 val) noexcept;
 
-    [[nodiscard]] u8 GetROMCommand(u8 index) const noexcept { return ROMCommand[index]; }
-    void SetROMCommand(u8 index, u8 val) noexcept { ROMCommand[index] = val; }
+    void SetCPUSelect(u32 sel);
 
-    [[nodiscard]] u32 GetROMCnt() const noexcept { return ROMCnt; }
-    [[nodiscard]] u16 GetSPICnt() const noexcept { return SPICnt; }
-    void SetSPICnt(u16 val) noexcept { SPICnt = val; }
+    // power control, for DSi
+    void SetPowerState(u8 power);
+
+    // SCFG_MC swap, for DSi
+    void SetLogicalNum(u8 num);
+
+    u16 ReadSPICnt(u32 cpu) const noexcept { return Interfaces[cpu].SPICnt; }
+    void WriteSPICnt(u32 cpu, u16 val, u16 mask) noexcept { Interfaces[cpu].WriteSPICnt(val, mask); };
+
+    u8 ReadSPIData(u32 cpu) const noexcept { return Interfaces[cpu].ReadSPIData(); }
+    void WriteSPIData(u32 cpu, u8 val) noexcept { Interfaces[cpu].WriteSPIData(val); }
+
+    u32 ReadROMCnt(u32 cpu) const noexcept { return Interfaces[cpu].ROMCnt; }
+    void WriteROMCnt(u32 cpu, u32 val, u32 mask) noexcept { Interfaces[cpu].WriteROMCnt(val, mask); };
+
+    void WriteROMCommand(u32 cpu, u32 index, u8 val) { Interfaces[cpu].WriteROMCommand(index, val); }
+
+    void WriteKey2Seed0(u32 cpu, u64 val, u64 mask) { Interfaces[cpu].WriteKey2Seed0(val, mask); }
+    void WriteKey2Seed1(u32 cpu, u64 val, u64 mask) { Interfaces[cpu].WriteKey2Seed1(val, mask); }
+
+    u32 ReadROMData(u32 cpu) noexcept { return Interfaces[cpu].ReadROMData(); }
+    void WriteROMData(u32 cpu, u32 val, u32 mask) noexcept { Interfaces[cpu].WriteROMData(val, mask); }
+
+    void CheckDMA(u32 cpu) { return Interfaces[cpu].CheckDMA(); }
+
+    void RaiseCardIRQ();
 
 private:
     friend class CartCommon;
     melonDS::NDS& NDS;
-    u16 SPICnt = 0;
-    u32 ROMCnt = 0;
-    std::array<u8, 8> ROMCommand {};
-    u8 SPIData = 0;
-    u32 SPIDataPos = 0;
-    bool SPIHold = false;
+    u8 Num;
+    u8 LogicalNum;
 
-    u32 ROMData = 0;
+    u32 TransferIRQ;
+    u32 CardIRQ;
 
-    std::array<u8, 0x4000> TransferData {};
-    u32 TransferPos = 0;
-    u32 TransferLen = 0;
-    u32 TransferDir = 0;
-    std::array<u8, 8> TransferCmd {};
+    struct Interface
+    {
+        Interface(NDSCartSlot& parent, u8 num);
+        ~Interface();
+        void Reset();
+        void DoSavestate(Savestate* file);
 
+        void WriteSPICnt(u16 val, u16 mask);
+
+        u8 ReadSPIData() const;
+        void WriteSPIData(u8 val);
+
+        void WriteROMCnt(u32 val, u32 mask);
+
+        void WriteROMCommand(u32 index, u8 val) { ROMCommand[index] = val; }
+
+        void WriteKey2Seed0(u64 val, u64 mask) { Key2_Seed0 = (Key2_Seed0 & ~mask) | (val & mask); }
+        void WriteKey2Seed1(u64 val, u64 mask) { Key2_Seed1 = (Key2_Seed1 & ~mask) | (val & mask); }
+
+        u32 ReadROMData();
+        void WriteROMData(u32 val, u32 mask);
+
+        void ROMReceiveData(u32 param);
+        void ROMAdvanceReceive();
+        void ROMSendData(u32 param);
+        void ROMAdvanceSend();
+        void ROMEndTransfer(u32 param);
+        void RaiseDRQ();
+        void CheckDMA();
+
+        void SPITransferDone(u32 param);
+
+        NDSCartSlot& Parent;
+        u8 Num;
+
+        u32 ROMTransferEvent;
+        u32 SPITransferEvent;
+
+        u16 SPICnt = 0;
+        u8 SPIData = 0;
+
+        u32 ROMCnt = 0;
+        u8 ROMCommand[8] {};
+
+        u64 Key2_Seed0 = 0;
+        u64 Key2_Seed1 = 0;
+
+        u32 ROMTransferPos = 0;
+        u32 ROMTransferLen = 0;
+
+        u32 ROMData[2] {};
+        u32 ROMDataPosCPU = 0;
+        u32 ROMDataPosCart = 0;
+        u32 ROMDataCount = 0;
+        bool ROMDataLate = false;
+
+        bool SPISelected = false;
+
+    } Interfaces[2] {Interface(*this, 0), Interface(*this, 1)};
+
+    u8 CPUSelect = 0;
+    u8 PowerState = 0;
+    bool CartActive = false;
     std::unique_ptr<CartCommon> Cart = nullptr;
 
     std::array<u32, 0x412> Key1_KeyBuf {};
@@ -452,16 +518,15 @@ private:
     u64 Key2_X = 0;
     u64 Key2_Y = 0;
 
+    void UpdateCartState();
+
     void Key1_Encrypt(u32* data) const noexcept;
     void Key1_Decrypt(u32* data) const noexcept;
     void Key1_ApplyKeycode(u32* keycode, u32 mod) noexcept;
     void Key1_LoadKeyBuf(bool dsi) noexcept;
     void Key1_InitKeycode(bool dsi, u32 idcode, u32 level, u32 mod) noexcept;
+
     void Key2_Encrypt(const u8* data, u32 len) noexcept;
-    void ROMEndTransfer(u32 param) noexcept;
-    void ROMPrepareData(u32 param) noexcept;
-    void AdvanceROMTransfer() noexcept;
-    void SPITransferDone(u32 param) noexcept;
 };
 
 /// Parses the given ROM data and constructs a \c NDSCart::CartCommon subclass

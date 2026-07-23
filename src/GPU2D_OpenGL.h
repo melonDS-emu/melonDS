@@ -35,6 +35,10 @@ public:
     bool Init() override;
     void Reset() override;
 
+    bool InitShaders();
+    bool InitShaders(GLRenderer2D& other);
+    void DeleteShaders();
+
     void PostSavestate();
 
     void SetScaleFactor(int scale);
@@ -51,28 +55,26 @@ private:
     int ScaleFactor;
     int ScreenW, ScreenH;
 
-    static int ShaderCount;
-
-    static GLuint LayerPreShader;
-    static GLint LayerPreCurBGULoc;
+    GLuint LayerPreShader;
+    GLint LayerPreCurBGULoc;
 
     GLuint ScanlineConfigUBO;
     GLuint SpriteScanlineConfigUBO;
 
-    static GLuint SpritePreShader;
+    GLuint SpritePreShader;
     GLuint SpritePreVtxBuffer;
     GLuint SpritePreVtxArray;
     u16* SpritePreVtxData;
 
-    static GLuint SpriteShader;
-    static GLint SpriteRenderTransULoc;
+    GLuint SpriteShader;
+    GLint SpriteRenderTransULoc;
     GLuint SpriteVtxBuffer;
     GLuint SpriteVtxArray;
     u16* SpriteVtxData;
 
-    static GLuint CompositorShader;
+    GLuint CompositorShader;
     GLuint CompositorConfigUBO;
-    static GLint CompositorScaleULoc;
+    GLint CompositorScaleULoc;
 
     // base index for a BG layer within the BG texture arrays
     // based on BG type and size
@@ -91,7 +93,7 @@ private:
     GLuint PalTex_BG;
     GLuint PalTex_OBJ;
 
-    static GLuint MosaicTex;
+    GLuint MosaicTex;
 
     GLuint AllBGLayerFB[22];
     GLuint AllBGLayerTex[22];
