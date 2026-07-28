@@ -120,9 +120,12 @@ end
 def fixup_libs(prog, orig_path)
   throw "fixup_libs: #{prog} doesn't exist" unless File.exist? prog
 
-  libs = get_load_libs(prog)
-    .map { |it| expand_load_path(orig_path, it) }
-    .select { |it| not system_lib? it[0] }
+  raw_libs = get_load_libs(prog)
+  
+  libs = raw_libs.map do |raw|
+    expanded = expand_load_path(orig_path, raw)
+    expanded ? [raw, expanded[0], expanded[1]] : nil
+  end.compact.select { |it| not system_lib? it[1] }
 
   FileUtils.chmod("u+w", prog)
   strip prog
@@ -137,10 +140,10 @@ def fixup_libs(prog, orig_path)
   end
 
   libs.each do |lib|
-    libpath, libtype = lib
+    raw_str, libpath, libtype = lib
     if File.basename(libpath) == File.basename(prog)
-      if libtype == :absolute
-        changes += [:change, libpath, File.join("@rpath", File.basename(libpath))]
+      if raw_str != File.join("@rpath", File.basename(libpath))
+        changes += [:change, raw_str, File.join("@rpath", File.basename(libpath))]
       end
       next
     end
@@ -148,8 +151,8 @@ def fixup_libs(prog, orig_path)
     is_framework, fwpath, fwname, fwlib = detect_framework(libpath)
 
     if is_framework
-      unless libtype == :rpath
-        changes += [:change, libpath, File.join("@rpath", fwname, fwlib)]
+      if raw_str != File.join("@rpath", fwname, fwlib)
+        changes += [:change, raw_str, File.join("@rpath", fwname, fwlib)]
       end
       
       next if File.exist? File.join(frameworks_dir, fwname)
@@ -162,8 +165,8 @@ def fixup_libs(prog, orig_path)
       libname = File.basename(reallibpath)
       dest = File.join(frameworks_dir, libname)
 
-      if libtype == :absolute
-        changes += [:change, libpath, File.join("@rpath", libname)]
+      if raw_str != File.join("@rpath", libname)
+        changes += [:change, raw_str, File.join("@rpath", libname)]
       end
 
       next if File.exist? dest
