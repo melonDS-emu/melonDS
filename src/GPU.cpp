@@ -1386,7 +1386,7 @@ void GPU::SetVCount(u16 val, u16 mask) noexcept
 
     u16 nextvc = (NextVCount & ~mask) | (val & mask);
 
-    GPU3D.AbortFrame |= NextVCount != nextvc;
+    GPU3D.AbortFrame = true; // CHECKME: this probably shouldn't be done if the vcount written is the same as the vcount of the next scanline
     NextVCount = nextvc;
     VCountOverride = true;
 }
