@@ -1,8 +1,8 @@
 project('libslirp', 'c',
-  version : '4.8.0',
+  version : '4.9.1',
   license : 'BSD-3-Clause',
   default_options : ['warning_level=1', 'c_std=gnu99'],
-  meson_version : '>= 0.50',
+  meson_version : '>= 0.60',
 )
 
 version = meson.project_version()
@@ -19,6 +19,7 @@ conf.set('SLIRP_MICRO_VERSION', micro_version)
 want_ossfuzz = get_option('oss-fuzz')
 want_libfuzzer = get_option('llvm-fuzz')
 fuzz_reproduce = get_option('fuzz-reproduce')
+target_winver = get_option('target_winver')
 if want_ossfuzz and want_libfuzzer
   error('only one of oss-fuzz and llvm-fuzz can be specified')
 endif
@@ -28,9 +29,11 @@ if fuzzer_build and fuzz_reproduce
 endif
 
 cc = meson.get_compiler('c')
-add_languages('cpp', required : fuzzer_build)
+add_languages('cpp', required : fuzzer_build, native : false)
 
-if get_option('static') == true
+glib_static = get_option('static')
+
+if glib_static == true
   add_global_arguments('-static', language : 'c')
 endif
 
@@ -75,38 +78,55 @@ lt_version = '@0@.@1@.@2@'.format(lt_current - lt_age, lt_age, lt_revision)
 
 host_system = host_machine.system()
 
-#glib_dep = dependency('glib-2.0', static : get_option('static'))
+# libslirp_deps collects both the libslirp dependenc(y|ies) and the
+# platform dependencies.
+libslirp_deps = [ dependency('glib-2.0', static : glib_static) ]
 
-glib_dep = declare_dependency(
-  include_directories: [include_directories('glib', is_system: true)],
-  sources: ['glib/glib.c']
-)
+if host_system == 'windows'
+  # Windows: pkg-config fails us here because the static version of glib-2.0
+  # requires iconv, which is not emitted by 'pkg-config --libs --static'.
+  libslirp_deps += [ dependency('iconv', static : glib_static) ]
+endif
 
 add_project_arguments(cc.get_supported_arguments('-Wmissing-prototypes', '-Wstrict-prototypes',
                                                  '-Wredundant-decls', '-Wundef', '-Wwrite-strings'),
                       language: 'c', native: false)
 
-platform_deps = []
-
-if host_system == 'windows'
-  platform_deps += [
-    cc.find_library('ws2_32'),
-    cc.find_library('iphlpapi')
-  ]
-elif host_system == 'darwin'
-  platform_deps += [
-    cc.find_library('resolv')
-  ]
-elif host_system == 'haiku'
-  platform_deps += [
-    cc.find_library('network')
-  ]
-endif
-
 cargs = [
   '-DG_LOG_DOMAIN="Slirp"',
   '-DBUILDING_LIBSLIRP',
 ]
+
+if glib_static == true
+  # This likely only applies to Windows... but... need to ensure that
+  # glib-2.0 doesn't set import/export defines.
+  cargs += [
+    '-DGLIB_STATIC_COMPILATION',
+    '-DGIO_STATIC_COMPILATION',
+    '-DGMODULE_STATIC_COMPILATION',
+    '-DGI_STATIC_COMPILATION',
+    '-DGOBJECT_STATIC_COMPILATION'
+  ]
+endif
+
+if host_system == 'windows'
+  libslirp_deps += [
+    cc.find_library('ws2_32'),
+    cc.find_library('iphlpapi')
+  ]
+
+  if target_winver != ''
+    cargs += '-DTARGET_WINVER=@0@'.format(target_winver)
+  endif
+elif host_system == 'darwin'
+  libslirp_deps += [
+    cc.find_library('resolv')
+  ]
+elif host_system == 'haiku'
+  libslirp_deps += [
+    cc.find_library('network')
+  ]
+endif
 
 if cc.check_header('valgrind/valgrind.h')
   cargs += [ '-DHAVE_VALGRIND=1' ]
@@ -148,9 +168,9 @@ sources = [
 
 mapfile = 'src/libslirp.map'
 vflag = []
-vflag_test = '-Wl,--version-script,@0@/@1@'.format(meson.current_source_dir(), mapfile)
+libvflag = []
 if cc.has_link_argument('-Wl,--version-script,@0@/@1@'.format(meson.current_source_dir(), 'src/libslirp.test.map'))
-  vflag += vflag_test
+  libvflag += '-Wl,--version-script,@0@/@1@'.format(meson.current_source_dir(), mapfile)
 endif
 
 if fuzzer_build
@@ -180,20 +200,20 @@ configure_file(
   configuration : conf
 )
 
-if fuzzer_build or fuzz_reproduce
+if glib_static or fuzzer_build or fuzz_reproduce
   lib = static_library('slirp', sources,
     c_args : cargs,
-    link_args : vflag,
+    link_args : libvflag + vflag,
     link_depends : mapfile,
-    dependencies : [glib_dep, platform_deps],
+    dependencies : libslirp_deps,
   )
 else
   lib = library('slirp', sources,
     version : lt_version,
     c_args : cargs,
-    link_args : vflag,
+    link_args : libvflag + vflag,
     link_depends : mapfile,
-    dependencies : [glib_dep, platform_deps],
+    dependencies : libslirp_deps,
     install : install_devel or get_option('default_library') == 'shared',
   )
 endif
@@ -203,7 +223,7 @@ pingtest = executable('pingtest', 'test/pingtest.c',
   c_args : cargs,
   link_args : vflag,
   include_directories: [ 'src' ],
-  dependencies : [ platform_deps ]
+  dependencies : libslirp_deps
 )
 
 test('ping', pingtest)
@@ -213,7 +233,7 @@ ncsitest = executable('ncsitest', 'test/ncsitest.c',
   c_args : cargs,
   link_args : vflag,
   include_directories: ['src'],
-  dependencies: [glib_dep, platform_deps]
+  dependencies: libslirp_deps
 )
 
 test('ncsi', ncsitest)
@@ -240,9 +260,10 @@ else
   endif
 endif
 
-libslirp_dep = declare_dependency(
+libslirp_libdep = declare_dependency(
   link_with : lib,
   include_directories : [include_directories('src'), include_directories('.')],
 )
+meson.override_dependency('slirp', libslirp_libdep)
 
 subdir('fuzzing')

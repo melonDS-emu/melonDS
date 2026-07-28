@@ -449,8 +449,8 @@ findso:
      * Reset idle time and keep-alive timer.
      */
     tp->t_idle = 0;
-    if (slirp_do_keepalive)
-        tp->t_timer[TCPT_KEEP] = TCPTV_KEEPINTVL;
+    if (tp->t_state < TCPS_ESTABLISHED)
+        tp->t_timer[TCPT_KEEP] = TCPTV_KEEP_INIT;
     else
         tp->t_timer[TCPT_KEEP] = TCPTV_KEEP_IDLE;
 
@@ -626,7 +626,7 @@ findso:
         if ((tcp_fconnect(so, so->so_ffamily) == -1) && (errno != EAGAIN) &&
             (errno != EINPROGRESS) && (errno != EWOULDBLOCK)) {
             uint8_t code;
-            DEBUG_MISC(" tcp fconnect errno = %d-%s", errno, strerror(errno));
+            DEBUG_MISC(" tcp fconnect errno = %d-%s", errno, g_strerror(errno));
             if (errno == ECONNREFUSED) {
                 /* ACK the SYN, send RST to refuse the connection */
                 tcp_respond(tp, ti, m, ti->ti_seq + 1, (tcp_seq)0,
@@ -663,7 +663,7 @@ findso:
                     m->m_len -= sizeof(struct tcpiphdr) - sizeof(struct ip) -
                                 sizeof(struct tcphdr);
                     *ip = save_ip;
-                    icmp_send_error(m, ICMP_UNREACH, code, 0, strerror(errno));
+                    icmp_send_error(m, ICMP_UNREACH, code, 0, g_strerror(errno));
                     break;
                 case AF_INET6:
                     m->m_data += sizeof(struct tcpiphdr) -
@@ -1139,8 +1139,8 @@ findso:
                  * specification, but if we don't get a FIN
                  * we'll hang forever.
                  */
-                if (so->so_state & SS_FCANTRCVMORE) {
-                    tp->t_timer[TCPT_2MSL] = TCP_MAXIDLE;
+                if (so->so_state & (SS_FCANTRCVMORE | SS_NOFDREF)) {
+                    tp->t_timer[TCPT_2MSL] = TCP_LINGERTIME;
                 }
                 tp->t_state = TCPS_FIN_WAIT_2;
             }
