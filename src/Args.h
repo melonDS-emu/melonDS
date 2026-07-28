@@ -58,7 +58,7 @@ constexpr std::array<u8, N> BrokenBIOS = []() constexpr {
 /// Ignored in builds that don't have the JIT included.
 struct JITArgs
 {
-    unsigned MaxBlockSize = 32;
+    u32 MaxBlockSize = 32;
     bool LiteralOptimizations = true;
     bool BranchOptimizations = true;
 
