@@ -124,7 +124,8 @@ public:
     void releaseGL();
 
     void drawScreen();
-
+    // get game ID
+    std::string getGameID();
     // return: empty string = setup OK, non-empty = error message
     QString verifySetup();
 
