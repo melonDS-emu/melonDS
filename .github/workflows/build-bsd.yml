@@ -39,10 +39,12 @@ jobs:
             # to call it using its absolute location.
             prepare_vm: |
               /usr/sbin/pkg_add pkgin curl
+              base=https://cdn.netbsd.org/pub/NetBSD
               mach=$(uname -m | sed "s/evbarm/evbarm-$(uname -p)/")
+              rel=NetBSD-$(uname -r)
               for set in xbase xcomp; do
-                curl -sL ${PKG_PATH%%/pkgsrc*}/NetBSD/NetBSD-$(uname -r
-                  )/$mach/binary/sets/$set.tar.xz | tar xJpf - -C /
+                curl -sL $base/$rel/$mach/binary/sets/$set.tar.xz |
+                  tar xJpf - -C /
               done
             install_deps: >
               pkgin -y install cmake extra-cmake-modules pkgconf
