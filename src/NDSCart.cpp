@@ -366,13 +366,16 @@ bool ValidateROM(u32 romlen, NDSHeader& header)
 {
     // basic sanity checks to ensure we have a workable ROM file
 
-    if (header.ARM9ROMOffset < 0x200)
+    if (header.ARM9ROMOffset < 0x200 || (header.ARM9Size & 3) ||
+        header.ARM9ROMOffset >= romlen ||
+        header.ARM9Size > romlen - header.ARM9ROMOffset)
         return false;
-    if ((header.ARM9ROMOffset + header.ARM9Size) > romlen)
+    if (header.ARM9ROMOffset >= 0x4000 && header.ARM9ROMOffset < 0x8000 &&
+        header.ARM9Size < 0x800)
         return false;
-    if (header.ARM7ROMOffset < 0x200)
-        return false;
-    if ((header.ARM7ROMOffset + header.ARM7Size) > romlen)
+    if (header.ARM7ROMOffset < 0x200 || (header.ARM7Size & 3) ||
+        header.ARM7ROMOffset >= romlen ||
+        header.ARM7Size > romlen - header.ARM7ROMOffset)
         return false;
 
     return true;
