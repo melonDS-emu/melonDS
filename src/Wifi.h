@@ -160,6 +160,10 @@ public:
 
     Wifi(melonDS::NDS& nds);
     ~Wifi();
+
+    Wifi(const Wifi&) = delete;
+    Wifi& operator=(const Wifi&) = delete;
+
     void Reset();
     void DoSavestate(Savestate* file);
 
