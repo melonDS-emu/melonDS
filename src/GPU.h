@@ -861,6 +861,7 @@ public:
     // if the renderer uses RAM buffers, they should be 32-bit BGRA, 256x192 for each screen
     virtual bool GetFramebuffers(void** top, void** bottom) = 0;
     virtual void SwapBuffers() { BackBuffer ^= 1; }
+    virtual int  GetScaleFactor() { return Rend3D->GetScaleFactor(); };
 
     virtual bool NeedsShaderCompile() { return false; }
     virtual void ShaderCompileStep(int& current, int& count) {}
