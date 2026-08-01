@@ -1,0 +1,3 @@
+[submodule "res/slang-shaders"]
+	path = res/slang-shaders
+	url = https://github.com/libretro/slang-shaders.git

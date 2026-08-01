@@ -7,6 +7,15 @@ set(SOURCES_QT_SDL
     main_shaders.h
     Screen.cpp
     Window.cpp
+    SlangPreset.cpp
+    SlangPreset.h
+    ShaderManager.cpp
+    ShaderManager.h
+    ShaderParser.cpp
+    ShaderParser.h
+    ShaderConfigDialog.cpp
+    ShaderConfigDialog.h
+    FrontendShader.h
     EmuInstance.cpp
     EmuInstanceAudio.cpp
     EmuInstanceInput.cpp
@@ -190,9 +199,22 @@ if (USE_QT6)
 else()
     target_include_directories(melonDS PUBLIC ${Qt5Gui_PRIVATE_INCLUDE_DIRS})
 endif()
+
+find_package(glslang CONFIG REQUIRED)
+find_package(spirv_cross_core CONFIG REQUIRED)
+find_package(spirv_cross_glsl CONFIG REQUIRED)
+
 target_link_libraries(melonDS PRIVATE core)
 target_link_libraries(melonDS PRIVATE PkgConfig::SDL2 PkgConfig::LibArchive PkgConfig::Zstd PkgConfig::Faad)
 target_link_libraries(melonDS PRIVATE ${QT_LINK_LIBS} ${CMAKE_DL_LIBS})
+
+target_link_libraries(melonDS PRIVATE
+    glslang::glslang
+    glslang::SPIRV
+    glslang::glslang-default-resource-limits
+    spirv-cross-core
+    spirv-cross-glsl
+)
 
 if (WIN32)
     option(PORTABLE "Make a portable build that looks for its configuration in the current directory" ON)
