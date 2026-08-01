@@ -28,6 +28,11 @@
 #include "FATStorage.h"
 #include "Utils.h"
 
+#ifdef RETROACHIEVEMENTS_ENABLED
+#include "RetroAchievements/RAClient.h"
+#include <rc_hash.h>
+#endif
+
 #include "NDSCart/CartCommon.h"
 #include "NDSCart/CartRetail.h"
 #include "NDSCart/CartRetailNAND.h"
@@ -201,7 +206,1285 @@ void NDSCartSlot::Key2_Encrypt(const u8* data, u32 len) noexcept
 NDSCartSlot::NDSCartSlot(melonDS::NDS& nds, u32 num, std::unique_ptr<CartCommon>&& rom) noexcept
 : NDS(nds), Num(num)
 {
+<<<<<<< HEAD
+}
+
+CartCommon::CartCommon(std::unique_ptr<u8[]>&& rom, u32 len, u32 chipid, bool badDSiDump, ROMListEntry romparams, melonDS::NDSCart::CartType type, void* userdata) :
+    ROM(std::move(rom)),
+    ROMLength(len),
+    ChipID(chipid),
+    ROMParams(romparams),
+    CartType(type),
+    UserData(userdata)
+{
+    #ifdef RETROACHIEVEMENTS_ENABLED
+        if (ROM && ROMLength > 0)
+        {
+            const bool ok = rc_hash_generate_from_buffer(
+                this->ra_hash,
+                RC_CONSOLE_NINTENDO_DS,
+                ROM.get(),
+                ROMLength
+            );
+
+            if (ok)
+            {
+                if (ra)
+                {
+                    ra->SetPendingGameHash(this->ra_hash);
+                }
+            }
+        }
+    #endif
+    memcpy(&Header, ROM.get(), sizeof(Header));
+    IsDSi = Header.IsDSi() && !badDSiDump;
+    DSiBase = Header.DSiRegionStart << 19;
+}
+
+CartCommon::~CartCommon() = default;
+
+u32 CartCommon::Checksum() const
+{
+    const NDSHeader& header = GetHeader();
+    u32 crc = CRC32(ROM.get(), 0x40);
+
+    crc = CRC32(&ROM[header.ARM9ROMOffset], header.ARM9Size, crc);
+    crc = CRC32(&ROM[header.ARM7ROMOffset], header.ARM7Size, crc);
+
+    if (IsDSi)
+    {
+        crc = CRC32(&ROM[header.DSiARM9iROMOffset], header.DSiARM9iSize, crc);
+        crc = CRC32(&ROM[header.DSiARM7iROMOffset], header.DSiARM7iSize, crc);
+    }
+
+    return crc;
+}
+
+void CartCommon::Reset()
+{
+    CmdEncMode = 0;
+    DataEncMode = 0;
+    DSiMode = false;
+}
+
+void CartCommon::SetupDirectBoot(const std::string& romname, NDS& nds)
+{
+    CmdEncMode = 2;
+    DataEncMode = 2;
+    DSiMode = IsDSi && (nds.ConsoleType==1);
+}
+
+void CartCommon::DoSavestate(Savestate* file)
+{
+    file->Section("NDCS");
+
+    file->Var32(&CmdEncMode);
+    file->Var32(&DataEncMode);
+    file->Bool32(&DSiMode);
+}
+
+int CartCommon::ROMCommandStart(NDS& nds, NDSCartSlot& cartslot, const u8* cmd, u8* data, u32 len)
+{
+    if (CmdEncMode == 0)
+    {
+        switch (cmd[0])
+        {
+        case 0x9F:
+            memset(data, 0xFF, len);
+            return 0;
+
+        case 0x00:
+            memset(data, 0, len);
+            if (len > 0x1000)
+            {
+                ReadROM(0, 0x1000, data, 0);
+                for (u32 pos = 0x1000; pos < len; pos += 0x1000)
+                    memcpy(data+pos, data, 0x1000);
+            }
+            else
+                ReadROM(0, len, data, 0);
+            return 0;
+
+        case 0x90:
+            for (u32 pos = 0; pos < len; pos += 4)
+                *(u32*)&data[pos] = ChipID;
+            return 0;
+
+        case 0x3C:
+            CmdEncMode = 1;
+            cartslot.Key1_InitKeycode(false, *(u32*)&ROM[0xC], 2, 2);
+            DSiMode = false;
+            return 0;
+
+        case 0x3D:
+            if (IsDSi)
+            {
+                CmdEncMode = 1;
+                cartslot.Key1_InitKeycode(true, *(u32*)&ROM[0xC], 1, 2);
+                DSiMode = true;
+            }
+            return 0;
+
+        default:
+            return 0;
+        }
+    }
+    else if (CmdEncMode == 1)
+    {
+        // decrypt the KEY1 command as needed
+        // (KEY2 commands do not need decrypted because KEY2 is handled entirely by hardware,
+        // but KEY1 is not, so DS software is responsible for encrypting KEY1 commands)
+        u8 cmddec[8];
+        *(u32*)&cmddec[0] = ByteSwap(*(u32*)&cmd[4]);
+        *(u32*)&cmddec[4] = ByteSwap(*(u32*)&cmd[0]);
+        cartslot.Key1_Decrypt((u32*)cmddec);
+        u32 tmp = ByteSwap(*(u32*)&cmddec[4]);
+        *(u32*)&cmddec[4] = ByteSwap(*(u32*)&cmddec[0]);
+        *(u32*)&cmddec[0] = tmp;
+
+        // TODO eventually: verify all the command parameters and shit
+
+        switch (cmddec[0] & 0xF0)
+        {
+        case 0x40:
+            DataEncMode = 2;
+            return 0;
+
+        case 0x10:
+            for (u32 pos = 0; pos < len; pos += 4)
+                *(u32*)&data[pos] = ChipID;
+            return 0;
+
+        case 0x20:
+            {
+                u32 addr = (cmddec[2] & 0xF0) << 8;
+                if (DSiMode)
+                {
+                    // the DSi region starts with 0x3000 unreadable bytes
+                    // similarly to how the DS region starts at 0x1000 with 0x3000 unreadable bytes
+                    // these contain data for KEY1 crypto
+                    addr -= 0x1000;
+                    addr += DSiBase;
+                }
+                ReadROM(addr, 0x1000, data, 0);
+            }
+            return 0;
+
+        case 0xA0:
+            CmdEncMode = 2;
+            return 0;
+
+        default:
+            return 0;
+        }
+    }
+    else if (CmdEncMode == 2)
+    {
+        switch (cmd[0])
+        {
+        case 0xB8:
+            for (u32 pos = 0; pos < len; pos += 4)
+                *(u32*)&data[pos] = ChipID;
+            return 0;
+
+        default:
+            return 0;
+        }
+    }
+
+    return 0;
+}
+
+void CartCommon::ROMCommandFinish(const u8* cmd, u8* data, u32 len)
+{
+}
+
+u8 CartCommon::SPIWrite(u8 val, u32 pos, bool last)
+{
+    return 0xFF;
+}
+
+void CartCommon::ReadROM(u32 addr, u32 len, u8* data, u32 offset) const
+{
+    if (addr >= ROMLength) return;
+    if ((addr+len) > ROMLength)
+        len = ROMLength - addr;
+
+    memcpy(data+offset, ROM.get()+addr, len);
+}
+
+const NDSBanner* CartCommon::Banner() const
+{
+    const NDSHeader& header = GetHeader();
+    size_t bannersize = header.IsDSi() ? 0x23C0 : 0xA40;
+    if (header.BannerOffset >= 0x200 && header.BannerOffset < (ROMLength - bannersize))
+    {
+        return reinterpret_cast<const NDSBanner*>(ROM.get() + header.BannerOffset);
+    }
+
+    return nullptr;
+}
+
+CartRetail::CartRetail(const u8* rom, u32 len, u32 chipid, bool badDSiDump, ROMListEntry romparams, std::unique_ptr<u8[]>&& sram, u32 sramlen, void* userdata, melonDS::NDSCart::CartType type) :
+    CartRetail(CopyToUnique(rom, len), len, chipid, badDSiDump, romparams, std::move(sram), sramlen, userdata, type)
+{
+}
+
+CartRetail::CartRetail(std::unique_ptr<u8[]>&& rom, u32 len, u32 chipid, bool badDSiDump, ROMListEntry romparams, std::unique_ptr<u8[]>&& sram, u32 sramlen, void* userdata, melonDS::NDSCart::CartType type) :
+    CartCommon(std::move(rom), len, chipid, badDSiDump, romparams, type, userdata)
+{
+    u32 savememtype = ROMParams.SaveMemType <= 10 ? ROMParams.SaveMemType : 0;
+    constexpr int sramlengths[] =
+    {
+        0,
+        512,
+        8192, 65536, 128*1024,
+        256*1024, 512*1024, 1024*1024,
+        8192*1024, 16384*1024, 65536*1024
+    };
+    SRAMLength = sramlengths[savememtype];
+
+    if (SRAMLength)
+    { // If this cart should have any save data...
+        if (sram && sramlen == SRAMLength)
+        { // If we were given save data that already has the correct length...
+            SRAM = std::move(sram);
+        }
+        else
+        { // Copy in what we can, truncate the rest.
+            SRAM = std::make_unique<u8[]>(SRAMLength);
+            memset(SRAM.get(), 0xFF, SRAMLength);
+
+            if (sram)
+            { // If we have anything to copy, that is.
+                memcpy(SRAM.get(), sram.get(), std::min(sramlen, SRAMLength));
+            }
+        }
+    }
+
+    switch (savememtype)
+    {
+    case 1: SRAMType = 1; break; // EEPROM, small
+    case 2:
+    case 3:
+    case 4: SRAMType = 2; break; // EEPROM, regular
+    case 5:
+    case 6:
+    case 7: SRAMType = 3; break; // FLASH
+    case 8:
+    case 9:
+    case 10: SRAMType = 4; break; // NAND
+    default: SRAMType = 0; break; // ...whatever else
+    }
+}
+
+CartRetail::~CartRetail() = default;
+// std::unique_ptr cleans up the SRAM and ROM
+
+void CartRetail::Reset()
+{
+    CartCommon::Reset();
+
+    SRAMCmd = 0;
+    SRAMAddr = 0;
+    SRAMStatus = 0;
+}
+
+void CartRetail::DoSavestate(Savestate* file)
+{
+    CartCommon::DoSavestate(file);
+
+    // we reload the SRAM contents.
+    // it should be the same file, but the contents may change
+
+    u32 oldlen = SRAMLength;
+
+    file->Var32(&SRAMLength);
+    if (SRAMLength != oldlen)
+    {
+        Log(LogLevel::Warn, "savestate: VERY BAD!!!! SRAM LENGTH DIFFERENT. %d -> %d\n", oldlen, SRAMLength);
+        Log(LogLevel::Warn, "oh well. loading it anyway. adsfgdsf\n");
+
+        SRAM = SRAMLength ? std::make_unique<u8[]>(SRAMLength) : nullptr;
+    }
+    if (SRAMLength)
+    {
+        file->VarArray(SRAM.get(), SRAMLength);
+    }
+
+    // SPI status shito
+
+    file->Var8(&SRAMCmd);
+    file->Var32(&SRAMAddr);
+    file->Var8(&SRAMStatus);
+
+    if ((!file->Saving) && SRAM)
+        Platform::WriteNDSSave(SRAM.get(), SRAMLength, 0, SRAMLength, UserData);
+}
+
+void CartRetail::SetSaveMemory(const u8* savedata, u32 savelen)
+{
+    if (!SRAM) return;
+
+    u32 len = std::min(savelen, SRAMLength);
+    memcpy(SRAM.get(), savedata, len);
+    Platform::WriteNDSSave(savedata, len, 0, len, UserData);
+}
+
+int CartRetail::ROMCommandStart(NDS& nds, NDSCart::NDSCartSlot& cartslot, const u8* cmd, u8* data, u32 len)
+{
+    if (CmdEncMode != 2) return CartCommon::ROMCommandStart(nds, cartslot, cmd, data, len);
+
+    switch (cmd[0])
+    {
+    case 0xB7:
+        {
+            u32 addr = (cmd[1]<<24) | (cmd[2]<<16) | (cmd[3]<<8) | cmd[4];
+            memset(data, 0, len);
+
+            if (((addr + len - 1) >> 12) != (addr >> 12))
+            {
+                u32 len1 = 0x1000 - (addr & 0xFFF);
+                ReadROM_B7(addr, len1, data, 0);
+                ReadROM_B7(addr+len1, len-len1, data, len1);
+            }
+            else
+                ReadROM_B7(addr, len, data, 0);
+        }
+        return 0;
+
+    default:
+        return CartCommon::ROMCommandStart(nds, cartslot, cmd, data, len);
+    }
+}
+
+u8 CartRetail::SPIWrite(u8 val, u32 pos, bool last)
+{
+    if (SRAMType == 0) return 0;
+
+    if (pos == 0)
+    {
+        // handle generic commands with no parameters
+        switch (val)
+        {
+        case 0x04: // write disable
+            SRAMStatus &= ~(1<<1);
+            return 0;
+        case 0x06: // write enable
+            SRAMStatus |= (1<<1);
+            return 0;
+
+        default:
+            SRAMCmd = val;
+            SRAMAddr = 0;
+        }
+
+        return 0xFF;
+    }
+
+    switch (SRAMType)
+    {
+    case 1: return SRAMWrite_EEPROMTiny(val, pos, last);
+    case 2: return SRAMWrite_EEPROM(val, pos, last);
+    case 3: return SRAMWrite_FLASH(val, pos, last);
+    default: return 0xFF;
+    }
+}
+
+void CartRetail::ReadROM_B7(u32 addr, u32 len, u8* data, u32 offset) const
+{
+    addr &= (ROMLength-1);
+
+    if (addr < 0x8000)
+        addr = 0x8000 + (addr & 0x1FF);
+
+    if (IsDSi && (addr >= DSiBase))
+    {
+        // for DSi carts:
+        // * in DSi mode: block the first 0x3000 bytes of the DSi area
+        // * in DS mode: block the entire DSi area
+
+        if ((!DSiMode) || (addr < (DSiBase+0x3000)))
+            addr = 0x8000 + (addr & 0x1FF);
+    }
+
+    memcpy(data+offset, ROM.get()+addr, len);
+}
+
+u8 CartRetail::SRAMWrite_EEPROMTiny(u8 val, u32 pos, bool last)
+{
+    switch (SRAMCmd)
+    {
+    case 0x01: // write status register
+        // TODO: WP bits should be nonvolatile!
+        if (pos == 1)
+            SRAMStatus = (SRAMStatus & 0x01) | (val & 0x0C);
+        return 0;
+
+    case 0x05: // read status register
+        return SRAMStatus | 0xF0;
+
+    case 0x02: // write low
+    case 0x0A: // write high
+        if (pos < 2)
+        {
+            SRAMAddr = val;
+            SRAMFirstAddr = SRAMAddr;
+        }
+        else
+        {
+            // TODO: implement WP bits!
+            if (SRAMStatus & (1<<1))
+            {
+                SRAM[(SRAMAddr + ((SRAMCmd==0x0A)?0x100:0)) & 0x1FF] = val;
+            }
+            SRAMAddr++;
+        }
+        if (last)
+        {
+            SRAMStatus &= ~(1<<1);
+            Platform::WriteNDSSave(SRAM.get(), SRAMLength,
+                                   (SRAMFirstAddr + ((SRAMCmd==0x0A)?0x100:0)) & 0x1FF, SRAMAddr-SRAMFirstAddr,
+                                   UserData);
+        }
+        return 0;
+
+    case 0x03: // read low
+    case 0x0B: // read high
+        if (pos < 2)
+        {
+            SRAMAddr = val;
+            return 0;
+        }
+        else
+        {
+            u8 ret = SRAM[(SRAMAddr + ((SRAMCmd==0x0B)?0x100:0)) & 0x1FF];
+            SRAMAddr++;
+            return ret;
+        }
+
+    case 0x9F: // read JEDEC ID
+        return 0xFF;
+
+    default:
+        if (pos == 1)
+            Log(LogLevel::Warn, "unknown tiny EEPROM save command %02X\n", SRAMCmd);
+        return 0xFF;
+    }
+}
+
+u8 CartRetail::SRAMWrite_EEPROM(u8 val, u32 pos, bool last)
+{
+    u32 addrsize = 2;
+    if (SRAMLength > 65536) addrsize++;
+
+    switch (SRAMCmd)
+    {
+    case 0x01: // write status register
+        // TODO: WP bits should be nonvolatile!
+        if (pos == 1)
+            SRAMStatus = (SRAMStatus & 0x01) | (val & 0x0C);
+        return 0;
+
+    case 0x05: // read status register
+        return SRAMStatus;
+
+    case 0x02: // write
+        if (pos <= addrsize)
+        {
+            SRAMAddr <<= 8;
+            SRAMAddr |= val;
+            SRAMFirstAddr = SRAMAddr;
+        }
+        else
+        {
+            // TODO: implement WP bits
+            if (SRAMStatus & (1<<1))
+            {
+                SRAM[SRAMAddr & (SRAMLength-1)] = val;
+            }
+            SRAMAddr++;
+        }
+        if (last)
+        {
+            SRAMStatus &= ~(1<<1);
+            Platform::WriteNDSSave(SRAM.get(), SRAMLength,
+                                   SRAMFirstAddr & (SRAMLength-1), SRAMAddr-SRAMFirstAddr,
+                                   UserData);
+        }
+        return 0;
+
+    case 0x03: // read
+        if (pos <= addrsize)
+        {
+            SRAMAddr <<= 8;
+            SRAMAddr |= val;
+            return 0;
+        }
+        else
+        {
+            // TODO: size limit!!
+            u8 ret = SRAM[SRAMAddr & (SRAMLength-1)];
+            SRAMAddr++;
+            return ret;
+        }
+
+    case 0x9F: // read JEDEC ID
+        // TODO: GBAtek implies it's not always all FF (FRAM)
+        return 0xFF;
+
+    default:
+        if (pos == 1)
+            Log(LogLevel::Warn, "unknown EEPROM save command %02X\n", SRAMCmd);
+        return 0xFF;
+    }
+}
+
+u8 CartRetail::SRAMWrite_FLASH(u8 val, u32 pos, bool last)
+{
+    switch (SRAMCmd)
+    {
+    case 0x05: // read status register
+        return SRAMStatus;
+
+    case 0x02: // page program
+        if (pos <= 3)
+        {
+            SRAMAddr <<= 8;
+            SRAMAddr |= val;
+            SRAMFirstAddr = SRAMAddr;
+        }
+        else
+        {
+            if (SRAMStatus & (1<<1))
+            {
+                // CHECKME: should it be &=~val ??
+                SRAM[SRAMAddr & (SRAMLength-1)] = 0;
+            }
+            SRAMAddr++;
+        }
+        if (last)
+        {
+            SRAMStatus &= ~(1<<1);
+            Platform::WriteNDSSave(SRAM.get(), SRAMLength,
+                                   SRAMFirstAddr & (SRAMLength-1), SRAMAddr-SRAMFirstAddr,
+                                   UserData);
+        }
+        return 0;
+
+    case 0x03: // read
+        if (pos <= 3)
+        {
+            SRAMAddr <<= 8;
+            SRAMAddr |= val;
+            return 0;
+        }
+        else
+        {
+            u8 ret = SRAM[SRAMAddr & (SRAMLength-1)];
+            SRAMAddr++;
+            return ret;
+        }
+
+    case 0x0A: // page write
+        if (pos <= 3)
+        {
+            SRAMAddr <<= 8;
+            SRAMAddr |= val;
+            SRAMFirstAddr = SRAMAddr;
+        }
+        else
+        {
+            if (SRAMStatus & (1<<1))
+            {
+                SRAM[SRAMAddr & (SRAMLength-1)] = val;
+            }
+            SRAMAddr++;
+        }
+        if (last)
+        {
+            SRAMStatus &= ~(1<<1);
+            Platform::WriteNDSSave(SRAM.get(), SRAMLength,
+                                   SRAMFirstAddr & (SRAMLength-1), SRAMAddr-SRAMFirstAddr,
+                                   UserData);
+        }
+        return 0;
+
+    case 0x0B: // fast read
+        if (pos <= 3)
+        {
+            SRAMAddr <<= 8;
+            SRAMAddr |= val;
+            return 0;
+        }
+        else if (pos == 4)
+        {
+            // dummy byte
+            return 0;
+        }
+        else
+        {
+            u8 ret = SRAM[SRAMAddr & (SRAMLength-1)];
+            SRAMAddr++;
+            return ret;
+        }
+
+    case 0x9F: // read JEDEC IC
+        // GBAtek says it should be 0xFF. verify?
+        return 0xFF;
+
+    case 0xD8: // sector erase
+        if (pos <= 3)
+        {
+            SRAMAddr <<= 8;
+            SRAMAddr |= val;
+            SRAMFirstAddr = SRAMAddr;
+        }
+        if ((pos == 3) && (SRAMStatus & (1<<1)))
+        {
+            for (u32 i = 0; i < 0x10000; i++)
+            {
+                SRAM[SRAMAddr & (SRAMLength-1)] = 0;
+                SRAMAddr++;
+            }
+        }
+        if (last)
+        {
+            SRAMStatus &= ~(1<<1);
+            Platform::WriteNDSSave(SRAM.get(), SRAMLength,
+                                   SRAMFirstAddr & (SRAMLength-1), SRAMAddr-SRAMFirstAddr,
+                                   UserData);
+        }
+        return 0;
+
+    case 0xDB: // page erase
+        if (pos <= 3)
+        {
+            SRAMAddr <<= 8;
+            SRAMAddr |= val;
+            SRAMFirstAddr = SRAMAddr;
+        }
+        if ((pos == 3) && (SRAMStatus & (1<<1)))
+        {
+            for (u32 i = 0; i < 0x100; i++)
+            {
+                SRAM[SRAMAddr & (SRAMLength-1)] = 0;
+                SRAMAddr++;
+            }
+        }
+        if (last)
+        {
+            SRAMStatus &= ~(1<<1);
+            Platform::WriteNDSSave(SRAM.get(), SRAMLength,
+                                   SRAMFirstAddr & (SRAMLength-1), SRAMAddr-SRAMFirstAddr,
+                                   UserData);
+        }
+        return 0;
+
+    default:
+        if (pos == 1)
+            Log(LogLevel::Warn, "unknown FLASH save command %02X\n", SRAMCmd);
+        return 0xFF;
+    }
+}
+
+CartRetailNAND::CartRetailNAND(const u8* rom, u32 len, u32 chipid, ROMListEntry romparams, std::unique_ptr<u8[]>&& sram, u32 sramlen, void* userdata) :
+    CartRetailNAND(CopyToUnique(rom, len), len, chipid, romparams, std::move(sram), sramlen, userdata)
+{
+}
+
+CartRetailNAND::CartRetailNAND(std::unique_ptr<u8[]>&& rom, u32 len, u32 chipid, ROMListEntry romparams, std::unique_ptr<u8[]>&& sram, u32 sramlen, void* userdata) :
+    CartRetail(std::move(rom), len, chipid, false, romparams, std::move(sram), sramlen, userdata, CartType::RetailNAND)
+{
+    BuildSRAMID();
+}
+
+CartRetailNAND::~CartRetailNAND() = default;
+
+void CartRetailNAND::Reset()
+{
+    CartRetail::Reset();
+
+    SRAMAddr = 0;
+    SRAMStatus = 0x20;
+    SRAMWindow = 0;
+
+    // ROM header 94/96 = SRAM addr start / 0x20000
+    SRAMBase = *(u16*)&ROM[0x96] << 17;
+
+    memset(SRAMWriteBuffer, 0, 0x800);
+}
+
+void CartRetailNAND::DoSavestate(Savestate* file)
+{
+    CartRetail::DoSavestate(file);
+
+    file->Var32(&SRAMBase);
+    file->Var32(&SRAMWindow);
+
+    file->VarArray(SRAMWriteBuffer, 0x800);
+    file->Var32(&SRAMWritePos);
+
+    if (!file->Saving)
+        BuildSRAMID();
+}
+
+void CartRetailNAND::SetSaveMemory(const u8* savedata, u32 savelen)
+{
+    CartRetail::SetSaveMemory(savedata, savelen);
+    BuildSRAMID();
+}
+
+int CartRetailNAND::ROMCommandStart(NDS& nds, NDSCart::NDSCartSlot& cartslot, const u8* cmd, u8* data, u32 len)
+{
+    if (CmdEncMode != 2) return CartCommon::ROMCommandStart(nds, cartslot, cmd, data, len);
+
+    switch (cmd[0])
+    {
+    case 0x81: // write data
+        if ((SRAMStatus & (1<<4)) && SRAMWindow >= SRAMBase && SRAMWindow < (SRAMBase+SRAMLength))
+        {
+            u32 addr = (cmd[1]<<24) | (cmd[2]<<16) | (cmd[3]<<8) | cmd[4];
+
+            if (addr >= SRAMWindow && addr < (SRAMWindow+0x20000))
+            {
+                // the command is issued 4 times, each with the same address
+                // seems they use the one from the first command (CHECKME)
+                if (!SRAMAddr)
+                    SRAMAddr = addr;
+            }
+        }
+        else
+            SRAMAddr = 0;
+        return 1;
+
+    case 0x82: // commit write
+        if (SRAMAddr && SRAMWritePos)
+        {
+            if (SRAMLength && SRAMAddr < (SRAMBase+SRAMLength-0x20000))
+            {
+                memcpy(&SRAM[SRAMAddr - SRAMBase], SRAMWriteBuffer, 0x800);
+                Platform::WriteNDSSave(SRAM.get(), SRAMLength, SRAMAddr - SRAMBase, 0x800, UserData);
+            }
+
+            SRAMAddr = 0;
+            SRAMWritePos = 0;
+        }
+        SRAMStatus &= ~(1<<4);
+        return 0;
+
+    case 0x84: // discard write buffer
+        SRAMAddr = 0;
+        SRAMWritePos = 0;
+        return 0;
+
+    case 0x85: // write enable
+        if (SRAMWindow)
+        {
+            SRAMStatus |= (1<<4);
+            SRAMWritePos = 0;
+        }
+        return 0;
+
+    case 0x8B: // revert to ROM read mode
+        SRAMWindow = 0;
+        return 0;
+
+    case 0x94: // return ID data
+        {
+            // TODO: check what the data really is. probably the NAND chip's ID.
+            // also, might be different between different games or even between different carts.
+            // this was taken from a Jam with the Band cart.
+            u8 iddata[0x30] =
+            {
+                0xEC, 0xF1, 0x00, 0x95, 0x40, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+                0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+                0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00
+            };
+
+            if (SRAMLength) memcpy(&iddata[0x18], &SRAM[SRAMLength - 0x800], 16);
+
+            memset(data, 0, len);
+            memcpy(data, iddata, std::min(len, 0x30u));
+        }
+        return 0;
+
+    case 0xB2: // set window for accessing SRAM
+        {
+            u32 addr = (cmd[1]<<24) | ((cmd[2]&0xFE)<<16);
+
+            // window is 0x20000 bytes, address is aligned to that boundary
+            // NAND remains stuck 'busy' forever if this is less than the starting SRAM address
+            // TODO.
+            if (addr < SRAMBase) Log(LogLevel::Warn,"NAND: !! BAD ADDR %08X < %08X\n", addr, SRAMBase);
+            if (addr >= (SRAMBase+SRAMLength)) Log(LogLevel::Warn,"NAND: !! BAD ADDR %08X > %08X\n", addr, SRAMBase+SRAMLength);
+
+            SRAMWindow = addr;
+        }
+        return 0;
+
+    case 0xB7:
+        {
+            u32 addr = (cmd[1]<<24) | (cmd[2]<<16) | (cmd[3]<<8) | cmd[4];
+
+            if (SRAMWindow == 0)
+            {
+                // regular ROM mode
+                memset(data, 0, len);
+
+                if (((addr + len - 1) >> 12) != (addr >> 12))
+                {
+                    u32 len1 = 0x1000 - (addr & 0xFFF);
+                    ReadROM_B7(addr, len1, data, 0);
+                    ReadROM_B7(addr+len1, len-len1, data, len1);
+                }
+                else
+                    ReadROM_B7(addr, len, data, 0);
+            }
+            else
+            {
+                // SRAM mode
+                memset(data, 0xFF, len);
+
+                if (SRAMWindow >= SRAMBase && SRAMWindow < (SRAMBase+SRAMLength) &&
+                    addr >= SRAMWindow && addr < (SRAMWindow+0x20000))
+                {
+                    memcpy(data, &SRAM[addr - SRAMBase], len);
+                }
+            }
+        }
+        return 0;
+
+    case 0xD6: // read NAND status
+        {
+            // status bits
+            // bit5: ready
+            // bit4: write enable
+
+            for (u32 i = 0; i < len; i+=4)
+                *(u32*)&data[i] = SRAMStatus * 0x01010101;
+        }
+        return 0;
+
+    default:
+        return CartRetail::ROMCommandStart(nds, cartslot, cmd, data, len);
+    }
+}
+
+void CartRetailNAND::ROMCommandFinish(const u8* cmd, u8* data, u32 len)
+{
+    if (CmdEncMode != 2) return CartCommon::ROMCommandFinish(cmd, data, len);
+
+    switch (cmd[0])
+    {
+    case 0x81: // write data
+        if (SRAMAddr)
+        {
+            if ((SRAMWritePos + len) > 0x800)
+                len = 0x800 - SRAMWritePos;
+
+            memcpy(&SRAMWriteBuffer[SRAMWritePos], data, len);
+            SRAMWritePos += len;
+        }
+        return;
+
+    default:
+        return CartCommon::ROMCommandFinish(cmd, data, len);
+    }
+}
+
+u8 CartRetailNAND::SPIWrite(u8 val, u32 pos, bool last)
+{
+    return 0xFF;
+}
+
+void CartRetailNAND::BuildSRAMID()
+{
+    // the last 128K of the SRAM are read-only.
+    // most of it is FF, except for the NAND ID at the beginning
+    // of the last 0x800 bytes.
+
+    if (SRAMLength > 0x20000)
+    {
+        memset(&SRAM[SRAMLength - 0x20000], 0xFF, 0x20000);
+
+        // TODO: check what the data is all about!
+        // this was pulled from a Jam with the Band cart. may be different on other carts.
+        // WarioWare DIY may have different data or not have this at all.
+        // the ID data is also found in the response to command 94, and JwtB checks it.
+        // WarioWare doesn't seem to care.
+        // there is also more data here, but JwtB doesn't seem to care.
+        u8 iddata[0x10] = {0xEC, 0x00, 0x9E, 0xA1, 0x51, 0x65, 0x34, 0x35, 0x30, 0x35, 0x30, 0x31, 0x19, 0x19, 0x02, 0x0A};
+        memcpy(&SRAM[SRAMLength - 0x800], iddata, 16);
+    }
+}
+
+
+CartRetailIR::CartRetailIR(const u8* rom, u32 len, u32 chipid, u32 irversion, bool badDSiDump, ROMListEntry romparams, std::unique_ptr<u8[]>&& sram, u32 sramlen, void* userdata) :
+    CartRetailIR(CopyToUnique(rom, len), len, chipid, irversion, badDSiDump, romparams, std::move(sram), sramlen, userdata)
+{
+}
+
+CartRetailIR::CartRetailIR(
+    std::unique_ptr<u8[]>&& rom,
+    u32 len,
+    u32 chipid,
+    u32 irversion,
+    bool badDSiDump,
+    ROMListEntry romparams,
+    std::unique_ptr<u8[]>&& sram,
+    u32 sramlen,
+    void* userdata
+) :
+    CartRetail(std::move(rom), len, chipid, badDSiDump, romparams, std::move(sram), sramlen, userdata, CartType::RetailIR),
+    IRVersion(irversion)
+{
+}
+
+CartRetailIR::~CartRetailIR() = default;
+
+void CartRetailIR::Reset()
+{
+    CartRetail::Reset();
+
+    IRCmd = 0;
+}
+
+void CartRetailIR::DoSavestate(Savestate* file)
+{
+    CartRetail::DoSavestate(file);
+
+    file->Var8(&IRCmd);
+}
+
+u8 CartRetailIR::SPIWrite(u8 val, u32 pos, bool last)
+{
+    if (pos == 0)
+    {
+        IRCmd = val;
+        return 0;
+    }
+
+    // TODO: emulate actual IR comm
+
+    switch (IRCmd)
+    {
+    case 0x00: // pass-through
+        return CartRetail::SPIWrite(val, pos-1, last);
+
+    case 0x08: // ID
+        return 0xAA;
+    }
+
+    return 0;
+}
+
+CartRetailBT::CartRetailBT(const u8* rom, u32 len, u32 chipid, ROMListEntry romparams, std::unique_ptr<u8[]>&& sram, u32 sramlen, void* userdata) :
+    CartRetailBT(CopyToUnique(rom, len), len, chipid, romparams, std::move(sram), sramlen, userdata)
+{
+}
+
+CartRetailBT::CartRetailBT(std::unique_ptr<u8[]>&& rom, u32 len, u32 chipid, ROMListEntry romparams, std::unique_ptr<u8[]>&& sram, u32 sramlen, void* userdata) :
+    CartRetail(std::move(rom), len, chipid, false, romparams, std::move(sram), sramlen, userdata, CartType::RetailBT)
+{
+    Log(LogLevel::Info,"POKETYPE CART\n");
+}
+
+CartRetailBT::~CartRetailBT() = default;
+
+u8 CartRetailBT::SPIWrite(u8 val, u32 pos, bool last)
+{
+    //Log(LogLevel::Debug,"POKETYPE SPI: %02X %d %d - %08X\n", val, pos, last, NDS::GetPC(0));
+
+    /*if (pos == 0)
+    {
+        // TODO do something with it??
+        if(val==0xFF)SetIRQ();
+    }
+    if(pos==7)SetIRQ();*/
+
+    return 0;
+}
+
+
+CartSD::CartSD(const u8* rom, u32 len, u32 chipid, ROMListEntry romparams, void* userdata, std::optional<FATStorage>&& sdcard) :
+    CartSD(CopyToUnique(rom, len), len, chipid, romparams, userdata, std::move(sdcard))
+{}
+
+CartSD::CartSD(std::unique_ptr<u8[]>&& rom, u32 len, u32 chipid, ROMListEntry romparams, void* userdata, std::optional<FATStorage>&& sdcard) :
+    CartCommon(std::move(rom), len, chipid, false, romparams, CartType::Homebrew, userdata),
+    SD(std::move(sdcard))
+{
+    sdcard = std::nullopt;
+    // std::move on optionals usually results in an optional with a moved-from object
+}
+
+CartSD::~CartSD() = default;
+// The SD card is destroyed by the optional's destructor
+
+
+void CartSD::ApplyDLDIPatchAt(u8* binary, u32 dldioffset, const u8* patch, u32 patchlen, bool readonly) const
+{
+    if (patch[0x0D] > binary[dldioffset+0x0F])
+    {
+        Log(LogLevel::Error, "DLDI driver ain't gonna fit, sorry\n");
+        return;
+    }
+
+    Log(LogLevel::Info, "existing driver is: %s\n", &binary[dldioffset+0x10]);
+    Log(LogLevel::Info, "new driver is: %s\n", &patch[0x10]);
+
+    u32 memaddr = *(u32*)&binary[dldioffset+0x40];
+    if (memaddr == 0)
+        memaddr = *(u32*)&binary[dldioffset+0x68] - 0x80;
+
+    u32 patchbase = *(u32*)&patch[0x40];
+    u32 delta = memaddr - patchbase;
+
+    u32 patchsize = 1 << patch[0x0D];
+    u32 patchend = patchbase + patchsize;
+
+    memcpy(&binary[dldioffset], patch, patchlen);
+
+    *(u32*)&binary[dldioffset+0x40] += delta;
+    *(u32*)&binary[dldioffset+0x44] += delta;
+    *(u32*)&binary[dldioffset+0x48] += delta;
+    *(u32*)&binary[dldioffset+0x4C] += delta;
+    *(u32*)&binary[dldioffset+0x50] += delta;
+    *(u32*)&binary[dldioffset+0x54] += delta;
+    *(u32*)&binary[dldioffset+0x58] += delta;
+    *(u32*)&binary[dldioffset+0x5C] += delta;
+
+    *(u32*)&binary[dldioffset+0x68] += delta;
+    *(u32*)&binary[dldioffset+0x6C] += delta;
+    *(u32*)&binary[dldioffset+0x70] += delta;
+    *(u32*)&binary[dldioffset+0x74] += delta;
+    *(u32*)&binary[dldioffset+0x78] += delta;
+    *(u32*)&binary[dldioffset+0x7C] += delta;
+
+    u8 fixmask = patch[0x0E];
+
+    if (fixmask & 0x01)
+    {
+        u32 fixstart = *(u32*)&patch[0x40] - patchbase;
+        u32 fixend = *(u32*)&patch[0x44] - patchbase;
+
+        for (u32 addr = fixstart; addr < fixend; addr+=4)
+        {
+            u32 val = *(u32*)&binary[dldioffset+addr];
+            if (val >= patchbase && val < patchend)
+                *(u32*)&binary[dldioffset+addr] += delta;
+        }
+    }
+    if (fixmask & 0x02)
+    {
+        u32 fixstart = *(u32*)&patch[0x48] - patchbase;
+        u32 fixend = *(u32*)&patch[0x4C] - patchbase;
+
+        for (u32 addr = fixstart; addr < fixend; addr+=4)
+        {
+            u32 val = *(u32*)&binary[dldioffset+addr];
+            if (val >= patchbase && val < patchend)
+                *(u32*)&binary[dldioffset+addr] += delta;
+        }
+    }
+    if (fixmask & 0x04)
+    {
+        u32 fixstart = *(u32*)&patch[0x50] - patchbase;
+        u32 fixend = *(u32*)&patch[0x54] - patchbase;
+
+        for (u32 addr = fixstart; addr < fixend; addr+=4)
+        {
+            u32 val = *(u32*)&binary[dldioffset+addr];
+            if (val >= patchbase && val < patchend)
+                *(u32*)&binary[dldioffset+addr] += delta;
+        }
+    }
+    if (fixmask & 0x08)
+    {
+        u32 fixstart = *(u32*)&patch[0x58] - patchbase;
+        u32 fixend = *(u32*)&patch[0x5C] - patchbase;
+
+        memset(&binary[dldioffset+fixstart], 0, fixend-fixstart);
+    }
+
+    if (readonly)
+    {
+        // clear the can-write feature flag
+        binary[dldioffset+0x64] &= ~0x02;
+
+        // make writeSectors() return failure
+        u32 writesec_addr = *(u32*)&binary[dldioffset+0x74];
+        writesec_addr -= memaddr;
+        writesec_addr += dldioffset;
+        *(u32*)&binary[writesec_addr+0x00] = 0xE3A00000; // mov r0, #0
+        *(u32*)&binary[writesec_addr+0x04] = 0xE12FFF1E; // bx lr
+    }
+
+    Log(LogLevel::Debug, "applied DLDI patch at %08X\n", dldioffset);
+}
+
+void CartSD::ApplyDLDIPatch(const u8* patch, u32 patchlen, bool readonly)
+{
+    if (*(u32*)&patch[0] != 0xBF8DA5ED ||
+        *(u32*)&patch[4] != 0x69684320 ||
+        *(u32*)&patch[8] != 0x006D6873)
+    {
+        Log(LogLevel::Error, "bad DLDI patch\n");
+        return;
+    }
+
+    u32 offset = *(u32*)&ROM[0x20];
+    u32 size = *(u32*)&ROM[0x2C];
+
+    u8* binary = &ROM[offset];
+
+    for (u32 i = 0; i < size; )
+    {
+        if (*(u32*)&binary[i  ] == 0xBF8DA5ED &&
+            *(u32*)&binary[i+4] == 0x69684320 &&
+            *(u32*)&binary[i+8] == 0x006D6873)
+        {
+            Log(LogLevel::Debug, "DLDI structure found at %08X (%08X)\n", i, offset+i);
+            ApplyDLDIPatchAt(binary, i, patch, patchlen, readonly);
+            i += patchlen;
+        }
+        else
+            i++;
+    }
+}
+
+void CartSD::ReadROM_B7(u32 addr, u32 len, u8* data, u32 offset) const
+{
+    // TODO: how strict should this be for homebrew?
+
+    addr &= (ROMLength-1);
+
+    memcpy(data+offset, ROM.get()+addr, len);
+}
+
+CartHomebrew::CartHomebrew(const u8* rom, u32 len, u32 chipid, ROMListEntry romparams, void* userdata, std::optional<FATStorage>&& sdcard) :
+    CartSD(rom, len, chipid, romparams, userdata, std::move(sdcard))
+{}
+
+CartHomebrew::CartHomebrew(std::unique_ptr<u8[]>&& rom, u32 len, u32 chipid, ROMListEntry romparams, void* userdata, std::optional<FATStorage>&& sdcard) :
+    CartSD(std::move(rom), len, chipid, romparams, userdata, std::move(sdcard))
+{}
+
+CartHomebrew::~CartHomebrew() = default;
+
+void CartHomebrew::Reset()
+{
+    CartSD::Reset();
+
+    if (SD)
+        ApplyDLDIPatch(melonDLDI, sizeof(melonDLDI), SD->IsReadOnly());
+}
+
+void CartHomebrew::SetupDirectBoot(const std::string& romname, NDS& nds)
+{
+    CartCommon::SetupDirectBoot(romname, nds);
+
+    if (SD)
+    {
+        // add the ROM to the SD volume
+
+        if (!SD->InjectFile(romname, ROM.get(), ROMLength))
+            return;
+
+        // setup argv command line
+
+        char argv[512] = {0};
+        int argvlen;
+
+        strncpy(argv, "fat:/", 511);
+        strncat(argv, romname.c_str(), 511);
+        argvlen = strlen(argv);
+
+        const NDSHeader& header = GetHeader();
+
+        u32 argvbase = header.ARM9RAMAddress + header.ARM9Size;
+        argvbase = (argvbase + 0xF) & ~0xF;
+
+        for (u32 i = 0; i <= argvlen; i+=4)
+            nds.ARM9Write32(argvbase+i, *(u32*)&argv[i]);
+
+        nds.ARM9Write32(0x02FFFE70, 0x5F617267);
+        nds.ARM9Write32(0x02FFFE74, argvbase);
+        nds.ARM9Write32(0x02FFFE78, argvlen+1);
+        // The DSi version of ARM9Write32 will be called if nds is really a DSi
+    }
+}
+
+int CartHomebrew::ROMCommandStart(NDS& nds, NDSCart::NDSCartSlot& cartslot, const u8* cmd, u8* data, u32 len)
+{
+    if (CmdEncMode != 2) return CartCommon::ROMCommandStart(nds, cartslot, cmd, data, len);
+
+    switch (cmd[0])
+    {
+    case 0xB7:
+        {
+            u32 addr = (cmd[1]<<24) | (cmd[2]<<16) | (cmd[3]<<8) | cmd[4];
+            memset(data, 0, len);
+
+            if (((addr + len - 1) >> 12) != (addr >> 12))
+            {
+                u32 len1 = 0x1000 - (addr & 0xFFF);
+                ReadROM_B7(addr, len1, data, 0);
+                ReadROM_B7(addr+len1, len-len1, data, len1);
+            }
+            else
+                ReadROM_B7(addr, len, data, 0);
+        }
+        return 0;
+
+    case 0xC0: // SD read
+        {
+            u32 sector = (cmd[1]<<24) | (cmd[2]<<16) | (cmd[3]<<8) | cmd[4];
+            if (SD) SD->ReadSectors(sector, len>>9, data);
+        }
+        return 0;
+
+    case 0xC1: // SD write
+        return 1;
+
+    default:
+        return CartCommon::ROMCommandStart(nds, cartslot, cmd, data, len);
+    }
+}
+
+void CartHomebrew::ROMCommandFinish(const u8* cmd, u8* data, u32 len)
+{
+    if (CmdEncMode != 2) return CartCommon::ROMCommandFinish(cmd, data, len);
+
+    // TODO: delayed SD writing? like we have for SRAM
+
+    switch (cmd[0])
+    {
+    case 0xC1:
+        {
+            u32 sector = (cmd[1]<<24) | (cmd[2]<<16) | (cmd[3]<<8) | cmd[4];
+            if (SD && !SD->IsReadOnly()) SD->WriteSectors(sector, len>>9, data);
+        }
+        break;
+
+    default:
+        return CartCommon::ROMCommandFinish(cmd, data, len);
+    }
+}
+
+NDSCartSlot::NDSCartSlot(melonDS::NDS& nds, std::unique_ptr<CartCommon>&& rom) noexcept : NDS(nds)
+{
+    NDS.RegisterEventFuncs(Event_ROMTransfer, this,
+    {
+        MakeEventThunk(NDSCartSlot, ROMPrepareData),
+        MakeEventThunk(NDSCartSlot, ROMEndTransfer)
+    });
+    NDS.RegisterEventFuncs(Event_ROMSPITransfer, this, {MakeEventThunk(NDSCartSlot, SPITransferDone)});
+    // All fields are default-constructed because they're listed as such in the class declaration
+=======
     SetLogicalNum(Num);
+>>>>>>> upstream/master
 
     if (rom)
         SetCart(std::move(rom));
