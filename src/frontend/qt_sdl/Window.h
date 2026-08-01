@@ -162,6 +162,7 @@ private slots:
     void onChangeScreenSize();
     void onChangeScreenRotation(QAction* act);
     void onChangeScreenGap(QAction* act);
+    void onChangeHybridRatio(QAction* act);
     void onChangeScreenLayout(QAction* act);
     void onChangeScreenSwap(bool checked);
     void onChangeScreenSizing(QAction* act);
@@ -279,6 +280,8 @@ public:
     QAction* actScreenRotation[screenRot_MAX];
     QActionGroup* grpScreenGap;
     QAction* actScreenGap[6];
+    QActionGroup* grpHybridRatio;
+    QAction* actHybridRatio[9];
     QActionGroup* grpScreenLayout;
     QAction* actScreenLayout[screenLayout_MAX];
     QAction* actScreenSwap;
