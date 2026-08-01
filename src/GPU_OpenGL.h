@@ -98,7 +98,7 @@ private:
     GLuint CaptureVRAMTex;
     GLuint CaptureVRAMFB;
 
-    GLuint FPOutputTex[2];               // final output
+    GLuint FPOutputTex[4];               // final output
     GLuint FPOutputFB[2];
 
     struct sCaptureConfig

@@ -220,9 +220,45 @@ private:
     bool glInited;
 
     GLuint screenVertexBuffer, screenVertexArray;
-    GLuint screenTexture;
+    GLuint screenTexture[2];
+    // Nearest and Linear Sampler
+    GLuint samplers[2];
     GLuint screenShaderProgram;
-    GLint screenShaderTransformULoc, screenShaderScreenSizeULoc;
+    std::array<float, 60> screenVertices;
+    std::array<float, 60> screenFlipVertices;
+    std::array<float, 60> passVertices;
+    std::array<float, 60> passFlipVertices;
+    GLuint simplepresent_program;
+    GLuint area_sample_program;
+    GLuint sharp_bilinear_program;
+    GLuint fxaa_program;
+    GLuint smaa_pass0_program;
+    GLuint smaa_pass1_program;
+    GLuint smaa_pass2_program;
+
+
+    //Post Processing Objects
+    GLuint textureFBO;
+    std::array<GLuint, 5> intermediateTexture;
+    GLuint antialiasFBOTexture;
+    GLuint areatex;
+    GLuint searchtex;
+
+
+    void AllocateSMAATextures();
+    void AllocatePPTextures();
+
+    // Variable to track whether Post Processing Textures need to be reallocated
+    float prevTextureHeight;
+
+    float textureWidth;
+    float textureHeight;
+
+    GLint screenShaderTransformULoc, screenShaderScreenSizeULoc, screenTexULoc;
+    GLint i_resolutionULoc, o_resolutionULoc, areaTexULoc, searchTexULoc, smaa_inputULoc, convertColorsULoc;
+    void attachScreenUniforms(GLuint shaderProgram);
+
+
 
     QMutex screenSettingsLock;
     WindowInfo windowInfo;
