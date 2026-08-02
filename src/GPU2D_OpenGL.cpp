@@ -284,7 +284,7 @@ bool GLRenderer2D::Init()
             glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, sz[0], sz[1], 0, GL_RGBA, GL_UNSIGNED_BYTE, nullptr);
 
             glBindFramebuffer(GL_FRAMEBUFFER, AllBGLayerFB[l]);
-            glFramebufferTexture(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, AllBGLayerTex[l], 0);
+            glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, AllBGLayerTex[l], 0);
             glDrawBuffer(GL_COLOR_ATTACHMENT0);
 
             l++;
@@ -300,7 +300,7 @@ bool GLRenderer2D::Init()
 
     glGenFramebuffers(1, &SpriteFB);
     glBindFramebuffer(GL_FRAMEBUFFER, SpriteFB);
-    glFramebufferTexture(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, SpriteTex, 0);
+    glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, SpriteTex, 0);
     glDrawBuffer(GL_COLOR_ATTACHMENT0);
 
     // generate texture to hold final (upscaled) sprites
@@ -472,14 +472,14 @@ void GLRenderer2D::SetScaleFactor(int scale)
     glBindFramebuffer(GL_FRAMEBUFFER, OBJLayerFB);
     glFramebufferTextureLayer(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, OBJLayerTex, 0, 0);
     glFramebufferTextureLayer(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT1, OBJLayerTex, 0, 1);
-    glFramebufferTexture(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, OBJDepthTex, 0);
+    glFramebufferTexture2D(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_TEXTURE_2D, OBJDepthTex, 0);
     glDrawBuffers(2, fbassign2);
 
     glBindTexture(GL_TEXTURE_2D, OutputTex);
     glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, ScreenW, ScreenH, 0, GL_RGBA, GL_UNSIGNED_BYTE, nullptr);
 
     glBindFramebuffer(GL_FRAMEBUFFER, OutputFB);
-    glFramebufferTexture(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, OutputTex, 0);
+    glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, OutputTex, 0);
     glDrawBuffer(GL_COLOR_ATTACHMENT0);
 }
 
