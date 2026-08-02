@@ -52,6 +52,7 @@
 #include "AudioSettingsDialog.h"
 #include "FirmwareSettingsDialog.h"
 #include "PathSettingsDialog.h"
+#include "RichPresenceSettingsDialog.h"
 #include "MPSettingsDialog.h"
 #include "WifiSettingsDialog.h"
 #include "InterfaceSettingsDialog.h"
@@ -613,6 +614,9 @@ MainWindow::MainWindow(int id, EmuInstance* inst, QWidget* parent) :
 
             actPathSettings = menu->addAction("Path settings");
             connect(actPathSettings, &QAction::triggered, this, &MainWindow::onOpenPathSettings);
+
+            actRichPresenceSettings = menu->addAction("Rich presence settings");
+            connect(actRichPresenceSettings, &QAction::triggered, this, &MainWindow::onOpenRichPresenceSettings);
 
             menu->addSeparator();
 
@@ -1919,6 +1923,18 @@ void MainWindow::onPathSettingsFinished(int res)
     if (PathSettingsDialog::needsReset)
         onReset();
 
+    emuThread->emuUnpause();
+}
+
+void MainWindow::onOpenRichPresenceSettings() {
+    emuThread->emuPause();
+
+    RichPresenceSettingsDialog* dlg = RichPresenceSettingsDialog::openDlg(this);
+    connect(dlg, &RichPresenceSettingsDialog::finished, this, &MainWindow::onRichPresenceSettingsFinished);
+}
+
+void MainWindow::onRichPresenceSettingsFinished(int res)
+{
     emuThread->emuUnpause();
 }
 
