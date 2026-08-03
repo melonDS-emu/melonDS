@@ -160,6 +160,8 @@ signals:
 
     void syncVolumeLevel();
 
+    void windowSavestateChange();
+
 private:
     void handleMessages();
 
