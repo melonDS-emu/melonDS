@@ -511,7 +511,7 @@ void ARMJIT::SetJITArgs(JITArgs args) noexcept
 
 void ARMJIT::SetMaxBlockSize(int size) noexcept
 {
-    SetJITArgs(JITArgs{static_cast<unsigned>(size), LiteralOptimizations, LiteralOptimizations, FastMemory});
+    SetJITArgs(JITArgs{static_cast<unsigned>(size), LiteralOptimizations, BranchOptimizations, FastMemory});
 }
 
 void ARMJIT::SetLiteralOptimizations(bool enabled) noexcept
