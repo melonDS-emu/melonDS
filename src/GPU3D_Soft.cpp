@@ -718,13 +718,34 @@ void SoftRenderer3D::RenderShadowMaskScanline(RendererPolygon* rp, s32 y)
     u32 polyalpha = (polygon->Attr >> 16) & 0x1F;
     bool wireframe = (polyalpha == 0);
 
-    bool (*fnDepthTest)(s32 dstz, s32 z, u32 dstattr);
+    // Inline depth test via lambda to avoid indirect call overhead per pixel
+    int depthFunc;
     if (polygon->Attr & (1<<14))
-        fnDepthTest = polygon->WBuffer ? DepthTest_Equal_W : DepthTest_Equal_Z;
+        depthFunc = polygon->WBuffer ? 1 : 0;
     else if (polygon->FacingView)
-        fnDepthTest = DepthTest_LessThan_FrontFacing;
+        depthFunc = 3;
     else
-        fnDepthTest = DepthTest_LessThan;
+        depthFunc = 2;
+
+    auto fnDepthTest = [depthFunc](s32 dstz, s32 z, u32 dstattr) -> bool
+    {
+        switch (depthFunc)
+        {
+            case 0:
+            {
+                s32 diff = dstz - z;
+                return (u32)(diff + 0x200) <= 0x400;
+            }
+            case 1:
+            {
+                s32 diff = dstz - z;
+                return (u32)(diff + 0xFF) <= 0x1FE;
+            }
+            case 2: return z < dstz;
+            default:
+                return ((dstattr & 0x00400010) == 0x00000010) ? z <= dstz : z < dstz;
+        }
+    };
 
     if (!PrevIsShadowMask)
         memset(&StencilBuffer[256 * (y&0x1)], 0, 256);
@@ -946,13 +967,34 @@ void SoftRenderer3D::RenderPolygonScanline(RendererPolygon* rp, s32 y)
     u32 polyalpha = (polygon->Attr >> 16) & 0x1F;
     bool wireframe = (polyalpha == 0);
 
-    bool (*fnDepthTest)(s32 dstz, s32 z, u32 dstattr);
+    // Inline depth test via lambda to avoid indirect call overhead per pixel
+    int depthFunc;
     if (polygon->Attr & (1<<14))
-        fnDepthTest = polygon->WBuffer ? DepthTest_Equal_W : DepthTest_Equal_Z;
+        depthFunc = polygon->WBuffer ? 1 : 0;
     else if (polygon->FacingView)
-        fnDepthTest = DepthTest_LessThan_FrontFacing;
+        depthFunc = 3;
     else
-        fnDepthTest = DepthTest_LessThan;
+        depthFunc = 2;
+
+    auto fnDepthTest = [depthFunc](s32 dstz, s32 z, u32 dstattr) -> bool
+    {
+        switch (depthFunc)
+        {
+            case 0:
+            {
+                s32 diff = dstz - z;
+                return (u32)(diff + 0x200) <= 0x400;
+            }
+            case 1:
+            {
+                s32 diff = dstz - z;
+                return (u32)(diff + 0xFF) <= 0x1FE;
+            }
+            case 2: return z < dstz;
+            default:
+                return ((dstattr & 0x00400010) == 0x00000010) ? z <= dstz : z < dstz;
+        }
+    };
 
     PrevIsShadowMask = false;
 
