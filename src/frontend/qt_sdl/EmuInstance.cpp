@@ -2270,3 +2270,58 @@ void EmuInstance::animatedROMIcon(const u8 (&data)[8][512], const u16 (&palette)
             animatedSequenceRef.push_back(i);
     }
 }
+
+bool EmuInstance::takeScreenshot(){
+    void* topbuf; void* bottombuf;
+    if(getNDS()->GPU.GetFramebuffers(&topbuf, &bottombuf))
+    {
+        size_t width = 256;
+        size_t height = 192;
+
+        // write top and bottom buffers into one big buffer and convert bgra32 to argb32
+        // new buffer needs to be uchar because qt wants to
+        uchar* newbuf = new uchar[width * height * 2 * 4];
+
+        u32 newIndex = 0;
+        for(size_t i = 0; i < width * height; i++)
+        {
+            newbuf[newIndex++] = (((u32*)topbuf)[i] & 0x000000FF);
+            newbuf[newIndex++] = (((u32*)topbuf)[i] & 0x0000FF00) >> 8;
+            newbuf[newIndex++] = (((u32*)topbuf)[i] & 0x00FF0000) >> 16;
+            newbuf[newIndex++] = (((u32*)topbuf)[i] & 0xFF000000) >> 24;
+        }
+        for(size_t i = 0; i < width * height; i++)
+        { 
+            newbuf[newIndex++] = (((u32*)bottombuf)[i] & 0x000000FF);
+            newbuf[newIndex++] = (((u32*)bottombuf)[i] & 0x0000FF00) >> 8;
+            newbuf[newIndex++] = (((u32*)bottombuf)[i] & 0x00FF0000) >> 16;
+            newbuf[newIndex++] = (((u32*)bottombuf)[i] & 0xFF000000) >> 24;
+        }
+        
+        QImage img = QImage(newbuf, width, height * 2, QImage::Format_ARGB32);
+        
+        auto now = std::chrono::system_clock::now();
+        auto duration = now.time_since_epoch();
+        auto ms = std::chrono::duration_cast<std::chrono::milliseconds>(duration).count();
+        
+        std::string fileName = "melonDS-" + std::to_string(ms);
+        std::string filePath = getAssetPath(false, getLocalConfig().GetString("ScreenshotPath"), ".png", fileName);
+        
+        if(!img.save(QString::fromStdString(filePath), "PNG"))
+        {
+            Log(LogLevel::Debug, "Failed to take screenshot\n");
+            osdAddMessage(0xFFA0A0, "Failed to take screenshot");
+            return false;
+        }
+        
+        osdAddMessage(0, "Screenshot saved as %s", filePath.c_str());
+        Log(LogLevel::Info, "Screenshot saved as %s\n", filePath.c_str());
+    }
+    else
+    {
+        Log(LogLevel::Warn, "Aborting screenshot because not using Software Renderer\n");
+        osdAddMessage(0, "Screenshot can only be taken using software renderer");
+        return false;
+    }
+    return true;
+}

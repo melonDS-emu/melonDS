@@ -496,26 +496,7 @@ void EmuThread::handleMessages()
             break;
 
         case msg_EmuScreenshot:
-            void* topbuf; void* bottombuf;
-            if(emuInstance->getNDS()->GPU.GetFramebuffers(&topbuf, &bottombuf))
-            {
-                FILE *file;
-                file = fopen("/home/cecilia/melonTest/top", "wb");
-                fwrite(topbuf, 4, 256 * 192, file);
-                fclose(file);
-
-                file = fopen("/home/cecilia/melonTest/bottom", "wb");
-                fwrite(bottombuf, 4, 256 * 192, file);
-                fclose(file);
-            }
-            else{
-                Log(LogLevel::Debug, "meowww ogl\n");
-
-                FILE *file;
-                file = fopen("/home/cecilia/melonTest/top", "rb");
-                fwrite(topbuf, sizeof(topbuf), 1, file);
-                fclose(file);
-            }
+            emuInstance->takeScreenshot();
             break;
 
         case msg_EmuPause:
@@ -781,10 +762,10 @@ void EmuThread::emuReset()
 
 void EmuThread::emuTakeScreenshot()
 {
-    Log(LogLevel::Debug, "Taking screenshot\n");
     if (!emuActive){
         return;
     }
+    Log(LogLevel::Info, "Taking screenshot\n");
     sendMessage(msg_EmuScreenshot);
     waitMessage();
 }

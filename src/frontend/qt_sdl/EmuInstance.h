@@ -166,6 +166,8 @@ public:
     // mic start/stop control from core
     void micStart();
     void micStop();
+    
+    bool takeScreenshot();
     int micReadInput(melonDS::s16* data, int maxlength);
 
     QMutex renderLock;
