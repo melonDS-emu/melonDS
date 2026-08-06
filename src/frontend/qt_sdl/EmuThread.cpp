@@ -159,6 +159,8 @@ void EmuThread::run()
 
         if (emuInstance->hotkeyPressed(HK_FrameLimitToggle)) emit windowLimitFPSChange();
 
+        if (emuInstance->hotkeyPressed(HK_Screenshot)) emuTakeScreenshot();
+
         if (emuInstance->hotkeyPressed(HK_Pause)) emuTogglePause();
         if (emuInstance->hotkeyPressed(HK_Reset)) emuReset();
         if (emuInstance->hotkeyPressed(HK_FrameStep)) emuFrameStep();
@@ -493,6 +495,29 @@ void EmuThread::handleMessages()
             emit windowEmuStart();
             break;
 
+        case msg_EmuScreenshot:
+            void* topbuf; void* bottombuf;
+            if(emuInstance->getNDS()->GPU.GetFramebuffers(&topbuf, &bottombuf))
+            {
+                FILE *file;
+                file = fopen("/home/cecilia/melonTest/top", "wb");
+                fwrite(topbuf, 4, 256 * 192, file);
+                fclose(file);
+
+                file = fopen("/home/cecilia/melonTest/bottom", "wb");
+                fwrite(bottombuf, 4, 256 * 192, file);
+                fclose(file);
+            }
+            else{
+                Log(LogLevel::Debug, "meowww ogl\n");
+
+                FILE *file;
+                file = fopen("/home/cecilia/melonTest/top", "rb");
+                fwrite(topbuf, sizeof(topbuf), 1, file);
+                fclose(file);
+            }
+            break;
+
         case msg_EmuPause:
             emuPauseStack++;
             if (emuPauseStack > emuPauseStackPauseThreshold) break;
@@ -751,6 +776,16 @@ void EmuThread::emuFrameStep()
 void EmuThread::emuReset()
 {
     sendMessage(msg_EmuReset);
+    waitMessage();
+}
+
+void EmuThread::emuTakeScreenshot()
+{
+    Log(LogLevel::Debug, "Taking screenshot\n");
+    if (!emuActive){
+        return;
+    }
+    sendMessage(msg_EmuScreenshot);
     waitMessage();
 }
 
