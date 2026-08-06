@@ -732,7 +732,7 @@ void DSi::SetupDirectBoot()
     else
     {
         SCFG_EXT[0] = 0x8307F100;
-        SCFG_EXT[1] = 0x93FBFB06;
+        SCFG_EXT[1] = 0x13FBFB00 | (header.DSiPermissions[1] & 0x80040407);
     }
 
     ARM9.CP15Write(0x100, 0x00056078);
