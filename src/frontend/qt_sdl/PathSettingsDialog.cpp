@@ -49,6 +49,7 @@ PathSettingsDialog::PathSettingsDialog(QWidget* parent) : QDialog(parent), ui(ne
     ui->txtSaveFilePath->setText(cfg.GetQString("SaveFilePath"));
     ui->txtSavestatePath->setText(cfg.GetQString("SavestatePath"));
     ui->txtCheatFilePath->setText(cfg.GetQString("CheatFilePath"));
+    ui->txtScreenshotPath->setText(cfg.GetQString("ScreenshotPath"));
 
     int inst = emuInstance->getInstanceID();
     if (inst > 0)
@@ -112,6 +113,7 @@ void PathSettingsDialog::done(int r)
             cfg.SetQString("SaveFilePath", ui->txtSaveFilePath->text());
             cfg.SetQString("SavestatePath", ui->txtSavestatePath->text());
             cfg.SetQString("CheatFilePath", ui->txtCheatFilePath->text());
+            cfg.SetQString("ScreenshotPath", ui->txtScreenshotPath->text());
 
             Config::Save();
 
@@ -173,4 +175,21 @@ void PathSettingsDialog::on_btnCheatFileBrowse_clicked()
     }
 
     ui->txtCheatFilePath->setText(dir);
+}
+
+void PathSettingsDialog::on_btnScreenshotBrowse_clicked()
+{
+    QString dir = QFileDialog::getExistingDirectory(this,
+                                                     "Select screenshot files path...",
+                                                     emuDirectory);
+
+    if (dir.isEmpty()) return;
+    
+    if (!QTemporaryFile(dir).open())
+    {
+        QMessageBox::critical(this, "melonDS", errordialog);
+        return;
+    }
+
+    ui->txtScreenshotPath->setText(dir);
 }
