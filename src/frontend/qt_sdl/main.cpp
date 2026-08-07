@@ -193,6 +193,15 @@ void pathInit()
     }
 #endif
 
+#if defined(__linux__)
+    QByteArray appimageEnv = qgetenv("APPIMAGE");
+    if (!appimageEnv.isEmpty())
+    {
+        QFileInfo appimageInfo(QString::fromUtf8(appimageEnv));
+        portablepath = appimageInfo.absolutePath() + QDir::separator() + "portable";
+    }
+#endif
+
     QDir portabledir(portablepath);
     if (portabledir.exists())
     {
