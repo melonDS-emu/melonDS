@@ -42,6 +42,7 @@ GLRenderer2D::GLRenderer2D(melonDS::GPU2D& gpu2D, GLRenderer& parent)
     : Renderer2D(gpu2D), Parent(parent)
 {
     ScaleFactor = 0;
+    DeferredLayerPrerenderDirty = 0;
 }
 
 #define glDefaultTexParams(target) \
@@ -430,6 +431,7 @@ void GLRenderer2D::Reset()
     memset(BGVRAMRange, 0xFF, sizeof(BGVRAMRange));
 
     LayerConfigDirty = true;
+    DeferredLayerPrerenderDirty = 0;
 
     LastSpriteLine = 0;
     memset(OAM, 0, sizeof(OAM));
@@ -565,6 +567,10 @@ void GLRenderer2D::UpdateAndRender(int line)
         (GPU2D.EVY != EVY))
         comp_dirty = true;
 
+    const u8 register_layer_pre_dirty = layer_pre_dirty;
+    const u8 visible_layers = (LayerEnable | GPU2D.LayerEnable) & 0xF;
+    layer_pre_dirty |= DeferredLayerPrerenderDirty & visible_layers;
+
     // check if VRAM was modified, and flatten it as needed
 
     static_assert(VRAMDirtyGranularity == 512);
@@ -639,6 +645,13 @@ void GLRenderer2D::UpdateAndRender(int line)
                 layer_pre_dirty |= (1 << layer);
         }
     }
+
+    // Hidden BG layers can be streamed while another layer is displayed.
+    // Upload their VRAM now, but defer prerendering until they become visible.
+    const u8 inactive_layer_pre_dirty =
+        (layer_pre_dirty & ~register_layer_pre_dirty) & ~visible_layers;
+    DeferredLayerPrerenderDirty |= inactive_layer_pre_dirty;
+    layer_pre_dirty &= ~inactive_layer_pre_dirty;
 
     if (layer_pre_dirty)
         comp_dirty = true;
@@ -765,6 +778,8 @@ void GLRenderer2D::UpdateAndRender(int line)
 
             PrerenderLayer(layer);
         }
+
+        DeferredLayerPrerenderDirty &= ~layer_pre_dirty;
     }
 
     if (SpriteDirty)
