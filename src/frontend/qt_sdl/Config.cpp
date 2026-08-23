@@ -112,13 +112,15 @@ DefaultList<bool> DefaultBools =
 #endif
     {"DSi.DSP.HLE", true},
     {"Instance*.RTC.SyncToHost", true},
+    {"Instance*.IR.TCP.IsServer", false}
 };
 
 DefaultList<std::string> DefaultStrings =
 {
     {"DLDI.ImagePath",                  "dldi.bin"},
     {"DSi.SD.ImagePath",                "dsisd.bin"},
-    {"Instance*.Firmware.Username",     "melonDS"}
+    {"Instance*.Firmware.Username",     "melonDS"},
+    {"Instance*.IR.TCP.HostIP",         "127.0.0.1"}
 };
 
 DefaultList<double> DefaultDoubles =
