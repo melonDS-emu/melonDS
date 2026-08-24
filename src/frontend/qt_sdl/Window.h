@@ -290,7 +290,6 @@ public:
     QActionGroup* grpScreenAspectBot;
     QAction** actScreenAspectBot;
     QAction* actNewWindow;
-    QAction* actScreenFiltering;
     QAction* actShowOSD;
     QAction* actLimitFramerate;
     QAction* actAudioSync;
