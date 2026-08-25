@@ -732,7 +732,16 @@ void DSi::SetupDirectBoot()
     else
     {
         SCFG_EXT[0] = 0x8307F100;
-        SCFG_EXT[1] = 0x93FBFB06;
+        SCFG_EXT[1] = 0x13FBFB00 | (header.DSiPermissions[1] & 0x80040407);
+
+        ARM7Write32(0x380FFC4, SCFG_EXT[1] | 0x80000000);
+        /* read SCFG_OP */
+        u32 bios_flags = 0 & 0xFF;
+        bios_flags |= (SCFG_BIOS & 3) << 2;
+        bios_flags |= (SCFG_BIOS >> 8 & 6) << 4;
+        /* read SCFG_WL */
+        bios_flags |= (0 & 1) << 7;
+        ARM7Write8(0x380FFC8, bios_flags);
     }
 
     ARM9.CP15Write(0x100, 0x00056078);
