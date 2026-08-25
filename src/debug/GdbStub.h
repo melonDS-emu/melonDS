@@ -31,6 +31,13 @@ enum class TgtStatus
 	FaultInsn, // illegal instruction
 };
 
+enum class WatchptKind
+{
+	Write = 2,
+	Read = 3,
+	Access = 4,
+};
+
 class StubCallbacks
 {
 public:
