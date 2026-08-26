@@ -17,9 +17,11 @@
 */
 
 #include <string.h>
+#include <sstream>
 
 #include <optional>
 #include <cmath>
+#include <algorithm>
 
 #include <QPaintEvent>
 #include <QPainter>
@@ -38,11 +40,13 @@
 #include "GPU3D_OpenGL.h"
 #include "Platform.h"
 #include "Config.h"
+#include "Window.h"
 
 #include "main_shaders.h"
 #include "OSD_shaders.h"
 #include "font.h"
 #include "version.h"
+#include "SlangPreset.h"
 
 using namespace melonDS;
 
@@ -1021,6 +1025,66 @@ void ScreenPanelGL::initOpenGL()
     logoTexture = tex;
 
     transferLayout();
+    shaderManager = std::make_unique<ShaderManager>();
+
+    MainWindow* mainWin = (MainWindow*)parentWidget();
+    if (mainWin) {
+        std::string presetPathStr = mainWin->getWindowConfig().GetString("ShaderPresetPath");
+        if (!presetPathStr.empty()) {
+            std::vector<std::string> presetPaths;
+            std::stringstream ss(presetPathStr);
+            std::string part;
+            while (std::getline(ss, part, '+')) {
+                if (!part.empty()) presetPaths.push_back(part);
+            }
+            
+            SlangPreset combined;
+            bool first = true;
+            for (const auto& pPath : presetPaths) {
+                SlangPreset preset;
+                if (preset.load(pPath)) {
+                    if (first) {
+                        combined = preset;
+                        first = false;
+                    } else {
+                        combined.appendPassesFrom(preset);
+                    }
+                }
+            }
+            
+            if (!first) {
+                shaderManager->LoadPreset(combined);
+                
+                std::string savedParamsStr = mainWin->getWindowConfig().GetString("ShaderParams");
+                std::stringstream ssOuter(savedParamsStr);
+                std::string presetBlock;
+                while (std::getline(ssOuter, presetBlock, '#')) {
+                    size_t pipePos = presetBlock.find('|');
+                    if (pipePos != std::string::npos) {
+                        std::string pPath = presetBlock.substr(0, pipePos);
+                        for (const auto& sp : presetPaths) {
+                            if (pPath == sp) {
+                                std::string paramsStr = presetBlock.substr(pipePos + 1);
+                                std::stringstream ssInner(paramsStr);
+                                std::string paramPair;
+                                while (std::getline(ssInner, paramPair, ';')) {
+                                    size_t eqPos = paramPair.find('=');
+                                    if (eqPos != std::string::npos) {
+                                        try {
+                                            float val = std::stof(paramPair.substr(eqPos + 1));
+                                            shaderManager->SetParameter(paramPair.substr(0, eqPos), val);
+                                        } catch(...) {}
+                                    }
+                                }
+                                break;
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+
     glInited = true;
 }
 
@@ -1030,6 +1094,8 @@ void ScreenPanelGL::deinitOpenGL()
     if (!glInited) return;
 
     glContext->MakeCurrent();
+
+    shaderManager.reset();
 
     glDeleteTextures(1, &screenTexture);
 
@@ -1132,6 +1198,7 @@ void ScreenPanelGL::drawScreen()
         glUniform2f(screenShaderScreenSizeULoc, w / factor, h / factor);
 
         void* topbuf; void* bottombuf;
+        GLuint rawTex = screenTexture;
         if (nds->GPU.GetFramebuffers(&topbuf, &bottombuf))
         {
             // if we're doing a regular render, use the provided framebuffers
@@ -1147,11 +1214,51 @@ void ScreenPanelGL::drawScreen()
         }
         else
         {
-            GLuint texid = *(GLuint*)topbuf;
-
-            glActiveTexture(GL_TEXTURE0);
-            glBindTexture(GL_TEXTURE_2D_ARRAY, texid);
+            rawTex = *(GLuint*)topbuf;
         }
+
+        GLuint finalTex = rawTex;
+        int outW = 256, outH = 192;
+
+        if (shaderManager) {
+            glBindTexture(GL_TEXTURE_2D_ARRAY, 0);
+
+            int screenW = w;
+            int screenH = h;
+            if (numScreens > 0) {
+                screenW = 0;
+                screenH = 0;
+                for (int i = 0; i < numScreens; ++i) {
+                    float m0 = screenMatrix[i][0];
+                    float m1 = screenMatrix[i][1];
+                    float m2 = screenMatrix[i][2];
+                    float m3 = screenMatrix[i][3];
+
+                    float dx_x = m0 * 256.0f;
+                    float dy_x = m1 * 256.0f;
+                    int curW = static_cast<int>(std::round(std::sqrt(dx_x*dx_x + dy_x*dy_x)));
+
+                    float dx_y = m2 * 192.0f;
+                    float dy_y = m3 * 192.0f;
+                    int curH = static_cast<int>(std::round(std::sqrt(dx_y*dx_y + dy_y*dy_y)));
+
+                    screenW = std::max(screenW, curW);
+                    screenH = std::max(screenH, curH);
+                }
+                if (screenW <= 0) screenW = w;
+                if (screenH <= 0) screenH = h;
+            }
+
+            finalTex = shaderManager->Process(rawTex, 256, 192, screenW, screenH, outW, outH);
+
+            glBindFramebuffer(GL_FRAMEBUFFER, 0);
+            glViewport(0, 0, w, h);
+            glUseProgram(screenShaderProgram);
+            glUniform2f(screenShaderScreenSizeULoc, w / factor, h / factor);
+        }
+
+        glActiveTexture(GL_TEXTURE0);
+        glBindTexture(GL_TEXTURE_2D_ARRAY, finalTex);
 
         screenSettingsLock.lock();
 
