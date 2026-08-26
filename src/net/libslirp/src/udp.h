@@ -82,7 +82,7 @@ void udp_cleanup(Slirp *);
 /* Process UDP datagram coming from the guest */
 void udp_input(register struct mbuf *, int);
 /* Create a host UDP socket, bound to this socket */
-int udp_attach(struct socket *, unsigned short af);
+slirp_os_socket udp_attach(struct socket *, unsigned short af);
 /* Destroy socket */
 void udp_detach(struct socket *);
 
@@ -94,13 +94,13 @@ struct socket *udpx_listen(Slirp *,
                            const struct sockaddr *laddr, socklen_t laddrlen,
                            int flags);
 /* Send UDP datagram to the guest */
-int udp_output(struct socket *so, struct mbuf *m, struct sockaddr_in *saddr,
-               struct sockaddr_in *daddr, int iptos);
+int udp_output(struct socket *so, struct mbuf *m, const struct sockaddr_in *saddr,
+               const struct sockaddr_in *daddr, int iptos);
 
 /* Process UDPv6 datagram coming from the guest */
 void udp6_input(register struct mbuf *);
 /* Send UDPv6 datagram to the guest */
-int udp6_output(struct socket *so, struct mbuf *m, struct sockaddr_in6 *saddr,
-                struct sockaddr_in6 *daddr);
+int udp6_output(struct socket *so, struct mbuf *m, const struct sockaddr_in6 *saddr,
+                const struct sockaddr_in6 *daddr);
 
 #endif

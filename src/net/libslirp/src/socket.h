@@ -39,9 +39,9 @@ union slirp_sockaddr {
 struct socket {
     struct socket *so_next, *so_prev; /* For a linked list of sockets */
 
-    int s; /* The actual socket */
-    int s_aux; /* An auxiliary socket for miscellaneous use. Currently used to
-                * reserve OS ports in UNIX-to-inet translation. */
+    slirp_os_socket s;     /* The actual socket */
+    slirp_os_socket s_aux; /* An auxiliary socket for miscellaneous use. Currently used to
+                            * reserve OS ports in UNIX-to-inet translation. */
     struct gfwd_list *guestfwd;
 
     int pollfds_idx; /* GPollFD GArray index */
@@ -180,7 +180,8 @@ static inline void sockaddr_copy(struct sockaddr *dst, socklen_t dstlen, const s
 
 /* Find the socket corresponding to lhost & fhost, trying last as a guess */
 struct socket *solookup(struct socket **last, struct socket *head,
-                        struct sockaddr_storage *lhost, struct sockaddr_storage *fhost);
+                        const struct sockaddr_storage *lhost,
+                        const struct sockaddr_storage *fhost);
 /* Create a new socket */
 struct socket *socreate(Slirp *, int);
 /* Release a socket */
