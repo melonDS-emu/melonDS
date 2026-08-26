@@ -30,6 +30,7 @@
 #include "SaveManager.h"
 
 const int kMaxWindows = 4;
+const int kMaxSavestateSlots = 8;
 
 enum
 {
@@ -56,6 +57,8 @@ enum
     HK_GuitarGripRed,
     HK_GuitarGripYellow,
     HK_GuitarGripBlue,
+    HK_QuickSaveState,
+    HK_QuickLoadState,
     HK_MAX
 };
 
@@ -183,6 +186,10 @@ private:
     void initFirmwareSaveManager() noexcept;
     std::string getSavestateName(int slot);
     bool savestateExists(int slot);
+    int findOldestSavestateSlot();
+    int findNewestSavestateSlot();
+    bool quickSaveState();
+    bool quickLoadState();
     bool loadState(const std::string& filename);
     bool saveState(const std::string& filename);
     void undoStateLoad();
