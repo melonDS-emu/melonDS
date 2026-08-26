@@ -44,6 +44,12 @@
 #include <csignal>
 #endif
 
+#ifdef _WIN32
+// Windows builds used to have portable enabled by default, in order to not break people's existing setups,
+// this will make it check for melonDS.toml in the executable directory and use it if it already exists.
+#define PORTABLE_CONFIG_COMPAT
+#endif
+
 #include <SDL2/SDL.h>
 
 #include "OpenGLSupport.h"
@@ -198,17 +204,29 @@ void pathInit()
     {
         emuDirectory = portabledir.absolutePath();
     }
+#ifdef PORTABLE_CONFIG_COMPAT
+    else if (QFile::exists(appdirpath + QDir::separator() + "melonDS.toml") || QFile::exists(appdirpath + QDir::separator() + "melonDS.ini"))
+    {
+        emuDirectory = appdirpath;
+    }
+#endif
     else
     {
         // If no overrides are specified, use the default path.
-#if defined(__WIN32__) && defined(WIN32_PORTABLE)
+#if defined(_WIN32) && defined(WIN32_PORTABLE)
         emuDirectory = appdirpath;
 #else
         QString confdir;
         QDir config(QStandardPaths::writableLocation(QStandardPaths::ConfigLocation));
+#ifdef _WIN32
+        // For some reason the config path returned above already has "/melonDS" suffixed to it on Windows.
+        config.mkdir(".");
+        emuDirectory = config.path();
+#else
         config.mkdir("melonDS");
         confdir = config.absolutePath() + QDir::separator() + "melonDS";
         emuDirectory = confdir;
+#endif
 #endif
     }
 }
