@@ -16,6 +16,8 @@
     with melonDS. If not, see http://www.gnu.org/licenses/.
 */
 
+#include <algorithm>
+
 #include "Config.h"
 #include "NDS.h"
 #include "SPU.h"
@@ -37,7 +39,7 @@ void EmuInstance::audioInit()
     audioDSiVolumeSync = localCfg.GetBool("Audio.DSiVolumeSync");
 
     audioMutedToggle = false;
-    audioMutedByFastForward = false;
+    audioSpeedVolume = -1;
     audioMutedByWindowFocus = false;
     audioSyncCond = SDL_CreateCond();
     audioSyncLock = SDL_CreateMutex();
@@ -130,9 +132,14 @@ void EmuInstance::toggleAudioMute()
     audioMutedToggle = !audioMutedToggle;
 }
 
-void EmuInstance::updateFastForwardMute(bool fastForward)
+void EmuInstance::updateSpeedVolume()
 {
-    audioMutedByFastForward = fastForward && globalCfg.GetBool("MuteFastForward");
+    if (curFPS > targetFPS && speedVolumeFastForwardOn)
+        audioSpeedVolume = speedVolumeFastForward;
+    else if (curFPS < targetFPS && speedVolumeSlowmoOn)
+        audioSpeedVolume = speedVolumeSlowmo;
+    else
+        audioSpeedVolume = -1;
 }
 
 void EmuInstance::audioSync()
@@ -175,17 +182,31 @@ void EmuInstance::audioCallback(void* data, Uint8* stream, int len)
     SDL_CondSignal(inst->audioSyncCond);
     SDL_UnlockMutex(inst->audioSyncLock);
 
-    if ((num_in < 1) || inst->audioMutedByWindowFocus || inst->audioMutedToggle || inst->audioMutedByFastForward)
+    // the override scales the normal volume, so it composes with the volume
+    // slider and with DSi volume sync instead of replacing them.
+    // read it once: the emu thread can turn it off between two reads, and -1
+    // would then be used as a multiplier
+    int spdvol = inst->audioSpeedVolume;
+    int vol = inst->audioVolume;
+    if (spdvol >= 0)
+        vol = ((vol * spdvol) + 50) / 100;
+
+    if ((num_in < 1) || inst->audioMutedByWindowFocus || inst->audioMutedToggle || vol == 0)
     {
         memset(stream, 0, len*sizeof(s16)*2);
         return;
     }
 
-    if (inst->audioVolume < 256)
+    if (vol != 256)
     {
         s16* samples = (s16*) stream;
         for (int i = 0; i < num_in * 2; i++)
-            samples[i] = ((s32) samples[i] * inst->audioVolume) >> 8;
+        {
+            // vol can exceed 256 when boosting, so clamp instead of letting
+            // the cast wrap a loud sample into noise
+            s32 s = ((s32) samples[i] * vol) >> 8;
+            samples[i] = (s16) std::clamp(s, -32768, 32767);
+        }
     }
 
     if (num_in < len_in)
