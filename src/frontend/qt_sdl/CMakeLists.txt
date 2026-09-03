@@ -26,6 +26,7 @@ set(SOURCES_QT_SDL
     AudioSettingsDialog.cpp
     FirmwareSettingsDialog.cpp
     PathSettingsDialog.cpp
+    SaveConversionDialog.cpp
     MPSettingsDialog.cpp
     WifiSettingsDialog.cpp
     InterfaceSettingsDialog.cpp
