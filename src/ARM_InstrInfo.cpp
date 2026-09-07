@@ -386,8 +386,8 @@ Info Decode(bool thumb, u32 num, u32 instr, bool literaloptimizations)
         {
             if (res.Kind == tk_LDR_PCREL)
             {
-                if (!literaloptimizations)
-                    res.SrcRegs |= 1 << 15;
+                // Invalidated literals fall back to a load that still needs PC.
+                res.SrcRegs |= 1 << 15;
                 res.SpecialKind = special_LoadLiteral;
             }
             else
