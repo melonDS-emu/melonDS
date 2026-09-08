@@ -114,7 +114,7 @@ void Compiler::Comp_MemAccess(int rd, int rn, Op2 offset, int size, int flags)
 
     if (NDS.JIT.LiteralOptimizationsEnabled() && rn == 15 && rd != 15 && offset.IsImm && !(flags & (memop_Post|memop_Store|memop_Writeback)))
     {
-        u32 addr = R15 + offset.Imm * ((flags & memop_SubtractOffset) ? -1 : 1);
+        u32 addr = (Thumb ? (R15 & ~0x2) : R15) + offset.Imm * ((flags & memop_SubtractOffset) ? -1 : 1);
         
         if (Comp_MemLoadLiteral(size, flags & memop_SignExtend, rd, addr))
             return;
