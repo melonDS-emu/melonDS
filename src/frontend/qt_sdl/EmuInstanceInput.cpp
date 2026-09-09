@@ -51,6 +51,7 @@ const char* EmuInstance::hotkeyNames[HK_MAX] =
     "HK_Reset",
     "HK_FastForward",
     "HK_FrameLimitToggle",
+    "HK_MenuBarToggle",
     "HK_FullscreenToggle",
     "HK_SwapScreens",
     "HK_SwapScreenEmphasis",
