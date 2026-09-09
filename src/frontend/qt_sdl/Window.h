@@ -182,6 +182,7 @@ private slots:
 
     void onUpdateVideoSettings(bool glchange);
 
+    void onMenuBarToggled();
     void onFullscreenToggled();
     void onScreenEmphasisToggled();
 
@@ -200,6 +201,8 @@ private:
     void updateCartInserted(bool gba);
 
     void createScreenPanel();
+
+    void setMenuBarVisibility();
 
     bool lanWarning(bool host);
 
