@@ -47,6 +47,9 @@ AudioSettingsDialog::AudioSettingsDialog(QWidget* parent) : QDialog(parent), ui(
     oldBitDepth = cfg.GetInt("Audio.BitDepth");
     oldVolume = instcfg.GetInt("Audio.Volume");
     oldDSiSync = instcfg.GetBool("Audio.DSiVolumeSync");
+    oldTimeStretch = cfg.GetBool("SpeedUpTimeStretch");
+    oldLowPassEnable = cfg.GetBool("SpeedUpLowPassEnable");
+    oldLowPass = cfg.GetInt("SpeedUpLowPass");
 
     volume = oldVolume;
     dsiSync = oldDSiSync;
@@ -68,6 +71,13 @@ AudioSettingsDialog::AudioSettingsDialog(QWidget* parent) : QDialog(parent), ui(
     ui->slVolume->blockSignals(state);
 
     ui->chkSyncDSiVolume->setChecked(oldDSiSync);
+
+    ui->cbSpeedUpTimeStretch->setChecked(oldTimeStretch);
+    ui->cbSpeedUpLowPass->setChecked(oldLowPassEnable);
+    state = ui->spinSpeedUpLowPass->blockSignals(true);
+    ui->spinSpeedUpLowPass->setValue(oldLowPass);
+    ui->spinSpeedUpLowPass->blockSignals(state);
+    ui->spinSpeedUpLowPass->setEnabled(oldLowPassEnable);
 
     // Setup volume slider accordingly
     if (emuActive && emuInstance->getNDS()->ConsoleType == 1)
@@ -182,6 +192,9 @@ void AudioSettingsDialog::on_AudioSettingsDialog_rejected()
     cfg.SetInt("Audio.BitDepth", oldBitDepth);
     instcfg.SetInt("Audio.Volume", oldVolume);
     instcfg.SetBool("Audio.DSiVolumeSync", oldDSiSync);
+    cfg.SetBool("SpeedUpTimeStretch", oldTimeStretch);
+    cfg.SetBool("SpeedUpLowPassEnable", oldLowPassEnable);
+    cfg.SetInt("SpeedUpLowPass", oldLowPass);
 
     emit updateAudioVolume(oldVolume, oldDSiSync);
     emit updateAudioSettings();
@@ -225,6 +238,25 @@ void AudioSettingsDialog::on_slVolume_valueChanged(int val)
     volume = val;
     cfg.SetInt("Audio.Volume", val);
     emit updateAudioVolume(val, dsiSync);
+}
+
+void AudioSettingsDialog::on_cbSpeedUpTimeStretch_clicked(bool checked)
+{
+    emuInstance->getGlobalConfig().SetBool("SpeedUpTimeStretch", checked);
+    emit updateAudioSettings();
+}
+
+void AudioSettingsDialog::on_cbSpeedUpLowPass_clicked(bool checked)
+{
+    ui->spinSpeedUpLowPass->setEnabled(checked);
+    emuInstance->getGlobalConfig().SetBool("SpeedUpLowPassEnable", checked);
+    emit updateAudioSettings();
+}
+
+void AudioSettingsDialog::on_spinSpeedUpLowPass_valueChanged(int val)
+{
+    emuInstance->getGlobalConfig().SetInt("SpeedUpLowPass", val);
+    emit updateAudioSettings();
 }
 
 void AudioSettingsDialog::on_chkSyncDSiVolume_clicked(bool checked)

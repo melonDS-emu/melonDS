@@ -188,6 +188,10 @@ private slots:
 private:
     virtual void closeEvent(QCloseEvent* event) override;
 
+    // the part of the interface settings a new window has to pick up. kept out
+    // of the slot because that one also touches audio, which needs a pause.
+    void applyInterfaceSettings();
+
     QStringList currentROM;
     QStringList currentGBAROM;
     QList<QString> recentFileList;
