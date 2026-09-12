@@ -32,6 +32,27 @@ DS BIOS dumps from a DSi or 3DS can be used with no compatibility issues. DSi BI
 
 As for the rest, the interface should be pretty straightforward. If you have a question, don't hesitate to ask, though!
 
+### Command-line configuration profiles
+
+Use a specific configuration file instead of the default `melonDS.toml`:
+
+```
+melonDS --config profile.toml
+```
+
+Apply a temporary configuration over the default or selected configuration:
+
+```
+melonDS --append-config game.toml "game.nds"
+melonDS --config profile.toml --append-config game.toml "game.nds"
+```
+
+`--config` saves configuration changes to the selected file. `--append-config`
+recursively merges TOML tables while replacing scalar and array values. To keep
+temporary values out of the base configuration, no configuration changes are
+saved while an additional configuration is active. `--appendconfig` is accepted
+as an alias for compatibility with existing launchers.
+
 ## How to build
 See [BUILD.md](./BUILD.md) for build instructions.
 
