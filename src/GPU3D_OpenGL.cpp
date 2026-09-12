@@ -37,7 +37,7 @@ namespace melonDS
 #include "OpenGL_shaders/3DFinalPassEdgeFS.h"
 #include "OpenGL_shaders/3DFinalPassFogFS.h"
 
-bool GLRenderer3D::BuildRenderShader(bool wbuffer)
+OpenGL::ProgramHandle GLRenderer3D::BuildRenderShader(bool wbuffer)
 {
     std::string wbufdef = "#define WBuffer\n";
 
@@ -58,14 +58,14 @@ bool GLRenderer3D::BuildRenderShader(bool wbuffer)
         fsbuf = fsbuf.substr(0, pos) + wbufdef + fsbuf.substr(pos);
     }
 
-    GLuint prog;
-    bool ret = OpenGL::CompileVertexFragmentProgram(prog,
+    OpenGL::ProgramHandle prog = OpenGL::CompileVertexFragmentProgram(
         vsbuf, fsbuf,
         shadername,
         {{"vPosition", 0}, {"vColor", 1}, {"vTexcoord", 2}, {"vPolygonAttr", 3}},
-        {{"oColor", 0}, {"oAttr", 1}});
+        {{"oColor", 0}, {"oAttr", 1}}
+    );
 
-    if (!ret) return false;
+    if (!prog) return {};
 
     GLint uni_id = glGetUniformBlockIndex(prog, "uConfig");
     glUniformBlockBinding(prog, uni_id, 0);
@@ -79,9 +79,7 @@ bool GLRenderer3D::BuildRenderShader(bool wbuffer)
     uni_id = glGetUniformLocation(prog, "Capture256Texture");
     glUniform1i(uni_id, 2);
 
-    RenderShader[(int)wbuffer] = prog;
-
-    return true;
+    return prog;
 }
 
 void GLRenderer3D::UseRenderShader(bool wbuffer)
@@ -127,11 +125,13 @@ bool GLRenderer3D::Init()
     glDepthRange(0, 1);
     glClearDepth(1.0);
 
-    if (!OpenGL::CompileVertexFragmentProgram(ClearShaderPlain,
-            k3DClearVS, k3DClearFS,
-            "ClearShaderPlain",
-            {{"vPosition", 0}},
-            {{"oColor", 0}, {"oAttr", 1}}))
+    ClearShaderPlain = OpenGL::CompileVertexFragmentProgram(
+        k3DClearVS, k3DClearFS,
+        "ClearShaderPlain",
+        {{"vPosition", 0}},
+        {{"oColor", 0}, {"oAttr", 1}}
+    );
+    if (!ClearShaderPlain)
         return false;
 
     ClearUniformLoc[0] = glGetUniformLocation(ClearShaderPlain, "uColor");
@@ -139,11 +139,13 @@ bool GLRenderer3D::Init()
     ClearUniformLoc[2] = glGetUniformLocation(ClearShaderPlain, "uOpaquePolyID");
     ClearUniformLoc[3] = glGetUniformLocation(ClearShaderPlain, "uFogFlag");
 
-    if (!OpenGL::CompileVertexFragmentProgram(ClearShaderBitmap,
-              k3DClearBitmapVS, k3DClearBitmapFS,
-              "ClearShaderBitmap",
-              {{"vPosition", 0}},
-              {{"oColor", 0}, {"oAttr", 1}}))
+    ClearShaderBitmap = OpenGL::CompileVertexFragmentProgram(
+        k3DClearBitmapVS, k3DClearBitmapFS,
+        "ClearShaderBitmap",
+        {{"vPosition", 0}},
+        {{"oColor", 0}, {"oAttr", 1}}
+    );
+    if (!ClearShaderBitmap)
         return false;
 
     ClearBitmapULoc[0] = glGetUniformLocation(ClearShaderBitmap, "uClearBitmapOffset");
@@ -155,25 +157,29 @@ bool GLRenderer3D::Init()
     uni_id = glGetUniformLocation(ClearShaderBitmap, "ClearBitmapDepth");
     glUniform1i(uni_id, 1);
 
-    memset(RenderShader, 0, sizeof(RenderShader));
+    RenderShader = {};
+    RenderShader[0] = BuildRenderShader(false);
+    if (!RenderShader[0]) return false;
 
-    if (!BuildRenderShader(false))
+    RenderShader[1] = BuildRenderShader(true);
+    if (!RenderShader[1]) return false;
+
+    FinalPassEdgeShader = OpenGL::CompileVertexFragmentProgram(
+        k3DFinalPassVS, k3DFinalPassEdgeFS,
+        "FinalPassEdgeShader",
+        {{"vPosition", 0}},
+        {{"oColor", 0}}
+    );
+    if (!FinalPassEdgeShader)
         return false;
 
-    if (!BuildRenderShader(true))
-        return false;
-
-    if (!OpenGL::CompileVertexFragmentProgram(FinalPassEdgeShader,
-            k3DFinalPassVS, k3DFinalPassEdgeFS,
-            "FinalPassEdgeShader",
-            {{"vPosition", 0}},
-            {{"oColor", 0}}))
-        return false;
-    if (!OpenGL::CompileVertexFragmentProgram(FinalPassFogShader,
-            k3DFinalPassVS, k3DFinalPassFogFS,
-            "FinalPassFogShader",
-            {{"vPosition", 0}},
-            {{"oColor", 0}}))
+    FinalPassFogShader = OpenGL::CompileVertexFragmentProgram(
+        k3DFinalPassVS, k3DFinalPassFogFS,
+        "FinalPassFogShader",
+        {{"vPosition", 0}},
+        {{"oColor", 0}}
+    );
+    if (!FinalPassFogShader)
         return false;
 
     uni_id = glGetUniformBlockIndex(FinalPassEdgeShader, "uConfig");
@@ -197,7 +203,7 @@ bool GLRenderer3D::Init()
 
     memset(&ShaderConfig, 0, sizeof(ShaderConfig));
 
-    glGenBuffers(1, &ShaderConfigUBO);
+    ShaderConfigUBO = OpenGL::GenerateNow;
     glBindBuffer(GL_UNIFORM_BUFFER, ShaderConfigUBO);
     static_assert((sizeof(ShaderConfig) & 15) == 0);
     glBufferData(GL_UNIFORM_BUFFER, sizeof(ShaderConfig), &ShaderConfig, GL_STATIC_DRAW);
@@ -215,17 +221,18 @@ bool GLRenderer3D::Init()
         1.0, 1.0
     };
 
-    glGenBuffers(1, &ClearVertexBufferID);
+    ClearVertexBufferID = OpenGL::GenerateNow;
     glBindBuffer(GL_ARRAY_BUFFER, ClearVertexBufferID);
     glBufferData(GL_ARRAY_BUFFER, sizeof(clearvtx), clearvtx, GL_STATIC_DRAW);
 
-    glGenVertexArrays(1, &ClearVertexArrayID);
+    ClearVertexArrayID = OpenGL::GenerateNow;
     glBindVertexArray(ClearVertexArrayID);
     glEnableVertexAttribArray(0); // position
     glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, 0, (void*)(0));
 
     // init textures for the clear bitmap
-    glGenTextures(2, ClearBitmapTex);
+
+    ClearBitmapTex = OpenGL::GenerateNow;
 
     glBindTexture(GL_TEXTURE_2D, ClearBitmapTex[0]);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
@@ -242,11 +249,11 @@ bool GLRenderer3D::Init()
     glTexImage2D(GL_TEXTURE_2D, 0, GL_R32UI, 256, 256, 0, GL_RED_INTEGER, GL_UNSIGNED_INT, nullptr);
 
 
-    glGenBuffers(1, &VertexBufferID);
+    VertexBufferID = OpenGL::GenerateNow;
     glBindBuffer(GL_ARRAY_BUFFER, VertexBufferID);
     glBufferData(GL_ARRAY_BUFFER, sizeof(VertexBuffer), nullptr, GL_DYNAMIC_DRAW);
 
-    glGenVertexArrays(1, &VertexArrayID);
+    VertexArrayID = OpenGL::GenerateNow;
     glBindVertexArray(VertexArrayID);
     glEnableVertexAttribArray(0); // position
     glVertexAttribIPointer(0, 4, GL_UNSIGNED_SHORT, 7*4, (void*)(0));
@@ -257,25 +264,25 @@ bool GLRenderer3D::Init()
     glEnableVertexAttribArray(3); // attrib
     glVertexAttribIPointer(3, 3, GL_UNSIGNED_INT, 7*4, (void*)(4*4));
 
-    glGenBuffers(1, &IndexBufferID);
+    IndexBufferID = OpenGL::GenerateNow;
     glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, IndexBufferID);
     glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(IndexBuffer), nullptr, GL_DYNAMIC_DRAW);
 
-    glGenFramebuffers(1, &MainFramebuffer);
+    MainFramebuffer = OpenGL::GenerateNow;
 
     // color buffers
-    glGenTextures(1, &ColorBufferTex);
+    ColorBufferTex = OpenGL::GenerateNow;
     SetupDefaultTexParams(ColorBufferTex);
 
     // depth/stencil buffer
-    glGenTextures(1, &DepthBufferTex);
+    DepthBufferTex = OpenGL::GenerateNow;
     SetupDefaultTexParams(DepthBufferTex);
 
     // attribute buffer
     // R: opaque polyID (for edgemarking)
     // G: edge flag
     // B: fog flag
-    glGenTextures(1, &AttrBufferTex);
+    AttrBufferTex = OpenGL::GenerateNow;
     SetupDefaultTexParams(AttrBufferTex);
 
     Parent.OutputTex3D = ColorBufferTex;
@@ -291,29 +298,13 @@ bool GLRenderer3D::Init()
 GLRenderer3D::~GLRenderer3D()
 {
     assert(glDeleteTextures != nullptr);
+    // All the OpenGL handles owned by this object
+    // will be cleaned up through their destructors
 
     Texcache.Reset();
 
-    glDeleteFramebuffers(1, &MainFramebuffer);
-    glDeleteTextures(1, &ColorBufferTex);
-    glDeleteTextures(1, &DepthBufferTex);
-    glDeleteTextures(1, &AttrBufferTex);
-
-    glDeleteVertexArrays(1, &VertexArrayID);
-    glDeleteBuffers(1, &VertexBufferID);
-    glDeleteVertexArrays(1, &ClearVertexArrayID);
-    glDeleteBuffers(1, &ClearVertexBufferID);
-    glDeleteTextures(2, ClearBitmapTex);
     delete[] ClearBitmap[0];
     delete[] ClearBitmap[1];
-
-    glDeleteBuffers(1, &ShaderConfigUBO);
-
-    for (int i = 0; i < 2; i++)
-    {
-        if (!RenderShader[i]) continue;
-        glDeleteProgram(RenderShader[i]);
-    }
 }
 
 void GLRenderer3D::Reset()
