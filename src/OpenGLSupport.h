@@ -304,13 +304,15 @@ struct AttributeTarget
 };
 
 
-bool CompileVertexFragmentProgram(GLuint& result,
-    const std::string& vs, const std::string& fs,
-    const std::string& name,
+ProgramHandle CompileVertexFragmentProgram(
+    std::string_view vs, std::string_view fs,
+    std::string_view name,
     const std::initializer_list<AttributeTarget>& vertexInAttrs,
-    const std::initializer_list<AttributeTarget>& fragmentOutAttrs);
+    const std::initializer_list<AttributeTarget>& fragmentOutAttrs
+) noexcept;
 
-bool CompileComputeProgram(GLuint& result, const std::string& source, const std::string& name);
+ProgramHandle CompileComputeProgram(std::string_view source, std::string_view name) noexcept;
+
 
 }
 

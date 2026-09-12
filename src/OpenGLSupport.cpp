@@ -185,7 +185,7 @@ writeError:
     NewShaders.clear();
 }
 
-bool CompilerShader(GLuint& id, const std::string& source, const std::string& name, const std::string& type)
+bool CompileShader(const ShaderHandle& id, std::string_view source, std::string_view name, std::string_view type)
 {
     int res;
 
@@ -195,7 +195,7 @@ bool CompilerShader(GLuint& id, const std::string& source, const std::string& na
         return false;
     }
 
-    const char* sourceC = source.c_str();
+    const char* sourceC = source.data();
     int len = source.length();
     glShaderSource(id, 1, &sourceC, &len);
 
@@ -208,8 +208,8 @@ bool CompilerShader(GLuint& id, const std::string& source, const std::string& na
         if (res < 1) res = 1024;
         char* log = new char[res+1];
         glGetShaderInfoLog(id, res+1, NULL, log);
-        Log(LogLevel::Error, "OpenGL: failed to compile %s shader %s: %s\n", type.c_str(), name.c_str(), log);
-        Log(LogLevel::Debug, "shader source:\n--\n%s\n--\n", source.c_str());
+        Log(LogLevel::Error, "OpenGL: failed to compile %s shader %s: %s\n", type.data(), name.data(), log);
+        Log(LogLevel::Debug, "shader source:\n--\n%s\n--\n", source.data());
         delete[] log;
 
         glDeleteShader(id);
@@ -220,7 +220,7 @@ bool CompilerShader(GLuint& id, const std::string& source, const std::string& na
     return true;
 }
 
-bool LinkProgram(GLuint& result, GLuint* ids, int numIds)
+bool LinkProgram(const ProgramHandle& result, ShaderHandle* ids, int numIds)
 {
     int res;
 
@@ -256,106 +256,61 @@ bool LinkProgram(GLuint& result, GLuint* ids, int numIds)
     return true;
 }
 
-bool CompileComputeProgram(GLuint& result, const std::string& source, const std::string& name)
+ProgramHandle CompileComputeProgram(const std::string& source, const std::string& name)
 {
-    result = glCreateProgram();
+    if (!(ShaderHandle::Available() && ProgramHandle::Available()))
+        return {};
 
-    /*u64 sourceHash = XXH64(source.data(), source.size(), 0);
-    auto it = ShaderCache.find(sourceHash);
-    if (it != ShaderCache.end())
-    {
-        glProgramBinary(result, it->second.BinaryFormat, it->second.Data, it->second.Length);
+    ProgramHandle program(GenerateNow);
 
-        GLint linkStatus;
-        glGetProgramiv(result, GL_LINK_STATUS, &linkStatus);
-        if (linkStatus == GL_TRUE)
-        {
-            Log(LogLevel::Info, "Restored shader %s from cache\n", name.c_str());
-            return true;
-        }
-        else
-        {
-        }
-    }*/
-    Log(LogLevel::Error, "Shader %s from cache was rejected\n", name.c_str());
+    ShaderHandle shader(GL_COMPUTE_SHADER);
 
-    GLuint shader;
-    bool linkingSucess = false;
+    if (!CompileShader(shader, source, name, "compute"))
+        return {}; // Program will be cleaned up with RAII
 
-    if (!glCreateShader || !glDeleteShader)
-        goto error;
+    if (!LinkProgram(program, &shader, 1))
+        return {};
 
-    shader = glCreateShader(GL_COMPUTE_SHADER);
-
-    if (!CompilerShader(shader, source, name, "compute"))
-        goto error;
-
-    linkingSucess = LinkProgram(result, &shader, 1);
-
-error:
-    glDeleteShader(shader);
-
-    if (!linkingSucess)
-    {
-        glDeleteProgram(result);
-    }
-    /*else
-    {
-        GLint length;
-        GLenum format;
-        glGetProgramiv(result, GL_PROGRAM_BINARY_LENGTH, &length);
-
-        u8* buffer = new u8[length];
-        glGetProgramBinary(result, length, nullptr, &format, buffer);
-
-        ShaderCache.emplace(sourceHash, ShaderCacheEntry(buffer, length, format));
-        NewShaders.push_back(sourceHash);
-    }*/
-
-    return linkingSucess;
+    return program;
 }
 
-bool CompileVertexFragmentProgram(GLuint& result,
+using melonDS::OpenGL::AttributeTarget;
+
+ProgramHandle CompileVertexFragmentProgram(
     const std::string& vs, const std::string& fs,
     const std::string& name,
     const std::initializer_list<AttributeTarget>& vertexInAttrs,
     const std::initializer_list<AttributeTarget>& fragmentOutAttrs)
 {
-    GLuint shaders[2] =
+    ShaderHandle shaders[2] =
     {
-        glCreateShader(GL_VERTEX_SHADER),
-        glCreateShader(GL_FRAGMENT_SHADER)
+        ShaderHandle(GL_VERTEX_SHADER),
+        ShaderHandle(GL_FRAGMENT_SHADER),
     };
-    result = glCreateProgram();
+    ProgramHandle program(GenerateNow);
 
     bool linkingSucess = false;
 
-    if (!CompilerShader(shaders[0], vs, name, "vertex"))
-        goto error;
+    if (!CompileShader(shaders[0], vs, name, "vertex"))
+        return {};
 
-    if (!CompilerShader(shaders[1], fs, name, "fragment"))
-        goto error;
-
+    if (!CompileShader(shaders[1], fs, name, "fragment"))
+        return {};
 
     for (const AttributeTarget& target : vertexInAttrs)
     {
-        glBindAttribLocation(result, target.Location, target.Name);
+        glBindAttribLocation(program, target.Location, target.Name);
     }
+
     for (const AttributeTarget& target : fragmentOutAttrs)
     {
-        glBindFragDataLocation(result, target.Location, target.Name);
+        glBindFragDataLocation(program, target.Location, target.Name);
     }
 
-    linkingSucess = LinkProgram(result, shaders, 2);
+    if (!LinkProgram(program, shaders, 2))
+        return {};
 
-error:
-    glDeleteShader(shaders[1]);
-    glDeleteShader(shaders[0]);
-
-    if (!linkingSucess)
-        glDeleteProgram(result);
-
-    return linkingSucess;
+    return program;
 }
 
 }
