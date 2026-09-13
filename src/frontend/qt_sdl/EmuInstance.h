@@ -182,6 +182,11 @@ public:
     /// Fill pokeTypeBindings from localCfg, if pokeTypeBindingsInConfig().
     void pokeTypeLoadBindings();
 
+    /// Write pokeTypeBindings to localCfg and save. Does nothing unless
+    /// pokeTypeBindingsInConfig() or userEdited, so an untouched dialog leaves
+    /// the config unchanged.
+    void pokeTypeSaveBindings(bool userEdited = false);
+
     /// "PokeType.AutoSendFn" changed; the emulator thread passes it on to the cart.
     void pokeTypeAutoPairChanged() { pokeTypeAutoPairDirty = true; }
 

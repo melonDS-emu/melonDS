@@ -88,6 +88,9 @@ public:
     void loadRecentFilesMenu(bool loadcfg);
     //void updateVideoSettings(bool glchange);
 
+    // sync the menu checkbox after the input dialog writes PokeType.Enabled
+    void syncPokeTypeMenuItem();
+
 protected:
     void keyPressEvent(QKeyEvent* event) override;
     void keyReleaseEvent(QKeyEvent* event) override;

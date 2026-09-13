@@ -25,6 +25,7 @@
 
 #include "Config.h"
 #include "EmuInstance.h"
+#include "PokeTypeBindings.h"
 
 static constexpr int keypad_num = 12;
 
@@ -97,6 +98,12 @@ static_assert(hk_general.size() == hk_general_labels.size());
 
 namespace Ui { class InputConfigDialog; }
 class InputConfigDialog;
+class KeyMapButton;
+class QButtonGroup;
+class QCheckBox;
+class QComboBox;
+class QLabel;
+class QRadioButton;
 
 class InputConfigDialog : public QDialog
 {
@@ -135,11 +142,25 @@ private slots:
     void on_btnJoyMapSwitch_clicked();
     void on_cbxJoystick_currentIndexChanged(int id);
 
+    // not on_<object>_<signal>: these widgets are built in code, so
+    // connectSlotsByName would warn about them
+    void pokeTypeRegionChanged(int id);
+    void pokeTypeResetClicked();
+    void pokeTypeEdited();
+    void pokeTypeKeyCaptured();
+
 private:
     void populatePage(QWidget* page,
         const std::initializer_list<const char*>& labels,
         int* keymap, int* joymap);
     void setupKeypadPage();
+
+    void setupPokeTypePage();
+    void rebuildPokeTypeRows();
+    void loadPokeTypeRegion(melonDS::PokeTypeKeyboard::Region r);
+    void flushPokeTypeRegion();
+    void refreshPokeTypeWarnings();
+    bool rejectPokeTypeConflict(KeyMapButton* btn);
 
     Ui::InputConfigDialog* ui;
 
@@ -149,6 +170,25 @@ private:
     int addonsKeyMap[hk_addons.size()], addonsJoyMap[hk_addons.size()];
     int hkGeneralKeyMap[hk_general.size()], hkGeneralJoyMap[hk_general.size()];
     int joystickID;
+
+    PokeTypeBindings pokeTypeBindings;
+    int pokeTypeKeyMap[PokeTypeBindings::MaxKeys] = {};
+    melonDS::PokeTypeKeyboard::Region pokeTypeRegion = melonDS::PokeTypeKeyboard::Region::Europe;
+    int pokeTypeReleaseKey;
+    // set by any edit; lets accept save bindings with no supported cart inserted
+    bool pokeTypeDirty = false;
+    // mapping value when the current capture was armed
+    int pokeTypeCaptureBefore = 0;
+    QComboBox* cbxPokeTypeRegion = nullptr;
+    QWidget* pokeTypeRowHost = nullptr;
+    QLabel* lblPokeTypeDuplicate = nullptr;
+
+    QCheckBox* chkPokeTypeEnable = nullptr;
+    QCheckBox* chkPokeTypeAutoSendFn = nullptr;
+    QLabel* lblPokeTypeNoRelease = nullptr;
+    QButtonGroup* grpPokeTypeMode = nullptr;
+    QRadioButton* radPokeTypeMode[3] = {};
+    QPushButton* btnPokeTypeReset = nullptr;
 };
 
 

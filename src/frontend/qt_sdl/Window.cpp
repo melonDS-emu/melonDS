@@ -1730,6 +1730,16 @@ void MainWindow::onPokeTypeKeyboard(bool checked)
     }, windowID);
 }
 
+void MainWindow::syncPokeTypeMenuItem()
+{
+    bool enabled = localCfg.GetBool("PokeType.Enabled");
+
+    emuInstance->doOnAllWindows([=](MainWindow* win)
+    {
+        win->actPokeTypeKeyboard->setChecked(enabled);
+    });
+}
+
 void MainWindow::onSetupCheats()
 {
     emuThread->emuPause();

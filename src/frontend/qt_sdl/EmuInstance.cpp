@@ -2087,6 +2087,32 @@ void EmuInstance::pokeTypeLoadBindings()
     }
 }
 
+void EmuInstance::pokeTypeSaveBindings(bool userEdited)
+{
+    if (!userEdited && !pokeTypeBindingsInConfig()) return;
+
+    localCfg.SetInt("PokeType.Mode", pokeTypeBindings.mode);
+    localCfg.SetInt("PokeType.ReleaseKey", pokeTypeBindings.releaseKey);
+
+    Config::Table keys = localCfg.GetTable("PokeType.Keys");
+
+    for (int r = 0; r < PokeTypeBindings::NumRegions; r++)
+    {
+        auto region = (melonDS::PokeTypeKeyboard::Region)r;
+        Config::Table regcfg = keys.GetTable(melonDS::PokeTypeKeyboard::RegionCode(region));
+
+        // write the zeroes too, so a key reset to its default clears its entry
+        for (melonDS::u16 keyid : PokeTypeBindings::keyIDs(region))
+        {
+            char name[8];
+            snprintf(name, sizeof(name), "%02X", keyid);
+            regcfg.SetInt(name, pokeTypeBindings.rawBinding(region, keyid));
+        }
+    }
+
+    Config::Save();
+}
+
 QString EmuInstance::cartLabel()
 {
     if (cartType == -1)

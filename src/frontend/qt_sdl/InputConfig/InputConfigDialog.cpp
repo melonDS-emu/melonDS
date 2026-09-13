@@ -16,10 +16,20 @@
     with melonDS. If not, see http://www.gnu.org/licenses/.
 */
 
+#include <utility>
+#include <vector>
+
+#include <QButtonGroup>
+#include <QCheckBox>
+#include <QComboBox>
+#include <QGridLayout>
 #include <QGroupBox>
 #include <QLabel>
 #include <QKeyEvent>
 #include <QDebug>
+#include <QRadioButton>
+#include <QScrollArea>
+#include <QVBoxLayout>
 
 #include <SDL2/SDL.h>
 
@@ -95,6 +105,7 @@ InputConfigDialog::InputConfigDialog(QWidget* parent) : QDialog(parent), ui(new 
     }
 
     setupKeypadPage();
+    setupPokeTypePage();
 
     int inst = emuInstance->getInstanceID();
     if (inst > 0)
@@ -129,6 +140,394 @@ void InputConfigDialog::setupKeypadPage()
             ui->stackMapping->setCurrentIndex(1);
         }
     }
+}
+
+static QString regionDisplayName(melonDS::PokeTypeKeyboard::Region r)
+{
+    switch (r)
+    {
+    case melonDS::PokeTypeKeyboard::Region::Europe:  return "Europe (UZPP)";
+    case melonDS::PokeTypeKeyboard::Region::France:  return "France (UZPF)";
+    case melonDS::PokeTypeKeyboard::Region::Germany: return "Germany (UZPD)";
+    case melonDS::PokeTypeKeyboard::Region::Italy:   return "Italy (UZPI)";
+    case melonDS::PokeTypeKeyboard::Region::Spain:   return "Spain (UZPS)";
+    case melonDS::PokeTypeKeyboard::Region::Japan:   return "Japan (UZPJ)";
+    default:                                         return "";
+    }
+}
+
+void InputConfigDialog::setupPokeTypePage()
+{
+    Config::Table& instcfg = emuInstance->getLocalConfig();
+
+    // no-op without a supported cart or saved bindings; the tab then shows defaults
+    emuInstance->pokeTypeLoadBindings();
+
+    pokeTypeBindings = emuInstance->pokeTypeBindings;
+    pokeTypeReleaseKey = pokeTypeBindings.releaseKey;
+    // 0 (never set) shows as "None", like -1
+    if (pokeTypeReleaseKey == 0) pokeTypeReleaseKey = -1;
+
+    QVBoxLayout* lay = ui->layTypingKeyboard;
+
+    QHBoxLayout* enableRow = new QHBoxLayout();
+
+    chkPokeTypeEnable = new QCheckBox("Enable for Learn with Pokémon: Typing Adventure");
+    chkPokeTypeEnable->setChecked(instcfg.GetBool("PokeType.Enabled"));
+    // connected after setChecked, so setup doesn't count as an edit
+    connect(chkPokeTypeEnable, &QCheckBox::toggled,
+            this, &InputConfigDialog::pokeTypeEdited);
+    enableRow->addWidget(chkPokeTypeEnable);
+    enableRow->addStretch();
+
+    enableRow->addWidget(new QLabel("Release keyboard"));
+    KeyMapButton* btnPokeTypeRelease = new KeyMapButton(&pokeTypeReleaseKey, true, true);
+    connect(btnPokeTypeRelease, &KeyMapButton::clicked,
+            this, &InputConfigDialog::pokeTypeKeyCaptured);
+    enableRow->addWidget(btnPokeTypeRelease);
+    lay->addLayout(enableRow);
+
+    lblPokeTypeNoRelease = new QLabel(
+        "<b>Nothing is bound.</b> With no release key the game keeps the "
+        "keyboard and the emulator's hotkeys stay unreachable.");
+    lblPokeTypeNoRelease->setVisible(!pokeTypeBindings.releaseKeyBound());
+    lay->addWidget(lblPokeTypeNoRelease);
+
+    chkPokeTypeAutoSendFn = new QCheckBox("Automatically send Fn on start");
+    chkPokeTypeAutoSendFn->setChecked(instcfg.GetBool("PokeType.AutoSendFn"));
+    connect(chkPokeTypeAutoSendFn, &QCheckBox::toggled,
+            this, &InputConfigDialog::pokeTypeEdited);
+    lay->addWidget(chkPokeTypeAutoSendFn);
+    lay->addWidget(new QLabel(
+        "The game asks you to turn the keyboard on while holding Fn when it "
+        "registers its wireless keyboard. With this on, melonDS holds it for "
+        "you and the prompt clears by itself; with it off, the prompt waits "
+        "until you press your Fn key."));
+
+    static const char* modeLabels[3] =
+    {
+        "Follow my system layout",
+        "Follow my system layout, with overrides below",
+        "Positional -- use my bindings only",
+    };
+
+    QHBoxLayout* modeRow = new QHBoxLayout();
+    grpPokeTypeMode = new QButtonGroup(this);
+    for (int i = 0; i < 3; i++)
+    {
+        radPokeTypeMode[i] = new QRadioButton(modeLabels[i]);
+        grpPokeTypeMode->addButton(radPokeTypeMode[i], i);
+        modeRow->addWidget(radPokeTypeMode[i]);
+    }
+    modeRow->addStretch();
+    lay->addLayout(modeRow);
+    grpPokeTypeMode->button(pokeTypeBindings.mode)->setChecked(true);
+
+    for (int i = 0; i < 3; i++)
+        connect(radPokeTypeMode[i], &QRadioButton::toggled,
+                this, &InputConfigDialog::pokeTypeEdited);
+
+    QHBoxLayout* regionRow = new QHBoxLayout();
+    regionRow->addWidget(new QLabel("Region"));
+    cbxPokeTypeRegion = new QComboBox();
+    for (int r = 0; r < PokeTypeBindings::NumRegions; r++)
+        cbxPokeTypeRegion->addItem(regionDisplayName((melonDS::PokeTypeKeyboard::Region)r));
+    regionRow->addWidget(cbxPokeTypeRegion);
+    regionRow->addStretch();
+    lay->addLayout(regionRow);
+
+    // never hidden, only emptied, so the rows don't shift when a warning appears
+    lblPokeTypeDuplicate = new QLabel();
+    lay->addWidget(lblPokeTypeDuplicate);
+
+    QScrollArea* scroll = new QScrollArea();
+    scroll->setWidgetResizable(true);
+    pokeTypeRowHost = new QWidget();
+    QGridLayout* rowGrid = new QGridLayout();
+    rowGrid->setVerticalSpacing(2);
+    pokeTypeRowHost->setLayout(rowGrid);
+    scroll->setWidget(pokeTypeRowHost);
+    lay->addWidget(scroll, 1);
+
+    lay->addWidget(new QLabel(
+        "Press a key to bind it. Delete clears a binding; Escape cancels."));
+
+    btnPokeTypeReset = new QPushButton();
+    lay->addWidget(btnPokeTypeReset);
+    connect(btnPokeTypeReset, &QPushButton::clicked,
+            this, &InputConfigDialog::pokeTypeResetClicked);
+
+    auto inserted = emuInstance->pokeTypeRegion();
+    pokeTypeRegion = (inserted != melonDS::PokeTypeKeyboard::Region::MAX)
+                   ? inserted
+                   : melonDS::PokeTypeKeyboard::Region::Europe;
+
+    // set before connecting, so setup doesn't flush a key map not yet filled
+    cbxPokeTypeRegion->setCurrentIndex((int)pokeTypeRegion);
+    connect(cbxPokeTypeRegion, QOverload<int>::of(&QComboBox::currentIndexChanged),
+            this, &InputConfigDialog::pokeTypeRegionChanged);
+
+    loadPokeTypeRegion(pokeTypeRegion);
+}
+
+void InputConfigDialog::loadPokeTypeRegion(melonDS::PokeTypeKeyboard::Region r)
+{
+    pokeTypeRegion = r;
+
+    for (melonDS::u16 keyid = 0; keyid < PokeTypeBindings::MaxKeys; keyid++)
+    {
+        int val = pokeTypeBindings.binding(r, keyid);
+
+        // a key with no default shows as "None" rather than blank
+        pokeTypeKeyMap[keyid] = (val == 0) ? -1 : val;
+    }
+
+    btnPokeTypeReset->setText(QString("Reset %1 to defaults").arg(regionDisplayName(r)));
+
+    rebuildPokeTypeRows();
+    refreshPokeTypeWarnings();
+}
+
+void InputConfigDialog::rebuildPokeTypeRows()
+{
+    QGridLayout* grid = (QGridLayout*)pokeTypeRowHost->layout();
+
+    while (QLayoutItem* item = grid->takeAt(0))
+    {
+        delete item->widget();
+        delete item;
+    }
+
+    std::vector<std::pair<melonDS::u16, QString>> specialKeys;
+
+    // special keys exist in every region, independent of the layout table
+    for (melonDS::u16 keyid = 0; keyid < PokeTypeBindings::MaxKeys; keyid++)
+    {
+        if (!melonDS::PokeTypeKeyboard::SpecialCharForKeyID(keyid)) continue;
+        specialKeys.emplace_back(keyid,
+            QString::fromStdString(PokeTypeBindings::label(pokeTypeRegion, keyid)));
+    }
+
+    std::vector<std::pair<melonDS::u16, QString>> charKeys;
+
+    melonDS::u32 count = 0;
+    const melonDS::PokeTypeKeyboard::KeyDesc* table =
+        melonDS::PokeTypeKeyboard::GetKeyTable(pokeTypeRegion, count);
+
+    if (table)
+    {
+        for (melonDS::u32 i = 0; i < count; i++)
+        {
+            melonDS::u16 keyid = table[i].KeyID;
+            if (melonDS::PokeTypeKeyboard::SpecialCharForKeyID(keyid)) continue;
+
+            charKeys.emplace_back(keyid, QString::fromStdString(
+                PokeTypeBindings::label(pokeTypeRegion, keyid)));
+        }
+    }
+
+    // both groups share the grid's columns, so they use one count to stay aligned
+    static constexpr int kCols = 3;
+
+    int row = 0;
+
+    auto addGroup = [&](const std::vector<std::pair<melonDS::u16, QString>>& keys, int cols)
+    {
+        int n = (int)keys.size();
+        if (n == 0) return;
+
+        int rowsPerCol = (n + cols - 1) / cols;
+
+        for (int i = 0; i < n; i++)
+        {
+            int col = i / rowsPerCol;
+            int r = row + (i % rowsPerCol);
+            melonDS::u16 keyid = keys[i].first;
+
+            grid->addWidget(new QLabel(keys[i].second), r, col * 2);
+
+            KeyMapButton* btn = new KeyMapButton(&pokeTypeKeyMap[keyid], false, true);
+            btn->setMaximumWidth(140);
+            connect(btn, &KeyMapButton::clicked,
+                    this, &InputConfigDialog::pokeTypeKeyCaptured);
+            grid->addWidget(btn, r, col * 2 + 1);
+        }
+
+        row += rowsPerCol;
+    };
+
+    QLabel* specialHdr = new QLabel("<b>Special keys</b>");
+    grid->addWidget(specialHdr, row++, 0, 1, kCols * 2);
+    addGroup(specialKeys, kCols);
+
+    if (!charKeys.empty())
+    {
+        QLabel* charHdr = new QLabel("<b>Character keys</b>");
+        grid->addWidget(charHdr, row++, 0, 1, kCols * 2);
+        addGroup(charKeys, kCols);
+    }
+
+    // QGridLayout never drops rows, so clear any stretch left by a longer region
+    for (int i = 0; i < grid->rowCount(); i++)
+        grid->setRowStretch(i, 0);
+    grid->setRowStretch(row, 1);
+}
+
+// uses pokeTypeKeyMap: pokeTypeBindings only sees edits on region switch or accept
+void InputConfigDialog::refreshPokeTypeWarnings()
+{
+    melonDS::u16 keyids[PokeTypeBindings::MaxKeys];
+    int nkeys = 0;
+
+    for (melonDS::u16 keyid = 0; keyid < PokeTypeBindings::MaxKeys; keyid++)
+        if (melonDS::PokeTypeKeyboard::SpecialCharForKeyID(keyid))
+            keyids[nkeys++] = keyid;
+
+    // the layout table lists the special keys too; don't count them twice
+    melonDS::u32 count = 0;
+    const melonDS::PokeTypeKeyboard::KeyDesc* table =
+        melonDS::PokeTypeKeyboard::GetKeyTable(pokeTypeRegion, count);
+    if (table)
+        for (melonDS::u32 i = 0; i < count; i++)
+        {
+            melonDS::u16 keyid = table[i].KeyID;
+            if (melonDS::PokeTypeKeyboard::SpecialCharForKeyID(keyid)) continue;
+            keyids[nkeys++] = keyid;
+        }
+
+    bool dup = false;
+    for (int a = 0; a < nkeys && !dup; a++)
+    {
+        int ka = pokeTypeKeyMap[keyids[a]];
+        if (ka == 0 || ka == -1) continue;   // sentinels only; bit 31 is a real key
+        ka = PokeTypeBindings::normaliseHostKey(ka);
+
+        for (int b = a + 1; b < nkeys; b++)
+        {
+            int kb = pokeTypeKeyMap[keyids[b]];
+            if (kb == 0 || kb == -1) continue;
+            if (PokeTypeBindings::normaliseHostKey(kb) == ka) { dup = true; break; }
+        }
+    }
+
+    lblPokeTypeDuplicate->setText(dup
+        ? "<b>Two keys are bound to the same host key.</b> The lower key ID wins."
+        : "");
+
+    bool releaseBound = (pokeTypeReleaseKey != 0 && pokeTypeReleaseKey != -1);
+    lblPokeTypeNoRelease->setVisible(!releaseBound);
+}
+
+// keys left on their default are stored as 0 (never set)
+void InputConfigDialog::flushPokeTypeRegion()
+{
+    for (melonDS::u16 keyid = 0; keyid < PokeTypeBindings::MaxKeys; keyid++)
+    {
+        int val = pokeTypeKeyMap[keyid];
+        int def = PokeTypeBindings::defaultBinding(pokeTypeRegion, keyid);
+
+        // a key that has no default and was left alone is unset, not unbound
+        if (val == -1 && def == 0) val = 0;
+
+        pokeTypeBindings.setBinding(pokeTypeRegion, keyid, (val == def) ? 0 : val);
+    }
+}
+
+// A dirty tab is saved on accept even with no supported cart inserted, so keys
+// can be set up before the game is loaded. Switching region is not an edit.
+void InputConfigDialog::pokeTypeEdited()
+{
+    pokeTypeDirty = true;
+    refreshPokeTypeWarnings();
+}
+
+// clicked() fires both when a capture is armed and when it ends, so arming alone
+// marks the tab dirty; at worst that saves the defaults.
+void InputConfigDialog::pokeTypeKeyCaptured()
+{
+    pokeTypeDirty = true;
+
+    KeyMapButton* btn = qobject_cast<KeyMapButton*>(sender());
+    if (!btn) { refreshPokeTypeWarnings(); return; }
+
+    if (btn->isChecked())
+    {
+        pokeTypeCaptureBefore = *btn->mappingPtr();
+        return;
+    }
+
+    bool rejected = rejectPokeTypeConflict(btn);
+    QString conflictText = lblPokeTypeDuplicate->text();
+
+    refreshPokeTypeWarnings();
+
+    // a rejection leaves no duplicate, so the refresh cleared the rejection message
+    if (rejected) lblPokeTypeDuplicate->setText(conflictText);
+}
+
+// Undoes a capture whose host key is already bound, release key included: a
+// game key sharing it would toggle the grab instead of reaching the game.
+bool InputConfigDialog::rejectPokeTypeConflict(KeyMapButton* btn)
+{
+    int* value = btn->mappingPtr();
+    int newKey = *value;
+
+    if (newKey == pokeTypeCaptureBefore) return false;   // unchanged, e.g. Escape
+    if (newKey == 0 || newKey == -1) return false;       // cleared
+
+    int normNew = PokeTypeBindings::normaliseHostKey(newKey);
+    QString otherLabel;
+
+    auto matches = [&](int* other, const QString& label)
+    {
+        if (!otherLabel.isEmpty()) return;
+        if (other == value) return;          // this row itself
+        if (*other == 0 || *other == -1) return;
+        if (PokeTypeBindings::normaliseHostKey(*other) != normNew) return;
+        otherLabel = label;
+    };
+
+    matches(&pokeTypeReleaseKey, "the release key");
+
+    for (melonDS::u16 keyid = 0; keyid < PokeTypeBindings::MaxKeys; keyid++)
+        if (melonDS::PokeTypeKeyboard::SpecialCharForKeyID(keyid))
+            matches(&pokeTypeKeyMap[keyid], QString("the %1 key").arg(
+                QString::fromStdString(PokeTypeBindings::label(pokeTypeRegion, keyid))));
+
+    melonDS::u32 count = 0;
+    const melonDS::PokeTypeKeyboard::KeyDesc* table =
+        melonDS::PokeTypeKeyboard::GetKeyTable(pokeTypeRegion, count);
+    if (table)
+        for (melonDS::u32 i = 0; i < count; i++)
+        {
+            melonDS::u16 keyid = table[i].KeyID;
+            if (melonDS::PokeTypeKeyboard::SpecialCharForKeyID(keyid)) continue;
+            matches(&pokeTypeKeyMap[keyid], QString("the %1 key").arg(
+                QString::fromStdString(PokeTypeBindings::label(pokeTypeRegion, keyid))));
+        }
+
+    if (otherLabel.isEmpty()) return false;
+
+    *value = pokeTypeCaptureBefore;
+    btn->refresh();
+
+    lblPokeTypeDuplicate->setText(QString("<b>%1 is already bound to %2.</b>")
+        .arg(KeyMapButton::keyName(newKey), otherLabel));
+
+    return true;
+}
+
+void InputConfigDialog::pokeTypeRegionChanged(int id)
+{
+    flushPokeTypeRegion();
+    loadPokeTypeRegion((melonDS::PokeTypeKeyboard::Region)id);
+}
+
+void InputConfigDialog::pokeTypeResetClicked()
+{
+    pokeTypeBindings.resetRegion(pokeTypeRegion);
+    loadPokeTypeRegion(pokeTypeRegion);
+    pokeTypeDirty = true;
 }
 
 void InputConfigDialog::populatePage(QWidget* page,
@@ -217,6 +616,21 @@ void InputConfigDialog::on_InputConfigDialog_accepted()
     Config::Save();
 
     emuInstance->inputLoadConfig();
+
+    flushPokeTypeRegion();
+
+    pokeTypeBindings.mode = grpPokeTypeMode->checkedId();
+    pokeTypeBindings.releaseKey = pokeTypeReleaseKey;
+
+    emuInstance->pokeTypeBindings = pokeTypeBindings;
+    emuInstance->getLocalConfig().SetBool("PokeType.Enabled",
+                                          chkPokeTypeEnable->isChecked());
+    emuInstance->getLocalConfig().SetBool("PokeType.AutoSendFn",
+                                          chkPokeTypeAutoSendFn->isChecked());
+    emuInstance->pokeTypeSaveBindings(pokeTypeDirty);
+    emuInstance->pokeTypeAutoPairChanged();
+
+    ((MainWindow*)parentWidget())->syncPokeTypeMenuItem();
 
     closeDlg();
 }
