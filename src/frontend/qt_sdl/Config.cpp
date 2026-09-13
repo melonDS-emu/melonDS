@@ -119,6 +119,7 @@ DefaultList<bool> DefaultBools =
     {"Instance*.RTC.SyncToHost", true},
     {"Instance*.PokeType.Enabled", true},
     {"Instance*.PokeType.AutoSendFn", true},
+    {"Instance*.PokeType.ArrowsToDpad", false},
 };
 
 DefaultList<std::string> DefaultStrings =

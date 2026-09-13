@@ -292,6 +292,13 @@ private:
     /// handlePokeTypeKey.
     void pokeTypeKeyReleased(QKeyEvent* event);
 
+    /// KEYINPUT bits held by arrow bindings. Releases don't go through
+    /// handlePokeTypeKey, so remember exactly what was pressed.
+    melonDS::u32 pokeTypeDpadHeld = 0;
+
+    /// Let go of these D-pad bits, restricted to the ones arrow bindings hold.
+    void pokeTypeReleaseDpad(melonDS::u32 bits);
+
     melonDS::u16 pokeTypeCharFor(melonDS::PokeTypeKeyboard::Region region,
                                  melonDS::u16 keyid, QKeyEvent* event);
 

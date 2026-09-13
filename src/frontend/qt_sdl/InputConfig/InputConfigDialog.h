@@ -185,6 +185,7 @@ private:
 
     QCheckBox* chkPokeTypeEnable = nullptr;
     QCheckBox* chkPokeTypeAutoSendFn = nullptr;
+    QCheckBox* chkPokeTypeArrowsDpad = nullptr;
     QLabel* lblPokeTypeNoRelease = nullptr;
     QButtonGroup* grpPokeTypeMode = nullptr;
     QRadioButton* radPokeTypeMode[3] = {};

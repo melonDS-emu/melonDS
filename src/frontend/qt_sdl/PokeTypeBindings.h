@@ -103,6 +103,10 @@ public:
     /// rather than a key and cannot be looked up in the bindings.
     [[nodiscard]] static bool isShiftedSymbol(int key, Qt::KeyboardModifiers mods);
 
+    /// The KEYINPUT bit an arrow key ID also presses when "Arrow keys also
+    /// press the D-pad" is on, or -1. The game's menus only read the D-pad.
+    [[nodiscard]] static int dpadBitForKeyID(melonDS::u16 keyid);
+
     /// A UTF-8 label for a dead key, which QKeySequence has no name for.
     /// "" for any other key.
     [[nodiscard]] static std::string deadKeyLabel(int key);

@@ -101,6 +101,18 @@ std::vector<u16> PokeTypeBindings::keyIDs(Region r)
     return out;
 }
 
+int PokeTypeBindings::dpadBitForKeyID(u16 keyid)
+{
+    switch (keyid)
+    {
+    case 0x4F: return 4;    // Right
+    case 0x50: return 5;    // Left
+    case 0x52: return 6;    // Up
+    case 0x51: return 7;    // Down
+    default:   return -1;
+    }
+}
+
 std::string PokeTypeBindings::deadKeyLabel(int key)
 {
     // lead with the accent glyph, which any UI font can draw

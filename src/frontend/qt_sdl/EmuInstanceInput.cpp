@@ -367,7 +367,11 @@ bool EmuInstance::handlePokeTypeKey(QKeyEvent* event)
     if (pokeTypeBindings.releaseKeyBound() && keyChord == pokeTypeBindings.releaseKey)
     {
         pokeTypeGrabbed = !pokeTypeGrabbed;
-        if (!pokeTypeGrabbed) pokeTypeQueueKey({PokeTypeKey::ReleaseAll});
+        if (!pokeTypeGrabbed)
+        {
+            pokeTypeReleaseDpad(pokeTypeDpadHeld);
+            pokeTypeQueueKey({PokeTypeKey::ReleaseAll});
+        }
         osdAddMessage(0, pokeTypeGrabbed ? "Typing keyboard: capturing"
                                          : "Typing keyboard: released");
         return true;
@@ -387,6 +391,16 @@ bool EmuInstance::handlePokeTypeKey(QKeyEvent* event)
     // a shifted symbol names no key, so leave it to the host layout below
     melonDS::u16 keyid = PokeTypeBindings::isShiftedSymbol(keyBare, event->modifiers())
                        ? 0 : pokeTypeBindings.keyIDFor(region, keyBare);
+
+    // The game's menus read only the D-pad, never keyboard arrow events. Opt-in,
+    // as it isn't known whether a real keyboard's arrows move them: an arrow
+    // binding also presses its D-pad bit, released in onKeyRelease.
+    int dpadBit = PokeTypeBindings::dpadBitForKeyID(keyid);
+    if (dpadBit >= 0 && localCfg.GetBool("PokeType.ArrowsToDpad"))
+    {
+        keyInputMask &= ~(1u << dpadBit);
+        pokeTypeDpadHeld |= (1u << dpadBit);
+    }
 
     if (keyid != 0)
     {
@@ -488,8 +502,13 @@ void EmuInstance::onKeyPress(QKeyEvent* event)
 
 void EmuInstance::pokeTypeKeyReleased(QKeyEvent* event)
 {
-    // a cart that's gone took its keyboard with it
-    if (!pokeTypeKeyboardSupported()) return;
+    // cart gone with an arrow still down: nothing to resolve it against, so let
+    // go of the whole D-pad (the keyboard went with the cart)
+    if (!pokeTypeKeyboardSupported())
+    {
+        pokeTypeReleaseDpad(pokeTypeDpadHeld);
+        return;
+    }
 
     // Same resolution as the press: the bare key, in the loaded region. A key the
     // press didn't hold down is already up, and releasing it does nothing.
@@ -500,6 +519,17 @@ void EmuInstance::pokeTypeKeyReleased(QKeyEvent* event)
     melonDS::u16 keyid = pokeTypeBindings.keyIDFor(pokeTypeCartRegion.load(), keyBare);
     if (keyid != 0)
         pokeTypeQueueKey({PokeTypeKey::Release, {(melonDS::u8)keyid}});
+
+    int dpadBit = PokeTypeBindings::dpadBitForKeyID(keyid);
+    if (dpadBit >= 0)
+        pokeTypeReleaseDpad(1u << dpadBit);
+}
+
+void EmuInstance::pokeTypeReleaseDpad(melonDS::u32 bits)
+{
+    bits &= pokeTypeDpadHeld;
+    keyInputMask |= bits;
+    pokeTypeDpadHeld &= ~bits;
 }
 
 void EmuInstance::onKeyRelease(QKeyEvent* event)
@@ -525,6 +555,7 @@ void EmuInstance::keyReleaseAll()
 {
     keyInputMask = 0xFFF;
     keyHotkeyMask = 0;
+    pokeTypeDpadHeld = 0;
     pokeTypeQueueKey({PokeTypeKey::ReleaseAll});
 }
 

@@ -204,6 +204,16 @@ void InputConfigDialog::setupPokeTypePage()
         "you and the prompt clears by itself; with it off, the prompt waits "
         "until you press your Fn key."));
 
+    chkPokeTypeArrowsDpad = new QCheckBox("Arrow keys also press the D-pad (experimental)");
+    chkPokeTypeArrowsDpad->setChecked(instcfg.GetBool("PokeType.ArrowsToDpad"));
+    connect(chkPokeTypeArrowsDpad, &QCheckBox::toggled,
+            this, &InputConfigDialog::pokeTypeEdited);
+    lay->addWidget(chkPokeTypeArrowsDpad);
+    lay->addWidget(new QLabel(
+        "The game's menus answer only the D-pad, so the keyboard's arrow keys "
+        "do nothing there. With this on, your arrow bindings press the D-pad "
+        "as well while the game holds the keyboard."));
+
     static const char* modeLabels[3] =
     {
         "Follow my system layout",
@@ -627,6 +637,8 @@ void InputConfigDialog::on_InputConfigDialog_accepted()
                                           chkPokeTypeEnable->isChecked());
     emuInstance->getLocalConfig().SetBool("PokeType.AutoSendFn",
                                           chkPokeTypeAutoSendFn->isChecked());
+    emuInstance->getLocalConfig().SetBool("PokeType.ArrowsToDpad",
+                                          chkPokeTypeArrowsDpad->isChecked());
     emuInstance->pokeTypeSaveBindings(pokeTypeDirty);
     emuInstance->pokeTypeAutoPairChanged();
 
