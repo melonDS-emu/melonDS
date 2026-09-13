@@ -73,7 +73,7 @@ constexpr bool SessionKeepsWriteEnable(SPIRoute route, u8 firstbyte, u32 rxlen) 
 // HCI to it in a small framing layer; the cart signals back by raising IREQ_MC.
 //   FF                           (alone: wake/sync byte)
 //   01 00 | 00 04 | 01 03 0C 00  (type | BE length | HCI payload, here HCI_Reset)
-class CartRetailBT : public CartRetail
+class CartRetailBT : public CartRetail, public BTKeyboard::FlashBackend
 {
 public:
     CartRetailBT(const u8* rom, u32 len, u32 chipid, ROMListEntry romparams, std::unique_ptr<u8[]>&& sram, u32 sramlen, void* userdata);
@@ -100,6 +100,20 @@ public:
     void SetKey(u8 keyid, bool down) noexcept;
     void TypeKey(u8 keyid, bool shift, bool altgr) noexcept;
     void ReleaseKeys() noexcept;
+
+private:
+    // BTKeyboard::FlashBackend: the controller's on-board flash, where the game
+    // keeps its save. The game never uses the cart's SPI EEPROM, so the flash is
+    // mapped onto the SRAM buffer instead and persisted like a normal save.
+    void Read(u32 addr, u8* out, u32 len) override;
+    void Write(u32 addr, const u8* in, u32 len) override;
+    void EraseSector(u32 addr) override;
+
+    // the game addresses 0xFF00Bxxx..0xFF014xxx; this base fits that in a 64 KB save
+    static constexpr u32 BTFlashBase = 0xFF008000;
+    static constexpr u32 BTFlashSectorSize = 0x1000;
+
+    void FlushFlash(u32 offset, u32 len);
 
 private:
     void HandleFrame();

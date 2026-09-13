@@ -97,6 +97,21 @@ public:
         std::vector<u8> Value;
     };
 
+    // Typing Adventure keeps its save in the controller's on-board flash, reached with
+    // the Broadcom vendor commands Read_RAM (0xFC4D), Write_RAM (0xFC4C) and sector erase
+    // (0xFF5E). Addresses arrive as on the wire. With no backend installed the commands
+    // are acknowledged and their data discarded.
+    struct FlashBackend
+    {
+        virtual ~FlashBackend() {}
+        virtual void Read(u32 addr, u8* out, u32 len) = 0;
+        virtual void Write(u32 addr, const u8* in, u32 len) = 0;
+        virtual void EraseSector(u32 addr) = 0;
+    };
+
+    /// Install the cart's flash backend. Reset() and DoSavestate() leave it alone.
+    void SetFlash(FlashBackend* flash) noexcept { Flash = flash; }
+
 private:
     void RejectSavestate(Savestate* file) noexcept;
 
@@ -173,6 +188,8 @@ private:
     // configured, not on LinkUp, so a DS that accepts our page but never lets
     // the channels finish opening still hits the cap.
     u32 HIDConnectAttempts = 0;
+
+    FlashBackend* Flash = nullptr;
 
     std::deque<std::vector<u8>> Outgoing;
 };

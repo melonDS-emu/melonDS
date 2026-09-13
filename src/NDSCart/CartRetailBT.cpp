@@ -20,6 +20,7 @@
 
 #include "CartRetailBT.h"
 #include "../NDSCart.h"
+#include "../Platform.h"
 #include "../Utils.h"
 
 // CartRetailBT: NDS cartridge with Bluetooth transceiver (ie. Pokémon Typing Adventure)
@@ -45,6 +46,9 @@ CartRetailBT::CartRetailBT(std::unique_ptr<u8[]>&& rom, u32 len, u32 chipid, ROM
     CartRetail(std::move(rom), len, chipid, false, romparams, std::move(sram), sramlen, userdata, CartType::RetailBT)
 {
     Log(LogLevel::Info, "POKETYPE CART\n");
+
+    // the game's save lives in the controller's flash; back it with our SRAM
+    Keyboard.SetFlash(this);
 }
 
 CartRetailBT::~CartRetailBT() = default;
@@ -152,6 +156,64 @@ void CartRetailBT::ReleaseKeys() noexcept
 {
     Keyboard.ReleaseKeys();
     SendPending();
+}
+
+// BTKeyboard::FlashBackend: the controller's flash, mapped onto SRAM at BTFlashBase.
+// Out-of-range reads return 0xFF; out-of-range writes and erases are ignored.
+// Writes store bytes verbatim rather than clearing bits like NOR flash: the game
+// zero-fills a region, then writes non-zero data over it.
+
+void CartRetailBT::FlushFlash(u32 offset, u32 len)
+{
+    if (!SRAM || len == 0) return;
+    Platform::WriteNDSSave(SRAM.get(), SRAMLength, offset, len, UserData);
+}
+
+void CartRetailBT::Read(u32 addr, u8* out, u32 len)
+{
+    for (u32 i = 0; i < len; i++)
+    {
+        u32 a = addr + i;
+        out[i] = (SRAM && a >= BTFlashBase && (a - BTFlashBase) < SRAMLength)
+                 ? SRAM[a - BTFlashBase]
+                 : 0xFF;
+    }
+}
+
+void CartRetailBT::Write(u32 addr, const u8* in, u32 len)
+{
+    if (!SRAM) return;
+
+    bool any = false;
+    u32 lo = 0, hi = 0;
+    for (u32 i = 0; i < len; i++)
+    {
+        u32 a = addr + i;
+        if (a < BTFlashBase) continue;
+        u32 off = a - BTFlashBase;
+        if (off >= SRAMLength) continue;
+
+        SRAM[off] = in[i];
+        if (!any) { lo = hi = off; any = true; }
+        else { if (off < lo) lo = off; if (off > hi) hi = off; }
+    }
+
+    if (any)
+        FlushFlash(lo, hi - lo + 1);
+}
+
+void CartRetailBT::EraseSector(u32 addr)
+{
+    if (!SRAM || addr < BTFlashBase) return;
+
+    u32 off = (addr - BTFlashBase) & ~(BTFlashSectorSize - 1);
+    if (off >= SRAMLength) return;
+
+    u32 n = BTFlashSectorSize;
+    if (off + n > SRAMLength) n = SRAMLength - off;
+
+    memset(&SRAM[off], 0xFF, n);
+    FlushFlash(off, n);
 }
 
 void CartRetailBT::RaiseIRQ()

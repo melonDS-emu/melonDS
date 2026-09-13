@@ -1837,19 +1837,54 @@ void BTKeyboard::HandleCommand(u16 opcode, const u8* params, u32 plen)
         }
         return;
 
+    case 0xFC4C: // Broadcom vendor: Write_RAM (4-byte LE address, then data)
+        {
+            // the boot-time format and every save land here (see FlashBackend)
+            if (Flash && plen > 4)
+            {
+                u32 addr = ((u32)params[0] | ((u32)params[1] << 8) | ((u32)params[2] << 16) | ((u32)params[3] << 24));
+                Flash->Write(addr, &params[4], plen - 4);
+            }
+            CommandComplete(opcode, ret, 1);
+        }
+        return;
+
+    case 0xFF5E: // Broadcom vendor: erase the flash sector at a 4-byte LE address
+        {
+            // the game erases a sector before rewriting it, pairing info and save alike
+            if (Flash && plen >= 4)
+            {
+                u32 addr = ((u32)params[0] | ((u32)params[1] << 8) | ((u32)params[2] << 16) | ((u32)params[3] << 24));
+                Flash->EraseSector(addr);
+            }
+            CommandComplete(opcode, ret, 1);
+        }
+        return;
+
     case 0xFC4D: // Broadcom vendor: Read_RAM (4-byte LE address, then a length)
         {
-            // read while applying the firmware patch at boot; the driver only
-            // needs the byte count it asked for
+            // Read while applying the firmware patch at boot, and to load the save by
+            // sweeping for its signature. The driver needs the byte count it asked
+            // for, so with no backend this still answers, with zeros.
+            u32 addr = (plen >= 4) ? ((u32)params[0] | ((u32)params[1] << 8) | ((u32)params[2] << 16) | ((u32)params[3] << 24)) : 0;
             u32 n = (plen >= 5) ? params[4] : 0;
-            if (n > sizeof(ret) - 1) n = sizeof(ret) - 1;
+
+            // an event's 255 parameter bytes leave room for 251 bytes of data
+            if (n > 251)
+            {
+                ret[0] = 0x12;              // status: invalid HCI command parameters
+                CommandComplete(opcode, ret, 1);
+                return;
+            }
+
+            if (Flash && n) Flash->Read(addr, &ret[1], n);
             CommandComplete(opcode, ret, 1 + n);
         }
         return;
 
     default:
-        // everything else -- the rest of the Broadcom vendor commands and the
-        // patchram writes included -- just needs a success status
+        // everything else -- the rest of the Broadcom vendor commands included --
+        // just needs a success status
         CommandComplete(opcode, ret, 1);
         return;
     }
