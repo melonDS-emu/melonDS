@@ -70,6 +70,7 @@ add_library(core STATIC
     NDSCart/CartRetailNAND.cpp
     NDSCart/CartRetailIR.cpp
     NDSCart/CartRetailBT.cpp
+    NDSCart/BTKeyboard.cpp
     NDSCart/CartSD.cpp
     NDSCart/CartHomebrew.cpp
     NDSCart/CartR4.cpp

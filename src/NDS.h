@@ -83,6 +83,9 @@ enum
     Event_DSi_Cart1Power,
     Event_DSi_Cart2Power,
 
+    // last, so the events before it keep their savestate positions
+    Event_CartBTKeyboardTimer, // CartRetailBT keyboard page/inquiry timer
+
     Event_MAX
 };
 

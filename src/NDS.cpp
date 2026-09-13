@@ -700,6 +700,10 @@ bool NDS::DoSavestate(Savestate* file)
 
     for (int i = 0; i < Event_MAX; i++)
     {
+        // states older than 14.1 have no entry for it
+        if (i == Event_CartBTKeyboardTimer && !file->IsAtLeastVersion(14, 1))
+            continue;
+
         SchedEvent& evt = SchedList[i];
 
         file->Var64(&evt.Timestamp);

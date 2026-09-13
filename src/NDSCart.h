@@ -143,7 +143,14 @@ public:
 
     void RaiseCardIRQ();
 
+    /// A scheduler event for carts that act on their own (CartRetailBT's keyboard).
+    /// Only the first slot has one; scheduling replaces a pending one.
+    void ScheduleCartTimer(s32 delayCycles, u32 param) noexcept;
+    void CancelCartTimer() noexcept;
+
 private:
+    void CartTimer(u32 param);
+
     friend class CartCommon;
     melonDS::NDS& NDS;
     u8 Num;

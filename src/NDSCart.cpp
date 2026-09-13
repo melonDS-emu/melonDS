@@ -203,12 +203,20 @@ NDSCartSlot::NDSCartSlot(melonDS::NDS& nds, u32 num, std::unique_ptr<CartCommon>
 {
     SetLogicalNum(Num);
 
+    // registered on the slot rather than the cart, so the event never points at an
+    // ejected cart (a savestate can re-arm it after the cart is gone)
+    if (Num == 0)
+        NDS.RegisterEventFuncs(Event_CartBTKeyboardTimer, this, {MakeEventThunk(NDSCartSlot, CartTimer)});
+
     if (rom)
         SetCart(std::move(rom));
 }
 
 NDSCartSlot::~NDSCartSlot() noexcept
 {
+    if (Num == 0)
+        NDS.UnregisterEventFuncs(Event_CartBTKeyboardTimer);
+
     // Cart is cleaned up automatically because it's a unique_ptr
 }
 
@@ -527,6 +535,11 @@ void NDSCartSlot::SetCart(std::unique_ptr<CartCommon>&& cart) noexcept
     const NDSHeader& header = Cart->GetHeader();
     const ROMListEntry romparams = Cart->GetROMParams();
     const u8* cartrom = Cart->GetROM();
+
+    // the BT controller signals the host via IREQ_MC, so it needs its slot
+    if (Cart->Type() == CartType::RetailBT)
+        static_cast<CartRetailBT*>(Cart.get())->SetSlot(this);
+
     if (header.ARM9ROMOffset >= 0x4000 && header.ARM9ROMOffset < 0x8000)
     {
         // reencrypt secure area if needed
@@ -582,6 +595,12 @@ std::unique_ptr<CartCommon> NDSCartSlot::EjectCart() noexcept
 
     // ejecting the cart triggers the gamecard IRQ
     RaiseCardIRQ();
+
+    CancelCartTimer();
+
+    // the cart can outlive this slot: switching between DS and DSi replaces the console
+    if (Cart->Type() == CartType::RetailBT)
+        static_cast<CartRetailBT*>(Cart.get())->SetSlot(nullptr);
 
     CartActive = false;
     auto oldcart = std::move(Cart);
@@ -642,6 +661,25 @@ void NDSCartSlot::RaiseCardIRQ()
 {
     NDS.SetIRQ(0, CardIRQ);
     NDS.SetIRQ(1, CardIRQ);
+}
+
+void NDSCartSlot::CartTimer(u32 param)
+{
+    if (Cart && Cart->Type() == CartType::RetailBT)
+        static_cast<CartRetailBT*>(Cart.get())->OnPageTimer(param);
+}
+
+void NDSCartSlot::ScheduleCartTimer(s32 delayCycles, u32 param) noexcept
+{
+    if (Num != 0) return;
+
+    NDS.CancelEvent(Event_CartBTKeyboardTimer);
+    NDS.ScheduleEvent(Event_CartBTKeyboardTimer, false, delayCycles, 0, param);
+}
+
+void NDSCartSlot::CancelCartTimer() noexcept
+{
+    NDS.CancelEvent(Event_CartBTKeyboardTimer);
 }
 
 void NDSCartSlot::UpdateCartState()
