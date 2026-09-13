@@ -67,6 +67,47 @@ void CartRetailBT::Reset()
         Slot->ScheduleCartTimer(PageTickIntervalCycles, 0);
 }
 
+void CartRetailBT::DoSavestate(Savestate* file)
+{
+    CartRetail::DoSavestate(file);
+
+    // States older than 14.1 have none of this, nor a scheduler entry for the
+    // timer, so start the link over and the timer again.
+    if (!file->Saving && !file->IsAtLeastVersion(14, 1))
+    {
+        RxLen = 0;
+        TxLen = 0;
+        TxPos = 0;
+        SaveActive = false;
+        SaveSession = false;
+        Keyboard.Reset();
+
+        if (Slot)
+            Slot->ScheduleCartTimer(PageTickIntervalCycles, 0);
+        return;
+    }
+
+    file->VarArray(RxBuf, sizeof(RxBuf));
+    file->Var32(&RxLen);
+
+    file->VarArray(TxBuf, sizeof(TxBuf));
+    file->Var32(&TxLen);
+    file->Var32(&TxPos);
+
+    // don't trust a loaded state: the buffers are indexed by these unchecked
+    if (!file->Saving)
+    {
+        if (RxLen > BufferSize) RxLen = 0;
+        if (TxLen > BufferSize) TxLen = 0;
+        if (TxPos > TxLen)      TxPos = TxLen;
+    }
+
+    file->VarBool(&SaveActive);
+    file->VarBool(&SaveSession);
+
+    Keyboard.DoSavestate(file);
+}
+
 void CartRetailBT::SetSlot(NDSCartSlot* slot) noexcept
 {
     Slot = slot;

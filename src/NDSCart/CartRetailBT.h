@@ -81,6 +81,7 @@ public:
     ~CartRetailBT() override;
 
     void Reset() override;
+    void DoSavestate(Savestate* file) override;
 
     void SPISelect() override;
     void SPIRelease() override;

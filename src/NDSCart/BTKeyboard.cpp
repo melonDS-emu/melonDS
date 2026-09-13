@@ -57,6 +57,11 @@ static const u8 LinkKey[16] =
 // An SDP response adds 14 bytes of L2CAP and SDP framing to its chunk: 57 - 14 = 43.
 static constexpr u32 MaxSDPChunk = 43;
 
+// Far beyond anything the link builds up, so only a corrupt savestate exceeds them
+static constexpr u32 MaxSavedChannels = 64;
+static constexpr u32 MaxSavedPackets = 1024;
+static constexpr u32 MaxSavedPacketSize = 1024;
+
 void BTKeyboard::Reset() noexcept
 {
     Outgoing.clear();
@@ -78,6 +83,78 @@ void BTKeyboard::Reset() noexcept
     LinkUp = false;
     PageAttempts = 0;
     HIDConnectAttempts = 0;
+}
+
+void BTKeyboard::DoSavestate(Savestate* file)
+{
+    u32 nchannels = (u32)Channels.size();
+    file->Var32(&nchannels);
+    if (!file->Saving)
+    {
+        if (nchannels > MaxSavedChannels) return RejectSavestate(file);
+        Channels.resize(nchannels);
+    }
+
+    for (auto& ch : Channels)
+    {
+        file->Var16(&ch.LocalCID);
+        file->Var16(&ch.RemoteCID);
+        file->Var16(&ch.PSM);
+        file->VarBool(&ch.Configured);
+    }
+
+    file->Var16(&NextLocalCID);
+    file->Var8(&NextSignalID);
+
+    file->VarArray(InputReport, sizeof(InputReport));
+    file->VarBool(&FnHeld);
+    file->Var8(&OutputReport);
+    file->VarBool(&BootProtocol);
+
+    // AutoPair is a user setting, not session state; a savestate must not override it
+    file->VarBool(&PairingRequested);
+    file->VarBool(&LinkEverUp);
+
+    file->Var32(&InquiryTicksLeft);
+
+    file->VarBool(&PageScanEnabled);
+    file->VarBool(&LinkUp);
+    file->Var32(&PageAttempts);
+    file->Var32(&HIDConnectAttempts);
+
+    u32 npending = (u32)Outgoing.size();
+    file->Var32(&npending);
+    if (file->Saving)
+    {
+        for (auto& pkt : Outgoing)
+        {
+            u32 len = (u32)pkt.size();
+            file->Var32(&len);
+            if (len) file->VarArray(pkt.data(), len);
+        }
+    }
+    else
+    {
+        Outgoing.clear();
+        if (npending > MaxSavedPackets) return RejectSavestate(file);
+
+        for (u32 i = 0; i < npending; i++)
+        {
+            u32 len = 0;
+            file->Var32(&len);
+            if (len > MaxSavedPacketSize) return RejectSavestate(file);
+
+            std::vector<u8> pkt(len);
+            if (len) file->VarArray(pkt.data(), len);
+            Outgoing.push_back(std::move(pkt));
+        }
+    }
+}
+
+void BTKeyboard::RejectSavestate(Savestate* file) noexcept
+{
+    file->Error = true;
+    Reset();
 }
 
 bool BTKeyboard::NextPacket(std::vector<u8>& out)
@@ -1343,6 +1420,19 @@ void BTKeyboard::HandleL2CAP(u16 cid, const u8* data, u32 len)
             if (plen < 4) return;
             u16 psm  = (u16)(params[0] | (params[1] << 8));
             u16 scid = (u16)(params[2] | (params[3] << 8));
+
+            // a state with more channels than this couldn't be loaded back
+            if (Channels.size() >= MaxSavedChannels)
+            {
+                u8 rsp[8];
+                rsp[0] = 0x00; rsp[1] = 0x00;           // destination CID: none
+                rsp[2] = (u8)(scid & 0xFF);             // source CID: theirs
+                rsp[3] = (u8)(scid >> 8);
+                rsp[4] = 0x04; rsp[5] = 0x00;           // result: refused, no resources
+                rsp[6] = 0x00; rsp[7] = 0x00;           // status: no further information
+                Signal(0x03, id, rsp, sizeof(rsp));
+                return;
+            }
 
             Channel ch;
             ch.LocalCID  = NextLocalCID++;

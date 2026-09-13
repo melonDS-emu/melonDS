@@ -23,6 +23,7 @@
 #include <vector>
 
 #include "../types.h"
+#include "../Savestate.h"
 
 namespace melonDS::NDSCart
 {
@@ -39,6 +40,10 @@ public:
     BTKeyboard() { Reset(); }
 
     void Reset() noexcept;
+
+    /// Appends to the savestate section the caller already has open (the cart's)
+    /// rather than opening its own.
+    void DoSavestate(Savestate* file);
 
     /// Feed one HCI packet from the host.
     void HostPacket(const u8* data, u32 len);
@@ -93,6 +98,8 @@ public:
     };
 
 private:
+    void RejectSavestate(Savestate* file) noexcept;
+
     void HandleCommand(u16 opcode, const u8* params, u32 plen);
     void HandleACL(const u8* data, u32 len);
     void HandleL2CAP(u16 cid, const u8* data, u32 len);
