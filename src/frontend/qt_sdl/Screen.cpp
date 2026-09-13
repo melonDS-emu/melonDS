@@ -126,6 +126,7 @@ void ScreenPanel::loadConfig()
     screenLayout = cfg.GetInt("ScreenLayout");
     screenSwap = cfg.GetBool("ScreenSwap");
     screenSizing = cfg.GetInt("ScreenSizing");
+    emphasisRatio = cfg.GetInt("EmphasisRatio");
     integerScaling = cfg.GetBool("IntegerScaling");
     screenAspectTop = cfg.GetInt("ScreenAspectTop");
     screenAspectBot = cfg.GetInt("ScreenAspectBot");
@@ -152,6 +153,9 @@ void ScreenPanel::setupScreenLayout()
     int sizing = screenSizing;
     if (sizing == screenSizing_Auto) sizing = autoScreenSizing;
 
+    // Auto switches modes on its own as the game runs, a fixed ratio there would be as unpredictable
+    int appliedEmphasisRatio = (screenSizing == screenSizing_Auto) ? 0 : emphasisRatio;
+
     float aspectTop, aspectBot;
 
     for (auto ratio : aspectRatios)
@@ -172,6 +176,7 @@ void ScreenPanel::setupScreenLayout()
                 static_cast<ScreenLayoutType>(screenLayout),
                 static_cast<ScreenRotation>(screenRotation),
                 static_cast<ScreenSizing>(sizing),
+                appliedEmphasisRatio,
                 screenGap,
                 integerScaling != 0,
                 screenSwap != 0,
