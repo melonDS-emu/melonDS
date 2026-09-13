@@ -104,9 +104,24 @@ if (ENABLE_GDBSTUB)
 endif()
 
 option(BUILD_QT_SDL "Build Qt/SDL frontend" ON)
+option(BUILD_POKETYPE_TESTS "Build the Typing Adventure keyboard tests" OFF)
 
 add_subdirectory(src)
 
 if (BUILD_QT_SDL)
     add_subdirectory(src/frontend/qt_sdl)
+endif()
+
+if (BUILD_POKETYPE_TESTS)
+    add_executable(poketype-tests
+        tests/poketype/main.cpp
+        tests/poketype/KeyTableTest.cpp
+        tests/poketype/BTKeyboardTest.cpp
+        tests/poketype/CartSPITest.cpp
+        tests/poketype/SavestateTest.cpp
+        tests/poketype/CartSessionTest.cpp
+        tests/poketype/PlatformStub.cpp)
+    target_include_directories(poketype-tests PRIVATE
+        src tests/poketype)
+    target_link_libraries(poketype-tests PRIVATE core)
 endif()
