@@ -131,6 +131,7 @@ public:
     void WriteROMCnt(u32 cpu, u32 val, u32 mask) noexcept { Interfaces[cpu].WriteROMCnt(val, mask); };
 
     void WriteROMCommand(u32 cpu, u32 index, u8 val) { Interfaces[cpu].WriteROMCommand(index, val); }
+    u8 ReadROMCommand(u32 cpu, u32 index) const { return Interfaces[cpu].ROMCommand[index]; }
 
     void WriteKey2Seed0(u32 cpu, u64 val, u64 mask) { Interfaces[cpu].WriteKey2Seed0(val, mask); }
     void WriteKey2Seed1(u32 cpu, u64 val, u64 mask) { Interfaces[cpu].WriteKey2Seed1(val, mask); }
