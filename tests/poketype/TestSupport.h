@@ -48,6 +48,7 @@ inline int& TestFailures()
     } while (0)
 
 int runKeyTableTests();
+int runBindingsTests();
 int runBTKeyboardTests();
 int runCartSPITests();
 int runSavestateTests();

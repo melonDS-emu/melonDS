@@ -113,15 +113,25 @@ if (BUILD_QT_SDL)
 endif()
 
 if (BUILD_POKETYPE_TESTS)
+    # the bindings tests need QtCore, from the same Qt as the frontend
+    if (USE_QT6 OR NOT DEFINED USE_QT6)
+        find_package(Qt6 REQUIRED COMPONENTS Core)
+        set(POKETYPE_TESTS_QT Qt6::Core)
+    else()
+        find_package(Qt5 REQUIRED COMPONENTS Core)
+        set(POKETYPE_TESTS_QT Qt5::Core)
+    endif()
     add_executable(poketype-tests
         tests/poketype/main.cpp
         tests/poketype/KeyTableTest.cpp
+        tests/poketype/BindingsTest.cpp
         tests/poketype/BTKeyboardTest.cpp
         tests/poketype/CartSPITest.cpp
         tests/poketype/SavestateTest.cpp
         tests/poketype/CartSessionTest.cpp
-        tests/poketype/PlatformStub.cpp)
+        tests/poketype/PlatformStub.cpp
+        src/frontend/qt_sdl/PokeTypeBindings.cpp)
     target_include_directories(poketype-tests PRIVATE
-        src tests/poketype)
-    target_link_libraries(poketype-tests PRIVATE core)
+        src src/frontend/qt_sdl tests/poketype)
+    target_link_libraries(poketype-tests PRIVATE core ${POKETYPE_TESTS_QT})
 endif()

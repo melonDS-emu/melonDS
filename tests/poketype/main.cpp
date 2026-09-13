@@ -22,6 +22,7 @@
 int main()
 {
     runKeyTableTests();
+    runBindingsTests();
     runBTKeyboardTests();
     runCartSPITests();
     runSavestateTests();
