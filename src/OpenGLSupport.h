@@ -107,6 +107,23 @@ struct Texture
     }
 };
 
+struct Sampler
+{
+    static void Gen(GLsizei n, GLuint* samplers) noexcept
+    {
+        glGenSamplers(n, samplers);
+    }
+
+    static void Delete(GLsizei n, const GLuint* textures) noexcept
+    {
+        glDeleteSamplers(n, textures);
+    }
+
+    static bool Available() noexcept
+    {
+        return glGenSamplers && glDeleteSamplers;
+    }
+};
 
 /// A thin RAII-scented wrapper around one or more OpenGL resource handles.
 /// Doesn't do any querying or state management,
@@ -197,6 +214,10 @@ using FramebufferHandle = FramebufferHandles<1>;
 template<std::size_t N>
 using TextureHandles = Traits::GLHandles<Traits::Texture, N>;
 using TextureHandle = TextureHandles<1>;
+
+template<std::size_t N>
+using SamplerHandles = Traits::GLHandles<Traits::Sampler, N>;
+using SamplerHandle = SamplerHandles<1>;
 
 // Doesn't use GLHandles because shader programs don't follow
 // the usual glGenThings/glDeleteThings convention
