@@ -29,6 +29,7 @@
 #include <fstream>
 
 #include <QDateTime>
+#include <QKeySequence>
 
 #include <zstd.h>
 #ifdef ARCHIVE_SUPPORT_ENABLED
@@ -49,6 +50,7 @@
 #include "main.h"
 
 #include "NDSCart/CartSD.h"
+#include "NDSCart/CartRetailBT.h"
 
 using std::make_unique;
 using std::pair;
@@ -1388,6 +1390,7 @@ bool EmuInstance::updateConsole() noexcept
     renderLock.unlock();
 
     loadCheats();
+    applyCartDependentSettings();
 
     return true;
 }
@@ -1959,9 +1962,11 @@ bool EmuInstance::loadROM(QStringList filepath, bool reset, QString& errorstr)
         {
             nds->SetNDSCart(std::move(cart));
             loadCheats();
+            applyCartDependentSettings();
         }
         else
         {
+            // updateConsole() inserts the cart and applies its settings
             nextCart = std::move(cart);
             changeCart = true;
         }
@@ -1981,6 +1986,7 @@ void EmuInstance::ejectCart()
     {
         nds->EjectCart();
         unloadCheats();
+        pokeTypePublishCart();
     }
     else
     {
@@ -1997,6 +2003,88 @@ void EmuInstance::ejectCart()
 bool EmuInstance::cartInserted()
 {
     return cartType != -1;
+}
+
+bool EmuInstance::pokeTypeKeyboardSupported()
+{
+    return pokeTypeCartRegion != melonDS::PokeTypeKeyboard::Region::MAX;
+}
+
+bool EmuInstance::pokeTypeKeyboardActive()
+{
+    return pokeTypeKeyboardSupported() && localCfg.GetBool("PokeType.Enabled");
+}
+
+void EmuInstance::pokeTypeApplyAutoPair()
+{
+    if (!nds) return;
+
+    auto* bt = dynamic_cast<NDSCart::CartRetailBT*>(nds->GetNDSCart());
+    if (!bt) return;
+
+    bt->SetAutoPair(localCfg.GetBool("PokeType.AutoSendFn"));
+}
+
+void EmuInstance::applyCartDependentSettings()
+{
+    pokeTypeApplyAutoPair();
+    pokeTypePublishCart();
+
+    // runs on the UI thread, where emuThread lives; deleting emuThread on shutdown drops it
+    QMetaObject::invokeMethod(emuThread, [this]() { pokeTypeCartInserted(); }, Qt::QueuedConnection);
+}
+
+void EmuInstance::pokeTypePublishCart()
+{
+    bool supported = nds && nds->PokeTypeKeyboard.IsSupportedGame();
+    pokeTypeCartRegion = supported ? nds->PokeTypeKeyboard.GetRegion()
+                                   : melonDS::PokeTypeKeyboard::Region::MAX;
+}
+
+void EmuInstance::pokeTypeCartInserted()
+{
+    pokeTypeGrabbed = true;
+    if (pokeTypeKeyboardSupported())
+        pokeTypeLoadBindings();
+    if (pokeTypeKeyboardActive())
+    {
+        int rk = pokeTypeBindings.releaseKey;
+        if (pokeTypeBindings.releaseKeyBound())
+            osdAddMessage(0, "Typing keyboard: capturing -- press %s to release",
+                          QKeySequence(rk & ~(1<<31)).toString().toStdString().c_str());
+        else
+            osdAddMessage(0, "Typing keyboard: capturing -- no release key is bound");
+    }
+}
+
+// Config's getters create what they read, so loading the key slots would plant
+// hundreds of entries in the config of every user who never plays this game.
+bool EmuInstance::pokeTypeBindingsInConfig()
+{
+    return pokeTypeKeyboardSupported() || localCfg.Exists("PokeType.Keys");
+}
+
+void EmuInstance::pokeTypeLoadBindings()
+{
+    if (!pokeTypeBindingsInConfig()) return;
+
+    pokeTypeBindings.mode = localCfg.GetInt("PokeType.Mode");
+    pokeTypeBindings.releaseKey = localCfg.GetInt("PokeType.ReleaseKey");
+
+    Config::Table keys = localCfg.GetTable("PokeType.Keys");
+
+    for (int r = 0; r < PokeTypeBindings::NumRegions; r++)
+    {
+        auto region = (melonDS::PokeTypeKeyboard::Region)r;
+        Config::Table regcfg = keys.GetTable(melonDS::PokeTypeKeyboard::RegionCode(region));
+
+        for (melonDS::u16 keyid : PokeTypeBindings::keyIDs(region))
+        {
+            char name[8];
+            snprintf(name, sizeof(name), "%02X", keyid);
+            pokeTypeBindings.setBinding(region, keyid, regcfg.GetInt(name));
+        }
+    }
 }
 
 QString EmuInstance::cartLabel()

@@ -26,6 +26,8 @@
 #include <regex>
 #include "toml/toml.hpp"
 
+#include <QtCore/qnamespace.h>
+
 #include "Platform.h"
 #include "Config.h"
 #include "ScreenLayout.h"
@@ -72,11 +74,14 @@ DefaultList<int> DefaultInts =
     {"Instance*.Gdb.ARM9.Port", 3333},
 #endif
     {"LAN.HostNumPlayers", 16},
+    {"Instance*.PokeType.Mode", 1},
+    {"Instance*.PokeType.ReleaseKey", Qt::Key_F12},
 };
 
 RangeList IntRanges =
 {
     {"Emu.ConsoleType", {0, 1}},
+    {"Instance*.PokeType.Mode", {0, 2}},
     {"3D.Renderer", {0, renderer3D_Max-1}},
     {"Screen.VSyncInterval", {1, 20}},
     {"3D.GL.ScaleFactor", {1, 16}},
@@ -112,6 +117,8 @@ DefaultList<bool> DefaultBools =
 #endif
     {"DSi.DSP.HLE", true},
     {"Instance*.RTC.SyncToHost", true},
+    {"Instance*.PokeType.Enabled", true},
+    {"Instance*.PokeType.AutoSendFn", true},
 };
 
 DefaultList<std::string> DefaultStrings =
@@ -605,6 +612,29 @@ double Table::GetDouble(const std::string& path)
         tval = FindDefault(path, 0.0, DefaultDoubles);
 
     return tval.as_floating();
+}
+
+// Splits the path like ResolvePath, but can't use it: its operator[] inserts
+// every segment it doesn't find.
+bool Table::Exists(const std::string& path)
+{
+    const toml::value* cur = &Data;
+    std::string tmp = path;
+
+    size_t sep;
+    while ((sep = tmp.find('.')) != std::string::npos)
+    {
+        std::string seg = tmp.substr(0, sep);
+
+        // contains() throws on a non-table
+        if (!cur->is_table() || !cur->contains(seg))
+            return false;
+
+        cur = &cur->at(seg);
+        tmp = tmp.substr(sep+1);
+    }
+
+    return cur->is_table() && cur->contains(tmp);
 }
 
 void Table::SetInt(const std::string& path, int val)

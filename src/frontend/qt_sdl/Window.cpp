@@ -399,6 +399,15 @@ MainWindow::MainWindow(int id, EmuInstance* inst, QWidget* parent) :
                 connect(actSetupCheats, &QAction::triggered, this, &MainWindow::onSetupCheats);
 
                 menu->addSeparator();
+
+                actPokeTypeKeyboard = menu->addAction("Typing Adventure keyboard");
+                actPokeTypeKeyboard->setCheckable(true);
+                actPokeTypeKeyboard->setToolTip(
+                    "Type into Learn with Pokémon: Typing Adventure using your keyboard. "
+                    "While enabled, printable keys go to the game instead of the emulator's controls.");
+                connect(actPokeTypeKeyboard, &QAction::triggered, this, &MainWindow::onPokeTypeKeyboard);
+
+                menu->addSeparator();
                 actROMInfo = menu->addAction("ROM info");
                 connect(actROMInfo, &QAction::triggered, this, &MainWindow::onROMInfo);
 
@@ -695,6 +704,9 @@ MainWindow::MainWindow(int id, EmuInstance* inst, QWidget* parent) :
         actTitleManager->setEnabled(!globalCfg.GetString("DSi.NANDPath").empty());
 
         actEnableCheats->setChecked(localCfg.GetBool("EnableCheats"));
+
+        actPokeTypeKeyboard->setEnabled(false);
+        actPokeTypeKeyboard->setChecked(localCfg.GetBool("PokeType.Enabled"));
 
         actROMInfo->setEnabled(false);
         actRAMInfo->setEnabled(false);
@@ -1291,6 +1303,7 @@ void MainWindow::updateCartInserted(bool gba)
     {
         inserted = emuInstance->cartInserted();
         label = "DS slot: " + emuInstance->cartLabel();
+        bool poketype = emuInstance->pokeTypeKeyboardSupported();
 
         emuInstance->doOnAllWindows([=](MainWindow* win)
         {
@@ -1300,6 +1313,7 @@ void MainWindow::updateCartInserted(bool gba)
             win->actImportSavefile->setEnabled(inserted);
             win->actEnableCheats->setEnabled(inserted);
             win->actSetupCheats->setEnabled(inserted);
+            win->actPokeTypeKeyboard->setEnabled(inserted && poketype);
             win->actROMInfo->setEnabled(inserted);
             win->actRAMInfo->setEnabled(inserted);
         });
@@ -1703,6 +1717,16 @@ void MainWindow::onEnableCheats(bool checked)
     emuInstance->doOnAllWindows([=](MainWindow* win)
     {
         win->actEnableCheats->setChecked(checked);
+    }, windowID);
+}
+
+void MainWindow::onPokeTypeKeyboard(bool checked)
+{
+    localCfg.SetBool("PokeType.Enabled", checked);
+
+    emuInstance->doOnAllWindows([=](MainWindow* win)
+    {
+        win->actPokeTypeKeyboard->setChecked(checked);
     }, windowID);
 }
 

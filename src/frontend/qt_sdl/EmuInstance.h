@@ -19,6 +19,9 @@
 #ifndef EMUINSTANCE_H
 #define EMUINSTANCE_H
 
+#include <atomic>
+#include <vector>
+
 #include <SDL2/SDL.h>
 
 #include "Platform.h"
@@ -28,6 +31,7 @@
 #include "Window.h"
 #include "Config.h"
 #include "SaveManager.h"
+#include "PokeTypeBindings.h"
 
 const int kMaxWindows = 4;
 
@@ -169,6 +173,21 @@ public:
 
     QMutex renderLock;
 
+    PokeTypeBindings pokeTypeBindings;
+
+    /// Whether the binding tables belong in this instance's config: a
+    /// supported cart is inserted, or bindings are already saved.
+    [[nodiscard]] bool pokeTypeBindingsInConfig();
+
+    /// Fill pokeTypeBindings from localCfg, if pokeTypeBindingsInConfig().
+    void pokeTypeLoadBindings();
+
+    /// "PokeType.AutoSendFn" changed; the emulator thread passes it on to the cart.
+    void pokeTypeAutoPairChanged() { pokeTypeAutoPairDirty = true; }
+
+    /// Region of the inserted cart, or Region::MAX when it isn't a supported build.
+    [[nodiscard]] melonDS::PokeTypeKeyboard::Region pokeTypeRegion() const { return pokeTypeCartRegion; }
+
 private:
     static int lastSep(const std::string& path);
     std::string getAssetPath(bool gba, const std::string& configpath, const std::string& ext, const std::string& file);
@@ -213,6 +232,64 @@ private:
     bool cartInserted();
     QString cartLabel();
 
+    /// Apply settings that need the cart object itself. Call only once a cart
+    /// is actually in the slot (end of updateConsole(), or loadROM()'s direct
+    /// SetNDSCart()), not while it is merely queued in nextCart.
+    void applyCartDependentSettings();
+
+    bool pokeTypeKeyboardSupported();
+    bool pokeTypeKeyboardActive();
+
+    // Key events arrive on the UI thread, but the console belongs to the emulator
+    // thread. The UI thread keeps the bindings and queues what to type; the
+    // emulator thread publishes the cart's region and types the queue.
+
+    /// Region of the inserted cart, or Region::MAX when it isn't a supported build.
+    std::atomic<melonDS::PokeTypeKeyboard::Region> pokeTypeCartRegion {melonDS::PokeTypeKeyboard::Region::MAX};
+    void pokeTypePublishCart();
+
+    struct PokeTypeKey
+    {
+        enum Action : melonDS::u8
+        {
+            Press,
+            Release,
+            Type,           // press and release, with the keystroke's Shift and AltGr
+            ReleaseAll,
+        };
+
+        Action action;
+        melonDS::PokeTypeKeyboard::Keystroke keystroke {};   // Press and Release only use the key ID
+    };
+
+    QMutex pokeTypeKeyLock;
+    std::vector<PokeTypeKey> pokeTypeKeys;
+    std::atomic<bool> pokeTypeAutoPairDirty {false};
+
+    void pokeTypeQueueKey(const PokeTypeKey& key);
+
+    /// Emulator thread: press the queued keys and pass on a changed auto-pair setting.
+    void pokeTypeApplyInput();
+
+    /// Push "PokeType.AutoSendFn" into the inserted cart: whether the emulated
+    /// keyboard is discoverable from power-on, as if Fn were held. Safe to call
+    /// with no cart, or a cart without a Bluetooth keyboard. Emulator thread only.
+    void pokeTypeApplyAutoPair();
+
+    /// UI thread, once a cart is in: reload the bindings and grab the keyboard.
+    void pokeTypeCartInserted();
+
+    /// Whether keystrokes go to the game rather than the emulator; the release
+    /// key toggles it.
+    bool pokeTypeGrabbed = true;
+
+    /// Let go of the key a host key's release names. Releases don't go through
+    /// handlePokeTypeKey.
+    void pokeTypeKeyReleased(QKeyEvent* event);
+
+    melonDS::u16 pokeTypeCharFor(melonDS::PokeTypeKeyboard::Region region,
+                                 melonDS::u16 keyid, QKeyEvent* event);
+
     bool loadGBAROM(QStringList filepath, QString& errorstr);
     void loadGBAAddon(int type, QString& errorstr);
     void ejectGBACart();
@@ -244,6 +321,9 @@ private:
 
     void onKeyPress(QKeyEvent* event);
     void onKeyRelease(QKeyEvent* event);
+
+    /// Feed a keystroke to Typing Adventure. Returns true when it was consumed.
+    bool handlePokeTypeKey(QKeyEvent* event);
     void keyReleaseAll();
 
     void openJoystick();

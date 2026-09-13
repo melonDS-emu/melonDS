@@ -125,6 +125,7 @@ private slots:
     void onOpenDateTime();
     void onDateTimeDialogFinished(int res);
     void onEnableCheats(bool checked);
+    void onPokeTypeKeyboard(bool checked);
     void onSetupCheats();
     void onCheatsDialogFinished(int res);
     void onROMInfo();
@@ -251,6 +252,7 @@ public:
     QAction* actDateTime;
     QAction* actEnableCheats;
     QAction* actSetupCheats;
+    QAction* actPokeTypeKeyboard;
     QAction* actROMInfo;
     QAction* actRAMInfo;
     QAction* actTitleManager;
