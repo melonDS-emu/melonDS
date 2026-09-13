@@ -45,6 +45,9 @@ add_library(core STATIC
     NDS.cpp
     NDSCart.cpp
     Platform.h
+    PokeTypeKeyboard.h
+    PokeTypeKeyboard.cpp
+    PokeTypeKeyboardLayout.cpp
     ROMList.h
     ROMList.cpp
     FreeBIOS.h

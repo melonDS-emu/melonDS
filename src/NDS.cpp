@@ -104,6 +104,7 @@ NDS::NDS(NDSArgs&& args, int type, void* userdata) noexcept :
     NDSCartSlot(*this, 0, nullptr),
     GBACartSlot(*this, nullptr),
     AREngine(*this),
+    PokeTypeKeyboard(*this),
     ARM9(*this, args.GDB, args.JIT.has_value()),
     ARM7(*this, args.GDB, args.JIT.has_value()),
 #ifdef GDBSTUB_ENABLED

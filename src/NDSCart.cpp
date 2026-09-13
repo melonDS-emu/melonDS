@@ -536,6 +536,9 @@ void NDSCartSlot::SetCart(std::unique_ptr<CartCommon>&& cart) noexcept
     const ROMListEntry romparams = Cart->GetROMParams();
     const u8* cartrom = Cart->GetROM();
 
+    // tell the Typing Adventure keyboard whether this is a build it knows
+    NDS.PokeTypeKeyboard.SetGameCode(header.GameCodeAsU32());
+
     // the BT controller signals the host via IREQ_MC, so it needs its slot
     if (Cart->Type() == CartType::RetailBT)
         static_cast<CartRetailBT*>(Cart.get())->SetSlot(this);
@@ -605,6 +608,8 @@ std::unique_ptr<CartCommon> NDSCartSlot::EjectCart() noexcept
     CartActive = false;
     auto oldcart = std::move(Cart);
     Cart = nullptr;
+
+    NDS.PokeTypeKeyboard.Reset();
 
     UpdateCartState();
 
