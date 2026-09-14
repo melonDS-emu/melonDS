@@ -256,7 +256,7 @@ bool LinkProgram(const ProgramHandle& result, ShaderHandle* ids, int numIds)
     return true;
 }
 
-ProgramHandle CompileComputeProgram(const std::string& source, const std::string& name)
+ProgramHandle CompileComputeProgram(std::string_view source, std::string_view name) noexcept
 {
     if (!(ShaderHandle::Available() && ProgramHandle::Available()))
         return {};
@@ -277,10 +277,10 @@ ProgramHandle CompileComputeProgram(const std::string& source, const std::string
 using melonDS::OpenGL::AttributeTarget;
 
 ProgramHandle CompileVertexFragmentProgram(
-    const std::string& vs, const std::string& fs,
-    const std::string& name,
+    std::string_view vs, std::string_view fs,
+    std::string_view name,
     const std::initializer_list<AttributeTarget>& vertexInAttrs,
-    const std::initializer_list<AttributeTarget>& fragmentOutAttrs)
+    const std::initializer_list<AttributeTarget>& fragmentOutAttrs) noexcept
 {
     ShaderHandle shaders[2] =
     {
