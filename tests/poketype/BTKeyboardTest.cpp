@@ -2387,8 +2387,7 @@ void testHciResetRestoresTheHIDConnectBudget()
     CHECK_EQ(Drain(kb).size(), 4);          // Command Status, Connection Complete, both requests
 }
 
-// A state with more than 64 channels fails to load, so the keyboard refuses a channel
-// past that many rather than save a state it can't load back.
+// A savestate holds 64 channels, so the keyboard refuses a channel past that many.
 void testConnectionRequestsPastTheChannelLimitAreRefused()
 {
     BTKeyboard kb;
@@ -2415,6 +2414,23 @@ void testConnectionRequestsPastTheChannelLimitAreRefused()
     CHECK_EQ(rsp[16], 0x00);
     CHECK_EQ(rsp[17], 0x04);                // result: refused, no resources
     CHECK_EQ(rsp[18], 0x00);
+}
+
+// For the same reason, the keyboard opens no HID channel of its own past that many.
+void testTheKeyboardOpensNoChannelPastTheChannelLimit()
+{
+    BTKeyboard kb;
+    kb.Reset();
+
+    for (int i = 0; i < 64; i++)
+    {
+        Feed(kb, Acl(0x0001, {0x02, (u8)(i + 1), 0x04, 0x00, 0x01, 0x00, (u8)(0x40 + i), 0x00}));
+        Drain(kb);
+    }
+
+    // the game accepting our page, which would have us open both HID channels
+    Feed(kb, Command(0x0409, {0x33, 0x22, 0x11, 0x32, 0x1F, 0x00, 0x01}));
+    CHECK_EQ(Drain(kb).size(), 2);          // Command Status, Connection Complete
 }
 
 }
@@ -2505,5 +2521,6 @@ int runBTKeyboardTests()
     testHciResetRestoresThePagingBudget();
     testHciResetRestoresTheHIDConnectBudget();
     testConnectionRequestsPastTheChannelLimitAreRefused();
+    testTheKeyboardOpensNoChannelPastTheChannelLimit();
     return 0;
 }

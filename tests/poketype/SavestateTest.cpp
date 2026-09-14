@@ -175,6 +175,39 @@ void testAutoPairIsNotRestoredFromAState()
     CHECK(!loaded.Discoverable());
 }
 
+// Frontends like melonDS DS size a savestate once per game and refuse any other
+// size, so the keyboard writes the same number of bytes whatever the link is doing.
+void testTheStateSizeDoesNotDependOnTheLink()
+{
+    BTKeyboard kb;
+    kb.Reset();
+    size_t idle = SaveKeyboard(kb).size();
+
+    Connect(kb);                            // two HID channels
+    CHECK_EQ(SaveKeyboard(kb).size(), idle);
+
+    // an Inquiry the keyboard answers at once: three packets left unread
+    Feed(kb, Command(0x0401, {0x33, 0x8B, 0x9E, 0x0A, 0x00}));
+    CHECK_EQ(SaveKeyboard(kb).size(), idle);
+}
+
+// With a fixed-size state, a queue too long to fit must fail the save rather
+// than write a state that loads back without some of its packets.
+void testAQueueTooLongForAStateFailsTheSave()
+{
+    BTKeyboard kb;
+    kb.Reset();
+
+    // each Inquiry leaves three packets unread
+    for (int i = 0; i < 1000; i++)
+        Feed(kb, Command(0x0401, {0x33, 0x8B, 0x9E, 0x0A, 0x00}));
+
+    Savestate save(1024 * 1024);
+    save.Section("NDCS");
+    kb.DoSavestate(&save);
+    CHECK(save.Error);
+}
+
 // Marks on the scheduler and on the fields NDS::DoSavestate writes after it, so a
 // load that reads the event entries out of step shows up in everything after them.
 constexpr u64 CartTimerStamp = 0x7172737475767778;
@@ -248,20 +281,9 @@ void testAStateFrom14_0LoadsWithoutTheCartTimer()
     CHECK_EQ(loaded->SchedList[melonDS::Event_CartBTKeyboardTimer].Timestamp, 0);
 }
 
-// Insert zero bytes into a SaveKeyboard() state, keeping the header's length and
-// the NDCS section's length in step. NDCS is the only section, starting at 0x10.
-void Grow(std::vector<u8>& state, size_t at, size_t bytes)
-{
-    state.insert(state.begin() + at, bytes, 0);
-
-    u32 total = (u32)state.size();
-    memcpy(&state[0x08], &total, 4);
-
-    u32 section = total - 0x10;
-    memcpy(&state[0x14], &section, 4);
-}
-
 // A corrupt state must fail the load, not size the keyboard's buffers from its counts.
+// NDCS is a SaveKeyboard() state's only section, so the keyboard's fields start at
+// 0x20 with the channel count, and end with the pending count and the packet block.
 void testAStateWithTooManyChannelsIsRejected()
 {
     BTKeyboard saved;
@@ -269,11 +291,8 @@ void testAStateWithTooManyChannelsIsRejected()
     Connect(saved);                         // two HID channels
     auto state = SaveKeyboard(saved);
 
-    // the channel count, then 7 bytes per channel: keep the two, add 998 empty ones
-    const size_t count = 0x20;
-    u32 nchannels = 1000;
-    memcpy(&state[count], &nchannels, 4);
-    Grow(state, count + 4 + 2 * 7, 998 * 7);
+    u32 nchannels = BTKeyboard::MaxSavedChannels + 1;
+    memcpy(&state[0x20], &nchannels, 4);
 
     BTKeyboard loaded;
     loaded.Reset();
@@ -292,11 +311,10 @@ void testAStateWithAnOversizedPacketIsRejected()
     Feed(saved, Command(0x0C03, {}));       // leaves one 7-byte Command Complete unread
     auto state = SaveKeyboard(saved);
 
-    // the state ends with that packet's length and its 7 bytes
-    const size_t len = state.size() - 7 - 4;
-    u32 oversized = 5000;
-    memcpy(&state[len], &oversized, 4);
-    Grow(state, state.size(), 5000 - 7);
+    // the packet's length, at the start of the block, now runs past the block's end
+    const size_t block = state.size() - BTKeyboard::SavedPacketBytes;
+    u16 oversized = BTKeyboard::SavedPacketBytes - 1;
+    memcpy(&state[block], &oversized, 2);
 
     BTKeyboard loaded;
     loaded.Reset();
@@ -316,11 +334,10 @@ void testAStateWithTooManyPacketsIsRejected()
     Feed(saved, Command(0x0C03, {}));       // leaves one 7-byte Command Complete unread
     auto state = SaveKeyboard(saved);
 
-    // the state ends with the pending count, then that packet; add 1999 empty ones
-    const size_t count = state.size() - 7 - 4 - 4;
-    u32 npending = 2000;
+    // the pending count, just before the block, now claims a second packet
+    const size_t count = state.size() - BTKeyboard::SavedPacketBytes - 4;
+    u32 npending = 2;
     memcpy(&state[count], &npending, 4);
-    Grow(state, state.size(), 1999 * 4);
 
     BTKeyboard loaded;
     loaded.Reset();
@@ -333,6 +350,42 @@ void testAStateWithTooManyPacketsIsRejected()
     CHECK(!loaded.NextPacket(pkt));
 }
 
+// The input reports among pkts, from the report ID on.
+std::vector<std::vector<u8>> InputReports(const std::vector<std::vector<u8>>& pkts)
+{
+    std::vector<std::vector<u8>> reports;
+    for (const std::vector<u8>& pkt : pkts)
+        if (pkt.size() > 10 && pkt[0] == 0x02 && pkt[9] == 0xA1)
+            reports.emplace_back(pkt.begin() + 10, pkt.end());
+    return reports;
+}
+
+// The game reads key reports as they come. If it stops, the keyboard keeps no
+// more than a savestate can hold, and the newest report still says what's held.
+void testABacklogOfKeyReportsStillFitsASavestate()
+{
+    BTKeyboard kb;
+    kb.Reset();
+    Connect(kb);
+    Drain(kb);
+
+    for (int i = 0; i < 1000; i++)
+        kb.SetKey(0x04, i % 2 == 0);        // ends with A let go
+    kb.SetKey(0x05, true);                  // and B held
+
+    Savestate save(1024 * 1024);
+    save.Section("NDCS");
+    kb.DoSavestate(&save);
+    CHECK(!save.Error);
+
+    auto reports = InputReports(Drain(kb));
+    CHECK(!reports.empty());
+    if (reports.empty()) return;
+
+    static const u8 last[] = { 0x01, 0x00, 0x00, 0x05, 0x00, 0x00, 0x00, 0x00, 0x00 };
+    CHECK(reports.back() == std::vector<u8>(last, last + sizeof(last)));
+}
+
 }
 
 int runSavestateTests()
@@ -341,11 +394,14 @@ int runSavestateTests()
     testPendingPacketsComeBackInOrder();
     testARestoredKeyboardAnswersTheNextPacketIdentically();
     testAutoPairIsNotRestoredFromAState();
+    testTheStateSizeDoesNotDependOnTheLink();
+    testAQueueTooLongForAStateFailsTheSave();
     testEventsFrom14_0KeepTheirNumbers();
     testTheCartTimerSurvivesAConsoleRoundTrip();
     testAStateFrom14_0LoadsWithoutTheCartTimer();
     testAStateWithTooManyChannelsIsRejected();
     testAStateWithAnOversizedPacketIsRejected();
     testAStateWithTooManyPacketsIsRejected();
+    testABacklogOfKeyReportsStillFitsASavestate();
     return 0;
 }

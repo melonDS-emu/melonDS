@@ -45,6 +45,12 @@ public:
     /// rather than opening its own.
     void DoSavestate(Savestate* file);
 
+    // A savestate always holds this many channels and this many bytes of unread
+    // packets, since frontends like melonDS DS need every state of a game to be
+    // one size. The link never comes close to either.
+    static constexpr u32 MaxSavedChannels = 64;
+    static constexpr u32 SavedPacketBytes = 4096;
+
     /// Feed one HCI packet from the host.
     void HostPacket(const u8* data, u32 len);
 
@@ -157,6 +163,7 @@ private:
 
     void SetModifiers(u8 mods) noexcept;
     void SendInputReport(u8 id, const u8* data, u32 len) noexcept;
+    [[nodiscard]] u32 PendingBytes() const noexcept;
 
     std::vector<Channel> Channels;
     u16 NextLocalCID = 0;
