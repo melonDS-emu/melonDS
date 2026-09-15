@@ -27,17 +27,34 @@ namespace melonDS
 {
 class GLRenderer;
 
+// sprite prerender vertex data: 2x position, 1x sprite index
+constexpr int SpritePreVtxDataSize = (3 * 6) * 128;
+
+// sprite vertex data: 2x position, 2x texcoord, 1x index
+constexpr int SpriteVtxDataSize = (5 * 6) * 256;
+
 class GLRenderer2D : public Renderer2D
 {
 public:
     GLRenderer2D(melonDS::GPU2D& gpu2D, GLRenderer& parent);
-    ~GLRenderer2D() override;
+    ~GLRenderer2D() override = default;
     bool Init() override;
     void Reset() override;
 
-    bool InitShaders();
-    bool InitShaders(GLRenderer2D& other);
-    void DeleteShaders();
+    // OpenGL resources that are shared between the two 2D renderers.
+    struct SharedResources
+    {
+        OpenGL::ProgramHandle LayerPreShader;
+        GLint LayerPreCurBGULoc;
+        OpenGL::ProgramHandle SpritePreShader;
+        OpenGL::ProgramHandle SpriteShader;
+        GLint SpriteRenderTransULoc;
+        OpenGL::ProgramHandle CompositorShader;
+        GLint CompositorScaleULoc;
+        OpenGL::TextureHandle MosaicTex;
+    };
+
+    bool InitShaders(const SharedResources& shared);
 
     void PostSavestate();
 
@@ -55,25 +72,29 @@ private:
     int ScaleFactor;
     int ScreenW, ScreenH;
 
+    // Non-owning reference to the shared LayerPreShader
     GLuint LayerPreShader;
     GLint LayerPreCurBGULoc;
 
-    GLuint ScanlineConfigUBO;
-    GLuint SpriteScanlineConfigUBO;
+    OpenGL::BufferHandle ScanlineConfigUBO;
+    OpenGL::BufferHandle SpriteScanlineConfigUBO;
 
+    // Non-owning reference to the shared SpritePreShader
     GLuint SpritePreShader;
-    GLuint SpritePreVtxBuffer;
-    GLuint SpritePreVtxArray;
-    u16* SpritePreVtxData;
+    OpenGL::BufferHandle SpritePreVtxBuffer;
+    OpenGL::VertexArrayHandle SpritePreVtxArray;
+    std::array<u16, SpritePreVtxDataSize> SpritePreVtxData {};
 
+    // Non-owning reference to the shared SpriteShader
     GLuint SpriteShader;
     GLint SpriteRenderTransULoc;
-    GLuint SpriteVtxBuffer;
-    GLuint SpriteVtxArray;
-    u16* SpriteVtxData;
+    OpenGL::BufferHandle SpriteVtxBuffer;
+    OpenGL::VertexArrayHandle SpriteVtxArray;
+    std::array<u16, SpriteVtxDataSize> SpriteVtxData {};
 
+    // Non-owning reference to the shared CompositorShader
     GLuint CompositorShader;
-    GLuint CompositorConfigUBO;
+    OpenGL::BufferHandle CompositorConfigUBO;
     GLint CompositorScaleULoc;
 
     // base index for a BG layer within the BG texture arrays
@@ -85,31 +106,32 @@ private:
         {18, 19, 12, 16},   // large bitmap
     };
 
-    GLuint LayerConfigUBO;
-    GLuint SpriteConfigUBO;
+    OpenGL::BufferHandle LayerConfigUBO;
+    OpenGL::BufferHandle SpriteConfigUBO;
 
-    GLuint VRAMTex_BG;
-    GLuint VRAMTex_OBJ;
-    GLuint PalTex_BG;
-    GLuint PalTex_OBJ;
+    OpenGL::TextureHandle VRAMTex_BG;
+    OpenGL::TextureHandle VRAMTex_OBJ;
+    OpenGL::TextureHandle PalTex_BG;
+    OpenGL::TextureHandle PalTex_OBJ;
 
+    // Non-owning reference to the shared MosaicTex
     GLuint MosaicTex;
 
-    GLuint AllBGLayerFB[22];
-    GLuint AllBGLayerTex[22];
+    OpenGL::FramebufferHandles<22> AllBGLayerFB;
+    OpenGL::TextureHandles<22> AllBGLayerTex;
 
-    GLuint BGLayerFB[4];
-    GLuint BGLayerTex[4];
+    OpenGL::FramebufferHandles<4> BGLayerFB;
+    OpenGL::TextureHandles<4> BGLayerTex;
 
-    GLuint SpriteFB;
-    GLuint SpriteTex;
+    OpenGL::FramebufferHandle SpriteFB;
+    OpenGL::TextureHandle SpriteTex;
 
-    GLuint OBJLayerFB;
-    GLuint OBJLayerTex;
-    GLuint OBJDepthTex;
+    OpenGL::FramebufferHandle OBJLayerFB;
+    OpenGL::TextureHandle OBJLayerTex;
+    OpenGL::TextureHandle OBJDepthTex;
 
-    GLuint OutputFB;
-    GLuint OutputTex;
+    OpenGL::FramebufferHandle OutputFB;
+    OpenGL::TextureHandle OutputTex;
 
     // std140 compliant config struct for the layer shader
     struct sLayerConfig
