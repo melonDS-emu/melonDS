@@ -523,6 +523,22 @@ MainWindow::MainWindow(int id, EmuInstance* inst, QWidget* parent) :
 
                 submenu->addSeparator();
 
+                {
+                    emphasisRatioMenu = submenu->addMenu("Emphasis ratio");
+                    grpEmphasisRatio = new QActionGroup(emphasisRatioMenu);
+                    actEmphasisRatio = new QAction *[EmphasisRatiosNum];
+
+                    for (int i = 0; i < EmphasisRatiosNum; i++)
+                    {
+                        actEmphasisRatio[i] = emphasisRatioMenu->addAction(QString(emphasisRatios[i].label));
+                        actEmphasisRatio[i]->setActionGroup(grpEmphasisRatio);
+                        actEmphasisRatio[i]->setData(QVariant(emphasisRatios[i].ratio));
+                        actEmphasisRatio[i]->setCheckable(true);
+                    }
+
+                    connect(grpEmphasisRatio, &QActionGroup::triggered, this, &MainWindow::onChangeEmphasisRatio);
+                }
+
                 actIntegerScaling = submenu->addAction("Force integer scaling");
                 actIntegerScaling->setCheckable(true);
                 connect(actIntegerScaling, &QAction::triggered, this, &MainWindow::onChangeIntegerScaling);
@@ -713,7 +729,16 @@ MainWindow::MainWindow(int id, EmuInstance* inst, QWidget* parent) :
 
         actScreenLayout[windowCfg.GetInt("ScreenLayout")]->setChecked(true);
         actScreenSizing[windowCfg.GetInt("ScreenSizing")]->setChecked(true);
+
+        int emphasisRatio = windowCfg.GetInt("EmphasisRatio");
+        for (int i = 0; i < EmphasisRatiosNum; i++)
+        {
+            if (emphasisRatio == emphasisRatios[i].ratio)
+                actEmphasisRatio[i]->setChecked(true);
+        }
+
         actIntegerScaling->setChecked(windowCfg.GetBool("IntegerScaling"));
+        updateEmphasisRatioEnabled();
 
         actScreenSwap->setChecked(windowCfg.GetBool("ScreenSwap"));
 
@@ -760,6 +785,7 @@ MainWindow::~MainWindow()
 {
     if (hasMenu)
     {
+        delete[] actEmphasisRatio;
         delete[] actScreenAspectTop;
         delete[] actScreenAspectBot;
     }
@@ -2064,6 +2090,26 @@ void MainWindow::onChangeScreenSizing(QAction* act)
 {
     int sizing = act->data().toInt();
     windowCfg.SetInt("ScreenSizing", sizing);
+    updateEmphasisRatioEnabled();
+
+    emit screenLayoutChange();
+}
+
+// the ratio only means something when a screen is deliberately emphasized
+// Auto is left out, it switches modes on its own as the game runs
+void MainWindow::updateEmphasisRatioEnabled()
+{
+    int sizing = windowCfg.GetInt("ScreenSizing");
+    bool emphasized = (sizing == screenSizing_EmphTop
+                    || sizing == screenSizing_EmphBot);
+
+    emphasisRatioMenu->menuAction()->setEnabled(emphasized);
+    grpEmphasisRatio->setEnabled(emphasized);
+}
+
+void MainWindow::onChangeEmphasisRatio(QAction* act)
+{
+    windowCfg.SetInt("EmphasisRatio", act->data().toInt());
 
     emit screenLayoutChange();
 }
@@ -2195,6 +2241,7 @@ void MainWindow::onScreenEmphasisToggled()
     }
     windowCfg.SetInt("ScreenSizing", currentSizing);
     actScreenSizing[currentSizing]->setChecked(true);
+    updateEmphasisRatioEnabled();
 
     emit screenLayoutChange();
 }
