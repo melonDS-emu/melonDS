@@ -60,16 +60,16 @@ private:
     friend class GLRenderer3D;
     friend class ComputeRenderer3D;
 
-    bool IsCompute;
+    bool IsCompute {};
 
-    int ScaleFactor;
-    int ScreenW, ScreenH;
+    int ScaleFactor {};
+    int ScreenW {}, ScreenH {};
 
-    GLuint RectVtxBuffer;
-    GLuint RectVtxArray;
+    GLuint RectVtxBuffer {};
+    GLuint RectVtxArray {};
 
-    GLuint OutputTex3D;
-    GLuint OutputTex2D[2];
+    GLuint OutputTex3D {};
+    GLuint OutputTex2D[2] {};
 
     struct sFinalPassConfig
     {
@@ -84,22 +84,22 @@ private:
         u32 uBrightFactorB;
         float uAuxColorFactor;
         u32 __pad0[3];
-    } FinalPassConfig;
+    } FinalPassConfig {};
 
-    GLuint FPShader;
-    GLuint FPConfigUBO;
+    GLuint FPShader {};
+    GLuint FPConfigUBO {};
 
-    GLuint FPVertexBufferID;
-    GLuint FPVertexArrayID;
+    GLuint FPVertexBufferID {};
+    GLuint FPVertexArrayID {};
 
-    GLuint AuxInputTex;                 // aux input (VRAM and mainmem FIFO)
+    GLuint AuxInputTex {};                 // aux input (VRAM and mainmem FIFO)
 
     // texture/fb for display capture VRAM input
-    GLuint CaptureVRAMTex;
-    GLuint CaptureVRAMFB;
+    GLuint CaptureVRAMTex {};
+    GLuint CaptureVRAMFB {};
 
-    GLuint FPOutputTex[2];               // final output
-    GLuint FPOutputFB[2];
+    GLuint FPOutputTex[2] {};               // final output
+    GLuint FPOutputFB[2] {};
 
     struct sCaptureConfig
     {
@@ -112,36 +112,36 @@ private:
         float uSrcAOffset[192];
         float uSrcBColorFactor;
         u32 __pad0[3];
-    } CaptureConfig;
+    } CaptureConfig {};
 
-    GLuint CaptureShader;
-    GLuint CaptureConfigUBO;
+    GLuint CaptureShader {};
+    GLuint CaptureConfigUBO {};
 
-    GLuint CaptureVtxBuffer;
-    GLuint CaptureVtxArray;
+    GLuint CaptureVtxBuffer {};
+    GLuint CaptureVtxArray {};
 
-    GLuint CaptureOutput256FB[4];
-    GLuint CaptureOutput256Tex;
-    GLuint CaptureOutput128FB[16];
-    GLuint CaptureOutput128Tex;
+    GLuint CaptureOutput256FB[4] {};
+    GLuint CaptureOutput256Tex {};
+    GLuint CaptureOutput128FB[16] {};
+    GLuint CaptureOutput128Tex {};
 
-    GLuint CapDownShader;
-    GLint CapDownInputLayerULoc;
+    GLuint CapDownShader {};
+    GLint CapDownInputLayerULoc {};
 
-    GLuint CaptureSyncFB;
-    GLuint CaptureSyncTex;
+    GLuint CaptureSyncFB {};
+    GLuint CaptureSyncTex {};
 
-    u16* AuxInputBuffer[2];
-    u8 AuxUsageMask;
+    u16* AuxInputBuffer[2] {};
+    u8 AuxUsageMask {};
 
-    u32 DispCntA, DispCntB;
-    u16 MasterBrightnessA, MasterBrightnessB;
-    u32 CaptureCnt;
+    u32 DispCntA {}, DispCntB {};
+    u16 MasterBrightnessA {}, MasterBrightnessB {};
+    u32 CaptureCnt {};
 
-    bool NeedPartialRender;
-    int LastLine;
-    int LastCapLine;
-    int Aux0VRAMCap;
+    bool NeedPartialRender {};
+    int LastLine {};
+    int LastCapLine {};
+    int Aux0VRAMCap {};
 
     void SetScaleFactor(int scale);
 
