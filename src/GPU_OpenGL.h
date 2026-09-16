@@ -32,7 +32,7 @@ class GLRenderer : public Renderer
 {
 public:
     GLRenderer(melonDS::NDS& nds, bool compute);
-    ~GLRenderer() override;
+    ~GLRenderer() override = default;
     bool Init() override;
     void Reset() override;
     void Stop() override;
@@ -65,11 +65,13 @@ private:
     int ScaleFactor;
     int ScreenW, ScreenH;
 
-    GLuint RectVtxBuffer;
-    GLuint RectVtxArray;
+    OpenGL::BufferHandle RectVtxBuffer {};
+    OpenGL::VertexArrayHandle RectVtxArray {};
 
-    GLuint OutputTex3D;
-    GLuint OutputTex2D[2];
+    // Non-owning reference to the texture that'll be used for 3D output
+    // (only one of the DS's screens can use the 3D GPU at once)
+    GLuint OutputTex3D {};
+    OpenGL::TextureHandles<2> OutputTex2D {};
 
     struct sFinalPassConfig
     {
@@ -86,20 +88,23 @@ private:
         u32 __pad0[3];
     } FinalPassConfig;
 
-    GLuint FPShader;
-    GLuint FPConfigUBO;
+    // Owned handles to the shaders/textures that both 2D renderers use.
+    GLRenderer2D::SharedResources Renderer2DResources;
 
-    GLuint FPVertexBufferID;
-    GLuint FPVertexArrayID;
+    OpenGL::ProgramHandle FPShader {};
+    OpenGL::BufferHandle FPConfigUBO {};
 
-    GLuint AuxInputTex;                 // aux input (VRAM and mainmem FIFO)
+    OpenGL::BufferHandle FPVertexBufferID {};
+    OpenGL::VertexArrayHandle FPVertexArrayID {};
+
+    OpenGL::TextureHandle AuxInputTex {};                 // aux input (VRAM and mainmem FIFO)
 
     // texture/fb for display capture VRAM input
-    GLuint CaptureVRAMTex;
-    GLuint CaptureVRAMFB;
+    OpenGL::TextureHandle CaptureVRAMTex {};
+    OpenGL::FramebufferHandle CaptureVRAMFB {};
 
-    GLuint FPOutputTex[2];               // final output
-    GLuint FPOutputFB[2];
+    OpenGL::TextureHandles<2> FPOutputTex {};               // final output
+    OpenGL::FramebufferHandles<2> FPOutputFB {};
 
     struct sCaptureConfig
     {
@@ -114,24 +119,25 @@ private:
         u32 __pad0[3];
     } CaptureConfig;
 
-    GLuint CaptureShader;
-    GLuint CaptureConfigUBO;
+    OpenGL::ProgramHandle CaptureShader {};
+    OpenGL::BufferHandle CaptureConfigUBO {};
 
-    GLuint CaptureVtxBuffer;
-    GLuint CaptureVtxArray;
+    OpenGL::BufferHandle CaptureVtxBuffer {};
+    OpenGL::VertexArrayHandle CaptureVtxArray {};
 
-    GLuint CaptureOutput256FB[4];
-    GLuint CaptureOutput256Tex;
-    GLuint CaptureOutput128FB[16];
-    GLuint CaptureOutput128Tex;
+    OpenGL::FramebufferHandles<4> CaptureOutput256FB {};
+    OpenGL::TextureHandle CaptureOutput256Tex {};
+    OpenGL::FramebufferHandles<16> CaptureOutput128FB {};
+    OpenGL::TextureHandle CaptureOutput128Tex {};
 
-    GLuint CapDownShader;
+    OpenGL::ProgramHandle CapDownShader {};
     GLint CapDownInputLayerULoc;
 
-    GLuint CaptureSyncFB;
-    GLuint CaptureSyncTex;
+    OpenGL::FramebufferHandle CaptureSyncFB {};
+    OpenGL::TextureHandle CaptureSyncTex {};
 
-    u16* AuxInputBuffer[2];
+    std::array<u16, 256 * 256> AuxInputBufferA {};
+    std::array<u16, 256 * 192> AuxInputBufferB {};
     u8 AuxUsageMask;
 
     u32 DispCntA, DispCntB;
