@@ -33,6 +33,7 @@
 #include "glad/glad.h"
 #include "ScreenLayout.h"
 #include "duckstation/gl/context.h"
+#include "OpenGLSupport.h"
 
 
 class MainWindow;
@@ -219,9 +220,10 @@ private:
     std::unique_ptr<GL::Context> glContext;
     bool glInited;
 
-    GLuint screenVertexBuffer, screenVertexArray;
-    GLuint screenTexture;
-    GLuint screenShaderProgram;
+    melonDS::OpenGL::BufferHandle screenVertexBuffer;
+    melonDS::OpenGL::VertexArrayHandle screenVertexArray;
+    melonDS::OpenGL::TextureHandle screenTexture;
+    melonDS::OpenGL::ProgramHandle screenShaderProgram;
     GLint screenShaderTransformULoc, screenShaderScreenSizeULoc;
 
     QMutex screenSettingsLock;
@@ -229,15 +231,15 @@ private:
 
     int lastScreenWidth = -1, lastScreenHeight = -1;
 
-    GLuint osdShader;
+    melonDS::OpenGL::ProgramHandle osdShader;
     GLint osdScreenSizeULoc, osdPosULoc, osdSizeULoc;
     GLint osdScaleFactorULoc;
     GLint osdTexScaleULoc;
-    GLuint osdVertexArray;
-    GLuint osdVertexBuffer;
-    std::map<unsigned int, GLuint> osdTextures;
+    melonDS::OpenGL::VertexArrayHandle osdVertexArray;
+    melonDS::OpenGL::BufferHandle osdVertexBuffer;
+    std::map<unsigned int, melonDS::OpenGL::TextureHandle> osdTextures;
 
-    GLuint logoTexture;
+    melonDS::OpenGL::TextureHandle logoTexture;
 
     void osdRenderItem(OSDItem* item) override;
     void osdDeleteItem(OSDItem* item) override;
