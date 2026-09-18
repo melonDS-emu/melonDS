@@ -55,30 +55,30 @@ public:
 private:
     GLRenderer& Parent;
 
-    GLuint ShaderInterpXSpans[2];
-    GLuint ShaderBinCombined;
-    GLuint ShaderDepthBlend[2];
-    GLuint ShaderRasteriseNoTexture[2];
-    GLuint ShaderRasteriseNoTextureToon[2];
-    GLuint ShaderRasteriseNoTextureHighlight[2];
-    GLuint ShaderRasteriseUseTextureDecal[2];
-    GLuint ShaderRasteriseUseTextureModulate[2];
-    GLuint ShaderRasteriseUseTextureToon[2];
-    GLuint ShaderRasteriseUseTextureHighlight[2];
-    GLuint ShaderRasteriseShadowMask[2];
-    GLuint ShaderClearCoarseBinMask;
-    GLuint ShaderClearIndirectWorkCount;
-    GLuint ShaderCalculateWorkListOffset;
-    GLuint ShaderSortWork;
-    GLuint ShaderFinalPass[8];
+    OpenGL::ProgramHandle ShaderInterpXSpans[2] {};
+    OpenGL::ProgramHandle ShaderBinCombined {};
+    OpenGL::ProgramHandle ShaderDepthBlend[2] {};
+    OpenGL::ProgramHandle ShaderRasteriseNoTexture[2] {};
+    OpenGL::ProgramHandle ShaderRasteriseNoTextureToon[2] {};
+    OpenGL::ProgramHandle ShaderRasteriseNoTextureHighlight[2] {};
+    OpenGL::ProgramHandle ShaderRasteriseUseTextureDecal[2] {};
+    OpenGL::ProgramHandle ShaderRasteriseUseTextureModulate[2] {};
+    OpenGL::ProgramHandle ShaderRasteriseUseTextureToon[2] {};
+    OpenGL::ProgramHandle ShaderRasteriseUseTextureHighlight[2] {};
+    OpenGL::ProgramHandle ShaderRasteriseShadowMask[2] {};
+    OpenGL::ProgramHandle ShaderClearCoarseBinMask {};
+    OpenGL::ProgramHandle ShaderClearIndirectWorkCount {};
+    OpenGL::ProgramHandle ShaderCalculateWorkListOffset {};
+    OpenGL::ProgramHandle ShaderSortWork {};
+    OpenGL::ProgramHandle ShaderFinalPass[8] {};
 
-    GLuint YSpanIndicesTextureMemory;
-    GLuint YSpanIndicesTexture;
-    GLuint YSpanSetupMemory;
-    GLuint XSpanSetupMemory;
-    GLuint BinResultMemory;
-    GLuint RenderPolygonMemory;
-    GLuint WorkDescMemory;
+    OpenGL::BufferHandle YSpanIndicesTextureMemory {};
+    OpenGL::TextureHandle YSpanIndicesTexture {};
+    OpenGL::BufferHandle YSpanSetupMemory {};
+    OpenGL::BufferHandle XSpanSetupMemory {};
+    OpenGL::BufferHandle BinResultMemory {};
+    OpenGL::BufferHandle RenderPolygonMemory {};
+    OpenGL::BufferHandle WorkDescMemory {};
 
     enum
     {
@@ -88,8 +88,8 @@ private:
         tilememoryLayer_Num,
     };
 
-    GLuint TileMemory[tilememoryLayer_Num];
-    GLuint FinalTileMemory;
+    OpenGL::BufferHandles<tilememoryLayer_Num> TileMemory {};
+    OpenGL::BufferHandle FinalTileMemory {};
 
     struct SpanSetupY
     {
@@ -180,7 +180,7 @@ private:
         u32 SortWorkWorkCount[4];
     };
 
-    static const int MaxYSpanSetups = 6144*2;
+    static constexpr int MaxYSpanSetups = 6144*2;
     std::vector<SetupIndices> YSpanIndices;
     SpanSetupY YSpanSetups[MaxYSpanSetups];
     RenderPolygon RenderPolygons[2048];
@@ -203,15 +203,15 @@ private:
 
         float ClearBitmapOffset[2];
     };
-    GLuint MetaUniformMemory;
+    OpenGL::BufferHandle MetaUniformMemory {};
 
-    GLuint Samplers[9];
+    OpenGL::SamplerHandles<9> Samplers {};
 
-    GLuint ClearBitmapTex[2];
-    u32* ClearBitmap[2];
+    OpenGL::TextureHandles<2> ClearBitmapTex {};
+    std::array<std::array<u32, 256*256>, 2> ClearBitmap {};
     u8 ClearBitmapDirty;
 
-    GLuint Framebuffer = 0;
+    OpenGL::TextureHandle Framebuffer {};
 
     int ScreenWidth, ScreenHeight;
     int TilesPerLine, TileLines;
@@ -227,7 +227,7 @@ private:
     void SetupYSpan(RenderPolygon* rp, SpanSetupY* span, Polygon* poly, int from, int to, int side, s32 positions[10][2]);
     void SetupYSpanDummy(RenderPolygon* rp, SpanSetupY* span, Polygon* poly, int vertex, int side, s32 positions[10][2]);
 
-    bool CompileShader(GLuint& shader, const std::string& source, const std::initializer_list<const char*>& defines);
+    OpenGL::ProgramHandle CompileShader(const std::string& source, const std::initializer_list<const char*>& defines);
 };
 
 }

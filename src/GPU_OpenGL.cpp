@@ -31,19 +31,43 @@ using Platform::LogLevel;
 #include "OpenGL_shaders/CaptureFS.h"
 #include "OpenGL_shaders/CaptureDownscaleVS.h"
 #include "OpenGL_shaders/CaptureDownscaleFS.h"
+#include "OpenGL_shaders/2DLayerPreVS.h"
+#include "OpenGL_shaders/2DLayerPreFS.h"
+#include "OpenGL_shaders/2DSpritePreVS.h"
+#include "OpenGL_shaders/2DSpritePreFS.h"
+#include "OpenGL_shaders/2DSpriteVS.h"
+#include "OpenGL_shaders/2DSpriteFS.h"
+#include "OpenGL_shaders/2DCompositorVS.h"
+#include "OpenGL_shaders/2DCompositorFS.h"
 
+constexpr std::array<u8, 256*16> Generate2DMosaicTexture() noexcept
+{
+    std::array<u8, 256*16> mosaic_tex {};
+
+    for (int m = 0; m < 16; m++)
+    {
+        int mosx = 0;
+        for (int x = 0; x < 256; x++)
+        {
+            mosaic_tex[(m * 256) + x] = mosx;
+
+            if (mosx == m)
+                mosx = 0;
+            else
+                mosx++;
+        }
+    }
+
+    return mosaic_tex;
+}
 
 GLRenderer::GLRenderer(melonDS::NDS& nds, bool compute)
-    : Renderer(nds.GPU)
+    : Renderer(nds.GPU), IsCompute(compute)
 {
-    AuxInputBuffer[0] = new u16[256 * 256];
-    AuxInputBuffer[1] = new u16[256 * 192];
-
     Rend2D_A = std::make_unique<GLRenderer2D>(GPU.GPU2D_A, *this);
     Rend2D_B = std::make_unique<GLRenderer2D>(GPU.GPU2D_B, *this);
 
     // TODO, eventually: figure out a nicer way to support different 3D renderers?
-    IsCompute = compute;
     if (IsCompute)
         Rend3D = std::make_unique<ComputeRenderer3D>(GPU.GPU3D, *this);
     else
@@ -66,25 +90,31 @@ bool GLRenderer::Init()
 
     // compile shaders
 
-    if (!OpenGL::CompileVertexFragmentProgram(FPShader,
-                                              kFinalPassVS, kFinalPassFS,
-                                              "2DFinalPassShader",
-                                              {{"vPosition", 0}},
-                                              {{"oTopColor", 0}, {"oBottomColor", 1}}))
+    FPShader = OpenGL::CompileVertexFragmentProgram(
+        kFinalPassVS, kFinalPassFS,
+        "2DFinalPassShader",
+        {{"vPosition", 0}},
+        {{"oTopColor", 0}, {"oBottomColor", 1}}
+    );
+    if (!FPShader)
         return false;
 
-    if (!OpenGL::CompileVertexFragmentProgram(CaptureShader,
-                                              kCaptureVS, kCaptureFS,
-                                              "2DCaptureShader",
-                                              {{"vPosition", 0}, {"vTexcoord", 1}},
-                                              {{"oColor", 0}}))
+    CaptureShader = OpenGL::CompileVertexFragmentProgram(
+        kCaptureVS, kCaptureFS,
+        "2DCaptureShader",
+        {{"vPosition", 0}, {"vTexcoord", 1}},
+        {{"oColor", 0}}
+    );
+    if (!CaptureShader)
         return false;
 
-    if (!OpenGL::CompileVertexFragmentProgram(CapDownShader,
-                                              kCaptureDownscaleVS, kCaptureDownscaleFS,
-                                              "2DCaptureDownscaleShader",
-                                              {{"vPosition", 0}},
-                                              {{"oColor", 0}}))
+    CapDownShader = OpenGL::CompileVertexFragmentProgram(
+        kCaptureDownscaleVS, kCaptureDownscaleFS,
+        "2DCaptureDownscaleShader",
+        {{"vPosition", 0}},
+        {{"oColor", 0}}
+    );
+    if (!CapDownShader)
         return false;
 
     // vertex buffers
@@ -94,11 +124,11 @@ bool GLRenderer::Init()
             0, 1,   0, 0,   1, 0
     };
 
-    glGenBuffers(1, &RectVtxBuffer);
+    RectVtxBuffer = OpenGL::GenerateNow;
     glBindBuffer(GL_ARRAY_BUFFER, RectVtxBuffer);
     glBufferData(GL_ARRAY_BUFFER, sizeof(rectvertices), rectvertices, GL_STATIC_DRAW);
 
-    glGenVertexArrays(1, &RectVtxArray);
+    RectVtxArray = OpenGL::GenerateNow;
     glBindVertexArray(RectVtxArray);
     glEnableVertexAttribArray(0); // position
     glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, 2 * sizeof(float), (void*)0);
@@ -118,23 +148,23 @@ bool GLRenderer::Init()
 #undef SETVERTEX
 
     // final pass vertex data: 2x position, 2x texcoord
-    glGenBuffers(1, &FPVertexBufferID);
+    FPVertexBufferID = OpenGL::GenerateNow;
     glBindBuffer(GL_ARRAY_BUFFER, FPVertexBufferID);
     glBufferData(GL_ARRAY_BUFFER, sizeof(vertices), &vertices[0], GL_STATIC_DRAW);
 
-    glGenVertexArrays(1, &FPVertexArrayID);
+    FPVertexArrayID = OpenGL::GenerateNow;
     glBindVertexArray(FPVertexArrayID);
     glEnableVertexAttribArray(0); // position
     glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, 2 * sizeof(float), (void*)0);
 
-    glGenFramebuffers(2, &FPOutputFB[0]);
+    FPOutputFB = OpenGL::GenerateNow;
 
     // capture vertex data: 2x position, 2x texcoord
-    glGenBuffers(1, &CaptureVtxBuffer);
+    CaptureVtxBuffer = OpenGL::GenerateNow;
     glBindBuffer(GL_ARRAY_BUFFER, CaptureVtxBuffer);
     glBufferData(GL_ARRAY_BUFFER, 2 * 6 * 4 * sizeof(u16), nullptr, GL_STREAM_DRAW);
 
-    glGenVertexArrays(1, &CaptureVtxArray);
+    CaptureVtxArray = OpenGL::GenerateNow;
     glBindVertexArray(CaptureVtxArray);
     glEnableVertexAttribArray(0); // position
     glVertexAttribIPointer(0, 2, GL_SHORT, 4 * sizeof(u16), (void*)0);
@@ -143,39 +173,39 @@ bool GLRenderer::Init()
 
     // textures / framebuffers
 
-    glGenTextures(1, &AuxInputTex);
+    AuxInputTex = OpenGL::GenerateNow;
     glBindTexture(GL_TEXTURE_2D_ARRAY, AuxInputTex);
     glTexParams(GL_TEXTURE_2D_ARRAY, GL_REPEAT);
     glTexImage3D(GL_TEXTURE_2D_ARRAY, 0, GL_RGB5_A1, 256, 256, 2, 0, GL_RGBA, GL_UNSIGNED_SHORT_1_5_5_5_REV, nullptr);
 
-    glGenTextures(1, &CaptureVRAMTex);
+    CaptureVRAMTex = OpenGL::GenerateNow;
     glBindTexture(GL_TEXTURE_2D_ARRAY, CaptureVRAMTex);
     glTexParams(GL_TEXTURE_2D_ARRAY, GL_REPEAT);
-    glGenFramebuffers(1, &CaptureVRAMFB);
+    CaptureVRAMFB = OpenGL::GenerateNow;
 
-    glGenTextures(2, FPOutputTex);
+    FPOutputTex = OpenGL::GenerateNow;
     for (int i = 0; i < 2; i++)
     {
         glBindTexture(GL_TEXTURE_2D_ARRAY, FPOutputTex[i]);
         glTexParams(GL_TEXTURE_2D_ARRAY, GL_CLAMP_TO_EDGE);
     }
 
-    glGenTextures(1, &CaptureOutput256Tex);
+    CaptureOutput256Tex = OpenGL::GenerateNow;
     glBindTexture(GL_TEXTURE_2D_ARRAY, CaptureOutput256Tex);
     glTexParams(GL_TEXTURE_2D_ARRAY, GL_REPEAT);
-    glGenFramebuffers(4, CaptureOutput256FB);
+    CaptureOutput256FB = OpenGL::GenerateNow;
 
-    glGenTextures(1, &CaptureOutput128Tex);
+    CaptureOutput128Tex = OpenGL::GenerateNow;
     glBindTexture(GL_TEXTURE_2D_ARRAY, CaptureOutput128Tex);
     glTexParams(GL_TEXTURE_2D_ARRAY, GL_REPEAT);
-    glGenFramebuffers(16, CaptureOutput128FB);
+    CaptureOutput128FB = OpenGL::GenerateNow;
 
-    glGenTextures(1, &CaptureSyncTex);
+    CaptureSyncTex = OpenGL::GenerateNow;
     glBindTexture(GL_TEXTURE_2D, CaptureSyncTex);
     glTexParams(GL_TEXTURE_2D, GL_CLAMP_TO_EDGE);
     glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB5_A1, 256, 256, 0, GL_RGBA, GL_UNSIGNED_SHORT_1_5_5_5_REV, nullptr);
 
-    glGenFramebuffers(1, &CaptureSyncFB);
+    CaptureSyncFB = OpenGL::GenerateNow;
     glBindFramebuffer(GL_FRAMEBUFFER, CaptureSyncFB);
     glFramebufferTexture(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, CaptureSyncTex, 0);
     glDrawBuffer(GL_COLOR_ATTACHMENT0);
@@ -183,13 +213,13 @@ bool GLRenderer::Init()
 
     // UBOs
 
-    glGenBuffers(1, &FPConfigUBO);
+    FPConfigUBO = OpenGL::GenerateNow;
     glBindBuffer(GL_UNIFORM_BUFFER, FPConfigUBO);
     static_assert((sizeof(sFinalPassConfig) & 15) == 0);
     glBufferData(GL_UNIFORM_BUFFER, sizeof(sFinalPassConfig), nullptr, GL_STREAM_DRAW);
     glBindBufferBase(GL_UNIFORM_BUFFER, 30, FPConfigUBO);
 
-    glGenBuffers(1, &CaptureConfigUBO);
+    CaptureConfigUBO = OpenGL::GenerateNow;
     glBindBuffer(GL_UNIFORM_BUFFER, CaptureConfigUBO);
     static_assert((sizeof(sCaptureConfig) & 15) == 0);
     glBufferData(GL_UNIFORM_BUFFER, sizeof(sCaptureConfig), nullptr, GL_STREAM_DRAW);
@@ -228,11 +258,122 @@ bool GLRenderer::Init()
 
     CapDownInputLayerULoc = glGetUniformLocation(CapDownShader, "uInputLayer");
 
+    Renderer2DResources.LayerPreShader = OpenGL::CompileVertexFragmentProgram(
+        k2DLayerPreVS, k2DLayerPreFS,
+        "2DLayerPreShader",
+        {{"vPosition", 0}},
+        {{"oColor", 0}}
+    );
+    if (!Renderer2DResources.LayerPreShader)
+        return false;
+
+    Renderer2DResources.SpritePreShader = OpenGL::CompileVertexFragmentProgram(
+        k2DSpritePreVS, k2DSpritePreFS,
+        "2DSpritePreShader",
+        {{"vPosition", 0}, {"vSpriteIndex", 1}},
+        {{"oColor", 0}}
+    );
+    if (!Renderer2DResources.SpritePreShader)
+        return false;
+
+    Renderer2DResources.SpriteShader = OpenGL::CompileVertexFragmentProgram(
+        k2DSpriteVS, k2DSpriteFS,
+        "2DSpriteShader",
+        {{"vPosition", 0}, {"vTexcoord", 1}, {"vSpriteIndex", 2}},
+        {{"oColor", 0}, {"oFlags", 1}}
+    );
+    if (!Renderer2DResources.SpriteShader)
+        return false;
+
+    Renderer2DResources.CompositorShader = OpenGL::CompileVertexFragmentProgram(
+        k2DCompositorVS, k2DCompositorFS,
+        "2DCompositorShader",
+        {{"vPosition", 0}},
+        {{"oColor", 0}}
+    );
+    if (!Renderer2DResources.CompositorShader)
+        return false;
+
+    // set up shared shader uniforms
+    Renderer2DResources.CompositorScaleULoc = glGetUniformLocation(Renderer2DResources.CompositorShader, "uScaleFactor");
+    glUseProgram(Renderer2DResources.LayerPreShader);
+
+    uniloc = glGetUniformLocation(Renderer2DResources.LayerPreShader, "VRAMTex");
+    glUniform1i(uniloc, 0);
+    uniloc = glGetUniformLocation(Renderer2DResources.LayerPreShader, "PalTex");
+    glUniform1i(uniloc, 1);
+
+    uniloc = glGetUniformBlockIndex(Renderer2DResources.LayerPreShader, "ubBGConfig");
+    glUniformBlockBinding(Renderer2DResources.LayerPreShader, uniloc, 20);
+
+    Renderer2DResources.LayerPreCurBGULoc = glGetUniformLocation(Renderer2DResources.LayerPreShader, "uCurBG");
+
+
+    glUseProgram(Renderer2DResources.SpritePreShader);
+
+    uniloc = glGetUniformLocation(Renderer2DResources.SpritePreShader, "VRAMTex");
+    glUniform1i(uniloc, 0);
+    uniloc = glGetUniformLocation(Renderer2DResources.SpritePreShader, "PalTex");
+    glUniform1i(uniloc, 1);
+
+    uniloc = glGetUniformBlockIndex(Renderer2DResources.SpritePreShader, "ubSpriteConfig");
+    glUniformBlockBinding(Renderer2DResources.SpritePreShader, uniloc, 21);
+
+
+    glUseProgram(Renderer2DResources.SpriteShader);
+
+    uniloc = glGetUniformLocation(Renderer2DResources.SpriteShader, "SpriteTex");
+    glUniform1i(uniloc, 0);
+    uniloc = glGetUniformLocation(Renderer2DResources.SpriteShader, "Capture128Tex");
+    glUniform1i(uniloc, 1);
+    uniloc = glGetUniformLocation(Renderer2DResources.SpriteShader, "Capture256Tex");
+    glUniform1i(uniloc, 2);
+
+    uniloc = glGetUniformBlockIndex(Renderer2DResources.SpriteShader, "ubSpriteConfig");
+    glUniformBlockBinding(Renderer2DResources.SpriteShader, uniloc, 21);
+    uniloc = glGetUniformBlockIndex(Renderer2DResources.SpriteShader, "ubSpriteScanlineConfig");
+    glUniformBlockBinding(Renderer2DResources.SpriteShader, uniloc, 24);
+
+    Renderer2DResources.SpriteRenderTransULoc = glGetUniformLocation(Renderer2DResources.SpriteShader, "uRenderTransparent");
+
+    glUseProgram(Renderer2DResources.CompositorShader);
+
+    uniloc = glGetUniformLocation(Renderer2DResources.CompositorShader, "BGLayerTex[0]");
+    glUniform1i(uniloc, 0);
+    uniloc = glGetUniformLocation(Renderer2DResources.CompositorShader, "BGLayerTex[1]");
+    glUniform1i(uniloc, 1);
+    uniloc = glGetUniformLocation(Renderer2DResources.CompositorShader, "BGLayerTex[2]");
+    glUniform1i(uniloc, 2);
+    uniloc = glGetUniformLocation(Renderer2DResources.CompositorShader, "BGLayerTex[3]");
+    glUniform1i(uniloc, 3);
+    uniloc = glGetUniformLocation(Renderer2DResources.CompositorShader, "OBJLayerTex");
+    glUniform1i(uniloc, 4);
+    uniloc = glGetUniformLocation(Renderer2DResources.CompositorShader, "Capture128Tex");
+    glUniform1i(uniloc, 5);
+    uniloc = glGetUniformLocation(Renderer2DResources.CompositorShader, "Capture256Tex");
+    glUniform1i(uniloc, 6);
+    uniloc = glGetUniformLocation(Renderer2DResources.CompositorShader, "MosaicTex");
+    glUniform1i(uniloc, 7);
+
+    uniloc = glGetUniformBlockIndex(Renderer2DResources.CompositorShader, "ubBGConfig");
+    glUniformBlockBinding(Renderer2DResources.CompositorShader, uniloc, 20);
+    uniloc = glGetUniformBlockIndex(Renderer2DResources.CompositorShader, "ubScanlineConfig");
+    glUniformBlockBinding(Renderer2DResources.CompositorShader, uniloc, 22);
+    uniloc = glGetUniformBlockIndex(Renderer2DResources.CompositorShader, "ubCompositorConfig");
+    glUniformBlockBinding(Renderer2DResources.CompositorShader, uniloc, 23);
+
+    // generate mosaic lookup texture
+    std::array<u8, 256*16> mosaic_tex = Generate2DMosaicTexture();
+    Renderer2DResources.MosaicTex = OpenGL::GenerateNow;
+    glBindTexture(GL_TEXTURE_2D, Renderer2DResources.MosaicTex);
+    glTexParams(GL_TEXTURE_2D, GL_CLAMP_TO_EDGE);
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_R8I, 256, 16, 0, GL_RED_INTEGER, GL_BYTE, mosaic_tex.data());
+
 
     auto rend2DA = dynamic_cast<GLRenderer2D*>(Rend2D_A.get());
-    if (!rend2DA->InitShaders()) return false;
+    if (!rend2DA->InitShaders(Renderer2DResources)) return false;
     auto rend2DB = dynamic_cast<GLRenderer2D*>(Rend2D_B.get());
-    if (!rend2DB->InitShaders(*rend2DA)) return false;
+    if (!rend2DB->InitShaders(Renderer2DResources)) return false;
 
     if (!Rend2D_A->Init()) return false;
     if (!Rend2D_B->Init()) return false;
@@ -240,43 +381,6 @@ bool GLRenderer::Init()
 
     glBindFramebuffer(GL_FRAMEBUFFER, 0);
     return true;
-}
-
-GLRenderer::~GLRenderer()
-{
-    glDeleteProgram(FPShader);
-    glDeleteProgram(CaptureShader);
-    glDeleteProgram(CapDownShader);
-
-    glDeleteBuffers(1, &RectVtxBuffer);
-    glDeleteVertexArrays(1, &RectVtxArray);
-
-    glDeleteBuffers(1, &FPVertexBufferID);
-    glDeleteVertexArrays(1, &FPVertexArrayID);
-
-    glDeleteBuffers(1, &CaptureVtxBuffer);
-    glDeleteVertexArrays(1, &CaptureVtxArray);
-
-    glDeleteFramebuffers(2, FPOutputFB);
-    glDeleteTextures(1, &AuxInputTex);
-    glDeleteTextures(1, &CaptureVRAMTex);
-    glDeleteTextures(2, FPOutputTex);
-
-    delete[] AuxInputBuffer[0];
-    delete[] AuxInputBuffer[1];
-
-    glDeleteTextures(1, &CaptureOutput256Tex);
-    glDeleteFramebuffers(4, CaptureOutput256FB);
-    glDeleteTextures(1, &CaptureOutput128Tex);
-    glDeleteFramebuffers(16, CaptureOutput128FB);
-    glDeleteTextures(1, &CaptureSyncTex);
-    glDeleteFramebuffers(1, &CaptureSyncFB);
-
-    glDeleteBuffers(1, &FPConfigUBO);
-    glDeleteBuffers(1, &CaptureConfigUBO);
-
-    auto rend2D = dynamic_cast<GLRenderer2D*>(Rend2D_A.get());
-    rend2D->DeleteShaders();
 }
 
 void GLRenderer::Reset()
@@ -480,7 +584,7 @@ void GLRenderer::DrawScanline(u32 line)
         vramoffset &= 0xFFFF;
         outoffset &= 0xFFFF;
 
-        u16* adst = &AuxInputBuffer[0][outoffset];
+        u16* adst = &AuxInputBufferA[outoffset];
 
         if (GPU.VRAMMap_LCDC & (1<<vrambank))
         {
@@ -505,7 +609,7 @@ void GLRenderer::DrawScanline(u32 line)
     {
         AuxUsageMask |= (1<<1);
 
-        u16* adst = &AuxInputBuffer[1][line * 256];
+        u16* adst = &AuxInputBufferB[line * 256];
         for (int i = 0; i < 256; i++)
         {
             adst[i] = GPU.DispFIFOBuffer[i];
@@ -571,12 +675,12 @@ void GLRenderer::RenderScreen(int ystart, int yend)
             if ((AuxUsageMask & (1<<0)) && (vramcap == -1))
             {
                 glTexSubImage3D(GL_TEXTURE_2D_ARRAY, 0, 0, 0, 0, 256, 256, 1, GL_RGBA,
-                                GL_UNSIGNED_SHORT_1_5_5_5_REV, AuxInputBuffer[0]);
+                                GL_UNSIGNED_SHORT_1_5_5_5_REV, AuxInputBufferA.data());
             }
             if (AuxUsageMask & (1<<1))
             {
                 glTexSubImage3D(GL_TEXTURE_2D_ARRAY, 0, 0, 0, 1, 256, 192, 1, GL_RGBA,
-                                GL_UNSIGNED_SHORT_1_5_5_5_REV, AuxInputBuffer[1]);
+                                GL_UNSIGNED_SHORT_1_5_5_5_REV, AuxInputBufferB.data());
             }
         }
 

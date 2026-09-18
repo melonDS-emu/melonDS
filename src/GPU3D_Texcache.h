@@ -40,7 +40,7 @@ void ConvertAXIYTexture(u32 width, u32 height, u32* output, u32 addr, u32 palAdd
 template <int outputFmt, int colorBits>
 void ConvertNColorsTexture(u32 width, u32 height, u32* output, u32 addr, u32 palAddr, bool color0Transparent, GPU& gpu);
 
-template <typename TexLoaderT, typename TexHandleT>
+template <typename TexLoaderT, typename TexHandleT, typename OwningTexHandleT = TexHandleT>
 class Texcache
 {
 public:
@@ -77,7 +77,7 @@ public:
     {
         u32 startBit = start / VRAMDirtyGranularity;
         u32 bitsCount = ((start + size + VRAMDirtyGranularity - 1) / VRAMDirtyGranularity) - startBit;
-    
+
         u32 startEntry = startBit >> 6;
         u64 entriesCount = ((startBit + bitsCount + 0x3F) >> 6) - startEntry;
         for (u32 j = startEntry; j < startEntry + entriesCount; j++)
@@ -275,7 +275,7 @@ public:
         if (freeTextures.size() == 0)
         {
             texArrays.resize(texArrays.size()+1);
-            TexHandleT& array = texArrays[texArrays.size()-1];
+            OwningTexHandleT& array = texArrays[texArrays.size()-1];
 
             u32 layers = std::min<u32>((8*1024*1024) / (width*height*4), 64);
 
@@ -308,8 +308,6 @@ public:
         {
             for (u32 j = 0; j < 8; j++)
             {
-                for (u32 k = 0; k < TexArrays[i][j].size(); k++)
-                    TexLoader.DeleteTexture(TexArrays[i][j][k]);
                 TexArrays[i][j].clear();
                 FreeTextures[i][j].clear();
             }
@@ -343,7 +341,7 @@ private:
     TexLoaderT TexLoader;
 
     std::vector<TexArrayEntry> FreeTextures[8][8];
-    std::vector<TexHandleT> TexArrays[8][8];
+    std::vector<OwningTexHandleT> TexArrays[8][8];
 
     u32 DecodingBuffer[1024*1024];
 };

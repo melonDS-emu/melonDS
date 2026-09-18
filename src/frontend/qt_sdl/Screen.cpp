@@ -83,7 +83,7 @@ ScreenPanel::ScreenPanel(QWidget* parent) : QWidget(parent)
 
     osdEnabled = false;
     osdID = 1;
-    
+
     loadConfig();
     setFilter(mainWindow->getWindowConfig().GetBool("ScreenFilter"));
 
@@ -120,7 +120,7 @@ ScreenPanel::~ScreenPanel()
 void ScreenPanel::loadConfig()
 {
     auto& cfg = mainWindow->getWindowConfig();
-    
+
     screenRotation = cfg.GetInt("ScreenRotation");
     screenGap = cfg.GetInt("ScreenGap");
     screenLayout = cfg.GetInt("ScreenLayout");
@@ -803,7 +803,7 @@ void ScreenPanelNative::paintEvent(QPaintEvent* event)
     painter.fillRect(event->rect(), QColor::fromRgb(0, 0, 0));
 
     auto emuThread = emuInstance->getEmuThread();
-    
+
     if (emuThread->emuIsActive())
     {
         emuInstance->renderLock.lock();
@@ -923,7 +923,7 @@ void ScreenPanelGL::initOpenGL()
 
     glContext->MakeCurrent();
 
-    OpenGL::CompileVertexFragmentProgram(screenShaderProgram,
+    screenShaderProgram = OpenGL::CompileVertexFragmentProgram(
                                          kScreenVS, kScreenFS,
                                          "ScreenShader",
                                          {{"vPosition", 0}, {"vTexcoord", 1}},
@@ -953,18 +953,18 @@ void ScreenPanelGL::initOpenGL()
         256.f, 0.f,    1.f, 0.f, 1.f
     };
 
-    glGenBuffers(1, &screenVertexBuffer);
+    screenVertexBuffer = OpenGL::GenerateNow;
     glBindBuffer(GL_ARRAY_BUFFER, screenVertexBuffer);
     glBufferData(GL_ARRAY_BUFFER, sizeof(vertices), vertices, GL_STATIC_DRAW);
 
-    glGenVertexArrays(1, &screenVertexArray);
+    screenVertexArray = OpenGL::GenerateNow;
     glBindVertexArray(screenVertexArray);
     glEnableVertexAttribArray(0); // position
     glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, 5*4, (void*)(0));
     glEnableVertexAttribArray(1); // texcoord
     glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, 5*4, (void*)(2*4));
 
-    glGenTextures(1, &screenTexture);
+    screenTexture = OpenGL::GenerateNow;
     glActiveTexture(GL_TEXTURE0);
     glBindTexture(GL_TEXTURE_2D_ARRAY, screenTexture);
     glTexParameteri(GL_TEXTURE_2D_ARRAY, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
@@ -974,7 +974,7 @@ void ScreenPanelGL::initOpenGL()
     glTexImage3D(GL_TEXTURE_2D_ARRAY, 0, GL_RGBA, 256, 192, 2, 0, GL_BGRA, GL_UNSIGNED_BYTE, nullptr);
 
 
-    OpenGL::CompileVertexFragmentProgram(osdShader,
+    osdShader = OpenGL::CompileVertexFragmentProgram(
                                          kScreenVS_OSD, kScreenFS_OSD,
                                          "OSDShader",
                                          {{"vPosition", 0}},
@@ -999,26 +999,25 @@ void ScreenPanelGL::initOpenGL()
         1, 1
     };
 
-    glGenBuffers(1, &osdVertexBuffer);
+    osdVertexBuffer = OpenGL::GenerateNow;
     glBindBuffer(GL_ARRAY_BUFFER, osdVertexBuffer);
     glBufferData(GL_ARRAY_BUFFER, sizeof(osdvertices), osdvertices, GL_STATIC_DRAW);
 
-    glGenVertexArrays(1, &osdVertexArray);
+    osdVertexArray = OpenGL::GenerateNow;
     glBindVertexArray(osdVertexArray);
     glEnableVertexAttribArray(0); // position
     glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, 0, (void*)(0));
 
     // splash logo texture
     QImage logo = splashLogo.scaled(kLogoWidth*2, kLogoWidth*2).toImage();
-    GLuint tex;
-    glGenTextures(1, &tex);
-    glBindTexture(GL_TEXTURE_2D, tex);
+
+    logoTexture = OpenGL::GenerateNow;
+    glBindTexture(GL_TEXTURE_2D, logoTexture);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
     glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, logo.width(), logo.height(), 0, GL_RGBA, GL_UNSIGNED_BYTE, logo.bits());
-    logoTexture = tex;
 
     transferLayout();
     glInited = true;
@@ -1031,27 +1030,16 @@ void ScreenPanelGL::deinitOpenGL()
 
     glContext->MakeCurrent();
 
-    glDeleteTextures(1, &screenTexture);
+    screenTexture = melonDS::OpenGL::TextureHandle {};
+    screenVertexArray = melonDS::OpenGL::VertexArrayHandle {};
+    screenVertexBuffer = melonDS::OpenGL::BufferHandle {};
+    screenShaderProgram = melonDS::OpenGL::ProgramHandle {};
+    osdTextures.clear(); // textures are cleared with the TextureHandle destructor
 
-    glDeleteVertexArrays(1, &screenVertexArray);
-    glDeleteBuffers(1, &screenVertexBuffer);
-
-    glDeleteProgram(screenShaderProgram);
-
-
-    for (const auto& [key, tex] : osdTextures)
-    {
-        glDeleteTextures(1, &tex);
-    }
-    osdTextures.clear();
-
-    glDeleteVertexArrays(1, &osdVertexArray);
-    glDeleteBuffers(1, &osdVertexBuffer);
-
-    glDeleteTextures(1, &logoTexture);
-
-    glDeleteProgram(osdShader);
-
+    osdVertexArray = melonDS::OpenGL::VertexArrayHandle {};
+    osdVertexBuffer = melonDS::OpenGL::BufferHandle {};
+    logoTexture = melonDS::OpenGL::TextureHandle {};
+    osdShader = melonDS::OpenGL::ProgramHandle {};
 
     glContext->DoneCurrent();
 
@@ -1077,8 +1065,7 @@ void ScreenPanelGL::osdRenderItem(OSDItem* item)
 {
     ScreenPanel::osdRenderItem(item);
 
-    GLuint tex;
-    glGenTextures(1, &tex);
+    melonDS::OpenGL::TextureHandle tex(melonDS::OpenGL::GenerateNow);
     glBindTexture(GL_TEXTURE_2D, tex);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
@@ -1086,16 +1073,14 @@ void ScreenPanelGL::osdRenderItem(OSDItem* item)
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
     glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, item->bitmap.width(), item->bitmap.height(), 0, GL_RGBA, GL_UNSIGNED_BYTE, item->bitmap.bits());
 
-    osdTextures[item->id] = tex;
+    osdTextures[item->id] = std::move(tex);
 }
 
 void ScreenPanelGL::osdDeleteItem(OSDItem* item)
 {
     if (osdTextures.count(item->id))
     {
-        GLuint tex = osdTextures[item->id];
-        glDeleteTextures(1, &tex);
-        osdTextures.erase(item->id);
+        osdTextures.erase(item->id); // texture deleted in the TextureHandle destructor
     }
 
     ScreenPanel::osdDeleteItem(item);
