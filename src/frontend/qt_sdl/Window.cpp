@@ -483,6 +483,27 @@ MainWindow::MainWindow(int id, EmuInstance* inst, QWidget* parent) :
                 connect(grpScreenGap, &QActionGroup::triggered, this, &MainWindow::onChangeScreenGap);
             }
             {
+                QMenu * submenu = menu->addMenu("Hybrid ratio");
+                GrpHybridRatio = new QActionGroup(submenu);
+
+                // ScreenLayout uses the gap between the two smaller screens
+                // to determine the scale of the large hybrid screen. These
+                // gap values produce the corresponding display ratios.
+                const char *hybridRatios[] = {"2:1", "3:1", "4:1", "5:1", "6:1", "7:1", "5:2", "7:3", "9:4"};
+                const int screenGaps[] = {0, 192, 384, 576, 768, 960, 96, 64, 48};
+
+                for (int i = 0; i < 9; i++)
+                {
+                    int screenGapData = screenGaps[i];
+                    ActHybridRatio[i] = submenu->addAction(QString(hybridRatios[i]));
+                    ActHybridRatio[i]->setActionGroup(GrpHybridRatio);
+                    ActHybridRatio[i]->setData(QVariant(screenGapData));
+                    ActHybridRatio[i]->setCheckable(true);
+                }
+
+                connect(GrpHybridRatio, &QActionGroup::triggered, this, &MainWindow::OnChangeHybridRatio);
+            }
+            {
                 QMenu * submenu = menu->addMenu("Screen layout");
                 grpScreenLayout = new QActionGroup(submenu);
 
@@ -707,6 +728,16 @@ MainWindow::MainWindow(int id, EmuInstance* inst, QWidget* parent) :
             if (actScreenGap[i]->data().toInt() == screenGap)
             {
                 actScreenGap[i]->setChecked(true);
+                break;
+            }
+        }
+
+        int hybridRatio = windowCfg.GetInt("HybridRatio");
+        for (int i = 0; i < 9; i++)
+        {
+            if (ActHybridRatio[i]->data().toInt() == hybridRatio)
+            {
+                ActHybridRatio[i]->setChecked(true);
                 break;
             }
         }
@@ -2023,6 +2054,14 @@ void MainWindow::onChangeScreenGap(QAction* act)
 {
     int gap = act->data().toInt();
     windowCfg.SetInt("ScreenGap", gap);
+
+    emit screenLayoutChange();
+}
+
+void MainWindow::OnChangeHybridRatio(QAction* act)
+{
+    int gap = act->data().toInt();
+    windowCfg.SetInt("HybridRatio", gap);
 
     emit screenLayoutChange();
 }
