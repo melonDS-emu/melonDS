@@ -940,7 +940,14 @@ bool DSi::LoadNAND()
         // load boot2 binaries
 
         AES_ctx ctx;
-        const u8 boot2key[16] = {0xAD, 0x34, 0xEC, 0xF9, 0x62, 0x6E, 0xC2, 0x3A, 0xF6, 0xB4, 0x6C, 0x00, 0x80, 0x80, 0xEE, 0x98};
+        // the boot2 key depends on the stage2 version, as its keyY comes from
+        // the header signature. Fall back to the key used by retail consoles.
+        u8 boot2key[16] = {0xAD, 0x34, 0xEC, 0xF9, 0x62, 0x6E, 0xC2, 0x3A, 0xF6, 0xB4, 0x6C, 0x00, 0x80, 0x80, 0xEE, 0x98};
+        u8 boot2sig[0x80];
+        FileSeek(nand, 0x300, FileSeekOrigin::Start);
+        FileRead(boot2sig, 0x80, 1, nand);
+        if (!DSi_AES::DeriveBoot2Key(boot2sig, boot2key))
+            Log(LogLevel::Warn, "DSi: boot2 signature invalid, using retail boot2 key\n");
         u8 boot2iv[16];
         u8 tmp[16];
         u32 dstaddr;
