@@ -182,10 +182,13 @@ private:
     std::string getEffectiveFirmwareSavePath();
     void initFirmwareSaveManager() noexcept;
     std::string getSavestateName(int slot);
+    std::string getUndoSavestateName();
+    std::string getAutoSavestateName();
     bool savestateExists(int slot);
+    bool hasUndoState();
     bool loadState(const std::string& filename);
     bool saveState(const std::string& filename);
-    void undoStateLoad();
+    bool undoStateLoad();
     void unloadCheats();
     void loadCheats();
     std::unique_ptr<melonDS::ARM9BIOSImage> loadARM9BIOS() noexcept;
@@ -201,7 +204,6 @@ private:
     void reset();
     bool bootToMenu(QString& errorstr);
     melonDS::u32 decompressROM(const melonDS::u8* inContent, const melonDS::u32 inSize, std::unique_ptr<melonDS::u8[]>& outContent);
-    void clearBackupState();
     std::pair<std::unique_ptr<melonDS::Firmware>, std::string> generateDefaultFirmware();
     bool parseMacAddress(void* data);
     void customizeFirmware(melonDS::Firmware& firmware, bool overridesettings) noexcept;
@@ -308,7 +310,6 @@ public:
 private:
 
     std::unique_ptr<melonDS::Savestate> backupState;
-    bool savestateLoaded;
 
     std::unique_ptr<melonDS::ARCodeFile> cheatFile;
     bool cheatsOn;
