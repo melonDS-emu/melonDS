@@ -66,6 +66,7 @@ cmake_dependent_option(ENABLE_JIT "Enable JIT recompiler" ON
     "ARCHITECTURE STREQUAL x86_64 OR ARCHITECTURE STREQUAL ARM64;NOT ARCHITECTURE STREQUAL x86_64 OR NOT APPLE" OFF)
 cmake_dependent_option(ENABLE_JIT_PROFILING "Enable JIT profiling with VTune" OFF "ENABLE_JIT" OFF)
 option(ENABLE_OGLRENDERER "Enable OpenGL renderer" ON)
+option(ENABLE_VULKANRENDERER "Enable Vulkan renderer" OFF)
 
 check_ipo_supported(RESULT IPO_SUPPORTED)
 cmake_dependent_option(ENABLE_LTO_RELEASE "Enable link-time optimizations for release builds" ON "IPO_SUPPORTED" OFF)
