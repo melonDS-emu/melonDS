@@ -452,6 +452,7 @@ void EmuThread::run()
         handleMessages();
 
         if (autoSaveInterval > 0 && emuActive && emuStatus != emuStatus_Exit
+            && MPInterface::GetType() != MPInterface_LAN
             && MPInterface::GetType() != MPInterface_Netplay)
         {
             const auto now = std::chrono::steady_clock::now();
