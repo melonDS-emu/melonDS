@@ -294,7 +294,14 @@ u64 FileLength(FileHandle* file)
 
 void Log(LogLevel level, const char* fmt, ...)
 {
-    if (fmt == nullptr)
+    NDS *nds = NDS::Current;
+    if (!nds) {
+        return;
+    }
+    EmuInstance* inst = (EmuInstance*)nds->UserData;
+    auto& cfg = inst->getGlobalConfig();
+
+    if (fmt == nullptr || level < cfg.GetInt("LogLevel"))
         return;
 
     va_list args;

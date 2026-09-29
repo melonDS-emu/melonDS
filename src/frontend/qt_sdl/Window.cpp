@@ -614,6 +614,19 @@ MainWindow::MainWindow(int id, EmuInstance* inst, QWidget* parent) :
             actPathSettings = menu->addAction("Path settings");
             connect(actPathSettings, &QAction::triggered, this, &MainWindow::onOpenPathSettings);
 
+            QMenu * submenu = menu->addMenu("Log Level");
+            grpLogLevel = new QActionGroup(submenu);
+            const char *loglevel[] = {"Debug", "Info", "Warn", "Error"};
+
+            for (int i = 0; i < 4; i++)
+            {
+                actLogLevel[i] = submenu->addAction(QString(loglevel[i]));
+                actLogLevel[i]->setActionGroup(grpLogLevel);
+                actLogLevel[i]->setData(QVariant(i));
+                actLogLevel[i]->setCheckable(true);
+            }
+            connect(grpLogLevel, &QActionGroup::triggered, this, &MainWindow::onChangeLogLevel);
+
             menu->addSeparator();
 
             actLimitFramerate = menu->addAction("Limit framerate");
@@ -698,6 +711,8 @@ MainWindow::MainWindow(int id, EmuInstance* inst, QWidget* parent) :
 
         actROMInfo->setEnabled(false);
         actRAMInfo->setEnabled(false);
+
+        actLogLevel[globalCfg.GetInt("LogLevel")]->setChecked(true);
 
         actScreenRotation[windowCfg.GetInt("ScreenRotation")]->setChecked(true);
 
@@ -2002,6 +2017,12 @@ void MainWindow::onUpdateInterfaceSettings()
 void MainWindow::onInterfaceSettingsFinished(int res)
 {
     emuThread->emuUnpause();
+}
+
+void MainWindow::onChangeLogLevel(QAction* act)
+{
+    int loglevel = act->data().toInt();
+    globalCfg.SetInt("LogLevel", loglevel);
 }
 
 void MainWindow::onChangeScreenSize()
