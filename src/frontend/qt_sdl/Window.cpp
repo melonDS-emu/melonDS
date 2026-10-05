@@ -216,7 +216,8 @@ MainWindow::MainWindow(int id, EmuInstance* inst, QWidget* parent) :
     windowCfg(localCfg.GetTable("Window"+std::to_string(id), "Window0")),
     emuThread(inst->getEmuThread()),
     enabledSaved(false),
-    focused(true)
+    focused(true),
+    wasMaximized(false)
 {
 
     showOSD = windowCfg.GetBool("ShowOSD");
@@ -2157,13 +2158,22 @@ void MainWindow::toggleFullscreen()
 {
     if (!isFullScreen())
     {
+        wasMaximized = isMaximized();
         showFullScreen();
         if (hasMenu)
             menuBar()->setFixedHeight(0); // Don't use hide() as menubar actions stop working
     }
     else
     {
-        showNormal();
+        if(wasMaximized) // To retain maximization after fullscreen toggle
+        {
+            showMaximized();
+        } 
+        else 
+        {
+            showNormal();
+        }
+
         if (hasMenu)
         {
             int menuBarHeight = menuBar()->sizeHint().height();
