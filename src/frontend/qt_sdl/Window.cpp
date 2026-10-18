@@ -59,6 +59,7 @@
 #include "RAMInfoDialog.h"
 #include "TitleManagerDialog.h"
 #include "PowerManagement/PowerManagementDialog.h"
+#include "FullscreenState.h"
 
 #include "Platform.h"
 #include "Config.h"
@@ -2165,11 +2166,13 @@ void MainWindow::toggleFullscreen()
     }
     else
     {
-        if(wasMaximized) // To retain maximization after fullscreen toggle
+        const auto restoreState = getRestoreState(wasMaximized);
+
+        if (restoreState == WindowRestoreState::Maximized)
         {
             showMaximized();
-        } 
-        else 
+        }
+        else
         {
             showNormal();
         }
