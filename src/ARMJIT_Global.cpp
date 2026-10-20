@@ -10,6 +10,8 @@
 
 #include <stdio.h>
 #include <stdint.h>
+#include <string.h>
+#include <errno.h>
 
 #include <mutex>
 
@@ -25,7 +27,16 @@ std::mutex globalMutex;
 #define APPLE_AARCH64
 #endif
 
-#if !defined(APPLE_AARCH64) && !defined(__NetBSD__) && !defined(__OpenBSD__)
+// All Apple targets allocate JIT code memory dynamically. On x86_64 macOS the
+// static CodeMemory array below ends up in __DATA, whose maximum protection is
+// rw- with current Apple linkers, so making it executable with mprotect fails
+// and the first jump into JIT code crashes (#2292). melonDS 0.9.5 and earlier
+// used an anonymous RWX mapping there, which works.
+#if defined(__APPLE__) || defined(__NetBSD__) || defined(__OpenBSD__)
+#define DYNAMIC_CODE_MEM
+#endif
+
+#if !defined(DYNAMIC_CODE_MEM)
 static constexpr size_t NumCodeMemSlices = 4;
 static constexpr size_t CodeMemoryAlignedSize = NumCodeMemSlices * CodeMemorySliceSize;
 
@@ -46,7 +57,7 @@ void* AllocateCodeMem()
 {
     std::lock_guard guard(globalMutex);
 
-#if !defined(APPLE_AARCH64) && !defined(__NetBSD__) && !defined(__OpenBSD__)
+#if !defined(DYNAMIC_CODE_MEM)
     if (AvailableCodeMemSlices)
     {
         int slice = __builtin_ctz(AvailableCodeMemSlices);
@@ -73,7 +84,7 @@ void FreeCodeMem(void* codeMem)
 {
     std::lock_guard guard(globalMutex);
 
-#if !defined(APPLE_AARCH64) && !defined(__NetBSD__) && !defined(__OpenBSD__)
+#if !defined(DYNAMIC_CODE_MEM)
     for (int i = 0; i < NumCodeMemSlices; i++)
     {
         if (codeMem == &GetAlignedCodeMemoryStart()[CodeMemorySliceSize * i])
@@ -102,10 +113,11 @@ void Init()
         #ifdef _WIN32
             DWORD dummy;
             VirtualProtect(GetAlignedCodeMemoryStart(), CodeMemoryAlignedSize, PAGE_EXECUTE_READWRITE, &dummy);
-        #elif defined(APPLE_AARCH64) || defined(__NetBSD__) || defined(__OpenBSD__)
-            // Apple aarch64 always uses dynamic allocation
+        #elif defined(DYNAMIC_CODE_MEM)
+            // these targets always use dynamic allocation
         #else
-            mprotect(GetAlignedCodeMemoryStart(), CodeMemoryAlignedSize, PROT_EXEC | PROT_READ | PROT_WRITE);
+            if (mprotect(GetAlignedCodeMemoryStart(), CodeMemoryAlignedSize, PROT_EXEC | PROT_READ | PROT_WRITE) != 0)
+                printf("ARMJIT: making the code memory executable failed: %s\n", strerror(errno));
         #endif
 
         ARMJIT_Memory::RegisterFaultHandler();
