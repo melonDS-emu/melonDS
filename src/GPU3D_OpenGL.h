@@ -75,7 +75,7 @@ private:
     bool TexEnable;
     TexcacheOpenGL Texcache;
 
-    bool BuildRenderShader(bool wbuffer);
+    static OpenGL::ProgramHandle BuildRenderShader(bool wbuffer);
     void UseRenderShader(bool wbuffer);
     void SetupPolygon(RendererPolygon* rp, Polygon* polygon) const;
     u32* SetupVertex(const Polygon* poly, int vid, const Vertex* vtx, u32 vtxattr, u32 texlayer, u32* vptr) const;
@@ -95,15 +95,15 @@ private:
     };
 
 
-    GLuint ClearShaderPlain {};
-    GLuint ClearShaderBitmap {};
+    OpenGL::ProgramHandle ClearShaderPlain {};
+    OpenGL::ProgramHandle ClearShaderBitmap {};
 
-    GLuint RenderShader[2] {};
+    std::array<OpenGL::ProgramHandle, 2> RenderShader {};
     GLint RenderModeULoc = 0;
     GLuint CurShaderID = -1;
 
-    GLuint FinalPassEdgeShader {};
-    GLuint FinalPassFogShader {};
+    OpenGL::ProgramHandle FinalPassEdgeShader {};
+    OpenGL::ProgramHandle FinalPassFogShader {};
 
     // std140 compliant structure
     struct
@@ -120,14 +120,15 @@ private:
         u32 _pad1[2];               // int        306 / 2
     } ShaderConfig {};
 
-    GLuint ShaderConfigUBO {};
+    OpenGL::BufferHandle ShaderConfigUBO {};
     int NumFinalPolys {}, NumOpaqueFinalPolys {};
 
-    GLuint ClearVertexBufferID = 0, ClearVertexArrayID {};
+    OpenGL::BufferHandle ClearVertexBufferID {};
+    OpenGL::VertexArrayHandle ClearVertexArrayID {};
     GLint ClearUniformLoc[4] {};
 
     GLint ClearBitmapULoc[2] {};
-    GLuint ClearBitmapTex[2];
+    OpenGL::TextureHandles<2> ClearBitmapTex {};
     u32* ClearBitmap[2];
     u8 ClearBitmapDirty;
 
@@ -143,24 +144,24 @@ private:
     // * bit8: front-facing (?)
     // * bit9: W-buffering (?)
 
-    GLuint VertexBufferID {};
+    OpenGL::BufferHandle VertexBufferID {};
     u32 VertexBuffer[10240 * 7] {};
     u32 NumVertices {};
 
-    GLuint VertexArrayID {};
-    GLuint IndexBufferID {};
+    OpenGL::VertexArrayHandle VertexArrayID {};
+    OpenGL::BufferHandle IndexBufferID {};
     u16 IndexBuffer[2048 * 40] {};
     u32 NumIndices {}, NumEdgeIndices {};
 
-    const u32 EdgeIndicesOffset = 2048 * 30;
+    static constexpr u32 EdgeIndicesOffset = 2048 * 30;
 
     int ScaleFactor {};
     bool BetterPolygons {};
     int ScreenW {}, ScreenH {};
 
-    GLuint ColorBufferTex {}, DepthBufferTex {}, AttrBufferTex {};
+    OpenGL::TextureHandle ColorBufferTex {}, DepthBufferTex {}, AttrBufferTex {};
 
-    GLuint MainFramebuffer {};
+    OpenGL::FramebufferHandle MainFramebuffer {};
 };
 }
 #endif
