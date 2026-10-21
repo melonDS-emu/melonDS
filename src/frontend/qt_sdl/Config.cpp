@@ -96,6 +96,7 @@ RangeList IntRanges =
 DefaultList<bool> DefaultBools =
 {
     {"Screen.Filter", true},
+    {"Mouse.Hide", true},
     {"3D.Soft.Threaded", true},
     {"3D.GL.HiresCoordinates", true},
     {"LimitFPS", true},
