@@ -32,7 +32,8 @@
 inline bool VideoSettingsDialog::UsesGL()
 {
     auto& cfg = emuInstance->getGlobalConfig();
-    return cfg.GetBool("Screen.UseGL") || (cfg.GetInt("3D.Renderer") != renderer3D_Software);
+    return cfg.GetBool("Screen.UseGL") ||
+           RendererBackend::RequiresOpenGL(cfg.GetInt("3D.Renderer"));
 }
 
 VideoSettingsDialog* VideoSettingsDialog::currentDlg = nullptr;
