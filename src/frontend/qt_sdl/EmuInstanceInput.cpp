@@ -101,6 +101,8 @@ void EmuInstance::inputInit()
     hasAccelerometer = false;
     hasGyroscope = false;
     isRumbling = false;
+    hasTouchpad = false;
+    touchpadTouching = false;
 
     inputLoadConfig();
 }
@@ -130,6 +132,13 @@ void EmuInstance::inputLoadConfig()
         hkKeyMapping[i] = keycfg.GetInt(hotkeyNames[i]);
         hkJoyMapping[i] = joycfg.GetInt(hotkeyNames[i]);
     }
+
+    touchpadTouchscreen = localCfg.GetBool("TouchpadTouchscreen");
+    touchpadInvertX = localCfg.GetBool("TouchpadInvertX");
+    touchpadInvertY = localCfg.GetBool("TouchpadInvertY");
+    touchpadEdgeMargin = localCfg.GetInt("TouchpadEdgeMargin");
+    if (touchpadEdgeMargin < 0) touchpadEdgeMargin = 0;
+    if (touchpadEdgeMargin > 40) touchpadEdgeMargin = 40;
 
     setJoystick(localCfg.GetInt("JoystickID"));
     SDL_UnlockMutex(joyMutex.get());
@@ -238,6 +247,7 @@ void EmuInstance::openJoystick()
         hasRumble = false;
         hasAccelerometer = false;
         hasGyroscope = false;
+        hasTouchpad = false;
         return;
     }
 
@@ -265,6 +275,7 @@ void EmuInstance::openJoystick()
         {
             hasGyroscope = SDL_GameControllerSetSensorEnabled(controller, SDL_SENSOR_GYRO, SDL_TRUE) == 0;
         }
+        hasTouchpad = (SDL_GameControllerGetNumTouchpads(controller) > 0);
     }
 }
 
@@ -277,6 +288,12 @@ void EmuInstance::closeJoystick()
         hasRumble = false;
         hasAccelerometer = false;
         hasGyroscope = false;
+        hasTouchpad = false;
+        if (touchpadTouching)
+        {
+            releaseScreen();
+            touchpadTouching = false;
+        }
     }
     if (joystick)
     {
@@ -417,6 +434,49 @@ bool EmuInstance::joystickButtonDown(int val)
     return false;
 }
 
+void EmuInstance::processTouchpad()
+{
+    Uint8 state;
+    float x, y, pressure;
+
+    if (SDL_GameControllerGetTouchpadFinger(controller, 0, 0, &state, &x, &y, &pressure) != 0)
+        return;
+
+    if (state)
+    {
+        float margin = touchpadEdgeMargin / 100.0f;
+        if (margin > 0.0f && margin < 0.5f)
+        {
+            x = (x - margin) / (1.0f - 2.0f * margin);
+            y = (y - margin) / (1.0f - 2.0f * margin);
+        }
+
+        if (x < 0.0f) x = 0.0f;
+        else if (x > 1.0f) x = 1.0f;
+        if (y < 0.0f) y = 0.0f;
+        else if (y > 1.0f) y = 1.0f;
+
+        if (touchpadInvertX) x = 1.0f - x;
+        if (touchpadInvertY) y = 1.0f - y;
+
+        int tx = (int)(x * 255.0f);
+        int ty = (int)(y * 191.0f);
+
+        if (tx < 0) tx = 0;
+        else if (tx > 255) tx = 255;
+        if (ty < 0) ty = 0;
+        else if (ty > 191) ty = 191;
+
+        touchScreen(tx, ty);
+        touchpadTouching = true;
+    }
+    else if (touchpadTouching)
+    {
+        releaseScreen();
+        touchpadTouching = false;
+    }
+}
+
 void EmuInstance::inputProcess()
 {
     SDL_LockMutex(joyMutex.get());
@@ -457,6 +517,10 @@ void EmuInstance::inputProcess()
     hotkeyPress = hotkeyMask & ~lastHotkeyMask;
     hotkeyRelease = lastHotkeyMask & ~hotkeyMask;
     lastHotkeyMask = hotkeyMask;
+
+    if (controller && hasTouchpad && touchpadTouchscreen)
+        processTouchpad();
+
     SDL_UnlockMutex(joyMutex.get());
 }
 
