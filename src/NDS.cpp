@@ -104,6 +104,7 @@ NDS::NDS(NDSArgs&& args, int type, void* userdata) noexcept :
     NDSCartSlot(*this, 0, nullptr),
     GBACartSlot(*this, nullptr),
     AREngine(*this),
+    PokeTypeKeyboard(*this),
     ARM9(*this, args.GDB, args.JIT.has_value()),
     ARM7(*this, args.GDB, args.JIT.has_value()),
 #ifdef GDBSTUB_ENABLED
@@ -700,6 +701,10 @@ bool NDS::DoSavestate(Savestate* file)
 
     for (int i = 0; i < Event_MAX; i++)
     {
+        // states older than 14.1 have no entry for it
+        if (i == Event_CartBTKeyboardTimer && !file->IsAtLeastVersion(14, 1))
+            continue;
+
         SchedEvent& evt = SchedList[i];
 
         file->Var64(&evt.Timestamp);
@@ -2842,6 +2847,9 @@ u8 NDS::ARM9IORead8(u32 addr)
     case 0x040001A5: return (NDSCartSlots[0]->ReadROMCnt(0) >> 8) & 0xFF;
     case 0x040001A6: return (NDSCartSlots[0]->ReadROMCnt(0) >> 16) & 0xFF;
     case 0x040001A7: return NDSCartSlots[0]->ReadROMCnt(0) >> 24;
+    case 0x040001A8: case 0x040001A9: case 0x040001AA: case 0x040001AB:
+    case 0x040001AC: case 0x040001AD: case 0x040001AE: case 0x040001AF:
+        return NDSCartSlots[0]->ReadROMCommand(0, addr - 0x040001A8);
 
     case 0x04000208: return IME[0];
 

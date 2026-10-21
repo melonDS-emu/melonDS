@@ -25,6 +25,7 @@
 
 #include "Platform.h"
 #include "EmuInstance.h"
+#include "PokeTypeBindings.h"
 
 class InputConfigDialog;
 
@@ -33,10 +34,13 @@ class KeyMapButton : public QPushButton
     Q_OBJECT
 
 public:
-    KeyMapButton(int* mapping, bool hotkey) : QPushButton()
+    // bindableBackspace makes Delete unbind instead of Backspace, so Backspace
+    // can be bound. The Typing keyboard has Backspace but no Delete key.
+    KeyMapButton(int* mapping, bool hotkey, bool bindableBackspace = false) : QPushButton()
     {
         this->mapping = mapping;
         this->isHotkey = hotkey;
+        this->bindableBackspace = bindableBackspace;
 
         setCheckable(true);
         setText(mappingText());
@@ -48,6 +52,13 @@ public:
     ~KeyMapButton()
     {
     }
+
+    int* mappingPtr() const { return mapping; }
+
+    // updates the label after *mapping was changed from outside
+    void refresh() { setText(mappingText()); }
+
+    static QString keyName(int key) { return describeKey(key); }
 
 protected:
     void keyPressEvent(QKeyEvent* event) override
@@ -67,7 +78,9 @@ protected:
         if (!mod)
         {
             if (key == Qt::Key_Escape) { click(); return; }
-            if (key == Qt::Key_Backspace) { *mapping = -1; click(); return; }
+
+            int unbindKey = bindableBackspace ? Qt::Key_Delete : Qt::Key_Backspace;
+            if (key == unbindKey) { *mapping = -1; click(); return; }
         }
 
         if (isHotkey)
@@ -114,8 +127,11 @@ private slots:
 private:
     QString mappingText()
     {
-        int key = *mapping;
+        return describeKey(*mapping);
+    }
 
+    static QString describeKey(int key)
+    {
         if (key == -1) return "None";
 
         QString isright = (key & (1<<31)) ? "Right " : "Left ";
@@ -140,6 +156,10 @@ private:
         }
     #endif
 
+        // dead keys have no QKeySequence name
+        std::string dead = PokeTypeBindings::deadKeyLabel(key);
+        if (!dead.empty()) return QString::fromStdString(dead);
+
         QKeySequence seq(key);
         QString ret = seq.toString(QKeySequence::NativeText);
 
@@ -152,6 +172,7 @@ private:
 
     int* mapping;
     bool isHotkey;
+    bool bindableBackspace;
 };
 
 class JoyMapButton : public QPushButton

@@ -24,6 +24,11 @@
 #include "SDL_sensor.h"
 #include "main.h"
 #include "Config.h"
+#include "NDSCart/CartRetailBT.h"
+
+// Learn with Pokémon: Typing Adventure: the cart's Bluetooth keyboard is emulated
+// (CartRetailBT), but keystrokes are pushed straight into the game's input queue
+// (PokeTypeKeyboard). Key bindings live in PokeTypeBindings.
 
 using namespace melonDS;
 
@@ -323,8 +328,169 @@ int getEventKeyVal(QKeyEvent* event)
 }
 
 
+// The character one binding produces under the modifiers currently held.
+melonDS::u16 EmuInstance::pokeTypeCharFor(melonDS::PokeTypeKeyboard::Region region,
+                                          melonDS::u16 keyid, QKeyEvent* event)
+{
+    // modifiers, arrows and control keys use the game's own special codes
+    if (melonDS::u16 special = melonDS::PokeTypeKeyboard::SpecialCharForKeyID(keyid))
+        return special;
+
+    // use the game's layout, not the host's: that is the point of positional bindings
+    melonDS::u32 count = 0;
+    const melonDS::PokeTypeKeyboard::KeyDesc* table =
+        melonDS::PokeTypeKeyboard::GetKeyTable(region, count);
+    if (!table) return 0;
+
+    for (melonDS::u32 i = 0; i < count; i++)
+    {
+        if (table[i].KeyID != keyid) continue;
+
+        bool shift = event->modifiers() & Qt::ShiftModifier;
+        bool altgr = event->modifiers() & Qt::GroupSwitchModifier;
+
+        // Qt doesn't report Caps Lock state; the game tracks its own from
+        // the forwarded Caps Lock key
+        return melonDS::PokeTypeKeyboard::CharForKey(table[i], shift, altgr, false);
+    }
+
+    return 0;
+}
+
+bool EmuInstance::handlePokeTypeKey(QKeyEvent* event)
+{
+    if (!pokeTypeKeyboardSupported()) return false;
+    if (!localCfg.GetBool("PokeType.Enabled")) return false;
+
+    // The release key may be a chord and never reaches the game. key() is 0 for
+    // compose sequences, so an unset release key must not match.
+    int keyChord = getEventKeyVal(event);
+    if (pokeTypeBindings.releaseKeyBound() && keyChord == pokeTypeBindings.releaseKey)
+    {
+        pokeTypeGrabbed = !pokeTypeGrabbed;
+        if (!pokeTypeGrabbed) pokeTypeReleaseDpad(pokeTypeDpadHeld);
+        osdAddMessage(0, pokeTypeGrabbed ? "Typing keyboard: capturing"
+                                         : "Typing keyboard: released");
+        return true;
+    }
+
+    if (!pokeTypeGrabbed) return false;
+
+    // Bindings match on the bare key, so Shift+A still reaches the A binding.
+    int keyBare = keyChord;
+    if (event->modifiers() != Qt::KeypadModifier)
+        keyBare &= ~event->modifiers();
+
+    auto region = pokeTypeCartRegion.load();
+    melonDS::u8 mods = PokeTypeBindings::hidMods(event->modifiers());
+
+    int mode = pokeTypeBindings.mode;
+
+    // a shifted symbol names no key, so leave it to the host layout below
+    melonDS::u16 keyid = PokeTypeBindings::isShiftedSymbol(keyBare, event->modifiers())
+                       ? 0 : pokeTypeBindings.keyIDFor(region, keyBare);
+
+    // The game's registration prompt asks to turn the keyboard on while holding
+    // Fn, which makes a real keyboard discoverable. Until the game has
+    // connected, Fn does that for the emulated one; afterwards it types as usual.
+    constexpr melonDS::u16 FnKeyID = 0x75;
+    if (keyid == FnKeyID)
+    {
+        pokeTypeQueueKey({pokeTypeCharFor(region, keyid, event), (melonDS::u8)keyid, mods, true});
+        return true;
+    }
+
+    // The game's menus read only the D-pad, never keyboard arrow events. Opt-in,
+    // as it isn't known whether a real keyboard's arrows move them: an arrow
+    // binding also presses its D-pad bit, released in onKeyRelease.
+    int dpadBit = PokeTypeBindings::dpadBitForKeyID(keyid);
+    if (dpadBit >= 0 && localCfg.GetBool("PokeType.ArrowsToDpad"))
+    {
+        keyInputMask &= ~(1u << dpadBit);
+        pokeTypeDpadHeld |= (1u << dpadBit);
+    }
+
+    if (keyid != 0)
+    {
+        // keys with no host text (modifiers, arrows, Enter, Backspace, Tab)
+        // go through the bindings in every mode, layout mode included
+        bool special = melonDS::PokeTypeKeyboard::SpecialCharForKeyID(keyid) != 0;
+
+        if (special || mode != PokeTypeBindings::ModeLayout)
+        {
+            melonDS::u16 ch = pokeTypeCharFor(region, keyid, event);
+            if (ch != 0)
+            {
+                pokeTypeQueueKey({ch, (melonDS::u8)keyid, mods, false});
+                return true;
+            }
+
+            // nothing on the level being held (e.g. AltGr): let the host layout try
+        }
+    }
+
+    // Positional mode consults the bindings and nothing else.
+    if (mode == PokeTypeBindings::ModePositional)
+        return true;
+
+    QString text = event->text();
+    if (!text.isEmpty())
+    {
+        melonDS::u16 ch = text.at(0).unicode();
+        if (ch >= 0x20 && ch != 0x7F)
+            pokeTypeQueueKey({PokeTypeBindings::flipLetterCase(ch), 0, mods, false});
+    }
+
+    // while grabbed, swallow every key rather than let it drive DS buttons and
+    // hotkeys mid-sentence; the release key is the way out
+    return true;
+}
+
+void EmuInstance::pokeTypeQueueKey(const PokeTypeKey& key)
+{
+    pokeTypeKeyLock.lock();
+    pokeTypeKeys.push_back(key);
+    pokeTypeKeyLock.unlock();
+}
+
+void EmuInstance::pokeTypeApplyInput()
+{
+    if (pokeTypeAutoPairDirty.exchange(false))
+        pokeTypeApplyAutoPair();
+
+    std::vector<PokeTypeKey> keys;
+    pokeTypeKeyLock.lock();
+    keys.swap(pokeTypeKeys);
+    pokeTypeKeyLock.unlock();
+
+    if (!nds) return;
+
+    for (const PokeTypeKey& key : keys)
+    {
+        if (key.pairingGesture)
+        {
+            auto* bt = dynamic_cast<NDSCart::CartRetailBT*>(nds->GetNDSCart());
+            if (bt && bt->EnterPairingMode())
+                continue;
+
+            // the game has connected, so Fn types, if it has a character here
+            if (key.character == 0)
+                continue;
+        }
+
+        if (key.keyID != 0)
+            nds->PokeTypeKeyboard.PushKeyID(key.character, key.keyID, key.mods);
+        else
+            nds->PokeTypeKeyboard.PushKey(key.character, key.mods);
+    }
+}
+
 void EmuInstance::onKeyPress(QKeyEvent* event)
 {
+    // while the game is taking dictation, don't also drive the DS buttons
+    if (handlePokeTypeKey(event))
+        return;
+
     int keyHK = getEventKeyVal(event);
     int keyKP = keyHK;
     if (event->modifiers() != Qt::KeypadModifier)
@@ -339,8 +505,40 @@ void EmuInstance::onKeyPress(QKeyEvent* event)
             keyHotkeyMask |= (1<<i);
 }
 
+void EmuInstance::pokeTypeDpadKeyReleased(QKeyEvent* event)
+{
+    if (!pokeTypeDpadHeld) return;
+
+    // cart gone with a key still down: nothing to resolve against, so release all
+    if (!pokeTypeKeyboardSupported())
+    {
+        pokeTypeReleaseDpad(pokeTypeDpadHeld);
+        return;
+    }
+
+    // Same resolution as the press: the bare key, in the loaded region.
+    int keyBare = getEventKeyVal(event);
+    if (event->modifiers() != Qt::KeypadModifier)
+        keyBare &= ~event->modifiers();
+
+    melonDS::u16 keyid = pokeTypeBindings.keyIDFor(pokeTypeCartRegion.load(), keyBare);
+    int dpadBit = PokeTypeBindings::dpadBitForKeyID(keyid);
+    if (dpadBit >= 0)
+        pokeTypeReleaseDpad(1u << dpadBit);
+}
+
+void EmuInstance::pokeTypeReleaseDpad(melonDS::u32 bits)
+{
+    bits &= pokeTypeDpadHeld;
+    keyInputMask |= bits;
+    pokeTypeDpadHeld &= ~bits;
+}
+
 void EmuInstance::onKeyRelease(QKeyEvent* event)
 {
+    // not gated on the grab or the setting: either may have changed since the press
+    pokeTypeDpadKeyReleased(event);
+
     int keyHK = getEventKeyVal(event);
     int keyKP = keyHK;
     if (event->modifiers() != Qt::KeypadModifier)
@@ -359,6 +557,7 @@ void EmuInstance::keyReleaseAll()
 {
     keyInputMask = 0xFFF;
     keyHotkeyMask = 0;
+    pokeTypeDpadHeld = 0;
 }
 
 bool EmuInstance::joystickButtonDown(int val)
@@ -458,6 +657,8 @@ void EmuInstance::inputProcess()
     hotkeyRelease = lastHotkeyMask & ~hotkeyMask;
     lastHotkeyMask = hotkeyMask;
     SDL_UnlockMutex(joyMutex.get());
+
+    pokeTypeApplyInput();
 }
 
 void EmuInstance::touchScreen(int x, int y)
