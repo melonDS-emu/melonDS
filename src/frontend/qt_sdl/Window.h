@@ -113,6 +113,7 @@ private slots:
     void onEjectGBACart();
     void onSaveState();
     void onLoadState();
+    void onLoadAutoState();
     void onUndoStateLoad();
     void onImportSavefile();
     void onQuit();
@@ -172,6 +173,7 @@ private slots:
     void onChangeShowOSD(bool checked);
     void onChangeLimitFramerate(bool checked);
     void onChangeAudioSync(bool checked);
+    void onChangeAutoSaveInterval(QAction* act);
 
     void onTitleUpdate(QString title);
 
@@ -179,6 +181,7 @@ private slots:
     void onEmuStop();
     void onEmuPause(bool pause);
     void onEmuReset();
+    void onAutoStateAvailable();
 
     void onUpdateVideoSettings(bool glchange);
 
@@ -239,6 +242,7 @@ public:
     QAction* actImportSavefile;
     QAction* actSaveState[9];
     QAction* actLoadState[9];
+    QAction* actLoadAutoState;
     QAction* actUndoStateLoad;
     QAction* actOpenConfig;
     QAction* actQuit;
@@ -294,6 +298,7 @@ public:
     QAction* actShowOSD;
     QAction* actLimitFramerate;
     QAction* actAudioSync;
+    QActionGroup* grpAutoSaveInterval;
 
     QAction* actAbout;
 };
