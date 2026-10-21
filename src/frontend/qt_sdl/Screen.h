@@ -49,6 +49,16 @@ const struct { int id; float ratio; const char* label; } aspectRatios[] =
 };
 constexpr int AspectRatiosNum = sizeof(aspectRatios) / sizeof(aspectRatios[0]);
 
+// share of the display given to the emphasized screen, 0 being as much as it can take
+const struct { int ratio; const char* label; } emphasisRatios[] =
+{
+    { 0,  "Auto" },
+    { 60, "Slight" },
+    { 67, "Medium" },
+    { 75, "Strong" }
+};
+constexpr int EmphasisRatiosNum = sizeof(emphasisRatios) / sizeof(emphasisRatios[0]);
+
 
 class ScreenPanel : public QWidget
 {
@@ -87,6 +97,7 @@ protected:
     int screenLayout;
     bool screenSwap;
     int screenSizing;
+    int emphasisRatio;
     bool integerScaling;
     int screenAspectTop, screenAspectBot;
 
