@@ -337,7 +337,7 @@ const uint ResultDepthStart = ResultColorStart+ScreenWidth*ScreenHeight*2;
 const uint ResultAttrStart = ResultDepthStart+ScreenWidth*ScreenHeight*2;
 )"};
 
-const char* Common = R"(
+inline constexpr const char* Common = R"(
 
 const int CoarseTileCountX = 8;
 const int CoarseTileW = (CoarseTileCountX * TileSize);
