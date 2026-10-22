@@ -21,6 +21,8 @@
 
 #include <SDL2/SDL.h>
 
+#include <atomic>
+
 #include "Platform.h"
 #include "main.h"
 #include "NDS.h"
@@ -28,8 +30,25 @@
 #include "Window.h"
 #include "Config.h"
 #include "SaveManager.h"
+#include "AudioSpeed.h"
+#include "AudioLowPass.h"
+#include "AudioTimeStretch.h"
+#include "AudioStreamRamp.h"
 
 const int kMaxWindows = 4;
+
+// upper bound on frames drained from the SPU FIFO per emulated frame, and the
+// size of the staging buffer that receives them. tied to kMinOutputSkew: at a
+// skew of 0.4 the SPU emits 802.3/0.4 ~= 2006 frames per emulated frame, so
+// lowering that floor means raising this too.
+const int kAudioDrainMax = 2048;
+
+// cross-fade across a stretcher handover, in output frames. kept short: both
+// sides are the same material at different points, so a long overlap is heard
+// for itself. the dip at the midpoint attenuates the discontinuity the
+// handover carries, at the cost of a shallow notch.
+const unsigned kAudioHandoverFadeFrames = 256;
+const float kAudioHandoverDipDepth = 0.15f;
 
 enum
 {
@@ -167,6 +186,21 @@ public:
     void micStop();
     int micReadInput(melonDS::s16* data, int maxlength);
 
+    // called from the emu thread every frame: it, not the audio callback,
+    // drains the SPU while off-speed
+    void audioDrainSPU();
+    bool audioOffSpeed() const;
+    // emu thread. call when the stream jumps - savestate load, undo
+    void audioMarkDiscontinuity();
+    // emu thread. bracket a jump in the game's state - a load, an undo, a
+    // reset - with the pause tail and the resume ramp, so the splice lands in
+    // silence. a stream already down is left alone: begin returns false and
+    // end then does nothing.
+    bool audioJumpBegin();
+    void audioJumpEnd(bool ramped);
+    // emu thread. the achieved frame rate, for the low-pass only
+    void audioSetMeasuredFPS(double fps);
+
     QMutex renderLock;
 
 private:
@@ -229,6 +263,10 @@ private:
     void updateFastForwardMute(bool fastForward);
     void audioSync();
     void audioUpdateSettings();
+    void audioUpdateSpeedUpSettings();
+    void audioUpdateOutputSkew();
+    bool audioStreamEnd();
+    void audioDrainRing();
 
     void micOpen();
     void micClose();
@@ -236,7 +274,12 @@ private:
     void setupMicInputData();
 
     int audioGetNumSamplesOut(int outlen);
+    double audioLowPassCutoff() const;
     static void audioCallback(void* data, Uint8* stream, int len);
+    void audioDirectRead(melonDS::s16* stream, int len);
+    void audioStretchedRead(melonDS::s16* stream, int len);
+    void audioArmHandoverFade();
+    void audioFinishBuffer(melonDS::s16* stream, int len, int num_in);
 
     int micGetNumSamplesIn(int inlen);
     void micResample(melonDS::s16* inbuf, int inlen);
@@ -298,7 +341,8 @@ public:
     std::unique_ptr<SaveManager> firmwareSave;
 
     bool doLimitFPS;
-    double curFPS;
+    // the emu thread writes this, the audio thread reads it
+    std::atomic<double> curFPS;
     double targetFPS;
     double fastForwardFPS;
     double slowmoFPS;
@@ -316,12 +360,49 @@ private:
     SDL_AudioDeviceID audioDevice;
     int audioFreq;
     int audioBufSize;
-    float audioSampleFrac;
+    // written from the Qt thread with the emu thread and the audio device
+    // paused, read on both while running. atomic so a slip in that pausing
+    // degrades to a stale read; they are independent and need no ordering.
+    std::atomic<int> audioSpeedUpLowPass{kSpeedUpLowPassOff};
+    std::atomic<bool> audioTimeStretchEnable{false};
+    std::atomic<bool> audioLowPassEnable{false};
+    // the rate actually achieved, published by the emu thread. curFPS is only
+    // the frame limiter's setpoint, and with an uncapped fast-forward target it
+    // is nowhere near the truth.
+    std::atomic<double> audioMeasuredFPS{0.0};
+    // frames handed to the stretcher, accepted or not. the audio thread derives
+    // the arrival rate from this: counting only accepted frames would read a
+    // saturated ring as silence and stretch the wrong way.
+    std::atomic<melonDS::s64> audioOfferedFrames{0};
+    AudioLowPass audioLowPass;
+    AudioTimeStretch audioTimeStretch;
+    bool audioStretchEngaged;
+    melonDS::u32 audioLastFrame;
+    double audioArrivalAvg;
+    // speed the last fast-forward hold actually reached, banked at release
+    // and seeding the next engage; 0 until one has happened
+    double audioSpeedAchieved;
+    melonDS::s64 audioLastOffered;
+    double audioSampleFrac;
+    melonDS::s16 audioDrainTemp[kAudioDrainMax * 2];
+    bool audioDrainEngaged;
+    // audio thread. audioStretchEngaged as of the last buffer, so the
+    // handover is seen as an edge; the cross-fade still to run, and the
+    // level it started from
+    bool audioFadePrevEngaged;
+    unsigned audioFadeOutFrames;
+    float audioFadeOutFrom[2];
     bool audioMutedToggle;
     bool audioMutedByFastForward;
     bool audioMutedByWindowFocus;
     SDL_cond* audioSyncCond;
     SDL_mutex* audioSyncLock;
+    // conceals the ends of the stream. the emu thread asks for the tail
+    // through audioTailRequested and waits on audioTailSpent before pausing
+    // the device; everything else is the audio thread's.
+    AudioStreamRamp audioRamp;
+    std::atomic<bool> audioTailRequested{false};
+    std::atomic<bool> audioTailSpent{false};
 
     int mpAudioMode;
 

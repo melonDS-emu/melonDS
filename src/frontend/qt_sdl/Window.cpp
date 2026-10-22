@@ -751,7 +751,7 @@ MainWindow::MainWindow(int id, EmuInstance* inst, QWidget* parent) :
     }
 
     QObject::connect(qApp, &QApplication::applicationStateChanged, this, &MainWindow::onAppStateChanged);
-    onUpdateInterfaceSettings();
+    applyInterfaceSettings();
 
     updateMPInterface(MPInterface::GetType());
 }
@@ -1930,6 +1930,9 @@ void MainWindow::onUpdateAudioVolume(int vol, int dsisync)
 
 void MainWindow::onUpdateAudioSettings()
 {
+    // before the emuIsActive check: these are atomics and need no console
+    emuInstance->audioUpdateSpeedUpSettings();
+
     if (!emuThread->emuIsActive()) return;
     assert(emuInstance->nds != nullptr);
 
@@ -1990,6 +1993,16 @@ void MainWindow::onOpenInterfaceSettings()
 }
 
 void MainWindow::onUpdateInterfaceSettings()
+{
+    applyInterfaceSettings();
+
+    // only from the settings dialog, which pauses first: this reaches
+    // blip_set_rates, which is not safe against a running emu thread. opening
+    // a new window must not come through here.
+    emuInstance->audioUpdateOutputSkew();
+}
+
+void MainWindow::applyInterfaceSettings()
 {
     pauseOnLostFocus = globalCfg.GetBool("PauseLostFocus");
     emuInstance->targetFPS = globalCfg.GetDouble("TargetFPS");
