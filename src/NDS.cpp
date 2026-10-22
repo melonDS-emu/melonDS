@@ -1555,14 +1555,14 @@ void NDS::NocashPrint(u32 ncpu, u32 addr, bool appendNewline)
     // addr: debug string
 
     ARM* cpu = ncpu ? (ARM*)&ARM7 : (ARM*)&ARM9;
-    u8 (NDS::*readfn)(u32) = ncpu ? &NDS::ARM7Read8 : &NDS::ARM9Read8;
 
     char output[1024];
     int ptr = 0;
 
     for (int i = 0; i < 120 && ptr < 1023; )
     {
-        char ch = (this->*readfn)(addr++);
+        u32 ch = 0;
+        cpu->DataRead8(addr++, &ch);
         i++;
 
         if (ch == '%')
@@ -1570,7 +1570,8 @@ void NDS::NocashPrint(u32 ncpu, u32 addr, bool appendNewline)
             char cmd[16]; int j;
             for (j = 0; j < 15; )
             {
-                char ch2 = (this->*readfn)(addr++);
+                u32 ch2 = 0;
+                cpu->DataRead8(addr++, &ch2);
                 i++;
                 if (i >= 120) break;
                 if (ch2 == '%') break;
