@@ -38,3 +38,9 @@ SLIRP_4.5 {
 SLIRP_4.7 {
     slirp_handle_timer;
 } SLIRP_4.5;
+
+SLIRP_4.9 {
+    slirp_pollfds_fill_socket;
+    slirp_set_debug;
+    slirp_reset_debug;
+} SLIRP_4.7;

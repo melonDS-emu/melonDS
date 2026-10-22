@@ -62,7 +62,7 @@ static int icmp6_send(struct socket *so, struct mbuf *m, int hlen)
 #endif
 
     so->s = slirp_socket(AF_INET6, SOCK_DGRAM, IPPROTO_ICMPV6);
-    if (so->s == -1) {
+    if (not_valid_socket(so->s)) {
         if (errno == EAFNOSUPPORT
          || errno == EPROTONOSUPPORT
          || errno == EACCES) {
@@ -71,10 +71,10 @@ static int icmp6_send(struct socket *so, struct mbuf *m, int hlen)
             so->s = slirp_socket(AF_INET6, SOCK_RAW, IPPROTO_ICMPV6);
         }
     }
-    if (so->s == -1) {
+    if (not_valid_socket(so->s)) {
         return -1;
     }
-    so->slirp->cb->register_poll_fd(so->s, so->slirp->opaque);
+    slirp_register_poll_socket(so);
 
     if (slirp_bind_outbound(so, AF_INET6) != 0) {
         // bind failed - close socket
@@ -100,7 +100,7 @@ static int icmp6_send(struct socket *so, struct mbuf *m, int hlen)
     if (sendto(so->s, m->m_data + hlen, m->m_len - hlen, 0,
                (struct sockaddr *)&addr, sizeof(addr)) == -1) {
         DEBUG_MISC("icmp6_input icmp sendto tx errno = %d-%s", errno,
-                   strerror(errno));
+                   g_strerror(errno));
         icmp6_send_error(m, ICMP6_UNREACH, ICMP6_UNREACH_NO_ROUTE);
         icmp_detach(so);
     }
@@ -265,7 +265,7 @@ void icmp6_receive(struct socket *so)
         } else {
             error_code = ICMP6_UNREACH_ADDRESS;
         }
-        DEBUG_MISC(" udp icmp rx errno = %d-%s", errno, strerror(errno));
+        DEBUG_MISC(" udp icmp rx errno = %d-%s", errno, g_strerror(errno));
         icmp6_send_error(so->so_m, ICMP_UNREACH, error_code);
     } else {
         icmp6_reflect(so->so_m);
@@ -286,6 +286,7 @@ static void ndp_send_ra(Slirp *slirp)
     struct ip6 *rip = mtod(t, struct ip6 *);
     size_t pl_size = 0;
     struct in6_addr addr;
+    uint16_t port;
     uint32_t scope_id;
 
     rip->ip_src = (struct in6_addr)LINKLOCAL_ADDR;
@@ -334,7 +335,7 @@ static void ndp_send_ra(Slirp *slirp)
     pl_size += NDPOPT_PREFIXINFO_LEN;
 
     /* Prefix information (NDP option) */
-    if (get_dns6_addr(&addr, &scope_id) >= 0) {
+    if (get_dns6_addr(&addr, &port, &scope_id) >= 0) {
         /* Host system does have an IPv6 DNS server, announce our proxy.  */
         struct ndpopt *opt3 = mtod(t, struct ndpopt *);
         opt3->ndpopt_type = NDPOPT_RDNSS;
@@ -583,7 +584,7 @@ void icmp6_input(struct mbuf *m)
 
             if (udp_attach(so, AF_INET6) == -1) {
                 DEBUG_MISC("icmp6_input udp_attach errno = %d-%s", errno,
-                           strerror(errno));
+                           g_strerror(errno));
                 sofree(so);
                 m_free(m);
                 goto end_error;
@@ -620,7 +621,7 @@ void icmp6_input(struct mbuf *m)
             if (sendto(so->s, icmp6_ping_msg, strlen(icmp6_ping_msg), 0,
                        (struct sockaddr *)&addr, sockaddr_size(&addr)) == -1) {
                 DEBUG_MISC("icmp6_input udp sendto tx errno = %d-%s", errno,
-                           strerror(errno));
+                           g_strerror(errno));
                 icmp6_send_error(m, ICMP6_UNREACH, ICMP6_UNREACH_NO_ROUTE);
                 udp_detach(so);
             }

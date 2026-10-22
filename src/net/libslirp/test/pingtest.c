@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: BSD-3-Clause */
 /*
- * Copyright (c) 2021-2022 Samuel Thibault
+ * Copyright (c) 2021-2022, 2024 Samuel Thibault
  */
 
 /*
@@ -22,17 +22,6 @@
 
 //#define _WIN32
 #ifdef _WIN32
-//#include <sys/select.h>
-#include <winsock2.h>
-static int slirp_inet_aton(const char *cp, struct in_addr *ia)
-{
-    uint32_t addr = inet_addr(cp);
-    if (addr == 0xffffffff) {
-        return 0;
-    }
-    ia->s_addr = addr;
-    return 1;
-}
 #define inet_aton slirp_inet_aton
 #else
 #include <sys/socket.h>
@@ -51,7 +40,7 @@ static int64_t mytime;
 static void print_frame(const uint8_t *data, size_t len) {
     int i;
 
-    printf("\ngot packet size %zd:\n", len);
+    printf("\ngot packet size %zu:\n", len);
     for (i = 0; i < len; i++) {
         if (i && i % 16 == 0)
             printf("\n");
@@ -271,12 +260,12 @@ static uint32_t timer_timeout(void) {
  * Dumb polling implementation
  */
 static int npoll;
-static void register_poll_fd(int fd, void *opaque) {
+static void register_poll_socket(slirp_os_socket fd, void *opaque) {
     /* We might want to prepare for polling on fd */
     npoll++;
 }
 
-static void unregister_poll_fd(int fd, void *opaque) {
+static void unregister_poll_socket(slirp_os_socket fd, void *opaque) {
     /* We might want to clear polling on fd */
     npoll--;
 }
@@ -288,8 +277,8 @@ static void notify(void *opaque) {
 #ifdef _WIN32
 /* select() variant */
 static fd_set readfds, writefds, exceptfds;
-static int maxfd;
-static int add_poll_cb(int fd, int events, void *opaque)
+static unsigned int maxfd;
+static int add_poll_cb(slirp_os_socket fd, int events, void *opaque)
 {
     if (events & SLIRP_POLL_IN)
         FD_SET(fd, &readfds);
@@ -321,7 +310,7 @@ static void dopoll(uint32_t timeout) {
     FD_ZERO(&exceptfds);
     maxfd = 0;
 
-    slirp_pollfds_fill(slirp, &timeout, add_poll_cb, NULL);
+    slirp_pollfds_fill_socket(slirp, &timeout, add_poll_cb, NULL);
     printf("we will use timeout %u\n", (unsigned) timeout);
 
     struct timeval tv = {
@@ -336,7 +325,7 @@ static void dopoll(uint32_t timeout) {
 /* poll() variant */
 static struct pollfd *fds;
 static int cur_poll;
-static int add_poll_cb(int fd, int events, void *opaque)
+static int add_poll_cb(slirp_os_socket fd, int events, void *opaque)
 {
     short poll_events = 0;
 
@@ -364,7 +353,7 @@ static void dopoll(uint32_t timeout) {
     fds = malloc(sizeof(*fds) * npoll);
     cur_poll = 0;
 
-    slirp_pollfds_fill(slirp, &timeout, add_poll_cb, NULL);
+    slirp_pollfds_fill_socket(slirp, &timeout, add_poll_cb, NULL);
     printf("we will use timeout %u\n", (unsigned) timeout);
 
     err = poll(fds, cur_poll, timeout);
@@ -383,8 +372,8 @@ static struct SlirpCb callbacks = {
     .timer_new_opaque = timer_new_opaque,
     .timer_free = timer_free,
     .timer_mod = timer_mod,
-    .register_poll_fd = register_poll_fd,
-    .unregister_poll_fd = unregister_poll_fd,
+    .register_poll_socket = register_poll_socket,
+    .unregister_poll_socket = unregister_poll_socket,
     .notify = notify,
 };
 
