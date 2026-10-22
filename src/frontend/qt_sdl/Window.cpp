@@ -58,6 +58,8 @@
 #include "ROMInfoDialog.h"
 #include "RAMInfoDialog.h"
 #include "TitleManagerDialog.h"
+#include "ShaderConfigDialog.h"
+#include "ShaderParser.h"
 #include "PowerManagement/PowerManagementDialog.h"
 
 #include "Platform.h"
@@ -571,6 +573,9 @@ MainWindow::MainWindow(int id, EmuInstance* inst, QWidget* parent) :
             actScreenFiltering->setCheckable(true);
             connect(actScreenFiltering, &QAction::triggered, this, &MainWindow::onChangeScreenFiltering);
 
+            actFilters = menu->addAction("Filters");
+            connect(actFilters, &QAction::triggered, this, &MainWindow::onOpenFilterConfig);
+
             actShowOSD = menu->addAction("Show OSD");
             actShowOSD->setCheckable(true);
             connect(actShowOSD, &QAction::triggered, this, &MainWindow::onChangeShowOSD);
@@ -728,6 +733,7 @@ MainWindow::MainWindow(int id, EmuInstance* inst, QWidget* parent) :
         }
 
         actScreenFiltering->setChecked(windowCfg.GetBool("ScreenFilter"));
+
         actShowOSD->setChecked(showOSD);
 
         actLimitFramerate->setChecked(emuInstance->doLimitFPS);
@@ -2305,7 +2311,7 @@ void MainWindow::onUpdateVideoSettings(bool glchange)
 
     if (glchange)
     {
-        if (hasOGL) 
+        if (hasOGL)
         {
             emuThread->initContext(windowID);
             for (auto child: childwins)
@@ -2320,4 +2326,33 @@ void MainWindow::onUpdateVideoSettings(bool glchange)
     {
         emuThread->emuUnpause();
     }
+}
+
+void MainWindow::onOpenFilterConfig()
+{
+    ShaderManager* sm = panel->getShaderManager();
+    if (!sm)
+    {
+        QMessageBox::warning(this, "Shader Configuration", "Shaders are only available when 'Screen filtering' (OpenGL renderer) is enabled.\n\nPlease enable it in Config -> Video settings.");
+        return;
+    }
+
+    QString shaderPath = QCoreApplication::applicationDirPath() + "/res/slang-shaders";
+    if (!QDir(shaderPath).exists()) {
+            shaderPath = QCoreApplication::applicationDirPath() + "/../res/slang-shaders";
+    }
+    #ifdef Q_OS_MAC
+        if (!QDir(shaderPath).exists()) {
+            shaderPath = QCoreApplication::applicationDirPath() + "/../Resources/res/slang-shaders";
+        }
+    #endif
+
+    std::string pathStd = shaderPath.toStdString();
+
+    ShaderParser parser(pathStd.c_str());
+    std::vector<FrontendShader> presets = parser.GetPresets();
+
+    ShaderConfigDialog* dlg = new ShaderConfigDialog(sm, presets, this);
+    dlg->setAttribute(Qt::WA_DeleteOnClose);
+    dlg->show();
 }
