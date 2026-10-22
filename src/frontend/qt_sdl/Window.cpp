@@ -2174,7 +2174,9 @@ void MainWindow::toggleFullscreen()
 
 void MainWindow::onFullscreenToggled()
 {
-    toggleFullscreen();
+    // Fullscreen state is independent for each window, so only toggle the active window.
+    if (isActiveWindow())
+        toggleFullscreen();
 }
 
 void MainWindow::onScreenEmphasisToggled()
