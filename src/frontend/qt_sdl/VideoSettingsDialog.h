@@ -67,6 +67,8 @@ private slots:
     void on_sbVSyncInterval_valueChanged(int val);
 
     void on_cbxGLResolution_currentIndexChanged(int idx);
+    void on_cbxOutputResampling_currentIndexChanged(int idx);
+    void on_cbxAntiAliasing_currentIndexChanged(int idx);
     void on_cbBetterPolygons_stateChanged(int state);
     void on_cbxComputeHiResCoords_stateChanged(int state);
 
@@ -82,6 +84,8 @@ private:
 
     int oldRenderer;
     int oldGLDisplay;
+    int oldResampling;
+    int oldAntialiasing;
     int oldVSync;
     int oldVSyncInterval;
     int oldSoftThreaded;
