@@ -94,6 +94,7 @@ private slots:
     void on_lstTitleList_currentItemChanged(QListWidgetItem* cur, QListWidgetItem* prev);
     void onImportTitleData();
     void onExportTitleData();
+    void on_checkBoxShowSystemTitles_stateChanged();
 
 private:
     EmuInstance* emuInstance;
@@ -108,6 +109,7 @@ private:
     QAction* actImportTitleData[3];
     QAction* actExportTitleData[3];
 
+    void generateTitleList(std::vector<melonDS::u32> allTitles, std::vector<melonDS::u32> titlelist, bool showSystemTitles);
     void createTitleItem(melonDS::u32 category, melonDS::u32 titleid);
 };
 
