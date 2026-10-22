@@ -577,31 +577,29 @@ void MatrixLoad4x3(s32* m, s32* s)
     m[12] = s[9]; m[13] = s[10]; m[14] = s[11]; m[15] = 0x1000;
 }
 
-void MatrixMult4x4(s32* m, s32* s)
+void MatrixMult4x4(s32* m, s32* s, s32* t)
 {
-    s32 tmp[16];
-    memcpy(tmp, m, 16*4);
 
     // m = s*m
-    m[0] = ((s64)s[0]*tmp[0] + (s64)s[1]*tmp[4] + (s64)s[2]*tmp[8] + (s64)s[3]*tmp[12]) >> 12;
-    m[1] = ((s64)s[0]*tmp[1] + (s64)s[1]*tmp[5] + (s64)s[2]*tmp[9] + (s64)s[3]*tmp[13]) >> 12;
-    m[2] = ((s64)s[0]*tmp[2] + (s64)s[1]*tmp[6] + (s64)s[2]*tmp[10] + (s64)s[3]*tmp[14]) >> 12;
-    m[3] = ((s64)s[0]*tmp[3] + (s64)s[1]*tmp[7] + (s64)s[2]*tmp[11] + (s64)s[3]*tmp[15]) >> 12;
+    m[0] = ((s64)s[0]*t[0] + (s64)s[1]*t[4] + (s64)s[2]*t[8] + (s64)s[3]*t[12]) >> 12;
+    m[1] = ((s64)s[0]*t[1] + (s64)s[1]*t[5] + (s64)s[2]*t[9] + (s64)s[3]*t[13]) >> 12;
+    m[2] = ((s64)s[0]*t[2] + (s64)s[1]*t[6] + (s64)s[2]*t[10] + (s64)s[3]*t[14]) >> 12;
+    m[3] = ((s64)s[0]*t[3] + (s64)s[1]*t[7] + (s64)s[2]*t[11] + (s64)s[3]*t[15]) >> 12;
 
-    m[4] = ((s64)s[4]*tmp[0] + (s64)s[5]*tmp[4] + (s64)s[6]*tmp[8] + (s64)s[7]*tmp[12]) >> 12;
-    m[5] = ((s64)s[4]*tmp[1] + (s64)s[5]*tmp[5] + (s64)s[6]*tmp[9] + (s64)s[7]*tmp[13]) >> 12;
-    m[6] = ((s64)s[4]*tmp[2] + (s64)s[5]*tmp[6] + (s64)s[6]*tmp[10] + (s64)s[7]*tmp[14]) >> 12;
-    m[7] = ((s64)s[4]*tmp[3] + (s64)s[5]*tmp[7] + (s64)s[6]*tmp[11] + (s64)s[7]*tmp[15]) >> 12;
+    m[4] = ((s64)s[4]*t[0] + (s64)s[5]*t[4] + (s64)s[6]*t[8] + (s64)s[7]*t[12]) >> 12;
+    m[5] = ((s64)s[4]*t[1] + (s64)s[5]*t[5] + (s64)s[6]*t[9] + (s64)s[7]*t[13]) >> 12;
+    m[6] = ((s64)s[4]*t[2] + (s64)s[5]*t[6] + (s64)s[6]*t[10] + (s64)s[7]*t[14]) >> 12;
+    m[7] = ((s64)s[4]*t[3] + (s64)s[5]*t[7] + (s64)s[6]*t[11] + (s64)s[7]*t[15]) >> 12;
 
-    m[8] = ((s64)s[8]*tmp[0] + (s64)s[9]*tmp[4] + (s64)s[10]*tmp[8] + (s64)s[11]*tmp[12]) >> 12;
-    m[9] = ((s64)s[8]*tmp[1] + (s64)s[9]*tmp[5] + (s64)s[10]*tmp[9] + (s64)s[11]*tmp[13]) >> 12;
-    m[10] = ((s64)s[8]*tmp[2] + (s64)s[9]*tmp[6] + (s64)s[10]*tmp[10] + (s64)s[11]*tmp[14]) >> 12;
-    m[11] = ((s64)s[8]*tmp[3] + (s64)s[9]*tmp[7] + (s64)s[10]*tmp[11] + (s64)s[11]*tmp[15]) >> 12;
+    m[8] = ((s64)s[8]*t[0] + (s64)s[9]*t[4] + (s64)s[10]*t[8] + (s64)s[11]*t[12]) >> 12;
+    m[9] = ((s64)s[8]*t[1] + (s64)s[9]*t[5] + (s64)s[10]*t[9] + (s64)s[11]*t[13]) >> 12;
+    m[10] = ((s64)s[8]*t[2] + (s64)s[9]*t[6] + (s64)s[10]*t[10] + (s64)s[11]*t[14]) >> 12;
+    m[11] = ((s64)s[8]*t[3] + (s64)s[9]*t[7] + (s64)s[10]*t[11] + (s64)s[11]*t[15]) >> 12;
 
-    m[12] = ((s64)s[12]*tmp[0] + (s64)s[13]*tmp[4] + (s64)s[14]*tmp[8] + (s64)s[15]*tmp[12]) >> 12;
-    m[13] = ((s64)s[12]*tmp[1] + (s64)s[13]*tmp[5] + (s64)s[14]*tmp[9] + (s64)s[15]*tmp[13]) >> 12;
-    m[14] = ((s64)s[12]*tmp[2] + (s64)s[13]*tmp[6] + (s64)s[14]*tmp[10] + (s64)s[15]*tmp[14]) >> 12;
-    m[15] = ((s64)s[12]*tmp[3] + (s64)s[13]*tmp[7] + (s64)s[14]*tmp[11] + (s64)s[15]*tmp[15]) >> 12;
+    m[12] = ((s64)s[12]*t[0] + (s64)s[13]*t[4] + (s64)s[14]*t[8] + (s64)s[15]*t[12]) >> 12;
+    m[13] = ((s64)s[12]*t[1] + (s64)s[13]*t[5] + (s64)s[14]*t[9] + (s64)s[15]*t[13]) >> 12;
+    m[14] = ((s64)s[12]*t[2] + (s64)s[13]*t[6] + (s64)s[14]*t[10] + (s64)s[15]*t[14]) >> 12;
+    m[15] = ((s64)s[12]*t[3] + (s64)s[13]*t[7] + (s64)s[14]*t[11] + (s64)s[15]*t[15]) >> 12;
 }
 
 void MatrixMult4x3(s32* m, s32* s)
@@ -684,8 +682,7 @@ void GPU3D::UpdateClipMatrix() noexcept
     if (!ClipMatrixDirty) return;
     ClipMatrixDirty = false;
 
-    memcpy(ClipMatrix, ProjMatrix, 16*4);
-    MatrixMult4x4(ClipMatrix, PosMatrix);
+    MatrixMult4x4(ClipMatrix, PosMatrix, ProjMatrix);
 }
 
 
@@ -2177,21 +2174,29 @@ void GPU3D::ExecuteCommand() noexcept
                 case 0x18: // mult 4x4
                     if (MatrixMode == 0)
                     {
-                        MatrixMult4x4(ProjMatrix, (s32*)ExecParams);
+                        s32 tmp[16];
+                        memcpy(tmp, ProjMatrix, 16*4);
+                        MatrixMult4x4(ProjMatrix, (s32*)ExecParams, tmp);
                         ClipMatrixDirty = true;
                         AddCycles(35 - 16);
                     }
                     else if (MatrixMode == 3)
                     {
-                        MatrixMult4x4(TexMatrix, (s32*)ExecParams);
+                        s32 tmp[16];
+                        memcpy(tmp, TexMatrix, 16*4);
+                        MatrixMult4x4(TexMatrix, (s32*)ExecParams, tmp);
                         AddCycles(33 - 16);
                     }
                     else
                     {
-                        MatrixMult4x4(PosMatrix, (s32*)ExecParams);
+                        s32 tmp[16];
+                        memcpy(tmp, PosMatrix, 16*4);
+                        MatrixMult4x4(PosMatrix, (s32*)ExecParams, tmp);
                         if (MatrixMode == 2)
                         {
-                            MatrixMult4x4(VecMatrix, (s32*)ExecParams);
+                            s32 tmp[16];
+                            memcpy(tmp, VecMatrix, 16*4);
+                            MatrixMult4x4(VecMatrix, (s32*)ExecParams, tmp);
                             AddCycles(35 + 30 - 16);
                         }
                         else AddCycles(35 - 16);
