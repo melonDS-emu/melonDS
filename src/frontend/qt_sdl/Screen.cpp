@@ -49,6 +49,9 @@ using namespace melonDS;
 #if !defined(_WIN32) && !defined(APPLE)
 #if QT_VERSION >= QT_VERSION_CHECK(6, 5, 0)
 using namespace QNativeInterface;
+#if defined(WAYLAND_ENABLED) && QT_VERSION < QT_VERSION_CHECK(6, 9, 0)
+#include <qpa/qplatformnativeinterface.h>
+#endif
 #else
 #include <qpa/qplatformnativeinterface.h>
 #endif
@@ -1310,7 +1313,17 @@ std::optional<WindowInfo> ScreenPanelGL::getWindowInfo()
         wi.type = WindowInfo::Type::Wayland;
         const QWaylandApplication* wl = qApp->nativeInterface<QWaylandApplication>();
         wi.display_connection = wl->display();
+
+        #if QT_VERSION < QT_VERSION_CHECK(6, 9, 0)
+        QWindow* handle = windowHandle();
+        if (handle == nullptr)
+            return std::nullopt;
+
+        QPlatformNativeInterface* pni = QGuiApplication::platformNativeInterface();
+        wi.window_handle = pni->nativeResourceForWindow("surface", handle);
+        #else
         wi.window_handle = reinterpret_cast<void*>(winId());
+        #endif
     }
     #endif
     #else
