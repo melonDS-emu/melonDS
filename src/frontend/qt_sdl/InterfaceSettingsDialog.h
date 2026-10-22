@@ -70,6 +70,13 @@ private slots:
     void on_pbHalf_clicked();
     void on_pbQuarter_clicked();
 
+    void on_cbFastForwardVolume_clicked();
+    void on_cbSlowmoVolume_clicked();
+    void on_slFastForwardVolume_sliderMoved(int val);
+    void on_slSlowmoVolume_sliderMoved(int val);
+    void on_slFastForwardVolume_valueChanged(int val);
+    void on_slSlowmoVolume_valueChanged(int val);
+
 private:
     Ui::InterfaceSettingsDialog* ui;
 
