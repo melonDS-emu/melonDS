@@ -508,6 +508,8 @@ void NDS::Reset()
     IPCFIFO9.Clear();
     IPCFIFO7.Clear();
 
+    ARM7BytesToWrite = 0;
+
     DivCnt = 0;
     SqrtCnt = 0;
 
@@ -683,6 +685,7 @@ bool NDS::DoSavestate(Savestate* file)
     file->Var16(&SqrtCnt);
 
     file->Var32(&CPUStop);
+    file->Var32(&ARM7BytesToWrite);
 
     for (int i = 0; i < 8; i++)
     {
@@ -1002,6 +1005,11 @@ u32 NDS::RunFrame()
                         dsi.RunNDMAs(0);
                     }
                 }
+                else if (CPUStop & CPUStop_ARM9BusStarve)
+                {
+                    // starved of main RAM by the ARM7, see UpdateARM9Starve()
+                    ARM9Timestamp = ARM9Target;
+                }
                 else
                 {
                     ARM9.Execute<cpuMode>();
@@ -1090,6 +1098,46 @@ u32 NDS::RunFrame()
     {
         return RunFrame<CPUExecuteMode::Interpreter>();
     }
+}
+
+void NDS::UpdateARM9Starve(u32 swi, u32 dst, u32 cnt)
+{
+    // Update the number of bytes that ARM7 will transfer to main RAM.
+    // DecreaseARM7BytesToWrite() will consumes it as the ARM7 writes;
+    // at zero the ARM9 is released.
+
+    // accept only CpuSet and CpuFastSet call
+    // see: https://problemkaputt.de/gbatek-bios-memory-copy.htm
+    if (swi != 0x0B && swi != 0x0C) return;
+
+    // destination must be in main RAM
+    if ((dst >> 24) != 0x02) return;
+
+    // bus starvation occurs only when ARM7 has higher priority
+    if (!(ExMemCnt[0] & (1<<15))) return;
+
+    u32 units = cnt & 0x1FFFFF;
+    u32 bytes = (swi == 0x0C || (cnt & (1<<26))) ? (units << 2) : (units << 1);
+
+    // The original intention of simulating bus starvation is for some problematic games,
+    // like DSi PictoChat, whose ARM7 fills a wide range of main RAM. Transfers below 4KB
+    // are too short for the starvation to matter and are ignored.
+    if (bytes < 0x1000) return;
+
+    ARM7BytesToWrite = bytes;
+    CPUStop |= CPUStop_ARM9BusStarve;
+}
+
+void NDS::DecreaseARM7BytesToWrite(u32 bytes)
+{
+    if (bytes < ARM7BytesToWrite)
+    {
+        ARM7BytesToWrite -= bytes;
+        return;
+    }
+
+    ARM7BytesToWrite = 0;
+    CPUStop &= ~CPUStop_ARM9BusStarve;
 }
 
 void NDS::Reschedule(u64 target)
