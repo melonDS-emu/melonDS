@@ -123,6 +123,7 @@ DSi::DSi(DSiArgs&& args, void* userdata) noexcept :
     NWRAM_C = JIT.Memory.GetNWRAM_C();
 
     SetDSPHLE(args.DSPHLE);
+    SetIsDebuggerUnit(args.DSiDebug);
 }
 
 DSi::~DSi() noexcept
@@ -238,6 +239,11 @@ std::unique_ptr<NDSCart::CartCommon> DSi::EjectCart()
 void DSi::SetDSPHLE(bool hle)
 {
     DSP.SetDSPHLE(hle);
+}
+
+void DSi::SetIsDebuggerUnit(bool isDebuggerUnit)
+{
+    SCFG_OP = isDebuggerUnit ? 1 : 0;
 }
 
 u32 DSi::GetSavestateConfig()
@@ -3048,6 +3054,8 @@ u8 DSi::ARM7IORead8(u32 addr)
     case 0x04004000: return SCFG_BIOS & 0xFF;
     case 0x04004001: return SCFG_BIOS >> 8;
     case 0x04004002: return 0; // SCFG_ROMWE, always 0
+    case 0x04004024: return SCFG_OP & 0xFF;
+    case 0x04004025: return SCFG_OP >> 8;
 
     CASE_READ8_32BIT(0x04004040, MBK[1][0])
     CASE_READ8_32BIT(0x04004044, MBK[1][1])
@@ -3118,6 +3126,7 @@ u16 DSi::ARM7IORead16(u32 addr)
     case 0x04004004: return SCFG_Clock7;
     case 0x04004006: return 0; // JTAG register
     case 0x04004010: return SCFG_MC & 0xFFFF;
+    case 0x04004024: return SCFG_OP;
 
     CASE_READ16_32BIT(0x04004040, MBK[1][0])
     CASE_READ16_32BIT(0x04004044, MBK[1][1])
@@ -3177,6 +3186,7 @@ u32 DSi::ARM7IORead32(u32 addr)
     case 0x04004000: return SCFG_BIOS;
     case 0x04004008: return SCFG_EXT[1];
     case 0x04004010: return SCFG_MC;
+    case 0x04004024: return SCFG_OP;
 
     case 0x04004040: return MBK[1][0];
     case 0x04004044: return MBK[1][1];

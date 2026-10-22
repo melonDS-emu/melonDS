@@ -1328,7 +1328,8 @@ bool EmuInstance::updateConsole() noexcept
                 std::move(arm7ibios),
                 std::move(nand),
                 std::move(sdcard),
-                globalCfg.GetBool("DSi.DSP.HLE")
+                globalCfg.GetBool("DSi.DSP.HLE"),
+                globalCfg.GetBool("DSi.DebugUnit")
         };
 
         dsiargs = std::move(_dsiargs);
@@ -1369,6 +1370,7 @@ bool EmuInstance::updateConsole() noexcept
             DSiArgs& _dsiargs = *dsiargs;
 
             dsi->SetDSPHLE(_dsiargs.DSPHLE);
+            dsi->SetIsDebuggerUnit(_dsiargs.DSiDebug);
             dsi->ARM7iBIOS = *_dsiargs.ARM7iBIOS;
             dsi->ARM9iBIOS = *_dsiargs.ARM9iBIOS;
             dsi->SetNAND(std::move(_dsiargs.NANDImage));
