@@ -156,6 +156,8 @@ private slots:
     void onFirmwareSettingsFinished(int res);
     void onOpenPathSettings();
     void onPathSettingsFinished(int res);
+    void onOpenRichPresenceSettings();
+    void onRichPresenceSettingsFinished(int res);
     void onOpenInterfaceSettings();
     void onInterfaceSettingsFinished(int res);
     void onUpdateInterfaceSettings();
@@ -273,6 +275,7 @@ public:
     QAction* actWifiSettings;
     QAction* actFirmwareSettings;
     QAction* actPathSettings;
+    QAction* actRichPresenceSettings;
     QAction* actInterfaceSettings;
     QAction* actScreenSize[4];
     QActionGroup* grpScreenRotation;
