@@ -54,6 +54,7 @@ protected:
     void DoSavestateExtra(Savestate* file) override;
 public:
     u16 SCFG_BIOS;
+    u16 SCFG_OP;
     u16 SCFG_Clock9;
     u32 SCFG_EXT[2];
 
@@ -190,6 +191,7 @@ public:
     u8 GPIO_WiFi;
 
     void SetDSPHLE(bool hle);
+    void SetIsDebuggerUnit(bool isDebuggerUnit);
 
 private:
     bool FullBIOSBoot;

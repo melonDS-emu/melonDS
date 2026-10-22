@@ -136,6 +136,7 @@ struct DSiArgs final : public NDSArgs
     std::optional<FATStorage> DSiSDCard;
 
     bool DSPHLE = false;
+    bool DSiDebug = false;
 };
 }
 #endif //MELONDS_ARGS_H
