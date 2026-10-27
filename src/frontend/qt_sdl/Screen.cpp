@@ -124,6 +124,8 @@ void ScreenPanel::loadConfig()
     screenRotation = cfg.GetInt("ScreenRotation");
     screenGap = cfg.GetInt("ScreenGap");
     screenLayout = cfg.GetInt("ScreenLayout");
+    smallScreenPosition = cfg.GetInt("SmallScreenPosition");
+    largeScreenScale = cfg.GetInt("LargeScreenScale");
     screenSwap = cfg.GetBool("ScreenSwap");
     screenSizing = cfg.GetInt("ScreenSizing");
     integerScaling = cfg.GetBool("IntegerScaling");
@@ -172,6 +174,8 @@ void ScreenPanel::setupScreenLayout()
                 static_cast<ScreenLayoutType>(screenLayout),
                 static_cast<ScreenRotation>(screenRotation),
                 static_cast<ScreenSizing>(sizing),
+                static_cast<SmallScreenPosition>(smallScreenPosition),
+                static_cast<LargeScreenScale>(largeScreenScale),
                 screenGap,
                 integerScaling != 0,
                 screenSwap != 0,
@@ -192,39 +196,33 @@ QSize ScreenPanel::screenGetMinSize(int factor = 1)
     int w = 256 * factor;
     int h = 192 * factor;
 
-    if (screenSizing == screenSizing_TopOnly
-        || screenSizing == screenSizing_BotOnly)
+    if (screenLayout == screenLayout_SingleScreen)
     {
         return QSize(w, h);
-    }
-
-    if (screenLayout == screenLayout_Natural)
-    {
-        if (isHori)
-            return QSize(h+gap+h, w);
-        else
-            return QSize(w, h+gap+h);
-    }
-    else if (screenLayout == screenLayout_Vertical)
+    } else if (screenLayout == screenLayout_Default)
     {
         if (isHori)
             return QSize(h, w+gap+w);
         else
             return QSize(w, h+gap+h);
     }
-    else if (screenLayout == screenLayout_Horizontal)
+    else if (screenLayout == screenLayout_SideBySide)
     {
         if (isHori)
             return QSize(h+gap+h, w);
         else
             return QSize(w+gap+w, h);
-    }
-    else // hybrid
-    {
-        if (isHori)
-            return QSize(h+gap+h, 3*w + (int)ceil((4*gap) / 3.0));
-        else
-            return QSize(3*w + (int)ceil((4*gap) / 3.0), h+gap+h);
+    } else if (screenLayout == screenLayout_LargeScreen){
+        int largeScale = largeScreenScale + 1; //Just put this here so that if largeScreenScale_2X, then largeScale = 2; 
+        if (smallScreenPosition != smallScreenPos_Above && smallScreenPosition != smallScreenPos_Below){
+            return QSize((largeScale+1)*w+(gap*((largeScale+1)/2.0f)), (largeScale)*h);
+        } else {
+            return QSize((largeScale)*w, (largeScale+1)*h+(gap*((largeScale+1)/2.0f)));
+        }
+    } else if (screenLayout == screenLayout_Book || screenLayout == screenLayout_ReverseBook){
+        return QSize((2*h)+gap, w);
+    } else { //Hybrid
+        return QSize(3*w, 2*h);
     }
 }
 
