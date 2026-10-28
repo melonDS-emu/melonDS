@@ -62,6 +62,7 @@ void CartRetailBT::Reset()
     TxPos = 0;
     SaveActive = false;
     SaveSession = false;
+    SPIOpen = false;
     Keyboard.Reset();
 
     // Slot is null while the cart is being inserted, so SetSlot() arms the timer too.
@@ -84,6 +85,7 @@ void CartRetailBT::DoSavestate(Savestate* file)
         TxPos = 0;
         SaveActive = false;
         SaveSession = false;
+        SPIOpen = false;
         Keyboard.Reset();
 
         if (Slot)
@@ -108,6 +110,7 @@ void CartRetailBT::DoSavestate(Savestate* file)
 
     file->VarBool(&SaveActive);
     file->VarBool(&SaveSession);
+    file->VarBool(&SPIOpen);
 
     Keyboard.DoSavestate(file);
 }
@@ -130,11 +133,7 @@ void CartRetailBT::OnPageTimer(u32 param)
         sent = true;
 
     if (sent)
-    {
-        // don't wait for the driver's next SPI poll
-        if (LoadNextPacket())
-            RaiseIRQ();
-    }
+        SendPending();
 
     if (Slot)
         Slot->ScheduleCartTimer(PageTickIntervalCycles, 0);
@@ -225,12 +224,17 @@ void CartRetailBT::RaiseIRQ()
 // an Inquiry once Fn is pressed: don't wait for the driver's next poll.
 void CartRetailBT::SendPending()
 {
+    // A packet loaded mid-session would go out in whatever bytes the driver clocks
+    // before it lets go of chipselect. SPIRelease() loads it instead.
+    if (SPIOpen) return;
+
     if (LoadNextPacket())
         RaiseIRQ();
 }
 
 void CartRetailBT::SPISelect()
 {
+    SPIOpen = true;
     RxLen = 0;
     SaveSession = false;
     CartRetail::SPISelect();
@@ -238,8 +242,13 @@ void CartRetailBT::SPISelect()
 
 void CartRetailBT::SPIRelease()
 {
+    SPIOpen = false;
+
+    // HandleFrame() also sends what came while the session held chipselect
     if (!SaveSession && RxLen > 0)
         HandleFrame();
+    else
+        SendPending();
 
     // the latch is cleared after the base call, which flushes a pending write
     SPIRoute route = SaveSession ? SPIRoute::SaveMemory : SPIRoute::Bluetooth;

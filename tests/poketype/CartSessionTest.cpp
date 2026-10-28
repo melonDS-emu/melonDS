@@ -22,6 +22,7 @@
 #include <memory>
 #include <vector>
 
+#include "BTKeyboardSupport.h"
 #include "NDS.h"
 #include "NDSCart/CartRetailBT.h"
 #include "NDSSupport.h"
@@ -90,6 +91,51 @@ void SendBTCommand(CartRetailBT& cart, u16 opcode, const std::vector<u8>& params
     std::vector<u8> frame { 0x01, 0x00, (u8)(hci.size() >> 8), (u8)(hci.size() & 0xFF) };
     frame.insert(frame.end(), hci.begin(), hci.end());
     Session(cart, frame);
+}
+
+// An HCI packet in the cart's SPI framing, which SendBTCommand() builds for commands.
+void SendBTPacket(CartRetailBT& cart, const std::vector<u8>& hci)
+{
+    std::vector<u8> frame { 0x01, 0x00, (u8)(hci.size() >> 8), (u8)(hci.size() & 0xFF) };
+    frame.insert(frame.end(), hci.begin(), hci.end());
+    Session(cart, frame);
+}
+
+// One read session: the packet the controller has ready, unframed, or nothing.
+std::vector<u8> ReadBTPacket(CartRetailBT& cart)
+{
+    cart.SPISelect();
+    u8 header[4];
+    header[0] = cart.SPITransmitReceive(0x02);
+    for (int i = 1; i < 4; i++)
+        header[i] = cart.SPITransmitReceive(0x00);
+
+    std::vector<u8> pkt;
+    u32 len = ((u32)header[2] << 8) | header[3];
+    for (u32 i = 0; i < len; i++)
+        pkt.push_back(cart.SPITransmitReceive(0x00));
+    cart.SPIRelease();
+    return pkt;
+}
+
+// Bring up the link and the HID interrupt channel as the game does, and read
+// everything the controller answers. The game's end of the channel is 0x0043,
+// and a fresh keyboard numbers its own first channel 0x0040.
+void ConnectInterruptChannel(CartRetailBT& cart)
+{
+    SendBTPacket(cart, Command(0x0405, {0x33, 0x22, 0x11, 0x32, 0x1F, 0x00,
+                                        0x18, 0x00, 0x01, 0x00, 0x00, 0x00, 0x00}));
+    SendBTPacket(cart, Acl(0x0001, {0x02, 0x01, 0x04, 0x00, 0x13, 0x00, 0x43, 0x00}));
+    SendBTPacket(cart, Acl(0x0001, {0x04, 0x02, 0x04, 0x00, 0x40, 0x00, 0x00, 0x00}));
+
+    while (!ReadBTPacket(cart).empty()) {}
+}
+
+// The key report: ACL on the game's interrupt channel, DATA, report ID 1.
+bool IsReportOfKey(const std::vector<u8>& pkt, u8 keyid)
+{
+    return pkt.size() == 19 && pkt[0] == 0x02 && pkt[7] == 0x43
+        && pkt[9] == 0xA1 && pkt[10] == 0x01 && pkt[13] == keyid;
 }
 
 void testAWriteReachesSaveMemoryAndIsFlushed()
@@ -298,6 +344,36 @@ void testAStateFrom14_0RestartsTheCartTimer()
     CHECK((loaded->EventMask() & timer) != 0);
 }
 
+// A key pressed between the driver's polls is ready for its next read.
+void testAKeyReachesTheDriverAtOnce()
+{
+    auto cart = MakeCart();
+    ConnectInterruptChannel(*cart);
+
+    cart->SetKey(0x04, true);
+    CHECK(IsReportOfKey(ReadBTPacket(*cart), 0x04));
+}
+
+// A key pressed while the driver holds chipselect waits for the session to end,
+// rather than go out in whatever that session clocks.
+void testAKeyPressedMidSessionWaitsForChipselect()
+{
+    auto cart = MakeCart();
+    ConnectInterruptChannel(*cart);
+
+    cart->SPISelect();
+    CHECK_EQ(cart->SPITransmitReceive(0x02), 0x00);     // nothing pending
+    cart->SetKey(0x04, true);
+
+    int nonzero = 0;
+    for (int i = 0; i < 32; i++)
+        if (cart->SPITransmitReceive(0x00) != 0) nonzero++;
+    CHECK_EQ(nonzero, 0);
+    cart->SPIRelease();
+
+    CHECK(IsReportOfKey(ReadBTPacket(*cart), 0x04));
+}
+
 }
 
 int runCartSessionTests()
@@ -313,5 +389,7 @@ int runCartSessionTests()
     testThePageTimerBelongsToTheSlot();
     testAnEjectedCartLeavesItsOldConsoleAlone();
     testAStateFrom14_0RestartsTheCartTimer();
+    testAKeyReachesTheDriverAtOnce();
+    testAKeyPressedMidSessionWaitsForChipselect();
     return 0;
 }

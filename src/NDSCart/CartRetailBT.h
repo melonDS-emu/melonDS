@@ -138,6 +138,9 @@ private:
     // whether the current session was routed to save memory (decided on its first byte)
     bool SaveSession = false;
 
+    // whether the driver holds chipselect, between SPISelect() and SPIRelease()
+    bool SPIOpen = false;
+
     BTKeyboard Keyboard;
 };
 
