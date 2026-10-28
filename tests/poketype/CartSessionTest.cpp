@@ -27,6 +27,7 @@
 #include "NDSCart/CartRetailBT.h"
 #include "NDSSupport.h"
 #include "PlatformStub.h"
+#include "Savestate.h"
 #include "TestSupport.h"
 
 using melonDS::u8;
@@ -354,6 +355,34 @@ void testAKeyReachesTheDriverAtOnce()
     CHECK(IsReportOfKey(ReadBTPacket(*cart), 0x04));
 }
 
+// The keys held are the player's: loading a state saved with Shift down, after
+// letting go of it, tells the game it's up.
+void testALoadedStateKeepsTheKeysHeldNow()
+{
+    auto cart = MakeCart();
+    ConnectInterruptChannel(*cart);
+
+    cart->SetKey(0x72, true);               // Left Shift
+    ReadBTPacket(*cart);
+
+    // the cart opens its own section
+    melonDS::Savestate save(1024 * 1024);
+    cart->DoSavestate(&save);
+    save.Finish();
+    std::vector<u8> state((const u8*)save.Buffer(), (const u8*)save.Buffer() + save.Length());
+
+    cart->SetKey(0x72, false);
+    ReadBTPacket(*cart);
+
+    melonDS::Savestate load(state.data(), (u32)state.size(), false);
+    cart->DoSavestate(&load);
+    CHECK(!load.Error);
+
+    auto pkt = ReadBTPacket(*cart);
+    CHECK(pkt.size() == 19 && pkt[9] == 0xA1 && pkt[10] == 0x01 && pkt[11] == 0x00);
+    CHECK(ReadBTPacket(*cart).empty());
+}
+
 // A key pressed while the driver holds chipselect waits for the session to end,
 // rather than go out in whatever that session clocks.
 void testAKeyPressedMidSessionWaitsForChipselect()
@@ -391,5 +420,6 @@ int runCartSessionTests()
     testAStateFrom14_0RestartsTheCartTimer();
     testAKeyReachesTheDriverAtOnce();
     testAKeyPressedMidSessionWaitsForChipselect();
+    testALoadedStateKeepsTheKeysHeldNow();
     return 0;
 }

@@ -93,6 +93,19 @@ public:
     /// Let go of every key.
     void ReleaseKeys() noexcept;
 
+    /// Every key held, Fn included.
+    struct HeldKeys
+    {
+        u8 Report[8];       // the boot-keyboard report: modifiers, reserved, six keys
+        bool Fn;
+    };
+
+    [[nodiscard]] HeldKeys GetHeldKeys() const noexcept;
+
+    /// Hold exactly these keys, telling the game about any that differ from the
+    /// keys held now. Returns whether that queued a report.
+    bool SetHeldKeys(const HeldKeys& keys) noexcept;
+
     /// With page scan on and no link up, send a Connection_Request, the way a bonded
     /// keyboard reconnects. Driven by the cart's 2-second timer; returns whether one was sent.
     bool PageTick() noexcept;
@@ -162,7 +175,7 @@ private:
     void Handshake(const Channel& ch, u8 result);
 
     void SetModifiers(u8 mods) noexcept;
-    void SendInputReport(u8 id, const u8* data, u32 len) noexcept;
+    bool SendInputReport(u8 id, const u8* data, u32 len) noexcept;
     [[nodiscard]] u32 PendingBytes() const noexcept;
 
     std::vector<Channel> Channels;

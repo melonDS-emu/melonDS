@@ -1216,15 +1216,15 @@ u32 BTKeyboard::PendingBytes() const noexcept
     return bytes;
 }
 
-void BTKeyboard::SendInputReport(u8 id, const u8* data, u32 len) noexcept
+bool BTKeyboard::SendInputReport(u8 id, const u8* data, u32 len) noexcept
 {
-    if (len > sizeof(InputReport)) return;
+    if (len > sizeof(InputReport)) return false;
 
     // nobody to tell until the game has opened the interrupt channel
     const Channel* intr = nullptr;
     for (const Channel& ch : Channels)
         if (ch.PSM == PSM_HIDInterrupt && ch.Configured) intr = &ch;
-    if (!intr) return;
+    if (!intr) return false;
 
     u32 size = ACLHeaderSize + 2 + len;
     if (PendingBytes() + 2 + size > MaxReportBacklog)
@@ -1232,15 +1232,15 @@ void BTKeyboard::SendInputReport(u8 id, const u8* data, u32 len) noexcept
         // Rather than outgrow a savestate, this report takes the place of the newest
         // one queued, if that has the same ID: each carries every key it covers.
         // Otherwise it's dropped, as a keyboard would with its buffer full.
-        if (Outgoing.empty()) return;
+        if (Outgoing.empty()) return false;
 
         std::vector<u8>& last = Outgoing.back();
-        if (last.size() != size || last[0] != 0x02) return;
-        if ((u16)(last[7] | (last[8] << 8)) != intr->RemoteCID) return;
-        if (last[ACLHeaderSize] != 0xA1 || last[ACLHeaderSize + 1] != id) return;
+        if (last.size() != size || last[0] != 0x02) return false;
+        if ((u16)(last[7] | (last[8] << 8)) != intr->RemoteCID) return false;
+        if (last[ACLHeaderSize] != 0xA1 || last[ACLHeaderSize + 1] != id) return false;
 
         memcpy(&last[ACLHeaderSize + 2], data, len);
-        return;
+        return true;
     }
 
     u8 pkt[2 + sizeof(InputReport)];
@@ -1248,6 +1248,7 @@ void BTKeyboard::SendInputReport(u8 id, const u8* data, u32 len) noexcept
     pkt[1] = id;
     memcpy(&pkt[2], data, len);
     SendOnChannel(*intr, pkt, 2 + len);
+    return true;
 }
 
 void BTKeyboard::SetModifiers(u8 mods) noexcept
@@ -1322,6 +1323,36 @@ void BTKeyboard::TypeKey(u8 keyid, bool shift, bool altgr) noexcept
     SetKey(keyid, true);
     SetKey(keyid, false);
     SetModifiers(held);
+}
+
+static_assert(sizeof(BTKeyboard::HeldKeys::Report) == 8, "a boot-keyboard report is 8 bytes");
+
+BTKeyboard::HeldKeys BTKeyboard::GetHeldKeys() const noexcept
+{
+    HeldKeys keys;
+    memcpy(keys.Report, InputReport, sizeof(InputReport));
+    keys.Fn = FnHeld;
+    return keys;
+}
+
+bool BTKeyboard::SetHeldKeys(const HeldKeys& keys) noexcept
+{
+    bool sent = false;
+
+    if (memcmp(keys.Report, InputReport, sizeof(InputReport)) != 0)
+    {
+        memcpy(InputReport, keys.Report, sizeof(InputReport));
+        sent |= SendInputReport(KeysReportID, InputReport, sizeof(InputReport));
+    }
+
+    if (keys.Fn != FnHeld)
+    {
+        FnHeld = keys.Fn;
+        u8 state = FnHeld ? 1 : 0;
+        sent |= SendInputReport(FnReportID, &state, 1);
+    }
+
+    return sent;
 }
 
 void BTKeyboard::ReleaseKeys() noexcept

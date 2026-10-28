@@ -112,7 +112,13 @@ void CartRetailBT::DoSavestate(Savestate* file)
     file->VarBool(&SaveSession);
     file->VarBool(&SPIOpen);
 
+    // The keys held are the player's, not the state's, so a loaded state keeps the
+    // ones held now. The game hears of any that differ from what the state says it
+    // last heard; otherwise loading sends nothing, as rewind and run-ahead need.
+    BTKeyboard::HeldKeys held = Keyboard.GetHeldKeys();
     Keyboard.DoSavestate(file);
+    if (!file->Saving && !file->Error && Keyboard.SetHeldKeys(held))
+        SendPending();
 }
 
 void CartRetailBT::SetSlot(NDSCartSlot* slot) noexcept

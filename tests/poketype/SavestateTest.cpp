@@ -360,6 +360,43 @@ std::vector<std::vector<u8>> InputReports(const std::vector<std::vector<u8>>& pk
     return reports;
 }
 
+// The cart keeps the keys held now across a load, as CartRetailBT::DoSavestate
+// does, so a key held when the state was saved and let go since stays up, and
+// the game is told.
+void testALoadedStateKeepsTheKeysHeldNow()
+{
+    BTKeyboard kb;
+    kb.Reset();
+    Connect(kb);
+    Drain(kb);
+
+    kb.SetKey(0x72, true);                  // Left Shift, held when saving
+    Drain(kb);
+    auto state = SaveKeyboard(kb);
+    kb.SetKey(0x72, false);
+    kb.SetKey(0x04, true);                  // and A held when loading
+    Drain(kb);
+
+    BTKeyboard::HeldKeys held = kb.GetHeldKeys();
+    LoadKeyboard(kb, state);
+    CHECK(kb.SetHeldKeys(held));
+
+    auto reports = InputReports(Drain(kb));
+    CHECK_EQ(reports.size(), 1);
+    if (reports.size() == 1)
+    {
+        static const u8 expected[] = { 0x01, 0x00, 0x00, 0x04, 0x00, 0x00, 0x00, 0x00, 0x00 };
+        CHECK(reports[0] == std::vector<u8>(expected, expected + sizeof(expected)));
+    }
+
+    // a state saved with the same keys held sends nothing, as run-ahead needs
+    state = SaveKeyboard(kb);
+    held = kb.GetHeldKeys();
+    LoadKeyboard(kb, state);
+    CHECK(!kb.SetHeldKeys(held));
+    CHECK(Drain(kb).empty());
+}
+
 // The game reads key reports as they come. If it stops, the keyboard keeps no
 // more than a savestate can hold, and the newest report still says what's held.
 void testABacklogOfKeyReportsStillFitsASavestate()
@@ -402,6 +439,7 @@ int runSavestateTests()
     testAStateWithTooManyChannelsIsRejected();
     testAStateWithAnOversizedPacketIsRejected();
     testAStateWithTooManyPacketsIsRejected();
+    testALoadedStateKeepsTheKeysHeldNow();
     testABacklogOfKeyReportsStillFitsASavestate();
     return 0;
 }
