@@ -24,6 +24,20 @@
 namespace melonDS::NDSCart
 {
 
+enum CartRetailIRVersion
+{
+    // Not an IR cartridge
+    CartRetailIRVersionInvalid = 0,
+
+    // IR cartridge supporting NTR-027
+    // NTR-IMWX, NTR-IA8P
+    CartRetailIRVersionEarly,
+
+    // IR cartridge supporting NTR-032
+    // NTR-IPKX, NTR-IPGX, TWL-IRBX, TWL-IRAX, TWL-IREX, TWL-IRDX
+    CartRetailIRVersionLate
+};
+
 // CartRetailIR -- SPI IR device and SRAM
 class CartRetailIR : public CartRetail
 {
@@ -37,12 +51,26 @@ public:
     void DoSavestate(Savestate* file) override;
 
     void SPISelect() override;
+    void SPIRelease() override;
     u8 SPITransmitReceive(u8 val) override;
 
 private:
-    u32 IRVersion = 0;
+    u32 IRVersion = CartRetailIRVersionInvalid;
     u8 IRCmd = 0;
     u32 IRPos = 0;
+
+    // bytes sent by the current send command (0x02)
+    u32 IRSent = 0;
+
+    // length of the packet reported by the current receive command (0x01)
+    u32 IRReceived = 0;
+
+    // the start of the packet being sent or received, and when the last one
+    // was logged, for the packet log
+    u8 IRLogBytes[16];
+    u64 IRLogLast = 0;
+
+    void LogPacket(const char* dir, u32 len);
 };
 
 }
