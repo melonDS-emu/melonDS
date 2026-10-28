@@ -22,6 +22,10 @@
 #include <QDialog>
 #include <QMutex>
 #include <QItemSelection>
+#include <QGroupBox>
+
+class QLineEdit;
+class QLabel;
 
 #include "types.h"
 
@@ -31,6 +35,33 @@ namespace Ui
     class LANStartClientDialog;
     class LANDialog;
 }
+
+// settings for playing LAN games over the internet through a relay server (see net/VNet.h)
+class RelaySettingsBox : public QGroupBox
+{
+Q_OBJECT
+
+public:
+    explicit RelaySettingsBox(QWidget* parent);
+
+    // connects to (or disconnects from) the relay according to the current settings
+    // returns false and shows a message box if connecting failed
+    bool apply(bool showerrors);
+    void saveConfig();
+    void updateStatus();
+
+signals:
+    void applied();
+
+private slots:
+    void onConnectClicked();
+
+private:
+    QLineEdit* txtServer;
+    QLineEdit* txtRoom;
+    QLabel* lblStatus;
+    QString lastError;
+};
 
 class LANStartHostDialog : public QDialog
 {
@@ -52,6 +83,7 @@ private slots:
 
 private:
     Ui::LANStartHostDialog* ui;
+    RelaySettingsBox* relayBox;
 };
 
 class LANStartClientDialog : public QDialog
@@ -79,9 +111,11 @@ private slots:
     void done(int r) override;
 
     void doUpdateDiscoveryList();
+    void onRelayApplied();
 
 private:
     Ui::LANStartClientDialog* ui;
+    RelaySettingsBox* relayBox;
     int timerID;
 };
 
