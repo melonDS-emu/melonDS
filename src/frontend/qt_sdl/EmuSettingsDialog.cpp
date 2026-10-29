@@ -78,6 +78,11 @@ EmuSettingsDialog::EmuSettingsDialog(QWidget* parent) : QDialog(parent), ui(new 
 
     ui->chkDirectBoot->setChecked(cfg.GetBool("Emu.DirectBoot"));
 
+    ui->grpTouchpadTouchscreen->setChecked(instcfg.GetBool("TouchpadTouchscreen"));
+    ui->spnTouchpadEdgeMargin->setValue(instcfg.GetInt("TouchpadEdgeMargin"));
+    ui->chkTouchpadInvertX->setChecked(instcfg.GetBool("TouchpadInvertX"));
+    ui->chkTouchpadInvertY->setChecked(instcfg.GetBool("TouchpadInvertY"));
+
 #ifdef JIT_ENABLED
     ui->chkEnableJIT->setChecked(cfg.GetBool("JIT.Enable"));
     ui->chkJITBranchOptimisations->setChecked(cfg.GetBool("JIT.BranchOptimisations"));
@@ -160,6 +165,7 @@ EmuSettingsDialog::EmuSettingsDialog(QWidget* parent) : QDialog(parent), ui(new 
     SET_ORIGVAL(QSpinBox, value);
     SET_ORIGVAL(QComboBox, currentIndex);
     SET_ORIGVAL(QCheckBox, isChecked);
+    SET_ORIGVAL(QGroupBox, isChecked);
 
 #undef SET_ORIGVAL
 }
@@ -242,6 +248,7 @@ void EmuSettingsDialog::done(int r)
         CHECK_ORIGVAL(QSpinBox, value);
         CHECK_ORIGVAL(QComboBox, currentIndex);
         CHECK_ORIGVAL(QCheckBox, isChecked);
+        CHECK_ORIGVAL(QGroupBox, isChecked);
 
 #undef CHECK_ORIGVAL
 
@@ -304,7 +311,13 @@ void EmuSettingsDialog::done(int r)
             cfg.SetInt("Emu.ConsoleType", ui->cbxConsoleType->currentIndex());
             cfg.SetBool("Emu.DirectBoot", ui->chkDirectBoot->isChecked());
 
+            instcfg.SetBool("TouchpadTouchscreen", ui->grpTouchpadTouchscreen->isChecked());
+            instcfg.SetInt("TouchpadEdgeMargin", ui->spnTouchpadEdgeMargin->value());
+            instcfg.SetBool("TouchpadInvertX", ui->chkTouchpadInvertX->isChecked());
+            instcfg.SetBool("TouchpadInvertY", ui->chkTouchpadInvertY->isChecked());
+
             Config::Save();
+            emuInstance->inputLoadConfig();
 
             needsReset = true;
         }
