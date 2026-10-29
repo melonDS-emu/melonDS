@@ -16,6 +16,8 @@
     with melonDS. If not, see http://www.gnu.org/licenses/.
 */
 
+#include <cstdlib>
+
 #include <QStyleFactory>
 #include "InterfaceSettingsDialog.h"
 #include "ui_InterfaceSettingsDialog.h"
@@ -39,7 +41,17 @@ InterfaceSettingsDialog::InterfaceSettingsDialog(QWidget* parent) : QDialog(pare
     ui->spinMouseHideSeconds->setEnabled(ui->cbMouseHide->isChecked());
     ui->spinMouseHideSeconds->setValue(cfg.GetInt("Mouse.HideSeconds"));
     ui->cbPauseLostFocus->setChecked(cfg.GetBool("PauseLostFocus"));
-    ui->cbMuteFastForward->setChecked(cfg.GetBool("MuteFastForward"));
+    ui->cbFastForwardVolume->setChecked(cfg.GetBool("MuteFastForward"));
+    ui->slFastForwardVolume->setValue(cfg.GetInt("FastForwardVolume"));
+    ui->lblFastForwardVolume->setText(QString("%1%").arg(cfg.GetInt("FastForwardVolume")));
+    ui->slFastForwardVolume->setEnabled(ui->cbFastForwardVolume->isChecked());
+    ui->lblFastForwardVolume->setEnabled(ui->cbFastForwardVolume->isChecked());
+
+    ui->cbSlowmoVolume->setChecked(cfg.GetBool("MuteSlowmo"));
+    ui->slSlowmoVolume->setValue(cfg.GetInt("SlowmoVolume"));
+    ui->lblSlowmoVolume->setText(QString("%1%").arg(cfg.GetInt("SlowmoVolume")));
+    ui->slSlowmoVolume->setEnabled(ui->cbSlowmoVolume->isChecked());
+    ui->lblSlowmoVolume->setEnabled(ui->cbSlowmoVolume->isChecked());
     ui->spinTargetFPS->setValue(cfg.GetDouble("TargetFPS"));
     ui->spinFFW->setValue(cfg.GetDouble("FastForwardFPS"));
     ui->spinSlow->setValue(cfg.GetDouble("SlowmoFPS"));
@@ -103,6 +115,55 @@ void InterfaceSettingsDialog::on_pbQuarter_clicked()
     ui->spinSlow->setValue(ui->spinTargetFPS->value() / 4.0);
 }
 
+void InterfaceSettingsDialog::on_cbFastForwardVolume_clicked()
+{
+    ui->slFastForwardVolume->setEnabled(ui->cbFastForwardVolume->isChecked());
+    ui->lblFastForwardVolume->setEnabled(ui->cbFastForwardVolume->isChecked());
+}
+
+void InterfaceSettingsDialog::on_cbSlowmoVolume_clicked()
+{
+    ui->slSlowmoVolume->setEnabled(ui->cbSlowmoVolume->isChecked());
+    ui->lblSlowmoVolume->setEnabled(ui->cbSlowmoVolume->isChecked());
+}
+
+// pull a dragged slider onto a nearby tick. setValue() re-enters this while the
+// handle is held, but the second pass is a no-op since the value already matches.
+// only dragging snaps, so the arrow keys can still reach any value
+static void snapSpeedVolume(QSlider* slider, int val)
+{
+    for (int tick = 0; tick <= slider->maximum(); tick += slider->tickInterval())
+    {
+        if (std::abs(val - tick) <= 4)
+        {
+            slider->setValue(tick);
+            return;
+        }
+    }
+
+    slider->setValue(val);
+}
+
+void InterfaceSettingsDialog::on_slFastForwardVolume_sliderMoved(int val)
+{
+    snapSpeedVolume(ui->slFastForwardVolume, val);
+}
+
+void InterfaceSettingsDialog::on_slSlowmoVolume_sliderMoved(int val)
+{
+    snapSpeedVolume(ui->slSlowmoVolume, val);
+}
+
+void InterfaceSettingsDialog::on_slFastForwardVolume_valueChanged(int val)
+{
+    ui->lblFastForwardVolume->setText(QString("%1%").arg(val));
+}
+
+void InterfaceSettingsDialog::on_slSlowmoVolume_valueChanged(int val)
+{
+    ui->lblSlowmoVolume->setText(QString("%1%").arg(val));
+}
+
 void InterfaceSettingsDialog::done(int r)
 {
     if (!((MainWindow*)parent())->getEmuInstance())
@@ -119,7 +180,10 @@ void InterfaceSettingsDialog::done(int r)
         cfg.SetBool("Mouse.Hide", ui->cbMouseHide->isChecked());
         cfg.SetInt("Mouse.HideSeconds", ui->spinMouseHideSeconds->value());
         cfg.SetBool("PauseLostFocus", ui->cbPauseLostFocus->isChecked());
-        cfg.SetBool("MuteFastForward", ui->cbMuteFastForward->isChecked());
+        cfg.SetBool("MuteFastForward", ui->cbFastForwardVolume->isChecked());
+        cfg.SetInt("FastForwardVolume", ui->slFastForwardVolume->value());
+        cfg.SetBool("MuteSlowmo", ui->cbSlowmoVolume->isChecked());
+        cfg.SetInt("SlowmoVolume", ui->slSlowmoVolume->value());
 
         double val = ui->spinTargetFPS->value();
         if (val == 0.0) cfg.SetDouble("TargetFPS", 0.0001);

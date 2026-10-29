@@ -119,6 +119,12 @@ EmuInstance::EmuInstance(int inst) : deleting(false),
     }
     else slowmoFPS = val;
 
+    // MuteFastForward is a legacy key name; it now enables a volume override
+    speedVolumeFastForwardOn = globalCfg.GetBool("MuteFastForward");
+    speedVolumeFastForward = globalCfg.GetInt("FastForwardVolume");
+    speedVolumeSlowmoOn = globalCfg.GetBool("MuteSlowmo");
+    speedVolumeSlowmo = globalCfg.GetInt("SlowmoVolume");
+
     doAudioSync = globalCfg.GetBool("AudioSync");
 
     mpAudioMode = globalCfg.GetInt("MP.AudioMode");

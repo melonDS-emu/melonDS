@@ -1995,6 +1995,11 @@ void MainWindow::onUpdateInterfaceSettings()
     emuInstance->targetFPS = globalCfg.GetDouble("TargetFPS");
     emuInstance->fastForwardFPS = globalCfg.GetDouble("FastForwardFPS");
     emuInstance->slowmoFPS = globalCfg.GetDouble("SlowmoFPS");
+    // MuteFastForward is a legacy key name; it now enables a volume override
+    emuInstance->speedVolumeFastForwardOn = globalCfg.GetBool("MuteFastForward");
+    emuInstance->speedVolumeFastForward = globalCfg.GetInt("FastForwardVolume");
+    emuInstance->speedVolumeSlowmoOn = globalCfg.GetBool("MuteSlowmo");
+    emuInstance->speedVolumeSlowmo = globalCfg.GetInt("SlowmoVolume");
     panel->setMouseHide(globalCfg.GetBool("Mouse.Hide"),
                         globalCfg.GetInt("Mouse.HideSeconds")*1000);
 }
