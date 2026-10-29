@@ -34,8 +34,8 @@
 using namespace melonDS;
 InputConfigDialog* InputConfigDialog::currentDlg = nullptr;
 
-const int dskeyorder[12] = {0, 1, 10, 11, 5, 4, 6, 7, 9, 8, 2, 3};
-const char* dskeylabels[12] = {"A", "B", "X", "Y", "Left", "Right", "Up", "Down", "L", "R", "Select", "Start"};
+const int dskeyorder[18] = {0, 1, 10, 11, 5, 4, 6, 7, 9, 8, 2, 3, 12, 13, 14, 15, 16, 17};
+const char* dskeylabels[18] = {"A", "B", "X", "Y", "Left", "Right", "Up", "Down", "L", "R", "Select", "Start","StyUp", "StyDown", "StyLeft", "StyRight", "StyMod", "StyTouch"};
 
 InputConfigDialog::InputConfigDialog(QWidget* parent) : QDialog(parent), ui(new Ui::InputConfigDialog)
 {
