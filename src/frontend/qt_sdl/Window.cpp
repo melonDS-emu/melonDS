@@ -638,6 +638,8 @@ MainWindow::MainWindow(int id, EmuInstance* inst, QWidget* parent) :
 
         if (localCfg.GetString("Firmware.Username") == "Arisotura")
             actMPNewInstance->setText("Fart");
+
+        setMenuBarVisibility();
     }
 
 #ifdef Q_OS_MAC
@@ -2153,23 +2155,41 @@ void MainWindow::onTitleUpdate(QString title)
     setWindowTitle(title);
 }
 
+void MainWindow::setMenuBarVisibility()
+{
+    if (!hasMenu) return;
+
+    if (globalCfg.GetBool("ShowMenuBar") && !isFullScreen())
+    {
+        int menuBarHeight = menuBar()->sizeHint().height();
+        menuBar()->setFixedHeight(menuBarHeight);
+    }
+    else
+    {
+        // Don't use hide() as menubar actions stop working
+        menuBar()->setFixedHeight(0);
+    }
+}
+
+void MainWindow::onMenuBarToggled()
+{
+    globalCfg.SetBool("ShowMenuBar", !globalCfg.GetBool("ShowMenuBar"));
+    setMenuBarVisibility();
+}
+
 void MainWindow::toggleFullscreen()
 {
     if (!isFullScreen())
     {
         showFullScreen();
-        if (hasMenu)
-            menuBar()->setFixedHeight(0); // Don't use hide() as menubar actions stop working
     }
     else
     {
         showNormal();
-        if (hasMenu)
-        {
-            int menuBarHeight = menuBar()->sizeHint().height();
-            menuBar()->setFixedHeight(menuBarHeight);
-        }
     }
+
+    // Menu bar visibility is affected by fullscreen
+    setMenuBarVisibility();
 }
 
 void MainWindow::onFullscreenToggled()
