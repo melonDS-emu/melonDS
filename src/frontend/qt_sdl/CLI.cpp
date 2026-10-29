@@ -42,6 +42,8 @@ CommandLineOptions* ManageArgs(QApplication& melon)
     parser.addPositionalArgument("gba", "GBA ROM (or an archive file which contains it) to load into Slot-2");
 
     parser.addOption(QCommandLineOption({"b", "boot"}, "Whether to boot firmware on startup. Defaults to \"auto\" (boot if NDS rom given)", "auto/always/never", "auto"));
+    parser.addOption(QCommandLineOption({"c", "config"}, "Use the specified TOML configuration file", "file"));
+    parser.addOption(QCommandLineOption({"append-config", "appendconfig"}, "Temporarily override settings without saving configuration changes", "file"));
     parser.addOption(QCommandLineOption({"f", "fullscreen"}, "Start melonDS in fullscreen mode"));
 
 #ifdef ARCHIVE_SUPPORT_ENABLED
@@ -54,6 +56,10 @@ CommandLineOptions* ManageArgs(QApplication& melon)
     CommandLineOptions* options = new CommandLineOptions;
 
     options->fullscreen = parser.isSet("fullscreen");
+    if (parser.isSet("config"))
+        options->configPath = parser.value("config");
+    if (parser.isSet("append-config"))
+        options->appendConfigPath = parser.value("append-config");
 
     QStringList posargs = parser.positionalArguments();
     switch (posargs.size())
