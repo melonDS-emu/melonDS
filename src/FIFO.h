@@ -119,6 +119,9 @@ public:
         delete[] Entries;
     }
 
+    DynamicFIFO(const DynamicFIFO&) = delete;
+    DynamicFIFO& operator=(const DynamicFIFO&) = delete;
+
 
     void Clear()
     {
