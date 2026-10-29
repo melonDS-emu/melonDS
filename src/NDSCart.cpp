@@ -216,12 +216,7 @@ void NDSCartSlot::Reset() noexcept
 {
     SetLogicalNum(Num);
 
-    // on DS, the cart interface is always powered on
-    // on DSi, start powered off - SCFG_MC is used to power the interface up/down
-    if (NDS.ConsoleType == 1)
-        PowerState = 0;
-    else
-        PowerState = 2;
+	PowerState = 2;
 
     for (auto& inter : Interfaces)
         inter.Reset();
