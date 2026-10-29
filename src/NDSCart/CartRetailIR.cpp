@@ -57,8 +57,9 @@ CartRetailIR::~CartRetailIR() = default;
 void CartRetailIR::Reset()
 {
     CartRetail::Reset();
-
+    Platform::IRClose();
     IRCmd = 0;
+    IRPos = 0;
 }
 
 void CartRetailIR::DoSavestate(Savestate* file)
@@ -71,7 +72,28 @@ void CartRetailIR::DoSavestate(Savestate* file)
 void CartRetailIR::SPISelect()
 {
     CartRetail::SPISelect();
+
     IRPos = 0;
+    // Log(LogLevel::Info, "--- SPISelect: IRCmd [%d], IRPos %d\n", IRCmd, IRPos);
+}
+
+void CartRetailIR::SPIRelease()
+{
+    CartRetail::SPIRelease();
+
+    if (IRCmd == 0x02 && IRPos > 1)
+    {
+        u8 sendLen = IRPos - 1; // IRPos includes the command byte
+        SendIR(sendLen);
+        memset(TxBuf, 0, sizeof(TxBuf));
+    }
+    // if (IRCmd == 0x01 && IRPos > 1)
+    // {
+    //     u8 dataLen = IRPos - 2; // subtract cmd byte and length byte
+    //     Log(LogLevel::Info, "--- SPIRelease: IRCmd [1] Read %d bytes:", dataLen);
+    //     for (int i = 0; i < dataLen; i++) Log(LogLevel::Info, " %02X", RxBuf[i]);
+    //     Log(LogLevel::Info, "\n");
+    // }
 }
 
 u8 CartRetailIR::SPITransmitReceive(u8 val)
@@ -83,13 +105,21 @@ u8 CartRetailIR::SPITransmitReceive(u8 val)
         return 0;
     }
 
-    // TODO: emulate actual IR comm
-
-    u8 ret;
+    u8 ret = 0;
     switch (IRCmd)
     {
     case 0x00: // pass-through
         ret = CartRetail::SPITransmitReceive(val);
+        break;
+
+    case 0x01: // Read from IR
+        if (IRPos == 1) ret = ReadIR();
+        else ret = (u8)RxBuf[IRPos - 2]; // We start returning actual packet data to the game now
+        break;
+
+    case 0x02: // Write to IR
+        TxBuf[IRPos - 1] = val; // Load spi data into Tx Buffer
+        ret = 0x00; // Return value on success
         break;
 
     case 0x08: // ID
@@ -99,6 +129,42 @@ u8 CartRetailIR::SPITransmitReceive(u8 val)
 
     IRPos++;
     return ret;
+}
+
+u8 CartRetailIR::ReadIR()
+{
+    memset(RxBuf, 0, sizeof(RxBuf));
+
+    u32 readTimeoutUs = Platform::IRReadTimeOutUs(UserData);
+    if (readTimeoutUs > 0)
+    {
+        u8 len = Platform::IRReceivePacket(RxBuf, sizeof(RxBuf), UserData);
+        if (len <= 0) return 0;
+
+        u8 pointer = len;
+        u64 lastRxTime = Platform::GetUSCount();
+        while ((Platform::GetUSCount() - lastRxTime) < readTimeoutUs)
+        {
+            len = Platform::IRReceivePacket(RxBuf + pointer, sizeof(RxBuf) - pointer, UserData);
+            if (len > 0)
+            {
+                pointer += len;
+                lastRxTime = Platform::GetUSCount();
+            }
+        }
+        return pointer;
+    }
+    else return Platform::IRReceivePacket(RxBuf, sizeof(RxBuf), UserData);
+
+}
+
+u8 CartRetailIR::SendIR(u8 len)
+{
+    u32 sendDelayUs = Platform::IRSendDelayUs(UserData);
+    if (sendDelayUs > 0) Platform::Sleep(sendDelayUs);
+    // This packet needs to WAIT or else it will be piggybacked onto the latest packet (on the pokewalker's end)
+    if ((u8)TxBuf[0] == 0x5E) Platform::Sleep(10000);
+    return Platform::IRSendPacket(TxBuf, len, UserData);
 }
 
 

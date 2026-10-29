@@ -28,6 +28,7 @@
 #include "FATStorage.h"
 #include "Utils.h"
 
+#include "NDSCart/melonDLDI.h"
 #include "NDSCart/CartCommon.h"
 #include "NDSCart/CartRetail.h"
 #include "NDSCart/CartRetailNAND.h"
