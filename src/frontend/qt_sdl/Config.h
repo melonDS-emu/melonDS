@@ -92,6 +92,13 @@ public:
     Table(toml::value& data, const std::string& path);
     ~Table() {}
 
+    #ifdef RETROACHIEVEMENTS_ENABLED
+    bool RA_Enabled = false;
+    bool RA_HardcoreMode = false;
+    std::string RA_Username;
+    std::string RA_Password;
+    #endif
+
     Table& operator=(const Table& b);
 
     Array GetArray(const std::string& path);
@@ -134,6 +141,9 @@ bool Load();
 void Save();
 
 Table GetLocalTable(int instance);
+#ifdef RETROACHIEVEMENTS_ENABLED
+Table GetRAPlaytimeTable();
+#endif
 inline Table GetGlobalTable() { return GetLocalTable(-1); }
 
 }
