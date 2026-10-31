@@ -161,6 +161,12 @@ void ARM::Reset()
 
     IRQ = 0;
 
+    // only written by memory accesses; the JIT copies them into every FetchedInstr, also for instructions without a
+    // data access, so what it compiled depended on leftover heap contents
+    CodeCycles = 0;
+    DataCycles = 0;
+    DataRegion = 0;
+
     for (int i = 0; i < 16; i++)
         R[i] = 0;
 
