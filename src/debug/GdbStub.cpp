@@ -160,6 +160,20 @@ void GdbStub::Disconnect()
 {
 	if (ConnFd > 0) closesocket(ConnFd);
 	ConnFd = 0;
+
+	// Reset all per-connection protocol state. GDB re-negotiates these on
+	// every connection; leaking them into the next session desynchronizes
+	// the packet stream (most notably NoAck, which suppresses the '+' acks
+	// the next client still expects).
+	NoAck = false;
+	RecvBufferFilled = 0;
+	Cmdlen = 0;
+	StatFlag = false;
+	Stat = TgtStatus::None;
+
+	// A detached/disconnected client is no longer around to service
+	// breakpoints, so don't leave the emulator to freeze on a stale one.
+	DelAllBpWp();
 }
 
 GdbStub::~GdbStub()
@@ -262,11 +276,13 @@ StubState GdbStub::HandlePacket()
 	{
 		Stat = TgtStatus::BreakReq;
 		return StubState::Attach;
-	/*}
+	}
 	else if (r == ExecResult::Detached)
 	{
-		Stat = TgtStatus::None;
-		return StubState::Disconnect;*/
+		// GDB sent 'D'/'k'/vKill: release the client socket so the next
+		// Poll() goes back to accept() instead of reusing a dead socket.
+		Disconnect();
+		return StubState::Disconnect;
 	}
 	else if (r == ExecResult::Continue)
 	{
@@ -313,12 +329,18 @@ StubState GdbStub::Poll(bool wait)
 
 		if (ConnFd < 0) return StubState::NoConn;
 
+		// New connection: start from a clean protocol state. GDB always
+		// begins in ack mode and negotiates QStartNoAckMode again.
+		NoAck = false;
+		RecvBufferFilled = 0;
+		Cmdlen = 0;
+		StatFlag = false;
+
 		u8 a;
 		if (WaitAckBlocking(&a, 1000) < 0)
 		{
 			Log(LogLevel::Error, "[GDB] inital handshake: didn't receive inital ack!\n");
-			closesocket(ConnFd);
-			ConnFd = 0;
+			Disconnect();
 			return StubState::Disconnect;
 		}
 
@@ -329,7 +351,6 @@ StubState GdbStub::Poll(bool wait)
 		SendAck();
 
 		Stat = TgtStatus::Running; // on connected
-		StatFlag = false;
 	}
 
 	if (StatFlag)
@@ -403,8 +424,7 @@ StubState GdbStub::Poll(bool wait)
 	case_gdbp_eof:
 	case ReadResult::Eof:
 		Log(LogLevel::Info, "[GDB] EOF!\n");
-		closesocket(ConnFd);
-		ConnFd = 0;
+		Disconnect();
 		return StubState::Disconnect;
 	case ReadResult::CksumErr:
 		Log(LogLevel::Info, "[GDB] checksum err!\n");
