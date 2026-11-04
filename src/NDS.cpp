@@ -1879,7 +1879,7 @@ void NDS::SqrtDone(u32 param)
     u64 val;
     u32 res = 0;
     u64 rem = 0;
-    u32 prod = 0;
+    u64 prod = 0;
     u32 nbits, topshift;
 
     SqrtCnt &= ~0x8000;
@@ -1903,7 +1903,7 @@ void NDS::SqrtDone(u32 param)
         val <<= 2;
         res <<= 1;
 
-        prod = (res << 1) + 1;
+        prod = ((u64)res << 1) + 1;
         if (rem >= prod)
         {
             rem -= prod;
