@@ -192,14 +192,27 @@ ReadResult GdbStub::MsgRecv()
 #endif
 #endif
 
-		if (receivedNum <= 0)
+		if (receivedNum == 0)
 		{
-			if (first) return ReadResult::NoPacket;
-			else
+			// Peer closed the connection.
+			Log(LogLevel::Debug, "[GDB] recv() EOF\n");
+			return ReadResult::Eof;
+		}
+		else if (receivedNum < 0)
+		{
+#ifdef _WIN32
+			if (WSAGetLastError() == WSAEWOULDBLOCK)
 			{
-				Log(LogLevel::Debug, "[GDB] recv() error %zi, errno=%d (%s)\n", receivedNum, errno, strerror(errno));
-				return ReadResult::Eof;
+				return ReadResult::NoPacket;
 			}
+#else
+			if (errno == EAGAIN || errno == EWOULDBLOCK)
+			{
+				return ReadResult::NoPacket;
+			}
+#endif
+			Log(LogLevel::Debug, "[GDB] recv() error %zi, errno=%d (%s)\n", receivedNum, errno, strerror(errno));
+			return ReadResult::Eof;
 		}
 		RecvBufferFilled += static_cast<u32>(receivedNum); 
 
