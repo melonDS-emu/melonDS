@@ -43,6 +43,7 @@
 #endif
 
 #include "LAN.h"
+#include "VNet.h"
 
 
 namespace melonDS
@@ -80,7 +81,7 @@ LAN::LAN() noexcept : Inited(false)
     DiscoveryMutex = Platform::Mutex_Create();
     PlayersMutex = Platform::Mutex_Create();
 
-    DiscoverySocket = INVALID_SOCKET;
+    DiscoverySocket = ENET_SOCKET_NULL;
     DiscoveryLastTick = 0;
 
     Active = false;
@@ -169,34 +170,19 @@ bool LAN::StartDiscovery()
 {
     if (!Inited) return false;
 
-    int res;
-
-    DiscoverySocket = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP);
-    if (DiscoverySocket < 0)
-    {
-        DiscoverySocket = INVALID_SOCKET;
+    DiscoverySocket = enet_socket_create(ENET_SOCKET_TYPE_DATAGRAM);
+    if (DiscoverySocket == ENET_SOCKET_NULL)
         return false;
-    }
 
-    sockaddr_in_t saddr;
-    memset(&saddr, 0, sizeof(saddr));
-    saddr.sin_family = AF_INET;
-    saddr.sin_addr.s_addr = htonl(INADDR_ANY);
-    saddr.sin_port = htons(kDiscoveryPort);
-    res = bind(DiscoverySocket, (const sockaddr_t*)&saddr, sizeof(saddr));
-    if (res < 0)
+    ENetAddress addr;
+    addr.host = ENET_HOST_ANY;
+    addr.port = kDiscoveryPort;
+    if (enet_socket_bind(DiscoverySocket, &addr) < 0 ||
+        enet_socket_set_option(DiscoverySocket, ENET_SOCKOPT_BROADCAST, 1) < 0 ||
+        enet_socket_set_option(DiscoverySocket, ENET_SOCKOPT_NONBLOCK, 1) < 0)
     {
-        closesocket(DiscoverySocket);
-        DiscoverySocket = INVALID_SOCKET;
-        return false;
-    }
-
-    int opt_true = 1;
-    res = setsockopt(DiscoverySocket, SOL_SOCKET, SO_BROADCAST, (const char*)&opt_true, sizeof(int));
-    if (res < 0)
-    {
-        closesocket(DiscoverySocket);
-        DiscoverySocket = INVALID_SOCKET;
+        enet_socket_destroy(DiscoverySocket);
+        DiscoverySocket = ENET_SOCKET_NULL;
         return false;
     }
 
@@ -211,10 +197,10 @@ void LAN::EndDiscovery()
 {
     if (!Inited) return;
 
-    if (DiscoverySocket != INVALID_SOCKET)
+    if (DiscoverySocket != ENET_SOCKET_NULL)
     {
-        closesocket(DiscoverySocket);
-        DiscoverySocket = INVALID_SOCKET;
+        enet_socket_destroy(DiscoverySocket);
+        DiscoverySocket = ENET_SOCKET_NULL;
     }
 
     if (!IsHost)
@@ -403,7 +389,7 @@ void LAN::EndSession()
 
 void LAN::ProcessDiscovery()
 {
-    if (DiscoverySocket == INVALID_SOCKET)
+    if (DiscoverySocket == ENET_SOCKET_NULL)
         return;
 
     u32 tick = (u32)Platform::GetMSCount();
@@ -426,13 +412,14 @@ void LAN::ProcessDiscovery()
         beacon.MaxPlayers = MaxPlayers;
         beacon.Status = 0; // TODO
 
-        sockaddr_in_t saddr;
-        memset(&saddr, 0, sizeof(saddr));
-        saddr.sin_family = AF_INET;
-        saddr.sin_addr.s_addr = htonl(INADDR_BROADCAST);
-        saddr.sin_port = htons(kDiscoveryPort);
+        ENetAddress baddr;
+        baddr.host = ENET_HOST_BROADCAST;
+        baddr.port = kDiscoveryPort;
 
-        sendto(DiscoverySocket, (const char*)&beacon, sizeof(beacon), 0, (const sockaddr_t*)&saddr, sizeof(saddr));
+        ENetBuffer buf;
+        buf.data = &beacon;
+        buf.dataLength = sizeof(beacon);
+        enet_socket_send(DiscoverySocket, &baddr, &buf, 1);
     }
     else
     {
@@ -440,27 +427,23 @@ void LAN::ProcessDiscovery()
 
         // listen for LAN sessions
 
-        fd_set fd;
-        struct timeval tv;
         for (;;)
         {
-            FD_ZERO(&fd); FD_SET(DiscoverySocket, &fd);
-            tv.tv_sec = 0; tv.tv_usec = 0;
-            if (!select(DiscoverySocket+1, &fd, nullptr, nullptr, &tv))
-                break;
-
             DiscoveryData beacon;
-            sockaddr_in_t raddr;
-            socklen_t ralen = sizeof(raddr);
+            ENetAddress raddr;
+            ENetBuffer buf;
+            buf.data = &beacon;
+            buf.dataLength = sizeof(beacon);
 
-            int rlen = recvfrom(DiscoverySocket, (char*)&beacon, sizeof(beacon), 0, (sockaddr_t*)&raddr, &ralen);
-            if (rlen < sizeof(beacon)) continue;
+            int rlen = enet_socket_receive(DiscoverySocket, &raddr, &buf, 1);
+            if (rlen == 0 || rlen == -1) break;
+            if (rlen < (int)sizeof(beacon)) continue;
             if (beacon.Magic != kDiscoveryMagic) continue;
             if (beacon.Version != kProtocolVersion) continue;
             if (beacon.MaxPlayers > 16) continue;
             if (beacon.NumPlayers > beacon.MaxPlayers) continue;
 
-            u32 key = ntohl(raddr.sin_addr.s_addr);
+            u32 key = ENET_NET_TO_HOST_32(raddr.host);
 
             if (DiscoveryList.find(key) != DiscoveryList.end())
             {
@@ -834,7 +817,7 @@ void LAN::ProcessLAN(int type)
         }
     }
 
-    int timeout = (type == 2) ? MPRecvTimeout : 0;
+    int timeout = (type == 2) ? GetMPTimeout() : 0;
     time_last = (u32)Platform::GetMSCount();
 
     ENetEvent event;
@@ -883,6 +866,33 @@ void LAN::ProcessLAN(int type)
             time_last = time;
         }
     }
+}
+
+int LAN::GetMPTimeout()
+{
+    int timeout = RecvTimeout;
+
+    // over the internet, wait at least one round trip to the other players
+    // for MP replies: the game slows down while linked, but frames aren't lost
+    if (VNet::IsActive())
+    {
+        int rtt = 2 * VNet::GetRelayPing();
+        for (int i = 0; i < 16; i++)
+        {
+            if (i == MyPlayer.ID) continue;
+            if (!RemotePeers[i]) continue;
+
+            int peerrtt = (int)RemotePeers[i]->roundTripTime;
+            if (peerrtt > rtt) rtt = peerrtt;
+        }
+        if (rtt <= 0) rtt = 100;
+
+        int needed = rtt + rtt / 4 + 15;
+        if (needed > 300) needed = 300;
+        if (timeout < needed) timeout = needed;
+    }
+
+    return timeout;
 }
 
 void LAN::Process()

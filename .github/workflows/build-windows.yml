@@ -5,6 +5,7 @@ on:
     branches:
       - master
       - ci/*
+      - relay
   pull_request:
     branches:
       - master
@@ -23,8 +24,6 @@ jobs:
         arch:
           - name: x86_64
             image: windows-2025-vs2026
-          - name: arm64
-            image: windows-11-arm
 
     name: ${{ matrix.arch.name }}
     runs-on: ${{ matrix.arch.image }}
