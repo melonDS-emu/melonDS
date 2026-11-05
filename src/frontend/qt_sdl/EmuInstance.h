@@ -357,6 +357,9 @@ private:
     int hkKeyMapping[HK_MAX];
     int hkJoyMapping[HK_MAX];
 
+    float analogX;
+    float analogY;
+
     int joystickID;
     SDL_Joystick* joystick;
     SDL_GameController* controller;

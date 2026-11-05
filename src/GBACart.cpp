@@ -19,6 +19,7 @@
 #include <assert.h>
 #include <stdio.h>
 #include <string.h>
+#include <cmath>
 #include "NDS.h"
 #include "GBACart.h"
 #include "CRC32.h"
@@ -63,6 +64,11 @@ void CartCommon::SetSaveMemory(const u8* savedata, u32 savelen)
 }
 
 int CartCommon::SetInput(int num, bool pressed)
+{
+    return -1;
+}
+
+int CartCommon::SetInput(int num, float value)
 {
     return -1;
 }
@@ -794,6 +800,75 @@ u8 CartGuitarGrip::SRAMRead(u32 addr)
         | (Platform::Addon_KeyDown(Platform::KeyGuitarGripBlue, UserData) ? 0x08 : 0));
 }
 
+CartAnalog::CartAnalog()
+    : CartCommon(Analog), X(0), Y(0)
+{
+}
+
+CartAnalog::~CartAnalog() = default;
+
+void CartAnalog::Reset()
+{
+    X = 0;
+    Y = 0;
+}
+
+void CartAnalog::DoSavestate(Savestate* file)
+{
+    CartCommon::DoSavestate(file);
+    file->Var32((u32*) &X);
+    file->Var32((u32*) &Y);
+}
+
+u16 CartAnalog::ROMRead(u32 addr) const
+{
+    addr &= 0x01FFFFFF;
+    u8 mode = (addr & 0xFF00) >> 8;
+    u8 val = addr & 0xFF;
+
+    if (mode == 0)
+    { // Common
+        switch (val)
+        {
+        case 0x08: return (s16) std::lround(X * 0x1000);
+        case 0x0A: return (s16) std::lround(Y * 0x1000);
+        default: return 0xFFFF;
+        }
+    }
+    else if (mode == 1)
+    { // Super Mario 64 DS analog hack
+        float tempX = X;
+        float tempY = Y;
+
+        float magnitude = std::hypot(X, Y);
+        float angle = std::atan2(X, Y);
+        if (magnitude > 1.0f)
+        {
+            tempX /= magnitude;
+            tempY /= magnitude;
+            magnitude = 1.0f;
+        }
+
+        switch (val)
+        {
+        case 0x00: return (s16) std::lround(magnitude * 4096.f);
+        case 0x02: return (s16) std::lround(tempX * 4096.f);
+        case 0x04: return (s16) std::lround(tempY * 4096.f);
+        case 0x06: return (s16) std::lround(angle * 10430.3783504704f);
+        default: return 0xFFFF;
+        }
+    }
+
+    return CartCommon::ROMRead(addr);
+}
+
+int CartAnalog::SetInput(int input, float value)
+{
+    if (input == Input_AnalogX) X = value;
+    if (input == Input_AnalogY) Y = value;
+    return -1;
+}
+
 GBACartSlot::GBACartSlot(melonDS::NDS& nds, std::unique_ptr<CartCommon>&& cart) noexcept : NDS(nds), Cart(std::move(cart))
 {
 }
@@ -933,6 +1008,8 @@ std::unique_ptr<CartCommon> LoadAddon(int type, void* userdata)
         break;
     case GBAAddon_GuitarGrip:
         cart = std::make_unique<CartGuitarGrip>(userdata);
+    case GBAAddon_Analog:
+        cart = std::make_unique<CartAnalog>();
         break;
     default:
         Log(LogLevel::Warn, "GBACart: !! invalid addon type %d\n", type);
@@ -985,6 +1062,13 @@ std::unique_ptr<CartCommon> GBACartSlot::EjectCart() noexcept
 int GBACartSlot::SetInput(int num, bool pressed) noexcept
 {
     if (Cart) return Cart->SetInput(num, pressed);
+
+    return -1;
+}
+
+int GBACartSlot::SetInput(int num, float value) noexcept
+{
+    if (Cart) return Cart->SetInput(num, value);
 
     return -1;
 }
