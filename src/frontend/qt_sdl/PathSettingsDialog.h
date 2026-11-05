@@ -61,6 +61,7 @@ private slots:
     void on_btnSaveFileBrowse_clicked();
     void on_btnSavestateBrowse_clicked();
     void on_btnCheatFileBrowse_clicked();
+    void on_btnScreenshotsBrowse_clicked();
 
 private:
     Ui::PathSettingsDialog* ui;

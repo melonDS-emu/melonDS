@@ -332,6 +332,7 @@ public:
     virtual void RenderFrame() = 0;
     virtual void FinishRendering() {}
     virtual void RestartFrame() {};
+    virtual int GetScaleFactor() const noexcept { return 1; }
 
     // return one scanline of the framebuffer, with X scroll applied
     // this is used in software renderers
