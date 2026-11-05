@@ -37,12 +37,21 @@ public:
     void DoSavestate(Savestate* file) override;
 
     void SPISelect() override;
+    void SPIRelease() override;
     u8 SPITransmitReceive(u8 val) override;
 
 private:
     u32 IRVersion = 0;
     u8 IRCmd = 0;
     u32 IRPos = 0;
+
+    // Half confirmed 136 bytes
+    char TxBuf[0x88];
+    char RxBuf[0x88];
+
+    // These two functions are slightly abstracted for platform IR communication
+    u8 SendIR(u8 len);
+    u8 ReadIR();
 };
 
 }
