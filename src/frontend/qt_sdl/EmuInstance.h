@@ -27,6 +27,7 @@
 #include "EmuThread.h"
 #include "Window.h"
 #include "Config.h"
+#include "RendererBackend.h"
 #include "SaveManager.h"
 
 const int kMaxWindows = 4;
@@ -66,16 +67,6 @@ enum
     micInputType_Noise,
     micInputType_Wav,
     micInputType_MAX,
-};
-
-enum
-{
-    renderer3D_Software = 0,
-#ifdef OGLRENDERER_ENABLED
-    renderer3D_OpenGL,
-    renderer3D_OpenGLCompute,
-#endif
-    renderer3D_Max,
 };
 
 bool isRightModKey(QKeyEvent* event);

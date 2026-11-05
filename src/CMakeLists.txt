@@ -41,6 +41,7 @@ add_library(core STATIC
     GPU3D_Soft.cpp
     GPU3D_Texcache.cpp
     GPU3D_Texcache.h
+    OpenGLSupport.cpp
     Mic.cpp
     NDS.cpp
     NDSCart.cpp
@@ -102,10 +103,24 @@ if (ENABLE_OGLRENDERER)
         GPU3D_OpenGL.cpp
         GPU3D_Compute.cpp
         GPU3D_TexcacheOpenGL.cpp
-        GPU3D_TexcacheOpenGL.h
-        OpenGLSupport.cpp)
+        GPU3D_TexcacheOpenGL.h)
 
     target_compile_definitions(core PUBLIC OGLRENDERER_ENABLED)
+endif()
+
+if (ENABLE_VULKANRENDERER)
+    find_package(Vulkan REQUIRED)
+    find_package(PkgConfig REQUIRED)
+    pkg_check_modules(Shaderc REQUIRED IMPORTED_TARGET shaderc)
+    target_sources(core PRIVATE
+        VulkanSupport.cpp
+        VulkanSupport.h
+        GPU_Vulkan.cpp
+        GPU_Vulkan.h
+        GPU3D_Vulkan.cpp
+        GPU3D_Vulkan.h)
+    target_link_libraries(core PRIVATE Vulkan::Vulkan PkgConfig::Shaderc)
+    target_compile_definitions(core PUBLIC VULKANRENDERER_ENABLED)
 endif()
 
 if (ENABLE_JIT)
@@ -242,4 +257,3 @@ endif()
 #    BEFORE PUBLIC -fsanitize=undefined PUBLIC -fsanitize=address
 #  )
 #endif()
-

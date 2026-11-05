@@ -375,7 +375,7 @@ void EmuInstance::emuStop(StopReason reason)
 bool EmuInstance::usesOpenGL()
 {
     return globalCfg.GetBool("Screen.UseGL") ||
-           (globalCfg.GetInt("3D.Renderer") != renderer3D_Software);
+           RendererBackend::RequiresOpenGL(globalCfg.GetInt("3D.Renderer"));
 }
 
 void EmuInstance::initOpenGL(int win)
