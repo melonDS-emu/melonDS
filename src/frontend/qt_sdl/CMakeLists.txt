@@ -280,3 +280,14 @@ if (ENABLE_OGLRENDERER)
     target_compile_definitions(melonDS PUBLIC MELONDS_GL_HEADER=${MELONDS_GL_HEADER})
     target_compile_definitions(core PUBLIC MELONDS_GL_HEADER=${MELONDS_GL_HEADER})
 endif()
+
+if (BUILD_TESTING)
+    add_executable(WindowStateTests
+        tests/WindowStateTests.cpp
+    )
+
+    add_test(
+        NAME WindowStateTests
+        COMMAND WindowStateTests
+    )
+endif()

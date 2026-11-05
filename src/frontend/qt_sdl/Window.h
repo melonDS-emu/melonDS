@@ -210,6 +210,8 @@ private:
     bool pauseOnLostFocus;
     bool pausedManually;
 
+    bool wasMaximized;
+
     int windowID;
     bool enabledSaved;
 
