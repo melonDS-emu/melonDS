@@ -1667,6 +1667,9 @@ void EmuInstance::customizeFirmware(Firmware& firmware, bool overridesettings) n
         auto &currentHeader = firmware.GetHeader();
         auto &currentData = firmware.GetEffectiveUserData();
 
+        auto &accesspoints = firmware.GetAccessPoints();
+        accesspoints[0] = Firmware::WifiAccessPoint(currentHeader.ConsoleType);
+
         auto firmcfg = localCfg.GetTable("Firmware");
 
         // setting up username
