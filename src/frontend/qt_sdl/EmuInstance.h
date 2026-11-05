@@ -56,6 +56,7 @@ enum
     HK_GuitarGripRed,
     HK_GuitarGripYellow,
     HK_GuitarGripBlue,
+    HK_Screenshot,
     HK_MAX
 };
 
@@ -165,6 +166,8 @@ public:
     // mic start/stop control from core
     void micStart();
     void micStop();
+    
+    bool takeScreenshot();
     int micReadInput(melonDS::s16* data, int maxlength);
 
     QMutex renderLock;

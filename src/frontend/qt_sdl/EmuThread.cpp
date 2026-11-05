@@ -159,6 +159,8 @@ void EmuThread::run()
 
         if (emuInstance->hotkeyPressed(HK_FrameLimitToggle)) emit windowLimitFPSChange();
 
+        if (emuInstance->hotkeyPressed(HK_Screenshot)) emuTakeScreenshot();
+
         if (emuInstance->hotkeyPressed(HK_Pause)) emuTogglePause();
         if (emuInstance->hotkeyPressed(HK_Reset)) emuReset();
         if (emuInstance->hotkeyPressed(HK_FrameStep)) emuFrameStep();
@@ -493,6 +495,10 @@ void EmuThread::handleMessages()
             emit windowEmuStart();
             break;
 
+        case msg_EmuScreenshot:
+            emuInstance->takeScreenshot();
+            break;
+
         case msg_EmuPause:
             emuPauseStack++;
             if (emuPauseStack > emuPauseStackPauseThreshold) break;
@@ -751,6 +757,16 @@ void EmuThread::emuFrameStep()
 void EmuThread::emuReset()
 {
     sendMessage(msg_EmuReset);
+    waitMessage();
+}
+
+void EmuThread::emuTakeScreenshot()
+{
+    if (!emuActive){
+        return;
+    }
+    Log(LogLevel::Info, "Taking screenshot\n");
+    sendMessage(msg_EmuScreenshot);
     waitMessage();
 }
 
