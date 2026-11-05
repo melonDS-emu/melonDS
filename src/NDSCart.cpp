@@ -468,13 +468,14 @@ std::unique_ptr<CartCommon> ParseROM(std::unique_ptr<u8[]>&& romdata, u32 romlen
     //cartid = 0x88017FEC;
     //cartid = 0x80007FC2; // pokémon typing adventure
 
-    u32 irversion = 0;
+    // check IR comms version by ID
+    u32 irversion = CartRetailIRVersionInvalid;
     if ((gamecode & 0xFF) == 'I')
     {
         if (((gamecode >> 8) & 0xFF) < 'P')
-            irversion = 1; // Active Health / Walk with Me
+            irversion = CartRetailIRVersionEarly; // NTR-027 games
         else
-            irversion = 2; // Pokémon HG/SS, B/W, B2/W2
+            irversion = CartRetailIRVersionLate; // NTR-032 games
     }
 
     std::unique_ptr<CartCommon> cart;
