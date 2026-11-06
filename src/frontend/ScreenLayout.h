@@ -61,6 +61,7 @@ public:
     // * screenLayout: how the DS screens are laid out
     // * rotation: angle at which the DS screens are presented
     // * sizing: how the display size is shared between the two screens
+    // * emphasisRatio: max percentage of the display the emphasized screen may take, 0 for as much as it can
     // * screenGap: size of the gap between the two screens in pixels
     // * integerScale: force screens to be scaled up at integer scaling factors
     // * screenSwap: whether to swap the position of both screens
@@ -69,6 +70,7 @@ public:
                ScreenLayoutType screenLayout,
                ScreenRotation rotation,
                ScreenSizing sizing,
+               int emphasisRatio,
                int screenGap,
                bool integerScale,
                bool swapScreens,

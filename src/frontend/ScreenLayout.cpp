@@ -106,6 +106,44 @@ void M23_Transform(float* m, float& x, float& y)
 }
 
 
+// find the pair of whole scaling factors splitting the display closest to 'primShare'
+// rounding each screen down on its own instead would settle for a needlessly small pair
+// sizes are given along the axis the screens are separated on, and along the other one
+static void SnapToIntegerSplit(float axis, float cross,
+                               float primAxisSize, float primCrossSize,
+                               float secAxisSize, float secCrossSize,
+                               float primShare,
+                               float& primScale, float& secScale)
+{
+    int maxPrim = (int)floorf(std::min(axis / primAxisSize, cross / primCrossSize));
+    float bestErr = -1.f;
+
+    for (int p = maxPrim; p >= 1; p--)
+    {
+        int s = (int)floorf(std::min((axis - p * primAxisSize) / secAxisSize, cross / secCrossSize));
+        if (s < 1) continue;
+
+        float share = (p * primAxisSize) / (p * primAxisSize + s * secAxisSize);
+        float err = fabsf(share - primShare);
+
+        // going down from the largest primary, so ties keep the bigger one
+        if (bestErr < 0.f || err < bestErr)
+        {
+            bestErr = err;
+            primScale = (float)p;
+            secScale = (float)s;
+        }
+    }
+
+    // nothing fits with both screens at native size
+    if (bestErr < 0.f)
+    {
+        primScale = floorf(primScale);
+        secScale = floorf(secScale);
+    }
+}
+
+
 ScreenLayout::ScreenLayout()
 {
     M23_Identity(TopScreenMtx);
@@ -124,6 +162,7 @@ void ScreenLayout::Setup(int screenWidth, int screenHeight,
     ScreenLayoutType screenLayout,
     ScreenRotation rotation,
     ScreenSizing sizing,
+    int emphasisRatio,
     int screenGap,
     bool integerScale,
     bool swapScreens,
@@ -348,7 +387,17 @@ void ScreenLayout::Setup(int screenWidth, int screenHeight,
                 float primScale = std::min(screenWidth / primHSize, screenHeight / primVSize);
                 float secScale = 1.f;
 
-                if (integerScale)
+                float primShare = emphasisRatio / 100.f;
+
+                // cap the emphasized screen at its share, the other one takes the rest
+                if (emphasisRatio > 0)
+                {
+                    if (layout == 0)
+                        primScale = std::min(primScale, (screenHeight * primShare) / primVSize);
+                    else
+                        primScale = std::min(primScale, (screenWidth * primShare) / primHSize);
+                }
+                else if (integerScale)
                     primScale = floorf(primScale);
 
                 if (layout == 0)
@@ -368,8 +417,22 @@ void ScreenLayout::Setup(int screenWidth, int screenHeight,
 
                 if (integerScale)
                 {
-                    primScale = floorf(primScale);
-                    secScale = floorf(secScale);
+                    if (emphasisRatio > 0)
+                    {
+                        if (layout == 0)
+                            SnapToIntegerSplit(screenHeight, screenWidth,
+                                               primVSize, primHSize, secVSize, secHSize,
+                                               primShare, primScale, secScale);
+                        else
+                            SnapToIntegerSplit(screenWidth, screenHeight,
+                                               primHSize, primVSize, secHSize, secVSize,
+                                               primShare, primScale, secScale);
+                    }
+                    else
+                    {
+                        primScale = floorf(primScale);
+                        secScale = floorf(secScale);
+                    }
                 }
 
                 M23_Scale(primMtx, primScale);
