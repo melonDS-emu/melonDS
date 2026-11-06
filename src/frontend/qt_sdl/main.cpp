@@ -340,6 +340,7 @@ int main(int argc, char** argv)
     {
         printf("SDL couldn't init rumble\n");
     }
+    SDL_SetHint(SDL_HINT_JOYSTICK_HIDAPI_PS4_RUMBLE, "1");
     if (SDL_Init(SDL_INIT_JOYSTICK) < 0)
     {
         printf("SDL couldn't init joystick\n");
