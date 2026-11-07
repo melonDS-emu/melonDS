@@ -66,10 +66,20 @@ void ARM::GdbCheckC()
     }
     else GdbCheckB();
 }
+void ARM::GdbCheckD(u32 addr, Gdb::WatchptKind kind)
+{
+    Gdb::StubState st = GdbStub.CheckWatchpt(addr, (int)kind, true, true);
+    if (st != Gdb::StubState::CheckNoHit)
+    {
+        IsSingleStep = st == Gdb::StubState::Step;
+        BreakReq = st == Gdb::StubState::Attach || st == Gdb::StubState::Break;
+    }
+}
 #else
 void ARM::GdbCheckA() {}
 void ARM::GdbCheckB() {}
 void ARM::GdbCheckC() {}
+void ARM::GdbCheckD() {}
 #endif
 
 
@@ -130,14 +140,46 @@ ARMv5::ARMv5(melonDS::NDS& nds, std::optional<GDBArgs> gdb, bool jit) : ARM(0, j
     PU_Map = PU_PrivMap;
 }
 
+template <CPUExecuteMode mode>
+#ifdef JIT_ENABLED
+ARMv5Impl<mode>::ARMv5Impl(melonDS::NDS& nds, std::optional<GDBArgs> gdb) : ARMv5(nds, gdb, mode == CPUExecuteMode::JIT)
+{
+    //
+}
+#else
+ARMv5Impl<mode>::ARMv5Impl(melonDS::NDS& nds, std::optional<GDBArgs> gdb) : ARMv5(nds, gdb, false)
+{
+    //
+}
+#endif
+
 ARMv4::ARMv4(melonDS::NDS& nds, std::optional<GDBArgs> gdb, bool jit) : ARM(1, jit, gdb, nds)
 {
     //
 }
 
+template <CPUExecuteMode mode>
+#ifdef JIT_ENABLED
+ARMv4Impl<mode>::ARMv4Impl(melonDS::NDS& nds, std::optional<GDBArgs> gdb) : ARMv4(nds, gdb, mode == CPUExecuteMode::JIT)
+{
+    //
+}
+#else
+ARMv4Impl<mode>::ARMv4Impl(melonDS::NDS& nds, std::optional<GDBArgs> gdb) : ARMv4(nds, gdb, false)
+{
+    //
+}
+#endif
+
 ARMv5::~ARMv5()
 {
     // DTCM is owned by Memory, not going to delete it
+}
+
+template <CPUExecuteMode mode>
+ARMv5Impl<mode>::~ARMv5Impl()
+{
+    //
 }
 
 void ARM::SetGdbArgs(std::optional<GDBArgs> gdb)
@@ -547,9 +589,12 @@ void ARM::TriggerIRQ()
     }
 }
 
-void ARMv5::PrefetchAbort()
+template <CPUExecuteMode mode>
+void ARMv5Impl<mode>::PrefetchAbort()
 {
     Log(LogLevel::Warn, "ARM9: prefetch abort (%08X)\n", R[15]);
+    if constexpr (mode == CPUExecuteMode::InterpreterGDB)
+        GdbStub.Enter(GdbStub.IsConnected(), Gdb::TgtStatus::FaultIAcc, this->R[15] - ((CPSR & 0x20) ? 4 : 8));
 
     u32 oldcpsr = CPSR;
     CPSR &= ~0xBF;
@@ -570,9 +615,12 @@ void ARMv5::PrefetchAbort()
     JumpTo(ExceptionBase + 0x0C);
 }
 
-void ARMv5::DataAbort()
+template <CPUExecuteMode mode>
+void ARMv5Impl<mode>::DataAbort()
 {
     Log(LogLevel::Warn, "ARM9: data abort (%08X)\n", R[15]);
+    if constexpr (mode == CPUExecuteMode::InterpreterGDB)
+        GdbStub.Enter(GdbStub.IsConnected(), Gdb::TgtStatus::FaultData, this->R[15] - ((CPSR & 0x20) ? 4 : 8));
 
     u32 oldcpsr = CPSR;
     CPSR &= ~0xBF;
@@ -590,7 +638,7 @@ void ARM::CheckGdbIncoming()
 }
 
 template <CPUExecuteMode mode>
-void ARMv5::Execute()
+void ARMv5Impl<mode>::Execute()
 {
     if constexpr (mode == CPUExecuteMode::InterpreterGDB)
         GdbCheckB();
@@ -723,14 +771,9 @@ void ARMv5::Execute()
     if (Halted == 2)
         Halted = 0;
 }
-template void ARMv5::Execute<CPUExecuteMode::Interpreter>();
-template void ARMv5::Execute<CPUExecuteMode::InterpreterGDB>();
-#ifdef JIT_ENABLED
-template void ARMv5::Execute<CPUExecuteMode::JIT>();
-#endif
 
 template <CPUExecuteMode mode>
-void ARMv4::Execute()
+void ARMv4Impl<mode>::Execute()
 {
     if constexpr (mode == CPUExecuteMode::InterpreterGDB)
         GdbCheckB();
@@ -864,12 +907,6 @@ void ARMv4::Execute()
         Halted = 2;
     }
 }
-
-template void ARMv4::Execute<CPUExecuteMode::Interpreter>();
-template void ARMv4::Execute<CPUExecuteMode::InterpreterGDB>();
-#ifdef JIT_ENABLED
-template void ARMv4::Execute<CPUExecuteMode::JIT>();
-#endif
 
 void ARMv5::FillPipeline()
 {
@@ -1119,67 +1156,93 @@ u32 ARMv5::ReadMem(u32 addr, int size)
 }
 #endif
 
-void ARMv4::DataRead8(u32 addr, u32* val)
+template <CPUExecuteMode mode>
+void ARMv4Impl<mode>::DataRead8(u32 addr, u32* val)
 {
+    if constexpr (mode == CPUExecuteMode::InterpreterGDB)
+        GdbCheckD(addr, Gdb::WatchptKind::Read);
+        
     *val = BusRead8(addr);
     DataRegion = addr;
     DataCycles = NDS.ARM7MemTimings[addr >> 15][0];
 }
 
-void ARMv4::DataRead16(u32 addr, u32* val)
+template <CPUExecuteMode mode>
+void ARMv4Impl<mode>::DataRead16(u32 addr, u32* val)
 {
     addr &= ~1;
+    if constexpr (mode == CPUExecuteMode::InterpreterGDB)
+        GdbCheckD(addr, Gdb::WatchptKind::Read);
 
     *val = BusRead16(addr);
     DataRegion = addr;
     DataCycles = NDS.ARM7MemTimings[addr >> 15][0];
 }
 
-void ARMv4::DataRead32(u32 addr, u32* val)
+template <CPUExecuteMode mode>
+void ARMv4Impl<mode>::DataRead32(u32 addr, u32* val)
 {
     addr &= ~3;
+    if constexpr (mode == CPUExecuteMode::InterpreterGDB)
+        GdbCheckD(addr, Gdb::WatchptKind::Read);
 
     *val = BusRead32(addr);
     DataRegion = addr;
     DataCycles = NDS.ARM7MemTimings[addr >> 15][2];
 }
 
-void ARMv4::DataRead32S(u32 addr, u32* val)
+template <CPUExecuteMode mode>
+void ARMv4Impl<mode>::DataRead32S(u32 addr, u32* val)
 {
     addr &= ~3;
+    if constexpr (mode == CPUExecuteMode::InterpreterGDB)
+        GdbCheckD(addr, Gdb::WatchptKind::Read);
 
     *val = BusRead32(addr);
     DataCycles += NDS.ARM7MemTimings[addr >> 15][3];
 }
 
-void ARMv4::DataWrite8(u32 addr, u8 val)
+template <CPUExecuteMode mode>
+void ARMv4Impl<mode>::DataWrite8(u32 addr, u8 val)
 {
+    if constexpr (mode == CPUExecuteMode::InterpreterGDB)
+        GdbCheckD(addr, Gdb::WatchptKind::Write);
+
     BusWrite8(addr, val);
     DataRegion = addr;
     DataCycles = NDS.ARM7MemTimings[addr >> 15][0];
 }
 
-void ARMv4::DataWrite16(u32 addr, u16 val)
+template <CPUExecuteMode mode>
+void ARMv4Impl<mode>::DataWrite16(u32 addr, u16 val)
 {
     addr &= ~1;
+    if constexpr (mode == CPUExecuteMode::InterpreterGDB)
+        GdbCheckD(addr, Gdb::WatchptKind::Write);
 
     BusWrite16(addr, val);
     DataRegion = addr;
     DataCycles = NDS.ARM7MemTimings[addr >> 15][0];
 }
 
-void ARMv4::DataWrite32(u32 addr, u32 val)
+template <CPUExecuteMode mode>
+void ARMv4Impl<mode>::DataWrite32(u32 addr, u32 val)
 {
     addr &= ~3;
+    if constexpr (mode == CPUExecuteMode::InterpreterGDB)
+        GdbCheckD(addr, Gdb::WatchptKind::Write);
 
     BusWrite32(addr, val);
     DataRegion = addr;
     DataCycles = NDS.ARM7MemTimings[addr >> 15][2];
 }
 
-void ARMv4::DataWrite32S(u32 addr, u32 val)
+template <CPUExecuteMode mode>
+void ARMv4Impl<mode>::DataWrite32S(u32 addr, u32 val)
 {
     addr &= ~3;
+    if constexpr (mode == CPUExecuteMode::InterpreterGDB)
+        GdbCheckD(addr, Gdb::WatchptKind::Write);
 
     BusWrite32(addr, val);
     DataCycles += NDS.ARM7MemTimings[addr >> 15][3];
@@ -1307,5 +1370,30 @@ void ARMv4::BusWrite32(u32 addr, u32 val)
 {
     NDS.ARM7Write32(addr, val);
 }
+
+#define INSTANTIATE_ARMV5(mode) \
+    template ARMv5Impl<mode>::ARMv5Impl(melonDS::NDS& nds, std::optional<GDBArgs> gdb); \
+    template ARMv5Impl<mode>::~ARMv5Impl(); \
+
+#define INSTANTIATE_ARMV4(mode) \
+    template ARMv4Impl<mode>::ARMv4Impl(melonDS::NDS& nds, std::optional<GDBArgs> gdb); \
+    template void ARMv4Impl<mode>::DataRead8(u32 addr, u32* val); \
+    template void ARMv4Impl<mode>::DataRead16(u32 addr, u32* val); \
+    template void ARMv4Impl<mode>::DataRead32(u32 addr, u32* val); \
+    template void ARMv4Impl<mode>::DataRead32S(u32 addr, u32* val); \
+    template void ARMv4Impl<mode>::DataWrite8(u32 addr, u8 val); \
+    template void ARMv4Impl<mode>::DataWrite16(u32 addr, u16 val); \
+    template void ARMv4Impl<mode>::DataWrite32(u32 addr, u32 val); \
+    template void ARMv4Impl<mode>::DataWrite32S(u32 addr, u32 val); \
+
+INSTANTIATE_ARMV5(CPUExecuteMode::Interpreter)
+INSTANTIATE_ARMV4(CPUExecuteMode::Interpreter)
+INSTANTIATE_ARMV5(CPUExecuteMode::InterpreterGDB)
+INSTANTIATE_ARMV4(CPUExecuteMode::InterpreterGDB)
+#ifdef JIT_ENABLED
+INSTANTIATE_ARMV5(CPUExecuteMode::JIT)
+INSTANTIATE_ARMV4(CPUExecuteMode::JIT)
+#endif
+
 }
 

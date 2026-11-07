@@ -433,8 +433,8 @@ void ARMJIT_Memory::SetCodeProtectionRange(u32 addr, u32 size, u32 num, int prot
 
 void ARMJIT_Memory::Mapping::Unmap(int region, melonDS::NDS& nds) noexcept
 {
-    u32 dtcmStart = nds.ARM9.DTCMBase;
-    u32 dtcmSize = ~nds.ARM9.DTCMMask + 1;
+    u32 dtcmStart = nds.ARM9->DTCMBase;
+    u32 dtcmSize = ~nds.ARM9->DTCMMask + 1;
     bool skipDTCM = Num == 0 && region != memregion_DTCM;
     u8* statuses = Num == 0 ? nds.JIT.Memory.MappingStatus9 : nds.JIT.Memory.MappingStatus7;
     u32 offset = 0;
@@ -511,7 +511,7 @@ void ARMJIT_Memory::SetCodeProtection(int region, u32 offset, bool protect) noex
         u32 effectiveAddr = mapping.Addr + (offset - mapping.LocalOffset);
         if (mapping.Num == 0
             && region != memregion_DTCM
-            && (effectiveAddr & NDS.ARM9.DTCMMask) == NDS.ARM9.DTCMBase)
+            && (effectiveAddr & NDS.ARM9->DTCMMask) == NDS.ARM9->DTCMBase)
             continue;
 
         u8* states = (u8*)(mapping.Num == 0 ? MappingStatus9 : MappingStatus7);
@@ -537,9 +537,9 @@ void ARMJIT_Memory::RemapDTCM(u32 newBase, u32 newSize) noexcept
 {
     // this first part could be made more efficient
     // by unmapping DTCM first and then map the holes
-    u32 oldDTCMBase = NDS.ARM9.DTCMBase;
-    u32 oldDTCMSize = ~NDS.ARM9.DTCMMask + 1;
-    u32 oldDTCMEnd = oldDTCMBase + NDS.ARM9.DTCMMask;
+    u32 oldDTCMBase = NDS.ARM9->DTCMBase;
+    u32 oldDTCMSize = ~NDS.ARM9->DTCMMask + 1;
+    u32 oldDTCMEnd = oldDTCMBase + NDS.ARM9->DTCMMask;
 
     u32 newEnd = newBase + newSize;
 
@@ -649,8 +649,8 @@ bool ARMJIT_Memory::MapAtAddress(u32 addr) noexcept
     //printf("mapping mirror %x, %x %x %d %d\n", mirrorStart, mirrorSize, memoryOffset, region, num);
     bool isExecutable = NDS.JIT.CodeMemRegions[region];
 
-    u32 dtcmStart = NDS.ARM9.DTCMBase;
-    u32 dtcmSize = ~NDS.ARM9.DTCMMask + 1;
+    u32 dtcmStart = NDS.ARM9->DTCMBase;
+    u32 dtcmSize = ~NDS.ARM9->DTCMMask + 1;
     u32 dtcmEnd = dtcmStart + dtcmSize;
 #ifndef __SWITCH__
     if (num == 0
@@ -704,7 +704,7 @@ bool ARMJIT_Memory::MapAtAddress(u32 addr) noexcept
             bool hasCode = isExecutable && PageContainsCode(&range[offset / 512], PageSize);
             while (offset < mirrorSize
                 && (!isExecutable || PageContainsCode(&range[offset / 512], PageSize) == hasCode)
-                && (!skipDTCM || mirrorStart + offset != NDS.ARM9.DTCMBase))
+                && (!skipDTCM || mirrorStart + offset != NDS.ARM9->DTCMBase))
             {
                 assert(states[(mirrorStart + offset) >> PageShift] == memstate_Unmapped);
                 states[(mirrorStart + offset) >> PageShift] = hasCode ? memstate_MappedProtected : memstate_MappedRW;
@@ -1239,11 +1239,11 @@ u32 ARMJIT_Memory::LocaliseAddress(int region, u32 num, u32 addr) const noexcept
 
 int ARMJIT_Memory::ClassifyAddress9(u32 addr) const noexcept
 {
-    if (addr < NDS.ARM9.ITCMSize)
+    if (addr < NDS.ARM9->ITCMSize)
     {
         return memregion_ITCM;
     }
-    else if ((addr & NDS.ARM9.DTCMMask) == NDS.ARM9.DTCMBase)
+    else if ((addr & NDS.ARM9->DTCMMask) == NDS.ARM9->DTCMBase)
     {
         return memregion_DTCM;
     }
