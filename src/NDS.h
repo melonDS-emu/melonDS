@@ -171,6 +171,8 @@ enum
     CPUStop_NDMA9_3 = (1<<7),
     CPUStop_DMA9 = 0xFFF,
 
+    CPUStop_ARM9BusStarve = (1<<14),
+
     CPUStop_DMA7_0 = (1<<16),
     CPUStop_DMA7_1 = (1<<17),
     CPUStop_DMA7_2 = (1<<18),
@@ -289,6 +291,7 @@ public: // TODO: Encapsulate the rest of these members
     u16 PowerControl9;
 
     u16 ExMemCnt[2];
+    u32 ARM7BytesToWrite;
 
 protected:
     // These BIOS arrays should be declared *before* the component objects (JIT, SPI, etc.)
@@ -443,6 +446,11 @@ public: // TODO: Encapsulate the rest of these members
     bool HaltInterrupted(u32 cpu) const;
     void StopCPU(u32 cpu, u32 mask);
     void ResumeCPU(u32 cpu, u32 mask);
+
+    // ARM9 starvation while the ARM7 has main RAM priority
+    void UpdateARM9Starve(u32 swi, u32 dst, u32 cnt);
+    void DecreaseARM7BytesToWrite(u32 bytes);
+
     void GXFIFOStall();
     void GXFIFOUnstall();
 

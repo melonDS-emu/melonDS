@@ -266,6 +266,10 @@ void A_MRC(ARM* cpu)
 
 void A_SVC(ARM* cpu)
 {
+    // update ARM9 starvation status on a BIOS call
+    if (cpu->Num == 1)
+        cpu->NDS.UpdateARM9Starve((cpu->CurInstr >> 16) & 0xFF, cpu->R[1], cpu->R[2]);
+
     u32 oldcpsr = cpu->CPSR;
     cpu->CPSR &= ~0xBF;
     cpu->CPSR |= 0x93;
@@ -278,6 +282,9 @@ void A_SVC(ARM* cpu)
 
 void T_SVC(ARM* cpu)
 {
+    if (cpu->Num == 1)
+        cpu->NDS.UpdateARM9Starve(cpu->CurInstr & 0xFF, cpu->R[1], cpu->R[2]);
+
     u32 oldcpsr = cpu->CPSR;
     cpu->CPSR &= ~0xBF;
     cpu->CPSR |= 0x93;
