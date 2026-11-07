@@ -48,12 +48,10 @@
 #include "RTC.h"
 #include "DSi.h"
 #include "DSi_I2C.h"
-#include "GPU_Soft.h"
-#include "GPU_OpenGL.h"
-
 #include "Savestate.h"
 
 #include "EmuInstance.h"
+#include "RendererBackend.h"
 
 using namespace melonDS;
 
@@ -861,19 +859,7 @@ void EmuThread::updateRenderer()
 
     if (videoRenderer != lastVideoRenderer)
     {
-        switch (videoRenderer)
-        {
-            case renderer3D_Software:
-                nds->SetRenderer(std::make_unique<SoftRenderer>(*nds));
-                break;
-            case renderer3D_OpenGL:
-                nds->SetRenderer(std::make_unique<GLRenderer>(*nds, false));
-                break;
-            case renderer3D_OpenGLCompute:
-                nds->SetRenderer(std::make_unique<GLRenderer>(*nds, true));
-                break;
-            default: __builtin_unreachable();
-        }
+        nds->SetRenderer(RendererBackend::Create(*nds, videoRenderer));
     }
     lastVideoRenderer = videoRenderer;
 
