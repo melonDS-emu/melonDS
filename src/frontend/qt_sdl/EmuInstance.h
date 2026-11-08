@@ -251,6 +251,7 @@ private:
     bool joystickButtonDown(int val);
 
     void inputProcess();
+    void processTouchpad();
 
     bool hotkeyDown(int id)     { return hotkeyMask    & (1<<id); }
     bool hotkeyPressed(int id)  { return hotkeyPress   & (1<<id); }
@@ -364,6 +365,12 @@ private:
     bool hasGyroscope = false;
     bool hasRumble = false;
     bool isRumbling = false;
+    bool hasTouchpad = false;
+    bool touchpadTouchscreen = false;
+    bool touchpadTouching = false;
+    bool touchpadInvertX = false;
+    bool touchpadInvertY = false;
+    int touchpadEdgeMargin = 0;
 
     static std::shared_ptr<SDL_mutex> joyMutexGlobal;
     std::shared_ptr<SDL_mutex> joyMutex;
