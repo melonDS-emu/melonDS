@@ -1628,7 +1628,7 @@ void NDS::NocashPrint(u32 ncpu, u32 addr, bool appendNewline)
     }
 
     output[ptr] = '\0';
-    Log(LogLevel::Debug, appendNewline ? "%s\n" : "%s", output);
+    Log(LogLevel::NoCash, appendNewline ? "%s\n" : "%s", output);
 }
 
 void NDS::MonitorARM9Jump(u32 addr)
@@ -3247,7 +3247,7 @@ void NDS::ARM9IOWrite8(u32 addr, u8 val)
         return;
 
     // NO$GBA debug register "Char Out"
-        case 0x04FFFA1C: Log(LogLevel::Debug, "%c", char(val)); return;
+        case 0x04FFFA1C: Log(LogLevel::NoCash, "%c", char(val)); return;
     }
 
     if (addr >= 0x04000000 && addr < 0x04000060)
@@ -3599,7 +3599,7 @@ void NDS::ARM9IOWrite32(u32 addr, u32 val)
                 ch = NDS::ARM9Read8(val + i);
                 output[i] = ch;
             }
-            Log(LogLevel::Debug, "%s", output);
+            Log(LogLevel::NoCash, "%s", output);
             return;
         }
 
@@ -3613,7 +3613,7 @@ void NDS::ARM9IOWrite32(u32 addr, u32 val)
         }
 
     // NO$GBA debug register "Char Out"
-        case 0x04FFFA1C: Log(LogLevel::Debug, "%c", val & 0xFF); return;
+        case 0x04FFFA1C: Log(LogLevel::NoCash, "%c", val & 0xFF); return;
     }
 
     if (addr >= 0x04000000 && addr < 0x04000060)

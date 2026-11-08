@@ -245,6 +245,7 @@ enum LogLevel
     Info,
     Warn,
     Error,
+    NoCash,
 };
 
 void Log(LogLevel level, const char* fmt, ...);

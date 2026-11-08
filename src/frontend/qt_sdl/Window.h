@@ -166,6 +166,7 @@ private slots:
     void onChangeScreenSwap(bool checked);
     void onChangeScreenSizing(QAction* act);
     void onChangeScreenAspect(QAction* act);
+    void onChangeLogLevel(QAction* act);
     void onChangeIntegerScaling(bool checked);
     void onOpenNewWindow();
     void onChangeScreenFiltering(bool checked);
@@ -274,6 +275,8 @@ public:
     QAction* actFirmwareSettings;
     QAction* actPathSettings;
     QAction* actInterfaceSettings;
+    QAction* actLogLevel[4];
+    QActionGroup* grpLogLevel;
     QAction* actScreenSize[4];
     QActionGroup* grpScreenRotation;
     QAction* actScreenRotation[screenRot_MAX];
