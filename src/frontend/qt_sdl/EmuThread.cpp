@@ -22,6 +22,7 @@
 #include <string.h>
 
 #include <optional>
+#include <chrono>
 #include <vector>
 #include <string>
 #include <algorithm>
@@ -44,6 +45,7 @@
 #include "Wifi.h"
 #include "Platform.h"
 #include "LocalMP.h"
+#include "MPInterface.h"
 #include "Config.h"
 #include "RTC.h"
 #include "DSi.h"
@@ -65,6 +67,7 @@ EmuThread::EmuThread(EmuInstance* inst, QObject* parent) : QThread(parent)
     emuStatus = emuStatus_Paused;
     emuPauseStack = emuPauseStackRunning;
     emuActive = false;
+    lastAutoSave = std::chrono::steady_clock::now();
 }
 
 void EmuThread::attachWindow(MainWindow* window)
@@ -74,6 +77,7 @@ void EmuThread::attachWindow(MainWindow* window)
     connect(this, SIGNAL(windowEmuStop()), window, SLOT(onEmuStop()));
     connect(this, SIGNAL(windowEmuPause(bool)), window, SLOT(onEmuPause(bool)));
     connect(this, SIGNAL(windowEmuReset()), window, SLOT(onEmuReset()));
+    connect(this, SIGNAL(autoStateAvailable()), window, SLOT(onAutoStateAvailable()));
     connect(this, SIGNAL(autoScreenSizingChange(int)), window->panel, SLOT(onAutoScreenSizingChanged(int)));
     connect(this, SIGNAL(windowFullscreenToggle()), window, SLOT(onFullscreenToggled()));
     connect(this, SIGNAL(screenEmphasisToggle()), window, SLOT(onScreenEmphasisToggled()));
@@ -92,6 +96,7 @@ void EmuThread::detachWindow(MainWindow* window)
     disconnect(this, SIGNAL(windowEmuStop()), window, SLOT(onEmuStop()));
     disconnect(this, SIGNAL(windowEmuPause(bool)), window, SLOT(onEmuPause(bool)));
     disconnect(this, SIGNAL(windowEmuReset()), window, SLOT(onEmuReset()));
+    disconnect(this, SIGNAL(autoStateAvailable()), window, SLOT(onAutoStateAvailable()));
     disconnect(this, SIGNAL(autoScreenSizingChange(int)), window->panel, SLOT(onAutoScreenSizingChanged(int)));
     disconnect(this, SIGNAL(windowFullscreenToggle()), window, SLOT(onFullscreenToggled()));
     disconnect(this, SIGNAL(screenEmphasisToggle()), window, SLOT(onScreenEmphasisToggled()));
@@ -106,6 +111,8 @@ void EmuThread::detachWindow(MainWindow* window)
 void EmuThread::run()
 {
     Config::Table& globalCfg = emuInstance->getGlobalConfig();
+    autoSaveInterval = emuInstance->getLocalConfig().GetInt("AutoSaveInterval");
+    lastAutoSave = std::chrono::steady_clock::now();
     u32 mainScreenPos[3];
 
     //emuInstance->updateConsole();
@@ -443,6 +450,26 @@ void EmuThread::run()
         }
 
         handleMessages();
+
+        if (autoSaveInterval > 0 && emuActive && emuStatus != emuStatus_Exit
+            && MPInterface::GetType() != MPInterface_LAN
+            && MPInterface::GetType() != MPInterface_Netplay)
+        {
+            const auto now = std::chrono::steady_clock::now();
+            if (now - lastAutoSave >= std::chrono::minutes(autoSaveInterval))
+            {
+                lastAutoSave = now;
+                if (emuInstance->saveState(emuInstance->getAutoSavestateName()))
+                {
+                    emuInstance->osdAddMessage(0, "Automatic state saved");
+                    emit autoStateAvailable();
+                }
+                else
+                {
+                    emuInstance->osdAddMessage(0xFFA0A0, "Automatic state save failed");
+                }
+            }
+        }
     }
 }
 
@@ -488,6 +515,7 @@ void EmuThread::handleMessages()
             emuStatus = emuStatus_Running;
             emuPauseStack = emuPauseStackRunning;
             emuActive = true;
+            lastAutoSave = std::chrono::steady_clock::now();
 
             emuInstance->audioEnable();
             emit windowEmuStart();
@@ -625,7 +653,12 @@ void EmuThread::handleMessages()
             break;
 
         case msg_UndoStateLoad:
-            emuInstance->undoStateLoad();
+            msgResult = emuInstance->undoStateLoad();
+            break;
+
+        case msg_SetAutoSaveInterval:
+            autoSaveInterval = msg.param.value<int>();
+            lastAutoSave = std::chrono::steady_clock::now();
             msgResult = 1;
             break;
 
@@ -839,6 +872,12 @@ int EmuThread::undoStateLoad()
     sendMessage(msg_UndoStateLoad);
     waitMessage();
     return msgResult;
+}
+
+void EmuThread::setAutoSaveInterval(int minutes)
+{
+    sendMessage({.type = msg_SetAutoSaveInterval, .param = minutes});
+    waitMessage();
 }
 
 int EmuThread::importSavefile(const QString& filename)

@@ -50,6 +50,7 @@ DefaultList<int> DefaultInts =
 {
     {"Instance*.Keyboard", -1},
     {"Instance*.Joystick", -1},
+    {"Instance*.AutoSaveInterval", 0},
     {"Instance*.Window*.Width", 256},
     {"Instance*.Window*.Height", 384},
     {"Screen.VSyncInterval", 1},
@@ -82,6 +83,7 @@ RangeList IntRanges =
     {"3D.GL.ScaleFactor", {1, 16}},
     {"Audio.Interpolation", {0, 4}},
     {"Instance*.Audio.Volume", {0, 256}},
+    {"Instance*.AutoSaveInterval", {0, 60}},
     {"Mic.InputType", {0, micInputType_MAX-1}},
     {"Instance*.Window*.ScreenRotation", {0, screenRot_MAX-1}},
     {"Instance*.Window*.ScreenGap", {0, 500}},

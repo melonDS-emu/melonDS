@@ -29,6 +29,7 @@
 #include <atomic>
 #include <variant>
 #include <optional>
+#include <chrono>
 #include <list>
 
 #include "NDSCart.h"
@@ -80,6 +81,7 @@ public:
         msg_LoadState,
         msg_SaveState,
         msg_UndoStateLoad,
+        msg_SetAutoSaveInterval,
 
         msg_ImportSavefile,
 
@@ -122,6 +124,7 @@ public:
     int saveState(const QString& filename);
     int loadState(const QString& filename);
     int undoStateLoad();
+    void setAutoSaveInterval(int minutes);
 
     int importSavefile(const QString& filename);
 
@@ -148,6 +151,7 @@ signals:
     void windowEmuStop();
     void windowEmuPause(bool pause);
     void windowEmuReset();
+    void autoStateAvailable();
 
     void windowLimitFPSChange();
 
@@ -190,6 +194,8 @@ private:
     QQueue<Message> msgQueue;
 
     EmuInstance* emuInstance;
+    int autoSaveInterval = 0;
+    std::chrono::steady_clock::time_point lastAutoSave;
 
     int autoScreenSizing;
 
