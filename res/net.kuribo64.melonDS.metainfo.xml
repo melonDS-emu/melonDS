@@ -1,0 +1,270 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<component type="desktop-application">
+  <id>net.kuribo64.melonDS</id>
+  <launchable type="desktop-id">net.kuribo64.melonDS.desktop</launchable>
+  <name>melonDS</name>
+  <summary>Nintendo DS and DSi emulator</summary>
+  <metadata_license>CC0-1.0</metadata_license>
+  <project_license>GPL-3.0-or-later</project_license>
+  <developer id="net.kuribo64">
+    <name>Arisotura</name>
+    <url>https://kuribo64.net</url>
+  </developer>
+  <content_rating type="oars-1.1" />
+  <description>
+    <p>
+      melonDS aims at providing fast and accurate Nintendo DS emulation. While it is still a work in progress, it has a pretty solid set of features.
+    </p>
+    <ul>
+      <li>Nearly complete core (CPU, video, audio, ...)</li>
+      <li>OpenGL renderer, 3D upscaling</li>
+      <li>RTC, microphone, lid close/open</li>
+      <li>Joystick support</li>
+      <li>Savestates</li>
+      <li>Various display position/sizing/rotations modes</li>
+      <li>Work-in-progress Wi-Fi emulation for online connectivity and local multiplayer</li>
+      <li>Experimental emulation of the Nintendo DSi</li>
+      <li>...and even more is planned!</li>
+    </ul>
+  </description>
+  <categories>
+    <category>Game</category>
+    <category>Emulator</category>
+  </categories>
+  <keywords>
+    <keyword>emulator</keyword>
+    <keyword>Nintendo</keyword>
+    <keyword>DS</keyword>
+    <keyword>DSi</keyword>
+    <keyword>NDS</keyword>
+    <keyword>rom</keyword>
+  </keywords>
+  <url type="homepage">https://melonds.kuribo64.net/</url>
+  <url type="bugtracker">https://github.com/melonDS-emu/melonDS/issues</url>
+  <url type="help">https://melonds.kuribo64.net/faq.php</url>
+  <url type="vcs-browser">https://github.com/melonDS-emu/melonDS</url>
+  <url type="contact">https://melonds.kuribo64.net/board/</url>
+  <url type="donation">https://melonds.kuribo64.net/donate.php</url>
+  <screenshots>
+    <screenshot type="default">
+      <image type="source" width="534" height="851">https://raw.githubusercontent.com/flathub/net.kuribo64.melonDS/master/screenshots/1.png</image>
+      <caption>melonDS splash screen.</caption>
+    </screenshot>
+    <screenshot>
+      <image type="source" width="534" height="851">https://raw.githubusercontent.com/flathub/net.kuribo64.melonDS/master/screenshots/2.png</image>
+      <caption>Nintendo DS emulation.</caption>
+    </screenshot>
+    <screenshot>
+      <image type="source" width="534" height="851">https://raw.githubusercontent.com/flathub/net.kuribo64.melonDS/master/screenshots/3.png</image>
+      <caption>Nintendo DSi emulation.</caption>
+    </screenshot>
+    <screenshot>
+      <image type="source" width="1558" height="851">https://raw.githubusercontent.com/flathub/net.kuribo64.melonDS/master/screenshots/4.png</image>
+      <caption>High-resolution rendering and screen layouts.</caption>
+    </screenshot>
+  </screenshots>
+  <branding>
+    <color type="primary" scheme_preference="light">#ff554d</color>
+    <color type="primary" scheme_preference="dark">#ff554d</color>
+  </branding>
+  <supports>
+    <control>pointing</control>
+    <control>keyboard</control>
+    <control>touch</control>
+    <control>gamepad</control>
+  </supports>
+  <provides>
+    <binary>melonDS</binary>
+  </provides>
+  <releases>
+    <release version="1.1" date="2025-11-17">
+      <description>
+        <p>This release adds DSP HLE, support for importnig cheats, BSD builds, and several other bugfixes.</p>
+        <ul>
+          <li>3D: use 32-bit division in software renderer (Arisotura)</li>
+          <li>fix 8-bit NO$GBA debug register writes (FrankHB)</li>
+          <li>fix save type for Legacy of Ys - Books I and II (CasualPokePlayer)</li>
+          <li>ROM info dialog: make DS banner more accurate (Rayyan)</li>
+          <li>DSi: add DSP HLE (Arisotura)</li>
+          <li>make input system thread-safe (fixes random multiplayer crash) (Arisotura)</li>
+          <li>CI: various vcpkg improvements (Nadia)</li>
+          <li>JIT/x64: ensure writable code memory after alloc (Rayyan)</li>
+          <li>JIT: add support for PaX MPROTECT on NetBSD (Rayyan)</li>
+          <li>JIT: handle W^X codemem in fault handler (Rayyan)</li>
+          <li>SD/MMC: fix crash when accessing port with no device connected (Arisotura)</li>
+          <li>gdb stub: fix reading wrong code for vCont packet (jonko0493)</li>
+          <li>CI: add OpenBSD CI (Izder456)</li>
+          <li>DLDI: fix log2(size) in driver header (Arisotura)</li>
+          <li>camera: fix CAM_MCNT reset behavior (Arisotura)</li>
+          <li>CI: add x64 FreeBSD and NetBSD CI (Rayyan)</li>
+          <li>audio: add high-quality resampling with blip-buf (Nadia)</li>
+          <li>3D: fix UB in software renderer when drawing polygons with linear interpolation and Z-buffering (Arisotura)</li>
+          <li>AR: add extra D400000x data processing opcodes (Arisotura)</li>
+          <li>Qt6: use new way to access the native display/window on X11/Wayland (Nadia)</li>
+          <li>nix: update inputs and add dev shell Qt wrapper workaround (Nadia)</li>
+          <li>DSi: add support for the main RAM size register, with hack to work around loader crash (Arisotura)</li>
+          <li>AR: add support for importing cheats from usrcheat.dat, improve UI (Arisotura)</li>
+          <li>fix UI glitchiness under Wayland when OpenGL is used (Arisotura, thanks PCSX2 team)</li>
+          <li>fix minor Thumb BLX immediate bugs (Jakly)</li>
+          <li>update xxHash to 0.8.3 (JordanTheToaster)</li>
+          <li>reduce frontend audio buffer size to 512, fix audio sync (Nadia)</li>
+          <li>fix bug that could randomly break audio output (Arisotura)</li>
+          <li>compute renderer: implement tile size scaling to alleviate glitches at high resolutions (FireNX70)</li>
+          <li>SPU: fix uninitialized variable causing potential crash (Nadia)</li>
+          <li>add support for building melonDS on Windows without MinGW (Nadia)</li>
+        </ul>
+      </description>
+    </release>
+    <release version="1.0" date="2025-07-08">
+      <description>
+        <p>This release brings a major core refactor, faster local multiplayer, LAN support, the new OpenGL compute shader renderer, multi-window support, and more!</p>
+        <ul>
+          <li>add splashscreen (Arisotura)</li>
+          <li>add About dialog (Nadia)</li>
+          <li>emulation fixes for calico (fincs)</li>
+          <li>make the frontend mostly thread-safe</li>
+          <li>refactor core to support multiple instances in one process</li>
+          <li>OpenGL renderer: avoid undefined Z when using W-buffering (Generic)</li>
+          <li>improve microphone input (Arisotura)</li>
+          <li>add support for multiple windows (Arisotura)</li>
+          <li>new configuration system (Arisotura)</li>
+          <li>add OpenGL compute shader renderer (Generic)</li>
+          <li>implement framerate target presets (Jakly)</li>
+          <li>fix microphone blow noise input (Generic)</li>
+          <li>add LAN support (Arisotura)</li>
+          <li>add Nix flake (Nadia)</li>
+          <li>attempts at improving local multiplayer connections (Arisotura)</li>
+          <li>many accuracy improvements to the software 3D renderer (Jakly)</li>
+          <li>fix inaccuracy with NO$GBA debug registers (pants64DS)</li>
+          <li>OpenGL renderer: add support for changing BG0HOFS midframe (Arisotura)</li>
+          <li>fix zstd ROM loading issues (Nadia)</li>
+          <li>audio: add Gaussian (SNES) interpolation (Nadia)</li>
+          <li>fix DSiWare detection (JesseTG)</li>
+          <li>add support for R4 Revolution/M3 Simply carts (asiekierka)</li>
+          <li>fix DS/GBA comm not working when using FreeBIOS (Nadia)</li>
+          <li>build system and CI fixes (Nadia)</li>
+          <li>DSi title manager: fix handling of title strings (Rayyan)</li>
+          <li>fix gdbstub not activating until the console is reset (ZNixian)</li>
+          <li>improve audio when not running at 60FPS (Jakly)</li>
+          <li>fix a lot of warnings (Nadia)</li>
+          <li>fix framelimiter bugs (Jakly)</li>
+          <li>add support for solar sensor without using Boktai ROM (Jesse)</li>
+          <li>set SDLHINTAPP_NAME (redbluegreenhat)</li>
+          <li>fix undefined behavior when indexing into ARCode::Code (Jesse)</li>
+          <li>DLDI: add support for unaligned I/O in melonDLDI driver (Arisotura)</li>
+          <li>audio settings: fix mic settings not applying when closing the dialog (Arisotura, Nadia)</li>
+          <li>multiplayer: load firmware from correct instance-specific file (Arisotura)</li>
+          <li>3D: small fix to translucency flag assignment (Jakly)</li>
+          <li>AES: load Tad key (edo9300)</li>
+          <li>slot-2: add support for Motion Pak and Guitar Grip (asie)</li>
+          <li>DSP: fix PDATA reads (Arisotura)</li>
+          <li>slot-2: don't return 0 when attempting to read from the GBA GPIO address (edo9300)</li>
+        </ul>
+      </description>
+    </release>
+    <release version="0.9.5" date="2022-11-03">
+      <description>
+        <ul>
+          <li>remove incorrect color profile from PNG icons (Nadia)</li>
+          <li>DLDI fixes for the Smash demo (Arisotura)</li>
+          <li>fix gaps in I/O handling (Arisotura)</li>
+          <li>fix invalid savemem commands, fixes Dementium (Arisotura)</li>
+          <li>FreeBIOS: add VRAM-compatible LZ77 decompress function, fixes Yoshi's Island (Arisotura)</li>
+          <li>default firmware: in DSi mode, emulate DWM-W015 wifi board instead of DWM-W024 (Arisotura)</li>
+          <li>default firmware: save WFC settings to separate file (Arisotura)</li>
+          <li>disable firmware overrides UI when firmware override isn't checked (Nadia)</li>
+          <li>2D: more accurate fade/blending (Arisotura)</li>
+          <li>DSi: add support for GXFIFO NDMA (Arisotura)</li>
+          <li>DSi: add mainRAM mirror at 0x0C000000 (Arisotura)</li>
+          <li>add 3DS 5:3 aspect ratio, refactor aspect ratio code (Nadia)</li>
+          <li>OpenGL: fix 16x resolution on macOS (Nadia)</li>
+          <li>fix triggers being recognized as negative analog stick values during mapping (Nadia)</li>
+          <li>fix joystick mapping buttons on macOS (Nadia)</li>
+          <li>DSi: preliminary implementation of SNDEXCNT (Generic)</li>
+          <li>DSi: fix SD inserted/removed IRQ bits (Generic)</li>
+          <li>DSi: implement 8/16bit access to AES registers (Generic)</li>
+          <li>DSi: fix SCFG_MC cart-inserted bit (Generic)</li>
+          <li>JIT: invalidate blocks in ARM7 VRAM/WRAM when it is remapped (Generic)</li>
+          <li>fix ROM banner reading when the ROM has no banner (Rayyan, Arisotura)</li>
+          <li>fix UTF16 ROM title handling in the ROM info dialog (Rayyan)</li>
+          <li>wifi: improvements to wifi emulation (Arisotura)</li>
+          <li>wifi: shared-memory based sync/comm mechanism for local wifi (Arisotura)</li>
+          <li>proper support for multiple melonDS instances for multiplayer (Arisotura)</li>
+          <li>DSi: actual, proper camera support (Arisotura)</li>
+          <li>DSi: fix DSP enough that it will actually work (Arisotura)</li>
+          <li>fix OpenGL context handling (Stenzek, Generic, Nadia)</li>
+          <li>force-align all memory accesses (instead of just CPU memory accesses) (Arisotura)</li>
+          <li>better CLI parameter handling (patataofcourse)</li>
+          <li>fix bugs in DSi direct boot (Arisotura)</li>
+        </ul>
+      </description>
+    </release>
+    <release version="0.9.4" date="2022-03-08">
+      <description>
+        <ul>
+          <li>Redesign of the Input dialog (Rayyan)</li>
+          <li>Use DraStic open-source DS BIOS replacement (Swordfish90, asiekierka)</li>
+          <li>Generate non-bootable firmware replacement (Swordfish90, asiekierka, others)</li>
+          <li>Support for syncing DLDI/DSi SD image to a folder (Arisotura)</li>
+          <li>ARM9 PU (code/data abort) support in interpreter mode (Arisotura)</li>
+          <li>Fix ADPCM decoding bug resulting in potential crackling (Arisotura)</li>
+          <li>Block sound DMA from reading the ARM7 BIOS (Arisotura)</li>
+          <li>Smarter SDL initialization (andrigamerita, Nadia, Arisotura)</li>
+          <li>Properly center the main window on macOS (Nadia)</li>
+          <li>Don't try to render if the emulator is inactive (Nadia)</li>
+          <li>Fix potential issues with DSi title importing (Nadia, Epicpkmn11)</li>
+          <li>Custom path support (Arisotura)</li>
+          <li>Fix nifi socket init on BSD and macOS (Nadia)</li>
+          <li>Add support for zero addresses in AR codes 3xxxxxxx to Axxxxxxx (Arisotura)</li>
+          <li>Lower window refresh rate if running too fast (RSDuck)</li>
+          <li>Wifi power-saving support (RSDuck)</li>
+          <li>Allow swap-screen hotkey to swap between displaying only top screen and only bottom screen (ZackWeinstein)</li>
+          <li>Add RAM search dialog (2jun0)</li>
+          <li>Add power management dialog for setting battery parameters (Rayyan)</li>
+        </ul>
+      </description>
+    </release>
+    <release version="0.9.3" date="2021-09-01">
+      <description>
+        <p>General improvements</p>
+        <ul>
+          <li>Added support for real touchscreens such as on tablets</li>
+          <li>Fixed touchscreen input being broken in some screen layouts</li>
+          <li>Added audio interpolation with multiple types to choose from</li>
+          <li>Added an option for 10-bit audio output and emulation of SOUNDBIAS</li>
+          <li>A ROM info dialog has been added under System -&gt; ROM Info</li>
+          <li>Various other bug fixes</li>
+        </ul>
+        <p>DSi improvements</p>
+        <ul>
+          <li>Touchscreen calibration is automatically patched on startup</li>
+          <li>Direct boot is now supported for some DSi titles</li>
+          <li>Added a DSi title manager that lets you install DSiWare to the emulated NAND</li>
+        </ul>
+      </description>
+    </release>
+    <release version="0.9.2" date="2021-04-27">
+      <description>
+        <ul>
+          <li>You can now load ROMs from within archives</li>
+          <li>More screen layout options</li>
+          <li>Recent games can now be loaded from the File menu</li>
+          <li>Fixes for issues with the OpenGL renderer affecting some users</li>
+          <li>Games with NAND save memory can now save correctly</li>
+        </ul>
+      </description>
+    </release>
+    <release version="0.9.1" date="2020-12-25">
+      <description>
+        <ul>
+          <li>New frame rate limiter that solves the issues with frame pacing</li>
+          <li>Removed nonfunctional v-sync option</li>
+          <li>Added a fullscreen option with configurable hotkey</li>
+          <li>DSi NAND dumps with Unlaunch installed now work</li>
+          <li>Initial DSi camera emulation</li>
+        </ul>
+      </description>
+    </release>
+    <release version="0.9" date="2020-09-04"/>
+  </releases>
+</component>
