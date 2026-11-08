@@ -43,6 +43,7 @@
 #include "OSD_shaders.h"
 #include "font.h"
 #include "version.h"
+#include "Cursor.h"
 
 using namespace melonDS;
 
@@ -258,12 +259,15 @@ void ScreenPanel::mousePressEvent(QMouseEvent* event)
 
     int x = event->pos().x();
     int y = event->pos().y();
+    int xClamp = x;
+    int yClamp = y;
 
-    if (layout.GetTouchCoords(x, y, false))
-    {
-        touching = true;
-        emuInstance->touchScreen(x, y);
-    }
+    bool inTouchCoords = layout.GetTouchCoords(x, y, false);
+    bool inTouchCoordsClamp = layout.GetTouchCoords(xClamp, yClamp, true);
+
+    touching = true;
+    emuInstance->touchScreen(xClamp, yClamp);
+
 }
 
 void ScreenPanel::mouseReleaseEvent(QMouseEvent* event)
@@ -281,21 +285,31 @@ void ScreenPanel::mouseReleaseEvent(QMouseEvent* event)
 
 void ScreenPanel::mouseMoveEvent(QMouseEvent* event)
 {
-    event->accept();
-
-    showCursor();
-
-    if (!emuInstance->emuIsActive()) return;
+    event->accept();    
+    if (!emuInstance->emuIsActive()){
+        showCursor();
+        return;
+    }
     //if (!(event->buttons() & Qt::LeftButton)) return;
-    if (!touching) return;
 
     int x = event->pos().x();
     int y = event->pos().y();
+    int xClamp = x;
+    int yClamp = y;
 
-    if (layout.GetTouchCoords(x, y, true))
-    {
-        emuInstance->touchScreen(x, y);
+    bool inTouchCoords = layout.GetTouchCoords(x, y, false);
+    bool inTouchCoordsClamp = layout.GetTouchCoords(xClamp, yClamp, true);
+    
+    vCursor->setDeviceInUse(1);
+    vCursor->setRawCursorPos(xClamp, yClamp); 
+    if (vCursor->cursorEnabled && inTouchCoords){
+        setCursor(Qt::BlankCursor);
+    } else {
+        showCursor();
     }
+    if (!touching) return;
+
+    emuInstance->touchScreen(xClamp, yClamp);
 }
 
 void ScreenPanel::tabletEvent(QTabletEvent* event)
@@ -806,6 +820,9 @@ void ScreenPanelNative::paintEvent(QPaintEvent* event)
     
     if (emuThread->emuIsActive())
     {
+        if (emuThread->emuIsRunning()){
+            vCursor->update();
+        }
         emuInstance->renderLock.lock();
 
         bufferLock.lock();
@@ -817,6 +834,19 @@ void ScreenPanelNative::paintEvent(QPaintEvent* event)
         bufferLock.unlock();
 
         QRect screenrc(0, 0, 256, 192);
+
+        //Crosshair Painter
+        if (vCursor->cursorEnabled){
+            QPainter cPainter(&screen[1]);
+            cPainter.setPen(Qt::black);
+            cPainter.setBrush(Qt::black);
+            cPainter.drawRect(vCursor->cursorPos[0]-4, vCursor->cursorPos[1]-1, 8, 2);
+            cPainter.drawRect(vCursor->cursorPos[0]-1, vCursor->cursorPos[1]-4, 2, 8);
+            cPainter.setPen(Qt::white);
+            cPainter.drawLine(vCursor->cursorPos[0]-3, vCursor->cursorPos[1], vCursor->cursorPos[0]+3, vCursor->cursorPos[1]);
+            cPainter.drawLine(vCursor->cursorPos[0], vCursor->cursorPos[1]-3, vCursor->cursorPos[0], vCursor->cursorPos[1]+3);
+            cPainter.end();
+        }
 
         for (int i = 0; i < numScreens; i++)
         {
@@ -932,7 +962,8 @@ void ScreenPanelGL::initOpenGL()
     glUseProgram(screenShaderProgram);
     glUniform1i(glGetUniformLocation(screenShaderProgram, "TopScreenTex"), 0);
     glUniform1i(glGetUniformLocation(screenShaderProgram, "BottomScreenTex"), 1);
-
+    screenShaderCursorLoc = glGetUniformLocation(screenShaderProgram, "cursorPos");
+    screenShaderCursorEnableLoc = glGetUniformLocation(screenShaderProgram, "cursorEnable");
     screenShaderScreenSizeULoc = glGetUniformLocation(screenShaderProgram, "uScreenSize");
     screenShaderTransformULoc = glGetUniformLocation(screenShaderProgram, "uTransform");
 
@@ -1126,6 +1157,9 @@ void ScreenPanelGL::drawScreen()
 
     if (emuThread->emuIsActive())
     {
+        if (emuThread->emuIsRunning()){
+            vCursor->update();
+        }
         auto nds = emuInstance->getNDS();
 
         glUseProgram(screenShaderProgram);
@@ -1164,6 +1198,12 @@ void ScreenPanelGL::drawScreen()
 
         for (int i = 0; i < numScreens; i++)
         {
+            if (screenKind[i] == 1 && vCursor->cursorEnabled){
+                glUniform1i(screenShaderCursorEnableLoc, 1);
+                glUniform2f(screenShaderCursorLoc, vCursor->cursorPos[0]/256.f, vCursor->cursorPos[1]/192.f);
+            } else {
+                glUniform1f(screenShaderCursorEnableLoc, 0);
+            }
             glUniformMatrix2x3fv(screenShaderTransformULoc, 1, GL_TRUE, screenMatrix[i]);
             glDrawArrays(GL_TRIANGLES, screenKind[i] == 0 ? 0 : 2 * 3, 2 * 3);
         }
