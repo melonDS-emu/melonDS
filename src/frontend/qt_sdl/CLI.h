@@ -32,6 +32,8 @@ struct CommandLineOptions
     std::optional<QString> dsRomArchivePath;
     std::optional<QString> gbaRomPath;
     std::optional<QString> gbaRomArchivePath;
+    std::optional<QString> configPath;
+    std::optional<QString> appendConfigPath;
     bool fullscreen;
     bool boot;
 };
