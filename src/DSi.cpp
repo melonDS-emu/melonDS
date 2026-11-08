@@ -773,6 +773,24 @@ void DSi::SoftReset()
 
     // also, BPTWL[0x70] could be abused to quickly boot specific titles
 
+    // Reset cross-CPU state without restarting the active frame scheduler.
+    IPCSync9 = IPCSync7 = 0;
+    IPCFIFOCnt9 = IPCFIFOCnt7 = 0;
+    IPCFIFO9.Clear();
+    IPCFIFO7.Clear();
+    IME[0] = IME[1] = 0;
+    IE[0] = IE[1] = 0;
+    IF[0] = IF[1] = 0;
+    IE2 = IF2 = 0;
+    CPUStop = 0;
+    for (auto& dma : DMAs)
+        dma.Reset();
+    memset(Timers, 0, sizeof(Timers));
+    TimerCheckMask[0] = TimerCheckMask[1] = 0;
+    NDMACnt[0] = NDMACnt[1] = 0;
+    for (auto& ndma : NDMAs)
+        ndma.Reset();
+
     JIT.Reset();
     JIT.CheckAndInvalidateITCM();
 
