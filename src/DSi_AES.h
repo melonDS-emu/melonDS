@@ -73,6 +73,12 @@ public:
     static void ROL16(u8* val, u32 n);
     static void DeriveNormalKey(u8* keyX, u8* keyY, u8* normalkey);
 
+    // derive the stage2 (boot2) AES key from the RSA signature in the NAND
+    // stage2 header (NAND 0x300, 0x80 bytes). The key is output in the
+    // big-endian byte order used by tiny-AES. Returns false if the signature
+    // doesn't verify against the NAND stage2 public key.
+    static bool DeriveBoot2Key(const u8* signature, u8* key);
+
 private:
     melonDS::DSi& DSi;
     u32 Cnt;

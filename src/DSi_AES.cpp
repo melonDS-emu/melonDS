@@ -546,6 +546,133 @@ void DSi_AES::DeriveNormalKey(u8* keyX, u8* keyY, u8* normalkey)
     memcpy(normalkey, tmp, 16);
 }
 
+// RSA-1024 public modulus used by the boot ROM to verify the NAND stage2
+// header (big-endian). Also embedded in 3DS TWL_FIRM.
+static const u8 Boot2RSAModulus[0x80] =
+{
+    0xF1, 0xF5, 0x1A, 0xFF, 0x66, 0xF9, 0xB3, 0x69, 0x4D, 0xCB, 0x78, 0xDE, 0xAF, 0x31, 0x1B, 0x78,
+    0x3C, 0x07, 0x2A, 0xAC, 0x94, 0x30, 0x11, 0x11, 0x4A, 0x1C, 0xF6, 0xFE, 0x62, 0xB0, 0x91, 0xB5,
+    0xEF, 0x0E, 0xBA, 0x3A, 0xA9, 0xEC, 0x3E, 0xA0, 0x1C, 0x5D, 0xF6, 0x66, 0x65, 0x3E, 0x18, 0xDF,
+    0x22, 0x53, 0x3B, 0xD5, 0xE8, 0xD6, 0xFF, 0x58, 0x97, 0x0B, 0x24, 0xE8, 0x86, 0xFA, 0x87, 0x8B,
+    0x62, 0x66, 0x99, 0x24, 0xA8, 0xFA, 0x87, 0xF2, 0x74, 0x00, 0x4F, 0xEA, 0x2F, 0xF6, 0x23, 0xE1,
+    0xF2, 0x90, 0x7C, 0xA4, 0x67, 0x1F, 0xCA, 0x28, 0x3E, 0x86, 0xB6, 0xCA, 0xC5, 0x46, 0xA7, 0x9C,
+    0x75, 0xC8, 0x0F, 0xEB, 0x32, 0x88, 0x2C, 0x3D, 0x1D, 0xF7, 0xD5, 0xDC, 0x1A, 0x19, 0x98, 0xE9,
+    0xF6, 0x26, 0xD4, 0xFC, 0x76, 0xCB, 0x23, 0x13, 0x58, 0xCB, 0x43, 0xA9, 0xB3, 0xCB, 0xA3, 0xC5,
+};
+
+// 1024-bit numbers are stored as 32 little-endian 32-bit limbs. The working
+// value gets one extra limb so that it can hold anything below 2*modulus.
+
+static void RSAReduce(u32* val, const u32* mod)
+{
+    // val < 2*mod: subtract mod once if val >= mod
+    if (val[32] == 0)
+    {
+        for (int i = 31; i >= 0; i--)
+        {
+            if (val[i] < mod[i]) return;
+            if (val[i] > mod[i]) break;
+        }
+    }
+
+    u32 borrow = 0;
+    for (int i = 0; i < 32; i++)
+    {
+        u64 res = (u64)val[i] - mod[i] - borrow;
+        val[i] = (u32)res;
+        borrow = (u32)(res >> 63);
+    }
+    val[32] -= borrow;
+}
+
+static void RSAMulMod(u32* dst, const u32* a, const u32* b, const u32* mod)
+{
+    // shift-and-add multiplication, reducing after every step
+    u32 acc[33] = {0};
+
+    for (int bit = 1023; bit >= 0; bit--)
+    {
+        u32 carry = 0;
+        for (int i = 0; i < 33; i++)
+        {
+            u32 next = acc[i] >> 31;
+            acc[i] = (acc[i] << 1) | carry;
+            carry = next;
+        }
+        RSAReduce(acc, mod);
+
+        if (b[bit >> 5] & (1u << (bit & 31)))
+        {
+            u64 sum = 0;
+            for (int i = 0; i < 32; i++)
+            {
+                sum += (u64)acc[i] + a[i];
+                acc[i] = (u32)sum;
+                sum >>= 32;
+            }
+            acc[32] += (u32)sum;
+            RSAReduce(acc, mod);
+        }
+    }
+
+    memcpy(dst, acc, 32*4);
+}
+
+bool DSi_AES::DeriveBoot2Key(const u8* signature, u8* key)
+{
+    u32 mod[32], sig[32];
+    for (int i = 0; i < 32; i++)
+    {
+        const u8* m = &Boot2RSAModulus[0x7C - (i*4)];
+        const u8* s = &signature[0x7C - (i*4)];
+        mod[i] = ((u32)m[0] << 24) | ((u32)m[1] << 16) | ((u32)m[2] << 8) | m[3];
+        sig[i] = ((u32)s[0] << 24) | ((u32)s[1] << 16) | ((u32)s[2] << 8) | s[3];
+    }
+
+    // the signature must be below the modulus
+    for (int i = 31; i >= 0; i--)
+    {
+        if (sig[i] < mod[i]) break;
+        if (sig[i] > mod[i] || i == 0) return false;
+    }
+
+    // message = signature^65537 mod modulus
+    u32 res[32];
+    memcpy(res, sig, sizeof(res));
+    for (int i = 0; i < 16; i++)
+        RSAMulMod(res, res, res, mod);
+    RSAMulMod(res, res, sig, mod);
+
+    u8 msg[0x80];
+    for (int i = 0; i < 32; i++)
+    {
+        u32 val = res[31 - i];
+        msg[i*4 + 0] = val >> 24;
+        msg[i*4 + 1] = val >> 16;
+        msg[i*4 + 2] = val >> 8;
+        msg[i*4 + 3] = val;
+    }
+
+    // PKCS#1 v1.5 type 1 padding: 00 01 FF..FF 00, then the 0x74-byte hash data
+    const int datastart = 0x80 - 0x74;
+    if (msg[0] != 0x00 || msg[1] != 0x01 || msg[datastart-1] != 0x00)
+        return false;
+    for (int i = 2; i < datastart-1; i++)
+    {
+        if (msg[i] != 0xFF) return false;
+    }
+
+    // keyY is the first field of the hash data. keyX is shared with 'Tad'.
+    u8 keyX[16] = {'N', 'i', 'n', 't', 'e', 'n', 'd', 'o', ' ', 'D', 'S', 0x00, 0x01, 0x23, 0x21, 0x00};
+    u8 keyY[16];
+    memcpy(keyY, &msg[datastart], 16);
+
+    u8 normalkey[16];
+    DeriveNormalKey(keyX, keyY, normalkey);
+    Bswap128(key, normalkey);
+    return true;
+}
+
 void DSi_AES::WriteKeyNormal(u32 slot, u32 offset, u32 val, u32 mask)
 {
     u32 old = *(u32*)&KeyNormal[slot][offset];
