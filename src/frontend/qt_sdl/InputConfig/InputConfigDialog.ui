@@ -2277,6 +2277,12 @@
        <string>General hotkeys</string>
       </attribute>
      </widget>
+     <widget class="QWidget" name="tabTypingKeyboard">
+      <attribute name="title">
+       <string>Typing keyboard</string>
+      </attribute>
+      <layout class="QVBoxLayout" name="layTypingKeyboard"/>
+     </widget>
     </widget>
    </item>
    <item row="7" column="0" colspan="2">
