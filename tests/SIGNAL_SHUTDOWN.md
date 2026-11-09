@@ -5,8 +5,10 @@ native test deadlock showed Qt's close-event handling reentering XCB while the
 interrupted `xcb_put_image` held the same connection mutex. This is a host
 frontend issue, not emulated hardware behavior.
 
-The handler now writes only a `volatile sig_atomic_t` request. A 50 ms Qt timer
-dispatches the quit request from the ordinary event loop. Windows handling is
+The handler now writes only a compile-time checked lock-free atomic request. A 50 ms Qt timer
+dispatches the quit request from the ordinary event loop. Relaxed atomic access
+is sufficient for this single flag and remains safe when delivery occurs on a
+worker thread. Windows handling is
 unchanged; this does not change the CPU, camera, storage or wireless model.
 
 With a completed Qt build and an available X display:

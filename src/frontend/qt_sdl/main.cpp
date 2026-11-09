@@ -38,6 +38,7 @@
 #include <QStandardPaths>
 #ifndef _WIN32
 #include <QTimer>
+#include <atomic>
 #endif
 #ifndef _WIN32
 #include <QGuiApplication>
@@ -270,13 +271,14 @@ bool MelonApplication::event(QEvent *event)
 }
 
 #ifndef _WIN32
-static volatile std::sig_atomic_t quitRequested = 0;
+static std::atomic<bool> quitRequested{false};
+static_assert(std::atomic<bool>::is_always_lock_free);
 
 static void signalHandler(int)
 {
     // A signal can interrupt Qt/XCB while an internal mutex is held.
     // Only request shutdown here; dispatch it from the event loop below.
-    quitRequested = 1;
+    quitRequested.store(true, std::memory_order_relaxed);
 }
 #endif
 
@@ -336,7 +338,7 @@ int main(int argc, char** argv)
 #ifndef _WIN32
     QTimer signalTimer;
     QObject::connect(&signalTimer, &QTimer::timeout, &melon, [] {
-        if (quitRequested)
+        if (quitRequested.load(std::memory_order_relaxed))
             QCoreApplication::quit();
     });
     signalTimer.start(50);
