@@ -36,7 +36,8 @@ with tempfile.TemporaryDirectory(prefix='melonds-signal-') as folder:
                         window = result.stdout.splitlines()[-1]
                         break
                     if child.poll() is not None:
-                        raise RuntimeError('GUI exited before the window appeared')
+                        detail = (root / 'runtime.log').read_text(errors='replace')[-4000:]
+                        raise RuntimeError(f'GUI exited before its window ({child.returncode}): {detail}')
                     time.sleep(.02)
                 else:
                     raise RuntimeError('No emulator window')

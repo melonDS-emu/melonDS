@@ -22,3 +22,8 @@ without ROM/BIOS files, provokes painting and alternates SIGINT/SIGTERM. It
 requires xdotool. A timeout stops only the child created by that iteration.
 This exercises shutdown while painting; it does not certify signal behavior
 under every platform/plugin or failure mode.
+
+For a disposable Xvfb display, use `-noreset` or retain a client connection
+throughout the loop. Otherwise server resets between iterations can reject the
+next GUI connection; that is an infrastructure startup failure, not a signal
+shutdown result. Startup failures include the child log for that distinction.
