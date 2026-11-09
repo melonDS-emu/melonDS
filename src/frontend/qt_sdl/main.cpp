@@ -37,6 +37,9 @@
 #include <QCommandLineParser>
 #include <QStandardPaths>
 #ifndef _WIN32
+#include <QTimer>
+#endif
+#ifndef _WIN32
 #include <QGuiApplication>
 #include <QSocketNotifier>
 #include <unistd.h>
@@ -267,10 +270,13 @@ bool MelonApplication::event(QEvent *event)
 }
 
 #ifndef _WIN32
-static void signalHandler(int signal)
+static volatile std::sig_atomic_t quitRequested = 0;
+
+static void signalHandler(int)
 {
-    std::signal(signal, SIG_DFL);
-    qApp->quit();
+    // A signal can interrupt Qt/XCB while an internal mutex is held.
+    // Only request shutdown here; dispatch it from the event loop below.
+    quitRequested = 1;
 }
 #endif
 
@@ -327,6 +333,14 @@ int main(int argc, char** argv)
         printf("did you just call me a derp???\n");
 
     MelonApplication melon(argc, argv);
+#ifndef _WIN32
+    QTimer signalTimer;
+    QObject::connect(&signalTimer, &QTimer::timeout, &melon, [] {
+        if (quitRequested)
+            QCoreApplication::quit();
+    });
+    signalTimer.start(50);
+#endif
     pathInit();
 
     CLI::CommandLineOptions* options = CLI::ManageArgs(melon);
