@@ -13,6 +13,7 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('build', type=Path)
     parser.add_argument('--source', type=Path, default=ROOT / 'src/frontend/qt_sdl/CameraManager.cpp')
+    parser.add_argument('--probe', type=Path, default=Path(__file__).with_name('camera_still_image.cpp'))
     args = parser.parse_args()
     target = args.build.resolve() / 'src/frontend/qt_sdl'
     build_files = target / 'CMakeFiles/melonDS.dir'
@@ -25,7 +26,7 @@ def main():
     with tempfile.TemporaryDirectory(prefix='melonds-camera-image-') as directory:
         directory = Path(directory)
         objects = []
-        for index, source in enumerate([Path(__file__).with_name('camera_still_image.cpp'), args.source]):
+        for index, source in enumerate([args.probe, args.source]):
             obj = directory / f'unit{index}.o'
             subprocess.run([link[0], '-I' + str(ROOT / 'src/frontend/qt_sdl'),
                             *flags['CXX_DEFINES'], *flags['CXX_INCLUDES'], *flags['CXX_FLAGS'],

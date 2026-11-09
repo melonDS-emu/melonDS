@@ -426,7 +426,7 @@ void CameraManager::feedFrame(u32* frame, int width, int height, bool yuv)
                                frameBuffer, frameWidth, frameHeight,
                                false, yuv);
         }
-        else if (yuv)
+        else if (frameFormatYUV)
         {
             copyFrame_RGBtoYUV(frame, width, height,
                                frameBuffer, frameWidth, frameHeight,
