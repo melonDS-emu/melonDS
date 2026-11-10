@@ -8,7 +8,8 @@ frontend issue, not emulated hardware behavior.
 The handler now writes only a compile-time checked lock-free atomic request. A 50 ms Qt timer
 dispatches the quit request from the ordinary event loop. Relaxed atomic access
 is sufficient for this single flag and remains safe when delivery occurs on a
-worker thread. Windows handling is
+worker thread. As before, the first delivery restores the default handler so
+a second delivery of the same signal can force termination. Windows handling is
 unchanged; this does not change the CPU, camera, storage or wireless model.
 
 With a completed Qt build and an available X display:

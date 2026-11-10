@@ -39,8 +39,6 @@
 #ifndef _WIN32
 #include <QTimer>
 #include <atomic>
-#endif
-#ifndef _WIN32
 #include <QGuiApplication>
 #include <QSocketNotifier>
 #include <unistd.h>
@@ -274,8 +272,9 @@ bool MelonApplication::event(QEvent *event)
 static std::atomic<bool> quitRequested{false};
 static_assert(std::atomic<bool>::is_always_lock_free);
 
-static void signalHandler(int)
+static void signalHandler(int signal)
 {
+    std::signal(signal, SIG_DFL);
     // A signal can interrupt Qt/XCB while an internal mutex is held.
     // Only request shutdown here; dispatch it from the event loop below.
     quitRequested.store(true, std::memory_order_relaxed);

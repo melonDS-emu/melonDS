@@ -31,7 +31,7 @@ with tempfile.TemporaryDirectory(prefix='melonds-signal-') as folder:
                 deadline = time.monotonic() + 8
                 while time.monotonic() < deadline:
                     result = subprocess.run(['xdotool', 'search', '--pid', str(child.pid),
-                                             '--name', 'melonDS 1\\.1'], capture_output=True, text=True)
+                                             '--name', r'melonDS [0-9]'], capture_output=True, text=True)
                     if result.returncode == 0:
                         window = result.stdout.splitlines()[-1]
                         break
