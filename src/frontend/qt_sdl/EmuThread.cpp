@@ -376,6 +376,8 @@ void EmuThread::run()
                 emuInstance->audioVolume = volumeLevel * (256.0 / 31.0);
             }
 
+            emuInstance->audioDrainSPU();
+
             if (emuInstance->doAudioSync && !(fastforward || slowmo))
                 emuInstance->audioSync();
 
@@ -412,6 +414,7 @@ void EmuThread::run()
                 lastMeasureTime = time;
 
                 u32 fps = round(nframes / dt);
+                if (dt > 0.0) emuInstance->audioSetMeasuredFPS(nframes / dt);
                 nframes = 0;
 
                 float fpstarget = 1.0/frametimeStep;
@@ -428,6 +431,7 @@ void EmuThread::run()
         else
         {
             // paused
+            emuInstance->audioSetMeasuredFPS(0.0);
             nframes = 0;
             lastTime = SDL_GetPerformanceCounter() * perfCountsSec;
             lastMeasureTime = lastTime;
@@ -539,6 +543,8 @@ void EmuThread::handleMessages()
             break;
 
         case msg_EmuReset:
+            // audioEnable below brings the stream back
+            emuInstance->audioJumpBegin();
             emuInstance->reset();
 
             emuStatus = emuStatus_Running;
@@ -568,8 +574,15 @@ void EmuThread::handleMessages()
 
         case msg_BootROM:
             msgResult = 0;
+            // the console is rebuilt under a callback that dereferences nds,
+            // so stop the device rather than only ending the stream. msg_EmuRun
+            // brings it back; a failed boot leaves the old one running instead
+            emuInstance->audioDisable();
             if (!emuInstance->loadROM(msg.param.value<QStringList>(), true, msgError))
+            {
+                if (emuStatus == emuStatus_Running) emuInstance->audioEnable();
                 break;
+            }
 
             assert(emuInstance->nds != nullptr);
             emuInstance->nds->Start();
@@ -578,8 +591,12 @@ void EmuThread::handleMessages()
 
         case msg_BootFirmware:
             msgResult = 0;
+            emuInstance->audioDisable();
             if (!emuInstance->bootToMenu(msgError))
+            {
+                if (emuStatus == emuStatus_Running) emuInstance->audioEnable();
                 break;
+            }
 
             assert(emuInstance->nds != nullptr);
             emuInstance->nds->Start();
@@ -621,11 +638,21 @@ void EmuThread::handleMessages()
             break;
 
         case msg_LoadState:
-            msgResult = emuInstance->loadState(msg.param.value<QString>().toStdString());
+            {
+                bool ramped = emuInstance->audioJumpBegin();
+                msgResult = emuInstance->loadState(msg.param.value<QString>().toStdString());
+                emuInstance->audioMarkDiscontinuity();
+                emuInstance->audioJumpEnd(ramped);
+            }
             break;
 
         case msg_UndoStateLoad:
-            emuInstance->undoStateLoad();
+            {
+                bool ramped = emuInstance->audioJumpBegin();
+                emuInstance->undoStateLoad();
+                emuInstance->audioMarkDiscontinuity();
+                emuInstance->audioJumpEnd(ramped);
+            }
             msgResult = 1;
             break;
 
