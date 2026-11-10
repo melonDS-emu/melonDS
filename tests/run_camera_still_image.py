@@ -13,7 +13,7 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('build', type=Path)
     parser.add_argument('--source', type=Path, default=ROOT / 'src/frontend/qt_sdl/CameraManager.cpp')
-    parser.add_argument('--probe', type=Path, default=Path(__file__).with_name('camera_still_image.cpp'))
+    parser.add_argument('--probe', type=Path, default=Path(__file__).with_name('CameraStillImage.cpp'))
     args = parser.parse_args()
     target = args.build.resolve() / 'src/frontend/qt_sdl'
     build_files = target / 'CMakeFiles/melonDS.dir'

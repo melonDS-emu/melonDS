@@ -5,14 +5,14 @@
 #include <QImage>
 #include <QTemporaryDir>
 #include <array>
-#include <cstdio>
+#include <stdio.h>
 
 extern "C" int __wrap_main(int argc, char** argv)
 {
     QCoreApplication application(argc, argv);
     QTemporaryDir files;
     if (!files.isValid()) return 2;
-    std::setvbuf(stdout, nullptr, _IONBF, 0);
+    setvbuf(stdout, nullptr, _IONBF, 0);
     int passed = 0, count = 0;
     for (auto format : {QImage::Format_RGB32, QImage::Format_RGBA64})
     {
@@ -40,9 +40,9 @@ extern "C" int __wrap_main(int argc, char** argv)
             bool ok = received == expected;
             passed += ok;
             count++;
-            std::printf("%s: depth %d PNG -> %s camera frame\n", ok ? "PASS" : "FAIL", loaded.depth(), yuv ? "YUV" : "RGB32");
+            printf("%s: depth %d PNG -> %s camera frame\n", ok ? "PASS" : "FAIL", loaded.depth(), yuv ? "YUV" : "RGB32");
         }
     }
-    std::printf("%d/%d camera image controls passed\n", passed, count);
+    printf("%d/%d camera image controls passed\n", passed, count);
     return passed == count ? 0 : 1;
 }
