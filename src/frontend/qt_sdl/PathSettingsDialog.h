@@ -61,10 +61,18 @@ private slots:
     void on_btnSaveFileBrowse_clicked();
     void on_btnSavestateBrowse_clicked();
     void on_btnCheatFileBrowse_clicked();
+    void on_btnConvertSaves_clicked();
+    void on_btnOpenSaveDir_clicked();
 
 private:
+    bool confirmSaveOverwrite(const QString& dir, const QString& ext);
+
     Ui::PathSettingsDialog* ui;
     EmuInstance* emuInstance;
+
+    // set once save files have actually been renamed on disk, so the reset still
+    // happens even if the dialog is then cancelled
+    bool savesConverted = false;
 };
 
 #endif // PATHSETTINGSDIALOG_H

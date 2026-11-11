@@ -87,6 +87,26 @@ public:
     EmuInstance(int inst);
     ~EmuInstance();
 
+    // Where cart save data is read from and written to. writePath always uses the
+    // configured extension; readPath may use the other one (see resolveSaveFilePaths).
+    struct SavePathInfo
+    {
+        std::string writePath;
+        std::string readPath;      // empty when no save file exists yet
+        std::string writeExt;      // the configured extension, used by writePath
+        std::string readExt;       // extension of readPath; empty when readPath is empty
+        bool extFallback = false;  // readExt differs from the configured extension
+    };
+
+    // Returns true and clears the pending record if the last load of this cart type
+    // read its save data from a file with the non-configured extension.
+    bool takeSaveExtFallback(bool gba, SavePathInfo& out);
+
+    // A loaded cart's save file that switching to these settings would start writing
+    // over, or empty if none would be. Retargeting a live SaveManager flushes the
+    // in-memory save to the new path, truncating whatever is already there.
+    std::string saveOverwrittenBySettings(const std::string& cfgpath, const std::string& ext);
+
     int getInstanceID() { return instanceID; }
     int getConsoleType() { return consoleType; }
     EmuThread* getEmuThread() { return emuThread; }
@@ -172,6 +192,9 @@ public:
 private:
     static int lastSep(const std::string& path);
     std::string getAssetPath(bool gba, const std::string& configpath, const std::string& ext, const std::string& file);
+    std::string getSaveFileExtension();
+    std::string getSaveFilePath(bool gba);
+    SavePathInfo resolveSaveFilePaths(bool gba);
 
     QString verifyDSBIOS();
     QString verifyDSiBIOS();
@@ -309,6 +332,9 @@ private:
 
     std::unique_ptr<melonDS::Savestate> backupState;
     bool savestateLoaded;
+
+    SavePathInfo ndsSaveFallback;
+    SavePathInfo gbaSaveFallback;
 
     std::unique_ptr<melonDS::ARCodeFile> cheatFile;
     bool cheatsOn;

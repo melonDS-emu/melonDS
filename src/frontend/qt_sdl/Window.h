@@ -198,6 +198,7 @@ private:
     QString pickFileFromArchive(QString archiveFileName);
     QStringList pickROM(bool gba);
     void updateCartInserted(bool gba);
+    void checkSaveExtFallback(bool gba);
 
     void createScreenPanel();
 
