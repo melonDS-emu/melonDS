@@ -207,14 +207,8 @@ void ARMJIT_Memory::SigsegvHandler(int sig, siginfo_t* info, void* rawContext)
         // We are not interested in other signals - handle it as usual.
         return;
     }
-    if (info->si_code != SEGV_MAPERR && info->si_code != SEGV_ACCERR)
-    {
-        // Huh? Return.
-        return;
-    }
-
-    // null on threads that never ran a frame
-    if (NDS::Current)
+    // Current is null on threads that never ran a frame
+    if ((info->si_code == SEGV_MAPERR || info->si_code == SEGV_ACCERR) && NDS::Current)
     {
         ucontext_t* context = (ucontext_t*)rawContext;
 
@@ -245,6 +239,13 @@ void ARMJIT_Memory::SigsegvHandler(int sig, siginfo_t* info, void* rawContext)
     if (oldSa->sa_handler == SIG_DFL)
     {
       signal(sig, SIG_DFL);
+      // a fault repeats on return, a sent signal doesn't
+      bool sent = info->si_code == SI_USER || info->si_code == SI_QUEUE;
+#ifdef SI_TKILL
+      sent = sent || info->si_code == SI_TKILL;
+#endif
+      if (sent)
+        raise(sig);
       return;
     }
     if (oldSa->sa_handler == SIG_IGN)
