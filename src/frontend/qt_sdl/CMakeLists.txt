@@ -195,7 +195,7 @@ target_link_libraries(melonDS PRIVATE PkgConfig::SDL2 PkgConfig::LibArchive PkgC
 target_link_libraries(melonDS PRIVATE ${QT_LINK_LIBS} ${CMAKE_DL_LIBS})
 
 if (WIN32)
-    option(PORTABLE "Make a portable build that looks for its configuration in the current directory" ON)
+    option(PORTABLE "Make a portable build that looks for its configuration in the current directory" OFF)
 
     if (PORTABLE)
         target_compile_definitions(melonDS PRIVATE WIN32_PORTABLE)
