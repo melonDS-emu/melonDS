@@ -175,6 +175,10 @@ LONG ARMJIT_Memory::ExceptionHandler(EXCEPTION_POINTERS* exceptionInfo)
     {
         return EXCEPTION_CONTINUE_SEARCH;
     }
+    if (!NDS::Current)
+    {
+        return EXCEPTION_CONTINUE_SEARCH;
+    }
 
     u8* curArea = (u8*)(NDS::Current->CurCPU == 0 ? NDS::Current->JIT.Memory.FastMem9Start : NDS::Current->JIT.Memory.FastMem7Start);
     FaultDescription desc {};
@@ -209,18 +213,22 @@ void ARMJIT_Memory::SigsegvHandler(int sig, siginfo_t* info, void* rawContext)
         return;
     }
 
-    ucontext_t* context = (ucontext_t*)rawContext;
-
-    FaultDescription desc {};
-    u8* curArea = (u8*)(NDS::Current->CurCPU == 0 ? NDS::Current->JIT.Memory.FastMem9Start : NDS::Current->JIT.Memory.FastMem7Start);
-
-    desc.EmulatedFaultAddr = (u8*)info->si_addr - curArea;
-    desc.FaultPC = (u8*)context->CONTEXT_PC;
-
-    if (FaultHandler(desc, *NDS::Current))
+    // null on threads that never ran a frame
+    if (NDS::Current)
     {
-        context->CONTEXT_PC = (u64)desc.FaultPC;
-        return;
+        ucontext_t* context = (ucontext_t*)rawContext;
+
+        FaultDescription desc {};
+        u8* curArea = (u8*)(NDS::Current->CurCPU == 0 ? NDS::Current->JIT.Memory.FastMem9Start : NDS::Current->JIT.Memory.FastMem7Start);
+
+        desc.EmulatedFaultAddr = (u8*)info->si_addr - curArea;
+        desc.FaultPC = (u8*)context->CONTEXT_PC;
+
+        if (FaultHandler(desc, *NDS::Current))
+        {
+            context->CONTEXT_PC = (u64)desc.FaultPC;
+            return;
+        }
     }
 
     struct sigaction* oldSa;
