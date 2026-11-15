@@ -18,6 +18,7 @@
 
 #include <QStyleFactory>
 #include <QFileDialog>
+#include <QImageReader>
 #include "InterfaceSettingsDialog.h"
 #include "ui_InterfaceSettingsDialog.h"
 
@@ -72,10 +73,15 @@ void InterfaceSettingsDialog::on_cbMouseHide_clicked()
 
 void InterfaceSettingsDialog::on_btnCursorIconBrowse_clicked()
 {
+    QStringList patterns = {"*.cur"};
+    for (const QByteArray& fmt : QImageReader::supportedImageFormats())
+        patterns << ("*." + QString::fromLatin1(fmt).toLower());
+    patterns.removeDuplicates();
+
     QString filePath = QFileDialog::getOpenFileName(this,
                                                      "Select cursor icon...",
                                                      "",
-                                                     "Cursor files (*.cur);;All files (*.*)");
+                                                     "Image files (" + patterns.join(' ') + ");;All files (*.*)");
     if (!filePath.isEmpty())
     {
         ui->txtCursorIconPath->setText(filePath);

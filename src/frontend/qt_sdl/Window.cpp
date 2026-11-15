@@ -1997,6 +1997,14 @@ void MainWindow::onUpdateInterfaceSettings()
     emuInstance->slowmoFPS = globalCfg.GetDouble("SlowmoFPS");
     panel->setMouseHide(globalCfg.GetBool("Mouse.Hide"),
                         globalCfg.GetInt("Mouse.HideSeconds")*1000);
+
+    // The cursor icon is a global setting, so refresh it in every window
+    for (int i = 0; i < emuInstance->getNumWindows(); i++)
+    {
+        MainWindow* win = emuInstance->getWindow(i);
+        if (win && win->panel)
+            win->panel->loadCursorIcon();
+    }
 }
 
 void MainWindow::onInterfaceSettingsFinished(int res)

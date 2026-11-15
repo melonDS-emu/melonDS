@@ -62,6 +62,7 @@ public:
     void setFilter(bool filter);
 
     void setMouseHide(bool enable, int delay);
+    void loadCursorIcon();
 
     QTimer* setupMouseTimer();
     void updateMouseTimer();

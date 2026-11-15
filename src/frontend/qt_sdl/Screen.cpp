@@ -20,11 +20,14 @@
 
 #include <optional>
 #include <cmath>
+#include <algorithm>
 
 #include <QPaintEvent>
 #include <QPainter>
 
 #include <QDateTime>
+#include <QFile>
+#include <QImage>
 
 #include "OpenGLSupport.h"
 #include "duckstation/gl/context.h"
@@ -130,9 +133,55 @@ void ScreenPanel::loadConfig()
     screenAspectTop = cfg.GetInt("ScreenAspectTop");
     screenAspectBot = cfg.GetInt("ScreenAspectBot");
 
+    loadCursorIcon();
+}
+
+void ScreenPanel::loadCursorIcon()
+{
     auto& emuCfg = mainWindow->getEmuInstance()->getGlobalConfig();
-    auto stylusPixmap = QPixmap(emuCfg.GetQString("Cursor.Icon"));
-    stylusCursor = QCursor(stylusPixmap, 0, 0);
+    QString cursorPath = emuCfg.GetQString("Cursor.Icon");
+
+    stylusCursor = QCursor(Qt::ArrowCursor);
+
+    if (!cursorPath.isEmpty())
+    {
+        QFile file(cursorPath);
+        if (file.open(QIODevice::ReadOnly))
+        {
+            QByteArray data = file.readAll();
+            int hotX = 0, hotY = 0;
+            QImage image;
+
+            // Windows .cur files share the .ico layout but use type 2 and store
+            // the hotspot in the first directory entry. Read the hotspot, then
+            // relabel the data as an icon so Qt's ICO reader will decode it.
+            if (data.size() >= 22 &&
+                (uchar)data[0] == 0 && (uchar)data[1] == 0 &&
+                (uchar)data[2] == 2 && (uchar)data[3] == 0)
+            {
+                hotX = (uchar)data[10] | ((uchar)data[11] << 8);
+                hotY = (uchar)data[12] | ((uchar)data[13] << 8);
+                data[2] = 1;
+                image.loadFromData(data, "ICO");
+            }
+
+            // Any other format Qt can read (PNG, BMP, ICO, JPEG, GIF, WebP, SVG, ...),
+            // detected from the file contents rather than the extension.
+            if (image.isNull())
+                image.loadFromData(data);
+
+            if (!image.isNull())
+            {
+                hotX = std::clamp(hotX, 0, image.width() - 1);
+                hotY = std::clamp(hotY, 0, image.height() - 1);
+                stylusCursor = QCursor(QPixmap::fromImage(image), hotX, hotY);
+            }
+        }
+    }
+
+    // Apply right away unless the cursor is currently hidden
+    if (cursor().shape() != Qt::BlankCursor)
+        setCursor(stylusCursor);
 }
 
 void ScreenPanel::setFilter(bool filter)
