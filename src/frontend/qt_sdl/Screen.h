@@ -29,6 +29,7 @@
 #include <QScreen>
 #include <QCloseEvent>
 #include <QTimer>
+#include <QCursor>
 
 #include "glad/glad.h"
 #include "ScreenLayout.h"
@@ -123,6 +124,8 @@ protected:
     QPixmap splashLogo;
     OSDItem splashText[3];
     QPoint splashPos[4];
+
+    QCursor stylusCursor;
 
     void loadConfig();
 

@@ -125,6 +125,10 @@ void ScreenPanel::loadConfig()
     integerScaling = cfg.GetBool("IntegerScaling");
     screenAspectTop = cfg.GetInt("ScreenAspectTop");
     screenAspectBot = cfg.GetInt("ScreenAspectBot");
+
+    auto& emuCfg = mainWindow->getEmuInstance()->getGlobalConfig();
+    auto stylusPixmap = QPixmap(emuCfg.GetQString("Cursor.Icon"));
+    stylusCursor = QCursor(stylusPixmap, 0, 0);
 }
 
 void ScreenPanel::setFilter(bool filter)
@@ -395,7 +399,7 @@ bool ScreenPanel::event(QEvent* event)
 
 void ScreenPanel::showCursor()
 {
-    mainWindow->panel->setCursor(Qt::ArrowCursor);
+    mainWindow->panel->setCursor(stylusCursor);
     mouseTimer->start();
 }
 

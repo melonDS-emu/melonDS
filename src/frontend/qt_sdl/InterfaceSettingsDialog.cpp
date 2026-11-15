@@ -17,6 +17,7 @@
 */
 
 #include <QStyleFactory>
+#include <QFileDialog>
 #include "InterfaceSettingsDialog.h"
 #include "ui_InterfaceSettingsDialog.h"
 
@@ -36,6 +37,7 @@ InterfaceSettingsDialog::InterfaceSettingsDialog(QWidget* parent) : QDialog(pare
     auto& cfg = emuInstance->getGlobalConfig();
 
     ui->cbMouseHide->setChecked(cfg.GetBool("Mouse.Hide"));
+    ui->txtCursorIconPath->setText(cfg.GetQString("Cursor.Icon"));
     ui->spinMouseHideSeconds->setEnabled(ui->cbMouseHide->isChecked());
     ui->spinMouseHideSeconds->setValue(cfg.GetInt("Mouse.HideSeconds"));
     ui->cbPauseLostFocus->setChecked(cfg.GetBool("PauseLostFocus"));
@@ -65,6 +67,18 @@ InterfaceSettingsDialog::~InterfaceSettingsDialog()
 void InterfaceSettingsDialog::on_cbMouseHide_clicked()
 {
     ui->spinMouseHideSeconds->setEnabled(ui->cbMouseHide->isChecked());
+}
+
+void InterfaceSettingsDialog::on_btnCursorIconBrowse_clicked()
+{
+    QString filePath = QFileDialog::getOpenFileName(this,
+                                                     "Select cursor icon...",
+                                                     "",
+                                                     "Cursor files (*.cur);;All files (*.*)");
+    if (!filePath.isEmpty())
+    {
+        ui->txtCursorIconPath->setText(filePath);
+    }
 }
 
 void InterfaceSettingsDialog::on_pbClean_clicked()
@@ -118,6 +132,7 @@ void InterfaceSettingsDialog::done(int r)
         cfg.SetBool("Mouse.Hide", ui->cbMouseHide->isChecked());
         cfg.SetInt("Mouse.HideSeconds", ui->spinMouseHideSeconds->value());
         cfg.SetBool("PauseLostFocus", ui->cbPauseLostFocus->isChecked());
+        cfg.SetQString("Cursor.Icon", ui->txtCursorIconPath->text());
 
         double val = ui->spinTargetFPS->value();
         if (val == 0.0) cfg.SetDouble("TargetFPS", 0.0001);
