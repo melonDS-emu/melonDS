@@ -31,4 +31,6 @@ FILETYPE VFT_APP
 	}
 }
 
+#if (0${MINGW})
 1 24 "xp.manifest"
+#endif

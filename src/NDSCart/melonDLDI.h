@@ -1,5 +1,5 @@
 /*
-    Copyright 2016-2025 melonDS team
+    Copyright 2016-2026 melonDS team
 
     This file is part of melonDS.
 
@@ -19,7 +19,7 @@
 #ifndef MELONDLDI_H
 #define MELONDLDI_H
 
-#include "types.h"
+#include "../types.h"
 
 namespace melonDS
 {

@@ -1,5 +1,5 @@
 /*
-    Copyright 2016-2025 melonDS team
+    Copyright 2016-2026 melonDS team
 
     This file is part of melonDS.
 
@@ -212,6 +212,9 @@ bool IsEndOfFile(FileHandle* file);
 
 /// @see fgets
 bool FileReadLine(char* str, int count, FileHandle* file);
+
+/// @see ftell
+u64 FilePosition(FileHandle* file);
 
 /// @see fseek
 bool FileSeek(FileHandle* file, s64 offset, FileSeekOrigin origin);

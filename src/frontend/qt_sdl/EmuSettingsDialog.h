@@ -1,5 +1,5 @@
 /*
-    Copyright 2016-2025 melonDS team
+    Copyright 2016-2026 melonDS team
 
     This file is part of melonDS.
 
@@ -78,6 +78,7 @@ private slots:
 
     void on_chkEnableJIT_toggled();
     void on_chkExternalBIOS_toggled();
+    void on_chkDSiExternalBIOS_toggled();
 
     void on_cbGdbEnabled_toggled();
 

@@ -1,5 +1,5 @@
 /*
-    Copyright 2016-2025 melonDS team
+    Copyright 2016-2026 melonDS team
 
     This file is part of melonDS.
 
@@ -26,7 +26,6 @@
 #include "GPU3D.h"
 
 #include "OpenGLSupport.h"
-#include "GPU_OpenGL.h"
 
 #include "GPU3D_TexcacheOpenGL.h"
 
@@ -34,60 +33,52 @@
 
 namespace melonDS
 {
+class GLRenderer;
 
-class ComputeRenderer : public Renderer3D
+class ComputeRenderer3D : public Renderer3D
 {
 public:
-    static std::unique_ptr<ComputeRenderer> New();
-    ~ComputeRenderer() override;
-
-    void Reset(GPU& gpu) override;
+    ComputeRenderer3D(melonDS::GPU3D& gpu3D, GLRenderer& parent);
+    ~ComputeRenderer3D() override;
+    bool Init() override;
+    void Reset() override;
 
     void SetRenderSettings(int scale, bool highResolutionCoordinates);
 
-    void VCount144(GPU& gpu) override;
-
-    void RenderFrame(GPU& gpu) override;
-    void RestartFrame(GPU& gpu) override;
+    void RenderFrame() override;
+    void RestartFrame() override;
     u32* GetLine(int line) override;
-
-    void SetupAccelFrame() override;
-    void PrepareCaptureFrame() override;
-
-    void BindOutputTexture(int buffer) override;
-
-    void Blit(const GPU& gpu) override;
-    void Stop(const GPU& gpu) override;
 
     bool NeedsShaderCompile() override { return ShaderStepIdx != 33; }
     void ShaderCompileStep(int& current, int& count) override;
+
 private:
-    ComputeRenderer(GLCompositor&& compositor);
+    GLRenderer& Parent;
 
-    GLuint ShaderInterpXSpans[2];
-    GLuint ShaderBinCombined;
-    GLuint ShaderDepthBlend[2];
-    GLuint ShaderRasteriseNoTexture[2];
-    GLuint ShaderRasteriseNoTextureToon[2];
-    GLuint ShaderRasteriseNoTextureHighlight[2];
-    GLuint ShaderRasteriseUseTextureDecal[2];
-    GLuint ShaderRasteriseUseTextureModulate[2];
-    GLuint ShaderRasteriseUseTextureToon[2];
-    GLuint ShaderRasteriseUseTextureHighlight[2];
-    GLuint ShaderRasteriseShadowMask[2];
-    GLuint ShaderClearCoarseBinMask;
-    GLuint ShaderClearIndirectWorkCount;
-    GLuint ShaderCalculateWorkListOffset;
-    GLuint ShaderSortWork;
-    GLuint ShaderFinalPass[8];
+    GLuint ShaderInterpXSpans[2] {};
+    GLuint ShaderBinCombined {};
+    GLuint ShaderDepthBlend[2] {};
+    GLuint ShaderRasteriseNoTexture[2] {};
+    GLuint ShaderRasteriseNoTextureToon[2] {};
+    GLuint ShaderRasteriseNoTextureHighlight[2] {};
+    GLuint ShaderRasteriseUseTextureDecal[2] {};
+    GLuint ShaderRasteriseUseTextureModulate[2] {};
+    GLuint ShaderRasteriseUseTextureToon[2] {};
+    GLuint ShaderRasteriseUseTextureHighlight[2] {};
+    GLuint ShaderRasteriseShadowMask[2] {};
+    GLuint ShaderClearCoarseBinMask {};
+    GLuint ShaderClearIndirectWorkCount {};
+    GLuint ShaderCalculateWorkListOffset {};
+    GLuint ShaderSortWork {};
+    GLuint ShaderFinalPass[8] {};
 
-    GLuint YSpanIndicesTextureMemory;
-    GLuint YSpanIndicesTexture;
-    GLuint YSpanSetupMemory;
-    GLuint XSpanSetupMemory;
-    GLuint BinResultMemory;
-    GLuint RenderPolygonMemory;
-    GLuint WorkDescMemory;
+    GLuint YSpanIndicesTextureMemory {};
+    GLuint YSpanIndicesTexture {};
+    GLuint YSpanSetupMemory {};
+    GLuint XSpanSetupMemory {};
+    GLuint BinResultMemory {};
+    GLuint RenderPolygonMemory {};
+    GLuint WorkDescMemory {};
 
     enum
     {
@@ -97,10 +88,8 @@ private:
         tilememoryLayer_Num,
     };
 
-    GLuint TileMemory[tilememoryLayer_Num];
-    GLuint FinalTileMemory;
-
-    u32 DummyLine[256] = {};
+    GLuint TileMemory[tilememoryLayer_Num] {};
+    GLuint FinalTileMemory {};
 
     struct SpanSetupY
     {
@@ -163,11 +152,13 @@ private:
         float TextureLayer;
     };
 
-    static constexpr int TileSize = 8;
+    int TileSize {};
     static constexpr int CoarseTileCountX = 8;
-    static constexpr int CoarseTileCountY = 4;
-    static constexpr int CoarseTileW = CoarseTileCountX * TileSize;
-    static constexpr int CoarseTileH = CoarseTileCountY * TileSize;
+    int CoarseTileCountY {};
+    int CoarseTileArea {};
+    int CoarseTileW {};
+    int CoarseTileH {};
+    int ClearCoarseBinMaskLocalSize {};
 
     static constexpr int BinStride = 2048/32;
     static constexpr int CoarseBinStride = BinStride/32;
@@ -176,6 +167,8 @@ private:
 
     static constexpr int UniformIdxCurVariant = 0;
     static constexpr int UniformIdxTextureSize = 1;
+    static constexpr int UniformIdxTexIsCapture = 2;
+    static constexpr int UniformIdxCaptureYOffset = 3;
 
     static constexpr int MaxFullscreenLayers = 16;
 
@@ -188,9 +181,9 @@ private:
     };
 
     static const int MaxYSpanSetups = 6144*2;
-    std::vector<SetupIndices> YSpanIndices;
-    SpanSetupY YSpanSetups[MaxYSpanSetups];
-    RenderPolygon RenderPolygons[2048];
+    std::vector<SetupIndices> YSpanIndices {};
+    SpanSetupY YSpanSetups[MaxYSpanSetups] {};
+    RenderPolygon RenderPolygons[2048] {};
 
     TexcacheOpenGL Texcache;
 
@@ -207,24 +200,24 @@ private:
         u32 ClearColor, ClearDepth, ClearAttr;
 
         u32 FogOffset, FogShift, FogColor;
-    };
-    GLuint MetaUniformMemory;
 
-    GLuint Samplers[9];
+        float ClearBitmapOffset[2];
+    };
+    GLuint MetaUniformMemory {};
+
+    GLuint Samplers[9] {};
+
+    GLuint ClearBitmapTex[2] {};
+    u32* ClearBitmap[2] {};
+    u8 ClearBitmapDirty {};
 
     GLuint Framebuffer = 0;
-    GLuint LowResFramebuffer;
-    GLuint PixelBuffer;
 
-    u32 FramebufferCPU[256*192];
-
-    int ScreenWidth, ScreenHeight;
-    int TilesPerLine, TileLines;
+    int ScreenWidth {}, ScreenHeight {};
+    int TilesPerLine {}, TileLines {};
     int ScaleFactor = -1;
-    int MaxWorkTiles;
-    bool HiresCoordinates;
-
-    GLCompositor CurGLCompositor;
+    int MaxWorkTiles {};
+    bool HiresCoordinates {};
 
     int ShaderStepIdx = 0;
 

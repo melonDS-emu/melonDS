@@ -1,5 +1,5 @@
 /*
-    Copyright 2016-2025 melonDS team
+    Copyright 2016-2026 melonDS team
 
     This file is part of melonDS.
 
@@ -245,7 +245,7 @@ public:
     void SetApplyBias(bool enable);
 
     void Mix(u32 spucycles);
-    void EndFrame();
+    void BufferAudio();
 
     void TrimOutput();
     void DrainOutput();

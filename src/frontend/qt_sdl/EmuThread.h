@@ -1,5 +1,5 @@
 /*
-    Copyright 2016-2025 melonDS team
+    Copyright 2016-2026 melonDS team
 
     This file is part of melonDS.
 
@@ -136,9 +136,6 @@ public:
     void returnGL();
     void updateVideoSettings() { videoSettingsDirty = true; }
     void updateVideoRenderer() { videoSettingsDirty = true; lastVideoRenderer = -1; }
-
-    int frontBuffer = 0;
-    QMutex frontBufferLock;
 
     QWaitCondition glBorrowCond;
     QMutex glBorrowMutex;

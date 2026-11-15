@@ -10,7 +10,7 @@
     let
       pkgs = import nixpkgs { inherit system; };
       inherit (pkgs.lib) cmakeBool optionals makeLibraryPath;
-      inherit (pkgs.stdenv) isLinux isDarwin;
+      inherit (pkgs.stdenv.hostPlatform) isLinux isDarwin;
 
       revision = with self; if sourceInfo?dirtyRev
         then sourceInfo.dirtyRev
@@ -21,7 +21,7 @@
 
       melonDS = pkgs.stdenv.mkDerivation {
         pname = "melonDS";
-        version = "1.0-${shortRevision}";
+        version = "1.1-${shortRevision}";
         src = ./.;
 
         nativeBuildInputs = with pkgs; [
@@ -80,6 +80,12 @@
           packages = with pkgs; [
             qt6.qttools
           ];
+
+          # https://discourse.nixos.org/t/how-to-create-a-qt-devshell/58529/5
+          shellHook = ''
+            export LD_LIBRARY_PATH="$LD_LIBRARY_PATH:$APPEND_LIBRARY_PATH"
+            eval $(echo "''${qtWrapperArgs[@]}"|perl -n -e '$_ =~ s/--prefix (\w+) : ([\w-.\/]+)/export ''${1}="''${2}:\''${''${1}}";/g;print')
+          '';
         };
 
         # Shell for building static melonDS release builds with vcpkg

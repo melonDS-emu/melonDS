@@ -1,5 +1,5 @@
 /*
-    Copyright 2016-2025 melonDS team
+    Copyright 2016-2026 melonDS team
 
     This file is part of melonDS.
 
@@ -60,6 +60,7 @@ const char* EmuInstance::hotkeyNames[HK_MAX] =
     "HK_PowerButton",
     "HK_VolumeUp",
     "HK_VolumeDown",
+    "HK_AudioMuteToggle",
     "HK_SlowMo",
     "HK_FastForwardToggle",
     "HK_SlowMoToggle",
@@ -180,6 +181,8 @@ float EmuInstance::inputMotionQuery(melonDS::Platform::MotionQueryType type)
                     return -values[2];
                 case melonDS::Platform::MotionAccelerationZ:
                     return values[1];
+                default:
+                    break;
                 }
             }
         }
@@ -200,6 +203,8 @@ float EmuInstance::inputMotionQuery(melonDS::Platform::MotionQueryType type)
                     return -values[2];
                 case melonDS::Platform::MotionRotationZ:
                     return values[1];
+                default:
+                    break;
                 }
             }
         }

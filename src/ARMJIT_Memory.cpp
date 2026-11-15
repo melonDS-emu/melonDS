@@ -1,5 +1,5 @@
 /*
-    Copyright 2016-2025 melonDS team
+    Copyright 2016-2026 melonDS team
 
     This file is part of melonDS.
 
@@ -1371,11 +1371,11 @@ void VRAMWrite(u32 addr, T val)
 {
     switch (addr & 0x00E00000)
     {
-    case 0x00000000: NDS::Current->GPU.WriteVRAM_ABG<T>(addr, val); return;
-    case 0x00200000: NDS::Current->GPU.WriteVRAM_BBG<T>(addr, val); return;
-    case 0x00400000: NDS::Current->GPU.WriteVRAM_AOBJ<T>(addr, val); return;
-    case 0x00600000: NDS::Current->GPU.WriteVRAM_BOBJ<T>(addr, val); return;
-    default: NDS::Current->GPU.WriteVRAM_LCDC<T>(addr, val); return;
+    case 0x00000000: NDS::Current->GPU.SyncVRAM_ABG(addr, true); NDS::Current->GPU.WriteVRAM_ABG<T>(addr, val); return;
+    case 0x00200000: NDS::Current->GPU.SyncVRAM_BBG(addr, true); NDS::Current->GPU.WriteVRAM_BBG<T>(addr, val); return;
+    case 0x00400000: NDS::Current->GPU.SyncVRAM_AOBJ(addr, true); NDS::Current->GPU.WriteVRAM_AOBJ<T>(addr, val); return;
+    case 0x00600000: NDS::Current->GPU.SyncVRAM_BOBJ(addr, true); NDS::Current->GPU.WriteVRAM_BOBJ<T>(addr, val); return;
+    default: NDS::Current->GPU.SyncVRAM_LCDC(addr, true); NDS::Current->GPU.WriteVRAM_LCDC<T>(addr, val); return;
     }
 }
 template <typename T>
@@ -1383,11 +1383,11 @@ T VRAMRead(u32 addr)
 {
     switch (addr & 0x00E00000)
     {
-    case 0x00000000: return NDS::Current->GPU.ReadVRAM_ABG<T>(addr);
-    case 0x00200000: return NDS::Current->GPU.ReadVRAM_BBG<T>(addr);
-    case 0x00400000: return NDS::Current->GPU.ReadVRAM_AOBJ<T>(addr);
-    case 0x00600000: return NDS::Current->GPU.ReadVRAM_BOBJ<T>(addr);
-    default: return NDS::Current->GPU.ReadVRAM_LCDC<T>(addr);
+    case 0x00000000: NDS::Current->GPU.SyncVRAM_ABG(addr, false); return NDS::Current->GPU.ReadVRAM_ABG<T>(addr);
+    case 0x00200000: NDS::Current->GPU.SyncVRAM_BBG(addr, false); return NDS::Current->GPU.ReadVRAM_BBG<T>(addr);
+    case 0x00400000: NDS::Current->GPU.SyncVRAM_AOBJ(addr, false); return NDS::Current->GPU.ReadVRAM_AOBJ<T>(addr);
+    case 0x00600000: NDS::Current->GPU.SyncVRAM_BOBJ(addr, false); return NDS::Current->GPU.ReadVRAM_BOBJ<T>(addr);
+    default: NDS::Current->GPU.SyncVRAM_LCDC(addr, false); return NDS::Current->GPU.ReadVRAM_LCDC<T>(addr);
     }
 }
 
@@ -1433,9 +1433,14 @@ static void GPU_WriteVRAM_ARM7(u32 addr, T val) noexcept
     NDS::Current->GPU.WriteVRAM_ARM7<T>(addr, val);
 }
 
-u32 NDSCartSlot_ReadROMData()
-{ // TODO: Add a NDS* parameter, when NDS* is eventually implemented
-    return NDS::Current->NDSCartSlot.ReadROMData();
+u32 NDSCartSlot_ReadROMData9()
+{
+    return NDS::Current->NDSCartSlots[0]->ReadROMData(0);
+}
+
+u32 NDSCartSlot_ReadROMData7()
+{
+    return NDS::Current->NDSCartSlots[0]->ReadROMData(1);
 }
 
 static u8 NDS_ARM9IORead8(u32 addr)
@@ -1505,8 +1510,8 @@ void* ARMJIT_Memory::GetFuncForAddr(ARM* cpu, u32 addr, bool store, int size) co
         switch (addr & 0xFF000000)
         {
         case 0x04000000:
-            if (!store && size == 32 && addr == 0x04100010 && NDS.ExMemCnt[0] & (1<<11))
-                return (void*)NDSCartSlot_ReadROMData;
+            if (!store && size == 32 && addr == 0x04100010)
+                return (void*)NDSCartSlot_ReadROMData9;
 
             /*
                 unfortunately we can't map GPU2D this way

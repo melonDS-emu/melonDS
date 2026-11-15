@@ -1,5 +1,5 @@
 /*
-    Copyright 2016-2025 melonDS team
+    Copyright 2016-2026 melonDS team
 
     This file is part of melonDS.
 
@@ -183,16 +183,16 @@ void Wifi::Reset()
 
     CurChannel = 0;
 
-    Firmware::FirmwareConsoleType console = fwheader.ConsoleType;
-    if (console == Firmware::FirmwareConsoleType::DS)
+    auto consoletype = fwheader.ConsoleType;
+    if (consoletype == Firmware::FirmwareConsoleType::DS || consoletype == Firmware::FirmwareConsoleType::iQueDS)
         IOPORT(0x000) = 0x1440;
-    else if (console == Firmware::FirmwareConsoleType::DSLite)
+    else if (consoletype == Firmware::FirmwareConsoleType::DSLite || consoletype == Firmware::FirmwareConsoleType::iQueDSLite)
         IOPORT(0x000) = 0xC340;
-    else if (NDS.ConsoleType == 1 && console == Firmware::FirmwareConsoleType::DSi)
+    else if (NDS.ConsoleType == 1 && consoletype == Firmware::FirmwareConsoleType::DSi)
         IOPORT(0x000) = 0xC340; // DSi has the modern DS-wifi variant
     else
     {
-        Log(LogLevel::Warn, "wifi: unknown console type %02X\n", console);
+        Log(LogLevel::Warn, "wifi: unknown console type %02X\n", consoletype);
         IOPORT(0x000) = 0x1440;
     }
 
@@ -393,7 +393,13 @@ void Wifi::SetIRQ13()
 {
     SetIRQ(13);
 
-    if ((IOPORT(W_ModeWEP) & 0x7) != 3)
+    // auto power-down should only happen in automatic power saving mode (0).
+    // it must not happen when power saving is disabled (mode 2): stations
+    // running in that mode (eg. dswifi in infrastructure mode) don't service
+    // IRQ13/IRQ15, so a power-down triggered by the one-shot W_BeaconCount2
+    // countdown (armed at 0xFFFF = ~67s) would turn the transceiver off
+    // with nothing ever waking it up again
+    if ((IOPORT(W_ModeWEP) & 0x7) == 0)
     {
         if (!(IOPORT(W_PowerTX) & (1<<1)))
         {
