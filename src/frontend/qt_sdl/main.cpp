@@ -421,7 +421,14 @@ int main(int argc, char** argv)
         win->preloadROMs(dsfile, gbafile, options->boot);
 
         if (options->fullscreen)
-            win->toggleFullscreen();
+        {
+            // Apply the startup option to every window restored from the configuration.
+            emuInstances[0]->doOnAllWindows([](MainWindow* window)
+            {
+                if (!window->isFullScreen())
+                    window->toggleFullscreen();
+            });
+        }
     }
 
     int ret = melon.exec();
