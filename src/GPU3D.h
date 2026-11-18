@@ -98,7 +98,7 @@ public:
 
     void ExecuteCommand() noexcept;
 
-    s32 CyclesToRunFor() const noexcept;
+    s64 CyclesToRunFor() const noexcept;
     void Run() noexcept;
     void CheckFIFOIRQ() noexcept;
     void CheckFIFODMA() noexcept;
@@ -132,9 +132,10 @@ private:
 
     void UpdateClipMatrix() noexcept;
     void ResetRenderingState() noexcept;
-    void AddCycles(s32 num) noexcept;
+    void AddCycles(s64 num) noexcept;
     void NextVertexSlot() noexcept;
     void StallPolygonPipeline(s32 delay, s32 nonstalldelay) noexcept;
+    void HangGX(const char* cause) noexcept;
     void SubmitPolygon() noexcept;
     void SubmitVertex() noexcept;
     void CalculateLighting() noexcept;
@@ -192,7 +193,7 @@ public:
     u32 ExecParams[32] {};
     u32 ExecParamCount = 0;
 
-    s32 CycleCount = 0;
+    s64 CycleCount = 0;
     s32 VertexPipeline = 0;
     s32 NormalPipeline = 0;
     s32 PolygonPipeline = 0;
@@ -296,7 +297,7 @@ public:
     s16 VecTestResult[3] {};
 
     Vertex TempVertexBuffer[4] {};
-    u32 VertexNum = 0;
+    bool IncompletePoly = false;
     u32 VertexNumInPoly = 0;
     u32 NumConsecutivePolygons = 0;
     Polygon* LastStripPolygon = nullptr;
