@@ -726,6 +726,12 @@ bool CheatListModel::dropMimeData(const QMimeData* mime, Qt::DropAction action, 
             if (i == row) break;
             newit++;
         }
+        if (newit != newparent->Children.end() &&
+            std::holds_alternative<ARCodeCat>(*newit) &&
+            &std::get<ARCodeCat>(*newit) == cat)
+        {
+            newit++;
+        }
 
         // create new category
         ARCodeCat newcat = {
@@ -789,6 +795,12 @@ bool CheatListModel::dropMimeData(const QMimeData* mime, Qt::DropAction action, 
         for (int i = 0; newit != newparent->Children.end(); i++)
         {
             if (i == row) break;
+            newit++;
+        }
+        if (newit != newparent->Children.end() &&
+            std::holds_alternative<ARCode>(*newit) &&
+            &std::get<ARCode>(*newit) == code)
+        {
             newit++;
         }
 
