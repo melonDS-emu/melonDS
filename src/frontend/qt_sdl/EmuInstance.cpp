@@ -22,6 +22,7 @@
 
 #include <codecvt>
 #include <locale>
+#include <limits>
 #include <memory>
 #include <tuple>
 #include <string>
@@ -29,6 +30,8 @@
 #include <fstream>
 
 #include <QDateTime>
+#include <QFile>
+#include <QSaveFile>
 
 #include <zstd.h>
 #ifdef ARCHIVE_SUPPORT_ENABLED
@@ -709,10 +712,25 @@ std::string EmuInstance::getSavestateName(int slot)
     return getAssetPath(false, localCfg.GetString("SavestatePath"), ext);
 }
 
+std::string EmuInstance::getUndoSavestateName()
+{
+    return getAssetPath(false, localCfg.GetString("SavestatePath"), ".undo.mln");
+}
+
+std::string EmuInstance::getAutoSavestateName()
+{
+    return getAssetPath(false, localCfg.GetString("SavestatePath"), ".auto.mln");
+}
+
 bool EmuInstance::savestateExists(int slot)
 {
     std::string ssfile = getSavestateName(slot);
     return Platform::FileExists(ssfile);
+}
+
+bool EmuInstance::hasUndoState()
+{
+    return backupState != nullptr || Platform::FileExists(getUndoSavestateName());
 }
 
 bool EmuInstance::loadState(const std::string& filename)
@@ -743,12 +761,18 @@ bool EmuInstance::loadState(const std::string& filename)
 
     // Get the size of the file that we opened
     size_t size = Platform::FileLength(file);
+    if (size == 0 || size > std::numeric_limits<u32>::max())
+    {
+        Platform::Log(Platform::LogLevel::Error, "Invalid state file size for \"%s\"\n", filename.c_str());
+        Platform::CloseFile(file);
+        return false;
+    }
 
     // Allocate exactly as much memory as we need for the savestate
     std::vector<u8> buffer(size);
-    if (Platform::FileRead(buffer.data(), size, 1, file) == 0)
+    if (Platform::FileRead(buffer.data(), size, 1, file) != 1)
     { // Read the state file into the buffer. If that failed...
-        Platform::Log(Platform::LogLevel::Error, "Failed to read %u-byte state file \"%s\"\n", size, filename.c_str());
+        Platform::Log(Platform::LogLevel::Error, "Failed to read %zu-byte state file \"%s\"\n", size, filename.c_str());
         Platform::CloseFile(file);
         return false;
     }
@@ -760,70 +784,109 @@ bool EmuInstance::loadState(const std::string& filename)
     if (!nds->DoSavestate(state.get()) || state->Error)
     { // If we couldn't load the savestate from the buffer...
         Platform::Log(Platform::LogLevel::Error, "Failed to load state file \"%s\" into emulator\n", filename.c_str());
+        backup->Rewind(false);
+        if (!nds->DoSavestate(backup.get()) || backup->Error)
+            Platform::Log(Platform::LogLevel::Error, "Failed to restore state after a failed load\n");
         return false;
     }
 
     // The backup was made and the state was loaded, so we can store the backup now.
+    // Keep the pre-load state on disk so Undo remains available after a restart.
+    QSaveFile undoFile(QString::fromStdString(getUndoSavestateName()));
+    bool undoSaved = false;
+    if (undoFile.open(QIODevice::WriteOnly))
+    {
+        undoSaved = undoFile.write(static_cast<const char*>(backup->Buffer()), backup->Length()) == backup->Length()
+            && undoFile.commit();
+        if (!undoSaved)
+            undoFile.cancelWriting();
+    }
+    if (!undoSaved)
+    {
+        Platform::Log(Platform::LogLevel::Error, "Failed to save undo state backup\n");
+        osdAddMessage(0xFFA0A0, "Undo backup could not be saved");
+    }
+
     backupState = std::move(backup); // This will clean up any existing backup
     assert(backup == nullptr);
-
-    savestateLoaded = true;
 
     return true;
 }
 
 bool EmuInstance::saveState(const std::string& filename)
 {
-    Platform::FileHandle* file = Platform::OpenFile(filename, Platform::FileMode::Write);
-
-    if (file == nullptr)
-    { // If the file couldn't be opened...
-        return false;
-    }
-
     Savestate state;
     if (state.Error)
     { // If there was an error creating the state (and allocating its memory)...
-        Platform::CloseFile(file);
         return false;
     }
 
     // Write the savestate to the in-memory buffer
-    nds->DoSavestate(&state);
-
-    if (state.Error)
+    if (!nds->DoSavestate(&state) || state.Error)
     {
-        Platform::CloseFile(file);
         return false;
     }
 
-    if (Platform::FileWrite(state.Buffer(), state.Length(), 1, file) == 0)
-    { // Write the Savestate buffer to the file. If that fails...
-        Platform::Log(Platform::Error,
-                      "Failed to write %d-byte savestate to %s\n",
-                      state.Length(),
-                      filename.c_str()
-        );
-        Platform::CloseFile(file);
+    // Commit atomically so an interrupted save preserves the previous state file.
+    QSaveFile file(QString::fromStdString(filename));
+    if (!file.open(QIODevice::WriteOnly))
+        return false;
+
+    if (file.write(static_cast<const char*>(state.Buffer()), state.Length()) != state.Length()
+        || !file.commit())
+    {
+        file.cancelWriting();
+        Platform::Log(Platform::LogLevel::Error,
+                      "Failed to write %u-byte savestate to %s\n",
+                      state.Length(), filename.c_str());
         return false;
     }
-
-    Platform::CloseFile(file);
 
     return true;
 }
 
-void EmuInstance::undoStateLoad()
+bool EmuInstance::undoStateLoad()
 {
-    if (!savestateLoaded || !backupState) return;
+    if (backupState)
+    {
+        backupState->Rewind(false);
+        if (!nds->DoSavestate(backupState.get()) || backupState->Error)
+            return false;
+    }
+    else
+    {
+        const std::string filename = getUndoSavestateName();
+        Platform::FileHandle* file = Platform::OpenFile(filename, Platform::FileMode::Read);
+        if (file == nullptr)
+            return false;
 
-    // Rewind the backup state and put it in load mode
-    backupState->Rewind(false);
+        size_t size = Platform::FileLength(file);
+        if (size == 0 || size > std::numeric_limits<u32>::max())
+        {
+            Platform::CloseFile(file);
+            return false;
+        }
 
-    // pray that this works
-    // what do we do if it doesn't???
-    // but it should work.
-    nds->DoSavestate(backupState.get());
+        std::vector<u8> buffer(size);
+        bool read = Platform::FileRead(buffer.data(), size, 1, file) == 1;
+        Platform::CloseFile(file);
+        if (!read)
+            return false;
+
+        Savestate state(buffer.data(), (u32)size, false);
+        if (state.Error || !nds->DoSavestate(&state) || state.Error)
+            return false;
+    }
+
+    backupState.reset();
+    if (Platform::FileExists(getUndoSavestateName())
+        && !QFile::remove(QString::fromStdString(getUndoSavestateName())))
+    {
+        Platform::Log(Platform::LogLevel::Error, "Failed to remove undo savestate \"%s\"\n",
+                      getUndoSavestateName().c_str());
+    }
+
+    return true;
 }
 
 
@@ -1565,14 +1628,6 @@ u32 EmuInstance::decompressROM(const u8* inContent, const u32 inSize, unique_ptr
     }
 }
 
-void EmuInstance::clearBackupState()
-{
-    if (backupState != nullptr)
-    {
-        backupState = nullptr;
-    }
-}
-
 pair<unique_ptr<Firmware>, string> EmuInstance::generateDefaultFirmware()
 {
     // Construct the default firmware...
@@ -1876,6 +1931,7 @@ bool EmuInstance::loadROM(QStringList filepath, bool reset, QString& errorstr)
 
     ndsSave = nullptr;
 
+    backupState.reset();
     baseROMDir = basepath;
     baseROMName = romname;
     baseAssetName = romname.substr(0, romname.rfind('.'));
@@ -1976,6 +2032,7 @@ bool EmuInstance::loadROM(QStringList filepath, bool reset, QString& errorstr)
 void EmuInstance::ejectCart()
 {
     ndsSave = nullptr;
+    backupState.reset();
 
     if (emuIsActive())
     {
