@@ -165,6 +165,7 @@ private slots:
     void onChangeScreenLayout(QAction* act);
     void onChangeScreenSwap(bool checked);
     void onChangeScreenSizing(QAction* act);
+    void onChangeEmphasisRatio(QAction* act);
     void onChangeScreenAspect(QAction* act);
     void onChangeIntegerScaling(bool checked);
     void onOpenNewWindow();
@@ -198,6 +199,7 @@ private:
     QString pickFileFromArchive(QString archiveFileName);
     QStringList pickROM(bool gba);
     void updateCartInserted(bool gba);
+    void updateEmphasisRatioEnabled();
 
     void createScreenPanel();
 
@@ -284,6 +286,9 @@ public:
     QAction* actScreenSwap;
     QActionGroup* grpScreenSizing;
     QAction* actScreenSizing[screenSizing_MAX];
+    QMenu* emphasisRatioMenu;
+    QActionGroup* grpEmphasisRatio;
+    QAction** actEmphasisRatio;
     QAction* actIntegerScaling;
     QActionGroup* grpScreenAspectTop;
     QAction** actScreenAspectTop;
