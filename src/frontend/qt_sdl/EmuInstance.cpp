@@ -2171,6 +2171,8 @@ QString EmuInstance::gbaAddonName(int addon)
         return "Motion Pack (Retail)";
     case GBAAddon_GuitarGrip:
         return "Guitar Grip";
+    case GBAAddon_Analog:
+        return "Analog Input (Homebrew)";
     }
 
     return "???";
