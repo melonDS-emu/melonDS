@@ -98,6 +98,8 @@ endif()
 
 set(CMAKE_POSITION_INDEPENDENT_CODE ON)
 
+set(CMAKE_CXX_COMPILE_OPTIONS_IPO "-flto=auto")
+
 option(ENABLE_GDBSTUB "Enable GDB stub" ON)
 if (ENABLE_GDBSTUB)
     add_definitions(-DGDBSTUB_ENABLED)
