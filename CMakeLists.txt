@@ -22,6 +22,8 @@ project(melonDS
     HOMEPAGE_URL "https://melonds.kuribo64.net"
     LANGUAGES C CXX)
 
+include(CTest)
+
 include(CheckSymbolExists)
 include(CheckLibraryExists)
 include(CMakeDependentOption)
