@@ -177,7 +177,7 @@ bool GLRenderer::Init()
 
     glGenFramebuffers(1, &CaptureSyncFB);
     glBindFramebuffer(GL_FRAMEBUFFER, CaptureSyncFB);
-    glFramebufferTexture(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, CaptureSyncTex, 0);
+    glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, CaptureSyncTex, 0);
     glDrawBuffer(GL_COLOR_ATTACHMENT0);
     glReadBuffer(GL_COLOR_ATTACHMENT0);
 
