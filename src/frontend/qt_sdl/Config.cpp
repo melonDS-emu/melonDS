@@ -261,6 +261,8 @@ LegacyEntry LegacyFile[] =
     {"DSiSDReadOnly", 1, "DSi.SD.ReadOnly", false},
     {"DSiSDFolderSync", 1, "DSi.SD.FolderSync", false},
     {"DSiSDFolderPath", 2, "DSi.SD.FolderPath", false},
+    
+    {"DSiShowSystemTitles", 2, "DSi.ShowSystemTitles", false},
 
     {"FirmwareOverrideSettings", 1, "Firmware.OverrideSettings", true},
     {"FirmwareUsername", 2, "Firmware.Username", true},
