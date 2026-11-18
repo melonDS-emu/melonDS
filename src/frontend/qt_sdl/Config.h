@@ -103,6 +103,9 @@ public:
     std::string GetString(const std::string& path);
     double GetDouble(const std::string& path);
 
+    // whether a value exists at this path, without creating it as the getters do
+    [[nodiscard]] bool Exists(const std::string& path);
+
     void SetInt(const std::string& path, int val);
     void SetInt64(const std::string& path, int64_t val);
     void SetBool(const std::string& path, bool val);
