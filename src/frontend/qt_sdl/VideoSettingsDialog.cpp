@@ -32,7 +32,8 @@
 inline bool VideoSettingsDialog::UsesGL()
 {
     auto& cfg = emuInstance->getGlobalConfig();
-    return cfg.GetBool("Screen.UseGL") || (cfg.GetInt("3D.Renderer") != renderer3D_Software);
+    return cfg.GetBool("Screen.UseGL") ||
+           RendererBackend::RequiresOpenGL(cfg.GetInt("3D.Renderer"));
 }
 
 VideoSettingsDialog* VideoSettingsDialog::currentDlg = nullptr;
@@ -45,9 +46,14 @@ void VideoSettingsDialog::setEnabled()
     bool softwareRenderer = renderer == renderer3D_Software;
     ui->cbGLDisplay->setEnabled(softwareRenderer);
     ui->cbSoftwareThreaded->setEnabled(softwareRenderer);
-    ui->cbxGLResolution->setEnabled(!softwareRenderer);
+    ui->cbxGLResolution->setEnabled(RendererBackend::RequiresOpenGL(renderer));
+#ifdef OGLRENDERER_ENABLED
     ui->cbBetterPolygons->setEnabled(renderer == renderer3D_OpenGL);
     ui->cbxComputeHiResCoords->setEnabled(renderer == renderer3D_OpenGLCompute);
+#else
+    ui->cbBetterPolygons->setEnabled(false);
+    ui->cbxComputeHiResCoords->setEnabled(false);
+#endif
 }
 
 VideoSettingsDialog::VideoSettingsDialog(QWidget* parent) : QDialog(parent), ui(new Ui::VideoSettingsDialog)
@@ -71,6 +77,7 @@ VideoSettingsDialog::VideoSettingsDialog(QWidget* parent) : QDialog(parent), ui(
     grp3DRenderer->addButton(ui->rb3DSoftware, renderer3D_Software);
     grp3DRenderer->addButton(ui->rb3DOpenGL,   renderer3D_OpenGL);
     grp3DRenderer->addButton(ui->rb3DCompute,  renderer3D_OpenGLCompute);
+    grp3DRenderer->addButton(ui->rb3DVulkan,   renderer3D_Vulkan);
 #if QT_VERSION < QT_VERSION_CHECK(5, 15, 0)
     connect(grp3DRenderer, SIGNAL(buttonClicked(int)), this, SLOT(onChange3DRenderer(int)));
 #else
@@ -80,6 +87,11 @@ VideoSettingsDialog::VideoSettingsDialog(QWidget* parent) : QDialog(parent), ui(
 
 #ifndef OGLRENDERER_ENABLED
     ui->rb3DOpenGL->setEnabled(false);
+    ui->rb3DCompute->setEnabled(false);
+#endif
+
+#ifndef VULKANRENDERER_ENABLED
+    ui->rb3DVulkan->setEnabled(false);
 #endif
 
 #ifdef __APPLE__

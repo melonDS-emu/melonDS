@@ -48,12 +48,10 @@
 #include "RTC.h"
 #include "DSi.h"
 #include "DSi_I2C.h"
-#include "GPU_Soft.h"
-#include "GPU_OpenGL.h"
-
 #include "Savestate.h"
 
 #include "EmuInstance.h"
+#include "RendererBackend.h"
 
 using namespace melonDS;
 
@@ -123,13 +121,12 @@ void EmuThread::run()
         emuInstance->initOpenGL(0);
 
         useOpenGL = true;
-        videoRenderer = globalCfg.GetInt("3D.Renderer");
     }
     else
     {
         useOpenGL = false;
-        videoRenderer = 0;
     }
+    videoRenderer = globalCfg.GetInt("3D.Renderer");
 
     //updateRenderer();
     videoSettingsDirty = true;
@@ -861,19 +858,7 @@ void EmuThread::updateRenderer()
 
     if (videoRenderer != lastVideoRenderer)
     {
-        switch (videoRenderer)
-        {
-            case renderer3D_Software:
-                nds->SetRenderer(std::make_unique<SoftRenderer>(*nds));
-                break;
-            case renderer3D_OpenGL:
-                nds->SetRenderer(std::make_unique<GLRenderer>(*nds, false));
-                break;
-            case renderer3D_OpenGLCompute:
-                nds->SetRenderer(std::make_unique<GLRenderer>(*nds, true));
-                break;
-            default: __builtin_unreachable();
-        }
+        nds->SetRenderer(RendererBackend::Create(*nds, videoRenderer));
     }
     lastVideoRenderer = videoRenderer;
 
