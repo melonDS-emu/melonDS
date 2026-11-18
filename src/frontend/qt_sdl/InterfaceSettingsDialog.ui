@@ -90,13 +90,6 @@
         </property>
        </widget>
       </item>
-      <item>
-       <widget class="QCheckBox" name="cbMuteFastForward">
-        <property name="text">
-         <string>Mute audio while fast forwarding</string>
-        </property>
-       </widget>
-      </item>
      </layout>
     </widget>
    </item>
@@ -150,7 +143,7 @@
           </property>
          </widget>
         </item>
-        <item row="2" column="2">
+        <item row="3" column="2">
          <layout class="QHBoxLayout" name="horizontalLayout_5">
           <property name="spacing">
            <number>2</number>
@@ -183,7 +176,7 @@
           </item>
          </layout>
         </item>
-        <item row="2" column="1">
+        <item row="3" column="1">
          <widget class="QDoubleSpinBox" name="spinSlow">
           <property name="suffix">
            <string> FPS</string>
@@ -221,7 +214,7 @@
           </property>
          </widget>
         </item>
-        <item row="2" column="0">
+        <item row="3" column="0">
          <widget class="QLabel" name="label_6">
           <property name="text">
            <string>Slow-Mo</string>
@@ -302,6 +295,146 @@
             </property>
             <property name="text">
              <string>MAX</string>
+            </property>
+           </widget>
+          </item>
+         </layout>
+        </item>
+        <item row="2" column="0" colspan="3">
+         <layout class="QHBoxLayout" name="horizontalLayout_11">
+          <property name="spacing">
+           <number>14</number>
+          </property>
+          <property name="leftMargin">
+           <number>16</number>
+          </property>
+          <property name="rightMargin">
+           <number>4</number>
+          </property>
+          <item>
+           <widget class="QCheckBox" name="cbFastForwardVolume">
+            <property name="minimumSize">
+             <size>
+              <width>170</width>
+              <height>0</height>
+             </size>
+            </property>
+            <property name="whatsThis">
+             <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Scales the audio volume whenever emulation is running faster than the target FPS — this includes both the fast-forward hotkeys and Config -&gt; Limit framerate being turned off. 100% leaves the volume alone, 0% mutes, and above 100% is louder than normal play.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+            </property>
+            <property name="text">
+             <string>Fast-Forward volume</string>
+            </property>
+           </widget>
+          </item>
+          <item>
+           <widget class="QSlider" name="slFastForwardVolume">
+            <property name="minimumSize">
+             <size>
+              <width>200</width>
+              <height>0</height>
+             </size>
+            </property>
+            <property name="maximum">
+             <number>200</number>
+            </property>
+            <property name="pageStep">
+             <number>10</number>
+            </property>
+            <property name="value">
+             <number>100</number>
+            </property>
+            <property name="orientation">
+             <enum>Qt::Horizontal</enum>
+            </property>
+            <property name="tickPosition">
+             <enum>QSlider::TicksBelow</enum>
+            </property>
+            <property name="tickInterval">
+             <number>50</number>
+            </property>
+           </widget>
+          </item>
+          <item>
+           <widget class="QLabel" name="lblFastForwardVolume">
+            <property name="minimumSize">
+             <size>
+              <width>42</width>
+              <height>0</height>
+             </size>
+            </property>
+            <property name="text">
+             <string>100%</string>
+            </property>
+           </widget>
+          </item>
+         </layout>
+        </item>
+        <item row="4" column="0" colspan="3">
+         <layout class="QHBoxLayout" name="horizontalLayout_12">
+          <property name="spacing">
+           <number>14</number>
+          </property>
+          <property name="leftMargin">
+           <number>16</number>
+          </property>
+          <property name="rightMargin">
+           <number>4</number>
+          </property>
+          <item>
+           <widget class="QCheckBox" name="cbSlowmoVolume">
+            <property name="minimumSize">
+             <size>
+              <width>170</width>
+              <height>0</height>
+             </size>
+            </property>
+            <property name="whatsThis">
+             <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Scales the audio volume whenever emulation is running slower than the target FPS. 100% leaves the volume alone, 0% mutes, and above 100% is louder than normal play.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+            </property>
+            <property name="text">
+             <string>Slow-Mo volume</string>
+            </property>
+           </widget>
+          </item>
+          <item>
+           <widget class="QSlider" name="slSlowmoVolume">
+            <property name="minimumSize">
+             <size>
+              <width>200</width>
+              <height>0</height>
+             </size>
+            </property>
+            <property name="maximum">
+             <number>200</number>
+            </property>
+            <property name="pageStep">
+             <number>10</number>
+            </property>
+            <property name="value">
+             <number>100</number>
+            </property>
+            <property name="orientation">
+             <enum>Qt::Horizontal</enum>
+            </property>
+            <property name="tickPosition">
+             <enum>QSlider::TicksBelow</enum>
+            </property>
+            <property name="tickInterval">
+             <number>50</number>
+            </property>
+           </widget>
+          </item>
+          <item>
+           <widget class="QLabel" name="lblSlowmoVolume">
+            <property name="minimumSize">
+             <size>
+              <width>42</width>
+              <height>0</height>
+             </size>
+            </property>
+            <property name="text">
+             <string>100%</string>
             </property>
            </widget>
           </item>

@@ -356,12 +356,13 @@ void EmuThread::run()
 
             fastforward = enablefastforward;
             slowmo = enableslowmo;
-            emuInstance->updateFastForwardMute(fastforward);
 
             if (slowmo) emuInstance->curFPS = emuInstance->slowmoFPS;
             else if (fastforward) emuInstance->curFPS = emuInstance->fastForwardFPS;
             else if (!emuInstance->doLimitFPS && !emuInstance->doAudioSync) emuInstance->curFPS = 1000.0;
             else emuInstance->curFPS = emuInstance->targetFPS;
+
+            emuInstance->updateSpeedVolume();
 
             if (emuInstance->audioDSiVolumeSync && emuInstance->nds->ConsoleType == 1)
             {
