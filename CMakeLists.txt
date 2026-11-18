@@ -110,3 +110,12 @@ add_subdirectory(src)
 if (BUILD_QT_SDL)
     add_subdirectory(src/frontend/qt_sdl)
 endif()
+
+option(MELONDS_BUILD_TESTS "Build the melonDS test suite." OFF)
+
+if (MELONDS_BUILD_TESTS)
+    include(CTest)
+    message(STATUS "Enabling melonDS test suite.")
+    enable_testing()
+    add_subdirectory(test)
+endif()
