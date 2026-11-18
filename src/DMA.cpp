@@ -226,12 +226,15 @@ u32 DMA::UnitTimings9_16(bool burststart)
                 if (dst_rgn == Mem9_GBAROM)
                 {
                     if (dst_s == 4)
-                        MRAMBurstTable = DMATiming::MRAMRead16Bursts[1];
+                        memcpy(MRAMBurstTable.data(), DMATiming::MRAMRead16Bursts[1].data(), MRAMBurstTable.size());
+                        // MRAMBurstTable = DMATiming::MRAMRead16Bursts[1];
                     else
-                        MRAMBurstTable = DMATiming::MRAMRead16Bursts[2];
+                        memcpy(MRAMBurstTable.data(), DMATiming::MRAMRead16Bursts[2].data(), MRAMBurstTable.size());
+                        // MRAMBurstTable = DMATiming::MRAMRead16Bursts[2];
                 }
                 else
-                    MRAMBurstTable = DMATiming::MRAMRead16Bursts[0];
+                    memcpy(MRAMBurstTable.data(), DMATiming::MRAMRead16Bursts[0].data(), MRAMBurstTable.size());
+                    // MRAMBurstTable = DMATiming::MRAMRead16Bursts[0];
             }
 
             u32 ret = MRAMBurstTable[MRAMBurstCount++];
@@ -255,12 +258,15 @@ u32 DMA::UnitTimings9_16(bool burststart)
                 if (src_rgn == Mem9_GBAROM)
                 {
                     if (src_s == 4)
-                        MRAMBurstTable = DMATiming::MRAMWrite16Bursts[1];
+                        memcpy(MRAMBurstTable.data(), DMATiming::MRAMWrite16Bursts[1].data(), MRAMBurstTable.size());
+                        // MRAMBurstTable = DMATiming::MRAMWrite16Bursts[1];
                     else
-                        MRAMBurstTable = DMATiming::MRAMWrite16Bursts[2];
+                        memcpy(MRAMBurstTable.data(), DMATiming::MRAMWrite16Bursts[2].data(), MRAMBurstTable.size());
+                        // MRAMBurstTable = DMATiming::MRAMWrite16Bursts[2];
                 }
                 else
-                    MRAMBurstTable = DMATiming::MRAMWrite16Bursts[0];
+                    memcpy(MRAMBurstTable.data(), DMATiming::MRAMWrite16Bursts[0].data(), MRAMBurstTable.size());
+                    // MRAMBurstTable = DMATiming::MRAMWrite16Bursts[0];
             }
 
             u32 ret = MRAMBurstTable[MRAMBurstCount++];
@@ -312,14 +318,18 @@ u32 DMA::UnitTimings9_32(bool burststart)
                 if (dst_rgn == Mem9_GBAROM)
                 {
                     if (dst_s == 8)
-                        MRAMBurstTable = DMATiming::MRAMRead32Bursts[2];
+                        memcpy(MRAMBurstTable.data(), DMATiming::MRAMRead32Bursts[2].data(), MRAMBurstTable.size());
+                        // MRAMBurstTable = DMATiming::MRAMRead32Bursts[2];
                     else
-                        MRAMBurstTable = DMATiming::MRAMRead32Bursts[3];
+                        memcpy(MRAMBurstTable.data(), DMATiming::MRAMRead32Bursts[3].data(), MRAMBurstTable.size());
+                        // MRAMBurstTable = DMATiming::MRAMRead32Bursts[3];
                 }
                 else if (dst_n == 2)
-                    MRAMBurstTable = DMATiming::MRAMRead32Bursts[0];
+                    memcpy(MRAMBurstTable.data(), DMATiming::MRAMRead32Bursts[0].data(), MRAMBurstTable.size());
+                    // MRAMBurstTable = DMATiming::MRAMRead32Bursts[0];
                 else
-                    MRAMBurstTable = DMATiming::MRAMRead32Bursts[1];
+                    memcpy(MRAMBurstTable.data(), DMATiming::MRAMRead32Bursts[1].data(), MRAMBurstTable.size());
+                    // MRAMBurstTable = DMATiming::MRAMRead32Bursts[1];
             }
 
             u32 ret = MRAMBurstTable[MRAMBurstCount++];
@@ -343,14 +353,18 @@ u32 DMA::UnitTimings9_32(bool burststart)
                 if (src_rgn == Mem9_GBAROM)
                 {
                     if (src_s == 8)
-                        MRAMBurstTable = DMATiming::MRAMWrite32Bursts[2];
+                        memcpy(MRAMBurstTable.data(), DMATiming::MRAMWrite32Bursts[2].data(), MRAMBurstTable.size());
+                        // MRAMBurstTable = DMATiming::MRAMWrite32Bursts[2];
                     else
-                        MRAMBurstTable = DMATiming::MRAMWrite32Bursts[3];
+                        memcpy(MRAMBurstTable.data(), DMATiming::MRAMWrite32Bursts[3].data(), MRAMBurstTable.size());
+                        // MRAMBurstTable = DMATiming::MRAMWrite32Bursts[3];
                 }
                 else if (src_n == 2)
-                    MRAMBurstTable = DMATiming::MRAMWrite32Bursts[0];
+                    memcpy(MRAMBurstTable.data(), DMATiming::MRAMWrite32Bursts[0].data(), MRAMBurstTable.size());
+                    // MRAMBurstTable = DMATiming::MRAMWrite32Bursts[0];
                 else
-                    MRAMBurstTable = DMATiming::MRAMWrite32Bursts[1];
+                    memcpy(MRAMBurstTable.data(), DMATiming::MRAMWrite32Bursts[1].data(), MRAMBurstTable.size());
+                    // MRAMBurstTable = DMATiming::MRAMWrite32Bursts[1];
             }
 
             u32 ret = MRAMBurstTable[MRAMBurstCount++];
@@ -404,12 +418,15 @@ u32 DMA::UnitTimings7_16(bool burststart)
                 if (dst_rgn == Mem7_GBAROM || dst_rgn == Mem7_Wifi0 || dst_rgn == Mem7_Wifi1)
                 {
                     if (dst_s == 4)
-                        MRAMBurstTable = DMATiming::MRAMRead16Bursts[1];
+                        memcpy(MRAMBurstTable.data(), DMATiming::MRAMRead16Bursts[1].data(), MRAMBurstTable.size());
+                        // MRAMBurstTable = DMATiming::MRAMRead16Bursts[1];
                     else
-                        MRAMBurstTable = DMATiming::MRAMRead16Bursts[2];
+                        memcpy(MRAMBurstTable.data(), DMATiming::MRAMRead16Bursts[2].data(), MRAMBurstTable.size());
+                        // MRAMBurstTable = DMATiming::MRAMRead16Bursts[2];
                 }
                 else
-                    MRAMBurstTable = DMATiming::MRAMRead16Bursts[0];
+                    memcpy(MRAMBurstTable.data(), DMATiming::MRAMRead16Bursts[0].data(), MRAMBurstTable.size());
+                    // MRAMBurstTable = DMATiming::MRAMRead16Bursts[0];
             }
 
             u32 ret = MRAMBurstTable[MRAMBurstCount++];
@@ -433,12 +450,15 @@ u32 DMA::UnitTimings7_16(bool burststart)
                 if (src_rgn == Mem7_GBAROM || src_rgn == Mem7_Wifi0 || src_rgn == Mem7_Wifi1)
                 {
                     if (src_s == 4)
-                        MRAMBurstTable = DMATiming::MRAMWrite16Bursts[1];
+                        memcpy(MRAMBurstTable.data(), DMATiming::MRAMWrite16Bursts[1].data(), MRAMBurstTable.size());
+                        // MRAMBurstTable = DMATiming::MRAMWrite16Bursts[1];
                     else
-                        MRAMBurstTable = DMATiming::MRAMWrite16Bursts[2];
+                        memcpy(MRAMBurstTable.data(), DMATiming::MRAMWrite16Bursts[2].data(), MRAMBurstTable.size());
+                        // MRAMBurstTable = DMATiming::MRAMWrite16Bursts[2];
                 }
                 else
-                    MRAMBurstTable = DMATiming::MRAMWrite16Bursts[0];
+                    memcpy(MRAMBurstTable.data(), DMATiming::MRAMWrite16Bursts[0].data(), MRAMBurstTable.size());
+                    // MRAMBurstTable = DMATiming::MRAMWrite16Bursts[0];
             }
 
             u32 ret = MRAMBurstTable[MRAMBurstCount++];
@@ -490,14 +510,18 @@ u32 DMA::UnitTimings7_32(bool burststart)
                 if (dst_rgn == Mem7_GBAROM || dst_rgn == Mem7_Wifi0 || dst_rgn == Mem7_Wifi1)
                 {
                     if (dst_s == 8)
-                        MRAMBurstTable = DMATiming::MRAMRead32Bursts[2];
+                        memcpy(MRAMBurstTable.data(), DMATiming::MRAMRead32Bursts[2].data(), MRAMBurstTable.size());
+                        // MRAMBurstTable = DMATiming::MRAMRead32Bursts[2];
                     else
-                        MRAMBurstTable = DMATiming::MRAMRead32Bursts[3];
+                        memcpy(MRAMBurstTable.data(), DMATiming::MRAMRead32Bursts[3].data(), MRAMBurstTable.size());
+                        // MRAMBurstTable = DMATiming::MRAMRead32Bursts[3];
                 }
                 else if (dst_n == 2)
-                    MRAMBurstTable = DMATiming::MRAMRead32Bursts[0];
+                    memcpy(MRAMBurstTable.data(), DMATiming::MRAMRead32Bursts[0].data(), MRAMBurstTable.size());
+                    // MRAMBurstTable = DMATiming::MRAMRead32Bursts[0];
                 else
-                    MRAMBurstTable = DMATiming::MRAMRead32Bursts[1];
+                    memcpy(MRAMBurstTable.data(), DMATiming::MRAMRead32Bursts[1].data(), MRAMBurstTable.size());
+                    // MRAMBurstTable = DMATiming::MRAMRead32Bursts[1];
             }
 
             u32 ret = MRAMBurstTable[MRAMBurstCount++];
@@ -521,14 +545,18 @@ u32 DMA::UnitTimings7_32(bool burststart)
                 if (src_rgn == Mem7_GBAROM || src_rgn == Mem7_Wifi0 || src_rgn == Mem7_Wifi1)
                 {
                     if (src_s == 8)
-                        MRAMBurstTable = DMATiming::MRAMWrite32Bursts[2];
+                        memcpy(MRAMBurstTable.data(), DMATiming::MRAMWrite32Bursts[2].data(), MRAMBurstTable.size());
+                        // MRAMBurstTable = DMATiming::MRAMWrite32Bursts[2];
                     else
-                        MRAMBurstTable = DMATiming::MRAMWrite32Bursts[3];
+                        memcpy(MRAMBurstTable.data(), DMATiming::MRAMWrite32Bursts[3].data(), MRAMBurstTable.size());
+                        // MRAMBurstTable = DMATiming::MRAMWrite32Bursts[3];
                 }
                 else if (src_n == 2)
-                    MRAMBurstTable = DMATiming::MRAMWrite32Bursts[0];
+                    memcpy(MRAMBurstTable.data(), DMATiming::MRAMWrite32Bursts[0].data(), MRAMBurstTable.size());
+                    // MRAMBurstTable = DMATiming::MRAMWrite32Bursts[0];
                 else
-                    MRAMBurstTable = DMATiming::MRAMWrite32Bursts[1];
+                    memcpy(MRAMBurstTable.data(), DMATiming::MRAMWrite32Bursts[1].data(), MRAMBurstTable.size());
+                    // MRAMBurstTable = DMATiming::MRAMWrite32Bursts[1];
             }
 
             u32 ret = MRAMBurstTable[MRAMBurstCount++];
