@@ -2186,6 +2186,10 @@ void MainWindow::onScreenEmphasisToggled()
     }
     else if (currentSizing == screenSizing_EmphBot)
     {
+        currentSizing = screenSizing_Even;
+    }
+    else if (currentSizing == screenSizing_Even)
+    {
         currentSizing = screenSizing_EmphTop;
     }
     else
