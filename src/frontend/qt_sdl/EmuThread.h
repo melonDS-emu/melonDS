@@ -84,6 +84,7 @@ public:
         msg_ImportSavefile,
 
         msg_EnableCheats,
+        msg_EmuScreenshot,
     };
 
     struct Message
@@ -112,6 +113,7 @@ public:
     void emuExit();
     void emuFrameStep();
     void emuReset();
+    void emuTakeScreenshot();
 
     int bootROM(const QStringList& filename, QString& errorstr);
     int bootFirmware(QString& errorstr);
