@@ -136,6 +136,10 @@ NDS::NDS(NDSArgs&& args, int type, void* userdata) noexcept :
 
 NDS::~NDS() noexcept
 {
+    // the JIT fault handler reads it
+    if (Current == this)
+        Current = nullptr;
+
     UnregisterEventFuncs(Event_Div);
     UnregisterEventFuncs(Event_Sqrt);
     // The destructor for each component is automatically called by the compiler

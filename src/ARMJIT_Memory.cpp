@@ -175,6 +175,10 @@ LONG ARMJIT_Memory::ExceptionHandler(EXCEPTION_POINTERS* exceptionInfo)
     {
         return EXCEPTION_CONTINUE_SEARCH;
     }
+    if (!NDS::Current)
+    {
+        return EXCEPTION_CONTINUE_SEARCH;
+    }
 
     u8* curArea = (u8*)(NDS::Current->CurCPU == 0 ? NDS::Current->JIT.Memory.FastMem9Start : NDS::Current->JIT.Memory.FastMem7Start);
     FaultDescription desc {};
@@ -203,24 +207,22 @@ void ARMJIT_Memory::SigsegvHandler(int sig, siginfo_t* info, void* rawContext)
         // We are not interested in other signals - handle it as usual.
         return;
     }
-    if (info->si_code != SEGV_MAPERR && info->si_code != SEGV_ACCERR)
+    // Current is null on threads that never ran a frame
+    if ((info->si_code == SEGV_MAPERR || info->si_code == SEGV_ACCERR) && NDS::Current)
     {
-        // Huh? Return.
-        return;
-    }
+        ucontext_t* context = (ucontext_t*)rawContext;
 
-    ucontext_t* context = (ucontext_t*)rawContext;
+        FaultDescription desc {};
+        u8* curArea = (u8*)(NDS::Current->CurCPU == 0 ? NDS::Current->JIT.Memory.FastMem9Start : NDS::Current->JIT.Memory.FastMem7Start);
 
-    FaultDescription desc {};
-    u8* curArea = (u8*)(NDS::Current->CurCPU == 0 ? NDS::Current->JIT.Memory.FastMem9Start : NDS::Current->JIT.Memory.FastMem7Start);
+        desc.EmulatedFaultAddr = (u8*)info->si_addr - curArea;
+        desc.FaultPC = (u8*)context->CONTEXT_PC;
 
-    desc.EmulatedFaultAddr = (u8*)info->si_addr - curArea;
-    desc.FaultPC = (u8*)context->CONTEXT_PC;
-
-    if (FaultHandler(desc, *NDS::Current))
-    {
-        context->CONTEXT_PC = (u64)desc.FaultPC;
-        return;
+        if (FaultHandler(desc, *NDS::Current))
+        {
+            context->CONTEXT_PC = (u64)desc.FaultPC;
+            return;
+        }
     }
 
     struct sigaction* oldSa;
@@ -237,6 +239,13 @@ void ARMJIT_Memory::SigsegvHandler(int sig, siginfo_t* info, void* rawContext)
     if (oldSa->sa_handler == SIG_DFL)
     {
       signal(sig, SIG_DFL);
+      // a fault repeats on return, a sent signal doesn't
+      bool sent = info->si_code == SI_USER || info->si_code == SI_QUEUE;
+#ifdef SI_TKILL
+      sent = sent || info->si_code == SI_TKILL;
+#endif
+      if (sent)
+        raise(sig);
       return;
     }
     if (oldSa->sa_handler == SIG_IGN)
