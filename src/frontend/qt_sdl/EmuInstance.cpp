@@ -489,6 +489,88 @@ string EmuInstance::getAssetPath(bool gba, const string& configpath, const strin
     return result;
 }
 
+// .srm is what RetroArch writes; the contents are byte-identical to .sav
+static const char* const kSaveExtensions[2] = { ".sav", ".srm" };
+
+std::string EmuInstance::getSaveFileExtension()
+{
+    std::string ext = localCfg.GetString("SaveFileExtension");
+    for (const char* e : kSaveExtensions)
+        if (ext == e) return ext;
+
+    // don't build save paths out of an arbitrary hand-edited string
+    return kSaveExtensions[0];
+}
+
+std::string EmuInstance::getSaveFilePath(bool gba)
+{
+    return getAssetPath(gba, localCfg.GetString("SaveFilePath"), getSaveFileExtension())
+           + instanceFileSuffix();
+}
+
+// Writes always use the configured extension. Reads take the first existing of
+// <configured><suffix>, <configured>, <other><suffix>, <other>, so the configured
+// extension wins when both are present.
+EmuInstance::SavePathInfo EmuInstance::resolveSaveFilePaths(bool gba)
+{
+    SavePathInfo info;
+
+    std::string cfgpath = localCfg.GetString("SaveFilePath");
+    std::string ext = getSaveFileExtension();
+    std::string suffix = instanceFileSuffix();
+
+    info.writePath = getAssetPath(gba, cfgpath, ext) + suffix;
+    info.writeExt = ext;
+
+    std::string other = (ext == kSaveExtensions[0]) ? kSaveExtensions[1] : kSaveExtensions[0];
+    const std::string order[2] = { ext, other };
+
+    for (const std::string& e : order)
+    {
+        std::string base = getAssetPath(gba, cfgpath, e);
+
+        if (!suffix.empty() && Platform::FileExists(base + suffix))
+            info.readPath = base + suffix;
+        else if (Platform::FileExists(base))
+            info.readPath = base;
+        else
+            continue;
+
+        info.readExt = e;
+        info.extFallback = (e != ext);
+        break;
+    }
+
+    return info;
+}
+
+std::string EmuInstance::saveOverwrittenBySettings(const std::string& cfgpath, const std::string& ext)
+{
+    std::string suffix = instanceFileSuffix();
+
+    for (bool gba : {false, true})
+    {
+        SaveManager* mgr = gba ? gbaSave.get() : ndsSave.get();
+        if (!mgr) continue;
+
+        std::string newpath = getAssetPath(gba, cfgpath, ext) + suffix;
+        if (newpath != mgr->GetPath() && Platform::FileExists(newpath))
+            return newpath;
+    }
+
+    return "";
+}
+
+bool EmuInstance::takeSaveExtFallback(bool gba, SavePathInfo& out)
+{
+    SavePathInfo& fb = gba ? gbaSaveFallback : ndsSaveFallback;
+    if (!fb.extFallback) return false;
+
+    out = fb;
+    fb = SavePathInfo();
+    return true;
+}
+
 
 QString EmuInstance::verifyDSBIOS()
 {
@@ -1405,8 +1487,7 @@ void EmuInstance::reset()
     if ((cartType != -1) && ndsSave)
     {
         std::string oldsave = ndsSave->GetPath();
-        std::string newsave = getAssetPath(false, localCfg.GetString("SaveFilePath"), ".sav");
-        newsave += instanceFileSuffix();
+        std::string newsave = getSaveFilePath(false);
         if (oldsave != newsave)
             ndsSave->SetPath(newsave, false);
     }
@@ -1414,8 +1495,7 @@ void EmuInstance::reset()
     if ((gbaCartType != -1) && gbaSave)
     {
         std::string oldsave = gbaSave->GetPath();
-        std::string newsave = getAssetPath(true, localCfg.GetString("SaveFilePath"), ".sav");
-        newsave += instanceFileSuffix();
+        std::string newsave = getSaveFilePath(true);
         if (oldsave != newsave)
             gbaSave->SetPath(newsave, false);
     }
@@ -1883,26 +1963,21 @@ bool EmuInstance::loadROM(QStringList filepath, bool reset, QString& errorstr)
     u32 savelen = 0;
     std::unique_ptr<u8[]> savedata = nullptr;
 
-    std::string savname = getAssetPath(false, localCfg.GetString("SaveFilePath"), ".sav");
-    std::string origsav = savname;
-    savname += instanceFileSuffix();
+    SavePathInfo savepaths = resolveSaveFilePaths(false);
+    std::string savname = savepaths.writePath;
 
-    FileHandle* sav = Platform::OpenFile(savname, FileMode::Read);
-    if (!sav)
-    {
-        if (!Platform::CheckFileWritable(origsav))
-        {
-            errorstr = getSavErrorString(origsav, false);
-            return false;
-        }
+    // only set once the load succeeds, or a failed load leaves a stale record
+    ndsSaveFallback = SavePathInfo();
 
-        sav = Platform::OpenFile(origsav, FileMode::Read);
-    }
-    else if (!Platform::CheckFileWritable(savname))
+    if (!Platform::CheckFileWritable(savname))
     {
         errorstr = getSavErrorString(savname, false);
         return false;
     }
+
+    FileHandle* sav = savepaths.readPath.empty()
+        ? nullptr
+        : Platform::OpenFile(savepaths.readPath, FileMode::Read);
 
     if (sav)
     {
@@ -1969,6 +2044,7 @@ bool EmuInstance::loadROM(QStringList filepath, bool reset, QString& errorstr)
 
     cartType = 0;
     ndsSave = std::make_unique<SaveManager>(savname);
+    ndsSaveFallback = savepaths;
 
     return true; // success
 }
@@ -1976,6 +2052,7 @@ bool EmuInstance::loadROM(QStringList filepath, bool reset, QString& errorstr)
 void EmuInstance::ejectCart()
 {
     ndsSave = nullptr;
+    ndsSaveFallback = SavePathInfo();
 
     if (emuIsActive())
     {
@@ -2042,26 +2119,21 @@ bool EmuInstance::loadGBAROM(QStringList filepath, QString& errorstr)
     u32 savelen = 0;
     std::unique_ptr<u8[]> savedata = nullptr;
 
-    std::string savname = getAssetPath(true, localCfg.GetString("SaveFilePath"), ".sav");
-    std::string origsav = savname;
-    savname += instanceFileSuffix();
+    SavePathInfo savepaths = resolveSaveFilePaths(true);
+    std::string savname = savepaths.writePath;
 
-    FileHandle* sav = Platform::OpenFile(savname, FileMode::Read);
-    if (!sav)
-    {
-        if (!Platform::CheckFileWritable(origsav))
-        {
-            errorstr = getSavErrorString(origsav, true);
-            return false;
-        }
+    // only set once the load succeeds; see loadROM
+    gbaSaveFallback = SavePathInfo();
 
-        sav = Platform::OpenFile(origsav, FileMode::Read);
-    }
-    else if (!Platform::CheckFileWritable(savname))
+    if (!Platform::CheckFileWritable(savname))
     {
         errorstr = getSavErrorString(savname, true);
         return false;
     }
+
+    FileHandle* sav = savepaths.readPath.empty()
+        ? nullptr
+        : Platform::OpenFile(savepaths.readPath, FileMode::Read);
 
     if (sav)
     {
@@ -2095,6 +2167,8 @@ bool EmuInstance::loadGBAROM(QStringList filepath, QString& errorstr)
         changeGBACart = true;
     }
 
+    gbaSaveFallback = savepaths;
+
     return true;
 }
 
@@ -2120,6 +2194,7 @@ void EmuInstance::loadGBAAddon(int type, QString& errorstr)
     }
 
     gbaSave = nullptr;
+    gbaSaveFallback = SavePathInfo();
     gbaCartType = type;
     baseGBAROMDir = "";
     baseGBAROMName = "";
@@ -2129,6 +2204,7 @@ void EmuInstance::loadGBAAddon(int type, QString& errorstr)
 void EmuInstance::ejectGBACart()
 {
     gbaSave = nullptr;
+    gbaSaveFallback = SavePathInfo();
 
     if (emuIsActive())
     {
