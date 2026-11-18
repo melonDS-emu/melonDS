@@ -151,6 +151,8 @@ signals:
 
     void windowLimitFPSChange();
 
+    void menuBarToggle();
+
     void autoScreenSizingChange(int sizing);
 
     void windowFullscreenToggle();
