@@ -34,6 +34,7 @@
         buildInputs = (with pkgs; [
           qt6.qtbase
           qt6.qtmultimedia
+          qt6.qtserialport
           SDL2
           zstd
           libarchive

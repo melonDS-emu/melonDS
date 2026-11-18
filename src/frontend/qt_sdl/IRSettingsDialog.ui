@@ -1,0 +1,485 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ui version="4.0">
+ <class>IRSettingsDialog</class>
+ <widget class="QDialog" name="IRSettingsDialog">
+  <property name="geometry">
+   <rect>
+    <x>0</x>
+    <y>0</y>
+    <width>570</width>
+    <height>518</height>
+   </rect>
+  </property>
+  <property name="sizePolicy">
+   <sizepolicy hsizetype="Fixed" vsizetype="Fixed">
+    <horstretch>0</horstretch>
+    <verstretch>0</verstretch>
+   </sizepolicy>
+  </property>
+  <property name="windowTitle">
+   <string>IR settings - melonDS</string>
+  </property>
+  <layout class="QVBoxLayout" name="verticalLayout">
+   <property name="sizeConstraint">
+    <enum>QLayout::SizeConstraint::SetFixedSize</enum>
+   </property>
+   <item>
+    <widget class="QTabWidget" name="Tabs">
+     <property name="currentIndex">
+      <number>0</number>
+     </property>
+     <widget class="QWidget" name="General">
+      <attribute name="title">
+       <string>General</string>
+      </attribute>
+      <layout class="QGridLayout" name="gridLayout_8">
+       <item row="0" column="0">
+        <widget class="QLabel" name="labelMainDescription">
+         <property name="styleSheet">
+          <string notr="true">QLabel {
+    margin-bottom: 12px;
+}</string>
+         </property>
+         <property name="text">
+          <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;These settings control how melonDS emulates or communicates with IR peripherals or games.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+         </property>
+         <property name="wordWrap">
+          <bool>true</bool>
+         </property>
+         <property name="margin">
+          <number>0</number>
+         </property>
+        </widget>
+       </item>
+       <item row="1" column="0">
+        <widget class="QGroupBox" name="modeSelect">
+         <property name="title">
+          <string>IR Mode</string>
+         </property>
+         <layout class="QGridLayout" name="gridLayout">
+          <!-- <item row="10" column="0">
+           <widget class="QRadioButton" name="rbDirect">
+            <property name="whatsThis">
+             <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;IP Mode bypasses the serial connection entirely. This is designed to increase stability for use with other IR peripheral emulators that support this feature.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+            </property>
+            <property name="text">
+             <string>Direct</string>
+            </property>
+           </widget>
+          </item> -->
+          <item row="7" column="0">
+           <widget class="QRadioButton" name="rbCompat">
+            <property name="text">
+             <string>Compatibility</string>
+            </property>
+            <property name="checkable">
+             <bool>true</bool>
+            </property>
+            <property name="checked">
+             <bool>false</bool>
+            </property>
+           </widget>
+          </item>
+          <item row="9" column="0">
+           <widget class="QRadioButton" name="rbTCP">
+            <property name="whatsThis">
+             <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Emulates IR as TCP.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+            </property>
+            <property name="text">
+             <string>TCP</string>
+            </property>
+           </widget>
+          </item>
+          <item row="10" column="0">
+           <widget class="QRadioButton" name="rbENet">
+            <property name="whatsThis">
+             <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Emulates IR as UDP.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+            </property>
+            <property name="text">
+             <string>UDP</string>
+            </property>
+           </widget>
+          </item>
+          <item row="8" column="0">
+           <widget class="QRadioButton" name="rbSerial">
+            <property name="whatsThis">
+             <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Emulates IR as Serial&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+            </property>
+            <property name="text">
+             <string>Serial port</string>
+            </property>
+           </widget>
+          </item>
+         </layout>
+        </widget>
+       </item>
+       <!-- <item row="4" column="0">
+        <widget class="QGroupBox" name="groupBoxDirect">
+         <property name="title">
+          <string>Direct Settings</string>
+         </property>
+         <property name="toolTip">
+          <string>WARNING!!! Experimental, Backup your save before using!!!</string>
+         </property>
+         <layout class="QGridLayout" name="gridLayout_4">
+          <item row="2" column="1" alignment="Qt::AlignmentFlag::AlignVCenter">
+           <widget class="QPathInput" name="txtEepromFile"/>
+          </item>
+          <item row="2" column="0" alignment="Qt::AlignmentFlag::AlignLeft">
+           <widget class="QLabel" name="label">
+            <property name="text">
+             <string>EEPROM File:</string>
+            </property>
+           </widget>
+          </item>
+          <item row="2" column="2">
+           <widget class="QPushButton" name="EepromBrowse">
+            <property name="text">
+             <string>Browse</string>
+            </property>
+           </widget>
+          </item>
+         </layout>
+        </widget>
+       </item> -->
+       <item row="2" column="0">
+        <widget class="QGroupBox" name="groupBoxSerial">
+         <property name="title">
+          <string>Serial Port Settings</string>
+         </property>
+         <property name="toolTip">
+          <string>Switch between Compatibility and Serial to reset connection</string>
+         </property>
+         <layout class="QGridLayout" name="gridLayout_3">
+          <item row="1" column="0">
+           <widget class="QLabel" name="labelPort">
+            <property name="text">
+             <string>Serial port file:</string>
+            </property>
+           </widget>
+          </item>
+          <item row="1" column="2">
+           <widget class="QPathInput" name="txtSerialPath"/>
+          </item>
+          <!-- <item row="1" column="3">
+           <widget class="QPushButton" name="pushButton_2">
+            <property name="text">
+             <string>Browse</string>
+            </property>
+           </widget>
+          </item> -->
+          <item row="1" column="3">
+           <widget class="QLabel" name="labelReadTimeout">
+            <property name="text">
+             <string>Read timeout (us):</string>
+            </property>
+           </widget>
+          </item>
+          <item row="1" column="4">
+           <widget class="QSpinBox" name="boxReadTimeoutUs">
+            <property name="toolTip">
+             <string>How long to wait for the first byte of a response before giving up.</string>
+            </property>
+            <property name="minimum">
+             <number>0</number>
+            </property>
+            <property name="maximum">
+             <number>200000</number>
+            </property>
+            <property name="singleStep">
+             <number>50</number>
+            </property>
+            <property name="value">
+             <number>500</number>
+            </property>
+           </widget>
+          </item>
+          <item row="2" column="3">
+           <widget class="QLabel" name="labelSendDelay">
+            <property name="text">
+             <string>Send delay (us):</string>
+            </property>
+           </widget>
+          </item>
+          <item row="2" column="4">
+           <widget class="QSpinBox" name="boxSendDelayUs">
+            <property name="toolTip">
+             <string>How long to wait after sending before returning. Set to 0 to disable.</string>
+            </property>
+            <property name="minimum">
+             <number>0</number>
+            </property>
+            <property name="maximum">
+             <number>200000</number>
+            </property>
+            <property name="singleStep">
+             <number>50</number>
+            </property>
+            <property name="value">
+             <number>0</number>
+            </property>
+           </widget>
+          </item>
+         </layout>
+        </widget>
+       </item>
+       <item row="3" column="0">
+        <widget class="QGroupBox" name="groupBoxNetwork">
+         <property name="enabled">
+          <bool>true</bool>
+         </property>
+         <property name="title">
+          <string>Network Settings</string>
+         </property>
+         <layout class="QGridLayout" name="gridLayout_2">
+          <item row="5" column="3">
+           <widget class="QLineEdit" name="boxHostIP"/>
+          </item>
+          <item row="0" column="5">
+           <widget class="QLabel" name="txtSelfPort">
+            <property name="text">
+             <string>Port:</string>
+            </property>
+           </widget>
+          </item>
+          <item row="0" column="0" alignment="Qt::AlignmentFlag::AlignLeft">
+           <widget class="QRadioButton" name="rb_NetworkServer">
+            <property name="text">
+             <string>Server</string>
+            </property>
+           </widget>
+          </item>
+          <item row="5" column="5">
+           <widget class="QLabel" name="label_3">
+            <property name="text">
+             <string>Host Port</string>
+            </property>
+           </widget>
+          </item>
+          <item row="5" column="4">
+           <spacer name="horizontalSpacer_4">
+            <property name="orientation">
+             <enum>Qt::Orientation::Horizontal</enum>
+            </property>
+            <property name="sizeHint" stdset="0">
+             <size>
+              <width>40</width>
+              <height>20</height>
+             </size>
+            </property>
+           </spacer>
+          </item>
+          <item row="5" column="1">
+           <spacer name="horizontalSpacer_3">
+            <property name="orientation">
+             <enum>Qt::Orientation::Horizontal</enum>
+            </property>
+            <property name="sizeHint" stdset="0">
+             <size>
+              <width>40</width>
+              <height>20</height>
+             </size>
+            </property>
+           </spacer>
+          </item>
+          <item row="0" column="1">
+           <spacer name="horizontalSpacer">
+            <property name="orientation">
+             <enum>Qt::Orientation::Horizontal</enum>
+            </property>
+            <property name="sizeHint" stdset="0">
+             <size>
+              <width>20</width>
+              <height>20</height>
+             </size>
+            </property>
+           </spacer>
+          </item>
+          <item row="5" column="2">
+           <widget class="QLabel" name="label_6">
+            <property name="text">
+             <string>Host IP:</string>
+            </property>
+           </widget>
+          </item>
+          <item row="0" column="3">
+           <widget class="QLabel" name="lblSelfIP">
+            <property name="text">
+             <string>{PLACEHOLDER]</string>
+            </property>
+           </widget>
+          </item>
+          <item row="0" column="4">
+           <spacer name="horizontalSpacer_2">
+            <property name="orientation">
+             <enum>Qt::Orientation::Horizontal</enum>
+            </property>
+            <property name="sizeHint" stdset="0">
+             <size>
+              <width>40</width>
+              <height>20</height>
+             </size>
+            </property>
+           </spacer>
+          </item>
+          <item row="0" column="6">
+           <widget class="QSpinBox" name="boxSelfPort">
+            <property name="maximum">
+             <number>65535</number>
+            </property>
+            <property name="value">
+             <number>81</number>
+            </property>
+           </widget>
+          </item>
+          <item row="5" column="6">
+           <widget class="QSpinBox" name="txtHostPort">
+            <property name="maximum">
+             <number>65535</number>
+            </property>
+            <property name="value">
+             <number>81</number>
+            </property>
+           </widget>
+          </item>
+          <item row="5" column="0" alignment="Qt::AlignmentFlag::AlignLeft">
+           <widget class="QRadioButton" name="rb_NetworkClient">
+            <property name="text">
+             <string>Client</string>
+            </property>
+           </widget>
+          </item>
+          <item row="0" column="2">
+           <widget class="QLabel" name="label_4">
+            <property name="text">
+             <string>IP address: </string>
+            </property>
+           </widget>
+          </item>
+         </layout>
+        </widget>
+       </item>
+      </layout>
+     </widget>
+     <!-- <widget class="QWidget" name="Devtools">
+      <attribute name="title">
+       <string>Devtools</string>
+      </attribute>
+      <layout class="QGridLayout" name="gridLayout_10">
+       <item row="0" column="0">
+        <layout class="QGridLayout" name="gridLayout_9">
+         <item row="6" column="0">
+          <widget class="QCheckBox" name="checkBox_3">
+           <property name="text">
+            <string>Decompress Packets</string>
+           </property>
+          </widget>
+         </item>
+         <item row="0" column="0" alignment="Qt::AlignmentFlag::AlignLeft">
+          <widget class="QCheckBox" name="checkBox">
+           <property name="text">
+            <string>Enable Packet log</string>
+           </property>
+          </widget>
+         </item>
+         <item row="0" column="1">
+          <widget class="QLineEdit" name="txtDevLog"/>
+         </item>
+         <item row="5" column="0">
+          <widget class="QCheckBox" name="checkBox_2">
+           <property name="text">
+            <string>Decrypt Bytes (XOR by 0xAA)</string>
+           </property>
+          </widget>
+         </item>
+         <item row="0" column="2">
+          <widget class="QPushButton" name="PacketLogBrowse">
+           <property name="text">
+            <string>Browse</string>
+           </property>
+          </widget>
+         </item>
+        </layout>
+       </item>
+       <item row="1" column="0">
+        <widget class="QGroupBox" name="gridGroupBox">
+         <property name="title">
+          <string>Format Options</string>
+         </property>
+         <layout class="QGridLayout" name="gridLayout_7">
+          <item row="0" column="0">
+           <widget class="QRadioButton" name="radioButton">
+            <property name="text">
+             <string>Readable</string>
+            </property>
+           </widget>
+          </item>
+          <item row="1" column="0">
+           <widget class="QRadioButton" name="radioButton_2">
+            <property name="text">
+             <string>Binary</string>
+            </property>
+           </widget>
+          </item>
+         </layout>
+        </widget>
+       </item>
+      </layout>
+     </widget> -->
+    </widget>
+   </item>
+   <item>
+    <widget class="QDialogButtonBox" name="BottomButtons">
+     <property name="orientation">
+      <enum>Qt::Orientation::Horizontal</enum>
+     </property>
+     <property name="standardButtons">
+      <set>QDialogButtonBox::StandardButton::Cancel|QDialogButtonBox::StandardButton::Ok</set>
+     </property>
+    </widget>
+   </item>
+  </layout>
+ </widget>
+ <customwidgets>
+  <customwidget>
+   <class>QPathInput</class>
+   <extends>QLineEdit</extends>
+   <header>QPathInput.h</header>
+  </customwidget>
+ </customwidgets>
+ <resources/>
+ <connections>
+  <connection>
+   <sender>BottomButtons</sender>
+   <signal>accepted()</signal>
+   <receiver>IRSettingsDialog</receiver>
+   <slot>accept()</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>248</x>
+     <y>254</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>157</x>
+     <y>274</y>
+    </hint>
+   </hints>
+  </connection>
+  <connection>
+   <sender>BottomButtons</sender>
+   <signal>rejected()</signal>
+   <receiver>IRSettingsDialog</receiver>
+   <slot>reject()</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>316</x>
+     <y>260</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>286</x>
+     <y>274</y>
+    </hint>
+   </hints>
+  </connection>
+ </connections>
+</ui>
