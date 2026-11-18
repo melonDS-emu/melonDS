@@ -815,7 +815,7 @@ void MainWindow::createScreenPanel()
     if (oldpanel) delete oldpanel;
 
     hasOGL = globalCfg.GetBool("Screen.UseGL") ||
-            (globalCfg.GetInt("3D.Renderer") != renderer3D_Software);
+            RendererBackend::RequiresOpenGL(globalCfg.GetInt("3D.Renderer"));
 
     if (hasOGL)
     {
