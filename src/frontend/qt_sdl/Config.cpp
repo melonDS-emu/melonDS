@@ -112,13 +112,15 @@ DefaultList<bool> DefaultBools =
 #endif
     {"DSi.DSP.HLE", true},
     {"Instance*.RTC.SyncToHost", true},
+    {"LAN.Relay.Enabled", true},
 };
 
 DefaultList<std::string> DefaultStrings =
 {
     {"DLDI.ImagePath",                  "dldi.bin"},
     {"DSi.SD.ImagePath",                "dsisd.bin"},
-    {"Instance*.Firmware.Username",     "melonDS"}
+    {"Instance*.Firmware.Username",     "melonDS"},
+    {"LAN.Relay.Server",                "49.231.43.187:7070"},
 };
 
 DefaultList<double> DefaultDoubles =

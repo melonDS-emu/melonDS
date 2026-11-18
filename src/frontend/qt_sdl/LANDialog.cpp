@@ -25,11 +25,16 @@
 #include <QPushButton>
 #include <QInputDialog>
 #include <QMessageBox>
+#include <QFormLayout>
+#include <QHBoxLayout>
+#include <QLineEdit>
+#include <QLabel>
 
 #include "LANDialog.h"
 #include "Config.h"
 #include "main.h"
 #include "LAN.h"
+#include "VNet.h"
 
 #include "ui_LANStartHostDialog.h"
 #include "ui_LANStartClientDialog.h"
@@ -44,6 +49,116 @@ LANDialog* lanDlg = nullptr;
 #define lan() ((LAN&)MPInterface::Get())
 
 
+RelaySettingsBox::RelaySettingsBox(QWidget* parent) : QGroupBox(parent)
+{
+    setTitle("Play over the internet (relay server)");
+    setCheckable(true);
+
+    auto cfg = Config::GetGlobalTable();
+    setChecked(cfg.GetBool("LAN.Relay.Enabled"));
+
+    txtServer = new QLineEdit(cfg.GetQString("LAN.Relay.Server"));
+    txtServer->setPlaceholderText("address:port");
+
+    txtRoom = new QLineEdit(cfg.GetQString("LAN.Relay.Room"));
+    txtRoom->setPlaceholderText("same room name as your friends");
+    txtRoom->setMaxLength(64);
+
+    QPushButton* btnConnect = new QPushButton("Connect");
+    connect(btnConnect, &QPushButton::clicked, this, &RelaySettingsBox::onConnectClicked);
+    connect(this, &QGroupBox::toggled, this, [this](bool) { apply(false); emit applied(); });
+
+    QHBoxLayout* roomrow = new QHBoxLayout();
+    roomrow->addWidget(txtRoom);
+    roomrow->addWidget(btnConnect);
+
+    lblStatus = new QLabel();
+    lblStatus->setWordWrap(true);
+
+    QFormLayout* form = new QFormLayout(this);
+    form->addRow("Server:", txtServer);
+    form->addRow("Room:", roomrow);
+    form->addRow(lblStatus);
+
+    updateStatus();
+}
+
+bool RelaySettingsBox::apply(bool showerrors)
+{
+    lastError.clear();
+
+    if (!isChecked())
+    {
+        VNet::Stop();
+        updateStatus();
+        return true;
+    }
+
+    std::string server = txtServer->text().trimmed().toStdString();
+    std::string room = txtRoom->text().trimmed().toStdString();
+    std::string error;
+
+    setEnabled(false);
+    bool ok = VNet::Start(server.c_str(), room.c_str(), error);
+    setEnabled(true);
+
+    if (!ok)
+    {
+        lastError = QString::fromStdString(error);
+        if (showerrors)
+            QMessageBox::warning(parentWidget(), "melonDS", lastError);
+    }
+    else
+    {
+        saveConfig();
+    }
+
+    updateStatus();
+    return ok;
+}
+
+void RelaySettingsBox::saveConfig()
+{
+    auto cfg = Config::GetGlobalTable();
+    cfg.SetBool("LAN.Relay.Enabled", isChecked());
+    cfg.SetQString("LAN.Relay.Server", txtServer->text().trimmed());
+    cfg.SetQString("LAN.Relay.Room", txtRoom->text().trimmed());
+    Config::Save();
+}
+
+void RelaySettingsBox::updateStatus()
+{
+    if (!isChecked())
+    {
+        lblStatus->setText("Off: only players on your local network can be found.");
+    }
+    else if (VNet::IsActive())
+    {
+        int ping = VNet::GetRelayPing();
+        QString pingstr = (ping >= 0) ? QString("%0 ms").arg(ping) : QString("?");
+        lblStatus->setText(QString("<b>Online</b> in room <b>%0</b>. Your address: %1. Ping to server: %2")
+            .arg(txtRoom->text().trimmed().toHtmlEscaped())
+            .arg(QString::fromStdString(VNet::GetVirtualIPString()))
+            .arg(pingstr));
+    }
+    else if (!lastError.isEmpty())
+    {
+        lblStatus->setText(QString("<span style='color:#c00'>%0</span>").arg(lastError.toHtmlEscaped()));
+    }
+    else
+    {
+        lblStatus->setText("Not connected. Enter the same room name as your friends and click Connect.");
+    }
+}
+
+void RelaySettingsBox::onConnectClicked()
+{
+    apply(true);
+    emit applied();
+}
+
+
+
 LANStartHostDialog::LANStartHostDialog(QWidget* parent) : QDialog(parent), ui(new Ui::LANStartHostDialog)
 {
     ui->setupUi(this);
@@ -56,6 +171,9 @@ LANStartHostDialog::LANStartHostDialog(QWidget* parent) : QDialog(parent), ui(ne
 
     ui->sbNumPlayers->setRange(2, 16);
     ui->sbNumPlayers->setValue(cfg.GetInt("LAN.HostNumPlayers"));
+
+    relayBox = new RelaySettingsBox(this);
+    ui->verticalLayout->insertWidget(0, relayBox);
 }
 
 LANStartHostDialog::~LANStartHostDialog()
@@ -81,6 +199,10 @@ void LANStartHostDialog::done(int r)
 
         std::string player = ui->txtPlayerName->text().toStdString();
         int numplayers = ui->sbNumPlayers->value();
+
+        // (re)connect to the relay, so the room settings shown are the ones in use
+        if (!relayBox->apply(true))
+            return;
 
         if (!lan().StartHost(player.c_str(), numplayers))
         {
@@ -128,10 +250,24 @@ LANStartClientDialog::LANStartClientDialog(QWidget* parent) : QDialog(parent), u
     QPushButton* btn = ui->buttonBox->addButton("Direct connect...", QDialogButtonBox::ActionRole);
     connect(btn, SIGNAL(clicked()), this, SLOT(onDirectConnect()));
 
+    relayBox = new RelaySettingsBox(this);
+    ui->verticalLayout->insertWidget(0, relayBox);
+    connect(relayBox, &RelaySettingsBox::applied, this, &LANStartClientDialog::onRelayApplied);
+    if (relayBox->isChecked())
+        relayBox->apply(false);
+
     lanClientDlg = this;
     lan().StartDiscovery();
 
     timerID = startTimer(1000);
+}
+
+void LANStartClientDialog::onRelayApplied()
+{
+    // restart discovery so it listens on the right network
+    lan().EndDiscovery();
+    ((QStandardItemModel*)ui->tvAvailableGames->model())->removeRows(0, ui->tvAvailableGames->model()->rowCount());
+    lan().StartDiscovery();
 }
 
 LANStartClientDialog::~LANStartClientDialog()
@@ -247,6 +383,7 @@ void LANStartClientDialog::done(int r)
 void LANStartClientDialog::timerEvent(QTimerEvent *event)
 {
     doUpdateDiscoveryList();
+    relayBox->updateStatus();
 }
 
 void LANStartClientDialog::doUpdateDiscoveryList()

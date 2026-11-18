@@ -25,11 +25,26 @@ else()
     target_link_libraries(net-utils PUBLIC slirp)
 endif()
 
-if (USE_VCPKG)
-    find_package(unofficial-enet CONFIG REQUIRED)
-    target_link_libraries(net-utils PRIVATE unofficial::enet::enet)
+# bundled ENet, with the socket layer routed through VNet (relay server support)
+add_library(enet-vnet STATIC
+    enet/callbacks.c
+    enet/compress.c
+    enet/host.c
+    enet/list.c
+    enet/packet.c
+    enet/peer.c
+    enet/protocol.c
+    enet/enet_platform_real.c
+    VNet.cpp
+)
+target_include_directories(enet-vnet PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}/enet/include")
+if (WIN32)
+    target_link_libraries(enet-vnet PUBLIC ws2_32 winmm)
 else()
-    pkg_check_modules(ENet REQUIRED IMPORTED_TARGET libenet)
-    fix_interface_includes(PkgConfig::ENet)
-    target_link_libraries(net-utils PUBLIC PkgConfig::ENet)
+    target_compile_definitions(enet-vnet PRIVATE
+        HAS_FCNTL=1 HAS_POLL=1 HAS_GETADDRINFO=1 HAS_GETNAMEINFO=1
+        HAS_INET_PTON=1 HAS_INET_NTOP=1 HAS_MSGHDR_FLAGS=1 HAS_SOCKLEN_T=1)
+    find_package(Threads REQUIRED)
+    target_link_libraries(enet-vnet PUBLIC Threads::Threads)
 endif()
+target_link_libraries(net-utils PUBLIC enet-vnet)
