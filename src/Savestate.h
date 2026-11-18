@@ -24,7 +24,7 @@
 #include <stdio.h>
 #include "types.h"
 
-#define SAVESTATE_MAJOR 14
+#define SAVESTATE_MAJOR 15
 #define SAVESTATE_MINOR 0
 
 // bitmask for the savestate config word
