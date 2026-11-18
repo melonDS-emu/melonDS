@@ -422,6 +422,14 @@ void EmuInstance::inputProcess()
     SDL_LockMutex(joyMutex.get());
     SDL_JoystickUpdate();
 
+    // With SDL 3 (sdl2-compat), SDL_JoystickUpdate() alone no longer notices
+    // controllers being plugged in: that is only handled when the event queue
+    // is pumped. Nothing else in the frontend pumps it, so a controller that
+    // was turned off and on again was never seen again until a restart.
+    // Joystick state is read directly, so the events themselves are not needed.
+    SDL_PumpEvents();
+    SDL_FlushEvents(SDL_FIRSTEVENT, SDL_LASTEVENT);
+
     if (joystick)
     {
         if (!SDL_JoystickGetAttached(joystick))
