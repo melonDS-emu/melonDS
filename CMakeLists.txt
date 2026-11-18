@@ -109,4 +109,6 @@ add_subdirectory(src)
 
 if (BUILD_QT_SDL)
     add_subdirectory(src/frontend/qt_sdl)
+
+    install(DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/res DESTINATION bin)
 endif()
