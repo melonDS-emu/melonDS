@@ -101,6 +101,57 @@
     </widget>
    </item>
    <item>
+    <widget class="QGroupBox" name="groupBox_3">
+     <property name="title">
+      <string>Fast-forward and slow-mo</string>
+     </property>
+     <layout class="QGridLayout" name="gridLayout_3">
+      <item row="0" column="0" colspan="2">
+       <widget class="QCheckBox" name="cbSpeedUpTimeStretch">
+        <property name="toolTip">
+         <string>Time-stretch fast-forward and slow-mo audio so it keeps its pitch instead of being chopped up.</string>
+        </property>
+        <property name="text">
+         <string>Time-stretch fast-forward/slow-mo</string>
+        </property>
+       </widget>
+      </item>
+      <item row="1" column="0">
+       <widget class="QCheckBox" name="cbSpeedUpLowPass">
+        <property name="toolTip">
+         <string>Roll the treble off fast-forward audio, which turns harsh when sped up.</string>
+        </property>
+        <property name="text">
+         <string>Low-pass fast-forward</string>
+        </property>
+       </widget>
+      </item>
+      <item row="1" column="1">
+       <widget class="QSpinBox" name="spinSpeedUpLowPass">
+        <property name="toolTip">
+         <string>Cutoff for fast-forward audio only, divided by the emulation speed. Use the highest value that still sounds good sped up; 48000 Hz is the same as unchecking the box.</string>
+        </property>
+        <property name="suffix">
+         <string> Hz</string>
+        </property>
+        <property name="minimum">
+         <number>1000</number>
+        </property>
+        <property name="maximum">
+         <number>48000</number>
+        </property>
+        <property name="singleStep">
+         <number>500</number>
+        </property>
+        <property name="value">
+         <number>48000</number>
+        </property>
+       </widget>
+      </item>
+     </layout>
+    </widget>
+   </item>
+   <item>
     <widget class="QGroupBox" name="groupBox_2">
      <property name="title">
       <string>Microphone input</string>

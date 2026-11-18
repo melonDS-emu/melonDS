@@ -66,6 +66,7 @@ DefaultList<int> DefaultInts =
     {"Instance*.Audio.Volume", 256},
     {"Mic.InputType", 1},
     {"Mouse.HideSeconds", 5},
+    {"SpeedUpLowPass", 48000},
     {"Instance*.DSi.Battery.Level", 0xF},
 #ifdef GDBSTUB_ENABLED
     {"Instance*.Gdb.ARM7.Port", 3334},
@@ -90,6 +91,7 @@ RangeList IntRanges =
     {"Instance*.Window*.ScreenAspectTop", {0, AspectRatiosNum-1}},
     {"Instance*.Window*.ScreenAspectBot", {0, AspectRatiosNum-1}},
     {"MP.AudioMode", {0, 2}},
+    {"SpeedUpLowPass", {1000, 48000}},
     {"LAN.HostNumPlayers", {2, 16}},
 };
 
@@ -111,6 +113,8 @@ DefaultList<bool> DefaultBools =
 #endif
 #endif
     {"DSi.DSP.HLE", true},
+    {"SpeedUpTimeStretch", true},
+    {"SpeedUpLowPassEnable", true},
     {"Instance*.RTC.SyncToHost", true},
 };
 
