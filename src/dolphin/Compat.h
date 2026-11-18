@@ -8,8 +8,14 @@
 #include <assert.h>
 
 // Assert stub
-#define ASSERT_MSG(_t_, _a_, _fmt_, ...)                                                           \
-  assert(_a_) \
+#define ASSERT_MSG(_t_, _a_, _fmt_, ...) \
+  do                                     \
+  {                                      \
+    if (!(_a_))                          \
+    {                                    \
+      PanicAlert(_fmt_, ##__VA_ARGS__);  \
+    }                                    \
+  } while (0)
   /*do                                                                                               \
   {                                                                                                \
     if (!(_a_))                                                                                    \
@@ -31,8 +37,13 @@
     }                                                                                              \
   } while (0)*/
 
-#define ASSERT(_a_)                                                                                \
-  assert(_a_) \
+#define ASSERT(_a_)                       \
+  do                                      \
+  {                                       \
+    ASSERT_MSG(MASTER_LOG, _a_,           \
+               "An error occurred %s:%d", \
+               __FILE__, __LINE__);       \
+  } while (0)
   /*do                                                                                               \
   {                                                                                                \
     ASSERT_MSG(MASTER_LOG, _a_,                                                                    \
