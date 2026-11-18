@@ -194,7 +194,7 @@ void DSi::Reset()
     SCFG_Clock7 = 0x0187;
     SCFG_EXT[0] = 0x8307F100;
     SCFG_EXT[1] = 0x93FFFB06;
-    SCFG_MC = 0x0010 | (NDSCartSlot.CartInserted() ? 0 : (1<<0));
+    SCFG_MC = 0x0010 | (NDSCartSlot.CartInserted() ? (1<<3) : (1<<0));
     SCFG_CartInsertDelay = 0xFFFF;
     SCFG_CartPowerOffDelay = 0xFFFF;
     SCFG_RST = 0;
