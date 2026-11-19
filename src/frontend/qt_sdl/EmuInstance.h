@@ -376,6 +376,7 @@ private:
     melonDS::u32 inputMask;
 
     bool isTouching;
+    bool touchDisabled;
     melonDS::u16 touchX, touchY;
 
     friend class EmuThread;

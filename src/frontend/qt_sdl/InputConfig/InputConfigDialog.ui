@@ -2319,6 +2319,16 @@
        </property>
       </widget>
      </item>
+     <item>
+      <widget class="QCheckBox" name="cbDisableTouch">
+       <property name="text">
+        <string>Disable touch screen input</string>
+       </property>
+       <property name="whatsThis">
+        <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Ignores mouse, pen and touch input on the touch screen.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+       </property>
+      </widget>
+     </item>
     </layout>
    </item>
    <item row="0" column="0">

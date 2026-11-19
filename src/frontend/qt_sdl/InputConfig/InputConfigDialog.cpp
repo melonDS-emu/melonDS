@@ -77,6 +77,7 @@ InputConfigDialog::InputConfigDialog(QWidget* parent) : QDialog(parent), ui(new 
     populatePage(ui->tabHotkeysGeneral, hk_general_labels, hkGeneralKeyMap, hkGeneralJoyMap);
 
     joystickID = instcfg.GetInt("JoystickID");
+    ui->cbDisableTouch->setChecked(instcfg.GetBool("DisableTouch"));
 
     int njoy = SDL_NumJoysticks();
     if (njoy > 0)
@@ -214,6 +215,7 @@ void InputConfigDialog::on_InputConfigDialog_accepted()
     }
 
     instcfg.SetInt("JoystickID", joystickID);
+    instcfg.SetBool("DisableTouch", ui->cbDisableTouch->isChecked());
     Config::Save();
 
     emuInstance->inputLoadConfig();
