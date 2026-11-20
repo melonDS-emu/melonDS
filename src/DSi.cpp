@@ -786,10 +786,19 @@ void DSi::SoftReset()
     // TODO: is this actually reset?
     I2S.Reset();
 
+    // Restore the touchscreen's DSi protocol and controller state.
+    SPI.GetTSC()->Reset();
+
     // TODO: does the DSP get reset? NWRAM doesn't, so I'm assuming no
     // *HOWEVER*, the bootrom (which does get rerun) does remap NWRAM, and thus
     // the DSP most likely gets reset
     DSP.Reset();
+
+    // Restore the effective main RAM mapping before LoadNAND() loads boot2.
+    // DS-compatible software may have selected a 4MB mapping.
+    SCFG_EXT[0] = 0x8307F100;
+    SCFG_EXT[1] = 0x93FFFB06;
+    ApplyNewRAMSize((SCFG_EXT[0] >> 14) & 0x3);
 
     LoadNAND();
 
@@ -809,8 +818,6 @@ void DSi::SoftReset()
 
     SCFG_Clock9 = 0x0187; // CHECKME
     SCFG_Clock7 = 0x0187;
-    SCFG_EXT[0] = 0x8307F100;
-    SCFG_EXT[1] = 0x93FFFB06;
     SCFG_MC = 0x0010 | (NDSCartSlot.CartInserted() ? 0 : (1<<0));
     // TODO: is this actually reset?
     SCFG_RST = 0;
