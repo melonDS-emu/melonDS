@@ -614,7 +614,7 @@ void Wifi::TXSendFrame(const TXSlot* slot, int num)
     }
     else
     {
-        if (num == 1) noseqno = (IOPORT(W_TXSlotCmd) & 0x4000) ? 1:0;
+        if (num == 1) noseqno = (IOPORT(W_TXSlotCmd) & 0x2000) ? 1:0;
     }
 
     if (!noseqno)
