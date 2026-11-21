@@ -224,6 +224,7 @@ void Wifi::Reset()
     MPReplyTimer = 0;
     MPClientMask = 0;
     MPClientFail = 0;
+    MPClientOrdinal = 0;
     MPCmdTimestamp = 0;
     memset(MPClientReplies, 0, sizeof(MPClientReplies));
 
@@ -303,6 +304,7 @@ void Wifi::DoSavestate(Savestate* file)
     file->Var32((u32*)&MPReplyTimer);
     file->Var16(&MPClientMask);
     file->Var16(&MPClientFail);
+    file->Var16(&MPClientOrdinal);
     file->Var64(&MPCmdTimestamp);
 
     file->VarArray(MPClientReplies, sizeof(MPClientReplies));
@@ -983,8 +985,23 @@ bool Wifi::ProcessTX(TXSlot* slot, int num)
                 if (!(MPClientFail & curclient))
                     MPClientReplyRX(nclient);
 
-                MPReplyTimer += 10 + IOPORT(W_CmdReplyTime);
                 MPClientMask &= ~curclient;
+                MPClientOrdinal++;
+
+                if (MPClientMask != 0)
+                {
+                    // Absolute deadline for the next client, based on its
+                    // ordinal position in the masked client list.  Replies
+                    // that arrive early are still processed early, but they
+                    // must not shorten the later clients' windows.
+                    const u64 deadline = MPCmdTimestamp + 16 + (u64)MPClientOrdinal * (10 + IOPORT(W_CmdReplyTime));
+                    const s64 remaining = (s64)deadline - (s64)USTimestamp;
+                    MPReplyTimer = (remaining > 0) ? (int)remaining : 0;
+                }
+                else
+                {
+                    MPReplyTimer = 0;
+                }
             }
         }
 
@@ -1082,6 +1099,7 @@ bool Wifi::ProcessTX(TXSlot* slot, int num)
 
                 MPReplyTimer = 16 + 10 + IOPORT(W_CmdReplyTime);
                 MPCmdTimestamp = USTimestamp;
+                MPClientOrdinal = 1;
 
                 break;
             }
