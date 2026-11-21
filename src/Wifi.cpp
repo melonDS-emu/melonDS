@@ -721,7 +721,8 @@ void Wifi::StartTX_Cmd()
     MPClientFail &= MPClientMask;
 
     u32 duration = PreambleLen(slot->Rate) + (slot->Length * (slot->Rate==2 ? 4:8));
-    duration += 112 + ((10 + IOPORT(W_CmdReplyTime)) * NumClients(MPClientMask));
+    duration += 16 + ((10 + IOPORT(W_CmdReplyTime)) * NumClients(MPClientMask));
+    duration += PreambleLen(slot->Rate); // ACK preamble
     duration += (32 * (slot->Rate==2 ? 4:8));
 
     if (CmdCounter > (duration + 100))
@@ -1092,10 +1093,9 @@ bool Wifi::ProcessTX(TXSlot* slot, int num)
                 }
                 SetStatus(5);
 
-                // TODO: 112 likely includes the ack preamble, which needs adjusted
-                // for long-preamble settings
+                // Reply wait; the ACK preamble is modeled as a separate phase.
                 slot->CurPhase = 2;
-                slot->CurPhaseTime = 112 + ((10 + IOPORT(W_CmdReplyTime)) * NumClients(MPClientMask));
+                slot->CurPhaseTime = 16 + ((10 + IOPORT(W_CmdReplyTime)) * NumClients(MPClientMask));
 
                 MPReplyTimer = 16 + 10 + IOPORT(W_CmdReplyTime);
                 MPCmdTimestamp = USTimestamp;
@@ -1154,7 +1154,40 @@ bool Wifi::ProcessTX(TXSlot* slot, int num)
         }
         return true;
 
-    case 2: // MP host transfer done
+    case 2: // MP reply wait done
+        {
+            // The reply wait is over. Finalize any clients whose replies
+            // were not collected while the timer was running, then switch
+            // to the ACK preamble. IRQ7 is raised after the preamble,
+            // when the ACK data starts (GBATEK: CMD ack preamble).
+            if (MPClientMask != 0)
+            {
+                const u16 res = Platform::MP_RecvReplies(MPClientReplies, MPCmdTimestamp, MPClientMask, false, NDS.UserData);
+                MPClientFail &= ~res;
+
+                for (int nclient = 1; nclient < 16; nclient++)
+                {
+                    const u16 curclient = 1 << nclient;
+                    if (!(MPClientMask & curclient))
+                        continue;
+
+                    if (!(MPClientFail & curclient))
+                        MPClientReplyRX(nclient);
+
+                    MPClientMask &= ~curclient;
+                    MPClientOrdinal++;
+                }
+            }
+
+            MPReplyTimer = 0;
+
+            SetStatus(7);
+            slot->CurPhase = 4;
+            slot->CurPhaseTime = PreambleLen(slot->Rate);
+        }
+        break;
+
+    case 4: // ACK preamble done
         {
             SetIRQ(7);
             SetStatus(8);
@@ -1740,8 +1773,9 @@ bool Wifi::CheckRX(int type) // 0=regular 1=MP replies 2=MP host frames
             u16 clienttime = *(u16*)&RXBuffer[12+24];
             u16 clientmask = *(u16*)&RXBuffer[12+26];
 
-            // include the MP reply time window
-            NextSync += 112 + ((clienttime + 10) * NumClients(clientmask));
+            // include the MP reply time window and the ACK preamble
+            NextSync += 16 + ((clienttime + 10) * NumClients(clientmask));
+            NextSync += PreambleLen((txrate == 0x14) ? 2 : 1);
         }
         else if (MACEqual(&RXBuffer[12 + 4], MPAckMAC))
         {
