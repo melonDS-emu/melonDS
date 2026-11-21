@@ -236,6 +236,8 @@ private:
 
     int MPReplyTimer;
     u16 MPClientMask, MPClientFail;
+    u16 MPClientOrdinal; // 1-based ordinal of the next masked client
+    u64 MPCmdTimestamp = 0; // Wi-Fi time of the current CMD, for reply staleness
 
     u8 MPClientReplies[15*1024];
 

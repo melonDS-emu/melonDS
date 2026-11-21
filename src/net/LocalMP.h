@@ -59,7 +59,7 @@ public:
     int SendReply(int inst, u8* data, int len, u64 timestamp, u16 aid);
     int SendAck(int inst, u8* data, int len, u64 timestamp);
     int RecvHostPacket(int inst, u8* data, u64* timestamp);
-    u16 RecvReplies(int inst, u8* data, u64 timestamp, u16 aidmask);
+    u16 RecvReplies(int inst, u8* data, u64 timestamp, u16 aidmask, bool block);
 
 private:
     void FIFORead(int inst, int fifo, void* buf, int len) noexcept;

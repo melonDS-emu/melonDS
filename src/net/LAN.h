@@ -105,7 +105,7 @@ public:
     int SendReply(int inst, u8* data, int len, u64 timestamp, u16 aid) override;
     int SendAck(int inst, u8* data, int len, u64 timestamp) override;
     int RecvHostPacket(int inst, u8* data, u64* timestamp) override;
-    u16 RecvReplies(int inst, u8* data, u64 timestamp, u16 aidmask) override;
+    u16 RecvReplies(int inst, u8* data, u64 timestamp, u16 aidmask, bool block) override;
 
 private:
     bool Inited;
@@ -145,7 +145,7 @@ private:
     void ProcessHostEvent(ENetEvent& event);
     void ProcessClientEvent(ENetEvent& event);
     void ProcessEvent(ENetEvent& event);
-    void ProcessLAN(int type);
+    void ProcessLAN(int type, bool block = true);
 
     int SendPacketGeneric(u32 type, u8* packet, int len, u64 timestamp);
     int RecvPacketGeneric(u8* packet, bool block, u64* timestamp);
