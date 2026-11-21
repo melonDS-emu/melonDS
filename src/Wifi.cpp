@@ -224,6 +224,7 @@ void Wifi::Reset()
     MPReplyTimer = 0;
     MPClientMask = 0;
     MPClientFail = 0;
+    MPCmdTimestamp = 0;
     memset(MPClientReplies, 0, sizeof(MPClientReplies));
 
     MPLastSeqno = 0xFFFF;
@@ -302,6 +303,7 @@ void Wifi::DoSavestate(Savestate* file)
     file->Var32((u32*)&MPReplyTimer);
     file->Var16(&MPClientMask);
     file->Var16(&MPClientFail);
+    file->Var64(&MPCmdTimestamp);
 
     file->VarArray(MPClientReplies, sizeof(MPClientReplies));
 
@@ -955,7 +957,23 @@ bool Wifi::ProcessTX(TXSlot* slot, int num)
         else if (slot->CurPhase == 2)
         {
             MPReplyTimer -= kTimerInterval;
-            if (MPReplyTimer <= 0 && MPClientMask != 0)
+
+            // Non-blocking reply collection.  The command timestamp is
+            // fixed at the CMD send time; using the current USTimestamp
+            // here would make normal replies look stale as the window
+            // advances.
+            bool first_replied = false;
+            if (MPClientMask)
+            {
+                const u16 res = Platform::MP_RecvReplies(MPClientReplies, MPCmdTimestamp, MPClientMask, NDS.UserData);
+                MPClientFail &= ~res;
+
+                int nclient = 1;
+                while (!(MPClientMask & (1 << nclient))) nclient++;
+                first_replied = (MPClientFail & (1 << nclient)) == 0;
+            }
+
+            if ((MPReplyTimer <= 0 || first_replied) && MPClientMask != 0)
             {
                 int nclient = 1;
                 while (!(MPClientMask & (1 << nclient))) nclient++;
@@ -1057,17 +1075,13 @@ bool Wifi::ProcessTX(TXSlot* slot, int num)
                 }
                 SetStatus(5);
 
-                MPReplyTimer = 16 + PreambleLen(slot->Rate);
-
-                u16 res = 0;
-                if (MPClientMask)
-                    res = Platform::MP_RecvReplies(MPClientReplies, USTimestamp, MPClientMask, NDS.UserData);
-                MPClientFail &= ~res;
-
                 // TODO: 112 likely includes the ack preamble, which needs adjusted
                 // for long-preamble settings
                 slot->CurPhase = 2;
                 slot->CurPhaseTime = 112 + ((10 + IOPORT(W_CmdReplyTime)) * NumClients(MPClientMask));
+
+                MPReplyTimer = 16 + 10 + IOPORT(W_CmdReplyTime);
+                MPCmdTimestamp = USTimestamp;
 
                 break;
             }
