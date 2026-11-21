@@ -1067,12 +1067,19 @@ u16 LAN::RecvReplies(int inst, u8* packets, u64 timestamp, u16 aidmask, bool blo
 
         if (good)
         {
+            u32 aid = header->Type >> 16;
+            if (aid == 0 || aid > 15 || !(aidmask & (1 << aid)))
+            {
+                // reply from a client outside the current CMD mask
+                enet_packet_destroy(enetpacket);
+                continue;
+            }
+
             u32 len = header->Length;
             if (len)
             {
                 if (len > 1024) len = 1024;
 
-                u32 aid = header->Type >> 16;
                 memcpy(&packets[(aid-1)*1024], &enetpacket->data[sizeof(MPPacketHeader)], len);
 
                 ret |= (1<<aid);

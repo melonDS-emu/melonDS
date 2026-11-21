@@ -342,9 +342,20 @@ u16 LocalMP::RecvReplies(int inst, u8* packets, u64 timestamp, u16 aidmask, bool
             continue;
         }
 
+        const u32 aid = pktheader.Type >> 16;
+        if (aid == 0 || aid > 15 || !(aidmask & (1 << aid)))
+        {
+            // reply from a client outside the current CMD mask
+            ReplyReadOffset[inst] += pktheader.Length;
+            if (ReplyReadOffset[inst] >= kReplyQueueSize)
+                ReplyReadOffset[inst] -= kReplyQueueSize;
+
+            Mutex_Unlock(MPQueueLock);
+            continue;
+        }
+
         if (pktheader.Length)
         {
-            u32 aid = (pktheader.Type >> 16);
             FIFORead(inst, 1, &packets[(aid-1)*1024], pktheader.Length);
             ret |= (1 << aid);
         }
