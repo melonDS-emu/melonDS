@@ -37,7 +37,7 @@ public:
     int SendReply(int inst, u8* data, int len, u64 timestamp, u16 aid) override { return 0; }
     int SendAck(int inst, u8* data, int len, u64 timestamp) override { return 0; }
     int RecvHostPacket(int inst, u8* data, u64* timestamp) override { return 0; }
-    u16 RecvReplies(int inst, u8* data, u64 timestamp, u16 aidmask) override { return 0; }
+    u16 RecvReplies(int inst, u8* data, u64 timestamp, u16 aidmask, bool block) override { return 0; }
 };
 
 

@@ -795,7 +795,7 @@ void LAN::ProcessEvent(ENetEvent& event)
 // 0 = per-frame processing of events and eventual misc. frame
 // 1 = checking if a misc. frame has arrived
 // 2 = waiting for a MP frame
-void LAN::ProcessLAN(int type)
+void LAN::ProcessLAN(int type, bool block)
 {
     if (!Host) return;
 
@@ -834,7 +834,7 @@ void LAN::ProcessLAN(int type)
         }
     }
 
-    int timeout = (type == 2) ? MPRecvTimeout : 0;
+    int timeout = (type == 2 && block) ? MPRecvTimeout : 0;
     time_last = (u32)Platform::GetMSCount();
 
     ENetEvent event;
@@ -1037,7 +1037,7 @@ int LAN::RecvHostPacket(int inst, u8* packet, u64* timestamp)
     return RecvPacketGeneric(packet, true, timestamp);
 }
 
-u16 LAN::RecvReplies(int inst, u8* packets, u64 timestamp, u16 aidmask)
+u16 LAN::RecvReplies(int inst, u8* packets, u64 timestamp, u16 aidmask, bool block)
 {
     if (!Host) return 0;
 
@@ -1049,7 +1049,7 @@ u16 LAN::RecvReplies(int inst, u8* packets, u64 timestamp, u16 aidmask)
 
     for (;;)
     {
-        ProcessLAN(2);
+        ProcessLAN(2, block);
         if (RXQueue.empty())
         {
             // no more replies available

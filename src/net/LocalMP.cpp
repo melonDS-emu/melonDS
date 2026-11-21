@@ -296,7 +296,7 @@ int LocalMP::RecvHostPacket(int inst, u8* packet, u64* timestamp)
     return RecvPacketGeneric(inst, packet, true, timestamp);
 }
 
-u16 LocalMP::RecvReplies(int inst, u8* packets, u64 timestamp, u16 aidmask)
+u16 LocalMP::RecvReplies(int inst, u8* packets, u64 timestamp, u16 aidmask, bool block)
 {
     u16 ret = 0;
     u16 myinstmask = (1 << inst);
@@ -310,7 +310,7 @@ u16 LocalMP::RecvReplies(int inst, u8* packets, u64 timestamp, u16 aidmask)
 
     for (;;)
     {
-        if (!Semaphore_TryWait(SemPool[16+inst], RecvTimeout))
+        if (!Semaphore_TryWait(SemPool[16+inst], block ? RecvTimeout : 0))
         {
             // no more replies available
             return ret;

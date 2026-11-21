@@ -965,7 +965,7 @@ bool Wifi::ProcessTX(TXSlot* slot, int num)
             bool first_replied = false;
             if (MPClientMask)
             {
-                const u16 res = Platform::MP_RecvReplies(MPClientReplies, MPCmdTimestamp, MPClientMask, NDS.UserData);
+                const u16 res = Platform::MP_RecvReplies(MPClientReplies, MPCmdTimestamp, MPClientMask, false, NDS.UserData);
                 MPClientFail &= ~res;
 
                 int nclient = 1;
