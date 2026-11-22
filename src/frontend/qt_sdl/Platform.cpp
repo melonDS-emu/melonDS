@@ -505,10 +505,10 @@ int MP_RecvHostPacket(u8* data, u64* timestamp, void* userdata)
     return MPInterface::Get().RecvHostPacket(inst, data, timestamp);
 }
 
-u16 MP_RecvReplies(u8* data, u64 timestamp, u16 aidmask, void* userdata)
+u16 MP_RecvReplies(u8* data, u64 timestamp, u16 aidmask, bool block, void* userdata)
 {
     int inst = ((EmuInstance*)userdata)->getInstanceID();
-    return MPInterface::Get().RecvReplies(inst, data, timestamp, aidmask);
+    return MPInterface::Get().RecvReplies(inst, data, timestamp, aidmask, block);
 }
 
 

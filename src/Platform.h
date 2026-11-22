@@ -304,7 +304,7 @@ int MP_SendCmd(u8* data, int len, u64 timestamp, void* userdata);
 int MP_SendReply(u8* data, int len, u64 timestamp, u16 aid, void* userdata);
 int MP_SendAck(u8* data, int len, u64 timestamp, void* userdata);
 int MP_RecvHostPacket(u8* data, u64* timestamp, void* userdata);
-u16 MP_RecvReplies(u8* data, u64 timestamp, u16 aidmask, void* userdata);
+u16 MP_RecvReplies(u8* data, u64 timestamp, u16 aidmask, bool block, void* userdata);
 
 
 // network comm interface

@@ -67,7 +67,7 @@ public:
     virtual int SendReply(int inst, u8* data, int len, u64 timestamp, u16 aid) = 0;
     virtual int SendAck(int inst, u8* data, int len, u64 timestamp) = 0;
     virtual int RecvHostPacket(int inst, u8* data, u64* timestamp) = 0;
-    virtual u16 RecvReplies(int inst, u8* data, u64 timestamp, u16 aidmask) = 0;
+    virtual u16 RecvReplies(int inst, u8* data, u64 timestamp, u16 aidmask, bool block = true) = 0;
 
 protected:
     int RecvTimeout = 25;

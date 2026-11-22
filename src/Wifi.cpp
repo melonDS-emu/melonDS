@@ -224,6 +224,8 @@ void Wifi::Reset()
     MPReplyTimer = 0;
     MPClientMask = 0;
     MPClientFail = 0;
+    MPClientOrdinal = 0;
+    MPCmdTimestamp = 0;
     memset(MPClientReplies, 0, sizeof(MPClientReplies));
 
     MPLastSeqno = 0xFFFF;
@@ -302,6 +304,8 @@ void Wifi::DoSavestate(Savestate* file)
     file->Var32((u32*)&MPReplyTimer);
     file->Var16(&MPClientMask);
     file->Var16(&MPClientFail);
+    file->Var16(&MPClientOrdinal);
+    file->Var64(&MPCmdTimestamp);
 
     file->VarArray(MPClientReplies, sizeof(MPClientReplies));
 
@@ -717,7 +721,8 @@ void Wifi::StartTX_Cmd()
     MPClientFail &= MPClientMask;
 
     u32 duration = PreambleLen(slot->Rate) + (slot->Length * (slot->Rate==2 ? 4:8));
-    duration += 112 + ((10 + IOPORT(W_CmdReplyTime)) * NumClients(MPClientMask));
+    duration += 16 + ((10 + IOPORT(W_CmdReplyTime)) * NumClients(MPClientMask));
+    duration += PreambleLen(slot->Rate); // ACK preamble
     duration += (32 * (slot->Rate==2 ? 4:8));
 
     if (CmdCounter > (duration + 100))
@@ -955,7 +960,23 @@ bool Wifi::ProcessTX(TXSlot* slot, int num)
         else if (slot->CurPhase == 2)
         {
             MPReplyTimer -= kTimerInterval;
-            if (MPReplyTimer <= 0 && MPClientMask != 0)
+
+            // Non-blocking reply collection.  The command timestamp is
+            // fixed at the CMD send time; using the current USTimestamp
+            // here would make normal replies look stale as the window
+            // advances.
+            bool first_replied = false;
+            if (MPClientMask)
+            {
+                const u16 res = Platform::MP_RecvReplies(MPClientReplies, MPCmdTimestamp, MPClientMask, false, NDS.UserData);
+                MPClientFail &= ~res;
+
+                int nclient = 1;
+                while (!(MPClientMask & (1 << nclient))) nclient++;
+                first_replied = (MPClientFail & (1 << nclient)) == 0;
+            }
+
+            if ((MPReplyTimer <= 0 || first_replied) && MPClientMask != 0)
             {
                 int nclient = 1;
                 while (!(MPClientMask & (1 << nclient))) nclient++;
@@ -965,8 +986,23 @@ bool Wifi::ProcessTX(TXSlot* slot, int num)
                 if (!(MPClientFail & curclient))
                     MPClientReplyRX(nclient);
 
-                MPReplyTimer += 10 + IOPORT(W_CmdReplyTime);
                 MPClientMask &= ~curclient;
+                MPClientOrdinal++;
+
+                if (MPClientMask != 0)
+                {
+                    // Absolute deadline for the next client, based on its
+                    // ordinal position in the masked client list.  Replies
+                    // that arrive early are still processed early, but they
+                    // must not shorten the later clients' windows.
+                    const u64 deadline = MPCmdTimestamp + 16 + (u64)MPClientOrdinal * (10 + IOPORT(W_CmdReplyTime));
+                    const s64 remaining = (s64)deadline - (s64)USTimestamp;
+                    MPReplyTimer = (remaining > 0) ? (int)remaining : 0;
+                }
+                else
+                {
+                    MPReplyTimer = 0;
+                }
             }
         }
 
@@ -1057,17 +1093,13 @@ bool Wifi::ProcessTX(TXSlot* slot, int num)
                 }
                 SetStatus(5);
 
-                MPReplyTimer = 16 + PreambleLen(slot->Rate);
-
-                u16 res = 0;
-                if (MPClientMask)
-                    res = Platform::MP_RecvReplies(MPClientReplies, USTimestamp, MPClientMask, NDS.UserData);
-                MPClientFail &= ~res;
-
-                // TODO: 112 likely includes the ack preamble, which needs adjusted
-                // for long-preamble settings
+                // Reply wait; the ACK preamble is modeled as a separate phase.
                 slot->CurPhase = 2;
-                slot->CurPhaseTime = 112 + ((10 + IOPORT(W_CmdReplyTime)) * NumClients(MPClientMask));
+                slot->CurPhaseTime = 16 + ((10 + IOPORT(W_CmdReplyTime)) * NumClients(MPClientMask));
+
+                MPReplyTimer = 16 + 10 + IOPORT(W_CmdReplyTime);
+                MPCmdTimestamp = USTimestamp;
+                MPClientOrdinal = 1;
 
                 break;
             }
@@ -1122,7 +1154,40 @@ bool Wifi::ProcessTX(TXSlot* slot, int num)
         }
         return true;
 
-    case 2: // MP host transfer done
+    case 2: // MP reply wait done
+        {
+            // The reply wait is over. Finalize any clients whose replies
+            // were not collected while the timer was running, then switch
+            // to the ACK preamble. IRQ7 is raised after the preamble,
+            // when the ACK data starts (GBATEK: CMD ack preamble).
+            if (MPClientMask != 0)
+            {
+                const u16 res = Platform::MP_RecvReplies(MPClientReplies, MPCmdTimestamp, MPClientMask, false, NDS.UserData);
+                MPClientFail &= ~res;
+
+                for (int nclient = 1; nclient < 16; nclient++)
+                {
+                    const u16 curclient = 1 << nclient;
+                    if (!(MPClientMask & curclient))
+                        continue;
+
+                    if (!(MPClientFail & curclient))
+                        MPClientReplyRX(nclient);
+
+                    MPClientMask &= ~curclient;
+                    MPClientOrdinal++;
+                }
+            }
+
+            MPReplyTimer = 0;
+
+            SetStatus(7);
+            slot->CurPhase = 4;
+            slot->CurPhaseTime = PreambleLen(slot->Rate);
+        }
+        break;
+
+    case 4: // ACK preamble done
         {
             SetIRQ(7);
             SetStatus(8);
@@ -1708,8 +1773,9 @@ bool Wifi::CheckRX(int type) // 0=regular 1=MP replies 2=MP host frames
             u16 clienttime = *(u16*)&RXBuffer[12+24];
             u16 clientmask = *(u16*)&RXBuffer[12+26];
 
-            // include the MP reply time window
-            NextSync += 112 + ((clienttime + 10) * NumClients(clientmask));
+            // include the MP reply time window and the ACK preamble
+            NextSync += 16 + ((clienttime + 10) * NumClients(clientmask));
+            NextSync += PreambleLen((txrate == 0x14) ? 2 : 1);
         }
         else if (MACEqual(&RXBuffer[12 + 4], MPAckMAC))
         {
