@@ -16,7 +16,7 @@ compile_commands.json
 *.exe
 
 .DS_Store
-
+buildscript.sh
 .vs
 .vscode
 CMakeFiles

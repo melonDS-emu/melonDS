@@ -8,12 +8,12 @@
 1. Install dependencies:
    * Ubuntu:
      * All versions: `sudo apt install cmake extra-cmake-modules libcurl4-gnutls-dev libpcap0.8-dev libsdl2-dev libarchive-dev libenet-dev libzstd-dev libfaad-dev`
-     * 24.04: `sudo apt install qt6-{base,base-private,multimedia,svg}-dev`
-     * 22.04: `sudo apt install qtbase6-dev qtbase6-private-dev qtmultimedia6-dev libqt6svg6-dev`
-     * Older versions: `sudo apt install qtbase5-dev qtbase5-private-dev qtmultimedia5-dev libqt5svg5-dev`  
+     * 24.04: `sudo apt install qt6-{base,base-private,multimedia,svg,serialport}-dev`
+     * 22.04: `sudo apt install qtbase6-dev qtbase6-private-dev qtmultimedia6-dev libqt6svg6-dev qt-serialport-dev`
+     * Older versions: `sudo apt install qtbase5-dev qtbase5-private-dev qtmultimedia5-dev libqt5svg5-dev qt5-serialport-dev`  
        Also add `-DUSE_QT6=OFF` to the first CMake command below.
-   * Fedora: `sudo dnf install gcc-c++ cmake extra-cmake-modules SDL2-devel libarchive-devel enet-devel libzstd-devel faad2-devel qt6-{qtbase,qtbase-private,qtmultimedia,qtsvg}-devel wayland-devel`
-   * Arch Linux: `sudo pacman -S base-devel cmake extra-cmake-modules git libpcap sdl2 qt6-{base,multimedia,svg} libarchive enet zstd faad2`
+   * Fedora: `sudo dnf install gcc-c++ cmake extra-cmake-modules SDL2-devel libarchive-devel enet-devel libzstd-devel faad2-devel qt6-{qtbase,qtbase-private,qtmultimedia,qtsvg,serialport}-devel wayland-devel`
+   * Arch Linux: `sudo pacman -S base-devel cmake extra-cmake-modules git libpcap sdl2 qt6-{base,multimedia,svg,serialport} libarchive enet zstd faad2`
 2. Download the melonDS repository and prepare:
    ```bash
    git clone https://github.com/melonDS-emu/melonDS
@@ -44,7 +44,7 @@
    ```
 6. Install Qt and configure the build directory
    * Dynamic builds (with DLLs)
-     1. Install Qt: `pacman -S <prefix>-{qt6-base,qt6-svg,qt6-multimedia,qt6-svg,qt6-tools}`
+     1. Install Qt: `pacman -S <prefix>-{qt6-base,qt6-svg,qt6-multimedia,qt6-svg,qt6-tools,qt6-serialport}`
      2. Set up the build directory with `cmake -B build`
    * Static builds (without DLLs, standalone executable)
      1. Install Qt: `pacman -S <prefix>-qt5-static`  
@@ -53,6 +53,13 @@
 7. Compile: `cmake --build build`
 
 If everything went well, melonDS should now be in the `build` folder. For dynamic builds, you may need to run melonDS from the MSYS2 terminal in order for it to find the required DLLs.
+> [!Note]
+> I've had decent luck with using the following compilation commands below. I have the `rm -rf build` command because I like to have a clean build folder while I am testing...
+```sh
+rm -rf build
+cmake -B build -DENABLE_LTO_RELEASE=OFF
+cmake --build build
+```
 
 ## macOS
 1. Install the [Homebrew Package Manager](https://brew.sh)

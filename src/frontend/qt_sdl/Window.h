@@ -152,6 +152,8 @@ private slots:
     void onMPSettingsFinished(int res);
     void onOpenWifiSettings();
     void onWifiSettingsFinished(int res);
+    void onOpenIRSettings();
+    void onIRSettingsFinished(int res);
     void onOpenFirmwareSettings();
     void onFirmwareSettingsFinished(int res);
     void onOpenPathSettings();
@@ -271,6 +273,7 @@ public:
     QAction* actAudioSettings;
     QAction* actMPSettings;
     QAction* actWifiSettings;
+    QAction* actIRSettings;
     QAction* actFirmwareSettings;
     QAction* actPathSettings;
     QAction* actInterfaceSettings;
@@ -299,3 +302,4 @@ public:
 };
 
 #endif // WINDOW_H
+

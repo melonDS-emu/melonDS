@@ -28,6 +28,10 @@ set(SOURCES_QT_SDL
     PathSettingsDialog.cpp
     MPSettingsDialog.cpp
     WifiSettingsDialog.cpp
+
+    IRSettingsDialog.cpp
+    Platform_IR.cpp
+
     InterfaceSettingsDialog.cpp
     ROMInfoDialog.cpp
     RAMInfoDialog.cpp
@@ -65,11 +69,11 @@ set(SOURCES_QT_SDL
 option(USE_QT6 "Use Qt 6 instead of Qt 5" ON)
 
 if (USE_QT6)
-    find_package(Qt6 COMPONENTS Core Gui Widgets Network Multimedia OpenGL OpenGLWidgets Svg REQUIRED)
-    set(QT_LINK_LIBS Qt6::Core Qt6::Gui Qt6::Widgets Qt6::Network Qt6::Multimedia Qt6::OpenGL Qt6::OpenGLWidgets)
+    find_package(Qt6 COMPONENTS Core Gui Widgets Network Multimedia OpenGL OpenGLWidgets SerialPort Svg REQUIRED)
+    set(QT_LINK_LIBS Qt6::Core Qt6::Gui Qt6::Widgets Qt6::Network Qt6::Multimedia Qt6::OpenGL Qt6::OpenGLWidgets Qt6::SerialPort)
 else()
-    find_package(Qt5 COMPONENTS Core Gui Widgets Network Multimedia Svg REQUIRED)
-    set(QT_LINK_LIBS Qt5::Core Qt5::Gui Qt5::Widgets Qt5::Network Qt5::Multimedia)
+    find_package(Qt5 COMPONENTS Core Gui Widgets Network Multimedia SerialPort Svg REQUIRED)
+    set(QT_LINK_LIBS Qt5::Core Qt5::Gui Qt5::Widgets Qt5::Network Qt5::Multimedia Qt5::SerialPort)
 endif()
 
 set(CMAKE_AUTOMOC ON)
