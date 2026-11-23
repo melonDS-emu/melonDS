@@ -8,8 +8,7 @@
 #include <unordered_map>
 #include <vector>
 
-#define XXH_STATIC_LINKING_ONLY
-#include "xxhash/xxhash.h"
+#include "hassh/hassh.h"
 
 namespace melonDS
 {
@@ -62,7 +61,7 @@ public:
                 // fits completely inside
                 pieceSize = size;
 
-            hash = XXH64(&vram[addr], pieceSize, hash);
+            hash = hassh64(&vram[addr], pieceSize, hash);
 
             addr += pieceSize;
             addr &= (vramSize - 1);
