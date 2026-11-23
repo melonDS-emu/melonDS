@@ -132,6 +132,9 @@ void EmuInstance::inputLoadConfig()
     }
 
     setJoystick(localCfg.GetInt("JoystickID"));
+
+    touchDisabled = localCfg.GetBool("DisableTouch");
+    if (touchDisabled) isTouching = false;
     SDL_UnlockMutex(joyMutex.get());
 }
 
@@ -462,6 +465,8 @@ void EmuInstance::inputProcess()
 
 void EmuInstance::touchScreen(int x, int y)
 {
+    if (touchDisabled) return;
+
     touchX = x;
     touchY = y;
     isTouching = true;
