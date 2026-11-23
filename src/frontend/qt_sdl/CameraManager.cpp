@@ -193,13 +193,13 @@ void CameraManager::init()
             QImage imgconv = img.convertToFormat(QImage::Format_RGB32);
             if (frameFormatYUV)
             {
-                copyFrame_RGBtoYUV((u32*)img.bits(), img.width(), img.height(),
+                copyFrame_RGBtoYUV((u32*)imgconv.bits(), imgconv.width(), imgconv.height(),
                                    frameBuffer, frameWidth, frameHeight,
                                    false);
             }
             else
             {
-                copyFrame_Straight((u32*)img.bits(), img.width(), img.height(),
+                copyFrame_Straight((u32*)imgconv.bits(), imgconv.width(), imgconv.height(),
                                    frameBuffer, frameWidth, frameHeight,
                                    false, false);
             }
@@ -426,7 +426,7 @@ void CameraManager::feedFrame(u32* frame, int width, int height, bool yuv)
                                frameBuffer, frameWidth, frameHeight,
                                false, yuv);
         }
-        else if (yuv)
+        else if (frameFormatYUV)
         {
             copyFrame_RGBtoYUV(frame, width, height,
                                frameBuffer, frameWidth, frameHeight,
