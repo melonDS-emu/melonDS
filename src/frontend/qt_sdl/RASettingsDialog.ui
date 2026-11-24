@@ -1,0 +1,187 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ui version="4.0">
+ <class>RASettingsDialog</class>
+ <widget class="QDialog" name="RASettingsDialog">
+  <property name="geometry">
+   <rect>
+    <x>0</x>
+    <y>0</y>
+    <width>420</width>
+    <height>300</height>
+   </rect>
+  </property>
+  <property name="windowTitle">
+   <string>RetroAchievements Settings</string>
+  </property>
+  <layout class="QVBoxLayout" name="verticalLayout">
+   <item>
+    <widget class="QTabWidget" name="tabWidget">
+      <widget class="QWidget" name="tabLogin">
+        <attribute name="title">
+          <string>Login</string>
+        </attribute>
+        <layout class="QVBoxLayout" name="verticalLayoutRA">
+          <item>
+            <widget class="QGroupBox" name="groupRA">
+              <property name="title">
+                <string>RetroAchievements – Login</string>
+              </property>
+              <layout class="QFormLayout" name="formLayoutRA">
+                <item row="0" column="0" colspan="2">
+                  <widget class="QCheckBox" name="cbRAEnabled">
+                    <property name="text">
+                      <string>Enable RetroAchievements</string>
+                    </property>
+                  </widget>
+                </item>
+                <item row="1" column="0" colspan="2">
+                  <widget class="QCheckBox" name="cbRAHardcore">
+                    <property name="text">
+                      <string>Hardcore Mode (No Savestates)</string>
+                    </property>
+                  </widget>
+                </item>
+                <item row="2" column="0">
+                  <widget class="QLabel">
+                    <property name="text">
+                      <string>Username:</string>
+                    </property>
+                  </widget>
+                </item>
+                <item row="2" column="1">
+                  <widget class="QLineEdit" name="leRAUsername"/>
+                </item>
+                <item row="3" column="0">
+                  <widget class="QLabel">
+                    <property name="text">
+                      <string>Password:</string>
+                    </property>
+                  </widget>
+                </item>
+                <item row="3" column="1">
+                  <widget class="QLineEdit" name="leRAPassword">
+                    <property name="echoMode">
+                      <enum>QLineEdit::Password</enum>
+                    </property>
+                  </widget>
+                </item>
+                <item row="4" column="0" colspan="2">
+                  <widget class="QPushButton" name="btnRALogin">
+                    <property name="text">
+                      <string>Login Now</string>
+                    </property>
+                  </widget>
+                </item>
+                <item row="5" column="0" colspan="2">
+                  <widget class="QLabel" name="lblRAStatus">
+                    <property name="text">
+                      <string>Not logged in</string>
+                    </property>
+                  </widget>
+                </item>
+              </layout>
+            </widget>
+          </item>
+            <item>
+            <spacer name="verticalSpacer">
+                <property name="orientation">
+                <enum>Qt::Vertical</enum>
+                </property>
+                <property name="sizeHint">
+                <size>
+                    <width>20</width>
+                    <height>40</height>
+                </size>
+                </property>
+            </spacer>
+            </item>
+        </layout>
+      </widget>
+    <widget class="QWidget" name="tabOptions">
+  <attribute name="title">
+<string>Options</string>
+  </attribute>
+  <layout class="QVBoxLayout" name="verticalLayoutOptions">
+    <item>
+      <widget class="QGroupBox" name="groupRAUIOptions">
+        <property name="title">
+          <string>RetroAchievements – Options</string>
+        </property>
+        <layout class="QVBoxLayout" name="layoutRAUIOptions">
+          <item>
+            <widget class="QCheckBox" name="cbRAAchievementToasts">
+              <property name="text">
+                <string>Disable achievement toasts</string>
+              </property>
+            </widget>
+          </item>
+          <item>
+            <widget class="QCheckBox" name="cbRAChallengeIndicators">
+              <property name="text">
+                <string>Hide challenge indicators</string>
+              </property>
+            </widget>
+          </item>
+          <item>
+            <widget class="QCheckBox" name="cbRAEncoreMode">
+              <property name="text">
+                <string>Enable Encore Mode</string>
+              </property>
+            </widget>
+          </item>
+          <item>
+            <widget class="QCheckBox" name="cbRAUnofficialMode">
+              <property name="text">
+                <string>Allow unofficial achievements</string>
+              </property>
+            </widget>
+          </item>
+            <item>
+            <widget class="QCheckBox" name="cbRALeaderboardCounter">
+              <property name="text">
+                <string>Hide leaderboard counter</string>
+              </property>
+            </widget>
+          </item>
+          <item>
+            <widget class="QCheckBox" name="cbRALeaderboardToasts">
+              <property name="text">
+                <string>Disable leaderboard toasts</string>
+              </property>
+            </widget>
+          </item>
+        </layout>
+      </widget>
+    </item>
+    <item>
+      <spacer name="verticalSpacerOptions">
+        <property name="orientation">
+          <enum>Qt::Vertical</enum>
+        </property>
+        <property name="sizeHint">
+          <size>
+            <width>20</width>
+            <height>40</height>
+          </size>
+        </property>
+      </spacer>
+    </item>
+  </layout>
+</widget>
+    </widget>
+   </item>
+   <item>
+    <widget class="QDialogButtonBox" name="buttonBox">
+     <property name="orientation">
+      <enum>Qt::Horizontal</enum>
+     </property>
+     <property name="standardButtons">
+      <set>QDialogButtonBox::Ok|QDialogButtonBox::Cancel</set>
+     </property>
+    </widget>
+   </item>
+  </layout>
+ </widget>
+ <resources/>
+ <connections/>
+</ui>

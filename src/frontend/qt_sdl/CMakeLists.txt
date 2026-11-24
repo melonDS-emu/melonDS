@@ -62,6 +62,22 @@ set(SOURCES_QT_SDL
     NetplayDialog.cpp
 )
 
+if (ENABLE_RETROACHIEVEMENTS)
+    list(APPEND SOURCES_QT_SDL
+        toast/ToastManager.cpp
+        toast/ToastManager.h
+        toast/ToastOverlay.cpp
+        toast/ToastOverlay.h
+        toast/BadgeCache.h
+        toast/BadgeCache.cpp
+        retroachievements/resources/ra.qrc
+        RASettingsDialog.cpp
+        RAOverlayWidget.cpp
+        AchievementItemWidget.cpp
+    )
+    add_compile_definitions(RETROACHIEVEMENTS_ENABLED) 
+endif()
+
 option(USE_QT6 "Use Qt 6 instead of Qt 5" ON)
 
 if (USE_QT6)
