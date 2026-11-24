@@ -511,6 +511,7 @@ void FATStorage::ExportDirectory(const std::string& path, const std::string& out
                 entry.Path = fullpath;
                 entry.IsReadOnly = (info.fattrib & AM_RDO) != 0;
                 entry.Size = info.fsize;
+                entry.LastModified = 0;
                 entry.LastModifiedInternal = (info.fdate << 16) | info.ftime;
 
                 FileIndex[entry.Path] = entry;
