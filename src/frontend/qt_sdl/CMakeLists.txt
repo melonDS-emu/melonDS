@@ -11,6 +11,8 @@ set(SOURCES_QT_SDL
     EmuInstanceAudio.cpp
     EmuInstanceInput.cpp
     EmuThread.cpp
+    RendererBackend.cpp
+    RendererBackend.h
     CheatImportDialog.cpp
     CheatsDialog.cpp
     Config.cpp
@@ -273,10 +275,10 @@ elseif(APPLE)
     install(TARGETS melonDS BUNDLE DESTINATION "${CMAKE_INSTALL_PREFIX}/Applications")
 endif()
 
-if (ENABLE_OGLRENDERER)
-    set(MELONDS_GL_HEADER \"frontend/glad/glad.h\" CACHE STRING "Path to a header that contains OpenGL function and type declarations.")
+set(MELONDS_GL_HEADER \"frontend/glad/glad.h\" CACHE STRING "Path to a header that contains OpenGL function and type declarations.")
+target_compile_definitions(melonDS PUBLIC MELONDS_GL_HEADER=${MELONDS_GL_HEADER})
+target_compile_definitions(core PUBLIC MELONDS_GL_HEADER=${MELONDS_GL_HEADER})
 
+if (ENABLE_OGLRENDERER)
     target_compile_definitions(melonDS PUBLIC OGLRENDERER_ENABLED)
-    target_compile_definitions(melonDS PUBLIC MELONDS_GL_HEADER=${MELONDS_GL_HEADER})
-    target_compile_definitions(core PUBLIC MELONDS_GL_HEADER=${MELONDS_GL_HEADER})
 endif()
