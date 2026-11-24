@@ -541,9 +541,9 @@ swi_sqrt:
  0:
   orr root_check, square_index, root
   cmp remainder, root_check
-  subge remainder, remainder, root_check
+  subhs remainder, remainder, root_check
   mov root, root, lsr #1
-  orrge root, root, square_index
+  orrhs root, root, square_index
   movs square_index, square_index, lsr #2
   bne 0b
 
