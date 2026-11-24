@@ -226,7 +226,7 @@ private:
     void audioDisable();
     void updateAudioMuteByWindowFocus();
     void toggleAudioMute();
-    void updateFastForwardMute(bool fastForward);
+    void updateSpeedVolume();
     void audioSync();
     void audioUpdateSettings();
 
@@ -305,6 +305,10 @@ public:
     bool fastForwardToggled;
     bool slowmoToggled;
     bool doAudioSync;
+    bool speedVolumeFastForwardOn;
+    int speedVolumeFastForward;
+    bool speedVolumeSlowmoOn;
+    int speedVolumeSlowmo;
 private:
 
     std::unique_ptr<melonDS::Savestate> backupState;
@@ -318,7 +322,9 @@ private:
     int audioBufSize;
     float audioSampleFrac;
     bool audioMutedToggle;
-    bool audioMutedByFastForward;
+    // percentage to scale audio by while off-speed, or -1 for none.
+    // a single int, so a torn read isn't possible in practice, same as audioVolume
+    int audioSpeedVolume;
     bool audioMutedByWindowFocus;
     SDL_cond* audioSyncCond;
     SDL_mutex* audioSyncLock;
