@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.16)
 
-project(libslirp VERSION 4.8.0 LANGUAGES C)
+project(libslirp VERSION 4.9.1 LANGUAGES C)
 
 set(SLIRP_MAJOR_VERSION "${libslirp_VERSION_MAJOR}")
 set(SLIRP_MINOR_VERSION "${libslirp_VERSION_MINOR}")
@@ -47,7 +47,7 @@ set(SOURCES
 configure_file("${CMAKE_CURRENT_SOURCE_DIR}/src/libslirp-version.h.in" "${CMAKE_CURRENT_BINARY_DIR}/libslirp-version.h")
 
 add_library(slirp STATIC ${SOURCES})
-target_compile_definitions(slirp PUBLIC LIBSLIRP_STATIC_BUILD)
+target_compile_definitions(slirp PUBLIC LIBSLIRP_STATIC)
 
 target_include_directories(slirp SYSTEM PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/glib")
 target_include_directories(slirp SYSTEM PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}/src")
