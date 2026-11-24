@@ -162,7 +162,7 @@
        <item row="3" column="1">
         <widget class="QPathInput" name="txtFirmwarePath">
          <property name="whatsThis">
-          <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;DS-mode firmware&lt;/p&gt;&lt;p&gt;&lt;br/&gt;&lt;/p&gt;&lt;p&gt;Possible firmwares:&lt;/p&gt;&lt;p&gt;* 128 KB: DS-mode firmware from a DSi or 3DS. Not bootable.&lt;/p&gt;&lt;p&gt;* 256 KB: regular DS firmware.&lt;/p&gt;&lt;p&gt;* 512 KB: iQue DS firmware.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+          <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;DS-mode firmware&lt;/p&gt;&lt;p&gt;&lt;br/&gt;&lt;/p&gt;&lt;p&gt;Possible firmwares:&lt;/p&gt;&lt;p&gt;* 128 KB: DS-mode firmware from a DSi or 3DS. Not bootable.&lt;/p&gt;&lt;p&gt;* 256 KB: regular DS firmware.&lt;/p&gt;&lt;p&gt;* 512 KB: iQue/Korean DS firmware.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
          </property>
         </widget>
        </item>
