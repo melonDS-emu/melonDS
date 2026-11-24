@@ -71,6 +71,7 @@ EmuSettingsDialog::EmuSettingsDialog(QWidget* parent) : QDialog(parent), ui(new 
     ui->txtDSiBIOS7Path->setText(cfg.GetQString("DSi.BIOS7Path"));
     ui->txtDSiFirmwarePath->setText(cfg.GetQString("DSi.FirmwarePath"));
     ui->txtDSiNANDPath->setText(cfg.GetQString("DSi.NANDPath"));
+    ui->cbDSiDebug->setChecked(cfg.GetBool("DSi.DebugUnit"));
 
     ui->cbxConsoleType->addItem("DS");
     ui->cbxConsoleType->addItem("DSi (experimental)");
@@ -276,6 +277,7 @@ void EmuSettingsDialog::done(int r)
             cfg.SetQString("DSi.BIOS7Path", ui->txtDSiBIOS7Path->text());
             cfg.SetQString("DSi.FirmwarePath", ui->txtDSiFirmwarePath->text());
             cfg.SetQString("DSi.NANDPath", ui->txtDSiNANDPath->text());
+            cfg.SetBool("DSi.DebugUnit", ui->cbDSiDebug->isChecked());
 
             cfg.SetBool("DSi.DSP.HLE", ui->cbDSPHLE->isChecked());
 
