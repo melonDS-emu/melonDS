@@ -10,6 +10,8 @@ set(SOURCES_QT_SDL
     EmuInstance.cpp
     EmuInstanceAudio.cpp
     EmuInstanceInput.cpp
+    PokeTypeBindings.h
+    PokeTypeBindings.cpp
     EmuThread.cpp
     CheatImportDialog.cpp
     CheatsDialog.cpp

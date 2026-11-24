@@ -35,6 +35,7 @@
 #include "RTC.h"
 #include "Wifi.h"
 #include "AREngine.h"
+#include "PokeTypeKeyboard.h"
 #include "GPU.h"
 #include "ARMJIT.h"
 #include "MemRegion.h"
@@ -82,6 +83,9 @@ enum
     Event_DSi_Cart2SPITransfer7,
     Event_DSi_Cart1Power,
     Event_DSi_Cart2Power,
+
+    // last, so the events before it keep their savestate positions
+    Event_CartBTKeyboardTimer, // CartRetailBT keyboard page/inquiry timer
 
     Event_MAX
 };
@@ -330,6 +334,7 @@ public: // TODO: Encapsulate the rest of these members
     GBACart::GBACartSlot GBACartSlot;
     melonDS::GPU GPU;
     melonDS::AREngine AREngine;
+    melonDS::PokeTypeKeyboard PokeTypeKeyboard;
 
     const u32 ARM7WRAMSize = 0x10000;
     u8* ARM7WRAM;

@@ -45,6 +45,9 @@ add_library(core STATIC
     NDS.cpp
     NDSCart.cpp
     Platform.h
+    PokeTypeKeyboard.h
+    PokeTypeKeyboard.cpp
+    PokeTypeKeyboardLayout.cpp
     ROMList.h
     ROMList.cpp
     FreeBIOS.h
@@ -70,6 +73,7 @@ add_library(core STATIC
     NDSCart/CartRetailNAND.cpp
     NDSCart/CartRetailIR.cpp
     NDSCart/CartRetailBT.cpp
+    NDSCart/BTKeyboard.cpp
     NDSCart/CartSD.cpp
     NDSCart/CartHomebrew.cpp
     NDSCart/CartR4.cpp
