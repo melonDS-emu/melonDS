@@ -93,7 +93,7 @@ VideoSettingsDialog::VideoSettingsDialog(QWidget* parent) : QDialog(parent), ui(
 
     ui->cbSoftwareThreaded->setChecked(oldSoftThreaded);
 
-    for (int i = 1; i <= 16; i++)
+    for (int i = 1; i <= 22; i++)
         ui->cbxGLResolution->addItem(QString("%1x native (%2x%3)").arg(i).arg(256*i).arg(192*i));
     ui->cbxGLResolution->setCurrentIndex(oldGLScale-1);
 
@@ -204,7 +204,7 @@ void VideoSettingsDialog::on_cbSoftwareThreaded_stateChanged(int state)
 void VideoSettingsDialog::on_cbxGLResolution_currentIndexChanged(int idx)
 {
     // prevent a spurious change
-    if (ui->cbxGLResolution->count() < 16) return;
+    if (ui->cbxGLResolution->count() < 22) return;
 
     auto& cfg = emuInstance->getGlobalConfig();
     cfg.SetInt("3D.GL.ScaleFactor", idx+1);
