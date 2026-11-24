@@ -30,6 +30,9 @@
 #include <QProcess>
 #include <QApplication>
 #include <QMessageBox>
+#include <QCheckBox>
+#include <QFileInfo>
+#include <QPushButton>
 #include <QMenuBar>
 #include <QMimeDatabase>
 #include <QFileDialog>
@@ -1271,6 +1274,46 @@ QStringList MainWindow::pickROM(bool gba)
     return ret;
 }
 
+void MainWindow::checkSaveExtFallback(bool gba)
+{
+    // taken before the suppression check: a stale record would surface later
+    EmuInstance::SavePathInfo fb;
+    if (!emuInstance->takeSaveExtFallback(gba, fb))
+        return;
+
+    if (!globalCfg.GetBool("ShowSaveExtWarning"))
+        return;
+
+    emuThread->emuPause();
+
+    QString msg = QString("Detected %1 save data for this game, but melonDS is set to "
+                          "use %2. It was loaded, and future saves will be written as %2.\n\n"
+                          "Save files can be converted in Config > Path settings.")
+                  .arg(QString::fromStdString(fb.readExt),
+                       QString::fromStdString(fb.writeExt));
+
+    QMessageBox box(QMessageBox::Information, "melonDS", msg, QMessageBox::Ok, this);
+
+    QPushButton* btnsettings = box.addButton("Path settings...", QMessageBox::ActionRole);
+
+    QCheckBox* suppress = new QCheckBox("Don't show this again", &box);
+    box.setCheckBox(suppress);
+
+    box.exec();
+
+    if (suppress->isChecked())
+    {
+        globalCfg.SetBool("ShowSaveExtWarning", false);
+        Config::Save();
+    }
+
+    // before our unpause: pauses stack, so the emulator never resumes in between
+    if (box.clickedButton() == btnsettings)
+        onOpenPathSettings();
+
+    emuThread->emuUnpause();
+}
+
 void MainWindow::updateCartInserted(bool gba)
 {
     bool inserted;
@@ -1304,6 +1347,8 @@ void MainWindow::updateCartInserted(bool gba)
             win->actRAMInfo->setEnabled(inserted);
         });
     }
+
+    checkSaveExtFallback(gba);
 }
 
 void MainWindow::onOpenFile()
@@ -1604,7 +1649,7 @@ void MainWindow::onImportSavefile()
     QString path = QFileDialog::getOpenFileName(this,
                                             "Select savefile",
                                             globalCfg.GetQString("LastROMFolder"),
-                                            "Savefiles (*.sav *.bin *.dsv);;Any file (*.*)");
+                                            "Savefiles (*.sav *.srm *.bin *.dsv);;Any file (*.*)");
 
     if (path.isEmpty())
         return;
