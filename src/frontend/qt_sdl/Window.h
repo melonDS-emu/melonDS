@@ -32,7 +32,7 @@
 #include <QMutex>
 #include <QScreen>
 #include <QCloseEvent>
-
+#include <ctime>
 #include "Screen.h"
 #include "Config.h"
 #include "MPInterface.h"
@@ -97,6 +97,13 @@ protected:
 
     void focusInEvent(QFocusEvent* event) override;
     void focusOutEvent(QFocusEvent* event) override;
+private:
+    time_t savestateTimestamps[9];
+    QString formatTimestamp(time_t t);
+    //remember timestamps of last 9 savestates + current
+private:
+    void loadGameSpecificSettings();
+    //for different timestamps for different games
 
 signals:
     void screenLayoutChange();
@@ -113,6 +120,8 @@ private slots:
     void onEjectGBACart();
     void onSaveState();
     void onLoadState();
+    void onRollingSaveState();
+    void onRollingLoadState();
     void onUndoStateLoad();
     void onImportSavefile();
     void onQuit();
@@ -239,6 +248,8 @@ public:
     QAction* actImportSavefile;
     QAction* actSaveState[9];
     QAction* actLoadState[9];
+    QAction* actRollingSave;
+    QAction* actRollingLoad;
     QAction* actUndoStateLoad;
     QAction* actOpenConfig;
     QAction* actQuit;
