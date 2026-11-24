@@ -157,6 +157,10 @@ class DSi_I2CHost
 public:
     DSi_I2CHost(melonDS::DSi& dsi);
     ~DSi_I2CHost();
+
+    DSi_I2CHost(const DSi_I2CHost&) = delete;
+    DSi_I2CHost& operator=(const DSi_I2CHost&) = delete;
+
     void Reset();
     void DoSavestate(Savestate* file);
 
