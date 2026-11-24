@@ -868,6 +868,12 @@ std::unique_ptr<CartCommon> ParseROM(std::unique_ptr<u8[]>&& romdata, u32 romlen
         return nullptr;
     }
 
+    if (romlen < sizeof(GBAHeader))
+    {
+        Log(LogLevel::Error, "GBACart: ROM is too small\n");
+        return nullptr;
+    }
+
     auto [cartrom, cartromsize] = PadToPowerOf2(std::move(romdata), romlen);
 
     char gamecode[5] = { '\0' };
