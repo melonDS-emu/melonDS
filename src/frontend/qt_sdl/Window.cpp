@@ -343,6 +343,28 @@ MainWindow::MainWindow(int id, EmuInstance* inst, QWidget* parent) :
                 actLoadState[0]->setShortcut(QKeySequence(Qt::Key_F9));
                 actLoadState[0]->setData(QVariant(0));
                 connect(actLoadState[0], &QAction::triggered, this, &MainWindow::onLoadState);
+
+                submenu->addSeparator();
+                actLoadAutoState = submenu->addAction("Most recent automatic state");
+                connect(actLoadAutoState, &QAction::triggered, this, &MainWindow::onLoadAutoState);
+            }
+            {
+                QMenu * submenu = menu->addMenu("Automatic save state");
+                grpAutoSaveInterval = new QActionGroup(submenu);
+
+                const int intervals[] = {0, 5, 15, 30, 60};
+                const char * labels[] = {"Disabled", "5 minutes", "15 minutes", "30 minutes", "60 minutes"};
+
+                for (int i = 0; i < 5; i++)
+                {
+                    QAction * act = submenu->addAction(labels[i]);
+                    act->setActionGroup(grpAutoSaveInterval);
+                    act->setData(QVariant(intervals[i]));
+                    act->setCheckable(true);
+                }
+
+                connect(grpAutoSaveInterval, &QActionGroup::triggered,
+                        this, &MainWindow::onChangeAutoSaveInterval);
             }
 
             actUndoStateLoad = menu->addAction("Undo state load");
@@ -680,6 +702,7 @@ MainWindow::MainWindow(int id, EmuInstance* inst, QWidget* parent) :
             actLoadState[i]->setEnabled(false);
         }
         actUndoStateLoad->setEnabled(false);
+        actLoadAutoState->setEnabled(false);
         actImportSavefile->setEnabled(false);
 
         actPause->setEnabled(false);
@@ -732,6 +755,15 @@ MainWindow::MainWindow(int id, EmuInstance* inst, QWidget* parent) :
 
         actLimitFramerate->setChecked(emuInstance->doLimitFPS);
         actAudioSync->setChecked(emuInstance->doAudioSync);
+        int autoSaveInterval = localCfg.GetInt("AutoSaveInterval");
+        for (QAction* act : grpAutoSaveInterval->actions())
+        {
+            if (act->data().toInt() == autoSaveInterval)
+            {
+                act->setChecked(true);
+                break;
+            }
+        }
 
         if (emuInstance->instanceID > 0)
         {
@@ -1302,6 +1334,10 @@ void MainWindow::updateCartInserted(bool gba)
             win->actSetupCheats->setEnabled(inserted);
             win->actROMInfo->setEnabled(inserted);
             win->actRAMInfo->setEnabled(inserted);
+            const bool emuActive = win->emuThread->emuIsActive();
+            win->actUndoStateLoad->setEnabled(emuActive && win->emuInstance->hasUndoState());
+            win->actLoadAutoState->setEnabled(emuActive
+                && Platform::FileExists(win->emuInstance->getAutoSavestateName()));
         });
     }
 }
@@ -1584,7 +1620,10 @@ void MainWindow::onLoadState()
         if (slot > 0) emuInstance->osdAddMessage(0, "State loaded from slot %d", slot);
         else          emuInstance->osdAddMessage(0, "State loaded from file");
 
-        actUndoStateLoad->setEnabled(true);
+        emuInstance->doOnAllWindows([](MainWindow* win)
+        {
+            win->actUndoStateLoad->setEnabled(true);
+        });
     }
     else
     {
@@ -1592,11 +1631,42 @@ void MainWindow::onLoadState()
     }
 }
 
+void MainWindow::onLoadAutoState()
+{
+    const std::string filename = emuInstance->getAutoSavestateName();
+    if (!Platform::FileExists(filename))
+    {
+        emuInstance->osdAddMessage(0xFFA0A0, "No automatic state is available");
+        return;
+    }
+
+    if (emuThread->loadState(QString::fromStdString(filename)))
+    {
+        emuInstance->osdAddMessage(0, "Automatic state loaded");
+        emuInstance->doOnAllWindows([](MainWindow* win)
+        {
+            win->actUndoStateLoad->setEnabled(true);
+        });
+    }
+    else
+    {
+        emuInstance->osdAddMessage(0xFFA0A0, "Automatic state load failed");
+    }
+}
+
 void MainWindow::onUndoStateLoad()
 {
-    emuThread->undoStateLoad();
+    const bool success = emuThread->undoStateLoad();
+    if (success)
+        emuInstance->osdAddMessage(0, "State load undone");
+    else
+        emuInstance->osdAddMessage(0xFFA0A0, "State load undo failed");
 
-    emuInstance->osdAddMessage(0, "State load undone");
+    const bool hasUndoState = emuInstance->hasUndoState();
+    emuInstance->doOnAllWindows([hasUndoState](MainWindow* win)
+    {
+        win->actUndoStateLoad->setEnabled(hasUndoState);
+    });
 }
 
 void MainWindow::onImportSavefile()
@@ -2124,6 +2194,26 @@ void MainWindow::onChangeAudioSync(bool checked)
     globalCfg.SetBool("AudioSync", emuInstance->doAudioSync);
 }
 
+void MainWindow::onChangeAutoSaveInterval(QAction* act)
+{
+    const int interval = act->data().toInt();
+    localCfg.SetInt("AutoSaveInterval", interval);
+    Config::Save();
+    emuThread->setAutoSaveInterval(interval);
+
+    emuInstance->doOnAllWindows([interval](MainWindow* win)
+    {
+        for (QAction* action : win->grpAutoSaveInterval->actions())
+        {
+            if (action->data().toInt() == interval)
+            {
+                action->setChecked(true);
+                break;
+            }
+        }
+    });
+}
+
 
 void MainWindow::onTitleUpdate(QString title)
 {
@@ -2210,7 +2300,8 @@ void MainWindow::onEmuStart()
     }
     actSaveState[0]->setEnabled(true);
     actLoadState[0]->setEnabled(true);
-    actUndoStateLoad->setEnabled(false);
+    actUndoStateLoad->setEnabled(emuInstance->hasUndoState());
+    actLoadAutoState->setEnabled(Platform::FileExists(emuInstance->getAutoSavestateName()));
 
     actPause->setEnabled(true);
     actPause->setChecked(false);
@@ -2234,6 +2325,7 @@ void MainWindow::onEmuStop()
         actLoadState[i]->setEnabled(false);
     }
     actUndoStateLoad->setEnabled(false);
+    actLoadAutoState->setEnabled(false);
 
     actPause->setEnabled(false);
     actReset->setEnabled(false);
@@ -2257,7 +2349,15 @@ void MainWindow::onEmuReset()
 {
     if (!hasMenu) return;
 
-    actUndoStateLoad->setEnabled(false);
+    actUndoStateLoad->setEnabled(emuInstance->hasUndoState());
+}
+
+void MainWindow::onAutoStateAvailable()
+{
+    if (!hasMenu) return;
+
+    actLoadAutoState->setEnabled(emuThread->emuIsActive()
+        && Platform::FileExists(emuInstance->getAutoSavestateName()));
 }
 
 void MainWindow::onUpdateVideoSettings(bool glchange)
