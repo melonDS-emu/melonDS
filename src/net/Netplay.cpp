@@ -277,7 +277,7 @@ void StartMirror(const Player* player)
 
 u32 PlayerAddress(int id)
 {
-    if (id < 0 || id > 16) return 0;
+    if (id < 0 || id >= 16) return 0;
 
     u32 ret = Players[id].Address;
     if (ret == 0x0100007F) ret = HostAddress;
