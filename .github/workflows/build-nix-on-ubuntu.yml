@@ -1,0 +1,27 @@
+name: CMake Build (Nix on Ubuntu x86-64)
+
+on:
+  push:
+    branches:
+    - master
+  pull_request:
+    branches:
+    - master
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v2
+    - uses: cachix/install-nix-action@v12
+      with:
+        nix_path: nixpkgs=https://github.com/NixOS/nixpkgs/archive/a127deeb889b111138f5152e54681577706ab741.tar.gz
+        # ^ this is also specified in the expression file, but I think using any other value here may cause superfluous downloads from the binary cache
+    - name: Grab dependencies and build # and move output to CWD
+      run: |
+        nix-build ./ci-build-drv.nix
+        cp -r "$(realpath "$PWD/result")/bin" ${{runner.workspace}}
+    - uses: actions/upload-artifact@v2
+      with:
+        name: melonDS
+        path: ${{runner.workspace}}/bin
