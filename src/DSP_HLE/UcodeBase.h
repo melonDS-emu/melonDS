@@ -46,8 +46,8 @@ public:
     u16 RecvData(u8 index);
     virtual void SendData(u8 index, u16 val);
 
-    u16 DMAChan0GetSrcHigh();
-    u16 DMAChan0GetDstHigh();
+    u16 DMAChan0GetSrcHigh() override;
+    u16 DMAChan0GetDstHigh() override;
     u16 AHBMGetDmaChannel(u16 index) const;
     u16 AHBMGetDirection(u16 index) const;
     u16 AHBMGetUnitSize(u16 index) const;
@@ -63,7 +63,7 @@ public:
     void AHBMWrite16(u32 addr, u16 val);
     void AHBMWrite32(u32 addr, u32 val);
 
-    u16 GetSemaphore() const;
+    u16 GetSemaphore() const override;
     void SetSemaphore(u16 val);
     void ClearSemaphore(u16 val);
     void MaskSemaphore(u16 val);
