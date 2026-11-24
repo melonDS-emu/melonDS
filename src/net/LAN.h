@@ -115,7 +115,7 @@ private:
     ENetHost* Host;
     ENetPeer* RemotePeers[16];
 
-    socket_t DiscoverySocket;
+    ENetSocket DiscoverySocket;
     u32 DiscoveryLastTick;
     std::map<u32, DiscoveryData> DiscoveryList;
     Platform::Mutex* DiscoveryMutex;
@@ -138,6 +138,7 @@ private:
     u32 FrameCount;
 
     void ProcessDiscovery();
+    int GetMPTimeout();
 
     void HostUpdatePlayerList();
     void ClientUpdatePlayerList();
