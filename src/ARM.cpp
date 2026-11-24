@@ -1154,6 +1154,8 @@ void ARMv4::DataRead32S(u32 addr, u32* val)
 
 void ARMv4::DataWrite8(u32 addr, u8 val)
 {
+    // decrease ARM7 write count if the write targets the main RAM, which is starving bus
+    if (NDS.ARM7BytesToWrite && (addr >> 24) == 0x02) NDS.DecreaseARM7BytesToWrite(1);
     BusWrite8(addr, val);
     DataRegion = addr;
     DataCycles = NDS.ARM7MemTimings[addr >> 15][0];
@@ -1161,6 +1163,7 @@ void ARMv4::DataWrite8(u32 addr, u8 val)
 
 void ARMv4::DataWrite16(u32 addr, u16 val)
 {
+    if (NDS.ARM7BytesToWrite && (addr >> 24) == 0x02) NDS.DecreaseARM7BytesToWrite(2);
     addr &= ~1;
 
     BusWrite16(addr, val);
@@ -1170,6 +1173,7 @@ void ARMv4::DataWrite16(u32 addr, u16 val)
 
 void ARMv4::DataWrite32(u32 addr, u32 val)
 {
+    if (NDS.ARM7BytesToWrite && (addr >> 24) == 0x02) NDS.DecreaseARM7BytesToWrite(4);
     addr &= ~3;
 
     BusWrite32(addr, val);
@@ -1179,6 +1183,7 @@ void ARMv4::DataWrite32(u32 addr, u32 val)
 
 void ARMv4::DataWrite32S(u32 addr, u32 val)
 {
+    if (NDS.ARM7BytesToWrite && (addr >> 24) == 0x02) NDS.DecreaseARM7BytesToWrite(4);
     addr &= ~3;
 
     BusWrite32(addr, val);
