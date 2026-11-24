@@ -837,8 +837,9 @@ void Compiler::Reset()
 
     const u32 brk_0 = 0xD4200000;
 
-    for (int i = 0; i < (JitMemMainSize + JitMemSecondarySize) / 4; i++)
-        *(((u32*)GetRWPtr()) + i) = brk_0;
+    u8* const rw_ptr = GetWriteableRWPtr();
+    for (u32 i = 0; i < (JitMemMainSize + JitMemSecondarySize); i += sizeof(u32))
+        std::memcpy(rw_ptr + i, &brk_0, sizeof(u32));
 }
 
 void Compiler::Comp_AddCycles_C(bool forceNonConstant)
