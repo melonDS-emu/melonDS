@@ -189,6 +189,9 @@ void EmuThread::run()
                 }
             }
 
+            emuInstance->nds->GBACartSlot.SetInput(GBACart::Input_AnalogX, emuInstance->analogX);
+            emuInstance->nds->GBACartSlot.SetInput(GBACart::Input_AnalogY, emuInstance->analogY);
+
             if (emuInstance->nds->ConsoleType == 1)
             {
                 DSi* dsi = static_cast<DSi*>(emuInstance->nds);
