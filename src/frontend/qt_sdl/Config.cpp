@@ -111,6 +111,7 @@ DefaultList<bool> DefaultBools =
 #endif
 #endif
     {"DSi.DSP.HLE", true},
+    {"Instance*.RTC.SyncToHost", true},
 };
 
 DefaultList<std::string> DefaultStrings =

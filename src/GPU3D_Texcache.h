@@ -77,7 +77,7 @@ public:
     {
         u32 startBit = start / VRAMDirtyGranularity;
         u32 bitsCount = ((start + size + VRAMDirtyGranularity - 1) / VRAMDirtyGranularity) - startBit;
-    
+
         u32 startEntry = startBit >> 6;
         u64 entriesCount = ((startBit + bitsCount + 0x3F) >> 6) - startEntry;
         for (u32 j = startEntry; j < startEntry + entriesCount; j++)
@@ -328,24 +328,24 @@ private:
 
     struct TexCacheEntry
     {
-        u32 LastVariant; // very cheap way to make variant lookup faster
+        u32 LastVariant {}; // very cheap way to make variant lookup faster
 
-        u32 TextureRAMStart[2], TextureRAMSize[2];
-        u32 TexPalStart, TexPalSize;
-        u8 WidthLog2, HeightLog2;
-        TexArrayEntry Texture;
+        u32 TextureRAMStart[2] {}, TextureRAMSize[2] {};
+        u32 TexPalStart {}, TexPalSize {};
+        u8 WidthLog2 {}, HeightLog2 {};
+        TexArrayEntry Texture {};
 
-        u64 TextureHash[2];
-        u64 TexPalHash;
+        u64 TextureHash[2] {};
+        u64 TexPalHash {};
     };
     std::unordered_map<u64, TexCacheEntry> Cache;
 
     TexLoaderT TexLoader;
 
-    std::vector<TexArrayEntry> FreeTextures[8][8];
-    std::vector<TexHandleT> TexArrays[8][8];
+    std::vector<TexArrayEntry> FreeTextures[8][8] {};
+    std::vector<TexHandleT> TexArrays[8][8] {};
 
-    u32 DecodingBuffer[1024*1024];
+    u32 DecodingBuffer[1024*1024] {};
 };
 
 }

@@ -226,6 +226,12 @@ SPU::SPU(melonDS::NDS& nds, AudioBitDepth bitdepth, AudioInterpolation interpola
 
 SPU::~SPU()
 {
+    if (OutputBuffer != nullptr)
+    {
+        free(OutputBuffer);
+        OutputBuffer = nullptr;
+    }
+
     Platform::Mutex_Free(AudioLock);
     AudioLock = nullptr;
     blip_delete(BlipLeft);

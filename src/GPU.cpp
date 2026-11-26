@@ -654,9 +654,9 @@ void GPU::MapVRAM_CD(u32 bank, u8 cnt) noexcept
     u8 oldcnt = VRAMCNT[bank];
     VRAMCNT[bank] = cnt;
 
-    VRAMSTAT &= ~(1 << (bank-2));
-
     if (oldcnt == cnt) return;
+
+    VRAMSTAT &= ~(1 << (bank-2));
 
     u8 oldofs = (oldcnt >> 3) & 0x7;
     u8 ofs = (cnt >> 3) & 0x7;
@@ -1384,10 +1384,9 @@ void GPU::SetVCount(u16 val, u16 mask) noexcept
     // 3D engine seems to give up on the current frame in that situation, repeating the last two scanlines
     // TODO: also check the various DMA types that can be involved
 
-    u16 nextvc = (NextVCount & ~mask) | (val & mask);
+    NextVCount = (NextVCount & ~mask) | (val & mask);
 
-    GPU3D.AbortFrame |= NextVCount != nextvc;
-    NextVCount = nextvc;
+    GPU3D.AbortFrame = true; // CHECKME: this probably shouldn't be done if the vcount written is the same as the vcount of the next scanline
     VCountOverride = true;
 }
 

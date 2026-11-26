@@ -393,7 +393,13 @@ void Wifi::SetIRQ13()
 {
     SetIRQ(13);
 
-    if ((IOPORT(W_ModeWEP) & 0x7) != 3)
+    // auto power-down should only happen in automatic power saving mode (0).
+    // it must not happen when power saving is disabled (mode 2): stations
+    // running in that mode (eg. dswifi in infrastructure mode) don't service
+    // IRQ13/IRQ15, so a power-down triggered by the one-shot W_BeaconCount2
+    // countdown (armed at 0xFFFF = ~67s) would turn the transceiver off
+    // with nothing ever waking it up again
+    if ((IOPORT(W_ModeWEP) & 0x7) == 0)
     {
         if (!(IOPORT(W_PowerTX) & (1<<1)))
         {

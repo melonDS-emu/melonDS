@@ -694,6 +694,8 @@ void DSi_NWifi::SendCMD(MMCCommand cmd, u32 param)
     case MMCCommand::Select:
         Host->SendResponse(0, true);
         return;
+    default:
+        break;
     }
 
     Log(LogLevel::Warn, "NWIFI: unknown CMD %d %08X\n", cmd, param);

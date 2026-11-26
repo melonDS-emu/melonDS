@@ -55,30 +55,30 @@ public:
 private:
     GLRenderer& Parent;
 
-    GLuint ShaderInterpXSpans[2];
-    GLuint ShaderBinCombined;
-    GLuint ShaderDepthBlend[2];
-    GLuint ShaderRasteriseNoTexture[2];
-    GLuint ShaderRasteriseNoTextureToon[2];
-    GLuint ShaderRasteriseNoTextureHighlight[2];
-    GLuint ShaderRasteriseUseTextureDecal[2];
-    GLuint ShaderRasteriseUseTextureModulate[2];
-    GLuint ShaderRasteriseUseTextureToon[2];
-    GLuint ShaderRasteriseUseTextureHighlight[2];
-    GLuint ShaderRasteriseShadowMask[2];
-    GLuint ShaderClearCoarseBinMask;
-    GLuint ShaderClearIndirectWorkCount;
-    GLuint ShaderCalculateWorkListOffset;
-    GLuint ShaderSortWork;
-    GLuint ShaderFinalPass[8];
+    GLuint ShaderInterpXSpans[2] {};
+    GLuint ShaderBinCombined {};
+    GLuint ShaderDepthBlend[2] {};
+    GLuint ShaderRasteriseNoTexture[2] {};
+    GLuint ShaderRasteriseNoTextureToon[2] {};
+    GLuint ShaderRasteriseNoTextureHighlight[2] {};
+    GLuint ShaderRasteriseUseTextureDecal[2] {};
+    GLuint ShaderRasteriseUseTextureModulate[2] {};
+    GLuint ShaderRasteriseUseTextureToon[2] {};
+    GLuint ShaderRasteriseUseTextureHighlight[2] {};
+    GLuint ShaderRasteriseShadowMask[2] {};
+    GLuint ShaderClearCoarseBinMask {};
+    GLuint ShaderClearIndirectWorkCount {};
+    GLuint ShaderCalculateWorkListOffset {};
+    GLuint ShaderSortWork {};
+    GLuint ShaderFinalPass[8] {};
 
-    GLuint YSpanIndicesTextureMemory;
-    GLuint YSpanIndicesTexture;
-    GLuint YSpanSetupMemory;
-    GLuint XSpanSetupMemory;
-    GLuint BinResultMemory;
-    GLuint RenderPolygonMemory;
-    GLuint WorkDescMemory;
+    GLuint YSpanIndicesTextureMemory {};
+    GLuint YSpanIndicesTexture {};
+    GLuint YSpanSetupMemory {};
+    GLuint XSpanSetupMemory {};
+    GLuint BinResultMemory {};
+    GLuint RenderPolygonMemory {};
+    GLuint WorkDescMemory {};
 
     enum
     {
@@ -88,8 +88,8 @@ private:
         tilememoryLayer_Num,
     };
 
-    GLuint TileMemory[tilememoryLayer_Num];
-    GLuint FinalTileMemory;
+    GLuint TileMemory[tilememoryLayer_Num] {};
+    GLuint FinalTileMemory {};
 
     struct SpanSetupY
     {
@@ -152,13 +152,13 @@ private:
         float TextureLayer;
     };
 
-    int TileSize;
+    int TileSize {};
     static constexpr int CoarseTileCountX = 8;
-    int CoarseTileCountY;
-    int CoarseTileArea;
-    int CoarseTileW;
-    int CoarseTileH;
-    int ClearCoarseBinMaskLocalSize;
+    int CoarseTileCountY {};
+    int CoarseTileArea {};
+    int CoarseTileW {};
+    int CoarseTileH {};
+    int ClearCoarseBinMaskLocalSize {};
 
     static constexpr int BinStride = 2048/32;
     static constexpr int CoarseBinStride = BinStride/32;
@@ -181,9 +181,9 @@ private:
     };
 
     static const int MaxYSpanSetups = 6144*2;
-    std::vector<SetupIndices> YSpanIndices;
-    SpanSetupY YSpanSetups[MaxYSpanSetups];
-    RenderPolygon RenderPolygons[2048];
+    std::vector<SetupIndices> YSpanIndices {};
+    SpanSetupY YSpanSetups[MaxYSpanSetups] {};
+    RenderPolygon RenderPolygons[2048] {};
 
     TexcacheOpenGL Texcache;
 
@@ -203,21 +203,21 @@ private:
 
         float ClearBitmapOffset[2];
     };
-    GLuint MetaUniformMemory;
+    GLuint MetaUniformMemory {};
 
-    GLuint Samplers[9];
+    GLuint Samplers[9] {};
 
-    GLuint ClearBitmapTex[2];
-    u32* ClearBitmap[2];
-    u8 ClearBitmapDirty;
+    GLuint ClearBitmapTex[2] {};
+    u32* ClearBitmap[2] {};
+    u8 ClearBitmapDirty {};
 
     GLuint Framebuffer = 0;
 
-    int ScreenWidth, ScreenHeight;
-    int TilesPerLine, TileLines;
+    int ScreenWidth {}, ScreenHeight {};
+    int TilesPerLine {}, TileLines {};
     int ScaleFactor = -1;
-    int MaxWorkTiles;
-    bool HiresCoordinates;
+    int MaxWorkTiles {};
+    bool HiresCoordinates {};
 
     int ShaderStepIdx = 0;
 

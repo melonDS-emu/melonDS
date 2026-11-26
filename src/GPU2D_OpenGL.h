@@ -52,29 +52,29 @@ private:
     friend class GLRenderer;
     GLRenderer& Parent;
 
-    int ScaleFactor;
-    int ScreenW, ScreenH;
+    int ScaleFactor {};
+    int ScreenW {}, ScreenH {};
 
-    GLuint LayerPreShader;
-    GLint LayerPreCurBGULoc;
+    GLuint LayerPreShader {};
+    GLint LayerPreCurBGULoc {};
 
-    GLuint ScanlineConfigUBO;
-    GLuint SpriteScanlineConfigUBO;
+    GLuint ScanlineConfigUBO {};
+    GLuint SpriteScanlineConfigUBO {};
 
-    GLuint SpritePreShader;
-    GLuint SpritePreVtxBuffer;
-    GLuint SpritePreVtxArray;
-    u16* SpritePreVtxData;
+    GLuint SpritePreShader {};
+    GLuint SpritePreVtxBuffer {};
+    GLuint SpritePreVtxArray {};
+    u16* SpritePreVtxData {};
 
-    GLuint SpriteShader;
-    GLint SpriteRenderTransULoc;
-    GLuint SpriteVtxBuffer;
-    GLuint SpriteVtxArray;
-    u16* SpriteVtxData;
+    GLuint SpriteShader {};
+    GLint SpriteRenderTransULoc {};
+    GLuint SpriteVtxBuffer {};
+    GLuint SpriteVtxArray {};
+    u16* SpriteVtxData {};
 
-    GLuint CompositorShader;
-    GLuint CompositorConfigUBO;
-    GLint CompositorScaleULoc;
+    GLuint CompositorShader {};
+    GLuint CompositorConfigUBO {};
+    GLint CompositorScaleULoc {};
 
     // base index for a BG layer within the BG texture arrays
     // based on BG type and size
@@ -85,31 +85,31 @@ private:
         {18, 19, 12, 16},   // large bitmap
     };
 
-    GLuint LayerConfigUBO;
-    GLuint SpriteConfigUBO;
+    GLuint LayerConfigUBO {};
+    GLuint SpriteConfigUBO {};
 
-    GLuint VRAMTex_BG;
-    GLuint VRAMTex_OBJ;
-    GLuint PalTex_BG;
-    GLuint PalTex_OBJ;
+    GLuint VRAMTex_BG {};
+    GLuint VRAMTex_OBJ {};
+    GLuint PalTex_BG {};
+    GLuint PalTex_OBJ {};
 
-    GLuint MosaicTex;
+    GLuint MosaicTex {};
 
-    GLuint AllBGLayerFB[22];
-    GLuint AllBGLayerTex[22];
+    GLuint AllBGLayerFB[22] {};
+    GLuint AllBGLayerTex[22] {};
 
-    GLuint BGLayerFB[4];
-    GLuint BGLayerTex[4];
+    GLuint BGLayerFB[4] {};
+    GLuint BGLayerTex[4] {};
 
-    GLuint SpriteFB;
-    GLuint SpriteTex;
+    GLuint SpriteFB {};
+    GLuint SpriteTex {};
 
-    GLuint OBJLayerFB;
-    GLuint OBJLayerTex;
-    GLuint OBJDepthTex;
+    GLuint OBJLayerFB {};
+    GLuint OBJLayerTex {};
+    GLuint OBJDepthTex {};
 
-    GLuint OutputFB;
-    GLuint OutputTex;
+    GLuint OutputFB {};
+    GLuint OutputTex {};
 
     // std140 compliant config struct for the layer shader
     struct sLayerConfig
@@ -126,7 +126,7 @@ private:
             u32 Clamp;
             u32 __pad0[1];
         } uBGConfig[4];
-    } LayerConfig;
+    } LayerConfig {};
 
     struct sSpriteConfig
     {
@@ -148,9 +148,9 @@ private:
             u32 BGPrio;
             u32 Mosaic;
         } uOAM[128];
-    } SpriteConfig;
-    int NumSprites;
-    bool SpriteUseMosaic;
+    } SpriteConfig {};
+    int NumSprites {};
+    bool SpriteUseMosaic {};
 
     struct sScanlineConfig
     {
@@ -166,47 +166,47 @@ private:
             u32 BGMosaicEnable[4];
             s32 MosaicSize[4];
         } uScanline[192];
-    } ScanlineConfig;
+    } ScanlineConfig {};
 
     struct sSpriteScanlineConfig
     {
-        s32 uMosaicLine[192];
-    } SpriteScanlineConfig;
+        s32 uMosaicLine[192] {};
+    } SpriteScanlineConfig {};
 
     struct sCompositorConfig
     {
-        u32 uBGPrio[4];
-        u32 uEnableOBJ;
-        u32 uEnable3D;
-        u32 uBlendCnt;
-        u32 uBlendEffect;
-        u32 uBlendCoef[4];
-    } CompositorConfig;
+        u32 uBGPrio[4] {};
+        u32 uEnableOBJ {};
+        u32 uEnable3D {};
+        u32 uBlendCnt {};
+        u32 uBlendEffect {};
+        u32 uBlendCoef[4] {};
+    } CompositorConfig {};
 
-    int LastLine;
+    int LastLine {};
 
-    bool UnitEnabled;
+    bool UnitEnabled {};
 
-    u32 DispCnt;
-    u8 LayerEnable;
-    u8 OBJEnable;
-    u8 ForcedBlank;
-    u16 BGCnt[4];
-    u16 BlendCnt;
-    u8 EVA, EVB, EVY;
+    u32 DispCnt {};
+    u8 LayerEnable {};
+    u8 OBJEnable {};
+    u8 ForcedBlank {};
+    u16 BGCnt[4] {};
+    u16 BlendCnt {};
+    u8 EVA {}, EVB {}, EVY {};
 
-    u32 BGVRAMRange[4][4];
+    u32 BGVRAMRange[4][4] {};
 
-    bool LayerConfigDirty;
+    bool LayerConfigDirty {};
 
-    int LastSpriteLine;
-    u16 OAM[512];
+    int LastSpriteLine {};
+    u16 OAM[512] {};
 
-    u32 SpriteDispCnt;
-    bool SpriteConfigDirty;
-    bool SpriteDirty;
+    u32 SpriteDispCnt {};
+    bool SpriteConfigDirty {};
+    bool SpriteDirty {};
 
-    u16 TempPalBuffer[256 * (1 + (4*16))];
+    u16 TempPalBuffer[256 * (1 + (4*16))] {};
 
     bool IsScreenOn();
 

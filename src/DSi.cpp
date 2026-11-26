@@ -1130,7 +1130,7 @@ void DSi::StopNDMAs(u32 cpu, u32 mode)
 void DSi::StopDMAs(u32 cpu, u32 mode)
 {
     NDS::StopDMAs(cpu, mode);
-    StopNDMAs(cpu, mode);
+    StopNDMAs(cpu, NDMAModes[mode]);
 }
 
 void DSi::CheckDMAs(u32 cpu, u32 mode)

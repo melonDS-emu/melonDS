@@ -54,25 +54,25 @@ private:
 
     struct RendererPolygon
     {
-        Polygon* PolyData;
+        Polygon* PolyData {};
 
-        u32 NumIndices;
-        u32 IndicesOffset;
-        GLuint PrimType;
+        u32 NumIndices {};
+        u32 IndicesOffset {};
+        GLuint PrimType {};
 
-        u32 NumEdgeIndices;
-        u32 EdgeIndicesOffset;
+        u32 NumEdgeIndices {};
+        u32 EdgeIndicesOffset {};
 
-        u32 RenderKey;
+        u32 RenderKey {};
 
-        GLuint TexID;
-        u32 TexRepeat;
+        GLuint TexID {};
+        u32 TexRepeat {};
     };
 
     //GLCompositor CurGLCompositor;
     RendererPolygon PolygonList[2048] {};
 
-    bool TexEnable;
+    bool TexEnable {};
     TexcacheOpenGL Texcache;
 
     bool BuildRenderShader(bool wbuffer);
@@ -127,9 +127,9 @@ private:
     GLint ClearUniformLoc[4] {};
 
     GLint ClearBitmapULoc[2] {};
-    GLuint ClearBitmapTex[2];
-    u32* ClearBitmap[2];
-    u8 ClearBitmapDirty;
+    GLuint ClearBitmapTex[2] {};
+    u32* ClearBitmap[2] {};
+    u8 ClearBitmapDirty {};
 
     // vertex buffer
     // * XYZW: 4x16bit

@@ -18,6 +18,7 @@ env:
 jobs:
   build-macos:
     strategy:
+      fail-fast: false
       matrix:
         arch: [x86_64, arm64]
 
@@ -29,7 +30,7 @@ jobs:
 
     steps:
       - name: Check out sources
-        uses: actions/checkout@v3
+        uses: actions/checkout@v6
       - name: Install dependencies for package building
         run: |
           brew install autoconf automake autoconf-archive libtool python-setuptools
@@ -57,11 +58,12 @@ jobs:
           cd build/release-mac-${{ matrix.arch }}
           zip -r -y ../../macOS-${{ matrix.arch }}.zip melonDS.app
       - name: Upload artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: macOS-${{ matrix.arch }}
           path: macOS-${{ matrix.arch }}.zip
           retention-days: 1
+          archive: false
       - name: Save vcpkg cache
         uses: actions/cache/save@v4
         with:
@@ -75,15 +77,17 @@ jobs:
     continue-on-error: true
     steps:
       - name: Download x86_64
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
-          name: macOS-x86_64
+          name: macOS-x86_64.zip
           path: x86_64
+          skip-decompress: true
       - name: Download arm64
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
-          name: macOS-arm64
+          name: macOS-arm64.zip
           path: arm64
+          skip-decompress: true
       - name: Combine app bundles
         shell: bash
         run: |
@@ -95,10 +99,11 @@ jobs:
           codesign -s - --deep melonDS.app
           zip -r -y macOS-universal.zip melonDS.app
       - name: Upload artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: macOS-universal
           path: macOS-universal.zip
+          archive: false
 #     - name: Clean up architecture-specific artifacts
 #       uses: geekyeggo/delete-artifact@v4
 #       with:
